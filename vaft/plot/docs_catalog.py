@@ -38,7 +38,8 @@ _ROOT = _PACKAGE.parents[1]
 
 def _source_files() -> list[Path]:
     """Every file of the package: registration, backends and models all shape the snapshot."""
-    return sorted(path for path in _PACKAGE.rglob("*.py") if "__pycache__" not in path.parts)
+    files = [path for path in _PACKAGE.rglob("*.py") if "__pycache__" not in path.parts]
+    return sorted([*files, _ROOT / "vaft" / "_docstring.py"])  # _docstring decides every source span
 
 
 def _relative(path: str | Path) -> str:
@@ -46,10 +47,9 @@ def _relative(path: str | Path) -> str:
 
 
 def _source_of(function) -> dict:
-    target = inspect.unwrap(function)
-    path = inspect.getsourcefile(target)
-    _, line = inspect.getsourcelines(target)
-    return {"path": _relative(path), "line": line}
+    from vaft._docstring import source_span
+
+    return source_span(function, _ROOT)
 
 
 def _row(spec) -> dict:

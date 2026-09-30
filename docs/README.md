@@ -55,6 +55,19 @@ Functions with a scientific detail page (formula, process, plot, diagram) appear
 there only as a link. The API pages are left out of the site search index, which
 would otherwise double in size.
 
+Every generated entry (formula, process, plot, diagram, API object and class
+member) links its source as
+`github.com/VEST-Tokamak/vaft/blob/<commit>/<path>#L<first>-L<last>`, where
+`<commit>` is the catalog's `provenance.commit` and the range is the whole
+definition, decorators included. There is never a branch link, and a catalog
+without a provenance commit renders no links (use `build.py`, or `npm run data`,
+which records `HEAD`). Functions and methods of at most 80 lines
+(`vaft._docstring.INLINE_SOURCE_LINES`) also show that code under a collapsed
+"Show source"; classes and longer bodies keep only the link. The coverage check
+requires every span to be a whole `def` or `class` of the tree and the inline
+code to be exactly those lines. `validate_docs.rb` requires every rendered link
+and inline view to match its catalog.
+
 The pictures on `/reference/plot/` are committed, not drawn by the build.
 `python -m vaft.plot.docs_thumbnails` renders each registered plot from the first
 packaged sample that can draw it into `assets/plots/<name>.png`, and records in

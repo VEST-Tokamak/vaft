@@ -98,9 +98,9 @@ def test_signatures_and_source_lines_come_from_the_source(snapshot):
     for name in parameters:
         assert name in entry["signature"]
     target = inspect.unwrap(run_efit)
-    _, line = inspect.getsourcelines(target)
-    assert entry["source"] == {"path": Path(inspect.getsourcefile(target)).resolve().relative_to(ROOT).as_posix(),
-                               "line": line}
+    lines, line = inspect.getsourcelines(target)
+    assert entry["source"]["path"] == Path(inspect.getsourcefile(target)).resolve().relative_to(ROOT).as_posix()
+    assert (entry["source"]["line"], entry["source"]["end_line"]) == (line, line + len(lines) - 1)
     assert entry["summary"] == " ".join((inspect.getdoc(run_efit) or "").split("\n\n")[0].split())
 
 

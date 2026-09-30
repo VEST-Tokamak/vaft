@@ -144,6 +144,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_render.py",
     "test_docs_api.py",
     "test_docs_catalogs.py",
+    "test_docs_sources.py",
     "test_docs_content.py",
     "test_docs_snippets.py",
     "test_docs_thumbnails.py",

@@ -57,6 +57,14 @@ python API (#162)
     described by exactly one entry of ``api_catalog.yml`` (matched by object
     identity; constants by exported name).
 
+source spans (#1069)
+    every ``source`` span in every catalog names a file of the tree being
+    documented and a whole ``def`` or ``class`` of it (first decorator to last
+    line, read here with ``ast``), and its inline ``code`` is exactly those
+    lines.  Every entry but an API constant or alias has a span.  The tree is
+    the provenance commit's, so the pinned links and the inline source show
+    the revision the pages describe.
+
 Finally every ``vaft`` module imported while checking must come from the tree
 being documented, so an editable install that serves a missing subpackage from
 another checkout cannot pass for this one.
@@ -413,6 +421,92 @@ def check_api(snapshot: dict, root: Path) -> list[str]:
 
 
 # --------------------------------------------------------------------------
+# source spans (#1069)
+# --------------------------------------------------------------------------
+
+
+def _spans(node, where: str = ""):
+    """``(entry, span)`` for every source span in a snapshot: a ``source`` mapping with a ``line``."""
+    if isinstance(node, dict):
+        where = str(node.get("id") or node.get("name") or where)
+        for key, value in node.items():
+            if key == "source" and isinstance(value, dict) and "line" in value:
+                yield where, value
+            else:
+                yield from _spans(value, where)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _spans(item, where)
+
+
+def _definitions(path: Path, cache: dict = {}) -> frozenset[tuple[int, int]]:  # noqa: B006 -- a per-run cache
+    """``(first line, last line)`` of every def and class in a file, decorators included."""
+    import ast
+
+    if path not in cache:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        cache[path] = frozenset(
+            (min([node.lineno, *(decorator.lineno for decorator in node.decorator_list)]), node.end_lineno)
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        )
+    return cache[path]
+
+
+def check_sources(label: str, snapshot: dict, root: Path, *, located: bool = True) -> list[str]:
+    """Every source span names a whole definition in ``root``, and its inline code is those lines.
+
+    The pages link each span as ``blob/<provenance commit>/<path>#L<line>-L<end_line>``
+    and show ``code`` beside it (``validate_docs.rb`` checks that); this checks
+    the span itself against the tree the catalog was generated from, which is
+    that commit's tree.  So a stale or shifted range, a range cut short, or
+    inline code that is not the linked lines fails the build.  With ``located``
+    every span must have a line: only the API catalog has objects without a
+    ``def`` (constants, typing aliases).
+    """
+    import textwrap
+
+    problems: list[str] = []
+    for where, span in _spans(snapshot):
+        path, line, end = str(span.get("path") or ""), int(span.get("line") or 0), int(span.get("end_line") or 0)
+        if line <= 0:
+            if located:
+                problems.append(f"{label} {where}: has no source location")
+            continue
+        file = (root / path).resolve()
+        if not path.startswith("vaft/") or not file.is_relative_to(root.resolve() / "vaft") or not file.is_file():
+            problems.append(f"{label} {where}: source {path!r} is not a file of the tree being documented")
+            continue
+        if (line, end) not in _definitions(file):
+            problems.append(f"{label} {where}: {path}#L{line}-L{end} is not a whole definition in that file")
+            continue
+        code = span.get("code") or ""
+        lines = file.read_text(encoding="utf-8").split("\n")
+        if code and code != textwrap.dedent("\n".join(lines[line - 1:end])).rstrip():
+            problems.append(f"{label} {where}: inline source is not {path} lines {line}-{end}")
+    return problems
+
+
+def check_api_sources(snapshot: dict) -> list[str]:
+    """Every API function and class defined in ``vaft`` has a source span."""
+    import warnings
+
+    problems: list[str] = []
+    for entry in snapshot.get("entries") or []:
+        if entry.get("kind") == "data" or int((entry.get("source") or {}).get("line") or 0) > 0:
+            continue
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                target = inspect.unwrap(getattr(importlib.import_module(entry["module"]), entry["name"]))
+            except Exception:  # noqa: BLE001 -- check_api reports what does not resolve
+                continue
+        if (inspect.isfunction(target) or inspect.isclass(target)) and str(target.__module__).startswith("vaft"):
+            problems.append(f"api {entry['id']}: has no source location")
+    return problems
+
+
+# --------------------------------------------------------------------------
 # entry point
 # --------------------------------------------------------------------------
 
@@ -423,7 +517,7 @@ CHECKS = {
     "vaft.process.catalog": lambda snapshot, root: check_process(snapshot),
     "vaft.plot.docs_catalog": lambda snapshot, root: check_plot(snapshot) + check_plot_thumbnails(snapshot, root),
     "vaft.diagram.docs_catalog": check_diagram,
-    "vaft._api_catalog": check_api,
+    "vaft._api_catalog": lambda snapshot, root: check_api(snapshot, root) + check_api_sources(snapshot),
 }
 
 
@@ -465,7 +559,10 @@ def check(docs: Path = DOCS, root: Path | None = None) -> list[str]:
         if not output.is_file():
             problems.append(f"{generator['output']} is declared but was not generated")
             continue
-        problems.extend(checker(_load(output) or {}, root))
+        snapshot = _load(output) or {}
+        problems.extend(checker(snapshot, root))
+        problems.extend(check_sources(generator["module"], snapshot, root,
+                                      located=generator["module"] != "vaft._api_catalog"))
     for module in foreign_modules(root):
         problems.append(f"{module} was imported from outside the tree being documented ({root})")
     return problems

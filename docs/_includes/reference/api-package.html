@@ -13,7 +13,7 @@ to it, not a second copy of its documentation.
 {%- assign entries = catalog.entries | where: "page", include.slug -%}
 {%- assign modules = catalog.modules | where: "page", include.slug | where: "declared", true -%}
 {%- assign undeclared = catalog.modules | where: "page", include.slug | where: "declared", false -%}
-{%- if catalog.provenance.commit -%}{%- assign source_ref = catalog.provenance.commit -%}{%- elsif site.track == "development" -%}{%- assign source_ref = "develop" -%}{%- else -%}{%- assign source_ref = "main" -%}{%- endif -%}
+{%- comment -%}Source links are pinned to the commit the catalog was generated from, never to a branch (#1069).{%- endcomment -%}{%- assign source_ref = catalog.provenance.commit | default: "" -%}
 
 <p class="ref-intro">Generated from each module's <code>__all__</code> by <code>python -m vaft._api_catalog</code>:
 <strong>{{ entries.size }}</strong> published objects in <strong>{{ modules.size }}</strong> modules.

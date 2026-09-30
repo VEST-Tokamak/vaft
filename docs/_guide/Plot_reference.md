@@ -15,7 +15,7 @@ related:
   data_sources: [sample-ods]
 ---
 {%- assign catalog = site.data.plot_catalog -%}
-{%- if catalog.provenance.commit -%}{%- assign source_ref = catalog.provenance.commit -%}{%- elsif site.track == "development" -%}{%- assign source_ref = "develop" -%}{%- else -%}{%- assign source_ref = "main" -%}{%- endif -%}
+{%- comment -%}Source links are pinned to the commit the catalog was generated from, never to a branch (#1069).{%- endcomment -%}{%- assign source_ref = catalog.provenance.commit | default: "" -%}
 {%- assign kinds = catalog.subjects | map: "kind" | uniq -%}
 
 <p class="ref-intro">Generated from <code>vaft.plot.registry</code> by <code>python -m vaft.plot.docs_catalog</code>:
@@ -84,9 +84,10 @@ canonical home (`legacy`). They have no subject / view identity and no `vaft.oma
 <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#{{ e.name }}"><code>{{ e.name }}</code></a></h4>
 <span class="ref-flags"><span class="ref-flag{% if e.status == "legacy" %} ref-flag-deprecated{% endif %}">{{ e.status | capitalize }}</span></span>
-{% if e.source.line > 0 %}<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/{{ source_ref }}/{{ e.source.path }}#L{{ e.source.line }}" title="{{ e.source.path }}, line {{ e.source.line }}">source</a>{% endif %}
+{% include reference/source-link.html src=e.source ref=source_ref key=e.name %}
 </header>
 <pre class="ref-signature"><code>vaft.plot.{{ e.name }}{{ e.signature | escape }}</code></pre>
+{% include reference/source-code.html src=e.source ref=source_ref key=e.name %}
 
 {{ e.summary }}
 
