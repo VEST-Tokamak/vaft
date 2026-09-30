@@ -22,9 +22,10 @@ from . import update as _update
 # Before the submodules above declared ``__all__`` (#1382), their star imports
 # also bound every VAFT function they had imported themselves, so these names
 # have always been reachable as ``vaft.omas.<name>``.  They stay bound here, but
-# they are not published by this package: each is documented in the module
-# that defines it, and ``from vaft.omas import *`` no longer binds them.  The
-# ``omas``, NumPy, SciPy and typing names the submodules imported are not kept.
+# they are not published by this package: each belongs to the module that
+# defines it, and ``from vaft.omas import *`` no longer binds them.  The
+# ``omas``, NumPy, SciPy, typing and standard-library names the submodules
+# imported (and their ``logger`` and the ``vaft`` module) are not kept.
 from vaft.compat import trapz_compat
 from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
 from vaft.formula.constants import MU0
@@ -106,8 +107,9 @@ from vaft.process.numerical import time_derivative
 #: What this package publishes: everything its star-imported submodules
 #: publish, plus the functions defined or imported by name here.  The plotting,
 #: reference and comparison names served lazily by ``__getattr__`` are left
-#: out, as they always were from ``from vaft.omas import *``, so that the star
-#: import does not load Matplotlib; they are published by their own modules.
+#: out, as they always were from ``from vaft.omas import *`` (for the plotting
+#: names, so that the star import does not load Matplotlib); they are published
+#: by their own modules.
 __all__ = [
     *_general.__all__,
     *_process_wrapper.__all__,
