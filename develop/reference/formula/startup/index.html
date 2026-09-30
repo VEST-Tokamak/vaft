@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>98e0af8</code>. What is described
+  <code>f5f077f</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -301,15 +301,29 @@
 
 <h2 id="overview">Overview</h2>
 
-<p>Prefill, the Townsend coefficient and the Lloyd breakdown threshold: the
-reduced kernels that decide whether a gas fill will break down under a given
-toroidal electric field.  This is the pre-equilibrium phase of a discharge,
-before any closed flux surface exists, so nothing here reads a flux map, knows
-a COCOS, or substitutes for a field-line trace.</p>
+<p>The first slice is prefill, the Townsend coefficient and the Lloyd breakdown
+threshold: the reduced kernels that decide whether a gas fill will break down
+under a given toroidal electric field.  That is the pre-equilibrium phase of a
+discharge, before any closed flux surface exists, so none of it reads a flux
+map, knows a COCOS, or substitutes for a field-line trace.</p>
 
-<p>The module stops at the avalanche on purpose.  Burn-through and the
-radiation-ionisation barrier are a later slice of the same work; plasma
-inductance and the current ramp belong with the transformer dynamics.</p>
+<p>It then follows the discharge past the avalanche with reduced models only:
+the closed-box burn-through inventory and the radiation-ionisation barrier,
+the Ejiri mirror-orbit confinement factor, the circular self-field, vertical
+field and flux-closure margin, resistivity and the lumped plasma circuit
+(Hirshman inductance, the boundary loop-voltage split, #782), and the ECR
+layer.  Two boundaries are deliberate:</p>
+
+<ul>
+  <li><strong>Not the transformer.</strong>  Romero’s transformer identities are #781 in
+<code class="language-plaintext highlighter-rouge">vaft.formula.transformer</code>, and the closed-flux volt-second budget is
+<code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.romero_flux_balance</code>; nothing here budgets
+flux after closure.</li>
+  <li><strong>Not an equilibrium.</strong>  Every quantity below is a scaling for a plasma
+that has not been reconstructed.  Once EFIT or CHEASE has an equilibrium
+for the time in question, its field, safety factor, current profile and
+topology supersede these estimates entirely.</li>
+</ul>
 
 <div class="ref-table-wrap"><table class="ref-table ref-notation">
   <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
@@ -430,10 +444,10 @@ disagreement: every function below takes $|E_\parallel|$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#atomic_inventory_from_molecular_gas"><code>atomic_inventory_from_molecular_gas</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="atomic_inventory_from_molecular_gas" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L196-L249" title="vaft/formula/startup.py, lines 196–249 at 98e0af8">source</a>
+<a class="ref-source" data-source="atomic_inventory_from_molecular_gas" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L208-L261" title="vaft/formula/startup.py, lines 208–261 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>atomic_inventory_from_molecular_gas(n_molecular_m3, atoms_per_molecule=2)</code></pre>
-    <details class="ref-code" data-source-code="atomic_inventory_from_molecular_gas"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 196–249</span></summary>
+    <details class="ref-code" data-source-code="atomic_inventory_from_molecular_gas"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 208–261</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">atomic_inventory_from_molecular_gas</span><span class="p">(</span><span class="n">n_molecular_m3</span><span class="p">,</span> <span class="n">atoms_per_molecule</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Atom inventory of a molecular gas fill.
@@ -563,7 +577,7 @@ density.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j"><code>boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L2022-L2169" title="vaft/formula/startup.py, lines 2022–2169 at 98e0af8">source</a>
+<a class="ref-source" data-source="boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L2034-L2181" title="vaft/formula/startup.py, lines 2034–2181 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j(L_e_H, I_p_A, dI_p_dt_A_s, dL_e_dt_H_s=0.0, M_pj_H=None, I_j_A=None, dI_j_dt_A_s=None, dM_pj_dt_H_s=None)</code></pre>
 
@@ -678,10 +692,10 @@ plasma_external_inductance_hirshman_from_R_eps_kappa</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#breakdown_margin"><code>breakdown_margin</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="breakdown_margin" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L717-L774" title="vaft/formula/startup.py, lines 717–774 at 98e0af8">source</a>
+<a class="ref-source" data-source="breakdown_margin" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L729-L786" title="vaft/formula/startup.py, lines 729–786 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>breakdown_margin(E_parallel, E_breakdown)</code></pre>
-    <details class="ref-code" data-source-code="breakdown_margin"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 717–774</span></summary>
+    <details class="ref-code" data-source-code="breakdown_margin"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 729–786</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">breakdown_margin</span><span class="p">(</span><span class="n">E_parallel</span><span class="p">,</span> <span class="n">E_breakdown</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Available drive relative to the Lloyd breakdown threshold.
@@ -816,10 +830,10 @@ no-threshold region of <code class="language-plaintext highlighter-rouge">lloyd_
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#critical_ionization_fraction_from_V_p_V_V"><code>critical_ionization_fraction_from_V_p_V_V</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="critical_ionization_fraction_from_V_p_V_V" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L2379-L2424" title="vaft/formula/startup.py, lines 2379–2424 at 98e0af8">source</a>
+<a class="ref-source" data-source="critical_ionization_fraction_from_V_p_V_V" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L2391-L2436" title="vaft/formula/startup.py, lines 2391–2436 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>critical_ionization_fraction_from_V_p_V_V(V_p_m3, V_V_m3)</code></pre>
-    <details class="ref-code" data-source-code="critical_ionization_fraction_from_V_p_V_V"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2379–2424</span></summary>
+    <details class="ref-code" data-source-code="critical_ionization_fraction_from_V_p_V_V"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2391–2436</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">critical_ionization_fraction_from_V_p_V_V</span><span class="p">(</span><span class="n">V_p_m3</span><span class="p">,</span> <span class="n">V_V_m3</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Ionisation fraction at the top of the radiation-ionisation barrier.
@@ -933,7 +947,7 @@ ionization_fraction_from_n_e_n_D0</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li"><code>d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1484-L1592" title="vaft/formula/startup.py, lines 1484–1592 at 98e0af8">source</a>
+<a class="ref-source" data-source="d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1496-L1604" title="vaft/formula/startup.py, lines 1496–1604 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li(R_m, epsilon, kappa, li, minor_radius=&#39;fixed&#39;)</code></pre>
 
@@ -1042,10 +1056,10 @@ vertical_field_from_I_p_R0_a_beta_p_li</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ejiri_f3_from_alpha"><code>ejiri_f3_from_alpha</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="ejiri_f3_from_alpha" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L2653-L2707" title="vaft/formula/startup.py, lines 2653–2707 at 98e0af8">source</a>
+<a class="ref-source" data-source="ejiri_f3_from_alpha" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L2666-L2720" title="vaft/formula/startup.py, lines 2666–2720 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>ejiri_f3_from_alpha(alpha)</code></pre>
-    <details class="ref-code" data-source-code="ejiri_f3_from_alpha"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2653–2707</span></summary>
+    <details class="ref-code" data-source-code="ejiri_f3_from_alpha"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2666–2720</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ejiri_f3_from_alpha</span><span class="p">(</span><span class="n">alpha</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Low-temperature geometry factor of the Ejiri mirror proxy.
@@ -1177,7 +1191,7 @@ neither isotropic nor low-temperature.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max"><code>ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L2562-L2650" title="vaft/formula/startup.py, lines 2562–2650 at 98e0af8">source</a>
+<a class="ref-source" data-source="ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L2575-L2663" title="vaft/formula/startup.py, lines 2575–2663 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max(R_S_m, R_LIN_m, R_C_m, Z_max_m)</code></pre>
 
@@ -1273,10 +1287,10 @@ orbit calculation.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#electron_cyclotron_resonance_field"><code>electron_cyclotron_resonance_field</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="electron_cyclotron_resonance_field" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L870-L922" title="vaft/formula/startup.py, lines 870–922 at 98e0af8">source</a>
+<a class="ref-source" data-source="electron_cyclotron_resonance_field" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L882-L934" title="vaft/formula/startup.py, lines 882–934 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>electron_cyclotron_resonance_field(frequency_Hz, harmonic=1)</code></pre>
-    <details class="ref-code" data-source-code="electron_cyclotron_resonance_field"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 870–922</span></summary>
+    <details class="ref-code" data-source-code="electron_cyclotron_resonance_field"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 882–934</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">electron_cyclotron_resonance_field</span><span class="p">(</span><span class="n">frequency_Hz</span><span class="p">,</span> <span class="n">harmonic</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Field magnitude at which electrons gyrate in step with a microwave source.
@@ -1401,10 +1415,10 @@ much power is absorbed.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#electron_cyclotron_resonance_radius"><code>electron_cyclotron_resonance_radius</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="electron_cyclotron_resonance_radius" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L925-L991" title="vaft/formula/startup.py, lines 925–991 at 98e0af8">source</a>
+<a class="ref-source" data-source="electron_cyclotron_resonance_radius" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L937-L1003" title="vaft/formula/startup.py, lines 937–1003 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>electron_cyclotron_resonance_radius(B_T_R_Tm, frequency_Hz, harmonic=1)</code></pre>
-    <details class="ref-code" data-source-code="electron_cyclotron_resonance_radius"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 925–991</span></summary>
+    <details class="ref-code" data-source-code="electron_cyclotron_resonance_radius"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 937–1003</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">electron_cyclotron_resonance_radius</span><span class="p">(</span><span class="n">B_T_R_Tm</span><span class="p">,</span> <span class="n">frequency_Hz</span><span class="p">,</span> <span class="n">harmonic</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Major radius of the electron-cyclotron resonance in a vacuum toroidal field.
@@ -1556,10 +1570,10 @@ not.  Plasma diamagnetism is ignored, which is exact before breakdown.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#flux_closure_margin_from_E_t_a_B_stray_eta"><code>flux_closure_margin_from_E_t_a_B_stray_eta</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="flux_closure_margin_from_E_t_a_B_stray_eta" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1240-L1315" title="vaft/formula/startup.py, lines 1240–1315 at 98e0af8">source</a>
+<a class="ref-source" data-source="flux_closure_margin_from_E_t_a_B_stray_eta" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1252-L1327" title="vaft/formula/startup.py, lines 1252–1327 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>flux_closure_margin_from_E_t_a_B_stray_eta(E_t, a_m, B_stray_T, eta_ohm_m)</code></pre>
-    <details class="ref-code" data-source-code="flux_closure_margin_from_E_t_a_B_stray_eta"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1240–1315</span></summary>
+    <details class="ref-code" data-source-code="flux_closure_margin_from_E_t_a_B_stray_eta"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1252–1327</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">flux_closure_margin_from_E_t_a_B_stray_eta</span><span class="p">(</span><span class="n">E_t</span><span class="p">,</span> <span class="n">a_m</span><span class="p">,</span> <span class="n">B_stray_T</span><span class="p">,</span> <span class="n">eta_ohm_m</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Order-of-magnitude margin for a current channel to overcome stray field.
@@ -1732,10 +1746,10 @@ vaft.formula.equilibrium.poloidal_field_magnitude</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#internal_inductive_voltage_terms_from_L_i_I_p"><code>internal_inductive_voltage_terms_from_L_i_I_p</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="internal_inductive_voltage_terms_from_L_i_I_p" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L2172-L2245" title="vaft/formula/startup.py, lines 2172–2245 at 98e0af8">source</a>
+<a class="ref-source" data-source="internal_inductive_voltage_terms_from_L_i_I_p" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L2184-L2257" title="vaft/formula/startup.py, lines 2184–2257 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>internal_inductive_voltage_terms_from_L_i_I_p(L_i_H, I_p_A, dI_p_dt_A_s, dL_i_dt_H_s=0.0)</code></pre>
-    <details class="ref-code" data-source-code="internal_inductive_voltage_terms_from_L_i_I_p"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2172–2245</span></summary>
+    <details class="ref-code" data-source-code="internal_inductive_voltage_terms_from_L_i_I_p"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2184–2257</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">internal_inductive_voltage_terms_from_L_i_I_p</span><span class="p">(</span><span class="n">L_i_H</span><span class="p">,</span> <span class="n">I_p_A</span><span class="p">,</span> <span class="n">dI_p_dt_A_s</span><span class="p">,</span> <span class="n">dL_i_dt_H_s</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Inductive voltage of the internal inductance, split into ramp and profile terms.
@@ -1897,10 +1911,10 @@ vaft.formula.equilibrium.internal_inductance_from_W_int_Ip</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ionization_fraction_from_n_e_n_D0"><code>ionization_fraction_from_n_e_n_D0</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="ionization_fraction_from_n_e_n_D0" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L2331-L2376" title="vaft/formula/startup.py, lines 2331–2376 at 98e0af8">source</a>
+<a class="ref-source" data-source="ionization_fraction_from_n_e_n_D0" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L2343-L2388" title="vaft/formula/startup.py, lines 2343–2388 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>ionization_fraction_from_n_e_n_D0(n_e_m3, n_D0_m3)</code></pre>
-    <details class="ref-code" data-source-code="ionization_fraction_from_n_e_n_D0"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2331–2376</span></summary>
+    <details class="ref-code" data-source-code="ionization_fraction_from_n_e_n_D0"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2343–2388</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ionization_fraction_from_n_e_n_D0</span><span class="p">(</span><span class="n">n_e_m3</span><span class="p">,</span> <span class="n">n_D0_m3</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Ionisation fraction of a partially ionised hydrogenic plasma.
@@ -2009,7 +2023,7 @@ number that is neither.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#lloyd_breakdown_field"><code>lloyd_breakdown_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="lloyd_breakdown_field" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L425-L519" title="vaft/formula/startup.py, lines 425–519 at 98e0af8">source</a>
+<a class="ref-source" data-source="lloyd_breakdown_field" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L437-L531" title="vaft/formula/startup.py, lines 437–531 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>lloyd_breakdown_field(p_Pa, connection_length_m)</code></pre>
 
@@ -2120,10 +2134,10 @@ vaft.formula.equilibrium.toroidal_electric_field</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#lloyd_figure_of_merit"><code>lloyd_figure_of_merit</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="lloyd_figure_of_merit" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L788-L851" title="vaft/formula/startup.py, lines 788–851 at 98e0af8">source</a>
+<a class="ref-source" data-source="lloyd_figure_of_merit" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L800-L863" title="vaft/formula/startup.py, lines 800–863 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>lloyd_figure_of_merit(E_phi, B_phi, B_p)</code></pre>
-    <details class="ref-code" data-source-code="lloyd_figure_of_merit"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 788–851</span></summary>
+    <details class="ref-code" data-source-code="lloyd_figure_of_merit"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 800–863</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">lloyd_figure_of_merit</span><span class="p">(</span><span class="n">E_phi</span><span class="p">,</span> <span class="n">B_phi</span><span class="p">,</span> <span class="n">B_p</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Lloyd</span><span class="sh">'</span><span class="s">s breakdown figure of merit: toroidal drive times field-line pitch.
@@ -2267,10 +2281,10 @@ derived.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#lr_time_from_L_R"><code>lr_time_from_L_R</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="lr_time_from_L_R" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1969-L2011" title="vaft/formula/startup.py, lines 1969–2011 at 98e0af8">source</a>
+<a class="ref-source" data-source="lr_time_from_L_R" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1981-L2023" title="vaft/formula/startup.py, lines 1981–2023 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>lr_time_from_L_R(L_H, R_ohm)</code></pre>
-    <details class="ref-code" data-source-code="lr_time_from_L_R"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1969–2011</span></summary>
+    <details class="ref-code" data-source-code="lr_time_from_L_R"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1981–2023</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">lr_time_from_L_R</span><span class="p">(</span><span class="n">L_H</span><span class="p">,</span> <span class="n">R_ohm</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Characteristic time of an inductive-resistive circuit.
@@ -2379,10 +2393,10 @@ scale this does not have.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#neutral_density_after_ionization_from_n_0_n_e_V_p_V_V"><code>neutral_density_after_ionization_from_n_0_n_e_V_p_V_V</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="neutral_density_after_ionization_from_n_0_n_e_V_p_V_V" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L2252-L2328" title="vaft/formula/startup.py, lines 2252–2328 at 98e0af8">source</a>
+<a class="ref-source" data-source="neutral_density_after_ionization_from_n_0_n_e_V_p_V_V" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L2264-L2340" title="vaft/formula/startup.py, lines 2264–2340 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>neutral_density_after_ionization_from_n_0_n_e_V_p_V_V(n_0_m3, n_e_m3, V_p_m3, V_V_m3)</code></pre>
-    <details class="ref-code" data-source-code="neutral_density_after_ionization_from_n_0_n_e_V_p_V_V"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2252–2328</span></summary>
+    <details class="ref-code" data-source-code="neutral_density_after_ionization_from_n_0_n_e_V_p_V_V"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2264–2340</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">neutral_density_after_ionization_from_n_0_n_e_V_p_V_V</span><span class="p">(</span><span class="n">n_0_m3</span><span class="p">,</span> <span class="n">n_e_m3</span><span class="p">,</span> <span class="n">V_p_m3</span><span class="p">,</span> <span class="n">V_V_m3</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Neutral atom density left in the vessel after some has been ionised.
@@ -2541,10 +2555,10 @@ ionization_fraction_from_n_e_n_D0</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#neutral_density_from_pressure"><code>neutral_density_from_pressure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="neutral_density_from_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L136-L193" title="vaft/formula/startup.py, lines 136–193 at 98e0af8">source</a>
+<a class="ref-source" data-source="neutral_density_from_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L148-L205" title="vaft/formula/startup.py, lines 148–205 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>neutral_density_from_pressure(p_Pa, T_gas_K=300.0)</code></pre>
-    <details class="ref-code" data-source-code="neutral_density_from_pressure"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 136–193</span></summary>
+    <details class="ref-code" data-source-code="neutral_density_from_pressure"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 148–205</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">neutral_density_from_pressure</span><span class="p">(</span><span class="n">p_Pa</span><span class="p">,</span> <span class="n">T_gas_K</span><span class="o">=</span><span class="mf">300.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Number density of a fill gas at a measured pressure and temperature.
@@ -2682,7 +2696,7 @@ inventory is set by a particle balance rather than by a gauge reading.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p"><code>plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1875-L1966" title="vaft/formula/startup.py, lines 1875–1966 at 98e0af8">source</a>
+<a class="ref-source" data-source="plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1887-L1978" title="vaft/formula/startup.py, lines 1887–1978 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p(V_loop_V, R_p_ohm, I_p_A, L_p_H, dL_p_dt_H_s=0.0)</code></pre>
 
@@ -2783,10 +2797,10 @@ plasma_inductance_circular_from_R0_a_li</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#plasma_external_inductance_hirshman_from_R_eps_kappa"><code>plasma_external_inductance_hirshman_from_R_eps_kappa</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="plasma_external_inductance_hirshman_from_R_eps_kappa" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1336-L1414" title="vaft/formula/startup.py, lines 1336–1414 at 98e0af8">source</a>
+<a class="ref-source" data-source="plasma_external_inductance_hirshman_from_R_eps_kappa" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1348-L1426" title="vaft/formula/startup.py, lines 1348–1426 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>plasma_external_inductance_hirshman_from_R_eps_kappa(R_m, epsilon, kappa)</code></pre>
-    <details class="ref-code" data-source-code="plasma_external_inductance_hirshman_from_R_eps_kappa"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1336–1414</span></summary>
+    <details class="ref-code" data-source-code="plasma_external_inductance_hirshman_from_R_eps_kappa"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1348–1426</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">plasma_external_inductance_hirshman_from_R_eps_kappa</span><span class="p">(</span><span class="n">R_m</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">kappa</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">External inductance of a shaped plasma, Hirshman and Neilson</span><span class="sh">'</span><span class="s">s fit.
@@ -2963,7 +2977,7 @@ d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#plasma_inductance_circular_from_R0_a_li"><code>plasma_inductance_circular_from_R0_a_li</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="plasma_inductance_circular_from_R0_a_li" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1770-L1872" title="vaft/formula/startup.py, lines 1770–1872 at 98e0af8">source</a>
+<a class="ref-source" data-source="plasma_inductance_circular_from_R0_a_li" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1782-L1884" title="vaft/formula/startup.py, lines 1782–1884 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0)</code></pre>
 
@@ -3067,10 +3081,10 @@ plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#plasma_inductance_hirshman_from_R_eps_kappa_li"><code>plasma_inductance_hirshman_from_R_eps_kappa_li</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="plasma_inductance_hirshman_from_R_eps_kappa_li" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1417-L1481" title="vaft/formula/startup.py, lines 1417–1481 at 98e0af8">source</a>
+<a class="ref-source" data-source="plasma_inductance_hirshman_from_R_eps_kappa_li" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1429-L1493" title="vaft/formula/startup.py, lines 1429–1493 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>plasma_inductance_hirshman_from_R_eps_kappa_li(R_m, epsilon, kappa, li)</code></pre>
-    <details class="ref-code" data-source-code="plasma_inductance_hirshman_from_R_eps_kappa_li"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1417–1481</span></summary>
+    <details class="ref-code" data-source-code="plasma_inductance_hirshman_from_R_eps_kappa_li"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1429–1493</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">plasma_inductance_hirshman_from_R_eps_kappa_li</span><span class="p">(</span><span class="n">R_m</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">li</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Total plasma inductance, Hirshman external plus the internal term.
@@ -3220,10 +3234,10 @@ d_plasma_inductance_dR_hirshman_from_R_eps_kappa_li</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa"><code>plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1707-L1767" title="vaft/formula/startup.py, lines 1707–1767 at 98e0af8">source</a>
+<a class="ref-source" data-source="plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1719-L1779" title="vaft/formula/startup.py, lines 1719–1779 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa(eta_ohm_m, R0_m, a_m, kappa=1.0)</code></pre>
-    <details class="ref-code" data-source-code="plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1707–1767</span></summary>
+    <details class="ref-code" data-source-code="plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1719–1779</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</span><span class="p">(</span><span class="n">eta_ohm_m</span><span class="p">,</span> <span class="n">R0_m</span><span class="p">,</span> <span class="n">a_m</span><span class="p">,</span> <span class="n">kappa</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Loop resistance of a uniform-current elliptical plasma ring.
@@ -3365,10 +3379,10 @@ vaft.formula.equilibrium.ohmic_heating_power_from_I_p_V_res</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#plasma_self_field_from_I_p_a"><code>plasma_self_field_from_I_p_a</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="plasma_self_field_from_I_p_a" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1064-L1117" title="vaft/formula/startup.py, lines 1064–1117 at 98e0af8">source</a>
+<a class="ref-source" data-source="plasma_self_field_from_I_p_a" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1076-L1129" title="vaft/formula/startup.py, lines 1076–1129 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>plasma_self_field_from_I_p_a(I_p_A, a_m)</code></pre>
-    <details class="ref-code" data-source-code="plasma_self_field_from_I_p_a"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1064–1117</span></summary>
+    <details class="ref-code" data-source-code="plasma_self_field_from_I_p_a"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1076–1129</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">plasma_self_field_from_I_p_a</span><span class="p">(</span><span class="n">I_p_A</span><span class="p">,</span> <span class="n">a_m</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Poloidal field a circular current channel makes at its own edge.
@@ -3498,10 +3512,10 @@ whether the plasma field <em>cancels</em> or <em>reinforces</em> a stray field.<
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#radiation_ionization_barrier_from_P_RI_n_0_V_V"><code>radiation_ionization_barrier_from_P_RI_n_0_V_V</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="radiation_ionization_barrier_from_P_RI_n_0_V_V" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L2493-L2555" title="vaft/formula/startup.py, lines 2493–2555 at 98e0af8">source</a>
+<a class="ref-source" data-source="radiation_ionization_barrier_from_P_RI_n_0_V_V" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L2506-L2568" title="vaft/formula/startup.py, lines 2506–2568 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>radiation_ionization_barrier_from_P_RI_n_0_V_V(P_RI_W_m3, n_0_m3, V_V_m3)</code></pre>
-    <details class="ref-code" data-source-code="radiation_ionization_barrier_from_P_RI_n_0_V_V"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2493–2555</span></summary>
+    <details class="ref-code" data-source-code="radiation_ionization_barrier_from_P_RI_n_0_V_V"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2506–2568</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">radiation_ionization_barrier_from_P_RI_n_0_V_V</span><span class="p">(</span><span class="n">P_RI_W_m3</span><span class="p">,</span> <span class="n">n_0_m3</span><span class="p">,</span> <span class="n">V_V_m3</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Height of the radiation-ionisation barrier a burn-through must cross.
@@ -3642,10 +3656,10 @@ atomic_inventory_from_molecular_gas</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#radiation_ionization_power_from_P_RI_n_e_n_D0_V_p"><code>radiation_ionization_power_from_P_RI_n_e_n_D0_V_p</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="radiation_ionization_power_from_P_RI_n_e_n_D0_V_p" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L2427-L2490" title="vaft/formula/startup.py, lines 2427–2490 at 98e0af8">source</a>
+<a class="ref-source" data-source="radiation_ionization_power_from_P_RI_n_e_n_D0_V_p" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L2439-L2503" title="vaft/formula/startup.py, lines 2439–2503 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>radiation_ionization_power_from_P_RI_n_e_n_D0_V_p(P_RI_W_m3, n_e_m3, n_D0_m3, V_p_m3)</code></pre>
-    <details class="ref-code" data-source-code="radiation_ionization_power_from_P_RI_n_e_n_D0_V_p"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2427–2490</span></summary>
+    <details class="ref-code" data-source-code="radiation_ionization_power_from_P_RI_n_e_n_D0_V_p"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 2439–2503</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">radiation_ionization_power_from_P_RI_n_e_n_D0_V_p</span><span class="p">(</span><span class="n">P_RI_W_m3</span><span class="p">,</span> <span class="n">n_e_m3</span><span class="p">,</span> <span class="n">n_D0_m3</span><span class="p">,</span> <span class="n">V_p_m3</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Radiation and ionisation power lost by a partially ionised plasma.
@@ -3687,8 +3701,9 @@ atomic_inventory_from_molecular_gas</p>
 
     Limitations
     -----------
-    Pure hydrogen with no impurity line radiation, which in a real start-up is
-    often what actually sets the barrier.
+    A pure hydrogenic (H or D) closed box with no impurity line radiation, which
+    in a real start-up is often what actually sets the barrier.  VEST fills
+    with hydrogen; the ``D`` in the symbols is the literature</span><span class="sh">'</span><span class="s">s notation.
 
     References
     ----------
@@ -3763,8 +3778,9 @@ ionisation energy.</p>
 
       <h4 class="ref-label no_toc">Limitations</h4>
 
-      <p>Pure hydrogen with no impurity line radiation, which in a real start-up is
-often what actually sets the barrier.</p>
+      <p>A pure hydrogenic (H or D) closed box with no impurity line radiation, which
+in a real start-up is often what actually sets the barrier.  VEST fills
+with hydrogen; the <code class="language-plaintext highlighter-rouge">D</code> in the symbols is the literature’s notation.</p>
 
       <h4 class="ref-label no_toc">See Also</h4>
 
@@ -3786,10 +3802,10 @@ vaft.formula.atomic.line_cooling_coefficient</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resistivity_from_n_e_nu_e"><code>resistivity_from_n_e_nu_e</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resistivity_from_n_e_nu_e" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1639-L1704" title="vaft/formula/startup.py, lines 1639–1704 at 98e0af8">source</a>
+<a class="ref-source" data-source="resistivity_from_n_e_nu_e" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1651-L1716" title="vaft/formula/startup.py, lines 1651–1716 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>resistivity_from_n_e_nu_e(n_e_m3, nu_e_s)</code></pre>
-    <details class="ref-code" data-source-code="resistivity_from_n_e_nu_e"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1639–1704</span></summary>
+    <details class="ref-code" data-source-code="resistivity_from_n_e_nu_e"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1651–1716</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">resistivity_from_n_e_nu_e</span><span class="p">(</span><span class="n">n_e_m3</span><span class="p">,</span> <span class="n">nu_e_s</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Resistivity from the electron momentum-transfer collision frequency.
@@ -3939,10 +3955,10 @@ plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#startup_geometry_from_limiter_radii"><code>startup_geometry_from_limiter_radii</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="startup_geometry_from_limiter_radii" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L998-L1061" title="vaft/formula/startup.py, lines 998–1061 at 98e0af8">source</a>
+<a class="ref-source" data-source="startup_geometry_from_limiter_radii" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1010-L1073" title="vaft/formula/startup.py, lines 1010–1073 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>startup_geometry_from_limiter_radii(R_inboard_m, R_outboard_m)</code></pre>
-    <details class="ref-code" data-source-code="startup_geometry_from_limiter_radii"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 998–1061</span></summary>
+    <details class="ref-code" data-source-code="startup_geometry_from_limiter_radii"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 1010–1073</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">startup_geometry_from_limiter_radii</span><span class="p">(</span><span class="n">R_inboard_m</span><span class="p">,</span> <span class="n">R_outboard_m</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Geometric centre and minor radius of the limiter aperture.
@@ -4081,7 +4097,7 @@ vertical_field_from_I_p_R0_a_beta_p_li</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#townsend_breakdown_field"><code>townsend_breakdown_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="townsend_breakdown_field" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L336-L422" title="vaft/formula/startup.py, lines 336–422 at 98e0af8">source</a>
+<a class="ref-source" data-source="townsend_breakdown_field" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L348-L434" title="vaft/formula/startup.py, lines 348–434 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>townsend_breakdown_field(p, connection_length_m, A, B)</code></pre>
 
@@ -4187,10 +4203,10 @@ townsend_ionization_coefficient</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#townsend_breakdown_field_for_gas"><code>townsend_breakdown_field_for_gas</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="townsend_breakdown_field_for_gas" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L635-L714" title="vaft/formula/startup.py, lines 635–714 at 98e0af8">source</a>
+<a class="ref-source" data-source="townsend_breakdown_field_for_gas" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L647-L726" title="vaft/formula/startup.py, lines 647–726 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>townsend_breakdown_field_for_gas(p_Pa, connection_length_m, gas)</code></pre>
-    <details class="ref-code" data-source-code="townsend_breakdown_field_for_gas"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 635–714</span></summary>
+    <details class="ref-code" data-source-code="townsend_breakdown_field_for_gas"><summary>Show source <span class="ref-note">vaft/formula/startup.py, lines 647–726</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">townsend_breakdown_field_for_gas</span><span class="p">(</span><span class="n">p_Pa</span><span class="p">,</span> <span class="n">connection_length_m</span><span class="p">,</span> <span class="n">gas</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Breakdown threshold field of a catalogued fill gas, pressure in pascal.
@@ -4371,7 +4387,7 @@ lloyd_breakdown_field</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#townsend_coefficients_for_gas"><code>townsend_coefficients_for_gas</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="townsend_coefficients_for_gas" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L548-L632" title="vaft/formula/startup.py, lines 548–632 at 98e0af8">source</a>
+<a class="ref-source" data-source="townsend_coefficients_for_gas" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L560-L644" title="vaft/formula/startup.py, lines 560–644 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>townsend_coefficients_for_gas(gas)</code></pre>
 
@@ -4484,7 +4500,7 @@ townsend_breakdown_field_for_gas</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#townsend_ionization_coefficient"><code>townsend_ionization_coefficient</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="townsend_ionization_coefficient" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L252-L333" title="vaft/formula/startup.py, lines 252–333 at 98e0af8">source</a>
+<a class="ref-source" data-source="townsend_ionization_coefficient" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L264-L345" title="vaft/formula/startup.py, lines 264–345 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>townsend_ionization_coefficient(E_parallel, p_Pa, A, B)</code></pre>
 
@@ -4583,7 +4599,7 @@ a confident wrong answer.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#vertical_field_from_I_p_R0_a_beta_p_li"><code>vertical_field_from_I_p_R0_a_beta_p_li</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="vertical_field_from_I_p_R0_a_beta_p_li" href="https://github.com/VEST-Tokamak/vaft/blob/98e0af890a2938f3010b603c90bfc748443340ee/vaft/formula/startup.py#L1120-L1237" title="vaft/formula/startup.py, lines 1120–1237 at 98e0af8">source</a>
+<a class="ref-source" data-source="vertical_field_from_I_p_R0_a_beta_p_li" href="https://github.com/VEST-Tokamak/vaft/blob/f5f077ff2569a24b8d7caf1cee3a04bd59a5f2c9/vaft/formula/startup.py#L1132-L1249" title="vaft/formula/startup.py, lines 1132–1249 at f5f077f">source</a>
 </header>
     <pre class="ref-signature"><code>vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li, kappa=1.0)</code></pre>
 
@@ -4923,7 +4939,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 11:44:11 +0000"
+        "time": "2026-09-30 13:03:49 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
