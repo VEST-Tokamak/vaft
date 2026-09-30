@@ -23,6 +23,7 @@ _COMMANDS = {
     "hsds": (".hsds", "configure HSDS credentials without echoing secrets"),
     "pipeline-worker": (".pipeline_worker", "poll VEST SQL and run the routine pipeline on new shots"),
     "help": (".help", "what VAFT can do: topics, defaults and setup status"),
+    "setup": (".setup", "report or prepare the runtime environment (never scientific settings)"),
 }
 
 
