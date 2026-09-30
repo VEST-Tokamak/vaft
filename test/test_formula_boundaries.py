@@ -683,3 +683,21 @@ def test_low_aspect_ratio_caveats_are_attached_to_both_lh_scalings():
     for key in ("martin_2008_lh", "takizuka_2004_lh"):
         text = " ".join(B.get_boundary(key).applicability.assumptions)
         assert "Pegasus" in text and "7-15x" in text and "NSTX" in text
+
+
+def test_takizuka_gamma_is_an_explicit_keyword_spanning_the_published_range():
+    """gamma = 0.5 +- 0.5 (p. A232): the kernel takes it as a keyword, the registered boundary
+    uses the central value, and the two bounds differ by exactly F(A) (1.85x at NSTX, A = 1.32)."""
+    kw = dict(line_average_density=0.3, toroidal_field=0.5, plasma_current=0.8, minor_radius=0.6,
+              aspect_ratio=1.32, plasma_surface_area=20.0, effective_charge=2.0)
+    central = B._takizuka_2004_threshold(**kw)
+    assert central == pytest.approx(B.boundary_value(B.get_boundary("takizuka_2004_lh"), **kw))
+    assert central == pytest.approx(B._takizuka_2004_threshold(**kw, gamma=B.TAKIZUKA_GAMMA_DEFAULT))
+    assert B.TAKIZUKA_GAMMA_DEFAULT == 0.5
+    upper, lower = B._takizuka_2004_threshold(**kw, gamma=1.0), B._takizuka_2004_threshold(**kw, gamma=0.0)
+    assert upper / lower == pytest.approx(float(B._takizuka_aspect_factor(1.32)))
+    assert upper / lower == pytest.approx(1.85, abs=0.01)
+    assert central == pytest.approx(math.sqrt(upper * lower))
+    for outside in (-0.1, 1.1):
+        with pytest.raises(ValueError, match="gamma"):
+            B._takizuka_2004_threshold(**kw, gamma=outside)
