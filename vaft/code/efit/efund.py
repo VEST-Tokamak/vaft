@@ -28,11 +28,13 @@ import json
 import os
 import struct
 import subprocess
+import time
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from numbers import Integral
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Iterator, Mapping, Optional, Sequence
 
 import f90nml
 import numpy as np
@@ -51,10 +53,15 @@ __all__ = [
     "EFUNDConfig",
     "EFUNDInputs",
     "EFUNDResult",
+    "LIMITER_NAME",
     "MHDIN_NAME",
+    "TABLE_DIR_MAX_CHARS",
+    "TableExistsError",
     "TABLE_MANIFEST_NAME",
     "collect_efund_outputs",
+    "efund_config_from_manifest",
     "expected_table_files",
+    "generate_era_table",
     "prepare_efund_inputs",
     "fortran_byte_order",
     "read_fortran_arrays",
@@ -62,8 +69,10 @@ __all__ = [
     "read_table_manifest",
     "run_efund",
     "IDENTITY_EXCLUDED_FILES",
+    "table_dir_text",
     "table_identity",
     "table_machine_era",
+    "write_limiter_file",
     "write_mhdin",
     "write_table_manifest",
 ]
@@ -806,3 +815,239 @@ def table_identity(directory: str | os.PathLike[str]) -> dict[str, Any]:
         record["era"] = (manifest.get("machine") or {}).get("era")
         record["provenance"] = "manifest"
     return record
+
+
+# --- per-era tables --------------------------------------------------------
+
+#: EFIT holds ``TABLE_DIR`` and ``INPUT_DIR`` in 100-character fields and
+#: truncates a longer path without a word, so the tables it then fails to
+#: open are named after a directory that does not exist.
+TABLE_DIR_MAX_CHARS = 100
+
+#: The limiter contour EFIT reads from ``INPUT_DIR``.
+LIMITER_NAME = "lim.dat"
+
+#: Files EFIT does not read but the packaged directory carries; copied beside
+#: a generated table so the two directories list the same inputs.
+REFERENCE_COMPANIONS = ("dprobe.dat",)
+
+
+def table_dir_text(directory: str | os.PathLike[str]) -> str:
+    """``directory`` as EFIT must be given it: with a trailing separator, and short enough.
+
+    Raises :class:`ValueError` past :data:`TABLE_DIR_MAX_CHARS`, naming the
+    limit, rather than letting EFIT cut the path and fail on a table that is
+    in fact present.
+    """
+    text = os.fspath(directory)
+    if not text.endswith(("/", os.sep)):
+        text += "/"
+    if len(text) > TABLE_DIR_MAX_CHARS:
+        raise ValueError(
+            f"EFIT truncates TABLE_DIR at {TABLE_DIR_MAX_CHARS} characters and this one has "
+            f"{len(text)}: {text}. Place the tables under a shorter root, or link to them."
+        )
+    return text
+
+
+def efund_config_from_manifest(manifest: Mapping[str, Any], **overrides: Any) -> EFUNDConfig:
+    """The :class:`EFUNDConfig` a table manifest records, with ``overrides`` applied.
+
+    How a table for another era is made comparable to an existing one: the
+    grid, flags and quadrature are the recorded table's, so the machine
+    geometry is the only thing that differs between the two.
+    """
+    recorded = (manifest.get("efund") or {}).get("config")
+    if not recorded:
+        raise ValueError("the table manifest records no EFUND configuration")
+    values: dict[str, Any] = {}
+    for section in ("grid", "flags", "quadrature"):
+        values.update(recorded.get(section) or {})
+    if recorded.get("device"):
+        values["device"] = recorded["device"]
+    values.update(overrides)
+    return EFUNDConfig(**values)
+
+
+def _fortran_e(value: float, width: int = 14, digits: int = 6) -> str:
+    """Fortran ``Ew.d``: a mantissa in [0.1, 1), as EFIT's own files carry it."""
+    value = float(value)
+    if value == 0.0:
+        mantissa, exponent = 0.0, 0
+    else:
+        exponent = int(np.floor(np.log10(abs(value)))) + 1
+        mantissa = value / 10.0**exponent
+        if abs(round(mantissa, digits)) >= 1.0:
+            mantissa /= 10.0
+            exponent += 1
+        elif abs(round(mantissa, digits)) < 0.1:
+            mantissa *= 10.0
+            exponent -= 1
+    return f"{mantissa:.{digits}f}E{exponent:+03d}".rjust(width)
+
+
+def write_limiter_file(static_ods: Any, path: str | os.PathLike[str]) -> Path:
+    """Write EFIT's ``lim.dat`` from the static ODS's limiter outline.
+
+    The outline is the wall IDS limiter, which is the one every other code
+    limits against too; writing it from the era's own static ODS keeps the two
+    from drifting apart when an era changes the wall.
+    """
+    r = np.asarray(static_ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
+    z = np.asarray(static_ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
+    if r.shape != z.shape or r.ndim != 1 or r.size < 3:
+        raise ValueError(f"the limiter outline must be matching R and Z of three or more points, got {r.shape} and {z.shape}")
+    lines = [f"{0:7d}{r.size:13d}"]
+    lines += [_fortran_e(ri) + _fortran_e(zi) for ri, zi in zip(r, z)]
+    target = Path(path)
+    target.write_text("\n".join(lines) + "\n", encoding="ascii")
+    return target
+
+
+class TableExistsError(FileExistsError):
+    """The destination already holds a complete table (it has a manifest)."""
+
+
+@contextmanager
+def _exclusive(lock_path: Path) -> Iterator[None]:
+    """Hold an exclusive lock on ``lock_path`` for the duration.
+
+    Two pipeline processes that share a FileDB may both find an era's table
+    missing; without it the second to finish would delete the first one's
+    complete table -- possibly while a constraint job reads it -- and replace
+    it with a new mtime.  POSIX only: on Windows the build is unlocked.
+    """
+    try:
+        import fcntl
+    except ImportError:  # pragma: no cover - Windows
+        yield
+        return
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def generate_era_table(
+    era: str,
+    output: str | os.PathLike[str],
+    *,
+    config: EFUNDConfig | None = None,
+    base_table_dir: str | os.PathLike[str] | None = None,
+    acceptance_envelope: bool = True,
+    label: str | None = None,
+    extra: Mapping[str, Any] | None = None,
+    replace_incomplete: bool = False,
+) -> EFUNDResult:
+    """Build a complete, runnable EFIT table directory for one machine era.
+
+    The chain is ``build_static_ods(era) -> mhdin.dat -> efund -> tables +
+    manifest``, plus the ``lim.dat`` EFIT limits against, written from the
+    same static ODS.  ``config`` defaults to the EFUND configuration of
+    ``base_table_dir``'s manifest (see :func:`efund_config_from_manifest`), so
+    a generated table differs from the base only in geometry.
+
+    The directory is built beside ``output`` and renamed into place once it
+    holds a manifest, so ``output`` is either absent or a complete table --
+    never a half-written one an interrupted run left behind.  The build holds
+    a lock beside ``output``, so a second builder waits and then finds the
+    table present (:class:`TableExistsError`).  A failed EFUND run leaves
+    ``output`` untouched and its logs in ``<output>.failed-logs``; the staging
+    directory, some 170 MB at 129x129, is removed either way.
+
+    An ``output`` that exists without a manifest is refused unless it is empty
+    or ``replace_incomplete`` is set -- by a caller that owns the directory,
+    such as the pipeline rule, whose cleanup removes only the manifest.
+    """
+    import shutil
+
+    from vaft.machine_mapping.efund_geometry import vest_acceptance_envelope
+    from vaft.omas.vest_upstream import build_static_ods
+
+    final = Path(output).expanduser()
+    table_dir_text(final)
+    if config is None:
+        if base_table_dir is None:
+            config = EFUNDConfig()
+        else:
+            base = read_table_manifest(base_table_dir)
+            if base is None:
+                raise ValueError(f"{base_table_dir} has no {TABLE_MANIFEST_NAME} to take the EFUND configuration from")
+            config = efund_config_from_manifest(base)
+
+    with _exclusive(final.with_name(f".{final.name}.lock")):
+        if (final / TABLE_MANIFEST_NAME).is_file():
+            raise TableExistsError(f"{final} already holds a table; remove it to regenerate")
+        if final.is_dir() and any(final.iterdir()) and not replace_incomplete:
+            raise FileExistsError(f"{final} is not empty and holds no table manifest; refusing to replace it")
+
+        staging = final.with_name(f".{final.name}.partial-{os.getpid()}")
+        if staging.exists():
+            shutil.rmtree(staging)
+        config = EFUNDConfig(**{**_config_fields(config), "workdir": staging})
+        try:
+            started = time.perf_counter()
+            ods, static_manifest = build_static_ods(era)
+            envelope = (
+                vest_acceptance_envelope(ods, nw=config.nw, rleft=config.rleft, rright=config.rright)
+                if acceptance_envelope
+                else None
+            )
+            inputs = prepare_efund_inputs(ods, config, manifest=static_manifest, envelope=envelope)
+            result = run_efund(inputs, config)
+            if not result.ok:
+                result.logs = _keep_failure_logs(result.logs, final.with_name(f"{final.name}.failed-logs"))
+                return result
+            write_table_manifest(
+                result,
+                inputs,
+                config,
+                label=label or f"{era}-{config.table_suffix}",
+                extra={
+                    **(dict(extra) if extra else {}),
+                    "limiter": "lim.dat written from the era's static ODS wall limiter",
+                    "seconds": time.perf_counter() - started,
+                },
+            )
+            write_limiter_file(ods, staging / LIMITER_NAME)
+            if base_table_dir is not None:
+                for name in REFERENCE_COMPANIONS:
+                    origin = Path(base_table_dir).expanduser() / name
+                    if origin.is_file():
+                        shutil.copy2(origin, staging / name)
+
+            if final.exists():
+                # Empty, or incomplete and the caller owns it (checked above).
+                shutil.rmtree(final)
+            final.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(staging, final)
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
+    result.workdir = final
+    result.manifest = final / TABLE_MANIFEST_NAME
+    result.files = {name: final / Path(path).name for name, path in result.files.items()}
+    result.logs = tuple(final / Path(path).name for path in result.logs)
+    return result
+
+
+def _keep_failure_logs(logs: Sequence[Path], destination: Path) -> tuple[Path, ...]:
+    """Copy a failed run's logs out of the staging directory before it is removed."""
+    import shutil
+
+    kept: list[Path] = []
+    for log in logs:
+        log = Path(log)
+        if log.is_file():
+            destination.mkdir(parents=True, exist_ok=True)
+            target = destination / log.name
+            shutil.copy2(log, target)
+            kept.append(target)
+    return tuple(kept)
+
+
+def _config_fields(config: EFUNDConfig) -> dict[str, Any]:
+    return {name: getattr(config, name) for name in EFUNDConfig.__dataclass_fields__}

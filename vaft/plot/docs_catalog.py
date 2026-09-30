@@ -30,6 +30,15 @@ import inspect
 from collections.abc import Mapping
 from pathlib import Path
 
+__all__ = [
+    "SCHEMA_VERSION",
+    "THUMBNAILS",
+    "documentation_snapshot",
+    "entry_point_names",
+    "export_documentation_snapshot",
+    "main",
+]
+
 SCHEMA_VERSION = 1
 _GENERATOR = "python -m vaft.plot.docs_catalog --output docs/_data/plot_catalog.yml"
 _PACKAGE = Path(__file__).resolve().parent

@@ -21,6 +21,7 @@ _COMMANDS = {
     "plot": (".plot", "render a canonical plot for one or more shots"),
     "export": (".export", "export one shot as IMAS/OMAS/GEQDSK files"),
     "hsds": (".hsds", "configure HSDS credentials without echoing secrets"),
+    "pipeline-worker": (".pipeline_worker", "poll VEST SQL and run the routine pipeline on new shots"),
     "help": (".help", "what VAFT can do: topics, defaults and setup status"),
 }
 
