@@ -2280,11 +2280,21 @@ def build_kinetic_efit_ods(
     ephemeral = workdir is None
     work = Path(tempfile.mkdtemp(prefix=f"{stage}-")) if ephemeral else Path(workdir)
     attempts: list[dict[str, Any]] = []
+    retry = len(candidates) > 1
+
+    def record(time_ms: float, **fields: Any) -> None:
+        if retry:
+            attempts.append({"time_ms": float(time_ms), **fields})
+            manifest["attempts"] = attempts
+
     try:
         # Candidates in order until one converges (#1331): a slice whose
         # magnetic fit is usable can still lose its boundary once the pressure
         # constraint is added (39915 @ 315 ms), while its neighbour converges.
-        for attempt, time_ms in enumerate(candidates):
+        for time_ms in candidates:
+            # Nothing from a previous attempt may describe this one.
+            for key in ("reconstruction", "traceback", "error"):
+                manifest.pop(key, None)
             time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
             manifest["configuration"]["time_ms"] = float(time_ms)
             manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
@@ -2308,11 +2318,16 @@ def build_kinetic_efit_ods(
             try:
                 geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))
             except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
-                return unavailable(f"cannot build a psi map from the equilibrium: {error}")
+                message = f"cannot build a psi map from the equilibrium: {error}"
+                if not retry:
+                    return unavailable(message)
+                manifest["status"], manifest["error"] = "unavailable", message
+                record(time_ms, status="unavailable", reason=message)
+                continue
 
             config = KineticEFITConfig(
                 executable=executable,
-                workdir=work if len(candidates) == 1 else work / f"t{time_ms:g}",
+                workdir=work / f"t{time_ms:.3f}" if retry else work,
                 shot=shot,
                 time_ms=float(time_ms),
                 encoding=encoding,
@@ -2327,7 +2342,8 @@ def build_kinetic_efit_ods(
                 manifest["status"] = "failed"
                 manifest["error"] = f"{type(error).__name__}: {error}"
                 manifest["traceback"] = traceback.format_exc()
-                return out, manifest
+                record(time_ms, status="failed", reason=manifest["error"])
+                continue  # a failure is the slice's, not the stage's: try the next
 
             result = chain["kinetic_efit"]
             manifest["reconstruction"] = {
@@ -2337,9 +2353,7 @@ def build_kinetic_efit_ods(
                 "chi2": result.chi2,
                 "reason": result.reason,
             }
-            if len(candidates) > 1:
-                attempts.append({"time_ms": float(time_ms), **manifest["reconstruction"]})
-                manifest["attempts"] = attempts
+            record(time_ms, **manifest["reconstruction"])
             if result.status == "skipped":
                 return unavailable(result.reason or "EFIT executable is not configured")
             if not result.converged or result.gfile is None:
@@ -2350,7 +2364,6 @@ def build_kinetic_efit_ods(
             # Read the g-file before the workdir goes away.
             to_omas(read_geqdsk_file(result.gfile), ods=out)
             manifest["status"] = "success"
-            manifest.pop("error", None)
             manifest["quality_summary"]["unavailable"] = []
             # Recording a path under a directory about to be deleted would name a
             # file nobody can open; the name is what identifies the reconstruction.

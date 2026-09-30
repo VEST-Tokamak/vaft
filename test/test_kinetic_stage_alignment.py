@@ -231,3 +231,70 @@ def test_without_an_aligned_usable_slice_the_times_next_to_the_usable_window_com
     usable = np.arange(335.0, 340.0)
     times, why = vu.profile_time_candidates(profile, eq, usable)
     assert why == "aligned, nearest the usable window" and times[:3] == [331.0, 330.0, 329.0]
+
+
+def _stage_inputs(tmp_path, monkeypatch, outcomes):
+    """build_kinetic_efit_ods over fake products; `outcomes` maps time_ms to what the fit does."""
+    import json
+    from types import SimpleNamespace
+
+    import vaft.code.efit.kinetic as kinetic
+    import vaft.data.eqdsk as eqdsk
+    import vaft.process.equilibrium as process_equilibrium
+
+    paths = {name: tmp_path / f"{name}.json" for name in ("core_profiles", "constraints", "efit")}
+    for path in paths.values():
+        path.write_text("{}")
+    profiles = _core_profiles([314.0, 315.0, 316.0, 317.0])
+    profiles["thomson_scattering.time"] = np.array([0.315])
+    constraints = ODS(consistency_check=False)
+    constraints["equilibrium.time"] = np.array([0.315])
+    solution = ODS(consistency_check=False)
+    solution["equilibrium.time"] = np.arange(312.0, 320.0) / 1e3
+    for i in range(8):
+        solution[f"equilibrium.time_slice.{i}.global_quantities.ip"] = 1.0
+    solution["equilibrium.code.parameters"] = json.dumps({"efit_collection": {"slice_statuses": [
+        {"time": t / 1e3, "overall_status": "usable"} for t in (315.0, 316.0, 317.0)]}})
+    products = {str(paths["core_profiles"]): profiles, str(paths["constraints"]): constraints,
+                str(paths["efit"]): solution}
+    monkeypatch.setattr(vu, "load_ods", lambda path: (products[str(path)], {}))
+    monkeypatch.setattr(process_equilibrium, "as_equilibrium", lambda sol, time_index: time_index)
+    monkeypatch.setattr(eqdsk, "from_equilibrium", lambda index: index)
+    monkeypatch.setattr(eqdsk, "to_omas", lambda geq, ods: ods)
+    monkeypatch.setattr(vu, "read_geqdsk_file", lambda path: path)
+    tried = []
+
+    def fake_chain(ods, geq, time_ms, efit_config):
+        tried.append((time_ms, str(efit_config.workdir)))
+        outcome = outcomes[time_ms]
+        if outcome == "raise":
+            raise RuntimeError("EFIT crashed")
+        converged = outcome == "converge"
+        return {"kinetic_efit": SimpleNamespace(status="ok", converged=converged, scale=1.0 if converged else None,
+                                                chi2=100.0 if converged else None,
+                                                reason="" if converged else "no PLASMA scale converged",
+                                                gfile="g" if converged else None)}
+
+    monkeypatch.setattr(kinetic, "run_kinetic_chain", fake_chain)
+    kwargs = dict(shot=39915, stage="electron_efit", core_profiles_product=paths["core_profiles"],
+                  constraints_product=paths["constraints"], efit_product=paths["efit"], workdir=tmp_path / "work")
+    return kwargs, tried
+
+
+def test_the_stage_moves_past_a_failed_and_a_crashed_slice_to_one_that_converges(tmp_path, monkeypatch):
+    kwargs, tried = _stage_inputs(tmp_path, monkeypatch, {315.0: "fail", 316.0: "raise", 317.0: "converge"})
+    _, manifest = vu.build_kinetic_efit_ods(**kwargs)
+    assert [t for t, _ in tried] == [315.0, 316.0, 317.0]
+    assert manifest["status"] == "success" and manifest["configuration"]["time_ms"] == 317.0
+    assert "error" not in manifest and "traceback" not in manifest
+    assert manifest["reconstruction"]["converged"] and manifest["reconstruction"]["chi2"] == 100.0
+    assert [(a["time_ms"], a["status"]) for a in manifest["attempts"]] == [(315.0, "ok"), (316.0, "failed"), (317.0, "ok")]
+    assert all(workdir.endswith(f"t{t:.3f}") for t, workdir in tried)
+
+
+def test_when_every_slice_fails_the_last_attempt_is_what_the_manifest_says(tmp_path, monkeypatch):
+    kwargs, _ = _stage_inputs(tmp_path, monkeypatch, {315.0: "raise", 316.0: "fail", 317.0: "fail"})
+    _, manifest = vu.build_kinetic_efit_ods(**kwargs)
+    assert manifest["status"] == "no_output" and manifest["error"] == "no PLASMA scale converged"
+    assert manifest["configuration"]["time_ms"] == 317.0 and "traceback" not in manifest
+    assert len(manifest["attempts"]) == 3
