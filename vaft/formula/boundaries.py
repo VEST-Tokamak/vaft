@@ -454,8 +454,11 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
     of different boundaries share one sign convention. ``allowed`` is strict:
     a state exactly on the boundary is not counted as permitted. A boundary
     value that is zero, negative or not finite gives NaN margin and ratio, is
-    never permitted, and adds a warning. Pass magnitudes where a sign
-    convention could make the boundary negative.
+    never permitted, and adds a warning. An operating value that is not
+    finite (a NaN gap in a trace) is likewise reported as not permitted, with
+    NaN margin and ratio and a warning: ``allowed`` is False there, not
+    unknown, so count violations from ``margin`` when a trace has gaps. Pass
+    magnitudes where a sign convention could make the boundary negative.
 
     Notes
     -----
@@ -469,10 +472,11 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
     difference = x - b_arr
     signed = -difference if boundary.allowed_side == "below" else difference
     valid = np.isfinite(b_arr) & (b_arr > 0)
+    x_finite = np.isfinite(x)
     with np.errstate(divide="ignore", invalid="ignore"):
         margin = np.where(valid, signed / np.where(valid, b_arr, 1.0), np.nan)
         ratio = np.where(valid, x / np.where(valid, b_arr, 1.0), np.nan)
-    allowed = valid & (signed > 0)
+    allowed = valid & x_finite & (signed > 0)
     extrapolated = _extrapolated(boundary, inputs)
     warnings = tuple(
         f"{name} lies outside the range {boundary.applicability.ranges[name]} "
@@ -482,6 +486,11 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
     if not np.all(valid):
         warnings += (
             f"{boundary.key!r} is non-positive or not finite at some inputs; margin and ratio are NaN "
+            "and the state is not counted as permitted there",
+        )
+    if not np.all(x_finite):
+        warnings += (
+            "the operating value is not finite at some inputs; margin and ratio are NaN "
             "and the state is not counted as permitted there",
         )
     return BoundaryEvaluation(

@@ -157,6 +157,23 @@ def test_non_finite_inputs_are_out_of_domain():
     assert result.extrapolated == ("x",)
 
 
+def test_a_nan_operating_value_is_reported_not_silently_counted_as_a_violation():
+    entry = B.get_boundary("greenwald")
+    scalar = B.evaluate_boundary(entry, np.nan, plasma_current=0.1, minor_radius=0.25)
+    assert scalar.allowed is False and math.isnan(scalar.margin) and math.isnan(scalar.ratio)
+    assert len(scalar.warnings) == 1 and "operating value is not finite" in scalar.warnings[0]
+    # A NaN gap in a trace: one true violation, one gap.  The gap is not
+    # permitted (allowed is strict), but it is flagged, and the margin says NaN.
+    trace = B.evaluate_boundary(entry, np.array([1.0, np.nan, 50.0]), plasma_current=0.1, minor_radius=0.25)
+    np.testing.assert_array_equal(trace.allowed, [True, False, False])
+    np.testing.assert_array_equal(np.isnan(trace.margin), [False, True, False])
+    assert int(np.sum(trace.margin < 0)) == 1
+    assert len(trace.warnings) == 1 and "operating value" in trace.warnings[0]
+    # A finite trace against a healthy boundary still carries no warning.
+    clean = B.evaluate_boundary(entry, np.array([1.0, 50.0]), plasma_current=0.1, minor_radius=0.25)
+    assert clean.warnings == ()
+
+
 # ------------------------------------------------------------------
 # Threshold and window
 # ------------------------------------------------------------------
