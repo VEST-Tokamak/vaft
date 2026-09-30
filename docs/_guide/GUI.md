@@ -66,6 +66,10 @@ and shows the reason above it.
   scroll zoom, hover read-out, spike lines, and drawing tools to mark lines, regions and shapes.
   Zoom survives a change of slice or unit. **Static** switches to the Matplotlib image, and the
   choice is remembered for the next plot.
+- **Playback.** A plot with a slice or time control -- equilibrium slices, camera frames -- gets a
+  player beneath it: play, pause, step, loop, and the frame interval. Each frame is the plot
+  redrawn on the server with every other control as chosen, so a frame that cannot be drawn is
+  reported and skipped. Writing the sequence to a video file is not part of the GUI yet (#1049/#1050).
 - **Figure.** Width and height in pixels, axis limits and log scales; empty fields stay automatic.
 - **Export.** Downloads the current plot as PNG, SVG or PDF at the chosen DPI. The file is the
   Matplotlib rendering with the controls and figure settings on screen, whichever renderer is shown.

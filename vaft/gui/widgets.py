@@ -71,6 +71,8 @@ def panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = 
     """
     pn = require_panel()
     widgets: dict[str, Any] = {}
+    #: name -> (player, value at a player position, player position of a value)
+    players: dict[str, tuple[Any, Callable[[int], Any], Callable[[Any], int | None]]] = {}
     laid_out: list[Any] = []
     busy = {"on": False}
     has_channels = "channels" in {control.name for control in state.controls}
@@ -86,8 +88,29 @@ def panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = 
                     continue
                 if widget.value != value:
                     widget.value = value
+            for name, (player, _, position_of) in players.items():
+                position = position_of(current[name])
+                if position is not None and player.value != position:
+                    player.value = position
         finally:
             busy["on"] = False
+
+    def apply_value(name: str, value: Any) -> None:
+        before = state.values
+        try:
+            state.set(name, value)
+        except Exception as error:  # the builder's refusal
+            # The Matplotlib redraw restores the values itself; the Plotly
+            # rebuild does not, so the values are put back here for both.
+            state.restore(before)
+            follow(state)
+            if on_error is None:
+                raise
+            on_error(error)
+        else:
+            # A preset clears the channels (ControlState.set): the check
+            # boxes and the preset box follow even when nothing redrew.
+            follow(state)
 
     def setter(name: str) -> Callable[[Any], None]:
         def apply(event: Any) -> None:
@@ -97,21 +120,7 @@ def panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = 
                 # A placeholder, not a value: show the state's value again.
                 follow(state)
                 return
-            before = state.values
-            try:
-                state.set(name, event.new)
-            except Exception as error:  # the builder's refusal
-                # The Matplotlib redraw restores the values itself; the Plotly
-                # rebuild does not, so the values are put back here for both.
-                state.restore(before)
-                follow(state)
-                if on_error is None:
-                    raise
-                on_error(error)
-            else:
-                # A preset clears the channels (ControlState.set): the check
-                # boxes and the preset box follow even when nothing redrew.
-                follow(state)
+            apply_value(name, event.new)
         return apply
 
     for control in state.controls:
@@ -155,9 +164,65 @@ def panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = 
         widget.param.watch(setter(control.name), watched)
         widgets[control.name] = widget
         laid_out.append(widget if shown is None else shown)
+        if control.group == "slice" and control.kind in ("choice", "range"):
+            player, value_at, position_of = _player(pn, control, state[control.name])
+
+            def play(event: Any, name: str = control.name, value_at: Callable[[int], Any] = value_at) -> None:
+                if not busy["on"]:
+                    apply_value(name, value_at(int(event.new)))
+
+            player.param.watch(play, "value")
+            players[control.name] = (player, value_at, position_of)
+            interval = pn.widgets.IntInput(
+                label="Frame interval [ms]", value=PLAY_INTERVAL_MS, start=50, step=50,
+            )
+            # Both ways: the player's own slower/faster buttons move it too.
+            interval.link(player, value="interval", bidirectional=True)
+            laid_out.append(pn.Column(player, interval, name=f"Play: {control.label}", sizing_mode="stretch_width"))
 
     state.subscribe(follow)
     return laid_out
 
 
-__all__ = ["INDIVIDUAL_LABEL", "panel_controls"]
+#: Milliseconds between frames when playing; each frame is a redraw on the
+#: server, so the default leaves room for a Plotly rebuild.
+PLAY_INTERVAL_MS = 700
+
+
+def _player(pn: Any, control: Any, current: Any) -> tuple[Any, Callable[[int], Any], Callable[[Any], int | None]]:
+    """A play/step/loop control over a slice or time control (#1359 video, step 1).
+
+    It walks the same control the reader can set by hand -- the stored
+    equilibrium slices, a camera's frames -- so playback is the plot drawn
+    frame after frame, with every other control as chosen.
+    """
+    if control.kind == "choice":
+        options = list(control.options)
+
+        def value_at(position: int) -> Any:
+            return options[max(0, min(position, len(options) - 1))]
+
+        def position_of(value: Any) -> int | None:
+            return options.index(value) if value in options else None
+
+        start, end, step = 0, len(options) - 1, 1
+    else:
+        low, high, step = (int(v) for v in control.options)
+
+        def value_at(position: int) -> Any:
+            return max(low, min(position, high))
+
+        def position_of(value: Any) -> int | None:
+            return None if value is None else int(value)
+
+        start, end = low, high
+    position = position_of(current)
+    player = pn.widgets.Player(
+        label=f"Play: {control.label}", start=start, end=end, step=step,
+        value=start if position is None else position, interval=PLAY_INTERVAL_MS,
+        loop_policy="loop", show_value=False, scale_buttons=0.8, sizing_mode="stretch_width",
+    )
+    return player, value_at, position_of
+
+
+__all__ = ["INDIVIDUAL_LABEL", "PLAY_INTERVAL_MS", "panel_controls"]
