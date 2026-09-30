@@ -12930,7 +12930,7 @@ del _name, _diagnostic
 _CALLABLE_TIME_AXES: dict[str, str] = {
     **dict.fromkeys(
         (
-            "equilibrium_geometry_topview", "machine_geometry_topview",
+            "equilibrium_geometry_topview", "machine_geometry_topview", "machine_geometry3d",
             "equilibrium_overview_constraints", "equilibrium_overview_residuals",
             "equilibrium_overview_fit_quality", "equilibrium_overview_verification",
             "equilibrium_overview_constraint_weights", "equilibrium_overview_pressure_weight_scan",
@@ -12942,6 +12942,9 @@ _CALLABLE_TIME_AXES: dict[str, str] = {
         (
             "mhd_linear_profile_displacement", "mhd_linear_profile_b_field_perturbed",
             "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",
+            # the same (time_slice, n_tor) cell selection as the profiles above
+            "mhd_linear_profile_chirikov", "mhd_linear_field_spectrum",
+            "mhd_linear_spectrum_b_field_perturbed", "mhd_linear_geometry_island",
         ),
         "mhd_linear.time_slice",
     ),
@@ -12959,6 +12962,8 @@ _CALLABLE_TIME_AXES: dict[str, str] = {
             "vacuum_field_midplane", "impa_profile_field",
             "camera_visible_image_vacuum_field_line",
             "thomson_scattering_profile_fit", "charge_exchange_profile_fit",
+            # _coil_set_excitation resolves time= to the nearest current sample
+            "coil_3d_profile_current", "coil_3d_spectrum_current",
         ),
         OWN_TIME,
     ),
