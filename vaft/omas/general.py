@@ -761,6 +761,8 @@ _SLICE_ORIENTED_LEAVES = (
 #: (the psi grid, and ``b0`` beside ``j_bootstrap`` from the neoclassical
 #: stage) together with the other orientation-carrying profiles, so a record
 #: converted from 2-8 is not left internally inconsistent.
+#: core_profiles is assumed to share the equilibrium's declared convention;
+#: the declaration lives on the equilibrium and none is read for core_profiles.
 _COCOS_TRANSFORMED_LEAVES = frozenset(
     tuple(
         f"equilibrium.time_slice.:.{leaf}"
