@@ -108,7 +108,9 @@ which is a different coordinate.
 The same equilibrium carried through all of its representations -- the four radial coordinates side
 by side, a PEST grid, Miller and Fourier fits, $a/L_T$ in four gradient conventions, a prescribed
 island, a 3-D embedding and a camera projection, each checked against the same source, time, COCOS
-and flux unit -- is `notebooks/equilibrium_representation_reference.ipynb` (#1201).
+and flux unit -- is `notebooks/equilibrium_representation_reference.ipynb` (#1201). Which of these
+is a coordinate, a projection, a representation, a derived quantity or a solver convention is set
+out in [Equilibrium representations]({{ '/reference/equilibrium-representations/' | relative_url }}).
 Building an equilibrium is covered in [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/).
 
 ## Stage 2 — profile fitting

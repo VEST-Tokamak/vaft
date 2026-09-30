@@ -167,9 +167,14 @@ def test_every_layer_is_fully_catalogued(coverage, snapshots):
 def _docs_tree(tmp_path, snapshots):
     docs = tmp_path / "docs"
     (docs / "_data").mkdir(parents=True)
-    shutil.copy(DOCS / "generators.yml", docs / "generators.yml")
     names = {"formula": "formula_catalog.yml", "process": "process_catalog.yml",
              "plot": "plot_catalog.yml", "diagram": "diagram_catalog.yml"}
+    # Only the generators whose snapshots this helper writes; the API catalog
+    # has its own tests (test_docs_api.py).
+    declared = yaml.safe_load((DOCS / "generators.yml").read_text(encoding="utf-8"))
+    declared["generators"] = [g for g in declared["generators"] if Path(g["output"]).name in names.values()
+                              or g["module"] == "vaft.machine_mapping.registry"]
+    (docs / "generators.yml").write_text(yaml.safe_dump(declared), encoding="utf-8")
     for kind, name in names.items():
         (docs / "_data" / name).write_text(yaml.safe_dump(snapshots[kind]), encoding="utf-8")
     return docs

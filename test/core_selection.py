@@ -116,6 +116,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
     "test_public_confinement.py",
+    "test_public_profile.py",
     "test_public_transition.py",
     "test_shotlog.py",
     # Packaging and documentation policy. Metadata reads; they catch the
@@ -141,6 +142,7 @@ CORE_MODULES: tuple[str, ...] = (
     # author ever opening docs/, which is exactly what develop should catch.
     # The committed diagram SVGs are checked against their TikZ source too.
     "test_diagram_render.py",
+    "test_docs_api.py",
     "test_docs_catalogs.py",
     "test_docs_content.py",
     "test_docs_snippets.py",
@@ -166,6 +168,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_guiding_center.py",
     "test_diagram_harmonic.py",
     "test_diagram_infrastructure.py",
+    "test_diagram_integrated_modeling.py",
     "test_diagram_iteration_dynamics.py",
     "test_diagram_magnetic_island.py",
     "test_diagram_marfe.py",

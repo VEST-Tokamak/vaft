@@ -101,13 +101,15 @@ def test_the_ballooning_criterion_reports_the_distance_to_its_own_threshold():
 
 
 def test_the_sawtooth_threshold_goes_negative_above_unit_q0_where_sawteeth_do_not_occur():
-    margin, crit = sawtooth_stability_criterion(0.8, 0.5)
+    with pytest.warns(DeprecationWarning, match="#350"):
+        margin, crit = sawtooth_stability_criterion(0.8, 0.5)
     assert crit == pytest.approx(0.3 * 0.2)
     assert margin == pytest.approx(0.5 - 0.06)
 
     # Documented limitation, pinned so a fix has to change it: above q_0 = 1 the
     # threshold is negative, so every poloidal beta "exceeds" it (#350).
-    _, crit_above = sawtooth_stability_criterion(1.4, 0.5)
+    with pytest.warns(DeprecationWarning):
+        _, crit_above = sawtooth_stability_criterion(1.4, 0.5)
     assert crit_above < 0.0
 
 
@@ -199,24 +201,45 @@ def test_the_interpolation_holds_its_end_values_outside_the_surveyed_range():
 
 
 def test_the_margins_carry_the_three_conventions_their_docstring_names():
-    beta_margin, q_margin, density_margin = plasma_stability_margins(
-        beta_N=2.0, q_95=3.0, n_e=5.0, n_G=10.0
-    )
+    with pytest.warns(DeprecationWarning, match="#350"):
+        beta_margin, q_margin, density_margin = plasma_stability_margins(
+            beta_N=2.0, q_95=3.0, n_e=5.0, n_G=10.0
+        )
     assert q_margin == pytest.approx(1.0), "a difference: q_95 - 2"
     assert density_margin == pytest.approx(0.5), "a ratio: n_e / n_G"
 
     from vaft.formula.stability import beta_stability_boundary
 
-    assert beta_margin == pytest.approx(beta_stability_boundary(2.0, 3.0)[0])
+    with pytest.warns(DeprecationWarning, match="troyon"):
+        assert beta_margin == pytest.approx(beta_stability_boundary(2.0, 3.0)[0])
 
 
 def test_a_safety_factor_below_two_reports_a_negative_margin():
-    _, q_margin, _ = plasma_stability_margins(beta_N=2.0, q_95=1.5, n_e=5.0, n_G=10.0)
+    with pytest.warns(DeprecationWarning):
+        _, q_margin, _ = plasma_stability_margins(beta_N=2.0, q_95=1.5, n_e=5.0, n_G=10.0)
     assert q_margin < 0.0
 
 
 def test_a_density_above_the_greenwald_limit_reports_a_fraction_above_one():
-    _, _, density_margin = plasma_stability_margins(
-        beta_N=2.0, q_95=3.0, n_e=12.0, n_G=10.0
-    )
+    with pytest.warns(DeprecationWarning):
+        _, _, density_margin = plasma_stability_margins(
+            beta_N=2.0, q_95=3.0, n_e=12.0, n_G=10.0
+        )
     assert density_margin > 1.0
+
+
+def test_kink_criterion_is_deprecated_with_unchanged_numbers():
+    from vaft.formula.stability import kink_stability_criterion
+
+    with pytest.warns(DeprecationWarning, match="troyon"):
+        margin, crit = kink_stability_criterion(3.0, 2.0)
+    assert crit == pytest.approx(8.4) and margin == pytest.approx(2.0 - 8.4)
+
+
+def test_plasma_stability_margins_warns_once():
+    import warnings
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plasma_stability_margins(beta_N=2.0, q_95=3.0, n_e=5.0, n_G=10.0)
+    assert len([w for w in caught if issubclass(w.category, DeprecationWarning)]) == 1

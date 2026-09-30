@@ -202,3 +202,26 @@ def test_the_report_renders_from_the_committed_table(module, table):
     for shot in PACKAGED:
         assert f"## {shot}" in text
     assert "Policy: " in text
+
+
+def test_a_shot_the_source_does_not_hold_is_an_absent_row_not_a_crash(module, monkeypatch):
+    """#1331: a lazy source opens without contacting the server; the 404 for a
+    missing shot surfaces at the first `in` test, which was outside the guard."""
+
+    class Unreachable:
+        def __contains__(self, key):
+            raise OSError(404, "Not Found")
+
+    monkeypatch.setattr(module, "load_shot", lambda shot, **kwargs: Unreachable())
+    row = module.scan_shot(22027, source="main", packaged=False, policy=module.FitnessPolicy(), tstep=0.001)
+    assert row["status"] == "absent" and "404" in row["reason"]
+
+
+def test_the_report_renders_a_model_that_was_consulted_without_a_residual(module, table):
+    payload = json.loads(json.dumps(table))
+    row = next(r for r in payload["rows"] if r.get("verdict"))
+    row["model"] = {**row["model"], "available": False,
+                    "normalized_residual": {"median": None, "max": None, "n": 11},
+                    "coupling": "could not re-map: IndexError: ..."}
+    text = module.markdown(payload)
+    assert "no residual (" in text and "could not re-map" in text

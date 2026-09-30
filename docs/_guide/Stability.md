@@ -67,11 +67,20 @@ eq     = ods['equilibrium.time_slice.0.global_quantities']
 beta_N = eq['beta_normal']        # [%·m·T/MA]
 q_95   = eq['q_95']
 
-d_beta, beta_N_crit = vaft.formula.kink_stability_criterion(q_95, beta_N)
-d_bN,   bN_crit     = vaft.formula.beta_stability_boundary(beta_N, q_95)
+B = vaft.formula.boundaries
+beta_check = B.evaluate_boundary(B.get_boundary("troyon"), beta_N)   # beta_N <= 2.2 mu0 1e6 ~ 2.76
+q_check    = B.evaluate_boundary(B.get_boundary("low_q"), q_95)      # q_psi > 2 (Greenwald 1988)
 ```
 
-Every criterion returns a `(margin, critical_value)` pair, and the margin is literally
+`evaluate_boundary` returns a margin that is **positive on the permitted side** whichever way the
+limit points, together with the source (paper, equation, DOI) and the inputs that fall outside the
+range the limit was fitted on. The Troyon coefficient is Troyon *et al.* (1984), p. 214:
+$(\beta A)_{max} \approx 2.2\,I_N$, i.e. $\beta_N \le 2.2\,\mu_0\cdot10^6 \approx 2.76$ %·m·T/MA, the
+origin of the rounded 2.8. `kink_stability_criterion` and `beta_stability_boundary` multiply the limit by
+$q_{95}$, which no source does; they are deprecated (#350) and keep their old numbers only for
+compatibility.
+
+The remaining local criteria return a `(margin, critical_value)` pair, and the margin is literally
 `value - critical`. A **positive** margin therefore means the plasma sits **above** the boundary:
 
 <!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
@@ -97,7 +106,11 @@ f_G = vaft.formula.greenwald_fraction(n_e=1.5, n_G=n_G)
 is conventionally formed with the **line-averaged** electron density. Both arguments to
 `greenwald_fraction` must use the same density definition and units — it just divides.
 
-## The combined margin helper, and its one trap
+## The combined margin helper (deprecated), and its one trap
+
+`plasma_stability_margins` is deprecated (#350): its beta margin uses the unsourced $0.028\,q_{95}$
+limit. Use `evaluate_boundary` with `"troyon"`, `"low_q"` and `"greenwald"` instead, which share one
+sign convention. The description below documents the old behaviour.
 
 <!-- docs-snippet: skip fragment (placeholder name n_e is never defined on the page) -->
 ```python

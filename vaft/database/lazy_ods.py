@@ -245,7 +245,13 @@ class HSDSStore(dynamic_ODS):
                 children.update(range(self._aos_length(ids_name, aos_template, parts)))
             else:
                 children.add(child)
-        return sorted(children, key=lambda value: (isinstance(value, int), str(value)))
+        # Names first, then AOS indices in *numeric* order: OMAS fills an AOS
+        # only index by index, so a walk in string order (0, 1, 10, 2, ...)
+        # asks for element 10 while 2-9 do not exist yet and is refused.
+        return sorted(
+            children,
+            key=lambda value: (1, value, "") if isinstance(value, int) else (0, 0, str(value)),
+        )
 
     def __contains__(self, location: Any) -> bool:
         parts = _path_parts(location)

@@ -189,6 +189,8 @@ def test_no_tooling_is_published(site):
      "diagram hugill is in the catalog but not rendered on /vaft/develop/reference/diagram/"),
     ("reference/formula/stability/index.html", "greenwald_density",
      "formula greenwald_density is in the catalog but not rendered on /vaft/develop/reference/formula/stability/"),
+    ("reference/api/code/index.html", "vaft.code.efit.run_efit",
+     "api vaft.code.efit.run_efit is in the catalog but not rendered on /vaft/develop/reference/api/code/"),
 ])
 def test_a_catalog_entry_missing_from_its_rendered_page_is_caught(site, tmp_path, page, entry, message):
     """validate_docs.rb reads the built HTML, so a page that drops an entry fails the build."""

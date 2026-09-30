@@ -20,7 +20,9 @@ reductions using the literature's names. The formulas are in
 
 The toroidal parent geometry itself (flux surfaces, the Shafranov shift, shaping, $q$ as a winding
 number, and $\theta$ versus $\theta^*$) is drawn in the tokamak-geometry section of
-[Scientific diagrams]({{ '/reference/diagrams/' | relative_url }}).
+[Scientific diagrams]({{ '/reference/diagrams/' | relative_url }}). How VAFT keeps coordinates,
+projections, representations, derived quantities and solver conventions of one real equilibrium
+apart is on [Equilibrium representations]({{ '/reference/equilibrium-representations/' | relative_url }}).
 
 ## Two axes, not one hierarchy
 
