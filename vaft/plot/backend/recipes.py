@@ -12986,10 +12986,14 @@ del _name, _axis
 #: The channels ``diagnostics_spectrum_coherence`` can compare:
 #: ``diagnostic -> (container, signal templates, time templates, name template)``.
 _COHERENCE_SOURCES: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], str]] = {
+    # the same signal family, in the same order, as
+    # vaft.omas.fluctuation.FLUCTUATION_DIAGNOSTICS: a product listed by
+    # fluctuation_bandwidths() is selectable here
     "mirnov": (
         "magnetics.b_field_pol_probe",
-        ("magnetics.b_field_pol_probe.{i}.voltage.data",),
-        ("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
+        ("magnetics.b_field_pol_probe.{i}.voltage.data", "magnetics.b_field_pol_probe.{i}.field.data"),
+        ("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.b_field_pol_probe.{i}.field.time",
+         "magnetics.time"),
         "magnetics.b_field_pol_probe.{i}.name",
     ),
     "soft_x_rays": (
