@@ -21,6 +21,8 @@ c_s    : ion-sound speed                             [m/s]
 τ_E    : energy confinement time                     [s]
 """
 
+import warnings
+
 import numpy as np
 from typing import Union, Tuple
 
@@ -423,7 +425,14 @@ def ballooning_stability_criterion(alpha: Union[float, np.ndarray],
 
 def kink_stability_criterion(q_95: float,
                            beta_N: float) -> Tuple[float, float]:
-    r"""Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.
+    r"""Deprecated: heuristic margin against an unsourced $\beta_{N,crit} = 2.8\,q_{95}$; use the ``troyon`` boundary.
+
+    Neither Troyon et al. [1]_ nor any other recorded source multiplies the
+    $\beta_N$ limit by $q_{95}$ (#350). The sourced limit is
+    ``vaft.formula.boundaries.get_boundary("troyon")``: Troyon's
+    $(\beta A)_{max} \approx 2.2\,I_N$ (p. 214), i.e.
+    $\beta_N \le 2.2\,\mu_0\cdot10^6 \approx 2.76$ %·m·T/MA with no $q_{95}$ factor.
+    Results are unchanged; a ``DeprecationWarning`` is emitted.
 
     $$\Delta = \beta_N - \beta_{N,crit}, \qquad \beta_{N,crit} = 2.8\,q_{95}$$
 
@@ -443,8 +452,9 @@ def kink_stability_criterion(q_95: float,
 
     Validity
     --------
-    Empirical fit.  The coefficient 2.8 is the Troyon limit $\beta_N \le 2.8$
-    [1]_; the multiplication by $q_{95}$ has no source in the literature or the
+    Empirical fit.  The coefficient 2.8 is the rounded Troyon limit
+    $2.2\,\mu_0\cdot10^6 \approx 2.76$ [1]_ (p. 214, $(\beta A)_{max} \approx 2.2\,I_N$);
+    the multiplication by $q_{95}$ has no source in the literature or the
     VAFT history and makes the limit rise with $q_{95}$, opposite to the
     observed trend.  :func:`beta_stability_boundary` uses the same form with
     0.028, i.e. the fraction rather than percent convention of $\beta_N$.
@@ -459,13 +469,26 @@ def kink_stability_criterion(q_95: float,
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
     """
+    warnings.warn(
+        "`kink_stability_criterion` is deprecated: its q_95 factor has no source (#350). Use "
+        "`vaft.formula.boundaries.get_boundary('troyon')` (beta_N <= 2.2 mu0 1e6 ~ 2.76, %·m·T/MA).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     beta_N_crit = 2.8 * q_95
     return beta_N - beta_N_crit, beta_N_crit
 
 
 def sawtooth_stability_criterion(q_0: float,
                                beta_pol: float) -> Tuple[float, float]:
-    r"""Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
+    r"""Deprecated: heuristic margin against an unsourced $\beta_{p,crit} = 0.3\,(1 - q_0)$; no replacement.
+
+    Porcelli et al. [1]_ trigger the crash on conditions in the internal-kink
+    energy $\delta\hat W$, the fast-ion precession frequency, the ion diamagnetic
+    frequency (Eqs. 13-15) and, through Eq. (15a), the shear $s_1$ at $q = 1$, with $\beta_{p1}$
+    defined inside the $q = 1$ surface (Eq. 12). None reduces to a threshold
+    $0.3\,(1 - q_0)$ on the global $\beta_p$ (#350), so this has no drop-in
+    replacement. Results are unchanged; a ``DeprecationWarning`` is emitted.
 
     $$\Delta = \beta_p - \beta_{p,crit}, \qquad \beta_{p,crit} = 0.3\,(1 - q_0)$$
 
@@ -499,8 +522,14 @@ def sawtooth_stability_criterion(q_0: float,
     References
     ----------
     .. [1] F. Porcelli, D. Boucher and M. N. Rosenbluth, Plasma Phys. Control.
-           Fusion 38 (1996) 2163, Sec. 3.
+           Fusion 38 (1996) 2163, Sec. 3, Eqs. (12)-(15a).
     """
+    warnings.warn(
+        "`sawtooth_stability_criterion` is deprecated: 0.3 (1 - q_0) on the global beta_p has no source "
+        "(#350); the Porcelli trigger is a set of conditions (PPCF 38 (1996) 2163, Eqs. 12-15), not a beta threshold.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     beta_pol_crit = 0.3 * (1 - q_0)
     return beta_pol - beta_pol_crit, beta_pol_crit
 
@@ -672,7 +701,12 @@ def power_limit_from_q(q_95: float,
 
 def beta_stability_boundary(beta_N: float,
                             q_95: float) -> Tuple[float, float]:
-    r"""Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.
+    r"""Deprecated: fraction-convention twin of :func:`kink_stability_criterion`; use the ``troyon`` boundary.
+
+    The $q_{95}$ factor has no source (#350). Since #349 $\beta_N$ is in
+    %·m·T/MA, where the sourced limit is
+    ``vaft.formula.boundaries.get_boundary("troyon")`` ($\approx 2.76$).
+    Results are unchanged; a ``DeprecationWarning`` is emitted.
 
     $$\Delta = \beta_N - \beta_{N,crit}, \qquad \beta_{N,crit} = 0.028\,q_{95}$$
 
@@ -702,6 +736,12 @@ def beta_stability_boundary(beta_N: float,
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
     """
+    warnings.warn(
+        "`beta_stability_boundary` is deprecated: its q_95 factor has no source (#350). Use "
+        "`vaft.formula.boundaries.get_boundary('troyon')` with beta_N in %·m·T/MA.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     beta_N_crit = 0.028 * q_95
     stab_margin = beta_N - beta_N_crit
     return stab_margin, beta_N_crit
@@ -711,7 +751,13 @@ def plasma_stability_margins(beta_N: float,
                              q_95: float,
                              n_e: float,
                              n_G: float) -> Tuple[float, float, float]:
-    r"""Beta, $q_{95}$ and density margins in one call.
+    r"""Deprecated: beta, $q_{95}$ and density margins built on the unsourced $0.028\,q_{95}$ beta limit.
+
+    The beta margin comes from :func:`beta_stability_boundary`, whose $q_{95}$
+    factor has no source (#350). Use ``vaft.formula.boundaries``:
+    ``evaluate_boundary`` with ``"troyon"``, ``"low_q"`` and ``"greenwald"``
+    gives each margin with its source and one sign convention. Results are
+    unchanged; a ``DeprecationWarning`` is emitted.
 
     $$\Delta_\beta = \beta_N - 0.028\,q_{95}, \qquad
       \Delta_q = q_{95} - 2, \qquad
@@ -748,7 +794,13 @@ def plasma_stability_margins(beta_N: float,
     .. [1] J. A. Wesson et al., Nucl. Fusion 29 (1989) 641.
     .. [2] M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27.
     """
-    beta_margin, _ = beta_stability_boundary(beta_N, q_95)
+    warnings.warn(
+        "`plasma_stability_margins` is deprecated: its beta margin uses the unsourced 0.028 q_95 limit "
+        "(#350). Use vaft.formula.boundaries.evaluate_boundary with 'troyon', 'low_q' and 'greenwald'.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    beta_margin = beta_N - 0.028 * q_95  # beta_stability_boundary, without its own warning
     q_margin = q_95 - 2.0  # Minimum q_95 for stability
     density_margin = greenwald_fraction(n_e, n_G)
     return beta_margin, q_margin, density_margin
