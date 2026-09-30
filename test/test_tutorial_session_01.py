@@ -414,3 +414,13 @@ def test_the_appendix_shows_the_version_rather_than_only_asserting_it(executed):
         for output in cell.get("outputs", [])
     )
     assert DOCUMENTED_DD_VERSION in rendered
+
+
+def test_the_exercise_states_its_analysis_tasks_first(book):
+    """#254: the intent is written before the code, and each task is one VAFT call."""
+    exercise = next(cell for cell in book.cells if cell.get("id") == "session01-exercise")
+    assert "### Analysis tasks" in _source(exercise)
+    scaffold = _source(next(cell for cell in book.cells if cell.get("id") == "session01-exercise-cell"))
+    for call in ("plot_plasma_current_time(ods)", 'plot_flux_loop_time_flux(ods, selection="inboard")',
+                 "plot_machine_geometry_poloidal(ods)"):
+        assert call in scaffold, call

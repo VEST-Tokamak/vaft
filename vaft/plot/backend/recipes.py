@@ -7185,6 +7185,14 @@ def _build_line_series(
         default_title = f"{default_title} — intuitive orientation (sign flipped)"
     if smooth is not None:
         default_title = f"{default_title} {_smooth_note(smooth)}"
+    # ``time_range`` (seconds) is the time window a caller asks for; it was
+    # accepted and then ignored by every line plot. On a time axis it sets the
+    # limits, converted to the axis's display unit; an explicit ``x_limits``
+    # (already in display units) still wins.
+    x_limits = options.get("x_limits")
+    window = _range_option(options, "time_range")
+    if x_limits is None and window is not None and drawn.name == "time":
+        x_limits = (float(window[0]) * x_display.scale, float(window[1]) * x_display.scale)
     model = LineSeries(
         series=scaled,
         x_label=drawn.label,
@@ -7192,7 +7200,7 @@ def _build_line_series(
         y_label=recipe.y_label,
         y_unit=y_display.unit,
         title=options.get("title", default_title),
-        x_limits=options.get("x_limits"),
+        x_limits=x_limits,
         log_y=bool(options.get("log_y", False)),
         display=y_display,
     )
@@ -8965,8 +8973,11 @@ def _lay_out(
         raise ValueError(f"layout must be one of {', '.join(LAYOUTS)}; got {layout!r}")
     if layout == "overlay":
         return model
+    # Every panel keeps the window and the scale the caller asked for: a split
+    # layout used to drop both, so x_limits/time_range/log_y worked only overlaid.
     common = dict(x_label=model.x_label, x_unit=model.x_unit, y_label=model.y_label,
-                  y_unit=model.y_unit, display=model.display)
+                  y_unit=model.y_unit, display=model.display, x_limits=model.x_limits,
+                  log_y=model.log_y)
 
     if layout == "subplots":
         # One panel per channel, in resolved order; several shots of one channel
