@@ -11931,8 +11931,12 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
         )
     helicity = _gpec_helicity(ods, n_tor, cell["time_slice"])
     if not np.isclose(helicity, _C44_MEASURED_HELICITY, atol=1e-9):
+        # NaN is "the run recorded none", which reads as nothing at all when
+        # printed as a number.
+        recorded = ("no usable helicity" if not np.isfinite(helicity)
+                    else f"helicity {helicity:g}")
         raise ValueError(
-            f"this run recorded helicity {helicity!r}, and the island phase "
+            f"this run recorded {recorded}, and the island phase "
             f"reference is measured only at helicity {_C44_MEASURED_HELICITY:g} "
             "(C-44): the relation between arg(Phi_res) and the helical "
             "potential's phase carries a conjugation whose sense follows the "
