@@ -157,3 +157,12 @@ def test_array_parameters_are_refused_with_a_clear_message():
         gp(0.5, alpha=np.array([1.0, 2.0]))
     with pytest.raises(ValueError, match="must be a scalar"):
         mtanh(0.5, **dict(PED, pedestal_height=np.array([1.0, 2.0])))
+
+
+def test_a_flat_profile_derivative_keeps_the_scalar_type_of_the_sloped_path():
+    # core == edge short-circuits to zero; a scalar psi_n must come back as the
+    # same np.float64 the sloped path returns, not a 0-d ndarray (JSON refuses it).
+    flat = dgp(0.3, core_value=1.0, edge_value=1.0)
+    sloped = dgp(0.3, core_value=1.0, edge_value=0.0)
+    assert type(flat) is type(sloped) is np.float64 and flat == 0.0
+    assert dgp(np.array([0.2, 0.4]), core_value=1.0, edge_value=1.0).shape == (2,)

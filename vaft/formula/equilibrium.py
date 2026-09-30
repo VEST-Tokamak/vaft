@@ -5193,7 +5193,9 @@ def generalized_parabolic_profile_derivative(psi_n, *, core_value=1.0, edge_valu
         raise ValueError("alpha and beta must be positive")
     amplitude = core_value - edge_value
     if amplitude == 0.0:
-        return np.zeros_like(x)  # a flat profile, even where the shape is singular
+        # a flat profile, even where the shape is singular; a scalar psi_n gets
+        # the same np.float64 the sloped path returns, not a 0-d ndarray
+        return np.float64(0.0) if x.ndim == 0 else np.zeros_like(x)
     with np.errstate(divide="ignore", invalid="ignore"):
         inner = np.power(x, alpha - 1.0) if alpha != 1.0 else np.ones_like(x)
         outer = np.power(1.0 - np.power(x, alpha), beta - 1.0) if beta != 1.0 else np.ones_like(x)
