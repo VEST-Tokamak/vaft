@@ -36,8 +36,8 @@ Design rules honoured here:
   resolved it returns a ``status='skipped'`` result instead of raising.
 * Thomson-only shots (no IDS/charge_exchange ion data) fall back to the
   statistical ``Ti = ratio * Te``, where the ratio is VEST policy resolved
-  from ``vest.yaml`` (``diagnostics.core_profiles.ti_te_ratio``, fitted on the
-  shots that carry both diagnostics) by
+  from ``vest.yaml`` (``diagnostics.core_profiles.ti_te_ratio``; currently an
+  assumed Ti = Te, #1331) by
   :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`.
   Control it via ``ti_te_ratio`` (``'auto'`` default / float / ``None`` =
   strict).  The radial coordinate the profiles are fitted in is resolved the
@@ -117,11 +117,10 @@ def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None, *, ods=None, shot=
     """Resolve the statistical Ti/Te fallback coefficient to (ratio, sigma).
 
     ``'auto'`` / ``'vest'`` -> the VEST policy value
-    (``vest.yaml`` ``diagnostics.core_profiles.ti_te_ratio``, fitted on the
-    VEST shots that carry BOTH Thomson and IDS/charge_exchange profiles; see
-    ``vaft.process.profile.fit_ti_te_ratio`` for the estimator).  A float is
-    used as-is.  ``ti_te_ratio_sigma=None`` falls back to the policy sigma
-    (the slice-to-slice scatter).
+    (``vest.yaml`` ``diagnostics.core_profiles.ti_te_ratio``; currently an
+    assumed Ti = Te with sigma 0.5, #1331 -- ``vaft.process.profile.fit_ti_te_ratio``
+    is the estimator the earlier, superseded value was derived with).  A float
+    is used as-is.  ``ti_te_ratio_sigma=None`` falls back to the policy sigma.
 
     The policy is read through :mod:`vaft.machine_mapping`; the processing
     layer holds no VEST number (issue #420).
@@ -795,7 +794,7 @@ def build_kinetic_core_profiles(
     Thomson-only slices (``ti_te_fallback=True`` and no usable ion fit): the ion
     temperature falls back to ``Ti = ti_te_ratio * Te``. The default
     ``ti_te_ratio='auto'`` resolves to the statistical VEST policy value in
-    ``vest.yaml`` (fitted on the shots carrying both diagnostics; see
+    ``vest.yaml`` (currently an assumed Ti = Te, #1331; see
     :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`) and
     -- unlike the legacy ``Ti=Te`` fallback -- also writes
     ``pressure_thermal = e*ne*(1+ratio)*Te``, so the kinetic-EFIT spline

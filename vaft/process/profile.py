@@ -44,9 +44,10 @@ Provenance
    fitter here delegates to (polynomial, exponential, core-poly-edge-exp,
    linear, Gaussian process).
 .. [TITE] ``vest.yaml`` ``diagnostics.core_profiles.ti_te_ratio``: the VEST
-   statistical Ti/Te coefficient and its derivation record, resolved by
+   Ti/Te coefficient (an assumed Ti = Te since #1331) and the record of the
+   earlier inference, resolved by
    :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`;
-   :func:`fit_ti_te_ratio` is the estimator it was derived with.
+   :func:`fit_ti_te_ratio` is the estimator that inference used.
 """
 
 import os
