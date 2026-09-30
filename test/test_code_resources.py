@@ -415,6 +415,45 @@ def test_a_cgroup_limit_is_compared_with_the_whole_cgroups_usage(no_host, tmp_pa
     assert caught.value.rss_mb == 3872.0 and caught.value.source == "cgroup_v2"
 
 
+def test_an_env_budget_is_compared_with_this_process_only(no_host, tmp_path, monkeypatch):
+    """cold review 0.8.0 execution-backend F1: a budget that is not the cgroup's
+    limit is not enforced on the cgroup, so its siblings must not trip it."""
+    root = tmp_path / "cgroup"
+    proc = _fake_cgroup_v2(root, 4 * GIB)
+    job = root / "system.slice" / "slurmstepd.scope" / "job_7"
+    # 2.5 GiB in the job (a solver subprocess), this process at 100 MiB.
+    _write(job / "memory.stat", f"anon {2 * GIB}\nfile {20 * GIB}\nshmem {512 * MIB}\n")
+    monkeypatch.setattr(resources, "rss_mb", lambda: 100.0)
+    info = memory_budget(
+        {"VAFT_MEMORY_BUDGET_MB": "2000"}, cgroup_root=root, proc_cgroup=proc,
+        meminfo=no_host["meminfo"],
+    )
+    assert (info.limit_mb, info.source) == (2000.0, "env")
+    assert info.usage_cgroup is None and info.usage_kind is None
+    with MemoryBudget(info, fraction=0.9) as guard:
+        assert guard.usage() == 100.0
+        guard.check("slice")  # 100 MiB of a 2000 MiB budget: nothing to report
+
+
+def test_a_slurm_budget_equal_to_the_cgroup_limit_is_the_cgroup(no_host, tmp_path, monkeypatch):
+    """``--mem`` creates the job cgroup with the same limit: on a tie the
+    cgroup binds, and the source label says so."""
+    root = tmp_path / "cgroup"
+    proc = _fake_cgroup_v2(root, 4 * GIB)
+    job = root / "system.slice" / "slurmstepd.scope" / "job_7"
+    _write(job / "memory.stat", f"anon {3 * GIB}\nfile 0\nshmem {800 * MIB}\n")
+    monkeypatch.setattr(resources, "rss_mb", lambda: 100.0)
+    info = memory_budget(
+        {"SLURM_MEM_PER_NODE": "4096"}, cgroup_root=root, proc_cgroup=proc,
+        meminfo=no_host["meminfo"],
+    )
+    assert (info.limit_mb, info.source, info.usage_cgroup) == (4096.0, "cgroup_v2", str(job))
+    with MemoryBudget(info, fraction=0.9) as guard:
+        with pytest.raises(MemoryBudgetExceeded) as caught:
+            guard.check("slice")
+    assert caught.value.source == "cgroup_v2" and caught.value.rss_mb == 3872.0
+
+
 def test_cgroup_v1_usage_reads_total_rss(tmp_path):
     _write(tmp_path / "memory.stat", f"cache {GIB}\ntotal_rss {2 * GIB}\ntotal_shmem 0\n")
     assert resources.cgroup_usage_mb(tmp_path, "v1") == 2048.0
