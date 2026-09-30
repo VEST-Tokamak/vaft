@@ -574,7 +574,7 @@ def test_ryter_minimum_bounds_the_martin_branch_from_below():
     assert entry.allowed_side == "above" and (entry.source_regime, entry.target_regime, entry.branch) == ("", "", "")
     assert entry.target.unit == "1e19 m^-3"
     assert "lh_threshold" == entry.family == B.get_boundary("martin_2008_lh").family
-    assert set(B.list_boundaries("lh_threshold")) == {"martin_2008_lh", "ryter_2014_nmin"}
+    assert set(B.list_boundaries("lh_threshold")) == {"martin_2008_lh", "ryter_2014_nmin", "takizuka_2004_lh"}
 
 
 def test_transition_needs_both_regimes():
@@ -588,3 +588,48 @@ def test_uncertainty_rejects_impossible_scatter():
         B.Uncertainty(coefficient_factor=0.9)
     with pytest.raises(ValueError, match="rms_relative"):
         B.Uncertainty(rms_relative=-0.1)
+
+
+# ------------------------------------------------------------------
+# Takizuka et al. 2004 (ITPA04): the low-aspect-ratio L-H threshold (#1066)
+# ------------------------------------------------------------------
+
+def test_takizuka_aspect_factor_matches_the_paper():
+    """p. A232: F(A) = 0.1 A / f(A) has its minimum at A ~ 2.7; F = 1.03 for ITER (A = 3.1)."""
+    A = np.linspace(1.1, 6.0, 5000)
+    assert A[np.argmin(B._takizuka_aspect_factor(A))] == pytest.approx(2.7, abs=0.05)
+    assert float(B._takizuka_aspect_factor(3.1)) == pytest.approx(1.03, abs=0.005)
+
+
+@pytest.mark.parametrize("A, ratio_to_P0star, expected", [(1.32, 2.8, 2.0), (1.45, 1.25, 1.0)])
+def test_takizuka_gamma_half_reproduces_the_nstx_and_mast_ratios(A, ratio_to_P0star, expected):
+    """p. A230 / A232: P_thr/P_thr0* is 2.8 (NSTX) and 1.25 (MAST); dividing by F(A)^gamma gives
+    ~2.0 and ~1.0. With gamma = 0.5 (the central value used here) the reduction matches."""
+    assert ratio_to_P0star / float(B._takizuka_aspect_factor(A)) ** 0.5 == pytest.approx(expected, rel=0.05)
+
+
+def test_takizuka_iter_prediction_and_the_outer_field_discrepancy():
+    """p. A232: ITER (R 6.2, a 2, B_t 5.3, I_p 15, S 680, n20 0.5, Z_eff ~ 2) gives 40-50 MW. The printed
+    |B|_out definition gives 4.47 T where the text quotes 4.3 T; the entry follows the printed formula."""
+    assert float(B._takizuka_outer_field(5.3, 15.0, 2.0, 3.1)) == pytest.approx(4.47, abs=0.01)
+    P = B.boundary_value(B.get_boundary("takizuka_2004_lh"), line_average_density=0.5, toroidal_field=5.3,
+                         plasma_current=15.0, minor_radius=2.0, aspect_ratio=3.1, plasma_surface_area=680.0,
+                         effective_charge=2.0)
+    assert 40.0 <= P <= 50.0
+
+
+def test_takizuka_rises_above_martin_at_low_aspect_ratio():
+    """Same density, field and area: at A = 3.1 the two scalings agree within ~15 %; towards A -> 1
+    Takizuka rises (F(A) grows) while Martin has no aspect-ratio term."""
+    common = dict(line_average_density=0.3, toroidal_field=0.5, plasma_surface_area=10.0)
+    martin = B.boundary_value(B.get_boundary("martin_2008_lh"), **common)
+    tak = [B.boundary_value(B.get_boundary("takizuka_2004_lh"), plasma_current=0.3, minor_radius=0.5,
+                            aspect_ratio=A, effective_charge=2.0, **common) for A in (3.1, 1.5, 1.2)]
+    assert tak[0] < tak[1] < tak[2]
+    assert all(t > 0 for t in tak) and martin > 0
+
+
+def test_low_aspect_ratio_caveats_are_attached_to_both_lh_scalings():
+    for key in ("martin_2008_lh", "takizuka_2004_lh"):
+        text = " ".join(B.get_boundary(key).applicability.assumptions)
+        assert "Pegasus" in text and "7-15x" in text and "NSTX" in text
