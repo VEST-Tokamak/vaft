@@ -1186,6 +1186,41 @@ def list_shots(
     return [(int(shot_number), record_datetime) for shot_number, record_datetime in rows]
 
 
+def shot_field_codes(shot: int) -> frozenset[int]:
+    """Return the waveform field codes SQL currently holds for ``shot``.
+
+    Read from whichever waveform table holds the shot
+    (:func:`waveform_generation_for_shot`).  An empty set is what a shot looks
+    like before its waveforms are written -- or when its DAQ never wrote any --
+    so a polling caller compares successive answers rather than trusting one.
+    A read error propagates, for the reason given in
+    :func:`waveform_generation_for_shot`.
+    """
+    global DB_POOL
+    if DB_POOL is None:
+        logger.info("DB_POOL not initialized. Initializing automatically...")
+        init_pool()
+
+    conn = DB_POOL.get_connection()
+    try:
+        generation = waveform_generation_for_shot(conn, shot)
+        if generation is None:
+            return frozenset()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                f"SELECT DISTINCT shotDataFieldCode FROM {_WAVEFORM_TABLES[generation]} "
+                "WHERE shotCode = %s",
+                (int(shot),),
+            )
+            rows = cursor.fetchall()
+        finally:
+            cursor.close()
+    finally:
+        conn.close()
+    return frozenset(int(row[0]) for row in rows if row and row[0] is not None)
+
+
 def date_from_shot(shot: int) -> tuple:
     """
     Returns (date_str, datetime_obj) for the given shot number from the shot table.

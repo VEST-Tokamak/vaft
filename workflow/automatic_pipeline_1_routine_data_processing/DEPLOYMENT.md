@@ -792,3 +792,108 @@ the corrective updaters' one-time bootstrap of their shot registry, which opens
 - [ ] A rerun reused the record — no upload
 - [ ] Per-shot folder behaviour recorded — auto-created, or `hstouch` needed
 - [ ] `/public/` unchanged throughout — entry count and modified timestamp
+
+---
+
+## 10. Running the new-shot worker
+
+`vaft pipeline-worker` watches the VEST SQL `shot` table and runs this pipeline on each new shot
+(issue #58). It only calls Snakemake, so everything above still applies, including section 7's
+requirement that one shot is replicated before replication is enabled for all of them.
+
+### Configure
+
+```bash
+cp worker.example.yaml /srv/vaft/worker.yaml   # outside the repository
+$EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout, paths
+```
+
+- **SQL credentials must already be provisioned** for the account the worker runs as. They live in
+  `~/.vest/database_raw_info.yaml` together with `~/.vest/encryption_key.key`. If they are missing, the
+  worker refuses to start. It does not fall back to `raw.setup_raw_db()`, because that prompt would
+  block forever under a service with no terminal.
+- **`pipeline_config` must set `raw.mode: sql`.** For each run the worker replaces `shots:` and forces
+  `conda: null`, and it keeps that run's config next to the run log under
+  `log_dir/runs/<run_id>/`.
+- **Paths may use environment variables**, e.g. `${VAFT_CHECKOUT}` in the example. An unset variable
+  stops the worker instead of silently creating a new state file under a literal `${...}` directory.
+- **The worker reproduces Snakemake's config merge.** Snakemake merges `pipeline_config` over the
+  workflow's own `config.yaml`, and the worker checks and harvests against that same merged result.
+- **`first_shot` is where the worker's responsibility starts.** Shots below it belong to batch
+  regeneration and the worker never looks at them.
+
+### What a cycle does
+
+1. **Detect.** Every shot in SQL above the watermark is inserted into the state file. Inserting a
+   shot that is already there does nothing, so polling the same shot twice changes nothing.
+2. **Settle.** A shot waits until its `recordDateTime` is at least `settle_seconds` old and its
+   waveform field count is the same on two consecutive polls. This matters because the raw dump is
+   an immutable Snakemake output: a dump taken while SQL is still being written would be kept
+   permanently.
+3. **Classify.** The classifier runs before anything is scheduled:
+   - no waveform fields → `excluded`, and Snakemake never sees the shot;
+   - required raw fields missing → only the raw dump is archived;
+   - otherwise → the whole pipeline runs.
+
+   The four-class physics classifier from #57 plugs in through `classifier:`.
+4. **Run.** One `snakemake` process runs in this directory with `--keep-going --rerun-incomplete
+   --scheduler greedy --resources hsds=1`.
+   - `hsds=1` stops replications from overlapping, which is the #913 master-link race. A worker
+     batch of a few shots is exactly the case where that race occurs.
+   - A manual run holding the directory lock makes the worker **busy**: it tries again next cycle,
+     does not count an attempt, and never runs `--unlock` on a lock someone else holds.
+5. **Harvest.** Each shot's state comes from the products on disk, not from Snakemake's exit code.
+   The worker reads every declared stage manifest's `status`, every replication record's `state`, and
+   the raw preflight's exclusion list. It also checks that each required validation plot exists.
+
+   | Shot state | Meaning |
+   | --- | --- |
+   | `completed` | Every declared product succeeded. |
+   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. |
+   | `excluded` | The classifier, the raw preflight or an operator ruled the shot out. |
+   | `failed` | A declared product is missing. The shot is retried on the next cycle, and Snakemake rebuilds only what is missing. |
+   | `gave_up` | The shot has used `max_attempts` runs and waits for an operator. |
+
+### Run as a service
+
+```ini
+# /etc/systemd/system/vaft-pipeline-worker.service
+[Unit]
+Description=VAFT new-shot pipeline worker
+After=network-online.target
+
+[Service]
+User=vaft
+Environment=VAFT_FILEDB_DIR=/srv/vest.filedb
+Environment=VAFT_CHECKOUT=/home/vaft/git/vaft
+Environment=VAFT_WORKER_CONFIG=/srv/vaft/worker.yaml
+ExecStart=/opt/conda/envs/vaft/bin/vaft pipeline-worker run
+KillSignal=SIGTERM
+TimeoutStopSec=300
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- **Stopping.** SIGTERM lets the running Snakemake finish its bookkeeping and release the lock.
+- **A run that has to be SIGKILLed** leaves the directory lock behind. The worker removes it at once,
+  because that lock is provably its own.
+- **Restarting after a crash.** The worker puts every shot left `running` back into the queue and
+  unlocks the workflow directory, but only if the Snakemake process it recorded is gone.
+- **One worker per state file.** A second worker exits immediately.
+
+### Operate
+
+```bash
+vaft pipeline-worker status                  # watermark, counts, failed/gave_up shots
+vaft pipeline-worker status --shot 48950     # one shot: stages and event log
+vaft pipeline-worker retry --shot 48950      # fresh attempt budget
+vaft pipeline-worker exclude --shot 48950 --reason "calibration shot"
+vaft pipeline-worker run --once              # a single cycle, e.g. to test a config
+```
+
+- **`retry` on a shot the classifier excluded** sends it back to be classified again, because SQL
+  may have finished writing it since.
+- **Monitoring.** Monitoring code (#1347) reads the same file through
+  `vaft.database.worker.read_worker_state`.
