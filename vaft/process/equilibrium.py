@@ -6304,6 +6304,10 @@ def integrate_romero_closure(
     if not (np.isfinite(L_i0) and L_i0 > 0.0):
         raise ValueError(f"L_i0 must be finite and positive; got {L_i0!r}")
 
+    # anti-alias: upsampling only -- the caller's own V_B, R_p and I_ni
+    # histories are read at the integrator's sub-steps between their samples;
+    # no rate is reduced and no sample is dropped (cold review 0.8.0
+    # equilibrium-representation F3).
     def rates(tt, state):
         current, inductance, relative = state
         v_r = np.interp(tt, t, r_p) * (current - np.interp(tt, t, i_ni))
