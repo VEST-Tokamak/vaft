@@ -106,8 +106,6 @@ undeclared:
   - vaft.code.tokamaker.stability
   - vaft.code.tokamaker.topology
   - vaft.code.tokamaker.vessel
-  - vaft.data.eqdsk
-  - vaft.data.resources
   - vaft.database.h5image
   - vaft.database.ids
   - vaft.database.lazy_common
