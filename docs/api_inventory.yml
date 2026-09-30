@@ -58,14 +58,6 @@ pages:
 # Public-looking modules that declare no `__all__`, so publish nothing yet.
 # Declaring `__all__` in one of them publishes it: remove it from this list.
 undeclared:
-  - vaft.cli
-  - vaft.cli.compare_ods
-  - vaft.cli.export
-  - vaft.cli.filedb
-  - vaft.cli.plot
-  - vaft.cli.raw_redump
-  - vaft.cli.raw_upgrade
-  - vaft.cli.sxr_pack
   - vaft.code.base
   - vaft.code.efit.kfile
   - vaft.code.efit.legacy
