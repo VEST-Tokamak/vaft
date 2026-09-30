@@ -62,6 +62,7 @@ CORE_MODULES: tuple[str, ...] = (
     # with what the packages actually export.
     "test_cli.py",
     "test_formula_catalog.py",
+    "test_help.py",
     "test_hsds_configure.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
@@ -187,6 +188,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_transport_regimes.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
+    # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
+    "test_pipeline_worker.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

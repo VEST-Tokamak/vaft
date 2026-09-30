@@ -1,0 +1,53 @@
+# New-shot pipeline worker (issue #58) -- example server configuration.
+#
+# Copy it OUTSIDE the repository (e.g. /srv/vaft/worker.yaml), edit, and run
+#   vaft pipeline-worker run --config /srv/vaft/worker.yaml
+# Relative paths resolve against the directory holding this file.
+# See DEPLOYMENT.md, "Running the new-shot worker".
+
+# Durable state: watermark, per-shot and per-stage status, runs, events.
+state_db: ${VAFT_FILEDB_DIR}/pipeline/worker/worker.sqlite
+# One directory per run: the exact config handed to Snakemake and its log.
+log_dir: ${VAFT_FILEDB_DIR}/pipeline/worker/logs
+
+# The checkout whose Snakefile runs, and the pipeline configuration it runs
+# with. Snakemake merges this file over the workflow's own config.yaml, and so
+# does the worker. `shots:` is replaced per run; `raw.mode` must be `sql`.
+# An unset variable anywhere in a path is an error, not a literal directory.
+workflow_dir: ${VAFT_CHECKOUT}/workflow/automatic_pipeline_1_routine_data_processing
+pipeline_config: ${VAFT_CHECKOUT}/workflow/automatic_pipeline_1_routine_data_processing/config.yaml
+
+# The worker owns shots from here on; older shots belong to batch regeneration.
+first_shot: 48900
+
+# Seconds between SQL polls.
+poll_interval: 60
+# A shot runs as soon as its field inventory contains every field the previous
+# shot had (on VEST ~2-3 min after the shot). If a field is still missing (the
+# slow Pressure / Plasma Current / ECH group), it runs once no field has been
+# uploaded for this long. Measured gaps inside one upload reach 261 s.
+quiet_seconds: 600
+# Processed shots are re-checked this long for fields that arrive late (VEST
+# has backfilled Plasma Current a day later); new fields trigger a reprocess.
+recheck_seconds: 259200
+max_reprocess: 3
+
+cores: 8
+snakemake_cmd: [snakemake]
+extra_args: []
+max_shots_per_run: 20
+# A shot whose products are still missing after this many runs is given up
+# and waits for `vaft pipeline-worker retry`.
+max_attempts: 3
+# Seconds before a run is terminated (SIGTERM, then SIGKILL). null = no limit.
+run_timeout: 86400
+
+# Environment for Snakemake. A non-interactive service shell excludes
+# ~/.local/bin, where hsload/hsget live (DEPLOYMENT.md, section 4).
+env:
+  PATH: ${HOME}/.local/bin:${PATH}
+
+# module:callable returning a classifier; empty = raw-field classifier.
+classifier: null
+# Record vaft.omas.shot_class from the diagnostics product (reference only).
+record_shot_class: false
