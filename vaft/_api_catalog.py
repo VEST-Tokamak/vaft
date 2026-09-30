@@ -15,7 +15,9 @@ signature with the annotations as written, the first paragraph of its
 docstring, whether it is deprecated, where it is defined, and every other
 public name it is exported under.  An object is documented once, at its
 *home*: the module that defines it if that module exports it, otherwise the
-most specific module that does.
+most specific module that does and is not itself deprecated.  A constant's
+defining module is read from the source (it carries no ``__module__``), so two
+constants that merely share a name and a value stay two entries.
 
 Functions that already have a scientific detail page -- the formula and
 process catalogs, registered plots, diagram builders -- are recorded with a
@@ -30,15 +32,19 @@ An object is deprecated when the source says so in one of three ways: the PEP 70
 ``DeprecationWarning`` on some path -- usually for one argument -- is marked
 ``warns_deprecation`` instead: it is not itself deprecated.
 
-The snapshot is a pure function of the source tree unless provenance is
-passed, and it records a checksum of every file it describes so
-``docs/build.py`` can prove which tree it came from.
+The snapshot is a function of the source tree and of the interpreter that reads
+it (signatures and default reprs depend on the Python and NumPy versions, which
+the documentation build pins), plus the provenance when it is passed.  It
+records a checksum of every file it describes so ``docs/build.py`` can prove
+which tree it came from.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import enum
+import functools
 import hashlib
 import importlib
 import inspect
@@ -127,6 +133,8 @@ def _truncate(text: str) -> str:
 
 
 def _default(value: Any) -> str:
+    if isinstance(value, (set, frozenset)):
+        return _truncate(f"{type(value).__name__}({{{', '.join(sorted(map(repr, value)))}}})")
     return _truncate(_clean(repr(value)))
 
 
@@ -142,6 +150,20 @@ class _Shown:
         return self.text
 
 
+def _signature(obj: Any) -> inspect.Signature:
+    """``inspect.signature`` with the annotations as source text where Python can say so.
+
+    Python 3.14 evaluates annotations lazily; asking for ``Format.STRING`` gives
+    the text as written and never evaluates a ``TYPE_CHECKING``-only name.
+    """
+    try:
+        import annotationlib
+
+        return inspect.signature(obj, annotation_format=annotationlib.Format.STRING)
+    except (ImportError, TypeError):  # before 3.14: string annotations come from the __future__ import
+        return inspect.signature(obj)
+
+
 def signature_of(obj: Any) -> str:
     """The call signature with the annotations as written in the source.
 
@@ -150,9 +172,11 @@ def signature_of(obj: Any) -> str:
     defaults are replaced by their display text, the latter without memory
     addresses so the snapshot is deterministic.
     """
+    if inspect.isclass(obj) and issubclass(obj, enum.Enum):
+        return ""  # an enum is called with one of its values; its members are listed instead
     try:
-        signature = inspect.signature(obj)
-    except (TypeError, ValueError):
+        signature = _signature(obj)
+    except Exception:  # an annotation naming a TYPE_CHECKING-only import, a C callable, ...
         return ""
     empty = inspect.Parameter.empty
     parameters = [
@@ -170,12 +194,28 @@ def signature_of(obj: Any) -> str:
     return str(shown)
 
 
+def own_doc(obj: Any) -> str:
+    """The docstring the object itself carries.
+
+    Not ``inspect.getdoc``, which falls back to a base class's docstring and so
+    gives a ``str`` enum the summary of ``str``.  A dataclass without a
+    docstring gets one generated from its signature; that is not documentation
+    either.
+    """
+    doc = vars(obj).get("__doc__") if inspect.isclass(obj) else getattr(obj, "__doc__", None)
+    if not isinstance(doc, str):
+        return ""
+    doc = inspect.cleandoc(doc)
+    if inspect.isclass(obj) and doc.startswith(f"{obj.__name__}(") and doc.endswith(")") and "\n" not in doc:
+        return ""
+    return doc
+
+
 def summary_of(obj: Any) -> str:
-    """The first paragraph of the docstring, one line, Sphinx roles made literal."""
+    """The first paragraph of the own docstring, one line, Sphinx roles made literal."""
     from ._docstring import strip_roles
 
-    doc = inspect.getdoc(obj) or ""
-    return strip_roles(" ".join(doc.strip().split("\n\n")[0].split()))
+    return strip_roles(" ".join(own_doc(obj).strip().split("\n\n")[0].split()))
 
 
 def _warns_deprecation(function: Any) -> bool:
@@ -184,12 +224,52 @@ def _warns_deprecation(function: Any) -> bool:
         tree = ast.parse(source)
     except (OSError, TypeError, SyntaxError, IndentationError):
         return False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and node.id in ("DeprecationWarning", "FutureWarning"):
-            return True
-        if isinstance(node, ast.Attribute) and node.attr in ("DeprecationWarning", "FutureWarning"):
-            return True
+    return any(_is_deprecation_warn(node) for node in ast.walk(tree))
+
+
+_DEPRECATION_CATEGORIES = ("DeprecationWarning", "FutureWarning", "PendingDeprecationWarning")
+
+
+def _is_deprecation_warn(node: ast.AST) -> bool:
+    """A call to ``warn``/``warnings.warn`` whose arguments name a deprecation category.
+
+    Suppressing the warning (``except DeprecationWarning``,
+    ``filterwarnings(..., DeprecationWarning)``) is not raising it.
+    """
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
+    if name != "warn":
+        return False
+    for argument in (*node.args, *(keyword.value for keyword in node.keywords)):
+        for child in ast.walk(argument):
+            if isinstance(child, ast.Name) and child.id in _DEPRECATION_CATEGORIES:
+                return True
+            if isinstance(child, ast.Attribute) and child.attr in _DEPRECATION_CATEGORIES:
+                return True
     return False
+
+
+def module_deprecation(module: Any) -> str:
+    """Why a whole module is deprecated -- it warns at import -- or ``""``.
+
+    Read from the module's top-level statements, not by catching the warning,
+    which only fires on the first import in a process.
+    """
+    try:
+        tree = ast.parse(inspect.getsource(module))
+    except (OSError, TypeError, SyntaxError):
+        return ""
+    for statement in tree.body:
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        for node in ast.walk(statement):
+            if _is_deprecation_warn(node):
+                message = next((argument.value for argument in node.args
+                                if isinstance(argument, ast.Constant) and isinstance(argument.value, str)), "")
+                return _truncate(" ".join(message.split())) or "the module warns on import that it is deprecated"
+    return ""
 
 
 def deprecation_of(obj: Any, access_warning: str = "") -> str:
@@ -200,7 +280,7 @@ def deprecation_of(obj: Any, access_warning: str = "") -> str:
     """
     if access_warning:
         return access_warning
-    marker = getattr(obj, "__deprecated__", None)
+    marker = vars(obj).get("__deprecated__") if inspect.isclass(obj) else getattr(obj, "__deprecated__", None)
     if isinstance(marker, str) and marker:
         return marker
     summary = summary_of(obj)
@@ -249,6 +329,8 @@ def members_of(cls: type) -> list[dict]:
 def fields_of(cls: type) -> list[dict]:
     import dataclasses
 
+    if issubclass(cls, enum.Enum):
+        return [{"name": name, "type": _truncate(_clean(repr(member.value)))} for name, member in cls.__members__.items()]
     if not dataclasses.is_dataclass(cls):
         return []
     return [
@@ -267,6 +349,23 @@ def _stable_value(value: Any) -> str:
     if isinstance(value, (tuple, list)) and all(isinstance(item, (bool, int, float, str, type(None))) for item in value):
         return _default(value)
     return f"<{type(value).__module__}.{type(value).__qualname__}>"
+
+
+_CODE_SPAN = re.compile(r"(``[^`]+``|`[^`]+`)")
+
+
+def summary_markdown(text: str) -> str:
+    """A summary made safe to render as markdown on the API pages.
+
+    Code spans are kept as they are (kramdown escapes their content); outside
+    them ``&``, ``<`` and ``>`` become entities, so a docstring cannot inject
+    HTML.  The pages mark the entries ``tex2jax_ignore``, so a ``$VAR`` is not
+    typeset as mathematics.
+    """
+    parts = _CODE_SPAN.split(text)
+    for index in range(0, len(parts), 2):
+        parts[index] = parts[index].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return "".join(parts)
 
 
 def kind_of(obj: Any) -> str:
@@ -339,13 +438,75 @@ def _access_warning(module: Any, name: str) -> str:
             hook(name)
         except Exception:  # a lazy namespace hook that does not serve this name
             return ""
-    return next((str(item.message) for item in caught if issubclass(item.category, DeprecationWarning)), "")
+    return next((str(item.message) for item in caught
+                 if issubclass(item.category, (DeprecationWarning, FutureWarning))), "")
 
 
-def _key(name: str, obj: Any):
+@functools.lru_cache(maxsize=None)
+def _top_level_bindings(module_name: str) -> tuple[dict[str, tuple[str, str]], tuple[str, ...]]:
+    """``name -> (source module, source name)`` for top-level ``from ... import``, the names the
+    module assigns itself (mapped to itself), and the modules it star-imports."""
+    try:
+        module = importlib.import_module(module_name)
+        tree = ast.parse(inspect.getsource(module))
+    except Exception:
+        return {}, ()
+    package = module_name if hasattr(module, "__path__") else module_name.rpartition(".")[0]
+    bindings: dict[str, tuple[str, str]] = {}
+    stars: list[str] = []
+    for statement in tree.body:
+        if isinstance(statement, ast.ImportFrom):
+            base = statement.module or ""
+            if statement.level:
+                parts = package.split(".")
+                parent = ".".join(parts[: len(parts) - statement.level + 1])
+                base = f"{parent}.{base}" if base else parent
+            for alias in statement.names:
+                if alias.name == "*":
+                    stars.append(base)
+                else:
+                    bindings[alias.asname or alias.name] = (base, alias.name)
+        elif isinstance(statement, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+            for target in targets:
+                for node in ast.walk(target):
+                    if isinstance(node, ast.Name):
+                        bindings[node.id] = (module_name, node.id)
+    return bindings, tuple(stars)
+
+
+def defining_module(module_name: str, name: str, _depth: int = 0) -> tuple[str, str]:
+    """Where a module-level constant is assigned, following ``from ... import`` chains.
+
+    Constants carry no ``__module__``, so this reads the source; a chain that
+    cannot be followed ends at the module that exports the name.
+    """
+    if _depth > 8:
+        return module_name, name
+    bindings, stars = _top_level_bindings(module_name)
+    source = bindings.get(name)
+    if source == (module_name, name):
+        return source
+    if source and source[0].startswith("vaft"):
+        return defining_module(*source, _depth=_depth + 1)
+    for star in stars:
+        if star.startswith("vaft"):
+            found = defining_module(star, name, _depth + 1)
+            if found != (star, name) or _top_level_bindings(star)[0].get(name) == (star, name):
+                return found
+    return module_name, name
+
+
+def _key(module_name: str, name: str, obj: Any):
+    """Which exports are the same object: identity for callables, the defining assignment for data.
+
+    Two constants that merely share a name and a value (``SCHEMA_VERSION = 1``
+    in five schemas) are different API; one constant re-exported under several
+    modules is not.
+    """
     if inspect.isclass(obj) or callable(obj):
         return ("object", id(obj))
-    return ("data", name, _stable_value(obj))
+    return ("data", *defining_module(module_name, name))
 
 
 def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
@@ -357,15 +518,20 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
 
     exports: dict[Any, list[tuple[str, str, Any]]] = {}
     access_warnings: dict[str, str] = {}
+    deprecated_modules: dict[str, str] = {}
     module_rows: list[dict] = []
     for module_name, module in modules:
         declared = getattr(module, "__all__", None)
+        whole = module_deprecation(module)
+        if whole:
+            deprecated_modules[module_name] = whole
         module_rows.append({
             "name": module_name,
             "page": page_for(module_name, inventory) or "",
-            "summary": summary_of(module) if module.__doc__ else "",
+            "summary": summary_markdown(summary_of(module)) if module.__doc__ else "",
             "declared": declared is not None,
             "exports": len(declared or ()),
+            "deprecated": whole,
         })
         for name in declared or ():
             with warnings.catch_warnings():
@@ -379,16 +545,23 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
             relocated = _access_warning(module, name)
             if relocated:
                 access_warnings[f"{module_name}.{name}"] = relocated
-            exports.setdefault(_key(name, obj), []).append((module_name, name, obj))
+            exports.setdefault(_key(module_name, name, obj), []).append((module_name, name, obj))
 
     entries: list[dict] = []
-    for sites in exports.values():
+    for key, sites in exports.items():
         obj = sites[0][2]
-        defining = getattr(inspect.unwrap(obj), "__module__", None) if kind_of(obj) != "data" else None
-        own = [site for site in sites if site[0] == defining and site[1] == getattr(obj, "__name__", site[1])]
+        if kind_of(obj) == "data":
+            defining, defined_name = key[1], key[2]
+        else:
+            defining, defined_name = getattr(inspect.unwrap(obj), "__module__", None), getattr(obj, "__name__", None)
+        own = [site for site in sites if site[0] == defining and site[1] == defined_name]
         if not own:
             own = [site for site in sites if site[0] == defining]
-        home = own[0] if own else sorted(sites, key=lambda site: (-site[0].count("."), site[0], site[1]))[0]
+        # Otherwise the most specific exporting module that is not itself deprecated.
+        home = own[0] if own else sorted(
+            sites, key=lambda site: (site[0] in deprecated_modules, -site[0].count("."), site[0], site[1]))[0]
+        stale = {f"{site[0]}.{site[1]}" for site in sites
+                 if f"{site[0]}.{site[1]}" in access_warnings or site[0] in deprecated_modules}
         module_name, name, _ = home
         kind = kind_of(obj)
         entry = {
@@ -398,16 +571,16 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
             "page": page_for(module_name, inventory) or "",
             "kind": kind,
             "signature": signature_of(obj) if kind != "data" else "",
-            "summary": summary_of(obj) if kind != "data" else "",
+            "summary": summary_markdown(summary_of(obj)) if kind != "data" else "",
             "value": _stable_value(obj) if kind == "data" else "",
-            "deprecated": deprecation_of(obj, access_warnings.get(f"{module_name}.{name}", "")),
+            "deprecated": deprecation_of(obj, access_warnings.get(f"{module_name}.{name}", "")
+                                         or deprecated_modules.get(module_name, "")),
             "warns_deprecation": warns_deprecation(obj),
             "source": source_of(obj) if kind != "data" else {"path": "", "line": 0},
             "reference": links.get(id(obj), "") if kind == "function" else "",
             "exported_as": sorted(f"{site[0]}.{site[1]}" for site in sites if site != home),
-            # other names that still work but warn on access (relocated re-exports)
-            "deprecated_aliases": sorted(f"{site[0]}.{site[1]}" for site in sites
-                                         if site != home and f"{site[0]}.{site[1]}" in access_warnings),
+            # other names that still work but warn: relocated re-exports, deprecated modules
+            "deprecated_aliases": sorted(name_ for name_ in stale if name_ != f"{module_name}.{name}"),
         }
         if kind == "class":
             entry["fields"] = fields_of(obj)

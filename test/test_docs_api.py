@@ -210,4 +210,89 @@ def test_a_duplicated_entry_is_caught(coverage, snapshot):
     twin = copy.deepcopy(_entry(mutated, "vaft.code.efit.run_efit"))
     twin.update(id="vaft.code.run_efit", module="vaft.code", exported_as=[])
     mutated["entries"].append(twin)
-    assert any("is described by more than one entry" in problem for problem in coverage.check_api(mutated, ROOT))
+    assert any("is claimed by more than one entry" in problem for problem in coverage.check_api(mutated, ROOT))
+
+
+# --------------------------------------------------------------------------
+# the cold review of #1366
+# --------------------------------------------------------------------------
+
+
+def _data_entry(snapshot, name):
+    return next(entry for entry in snapshot["entries"] if entry["kind"] == "data" and entry["name"] == name)
+
+
+def test_an_exported_name_claimed_twice_or_falsely_is_caught(coverage, snapshot):
+    mutated = copy.deepcopy(snapshot)
+    constant = copy.deepcopy(_data_entry(mutated, "SCHEMA_VERSION"))
+    mutated["entries"].append(constant)                                    # the same data name twice
+    run_efit = _entry(mutated, "vaft.code.efit.run_efit")
+    run_efit["exported_as"] = [*run_efit["exported_as"], "vaft.code.efit.no_such_alias", "vaft.code.efit.EFITConfig"]
+    problems = coverage.check_api(mutated, ROOT)
+    assert any(problem.startswith(f"api: {constant['id']} is claimed by more than one entry") for problem in problems)
+    assert "api: entry vaft.code.efit.run_efit lists vaft.code.efit.no_such_alias, which is not published" in problems
+    assert "api: entry vaft.code.efit.run_efit lists vaft.code.efit.EFITConfig, which is a different object" in problems \
+        or any("vaft.code.efit.EFITConfig is claimed by more than one entry" in problem for problem in problems)
+
+
+def test_a_constant_cannot_be_covered_by_a_function_entry(coverage, snapshot):
+    mutated = copy.deepcopy(snapshot)
+    constant = _data_entry(mutated, "SCHEMA_VERSION")
+    mutated["entries"].remove(constant)
+    _entry(mutated, "vaft.code.efit.run_efit")["exported_as"].append(constant["id"])
+    assert f"api: entry vaft.code.efit.run_efit is a function but {constant['id']} is data" in \
+        coverage.check_api(mutated, ROOT)
+
+
+def test_constants_that_only_share_a_name_and_value_stay_apart(snapshot):
+    schema_versions = [entry for entry in snapshot["entries"] if entry["name"] == "SCHEMA_VERSION"]
+    assert len(schema_versions) > 1
+    assert "vaft.database.digitizer_hdf5.SCHEMA_VERSION" in {entry["id"] for entry in schema_versions}
+    assert _data_entry(snapshot, "ODS_ACCESSOR")["id"] == "vaft.ods_access.ODS_ACCESSOR"
+
+
+def test_a_constant_is_homed_where_it_is_assigned():
+    assert api.defining_module("vaft.plot.backend.access", "ODS_ACCESSOR") == ("vaft.ods_access", "ODS_ACCESSOR")
+
+
+def test_summaries_are_the_objects_own_docstrings(snapshot):
+    from vaft.database.filedb import ArtifactClass
+
+    entry = _entry(snapshot, "vaft.database.filedb.ArtifactClass")
+    assert not entry["summary"].startswith("str(")
+    assert entry["signature"] == ""
+    assert [field["name"] for field in entry["fields"]] == list(ArtifactClass.__members__)
+    for item in snapshot["entries"]:
+        if item["kind"] == "class":
+            assert not item["summary"].startswith(f"{item['name']}("), item["id"]
+
+
+def test_a_module_that_warns_on_import_marks_its_exports(snapshot):
+    rows = {row["name"]: row for row in snapshot["modules"]}
+    assert rows["vaft.machine_mapping.coil_geometry_3d"]["deprecated"]
+    header = _data_entry(snapshot, "GPEC_COIL_DAT_HEADER")
+    assert header["module"] != "vaft.machine_mapping.coil_geometry_3d"
+    assert "vaft.machine_mapping.coil_geometry_3d.GPEC_COIL_DAT_HEADER" in header["deprecated_aliases"]
+
+
+def test_suppressing_a_deprecation_warning_is_not_raising_one():
+    import ast
+
+    raising = ast.parse("warnings.warn('old', DeprecationWarning)").body[0].value
+    catching = ast.parse("warnings.filterwarnings('ignore', category=DeprecationWarning)").body[0].value
+    assert api._is_deprecation_warn(raising)
+    assert not api._is_deprecation_warn(catching)
+
+
+def test_a_type_checking_only_annotation_does_not_break_the_signature(tmp_path, monkeypatch):
+    (tmp_path / "typing_only_mod.py").write_text(
+        "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from decimal import Decimal\n\n"
+        "def f(x: Decimal) -> Decimal:\n    return x\n", encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    module = importlib.import_module("typing_only_mod")
+    shown = api.signature_of(module.f)
+    assert shown in ("(x: Decimal) -> Decimal", "")
+
+
+def test_summaries_cannot_inject_html_but_keep_code_spans():
+    assert api.summary_markdown("Use ``a<b`` when x < y & z") == "Use ``a<b`` when x &lt; y &amp; z"

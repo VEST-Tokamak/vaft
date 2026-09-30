@@ -352,8 +352,8 @@ def check_api(snapshot: dict, root: Path) -> list[str]:
 
     names = ["vaft"] + [info.name for info in pkgutil.walk_packages(vaft.__path__, "vaft.")]
     public = sorted(name for name in names if not any(part.startswith("_") for part in name.split(".")))
-    exported: dict[int, list[str]] = {}
-    data_names: set[str] = set()
+    #: every published name -> the object it is bound to (kept alive, so no id is ever reused)
+    published: dict[str, object] = {}
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for name in public:
@@ -375,42 +375,40 @@ def check_api(snapshot: dict, root: Path) -> list[str]:
                     problems.append(f"api: {name}.__all__ lists {export}, which the module does not define")
                     continue
                 obj = getattr(module, export)
-                if inspect.ismodule(obj):
-                    continue
-                if inspect.isclass(obj) or callable(obj):
-                    exported.setdefault(id(obj), []).append(f"{name}.{export}")
-                else:
-                    data_names.add(f"{name}.{export}")
+                if not inspect.ismodule(obj):
+                    published[f"{name}.{export}"] = obj
     for name in sorted(undeclared - set(public)):
         problems.append(f"api: {name} is listed under undeclared in docs/api_inventory.yml but is not a public module")
 
-    entries = snapshot.get("entries") or []
-    documented: dict[int, list[str]] = {}
-    documented_names: set[str] = set()
-    for entry in entries:
+    # Every published name is claimed by exactly one entry -- as its id or one of
+    # its exported_as names -- and that entry describes the object the name is
+    # bound to: the same object for a function or class, a constant for a constant.
+    claimed: dict[str, str] = {}
+    for entry in snapshot.get("entries") or []:
         names_of_entry = [entry["id"], *(entry.get("exported_as") or [])]
-        documented_names.update(names_of_entry)
-        try:
-            module = importlib.import_module(entry["module"])
-        except Exception as error:
-            problems.append(f"api: entry {entry['id']} names module {entry['module']!r}, which does not import "
-                            f"({type(error).__name__})")
-            continue
-        if entry["name"] not in (getattr(module, "__all__", None) or ()):
+        if f"{entry['module']}.{entry['name']}" != entry["id"]:
+            problems.append(f"api: entry {entry['id']} is not {entry['module']}.{entry['name']}")
+        home = published.get(entry["id"])
+        if entry["id"] not in published:
             problems.append(f"api: entry {entry['id']} vanished: {entry['module']} no longer exports {entry['name']}")
-            continue
-        if entry.get("kind") != "data":
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                obj = getattr(module, entry["name"])
-            documented.setdefault(id(obj), []).append(entry["id"])
-    for key, sites in sorted(exported.items(), key=lambda item: item[1][0]):
-        if key not in documented:
-            problems.append(f"api: {sites[0]} is published but no entry of api_catalog.yml describes it")
-        elif len(documented[key]) > 1:
-            problems.append(f"api: {sites[0]} is described by more than one entry: {', '.join(sorted(documented[key]))}")
-    for name in sorted(data_names - documented_names):
-        problems.append(f"api: {name} is published but no entry of api_catalog.yml describes it")
+        for qualified in names_of_entry:
+            if qualified in claimed:
+                problems.append(f"api: {qualified} is claimed by more than one entry: {claimed[qualified]}, {entry['id']}")
+                continue
+            claimed[qualified] = entry["id"]
+            if qualified not in published:
+                if qualified != entry["id"]:
+                    problems.append(f"api: entry {entry['id']} lists {qualified}, which is not published")
+                continue
+            obj = published[qualified]
+            is_data = not (inspect.isclass(obj) or callable(obj))
+            if (entry.get("kind") == "data") != is_data:
+                problems.append(f"api: entry {entry['id']} is a {entry.get('kind')} but {qualified} is "
+                                f"{'data' if is_data else 'callable'}")
+            elif not is_data and home is not None and obj is not home:
+                problems.append(f"api: entry {entry['id']} lists {qualified}, which is a different object")
+    for qualified in sorted(set(published) - set(claimed)):
+        problems.append(f"api: {qualified} is published but no entry of api_catalog.yml describes it")
     return problems
 
 
