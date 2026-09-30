@@ -309,6 +309,7 @@ def test_aos_children_are_listed_in_numeric_order():
 
 def test_prefetch_reads_each_dataset_once_and_serves_every_leaf_from_memory():
     ods = _long_aos_ods()
+    ods.store._ensure_index("pf_active")
     turns = ods.store._record_by_template["pf_active"][
         ("pf_active", "coil", lazy_ods._AOS, "element", lazy_ods._AOS, "turns_with_sign")
     ].dataset
