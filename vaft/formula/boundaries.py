@@ -31,6 +31,20 @@ $x < b$) the margin is $(b - x)/b$. For ``"above"`` (permitted $x > b$) it is
 $(x - b)/b$. A positive margin is always the permitted side, and a zero
 margin lies on the boundary.
 
+Examples
+--------
+Greenwald limit on the Hugill diagram, and one operating state on it
+(``test/test_formula_boundaries_vest_sample.py`` does this for the packaged
+VEST sample)::
+
+    import numpy as np
+    from vaft.formula import boundaries as B
+    line = B.get_boundary("greenwald_hugill")
+    curve = B.boundary_curve(line, "inverse_cylindrical_q", np.linspace(0, 0.6, 61),
+                             swap_axes=True, area_elongation=1.5)   # curve.xy -> (61, 2)
+    x, y = B.hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p)  # 1e19 m^-3, m, T, m, -, MA
+    B.evaluate_boundary(line, x, inverse_cylindrical_q=y, area_elongation=kappa_a).ratio  # = f_G
+
 References
 ----------
 .. [1] Issue #1067 (data model), #1068 (density-limit family), #1066
