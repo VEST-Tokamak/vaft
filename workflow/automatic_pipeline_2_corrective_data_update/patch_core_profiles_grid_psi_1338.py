@@ -367,13 +367,13 @@ def main() -> int:
     print(f"# {ISSUE} core_profiles grid.psi patch -- {mode}")
     print(f"# filedb {filedb}  products {len(records)}  fix merged {FIX_MERGED_UTC.isoformat()}")
     print(f"{'shot':>6} {'branch':<10} {'status':<11} {'written (UTC)':<25} {'slices':>6} "
-          f"{'ratio/2pi':<19} {'repl':<4} action")
+          f"{'grid.psi/eq psi':<17} {'repl':<4} action")
     for r in records:
         rr = ""
         if "ratio_min" in r:
-            rr = f"{r['ratio_min'] / TWO_PI:.5f}..{r['ratio_max'] / TWO_PI:.5f}"
+            rr = f"{r['ratio_min']:.5f}..{r['ratio_max']:.5f}"
         print(f"{r['shot']:>6} {r.get('branch', '-'):<10} {str(r.get('status')):<11} "
-              f"{r.get('written_utc', '-'):<25} {r.get('n_with_grid_psi', 0):>6} {rr:<19} "
+              f"{r.get('written_utc', '-'):<25} {r.get('n_with_grid_psi', 0):>6} {rr:<17} "
               f"{'yes' if r.get('replicated') else 'no':<4} {r['action']}"
               + (f" ({r['reason']})" if r.get("reason") else "")
               + (f" [{r['note']}]" if r.get("note") else ""))
