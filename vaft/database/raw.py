@@ -17,7 +17,7 @@ import time
 from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import yaml
@@ -1226,7 +1226,7 @@ def shot_upload_status(shot: int) -> tuple[frozenset[int], Optional[float]]:
                 )
                 rows = cursor.fetchall()
             if rows:
-                quiet = min(float(row[1]) for row in rows if row[1] is not None)
+                quiet = min((float(row[1]) for row in rows if row[1] is not None), default=None)
             else:
                 cursor.execute(
                     "SELECT TIMESTAMPDIFF(SECOND, recordDateTime, NOW()) FROM shot WHERE shotCode = %s",
@@ -1244,14 +1244,19 @@ def shot_upload_status(shot: int) -> tuple[frozenset[int], Optional[float]]:
     return codes, quiet
 
 
-def field_codes_by_shot(shot_min: int, shot_max: int) -> dict[int, frozenset[int]]:
-    """Field codes per shot for a shot range, in one query per waveform table.
+def field_codes_by_shot(shots: Iterable[int]) -> dict[int, frozenset[int]]:
+    """Field codes per shot for the given shots, one query per waveform table.
 
     For re-checking recently processed shots for fields that arrived late.
-    Where both tables hold a shot the fuller inventory wins, as in
+    Selected with ``IN`` rather than a range, so one old shot among recent
+    ones does not widen the scan to every shot between them.  Where both
+    tables hold a shot the fuller inventory wins, as in
     :func:`waveform_generation_for_shot`.
     """
     global DB_POOL
+    wanted = sorted({int(shot) for shot in shots})
+    if not wanted:
+        return {}
     if DB_POOL is None:
         logger.info("DB_POOL not initialized. Initializing automatically...")
         init_pool()
@@ -1261,20 +1266,22 @@ def field_codes_by_shot(shot_min: int, shot_max: int) -> dict[int, frozenset[int
     try:
         cursor = conn.cursor()
         try:
-            for table in _WAVEFORM_TABLES.values():
-                cursor.execute(
-                    f"SELECT shotCode, shotDataFieldCode FROM {table} "
-                    "WHERE shotCode BETWEEN %s AND %s",
-                    (int(shot_min), int(shot_max)),
-                )
-                per_shot: dict[int, set[int]] = {}
-                for shot_code, field_code in cursor.fetchall():
-                    if field_code is not None:
-                        per_shot.setdefault(int(shot_code), set()).add(int(field_code))
-                for shot_code, codes in per_shot.items():
-                    codes -= EXCLUDED_FIELD_CODES
-                    if len(codes) > len(found.get(shot_code, ())):
-                        found[shot_code] = frozenset(codes)
+            for start in range(0, len(wanted), 500):
+                chunk = wanted[start:start + 500]
+                marks = ", ".join(["%s"] * len(chunk))
+                for table in _WAVEFORM_TABLES.values():
+                    cursor.execute(
+                        f"SELECT shotCode, shotDataFieldCode FROM {table} WHERE shotCode IN ({marks})",
+                        tuple(chunk),
+                    )
+                    per_shot: dict[int, set[int]] = {}
+                    for shot_code, field_code in cursor.fetchall():
+                        if field_code is not None:
+                            per_shot.setdefault(int(shot_code), set()).add(int(field_code))
+                    for shot_code, codes in per_shot.items():
+                        codes -= EXCLUDED_FIELD_CODES
+                        if len(codes) > len(found.get(shot_code, ())):
+                            found[shot_code] = frozenset(codes)
         finally:
             cursor.close()
     finally:

@@ -13,9 +13,10 @@ Shot lifecycle::
         │                                                        └──> failed ──(attempts exhausted)──> gave_up
         └──────── late fields arrived (re-check) ── any settled state except operator-excluded
 
-``failed`` is the only retryable terminal-looking state; ``gave_up``,
-``excluded``, ``completed`` and ``partial`` are left alone until an operator
-says otherwise.
+````failed`` is retried automatically.  ``gave_up``, ``excluded``, ``completed``
+and ``partial`` stay put unless an operator acts -- or, within the re-check
+window, SQL gains fields the shot was processed without, which sends it back
+to ``detected``.  An operator-excluded shot is never reopened that way.
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ import sqlite3
 from typing import Any, Iterable, Iterator, Sequence
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 DETECTED = "detected"
 QUEUED = "queued"
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS shots (
     reference_class TEXT,
     attempts INTEGER NOT NULL DEFAULT 0,
     reprocessed INTEGER NOT NULL DEFAULT 0,
+    operator_excluded INTEGER NOT NULL DEFAULT 0,
     last_run_id INTEGER,
     updated_at TEXT NOT NULL
 );
@@ -124,6 +126,7 @@ class WorkerState:
             self._conn = sqlite3.connect(str(self.path), isolation_level=None, timeout=30.0)
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(_SCHEMA)
+            self._migrate()
             with self._transaction():
                 self._conn.execute(
                     "INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', ?)",
@@ -131,6 +134,24 @@ class WorkerState:
                 )
         self._conn.row_factory = sqlite3.Row
         self.readonly = readonly
+
+    #: Columns added after schema 1, with their declarations.
+    _ADDED_COLUMNS = {
+        "field_codes": "TEXT",
+        "reprocessed": "INTEGER NOT NULL DEFAULT 0",
+        "operator_excluded": "INTEGER NOT NULL DEFAULT 0",
+    }
+
+    def _migrate(self) -> None:
+        present = {row[1] for row in self._conn.execute("PRAGMA table_info(shots)")}
+        for name, declaration in self._ADDED_COLUMNS.items():
+            if name not in present:
+                self._conn.execute(f"ALTER TABLE shots ADD COLUMN {name} {declaration}")
+        self._conn.execute(
+            "INSERT INTO meta(key, value) VALUES ('schema_version', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (str(SCHEMA_VERSION),),
+        )
 
     def close(self) -> None:
         self._conn.close()
@@ -201,19 +222,30 @@ class WorkerState:
         ).fetchone()
         return None if row is None else frozenset(json.loads(row[0]))
 
-    def set_field_codes(self, shot: int, codes: Iterable[int]) -> None:
-        """Record the inventory a shot was processed with -- the re-check baseline."""
+    def set_field_codes(self, shot: int, codes: Iterable[int], *, merge: bool = False) -> None:
+        """Record the inventory a shot was processed with -- the re-check baseline.
+
+        ``merge`` adds to what is recorded instead of replacing it: the dump can
+        hold a field that landed after the shot settled, and can also *drop* one
+        SQL listed (a field whose series fails to load).  The baseline is the
+        union, so neither reads as a late arrival.
+        """
         with self._transaction() as conn:
+            new = {int(c) for c in codes}
+            if merge:
+                row = conn.execute("SELECT field_codes FROM shots WHERE shot = ?", (int(shot),)).fetchone()
+                if row is not None and row[0]:
+                    new |= set(json.loads(row[0]))
             conn.execute(
                 "UPDATE shots SET field_codes = ?, updated_at = ? WHERE shot = ?",
-                (json.dumps(sorted(int(c) for c in codes)), _now(), int(shot)),
+                (json.dumps(sorted(new)), _now(), int(shot)),
             )
 
     def recheck_candidates(self, *, since: datetime) -> list[dict[str, Any]]:
         """Settled, not running, not operator-excluded, settled after ``since``."""
         rows = self._conn.execute(
             "SELECT * FROM shots WHERE settled_at IS NOT NULL AND settled_at >= ? "
-            "AND state NOT IN (?, ?, ?) AND COALESCE(classification, '') != 'operator' "
+            "AND state NOT IN (?, ?, ?) AND operator_excluded = 0 "
             "ORDER BY shot",
             (_iso(since), DETECTED, QUEUED, RUNNING),
         ).fetchall()
@@ -226,7 +258,7 @@ class WorkerState:
             cursor = conn.execute(
                 "UPDATE shots SET state = ?, settled_at = NULL, applicable_stages = NULL, "
                 "classification = NULL, attempts = 0, reprocessed = reprocessed + 1, "
-                "reason = ?, updated_at = ? WHERE shot = ? AND state != ?",
+                "reason = ?, updated_at = ? WHERE shot = ? AND state != ? AND operator_excluded = 0",
                 (DETECTED, reason, now, int(shot), RUNNING),
             )
             if cursor.rowcount:
@@ -419,7 +451,7 @@ class WorkerState:
                 "             THEN ? ELSE ? END, "
                 "settled_at = CASE WHEN settled_at IS NULL OR applicable_stages IN ('[]', '[\"raw\"]') "
                 "              THEN NULL ELSE settled_at END, "
-                "attempts = 0, reason = ?, updated_at = ? "
+                "attempts = 0, operator_excluded = 0, reason = ?, updated_at = ? "
                 "WHERE shot = ? AND state != ?",
                 (DETECTED, QUEUED, reason, now, int(shot), RUNNING),
             )
@@ -433,7 +465,7 @@ class WorkerState:
         with self._transaction() as conn:
             cursor = conn.execute(
                 "UPDATE shots SET state = ?, classification = COALESCE(classification, 'operator'), "
-                "reason = ?, updated_at = ? WHERE shot = ? AND state != ?",
+                "operator_excluded = 1, reason = ?, updated_at = ? WHERE shot = ? AND state != ?",
                 (EXCLUDED, reason, now, int(shot), RUNNING),
             )
             if cursor.rowcount:

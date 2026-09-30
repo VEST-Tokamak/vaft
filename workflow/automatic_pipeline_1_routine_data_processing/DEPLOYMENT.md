@@ -828,7 +828,8 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    shot that is already there does nothing, so polling the same shot twice changes nothing.
 2. **Wait for the upload.** The DAQ writes one complete field per SQL row. A shot goes ahead as soon
    as either condition holds:
-   - its inventory contains every field the previous shot had; or
+   - its inventory contains every field the previous shot had, and no new field has arrived for
+     30 s (fields within one core upload arrive at most ~10 s apart); or
    - no field has been uploaded for `quiet_seconds` (default 600).
 
    On VEST (shots 48800–48916) the 177 core fields arrive 126–196 s after the shot record, so a
@@ -866,8 +867,10 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    | `gave_up` | The shot has used `max_attempts` runs and waits for an operator. |
 
 6. **Re-check for late fields.** For `recheck_seconds` (3 days) after processing, the worker compares
-   each shot's SQL inventory with what its raw dump holds. The comparison comes from the dump
-   manifest's `inventory`. When new fields have arrived, the worker reprocesses the shot:
+   each shot's SQL inventory with a baseline. The baseline is the fields SQL listed when the shot
+   settled plus the fields in the dump manifest's `inventory`. A field the dump failed to load is
+   therefore not mistaken for a late arrival. When new fields have arrived, the worker reprocesses
+   the shot:
    - It moves the shot's raw dump and manifest to `log_dir/superseded/<shot>/<time>/`. They are
      moved, never deleted.
    - It returns the shot to `detected`, so it is classified and run again.

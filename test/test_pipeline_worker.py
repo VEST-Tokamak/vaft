@@ -70,8 +70,8 @@ class FakeSource:
     def upload_status(self, shot):
         return self.shots[shot][1], self.shots[shot][2]
 
-    def field_codes_by_shot(self, shot_min, shot_max):
-        return {shot: entry[1] for shot, entry in self.shots.items() if shot_min <= shot <= shot_max}
+    def field_codes_by_shot(self, shots):
+        return {shot: self.shots[shot][1] for shot in shots if shot in self.shots}
 
 
 class FakeRunner:
@@ -86,6 +86,8 @@ class FakeRunner:
     def __init__(self, harvester: PipelineHarvester, source: FakeSource | None = None):
         self.harvester = harvester
         self.source = source
+        #: shot -> field codes the dump fails to load (SQL lists them anyway)
+        self.dropped: dict[int, set[int]] = {}
         self.plans: list[RunPlan] = []
         self.script: dict[int, list[str]] = {}
         self.busy = False
@@ -126,7 +128,8 @@ class FakeRunner:
                 payload = {"status": status}
                 if target.stage == "raw" and target.kind == "manifest" and self.source is not None:
                     # What the dump holds: SQL's inventory at run time.
-                    payload["inventory"] = {"field_codes": sorted(self.source.shots[shot][1])}
+                    payload["inventory"] = {"field_codes": sorted(
+                        set(self.source.shots[shot][1]) - self.dropped.get(shot, set()))}
                 self._write(target.path, payload)
         for path in plan.file_targets:
             if path.endswith(".json"):
@@ -241,7 +244,9 @@ def test_a_shot_runs_as_soon_as_its_inventory_matches_the_previous_shots(setup):
 
     assert worker.run_cycle().queued == [100]
     assert worker.state.shot(101)["state"] == S.DETECTED  # still uploading
-    source.add(101, fields=FULL_FIELDS, quiet=5)  # every field shot 100 had
+    source.add(101, fields=FULL_FIELDS, quiet=5)  # every field shot 100 had ...
+    assert worker.run_cycle().queued == []  # ... but the last one landed 5 s ago
+    source.add(101, fields=FULL_FIELDS, quiet=40)
     report = worker.run_cycle()
     assert report.queued == [101] and report.outcomes == {101: S.COMPLETED}
     (enqueued,) = [e for e in worker.state.events(shot=101) if e["kind"] == "enqueued"]
@@ -266,8 +271,9 @@ def test_a_shot_missing_a_previous_field_waits_for_the_quiet_limit(setup):
 @pytest.mark.parametrize(
     ("codes", "reference", "quiet", "finished"),
     [
-        ({1, 2}, {1, 2}, 0, True),       # matches the previous shot
-        ({1, 2, 3}, {1, 2}, 0, True),    # a superset is fine
+        ({1, 2}, {1, 2}, 40, True),      # matches the previous shot
+        ({1, 2, 3}, {1, 2}, 40, True),   # a superset is fine
+        ({1, 2}, {1, 2}, 5, False),      # a match mid-upload is not finished yet
         ({1}, {1, 2}, 0, False),         # still waiting for field 2
         ({1}, {1, 2}, 600, True),        # ... until the upload is quiet
         ({1}, None, 0, False),           # no reference: quiet decides
@@ -688,7 +694,7 @@ def test_field_codes_by_shot_keeps_the_fuller_table(monkeypatch):
         return [(48900, 1), (48900, 2), (48900, 3), (48901, 5), (48901, 111)]
 
     _fake_pool(monkeypatch, answer)
-    assert raw.field_codes_by_shot(48900, 48901) == {48900: frozenset({1, 2, 3}), 48901: frozenset({5})}
+    assert raw.field_codes_by_shot([48901, 48900]) == {48900: frozenset({1, 2, 3}), 48901: frozenset({5})}
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX process groups")
@@ -698,16 +704,24 @@ def test_a_killed_run_releases_its_own_lock(setup, tmp_path):
     fake = tmp_path / "fake_snakemake.sh"
     fake.write_text(
         "#!/bin/sh\n"
-        "trap '' TERM\n"  # first, so a slow start cannot let SIGTERM win
         f'case " $* " in *" --unlock "*) touch "{marker}"; exit 0;; esac\n'
         "sleep 30\n",
         encoding="utf-8",
     )
     fake.chmod(0o755)
-    config = dataclasses.replace(config, snakemake_cmd=(str(fake),), run_timeout=2.0)
+    config = dataclasses.replace(config, snakemake_cmd=(str(fake),), run_timeout=0.5)
     runner = SnakemakeRunner(config, load_pipeline_config(config))
     runner.terminate_grace = 0.5
-    result = runner.run(RunPlan(run_id=1, full_shots=(101,)))
+    # A Snakemake that ignores SIGTERM.  Ignored from birth -- inherited across
+    # exec -- rather than by a `trap` the child might not reach before the
+    # signal on a loaded machine.
+    import signal
+
+    previous = signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    try:
+        result = runner.run(RunPlan(run_id=1, full_shots=(101,)))
+    finally:
+        signal.signal(signal.SIGTERM, previous)
     assert result.timed_out and result.exit_code != 0
     assert marker.exists()  # SIGKILL leaves a lock only the worker could have held
 
@@ -818,3 +832,51 @@ def test_run_timeout_and_reprocess_are_validated(tmp_path):
         worker_config_from_mapping({**base, "run_timeout": 0}, base_dir=tmp_path)
     with pytest.raises(WorkerConfigError, match="max_reprocess"):
         worker_config_from_mapping({**base, "max_reprocess": -1}, base_dir=tmp_path)
+
+
+def test_an_operator_excluded_shot_is_never_reprocessed(setup):
+    _, make_worker, _ = setup
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    worker.run_cycle()
+    assert worker.state.exclude(101, reason="operator: bad calibration")
+    source.add(101, fields={*FULL_FIELDS, 102})  # a late field
+    report = worker.run_cycle()
+    assert report.reprocessed == [] and len(runner.plans) == 1
+    assert worker.state.shot(101)["state"] == S.EXCLUDED
+    assert not worker.state.reopen(101, reason="must refuse")
+
+
+def test_a_field_the_dump_drops_is_not_a_late_arrival(setup):
+    _, make_worker, _ = setup
+    source = FakeSource()
+    source.add(101, fields={*FULL_FIELDS, 250})
+    worker, runner = make_worker(source=source)
+    runner.dropped[101] = {250}  # listed by SQL, but its series fails to load
+    worker.run_cycle()
+    for _ in range(3):
+        assert worker.run_cycle().reprocessed == []
+    assert len(runner.plans) == 1
+
+
+def test_a_schema_1_state_file_is_migrated(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.sqlite"
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
+        "INSERT INTO meta VALUES ('schema_version', '1');"
+        "CREATE TABLE shots (shot INTEGER PRIMARY KEY, record_datetime TEXT, detected_at TEXT NOT NULL,"
+        " field_count INTEGER, field_count_at TEXT, settled_at TEXT, state TEXT NOT NULL,"
+        " classification TEXT, applicable_stages TEXT, reason TEXT, reference_class TEXT,"
+        " attempts INTEGER NOT NULL DEFAULT 0, last_run_id INTEGER, updated_at TEXT NOT NULL);"
+        "INSERT INTO shots(shot, detected_at, state, updated_at) VALUES (5, 'x', 'completed', 'x');"
+    )
+    conn.commit()
+    conn.close()
+    with S.WorkerState(path) as state:
+        row = state.shot(5)
+        assert row["reprocessed"] == 0 and row["field_codes"] is None
+        assert state.exclude(5, reason="operator")

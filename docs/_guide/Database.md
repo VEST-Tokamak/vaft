@@ -403,7 +403,8 @@ On the VEST server, `vaft pipeline-worker run` polls the SQL `shot` table and ru
 Snakemake pipeline on each new shot as soon as its upload has finished (issue #58). The upload
 counts as finished when either condition holds:
 
-- the shot's field inventory contains every field the previous shot had;
+- the shot's field inventory contains every field the previous shot had, and nothing new has
+  arrived for 30 s;
 - no field has been uploaded for `quiet_seconds`.
 
 `raw.shot_upload_status(shot)` gives the inventory and the quiet time. Processed shots are re-checked

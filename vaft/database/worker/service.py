@@ -143,7 +143,7 @@ class PipelineWorker:
         candidates = self.state.recheck_candidates(since=since)
         if not candidates:
             return
-        current = self.source.field_codes_by_shot(candidates[0]["shot"], candidates[-1]["shot"])
+        current = self.source.field_codes_by_shot([row["shot"] for row in candidates])
         for row in candidates:
             shot = row["shot"]
             baseline = frozenset(row["field_codes"] or ())
@@ -273,9 +273,10 @@ class PipelineWorker:
             self.state.record_stage_status(shot, outcome.stages, run_id=run_id)
             dumped = self.harvester.dumped_field_codes(shot)
             if dumped is not None:
-                # The re-check baseline is what the dump holds, not what SQL
-                # held when the shot settled: fields can land in between.
-                self.state.set_field_codes(shot, dumped)
+                # Baseline = what SQL listed at settle time ∪ what the dump
+                # holds: a field can land in between, and the dump drops a
+                # field whose series fails to load -- neither is "late".
+                self.state.set_field_codes(shot, dumped, merge=True)
             if outcome.state == S.FAILED and result.interrupted:
                 # A stop request is not the shot's fault; do not spend an attempt.
                 self.state.conclude(shot, state=S.QUEUED, reason="interrupted: " + outcome.reason,
