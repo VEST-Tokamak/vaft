@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>37c8a12</code>. What is described
+  <code>646d742</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -297,6 +297,11 @@
 <p>This page is the map of the <code class="language-plaintext highlighter-rouge">vaft</code> package: what each subpackage is for, the entry points you are
 expected to call, and where the detailed guide for each area lives. The signatures shown here are the
 real ones — copy them.</p>
+
+<p>The complete list of what each subpackage publishes – every object in a module’s <code class="language-plaintext highlighter-rouge">__all__</code>, with its
+signature, summary, deprecation status and source – is generated from the code on every publish:
+follow the <strong>API</strong> link of a subpackage in the table below. <code class="language-plaintext highlighter-rouge">docs/api_inventory.yml</code> groups the
+modules into those pages and lists the modules that publish nothing yet.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
@@ -331,6 +336,7 @@ so <code class="language-plaintext highlighter-rouge">import vaft</code> does no
       <th>Subpackage</th>
       <th>Purpose</th>
       <th>Deep dive</th>
+      <th>Generated reference</th>
     </tr>
   </thead>
   <tbody>
@@ -338,51 +344,79 @@ so <code class="language-plaintext highlighter-rouge">import vaft</code> does no
       <td><code class="language-plaintext highlighter-rouge">vaft.database</code></td>
       <td>Load/save VEST shots (ODS, native IDS) and reach the raw SQL DAQ archive</td>
       <td><a href="/vaft/develop/guide/Data_structures/">Data structures</a></td>
+      <td><a href="/vaft/develop/reference/api/database/">API</a></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.omas</code></td>
       <td>The ODS-aware API: <code class="language-plaintext highlighter-rouge">find_*</code>, <code class="language-plaintext highlighter-rouge">compute_*</code>, <code class="language-plaintext highlighter-rouge">update_*</code>, sample data</td>
       <td>this page</td>
+      <td><a href="/vaft/develop/reference/api/omas/">API</a></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.process</code></td>
       <td>Array-in / array-out signal processing, EM response, magnetics chains</td>
       <td><a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a></td>
+      <td><a href="/vaft/develop/reference/api/process/">API</a></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.formula</code></td>
       <td>Pure physics functions: equilibrium, stability, Green’s functions, constants</td>
       <td><a href="/vaft/develop/reference/formula/">Formula reference</a></td>
+      <td><a href="/vaft/develop/reference/api/formula/">API</a></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code></td>
       <td>Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults</td>
       <td>this page</td>
+      <td><a href="/vaft/develop/reference/api/machine-mapping/">API</a></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.plot</code></td>
       <td>Matplotlib figures straight from an ODS/ODC</td>
       <td>this page</td>
+      <td><a href="/vaft/develop/reference/api/plot/">API</a></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.diagram</code></td>
       <td>Explanatory schematics (magnetic-island topology, …) drawn from <code class="language-plaintext highlighter-rouge">vaft.formula</code> and rendered to SVG</td>
       <td><a href="/vaft/develop/reference/diagrams/">Scientific diagrams</a></td>
+      <td><a href="/vaft/develop/reference/api/diagram/">API</a></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.code</code></td>
       <td>Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM, TRANSP)</td>
       <td>this page</td>
+      <td><a href="/vaft/develop/reference/api/code/">API</a></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.data</code></td>
       <td>GEQDSK read/write and packaged sample files</td>
       <td>this page</td>
+      <td><a href="/vaft/develop/reference/api/data/">API</a></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.imas</code></td>
       <td>OMAS to IMAS Access Layer bridge</td>
       <td><a href="/vaft/develop/guide/Data_structures/">Data structures</a></td>
+      <td><a href="/vaft/develop/reference/api/imas/">API</a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation</code></td>
+      <td>Scientific assessment: benchmarks, comparisons, regression evidence</td>
+      <td> </td>
+      <td><a href="/vaft/develop/reference/api/validation/">API</a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.cli</code></td>
+      <td>Command-line workflows over the library APIs</td>
+      <td> </td>
+      <td><a href="/vaft/develop/reference/api/cli/">API</a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft</code>, <code class="language-plaintext highlighter-rouge">vaft.compat</code>, <code class="language-plaintext highlighter-rouge">vaft.ods_access</code>, <code class="language-plaintext highlighter-rouge">vaft.spectroscopy</code></td>
+      <td>Top level and small utilities</td>
+      <td> </td>
+      <td><a href="/vaft/develop/reference/api/core/">API</a></td>
     </tr>
   </tbody>
 </table>
@@ -593,72 +627,10 @@ provide. Run them once after loading, then plot.</p>
 <p><code class="language-plaintext highlighter-rouge">vaft.process</code> is the numerical layer (NumPy in, NumPy out) and <code class="language-plaintext highlighter-rouge">vaft.formula</code> is the closed-form
 physics layer. Neither one touches an ODS. Modules at a glance:</p>
 
-<table>
-  <thead>
-    <tr>
-      <th>Module</th>
-      <th>Contents</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.process.signal_processing</code></td>
-      <td><code class="language-plaintext highlighter-rouge">smooth</code>, <code class="language-plaintext highlighter-rouge">define_baseline</code>, <code class="language-plaintext highlighter-rouge">subtract_baseline</code>, <code class="language-plaintext highlighter-rouge">signal_on_offset</code>, <code class="language-plaintext highlighter-rouge">is_signal_active</code>, <code class="language-plaintext highlighter-rouge">process_signal</code></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.process.numerical</code></td>
-      <td><code class="language-plaintext highlighter-rouge">time_derivative(time, data)</code> on a non-uniform grid</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.process.electromagnetics</code></td>
-      <td><code class="language-plaintext highlighter-rouge">compute_br_bz_phi</code>, <code class="language-plaintext highlighter-rouge">calc_grid</code>, <code class="language-plaintext highlighter-rouge">compute_response_matrix</code>, <code class="language-plaintext highlighter-rouge">compute_impedance_matrices</code>, <code class="language-plaintext highlighter-rouge">solve_eddy_currents</code>, <code class="language-plaintext highlighter-rouge">compute_vacuum_fields_1d</code></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.process.magnetics</code></td>
-      <td><code class="language-plaintext highlighter-rouge">rogowski_coil_ip</code>, <code class="language-plaintext highlighter-rouge">flux_loop_flux</code>, <code class="language-plaintext highlighter-rouge">b_field_pol_probe_field</code>, <code class="language-plaintext highlighter-rouge">mirnov_spectrogram</code>, <code class="language-plaintext highlighter-rouge">toroidal_mode_analysis</code>, <code class="language-plaintext highlighter-rouge">toroidal_phase_fit_at_time</code></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.process.equilibrium</code></td>
-      <td><code class="language-plaintext highlighter-rouge">psi_to_rz</code>, <code class="language-plaintext highlighter-rouge">psi_to_rho</code>, <code class="language-plaintext highlighter-rouge">volume_average</code>, <code class="language-plaintext highlighter-rouge">shafranov_integrals</code>, <code class="language-plaintext highlighter-rouge">efit_virial_volume_integrals</code>, <code class="language-plaintext highlighter-rouge">calculate_diamagnetism</code></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.process.profile</code></td>
-      <td>Thomson and charge-exchange mapping/fitting, <code class="language-plaintext highlighter-rouge">core_profiles</code>, <code class="language-plaintext highlighter-rouge">core_profiles_from_eq</code></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.process.statistical_analysis</code></td>
-      <td><code class="language-plaintext highlighter-rouge">generate_core_profiles_history_dataframe</code>, <code class="language-plaintext highlighter-rouge">perform_ols_regression</code>, <code class="language-plaintext highlighter-rouge">compute_metrics</code></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium</code></td>
-      <td>flux, <code class="language-plaintext highlighter-rouge">q</code> and shear; geometry from an $(R,Z)$ boundary; virial (Shafranov) relations; power balance; confinement scalings</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.formula.stability</code></td>
-      <td><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code>, <code class="language-plaintext highlighter-rouge">greenwald_density</code>, <code class="language-plaintext highlighter-rouge">greenwald_fraction</code>, ballooning/kink/sawtooth criteria</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.formula.green</code></td>
-      <td><code class="language-plaintext highlighter-rouge">greens_function_2d</code>, <code class="language-plaintext highlighter-rouge">green_br_bz</code>, complete elliptic integrals</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.formula.utils</code></td>
-      <td><code class="language-plaintext highlighter-rouge">gradient</code>, <code class="language-plaintext highlighter-rouge">trapz_integral</code>, <code class="language-plaintext highlighter-rouge">fit_profile</code>, <code class="language-plaintext highlighter-rouge">make_fit_function</code></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.formula.atomic</code></td>
-      <td><code class="language-plaintext highlighter-rouge">interpolate_adf11</code>, <code class="language-plaintext highlighter-rouge">fractional_abundances</code>, <code class="language-plaintext highlighter-rouge">line_cooling_coefficient</code> on OPEN-ADAS ADF11 tables</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.formula.statistics</code></td>
-      <td>residual, goodness-of-fit and convergence statistics (<code class="language-plaintext highlighter-rouge">rms</code>, <code class="language-plaintext highlighter-rouge">chi_squared</code>, <code class="language-plaintext highlighter-rouge">runs_test_z</code>, <code class="language-plaintext highlighter-rouge">log10_decay_rate</code>, …)</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft.formula.constants</code></td>
-      <td>Physical constants used by the formula layer</td>
-    </tr>
-  </tbody>
-</table>
+<p>Every function of both layers has its own entry in the <a href="/vaft/develop/reference/process/">process reference</a>
+and the <a href="/vaft/develop/reference/formula/">formula reference</a>, grouped by submodule, and the
+<a href="/vaft/develop/reference/api/process/"><code class="language-plaintext highlighter-rouge">vaft.process</code> API</a> and
+<a href="/vaft/develop/reference/api/formula/"><code class="language-plaintext highlighter-rouge">vaft.formula</code> API</a> pages list the classes and constants beside them.</p>
 
 <p>Both are documented in full on the
 <a href="/vaft/develop/guide/Processing/">Signal processing and EM modeling</a> and
@@ -806,44 +778,9 @@ binaries are a readiness state, not a failure of deterministic input preparation
 </span><span class="n">outputs</span> <span class="o">=</span> <span class="nf">collect_efit_outputs</span><span class="p">(</span><span class="n">workdir</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
 </code></pre></div></div>
 
-<table>
-  <thead>
-    <tr>
-      <th>Code</th>
-      <th>Entry points</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>EFIT (equilibrium reconstruction)</td>
-      <td><code class="language-plaintext highlighter-rouge">EFITConfig</code>, <code class="language-plaintext highlighter-rouge">EFITInputs</code>, <code class="language-plaintext highlighter-rouge">EFITResult</code>, <code class="language-plaintext highlighter-rouge">prepare_efit_inputs</code>, <code class="language-plaintext highlighter-rouge">run_efit</code>, <code class="language-plaintext highlighter-rouge">collect_efit_outputs</code>, <code class="language-plaintext highlighter-rouge">generate_kfile</code>, <code class="language-plaintext highlighter-rouge">generate_constraints_ods</code>, <code class="language-plaintext highlighter-rouge">apply_channel_decisions</code>, <code class="language-plaintext highlighter-rouge">gaussian_probe_recovery</code>, <code class="language-plaintext highlighter-rouge">probe_families</code>, <code class="language-plaintext highlighter-rouge">gfile_to_omas</code></td>
-    </tr>
-    <tr>
-      <td>CHEASE (fixed-boundary refinement)</td>
-      <td><code class="language-plaintext highlighter-rouge">CHEASEConfig</code>, <code class="language-plaintext highlighter-rouge">CHEASEInputs</code>, <code class="language-plaintext highlighter-rouge">CHEASEResult</code>, <code class="language-plaintext highlighter-rouge">find_chease_executable</code>, <code class="language-plaintext highlighter-rouge">prepare_chease_inputs</code>, <code class="language-plaintext highlighter-rouge">run_chease</code>, <code class="language-plaintext highlighter-rouge">refine_equilibrium</code></td>
-    </tr>
-    <tr>
-      <td>GPEC (perturbed equilibrium, 3-D response)</td>
-      <td><code class="language-plaintext highlighter-rouge">GPECSuiteConfig</code>, <code class="language-plaintext highlighter-rouge">GPECCaseInputs</code>, <code class="language-plaintext highlighter-rouge">GPECModuleRun</code>, <code class="language-plaintext highlighter-rouge">GPECSuiteResult</code>, <code class="language-plaintext highlighter-rouge">find_gpec_executable</code>, <code class="language-plaintext highlighter-rouge">prepare_gpec_suite_case</code>, <code class="language-plaintext highlighter-rouge">run_gpec_suite_case</code>, <code class="language-plaintext highlighter-rouge">run_gpec</code>, <code class="language-plaintext highlighter-rouge">collect_gpec_suite_outputs</code>, <code class="language-plaintext highlighter-rouge">format_gfile_header_for_gpec</code></td>
-    </tr>
-    <tr>
-      <td>TES (forward equilibrium)</td>
-      <td><code class="language-plaintext highlighter-rouge">TESConfig</code>, <code class="language-plaintext highlighter-rouge">TESInputs</code>, <code class="language-plaintext highlighter-rouge">TESResult</code>, <code class="language-plaintext highlighter-rouge">prepare_tes_inputs</code>, <code class="language-plaintext highlighter-rouge">run_tes</code>, <code class="language-plaintext highlighter-rouge">collect_tes_outputs</code>, <code class="language-plaintext highlighter-rouge">scan_tes</code>, <code class="language-plaintext highlighter-rouge">parse_result_scalars</code>, <code class="language-plaintext highlighter-rouge">parse_result_coils</code></td>
-    </tr>
-    <tr>
-      <td>NUBEAM (neutral-beam Monte Carlo)</td>
-      <td><code class="language-plaintext highlighter-rouge">NUBEAMConfig</code>, <code class="language-plaintext highlighter-rouge">NUBEAMInputs</code>, <code class="language-plaintext highlighter-rouge">NUBEAMResult</code>, <code class="language-plaintext highlighter-rouge">find_nubeam_executable</code>, <code class="language-plaintext highlighter-rouge">prepare_nubeam_inputs</code>, <code class="language-plaintext highlighter-rouge">run_nubeam</code>, <code class="language-plaintext highlighter-rouge">run_nubeam_case</code>, <code class="language-plaintext highlighter-rouge">collect_nubeam_outputs</code></td>
-    </tr>
-    <tr>
-      <td>TRANSP (transport, <strong>read-only</strong>)</td>
-      <td><code class="language-plaintext highlighter-rouge">TranspOutput</code>, <code class="language-plaintext highlighter-rouge">TranspSlice</code>, <code class="language-plaintext highlighter-rouge">TranspVariable</code>, <code class="language-plaintext highlighter-rouge">TRANSPResult</code>, <code class="language-plaintext highlighter-rouge">read_transp_output</code>, <code class="language-plaintext highlighter-rouge">collect_transp_outputs</code>, <code class="language-plaintext highlighter-rouge">enclosed_torque</code>, <code class="language-plaintext highlighter-rouge">input_torque_density</code>, <code class="language-plaintext highlighter-rouge">zone_volume</code></td>
-    </tr>
-    <tr>
-      <td>Base classes</td>
-      <td><code class="language-plaintext highlighter-rouge">CodeConfig</code>, <code class="language-plaintext highlighter-rouge">CodeInputs</code>, <code class="language-plaintext highlighter-rouge">CodeResult</code>, <code class="language-plaintext highlighter-rouge">CodeRunner</code></td>
-    </tr>
-  </tbody>
-</table>
+<p>The configuration, input, result and runner types of every adapter – EFIT, CHEASE, GPEC, TES,
+NUBEAM, TRANSP and the others – are listed with their signatures on the generated
+<a href="/vaft/develop/reference/api/code/"><code class="language-plaintext highlighter-rouge">vaft.code</code> API</a> page, one section per module.</p>
 
 <p><code class="language-plaintext highlighter-rouge">run_nubeam_case(input_dir, gfile=..., workdir=...)</code> is the NUBEAM equivalent: it stages a case,
 builds its Plasma State, and runs INIT then STEP. Results come back as a native container, and
@@ -1443,25 +1380,25 @@ existing shots), and <code class="language-plaintext highlighter-rouge">automati
       <ul>
         
           
-          <li data-resource-id="database"><a href="/vaft/develop/reference/api/#vaftdatabase"><code>vaft.database</code></a></li>
+          <li data-resource-id="database"><a href="/vaft/develop/reference/api/database/"><code>vaft.database</code></a></li>
         
           
-          <li data-resource-id="omas"><a href="/vaft/develop/reference/api/#vaftomas"><code>vaft.omas</code></a></li>
+          <li data-resource-id="omas"><a href="/vaft/develop/reference/api/omas/"><code>vaft.omas</code></a></li>
         
           
-          <li data-resource-id="imas"><a href="/vaft/develop/reference/api/#vaftimas"><code>vaft.imas</code></a></li>
+          <li data-resource-id="imas"><a href="/vaft/develop/reference/api/imas/"><code>vaft.imas</code></a></li>
         
           
-          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/#vaftmachine_mapping"><code>vaft.machine_mapping</code></a></li>
+          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/machine-mapping/"><code>vaft.machine_mapping</code></a></li>
         
           
           <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
         
           
-          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/#vaftplot"><code>vaft.plot</code></a></li>
+          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/plot/"><code>vaft.plot</code></a></li>
         
           
-          <li data-resource-id="code"><a href="/vaft/develop/reference/api/#vaftcode"><code>vaft.code</code></a></li>
+          <li data-resource-id="code"><a href="/vaft/develop/reference/api/code/"><code>vaft.code</code></a></li>
         
       </ul>
     </div>
@@ -1754,7 +1691,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 04:59:50 +0000"
+        "time": "2026-09-30 05:11:01 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -1,0 +1,2560 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>API: vaft.database · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/api/core/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/api/data/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >API: vaft.database</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>646d742</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/api/Api_reference_database">API: vaft.database</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated reference of the objects vaft.database publishes, read from each module's __all__ and docstrings (issue 162).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>The signature, summary, deprecation status and source of every published object.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from each module's <code>__all__</code> by <code>python -m vaft._api_catalog</code>:
+<strong>136</strong> published objects in <strong>14</strong> modules.
+Signatures and summaries are read from the source; nothing here is written by hand.
+<a href="/vaft/develop/reference/api/">All API pages</a></p>
+
+<div class="ref-index tex2jax_ignore" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 136 objects by name or module" aria-label="Filter objects" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database"><code>vaft.database</code></a></th></tr>
+  <tr data-ref-row="vaft.database.export vaft.database "><td><a href="#vaft.database.export"><code>export</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.export_summary vaft.database "><td><a href="#vaft.database.export_summary"><code>export_summary</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.get_summary_preset vaft.database "><td><a href="#vaft.database.get_summary_preset"><code>get_summary_preset</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.load vaft.database "><td><a href="#vaft.database.load"><code>load</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.open vaft.database "><td><a href="#vaft.database.open"><code>open</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.save vaft.database "><td><a href="#vaft.database.save"><code>save</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.summary vaft.database "><td><a href="#vaft.database.summary"><code>summary</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.composition"><code>vaft.database.composition</code></a></th></tr>
+  <tr data-ref-row="vaft.database.composition.compose vaft.database.composition vaft.database.compose"><td><a href="#vaft.database.composition.compose"><code>compose</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.composition.compose_stage_products vaft.database.composition "><td><a href="#vaft.database.composition.compose_stage_products"><code>compose_stage_products</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.composition.impa_channels vaft.database.composition "><td><a href="#vaft.database.composition.impa_channels"><code>impa_channels</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.digitizer_hdf5"><code>vaft.database.digitizer_hdf5</code></a></th></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.container_path vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.container_path"><code>container_path</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.DigitizerPackError vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.DigitizerPackError"><code>DigitizerPackError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.fsync_path vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.fsync_path"><code>fsync_path</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.GZIP_LEVEL vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.GZIP_LEVEL"><code>GZIP_LEVEL</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.load_digitizer_hdf5 vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.load_digitizer_hdf5"><code>load_digitizer_hdf5</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.pack_digitizer_csv vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.pack_digitizer_csv"><code>pack_digitizer_csv</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.PackResult vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.PackResult"><code>PackResult</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.read_attributes vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.read_attributes"><code>read_attributes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.rebuild_csv_bytes vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.rebuild_csv_bytes"><code>rebuild_csv_bytes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.restore_csv vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.restore_csv"><code>restore_csv</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.SCHEMA vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.SCHEMA"><code>SCHEMA</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.SCHEMA_VERSION vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.SCHEMA_VERSION"><code>SCHEMA_VERSION</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.SUFFIX vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.SUFFIX"><code>SUFFIX</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.digitizer_hdf5.verify_container vaft.database.digitizer_hdf5 "><td><a href="#vaft.database.digitizer_hdf5.verify_container"><code>verify_container</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.filedb"><code>vaft.database.filedb</code></a></th></tr>
+  <tr data-ref-row="vaft.database.filedb.ArtifactClass vaft.database.filedb "><td><a href="#vaft.database.filedb.ArtifactClass"><code>ArtifactClass</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.audit_filedb_grammar vaft.database.filedb "><td><a href="#vaft.database.filedb.audit_filedb_grammar"><code>audit_filedb_grammar</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.filedb.audit_legacy_filedb vaft.database.filedb "><td><a href="#vaft.database.filedb.audit_legacy_filedb"><code>audit_legacy_filedb</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.filedb.EquilibriumFamily vaft.database.filedb "><td><a href="#vaft.database.filedb.EquilibriumFamily"><code>EquilibriumFamily</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.FileDB vaft.database.filedb "><td><a href="#vaft.database.filedb.FileDB"><code>FileDB</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.FileDBConfigError vaft.database.filedb "><td><a href="#vaft.database.filedb.FileDBConfigError"><code>FileDBConfigError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.FileDBDomain vaft.database.filedb "><td><a href="#vaft.database.filedb.FileDBDomain"><code>FileDBDomain</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.FileDBError vaft.database.filedb "><td><a href="#vaft.database.filedb.FileDBError"><code>FileDBError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.FileDBPathError vaft.database.filedb "><td><a href="#vaft.database.filedb.FileDBPathError"><code>FileDBPathError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.GPECCode vaft.database.filedb "><td><a href="#vaft.database.filedb.GPECCode"><code>GPECCode</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.GrammarRelocation vaft.database.filedb "><td><a href="#vaft.database.filedb.GrammarRelocation"><code>GrammarRelocation</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.GrammarRelocationReport vaft.database.filedb "><td><a href="#vaft.database.filedb.GrammarRelocationReport"><code>GrammarRelocationReport</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.LEGACY_DCON_PRODUCT vaft.database.filedb "><td><a href="#vaft.database.filedb.LEGACY_DCON_PRODUCT"><code>LEGACY_DCON_PRODUCT</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.filedb.LEGACY_FAMILY vaft.database.filedb "><td><a href="#vaft.database.filedb.LEGACY_FAMILY"><code>LEGACY_FAMILY</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.filedb.LEGACY_REFINEMENT vaft.database.filedb "><td><a href="#vaft.database.filedb.LEGACY_REFINEMENT"><code>LEGACY_REFINEMENT</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.filedb.LegacyAuditEntry vaft.database.filedb "><td><a href="#vaft.database.filedb.LegacyAuditEntry"><code>LegacyAuditEntry</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.LegacyAuditReport vaft.database.filedb "><td><a href="#vaft.database.filedb.LegacyAuditReport"><code>LegacyAuditReport</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.LegacyCollision vaft.database.filedb "><td><a href="#vaft.database.filedb.LegacyCollision"><code>LegacyCollision</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.LegacyDuplicate vaft.database.filedb "><td><a href="#vaft.database.filedb.LegacyDuplicate"><code>LegacyDuplicate</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.LegacyMissingProduct vaft.database.filedb "><td><a href="#vaft.database.filedb.LegacyMissingProduct"><code>LegacyMissingProduct</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.LegacyResolution vaft.database.filedb "><td><a href="#vaft.database.filedb.LegacyResolution"><code>LegacyResolution</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.OMASStage vaft.database.filedb "><td><a href="#vaft.database.filedb.OMASStage"><code>OMASStage</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.Refinement vaft.database.filedb "><td><a href="#vaft.database.filedb.Refinement"><code>Refinement</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.relocate_filedb_grammar vaft.database.filedb "><td><a href="#vaft.database.filedb.relocate_filedb_grammar"><code>relocate_filedb_grammar</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.filedb.StabilityProduct vaft.database.filedb "><td><a href="#vaft.database.filedb.StabilityProduct"><code>StabilityProduct</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.filedb.stage_lineage vaft.database.filedb "><td><a href="#vaft.database.filedb.stage_lineage"><code>stage_lineage</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.hscfg"><code>vaft.database.hscfg</code></a></th></tr>
+  <tr data-ref-row="vaft.database.hscfg.active_path vaft.database.hscfg "><td><a href="#vaft.database.hscfg.active_path"><code>active_path</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.hscfg.configured_keys vaft.database.hscfg "><td><a href="#vaft.database.hscfg.configured_keys"><code>configured_keys</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.hscfg.default_path vaft.database.hscfg "><td><a href="#vaft.database.hscfg.default_path"><code>default_path</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.hscfg.HSCFG_KEYS vaft.database.hscfg "><td><a href="#vaft.database.hscfg.HSCFG_KEYS"><code>HSCFG_KEYS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.hscfg.insecure_permissions vaft.database.hscfg "><td><a href="#vaft.database.hscfg.insecure_permissions"><code>insecure_permissions</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.hscfg.read_values vaft.database.hscfg "><td><a href="#vaft.database.hscfg.read_values"><code>read_values</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.hscfg.render_update vaft.database.hscfg "><td><a href="#vaft.database.hscfg.render_update"><code>render_update</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.hscfg.SECRET_KEYS vaft.database.hscfg "><td><a href="#vaft.database.hscfg.SECRET_KEYS"><code>SECRET_KEYS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.hscfg.update_hscfg vaft.database.hscfg "><td><a href="#vaft.database.hscfg.update_hscfg"><code>update_hscfg</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.hscfg.validate_value vaft.database.hscfg "><td><a href="#vaft.database.hscfg.validate_value"><code>validate_value</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.hscfg.write_private vaft.database.hscfg "><td><a href="#vaft.database.hscfg.write_private"><code>write_private</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.lazy_imas"><code>vaft.database.lazy_imas</code></a></th></tr>
+  <tr data-ref-row="vaft.database.lazy_imas.HSDSIMASHandle vaft.database.lazy_imas "><td><a href="#vaft.database.lazy_imas.HSDSIMASHandle"><code>HSDSIMASHandle</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.lazy_imas.LazyIMASClosedError vaft.database.lazy_imas "><td><a href="#vaft.database.lazy_imas.LazyIMASClosedError"><code>LazyIMASClosedError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.lazy_imas.open_imas vaft.database.lazy_imas "><td><a href="#vaft.database.lazy_imas.open_imas"><code>open_imas</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.lazy_ods"><code>vaft.database.lazy_ods</code></a></th></tr>
+  <tr data-ref-row="vaft.database.lazy_ods.HSDSODS vaft.database.lazy_ods "><td><a href="#vaft.database.lazy_ods.HSDSODS"><code>HSDSODS</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.lazy_ods.HSDSStore vaft.database.lazy_ods "><td><a href="#vaft.database.lazy_ods.HSDSStore"><code>HSDSStore</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.lazy_ods.LazyODSClosedError vaft.database.lazy_ods "><td><a href="#vaft.database.lazy_ods.LazyODSClosedError"><code>LazyODSClosedError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.lazy_ods.open_ods vaft.database.lazy_ods "><td><a href="#vaft.database.lazy_ods.open_ods"><code>open_ods</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.maintenance"><code>vaft.database.maintenance</code></a></th></tr>
+  <tr data-ref-row="vaft.database.maintenance.ImpaResidue vaft.database.maintenance "><td><a href="#vaft.database.maintenance.ImpaResidue"><code>ImpaResidue</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.maintenance.ImpaStripError vaft.database.maintenance "><td><a href="#vaft.database.maintenance.ImpaStripError"><code>ImpaStripError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.maintenance.ImpaStripWriteError vaft.database.maintenance "><td><a href="#vaft.database.maintenance.ImpaStripWriteError"><code>ImpaStripWriteError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.maintenance.inspect_impa_residue vaft.database.maintenance "><td><a href="#vaft.database.maintenance.inspect_impa_residue"><code>inspect_impa_residue</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.maintenance.strip_impa_from_shots vaft.database.maintenance "><td><a href="#vaft.database.maintenance.strip_impa_from_shots"><code>strip_impa_from_shots</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.maintenance.strip_impa_from_source vaft.database.maintenance "><td><a href="#vaft.database.maintenance.strip_impa_from_source"><code>strip_impa_from_source</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.plotting"><code>vaft.database.plotting</code></a></th></tr>
+  <tr data-ref-row="vaft.database.plotting.available_plots vaft.database.plotting "><td><a href="#vaft.database.plotting.available_plots"><code>available_plots</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.plotting.dd vaft.database.plotting "><td><a href="#vaft.database.plotting.dd"><code>dd</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.plotting.extract vaft.database.plotting "><td><a href="#vaft.database.plotting.extract"><code>extract</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.plotting.plot_diagnostics_time_interactive vaft.database.plotting "><td><a href="#vaft.database.plotting.plot_diagnostics_time_interactive"><code>plot_diagnostics_time_interactive</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.plotting.plot_equilibrium_interactive vaft.database.plotting "><td><a href="#vaft.database.plotting.plot_equilibrium_interactive"><code>plot_equilibrium_interactive</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.plotting.render vaft.database.plotting "><td><a href="#vaft.database.plotting.render"><code>render</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.plotting.render_to_file vaft.database.plotting "><td><a href="#vaft.database.plotting.render_to_file"><code>render_to_file</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.production_qa"><code>vaft.database.production_qa</code></a></th></tr>
+  <tr data-ref-row="vaft.database.production_qa.mhd_linear_run_coverage_model vaft.database.production_qa vaft.validation.mhd_linear_run_coverage_model"><td><a href="#vaft.database.production_qa.mhd_linear_run_coverage_model"><code>mhd_linear_run_coverage_model</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.production_qa.raw_acquisition_qa_model vaft.database.production_qa vaft.validation.raw_acquisition_qa_model"><td><a href="#vaft.database.production_qa.raw_acquisition_qa_model"><code>raw_acquisition_qa_model</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.production_qa.render_stage_plots vaft.database.production_qa vaft.validation.render_stage_plots"><td><a href="#vaft.database.production_qa.render_stage_plots"><code>render_stage_plots</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.production_qa.stage_plot_filenames vaft.database.production_qa vaft.validation.stage_plot_filenames"><td><a href="#vaft.database.production_qa.stage_plot_filenames"><code>stage_plot_filenames</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.production_qa.STAGE_VALIDATION_PLOTS vaft.database.production_qa "><td><a href="#vaft.database.production_qa.STAGE_VALIDATION_PLOTS"><code>STAGE_VALIDATION_PLOTS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.production_qa.stages vaft.database.production_qa vaft.validation.stages"><td><a href="#vaft.database.production_qa.stages"><code>stages</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.production_qa.validation_plots vaft.database.production_qa vaft.validation.validation_plots"><td><a href="#vaft.database.production_qa.validation_plots"><code>validation_plots</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.production_qa.ValidationPlot vaft.database.production_qa vaft.validation.ValidationPlot"><td><a href="#vaft.database.production_qa.ValidationPlot"><code>ValidationPlot</code></a></td><td>class</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.provenance"><code>vaft.database.provenance</code></a></th></tr>
+  <tr data-ref-row="vaft.database.provenance.ChainLink vaft.database.provenance "><td><a href="#vaft.database.provenance.ChainLink"><code>ChainLink</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.provenance.ChainReport vaft.database.provenance "><td><a href="#vaft.database.provenance.ChainReport"><code>ChainReport</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.provenance.NOT_RECORDED vaft.database.provenance "><td><a href="#vaft.database.provenance.NOT_RECORDED"><code>NOT_RECORDED</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.provenance.verify_chain vaft.database.provenance "><td><a href="#vaft.database.provenance.verify_chain"><code>verify_chain</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.replication"><code>vaft.database.replication</code></a></th></tr>
+  <tr data-ref-row="vaft.database.replication.is_reusable vaft.database.replication "><td><a href="#vaft.database.replication.is_reusable"><code>is_reusable</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.replication.merge_remote_master vaft.database.replication "><td><a href="#vaft.database.replication.merge_remote_master"><code>merge_remote_master</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.replication.ProductNotEligibleError vaft.database.replication "><td><a href="#vaft.database.replication.ProductNotEligibleError"><code>ProductNotEligibleError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.replication.read_record vaft.database.replication "><td><a href="#vaft.database.replication.read_record"><code>read_record</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.replication.REPLICABLE_STATUSES vaft.database.replication "><td><a href="#vaft.database.replication.REPLICABLE_STATUSES"><code>REPLICABLE_STATUSES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.replication.replicate_stage vaft.database.replication "><td><a href="#vaft.database.replication.replicate_stage"><code>replicate_stage</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.replication.REPLICATION_SCHEMA_VERSION vaft.database.replication "><td><a href="#vaft.database.replication.REPLICATION_SCHEMA_VERSION"><code>REPLICATION_SCHEMA_VERSION</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.replication.ReplicationError vaft.database.replication "><td><a href="#vaft.database.replication.ReplicationError"><code>ReplicationError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.replication.ReplicationRecord vaft.database.replication "><td><a href="#vaft.database.replication.ReplicationRecord"><code>ReplicationRecord</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.replication.RoundTripValidationError vaft.database.replication "><td><a href="#vaft.database.replication.RoundTripValidationError"><code>RoundTripValidationError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.replication.StageNotReplicableError vaft.database.replication "><td><a href="#vaft.database.replication.StageNotReplicableError"><code>StageNotReplicableError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.replication.write_record vaft.database.replication "><td><a href="#vaft.database.replication.write_record"><code>write_record</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.retirement"><code>vaft.database.retirement</code></a></th></tr>
+  <tr data-ref-row="vaft.database.retirement.copy_refinement vaft.database.retirement "><td><a href="#vaft.database.retirement.copy_refinement"><code>copy_refinement</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.retirement.delete_retired_source vaft.database.retirement "><td><a href="#vaft.database.retirement.delete_retired_source"><code>delete_retired_source</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.retirement.plan_retirement vaft.database.retirement "><td><a href="#vaft.database.retirement.plan_retirement"><code>plan_retirement</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.retirement.REFINEMENT_DESTINATION vaft.database.retirement "><td><a href="#vaft.database.retirement.REFINEMENT_DESTINATION"><code>REFINEMENT_DESTINATION</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.retirement.REFINEMENT_IDS vaft.database.retirement "><td><a href="#vaft.database.retirement.REFINEMENT_IDS"><code>REFINEMENT_IDS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.retirement.RetirementError vaft.database.retirement "><td><a href="#vaft.database.retirement.RetirementError"><code>RetirementError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.retirement.RetirementReport vaft.database.retirement "><td><a href="#vaft.database.retirement.RetirementReport"><code>RetirementReport</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.retirement.RETIRING_SOURCE vaft.database.retirement "><td><a href="#vaft.database.retirement.RETIRING_SOURCE"><code>RETIRING_SOURCE</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.retirement.ShotRetirement vaft.database.retirement "><td><a href="#vaft.database.retirement.ShotRetirement"><code>ShotRetirement</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.retirement.STABILITY_IDS vaft.database.retirement "><td><a href="#vaft.database.retirement.STABILITY_IDS"><code>STABILITY_IDS</code></a></td><td>data</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.database.sources"><code>vaft.database.sources</code></a></th></tr>
+  <tr data-ref-row="vaft.database.sources.CATALOG vaft.database.sources "><td><a href="#vaft.database.sources.CATALOG"><code>CATALOG</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.sources.children vaft.database.sources "><td><a href="#vaft.database.sources.children"><code>children</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.sources.DEFAULT_SOURCE vaft.database.sources "><td><a href="#vaft.database.sources.DEFAULT_SOURCE"><code>DEFAULT_SOURCE</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.sources.describe vaft.database.sources "><td><a href="#vaft.database.sources.describe"><code>describe</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.sources.EXTRA_SOURCES_VARIABLE vaft.database.sources "><td><a href="#vaft.database.sources.EXTRA_SOURCES_VARIABLE"><code>EXTRA_SOURCES_VARIABLE</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.sources.FAMILY_SOURCES vaft.database.sources "><td><a href="#vaft.database.sources.FAMILY_SOURCES"><code>FAMILY_SOURCES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.sources.HSDSSource vaft.database.sources "><td><a href="#vaft.database.sources.HSDSSource"><code>HSDSSource</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.sources.HSDSSourceError vaft.database.sources "><td><a href="#vaft.database.sources.HSDSSourceError"><code>HSDSSourceError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.sources.is_writable vaft.database.sources "><td><a href="#vaft.database.sources.is_writable"><code>is_writable</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.sources.known_sources vaft.database.sources "><td><a href="#vaft.database.sources.known_sources"><code>known_sources</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.sources.LEGACY_SOURCE vaft.database.sources "><td><a href="#vaft.database.sources.LEGACY_SOURCE"><code>LEGACY_SOURCE</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.sources.MissingSourceError vaft.database.sources "><td><a href="#vaft.database.sources.MissingSourceError"><code>MissingSourceError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.sources.ReadOnlySourceError vaft.database.sources "><td><a href="#vaft.database.sources.ReadOnlySourceError"><code>ReadOnlySourceError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.sources.replicable_stages vaft.database.sources "><td><a href="#vaft.database.sources.replicable_stages"><code>replicable_stages</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.sources.replication_for_stage vaft.database.sources "><td><a href="#vaft.database.sources.replication_for_stage"><code>replication_for_stage</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.sources.resolve vaft.database.sources "><td><a href="#vaft.database.sources.resolve"><code>resolve</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.sources.source_for_stage vaft.database.sources "><td><a href="#vaft.database.sources.source_for_stage"><code>source_for_stage</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.database.sources.STAGE_REPLICATION vaft.database.sources "><td><a href="#vaft.database.sources.STAGE_REPLICATION"><code>STAGE_REPLICATION</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.sources.STAGE_SOURCE vaft.database.sources "><td><a href="#vaft.database.sources.STAGE_SOURCE"><code>STAGE_SOURCE</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.database.sources.StageReplication vaft.database.sources "><td><a href="#vaft.database.sources.StageReplication"><code>StageReplication</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.database.sources.UnknownSourceError vaft.database.sources "><td><a href="#vaft.database.sources.UnknownSourceError"><code>UnknownSourceError</code></a></td><td>class</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No object matches.</p>
+</div>
+
+<h2 id="module-vaft.database">vaft.database</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Database access and storage infrastructure.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.export" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.export"><code>export</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/__init__.py#L374" title="vaft/database/__init__.py, line 374">source</a>
+</header>
+    <pre class="ref-signature"><code>export(shot, source=None, *, backend, output=None, overwrite=False, occurrence=0, cache=&#39;auto&#39;, transport=&#39;auto&#39;)</code></pre>
+
+    <p>Export one shot from an HSDS source as portable local files.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.export_summary" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.export_summary"><code>export_summary</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/__init__.py#L408" title="vaft/database/__init__.py, line 408">source</a>
+</header>
+    <pre class="ref-signature"><code>export_summary(df, path, *, mode=&#39;replace&#39;, key_columns=None, replace_groups=None)</code></pre>
+
+    <p>Serialize or upsert an already-generated summary DataFrame.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.get_summary_preset" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.get_summary_preset"><code>get_summary_preset</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/__init__.py#L362" title="vaft/database/__init__.py, line 362">source</a>
+</header>
+    <pre class="ref-signature"><code>get_summary_preset(name)</code></pre>
+
+    <p>Return the <code class="language-plaintext highlighter-rouge">SummaryPreset</code> describing one canonical summary sheet.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.load" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.load"><code>load</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/__init__.py#L150" title="vaft/database/__init__.py, line 150">source</a>
+</header>
+    <pre class="ref-signature"><code>load(shot: int | list[int], source: str | None = None, *, directory: str | None = None, representation: Literal[&#39;omas&#39;, &#39;imas&#39;] = &#39;omas&#39;, paths: str | list[str] | None = None, occurrence: int | Mapping[str, int] | None = None, imas_version: str | None = None, cache: str = &#39;auto&#39;, transport: Literal[&#39;auto&#39;, &#39;canonical&#39;, &#39;h5image&#39;] = &#39;auto&#39;)</code></pre>
+
+    <p>Materialize an OMAS ODS or native IMAS IDS from remote HSDS storage.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.open" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.open"><code>open</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/__init__.py#L224" title="vaft/database/__init__.py, line 224">source</a>
+</header>
+    <pre class="ref-signature"><code>open(shot: int, *, source: str | None = None, directory: str | None = None, representation: Literal[&#39;omas&#39;, &#39;imas&#39;] = &#39;omas&#39;, paths: str | list[str] | None = None, occurrence: int | Mapping[str, int] | None = None, imas_version: str | None = None)</code></pre>
+
+    <p>Open a read-only lazy OMAS ODS or native IMAS IDS adapter over HSDS.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.save" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.save"><code>save</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/__init__.py#L273" title="vaft/database/__init__.py, line 273">source</a>
+</header>
+    <pre class="ref-signature"><code>save(data, shot: int, *, source: str | None = None, target: str | None = None, directory: str | None = None, representation: Literal[&#39;omas&#39;, &#39;imas&#39;] | None = None, occurrence: int | Mapping[str, int] | None = None, imas_version: str | None = None, derived_cache: Literal[&#39;auto&#39;, &#39;none&#39;, &#39;imas-images&#39;, &#39;omas&#39;, &#39;both&#39;] = &#39;auto&#39;, finalize_master: Callable[[Path], None] | None = None)</code></pre>
+
+    <p>Write an OMAS ODS or native IDS to remote HSDS storage.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.summary" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.summary"><code>summary</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/__init__.py#L348" title="vaft/database/__init__.py, line 348">source</a>
+</header>
+    <pre class="ref-signature"><code>summary(shot_range=None, *, preset=&#39;equilibrium_global&#39;, source=None, directory=None)</code></pre>
+
+    <p>Return a canonical preset summary for a range or all available shots.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.composition">vaft.database.composition</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Explicit composition of one shot across named HSDS sources (issue #305).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.composition.compose" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.composition.compose"><code>compose</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/composition.py#L51" title="vaft/database/composition.py, line 51">source</a>
+</header>
+    <pre class="ref-signature"><code>compose(shot: int, sources: Sequence[str] = (&#39;main&#39;, &#39;impa&#39;), *, paths: Iterable[str] | None = None, occurrence: int | None = None) -&gt; tuple[Any, dict[str, Any]]</code></pre>
+
+    <p>Load <code class="language-plaintext highlighter-rouge">shot</code> from several sources and append the optional channels.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.database.compose</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.composition.compose_stage_products" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.composition.compose_stage_products"><code>compose_stage_products</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/composition.py#L153" title="vaft/database/composition.py, line 153">source</a>
+</header>
+    <pre class="ref-signature"><code>compose_stage_products(*, diagnostics: str | Path, eddy: str | Path, eddy_manifest: str | Path | None = None, strict: bool = True) -&gt; tuple[Any, dict[str, Any]]</code></pre>
+
+    <p>Union a diagnostics product with the eddy product computed from it.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.composition.impa_channels" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.composition.impa_channels"><code>impa_channels</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/composition.py#L44" title="vaft/database/composition.py, line 44">source</a>
+</header>
+    <pre class="ref-signature"><code>impa_channels(ods: Any, node: str) -&gt; list[int]</code></pre>
+
+    <p>Return the indices of <code class="language-plaintext highlighter-rouge">node</code> holding IMPA channels, by identifier.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.digitizer_hdf5">vaft.database.digitizer_hdf5</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Lossless HDF5 container for VEST soft X-ray digitizer records.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.container_path" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.container_path"><code>container_path</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/digitizer_hdf5.py#L80" title="vaft/database/digitizer_hdf5.py, line 80">source</a>
+</header>
+    <pre class="ref-signature"><code>container_path(csv_path: str | Path) -&gt; Path</code></pre>
+
+    <p>Where the container for <code class="language-plaintext highlighter-rouge">digitizer_{daq}_{shot}.csv</code> lives.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.DigitizerPackError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.DigitizerPackError"><code>DigitizerPackError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/digitizer_hdf5.py#L62" title="vaft/database/digitizer_hdf5.py, line 62">source</a>
+</header>
+
+    <p>A CSV could not be packed without loss; the CSV was left untouched.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.fsync_path" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.fsync_path"><code>fsync_path</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/digitizer_hdf5.py#L86" title="vaft/database/digitizer_hdf5.py, line 86">source</a>
+</header>
+    <pre class="ref-signature"><code>fsync_path(path: str | Path) -&gt; None</code></pre>
+
+    <p>Force a file (or directory) to stable storage before anything depends on it.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.GZIP_LEVEL" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.GZIP_LEVEL"><code>GZIP_LEVEL</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>GZIP_LEVEL = 4</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.load_digitizer_hdf5" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.load_digitizer_hdf5"><code>load_digitizer_hdf5</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/digitizer_hdf5.py#L265" title="vaft/database/digitizer_hdf5.py, line 265">source</a>
+</header>
+    <pre class="ref-signature"><code>load_digitizer_hdf5(path: str | Path, *, nrows: int | None = None) -&gt; np.ndarray</code></pre>
+
+    <p>Return the <code class="language-plaintext highlighter-rouge">(channels, samples)</code> array a container holds.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.pack_digitizer_csv" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.pack_digitizer_csv"><code>pack_digitizer_csv</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/digitizer_hdf5.py#L158" title="vaft/database/digitizer_hdf5.py, line 158">source</a>
+</header>
+    <pre class="ref-signature"><code>pack_digitizer_csv(csv_path: str | Path, target: str | Path | None = None, *, shot: int | None = None, daq_label: str | None = None, overwrite: bool = False) -&gt; PackResult</code></pre>
+
+    <p>Write the lossless container for one digitizer CSV and verify it.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.PackResult" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.PackResult"><code>PackResult</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/digitizer_hdf5.py#L66" title="vaft/database/digitizer_hdf5.py, line 66">source</a>
+</header>
+    <pre class="ref-signature"><code>PackResult(source: Path, target: Path, shape: tuple[int, int], source_size: int, target_size: int, source_sha256: str) -&gt; None</code></pre>
+
+    <details class="ref-more"><summary>6 fields · 1 members</summary>
+<ul class="api-members">
+<li><code>source: Path</code></li>
+<li><code>target: Path</code></li>
+<li><code>shape: tuple[int, int]</code></li>
+<li><code>source_size: int</code></li>
+<li><code>target_size: int</code></li>
+<li><code>source_sha256: str</code></li>
+<li><code>ratio</code> <span class="ref-type">property</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.read_attributes" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.read_attributes"><code>read_attributes</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/digitizer_hdf5.py#L245" title="vaft/database/digitizer_hdf5.py, line 245">source</a>
+</header>
+    <pre class="ref-signature"><code>read_attributes(path: str | Path) -&gt; dict[str, Any]</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.rebuild_csv_bytes" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.rebuild_csv_bytes"><code>rebuild_csv_bytes</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/digitizer_hdf5.py#L146" title="vaft/database/digitizer_hdf5.py, line 146">source</a>
+</header>
+    <pre class="ref-signature"><code>rebuild_csv_bytes(data: np.ndarray, line_terminator: str = &#39;\r\n&#39;) -&gt; bytes</code></pre>
+
+    <p>Regenerate the CSV text <code class="language-plaintext highlighter-rouge">sample_v3.py</code> wrote for <code class="language-plaintext highlighter-rouge">data</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.restore_csv" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.restore_csv"><code>restore_csv</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/digitizer_hdf5.py#L299" title="vaft/database/digitizer_hdf5.py, line 299">source</a>
+</header>
+    <pre class="ref-signature"><code>restore_csv(path: str | Path, target: str | Path | None = None) -&gt; Path</code></pre>
+
+    <p>Write the original CSV back out of a verified container.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.SCHEMA" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.SCHEMA"><code>SCHEMA</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>SCHEMA = &#39;vaft.soft_x_rays.digitizer&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.SCHEMA_VERSION" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.SCHEMA_VERSION"><code>SCHEMA_VERSION</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>SCHEMA_VERSION = 1</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.SUFFIX" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.SUFFIX"><code>SUFFIX</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>SUFFIX = &#39;.h5&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.digitizer_hdf5.verify_container" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.digitizer_hdf5.verify_container"><code>verify_container</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/digitizer_hdf5.py#L280" title="vaft/database/digitizer_hdf5.py, line 280">source</a>
+</header>
+    <pre class="ref-signature"><code>verify_container(path: str | Path, *, expected_sha256: str | None = None) -&gt; str</code></pre>
+
+    <p>Regenerate the source CSV from a container and check its sha256.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.filedb">vaft.database.filedb</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Canonical FileDB paths and read-only legacy-layout auditing APIs.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.filedb.ArtifactClass" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.ArtifactClass"><code>ArtifactClass</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L226" title="vaft/database/filedb.py, line 226">source</a>
+</header>
+
+    <details class="ref-more"><summary>7 fields</summary>
+<ul class="api-members">
+<li><code>INPUT: &#39;input&#39;</code></li>
+<li><code>OUTPUT: &#39;output&#39;</code></li>
+<li><code>LOG: &#39;log&#39;</code></li>
+<li><code>PLOT: &#39;plot&#39;</code></li>
+<li><code>CONFIG: &#39;config&#39;</code></li>
+<li><code>WORK: &#39;work&#39;</code></li>
+<li><code>METADATA: &#39;metadata&#39;</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.audit_filedb_grammar" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.audit_filedb_grammar"><code>audit_filedb_grammar</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L1305" title="vaft/database/filedb.py, line 1305">source</a>
+</header>
+    <pre class="ref-signature"><code>audit_filedb_grammar(root: str | os.PathLike[str]) -&gt; GrammarRelocationReport</code></pre>
+
+    <p>Plan a canonical root’s move onto the lineage-bearing grammar, changing nothing.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.audit_legacy_filedb" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.audit_legacy_filedb"><code>audit_legacy_filedb</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L1007" title="vaft/database/filedb.py, line 1007">source</a>
+</header>
+    <pre class="ref-signature"><code>audit_legacy_filedb(legacy_root: str | os.PathLike[str], *, target_root: str | os.PathLike[str] | None = None, expected_products: Mapping[str, str] | None = None) -&gt; LegacyAuditReport</code></pre>
+
+    <p>Inventory and propose mappings without modifying either FileDB root.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.EquilibriumFamily" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.EquilibriumFamily"><code>EquilibriumFamily</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L119" title="vaft/database/filedb.py, line 119">source</a>
+</header>
+
+    <p>The reconstruction lineage an equilibrium came from.</p>
+
+    <details class="ref-more"><summary>3 fields</summary>
+<ul class="api-members">
+<li><code>MAGNETIC: &#39;magnetic&#39;</code></li>
+<li><code>ELECTRON: &#39;electron&#39;</code></li>
+<li><code>KINETIC: &#39;kinetic&#39;</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.FileDB" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.FileDB"><code>FileDB</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L398" title="vaft/database/filedb.py, line 398">source</a>
+</header>
+    <pre class="ref-signature"><code>FileDB(root: str | os.PathLike[str]) -&gt; None</code></pre>
+
+    <p>Resolve canonical OMAS-first FileDB paths without filesystem writes.</p>
+
+    <details class="ref-more"><summary>13 members</summary>
+<ul class="api-members">
+<li><code>from_config</code> <span class="ref-type">classmethod</span> &mdash; Resolve root precedence: explicit config, canonical environment.</li>
+<li><code>resolve</code> <span class="ref-type">method</span> &mdash; Return a path from the canonical grammar without creating it.</li>
+<li><code>raw</code> <span class="ref-type">method</span> &mdash; Return the flat per-shot raw archive directory.</li>
+<li><code>legacy</code> <span class="ref-type">method</span> &mdash; Return <code class="language-plaintext highlighter-rouge">legacy/{diagnostic}/{shot}[/{artifact}]</code>.</li>
+<li><code>omas</code> <span class="ref-type">method</span></li>
+<li><code>efit</code> <span class="ref-type">method</span></li>
+<li><code>chease</code> <span class="ref-type">method</span></li>
+<li><code>gpec</code> <span class="ref-type">method</span> &mdash; One stability cell: <code class="language-plaintext highlighter-rouge">(family, refinement, product, shot, n_tor)</code>.</li>
+<li><code>omas_product</code> <span class="ref-type">method</span> &mdash; Return the finalized ODS file one OMAS stage writes.</li>
+<li><code>omas_manifest</code> <span class="ref-type">method</span> &mdash; Return the stage manifest recording how the product was produced.</li>
+<li><code>omas_replication_record</code> <span class="ref-type">method</span> &mdash; Return the record of whether this product reached a remote backend.</li>
+<li><code>pipeline</code> <span class="ref-type">method</span> &mdash; Return a canonical, batch-scoped pipeline product directory.</li>
+<li><code>resolve_legacy_readonly</code> <span class="ref-type">method</span> &mdash; Resolve the former <code class="language-plaintext highlighter-rouge">{shot}/{area}</code> hierarchy without writes.</li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.FileDBConfigError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.FileDBConfigError"><code>FileDBConfigError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L58" title="vaft/database/filedb.py, line 58">source</a>
+</header>
+
+    <p>Raised when the FileDB storage root cannot be configured.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.FileDBDomain" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.FileDBDomain"><code>FileDBDomain</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L66" title="vaft/database/filedb.py, line 66">source</a>
+</header>
+
+    <details class="ref-more"><summary>7 fields</summary>
+<ul class="api-members">
+<li><code>RAW: &#39;raw&#39;</code></li>
+<li><code>LEGACY: &#39;legacy&#39;</code></li>
+<li><code>OMAS: &#39;omas&#39;</code></li>
+<li><code>EFIT: &#39;efit&#39;</code></li>
+<li><code>CHEASE: &#39;chease&#39;</code></li>
+<li><code>GPEC: &#39;gpec&#39;</code></li>
+<li><code>PIPELINE: &#39;pipeline&#39;</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.FileDBError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.FileDBError"><code>FileDBError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L54" title="vaft/database/filedb.py, line 54">source</a>
+</header>
+
+    <p>Base error for invalid FileDB configuration or path requests.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.FileDBPathError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.FileDBPathError"><code>FileDBPathError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L62" title="vaft/database/filedb.py, line 62">source</a>
+</header>
+
+    <p>Raised when a path request is outside the canonical grammar.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.GPECCode" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.GPECCode"><code>GPECCode</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L106" title="vaft/database/filedb.py, line 106">source</a>
+</header>
+
+    <p>Legacy stability code names.</p>
+
+    <details class="ref-more"><summary>4 fields</summary>
+<ul class="api-members">
+<li><code>DCON: &#39;dcon&#39;</code></li>
+<li><code>RDCON: &#39;rdcon&#39;</code></li>
+<li><code>STRIDE: &#39;stride&#39;</code></li>
+<li><code>IDEAL_GPEC: &#39;ideal-gpec&#39;</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.GrammarRelocation" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.GrammarRelocation"><code>GrammarRelocation</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L1105" title="vaft/database/filedb.py, line 1105">source</a>
+</header>
+    <pre class="ref-signature"><code>GrammarRelocation(source: str, target: str, rule: str) -&gt; None</code></pre>
+
+    <p>One subtree that moves, and the rule that says where.</p>
+
+    <details class="ref-more"><summary>3 fields</summary>
+<ul class="api-members">
+<li><code>source: str</code></li>
+<li><code>target: str</code></li>
+<li><code>rule: str</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.GrammarRelocationReport" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.GrammarRelocationReport"><code>GrammarRelocationReport</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L1114" title="vaft/database/filedb.py, line 1114">source</a>
+</header>
+    <pre class="ref-signature"><code>GrammarRelocationReport(root: str, applied: bool, relocations: tuple[GrammarRelocation, ...], already_canonical: tuple[str, ...], collisions: tuple[str, ...], unrecognized: tuple[str, ...], unattributable: tuple[str, ...] = ()) -&gt; None</code></pre>
+
+    <p>What a canonical root needs before it resolves under the new grammar.</p>
+
+    <details class="ref-more"><summary>7 fields · 2 members</summary>
+<ul class="api-members">
+<li><code>root: str</code></li>
+<li><code>applied: bool</code></li>
+<li><code>relocations: tuple[GrammarRelocation, ...]</code></li>
+<li><code>already_canonical: tuple[str, ...]</code></li>
+<li><code>collisions: tuple[str, ...]</code></li>
+<li><code>unrecognized: tuple[str, ...]</code></li>
+<li><code>unattributable: tuple[str, ...]</code></li>
+<li><code>safe_to_apply</code> <span class="ref-type">property</span> &mdash; Whether applying this plan would move every subtree it found.</li>
+<li><code>to_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.LEGACY_DCON_PRODUCT" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.LEGACY_DCON_PRODUCT"><code>LEGACY_DCON_PRODUCT</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>LEGACY_DCON_PRODUCT = &#39;dcon&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.LEGACY_FAMILY" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.LEGACY_FAMILY"><code>LEGACY_FAMILY</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>LEGACY_FAMILY = &#39;magnetic&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.LEGACY_REFINEMENT" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.LEGACY_REFINEMENT"><code>LEGACY_REFINEMENT</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>LEGACY_REFINEMENT = &#39;chease&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.LegacyAuditEntry" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.LegacyAuditEntry"><code>LegacyAuditEntry</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L782" title="vaft/database/filedb.py, line 782">source</a>
+</header>
+    <pre class="ref-signature"><code>LegacyAuditEntry(source: str, proposed_target: str | None, status: str, reason: str | None = None, size: int | None = None, sha256: str | None = None) -&gt; None</code></pre>
+
+    <details class="ref-more"><summary>6 fields</summary>
+<ul class="api-members">
+<li><code>source: str</code></li>
+<li><code>proposed_target: str | None</code></li>
+<li><code>status: str</code></li>
+<li><code>reason: str | None</code></li>
+<li><code>size: int | None</code></li>
+<li><code>sha256: str | None</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.LegacyAuditReport" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.LegacyAuditReport"><code>LegacyAuditReport</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L814" title="vaft/database/filedb.py, line 814">source</a>
+</header>
+    <pre class="ref-signature"><code>LegacyAuditReport(legacy_root: str, target_root: str, entries: tuple[LegacyAuditEntry, ...], collisions: tuple[LegacyCollision, ...], duplicates: tuple[LegacyDuplicate, ...], symlinks: tuple[str, ...], missing_products: tuple[LegacyMissingProduct, ...]) -&gt; None</code></pre>
+
+    <details class="ref-more"><summary>7 fields · 2 members</summary>
+<ul class="api-members">
+<li><code>legacy_root: str</code></li>
+<li><code>target_root: str</code></li>
+<li><code>entries: tuple[LegacyAuditEntry, ...]</code></li>
+<li><code>collisions: tuple[LegacyCollision, ...]</code></li>
+<li><code>duplicates: tuple[LegacyDuplicate, ...]</code></li>
+<li><code>symlinks: tuple[str, ...]</code></li>
+<li><code>missing_products: tuple[LegacyMissingProduct, ...]</code></li>
+<li><code>unmapped</code> <span class="ref-type">property</span></li>
+<li><code>to_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.LegacyCollision" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.LegacyCollision"><code>LegacyCollision</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L792" title="vaft/database/filedb.py, line 792">source</a>
+</header>
+    <pre class="ref-signature"><code>LegacyCollision(proposed_target: str, sources: tuple[str, ...], existing_target: bool = False, existing_target_kind: str | None = None) -&gt; None</code></pre>
+
+    <details class="ref-more"><summary>4 fields</summary>
+<ul class="api-members">
+<li><code>proposed_target: str</code></li>
+<li><code>sources: tuple[str, ...]</code></li>
+<li><code>existing_target: bool</code></li>
+<li><code>existing_target_kind: str | None</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.LegacyDuplicate" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.LegacyDuplicate"><code>LegacyDuplicate</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L800" title="vaft/database/filedb.py, line 800">source</a>
+</header>
+    <pre class="ref-signature"><code>LegacyDuplicate(sha256: str, size: int, sources: tuple[str, ...]) -&gt; None</code></pre>
+
+    <details class="ref-more"><summary>3 fields</summary>
+<ul class="api-members">
+<li><code>sha256: str</code></li>
+<li><code>size: int</code></li>
+<li><code>sources: tuple[str, ...]</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.LegacyMissingProduct" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.LegacyMissingProduct"><code>LegacyMissingProduct</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L807" title="vaft/database/filedb.py, line 807">source</a>
+</header>
+    <pre class="ref-signature"><code>LegacyMissingProduct(shot: int, product: str, expected_source: str) -&gt; None</code></pre>
+
+    <details class="ref-more"><summary>3 fields</summary>
+<ul class="api-members">
+<li><code>shot: int</code></li>
+<li><code>product: str</code></li>
+<li><code>expected_source: str</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.LegacyResolution" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.LegacyResolution"><code>LegacyResolution</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L382" title="vaft/database/filedb.py, line 382">source</a>
+</header>
+    <pre class="ref-signature"><code>LegacyResolution(path: Path, exists: bool, read_only: bool = True, layout: str = &#39;legacy-shot-first&#39;) -&gt; None</code></pre>
+
+    <p>An explicitly read-only path into the former shot-first layout.</p>
+
+    <details class="ref-more"><summary>4 fields</summary>
+<ul class="api-members">
+<li><code>path: Path</code></li>
+<li><code>exists: bool</code></li>
+<li><code>read_only: bool</code></li>
+<li><code>layout: str</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.OMASStage" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.OMASStage"><code>OMASStage</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L76" title="vaft/database/filedb.py, line 76">source</a>
+</header>
+
+    <details class="ref-more"><summary>18 fields</summary>
+<ul class="api-members">
+<li><code>STATIC: &#39;static&#39;</code></li>
+<li><code>DIAGNOSTICS: &#39;diagnostics&#39;</code></li>
+<li><code>IMPA: &#39;impa&#39;</code></li>
+<li><code>THOMSON: &#39;thomson&#39;</code></li>
+<li><code>CES: &#39;ces&#39;</code></li>
+<li><code>EDDY: &#39;eddy&#39;</code></li>
+<li><code>EFIT: &#39;efit&#39;</code></li>
+<li><code>CORE_PROFILES: &#39;core_profiles&#39;</code></li>
+<li><code>ELECTRON_EFIT: &#39;electron_efit&#39;</code></li>
+<li><code>KINETIC_EFIT: &#39;kinetic_efit&#39;</code></li>
+<li><code>CHEASE: &#39;chease&#39;</code></li>
+<li><code>MHD_LINEAR: &#39;mhd_linear&#39;</code></li>
+<li><code>GPEC_IDEAL: &#39;gpec_ideal&#39;</code></li>
+<li><code>NEOCLASSICAL: &#39;neoclassical&#39;</code></li>
+<li><code>SOFT_X_RAYS: &#39;soft_x_rays&#39;</code></li>
+<li><code>CAMERA_VISIBLE: &#39;camera_visible&#39;</code></li>
+<li><code>CAMERA_VISIBLE_FLUCTUATION: &#39;camera_visible_fluctuation&#39;</code></li>
+<li><code>SHOTLOG: &#39;shotlog&#39;</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.Refinement" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.Refinement"><code>Refinement</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L131" title="vaft/database/filedb.py, line 131">source</a>
+</header>
+
+    <p>The equilibrium actually handed to the stability solver.</p>
+
+    <details class="ref-more"><summary>2 fields</summary>
+<ul class="api-members">
+<li><code>CHEASE: &#39;chease&#39;</code></li>
+<li><code>NONE: &#39;none&#39;</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.relocate_filedb_grammar" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.relocate_filedb_grammar"><code>relocate_filedb_grammar</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L1331" title="vaft/database/filedb.py, line 1331">source</a>
+</header>
+    <pre class="ref-signature"><code>relocate_filedb_grammar(root: str | os.PathLike[str], *, apply: bool = False) -&gt; GrammarRelocationReport</code></pre>
+
+    <p>Move a canonical root onto the lineage-bearing grammar.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.StabilityProduct" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.StabilityProduct"><code>StabilityProduct</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L138" title="vaft/database/filedb.py, line 138">source</a>
+</header>
+
+    <p>One stability calculation.</p>
+
+    <details class="ref-more"><summary>6 fields</summary>
+<ul class="api-members">
+<li><code>DCON_PEELING: &#39;dcon-peeling&#39;</code></li>
+<li><code>DCON_KINK: &#39;dcon-kink&#39;</code></li>
+<li><code>RDCON: &#39;rdcon&#39;</code></li>
+<li><code>STRIDE: &#39;stride&#39;</code></li>
+<li><code>IDEAL_GPEC: &#39;ideal-gpec&#39;</code></li>
+<li><code>DCON_LEGACY: &#39;dcon&#39;</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.filedb.stage_lineage" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.filedb.stage_lineage"><code>stage_lineage</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/filedb.py#L192" title="vaft/database/filedb.py, line 192">source</a>
+</header>
+    <pre class="ref-signature"><code>stage_lineage(stage: str, *, family: str, refinement: str | None = None, product: str | None = None) -&gt; dict[str, str]</code></pre>
+
+    <p>The lineage arguments an OMAS <code class="language-plaintext highlighter-rouge">stage</code>’s path takes, and only those.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.hscfg">vaft.database.hscfg</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Read and write the h5pyd credential file (<code class="language-plaintext highlighter-rouge">.hscfg</code>) without exposing secrets.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.hscfg.active_path" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.active_path"><code>active_path</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/hscfg.py#L61" title="vaft/database/hscfg.py, line 61">source</a>
+</header>
+    <pre class="ref-signature"><code>active_path(cwd: Path | None = None) -&gt; Path</code></pre>
+
+    <p>The file h5pyd will actually read: <code class="language-plaintext highlighter-rouge">./.hscfg</code> shadows <code class="language-plaintext highlighter-rouge">~/.hscfg</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.hscfg.configured_keys" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.configured_keys"><code>configured_keys</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/hscfg.py#L111" title="vaft/database/hscfg.py, line 111">source</a>
+</header>
+    <pre class="ref-signature"><code>configured_keys(path: Path) -&gt; tuple[str, ...]</code></pre>
+
+    <p>Names of the h5pyd keys <em>path</em> sets to a non-empty value. Never values.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.hscfg.default_path" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.default_path"><code>default_path</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/hscfg.py#L56" title="vaft/database/hscfg.py, line 56">source</a>
+</header>
+    <pre class="ref-signature"><code>default_path() -&gt; Path</code></pre>
+
+    <p><code class="language-plaintext highlighter-rouge">~/.hscfg</code>, the file <code class="language-plaintext highlighter-rouge">vaft hsds configure</code> writes unless told otherwise.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.hscfg.HSCFG_KEYS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.HSCFG_KEYS"><code>HSCFG_KEYS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>HSCFG_KEYS = (&#39;hs_endpoint&#39;, &#39;hs_username&#39;, &#39;hs_password&#39;, &#39;hs_api_key&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.hscfg.insecure_permissions" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.insecure_permissions"><code>insecure_permissions</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/hscfg.py#L223" title="vaft/database/hscfg.py, line 223">source</a>
+</header>
+    <pre class="ref-signature"><code>insecure_permissions(path: Path) -&gt; bool</code></pre>
+
+    <p>Whether <em>path</em> is group- or world-accessible. Always <code class="language-plaintext highlighter-rouge">False</code> on Windows.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.hscfg.read_values" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.read_values"><code>read_values</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/hscfg.py#L96" title="vaft/database/hscfg.py, line 96">source</a>
+</header>
+    <pre class="ref-signature"><code>read_values(path: Path) -&gt; dict[str, str]</code></pre>
+
+    <p>Every <code class="language-plaintext highlighter-rouge">key = value</code> pair in <em>path</em>; the last occurrence wins, as in h5pyd.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.hscfg.render_update" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.render_update"><code>render_update</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/hscfg.py#L139" title="vaft/database/hscfg.py, line 139">source</a>
+</header>
+    <pre class="ref-signature"><code>render_update(original: str, updates: Mapping[str, str]) -&gt; str</code></pre>
+
+    <p><em>original</em> with each key in <em>updates</em> set, everything else untouched.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.hscfg.SECRET_KEYS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.SECRET_KEYS"><code>SECRET_KEYS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>SECRET_KEYS = frozenset({&#39;hs_api_key&#39;, &#39;hs_password&#39;})</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.hscfg.update_hscfg" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.update_hscfg"><code>update_hscfg</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/hscfg.py#L210" title="vaft/database/hscfg.py, line 210">source</a>
+</header>
+    <pre class="ref-signature"><code>update_hscfg(path: Path, updates: Mapping[str, str]) -&gt; None</code></pre>
+
+    <p>Set <em>updates</em> in the <code class="language-plaintext highlighter-rouge">.hscfg</code> at <em>path</em>, creating it <code class="language-plaintext highlighter-rouge">0600</code> if needed.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.hscfg.validate_value" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.validate_value"><code>validate_value</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/hscfg.py#L117" title="vaft/database/hscfg.py, line 117">source</a>
+</header>
+    <pre class="ref-signature"><code>validate_value(key: str, value: str) -&gt; None</code></pre>
+
+    <p>Refuse a value h5pyd would read back differently from what was typed.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.hscfg.write_private" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.hscfg.write_private"><code>write_private</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/hscfg.py#L173" title="vaft/database/hscfg.py, line 173">source</a>
+</header>
+    <pre class="ref-signature"><code>write_private(path: Path, text: str) -&gt; None</code></pre>
+
+    <p>Atomically replace <em>path</em> with <em>text</em>, readable by the owner only.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.lazy_imas">vaft.database.lazy_imas</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Direct-HSDS, read-only lazy native IMAS IDS access.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.lazy_imas.HSDSIMASHandle" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.lazy_imas.HSDSIMASHandle"><code>HSDSIMASHandle</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/lazy_imas.py#L181" title="vaft/database/lazy_imas.py, line 181">source</a>
+</header>
+    <pre class="ref-signature"><code>HSDSIMASHandle(shot: int, source: str | None = None, *, directory: str | None = None, ids: str | Iterable[str] | None = None, imas_version: str, h5pyd_module: Any = None) -&gt; None</code></pre>
+
+    <p>Read-only context manager returning native lazy <code class="language-plaintext highlighter-rouge">IDSToplevel</code> objects.</p>
+
+    <details class="ref-more"><summary>5 members</summary>
+<ul class="api-members">
+<li><code>ids</code> <span class="ref-type">property</span></li>
+<li><code>metrics</code> <span class="ref-type">property</span></li>
+<li><code>open</code> <span class="ref-type">method</span></li>
+<li><code>get</code> <span class="ref-type">method</span> &mdash; Return a native, read-only, lazy <code class="language-plaintext highlighter-rouge">IDSToplevel</code> for an IDS.</li>
+<li><code>close</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.lazy_imas.LazyIMASClosedError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.lazy_imas.LazyIMASClosedError"><code>LazyIMASClosedError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/lazy_imas.py#L30" title="vaft/database/lazy_imas.py, line 30">source</a>
+</header>
+
+    <p>Raised when an uncached native IDS leaf is read after <code class="language-plaintext highlighter-rouge">close()</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.lazy_imas.open_imas" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.lazy_imas.open_imas"><code>open_imas</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/lazy_imas.py#L290" title="vaft/database/lazy_imas.py, line 290">source</a>
+</header>
+    <pre class="ref-signature"><code>open_imas(shot: int, source: str | None = None, *, directory: str | None = None, ids: str | Iterable[str] | None = None, imas_version: str) -&gt; HSDSIMASHandle</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.lazy_ods">vaft.database.lazy_ods</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Lazy, selection-based OMAS access to IMAS HDF5 domains in HSDS.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.lazy_ods.HSDSODS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.lazy_ods.HSDSODS"><code>HSDSODS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/lazy_ods.py#L307" title="vaft/database/lazy_ods.py, line 307">source</a>
+</header>
+    <pre class="ref-signature"><code>HSDSODS(*, store: HSDSStore | None = None, dynamic: HSDSStore | None = None, imas_version: str | None = None, consistency_check: bool = True, **kwargs: Any) -&gt; None</code></pre>
+
+    <p>An <code class="language-plaintext highlighter-rouge">omas.ODS</code> whose missing leaves are fetched from HSDS.</p>
+
+    <details class="ref-more"><summary>2 members</summary>
+<ul class="api-members">
+<li><code>keys</code> <span class="ref-type">method</span></li>
+<li><code>close</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.lazy_ods.HSDSStore" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.lazy_ods.HSDSStore"><code>HSDSStore</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/lazy_ods.py#L46" title="vaft/database/lazy_ods.py, line 46">source</a>
+</header>
+    <pre class="ref-signature"><code>HSDSStore(shot: int, source: str | None = None, *, directory: str | None = None, ids: str | Iterable[str] | None = None, h5pyd_module: Any = None) -&gt; None</code></pre>
+
+    <p>OMAS dynamic backend for occurrence-zero IMAS HDF5 HSDS domains.</p>
+
+    <details class="ref-more"><summary>5 members</summary>
+<ul class="api-members">
+<li><code>opened_ids</code> <span class="ref-type">property</span> &mdash; IDS domains currently opened by this store (primarily diagnostic).</li>
+<li><code>metrics</code> <span class="ref-type">property</span> &mdash; Snapshot lightweight client-side lazy-read instrumentation.</li>
+<li><code>open</code> <span class="ref-type">method</span></li>
+<li><code>close</code> <span class="ref-type">method</span></li>
+<li><code>keys</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.lazy_ods.LazyODSClosedError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.lazy_ods.LazyODSClosedError"><code>LazyODSClosedError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/lazy_ods.py#L31" title="vaft/database/lazy_ods.py, line 31">source</a>
+</header>
+
+    <p>Raised when an uncached leaf is requested after closing a lazy ODS.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.lazy_ods.open_ods" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.lazy_ods.open_ods"><code>open_ods</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/lazy_ods.py#L394" title="vaft/database/lazy_ods.py, line 394">source</a>
+</header>
+    <pre class="ref-signature"><code>open_ods(shot: int, source: str | None = None, *, directory: str | None = None, ids: str | list[str] | None = None, imas_version: str | None = None, consistency_check: bool = True) -&gt; HSDSODS</code></pre>
+
+    <p>Open an occurrence-zero ODS that fetches only requested HSDS leaves.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.maintenance">vaft.database.maintenance</h2>
+
+<div class="ref-note tex2jax_ignore"><p>One-off repairs to already-published HSDS shots (issue #305).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.maintenance.ImpaResidue" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.maintenance.ImpaResidue"><code>ImpaResidue</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/maintenance.py#L49" title="vaft/database/maintenance.py, line 49">source</a>
+</header>
+
+    <p>What one published shot still carries, and whether it can be removed.</p>
+
+    <details class="ref-more"><summary>2 members</summary>
+<ul class="api-members">
+<li><code>carries_impa</code> <span class="ref-type">property</span></li>
+<li><code>removable</code> <span class="ref-type">property</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.maintenance.ImpaStripError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.maintenance.ImpaStripError"><code>ImpaStripError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/maintenance.py#L41" title="vaft/database/maintenance.py, line 41">source</a>
+</header>
+
+    <p>Raised when a published shot cannot be stripped safely.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.maintenance.ImpaStripWriteError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.maintenance.ImpaStripWriteError"><code>ImpaStripWriteError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/maintenance.py#L45" title="vaft/database/maintenance.py, line 45">source</a>
+</header>
+
+    <p>Raised when the rewrite failed after it had started touching the source.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.maintenance.inspect_impa_residue" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.maintenance.inspect_impa_residue"><code>inspect_impa_residue</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/maintenance.py#L68" title="vaft/database/maintenance.py, line 68">source</a>
+</header>
+    <pre class="ref-signature"><code>inspect_impa_residue(ods: Any) -&gt; ImpaResidue</code></pre>
+
+    <p>Report the IMPA channels in <code class="language-plaintext highlighter-rouge">ods</code> and whether they form a tail block.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.maintenance.strip_impa_from_shots" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.maintenance.strip_impa_from_shots"><code>strip_impa_from_shots</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/maintenance.py#L202" title="vaft/database/maintenance.py, line 202">source</a>
+</header>
+    <pre class="ref-signature"><code>strip_impa_from_shots(shots: Iterable[int], *, source: str | None = None, apply: bool = False) -&gt; list[dict[str, Any]]</code></pre>
+
+    <p>Run <code class="language-plaintext highlighter-rouge">strip_impa_from_source</code> over many shots, recording refusals.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.maintenance.strip_impa_from_source" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.maintenance.strip_impa_from_source"><code>strip_impa_from_source</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/maintenance.py#L110" title="vaft/database/maintenance.py, line 110">source</a>
+</header>
+    <pre class="ref-signature"><code>strip_impa_from_source(shot: int, *, source: str | None = None, apply: bool = False) -&gt; dict[str, Any]</code></pre>
+
+    <p>Remove IMPA channels from one published shot’s baseline magnetics.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.plotting">vaft.database.plotting</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Plot adapters for database shots: <code class="language-plaintext highlighter-rouge">plot_&lt;canonical-stem&gt;(shot, source=...)</code>.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.plotting.available_plots" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.plotting.available_plots"><code>available_plots</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/plotting.py#L296" title="vaft/database/plotting.py, line 296">source</a>
+</header>
+    <pre class="ref-signature"><code>available_plots(shot: Any = None, source: str | None = None, *, query: str | None = None, detail: bool = False, available_only: bool | None = None, **filters: Any)</code></pre>
+
+    <p>What can be plotted from a database shot, without downloading it.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.plotting.dd" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.plotting.dd"><code>dd</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/plotting.py#L204" title="vaft/database/plotting.py, line 204">source</a>
+</header>
+    <pre class="ref-signature"><code>dd(name: str) -&gt; tuple</code></pre>
+
+    <p>The Data Dictionary paths plot <code class="language-plaintext highlighter-rouge">name</code> reads; nothing is opened.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.plotting.extract" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.plotting.extract"><code>extract</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/plotting.py#L160" title="vaft/database/plotting.py, line 160">source</a>
+</header>
+    <pre class="ref-signature"><code>extract(name: str, shot: Any, source: str | None = None, *, lazy: bool = True, occurrence: Any = None, label: Any = &#39;shot&#39;, **options: Any) -&gt; Any</code></pre>
+
+    <p>Open what plot <code class="language-plaintext highlighter-rouge">name</code> needs of <code class="language-plaintext highlighter-rouge">shot</code> and return its view model, undrawn.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.plotting.plot_diagnostics_time_interactive" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.plotting.plot_diagnostics_time_interactive"><code>plot_diagnostics_time_interactive</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/plotting.py#L229" title="vaft/database/plotting.py, line 229">source</a>
+</header>
+    <pre class="ref-signature"><code>plot_diagnostics_time_interactive(shot: Any, source: str | None = None, *, occurrence: Any = None, **options: Any) -&gt; Any</code></pre>
+
+    <p>The diagnostics overview with live controls, from the database (issue #482).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.plotting.plot_equilibrium_interactive" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.plotting.plot_equilibrium_interactive"><code>plot_equilibrium_interactive</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/plotting.py#L244" title="vaft/database/plotting.py, line 244">source</a>
+</header>
+    <pre class="ref-signature"><code>plot_equilibrium_interactive(shot: Any, source: str | None = None, *, occurrence: Any = None, **options: Any) -&gt; Any</code></pre>
+
+    <p>Explore one shot’s equilibrium slices, from the database.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.plotting.render" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.plotting.render"><code>render</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/plotting.py#L116" title="vaft/database/plotting.py, line 116">source</a>
+</header>
+    <pre class="ref-signature"><code>render(name: str, shot: Any, source: str | None = None, *, lazy: bool = True, occurrence: Any = None, ax: Any = None, show: bool = False, label: Any = &#39;shot&#39;, **options: Any) -&gt; tuple[Any, Any]</code></pre>
+
+    <p>Open what plot <code class="language-plaintext highlighter-rouge">name</code> needs of <code class="language-plaintext highlighter-rouge">shot</code> in <code class="language-plaintext highlighter-rouge">source</code> and render it.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.plotting.render_to_file" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.plotting.render_to_file"><code>render_to_file</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/plotting.py#L261" title="vaft/database/plotting.py, line 261">source</a>
+</header>
+    <pre class="ref-signature"><code>render_to_file(name: str, shot: Any, path: Any, source: str | None = None, *, lazy: bool = True, occurrence: Any = None, label: Any = &#39;shot&#39;, **options: Any) -&gt; Any</code></pre>
+
+    <p>Render plot <code class="language-plaintext highlighter-rouge">name</code> for <code class="language-plaintext highlighter-rouge">shot</code> and write it to <code class="language-plaintext highlighter-rouge">path</code>; returns <code class="language-plaintext highlighter-rouge">path</code>.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.production_qa">vaft.database.production_qa</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Post-generation validation plots for the FileDB pipeline (issue #139).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.production_qa.mhd_linear_run_coverage_model" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.production_qa.mhd_linear_run_coverage_model"><code>mhd_linear_run_coverage_model</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/production_qa.py#L437" title="vaft/database/production_qa.py, line 437">source</a>
+</header>
+    <pre class="ref-signature"><code>mhd_linear_run_coverage_model(manifest: Mapping[str, Any])</code></pre>
+
+    <p>Build the DCON/RDCON/STRIDE run-coverage view model (issue #173 phase 1).</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.mhd_linear_run_coverage_model</code> (deprecated).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.production_qa.raw_acquisition_qa_model" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.production_qa.raw_acquisition_qa_model"><code>raw_acquisition_qa_model</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/production_qa.py#L303" title="vaft/database/production_qa.py, line 303">source</a>
+</header>
+    <pre class="ref-signature"><code>raw_acquisition_qa_model(payload: Mapping[str, Any], *, required_fields: Sequence[int] = (), shot: int | None = None, max_signal_panels: int = 4)</code></pre>
+
+    <p>Build the compact raw-acquisition QA view model for one shot.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.raw_acquisition_qa_model</code> (deprecated).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.production_qa.render_stage_plots" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.production_qa.render_stage_plots"><code>render_stage_plots</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/production_qa.py#L573" title="vaft/database/production_qa.py, line 573">source</a>
+</header>
+    <pre class="ref-signature"><code>render_stage_plots(stage: str, source: Any, output_dir: str | os.PathLike[str], **context: Any) -&gt; dict[str, Any]</code></pre>
+
+    <p>Render and persist <code class="language-plaintext highlighter-rouge">stage</code>’s validation plots into <code class="language-plaintext highlighter-rouge">output_dir</code>.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.render_stage_plots</code> (deprecated).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.production_qa.stage_plot_filenames" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.production_qa.stage_plot_filenames"><code>stage_plot_filenames</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/production_qa.py#L257" title="vaft/database/production_qa.py, line 257">source</a>
+</header>
+    <pre class="ref-signature"><code>stage_plot_filenames(stage: str, *, required_only: bool = False) -&gt; tuple[str, ...]</code></pre>
+
+    <p>File names <code class="language-plaintext highlighter-rouge">stage</code> writes into its <code class="language-plaintext highlighter-rouge">plot/</code> directory.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.stage_plot_filenames</code> (deprecated).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.production_qa.STAGE_VALIDATION_PLOTS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.production_qa.STAGE_VALIDATION_PLOTS"><code>STAGE_VALIDATION_PLOTS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STAGE_VALIDATION_PLOTS = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.production_qa.stages" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.production_qa.stages"><code>stages</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/production_qa.py#L241" title="vaft/database/production_qa.py, line 241">source</a>
+</header>
+    <pre class="ref-signature"><code>stages() -&gt; tuple[str, ...]</code></pre>
+
+    <p>Every stage with a declared validation-plot set, sorted.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.stages</code> (deprecated).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.production_qa.validation_plots" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.production_qa.validation_plots"><code>validation_plots</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/production_qa.py#L246" title="vaft/database/production_qa.py, line 246">source</a>
+</header>
+    <pre class="ref-signature"><code>validation_plots(stage: str) -&gt; tuple[ValidationPlot, ...]</code></pre>
+
+    <p>The declared plots for <code class="language-plaintext highlighter-rouge">stage</code>.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.validation_plots</code> (deprecated).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.production_qa.ValidationPlot" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.production_qa.ValidationPlot"><code>ValidationPlot</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/production_qa.py#L69" title="vaft/database/production_qa.py, line 69">source</a>
+</header>
+    <pre class="ref-signature"><code>ValidationPlot(plot: str, filename: str = &#39;&#39;, required: bool = True, kind: str = &#39;ods&#39;, options: Mapping[str, Any] = &lt;factory&gt;) -&gt; None</code></pre>
+
+    <p>One figure a stage owes after its data product is generated.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.ValidationPlot</code> (deprecated).</p>
+    <details class="ref-more"><summary>5 fields</summary>
+<ul class="api-members">
+<li><code>plot: str</code></li>
+<li><code>filename: str</code></li>
+<li><code>required: bool</code></li>
+<li><code>kind: str</code></li>
+<li><code>options: Mapping[str, Any]</code></li>
+</ul>
+</details>
+  </section>
+</div>
+
+<h2 id="module-vaft.database.provenance">vaft.database.provenance</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Checking that a stability product descends from the equilibrium it claims.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.provenance.ChainLink" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.provenance.ChainLink"><code>ChainLink</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/provenance.py#L42" title="vaft/database/provenance.py, line 42">source</a>
+</header>
+    <pre class="ref-signature"><code>ChainLink(stage: str, upstream_stage: str, consumed_sha256: str, produced_by_upstream_sha256: str, status: str, detail: str = &#39;&#39;) -&gt; None</code></pre>
+
+    <p>One consumed-produced pair, and whether the two agree.</p>
+
+    <details class="ref-more"><summary>6 fields · 1 members</summary>
+<ul class="api-members">
+<li><code>stage: str</code></li>
+<li><code>upstream_stage: str</code></li>
+<li><code>consumed_sha256: str</code></li>
+<li><code>produced_by_upstream_sha256: str</code></li>
+<li><code>status: str</code></li>
+<li><code>detail: str</code></li>
+<li><code>verified</code> <span class="ref-type">property</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.provenance.ChainReport" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.provenance.ChainReport"><code>ChainReport</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/provenance.py#L58" title="vaft/database/provenance.py, line 58">source</a>
+</header>
+    <pre class="ref-signature"><code>ChainReport(shot: int | None, links: tuple[ChainLink, ...]) -&gt; None</code></pre>
+
+    <p>Whether a product’s recorded ancestry holds together.</p>
+
+    <details class="ref-more"><summary>2 fields · 4 members</summary>
+<ul class="api-members">
+<li><code>shot: int | None</code></li>
+<li><code>links: tuple[ChainLink, ...]</code></li>
+<li><code>verified</code> <span class="ref-type">property</span> &mdash; True only when every link was checked and agreed.</li>
+<li><code>broken</code> <span class="ref-type">property</span> &mdash; Links whose two digests disagree – a product from another run.</li>
+<li><code>unrecorded</code> <span class="ref-type">property</span></li>
+<li><code>to_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.provenance.NOT_RECORDED" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.provenance.NOT_RECORDED"><code>NOT_RECORDED</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>NOT_RECORDED = &#39;&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.provenance.verify_chain" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.provenance.verify_chain"><code>verify_chain</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/provenance.py#L136" title="vaft/database/provenance.py, line 136">source</a>
+</header>
+    <pre class="ref-signature"><code>verify_chain(*, chease_manifest: dict[str, Any], stability_input_sha256: str, efit_gfile_sha256: str | None = None, shot: int | None = None) -&gt; ChainReport</code></pre>
+
+    <p>Check a stability product’s recorded ancestry against its upstreams.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.replication">vaft.database.replication</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Replicate finalized canonical FileDB products into a named HSDS source.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.replication.is_reusable" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.is_reusable"><code>is_reusable</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/replication.py#L158" title="vaft/database/replication.py, line 158">source</a>
+</header>
+    <pre class="ref-signature"><code>is_reusable(record: ReplicationRecord | None, *, product_sha256: str, require_validation: bool) -&gt; bool</code></pre>
+
+    <p>Whether a recorded replication still stands for the current product.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.merge_remote_master" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.merge_remote_master"><code>merge_remote_master</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/replication.py#L337" title="vaft/database/replication.py, line 337">source</a>
+</header>
+    <pre class="ref-signature"><code>merge_remote_master(source: str, shot: int, previous_master: Path | None) -&gt; tuple[str, ...]</code></pre>
+
+    <p>Fold a pre-write master’s links back into the one the write just left.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.ProductNotEligibleError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.ProductNotEligibleError"><code>ProductNotEligibleError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/replication.py#L65" title="vaft/database/replication.py, line 65">source</a>
+</header>
+
+    <p>Raised when the local stage product is not finished enough to send.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.read_record" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.read_record"><code>read_record</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/replication.py#L128" title="vaft/database/replication.py, line 128">source</a>
+</header>
+    <pre class="ref-signature"><code>read_record(path: Path) -&gt; ReplicationRecord | None</code></pre>
+
+    <p>Return a previously written record, or <code class="language-plaintext highlighter-rouge">None</code> when there is none.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.REPLICABLE_STATUSES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.REPLICABLE_STATUSES"><code>REPLICABLE_STATUSES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REPLICABLE_STATUSES = frozenset({&#39;completed&#39;, &#39;partial&#39;, &#39;success&#39;})</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.replicate_stage" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.replicate_stage"><code>replicate_stage</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/replication.py#L540" title="vaft/database/replication.py, line 540">source</a>
+</header>
+    <pre class="ref-signature"><code>replicate_stage(stage: str | OMASStage, shot: int, *, filedb: FileDB, family: str = &#39;magnetic&#39;, refinement: str = &#39;chease&#39;, product: str | None = None, attempts: int = 3, retry_delay: float = 5.0, validate: bool = True, force: bool = False) -&gt; ReplicationRecord</code></pre>
+
+    <p>Replicate one completed canonical FileDB stage product into HSDS.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.REPLICATION_SCHEMA_VERSION" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.REPLICATION_SCHEMA_VERSION"><code>REPLICATION_SCHEMA_VERSION</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REPLICATION_SCHEMA_VERSION = 1</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.ReplicationError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.ReplicationError"><code>ReplicationError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/replication.py#L57" title="vaft/database/replication.py, line 57">source</a>
+</header>
+
+    <p>Raised when a stage product cannot be replicated.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.ReplicationRecord" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.ReplicationRecord"><code>ReplicationRecord</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/replication.py#L73" title="vaft/database/replication.py, line 73">source</a>
+</header>
+    <pre class="ref-signature"><code>ReplicationRecord(stage: str, shot: int, source: str, remote_uri: str, ids: tuple[str, ...], occurrence: int, product_sha256: str, state: str, attempts: int, started_at: str, completed_at: str | None = None, round_trip: dict[str, Any] | None = None, error: str | None = None, schema_version: int = 1, vaft_version: str = &lt;factory&gt;) -&gt; None</code></pre>
+
+    <p>What happened when one stage product was sent to a named HSDS source.</p>
+
+    <details class="ref-more"><summary>15 fields · 3 members</summary>
+<ul class="api-members">
+<li><code>stage: str</code></li>
+<li><code>shot: int</code></li>
+<li><code>source: str</code></li>
+<li><code>remote_uri: str</code></li>
+<li><code>ids: tuple[str, ...]</code></li>
+<li><code>occurrence: int</code></li>
+<li><code>product_sha256: str</code></li>
+<li><code>state: str</code></li>
+<li><code>attempts: int</code></li>
+<li><code>started_at: str</code></li>
+<li><code>completed_at: str | None</code></li>
+<li><code>round_trip: dict[str, Any] | None</code></li>
+<li><code>error: str | None</code></li>
+<li><code>schema_version: int</code></li>
+<li><code>vaft_version: str</code></li>
+<li><code>replicated</code> <span class="ref-type">property</span></li>
+<li><code>validated</code> <span class="ref-type">property</span></li>
+<li><code>to_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.RoundTripValidationError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.RoundTripValidationError"><code>RoundTripValidationError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/replication.py#L69" title="vaft/database/replication.py, line 69">source</a>
+</header>
+
+    <p>Raised when the replica does not match what was sent.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.StageNotReplicableError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.StageNotReplicableError"><code>StageNotReplicableError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/replication.py#L61" title="vaft/database/replication.py, line 61">source</a>
+</header>
+
+    <p>Raised when a stage has no destination or no wired rule.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.replication.write_record" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.replication.write_record"><code>write_record</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/replication.py#L148" title="vaft/database/replication.py, line 148">source</a>
+</header>
+    <pre class="ref-signature"><code>write_record(record: ReplicationRecord, path: Path) -&gt; Path</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.retirement">vaft.database.retirement</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Retiring the combined <code class="language-plaintext highlighter-rouge">chease-mhd-stability</code> source (#94, #527 step 9).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.retirement.copy_refinement" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.retirement.copy_refinement"><code>copy_refinement</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/retirement.py#L303" title="vaft/database/retirement.py, line 303">source</a>
+</header>
+    <pre class="ref-signature"><code>copy_refinement(shot: int, *, source: str = &#39;chease-mhd-stability&#39;, apply: bool = False) -&gt; dict[str, Any]</code></pre>
+
+    <p>Copy one shot’s CHEASE refinement into <code class="language-plaintext highlighter-rouge">main/chease</code>, verified.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.retirement.delete_retired_source" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.retirement.delete_retired_source"><code>delete_retired_source</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/retirement.py#L353" title="vaft/database/retirement.py, line 353">source</a>
+</header>
+    <pre class="ref-signature"><code>delete_retired_source(report: RetirementReport, *, apply: bool = False) -&gt; dict[str, Any]</code></pre>
+
+    <p>Delete the combined source, only once its report says nothing is lost.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.retirement.plan_retirement" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.retirement.plan_retirement"><code>plan_retirement</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/retirement.py#L215" title="vaft/database/retirement.py, line 215">source</a>
+</header>
+    <pre class="ref-signature"><code>plan_retirement(shots: Iterable[int], *, products: Iterable[str] = (&#39;dcon-peeling&#39;, &#39;dcon-kink&#39;, &#39;rdcon&#39;, &#39;stride&#39;), source: str = &#39;chease-mhd-stability&#39;) -&gt; RetirementReport</code></pre>
+
+    <p>Say what each shot still needs before the combined source can go.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.retirement.REFINEMENT_DESTINATION" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.retirement.REFINEMENT_DESTINATION"><code>REFINEMENT_DESTINATION</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REFINEMENT_DESTINATION = &#39;main/chease&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.retirement.REFINEMENT_IDS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.retirement.REFINEMENT_IDS"><code>REFINEMENT_IDS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REFINEMENT_IDS = (&#39;equilibrium&#39;,)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.retirement.RetirementError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.retirement.RetirementError"><code>RetirementError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/retirement.py#L59" title="vaft/database/retirement.py, line 59">source</a>
+</header>
+
+    <p>Raised when a source cannot be retired safely.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.retirement.RetirementReport" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.retirement.RetirementReport"><code>RetirementReport</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/retirement.py#L90" title="vaft/database/retirement.py, line 90">source</a>
+</header>
+    <pre class="ref-signature"><code>RetirementReport(source: str, applied: bool, shots: tuple[ShotRetirement, ...], unexamined: tuple[int, ...] = (), enumeration_error: str | None = None) -&gt; None</code></pre>
+
+    <p>Whether the combined source still holds anything unique.</p>
+
+    <details class="ref-more"><summary>5 fields · 3 members</summary>
+<ul class="api-members">
+<li><code>source: str</code></li>
+<li><code>applied: bool</code></li>
+<li><code>shots: tuple[ShotRetirement, ...]</code></li>
+<li><code>unexamined: tuple[int, ...]</code></li>
+<li><code>enumeration_error: str | None</code></li>
+<li><code>deletable</code> <span class="ref-type">property</span> &mdash; True only when every shot the source holds is accounted for.</li>
+<li><code>blocking</code> <span class="ref-type">property</span></li>
+<li><code>to_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.retirement.RETIRING_SOURCE" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.retirement.RETIRING_SOURCE"><code>RETIRING_SOURCE</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>RETIRING_SOURCE = &#39;chease-mhd-stability&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.retirement.ShotRetirement" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.retirement.ShotRetirement"><code>ShotRetirement</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/retirement.py#L63" title="vaft/database/retirement.py, line 63">source</a>
+</header>
+    <pre class="ref-signature"><code>ShotRetirement(shot: int, refinement: str, stability: str, detail: str) -&gt; None</code></pre>
+
+    <p>What stands between one shot and the old source being deletable.</p>
+
+    <details class="ref-more"><summary>4 fields · 2 members</summary>
+<ul class="api-members">
+<li><code>shot: int</code></li>
+<li><code>refinement: str</code></li>
+<li><code>stability: str</code></li>
+<li><code>detail: str</code></li>
+<li><code>deletable</code> <span class="ref-type">property</span> &mdash; Whether nothing in this shot would be lost by deleting the source.</li>
+<li><code>to_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.retirement.STABILITY_IDS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.retirement.STABILITY_IDS"><code>STABILITY_IDS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STABILITY_IDS = (&#39;mhd_linear&#39;, &#39;ntms&#39;)</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.database.sources">vaft.database.sources</h2>
+
+<div class="ref-note tex2jax_ignore"><p>The named HSDS dataset sources VAFT publishes each analysis lineage to.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.database.sources.CATALOG" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.CATALOG"><code>CATALOG</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>CATALOG = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.children" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.children"><code>children</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L366" title="vaft/database/sources.py, line 366">source</a>
+</header>
+    <pre class="ref-signature"><code>children(name: str, *, environment: Mapping[str, str] | None = None) -&gt; tuple[HSDSSource, ...]</code></pre>
+
+    <p>The sources that hang directly beneath <code class="language-plaintext highlighter-rouge">name</code>, in catalog order.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.DEFAULT_SOURCE" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.DEFAULT_SOURCE"><code>DEFAULT_SOURCE</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>DEFAULT_SOURCE = &#39;main&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.describe" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.describe"><code>describe</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L414" title="vaft/database/sources.py, line 414">source</a>
+</header>
+    <pre class="ref-signature"><code>describe(name: str, *, environment: Mapping[str, str] | None = None) -&gt; HSDSSource</code></pre>
+
+    <p>Return the catalog entry for one resolved namespace name.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.EXTRA_SOURCES_VARIABLE" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.EXTRA_SOURCES_VARIABLE"><code>EXTRA_SOURCES_VARIABLE</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>EXTRA_SOURCES_VARIABLE = &#39;VAFT_HSDS_EXTRA_SOURCES&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.FAMILY_SOURCES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.FAMILY_SOURCES"><code>FAMILY_SOURCES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>FAMILY_SOURCES = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.HSDSSource" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.HSDSSource"><code>HSDSSource</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L146" title="vaft/database/sources.py, line 146">source</a>
+</header>
+    <pre class="ref-signature"><code>HSDSSource(name: str, purpose: str, writable: bool = True, sparse: bool = False, parent: str | None = None, projects_to: str | None = None) -&gt; None</code></pre>
+
+    <p>One named HSDS namespace and the lineage it stores.</p>
+
+    <details class="ref-more"><summary>6 fields · 2 members</summary>
+<ul class="api-members">
+<li><code>name: str</code></li>
+<li><code>purpose: str</code></li>
+<li><code>writable: bool</code></li>
+<li><code>sparse: bool</code></li>
+<li><code>parent: str | None</code></li>
+<li><code>projects_to: str | None</code></li>
+<li><code>derived_parent</code> <span class="ref-type">property</span> &mdash; The parent implied by the name, which <code class="language-plaintext highlighter-rouge">parent</code> must agree with.</li>
+<li><code>ancestors</code> <span class="ref-type">property</span> &mdash; Every source that must exist before this one can be created.</li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.HSDSSourceError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.HSDSSourceError"><code>HSDSSourceError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L110" title="vaft/database/sources.py, line 110">source</a>
+</header>
+
+    <p>Base error for an unusable HSDS source name.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.is_writable" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.is_writable"><code>is_writable</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L421" title="vaft/database/sources.py, line 421">source</a>
+</header>
+    <pre class="ref-signature"><code>is_writable(name: str, *, environment: Mapping[str, str] | None = None) -&gt; bool</code></pre>
+
+    <p>Return whether VAFT may publish into <code class="language-plaintext highlighter-rouge">name</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.known_sources" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.known_sources"><code>known_sources</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L407" title="vaft/database/sources.py, line 407">source</a>
+</header>
+    <pre class="ref-signature"><code>known_sources(*, environment: Mapping[str, str] | None = None) -&gt; tuple[HSDSSource, ...]</code></pre>
+
+    <p>Return every source a call may name right now, catalog order first.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.LEGACY_SOURCE" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.LEGACY_SOURCE"><code>LEGACY_SOURCE</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>LEGACY_SOURCE = &#39;public&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.MissingSourceError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.MissingSourceError"><code>MissingSourceError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L122" title="vaft/database/sources.py, line 122">source</a>
+</header>
+    <pre class="ref-signature"><code>MissingSourceError(source: str, detail: str = &#39;&#39;) -&gt; None</code></pre>
+
+    <p>Raised when a named source has no folder on the HSDS deployment.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.ReadOnlySourceError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.ReadOnlySourceError"><code>ReadOnlySourceError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L118" title="vaft/database/sources.py, line 118">source</a>
+</header>
+
+    <p>Raised when a write is requested against a read-only source.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.replicable_stages" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.replicable_stages"><code>replicable_stages</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L871" title="vaft/database/sources.py, line 871">source</a>
+</header>
+    <pre class="ref-signature"><code>replicable_stages(*, produced_by: str | None = None) -&gt; tuple[str, ...]</code></pre>
+
+    <p>Return the stages with a destination and a wired replication rule.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.replication_for_stage" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.replication_for_stage"><code>replication_for_stage</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L794" title="vaft/database/sources.py, line 794">source</a>
+</header>
+    <pre class="ref-signature"><code>replication_for_stage(stage: Any, *, family: str = &#39;magnetic&#39;, refinement: str = &#39;chease&#39;, product: str | None = None) -&gt; StageReplication</code></pre>
+
+    <p>Return the replication contract for one canonical FileDB OMAS stage.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.resolve" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.resolve"><code>resolve</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span><span class="ref-flag ref-flag-convention" title="Some calls emit a DeprecationWarning">Deprecated usage</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L460" title="vaft/database/sources.py, line 460">source</a>
+</header>
+    <pre class="ref-signature"><code>resolve(source: str | None = None, *, directory: str | None = None, target: str | None = None, default: str | None = &#39;main&#39;, writable: bool = False, label: str = &#39;source&#39;, stacklevel: int = 3, environment: Mapping[str, str] | None = None) -&gt; str</code></pre>
+
+    <p>Resolve one namespace from <code class="language-plaintext highlighter-rouge">source</code> and its deprecated aliases.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.source_for_stage" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.source_for_stage"><code>source_for_stage</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L847" title="vaft/database/sources.py, line 847">source</a>
+</header>
+    <pre class="ref-signature"><code>source_for_stage(stage: Any, *, family: str = &#39;magnetic&#39;, refinement: str = &#39;chease&#39;, product: str | None = None) -&gt; str</code></pre>
+
+    <p>Return the HSDS source a canonical FileDB OMAS stage is replicated into.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.STAGE_REPLICATION" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.STAGE_REPLICATION"><code>STAGE_REPLICATION</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STAGE_REPLICATION = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.STAGE_SOURCE" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.STAGE_SOURCE"><code>STAGE_SOURCE</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STAGE_SOURCE = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.StageReplication" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.StageReplication"><code>StageReplication</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L535" title="vaft/database/sources.py, line 535">source</a>
+</header>
+    <pre class="ref-signature"><code>StageReplication(source: str | None, ids: tuple[str, ...] = (), occurrence: int = 0, note: str = &#39;&#39;, deferred_to: str | None = None, optional: bool = False, produced_by: str = &#39;routine&#39;) -&gt; None</code></pre>
+
+    <p>How one canonical FileDB OMAS stage reaches a remote backend.</p>
+
+    <details class="ref-more"><summary>7 fields · 1 members</summary>
+<ul class="api-members">
+<li><code>source: str | None</code></li>
+<li><code>ids: tuple[str, ...]</code></li>
+<li><code>occurrence: int</code></li>
+<li><code>note: str</code></li>
+<li><code>deferred_to: str | None</code></li>
+<li><code>optional: bool</code></li>
+<li><code>produced_by: str</code></li>
+<li><code>replicable</code> <span class="ref-type">property</span> &mdash; Whether this stage has a destination and a wired rule today.</li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.database.sources.UnknownSourceError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.database.sources.UnknownSourceError"><code>UnknownSourceError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/database/sources.py#L114" title="vaft/database/sources.py, line 114">source</a>
+</header>
+
+    <p>Raised when a name is not in the catalog and was not opted into.</p>
+
+  </section>
+</div>
+
+<h2 id="undeclared">Modules without a declared public surface</h2>
+
+<p>These modules declare no <code class="language-plaintext highlighter-rouge">__all__</code>, so this reference cannot tell what they publish and lists nothing
+from them (<code class="language-plaintext highlighter-rouge">docs/api_inventory.yml</code>). Some are reached through a package that re-exports them
+without an <code class="language-plaintext highlighter-rouge">__all__</code> of its own – <code class="language-plaintext highlighter-rouge">vaft.omas</code> star-imports several – and are described in the
+hand-written guides until they declare one:
+<code class="language-plaintext highlighter-rouge">vaft.database.h5image</code>, <code class="language-plaintext highlighter-rouge">vaft.database.ids</code>, <code class="language-plaintext highlighter-rouge">vaft.database.lazy_common</code>, <code class="language-plaintext highlighter-rouge">vaft.database.ods</code>, <code class="language-plaintext highlighter-rouge">vaft.database.product_migration</code>, <code class="language-plaintext highlighter-rouge">vaft.database.raw</code>, <code class="language-plaintext highlighter-rouge">vaft.database.staging</code>, <code class="language-plaintext highlighter-rouge">vaft.database.transport</code>, <code class="language-plaintext highlighter-rouge">vaft.database.utils</code>.</p>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/api/core/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: API: Top level and utilities">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/api/data/" class="navigation navigation-next navigation-unique" aria-label="Next page: API: vaft.data">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.composition" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.composition</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.digitizer_hdf5" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.digitizer_hdf5</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.filedb" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.filedb</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.hscfg" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.hscfg</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.lazy_imas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.lazy_imas</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.lazy_ods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.lazy_ods</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.maintenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.maintenance</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.production_qa" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.production_qa</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.provenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.provenance</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.replication" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.replication</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.retirement" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.retirement</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.database.sources" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.database.sources</a></li><li class="page-toc-item page-toc-level-2"><a href="#undeclared" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Modules without a declared public surface</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "API: vaft.data",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Api_reference_data.md",
+            "ref": "_guide/Api_reference_data.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Api_reference_database.md",
+        "mtime": "2026-09-29 10:01:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-30 05:11:01 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>37c8a12</code>. What is described
+  <code>646d742</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -426,7 +426,7 @@ the legacy two-shot arrangement; the single-shot path never requires it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#find_tf_calibration_window"><code>find_tf_calibration_window</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L546" title="vaft/process/impa.py, line 546">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L546" title="vaft/process/impa.py, line 546">source</a>
 </header>
     <pre class="ref-signature"><code>find_tf_calibration_window(time, i_tf, ip=None, pf_currents=None, *, criteria=None, b_measured=None)</code></pre>
 
@@ -527,7 +527,7 @@ plasma can be selected.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_impa_crosstalk"><code>fit_impa_crosstalk</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L1045" title="vaft/process/impa.py, line 1045">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L1045" title="vaft/process/impa.py, line 1045">source</a>
 </header>
     <pre class="ref-signature"><code>fit_impa_crosstalk(b_toroidal, b_z_raw, window, *, max_angle_deg=30.0, bz_gain=None)</code></pre>
 
@@ -600,7 +600,7 @@ responding non-linearly keeps a residual.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_impa_geometry"><code>fit_impa_geometry</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L854" title="vaft/process/impa.py, line 854">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L854" title="vaft/process/impa.py, line 854">source</a>
 </header>
     <pre class="ref-signature"><code>fit_impa_geometry(b_measured, i_tf, window, *, pitch=0.05, z=0.0, turns=24, r0_initial=0.4, r_bounds=(0.1, 0.9), fit_pitch=False)</code></pre>
 
@@ -695,7 +695,7 @@ between shots</strong>, because the array is insertable and really is reposition
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_impa_tf_coupling"><code>fit_impa_tf_coupling</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L739" title="vaft/process/impa.py, line 739">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L739" title="vaft/process/impa.py, line 739">source</a>
 </header>
     <pre class="ref-signature"><code>fit_impa_tf_coupling(b_measured, i_tf, r, window, *, turns=24, tilt_bounds_deg=(-10.0, 10.0))</code></pre>
 
@@ -769,7 +769,7 @@ does not fit the array, not a result to use.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#grade_impa_quality"><code>grade_impa_quality</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L1535" title="vaft/process/impa.py, line 1535">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L1535" title="vaft/process/impa.py, line 1535">source</a>
 </header>
     <pre class="ref-signature"><code>grade_impa_quality(time, raw, b_measured, b_z, channel_valid, window, geometry, coupling, *, expected_channels=8, max_normalized_rmse=0.15, r_bounds=(0.1, 0.9), pitch_tolerance=0.01, window_reasons=(), orientation=&#39;toroidal&#39;, alpha_tolerance=0.15, crosstalk=None, min_crosstalk_r_squared=0.8)</code></pre>
 
@@ -878,7 +878,7 @@ checks and still have no usable vertical measurement.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#impa_calibrate_signals"><code>impa_calibrate_signals</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L404" title="vaft/process/impa.py, line 404">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L404" title="vaft/process/impa.py, line 404">source</a>
 </header>
     <pre class="ref-signature"><code>impa_calibrate_signals(raw, *, gain, cutoff_hz, sample_rate, baseline=&#39;first_sample&#39;, baseline_samples=2500)</code></pre>
 
@@ -960,7 +960,7 @@ of <code class="language-plaintext highlighter-rouge">impa_lowpass</code>.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#impa_lowpass"><code>impa_lowpass</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L341" title="vaft/process/impa.py, line 341">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L341" title="vaft/process/impa.py, line 341">source</a>
 </header>
     <pre class="ref-signature"><code>impa_lowpass(values, cutoff_hz, sample_rate)</code></pre>
 
@@ -1028,7 +1028,7 @@ summary says.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#legacy_impa_compensation"><code>legacy_impa_compensation</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L1398" title="vaft/process/impa.py, line 1398">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L1398" title="vaft/process/impa.py, line 1398">source</a>
 </header>
     <pre class="ref-signature"><code>legacy_impa_compensation(time, raw, tf_raw, r, *, target_time=0.29, sample_rate=25000.0, cutoff_hz=250.0, gain=-0.13333333333333333, tf_gain=30000.0, turns=24, tilt_bounds_deg=(-10.0, 10.0))</code></pre>
 
@@ -1125,7 +1125,7 @@ probe and saturates on an array that faces the toroidal field.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#legacy_impa_position"><code>legacy_impa_position</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L1267" title="vaft/process/impa.py, line 1267">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L1267" title="vaft/process/impa.py, line 1267">source</a>
 </header>
     <pre class="ref-signature"><code>legacy_impa_position(time, raw, tf_raw, *, target_time=0.3, sample_rate=25000.0, cutoff_hz=2500.0, gain=0.13333333333333333, tf_gain=-30000.0, turns=24, pitch=0.05, r0_initial=0.4, r_bounds=(0.1, 0.9), baseline_samples=2500)</code></pre>
 
@@ -1230,7 +1230,7 @@ rejected shots show is not.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#process_impa"><code>process_impa</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L1808" title="vaft/process/impa.py, line 1808">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L1808" title="vaft/process/impa.py, line 1808">source</a>
 </header>
     <pre class="ref-signature"><code>process_impa(time, raw, i_tf, *, config=None, criteria=None, ip=None, pf_currents=None, channel_valid=None, r=None, z=0.0, pitch=0.05, r_bounds=(0.1, 0.9), r0_initial=0.4, max_normalized_rmse=0.15, reference=None, b_z_raw=None, bz_channel_valid=None, fit_pitch=False, max_crosstalk_angle_deg=30.0, min_crosstalk_r_squared=0.8, bz_gain=None, bz_radial_offset=0.01)</code></pre>
 
@@ -1356,7 +1356,7 @@ measurement, which the grading flags rather than the chain refusing.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#remove_bz_crosstalk"><code>remove_bz_crosstalk</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L1157" title="vaft/process/impa.py, line 1157">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L1157" title="vaft/process/impa.py, line 1157">source</a>
 </header>
     <pre class="ref-signature"><code>remove_bz_crosstalk(b_z_raw, b_toroidal, crosstalk)</code></pre>
 
@@ -1416,7 +1416,7 @@ to the toroidal field is not linear keeps its residual.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#remove_tf_pickup"><code>remove_tf_pickup</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L1213" title="vaft/process/impa.py, line 1213">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L1213" title="vaft/process/impa.py, line 1213">source</a>
 </header>
     <pre class="ref-signature"><code>remove_tf_pickup(b_measured, tf_pickup, alpha)</code></pre>
 
@@ -1479,7 +1479,7 @@ result only where the array is genuinely near-vertical.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#toroidal_field"><code>toroidal_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L474" title="vaft/process/impa.py, line 474">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L474" title="vaft/process/impa.py, line 474">source</a>
 </header>
     <pre class="ref-signature"><code>toroidal_field(r, i_tf, turns=24)</code></pre>
 
@@ -1544,7 +1544,7 @@ for calibration in the first place.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#validate_impa"><code>validate_impa</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-deprecated">Deprecated</span></span>
-<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/37c8a123ed329c0c0c027c63ddd6d85d54c22fbc/vaft/process/impa.py#L1796" title="vaft/process/impa.py, line 1796">source</a>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/process/impa.py#L1796" title="vaft/process/impa.py, line 1796">source</a>
 </header>
     <pre class="ref-signature"><code>validate_impa(*args, **kwargs)</code></pre>
 
@@ -1772,7 +1772,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 04:59:50 +0000"
+        "time": "2026-09-30 05:11:01 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

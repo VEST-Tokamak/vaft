@@ -1,0 +1,2740 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>API: vaft.validation · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/api/diagram/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/api/code/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >API: vaft.validation</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>646d742</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/api/Api_reference_validation">API: vaft.validation</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated reference of the objects vaft.validation publishes, read from each module's __all__ and docstrings (issue 162).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>The signature, summary, deprecation status and source of every published object.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from each module's <code>__all__</code> by <code>python -m vaft._api_catalog</code>:
+<strong>158</strong> published objects in <strong>17</strong> modules.
+Signatures and summaries are read from the source; nothing here is written by hand.
+<a href="/vaft/develop/reference/api/">All API pages</a></p>
+
+<div class="ref-index tex2jax_ignore" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 158 objects by name or module" aria-label="Filter objects" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation"><code>vaft.validation</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.FAILURE_MODES vaft.validation "><td><a href="#vaft.validation.FAILURE_MODES"><code>FAILURE_MODES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.PHASES vaft.validation "><td><a href="#vaft.validation.PHASES"><code>PHASES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.STAGE_METRICS vaft.validation "><td><a href="#vaft.validation.STAGE_METRICS"><code>STAGE_METRICS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.STAGE_PRECONDITIONS vaft.validation "><td><a href="#vaft.validation.STAGE_PRECONDITIONS"><code>STAGE_PRECONDITIONS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.STAGE_VALIDATION_PLOTS vaft.validation "><td><a href="#vaft.validation.STAGE_VALIDATION_PLOTS"><code>STAGE_VALIDATION_PLOTS</code></a></td><td>data <span class="ref-flag ref-flag-deprecated">Deprecated</span></td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.channel_decision"><code>vaft.validation.channel_decision</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.ChannelDecision vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.ChannelDecision"><code>ChannelDecision</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.ChannelDecisions vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.ChannelDecisions"><code>ChannelDecisions</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.decision_from_codes vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.decision_from_codes"><code>decision_from_codes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.MISSING vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.MISSING"><code>MISSING</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.missing_decision vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.missing_decision"><code>missing_decision</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.PROVENANCE_MEASURED vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.PROVENANCE_MEASURED"><code>PROVENANCE_MEASURED</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.REASON_CONDEMNED vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.REASON_CONDEMNED"><code>REASON_CONDEMNED</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.REASON_MANUAL_LIST vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.REASON_MANUAL_LIST"><code>REASON_MANUAL_LIST</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.REASON_NO_SIGNAL vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.REASON_NO_SIGNAL"><code>REASON_NO_SIGNAL</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.REASON_PROJECTED_VALIDITY vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.REASON_PROJECTED_VALIDITY"><code>REASON_PROJECTED_VALIDITY</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.RECOVERED vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.RECOVERED"><code>RECOVERED</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.REJECTED vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.REJECTED"><code>REJECTED</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.rejected_decision vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.rejected_decision"><code>rejected_decision</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.state_name vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.state_name"><code>state_name</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.STATE_NAMES vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.STATE_NAMES"><code>STATE_NAMES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.SUSPECT vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.SUSPECT"><code>SUSPECT</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.USABLE vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.USABLE"><code>USABLE</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.usable_decision vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.usable_decision"><code>usable_decision</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.channel_decision.weight_factor_for vaft.validation.channel_decision "><td><a href="#vaft.validation.channel_decision.weight_factor_for"><code>weight_factor_for</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.efit_channels"><code>vaft.validation.efit_channels</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.efit_channels.condemned_channels vaft.validation.efit_channels "><td><a href="#vaft.validation.efit_channels.condemned_channels"><code>condemned_channels</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.efit_channels.decide_efit_channels vaft.validation.efit_channels "><td><a href="#vaft.validation.efit_channels.decide_efit_channels"><code>decide_efit_channels</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.efit_channels.EFIT_KINDS vaft.validation.efit_channels "><td><a href="#vaft.validation.efit_channels.EFIT_KINDS"><code>EFIT_KINDS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.efit_channels.efit_probe_count vaft.validation.efit_channels "><td><a href="#vaft.validation.efit_channels.efit_probe_count"><code>efit_probe_count</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.efit_channels.EFIT_QUANTITY vaft.validation.efit_channels "><td><a href="#vaft.validation.efit_channels.EFIT_QUANTITY"><code>EFIT_QUANTITY</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.efit_channels.split_manual_rejections vaft.validation.efit_channels "><td><a href="#vaft.validation.efit_channels.split_manual_rejections"><code>split_manual_rejections</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.equilibrium"><code>vaft.validation.equilibrium</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.aggregate_status vaft.validation.equilibrium "><td><a href="#vaft.validation.equilibrium.aggregate_status"><code>aggregate_status</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.EQUILIBRIUM_CATEGORIES vaft.validation.equilibrium "><td><a href="#vaft.validation.equilibrium.EQUILIBRIUM_CATEGORIES"><code>EQUILIBRIUM_CATEGORIES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.status_summary vaft.validation.equilibrium "><td><a href="#vaft.validation.equilibrium.status_summary"><code>status_summary</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.validate_equilibrium vaft.validation.equilibrium vaft.validation.validate_equilibrium"><td><a href="#vaft.validation.equilibrium.validate_equilibrium"><code>validate_equilibrium</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.validate_independent vaft.validation.equilibrium "><td><a href="#vaft.validation.equilibrium.validate_independent"><code>validate_independent</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.validate_magnetic_fit vaft.validation.equilibrium "><td><a href="#vaft.validation.equilibrium.validate_magnetic_fit"><code>validate_magnetic_fit</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.validate_physical vaft.validation.equilibrium "><td><a href="#vaft.validation.equilibrium.validate_physical"><code>validate_physical</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.verify_continuity vaft.validation.equilibrium "><td><a href="#vaft.validation.equilibrium.verify_continuity"><code>verify_continuity</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.verify_convention vaft.validation.equilibrium "><td><a href="#vaft.validation.equilibrium.verify_convention"><code>verify_convention</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.verify_convergence vaft.validation.equilibrium "><td><a href="#vaft.validation.equilibrium.verify_convergence"><code>verify_convergence</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium.verify_structure vaft.validation.equilibrium "><td><a href="#vaft.validation.equilibrium.verify_structure"><code>verify_structure</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.equilibrium_cohorts"><code>vaft.validation.equilibrium_cohorts</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.equilibrium_cohorts.CohortJoin vaft.validation.equilibrium_cohorts vaft.validation.CohortJoin"><td><a href="#vaft.validation.equilibrium_cohorts.CohortJoin"><code>CohortJoin</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium_cohorts.FAILURE_MODES vaft.validation.equilibrium_cohorts "><td><a href="#vaft.validation.equilibrium_cohorts.FAILURE_MODES"><code>FAILURE_MODES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium_cohorts.join_regime_and_termination vaft.validation.equilibrium_cohorts vaft.validation.join_regime_and_termination"><td><a href="#vaft.validation.equilibrium_cohorts.join_regime_and_termination"><code>join_regime_and_termination</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium_cohorts.SliceOutcome vaft.validation.equilibrium_cohorts vaft.validation.SliceOutcome"><td><a href="#vaft.validation.equilibrium_cohorts.SliceOutcome"><code>SliceOutcome</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium_cohorts.summarize_by_cohort vaft.validation.equilibrium_cohorts vaft.validation.summarize_by_cohort"><td><a href="#vaft.validation.equilibrium_cohorts.summarize_by_cohort"><code>summarize_by_cohort</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.equilibrium_regime"><code>vaft.validation.equilibrium_regime</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.equilibrium_regime.classify_equilibrium_regime vaft.validation.equilibrium_regime vaft.validation.classify_equilibrium_regime"><td><a href="#vaft.validation.equilibrium_regime.classify_equilibrium_regime"><code>classify_equilibrium_regime</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium_regime.classify_equilibrium_regimes vaft.validation.equilibrium_regime vaft.validation.classify_equilibrium_regimes"><td><a href="#vaft.validation.equilibrium_regime.classify_equilibrium_regimes"><code>classify_equilibrium_regimes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium_regime.PHASES vaft.validation.equilibrium_regime "><td><a href="#vaft.validation.equilibrium_regime.PHASES"><code>PHASES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.equilibrium_regime.RegimeLabels vaft.validation.equilibrium_regime vaft.validation.RegimeLabels"><td><a href="#vaft.validation.equilibrium_regime.RegimeLabels"><code>RegimeLabels</code></a></td><td>class</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.flux_loop_assessment"><code>vaft.validation.flux_loop_assessment</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.flux_loop_assessment.assess_flux_loops vaft.validation.flux_loop_assessment "><td><a href="#vaft.validation.flux_loop_assessment.assess_flux_loops"><code>assess_flux_loops</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.flux_loop_assessment.flux_loop_evidence vaft.validation.flux_loop_assessment "><td><a href="#vaft.validation.flux_loop_assessment.flux_loop_evidence"><code>flux_loop_evidence</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.flux_loop_assessment.FluxLoopAssessment vaft.validation.flux_loop_assessment "><td><a href="#vaft.validation.flux_loop_assessment.FluxLoopAssessment"><code>FluxLoopAssessment</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.flux_loop_assessment.FluxLoopPolicy vaft.validation.flux_loop_assessment "><td><a href="#vaft.validation.flux_loop_assessment.FluxLoopPolicy"><code>FluxLoopPolicy</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.flux_loop_assessment.manual_exclusion_index vaft.validation.flux_loop_assessment "><td><a href="#vaft.validation.flux_loop_assessment.manual_exclusion_index"><code>manual_exclusion_index</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.flux_loop_assessment.NOT_AVAILABLE vaft.validation.flux_loop_assessment "><td><a href="#vaft.validation.flux_loop_assessment.NOT_AVAILABLE"><code>NOT_AVAILABLE</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.flux_loop_assessment.REJECT_FOR_EFIT vaft.validation.flux_loop_assessment "><td><a href="#vaft.validation.flux_loop_assessment.REJECT_FOR_EFIT"><code>REJECT_FOR_EFIT</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.flux_loop_assessment.STATES vaft.validation.flux_loop_assessment "><td><a href="#vaft.validation.flux_loop_assessment.STATES"><code>STATES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.flux_loop_assessment.SUSPECT vaft.validation.flux_loop_assessment "><td><a href="#vaft.validation.flux_loop_assessment.SUSPECT"><code>SUSPECT</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.flux_loop_assessment.USABLE vaft.validation.flux_loop_assessment "><td><a href="#vaft.validation.flux_loop_assessment.USABLE"><code>USABLE</code></a></td><td>data</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.imas"><code>vaft.validation.imas</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.imas.is_condemned_channel vaft.validation.imas "><td><a href="#vaft.validation.imas.is_condemned_channel"><code>is_condemned_channel</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.is_usable_channel vaft.validation.imas "><td><a href="#vaft.validation.imas.is_usable_channel"><code>is_usable_channel</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.read_convergence_result vaft.validation.imas "><td><a href="#vaft.validation.imas.read_convergence_result"><code>read_convergence_result</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.read_output_flag vaft.validation.imas "><td><a href="#vaft.validation.imas.read_output_flag"><code>read_output_flag</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.read_validity vaft.validation.imas "><td><a href="#vaft.validation.imas.read_validity"><code>read_validity</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.read_validity_record vaft.validation.imas "><td><a href="#vaft.validation.imas.read_validity_record"><code>read_validity_record</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.read_validity_timed vaft.validation.imas "><td><a href="#vaft.validation.imas.read_validity_timed"><code>read_validity_timed</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.resolve_signal_time vaft.validation.imas "><td><a href="#vaft.validation.imas.resolve_signal_time"><code>resolve_signal_time</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.resolve_signal_waveform vaft.validation.imas "><td><a href="#vaft.validation.imas.resolve_signal_waveform"><code>resolve_signal_waveform</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.signal_label vaft.validation.imas "><td><a href="#vaft.validation.imas.signal_label"><code>signal_label</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.signal_matches_root_time vaft.validation.imas "><td><a href="#vaft.validation.imas.signal_matches_root_time"><code>signal_matches_root_time</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.valid_fraction vaft.validation.imas "><td><a href="#vaft.validation.imas.valid_fraction"><code>valid_fraction</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.validity_codes vaft.validation.imas "><td><a href="#vaft.validation.imas.validity_codes"><code>validity_codes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.validity_mask vaft.validation.imas "><td><a href="#vaft.validation.imas.validity_mask"><code>validity_mask</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.imas.write_validity vaft.validation.imas "><td><a href="#vaft.validation.imas.write_validity"><code>write_validity</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.magnetics"><code>vaft.validation.magnetics</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.magnetics.array_contradiction_fractions_of vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.array_contradiction_fractions_of"><code>array_contradiction_fractions_of</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.array_contradiction_scores vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.array_contradiction_scores"><code>array_contradiction_scores</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.array_departure_ratios vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.array_departure_ratios"><code>array_departure_ratios</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.attribute_array_contradictions vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.attribute_array_contradictions"><code>attribute_array_contradictions</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.channel_node vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.channel_node"><code>channel_node</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.ChannelQuality vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.ChannelQuality"><code>ChannelQuality</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.implausible_magnitude vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.implausible_magnitude"><code>implausible_magnitude</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.magnetics_quality_metrics vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.magnetics_quality_metrics"><code>magnetics_quality_metrics</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.MagneticsQualityConfig vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.MagneticsQualityConfig"><code>MagneticsQualityConfig</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.population_peak_outliers vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.population_peak_outliers"><code>population_peak_outliers</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.population_peak_ratios vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.population_peak_ratios"><code>population_peak_ratios</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.project_validity vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.project_validity"><code>project_validity</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.QualityEvent vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.QualityEvent"><code>QualityEvent</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.QUANTITY_BY_KIND vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.QUANTITY_BY_KIND"><code>QUANTITY_BY_KIND</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.recorded_faults_for vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.recorded_faults_for"><code>recorded_faults_for</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.unusable_channels_at vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.unusable_channels_at"><code>unusable_channels_at</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.magnetics.validate_magnetics_signals vaft.validation.magnetics "><td><a href="#vaft.validation.magnetics.validate_magnetics_signals"><code>validate_magnetics_signals</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.model"><code>vaft.validation.model</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.model.CATEGORIES vaft.validation.model vaft.validation.CATEGORIES"><td><a href="#vaft.validation.model.CATEGORIES"><code>CATEGORIES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.model.SEVERITIES vaft.validation.model "><td><a href="#vaft.validation.model.SEVERITIES"><code>SEVERITIES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.model.ValidationIssue vaft.validation.model vaft.data.ValidationIssue vaft.data.equilibrium.ValidationIssue"><td><a href="#vaft.validation.model.ValidationIssue"><code>ValidationIssue</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.model.ValidationReport vaft.validation.model vaft.data.ValidationReport vaft.data.equilibrium.ValidationReport"><td><a href="#vaft.validation.model.ValidationReport"><code>ValidationReport</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.model.ValidationStatus vaft.validation.model vaft.validation.ValidationStatus"><td><a href="#vaft.validation.model.ValidationStatus"><code>ValidationStatus</code></a></td><td>class</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.neoclassical"><code>vaft.validation.neoclassical</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.neoclassical.bootstrap_models vaft.validation.neoclassical "><td><a href="#vaft.validation.neoclassical.bootstrap_models"><code>bootstrap_models</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.neoclassical.input_readiness vaft.validation.neoclassical "><td><a href="#vaft.validation.neoclassical.input_readiness"><code>input_readiness</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.neoclassical.METRICS vaft.validation.neoclassical "><td><a href="#vaft.validation.neoclassical.METRICS"><code>METRICS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.neoclassical.model_agreement vaft.validation.neoclassical "><td><a href="#vaft.validation.neoclassical.model_agreement"><code>model_agreement</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.neoclassical.model_comparison vaft.validation.neoclassical "><td><a href="#vaft.validation.neoclassical.model_comparison"><code>model_comparison</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.neoclassical.REQUIREMENTS vaft.validation.neoclassical "><td><a href="#vaft.validation.neoclassical.REQUIREMENTS"><code>REQUIREMENTS</code></a></td><td>data</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.perturbation_phase"><code>vaft.validation.perturbation_phase</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.perturbation_phase.GPEC_COIL_FIELD vaft.validation.perturbation_phase "><td><a href="#vaft.validation.perturbation_phase.GPEC_COIL_FIELD"><code>GPEC_COIL_FIELD</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.perturbation_phase.phase_convention_verdict vaft.validation.perturbation_phase "><td><a href="#vaft.validation.perturbation_phase.phase_convention_verdict"><code>phase_convention_verdict</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.perturbation_phase.PhaseAuditCriteria vaft.validation.perturbation_phase "><td><a href="#vaft.validation.perturbation_phase.PhaseAuditCriteria"><code>PhaseAuditCriteria</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.perturbation_phase.PhaseConventionVerdict vaft.validation.perturbation_phase "><td><a href="#vaft.validation.perturbation_phase.PhaseConventionVerdict"><code>PhaseConventionVerdict</code></a></td><td>class</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.registry"><code>vaft.validation.registry</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.registry.CHECKS vaft.validation.registry "><td><a href="#vaft.validation.registry.CHECKS"><code>CHECKS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.registry.checks_in vaft.validation.registry "><td><a href="#vaft.validation.registry.checks_in"><code>checks_in</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.registry.CheckSpec vaft.validation.registry "><td><a href="#vaft.validation.registry.CheckSpec"><code>CheckSpec</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.registry.describe vaft.validation.registry "><td><a href="#vaft.validation.registry.describe"><code>describe</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.registry.MEASURES vaft.validation.registry "><td><a href="#vaft.validation.registry.MEASURES"><code>MEASURES</code></a></td><td>data</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.stage_evidence"><code>vaft.validation.stage_evidence</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.stage_evidence.STAGE_METRICS vaft.validation.stage_evidence vaft.database.production_qa.STAGE_METRICS"><td><a href="#vaft.validation.stage_evidence.STAGE_METRICS"><code>STAGE_METRICS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.stage_evidence.STAGE_PRECONDITIONS vaft.validation.stage_evidence vaft.database.production_qa.STAGE_PRECONDITIONS"><td><a href="#vaft.validation.stage_evidence.STAGE_PRECONDITIONS"><code>STAGE_PRECONDITIONS</code></a></td><td>data</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.vacuum_benchmark"><code>vaft.validation.vacuum_benchmark</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.aggregate_benchmark vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.aggregate_benchmark"><code>aggregate_benchmark</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_FLOOR vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_FLOOR"><code>ARRAY_CONTRADICTION_FLOOR</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_FRACTION vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_FRACTION"><code>ARRAY_CONTRADICTION_FRACTION</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.array_contradiction_fractions vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.array_contradiction_fractions"><code>array_contradiction_fractions</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_MIN_SCORED vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_MIN_SCORED"><code>ARRAY_CONTRADICTION_MIN_SCORED</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_SIGMA vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_SIGMA"><code>ARRAY_CONTRADICTION_SIGMA</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.array_contradictions vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.array_contradictions"><code>array_contradictions</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.BENCHMARK_CASE_SCHEMA vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.BENCHMARK_CASE_SCHEMA"><code>BENCHMARK_CASE_SCHEMA</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.benchmark_wall_currents vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.benchmark_wall_currents"><code>benchmark_wall_currents</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.BenchmarkError vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.BenchmarkError"><code>BenchmarkError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.coil_drive_check vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.coil_drive_check"><code>coil_drive_check</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.DEFAULT_HISTORY_TIME_CONSTANTS vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.DEFAULT_HISTORY_TIME_CONSTANTS"><code>DEFAULT_HISTORY_TIME_CONSTANTS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.MIN_ARRAY_MEMBERS vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.MIN_ARRAY_MEMBERS"><code>MIN_ARRAY_MEMBERS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.MIN_COIL_DRIVE_FRACTION vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.MIN_COIL_DRIVE_FRACTION"><code>MIN_COIL_DRIVE_FRACTION</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.MIN_WITNESSES vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.MIN_WITNESSES"><code>MIN_WITNESSES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.PLASMA_FREE_EVIDENCE_SCHEMA vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.PLASMA_FREE_EVIDENCE_SCHEMA"><code>PLASMA_FREE_EVIDENCE_SCHEMA</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.plasma_free_interval vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.plasma_free_interval"><code>plasma_free_interval</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.PlasmaFreeInterval vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.PlasmaFreeInterval"><code>PlasmaFreeInterval</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.run_benchmark_case vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.run_benchmark_case"><code>run_benchmark_case</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.solver_history_check vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.solver_history_check"><code>solver_history_check</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.vacuum_benchmark.wall_time_constants vaft.validation.vacuum_benchmark "><td><a href="#vaft.validation.vacuum_benchmark.wall_time_constants"><code>wall_time_constants</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.validity"><code>vaft.validation.validity</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.validity.aggregate_validity vaft.validation.validity vaft.validation.imas.aggregate_validity"><td><a href="#vaft.validation.validity.aggregate_validity"><code>aggregate_validity</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.validity.codes_at vaft.validation.validity "><td><a href="#vaft.validation.validity.codes_at"><code>codes_at</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.validity.is_condemned vaft.validation.validity "><td><a href="#vaft.validation.validity.is_condemned"><code>is_condemned</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.validity.is_usable vaft.validation.validity "><td><a href="#vaft.validation.validity.is_usable"><code>is_usable</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.validity.record_from_mask vaft.validation.validity "><td><a href="#vaft.validation.validity.record_from_mask"><code>record_from_mask</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.validity.usable_fraction vaft.validation.validity "><td><a href="#vaft.validation.validity.usable_fraction"><code>usable_fraction</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.validity.usable_mask vaft.validation.validity "><td><a href="#vaft.validation.validity.usable_mask"><code>usable_mask</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.validity.VALIDITY_CERTIFIED vaft.validation.validity vaft.validation.imas.VALIDITY_CERTIFIED"><td><a href="#vaft.validation.validity.VALIDITY_CERTIFIED"><code>VALIDITY_CERTIFIED</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.validity.VALIDITY_INVALID vaft.validation.validity vaft.validation.imas.VALIDITY_INVALID"><td><a href="#vaft.validation.validity.VALIDITY_INVALID"><code>VALIDITY_INVALID</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.validity.VALIDITY_MEANINGS vaft.validation.validity vaft.validation.imas.VALIDITY_MEANINGS"><td><a href="#vaft.validation.validity.VALIDITY_MEANINGS"><code>VALIDITY_MEANINGS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.validity.VALIDITY_SUSPECT vaft.validation.validity vaft.validation.imas.VALIDITY_SUSPECT"><td><a href="#vaft.validation.validity.VALIDITY_SUSPECT"><code>VALIDITY_SUSPECT</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.validity.VALIDITY_VALID vaft.validation.validity vaft.validation.imas.VALIDITY_VALID"><td><a href="#vaft.validation.validity.VALIDITY_VALID"><code>VALIDITY_VALID</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.validity.ValidityRecord vaft.validation.validity "><td><a href="#vaft.validation.validity.ValidityRecord"><code>ValidityRecord</code></a></td><td>class</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.validation.wall_reduction"><code>vaft.validation.wall_reduction</code></a></th></tr>
+  <tr data-ref-row="vaft.validation.wall_reduction.DEFAULT_ORDERS vaft.validation.wall_reduction "><td><a href="#vaft.validation.wall_reduction.DEFAULT_ORDERS"><code>DEFAULT_ORDERS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.wall_reduction.DEFAULT_RULES vaft.validation.wall_reduction "><td><a href="#vaft.validation.wall_reduction.DEFAULT_RULES"><code>DEFAULT_RULES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.validation.wall_reduction.drive_set vaft.validation.wall_reduction "><td><a href="#vaft.validation.wall_reduction.drive_set"><code>drive_set</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.wall_reduction.experimental_comparison vaft.validation.wall_reduction "><td><a href="#vaft.validation.wall_reduction.experimental_comparison"><code>experimental_comparison</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.wall_reduction.find_plasma_free_shots vaft.validation.wall_reduction "><td><a href="#vaft.validation.wall_reduction.find_plasma_free_shots"><code>find_plasma_free_shots</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.wall_reduction.observation_set vaft.validation.wall_reduction "><td><a href="#vaft.validation.wall_reduction.observation_set"><code>observation_set</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.wall_reduction.order_convergence vaft.validation.wall_reduction "><td><a href="#vaft.validation.wall_reduction.order_convergence"><code>order_convergence</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.wall_reduction.representation_order vaft.validation.wall_reduction "><td><a href="#vaft.validation.wall_reduction.representation_order"><code>representation_order</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.wall_reduction.wall_system vaft.validation.wall_reduction "><td><a href="#vaft.validation.wall_reduction.wall_system"><code>wall_system</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.validation.wall_reduction.WallReductionError vaft.validation.wall_reduction "><td><a href="#vaft.validation.wall_reduction.WallReductionError"><code>WallReductionError</code></a></td><td>class</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No object matches.</p>
+</div>
+
+<h2 id="module-vaft.validation">vaft.validation</h2>
+
+<div class="ref-note tex2jax_ignore"><p>VAFT’s scientific assessment layer (issue #253).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.FAILURE_MODES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.FAILURE_MODES"><code>FAILURE_MODES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>FAILURE_MODES = (&#39;accepted&#39;, &#39;rejected&#39;, &#39;collapsed&#39;, &#39;boundary_failure&#39;, &#39;axis_failure&#39;, &#39;solver_failure&#39;, &#39;unknown&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.PHASES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.PHASES"><code>PHASES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>PHASES = (&#39;vacuum&#39;, &#39;ramp_up&#39;, &#39;flat&#39;, &#39;ramp_down&#39;, &#39;unknown&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.STAGE_METRICS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.STAGE_METRICS"><code>STAGE_METRICS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STAGE_METRICS = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.STAGE_PRECONDITIONS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.STAGE_PRECONDITIONS"><code>STAGE_PRECONDITIONS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STAGE_PRECONDITIONS = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.STAGE_VALIDATION_PLOTS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.STAGE_VALIDATION_PLOTS"><code>STAGE_VALIDATION_PLOTS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span><span class="ref-flag ref-flag-deprecated" title="vaft.validation.STAGE_VALIDATION_PLOTS moved to vaft.database.production_qa (issue #338): it is stage-QA artifact policy, not scientific validation. Import it from there.">Deprecated</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STAGE_VALIDATION_PLOTS = &lt;builtins.dict&gt;</code></pre>
+
+    <p class="ref-note"><strong>Deprecated:</strong> vaft.validation.STAGE_VALIDATION_PLOTS moved to vaft.database.production_qa (issue #338): it is stage-QA artifact policy, not scientific validation. Import it from there.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.channel_decision">vaft.validation.channel_decision</h2>
+
+<div class="ref-note tex2jax_ignore"><p>The per-channel, per-slice decision an equilibrium code consumes (issue #296).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.channel_decision.ChannelDecision" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.ChannelDecision"><code>ChannelDecision</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L102" title="vaft/validation/channel_decision.py, line 102">source</a>
+</header>
+    <pre class="ref-signature"><code>ChannelDecision(kind: str, index: int, name: str, state: np.ndarray, weight_factor: np.ndarray, value: np.ndarray | None = None, uncertainty: np.ndarray | None = None, provenance: str = &#39;measured&#39;, reasons: tuple[str, ...] = ()) -&gt; None</code></pre>
+
+    <p>One channel’s decision on the consumer’s time grid.</p>
+
+    <details class="ref-more"><summary>9 fields · 5 members</summary>
+<ul class="api-members">
+<li><code>kind: str</code></li>
+<li><code>index: int</code></li>
+<li><code>name: str</code></li>
+<li><code>state: np.ndarray</code></li>
+<li><code>weight_factor: np.ndarray</code></li>
+<li><code>value: np.ndarray | None</code></li>
+<li><code>uncertainty: np.ndarray | None</code></li>
+<li><code>provenance: str</code></li>
+<li><code>reasons: tuple[str, ...]</code></li>
+<li><code>n_slices</code> <span class="ref-type">property</span></li>
+<li><code>state_at</code> <span class="ref-type">method</span></li>
+<li><code>recovered_mask</code> <span class="ref-type">method</span></li>
+<li><code>all_usable</code> <span class="ref-type">property</span></li>
+<li><code>as_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.ChannelDecisions" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.ChannelDecisions"><code>ChannelDecisions</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L181" title="vaft/validation/channel_decision.py, line 181">source</a>
+</header>
+    <pre class="ref-signature"><code>ChannelDecisions(times: np.ndarray, entries: Mapping[tuple[str, int], ChannelDecision] = &lt;factory&gt;) -&gt; None</code></pre>
+
+    <p>Every submitted channel’s decision on one time grid.</p>
+
+    <details class="ref-more"><summary>2 fields · 6 members</summary>
+<ul class="api-members">
+<li><code>times: np.ndarray</code></li>
+<li><code>entries: Mapping[tuple[str, int], ChannelDecision]</code></li>
+<li><code>get</code> <span class="ref-type">method</span></li>
+<li><code>indices</code> <span class="ref-type">method</span></li>
+<li><code>state_at</code> <span class="ref-type">method</span></li>
+<li><code>replaced</code> <span class="ref-type">method</span> &mdash; A new container with these decisions swapped in (same grid).</li>
+<li><code>summary</code> <span class="ref-type">method</span> &mdash; Channel-slice counts per state, per kind.</li>
+<li><code>as_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.decision_from_codes" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.decision_from_codes"><code>decision_from_codes</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L257" title="vaft/validation/channel_decision.py, line 257">source</a>
+</header>
+    <pre class="ref-signature"><code>decision_from_codes(kind: str, index: int, name: str, codes: np.ndarray | None, n_slices: int, *, min_validity: int, suspect_code: int, suspect_weight_factor: float | None = None, reasons: Iterable[str] = ()) -&gt; ChannelDecision</code></pre>
+
+    <p>A decision from per-slice validity codes.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.MISSING" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.MISSING"><code>MISSING</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>MISSING = 3</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.missing_decision" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.missing_decision"><code>missing_decision</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L246" title="vaft/validation/channel_decision.py, line 246">source</a>
+</header>
+    <pre class="ref-signature"><code>missing_decision(kind: str, index: int, name: str, n_slices: int) -&gt; ChannelDecision</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.PROVENANCE_MEASURED" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.PROVENANCE_MEASURED"><code>PROVENANCE_MEASURED</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>PROVENANCE_MEASURED = &#39;measured&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.REASON_CONDEMNED" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.REASON_CONDEMNED"><code>REASON_CONDEMNED</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REASON_CONDEMNED = &#39;condemned_whole_record&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.REASON_MANUAL_LIST" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.REASON_MANUAL_LIST"><code>REASON_MANUAL_LIST</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REASON_MANUAL_LIST = &#39;manual_exclusion_list&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.REASON_NO_SIGNAL" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.REASON_NO_SIGNAL"><code>REASON_NO_SIGNAL</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REASON_NO_SIGNAL = &#39;no_signal&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.REASON_PROJECTED_VALIDITY" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.REASON_PROJECTED_VALIDITY"><code>REASON_PROJECTED_VALIDITY</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REASON_PROJECTED_VALIDITY = &#39;projected_validity&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.RECOVERED" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.RECOVERED"><code>RECOVERED</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>RECOVERED = 4</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.REJECTED" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.REJECTED"><code>REJECTED</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REJECTED = 2</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.rejected_decision" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.rejected_decision"><code>rejected_decision</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L251" title="vaft/validation/channel_decision.py, line 251">source</a>
+</header>
+    <pre class="ref-signature"><code>rejected_decision(kind: str, index: int, name: str, n_slices: int, *, reason: str | Iterable[str]) -&gt; ChannelDecision</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.state_name" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.state_name"><code>state_name</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L81" title="vaft/validation/channel_decision.py, line 81">source</a>
+</header>
+    <pre class="ref-signature"><code>state_name(code: int) -&gt; str</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.STATE_NAMES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.STATE_NAMES"><code>STATE_NAMES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STATE_NAMES = (&#39;usable&#39;, &#39;suspect&#39;, &#39;rejected&#39;, &#39;missing&#39;, &#39;recovered&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.SUSPECT" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.SUSPECT"><code>SUSPECT</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>SUSPECT = 1</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.USABLE" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.USABLE"><code>USABLE</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>USABLE = 0</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.usable_decision" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.usable_decision"><code>usable_decision</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L241" title="vaft/validation/channel_decision.py, line 241">source</a>
+</header>
+    <pre class="ref-signature"><code>usable_decision(kind: str, index: int, name: str, n_slices: int, *, reasons: Iterable[str] = ()) -&gt; ChannelDecision</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.channel_decision.weight_factor_for" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.channel_decision.weight_factor_for"><code>weight_factor_for</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/channel_decision.py#L85" title="vaft/validation/channel_decision.py, line 85">source</a>
+</header>
+    <pre class="ref-signature"><code>weight_factor_for(state: np.ndarray, *, suspect_weight_factor: float = 1.0) -&gt; np.ndarray</code></pre>
+
+    <p>The deterministic state -&gt; weight-factor mapping.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.efit_channels">vaft.validation.efit_channels</h2>
+
+<div class="ref-note tex2jax_ignore"><p>The acceptance policy that decides which magnetic channels EFIT may use (issue #296).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.efit_channels.condemned_channels" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.efit_channels.condemned_channels"><code>condemned_channels</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/efit_channels.py#L110" title="vaft/validation/efit_channels.py, line 110">source</a>
+</header>
+    <pre class="ref-signature"><code>condemned_channels(source: Any, *, nbprobe: int) -&gt; set[int]</code></pre>
+
+    <p>Legacy-style combined zero-based indexes of channels condemned outright.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.efit_channels.decide_efit_channels" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.efit_channels.decide_efit_channels"><code>decide_efit_channels</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/efit_channels.py#L132" title="vaft/validation/efit_channels.py, line 132">source</a>
+</header>
+    <pre class="ref-signature"><code>decide_efit_channels(source: Any, times: Any, *, nbprobe: int | None = None, manual_rejections: Iterable[int] = (), min_validity: int = 0, suspect_weight_factor: float | None = None, suspects: Mapping[tuple[str, int], str] | None = None, kinds: Iterable[str] = (&#39;b_field_pol_probe&#39;, &#39;flux_loop&#39;)) -&gt; ChannelDecisions</code></pre>
+
+    <p>Decide every EFIT-facing magnetics channel at every slice of <code class="language-plaintext highlighter-rouge">times</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.efit_channels.EFIT_KINDS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.efit_channels.EFIT_KINDS"><code>EFIT_KINDS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>EFIT_KINDS = (&#39;b_field_pol_probe&#39;, &#39;flux_loop&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.efit_channels.efit_probe_count" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.efit_channels.efit_probe_count"><code>efit_probe_count</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/efit_channels.py#L79" title="vaft/validation/efit_channels.py, line 79">source</a>
+</header>
+    <pre class="ref-signature"><code>efit_probe_count(source: Any) -&gt; int</code></pre>
+
+    <p>The number of B-pol probes EFIT’s geometry represents.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.efit_channels.EFIT_QUANTITY" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.efit_channels.EFIT_QUANTITY"><code>EFIT_QUANTITY</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>EFIT_QUANTITY = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.efit_channels.split_manual_rejections" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.efit_channels.split_manual_rejections"><code>split_manual_rejections</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/efit_channels.py#L92" title="vaft/validation/efit_channels.py, line 92">source</a>
+</header>
+    <pre class="ref-signature"><code>split_manual_rejections(manual: Iterable[int], *, nbprobe: int) -&gt; dict[tuple[str, int], int]</code></pre>
+
+    <p>Combined one-based indexes -&gt; <code class="language-plaintext highlighter-rouge">(kind, index)</code>.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.equilibrium">vaft.validation.equilibrium</h2>
+
+<div class="ref-note tex2jax_ignore"><p>The unified equilibrium validation report (issue #72; #253 §13-§16).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.equilibrium.aggregate_status" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.aggregate_status"><code>aggregate_status</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L123" title="vaft/validation/equilibrium.py, line 123">source</a>
+</header>
+    <pre class="ref-signature"><code>aggregate_status(statuses: Iterable[ValidationStatus | str]) -&gt; ValidationStatus</code></pre>
+
+    <p>Summarize several statuses without collapsing the undecided ones.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium.EQUILIBRIUM_CATEGORIES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.EQUILIBRIUM_CATEGORIES"><code>EQUILIBRIUM_CATEGORIES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>EQUILIBRIUM_CATEGORIES = (&#39;verification&#39;, &#39;diagnostic_fit&#39;, &#39;physical_validity&#39;, &#39;independent_validation&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium.status_summary" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.status_summary"><code>status_summary</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L1458" title="vaft/validation/equilibrium.py, line 1458">source</a>
+</header>
+    <pre class="ref-signature"><code>status_summary(report: Mapping[str, Any]) -&gt; dict[str, ValidationStatus]</code></pre>
+
+    <p>One <code class="language-plaintext highlighter-rouge">ValidationStatus</code> per category present in <code class="language-plaintext highlighter-rouge">report</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium.validate_equilibrium" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.validate_equilibrium"><code>validate_equilibrium</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L1351" title="vaft/validation/equilibrium.py, line 1351">source</a>
+</header>
+    <pre class="ref-signature"><code>validate_equilibrium(equilibrium: Any, *, diagnostics: Any | None = None, kinetic_profiles: Any | None = None, checks: Iterable[str] = (&#39;verification&#39;, &#39;diagnostic_fit&#39;, &#39;physical_validity&#39;, &#39;independent_validation&#39;), time_slice: int | Sequence[int] | None = None) -&gt; dict[str, Any]</code></pre>
+
+    <p>The unified equilibrium validation report (#72).</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.validate_equilibrium</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium.validate_independent" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.validate_independent"><code>validate_independent</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L1262" title="vaft/validation/equilibrium.py, line 1262">source</a>
+</header>
+    <pre class="ref-signature"><code>validate_independent(equilibrium: Any, *, time_slice: int, kinetic_profiles: Any | None = None, diagnostics: Any | None = None) -&gt; dict[str, dict[str, Any]]</code></pre>
+
+    <p>Agreement with measurements the reconstruction never used, one slice (#72 §4).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium.validate_magnetic_fit" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.validate_magnetic_fit"><code>validate_magnetic_fit</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L503" title="vaft/validation/equilibrium.py, line 503">source</a>
+</header>
+    <pre class="ref-signature"><code>validate_magnetic_fit(equilibrium: Any, *, time_slice: int) -&gt; dict[str, dict[str, Any]]</code></pre>
+
+    <p>Constraint-fit assessment for one slice, per check (#72 §2, #69).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium.validate_physical" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.validate_physical"><code>validate_physical</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L964" title="vaft/validation/equilibrium.py, line 964">source</a>
+</header>
+    <pre class="ref-signature"><code>validate_physical(equilibrium: Any, *, time_slice: int, diagnostics: Any | None = None) -&gt; dict[str, dict[str, Any]]</code></pre>
+
+    <p>Force-balance and plausibility checks for one slice (#72 §3).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium.verify_continuity" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.verify_continuity"><code>verify_continuity</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L361" title="vaft/validation/equilibrium.py, line 361">source</a>
+</header>
+    <pre class="ref-signature"><code>verify_continuity(equilibrium: Any, *, time_slice: int | Sequence[int] | None = None) -&gt; dict[str, Any]</code></pre>
+
+    <p>Time-slice continuity across the selected slices (#72 §1).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium.verify_convention" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.verify_convention"><code>verify_convention</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L404" title="vaft/validation/equilibrium.py, line 404">source</a>
+</header>
+    <pre class="ref-signature"><code>verify_convention(equilibrium: Any, *, time_slice: int) -&gt; dict[str, Any]</code></pre>
+
+    <p>COCOS sign relations for one slice, via <code class="language-plaintext highlighter-rouge">vaft.process.cocos.validate_cocos</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium.verify_convergence" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.verify_convergence"><code>verify_convergence</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L443" title="vaft/validation/equilibrium.py, line 443">source</a>
+</header>
+    <pre class="ref-signature"><code>verify_convergence(equilibrium: Any, *, time_slice: int) -&gt; dict[str, Any]</code></pre>
+
+    <p>The solver’s own convergence evidence for one slice (#70).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium.verify_structure" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium.verify_structure"><code>verify_structure</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium.py#L273" title="vaft/validation/equilibrium.py, line 273">source</a>
+</header>
+    <pre class="ref-signature"><code>verify_structure(equilibrium: Any, *, time_slice: int) -&gt; dict[str, Any]</code></pre>
+
+    <p>Numerical and structural checks for one slice (#72 §1).</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.equilibrium_cohorts">vaft.validation.equilibrium_cohorts</h2>
+
+<div class="ref-note tex2jax_ignore"><p>What failed, in which operating regime (issue #76).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.equilibrium_cohorts.CohortJoin" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_cohorts.CohortJoin"><code>CohortJoin</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_cohorts.py#L119" title="vaft/validation/equilibrium_cohorts.py, line 119">source</a>
+</header>
+    <pre class="ref-signature"><code>CohortJoin(outcomes: tuple[SliceOutcome, ...], unmatched_log_times: tuple[int, ...]) -&gt; None</code></pre>
+
+    <p>The joined slices, and every way the join was incomplete.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.CohortJoin</code>.</p>
+    <details class="ref-more"><summary>2 fields</summary>
+<ul class="api-members">
+<li><code>outcomes: tuple[SliceOutcome, ...]</code></li>
+<li><code>unmatched_log_times: tuple[int, ...]</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium_cohorts.FAILURE_MODES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_cohorts.FAILURE_MODES"><code>FAILURE_MODES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>FAILURE_MODES = (&#39;accepted&#39;, &#39;rejected&#39;, &#39;collapsed&#39;, &#39;boundary_failure&#39;, &#39;axis_failure&#39;, &#39;solver_failure&#39;, &#39;unknown&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium_cohorts.join_regime_and_termination" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_cohorts.join_regime_and_termination"><code>join_regime_and_termination</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_cohorts.py#L157" title="vaft/validation/equilibrium_cohorts.py, line 157">source</a>
+</header>
+    <pre class="ref-signature"><code>join_regime_and_termination(ods: Any, slices: Sequence[Mapping[str, Any]], *, policy=None) -&gt; CohortJoin</code></pre>
+
+    <p>Put each reconstruction slice’s regime beside how EFIT ended it.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.join_regime_and_termination</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium_cohorts.SliceOutcome" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_cohorts.SliceOutcome"><code>SliceOutcome</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_cohorts.py#L68" title="vaft/validation/equilibrium_cohorts.py, line 68">source</a>
+</header>
+    <pre class="ref-signature"><code>SliceOutcome(time: float, regime: RegimeLabels, termination: Mapping[str, Any] | None, mode: str) -&gt; None</code></pre>
+
+    <p>One slice: the regime it was in, and what became of it.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.SliceOutcome</code>.</p>
+    <details class="ref-more"><summary>4 fields · 6 members</summary>
+<ul class="api-members">
+<li><code>time: float</code></li>
+<li><code>regime: RegimeLabels</code></li>
+<li><code>termination: Mapping[str, Any] | None</code></li>
+<li><code>mode: str</code></li>
+<li><code>phase</code> <span class="ref-type">property</span></li>
+<li><code>topology</code> <span class="ref-type">property</span></li>
+<li><code>solver_routines</code> <span class="ref-type">property</span></li>
+<li><code>warning_routines</code> <span class="ref-type">property</span></li>
+<li><code>failure_codes</code> <span class="ref-type">property</span></li>
+<li><code>as_dict</code> <span class="ref-type">method</span> &mdash; A JSON-safe record carrying both halves and their inputs.</li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium_cohorts.summarize_by_cohort" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_cohorts.summarize_by_cohort"><code>summarize_by_cohort</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_cohorts.py#L203" title="vaft/validation/equilibrium_cohorts.py, line 203">source</a>
+</header>
+    <pre class="ref-signature"><code>summarize_by_cohort(outcomes: Iterable[SliceOutcome], *, group_by: Sequence[str] = (&#39;phase&#39;,)) -&gt; dict[str, Any]</code></pre>
+
+    <p>Outcome counts per cohort, plus what each cohort’s failures blame.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.summarize_by_cohort</code>.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.equilibrium_regime">vaft.validation.equilibrium_regime</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Which operating regime each reconstructed slice belongs to (issue #76).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.equilibrium_regime.classify_equilibrium_regime" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_regime.classify_equilibrium_regime"><code>classify_equilibrium_regime</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_regime.py#L183" title="vaft/validation/equilibrium_regime.py, line 183">source</a>
+</header>
+    <pre class="ref-signature"><code>classify_equilibrium_regime(ods: Any, *, time_index: int, policy: EquilibriumRegimePolicy | None = None) -&gt; RegimeLabels</code></pre>
+
+    <p>Label one slice, by classifying the discharge and taking that slice.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.classify_equilibrium_regime</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium_regime.classify_equilibrium_regimes" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_regime.classify_equilibrium_regimes"><code>classify_equilibrium_regimes</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_regime.py#L143" title="vaft/validation/equilibrium_regime.py, line 143">source</a>
+</header>
+    <pre class="ref-signature"><code>classify_equilibrium_regimes(ods: Any, *, policy: EquilibriumRegimePolicy | None = None) -&gt; tuple[RegimeLabels, ...]</code></pre>
+
+    <p>Label every slice of one reconstruction.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.classify_equilibrium_regimes</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium_regime.PHASES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_regime.PHASES"><code>PHASES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>PHASES = (&#39;vacuum&#39;, &#39;ramp_up&#39;, &#39;flat&#39;, &#39;ramp_down&#39;, &#39;unknown&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.equilibrium_regime.RegimeLabels" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.equilibrium_regime.RegimeLabels"><code>RegimeLabels</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/equilibrium_regime.py#L66" title="vaft/validation/equilibrium_regime.py, line 66">source</a>
+</header>
+    <pre class="ref-signature"><code>RegimeLabels(time: float, phase: str, topology: str, current: float | None, current_rate: float | None, fraction_of_peak: float | None, limloc: str | None, rule: str, reasons: tuple[str, ...] = ()) -&gt; None</code></pre>
+
+    <p>One slice’s cohort membership, and the evidence that put it there.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.RegimeLabels</code>.</p>
+    <details class="ref-more"><summary>9 fields · 1 members</summary>
+<ul class="api-members">
+<li><code>time: float</code></li>
+<li><code>phase: str</code></li>
+<li><code>topology: str</code></li>
+<li><code>current: float | None</code></li>
+<li><code>current_rate: float | None</code></li>
+<li><code>fraction_of_peak: float | None</code></li>
+<li><code>limloc: str | None</code></li>
+<li><code>rule: str</code></li>
+<li><code>reasons: tuple[str, ...]</code></li>
+<li><code>as_dict</code> <span class="ref-type">method</span> &mdash; A JSON-safe record; the inputs travel with the label.</li>
+</ul>
+</details>
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.flux_loop_assessment">vaft.validation.flux_loop_assessment</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Per-loop evidence for EFIT flux-loop channel selection (issue #295, step 1).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.flux_loop_assessment.assess_flux_loops" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.assess_flux_loops"><code>assess_flux_loops</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/flux_loop_assessment.py#L219" title="vaft/validation/flux_loop_assessment.py, line 219">source</a>
+</header>
+    <pre class="ref-signature"><code>assess_flux_loops(qualities: Iterable[Any], residual_rows: Sequence[Mapping[str, Any]] | None, *, window: tuple[float, float] | None, nbprobe: int, time: np.ndarray | None = None, projected: Mapping[int, ValidityRecord] | None = None, field_codes: Sequence[int | None] | None = None, policy: FluxLoopPolicy | None = None) -&gt; tuple[FluxLoopAssessment, ...]</code></pre>
+
+    <p>Combine intrinsic quality and model agreement into one record per loop.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.flux_loop_assessment.flux_loop_evidence" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.flux_loop_evidence"><code>flux_loop_evidence</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/flux_loop_assessment.py#L310" title="vaft/validation/flux_loop_assessment.py, line 310">source</a>
+</header>
+    <pre class="ref-signature"><code>flux_loop_evidence(ods: Any, *, policy: FluxLoopPolicy | None = None, window: tuple[float, float] | None = None, benchmark: bool = True, nbprobe: int | None = None) -&gt; dict[str, Any]</code></pre>
+
+    <p>Assemble the flux-loop evidence for one processed ODS.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.flux_loop_assessment.FluxLoopAssessment" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.FluxLoopAssessment"><code>FluxLoopAssessment</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/flux_loop_assessment.py#L98" title="vaft/validation/flux_loop_assessment.py, line 98">source</a>
+</header>
+    <pre class="ref-signature"><code>FluxLoopAssessment(index: int, name: str, field_code: int | None, combined_index_one_based: int, state: str, reasons: tuple[str, ...], source_validity: Mapping[str, Any], model_agreement: Mapping[str, Any] | None, window: tuple[float, float] | None, policy: Mapping[str, Any] = &lt;factory&gt;) -&gt; None</code></pre>
+
+    <p>One loop’s evidence and the state the policy derives from it.</p>
+
+    <details class="ref-more"><summary>10 fields · 1 members</summary>
+<ul class="api-members">
+<li><code>index: int</code></li>
+<li><code>name: str</code></li>
+<li><code>field_code: int | None</code></li>
+<li><code>combined_index_one_based: int</code></li>
+<li><code>state: str</code></li>
+<li><code>reasons: tuple[str, ...]</code></li>
+<li><code>source_validity: Mapping[str, Any]</code></li>
+<li><code>model_agreement: Mapping[str, Any] | None</code></li>
+<li><code>window: tuple[float, float] | None</code></li>
+<li><code>policy: Mapping[str, Any]</code></li>
+<li><code>as_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.flux_loop_assessment.FluxLoopPolicy" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.FluxLoopPolicy"><code>FluxLoopPolicy</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/flux_loop_assessment.py#L67" title="vaft/validation/flux_loop_assessment.py, line 67">source</a>
+</header>
+    <pre class="ref-signature"><code>FluxLoopPolicy(min_valid_fraction_in_window: float = 0.0, max_normalized_residual: float | None = None, min_correlation: float | None = None, min_wall_authority_to_score: float = 0.1, reject_on_model_disagreement: bool = False) -&gt; None</code></pre>
+
+    <p>The thresholds that turn evidence into a state. All of them are policy (#253 §7) and every record repeats the values it was judged under.</p>
+
+    <details class="ref-more"><summary>5 fields · 1 members</summary>
+<ul class="api-members">
+<li><code>min_valid_fraction_in_window: float</code></li>
+<li><code>max_normalized_residual: float | None</code></li>
+<li><code>min_correlation: float | None</code></li>
+<li><code>min_wall_authority_to_score: float</code></li>
+<li><code>reject_on_model_disagreement: bool</code></li>
+<li><code>as_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.flux_loop_assessment.manual_exclusion_index" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.manual_exclusion_index"><code>manual_exclusion_index</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/flux_loop_assessment.py#L128" title="vaft/validation/flux_loop_assessment.py, line 128">source</a>
+</header>
+    <pre class="ref-signature"><code>manual_exclusion_index(index: int, nbprobe: int) -&gt; int</code></pre>
+
+    <p>The one-based combined index the routine <code class="language-plaintext highlighter-rouge">broken</code> list uses for a loop.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.flux_loop_assessment.NOT_AVAILABLE" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.NOT_AVAILABLE"><code>NOT_AVAILABLE</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>NOT_AVAILABLE = &#39;not_available&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.flux_loop_assessment.REJECT_FOR_EFIT" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.REJECT_FOR_EFIT"><code>REJECT_FOR_EFIT</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REJECT_FOR_EFIT = &#39;reject_for_efit&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.flux_loop_assessment.STATES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.STATES"><code>STATES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STATES = (&#39;usable&#39;, &#39;suspect&#39;, &#39;reject_for_efit&#39;, &#39;not_available&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.flux_loop_assessment.SUSPECT" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.SUSPECT"><code>SUSPECT</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>SUSPECT = &#39;suspect&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.flux_loop_assessment.USABLE" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.flux_loop_assessment.USABLE"><code>USABLE</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>USABLE = &#39;usable&#39;</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.imas">vaft.validation.imas</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Adapter between validation evidence and native IMAS/OMAS status fields (issue #253).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.imas.is_condemned_channel" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.is_condemned_channel"><code>is_condemned_channel</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L316" title="vaft/validation/imas.py, line 316">source</a>
+</header>
+    <pre class="ref-signature"><code>is_condemned_channel(source: Any, base: str, *, min_validity: int = 0) -&gt; bool</code></pre>
+
+    <p>Whether <code class="language-plaintext highlighter-rouge">base</code> was assessed and has no usable sample anywhere.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.is_usable_channel" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.is_usable_channel"><code>is_usable_channel</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L295" title="vaft/validation/imas.py, line 295">source</a>
+</header>
+    <pre class="ref-signature"><code>is_usable_channel(source: Any, base: str, *, times: np.ndarray | None = None, min_validity: int = 0, default: bool = True) -&gt; bool</code></pre>
+
+    <p>Whether <code class="language-plaintext highlighter-rouge">base</code> has any usable sample at all, or any of <code class="language-plaintext highlighter-rouge">times</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.read_convergence_result" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.read_convergence_result"><code>read_convergence_result</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L407" title="vaft/validation/imas.py, line 407">source</a>
+</header>
+    <pre class="ref-signature"><code>read_convergence_result(source: Any, *, time_slice: int) -&gt; dict[str, Any] | None</code></pre>
+
+    <p><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[i].convergence.result</code> – a solver’s own verdict.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.read_output_flag" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.read_output_flag"><code>read_output_flag</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L386" title="vaft/validation/imas.py, line 386">source</a>
+</header>
+    <pre class="ref-signature"><code>read_output_flag(source: Any, ids: str = &#39;equilibrium&#39;, *, time_slice: int | None = None) -&gt; Any</code></pre>
+
+    <p><code class="language-plaintext highlighter-rouge">&lt;ids&gt;.code.output_flag</code> – an external code’s execution status.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.read_validity" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.read_validity"><code>read_validity</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L182" title="vaft/validation/imas.py, line 182">source</a>
+</header>
+    <pre class="ref-signature"><code>read_validity(source: Any, base: str) -&gt; int | None</code></pre>
+
+    <p><code class="language-plaintext highlighter-rouge">&lt;base&gt;.validity</code>, or <code class="language-plaintext highlighter-rouge">None</code> when the node carries none.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.read_validity_record" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.read_validity_record"><code>read_validity_record</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L202" title="vaft/validation/imas.py, line 202">source</a>
+</header>
+    <pre class="ref-signature"><code>read_validity_record(source: Any, base: str) -&gt; ValidityRecord</code></pre>
+
+    <p>The validity nodes of <code class="language-plaintext highlighter-rouge">base</code>, extracted and uninterpreted.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.read_validity_timed" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.read_validity_timed"><code>read_validity_timed</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L197" title="vaft/validation/imas.py, line 197">source</a>
+</header>
+    <pre class="ref-signature"><code>read_validity_timed(source: Any, base: str) -&gt; np.ndarray | None</code></pre>
+
+    <p><code class="language-plaintext highlighter-rouge">&lt;base&gt;.validity_timed</code> as an integer array, or <code class="language-plaintext highlighter-rouge">None</code> when absent.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.resolve_signal_time" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.resolve_signal_time"><code>resolve_signal_time</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L112" title="vaft/validation/imas.py, line 112">source</a>
+</header>
+    <pre class="ref-signature"><code>resolve_signal_time(source: Any, base: str) -&gt; np.ndarray | None</code></pre>
+
+    <p>The time coordinate of the signal node at <code class="language-plaintext highlighter-rouge">base</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.resolve_signal_waveform" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.resolve_signal_waveform"><code>resolve_signal_waveform</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L132" title="vaft/validation/imas.py, line 132">source</a>
+</header>
+    <pre class="ref-signature"><code>resolve_signal_waveform(source: Any, base: str) -&gt; tuple[np.ndarray, np.ndarray] | None</code></pre>
+
+    <p><code class="language-plaintext highlighter-rouge">(time, data)</code> of the signal node at <code class="language-plaintext highlighter-rouge">base</code>, or <code class="language-plaintext highlighter-rouge">None</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.signal_label" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.signal_label"><code>signal_label</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L173" title="vaft/validation/imas.py, line 173">source</a>
+</header>
+    <pre class="ref-signature"><code>signal_label(source: Any, base: str, fallback: str) -&gt; str</code></pre>
+
+    <p>The channel’s <code class="language-plaintext highlighter-rouge">name</code>, else its <code class="language-plaintext highlighter-rouge">identifier</code>, else <code class="language-plaintext highlighter-rouge">fallback</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.signal_matches_root_time" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.signal_matches_root_time"><code>signal_matches_root_time</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L155" title="vaft/validation/imas.py, line 155">source</a>
+</header>
+    <pre class="ref-signature"><code>signal_matches_root_time(source: Any, base: str) -&gt; bool</code></pre>
+
+    <p>Whether <code class="language-plaintext highlighter-rouge">base</code> holds a waveform the length of its IDS root time.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.valid_fraction" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.valid_fraction"><code>valid_fraction</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L265" title="vaft/validation/imas.py, line 265">source</a>
+</header>
+    <pre class="ref-signature"><code>valid_fraction(source: Any, base: str, *, times: np.ndarray | None = None, window: np.ndarray | None = None, min_validity: int = 0, default: bool = True) -&gt; float</code></pre>
+
+    <p>Fraction of the samples in <code class="language-plaintext highlighter-rouge">window</code> that <code class="language-plaintext highlighter-rouge">base</code> declares usable.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.validity_codes" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.validity_codes"><code>validity_codes</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L218" title="vaft/validation/imas.py, line 218">source</a>
+</header>
+    <pre class="ref-signature"><code>validity_codes(source: Any, base: str, *, times: np.ndarray | None = None) -&gt; np.ndarray | None</code></pre>
+
+    <p>Validity codes for the node at <code class="language-plaintext highlighter-rouge">base</code>, per sample.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.validity_mask" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.validity_mask"><code>validity_mask</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L238" title="vaft/validation/imas.py, line 238">source</a>
+</header>
+    <pre class="ref-signature"><code>validity_mask(source: Any, base: str, *, times: np.ndarray | None = None, min_validity: int = 0, default: bool = True) -&gt; np.ndarray</code></pre>
+
+    <p>Which samples of <code class="language-plaintext highlighter-rouge">base</code> a consumer accepting <code class="language-plaintext highlighter-rouge">min_validity</code> may use.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.imas.write_validity" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.imas.write_validity"><code>write_validity</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/imas.py#L333" title="vaft/validation/imas.py, line 333">source</a>
+</header>
+    <pre class="ref-signature"><code>write_validity(source: Any, base: str, timed: Iterable[int], *, scalar: int | None = None) -&gt; int</code></pre>
+
+    <p>Project a per-sample assessment into <code class="language-plaintext highlighter-rouge">base</code>’s native validity nodes.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.magnetics">vaft.validation.magnetics</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Magnetics signal-quality validation (issue #189).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.magnetics.array_contradiction_fractions_of" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.array_contradiction_fractions_of"><code>array_contradiction_fractions_of</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L946" title="vaft/validation/magnetics.py, line 946">source</a>
+</header>
+    <pre class="ref-signature"><code>array_contradiction_fractions_of(heights: Sequence[float], waveforms: np.ndarray, *, floor: float, sigma: float, min_scored: float, min_witnesses: int = 3, scale: str = &#39;witness&#39;) -&gt; tuple[np.ndarray, np.ndarray]</code></pre>
+
+    <p>Per-probe fraction of scorable samples over <code class="language-plaintext highlighter-rouge">sigma</code>, and the mask of those samples.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.array_contradiction_scores" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.array_contradiction_scores"><code>array_contradiction_scores</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L897" title="vaft/validation/magnetics.py, line 897">source</a>
+</header>
+    <pre class="ref-signature"><code>array_contradiction_scores(heights: Sequence[float], waveforms: np.ndarray, *, floor: float = 0.0, min_witnesses: int = 3) -&gt; np.ndarray</code></pre>
+
+    <p>Robust-z of each probe’s departure from its two nearest neighbours, per sample.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.array_departure_ratios" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.array_departure_ratios"><code>array_departure_ratios</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L875" title="vaft/validation/magnetics.py, line 875">source</a>
+</header>
+    <pre class="ref-signature"><code>array_departure_ratios(heights: Sequence[float], waveforms: np.ndarray, *, floor: float = 0.0) -&gt; np.ndarray</code></pre>
+
+    <p>Each probe’s departure from its neighbours as a multiple of the array’s own amplitude.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.attribute_array_contradictions" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.attribute_array_contradictions"><code>attribute_array_contradictions</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L983" title="vaft/validation/magnetics.py, line 983">source</a>
+</header>
+    <pre class="ref-signature"><code>attribute_array_contradictions(heights: Sequence[float], waveforms: np.ndarray, *, floor: float, sigma: float, fraction: float, min_members: int, min_scored: float, min_witnesses: int = 3, scale: str = &#39;witness&#39;) -&gt; list[dict[str, Any]]</code></pre>
+
+    <p>Which probes of one array contradict it, attributed by leave-one-out.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.channel_node" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.channel_node"><code>channel_node</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L298" title="vaft/validation/magnetics.py, line 298">source</a>
+</header>
+    <pre class="ref-signature"><code>channel_node(kind: str, index: int, quantity: str) -&gt; str</code></pre>
+
+    <p>The IDS node one channel’s processed quantity lives at.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.ChannelQuality" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.ChannelQuality"><code>ChannelQuality</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L264" title="vaft/validation/magnetics.py, line 264">source</a>
+</header>
+    <pre class="ref-signature"><code>ChannelQuality(kind: str, index: int, name: str, quantity: str, unit: str, status: ValidationStatus, validity: int, validity_timed: np.ndarray, valid_fraction: float, metrics: Mapping[str, float] = &lt;factory&gt;, events: tuple[QualityEvent, ...] = (), reason: str = &#39;&#39;) -&gt; None</code></pre>
+
+    <p>The signal-quality assessment of one magnetic channel.</p>
+
+    <details class="ref-more"><summary>12 fields · 1 members</summary>
+<ul class="api-members">
+<li><code>kind: str</code></li>
+<li><code>index: int</code></li>
+<li><code>name: str</code></li>
+<li><code>quantity: str</code></li>
+<li><code>unit: str</code></li>
+<li><code>status: ValidationStatus</code></li>
+<li><code>validity: int</code></li>
+<li><code>validity_timed: np.ndarray</code></li>
+<li><code>valid_fraction: float</code></li>
+<li><code>metrics: Mapping[str, float]</code></li>
+<li><code>events: tuple[QualityEvent, ...]</code></li>
+<li><code>reason: str</code></li>
+<li><code>projectable</code> <span class="ref-type">property</span> &mdash; Whether there is a per-sample assessment to write into the IDS.</li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.implausible_magnitude" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.implausible_magnitude"><code>implausible_magnitude</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L460" title="vaft/validation/magnetics.py, line 460">source</a>
+</header>
+    <pre class="ref-signature"><code>implausible_magnitude(amplitude: float, ceiling: float | None) -&gt; bool</code></pre>
+
+    <p>Whether a record’s amplitude exceeds an absolute physical ceiling.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.magnetics_quality_metrics" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.magnetics_quality_metrics"><code>magnetics_quality_metrics</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L1439" title="vaft/validation/magnetics.py, line 1439">source</a>
+</header>
+    <pre class="ref-signature"><code>magnetics_quality_metrics(source: Any, report: Iterable[ChannelQuality], *, config: MagneticsQualityConfig | None = None) -&gt; dict[str, Any]</code></pre>
+
+    <p>The diagnostics-stage magnetics block for a stage manifest (#189 req 4).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.MagneticsQualityConfig" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.MagneticsQualityConfig"><code>MagneticsQualityConfig</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L142" title="vaft/validation/magnetics.py, line 142">source</a>
+</header>
+    <pre class="ref-signature"><code>MagneticsQualityConfig(baseline_fraction: float = 0.2, min_constant_run: int = 16, significance_floor: float = 0.01, spike_sigma: float = 8.0, max_spike_samples: int = 3, offset_jump_sigma: float = 10.0, coherence_window: float = 0.0005, coherent_jump_fraction: float = 0.3, max_plausible_amplitude: Mapping[str, float] = &lt;factory&gt;, population_peak_factor: float | None = 4.0, array_departure_factor: float | None = 1.0, array_contradiction_fraction: float = 0.3, min_array_members: int = 7, array_min_scored: float = 0.5, array_amplitude_floor: float = 0.01) -&gt; None</code></pre>
+
+    <p>Detector thresholds, carried into the report as provenance.</p>
+
+    <details class="ref-more"><summary>15 fields</summary>
+<ul class="api-members">
+<li><code>baseline_fraction: float</code></li>
+<li><code>min_constant_run: int</code></li>
+<li><code>significance_floor: float</code></li>
+<li><code>spike_sigma: float</code></li>
+<li><code>max_spike_samples: int</code></li>
+<li><code>offset_jump_sigma: float</code></li>
+<li><code>coherence_window: float</code></li>
+<li><code>coherent_jump_fraction: float</code></li>
+<li><code>max_plausible_amplitude: Mapping[str, float]</code></li>
+<li><code>population_peak_factor: float | None</code></li>
+<li><code>array_departure_factor: float | None</code></li>
+<li><code>array_contradiction_fraction: float</code></li>
+<li><code>min_array_members: int</code></li>
+<li><code>array_min_scored: float</code></li>
+<li><code>array_amplitude_floor: float</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.population_peak_outliers" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.population_peak_outliers"><code>population_peak_outliers</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L494" title="vaft/validation/magnetics.py, line 494">source</a>
+</header>
+    <pre class="ref-signature"><code>population_peak_outliers(amplitudes: Mapping[Any, float], factor: float | None) -&gt; set[Any]</code></pre>
+
+    <p>The members whose amplitude dwarfs the family’s median amplitude.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.population_peak_ratios" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.population_peak_ratios"><code>population_peak_ratios</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L474" title="vaft/validation/magnetics.py, line 474">source</a>
+</header>
+    <pre class="ref-signature"><code>population_peak_ratios(amplitudes: Mapping[Any, float]) -&gt; dict[Any, float]</code></pre>
+
+    <p>Each member’s amplitude as a multiple of its family’s median amplitude.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.project_validity" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.project_validity"><code>project_validity</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L1321" title="vaft/validation/magnetics.py, line 1321">source</a>
+</header>
+    <pre class="ref-signature"><code>project_validity(source: Any, report: Iterable[ChannelQuality]) -&gt; dict[str, int]</code></pre>
+
+    <p>Write a report’s per-sample assessment into the native validity nodes.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.QualityEvent" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.QualityEvent"><code>QualityEvent</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L250" title="vaft/validation/magnetics.py, line 250">source</a>
+</header>
+    <pre class="ref-signature"><code>QualityEvent(reason: str, start: float, end: float, samples: int, validity: int) -&gt; None</code></pre>
+
+    <p>One contiguous stretch of a waveform that a detector objected to.</p>
+
+    <details class="ref-more"><summary>5 fields · 1 members</summary>
+<ul class="api-members">
+<li><code>reason: str</code></li>
+<li><code>start: float</code></li>
+<li><code>end: float</code></li>
+<li><code>samples: int</code></li>
+<li><code>validity: int</code></li>
+<li><code>as_dict</code> <span class="ref-type">method</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.QUANTITY_BY_KIND" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.QUANTITY_BY_KIND"><code>QUANTITY_BY_KIND</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>QUANTITY_BY_KIND = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.recorded_faults_for" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.recorded_faults_for"><code>recorded_faults_for</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L1206" title="vaft/validation/magnetics.py, line 1206">source</a>
+</header>
+    <pre class="ref-signature"><code>recorded_faults_for(source: Any) -&gt; dict[tuple[str, int], str]</code></pre>
+
+    <p>The channels recorded as broken for the pulse <em>source</em> describes.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.unusable_channels_at" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.unusable_channels_at"><code>unusable_channels_at</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L1344" title="vaft/validation/magnetics.py, line 1344">source</a>
+</header>
+    <pre class="ref-signature"><code>unusable_channels_at(source: Any, times: np.ndarray | Sequence[float], *, min_validity: int = 0, kinds: Iterable[str] = (&#39;b_field_pol_probe&#39;, &#39;flux_loop&#39;)) -&gt; dict[tuple[str, int], np.ndarray]</code></pre>
+
+    <p>Which channels a consumer must not use at each instant in <code class="language-plaintext highlighter-rouge">times</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.magnetics.validate_magnetics_signals" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.magnetics.validate_magnetics_signals"><code>validate_magnetics_signals</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/magnetics.py#L1223" title="vaft/validation/magnetics.py, line 1223">source</a>
+</header>
+    <pre class="ref-signature"><code>validate_magnetics_signals(source: Any, *, config: MagneticsQualityConfig | None = None, kinds: Iterable[str] = (&#39;b_field_pol_probe&#39;, &#39;flux_loop&#39;), known_faults: Mapping[tuple[str, int], str] | None | object = &#39;from_pulse&#39;) -&gt; tuple[ChannelQuality, ...]</code></pre>
+
+    <p>Assess every equilibrium magnetics channel’s processed waveform.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.model">vaft.validation.model</h2>
+
+<div class="ref-note tex2jax_ignore"><p>The shared vocabulary of the validation layer (issue #253).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.model.CATEGORIES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.model.CATEGORIES"><code>CATEGORIES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>CATEGORIES = (&#39;verification&#39;, &#39;source_validity&#39;, &#39;diagnostic_fit&#39;, &#39;physical_validity&#39;, &#39;independent_validation&#39;)</code></pre>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.CATEGORIES</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.model.SEVERITIES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.model.SEVERITIES"><code>SEVERITIES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>SEVERITIES = (&#39;error&#39;, &#39;warning&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.model.ValidationIssue" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.model.ValidationIssue"><code>ValidationIssue</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/model.py#L87" title="vaft/validation/model.py, line 87">source</a>
+</header>
+    <pre class="ref-signature"><code>ValidationIssue(severity: str, code: str, field: str, message: str) -&gt; None</code></pre>
+
+    <p>One specific objection to a datum or a result.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.data.ValidationIssue</code>, <code>vaft.data.equilibrium.ValidationIssue</code>.</p>
+    <details class="ref-more"><summary>4 fields</summary>
+<ul class="api-members">
+<li><code>severity: str</code></li>
+<li><code>code: str</code></li>
+<li><code>field: str</code></li>
+<li><code>message: str</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.model.ValidationReport" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.model.ValidationReport"><code>ValidationReport</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/model.py#L103" title="vaft/validation/model.py, line 103">source</a>
+</header>
+    <pre class="ref-signature"><code>ValidationReport(issues: tuple[ValidationIssue, ...] = ()) -&gt; None</code></pre>
+
+    <p>The findings from one assessment, in the order they were made.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.data.ValidationReport</code>, <code>vaft.data.equilibrium.ValidationReport</code>.</p>
+    <details class="ref-more"><summary>1 fields · 2 members</summary>
+<ul class="api-members">
+<li><code>issues: tuple[ValidationIssue, ...]</code></li>
+<li><code>valid</code> <span class="ref-type">property</span> &mdash; Whether nothing rose to <code class="language-plaintext highlighter-rouge">error</code>.</li>
+<li><code>status</code> <span class="ref-type">property</span> &mdash; The findings expressed in the shared verdict vocabulary.</li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.model.ValidationStatus" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.model.ValidationStatus"><code>ValidationStatus</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/model.py#L56" title="vaft/validation/model.py, line 56">source</a>
+</header>
+
+    <p>What one assessment concluded.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.ValidationStatus</code>.</p>
+    <details class="ref-more"><summary>5 fields</summary>
+<ul class="api-members">
+<li><code>PASS: &#39;pass&#39;</code></li>
+<li><code>WARN: &#39;warn&#39;</code></li>
+<li><code>FAIL: &#39;fail&#39;</code></li>
+<li><code>INDETERMINATE: &#39;indeterminate&#39;</code></li>
+<li><code>NOT_AVAILABLE: &#39;not_available&#39;</code></li>
+</ul>
+</details>
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.neoclassical">vaft.validation.neoclassical</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Compare the analytic neoclassical models against a drift-kinetic solve.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.neoclassical.bootstrap_models" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.neoclassical.bootstrap_models"><code>bootstrap_models</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/neoclassical.py#L79" title="vaft/validation/neoclassical.py, line 79">source</a>
+</header>
+    <pre class="ref-signature"><code>bootstrap_models(ods: Any, *, models: Sequence[str] = (&#39;sauter&#39;, &#39;redl&#39;), include_stored: bool = True, time_slice: Optional[int] = None, solver_charge: Optional[float] = None, solver_ion_fraction: Optional[float] = None, **options: Any) -&gt; dict[str, Any]</code></pre>
+
+    <p>Evaluate each analytic model on <em>ods</em>, alongside whatever it already stores.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.neoclassical.input_readiness" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.neoclassical.input_readiness"><code>input_readiness</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/neoclassical.py#L307" title="vaft/validation/neoclassical.py, line 307">source</a>
+</header>
+    <pre class="ref-signature"><code>input_readiness(ods: Any, *, time: Optional[float] = None, time_index: Optional[int] = None, rho_max: Optional[float] = 0.95, z_eff: Optional[float] = None, ion_index: int = 0, minimum_points: int = 8) -&gt; dict[str, Any]</code></pre>
+
+    <p>Whether this ODS is a kinetic state NEO can be run on, and what is missing.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.neoclassical.METRICS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.neoclassical.METRICS"><code>METRICS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>METRICS = (&#39;integrated_relative_difference&#39;, &#39;rms_over_peak&#39;, &#39;peak_relative_difference&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.neoclassical.model_agreement" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.neoclassical.model_agreement"><code>model_agreement</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/neoclassical.py#L254" title="vaft/validation/neoclassical.py, line 254">source</a>
+</header>
+    <pre class="ref-signature"><code>model_agreement(comparison: Mapping[str, Any], tolerances: Mapping[str, float]) -&gt; dict[str, Any]</code></pre>
+
+    <p>Apply the caller’s tolerances to a comparison, and echo them back.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.neoclassical.model_comparison" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.neoclassical.model_comparison"><code>model_comparison</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/neoclassical.py#L201" title="vaft/validation/neoclassical.py, line 201">source</a>
+</header>
+    <pre class="ref-signature"><code>model_comparison(models: Mapping[str, Any], *, reference: str = &#39;neo&#39;) -&gt; dict[str, Any]</code></pre>
+
+    <p>Measure how far each series sits from <em>reference</em>. Numbers only, no status.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.neoclassical.REQUIREMENTS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.neoclassical.REQUIREMENTS"><code>REQUIREMENTS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>REQUIREMENTS = (&#39;convertible&#39;, &#39;ion_temperature&#39;, &#39;effective_charge&#39;, &#39;radial_extent&#39;)</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.perturbation_phase">vaft.validation.perturbation_phase</h2>
+
+<div class="ref-note tex2jax_ignore"><p>The verdict on a toroidal phase audit (D-06).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.perturbation_phase.GPEC_COIL_FIELD" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.perturbation_phase.GPEC_COIL_FIELD"><code>GPEC_COIL_FIELD</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>GPEC_COIL_FIELD = &lt;vaft.validation.perturbation_phase.PhaseAuditCriteria&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.perturbation_phase.phase_convention_verdict" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.perturbation_phase.phase_convention_verdict"><code>phase_convention_verdict</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/perturbation_phase.py#L71" title="vaft/validation/perturbation_phase.py, line 71">source</a>
+</header>
+    <pre class="ref-signature"><code>phase_convention_verdict(audit, *, criteria: PhaseAuditCriteria) -&gt; PhaseConventionVerdict</code></pre>
+
+    <p>Decide whether a phase audit settled which reconstruction a file belongs to.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.perturbation_phase.PhaseAuditCriteria" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.perturbation_phase.PhaseAuditCriteria"><code>PhaseAuditCriteria</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/perturbation_phase.py#L37" title="vaft/validation/perturbation_phase.py, line 37">source</a>
+</header>
+    <pre class="ref-signature"><code>PhaseAuditCriteria(separation_ratio: float, relative_norm: float, name: str = &#39;&#39;) -&gt; None</code></pre>
+
+    <p>What a toroidal phase audit has to achieve before it settles anything.</p>
+
+    <details class="ref-more"><summary>3 fields</summary>
+<ul class="api-members">
+<li><code>separation_ratio: float</code></li>
+<li><code>relative_norm: float</code></li>
+<li><code>name: str</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.perturbation_phase.PhaseConventionVerdict" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.perturbation_phase.PhaseConventionVerdict"><code>PhaseConventionVerdict</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/perturbation_phase.py#L61" title="vaft/validation/perturbation_phase.py, line 61">source</a>
+</header>
+    <pre class="ref-signature"><code>PhaseConventionVerdict(status: ValidationStatus, convention: str | None, reason: str) -&gt; None</code></pre>
+
+    <p>What one phase audit settled, if anything.</p>
+
+    <details class="ref-more"><summary>3 fields</summary>
+<ul class="api-members">
+<li><code>status: ValidationStatus</code></li>
+<li><code>convention: str | None</code></li>
+<li><code>reason: str</code></li>
+</ul>
+</details>
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.registry">vaft.validation.registry</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Stable, machine-readable metadata for named validation checks (#253 §5, #72).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.registry.CHECKS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.registry.CHECKS"><code>CHECKS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>CHECKS = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.registry.checks_in" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.registry.checks_in"><code>checks_in</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/registry.py#L188" title="vaft/validation/registry.py, line 188">source</a>
+</header>
+    <pre class="ref-signature"><code>checks_in(category: str) -&gt; tuple[CheckSpec, ...]</code></pre>
+
+    <p>Every registered check of one category, in report order.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.registry.CheckSpec" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.registry.CheckSpec"><code>CheckSpec</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/registry.py#L46" title="vaft/validation/registry.py, line 46">source</a>
+</header>
+    <pre class="ref-signature"><code>CheckSpec(key: str, category: str, unit: str, provider: str, method: str, measure: str = &#39;rule&#39;, tolerance: tuple[float, float] | None = None) -&gt; None</code></pre>
+
+    <p>What is stable about one check, independent of any particular result.</p>
+
+    <details class="ref-more"><summary>7 fields</summary>
+<ul class="api-members">
+<li><code>key: str</code></li>
+<li><code>category: str</code></li>
+<li><code>unit: str</code></li>
+<li><code>provider: str</code></li>
+<li><code>method: str</code></li>
+<li><code>measure: str</code></li>
+<li><code>tolerance: tuple[float, float] | None</code></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.registry.describe" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.registry.describe"><code>describe</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/registry.py#L180" title="vaft/validation/registry.py, line 180">source</a>
+</header>
+    <pre class="ref-signature"><code>describe(key: str) -&gt; CheckSpec</code></pre>
+
+    <p>The registry entry for <code class="language-plaintext highlighter-rouge">key</code> (<code class="language-plaintext highlighter-rouge">"&lt;category&gt;.&lt;check&gt;"</code>).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.registry.MEASURES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.registry.MEASURES"><code>MEASURES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>MEASURES = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.stage_evidence">vaft.validation.stage_evidence</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Per-stage validation evidence for the FileDB pipeline (issues #139, #338).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.stage_evidence.STAGE_METRICS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.stage_evidence.STAGE_METRICS"><code>STAGE_METRICS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STAGE_METRICS = &lt;builtins.dict&gt;</code></pre>
+
+    <p class="ref-note">Also exported as <code>vaft.database.production_qa.STAGE_METRICS</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.stage_evidence.STAGE_PRECONDITIONS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.stage_evidence.STAGE_PRECONDITIONS"><code>STAGE_PRECONDITIONS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>STAGE_PRECONDITIONS = &lt;builtins.dict&gt;</code></pre>
+
+    <p class="ref-note">Also exported as <code>vaft.database.production_qa.STAGE_PRECONDITIONS</code>.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.vacuum_benchmark">vaft.validation.vacuum_benchmark</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Plasma-free magnetic-response benchmark for the VEST wall model (issue #190).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.aggregate_benchmark" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.aggregate_benchmark"><code>aggregate_benchmark</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L873" title="vaft/validation/vacuum_benchmark.py, line 873">source</a>
+</header>
+    <pre class="ref-signature"><code>aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -&gt; dict[str, Any]</code></pre>
+
+    <p>Residual structure across cases, channels, excitations and machine eras.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_FLOOR" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_FLOOR"><code>ARRAY_CONTRADICTION_FLOOR</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>ARRAY_CONTRADICTION_FLOOR = 0.01</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_FRACTION" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_FRACTION"><code>ARRAY_CONTRADICTION_FRACTION</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>ARRAY_CONTRADICTION_FRACTION = 0.05</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.array_contradiction_fractions" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.array_contradiction_fractions"><code>array_contradiction_fractions</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L643" title="vaft/validation/vacuum_benchmark.py, line 643">source</a>
+</header>
+    <pre class="ref-signature"><code>array_contradiction_fractions(channels: Iterable[Any], window: tuple[float, float], *, sigma: float = 20.0, min_members: int = 7, exclude: Iterable[str] = ()) -&gt; dict[str, float]</code></pre>
+
+    <p>Fraction of its scorable samples each probe contradicts its array for.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_MIN_SCORED" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_MIN_SCORED"><code>ARRAY_CONTRADICTION_MIN_SCORED</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>ARRAY_CONTRADICTION_MIN_SCORED = 0.5</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_SIGMA" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.ARRAY_CONTRADICTION_SIGMA"><code>ARRAY_CONTRADICTION_SIGMA</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>ARRAY_CONTRADICTION_SIGMA = 20.0</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.array_contradictions" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.array_contradictions"><code>array_contradictions</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L671" title="vaft/validation/vacuum_benchmark.py, line 671">source</a>
+</header>
+    <pre class="ref-signature"><code>array_contradictions(channels: Iterable[Any], window: tuple[float, float], *, sigma: float = 20.0, fraction: float = 0.05, min_members: int = 7) -&gt; list[dict[str, Any]]</code></pre>
+
+    <p>Probes that contradict their own array over the plasma-free window.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.BENCHMARK_CASE_SCHEMA" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.BENCHMARK_CASE_SCHEMA"><code>BENCHMARK_CASE_SCHEMA</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>BENCHMARK_CASE_SCHEMA = 5</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.benchmark_wall_currents" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.benchmark_wall_currents"><code>benchmark_wall_currents</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L318" title="vaft/validation/vacuum_benchmark.py, line 318">source</a>
+</header>
+    <pre class="ref-signature"><code>benchmark_wall_currents(ods: Any, *, resistance_scale: float = 1.0, calibration: &#39;WallResistanceCalibration | None&#39; = None, dt_sub: float = 5e-05) -&gt; Any</code></pre>
+
+    <p>Re-solve the passive-wall currents driven by measured PF currents alone.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.BenchmarkError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.BenchmarkError"><code>BenchmarkError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L152" title="vaft/validation/vacuum_benchmark.py, line 152">source</a>
+</header>
+
+    <p>Raised when a shot cannot supply a usable plasma-free benchmark case.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.coil_drive_check" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.coil_drive_check"><code>coil_drive_check</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L478" title="vaft/validation/vacuum_benchmark.py, line 478">source</a>
+</header>
+    <pre class="ref-signature"><code>coil_drive_check(ods: Any, window: tuple[float, float]) -&gt; dict[str, Any]</code></pre>
+
+    <p>Whether the coils drove the vessel inside <code class="language-plaintext highlighter-rouge">window</code> at all.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.DEFAULT_HISTORY_TIME_CONSTANTS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.DEFAULT_HISTORY_TIME_CONSTANTS"><code>DEFAULT_HISTORY_TIME_CONSTANTS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>DEFAULT_HISTORY_TIME_CONSTANTS = 3.0</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.MIN_ARRAY_MEMBERS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.MIN_ARRAY_MEMBERS"><code>MIN_ARRAY_MEMBERS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>MIN_ARRAY_MEMBERS = 7</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.MIN_COIL_DRIVE_FRACTION" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.MIN_COIL_DRIVE_FRACTION"><code>MIN_COIL_DRIVE_FRACTION</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>MIN_COIL_DRIVE_FRACTION = 0.1</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.MIN_WITNESSES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.MIN_WITNESSES"><code>MIN_WITNESSES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>MIN_WITNESSES = 3</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.PLASMA_FREE_EVIDENCE_SCHEMA" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.PLASMA_FREE_EVIDENCE_SCHEMA"><code>PLASMA_FREE_EVIDENCE_SCHEMA</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>PLASMA_FREE_EVIDENCE_SCHEMA = 4</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.plasma_free_interval" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.plasma_free_interval"><code>plasma_free_interval</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L201" title="vaft/validation/vacuum_benchmark.py, line 201">source</a>
+</header>
+    <pre class="ref-signature"><code>plasma_free_interval(ods: Any, *, reference_fraction: float = 0.2) -&gt; PlasmaFreeInterval</code></pre>
+
+    <p>The interval of a shot over which no plasma contributes, with evidence.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.PlasmaFreeInterval" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.PlasmaFreeInterval"><code>PlasmaFreeInterval</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L156" title="vaft/validation/vacuum_benchmark.py, line 156">source</a>
+</header>
+
+    <p>The plasma-free stretch of one shot, with the evidence for it.</p>
+
+    <details class="ref-more"><summary>3 members</summary>
+<ul class="api-members">
+<li><code>start</code> <span class="ref-type">property</span></li>
+<li><code>end</code> <span class="ref-type">property</span></li>
+<li><code>case_type</code> <span class="ref-type">property</span></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.run_benchmark_case" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.run_benchmark_case"><code>run_benchmark_case</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L720" title="vaft/validation/vacuum_benchmark.py, line 720">source</a>
+</header>
+    <pre class="ref-signature"><code>run_benchmark_case(ods: Any, *, shot: int | None = None, machine_era: str | None = None, window: tuple[float, float] | None = None, per_family: int | None = None, resistance_scale: float = 1.0, calibration: &#39;WallResistanceCalibration | None&#39; = None, dt_sub: float = 5e-05, n_tau: float = 3.0, min_samples: int = 2) -&gt; dict[str, Any]</code></pre>
+
+    <p>Evaluate one plasma-free case: PF-only wall solve, then measured vs model.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.solver_history_check" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.solver_history_check"><code>solver_history_check</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L406" title="vaft/validation/vacuum_benchmark.py, line 406">source</a>
+</header>
+    <pre class="ref-signature"><code>solver_history_check(ods: Any, validation_start: float, *, n_tau: float = 3.0, time_constants: np.ndarray | None = None) -&gt; dict[str, Any]</code></pre>
+
+    <p>Whether the solver has forgotten its assumed initial state by <code class="language-plaintext highlighter-rouge">validation_start</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.vacuum_benchmark.wall_time_constants" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.vacuum_benchmark.wall_time_constants"><code>wall_time_constants</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/vacuum_benchmark.py#L374" title="vaft/validation/vacuum_benchmark.py, line 374">source</a>
+</header>
+    <pre class="ref-signature"><code>wall_time_constants(ods: Any) -&gt; np.ndarray</code></pre>
+
+    <p>The passive structure’s L/R decay times, slowest first.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.validity">vaft.validation.validity</h2>
+
+<div class="ref-note tex2jax_ignore"><p>What a datum’s validity nodes mean, stated once (issue #424).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.validity.aggregate_validity" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.aggregate_validity"><code>aggregate_validity</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L120" title="vaft/validation/validity.py, line 120">source</a>
+</header>
+    <pre class="ref-signature"><code>aggregate_validity(timed: Iterable[int]) -&gt; int</code></pre>
+
+    <p>The scalar validity summarizing a time-resolved one: <strong>worst state wins</strong>.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.imas.aggregate_validity</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.codes_at" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.codes_at"><code>codes_at</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L150" title="vaft/validation/validity.py, line 150">source</a>
+</header>
+    <pre class="ref-signature"><code>codes_at(record: ValidityRecord, *, times: Any | None = None) -&gt; np.ndarray | None</code></pre>
+
+    <p>The record’s validity code per sample.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.is_condemned" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.is_condemned"><code>is_condemned</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L253" title="vaft/validation/validity.py, line 253">source</a>
+</header>
+    <pre class="ref-signature"><code>is_condemned(record: ValidityRecord, *, min_validity: int = 0) -&gt; bool</code></pre>
+
+    <p>Assessed, and no usable sample anywhere.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.is_usable" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.is_usable"><code>is_usable</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L238" title="vaft/validation/validity.py, line 238">source</a>
+</header>
+    <pre class="ref-signature"><code>is_usable(record: ValidityRecord, *, times: Any | None = None, min_validity: int = 0, default: bool = True) -&gt; bool</code></pre>
+
+    <p>Whether any sample at all – or any of <code class="language-plaintext highlighter-rouge">times</code> – reaches the floor.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.record_from_mask" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.record_from_mask"><code>record_from_mask</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L266" title="vaft/validation/validity.py, line 266">source</a>
+</header>
+    <pre class="ref-signature"><code>record_from_mask(scalar: int | None, mask: Any | None) -&gt; ValidityRecord</code></pre>
+
+    <p>A record for a consumer that holds a boolean usable-sample mask.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.usable_fraction" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.usable_fraction"><code>usable_fraction</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L208" title="vaft/validation/validity.py, line 208">source</a>
+</header>
+    <pre class="ref-signature"><code>usable_fraction(record: ValidityRecord, *, times: Any | None = None, window: Any | None = None, min_validity: int = 0, default: bool = True) -&gt; float</code></pre>
+
+    <p>Fraction of the samples in <code class="language-plaintext highlighter-rouge">window</code> the record declares usable.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.usable_mask" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.usable_mask"><code>usable_mask</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L183" title="vaft/validation/validity.py, line 183">source</a>
+</header>
+    <pre class="ref-signature"><code>usable_mask(record: ValidityRecord, *, times: Any | None = None, min_validity: int = 0, default: bool = True) -&gt; np.ndarray</code></pre>
+
+    <p>Which samples a consumer accepting <code class="language-plaintext highlighter-rouge">min_validity</code> may use.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.VALIDITY_CERTIFIED" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.VALIDITY_CERTIFIED"><code>VALIDITY_CERTIFIED</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>VALIDITY_CERTIFIED = 1</code></pre>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.imas.VALIDITY_CERTIFIED</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.VALIDITY_INVALID" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.VALIDITY_INVALID"><code>VALIDITY_INVALID</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>VALIDITY_INVALID = -2</code></pre>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.imas.VALIDITY_INVALID</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.VALIDITY_MEANINGS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.VALIDITY_MEANINGS"><code>VALIDITY_MEANINGS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>VALIDITY_MEANINGS = &lt;builtins.dict&gt;</code></pre>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.imas.VALIDITY_MEANINGS</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.VALIDITY_SUSPECT" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.VALIDITY_SUSPECT"><code>VALIDITY_SUSPECT</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>VALIDITY_SUSPECT = -1</code></pre>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.imas.VALIDITY_SUSPECT</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.VALIDITY_VALID" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.VALIDITY_VALID"><code>VALIDITY_VALID</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>VALIDITY_VALID = 0</code></pre>
+
+    <p class="ref-note">Also exported as <code>vaft.validation.imas.VALIDITY_VALID</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.validity.ValidityRecord" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.validity.ValidityRecord"><code>ValidityRecord</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/validity.py#L73" title="vaft/validation/validity.py, line 73">source</a>
+</header>
+    <pre class="ref-signature"><code>ValidityRecord(scalar: int | None, timed: np.ndarray | None, time: np.ndarray | None) -&gt; None</code></pre>
+
+    <p>What a datum’s validity nodes say – extracted, not yet interpreted.</p>
+
+    <details class="ref-more"><summary>3 fields · 1 members</summary>
+<ul class="api-members">
+<li><code>scalar: int | None</code></li>
+<li><code>timed: np.ndarray | None</code></li>
+<li><code>time: np.ndarray | None</code></li>
+<li><code>assessed</code> <span class="ref-type">property</span> &mdash; Whether anything has said what this datum’s validity is.</li>
+</ul>
+</details>
+  </section>
+</div>
+
+<h2 id="module-vaft.validation.wall_reduction">vaft.validation.wall_reduction</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Reduced-wall order study: full versus reduced wall, and both versus the measured magnetics (vaft #494, VEST-Tokamak/vfit#10).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.validation.wall_reduction.DEFAULT_ORDERS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.DEFAULT_ORDERS"><code>DEFAULT_ORDERS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>DEFAULT_ORDERS = (1, 2, 4, 8, 16, 19, 32, 64, 128, 256)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.wall_reduction.DEFAULT_RULES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.DEFAULT_RULES"><code>DEFAULT_RULES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>DEFAULT_RULES = (&#39;tau&#39;, &#39;drive_gain&#39;, &#39;output_weight&#39;, &#39;uniform&#39;, &#39;moments&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.wall_reduction.drive_set" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.drive_set"><code>drive_set</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L112" title="vaft/validation/wall_reduction.py, line 112">source</a>
+</header>
+    <pre class="ref-signature"><code>drive_set(system: Mapping[str, Any], kinds: Sequence[str] = (&#39;shot&#39;, &#39;single_coil&#39;, &#39;step&#39;)) -&gt; dict[str, np.ndarray]</code></pre>
+
+    <p>Source waveforms the reduced wall is tested under, <code class="language-plaintext highlighter-rouge">(n_times, n_coils)</code> each.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.wall_reduction.experimental_comparison" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.experimental_comparison"><code>experimental_comparison</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L390" title="vaft/validation/wall_reduction.py, line 390">source</a>
+</header>
+    <pre class="ref-signature"><code>experimental_comparison(ods: Any, selections: Mapping[str, Any], *, window: tuple[float, float] | None = None, per_family: int | None = None, min_wall_authority: float | None = None, dt_sub: float = 5e-05, **system_options: Any) -&gt; dict[str, Any]</code></pre>
+
+    <p>The #190 benchmark for the full wall and for reduced walls, side by side.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.wall_reduction.find_plasma_free_shots" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.find_plasma_free_shots"><code>find_plasma_free_shots</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L515" title="vaft/validation/wall_reduction.py, line 515">source</a>
+</header>
+    <pre class="ref-signature"><code>find_plasma_free_shots(shots: Iterable[int], *, max_plasma_current: float = 5000.0, min_coil_current: float = 1000.0, raw_source: Any = None, loaders: Mapping[str, Any] | None = None) -&gt; list[dict[str, Any]]</code></pre>
+
+    <p>Classify shots by whether they can serve as PF-only benchmark cases.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.wall_reduction.observation_set" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.observation_set"><code>observation_set</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L156" title="vaft/validation/wall_reduction.py, line 156">source</a>
+</header>
+    <pre class="ref-signature"><code>observation_set(ods: Any, *, n_coils: int | None = None, per_family: int | None = None, window: tuple[float, float] | None = None, ring_shrink: float = 0.85, ring_points: int = 64, grid_shape: tuple[int, int] = (25, 33)) -&gt; dict[str, Any]</code></pre>
+
+    <p>Wall-column response matrices at every observation the study scores.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.wall_reduction.order_convergence" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.order_convergence"><code>order_convergence</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L246" title="vaft/validation/wall_reduction.py, line 246">source</a>
+</header>
+    <pre class="ref-signature"><code>order_convergence(ods_or_system: Any, *, rules: Sequence[str] = (&#39;tau&#39;, &#39;drive_gain&#39;, &#39;output_weight&#39;, &#39;uniform&#39;, &#39;moments&#39;), orders: Sequence[int] = (1, 2, 4, 8, 16, 19, 32, 64, 128, 256), drives: Sequence[str] = (&#39;shot&#39;, &#39;single_coil&#39;, &#39;step&#39;), observation: Mapping[str, Any] | None = None, scores_drive: str = &#39;shot&#39;, dt_sub: float = 5e-05, **system_options: Any) -&gt; list[dict[str, Any]]</code></pre>
+
+    <p>Full-versus-reduced response error for every (rule, order, drive).</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.wall_reduction.representation_order" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.representation_order"><code>representation_order</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L336" title="vaft/validation/wall_reduction.py, line 336">source</a>
+</header>
+    <pre class="ref-signature"><code>representation_order(rows: Iterable[Mapping[str, Any]], tolerances: Mapping[str, float], *, drive: str = &#39;shot&#39;) -&gt; dict[str, Any]</code></pre>
+
+    <p>The smallest retained order meeting <code class="language-plaintext highlighter-rouge">tolerances</code> – per rule, per metric and jointly.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.wall_reduction.wall_system" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.wall_system"><code>wall_system</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L75" title="vaft/validation/wall_reduction.py, line 75">source</a>
+</header>
+    <pre class="ref-signature"><code>wall_system(ods: Any, *, remap_em_coupling: bool = False, gap_factor: float | None = None, **basis_options: Any) -&gt; dict[str, Any]</code></pre>
+
+    <p>The wall matrices, the eigenbasis and the shot’s PF drive, once.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.validation.wall_reduction.WallReductionError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.validation.wall_reduction.WallReductionError"><code>WallReductionError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/validation/wall_reduction.py#L67" title="vaft/validation/wall_reduction.py, line 67">source</a>
+</header>
+
+    <p>The ODS or the requested study cannot be evaluated as asked.</p>
+
+  </section>
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/api/diagram/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: API: vaft.diagram">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/api/code/" class="navigation navigation-next navigation-unique" aria-label="Next page: API: vaft.code">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.channel_decision" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.channel_decision</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.efit_channels" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.efit_channels</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.equilibrium</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.equilibrium_cohorts" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.equilibrium_cohorts</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.equilibrium_regime" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.equilibrium_regime</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.flux_loop_assessment" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.flux_loop_assessment</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.imas" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.imas</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.magnetics</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.model</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.neoclassical" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.neoclassical</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.perturbation_phase" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.perturbation_phase</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.registry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.registry</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.stage_evidence" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.stage_evidence</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.vacuum_benchmark" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.vacuum_benchmark</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.validity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.validity</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.validation.wall_reduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.validation.wall_reduction</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "API: vaft.code",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Api_reference_code.md",
+            "ref": "_guide/Api_reference_code.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Api_reference_validation.md",
+        "mtime": "2026-09-29 10:10:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-30 05:11:01 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -1,0 +1,858 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>API: vaft.diagram · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/api/plot/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/api/validation/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >API: vaft.diagram</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>646d742</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/api/Api_reference_diagram">API: vaft.diagram</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated reference of the objects vaft.diagram publishes, read from each module's __all__ and docstrings (issue 162).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>The signature, summary, deprecation status and source of every published object.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from each module's <code>__all__</code> by <code>python -m vaft._api_catalog</code>:
+<strong>128</strong> published objects in <strong>1</strong> modules.
+Signatures and summaries are read from the source; nothing here is written by hand.
+<a href="/vaft/develop/reference/api/">All API pages</a></p>
+
+<div class="ref-index tex2jax_ignore" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 128 objects by name or module" aria-label="Filter objects" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.diagram"><code>vaft.diagram</code></a></th></tr>
+  <tr data-ref-row="vaft.diagram.ballooning_curvature_drive vaft.diagram "><td><a href="#vaft.diagram.ballooning_curvature_drive"><code>ballooning_curvature_drive</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.ballooning_eigenfunction vaft.diagram "><td><a href="#vaft.diagram.ballooning_eigenfunction"><code>ballooning_eigenfunction</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.ballooning_harmonic_envelope vaft.diagram "><td><a href="#vaft.diagram.ballooning_harmonic_envelope"><code>ballooning_harmonic_envelope</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.ballooning_newcomb_test vaft.diagram "><td><a href="#vaft.diagram.ballooning_newcomb_test"><code>ballooning_newcomb_test</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.ballooning_workflow vaft.diagram "><td><a href="#vaft.diagram.ballooning_workflow"><code>ballooning_workflow</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.basin_of_attraction vaft.diagram "><td><a href="#vaft.diagram.basin_of_attraction"><code>basin_of_attraction</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.blob_current_closure vaft.diagram "><td><a href="#vaft.diagram.blob_current_closure"><code>blob_current_closure</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.blob_polarization vaft.diagram "><td><a href="#vaft.diagram.blob_polarization"><code>blob_polarization</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.blob_regimes vaft.diagram "><td><a href="#vaft.diagram.blob_regimes"><code>blob_regimes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.blob_velocity_scaling vaft.diagram "><td><a href="#vaft.diagram.blob_velocity_scaling"><code>blob_velocity_scaling</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.branch_bifurcation vaft.diagram "><td><a href="#vaft.diagram.branch_bifurcation"><code>branch_bifurcation</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.branch_selection vaft.diagram "><td><a href="#vaft.diagram.branch_selection"><code>branch_selection</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.canonical_toroidal_momentum vaft.diagram "><td><a href="#vaft.diagram.canonical_toroidal_momentum"><code>canonical_toroidal_momentum</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.clebsch_field_line_label vaft.diagram "><td><a href="#vaft.diagram.clebsch_field_line_label"><code>clebsch_field_line_label</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.cma_diagram vaft.diagram "><td><a href="#vaft.diagram.cma_diagram"><code>cma_diagram</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.cold_vde_bifurcation vaft.diagram "><td><a href="#vaft.diagram.cold_vde_bifurcation"><code>cold_vde_bifurcation</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.collision_processes vaft.diagram "><td><a href="#vaft.diagram.collision_processes"><code>collision_processes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.complex_field_superposition vaft.diagram "><td><a href="#vaft.diagram.complex_field_superposition"><code>complex_field_superposition</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.complex_harmonic vaft.diagram "><td><a href="#vaft.diagram.complex_harmonic"><code>complex_harmonic</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.computational_realization vaft.diagram "><td><a href="#vaft.diagram.computational_realization"><code>computational_realization</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.coordinates_vs_cocos vaft.diagram "><td><a href="#vaft.diagram.coordinates_vs_cocos"><code>coordinates_vs_cocos</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.current_sheet vaft.diagram "><td><a href="#vaft.diagram.current_sheet"><code>current_sheet</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.current_to_q_profile vaft.diagram "><td><a href="#vaft.diagram.current_to_q_profile"><code>current_to_q_profile</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.curvature_drift vaft.diagram "><td><a href="#vaft.diagram.curvature_drift"><code>curvature_drift</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.cylindrical_mode_morphology vaft.diagram "><td><a href="#vaft.diagram.cylindrical_mode_morphology"><code>cylindrical_mode_morphology</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.cylindrical_rational_surfaces vaft.diagram "><td><a href="#vaft.diagram.cylindrical_rational_surfaces"><code>cylindrical_rational_surfaces</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.cylindrical_tearing_outer vaft.diagram "><td><a href="#vaft.diagram.cylindrical_tearing_outer"><code>cylindrical_tearing_outer</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.delta_prime vaft.diagram "><td><a href="#vaft.diagram.delta_prime"><code>delta_prime</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.Diagram vaft.diagram "><td><a href="#vaft.diagram.Diagram"><code>Diagram</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.diagram.DiagramToolchainError vaft.diagram "><td><a href="#vaft.diagram.DiagramToolchainError"><code>DiagramToolchainError</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.diagram.disruption_causal_chain vaft.diagram "><td><a href="#vaft.diagram.disruption_causal_chain"><code>disruption_causal_chain</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.disruption_energy_pathways vaft.diagram "><td><a href="#vaft.diagram.disruption_energy_pathways"><code>disruption_energy_pathways</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.disruption_timeline vaft.diagram "><td><a href="#vaft.diagram.disruption_timeline"><code>disruption_timeline</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.divertor_heat_footprint vaft.diagram "><td><a href="#vaft.diagram.divertor_heat_footprint"><code>divertor_heat_footprint</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.equilibrium_problem_taxonomy vaft.diagram "><td><a href="#vaft.diagram.equilibrium_problem_taxonomy"><code>equilibrium_problem_taxonomy</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.exb_drift vaft.diagram "><td><a href="#vaft.diagram.exb_drift"><code>exb_drift</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.fast_magnetosonic_wave vaft.diagram "><td><a href="#vaft.diagram.fast_magnetosonic_wave"><code>fast_magnetosonic_wave</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.field_aligned_basis vaft.diagram "><td><a href="#vaft.diagram.field_aligned_basis"><code>field_aligned_basis</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.field_line_action_angle vaft.diagram "><td><a href="#vaft.diagram.field_line_action_angle"><code>field_line_action_angle</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.field_line_geometry vaft.diagram "><td><a href="#vaft.diagram.field_line_geometry"><code>field_line_geometry</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.field_line_pitch vaft.diagram "><td><a href="#vaft.diagram.field_line_pitch"><code>field_line_pitch</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.fixed_vs_free_boundary_equilibrium vaft.diagram "><td><a href="#vaft.diagram.fixed_vs_free_boundary_equilibrium"><code>fixed_vs_free_boundary_equilibrium</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.flux_coordinates vaft.diagram "><td><a href="#vaft.diagram.flux_coordinates"><code>flux_coordinates</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.flux_surfaces vaft.diagram "><td><a href="#vaft.diagram.flux_surfaces"><code>flux_surfaces</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.flux_tube_patch vaft.diagram "><td><a href="#vaft.diagram.flux_tube_patch"><code>flux_tube_patch</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.geometry_ordering_map vaft.diagram "><td><a href="#vaft.diagram.geometry_ordering_map"><code>geometry_ordering_map</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.grad_shafranov_domain_decomposition vaft.diagram "><td><a href="#vaft.diagram.grad_shafranov_domain_decomposition"><code>grad_shafranov_domain_decomposition</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.grid_induced_two_cycle vaft.diagram "><td><a href="#vaft.diagram.grid_induced_two_cycle"><code>grid_induced_two_cycle</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.guiding_center_invariants vaft.diagram "><td><a href="#vaft.diagram.guiding_center_invariants"><code>guiding_center_invariants</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.harmonic_real_space_projection vaft.diagram "><td><a href="#vaft.diagram.harmonic_real_space_projection"><code>harmonic_real_space_projection</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.harris_sheet vaft.diagram "><td><a href="#vaft.diagram.harris_sheet"><code>harris_sheet</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.hfs_lfs_field vaft.diagram "><td><a href="#vaft.diagram.hfs_lfs_field"><code>hfs_lfs_field</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.hot_vde_sequence vaft.diagram "><td><a href="#vaft.diagram.hot_vde_sequence"><code>hot_vde_sequence</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.hugill vaft.diagram "><td><a href="#vaft.diagram.hugill"><code>hugill</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.integrated_modeling_process vaft.diagram "><td><a href="#vaft.diagram.integrated_modeling_process"><code>integrated_modeling_process</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.integrated_modeling_space vaft.diagram "><td><a href="#vaft.diagram.integrated_modeling_space"><code>integrated_modeling_space</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.internal_external_kink vaft.diagram "><td><a href="#vaft.diagram.internal_external_kink"><code>internal_external_kink</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.island_formation vaft.diagram "><td><a href="#vaft.diagram.island_formation"><code>island_formation</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.iteration_behavior vaft.diagram "><td><a href="#vaft.diagram.iteration_behavior"><code>iteration_behavior</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.kink_mode vaft.diagram "><td><a href="#vaft.diagram.kink_mode"><code>kink_mode</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.knowledge_basis vaft.diagram "><td><a href="#vaft.diagram.knowledge_basis"><code>knowledge_basis</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.limiter_and_diverted_topologies vaft.diagram "><td><a href="#vaft.diagram.limiter_and_diverted_topologies"><code>limiter_and_diverted_topologies</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.magnetic_island vaft.diagram "><td><a href="#vaft.diagram.magnetic_island"><code>magnetic_island</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.magnetic_reconnection vaft.diagram "><td><a href="#vaft.diagram.magnetic_reconnection"><code>magnetic_reconnection</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.magnetic_shear_field_aligned vaft.diagram "><td><a href="#vaft.diagram.magnetic_shear_field_aligned"><code>magnetic_shear_field_aligned</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.magnetization_current vaft.diagram "><td><a href="#vaft.diagram.magnetization_current"><code>magnetization_current</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.marfe vaft.diagram "><td><a href="#vaft.diagram.marfe"><code>marfe</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.mhd_wave_family vaft.diagram "><td><a href="#vaft.diagram.mhd_wave_family"><code>mhd_wave_family</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.mode_number_mapping vaft.diagram "><td><a href="#vaft.diagram.mode_number_mapping"><code>mode_number_mapping</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.nbi_neutral_attenuation vaft.diagram "><td><a href="#vaft.diagram.nbi_neutral_attenuation"><code>nbi_neutral_attenuation</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.nbi_particle_lifecycle vaft.diagram "><td><a href="#vaft.diagram.nbi_particle_lifecycle"><code>nbi_particle_lifecycle</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.neoclassical_collisionality vaft.diagram "><td><a href="#vaft.diagram.neoclassical_collisionality"><code>neoclassical_collisionality</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.normal_field_component vaft.diagram "><td><a href="#vaft.diagram.normal_field_component"><code>normal_field_component</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.ntv_collisionality vaft.diagram "><td><a href="#vaft.diagram.ntv_collisionality"><code>ntv_collisionality</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.ntv_precession_regimes vaft.diagram "><td><a href="#vaft.diagram.ntv_precession_regimes"><code>ntv_precession_regimes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.o_mode_cutoff vaft.diagram "><td><a href="#vaft.diagram.o_mode_cutoff"><code>o_mode_cutoff</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.peeling_ballooning vaft.diagram "><td><a href="#vaft.diagram.peeling_ballooning"><code>peeling_ballooning</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.physical_abstraction vaft.diagram "><td><a href="#vaft.diagram.physical_abstraction"><code>physical_abstraction</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.plasma_vacuum_wall vaft.diagram "><td><a href="#vaft.diagram.plasma_vacuum_wall"><code>plasma_vacuum_wall</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.plasma_wall_halo_current vaft.diagram "><td><a href="#vaft.diagram.plasma_wall_halo_current"><code>plasma_wall_halo_current</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.plasma_wall_interaction_energy_partition vaft.diagram "><td><a href="#vaft.diagram.plasma_wall_interaction_energy_partition"><code>plasma_wall_interaction_energy_partition</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.plasma_wall_interaction_processes vaft.diagram "><td><a href="#vaft.diagram.plasma_wall_interaction_processes"><code>plasma_wall_interaction_processes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.plasma_wall_interaction_recycling vaft.diagram "><td><a href="#vaft.diagram.plasma_wall_interaction_recycling"><code>plasma_wall_interaction_recycling</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.plasma_wall_interaction_reflection vaft.diagram "><td><a href="#vaft.diagram.plasma_wall_interaction_reflection"><code>plasma_wall_interaction_reflection</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.plasma_wall_interaction_sputtering vaft.diagram "><td><a href="#vaft.diagram.plasma_wall_interaction_sputtering"><code>plasma_wall_interaction_sputtering</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.poloidal_angle_comparison vaft.diagram "><td><a href="#vaft.diagram.poloidal_angle_comparison"><code>poloidal_angle_comparison</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.poloidal_flux_source_decomposition vaft.diagram "><td><a href="#vaft.diagram.poloidal_flux_source_decomposition"><code>poloidal_flux_source_decomposition</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.poloidal_harmonic_coupling vaft.diagram "><td><a href="#vaft.diagram.poloidal_harmonic_coupling"><code>poloidal_harmonic_coupling</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.profile_propagation vaft.diagram "><td><a href="#vaft.diagram.profile_propagation"><code>profile_propagation</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.rational_surface vaft.diagram "><td><a href="#vaft.diagram.rational_surface"><code>rational_surface</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.resonant_layer_matching vaft.diagram "><td><a href="#vaft.diagram.resonant_layer_matching"><code>resonant_layer_matching</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.ripple_well_formation vaft.diagram "><td><a href="#vaft.diagram.ripple_well_formation"><code>ripple_well_formation</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.runaway_generation vaft.diagram "><td><a href="#vaft.diagram.runaway_generation"><code>runaway_generation</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.s_alpha_ballooning vaft.diagram "><td><a href="#vaft.diagram.s_alpha_ballooning"><code>s_alpha_ballooning</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.safety_factor_winding vaft.diagram "><td><a href="#vaft.diagram.safety_factor_winding"><code>safety_factor_winding</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.sawtooth vaft.diagram "><td><a href="#vaft.diagram.sawtooth"><code>sawtooth</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.separatrix_lobes vaft.diagram "><td><a href="#vaft.diagram.separatrix_lobes"><code>separatrix_lobes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.sfl_coordinate_grids vaft.diagram "><td><a href="#vaft.diagram.sfl_coordinate_grids"><code>sfl_coordinate_grids</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.sfl_coordinate_taxonomy vaft.diagram "><td><a href="#vaft.diagram.sfl_coordinate_taxonomy"><code>sfl_coordinate_taxonomy</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.sfl_coordinate_validity vaft.diagram "><td><a href="#vaft.diagram.sfl_coordinate_validity"><code>sfl_coordinate_validity</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.sfl_fourier_convergence vaft.diagram "><td><a href="#vaft.diagram.sfl_fourier_convergence"><code>sfl_fourier_convergence</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.shaping_family vaft.diagram "><td><a href="#vaft.diagram.shaping_family"><code>shaping_family</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.shear_alfven_wave vaft.diagram "><td><a href="#vaft.diagram.shear_alfven_wave"><code>shear_alfven_wave</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.slab_field_configuration vaft.diagram "><td><a href="#vaft.diagram.slab_field_configuration"><code>slab_field_configuration</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.slab_parity vaft.diagram "><td><a href="#vaft.diagram.slab_parity"><code>slab_parity</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.slab_parity_comparison vaft.diagram "><td><a href="#vaft.diagram.slab_parity_comparison"><code>slab_parity_comparison</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.spectroscopy_energy_levels vaft.diagram "><td><a href="#vaft.diagram.spectroscopy_energy_levels"><code>spectroscopy_energy_levels</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.spectroscopy_ionization_stages vaft.diagram "><td><a href="#vaft.diagram.spectroscopy_ionization_stages"><code>spectroscopy_ionization_stages</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.spectroscopy_spectrum vaft.diagram "><td><a href="#vaft.diagram.spectroscopy_spectrum"><code>spectroscopy_spectrum</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.spectroscopy_transitions vaft.diagram "><td><a href="#vaft.diagram.spectroscopy_transitions"><code>spectroscopy_transitions</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.stochastic_layer vaft.diagram "><td><a href="#vaft.diagram.stochastic_layer"><code>stochastic_layer</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.stochastic_ripple_orbit vaft.diagram "><td><a href="#vaft.diagram.stochastic_ripple_orbit"><code>stochastic_ripple_orbit</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.tearing_layer_matching vaft.diagram "><td><a href="#vaft.diagram.tearing_layer_matching"><code>tearing_layer_matching</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.tokamak_torus vaft.diagram "><td><a href="#vaft.diagram.tokamak_torus"><code>tokamak_torus</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.toroidal_drift vaft.diagram "><td><a href="#vaft.diagram.toroidal_drift"><code>toroidal_drift</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.toroidal_field_ripple vaft.diagram "><td><a href="#vaft.diagram.toroidal_field_ripple"><code>toroidal_field_ripple</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.toroidal_harmonic_phase vaft.diagram "><td><a href="#vaft.diagram.toroidal_harmonic_phase"><code>toroidal_harmonic_phase</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.toroidal_symmetry_breaking vaft.diagram "><td><a href="#vaft.diagram.toroidal_symmetry_breaking"><code>toroidal_symmetry_breaking</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.trapped_and_passing_orbits vaft.diagram "><td><a href="#vaft.diagram.trapped_and_passing_orbits"><code>trapped_and_passing_orbits</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.troyon vaft.diagram "><td><a href="#vaft.diagram.troyon"><code>troyon</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.unwrapped_flux_surface vaft.diagram "><td><a href="#vaft.diagram.unwrapped_flux_surface"><code>unwrapped_flux_surface</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.vde_timescales vaft.diagram "><td><a href="#vaft.diagram.vde_timescales"><code>vde_timescales</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.wall_conditioning_baking vaft.diagram "><td><a href="#vaft.diagram.wall_conditioning_baking"><code>wall_conditioning_baking</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.wall_conditioning_boronization vaft.diagram "><td><a href="#vaft.diagram.wall_conditioning_boronization"><code>wall_conditioning_boronization</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.wall_conditioning_gdc vaft.diagram "><td><a href="#vaft.diagram.wall_conditioning_gdc"><code>wall_conditioning_gdc</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.wall_conditioning_sequence vaft.diagram "><td><a href="#vaft.diagram.wall_conditioning_sequence"><code>wall_conditioning_sequence</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.x_mode_dispersion vaft.diagram "><td><a href="#vaft.diagram.x_mode_dispersion"><code>x_mode_dispersion</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.diagram.x_point vaft.diagram "><td><a href="#vaft.diagram.x_point"><code>x_point</code></a></td><td>function</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No object matches.</p>
+</div>
+
+<h2 id="module-vaft.diagram">vaft.diagram</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Reproducible scientific schematics (issue #890).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <div class="api-link ref-entry" id="vaft.diagram.ballooning_curvature_drive" data-catalog="api"><p><code>ballooning_curvature_drive</code> &mdash; Normal curvature and the total ballooning drive along the extended angle. <a href="/vaft/develop/reference/diagram/#ballooning_curvature_drive">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.ballooning_eigenfunction" data-catalog="api"><p><code>ballooning_eigenfunction</code> &mdash; A ballooning mode: localised on the extended angle where the curvature is bad. <a href="/vaft/develop/reference/diagram/#ballooning_eigenfunction">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.ballooning_harmonic_envelope" data-catalog="api"><p><code>ballooning_harmonic_envelope</code> &mdash; A ballooning mode is many coupled harmonics $m \approx nq$ under one envelope. <a href="/vaft/develop/reference/diagram/#ballooning_harmonic_envelope">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.ballooning_newcomb_test" data-catalog="api"><p><code>ballooning_newcomb_test</code> &mdash; Newcomb’s test on the extended angle: stable, unstable and second stable. <a href="/vaft/develop/reference/diagram/#ballooning_newcomb_test">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.ballooning_workflow" data-catalog="api"><p><code>ballooning_workflow</code> &mdash; From global harmonics to the infinite-$n$ ballooning equation, and the coordinate genealogy. <a href="/vaft/develop/reference/diagram/#ballooning_workflow">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.basin_of_attraction" data-catalog="api"><p><code>basin_of_attraction</code> &mdash; Branch selection by the initial condition: two stable solutions at one control parameter. <a href="/vaft/develop/reference/diagram/#basin_of_attraction">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.blob_current_closure" data-catalog="api"><p><code>blob_current_closure</code> &mdash; Where the polarization current of a filament closes: the sheaths or the cross-field inertia. <a href="/vaft/develop/reference/diagram/#blob_current_closure">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.blob_polarization" data-catalog="api"><p><code>blob_polarization</code> &mdash; Why a blob moves: curvature polarizes it into a dipole, and the dipole drifts it. <a href="/vaft/develop/reference/diagram/#blob_polarization">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.blob_regimes" data-catalog="api"><p><code>blob_regimes</code> &mdash; The two-region regime plane of blob motion: collisionality against size. <a href="/vaft/develop/reference/diagram/#blob_regimes">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.blob_velocity_scaling" data-catalog="api"><p><code>blob_velocity_scaling</code> &mdash; Normalized blob velocity against normalized size: two closures, their crossing, and the bridge. <a href="/vaft/develop/reference/diagram/#blob_velocity_scaling">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.branch_bifurcation" data-catalog="api"><p><code>branch_bifurcation</code> &mdash; Stable and unstable branches, two folds, the jumps and the hysteresis loop. <a href="/vaft/develop/reference/diagram/#branch_bifurcation">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.branch_selection" data-catalog="api"><p><code>branch_selection</code> &mdash; Physical branch selection beside numerical cycling: the two causes of non-convergence side by side. <a href="/vaft/develop/reference/diagram/#branch_selection">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.canonical_toroidal_momentum" data-catalog="api"><p><code>canonical_toroidal_momentum</code> &mdash; $P_\phi = q\psi + mv_\parallel Rb_\phi$ along one banana: the parts trade, the sum stays. <a href="/vaft/develop/reference/diagram/#canonical_toroidal_momentum">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.clebsch_field_line_label" data-catalog="api"><p><code>clebsch_field_line_label</code> &mdash; A field line is where $\psi$ = const meets $\alpha$ = const. <a href="/vaft/develop/reference/diagram/#clebsch_field_line_label">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.cma_diagram" data-catalog="api"><p><code>cma_diagram</code> &mdash; The Clemmow–Mullaly–Allis diagram of a cold electron plasma. <a href="/vaft/develop/reference/diagram/#cma_diagram">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.cold_vde_bifurcation" data-catalog="api"><p><code>cold_vde_bifurcation</code> &mdash; Cold VDE as the loss of a centred vertical equilibrium while the current decays (schematic). <a href="/vaft/develop/reference/diagram/#cold_vde_bifurcation">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.collision_processes" data-catalog="api"><p><code>collision_processes</code> &mdash; Collision processes in fusion plasmas: Coulomb, atomic and nuclear. <a href="/vaft/develop/reference/diagram/#collision_processes">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.complex_field_superposition" data-catalog="api"><p><code>complex_field_superposition</code> &mdash; External and plasma-response fields add as complex numbers. <a href="/vaft/develop/reference/diagram/#complex_field_superposition">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.complex_harmonic" data-catalog="api"><p><code>complex_harmonic</code> &mdash; One harmonic as a complex coefficient $\hat b = b_R + i\,b_I = A\,e^{i\alpha}$. <a href="/vaft/develop/reference/diagram/#complex_harmonic">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.computational_realization" data-catalog="api"><p><code>computational_realization</code> &mdash; How a model is evaluated: analytical, semi-analytical, reduced numerical, fully numerical. <a href="/vaft/develop/reference/diagram/#computational_realization">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.coordinates_vs_cocos" data-catalog="api"><p><code>coordinates_vs_cocos</code> &mdash; Coordinate choice and COCOS convention are independent axes, not branches of one tree. <a href="/vaft/develop/reference/diagram/#coordinates_vs_cocos">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.current_sheet" data-catalog="api"><p><code>current_sheet</code> &mdash; A current sheet seen along the current: reversing field, sheet, normal, thickness, $J_z$. <a href="/vaft/develop/reference/diagram/#current_sheet">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.current_to_q_profile" data-catalog="api"><p><code>current_to_q_profile</code> &mdash; From the current profile to the safety factor: $j(r) \to B_\theta(r) \to q(r)$. <a href="/vaft/develop/reference/diagram/#current_to_q_profile">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.curvature_drift" data-catalog="api"><p><code>curvature_drift</code> &mdash; An ion spiralling along a curved field line and drifting off it. <a href="/vaft/develop/reference/diagram/#curvature_drift">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.cylindrical_mode_morphology" data-catalog="api"><p><code>cylindrical_mode_morphology</code> &mdash; The poloidal mode number as a shape: sausage, kink, and higher helical distortions. <a href="/vaft/develop/reference/diagram/#cylindrical_mode_morphology">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.cylindrical_rational_surfaces" data-catalog="api"><p><code>cylindrical_rational_surfaces</code> &mdash; For one $n$, every $m$ with $q_0 &lt; m/n &lt; q_a$ has its rational surface $q(r_s) = m/n$. <a href="/vaft/develop/reference/diagram/#cylindrical_rational_surfaces">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.cylindrical_tearing_outer" data-catalog="api"><p><code>cylindrical_tearing_outer</code> &mdash; The outer tearing solution of one rational surface on the cylinder, and where the inner layer takes over. <a href="/vaft/develop/reference/diagram/#cylindrical_tearing_outer">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.delta_prime" data-catalog="api"><p><code>delta_prime</code> &mdash; What $\Delta’$ measures: the slope jump of the outer solution across $r_s$. <a href="/vaft/develop/reference/diagram/#delta_prime">Reference</a></p></div>
+  <section class="ref-entry" id="vaft.diagram.Diagram" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.diagram.Diagram"><code>Diagram</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/diagram/_render.py#L274" title="vaft/diagram/_render.py, line 274">source</a>
+</header>
+    <pre class="ref-signature"><code>Diagram(name: str, scene: Scene, *, model=None)</code></pre>
+
+    <p>A built scientific diagram: TikZ source now, SVG on first request.</p>
+
+    <details class="ref-more"><summary>4 members</summary>
+<ul class="api-members">
+<li><code>tikz</code> <span class="ref-type">property</span> &mdash; The complete LaTeX/TikZ document. Needs no TeX installation.</li>
+<li><code>source_sha256</code> <span class="ref-type">property</span> &mdash; Hash of <code class="language-plaintext highlighter-rouge">tikz</code> and <code class="language-plaintext highlighter-rouge">RENDER_RECIPE</code>: what the committed-asset check compares.</li>
+<li><code>svg</code> <span class="ref-type">property</span> &mdash; The rendered, normalised SVG text. Renders on first access.</li>
+<li><code>save</code> <span class="ref-type">method</span> &mdash; Write the diagram as <code class="language-plaintext highlighter-rouge">.svg</code> (canonical), <code class="language-plaintext highlighter-rouge">.tex</code> or <code class="language-plaintext highlighter-rouge">.pdf</code>.</li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.diagram.DiagramToolchainError" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.diagram.DiagramToolchainError"><code>DiagramToolchainError</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" href="https://github.com/VEST-Tokamak/vaft/blob/646d7426c1d2de5e2f60234192fcaa4eff459dcc/vaft/diagram/_render.py#L36" title="vaft/diagram/_render.py, line 36">source</a>
+</header>
+
+    <p>The TeX tools a render needs are not on <code class="language-plaintext highlighter-rouge">PATH</code>.</p>
+
+  </section>
+  <div class="api-link ref-entry" id="vaft.diagram.disruption_causal_chain" data-catalog="api"><p><code>disruption_causal_chain</code> &mdash; The thermal-quench -&gt; current-quench -&gt; runaway chain as cause and effect. <a href="/vaft/develop/reference/diagram/#disruption_causal_chain">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.disruption_energy_pathways" data-catalog="api"><p><code>disruption_energy_pathways</code> &mdash; Where a disruption’s thermal and magnetic energies go. <a href="/vaft/develop/reference/diagram/#disruption_energy_pathways">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.disruption_timeline" data-catalog="api"><p><code>disruption_timeline</code> &mdash; A disruption on one time axis, from a 0-D reference model built of the formulas. <a href="/vaft/develop/reference/diagram/#disruption_timeline">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.divertor_heat_footprint" data-catalog="api"><p><code>divertor_heat_footprint</code> &mdash; An Eich heat-flux profile on the divertor target of a diverted equilibrium. <a href="/vaft/develop/reference/diagram/#divertor_heat_footprint">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.equilibrium_problem_taxonomy" data-catalog="api"><p><code>equilibrium_problem_taxonomy</code> &mdash; Forward/inverse and fixed/free boundary are two axes, not one. <a href="/vaft/develop/reference/diagram/#equilibrium_problem_taxonomy">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.exb_drift" data-catalog="api"><p><code>exb_drift</code> &mdash; E-cross-B drift of an ion and an electron in uniform crossed fields. <a href="/vaft/develop/reference/diagram/#exb_drift">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.fast_magnetosonic_wave" data-catalog="api"><p><code>fast_magnetosonic_wave</code> &mdash; Fast magnetosonic polarization at $\mathbf k \perp \mathbf B_0$: compression and rarefaction. <a href="/vaft/develop/reference/diagram/#fast_magnetosonic_wave">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.field_aligned_basis" data-catalog="api"><p><code>field_aligned_basis</code> &mdash; Why a field-aligned system is simple: two coordinates are constant along the field, one follows it. <a href="/vaft/develop/reference/diagram/#field_aligned_basis">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.field_line_action_angle" data-catalog="api"><p><code>field_line_action_angle</code> &mdash; Straight-field-line coordinates are the action-angle variables of the field-line flow. <a href="/vaft/develop/reference/diagram/#field_line_action_angle">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.field_line_geometry" data-catalog="api"><p><code>field_line_geometry</code> &mdash; The same field-line structure in toroidal, cylindrical and local sheared-slab geometry. <a href="/vaft/develop/reference/diagram/#field_line_geometry">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.field_line_pitch" data-catalog="api"><p><code>field_line_pitch</code> &mdash; A field line on a toroidal surface and its field $\mathbf B = B_\phi\hat{\boldsymbol\phi} + B_\theta\hat{\boldsymbol\theta}$. <a href="/vaft/develop/reference/diagram/#field_line_pitch">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.fixed_vs_free_boundary_equilibrium" data-catalog="api"><p><code>fixed_vs_free_boundary_equilibrium</code> &mdash; The boundary as an input against the boundary as part of the solution. <a href="/vaft/develop/reference/diagram/#fixed_vs_free_boundary_equilibrium">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.flux_coordinates" data-catalog="api"><p><code>flux_coordinates</code> &mdash; Flux coordinates $(\psi, \theta, \phi)$ on a shaped cross-section. <a href="/vaft/develop/reference/diagram/#flux_coordinates">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.flux_surfaces" data-catalog="api"><p><code>flux_surfaces</code> &mdash; Nested circular flux surfaces, concentric or Shafranov-shifted. <a href="/vaft/develop/reference/diagram/#flux_surfaces">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.flux_tube_patch" data-catalog="api"><p><code>flux_tube_patch</code> &mdash; From a tokamak flux surface to a local flux tube: one surface, one line, its neighbourhood, a box. <a href="/vaft/develop/reference/diagram/#flux_tube_patch">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.geometry_ordering_map" data-catalog="api"><p><code>geometry_ordering_map</code> &mdash; Geometry and ordering are two axes, not one hierarchy. <a href="/vaft/develop/reference/diagram/#geometry_ordering_map">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.grad_shafranov_domain_decomposition" data-catalog="api"><p><code>grad_shafranov_domain_decomposition</code> &mdash; Same flux function, different sources: plasma, vacuum and coil regions of one elliptic problem. <a href="/vaft/develop/reference/diagram/#grad_shafranov_domain_decomposition">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.grid_induced_two_cycle" data-catalog="api"><p><code>grid_induced_two_cycle</code> &mdash; A numerical 2-cycle: the discrete state hops between two adjacent grid nodes. <a href="/vaft/develop/reference/diagram/#grid_induced_two_cycle">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.guiding_center_invariants" data-catalog="api"><p><code>guiding_center_invariants</code> &mdash; Gyration, bounce and toroidal drift, and the invariant each carries. <a href="/vaft/develop/reference/diagram/#guiding_center_invariants">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.harmonic_real_space_projection" data-catalog="api"><p><code>harmonic_real_space_projection</code> &mdash; From a complex coefficient to the real field it stands for, $\mathrm{Re}[\hat b\,e^{i(m\theta - n\phi)}]$. <a href="/vaft/develop/reference/diagram/#harmonic_real_space_projection">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.harris_sheet" data-catalog="api"><p><code>harris_sheet</code> &mdash; $B_y(x)$ and $J_z(x)$ of the Harris sheet on one chart. <a href="/vaft/develop/reference/diagram/#harris_sheet">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.hfs_lfs_field" data-catalog="api"><p><code>hfs_lfs_field</code> &mdash; $B_\phi \propto 1/R$: the high-field side is inboard, the low-field side outboard. <a href="/vaft/develop/reference/diagram/#hfs_lfs_field">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.hot_vde_sequence" data-catalog="api"><p><code>hot_vde_sequence</code> &mdash; A hot VDE: the plasma drifts into the wall, is scraped, and its edge $q$ falls at constant $I_p$. <a href="/vaft/develop/reference/diagram/#hot_vde_sequence">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.hugill" data-catalog="api"><p><code>hugill</code> &mdash; Hugill diagram: $1/q_\mathrm{cyl}$ against the Murakami parameter $\bar n R/B$. <a href="/vaft/develop/reference/diagram/#hugill">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.integrated_modeling_process" data-catalog="api"><p><code>integrated_modeling_process</code> &mdash; How models interact: a graph of models, data and states with typed couplings. <a href="/vaft/develop/reference/diagram/#integrated_modeling_process">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.integrated_modeling_space" data-catalog="api"><p><code>integrated_modeling_space</code> &mdash; The three axes combined: where models sit, and what character they have. <a href="/vaft/develop/reference/diagram/#integrated_modeling_space">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.internal_external_kink" data-catalog="api"><p><code>internal_external_kink</code> &mdash; Internal kink: displacement inside $q = 1$; external kink: displacement reaching the boundary. <a href="/vaft/develop/reference/diagram/#internal_external_kink">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.island_formation" data-catalog="api"><p><code>island_formation</code> &mdash; From a sheared field to a magnetic island: <code class="language-plaintext highlighter-rouge">slab_perturbed_flux</code> with growing tearing amplitude. <a href="/vaft/develop/reference/diagram/#island_formation">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.iteration_behavior" data-catalog="api"><p><code>iteration_behavior</code> &mdash; Four iteration behaviours in one format: state $x_k$ against iteration $k$. <a href="/vaft/develop/reference/diagram/#iteration_behavior">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.kink_mode" data-catalog="api"><p><code>kink_mode</code> &mdash; A prescribed $m/n$ ideal displacement drawn on an equilibrium’s own flux surfaces. <a href="/vaft/develop/reference/diagram/#kink_mode">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.knowledge_basis" data-catalog="api"><p><code>knowledge_basis</code> &mdash; Where a model’s knowledge comes from: first-principles to data-driven. <a href="/vaft/develop/reference/diagram/#knowledge_basis">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.limiter_and_diverted_topologies" data-catalog="api"><p><code>limiter_and_diverted_topologies</code> &mdash; Where the plasma ends: limiter contact against an X-point separatrix. <a href="/vaft/develop/reference/diagram/#limiter_and_diverted_topologies">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.magnetic_island" data-catalog="api"><p><code>magnetic_island</code> &mdash; Schematic of an $m/n$ magnetic island in one of three projections. <a href="/vaft/develop/reference/diagram/#magnetic_island">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.magnetic_reconnection" data-catalog="api"><p><code>magnetic_reconnection</code> &mdash; Model-neutral 2-D reconnection: inflow, outflow, diffusion region, upstream and reconnected field. <a href="/vaft/develop/reference/diagram/#magnetic_reconnection">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.magnetic_shear_field_aligned" data-catalog="api"><p><code>magnetic_shear_field_aligned</code> &mdash; Magnetic shear rotates the phase fronts of a field-aligned mode as it is followed along the line. <a href="/vaft/develop/reference/diagram/#magnetic_shear_field_aligned">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.magnetization_current" data-catalog="api"><p><code>magnetization_current</code> &mdash; Gyrating ions in a bounded region: interior currents cancel, the edge carries one. <a href="/vaft/develop/reference/diagram/#magnetization_current">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.marfe" data-catalog="api"><p><code>marfe</code> &mdash; A MARFE on the edge of an equilibrium, and Drake’s condensation condition. <a href="/vaft/develop/reference/diagram/#marfe">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.mhd_wave_family" data-catalog="api"><p><code>mhd_wave_family</code> &mdash; The Friedrichs diagram: phase speed against the angle to $\mathbf B_0$, three branches. <a href="/vaft/develop/reference/diagram/#mhd_wave_family">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.mode_number_mapping" data-catalog="api"><p><code>mode_number_mapping</code> &mdash; $(m, n) \to (k_y, k_z)$: the rational surface is where $k_\parallel = 0$. <a href="/vaft/develop/reference/diagram/#mode_number_mapping">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.nbi_neutral_attenuation" data-catalog="api"><p><code>nbi_neutral_attenuation</code> &mdash; Neutral survival and fast-ion birth along the beam path, and the shine-through at the exit. <a href="/vaft/develop/reference/diagram/#nbi_neutral_attenuation">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.nbi_particle_lifecycle" data-catalog="api"><p><code>nbi_particle_lifecycle</code> &mdash; What happens to a beam particle, and the three different ways it is lost. <a href="/vaft/develop/reference/diagram/#nbi_particle_lifecycle">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.neoclassical_collisionality" data-catalog="api"><p><code>neoclassical_collisionality</code> &mdash; Banana, plateau and Pfirsch–Schl"uter: the axisymmetric neoclassical regimes. <a href="/vaft/develop/reference/diagram/#neoclassical_collisionality">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.normal_field_component" data-catalog="api"><p><code>normal_field_component</code> &mdash; $\delta B_n = \delta\mathbf B\cdot\hat{\mathbf n}$: the part of a perturbation that crosses a surface. <a href="/vaft/develop/reference/diagram/#normal_field_component">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.ntv_collisionality" data-catalog="api"><p><code>ntv_collisionality</code> &mdash; Shaing’s NTV regimes: the non-resonant and resonant branches of the flux against collisionality. <a href="/vaft/develop/reference/diagram/#ntv_collisionality">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.ntv_precession_regimes" data-catalog="api"><p><code>ntv_precession_regimes</code> &mdash; Collisionality alone does not fix the NTV regime: the precession plane. <a href="/vaft/develop/reference/diagram/#ntv_precession_regimes">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.o_mode_cutoff" data-catalog="api"><p><code>o_mode_cutoff</code> &mdash; O-mode refractive index against frequency: propagation above $\omega_{pe}$, evanescence below. <a href="/vaft/develop/reference/diagram/#o_mode_cutoff">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.peeling_ballooning" data-catalog="api"><p><code>peeling_ballooning</code> &mdash; Schematic edge-stability (peeling-ballooning) diagram. <a href="/vaft/develop/reference/diagram/#peeling_ballooning">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.physical_abstraction" data-catalog="api"><p><code>physical_abstraction</code> &mdash; At what description level the system is represented, and how each level reduces to the next. <a href="/vaft/develop/reference/diagram/#physical_abstraction">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.plasma_vacuum_wall" data-catalog="api"><p><code>plasma_vacuum_wall</code> &mdash; One harmonic across plasma, vacuum and an ideal conducting wall. <a href="/vaft/develop/reference/diagram/#plasma_vacuum_wall">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.plasma_wall_halo_current" data-catalog="api"><p><code>plasma_wall_halo_current</code> &mdash; Wall contact in a VDE: one halo-current circuit, the eddy currents, and the force on the wall. <a href="/vaft/develop/reference/diagram/#plasma_wall_halo_current">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.plasma_wall_interaction_energy_partition" data-catalog="api"><p><code>plasma_wall_interaction_energy_partition</code> &mdash; Particle balance and energy balance, side by side: not the same bookkeeping. <a href="/vaft/develop/reference/diagram/#plasma_wall_interaction_energy_partition">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.plasma_wall_interaction_processes" data-catalog="api"><p><code>plasma_wall_interaction_processes</code> &mdash; One ion impact and its outcomes, the projectile and target species kept apart. <a href="/vaft/develop/reference/diagram/#plasma_wall_interaction_processes">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.plasma_wall_interaction_recycling" data-catalog="api"><p><code>plasma_wall_interaction_recycling</code> &mdash; Reflection, re-emission and retention as flux bookkeeping. <a href="/vaft/develop/reference/diagram/#plasma_wall_interaction_recycling">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.plasma_wall_interaction_reflection" data-catalog="api"><p><code>plasma_wall_interaction_reflection</code> &mdash; Particle reflection: incident and reflected energy and angle are separate quantities. <a href="/vaft/develop/reference/diagram/#plasma_wall_interaction_reflection">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.plasma_wall_interaction_sputtering" data-catalog="api"><p><code>plasma_wall_interaction_sputtering</code> &mdash; Physical sputtering by a light projectile: backscatter from below ejects a surface atom. <a href="/vaft/develop/reference/diagram/#plasma_wall_interaction_sputtering">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.poloidal_angle_comparison" data-catalog="api"><p><code>poloidal_angle_comparison</code> &mdash; The geometric poloidal angle and the straight-field-line angle $\theta^*$ are different coordinates. <a href="/vaft/develop/reference/diagram/#poloidal_angle_comparison">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.poloidal_flux_source_decomposition" data-catalog="api"><p><code>poloidal_flux_source_decomposition</code> &mdash; $\psi_\mathrm{plasma} + \psi_\mathrm{coil} = \psi_\mathrm{total}$: the topology belongs to the sum. <a href="/vaft/develop/reference/diagram/#poloidal_flux_source_decomposition">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.poloidal_harmonic_coupling" data-catalog="api"><p><code>poloidal_harmonic_coupling</code> &mdash; Toroidicity couples $m$ to $m \pm 1$, elongation to $m \pm 2$, at fixed $n$. <a href="/vaft/develop/reference/diagram/#poloidal_harmonic_coupling">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.profile_propagation" data-catalog="api"><p><code>profile_propagation</code> &mdash; O- and X-mode $n^2$ along the midplane of an example tokamak, with its cutoff and resonance layers. <a href="/vaft/develop/reference/diagram/#profile_propagation">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.rational_surface" data-catalog="api"><p><code>rational_surface</code> &mdash; Where a helical perturbation resonates: the rational surface $q(r_s) = m/n$. <a href="/vaft/develop/reference/diagram/#rational_surface">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.resonant_layer_matching" data-catalog="api"><p><code>resonant_layer_matching</code> &mdash; Several rational surfaces, each with a tearing and a twisting channel, matched through the outer region. <a href="/vaft/develop/reference/diagram/#resonant_layer_matching">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.ripple_well_formation" data-catalog="api"><p><code>ripple_well_formation</code> &mdash; Along a field line the ripple makes local wells where $\alpha^* &lt; 1$. <a href="/vaft/develop/reference/diagram/#ripple_well_formation">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.runaway_generation" data-catalog="api"><p><code>runaway_generation</code> &mdash; Dreicer and avalanche generation against the field, and the regimes they define. <a href="/vaft/develop/reference/diagram/#runaway_generation">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.s_alpha_ballooning" data-catalog="api"><p><code>s_alpha_ballooning</code> &mdash; First and second ballooning stability in the circular $s$-$\alpha$ model. <a href="/vaft/develop/reference/diagram/#s_alpha_ballooning">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.safety_factor_winding" data-catalog="api"><p><code>safety_factor_winding</code> &mdash; $q$ is the number of toroidal turns a field line makes per poloidal turn. <a href="/vaft/develop/reference/diagram/#safety_factor_winding">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.sawtooth" data-catalog="api"><p><code>sawtooth</code> &mdash; A reduced, Kadomtsev-like sawtooth crash in one of three states, on an equilibrium’s surfaces. <a href="/vaft/develop/reference/diagram/#sawtooth">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.separatrix_lobes" data-catalog="api"><p><code>separatrix_lobes</code> &mdash; Stable and unstable manifolds of a perturbed X-point, and the lobes between them. <a href="/vaft/develop/reference/diagram/#separatrix_lobes">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.sfl_coordinate_grids" data-catalog="api"><p><code>sfl_coordinate_grids</code> &mdash; PEST, Boozer, Hamada and equal-arc on the same equilibrium: only the angle changes. <a href="/vaft/develop/reference/diagram/#sfl_coordinate_grids">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.sfl_coordinate_taxonomy" data-catalog="api"><p><code>sfl_coordinate_taxonomy</code> &mdash; Flux coordinates, the straight-field-line condition, and what each named choice fixes. <a href="/vaft/develop/reference/diagram/#sfl_coordinate_taxonomy">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.sfl_coordinate_validity" data-catalog="api"><p><code>sfl_coordinate_validity</code> &mdash; Where nested-surface straight-field-line coordinates hold, and where they fail. <a href="/vaft/develop/reference/diagram/#sfl_coordinate_validity">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.sfl_fourier_convergence" data-catalog="api"><p><code>sfl_fourier_convergence</code> &mdash; The same physical perturbation has a different poloidal spectrum in each straight-field-line angle. <a href="/vaft/develop/reference/diagram/#sfl_fourier_convergence">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.shaping_family" data-catalog="api"><p><code>shaping_family</code> &mdash; Elongation $\kappa$ and triangularity $\delta$ on one boundary family. <a href="/vaft/develop/reference/diagram/#shaping_family">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.shear_alfven_wave" data-catalog="api"><p><code>shear_alfven_wave</code> &mdash; Shear Alfven polarization: field-line bending without compression. <a href="/vaft/develop/reference/diagram/#shear_alfven_wave">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.slab_field_configuration" data-catalog="api"><p><code>slab_field_configuration</code> &mdash; Field direction on stacked $x$ = const sheets: uniform, sheared, reversed, guide-field. <a href="/vaft/develop/reference/diagram/#slab_field_configuration">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.slab_parity" data-catalog="api"><p><code>slab_parity</code> &mdash; Tearing or twisting parity at a rational surface, as contours of the helical flux. <a href="/vaft/develop/reference/diagram/#slab_parity">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.slab_parity_comparison" data-catalog="api"><p><code>slab_parity_comparison</code> &mdash; Tearing and twisting parity side by side, with what tells them apart. <a href="/vaft/develop/reference/diagram/#slab_parity_comparison">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.spectroscopy_energy_levels" data-catalog="api"><p><code>spectroscopy_energy_levels</code> &mdash; The hydrogenic level ladder, with the Lyman, Balmer and Paschen series. <a href="/vaft/develop/reference/diagram/#spectroscopy_energy_levels">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.spectroscopy_ionization_stages" data-catalog="api"><p><code>spectroscopy_ionization_stages</code> &mdash; All ionization stages of an element, the one a term names highlighted. <a href="/vaft/develop/reference/diagram/#spectroscopy_ionization_stages">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.spectroscopy_spectrum" data-catalog="api"><p><code>spectroscopy_spectrum</code> &mdash; Declared spectral lines on a wavelength axis, each at the wavelength its label states. <a href="/vaft/develop/reference/diagram/#spectroscopy_spectrum">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.spectroscopy_transitions" data-catalog="api"><p><code>spectroscopy_transitions</code> &mdash; The transition behind one emission term, with no more metadata than exists. <a href="/vaft/develop/reference/diagram/#spectroscopy_transitions">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.stochastic_layer" data-catalog="api"><p><code>stochastic_layer</code> &mdash; Island overlap on an equilibrium: a Poincare section of two resonant harmonics. <a href="/vaft/develop/reference/diagram/#stochastic_layer">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.stochastic_ripple_orbit" data-catalog="api"><p><code>stochastic_ripple_orbit</code> &mdash; Ripple kicks at successive banana tips decorrelate above the GWB threshold. <a href="/vaft/develop/reference/diagram/#stochastic_ripple_orbit">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.tearing_layer_matching" data-catalog="api"><p><code>tearing_layer_matching</code> &mdash; Why tearing theory splits the plasma into ideal outer regions and a thin inner layer. <a href="/vaft/develop/reference/diagram/#tearing_layer_matching">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.tokamak_torus" data-catalog="api"><p><code>tokamak_torus</code> &mdash; The tokamak torus: major radius $R_0$, minor radius $a$, toroidal $\phi$ and poloidal $\theta$. <a href="/vaft/develop/reference/diagram/#tokamak_torus">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.toroidal_drift" data-catalog="api"><p><code>toroidal_drift</code> &mdash; Why a purely toroidal field cannot confine a plasma. <a href="/vaft/develop/reference/diagram/#toroidal_drift">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.toroidal_field_ripple" data-catalog="api"><p><code>toroidal_field_ripple</code> &mdash; $N_\mathrm{TF}$ discrete coils corrugate $B(\phi)$ around the smooth $1/R$ field. <a href="/vaft/develop/reference/diagram/#toroidal_field_ripple">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.toroidal_harmonic_phase" data-catalog="api"><p><code>toroidal_harmonic_phase</code> &mdash; The toroidal mode number is the rate at which the phase winds around the torus. <a href="/vaft/develop/reference/diagram/#toroidal_harmonic_phase">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.toroidal_symmetry_breaking" data-catalog="api"><p><code>toroidal_symmetry_breaking</code> &mdash; Axisymmetry keeps $P_\phi$; a 3-D field changes it, secularly only at resonance. <a href="/vaft/develop/reference/diagram/#toroidal_symmetry_breaking">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.trapped_and_passing_orbits" data-catalog="api"><p><code>trapped_and_passing_orbits</code> &mdash; The $1/R$ mirror: passing orbits go round, trapped ones bounce as bananas. <a href="/vaft/develop/reference/diagram/#trapped_and_passing_orbits">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.troyon" data-catalog="api"><p><code>troyon</code> &mdash; Troyon diagram: toroidal beta against the normalised current $I_p/(aB_T)$. <a href="/vaft/develop/reference/diagram/#troyon">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.unwrapped_flux_surface" data-catalog="api"><p><code>unwrapped_flux_surface</code> &mdash; On an unwrapped flux surface a field line is straight in $(\theta^<em>, \phi)$: $d\phi/d\theta^</em> = q$. <a href="/vaft/develop/reference/diagram/#unwrapped_flux_surface">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.vde_timescales" data-catalog="api"><p><code>vde_timescales</code> &mdash; The VDE’s timescales on one log axis, for one parameter set. <a href="/vaft/develop/reference/diagram/#vde_timescales">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.wall_conditioning_baking" data-catalog="api"><p><code>wall_conditioning_baking</code> &mdash; Baking: external heat desorbs water and gases from the wall into the pump. <a href="/vaft/develop/reference/diagram/#wall_conditioning_baking">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.wall_conditioning_boronization" data-catalog="api"><p><code>wall_conditioning_boronization</code> &mdash; Boronization: a B-containing precursor in a deposition plasma coats the wall. <a href="/vaft/develop/reference/diagram/#wall_conditioning_boronization">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.wall_conditioning_gdc" data-catalog="api"><p><code>wall_conditioning_gdc</code> &mdash; Glow-discharge cleaning: one apparatus template, gas-specific content. <a href="/vaft/develop/reference/diagram/#wall_conditioning_gdc">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.wall_conditioning_sequence" data-catalog="api"><p><code>wall_conditioning_sequence</code> &mdash; Conditioning stages in order, each a transition of the wall state. <a href="/vaft/develop/reference/diagram/#wall_conditioning_sequence">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.x_mode_dispersion" data-catalog="api"><p><code>x_mode_dispersion</code> &mdash; X-mode refractive index against frequency: two cutoffs, the upper-hybrid resonance and two gaps. <a href="/vaft/develop/reference/diagram/#x_mode_dispersion">Reference</a></p></div>
+  <div class="api-link ref-entry" id="vaft.diagram.x_point" data-catalog="api"><p><code>x_point</code> &mdash; The current-free magnetic X-point of <code class="language-plaintext highlighter-rouge">x_point_flux</code>: four branches and two separatrices. <a href="/vaft/develop/reference/diagram/#x_point">Reference</a></p></div>
+</div>
+
+<h2 id="undeclared">Modules without a declared public surface</h2>
+
+<p>These modules declare no <code class="language-plaintext highlighter-rouge">__all__</code>, so this reference cannot tell what they publish and lists nothing
+from them (<code class="language-plaintext highlighter-rouge">docs/api_inventory.yml</code>). Some are reached through a package that re-exports them
+without an <code class="language-plaintext highlighter-rouge">__all__</code> of its own – <code class="language-plaintext highlighter-rouge">vaft.omas</code> star-imports several – and are described in the
+hand-written guides until they declare one:
+<code class="language-plaintext highlighter-rouge">vaft.diagram.build</code>, <code class="language-plaintext highlighter-rouge">vaft.diagram.docs_catalog</code>.</p>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/api/plot/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: API: vaft.plot">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/api/validation/" class="navigation navigation-next navigation-unique" aria-label="Next page: API: vaft.validation">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#undeclared" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Modules without a declared public surface</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "API: vaft.validation",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Api_reference_validation.md",
+            "ref": "_guide/Api_reference_validation.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Api_reference_diagram.md",
+        "mtime": "2026-09-29 10:09:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-09-30 05:11:01 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>
