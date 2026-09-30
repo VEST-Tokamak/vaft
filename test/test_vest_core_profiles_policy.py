@@ -76,7 +76,7 @@ def test_text_records_name_value_status_and_source():
     policy = vest_core_profiles_policy(48224)
 
     assert policy.ti_te_ratio_text() == (
-        "ti_te_ratio=0.17; sigma=0.08; status=inferred; "
+        "ti_te_ratio=1; sigma=0.5; status=assumed; "
         "source=vest.yaml:diagnostics.core_profiles; base"
     )
     unknown = vest_core_profiles_policy(None)
@@ -136,7 +136,7 @@ def test_policy_is_part_of_the_shot_provenance_report():
 
     report = vest_processing_provenance(48224)
     assert report["core_profiles"]["coordinate"] == "rho_tor_norm"
-    assert report["core_profiles"]["ti_te_ratio"]["status"] == "inferred"
+    assert report["core_profiles"]["ti_te_ratio"]["status"] == "assumed"
 
 
 # --- the layering ---------------------------------------------------------------
