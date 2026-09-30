@@ -130,7 +130,9 @@ efit:
   # (#805); a shot of the base table's era uses this directory as is, and a
   # shot of any other era uses a table built once per era by rule
   # generate_efit_table (EFUND, ~3 min and ~170 MB at 129x129, under
-  # <base_dir>/pipeline/efit_tables/) with this table's grid and flags.
+  # <base_dir>/pipeline/efit_tables/, or <base_dir>/efit_tables/ with
+  # layout: shot_first) with this table's grid and flags. Replacing this
+  # table rebuilds them; moving it, efund or efund_timeout does not.
   # `era_tables: false` turns that off; such shots are then refused.
   table_dir: ${VAFT_DATA_DIR}/efit/
   era_tables: true

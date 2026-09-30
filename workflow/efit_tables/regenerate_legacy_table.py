@@ -109,22 +109,33 @@ def main(argv: list[str] | None = None) -> int:
     # EFIT also reads `lim.dat` from the same directory. Without it the
     # directory is not runnable -- EFIT dies in `read_limiter.f90` naming the
     # file (#805) -- so `generate_era_table` writes it from the era's wall.
-    result = generate_era_table(
-        args.era,
-        output,
-        config=config,
-        base_table_dir=data_path("efit"),
-        acceptance_envelope=not args.no_acceptance_envelope,
-        label=args.label,
-        extra={"generator": "workflow/efit_tables/regenerate_legacy_table.py"},
-    )
+    try:
+        result = generate_era_table(
+            args.era,
+            output,
+            config=config,
+            base_table_dir=data_path("efit"),
+            acceptance_envelope=not args.no_acceptance_envelope,
+            label=args.label,
+            extra={"generator": "workflow/efit_tables/regenerate_legacy_table.py"},
+        )
+    except (FileExistsError, ValueError) as error:
+        # An existing table, a non-empty directory, or a path too long for
+        # EFIT's TABLE_DIR: all things the operator decides, not tracebacks.
+        print(f"refused: {error}", file=sys.stderr)
+        return 2
     print(f"efund: status {result.status} returncode {result.returncode}")
     if not result.ok:
         print(f"  reason: {result.reason}", file=sys.stderr)
+        for log in result.logs:
+            print(f"  log: {log}", file=sys.stderr)
         return 1
     path = result.manifest
     payload = json.loads(path.read_text(encoding="utf-8"))
     print(f"manifest: {path}")
+    print(f"input: {payload['efund']['input']['name']} sha256 {payload['efund']['input']['sha256'][:12]} "
+          f"counts {payload['machine']['counts']}")
+    print(f"built in {payload['extra']['seconds']:.0f} s")
     print(f"table identity: {payload['table']['identity']}")
     for name, record in payload["table"]["files"].items():
         print(f"  {name:14s} {record['size']:>12d} bytes  sha256 {record['sha256'][:12]}")

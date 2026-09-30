@@ -29,11 +29,12 @@ import os
 import struct
 import subprocess
 import time
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from numbers import Integral
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Iterator, Mapping, Optional, Sequence
 
 import f90nml
 import numpy as np
@@ -55,6 +56,7 @@ __all__ = [
     "LIMITER_NAME",
     "MHDIN_NAME",
     "TABLE_DIR_MAX_CHARS",
+    "TableExistsError",
     "TABLE_MANIFEST_NAME",
     "collect_efund_outputs",
     "efund_config_from_manifest",
@@ -902,6 +904,33 @@ def write_limiter_file(static_ods: Any, path: str | os.PathLike[str]) -> Path:
     return target
 
 
+class TableExistsError(FileExistsError):
+    """The destination already holds a complete table (it has a manifest)."""
+
+
+@contextmanager
+def _exclusive(lock_path: Path) -> Iterator[None]:
+    """Hold an exclusive lock on ``lock_path`` for the duration.
+
+    Two pipeline processes that share a FileDB may both find an era's table
+    missing; without it the second to finish would delete the first one's
+    complete table -- possibly while a constraint job reads it -- and replace
+    it with a new mtime.  POSIX only: on Windows the build is unlocked.
+    """
+    try:
+        import fcntl
+    except ImportError:  # pragma: no cover - Windows
+        yield
+        return
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
 def generate_era_table(
     era: str,
     output: str | os.PathLike[str],
@@ -923,22 +952,23 @@ def generate_era_table(
 
     The directory is built beside ``output`` and renamed into place once it
     holds a manifest, so ``output`` is either absent or a complete table --
-    never a half-written one an interrupted run left behind.  A failed EFUND
-    run returns its result with ``output`` untouched.
+    never a half-written one an interrupted run left behind.  The build holds
+    a lock beside ``output``, so a second builder waits and then finds the
+    table present (:class:`TableExistsError`).  A failed EFUND run leaves
+    ``output`` untouched and its logs in ``<output>.failed-logs``; the staging
+    directory, some 170 MB at 129x129, is removed either way.
 
     An ``output`` that exists without a manifest is refused unless it is empty
     or ``replace_incomplete`` is set -- by a caller that owns the directory,
     such as the pipeline rule, whose cleanup removes only the manifest.
     """
+    import shutil
+
     from vaft.machine_mapping.efund_geometry import vest_acceptance_envelope
     from vaft.omas.vest_upstream import build_static_ods
 
     final = Path(output).expanduser()
     table_dir_text(final)
-    if (final / TABLE_MANIFEST_NAME).is_file():
-        raise FileExistsError(f"{final} already holds a table; remove it to regenerate")
-    if final.is_dir() and any(final.iterdir()) and not replace_incomplete:
-        raise FileExistsError(f"{final} is not empty and holds no table manifest; refusing to replace it")
     if config is None:
         if base_table_dir is None:
             config = EFUNDConfig()
@@ -948,56 +978,75 @@ def generate_era_table(
                 raise ValueError(f"{base_table_dir} has no {TABLE_MANIFEST_NAME} to take the EFUND configuration from")
             config = efund_config_from_manifest(base)
 
-    staging = final.with_name(f".{final.name}.partial-{os.getpid()}")
-    if staging.exists():
-        import shutil
+    with _exclusive(final.with_name(f".{final.name}.lock")):
+        if (final / TABLE_MANIFEST_NAME).is_file():
+            raise TableExistsError(f"{final} already holds a table; remove it to regenerate")
+        if final.is_dir() and any(final.iterdir()) and not replace_incomplete:
+            raise FileExistsError(f"{final} is not empty and holds no table manifest; refusing to replace it")
 
-        shutil.rmtree(staging)
-    config = EFUNDConfig(**{**_config_fields(config), "workdir": staging})
+        staging = final.with_name(f".{final.name}.partial-{os.getpid()}")
+        if staging.exists():
+            shutil.rmtree(staging)
+        config = EFUNDConfig(**{**_config_fields(config), "workdir": staging})
+        try:
+            started = time.perf_counter()
+            ods, static_manifest = build_static_ods(era)
+            envelope = (
+                vest_acceptance_envelope(ods, nw=config.nw, rleft=config.rleft, rright=config.rright)
+                if acceptance_envelope
+                else None
+            )
+            inputs = prepare_efund_inputs(ods, config, manifest=static_manifest, envelope=envelope)
+            result = run_efund(inputs, config)
+            if not result.ok:
+                result.logs = _keep_failure_logs(result.logs, final.with_name(f"{final.name}.failed-logs"))
+                return result
+            write_table_manifest(
+                result,
+                inputs,
+                config,
+                label=label or f"{era}-{config.table_suffix}",
+                extra={
+                    **(dict(extra) if extra else {}),
+                    "limiter": "lim.dat written from the era's static ODS wall limiter",
+                    "seconds": time.perf_counter() - started,
+                },
+            )
+            write_limiter_file(ods, staging / LIMITER_NAME)
+            if base_table_dir is not None:
+                for name in REFERENCE_COMPANIONS:
+                    origin = Path(base_table_dir).expanduser() / name
+                    if origin.is_file():
+                        shutil.copy2(origin, staging / name)
 
-    started = time.perf_counter()
-    ods, static_manifest = build_static_ods(era)
-    envelope = (
-        vest_acceptance_envelope(ods, nw=config.nw, rleft=config.rleft, rright=config.rright)
-        if acceptance_envelope
-        else None
-    )
-    inputs = prepare_efund_inputs(ods, config, manifest=static_manifest, envelope=envelope)
-    result = run_efund(inputs, config)
-    if not result.ok:
-        return result
-    write_table_manifest(
-        result,
-        inputs,
-        config,
-        label=label or f"{era}-{config.table_suffix}",
-        extra={
-            **(dict(extra) if extra else {}),
-            "limiter": "lim.dat written from the era's static ODS wall limiter",
-            "seconds": time.perf_counter() - started,
-        },
-    )
-    write_limiter_file(ods, staging / LIMITER_NAME)
-    if base_table_dir is not None:
-        import shutil
-
-        for name in REFERENCE_COMPANIONS:
-            origin = Path(base_table_dir).expanduser() / name
-            if origin.is_file():
-                shutil.copy2(origin, staging / name)
-
-    if final.exists():
-        # Empty, or incomplete and the caller owns it (checked above).
-        import shutil
-
-        shutil.rmtree(final)
-    final.parent.mkdir(parents=True, exist_ok=True)
-    os.replace(staging, final)
+            if final.exists():
+                # Empty, or incomplete and the caller owns it (checked above).
+                shutil.rmtree(final)
+            final.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(staging, final)
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
     result.workdir = final
     result.manifest = final / TABLE_MANIFEST_NAME
     result.files = {name: final / Path(path).name for name, path in result.files.items()}
     result.logs = tuple(final / Path(path).name for path in result.logs)
     return result
+
+
+def _keep_failure_logs(logs: Sequence[Path], destination: Path) -> tuple[Path, ...]:
+    """Copy a failed run's logs out of the staging directory before it is removed."""
+    import shutil
+
+    kept: list[Path] = []
+    for log in logs:
+        log = Path(log)
+        if log.is_file():
+            destination.mkdir(parents=True, exist_ok=True)
+            target = destination / log.name
+            shutil.copy2(log, target)
+            kept.append(target)
+    return tuple(kept)
 
 
 def _config_fields(config: EFUNDConfig) -> dict[str, Any]:

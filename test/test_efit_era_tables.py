@@ -134,9 +134,9 @@ def test_a_table_is_built_for_the_requested_era_and_renamed_into_place(monkeypat
     for name in (E.MHDIN_NAME, E.LIMITER_NAME, "dprobe.dat", *result.files):
         assert (output / name).is_file(), name
     assert all(Path(path).parent == output for path in result.files.values())
-    assert [p.name for p in output.parent.iterdir()] == [output.name]  # no staging left
+    assert sorted(p.name for p in output.parent.iterdir() if not p.name.endswith(".lock")) == [output.name]
 
-    with pytest.raises(FileExistsError, match="already holds a table"):
+    with pytest.raises(E.TableExistsError, match="already holds a table"):
         E.generate_era_table(PF2507_ERA, output, config=config, base_table_dir=packaged, acceptance_envelope=False)
 
 
@@ -146,6 +146,8 @@ def test_a_failed_efund_run_leaves_no_table_behind(monkeypatch, packaged, short_
     result = E.generate_era_table(PF2507_ERA, output, config=E.EFUNDConfig(nw=5, nh=5), base_table_dir=packaged, acceptance_envelope=False)
     assert not result.ok
     assert not output.exists()
+    # The ~170 MB staging directory does not outlive a failed run.
+    assert not [p for p in output.parent.iterdir() if ".partial-" in p.name]
 
 
 def test_an_incomplete_directory_is_replaced_only_by_its_owner(monkeypatch, packaged, short_tmp):
@@ -245,3 +247,36 @@ def test_the_pipeline_script_builds_from_the_base_configuration(monkeypatch, pac
     assert manifest["machine"]["era"] == PF2507_ERA
     assert manifest["efund"]["config_sha256"] == E.read_table_manifest(packaged)["efund"]["config_sha256"]
     assert manifest["extra"]["configuration_from"]["identity"] == E.table_identity(packaged)["identity"]
+
+
+def test_a_failed_runs_logs_are_kept_outside_the_removed_staging(monkeypatch, packaged, short_tmp):
+    def run(inputs, config):
+        workdir = Path(config.workdir)
+        (workdir / E.EFUND_STDOUT_NAME).write_text("efund said no\n")
+        result = E.collect_efund_outputs(workdir, config, inputs.counts, returncode=1)
+        result.logs = (workdir / E.EFUND_STDOUT_NAME,)
+        return result
+
+    monkeypatch.setattr(E, "run_efund", run)
+    output = short_tmp / "t"
+    result = E.generate_era_table(
+        PF2507_ERA, output, config=E.EFUNDConfig(nw=5, nh=5), base_table_dir=packaged, acceptance_envelope=False
+    )
+    (log,) = result.logs
+    assert log.parent == short_tmp / "t.failed-logs" and log.read_text() == "efund said no\n"
+
+
+def test_a_table_another_process_finished_meanwhile_is_success_for_the_rule(monkeypatch, packaged, short_tmp):
+    """The pipeline script treats TableExistsError as done, not as a failure."""
+    import runpy
+    import sys
+
+    _stand_in_efund(monkeypatch)
+    output = short_tmp / f"{PF2507_ERA}-129129"
+    argv = ["generate_efit_table.py", "--era", PF2507_ERA, "--base-table-dir", str(packaged),
+            "--output-dir", str(output)]
+    for _ in range(2):
+        monkeypatch.setattr(sys, "argv", argv)
+        with pytest.raises(SystemExit) as exit_info:
+            runpy.run_path(str(WORKFLOW / "generate_efit_table.py"), run_name="__main__")
+        assert exit_info.value.code == 0

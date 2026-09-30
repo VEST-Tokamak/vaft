@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from vaft.code.efit.efund import (
+    TableExistsError,
     efund_config_from_manifest,
     generate_era_table,
     read_table_manifest,
@@ -46,19 +47,25 @@ def main(argv: list[str] | None = None) -> int:
     config = efund_config_from_manifest(base, **overrides)
     LOGGER.info("building the %s table (%s x %s) into %s", args.era, config.nw, config.nh, args.output_dir)
 
-    result = generate_era_table(
-        args.era,
-        args.output_dir,
-        config=config,
-        base_table_dir=args.base_table_dir,
-        # The directory is this rule's own output: Snakemake's cleanup before a
-        # rerun removes only the manifest, so what is left is ours to replace.
-        replace_incomplete=True,
-        extra={
-            "generator": "workflow/automatic_pipeline_1_routine_data_processing/generate_efit_table.py",
-            "configuration_from": table_identity(args.base_table_dir),
-        },
-    )
+    try:
+        result = generate_era_table(
+            args.era,
+            args.output_dir,
+            config=config,
+            base_table_dir=args.base_table_dir,
+            # The directory is this rule's own output: Snakemake's cleanup before a
+            # rerun removes only the manifest, so what is left is ours to replace.
+            replace_incomplete=True,
+            extra={
+                "generator": "workflow/automatic_pipeline_1_routine_data_processing/generate_efit_table.py",
+                "configuration_from": table_identity(args.base_table_dir),
+            },
+        )
+    except TableExistsError:
+        # Another pipeline process sharing this FileDB built it while this one
+        # waited for the lock: the output exists and is complete.
+        LOGGER.info("table already built by another process: %s", args.output_dir)
+        return 0
     if not result.ok:
         LOGGER.error("efund %s: %s", result.status, result.reason)
         for path in result.logs:

@@ -248,7 +248,10 @@ def select_efit_table(
     every shot gets the base table and the constraint stage's era check
     (#805) refuses the mismatches, as before.
     """
-    if not era_tables or base_era is None or suffix is None or shot_era == base_era:
+    # Falsy, not just None: the Snakefile defines the table rule only for a
+    # base table that names an era and a suffix, and asking for a table no
+    # rule can build would fail the whole DAG.
+    if not era_tables or not base_era or not suffix or shot_era == base_era:
         return base_table_dir, []
     directory = paths.efit_table_dir(shot_era, suffix)
     return directory + "/", [paths.efit_table_manifest(shot_era, suffix)]
