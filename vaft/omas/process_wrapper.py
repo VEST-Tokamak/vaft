@@ -4743,10 +4743,26 @@ def compute_romero_flux_balance_ods(
     )
     from vaft.process.equilibrium import as_equilibrium, romero_flux_balance
 
-    times = np.asarray(ods["equilibrium.time"], dtype=float)
+    # Read by membership: on a consistency_check=False ODS a bare subscript
+    # of a missing leaf attaches an empty node that `in` and flat() then hide
+    # but keys() and save() show. Slices that carry their own `time` are the
+    # fallback; a slice without either is NaN and falls out of the selection.
+    if "equilibrium.time" in ods:
+        times = np.asarray(ods["equilibrium.time"], dtype=float).reshape(-1)
+    elif "equilibrium.time_slice" in ods:
+        slices = ods["equilibrium.time_slice"]
+        times = np.asarray(
+            [
+                float(slices[i]["time"]) if "time" in slices[i] else np.nan
+                for i in range(len(slices))
+            ],
+            dtype=float,
+        )
+    else:
+        times = np.asarray([], dtype=float)
     selected = [
         i for i, t in enumerate(times)
-        if time_range is None or (time_range[0] <= t <= time_range[1])
+        if np.isfinite(t) and (time_range is None or (time_range[0] <= t <= time_range[1]))
     ]
     if len(selected) < 3:
         raise ValueError(
