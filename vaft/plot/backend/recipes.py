@@ -4728,11 +4728,17 @@ def _build_machine_3d(ods: Any, *, time_slice: int = 0, **_: Any) -> Geometry3DL
             ))
             labelled_pf = True
     if _count(ods, "coils_non_axisymmetric.coil"):
+        # The composed scene is drawable without the coils, but a coil set
+        # the dedicated coil_3d_geometry3d view refuses must not vanish from
+        # it silently: the exported scene would simply lack them.
         try:
             coils = _build_coils_non_axisymmetric_3d(ods)
-        except ValueError:
-            coils = None
-        if coils is not None:
+        except ValueError as exc:
+            warnings.warn(
+                f"machine_geometry3d: coils_non_axisymmetric skipped ({exc})",
+                UserWarning, stacklevel=2,
+            )
+        else:
             layers.extend(replace(layer, group=f"machine/{layer.group}") for layer in coils.layers)
     boundary_r = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
     boundary_z = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
