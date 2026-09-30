@@ -1,7 +1,7 @@
 ---
 title: Equilibrium representations
 author: VEST team
-date: 2026-09-30 09:00
+date: 2026-09-28 09:00
 category: guide
 layout: post
 permalink: /reference/equilibrium-representations/
