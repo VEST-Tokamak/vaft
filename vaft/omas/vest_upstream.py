@@ -2031,6 +2031,58 @@ def _has_kinetic_slice(ods: ODS) -> bool:
     )
 
 
+def usable_equilibrium_times_ms(solution: Any) -> np.ndarray | None:
+    """Times [ms] of the slices the EFIT collection judged ``usable``.
+
+    ``None`` when the product records no per-slice verdict (written before the
+    collection stored one, or not an EFIT product), so a caller can tell "no
+    verdicts" from "no usable slice".
+    """
+    try:
+        payload = json.loads(str(solution["equilibrium.code.parameters"]))
+        statuses = payload["efit_collection"]["slice_statuses"]
+    except Exception:  # noqa: BLE001 - absent or older payloads carry no verdicts
+        return None
+    return np.asarray(
+        [1e3 * float(entry["time"]) for entry in statuses if entry.get("overall_status") == "usable"],
+        dtype=float,
+    )
+
+
+def choose_profile_time(
+    profile_times_ms: np.ndarray,
+    eq_times_ms: np.ndarray,
+    usable_eq_times_ms: np.ndarray | None,
+    *,
+    tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+) -> tuple[float, str]:
+    """The profile time to reconstruct at, and why it was chosen.
+
+    The best-aligned slice, not the first one: which profile time comes first
+    says nothing about which has an equilibrium to reconstruct against.  Among
+    the aligned ones, a slice whose magnetic equilibrium the collection judged
+    ``usable`` wins -- when Thomson and EFIT share a millisecond grid every
+    profile time is aligned, and the first of them was 39915 @ 312 ms, a
+    negative-pressure slice the kinetic fit could not converge from (#1331).
+    Falls back to the best-aligned slice when no aligned one is usable or the
+    product records no verdicts; the returned reason says which happened.
+    """
+    profile = np.asarray(profile_times_ms, dtype=float).reshape(-1)
+    eq = np.asarray(eq_times_ms, dtype=float).reshape(-1)
+    distance = np.abs(profile[:, None] - eq[None, :])
+    offsets = distance.min(axis=1)
+    best = float(profile[int(np.argmin(offsets))])
+    if usable_eq_times_ms is None:
+        return best, "aligned (no per-slice verdicts)"
+    usable = np.asarray(usable_eq_times_ms, dtype=float).reshape(-1)
+    nearest = eq[distance.argmin(axis=1)]
+    good = (offsets <= tolerance_ms) & np.isin(np.round(nearest, 3), np.round(usable, 3))
+    if not good.any():
+        return best, "aligned (no aligned slice is usable)"
+    candidates = np.flatnonzero(good)
+    return float(profile[candidates[int(np.argmin(offsets[candidates]))]]), "aligned and usable"
+
+
 def build_kinetic_efit_ods(
     *,
     shot: int,
@@ -2173,12 +2225,13 @@ def build_kinetic_efit_ods(
         profile_times = _time_array_ms(ods, "core_profiles.time")
         if profile_times is None:
             return unavailable("no core_profiles slice to reconstruct at")
-        # The best-aligned slice, not the first one. Which profile time happens
-        # to come first says nothing about which has an equilibrium to be
-        # reconstructed against, and with a sub-millisecond tolerance an
-        # arbitrary choice refuses shots a better-aligned slice would serve.
-        offsets = np.min(np.abs(profile_times[:, None] - eq_times[None, :]), axis=1)
-        time_ms = float(profile_times[int(np.argmin(offsets))])
+        time_ms, choice = choose_profile_time(
+            profile_times, eq_times, usable_equilibrium_times_ms(solution),
+            tolerance_ms=equilibrium_tolerance_ms,
+        )
+        manifest["configuration"]["time_choice"] = choice
+    else:
+        manifest["configuration"]["time_choice"] = "caller"
 
     time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
     manifest["configuration"]["time_ms"] = float(time_ms)

@@ -186,3 +186,30 @@ def test_the_core_profile_psi_grid_is_the_equilibrium_s_own_weber(tmp_path):
     ts = source["equilibrium.time_slice.0"]
     assert grid[0] == pytest.approx(float(ts["global_quantities.psi_axis"]), rel=1e-6)
     assert grid[-1] == pytest.approx(float(ts["global_quantities.psi_boundary"]), rel=1e-6)
+
+
+def test_an_aligned_usable_slice_wins_over_an_earlier_aligned_failed_one():
+    """#1331: Thomson and EFIT share a 1 ms grid on 39915, so every profile time
+    is aligned; the first was 312 ms, a negative-pressure slice the kinetic fit
+    never converged from, while 316 ms converges at scale 1.0."""
+    profile = np.arange(308.0, 318.0)
+    eq = np.arange(312.0, 329.0)
+    usable = np.arange(315.0, 325.0)
+    time_ms, why = vu.choose_profile_time(profile, eq, usable)
+    assert time_ms == 315.0 and why == "aligned and usable"
+
+
+def test_without_verdicts_or_usable_slices_the_best_aligned_time_is_kept():
+    profile, eq = np.array([306.0, 307.0]), np.array([308.0, 309.0, 311.0])
+    assert vu.choose_profile_time(profile, eq, None) == (307.0, "aligned (no per-slice verdicts)")
+    assert vu.choose_profile_time(profile, eq, np.array([311.0])) == (307.0, "aligned (no aligned slice is usable)")
+
+
+def test_usable_times_are_read_from_the_efit_collection_record():
+    import json
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.code.parameters"] = json.dumps({"efit_collection": {"slice_statuses": [
+        {"time": 0.315, "overall_status": "usable"}, {"time": 0.312, "overall_status": "physical_failed"}]}})
+    assert vu.usable_equilibrium_times_ms(ods).tolist() == [315.0]
+    assert vu.usable_equilibrium_times_ms(ODS(consistency_check=False)) is None
