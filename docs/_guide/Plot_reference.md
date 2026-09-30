@@ -43,6 +43,32 @@ print(vaft.omas.available_plots(ods))              # what this input can draw
 vaft.omas.plot_plasma_current_time(ods, yunit="kA")
 ```
 
+### One plot, three presentations
+
+A plot that has a slice control (`time_slice`, a camera's `frame_index`, the PF programme's
+`time_index`) can be presented three ways. They share every plot keyword; only the choice of state
+differs: one index, a slider over all of them, or a sequence:
+
+```python
+vaft.omas.plot_camera_visible_image(ods, frame_index=120)                    # one state: a figure
+vaft.omas.plot_camera_visible_image(ods, interactive=True)                   # a slider over the states
+movie = vaft.omas.plot_camera_visible_image(ods, time_range=(0.3095, 0.3105), animation=True, fps=10)
+movie.save("camera.mp4")                                                     # or .webm, .gif
+```
+
+`animation=True` animates the same slice control the slider moves. It draws exactly the selected
+states, one frame each, with no interpolation. The whole sequence uses one colour scale.
+
+The **scientific coordinate is not the playback time**:
+
+- `fps=` or `duration=` sets only how fast the frames are shown.
+- Each frame's physical time is written to `movie.metadata` and to the `camera.mp4.json` sidecar.
+
+The **output suffix picks the writer**, and no backend name appears in the call:
+
+- `.mp4`/`.webm` need the optional `vaft[video]` extra (PyAV).
+- `.gif` needs nothing beyond Matplotlib.
+
 ## Index
 
 <div class="ref-index" data-ref-index>

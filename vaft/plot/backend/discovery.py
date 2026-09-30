@@ -897,6 +897,18 @@ def _times_block(ods: Any, recipe: Any) -> dict[str, Any]:
     return {}
 
 
+def _camera_frame_stamps(ods: Any, channel: int = 0, detector: int = 0) -> list[float] | None:
+    """Each stored frame's own ``time``, or ``None`` when any frame lacks one."""
+    base = f"camera_visible.channel.{channel}.detector.{detector}.frame"
+    stamps = []
+    for index in range(_count(ods, base)):
+        try:
+            stamps.append(float(ods[f"{base}.{index}.time"]))
+        except (KeyError, TypeError, ValueError):
+            return None
+    return stamps
+
+
 def _camera_frames_block(ods: Any, channel: int = 0, detector: int = 0) -> dict[str, Any]:
     """The stored camera frames a frame plot can step through.
 
@@ -906,23 +918,55 @@ def _camera_frames_block(ods: Any, channel: int = 0, detector: int = 0) -> dict[
     frames already in the ODS redraws one of them at a time.  Times come from
     each frame's own ``time``, which is what the recipe's ``time=`` snaps to.
     """
-    base = f"camera_visible.channel.{channel}.detector.{detector}.frame"
-    count = _count(ods, base)
-    if count < 2:
+    stamps = _camera_frame_stamps(ods, channel, detector)
+    if not stamps or len(stamps) < 2:
         return {}
-    stamps = []
-    for index in range(count):
-        try:
-            stamps.append(float(ods[f"{base}.{index}.time"]))
-        except (KeyError, TypeError, ValueError):
-            return {}
     return {
         "start": stamps[0],
         "stop": stamps[-1],
-        "count": count,
+        "count": len(stamps),
         "option": "frame_index",
         "selected": 0,
     }
+
+
+def sequence_values(
+    name: str, entries: Sequence[tuple[str, Any]], option: str, **options: Any
+) -> tuple[str, str | None, np.ndarray]:
+    """``(coordinate, unit, values)``: the physical value of every state of plot ``name``'s slice control.
+
+    The per-state counterpart of the ``times``/``slices`` blocks, resolved for
+    the options of one call (a camera ``channel=`` has its own frames) and
+    kept out of the record so a listing stays small.  It dispatches on the
+    plot, by the same rules :func:`_evaluate` attaches those blocks with,
+    never on the selector's name alone: two plots can both page a
+    ``time_index`` along different time bases (issue #1380), and labelling
+    one with the other's stamps is the index-for-time pairing VAFT keeps
+    getting wrong.  A plot with a slice control and no entry here is refused
+    (``animation=True`` needs every frame's time; see #1050).
+    """
+    from .recipes import _array
+
+    ods = entries[0][1]
+    if option == "time_slice" and _takes_time_slice(name):
+        from .recipes import slice_times
+
+        values = slice_times(ods, _slice_container(name))
+        return "time", "s", np.asarray(values, dtype=float)
+    if option == "time_index" and name in ("vacuum_field", "vacuum_field_midplane"):
+        return "time", "s", np.asarray(_array(ods, "pf_active.time"), dtype=float)
+    if option == "frame_index" and name.startswith("camera_visible_image"):
+        channel, detector = int(options.get("channel", 0)), int(options.get("detector", 0))
+        stamps = _camera_frame_stamps(ods, channel, detector)
+        if stamps is None:
+            raise ValueError(
+                f"camera_visible.channel.{channel}.detector.{detector} has a frame without a time"
+            )
+        return "time", "s", np.asarray(stamps, dtype=float)
+    raise NotImplementedError(
+        f"plot {name!r} offers a {option!r} control but declares no per-state values; "
+        "sequence_values in vaft.plot.backend.discovery must learn its axis (issue #1380)"
+    )
 
 
 def _pf_samples_block(ods: Any) -> dict[str, Any]:
