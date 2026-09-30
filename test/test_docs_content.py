@@ -117,6 +117,16 @@ def test_the_installation_page_counts_the_extras_it_tabulates():
     assert sorted(rows) == sorted(extras), f"the extras table lists {rows}, pyproject.toml {extras}"
 
 
+def test_the_machine_mapping_coverage_table_names_files_that_exist():
+    """``pulse_schedule.py`` for a package (cold review 0.8.0 docs-and-tutorials F6)."""
+    text = (DOCS / "_guide" / "Machine_mapping.md").read_text(encoding="utf-8")
+    section = text.split("# Coverage: which IDS, which module", 1)[1]
+    rows = re.findall(r"^\| `([a-z_]+)` \| `([A-Za-z0-9_/.]+)` \|", section, re.M)
+    assert len(rows) >= 10, "the coverage table moved or changed shape"
+    missing = [f"{ids}: {file}" for ids, file in rows if not (ROOT / "vaft" / "machine_mapping" / file).is_file()]
+    assert not missing, f"Machine_mapping.md names files vaft/machine_mapping/ does not have: {missing}"
+
+
 # --- resource references -----------------------------------------------------
 
 

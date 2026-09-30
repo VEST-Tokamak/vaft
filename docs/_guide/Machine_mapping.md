@@ -86,7 +86,7 @@ above is what the production pipeline uses, and it is unambiguous — prefer it 
 | `thomson_scattering` | `thomson_scattering.py` | `thomson_scattering(ods, shotnumber, data_root=None, mat_file=None)` |
 | `charge_exchange` | `charge_exchange.py` | `charge_exchange(ods, shotnumber, options='ces', data_root=None, mat_file=None)` |
 | `soft_x_rays` | `soft_x_rays.py` | `soft_x_rays(ods, shot, daq_label, **kwargs)` |
-| `pulse_schedule` | `pulse_schedule.py` | `pulse_schedule(ods, shot, data_root=None)` |
+| `pulse_schedule` | `pulse_schedule/mapping.py` | `pulse_schedule(ods, shot, data_root=None)` |
 | `dataset_description` | `dataset_description.py` | `dataset_description(ods, source, options=None)` |
 | `pf_passive` | `pf_passive.py` | `pf_passive(ods, source=None, options=None)` |
 | `em_coupling` | `em_coupling.py` | `em_coupling(ods, source=None, options=None)` |
