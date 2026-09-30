@@ -987,8 +987,8 @@ _register(Boundary(
 # ------------------------------------------------------------------
 
 _LOW_ASPECT_RATIO_EVIDENCE = (
-    "spherical tokamaks: MAST (A ~ 1.45) and NSTX (A ~ 1.32) sit 1.6x and 3.7x above conventional-"
-    "aspect-ratio scalings (Takizuka 2004); Pegasus (A ~ 1.2, B_T ~ 0.15 T, Ohmic) measures P_LH "
+    "spherical tokamaks: MAST (A ~ 1.45) and NSTX (A ~ 1.32) sit 1.6x and 3.7x above the conventional-"
+    "aspect-ratio basis P_thr0 of Takizuka 2004 Eq. (1); Pegasus (A ~ 1.2, B_T ~ 0.15 T, Ohmic) measures P_LH "
     "7-15x the ITPA08 (Martin 2008) scaling, the ratio grows as A -> 1, and no density minimum is seen "
     "(Thome et al. 2017)",
     "NSTX P_LH nearly doubles from 0.7 to 1.0 MA, of which the |B|_out parameterisation accounts for "
@@ -1155,7 +1155,6 @@ _register(Boundary(
         ) + _LOW_ASPECT_RATIO_EVIDENCE,
     ),
     uncertainty=Uncertainty(
-        exponents={"aspect_ratio_gamma": 0.5},
         note="gamma = 0.5 +- 0.5 for the F(A)^gamma factor. Scatter sigma = 0.31 of ln(P_thr/P_thr,new). "
              "The ITER prediction band is 25-70 MW (from the S-exponent error and the 2-sigma JT-60U scatter).",
     ),
@@ -1171,14 +1170,17 @@ _register(Boundary(
         ),
         BoundarySource("K. E. Thome et al., Nucl. Fusion 57 (2017) 022018", equation="Sec. 2 and abstract",
                        doi="10.1088/0029-5515/57/2/022018",
-                       note="Pegasus A ~ 1.2: P_LH exceeds ITPA08 by 7-15x; uses this scaling as 'ITPA04'"),
+                       note="Pegasus A ~ 1.2: P_LH exceeds ITPA08 by 7-15x; uses this scaling as 'ITPA04' and still "
+                            "finds P_LH ~6x above it with gamma = 1 and Z_eff ~ 1 (Sec. 4)"),
         BoundarySource("S. M. Kaye et al., 'L-H threshold studies in NSTX', PPPL-4635 (2011)",
-                       equation="Sec. III.C",
+                       equation="Sec. II.C",
                        note="Ip dependence of P_LH at low A larger than the |B|_out form explains"),
         BoundarySource("Y. Andrew et al., Plasma 2 (2019) 328", equation="abstract", doi="10.3390/plasma2030024",
                        note="MAST: P_th rises 3x over a 10-12 cm X-point height scan"),
     ),
     notes="Gamma is fixed at its central value 0.5; gamma = 0 and 1 bound the paper's range. At low "
-          "aspect ratio even this scaling underestimates measured thresholds, so a VEST-like device "
-          "(A ~ 1.7, B_T ~ 0.15 T) is outside every fitted database: treat the ratio as indicative only.",
+          "aspect ratio even this scaling underestimates measured thresholds (Pegasus ~6x, Thome 2017). "
+          "A VEST-like device (A ~ 1.7, B_T ~ 0.15 T; the repo's own values, not from these papers) lies "
+          "inside the fitted aspect-ratio range but below the field and size of the fitted data: treat "
+          "the ratio as indicative only.",
 ))

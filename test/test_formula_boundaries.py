@@ -619,7 +619,7 @@ def test_takizuka_iter_prediction_and_the_outer_field_discrepancy():
 
 
 def test_takizuka_rises_above_martin_at_low_aspect_ratio():
-    """Same density, field and area: at A = 3.1 the two scalings agree within ~15 %; towards A -> 1
+    """Same density, field and area: towards A -> 1
     Takizuka rises (F(A) grows) while Martin has no aspect-ratio term."""
     common = dict(line_average_density=0.3, toroidal_field=0.5, plasma_surface_area=10.0)
     martin = B.boundary_value(B.get_boundary("martin_2008_lh"), **common)
