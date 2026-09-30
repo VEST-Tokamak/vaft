@@ -24,6 +24,7 @@ vacuum-field trace, which belong to result plotting.
 
 from __future__ import annotations
 
+import copy
 import math
 from functools import lru_cache
 from typing import List, Sequence, Tuple
@@ -545,5 +546,7 @@ def separatrix_lobes(equilibrium=None, *, perturbation: float = 0.02, m: int = 8
         ]
     out = {"classification": "reduced_hamiltonian_model", **{k: model[k] for k in (
         "x_point", "x_point_unperturbed", "multipliers", "lambda", "target_z", "psi_x", "eps")},
-        "strike_points": hits["unstable"], "strike_points_stable": hits["stable"], "manifolds": model["manifolds"]}
+        "strike_points": hits["unstable"], "strike_points_stable": hits["stable"],
+        # a copy: the model is lru_cached, and a caller's edit must not reach the next build
+        "manifolds": copy.deepcopy(model["manifolds"])}
     return Diagram("separatrix_lobes", Scene(tuple(items)), model=out)

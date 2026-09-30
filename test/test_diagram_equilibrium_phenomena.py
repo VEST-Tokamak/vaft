@@ -368,3 +368,14 @@ def test_the_kink_model_label_prints_the_coefficient_the_drawing_uses():
     assert "(e^{i\\theta^*} - 0.5\\,e^{i2\\theta^*})" in model_text(harmonics={1: 1.0, 2: -0.5})
     assert "(-e^{i\\theta^*} + 0.5\\,e^{i2\\theta^*})" in model_text(harmonics={1: -1.0, 2: 0.5})
     assert "(e^{i\\theta^*} + 0.3\\,e^{i(2\\theta^* +1.57)})" in model_text(harmonics={1: 1.0, 2: 0.3j})
+
+
+def test_editing_a_lobe_diagrams_model_does_not_change_the_next_build():
+    """The manifolds come from an lru_cached model; handing the cached lists out let a caller's edit turn the
+    next build's six unstable-manifold polylines into one. Cold review 0.8.0 diagram-B F6."""
+    before = len(vaft.diagram.separatrix_lobes().scene.role("unstable_manifold"))
+    d = vaft.diagram.separatrix_lobes()
+    d.model["manifolds"]["unstable"][0][:] = 0.0
+    d.model["manifolds"]["stable"].clear()
+    assert len(vaft.diagram.separatrix_lobes().scene.role("unstable_manifold")) == before
+    assert len(vaft.diagram.separatrix_lobes().model["manifolds"]["stable"]) == 2
