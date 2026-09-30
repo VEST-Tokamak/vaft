@@ -226,6 +226,34 @@ _LOG_OWNER = {
 }
 
 
+def select_efit_table(
+    shot_era: str,
+    *,
+    base_table_dir: str,
+    base_era: str | None,
+    suffix: str | None,
+    paths: "PipelinePaths",
+    era_tables: bool = True,
+) -> tuple[str, list[str]]:
+    """Which EFIT table directory a shot uses, and what must be built first.
+
+    Returns ``(table_dir, inputs)``.  A shot of the base table's own era gets
+    the configured ``table_dir`` back *verbatim* and no extra input: Snakemake
+    7.32 reruns a rule whose params or inputs change, so anything else would
+    rebuild every constraint product -- and all of EFIT after it -- for shots
+    that were already right.  A shot of another era gets that era's generated
+    table and the table's manifest as an input, so the table is built first.
+
+    With ``era_tables`` off, or a base table that states no era or no grid,
+    every shot gets the base table and the constraint stage's era check
+    (#805) refuses the mismatches, as before.
+    """
+    if not era_tables or base_era is None or suffix is None or shot_era == base_era:
+        return base_table_dir, []
+    directory = paths.efit_table_dir(shot_era, suffix)
+    return directory + "/", [paths.efit_table_manifest(shot_era, suffix)]
+
+
 class PipelinePaths:
     """Resolve every pipeline 1 product for the configured layout."""
 
@@ -333,6 +361,22 @@ class PipelinePaths:
         return str(
             self._filedb.omas_manifest("static", machine_version=str(machine_version))
         )
+
+    # -- per-era EFIT Green tables ------------------------------------------
+    def efit_table_dir(self, machine_version, suffix: str) -> str:
+        """Where the pipeline builds the EFIT table for one machine era.
+
+        Batch-scoped, like the static product: one table serves every shot of
+        its era.  Kept short on purpose -- EFIT reads it back from a
+        100-character field (``vaft.code.efit.efund.TABLE_DIR_MAX_CHARS``).
+        """
+        name = f"{machine_version}-{suffix}"
+        if self.layout == SHOT_FIRST:
+            return str(PurePosixPath(self.base_dir) / "efit_tables" / name)
+        return str(PurePosixPath(self._filedb.pipeline("efit_tables")) / name)
+
+    def efit_table_manifest(self, machine_version, suffix: str) -> str:
+        return str(PurePosixPath(self.efit_table_dir(machine_version, suffix)) / "efund_table_manifest.json")
 
     # -- OMAS stage products ----------------------------------------------
     def diagnostics_ods(self, shot) -> str:
