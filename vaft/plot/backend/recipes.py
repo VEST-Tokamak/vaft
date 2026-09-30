@@ -12662,11 +12662,23 @@ def _equilibrium_slice_for(source: Any, target: float) -> tuple[Any, float | Non
     count = _count(source, "equilibrium.time_slice") if hasattr(source, "keys") else 0
     if not count:
         return source, None, "given equilibrium"
-    times = _array(source, "equilibrium.time")
-    if times is None or times.size < count:
-        return source, None, "slice 0"
-    # the same time pairing the public mappers apply with time=
-    equilibrium, index, when = _equilibrium_slice_at_time(source, target)
+    try:
+        # the same time pairing the public mappers apply with time=
+        equilibrium, index, when = _equilibrium_slice_at_time(source, target)
+    except ValueError:
+        # equilibrium.time is absent or shorter than the slices: the mappers
+        # refuse, but the slices' own time leaves still pair one by time.
+        # Falling back to slice 0 by position would map every profile through
+        # the first equilibrium silently, however far it is from target.
+        from vaft.process.profile import _single_slice_ods
+
+        times = slice_times(source, "equilibrium.time_slice")
+        stored = np.flatnonzero(np.isfinite(times))
+        if stored.size == 0:
+            return source, None, "slice 0 (no equilibrium time)"
+        index = int(stored[int(np.argmin(np.abs(times[stored] - float(target))))])
+        equilibrium = source if index == 0 else _single_slice_ods(source, index)
+        when = float(times[index])
     return equilibrium, when, f"slice {index}"
 
 
@@ -12855,6 +12867,10 @@ def _build_profile_fit(entries: Sequence[tuple[str, Any]], *, _plot_name: str, *
     eq_note = ""
     if first[4] is not None and abs(first[4] - first[6].time) > 5e-4:
         eq_note = f", equilibrium at {first[4] * 1e3:.1f} ms"
+    elif first[4] is None and "no equilibrium time" in first[5]:
+        # an ODS equilibrium whose slice carries no time: say so rather than
+        # let the title imply the instants match
+        eq_note = ", equilibrium time unknown"
     outside = f" ({hidden} outside the LCFS)" if hidden and coordinate != "r_major" else ""
     shot = _entry_shot(entries)
     title = options.get("title") or (
