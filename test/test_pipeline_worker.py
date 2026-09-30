@@ -79,8 +79,9 @@ class FakeRunner:
 
     ``script`` maps shot -> list of per-run behaviours: ``"ok"`` writes every
     target with success, ``"fail"`` writes raw and diagnostics only,
-    ``"skipped"`` marks EFIT skipped, ``"preflight"`` writes raw and a
-    preflight exclusion.
+    ``"skipped"`` marks EFIT skipped, ``"chease_no_output"`` marks the CHEASE
+    stage's manifest ``no_output`` (every slice a solver verdict),
+    ``"preflight"`` writes raw and a preflight exclusion.
     """
 
     def __init__(self, harvester: PipelineHarvester, source: FakeSource | None = None):
@@ -124,7 +125,11 @@ class FakeRunner:
             elif behaviour == "blocked":  # raw done, preflight never ran
                 targets, failed = targets[:1], True
             for target in targets:
-                status = "skipped" if behaviour == "skipped" and target.stage == "efit" else "success"
+                status = "success"
+                if behaviour == "skipped" and target.stage == "efit":
+                    status = "skipped"
+                elif behaviour == "chease_no_output" and target.stage == "chease" and target.kind == "manifest":
+                    status = "no_output"
                 payload = {"status": status}
                 if target.stage == "raw" and target.kind == "manifest" and self.source is not None:
                     # What the dump holds: SQL's inventory at run time.
@@ -354,6 +359,23 @@ def test_an_intentionally_empty_stage_is_partial_not_failed(setup):
     statuses = {(s["stage"], s["product"]): s["status"] for s in worker.state.stage_status(101)}
     assert statuses[("efit", "")] == "skipped"
     assert statuses[("diagnostics", "")] == "success"
+
+
+def test_a_chease_run_of_solver_verdicts_is_partial_not_retried(setup):
+    """cold review 0.8.0 workflows F5: `run_chease_refinement.py` now exits 0
+    when every slice failed or timed out, so the `chease` manifest exists and
+    says `no_output`; that is a recorded result, not a missing product."""
+    _, make_worker, _ = setup
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    runner.script[101] = ["chease_no_output"]
+    settle_cycles(worker)
+    row = worker.state.shot(101)
+    assert row["state"] == S.PARTIAL and row["attempts"] == 0
+    assert "chease=no_output" in row["reason"]
+    worker.run_cycle()
+    assert len(runner.plans) == 1  # nothing to retry
 
 
 # --------------------------------------------------------------------------- #
