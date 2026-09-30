@@ -415,3 +415,17 @@ def write_window_report(
     plot_file = output / f"nice_{shot}_traces.png"
     save_figure(figure, plot_file, dpi=150)
     return {"summary": json_file, "traces": plot_file}
+
+
+__all__ = [
+    "physical_channel_signature",
+    "assert_same_physical_channels",
+    "compare_diagnostic_residuals",
+    "constraint_family_configs",
+    "lcfs_rms_displacement",
+    "compare_equilibria",
+    "run_nice_window",
+    "summarize_window",
+    "write_study_report",
+    "write_window_report",
+]

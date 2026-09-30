@@ -80,3 +80,12 @@ class CodeRunner(Protocol):
     def run(self, inputs: CodeInputs, config: CodeConfig) -> CodeResult:
         """Run the configured external code."""
         ...
+
+
+__all__ = [
+    "CodeConfig",
+    "CodeInputs",
+    "RunOutcome",
+    "CodeResult",
+    "CodeRunner",
+]

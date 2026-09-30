@@ -304,5 +304,10 @@ def main():
     collect_report(args.native_dir, args.report_dir, repo)
 
 
+__all__ = [
+    "main",
+]
+
+
 if __name__ == "__main__":
     main()

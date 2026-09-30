@@ -139,3 +139,12 @@ class NiceResult(RunOutcome):
         return bool(
             self.process_succeeded and self.converged and self.scientifically_usable
         )
+
+
+__all__ = [
+    "vest_reference_parameter_file",
+    "NiceConfig",
+    "NiceDiagnostic",
+    "NiceInputs",
+    "NiceResult",
+]

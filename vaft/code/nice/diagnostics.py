@@ -250,3 +250,8 @@ def diagnostics_from_ods(
             )
         )
     return tuple(conditioned)
+
+
+__all__ = [
+    "diagnostics_from_ods",
+]

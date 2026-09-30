@@ -842,3 +842,15 @@ def scan(
 # Exported alias: `scan` stays the natural name inside this module, but the
 # package-level export needs an unambiguous name.
 free_boundary_scan = scan
+
+
+__all__ = [
+    "free_boundary_scan",
+    "CaseStatus",
+    "CoilControl",
+    "ScanCase",
+    "FreeBoundaryCaseResult",
+    "FreeBoundaryScanResult",
+    "FreeBoundaryScan",
+    "scan",
+]

@@ -202,3 +202,8 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
         result.ods = None
         result.scalars.pop("_geqdsk_error", None)
     return result
+
+
+__all__ = [
+    "run_tokamaker",
+]
