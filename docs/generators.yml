@@ -16,3 +16,5 @@ generators:
     output: _data/plot_catalog.yml
   - module: vaft.diagram.docs_catalog
     output: _data/diagram_catalog.yml
+  - module: vaft._api_catalog
+    output: _data/api_catalog.yml

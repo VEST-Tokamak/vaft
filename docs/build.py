@@ -49,8 +49,10 @@ EXIT_REFUSED = 4
 SITE_URL = "https://vest-tokamak.github.io"
 PUBLISH_BRANCH = "gh-pages"
 PROVENANCE_SCHEMA = 1
-#: Nothing legitimate approaches this; a runaway ``vendor/`` copy does.
-MAX_SITE_MIB = 40
+#: Nothing legitimate approaches this; a runaway ``vendor/`` copy does.  Raised
+#: from 40 with the generated API reference (#162), when the committed diagram
+#: and plot assets had already taken the composed tree to 35 MiB.
+MAX_SITE_MIB = 80
 
 
 class BuildError(RuntimeError):

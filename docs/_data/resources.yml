@@ -59,16 +59,16 @@ notebooks:
 api:
   database:
     title: vaft.database
-    url: /reference/api/#vaftdatabase
+    url: /reference/api/database/
   omas:
     title: vaft.omas
-    url: /reference/api/#vaftomas
+    url: /reference/api/omas/
   imas:
     title: vaft.imas
-    url: /reference/api/#vaftimas
+    url: /reference/api/imas/
   mapping:
     title: vaft.machine_mapping
-    url: /reference/api/#vaftmachine_mapping
+    url: /reference/api/machine-mapping/
   process:
     title: vaft.process
     url: /reference/process/
@@ -77,13 +77,13 @@ api:
     url: /reference/formula/
   plot:
     title: vaft.plot
-    url: /reference/api/#vaftplot
+    url: /reference/api/plot/
   diagram:
     title: vaft.diagram
     url: /reference/diagrams/
   code:
     title: vaft.code
-    url: /reference/api/#vaftcode
+    url: /reference/api/code/
 
 data_sources:
   sample-ods:

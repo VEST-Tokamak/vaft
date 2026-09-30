@@ -141,6 +141,7 @@ CORE_MODULES: tuple[str, ...] = (
     # author ever opening docs/, which is exactly what develop should catch.
     # The committed diagram SVGs are checked against their TikZ source too.
     "test_diagram_render.py",
+    "test_docs_api.py",
     "test_docs_catalogs.py",
     "test_docs_content.py",
     "test_docs_snippets.py",

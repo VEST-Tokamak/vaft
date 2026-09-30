@@ -1,0 +1,48 @@
+{%- comment -%}
+Body of one generated API page (api_catalog.yml, issue #162).
+
+  include.slug   the page, as listed in docs/api_inventory.yml
+
+Every published object on the page carries data-catalog="api" and its dotted
+id; validate_docs.rb requires each catalog entry exactly once.  An object with
+a scientific detail page (formula, process, plot, diagram) is a one-line link
+to it, not a second copy of its documentation.
+{%- endcomment -%}
+{%- assign catalog = site.data.api_catalog -%}
+{%- assign page_info = catalog.pages | where: "slug", include.slug | first -%}
+{%- assign entries = catalog.entries | where: "page", include.slug -%}
+{%- assign modules = catalog.modules | where: "page", include.slug | where: "declared", true -%}
+{%- assign undeclared = catalog.modules | where: "page", include.slug | where: "declared", false -%}
+{%- if catalog.provenance.commit -%}{%- assign source_ref = catalog.provenance.commit -%}{%- elsif site.track == "development" -%}{%- assign source_ref = "develop" -%}{%- else -%}{%- assign source_ref = "main" -%}{%- endif -%}
+
+<p class="ref-intro">Generated from each module's <code>__all__</code> by <code>python -m vaft._api_catalog</code>:
+<strong>{{ entries.size }}</strong> published objects in <strong>{{ modules.size }}</strong> modules.
+Signatures and summaries are read from the source; nothing here is written by hand.
+<a href="{{ site.baseurl }}/reference/api/">All API pages</a></p>
+
+<div class="ref-index" data-ref-index>
+<input class="ref-filter" type="search" placeholder="Filter {{ entries.size }} objects by name or module" aria-label="Filter objects" data-ref-filter>
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  {% for module in modules %}{% assign rows = entries | where: "module", module.name %}{% if rows.size > 0 %}<tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-{{ module.name }}"><code>{{ module.name }}</code></a></th></tr>
+  {% for e in rows %}<tr data-ref-row="{{ e.id }} {{ e.module }}"><td><a href="#{{ e.id }}"><code>{{ e.name }}</code></a></td><td>{{ e.kind }}{% if e.deprecated != "" %} <span class="ref-flag ref-flag-deprecated">Deprecated</span>{% endif %}</td></tr>
+  {% endfor %}</tbody>{% endif %}{% endfor %}
+</table></div>
+<p class="ref-filter-empty" hidden>No object matches.</p>
+</div>
+
+{% for module in modules %}{% assign rows = entries | where: "module", module.name %}{% if rows.size > 0 %}
+## {{ module.name }} {#module-{{ module.name }}}
+
+{% if module.summary != "" %}<p class="ref-note">{{ module.summary | escape }}</p>
+
+{% endif %}<div class="ref-entries" markdown="block">
+{% for e in rows %}{% include reference/api-entry.html e=e ref=source_ref %}
+{% endfor %}</div>
+{% endif %}{% endfor %}
+
+{% if undeclared.size > 0 %}## Modules without a declared public surface {#undeclared}
+
+These modules declare no `__all__`, so they publish nothing yet (`docs/api_inventory.yml`):
+{% for module in undeclared %}`{{ module.name }}`{% unless forloop.last %}, {% endunless %}{% endfor %}.
+{% endif %}
