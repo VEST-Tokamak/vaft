@@ -454,7 +454,7 @@ def test_low_q_is_q_psi_above_two():
     assert entry.family == "current_limit" and entry.event == "disruption"
 
 
-def test_every_published_entry_cites_an_equation_or_figure():
+def test_every_published_entry_cites_a_location_in_its_source():
     for key in B.list_boundaries():
         entry = B.get_boundary(key)
         if entry.origin == "published":

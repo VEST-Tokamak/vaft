@@ -769,7 +769,8 @@ _register(Boundary(
         BoundarySource("G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006", equation="Sec. 2",
                        note="q_cyl convention"),
     ),
-    notes="Same line as vaft.diagram hugill(); the Murakami limit and the low-q line are not yet registered (source needed, #1297).",
+    notes="Same line as vaft.diagram hugill(). On the same diagram the Murakami limit is 'murakami_hugill' "
+          "(n R/B_T = 1) and the current limit is 'low_q' (q_psi > 2, not q_cyl).",
 ))
 
 # Murakami et al. 1976 give the scaling as a line on Fig. 1 (maximum line-averaged
@@ -780,10 +781,10 @@ _MAJOR_RADIUS = BoundaryQuantity("major_radius", "R_0", "m", "Major radius.")
 _MURAKAMI_SOURCES = (
     BoundarySource("M. Murakami, J. D. Callen and L. A. Berry, Nucl. Fusion 16 (1976) 347", equation="Fig. 1 and Table I",
                    doi="10.1088/0029-5515/16/2/020",
-                   note="13 Ohmic, hydrogenic, mostly circular devices; the drawn line passes about 1.15e19 m^-3 at 1 T/m"),
+                   note="13 Ohmic, hydrogenic, mostly circular devices; the solid line through the black dots passes about 1.1e19 m^-3 at 1 T/m; a lower dashed line fits the ORMAK constant-q(a) scan"),
     BoundarySource("M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27", equation="Sec. 1.2.1, p. R29",
                    doi="10.1088/0741-3335/44/8/201", note="n_M = B_T/R, the 'Murakami limit'"),
-    BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="Sec. 4 (Summary), p. 2206",
+    BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="Sec. 4 (Summary), pp. 2206-2207",
                    doi="10.1088/0029-5515/28/12/009",
                    note="the operating space is bounded by the minimum of the Murakami, Hugill and fuelling limits"),
 )
@@ -799,8 +800,9 @@ _MURAKAMI_APPLICABILITY = dict(
     ),
 )
 _MURAKAMI_UNCERTAINTY = Uncertainty(note=(
-    "No fit uncertainty is published. The coefficient 1 follows Greenwald 2002; the line drawn in "
-    "Murakami's Fig. 1 sits about 15 % higher, and Table I devices scatter by a factor ~1.5 about it."
+    "No fit uncertainty is published. The coefficient 1 follows Greenwald 2002; the solid line in "
+    "Murakami's Fig. 1 sits about 10-15 % higher, and the stationary-fill devices of Table I lie at "
+    "0.8-1.45 times B_T/R_0."
 ))
 
 _register(Boundary(
@@ -844,7 +846,7 @@ _register(Boundary(
 
 _EDGE_Q_MHD = BoundaryQuantity(
     "edge_safety_factor", "q_psi", "-",
-    "Safety factor of the MHD equilibrium near the boundary (q_psi, e.g. q95); not the cylindrical q.",
+    "Safety factor of the MHD equilibrium at the boundary (the paper plots 1/q_psi); not the cylindrical q.",
 )
 
 _register(Boundary(
@@ -868,7 +870,7 @@ _register(Boundary(
         ),
     ),
     sources=(
-        BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="Sec. 4 (Summary), p. 2206",
+        BoundarySource("M. Greenwald et al., Nucl. Fusion 28 (1988) 2199", equation="Sec. 4 (Summary), p. 2207; also p. 2200",
                        doi="10.1088/0029-5515/28/12/009",
                        note="'the disruptive limit on plasma current (q_psi > 2)'"),
     ),
