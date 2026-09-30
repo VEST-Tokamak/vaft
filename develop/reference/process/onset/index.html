@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8420117</code>. What is described
+  <code>a5f4bb2</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -384,7 +384,7 @@ onset is never the whole record</em> – a detector that finds nothing says so w
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#active_window"><code>active_window</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="active_window" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L1311-L1520" title="vaft/process/onset.py, lines 1311–1520 at 8420117">source</a>
+<a class="ref-source" data-source="active_window" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L1311-L1520" title="vaft/process/onset.py, lines 1311–1520 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>active_window(time, values, *, fraction=0.02, sigma=5.0, hold_s=0.0005, min_width_s=0.0, min_prominence_sigma=0.0, min_integral_fraction=0.0, gap_s=0.001, post_quiet_s=0.002, principal_only=False, pickup_floor=0.0, impulse_max_s=0.002, reference_mask=None, reference_fraction=0.2, trailing_fraction=0.1, trailing_max_fraction=0.1, end_fraction=None, collapse_fallback=True, collapse_rate_fraction=0.1, collapse_min_drop=0.5, search_mask=None, prefilter_samples=1, cutoff_hz=None, fs=None, order=4)</code></pre>
 
@@ -549,7 +549,7 @@ consumed as a duration – tracked in issue #752.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#excess_threshold"><code>excess_threshold</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="excess_threshold" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L470-L552" title="vaft/process/onset.py, lines 470–552 at 8420117">source</a>
+<a class="ref-source" data-source="excess_threshold" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L470-L552" title="vaft/process/onset.py, lines 470–552 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>excess_threshold(values, reference_mask, *, fraction, sigma, search_mask=None)</code></pre>
 
@@ -626,7 +626,7 @@ evidence</em> rather than thresholding on it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#isolated_excursions"><code>isolated_excursions</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="isolated_excursions" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L694-L733" title="vaft/process/onset.py, lines 694–733 at 8420117">source</a>
+<a class="ref-source" data-source="isolated_excursions" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L694-L733" title="vaft/process/onset.py, lines 694–733 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>isolated_excursions(values, threshold, max_run_samples)</code></pre>
     <details class="ref-code" data-source-code="isolated_excursions"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 694–733</span></summary>
@@ -726,7 +726,7 @@ the runs they rejected, with reasons, in <code class="language-plaintext highlig
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#median_smooth"><code>median_smooth</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="median_smooth" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L329-L390" title="vaft/process/onset.py, lines 329–390 at 8420117">source</a>
+<a class="ref-source" data-source="median_smooth" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L329-L390" title="vaft/process/onset.py, lines 329–390 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>median_smooth(values, kernel_samples)</code></pre>
     <details class="ref-code" data-source-code="median_smooth"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 329–390</span></summary>
@@ -863,7 +863,7 @@ that fits.  A flat top wider than the kernel survives, which is what lets
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#pickup_scale"><code>pickup_scale</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="pickup_scale" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L736-L806" title="vaft/process/onset.py, lines 736–806 at 8420117">source</a>
+<a class="ref-source" data-source="pickup_scale" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L736-L806" title="vaft/process/onset.py, lines 736–806 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>pickup_scale(values, baseline, robust_sigma, dt, *, impulse_max_s=0.002, sigma=6.0)</code></pre>
     <details class="ref-code" data-source-code="pickup_scale"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 736–806</span></summary>
@@ -1020,7 +1020,7 @@ impulse length clear of both edges.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#principal_pulse_onset"><code>principal_pulse_onset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="principal_pulse_onset" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L1113-L1243" title="vaft/process/onset.py, lines 1113–1243 at 8420117">source</a>
+<a class="ref-source" data-source="principal_pulse_onset" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L1113-L1243" title="vaft/process/onset.py, lines 1113–1243 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>principal_pulse_onset(time, values, *, fraction=0.02, sigma=5.0, reference_mask=None, reference_fraction=0.2, search_mask=None, cutoff_hz=None, fs=None, order=4, pickup_floor=3.0, impulse_max_s=0.002, bridge_samples=2)</code></pre>
 
@@ -1131,7 +1131,7 @@ saying the other exists.  <code class="language-plaintext highlighter-rouge">act
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#principal_pulse_window"><code>principal_pulse_window</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="principal_pulse_window" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L1733-L1797" title="vaft/process/onset.py, lines 1733–1797 at 8420117">source</a>
+<a class="ref-source" data-source="principal_pulse_window" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L1733-L1797" title="vaft/process/onset.py, lines 1733–1797 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>principal_pulse_window(time, values, **kwargs)</code></pre>
     <details class="ref-code" data-source-code="principal_pulse_window"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 1733–1797</span></summary>
@@ -1264,7 +1264,7 @@ persistence is redundant and the pickup floor does the refusing.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#robust_baseline"><code>robust_baseline</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="robust_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L266-L326" title="vaft/process/onset.py, lines 266–326 at 8420117">source</a>
+<a class="ref-source" data-source="robust_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L266-L326" title="vaft/process/onset.py, lines 266–326 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>robust_baseline(values, reference_mask=None)</code></pre>
     <details class="ref-code" data-source-code="robust_baseline"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 266–326</span></summary>
@@ -1398,7 +1398,7 @@ degenerates to the fraction-of-peak term alone.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#robust_peak"><code>robust_peak</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="robust_peak" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L2071-L2338" title="vaft/process/onset.py, lines 2071–2338 at 8420117">source</a>
+<a class="ref-source" data-source="robust_peak" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L2071-L2338" title="vaft/process/onset.py, lines 2071–2338 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>robust_peak(time, values, *, polarity=&#39;positive&#39;, prefilter_samples=5, cutoff_hz=None, fs=None, order=4, sigma=5.0, level_fraction=0.5, min_width_s=0.001, max_candidates=8, edge_samples=1, impulse_max_s=0.002, reference_mask=None, reference_fraction=0.2, search_mask=None, bridge_samples=2)</code></pre>
 
@@ -1536,7 +1536,7 @@ exactly zero lead).  A record whose every excursion is impulsive returns
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#run_features"><code>run_features</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="run_features" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L621-L691" title="vaft/process/onset.py, lines 621–691 at 8420117">source</a>
+<a class="ref-source" data-source="run_features" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L621-L691" title="vaft/process/onset.py, lines 621–691 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>run_features(time, values, baseline, start, stop)</code></pre>
     <details class="ref-code" data-source-code="run_features"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 621–691</span></summary>
@@ -1681,7 +1681,7 @@ that <code class="language-plaintext highlighter-rouge">start</code> and <code c
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sustained_excess_onset"><code>sustained_excess_onset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="sustained_excess_onset" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L930-L1110" title="vaft/process/onset.py, lines 930–1110 at 8420117">source</a>
+<a class="ref-source" data-source="sustained_excess_onset" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L930-L1110" title="vaft/process/onset.py, lines 930–1110 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>sustained_excess_onset(time, values, *, fraction=0.02, sigma=5.0, hold_s=0.0005, min_width_s=0.0, min_prominence_sigma=0.0, min_integral_fraction=0.0, reference_mask=None, reference_fraction=0.2, search_mask=None, prefilter_samples=1, bridge_samples=2)</code></pre>
 
@@ -1794,7 +1794,7 @@ construction.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#zero_crossing_after_excursion"><code>zero_crossing_after_excursion</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="zero_crossing_after_excursion" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L1805-L2013" title="vaft/process/onset.py, lines 1805–2013 at 8420117">source</a>
+<a class="ref-source" data-source="zero_crossing_after_excursion" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L1805-L2013" title="vaft/process/onset.py, lines 1805–2013 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>zero_crossing_after_excursion(time, values, *, anchor_time, fraction=0.05, sigma=5.0, hold_s=0.0005, anchor_tolerance_s=0.0005, approach_fraction=0.1, approach_hysteresis=2.0, reference_mask=None, reference_fraction=0.2, search_mask=None, prefilter_samples=1, bridge_samples=2)</code></pre>
 
@@ -1912,7 +1912,7 @@ evidence for a consumer, not an event.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#zero_phase_lowpass"><code>zero_phase_lowpass</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="zero_phase_lowpass" href="https://github.com/VEST-Tokamak/vaft/blob/8420117e8cffb1fd4b86ff0b3fe01877b1d2e7b2/vaft/process/onset.py#L393-L462" title="vaft/process/onset.py, lines 393–462 at 8420117">source</a>
+<a class="ref-source" data-source="zero_phase_lowpass" href="https://github.com/VEST-Tokamak/vaft/blob/a5f4bb20327f463334d17d359bc3ae47ccf176da/vaft/process/onset.py#L393-L462" title="vaft/process/onset.py, lines 393–462 at a5f4bb2">source</a>
 </header>
     <pre class="ref-signature"><code>zero_phase_lowpass(values, cutoff_hz, fs, order=4)</code></pre>
     <details class="ref-code" data-source-code="zero_phase_lowpass"><summary>Show source <span class="ref-note">vaft/process/onset.py, lines 393–462</span></summary>
@@ -2285,7 +2285,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 06:35:25 +0000"
+        "time": "2026-09-30 06:51:36 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
