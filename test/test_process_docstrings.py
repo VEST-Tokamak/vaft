@@ -58,6 +58,8 @@ DEFINITIONAL = frozenset({
     "time_derivative",
     # Containment in the LCFS outline, or the flux threshold where there is none.
     "plasma_cell_weights",
+    # #1087: one harmonic's sector currents, the inverse of toroidal_mode_decomposition
+    "phased_sector_currents",
     "filter_dataframe",
     "log_transform",
     "analyze_significance",
@@ -99,6 +101,8 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # nbi (#1136): optical depth -> survival and birth -> shine-through -> power bookkeeping
+    "neutral_beam_attenuation_along_path",
     # equilibrium / magnetic_island / line_of_sight / soft_x_rays (#886):
     # map -> island -> emissivity -> chord integral
     "straight_field_line_map",
@@ -528,6 +532,7 @@ CONVENTION_SENSITIVE = frozenset({
     "export_electron_profile_txt",
     "toroidal_mode_decomposition",
     "biot_savart_filaments",
+    "phased_sector_currents",
 
     # camera_fluctuation (#161): the frame axis comes first, band edges are
     # closed, pixel bounds are row-then-column while projected pixels are

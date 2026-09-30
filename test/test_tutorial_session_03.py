@@ -309,6 +309,9 @@ ORDER = (
     "fit_miller_surface",
     "plot_miller_surfaces",
     "solovev_example",
+    "vaft.formula.green_psi_exact(",
+    "find_stationary_points(vaft.data.EquilibriumData(",
+    "grad_shafranov_operator(total",
     "plot_equilibrium_overview_constraints",
     "plot_equilibrium_overview_residuals",
     "fit_quality_metrics(ods",
@@ -572,3 +575,36 @@ def test_the_session_declares_itself_complete_in_both_modes(book):
     assert metadata.get("session") == 3
     assert metadata.get("status") == "complete"
     assert list(metadata.get("modes", [])) == ["offline", "lab"]
+
+
+# ---------------------------------------------------------------------------
+# #1052: one flux function, three regions, and the boundary as an output
+# ---------------------------------------------------------------------------
+
+
+def test_the_region_equations_and_boundary_problem_are_taught(book):
+    markdown = _markdown(book)
+    for token in ("One flux function, three regions", "homogeneous", "boundary is part of the solution",
+                  "scrape-off layer", "private-flux region", "Free-boundary and inverse are not synonyms",
+                  "#1258", "#1236"):
+        assert token in markdown, token
+
+
+def test_the_source_decomposition_shows_the_topology_change(executed):
+    """Topology is a flux ordering: diverted only when the separatrix lies inside the limiter level."""
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s03-source-maps").outputs)
+    lines = printed.splitlines()
+    verdicts = [line.strip() for line in lines if line.strip().startswith("->")]
+    assert verdicts == ["-> limited", "-> diverted"], verdicts
+    shaped = printed[printed.index("shaping pair at 0.5 Ip:"):]
+    limiter = float(re.search(r"highest psi on the limiter ([0-9.e+-]+) Wb", shaped).group(1))
+    separatrix = float(re.search(r"\) ([0-9.e+-]+) Wb\n", shaped).group(1))
+    assert separatrix > limiter
+
+
+def test_the_region_equations_are_checked_on_the_computed_flux(executed):
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s03-region-check").outputs)
+    ratio = float(re.search(r"recovered J / imposed J = ([0-9.]+)", printed).group(1))
+    vacuum = float(re.search(r"max \|Delta\* psi\| = ([0-9.e+-]+) of its plasma value", printed).group(1))
+    assert abs(ratio - 1.0) < 0.05
+    assert vacuum < 0.02

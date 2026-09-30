@@ -275,3 +275,51 @@ def test_omas_and_imas_agree_for_every_coordinate(sample):
             expected = build_model("equilibrium_profile_q", [("39915", sample)], time_slice=SLICE, coordinate=coordinate)
             actual = build_model("equilibrium_profile_q", [("39915", entry)], time_slice=SLICE, coordinate=coordinate)
             assert_models_equal(actual, expected)
+
+
+def _core_profiles_ods():
+    """One core_profiles slice whose grid carries both radii, rho_pol = sqrt(psi_N)."""
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    psi_n = np.linspace(0.0, 1.0, 21)
+    rho_pol = np.sqrt(psi_n)
+    base = "core_profiles.profiles_1d.0"
+    ods["core_profiles.ids_properties.homogeneous_time"] = 1
+    ods["core_profiles.time"] = np.array([0.3])
+    ods[f"{base}.time"] = 0.3
+    ods[f"{base}.grid.rho_tor_norm"] = np.linspace(0.0, 1.0, 21) ** 0.8
+    ods[f"{base}.grid.rho_pol_norm"] = rho_pol
+    ods[f"{base}.electrons.temperature"] = 100.0 * (1.0 - psi_n) + 5.0
+    ods[f"{base}.electrons.density"] = 1e19 * (1.0 - psi_n) + 1e18
+    return ods, psi_n, rho_pol
+
+
+@pytest.mark.parametrize("name", ["electron_temperature_profile", "electron_density_profile"])
+def test_a_core_profile_on_psi_norm_draws_psi_norm_not_its_square_root(name):
+    """Issue #1314: psi_norm read grid.rho_pol_norm, sqrt(psi_N), under a psi_N label."""
+    ods, psi_n, rho_pol = _core_profiles_ods()
+    model = build_model(name, normalize_entries(ods), time_slice=0, coordinate="psi_norm")
+    assert model.coordinate_label == COORDINATE_LABELS["psi_norm"]
+    np.testing.assert_allclose(model.series[0].x, psi_n, atol=1e-12)
+    assert not np.allclose(model.series[0].x, rho_pol)
+    # the default coordinate is still the stored toroidal one, drawn as stored
+    toroidal = build_model(name, normalize_entries(ods), time_slice=0)
+    np.testing.assert_allclose(
+        toroidal.series[0].x, np.asarray(ods["core_profiles.profiles_1d.0.grid.rho_tor_norm"])
+    )
+
+
+def test_every_declared_coordinate_form_names_a_declared_coordinate():
+    from vaft.plot.backend.recipes import COORDINATE_FORMS, RECIPES, ProfileRecipe
+
+    for name, recipe in RECIPES.items():
+        if not isinstance(recipe, ProfileRecipe):
+            continue
+        for coordinate, form in recipe.coordinate_forms.items():
+            assert coordinate in recipe.coordinate_paths, (name, coordinate)
+            assert form in COORDINATE_FORMS, (name, form)
+        for coordinate, path in recipe.coordinate_paths.items():
+            # a leaf named for a square root is never drawn as the flux itself
+            if path.endswith("rho_pol_norm") and coordinate == "psi_norm":
+                assert recipe.coordinate_forms.get(coordinate) == "square", name

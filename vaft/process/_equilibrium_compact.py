@@ -183,7 +183,7 @@ def fit_solovev(
     pressure_edge = float(np.asarray(eq.pressure)[-1]) if eq.pressure is not None else 0.0
     model = SolovevEquilibrium(solution[:n], float(solution[n]), float(solution[n+1]), rref,
                                psi_boundary=psi_boundary, pressure_boundary=pressure_edge,
-                               f_boundary=f_edge, f_sign=int(np.sign(f_edge) or 1), basis=basis)
+                               f_boundary=f_edge, basis=basis)  # f_sign follows f_edge (#1307)
     model_values = evaluate_solovev(model, rm, zm, cocos=11)
     model_psi = model_values["psi"]
     error = (model_psi - psi)[use]/abs(span)

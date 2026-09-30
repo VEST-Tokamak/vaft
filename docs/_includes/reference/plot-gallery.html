@@ -1,0 +1,19 @@
+{%- comment -%}
+Thumbnail grid of one subject on the generated plot reference.
+
+  include.plots   the plot_catalog.yml rows of the subject
+
+A rendered thumbnail is the committed PNG python -m vaft.plot.docs_thumbnails drew
+from a packaged sample; validate_docs.rb requires exactly one
+img[data-thumbnail] per rendered plot, and none for any other.  A plot without
+one keeps its place in the grid and says why.
+{%- endcomment -%}
+{%- if include.plots.first.thumbnail -%}
+<div class="ref-gallery ref-plot-gallery">
+{% for p in include.plots %}{% assign t = p.thumbnail %}<figure class="ref-figure{% if t.status != "rendered" %} ref-figure-empty{% endif %}">
+{% if t.status == "rendered" %}<a href="#{{ p.name }}"><img src="{{ site.baseurl }}/{{ t.png }}" alt="{{ p.name }}, drawn from sample shot {{ t.shot }}" loading="lazy" data-thumbnail="{{ p.name }}"></a>
+{% else %}<a class="ref-figure-placeholder" href="#{{ p.name }}">{% if t.status == "no_sample" %}No packaged sample{% elsif t.status == "failed" %}Not drawable from the samples{% else %}No thumbnail recorded{% endif %}</a>
+{% endif %}<figcaption><a href="#{{ p.name }}"><code>{{ p.name }}</code></a>{% if t.status == "rendered" %} &middot; shot {{ t.shot }}{% endif %}{% if t.stale != "" %} <span class="ref-flag ref-flag-deprecated" title="{{ t.stale | escape }}">Stale</span>{% endif %}</figcaption>
+</figure>
+{% endfor %}</div>
+{%- endif -%}

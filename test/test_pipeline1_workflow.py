@@ -76,7 +76,8 @@ def _config(tmp_path: Path, layout: str = "filedb") -> Path:
 
 
 def _dry_run(
-    tmp_path: Path, targets: list[str] | None = None, *, layout: str = "filedb"
+    tmp_path: Path, targets: list[str] | None = None, *, layout: str = "filedb",
+    extra: list[str] | None = None,
 ):
     # config.yaml interpolates these; a dry run never executes them.
     env = dict(os.environ)
@@ -89,7 +90,10 @@ def _dry_run(
             "--configfile", str(_config(tmp_path, layout)),
             "--directory", str(tmp_path),
             "--cores", "1", "-n",
+            # Targets before the options: `--config` takes every following
+            # word as a name=value pair.
             *(targets or []),
+            *(extra or []),
         ],
         capture_output=True,
         text=True,
@@ -105,6 +109,40 @@ def _paths(tmp_path: Path, layout: str = "filedb"):
     finally:
         sys.path.remove(str(WORKFLOW))
     return PipelinePaths(str(tmp_path / "filedb"), layout)
+
+
+def _kfile_command(stdout: str) -> str:
+    """The k-file stage's printed shell command, up to its log redirect."""
+    start = stdout.index("generate_kfile.py")
+    return stdout[start:stdout.index(">", start)]
+
+
+def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
+    """#891: `efit.preset` selects a named configuration for every shot's k-files."""
+    target = [_paths(tmp_path).kfile_manifest(SHOT)]
+    preset = _dry_run(tmp_path, target, extra=["-p", "--config", 'efit={"preset": "statistical_891"}'])
+    assert preset.returncode == 0, preset.stderr[-3000:]
+    command = _kfile_command(preset.stdout)
+    assert "--preset statistical_891" in command
+    assert "--npprime" not in command  # the constraints stage still takes its own
+    routine = _dry_run(tmp_path, target, extra=["-p"])
+    assert routine.returncode == 0, routine.stderr[-3000:]
+    command = _kfile_command(routine.stdout)
+    assert "--npprime 2 --nffprime 2" in command and "--preset" not in command
+
+
+def test_naming_the_routine_preset_is_the_routine_path(tmp_path):
+    target = [_paths(tmp_path).kfile_manifest(SHOT)]
+    result = _dry_run(tmp_path, target, extra=["-p", "--config", 'efit={"preset": "routine"}'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    command = _kfile_command(result.stdout)
+    assert "--npprime 2 --nffprime 2" in command and "--preset" not in command
+
+
+def test_an_unknown_efit_preset_fails_the_run_before_any_job(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'efit={"preset": "statistical"}'])
+    assert result.returncode != 0
+    assert "unknown EFIT preset" in (result.stderr + result.stdout)
 
 
 def test_the_snakefile_parses_under_the_canonical_layout(tmp_path):

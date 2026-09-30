@@ -1475,12 +1475,14 @@ def vest_diamagnetic_flux_detailed(
     cum2 = integrate.cumulative_trapezoid(cum1, temp_time, initial=0.0)
     dia_flux = ind_tf / turn_tf * delta_i_tf + res_tf / turn_tf * cum1 + 1 / cap_tf / turn_tf * cum2
 
-    coeff = np.polyfit(
-        np.array([temp_time[start_index], temp_time[end_index]]),
-        np.array([dia_flux[start_index], dia_flux[end_index]]),
-        1,
-    )
-    baseline = np.polyval(coeff, temp_time)
+    # The straight line through the flux at the window's two ends, written out:
+    # `np.polyfit` on two points solves it by LAPACK least squares, whose last
+    # bits differ between BLAS builds -- and `dia_flux - baseline` cancels to
+    # the 1e-18 Wb level at the window edges, so the packaged samples stopped
+    # reproducing on CI (Linux/Windows) what macOS had written.
+    t0, t1 = temp_time[start_index], temp_time[end_index]
+    f0, f1 = dia_flux[start_index], dia_flux[end_index]
+    baseline = f0 + (f1 - f0) * ((temp_time - t0) / (t1 - t0))
     baseline[: start_index + 1] = 0.0
 
     # Signed as the donor's `DiaFlux - Baseline2` (VEST_DiamagneticFlux.m) and

@@ -264,6 +264,33 @@ Rules worth knowing:
   the camera overlays keep literal colours — they contrast with a photograph, not
   with a theme — and `C<n>` follows Matplotlib's current cycle as it always did.
 
+## 3-D scenes and ParaView
+
+`Geometry3DLayers` is the lightweight 3-D view model: points and polylines in
+machine Cartesian metres (IMAS `phi` counter-clockwise from above, through
+`vaft.machine_mapping.conventions.cylindrical_to_cartesian`). Each layer names
+its subsystem in `group`, a `/` path such as `machine/pf_active/PF1/0`.
+Surfaces, grids and fields are not layers; they belong to the scientific mesh
+work (#909, #1100).
+
+| Tool | Role | Entry point | Install |
+|---|---|---|---|
+| Matplotlib | static validation and publication figures | `plot_machine_geometry3d(ods)`, `plot_coil_3d_geometry3d(ods)` | core |
+| Plotly | browser figure, hover, legend toggles per set | the same, `backend="plotly"` | core |
+| PyVista / VTK | scientific 3-D objects, `.vtm`/`.vtp` files | `vaft.plot.pyvista.to_pyvista`, `write_vtk` | `vaft[vtk]` |
+| K3D | interactive scene in Jupyter | `vaft.plot.k3d.to_k3d`, `coil_phase_explorer` | `vaft[jupyter3d]` |
+| ParaView | external viewer of the exported files | open the `.vtm` | not a dependency |
+
+```python
+scene = vaft.plot.extract("machine_geometry3d", ods)
+vaft.plot.pyvista.write_vtk(scene, "machine.vtm")   # blocks follow `group`
+vaft.plot.k3d.coil_phase_explorer(ods, coil_set="MID")   # n / phase sliders
+```
+
+`RENDER_BACKENDS` stays Matplotlib and Plotly: `vaft.plot.pyvista` and
+`vaft.plot.k3d` are adapters of the model beside `vaft.plot.plotly`, imported
+only on use, and no data or physics API returns their objects.
+
 ## Time traces
 
 All of these take an ODS or an ODC as first argument, call `plt.show()` and return `None` —

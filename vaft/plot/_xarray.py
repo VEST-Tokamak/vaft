@@ -202,6 +202,7 @@ def _layer_variables(layers: Sequence[Any], axes: Sequence[str], *, prefix: str 
         f"{prefix}label": (dim, np.array([layer.label for layer in layers], dtype=object)),
         f"{prefix}entry": (dim, np.array([getattr(layer, "entry", "") for layer in layers], dtype=object)),
         f"{prefix}role": (dim, np.array([getattr(layer, "role", "") for layer in layers], dtype=object)),
+        f"{prefix}group": (dim, np.array([getattr(layer, "group", "") for layer in layers], dtype=object)),
         f"{prefix}length": (dim, np.array([np.asarray(getattr(layer, axes[0])).size for layer in layers], dtype=int)),
         f"{prefix}layer_style": (dim, np.array([_plain(dict(layer.style)) for layer in layers], dtype=object)),
     }

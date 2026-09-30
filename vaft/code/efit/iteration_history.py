@@ -706,7 +706,7 @@ def _convergence_panels(
     for value, text in thresholds:
         error.append(
             Series(x=span, y=np.full(2, value), label=text,
-                   style={"linestyle": "--", "color": "0.4", "linewidth": 1.0})
+                   style={"linestyle": "--", "color": "emphasis:medium", "linewidth": 1.0})
         )
     # A legend of many slices gives way to a trace count, which would leave
     # the dashed thresholds unnamed; the title names them either way.

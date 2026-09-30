@@ -148,6 +148,7 @@ it is their *product* that fixes ``sigma_Ip * sigma_B0`` and hence the sign of
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -160,6 +161,7 @@ __all__ = [
     "VEST_PORT_CLOCK_TO_PHI_SIGN",
     "VEST_PORT_CLOCK_ZERO",
     "clock_angle_to_toroidal_angle",
+    "cylindrical_to_cartesian",
     "gpec_coil_directions",
     "DischargeSignContract",
     "IMAS_DISCHARGE_SIGNS",
@@ -499,3 +501,19 @@ def clock_angle_to_toroidal_angle(clock_angle_deg: float) -> float:
     identifiers carry ``45``, ``135`` and ``225``, which are clock angles.
     """
     return float(np.deg2rad(np.mod(VEST_PORT_CLOCK_TO_PHI_SIGN * float(clock_angle_deg), 360.0)))
+
+
+def cylindrical_to_cartesian(r: Any, phi: Any, z: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Machine ``(R, phi, Z)`` to right-handed Cartesian ``(x, y, z)``, all in metres.
+
+    ``phi`` is the IMAS toroidal angle in radians -- counter-clockwise seen from
+    above, 0 at 12 o'clock -- as :func:`port_toroidal_angle` and every IDS store
+    it, so ``x = R cos(phi)``, ``y = R sin(phi)``.  The axes are the ones every
+    VAFT 3-D view and VTK export uses; a VEST clock angle must go through
+    :func:`clock_angle_to_toroidal_angle` first.  Inputs broadcast.
+    """
+    r = np.asarray(r, dtype=float)
+    phi = np.asarray(phi, dtype=float)
+    z = np.asarray(z, dtype=float)
+    r, phi, z = np.broadcast_arrays(r, phi, z)
+    return r * np.cos(phi), r * np.sin(phi), z.copy()

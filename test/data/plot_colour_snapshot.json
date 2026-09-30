@@ -72,6 +72,12 @@
    ".models.series:color=black": 3,
    ".models.series:color=red": 3
   },
+  "machine_geometry3d": {
+   ".layers:color=#d62728": 19,
+   ".layers:color=#e41a1c": 4,
+   ".layers:color=#ff7f00": 1,
+   ".layers:color=0.4": 6
+  },
   "machine_geometry_poloidal": {
    ".layers:color=#377eb8": 12,
    ".layers:color=#d62728": 549,
