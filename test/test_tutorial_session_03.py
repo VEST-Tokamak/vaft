@@ -621,6 +621,8 @@ def test_the_grad_shafranov_concept_diagrams_are_shown_canonically(book):
     executable = _executable(book)
     for name in GS_DIAGRAMS:
         assert f"vaft.diagram.{name}()" in executable, name
+    calls = re.findall(r"vaft\.diagram\.(\w+)\(([^)]*)\)", executable)
+    assert calls and all(arguments.strip() == "" for _name, arguments in calls), calls
 
 
 def test_the_concepts_precede_the_computation_and_the_schematics_follow_it(book):
@@ -630,6 +632,10 @@ def test_the_concepts_precede_the_computation_and_the_schematics_follow_it(book)
     after = [_first_code_index(book, f"vaft.diagram.{name}()") for name in GS_DIAGRAMS[3:]]
     assert order == sorted(order) and max(order) < sources
     assert min(after) > maps
+    # the region check follows the schematics, and its intro sits right before it
+    check = _first_code_index(book, "grad_shafranov_operator(total")
+    assert max(after) < check
+    assert book.cells[check - 1].id == "s03-region-check-intro"
 
 
 def test_every_grad_shafranov_diagram_is_drawn(executed):
