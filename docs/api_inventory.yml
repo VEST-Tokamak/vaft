@@ -118,7 +118,6 @@ undeclared:
   - vaft.database.transport
   - vaft.database.utils
   - vaft.diagram.build
-  - vaft.diagram.docs_catalog
   - vaft.imas.code_parameters
   - vaft.imas.omas_imas
   - vaft.machine_mapping.mhd_linear
@@ -136,8 +135,6 @@ undeclared:
   - vaft.plot.analysis
   - vaft.plot.backend
   - vaft.plot.backend.convention
-  - vaft.plot.docs_catalog
-  - vaft.plot.docs_thumbnails
   - vaft.plot.history
   - vaft.plot.mirnov
   - vaft.plot.onedim

@@ -62,6 +62,23 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+__all__ = [
+    "DPI",
+    "FIGSIZE",
+    "MANIFEST",
+    "PALETTE_COLORS",
+    "build",
+    "check",
+    "default_output",
+    "main",
+    "model_sha256",
+    "render_one",
+    "renderer_sha256",
+    "sample_candidates",
+    "sample_sources",
+    "stale_reason",
+]
+
 MANIFEST = "manifest.json"
 _PACKAGE = Path(__file__).resolve().parent
 _ROOT = _PACKAGE.parents[1]
