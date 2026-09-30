@@ -720,9 +720,10 @@ def _fill_all(discharge: Pr08Discharge, ods, two_d, outcomes: dict[str, _Outcome
                 if np.isfinite(ip[t_index]):
                     ods[f"equilibrium.time_slice.{t_index}.global_quantities.ip"] = float(ip[t_index])
                 if np.isfinite(ip[t_index]) and np.isfinite(bt[t_index]):
-                    magnitude = np.abs(q.values[t_index]) if np.nanmin(q.values) >= 0.0 else q.values[t_index]
+                    # Always |q|: a file that already carries a signed q got
+                    # sign(IP) sign(BT) applied to it a second time.
                     ods[f"equilibrium.time_slice.{t_index}.profiles_1d.q"] = (
-                        np.sign(ip[t_index]) * np.sign(bt[t_index]) * magnitude
+                        np.sign(ip[t_index]) * np.sign(bt[t_index]) * np.abs(q.values[t_index])
                     )
                     written += 1
             missing = "no IP/BT sample at some equilibrium times"
