@@ -781,6 +781,7 @@ def test_a_local_launch_writes_each_stream_to_its_own_log(tmp_path):
 
 # -- cold review 0.8.0 external-codes-genray-nice ----------------------------
 
+
 def test_solver_tolerances_are_written_into_param_xml_and_read_back(tmp_path):
     """F1: the manifest records what NICE will read, and the file carries it."""
     import xml.etree.ElementTree as ET
@@ -925,3 +926,34 @@ def test_diagnostics_do_not_materialise_missing_paths_in_the_callers_ods():
     assert not ip.enabled
     assert "magnetics.ip" not in ods
     assert "magnetics.diamagnetic_flux" not in ods
+
+
+def test_profiles_are_compared_on_each_sides_declared_psi_norm():
+    """F5: NICE on a non-uniform psi grid vs EFIT uniform, same analytic profile."""
+    from vaft.code.nice import compare_equilibria
+
+    def side(psi_norm, psi_axis, psi_boundary):
+        ods = ODS(consistency_check=False)
+        b = "equilibrium.time_slice.0"
+        ods["equilibrium.time"] = [0.331]
+        ods[f"{b}.time"] = 0.331
+        ods[f"{b}.global_quantities.psi_axis"] = psi_axis
+        ods[f"{b}.global_quantities.psi_boundary"] = psi_boundary
+        ods[f"{b}.profiles_1d.psi"] = psi_axis + (psi_boundary - psi_axis) * psi_norm
+        ods[f"{b}.profiles_1d.pressure"] = 1000.0 * (1 - psi_norm) ** 2
+        ods["equilibrium.vacuum_toroidal_field.r0"] = 0.4
+        ods["equilibrium.vacuum_toroidal_field.b0"] = [0.2]
+        return ods
+
+    nice = side(np.linspace(0, 1, 40) ** 2, 0.0, 0.06)
+    efit = side(np.linspace(0, 1, 129), -0.01, 0.05)
+    report = compare_equilibria(nice, efit, 0.331)
+    assert report["profile_grid"] == {"nice": "psi_norm", "efit": "psi_norm"}
+    assert report["profiles"]["pressure"]["max_abs"] < 1.0  # linear interpolation only
+    # By index the same profiles disagree by hundreds of Pa.
+    by_index = np.interp(
+        np.linspace(0, 1, 101), np.linspace(0, 1, 40), nice["equilibrium.time_slice.0.profiles_1d.pressure"]
+    ) - np.interp(
+        np.linspace(0, 1, 101), np.linspace(0, 1, 129), efit["equilibrium.time_slice.0.profiles_1d.pressure"]
+    )
+    assert np.max(np.abs(by_index)) > 100.0
