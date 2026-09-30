@@ -447,10 +447,14 @@ def scan_shot(shot: int, *, source: str | None, packaged: bool, policy: FitnessP
     row: dict[str, Any] = {"shot": int(shot)}
     try:
         ods = load_shot(shot, source=source, packaged=packaged)
+        # Inside the guard: a lazy source opens without contacting the server,
+        # so a shot the source does not hold first answers here -- as an HSDS
+        # 404 from listing its IDS -- not in `load_shot` (#1331).
+        has_magnetics = ods is not None and "magnetics" in ods
     except Exception as error:  # a source that cannot answer is a row, not a crash
         row.update(status="absent", reason=f"{type(error).__name__}: {error}"[:200])
         return row
-    if ods is None or "magnetics" not in ods:
+    if not has_magnetics:
         row.update(status="absent", reason="the source carries no magnetics for this shot")
         return row
 
@@ -616,14 +620,20 @@ def markdown(payload: dict[str, Any]) -> str:
             lines.append("- events: " + ", ".join(f"{name} {count}" for name, count in sorted(events.items())))
         model = row["model"]
         if model.get("consulted"):
-            residual = model["normalized_residual"]
-            authority = model.get("wall_authority", {})
-            lines.append(
-                "- vacuum model: "
-                + ", ".join(f"{state} {count}" for state, count in sorted(model["loop_states"].items()))
-                + f"; normalized residual median {residual['median']:.3f}, max {residual['max']:.3f}"
-                + (f"; wall authority median {authority['median']:.3f}" if authority.get("median") is not None else "")
+            residual = model.get("normalized_residual") or {}
+            authority = model.get("wall_authority") or {}
+            line = "- vacuum model: " + ", ".join(
+                f"{state} {count}" for state, count in sorted((model.get("loop_states") or {}).items())
             )
+            if residual.get("median") is not None:
+                line += f"; normalized residual median {residual['median']:.3f}, max {residual['max']:.3f}"
+            else:
+                # Consulted but unable to answer (e.g. the coupling could not be
+                # re-mapped): say why rather than format a missing number (#1331).
+                line += f"; no residual ({model.get('reason') or model.get('coupling')})"
+            if authority.get("median") is not None:
+                line += f"; wall authority median {authority['median']:.3f}"
+            lines.append(line)
         else:
             lines.append(f"- vacuum model: not consulted ({model.get('reason')})")
         lines.append("")

@@ -510,6 +510,39 @@ def test_giacomin_targets_edge_density_and_reports_extrapolation():
 
 
 # ------------------------------------------------------------------
+# Troyon beta limit (#350): Troyon et al., PPCF 26 (1984) 209, p. 214
+# ------------------------------------------------------------------
+
+def test_troyon_coefficient_is_2p2_mu0_in_percent_m_T_per_MA():
+    entry = B.get_boundary("troyon")
+    assert entry.target.unit == "% m T/MA" and entry.allowed_side == "below"
+    assert B.boundary_value(entry) == pytest.approx(2.2 * 4e-7 * np.pi * 1e6, rel=1e-9)
+    assert 2.7 < B.boundary_value(entry) < 2.8  # the rounded "2.8" of later literature
+
+
+def test_troyon_puts_jet_fully_stable_equilibrium_below_the_line():
+    """Troyon 1984: JET extended performance, R = 2.96 m, R/a = 2.36, T_S = 105 T m (p. 213)
+    read as 10 x R B; the fully stable equilibrium of Fig. 9 has I = 9.6 MA and beta = 5.5 %.
+    Stability to all n is stricter than the n = 1 line, so it must sit below it, but not far below."""
+    R, A, I_MA, beta_percent = 2.96, 2.36, 9.6, 5.5
+    a, B_T = R / A, (105.0 / 10.0) / R
+    beta_N = beta_percent * a * B_T / I_MA
+    result = B.evaluate_boundary(B.get_boundary("troyon"), beta_N)
+    assert result.allowed and 0.0 < result.margin < 0.15
+    # Taking the printed 105 T m literally would put the same point ten times above the limit.
+    assert beta_percent * a * (105.0 / R) / I_MA > 9 * B.boundary_value(B.get_boundary("troyon"))
+
+
+def test_troyon_uses_the_same_beta_N_convention_as_the_stability_module():
+    from vaft.formula.stability import beta_N_from_beta_a_B0_Ip
+
+    limit = B.get_boundary("troyon")
+    beta_N = beta_N_from_beta_a_B0_Ip(3.0, 1.0, 2.0, 1.0)  # 3 % at a = 1 m, B = 2 T, I = 1 MA
+    assert beta_N == pytest.approx(6.0)
+    assert not B.evaluate_boundary(limit, beta_N).allowed
+
+
+# ------------------------------------------------------------------
 # L-H threshold family (#1066): Martin et al. 2008 and Ryter et al. 2014
 # ------------------------------------------------------------------
 
