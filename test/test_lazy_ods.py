@@ -307,6 +307,19 @@ def test_aos_children_are_listed_in_numeric_order():
     assert ods["pf_active.coil"].keys() == list(range(12))
 
 
+def test_prefetch_reads_each_dataset_once_and_serves_every_leaf_from_memory():
+    ods = _long_aos_ods()
+    turns = ods.store._record_by_template["pf_active"][
+        ("pf_active", "coil", lazy_ods._AOS, "element", lazy_ods._AOS, "turns_with_sign")
+    ].dataset
+    assert ods.prefetch("pf_active.coil") == 4  # two leaves and two AOS shapes
+    assert turns.reads == [Ellipsis]              # the one bulk read
+    flat = ods["pf_active"].flat()
+    assert turns.reads == [Ellipsis]              # nothing more reached the server
+    assert flat["coil.11.element.0.turns_with_sign"] == 11.0
+    assert flat["coil.3.name"] == "c3"
+
+
 def test_flat_walks_every_element_of_a_long_lazy_aos():
     ods = _long_aos_ods()
     flat = ods["pf_active"].flat()
