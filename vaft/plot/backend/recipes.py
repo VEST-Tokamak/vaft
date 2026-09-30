@@ -11718,9 +11718,9 @@ def _gpec_solver_tag(ods: Any, tag: str, n_tor: int, time_slice: int | None) -> 
     """One ``<solver>`` child of ``code.parameters``, for a (slice, mode).
 
     Read the two shapes ``code.parameters`` arrives in, as
-    :func:`_mhd_linear_solver_names` does.  Returns ``""`` when the run
-    recorded nothing under *tag*, which is a different statement from a
-    recorded value and is treated as one by every caller.
+    :func:`_mhd_linear_solver_names` does.  ``""`` means the run recorded
+    nothing under *tag*; no caller may read that as a value, because "the run
+    did not say" and "the run said this" are different statements.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
     if isinstance(parameters, str):
@@ -11926,7 +11926,7 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
             "mesh's R alone -- and the PEST angle is the only one whose "
             "toroidal partner is the machine phi, so it is the only one in "
             "which m*theta - n*phi is the helical phase of a fixed-phi "
-            f"section; convertible jacobians are "
+            "section; convertible jacobians are "
             f"{sorted(_PEST_CONVERTIBLE_JACOBIANS)}"
         )
     helicity = _gpec_helicity(ods, n_tor, cell["time_slice"])

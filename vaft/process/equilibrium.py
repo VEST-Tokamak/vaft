@@ -57,7 +57,8 @@ Provenance
 
 import warnings
 from dataclasses import dataclass
-from typing import Any, Optional
+from types import MappingProxyType
+from typing import Any, Mapping, Optional
 
 from scipy.interpolate import RectBivariateSpline
 
@@ -5949,13 +5950,15 @@ def straight_field_line_map(
 #: fixed by its jacobian, and two of them on one surface are related by the
 #: ratio of their weights -- which is what
 #: :func:`pest_angle_from_jacobian_angle` integrates.
-DCON_JACOBIAN_ANGLE_WEIGHTS: dict[str, tuple[int, int, int]] = {
+#: Read-only: a caller that mutated it would silently change which angle every
+#: figure built on this conversion is drawn in.
+DCON_JACOBIAN_ANGLE_WEIGHTS: Mapping[str, tuple[int, int, int]] = MappingProxyType({
     "hamada": (0, 0, 0),
     "pest": (2, 0, 0),
     "equal_arc": (0, 0, 1),
     "boozer": (0, 2, 0),
     "park": (0, 1, 0),
-}
+})
 
 #: Which of :data:`DCON_JACOBIAN_ANGLE_WEIGHTS` a caller holding only ``R`` on
 #: the mesh can convert.  ``|B|`` and ``B_p`` are not part of the
