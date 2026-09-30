@@ -448,3 +448,55 @@ def test_a_database_shot_shows_what_is_in_memory(monkeypatch, ods):
     built.ids_button.clicks += 1
     assert "pf_active" in built.status.object and built.ids_choice.value == []
     built.close()
+
+
+def _player_of(app, label):
+    box = next(w for w in app.controls.objects if _label(w) == f"Play: {label}")
+    return box.objects[0], box.objects[1]
+
+
+def test_equilibrium_slices_play_as_a_movie(app):
+    state = app.session.state
+    options = list(state.spec("time_slice").options)
+    player, interval = _player_of(app, "Equilibrium slice")
+    assert isinstance(player, pn.widgets.Player) and (player.start, player.end) == (0, len(options) - 1)
+    frames = []
+    state.subscribe(lambda s: frames.append(s["time_slice"]))
+    player.value = 0
+    player.value = 1
+    assert frames == [options[0], options[1]] and _widget(app, "Equilibrium slice").value == options[1]
+    state.set("time_slice", options[2])
+    assert player.value == 2, "the player follows a slice chosen by hand"
+    interval.value = 200
+    assert player.interval == 200
+    player.interval = 400  # the player's own "slower" button
+    assert interval.value == 400
+
+
+def test_camera_frames_play_through_their_time_control():
+    from vaft.gui.widgets import panel_controls
+    from vaft.omas import render_plot, sample_ods
+
+    drawn = render_plot(
+        "camera_visible_image_frame", sample_ods(40600), interactive=True, interaction_backend="none",
+    )
+    laid_out = panel_controls(drawn.state)
+    box = next(w for w in laid_out if _label(w).startswith("Play: "))
+    player = box.objects[0]
+    low, high, _ = drawn.state.spec("frame_index").options
+    assert (player.start, player.end) == (low, high)
+    player.value = 10
+    assert drawn.state["frame_index"] == 10
+    import matplotlib.pyplot as plt
+
+    plt.close(drawn.figure)
+
+
+def test_a_frame_that_cannot_be_drawn_is_reported_and_the_next_one_clears_it(app):
+    state = app.session.state
+    options = list(state.spec("time_slice").options)
+    player, _ = _player_of(app, "Equilibrium slice")
+    player.value = len(options) - 1  # sample slice 8 cannot be drawn as surfaces
+    assert app.alert.visible and "style='surfaces'" in app.alert.object
+    player.value = 0
+    assert not app.alert.visible and state["time_slice"] == options[0]

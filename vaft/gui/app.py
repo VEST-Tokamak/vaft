@@ -309,7 +309,10 @@ class BrowserApp:
         except Exception as error:
             self._show_error(error)
             return False
-        drawn.state.subscribe(lambda _state: self._refresh())
+        # Observers run only after a redraw succeeded (a refused one raises
+        # first), so a message about an earlier refused frame is cleared --
+        # playback walks past a slice that cannot be drawn.
+        drawn.state.subscribe(lambda _state: (self._clear_error(), self._refresh()))
         self.controls.objects = panel_controls(drawn.state, on_error=self._on_control_error)
         plotly = self.session.renderer == "plotly"
         self._updating = True
