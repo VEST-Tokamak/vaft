@@ -142,10 +142,15 @@ RESONANT_STATISTICS: tuple[str, ...] = ("rms", "max", "min", "mean", "sum")
 #: surfaces. Reducing those gives a number -- an RMS of a radial coordinate,
 #: or an edge temperature of zero on a run that never filled the column --
 #: that reads exactly like a resonant metric and is not one.
+#: ``B_pen`` is the one spelling ``vaft.code.gpec`` hands back for the variable a
+#: current GPEC writes as ``b_pen``; ``Phi_res_crit_callen``, ``w_isl_sat`` and
+#: ``w_isl_min`` are columns only a run with the Callen threshold model on fills.
+#: ``P_res`` and ``dP_res`` are deliberately *not* here: they are pressures, and an
+#: RMS over a pressure column reads exactly like a field metric.
 RESONANT_RESPONSE_COLUMNS: tuple[str, ...] = (
-    "Phi_res", "Phi_res_v", "Phi_res_crit",
+    "Phi_res", "Phi_res_v", "Phi_res_crit", "Phi_res_crit_callen",
     "Delta", "B_pen", "I_res",
-    "w_isl", "w_isl_v", "w_isl_v_crit",
+    "w_isl", "w_isl_v", "w_isl_v_crit", "w_isl_sat", "w_isl_min",
     "K_isl", "K_isl_v",
 )
 
