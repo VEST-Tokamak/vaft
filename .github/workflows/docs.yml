@@ -13,24 +13,16 @@ on:
     paths:
       - 'docs/**'
       - 'notebooks/**'
-      - 'vaft/formula/**'
-      - 'vaft/machine_mapping/**'
-      - 'vaft/plot/**'
-      - 'vaft/diagram/**'
-      - 'vaft/process/**'
-      - 'vaft/_docstring.py'
+      # Every vaft module is documented by the generated API reference (#162).
+      - 'vaft/**'
       - '.github/workflows/docs.yml'
   push:
     branches: [main, develop]
     paths:
       - 'docs/**'
       - 'notebooks/**'
-      - 'vaft/formula/**'
-      - 'vaft/machine_mapping/**'
-      - 'vaft/plot/**'
-      - 'vaft/diagram/**'
-      - 'vaft/process/**'
-      - 'vaft/_docstring.py'
+      # Every vaft module is documented by the generated API reference (#162).
+      - 'vaft/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
