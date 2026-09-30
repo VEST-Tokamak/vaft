@@ -73,8 +73,8 @@ def test_every_primary_package_is_represented(snapshot):
         by_page.setdefault(entry["page"], []).append(entry)
     for page, package in representatives.items():
         assert any(entry["module"].startswith(package) for entry in by_page.get(page, [])), page
-    run_efit = _entry(snapshot, "vaft.code.efit.run_efit")
-    assert "vaft.code.run_efit" in run_efit["exported_as"]
+    run_efit = _entry(snapshot, "vaft.code.efit.magnetic.run_efit")
+    assert {"vaft.code.efit.run_efit", "vaft.code.run_efit"} <= set(run_efit["exported_as"])
 
 
 def test_private_helpers_are_not_published(snapshot):
@@ -92,7 +92,7 @@ def test_every_entry_resolves_to_the_object_its_module_exports(snapshot):
 def test_signatures_and_source_lines_come_from_the_source(snapshot):
     from vaft.code.efit import run_efit
 
-    entry = _entry(snapshot, "vaft.code.efit.run_efit")
+    entry = _entry(snapshot, "vaft.code.efit.magnetic.run_efit")
     parameters = inspect.signature(run_efit).parameters
     assert entry["signature"].startswith("(")
     for name in parameters:
@@ -191,23 +191,23 @@ def test_an_all_naming_something_undefined_is_caught(coverage, snapshot, monkeyp
 
 def test_a_published_object_missing_from_the_catalog_is_caught(coverage, snapshot):
     mutated = copy.deepcopy(snapshot)
-    mutated["entries"] = [entry for entry in mutated["entries"] if entry["id"] != "vaft.code.efit.run_efit"]
+    mutated["entries"] = [entry for entry in mutated["entries"] if entry["id"] != "vaft.code.efit.magnetic.run_efit"]
     problems = coverage.check_api(mutated, ROOT)
     assert any("run_efit is published but no entry of api_catalog.yml describes it" in problem for problem in problems)
 
 
 def test_a_catalog_entry_that_vanished_is_caught(coverage, snapshot):
     mutated = copy.deepcopy(snapshot)
-    ghost = copy.deepcopy(_entry(mutated, "vaft.code.efit.run_efit"))
-    ghost.update(id="vaft.code.efit.run_ghost", name="run_ghost", exported_as=[])
+    ghost = copy.deepcopy(_entry(mutated, "vaft.code.efit.magnetic.run_efit"))
+    ghost.update(id="vaft.code.efit.magnetic.run_ghost", name="run_ghost", exported_as=[])
     mutated["entries"].append(ghost)
-    assert "api: entry vaft.code.efit.run_ghost vanished: vaft.code.efit no longer exports run_ghost" in \
+    assert "api: entry vaft.code.efit.magnetic.run_ghost vanished: vaft.code.efit.magnetic no longer exports run_ghost" in \
         coverage.check_api(mutated, ROOT)
 
 
 def test_a_duplicated_entry_is_caught(coverage, snapshot):
     mutated = copy.deepcopy(snapshot)
-    twin = copy.deepcopy(_entry(mutated, "vaft.code.efit.run_efit"))
+    twin = copy.deepcopy(_entry(mutated, "vaft.code.efit.magnetic.run_efit"))
     twin.update(id="vaft.code.run_efit", module="vaft.code", exported_as=[])
     mutated["entries"].append(twin)
     assert any("is claimed by more than one entry" in problem for problem in coverage.check_api(mutated, ROOT))
@@ -226,12 +226,12 @@ def test_an_exported_name_claimed_twice_or_falsely_is_caught(coverage, snapshot)
     mutated = copy.deepcopy(snapshot)
     constant = copy.deepcopy(_data_entry(mutated, "SCHEMA_VERSION"))
     mutated["entries"].append(constant)                                    # the same data name twice
-    run_efit = _entry(mutated, "vaft.code.efit.run_efit")
+    run_efit = _entry(mutated, "vaft.code.efit.magnetic.run_efit")
     run_efit["exported_as"] = [*run_efit["exported_as"], "vaft.code.efit.no_such_alias", "vaft.code.efit.EFITConfig"]
     problems = coverage.check_api(mutated, ROOT)
     assert any(problem.startswith(f"api: {constant['id']} is claimed by more than one entry") for problem in problems)
-    assert "api: entry vaft.code.efit.run_efit lists vaft.code.efit.no_such_alias, which is not published" in problems
-    assert "api: entry vaft.code.efit.run_efit lists vaft.code.efit.EFITConfig, which is a different object" in problems \
+    assert "api: entry vaft.code.efit.magnetic.run_efit lists vaft.code.efit.no_such_alias, which is not published" in problems
+    assert "api: entry vaft.code.efit.magnetic.run_efit lists vaft.code.efit.EFITConfig, which is a different object" in problems \
         or any("vaft.code.efit.EFITConfig is claimed by more than one entry" in problem for problem in problems)
 
 
@@ -239,8 +239,8 @@ def test_a_constant_cannot_be_covered_by_a_function_entry(coverage, snapshot):
     mutated = copy.deepcopy(snapshot)
     constant = _data_entry(mutated, "SCHEMA_VERSION")
     mutated["entries"].remove(constant)
-    _entry(mutated, "vaft.code.efit.run_efit")["exported_as"].append(constant["id"])
-    assert f"api: entry vaft.code.efit.run_efit is a function but {constant['id']} is data" in \
+    _entry(mutated, "vaft.code.efit.magnetic.run_efit")["exported_as"].append(constant["id"])
+    assert f"api: entry vaft.code.efit.magnetic.run_efit is a function but {constant['id']} is data" in \
         coverage.check_api(mutated, ROOT)
 
 
