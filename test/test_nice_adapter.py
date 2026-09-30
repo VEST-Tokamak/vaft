@@ -801,8 +801,8 @@ def test_solver_tolerances_are_written_into_param_xml_and_read_back(tmp_path):
     )
     written = inputs.input_dir / "param.xml"
     root = ET.parse(written).getroot()
-    assert float(root.findtext("epsStopRecon")) == 1e-12
-    assert int(root.findtext("iterMaxRecon")) == 5
+    assert root.findtext("epsStopRecon") == "1e-12"
+    assert root.findtext("iterMaxRecon") == "5"
     assert root.findtext("inoutCOCOS") == "11"
     assert "<!-- reviewed -->" in written.read_text(encoding="utf-8")
     assert inputs.manifest["solver_tolerances"] == {

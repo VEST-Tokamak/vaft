@@ -183,10 +183,9 @@ def _apply_solver_tolerances(
             )
         if isinstance(value, (int, float)) and not np.isfinite(value):
             raise ValueError(f"solver_tolerances[{key!r}] must be finite, got {value!r}")
-        if isinstance(value, float):
-            rendered = f"{value:.17g}"
-        else:
-            rendered = str(value)
+        # repr is the shortest round-trip form: 1e-12 stays "1e-12", not
+        # "9.9999999999999998e-13", for whoever reads the file.
+        rendered = repr(value) if isinstance(value, float) else str(value)
         pattern = re.compile(rf"(<{re.escape(str(key))}>)[^<]*(</{re.escape(str(key))}>)")
         text, count = pattern.subn(
             lambda match: f"{match.group(1)}{rendered}{match.group(2)}", text
