@@ -218,10 +218,11 @@ class BrowserSession:
                 missing[source] = wanted
         for source, part in fetched.items():
             for name in missing[source]:
-                # An IDS a shot does not store is simply absent from the part.
+                # Held only once it is in memory: an IDS the read did not
+                # return is asked for again rather than reported as loaded.
                 if name in part.keys():
                     self._shots[source][name] = part[name]
-                self._held[source].add(name)
+                    self._held[source].add(name)
         return sorted({name for names_ in missing.values() for name in names_})
 
     def catalog(self) -> Any:
@@ -264,7 +265,18 @@ class BrowserSession:
 
         if renderer == "plotly":
             options["backend"] = "plotly"
-        drawn = render_plot(name, self.ods, interactive=True, interaction_backend="none", **options)
+        import matplotlib.pyplot as plt
+
+        before = set(plt.get_fignums())
+        try:
+            drawn = render_plot(name, self.ods, interactive=True, interaction_backend="none", **options)
+        except Exception:
+            # render_controls makes its pyplot figure before the first draw;
+            # a refused draw must not leave it registered in a server that
+            # runs for days.
+            for number in set(plt.get_fignums()) - before:
+                plt.close(number)
+            raise
         self._release()
         self.plot, self.renderer, self.interactive = name, renderer, drawn
         return drawn
