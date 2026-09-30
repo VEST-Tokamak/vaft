@@ -43,6 +43,33 @@ from omas.omas_utils import _extra_structures
 
 from .code_parameters import entry_safe_code_parameters
 
+# Only what this module defines: the star import above binds all of
+# ``omas.omas_utils``, which is OMAS's API, not VAFT's.
+__all__ = [
+    "IDS",
+    "IDS_AL4",
+    "IMAS_DD_VERSION_CONVERSION",
+    "IMAS_REMOVED_IDS",
+    "browse_imas",
+    "dynamic_omas_imas",
+    "filled_paths_in_ids",
+    "imas_empty",
+    "imas_get",
+    "imas_open",
+    "imas_open_uri",
+    "imas_set",
+    "infer_fetch_paths",
+    "iter_scenario_requirements",
+    "keys_leading_to_a_filled_path",
+    "load_omas_imas",
+    "load_omas_iter_scenario",
+    "ods_from_toplevels",
+    "reach_ds_location",
+    "reach_ids_location",
+    "save_omas_imas",
+    "through_omas_imas",
+]
+
 
 class IDS:
     """Wrapper for AL5 (IMAS-Python / imas_core) DBEntry"""
