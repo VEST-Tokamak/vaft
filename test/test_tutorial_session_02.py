@@ -533,12 +533,12 @@ def test_the_reduced_models_follow_breakdown_in_order(book):
 
 def test_every_reduced_model_states_what_it_supports_and_what_it_does_not(book):
     """#783: assumptions, the supported conclusion and the unsupported one, for each toy."""
-    notes = {"s02-toy4-intro": "s02-toy3", "s02-toy5-intro": "s02-toy4", "s02-toy6-intro": "s02-toy5",
+    notes = {"s02-breakdown-note": "s02-toy2", "s02-toy4-intro": "s02-toy3", "s02-toy5-intro": "s02-toy4", "s02-toy6-intro": "s02-toy5",
              "s02-toy7-intro": "s02-toy6", "s02-toy8-intro": "s02-toy7", "s02-toy8-note": "s02-toy8"}
     for note, toy in notes.items():
         text = _source(_cell(book, note))
         assert "Not supported" in text or "not the moment" in text, (toy, note)
-    for note in ("s02-toy4-intro", "s02-toy5-intro", "s02-toy6-intro", "s02-toy7-intro", "s02-toy8-intro"):
+    for note in ("s02-breakdown-note", "s02-toy4-intro", "s02-toy5-intro", "s02-toy6-intro", "s02-toy7-intro", "s02-toy8-intro"):
         assert "Assumptions" in _source(_cell(book, note)), note
 
 
