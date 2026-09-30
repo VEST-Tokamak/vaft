@@ -8,6 +8,8 @@ one.
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pytest
 from omas import ODS
@@ -147,8 +149,9 @@ def test_the_slice_the_figure_drew_is_on_the_title(mapped):
 
 def test_a_result_with_no_mesh_says_how_to_get_one(tmp_path):
     """Refusing beats drawing the islands against an equilibrium's own flux
-    surfaces: those are the same surfaces, but their points carry a different
-    poloidal angle, and the island phase is in this one."""
+    surfaces. Those are the same surfaces, but nothing ties the run's radial
+    grid to the equilibrium's, and the resonant phase is referenced to the
+    run's own angle origin."""
     _run(tmp_path)
     ods = ODS(consistency_check=False)
     gpec_ideal(ods, str(tmp_path), {"modes": [1], "include_geometry": False})
@@ -173,9 +176,10 @@ def test_the_island_phase_is_derived_and_never_assumed_to_be_zero(mapped):
 
 
 def test_a_run_in_non_straight_field_line_coordinates_is_refused(tmp_path):
-    """`m*theta - n*phi` is the helical phase only where the coordinates make
-    field lines straight. GPEC's `equal_arc` jacobian does not, and a curve of
-    constant phase drawn in it is not an island separatrix.
+    """`m*theta - n*phi` is the helical phase only in the PEST angle, whose
+    toroidal partner is the machine `phi`. GPEC's `equal_arc` angle is not even
+    a straight-field-line one, and relabelling it into PEST needs `B_p` on the
+    mesh, which no `coordinate_system` carries.
     """
     _run(tmp_path)
     ods = ODS(consistency_check=False)
@@ -453,3 +457,278 @@ def test_a_non_finite_excursion_is_refused_by_name():
 
     with pytest.raises(ValueError, match="not finite"):
         _first_island_x_point(np.array([0.3, np.nan, 0.1]))
+
+
+# --- where the O-points actually sit (C-44, slice V5P) -------------------------
+#
+# The tests above this point pin the separatrix's *shape* and how it *moves*
+# when the phase or phi changes. None of them pins where it sits, which is how
+# the figure came to place every O-point a quarter period -- and a whole angle
+# convention -- away from where a Poincare trace puts it. These do.
+
+#: The fixture's flux-surface mesh is radial rays from ``(1.7, 0)``, so a
+#: drawn point's poloidal angle and its ``psi_n`` are both read straight off
+#: its position. A constant rather than a re-derivation per test, so that a
+#: change to the fixture's geometry breaks these loudly.
+_FIXTURE_AXIS_R = 1.7
+
+#: An ``arg(Phi_res)`` at which the two candidate laws are far apart.
+#: ``arg(Phi) - pi/2`` and ``-arg(Phi)`` differ by ``2 arg(Phi) - pi/2``, which
+#: vanishes at ``arg(Phi) = pi/4`` and at ``pi/4 - pi``: a phase near either
+#: would let the old law pass these tests. This one separates them by ``pi``.
+_SEPARATING_PHASE = 0.25 * np.pi + 0.5 * np.pi
+
+
+def _fixture_surface_angles(psi_r, theta_norm, jacobian):
+    """``(theta_mesh, theta_pest)`` of one fixture flux surface, in radians."""
+    from vaft.process.equilibrium import pest_angle_from_jacobian_angle
+
+    radius = _FIXTURE_AXIS_R + psi_r * np.cos(2.0 * np.pi * theta_norm)
+    return (2.0 * np.pi * theta_norm,
+            pest_angle_from_jacobian_angle(theta_norm, radius, jacobian))
+
+
+def _drawn_angles(layer, psi_r, theta_norm, jacobian):
+    """Each drawn sample's ``(mesh angle, PEST angle, radial excursion)``."""
+    half = layer.r.size // 2
+    outer_r, outer_z = layer.r[:half], layer.z[:half]
+    mesh_angle, pest_angle = _fixture_surface_angles(psi_r, theta_norm, jacobian)
+    geometric = np.mod(np.arctan2(outer_z, outer_r - _FIXTURE_AXIS_R), 2.0 * np.pi)
+    return (
+        np.interp(geometric, mesh_angle, mesh_angle, period=2.0 * np.pi),
+        np.interp(geometric, mesh_angle, pest_angle, period=2.0 * np.pi),
+        np.hypot(outer_r - _FIXTURE_AXIS_R, outer_z) - psi_r,
+    )
+
+
+def _drawn_o_point_phase(layer, m_pol, psi_r, theta_norm, jacobian):
+    """The helical phase of the drawn separatrix's widest point.
+
+    Fitted, not argmax-ed: ``excursion**2`` is
+    ``(w/2)**2 (1 + cos(m theta* - xi_O)) / 2``, one cosine at ``m`` whose
+    phase is the O-point's, so the whole outward branch votes and the answer
+    is not limited to the nearest mesh sample. It is the same fit
+    ``vaft-mastu``'s ``tools/flare_r01_poincare.py`` applies to FLARE
+    punctures, which is what makes the two numbers comparable at all.
+    """
+    _, pest_angle, excursion = _drawn_angles(layer, psi_r, theta_norm, jacobian)
+    design = np.column_stack([np.ones(excursion.size),
+                              np.cos(m_pol * pest_angle), np.sin(m_pol * pest_angle)])
+    fit, *_ = np.linalg.lstsq(design, excursion ** 2, rcond=None)
+    return float(np.mod(np.arctan2(fit[2], fit[1]), 2.0 * np.pi))
+
+
+def _phase_miss(first, second):
+    return abs((first - second + np.pi) % (2.0 * np.pi) - np.pi)
+
+
+def _fix_phase(monkeypatch, phase):
+    """Put one chosen ``arg(Phi_res)`` on every surface of the recipe's table."""
+    import vaft.plot.backend.recipes as recipes
+
+    original = recipes._gpec_resonant_table
+
+    def fixed(ods_, **options):
+        result = original(ods_, **options)
+        for row in result["rows"]:
+            row["phase"] = float(phase)
+        return result
+
+    monkeypatch.setattr(recipes, "_gpec_resonant_table", fixed)
+
+
+def _recorded_as(ods, *, jacobian=None, helicity=None):
+    parameters = ods["mhd_linear.code.parameters"]
+    if jacobian is not None:
+        parameters = re.sub(r"<jacobian>[^<]*</jacobian>",
+                            f"<jacobian>{jacobian}</jacobian>", parameters)
+    if helicity is not None:
+        parameters = re.sub(r"<helicity>[^<]*</helicity>",
+                            f"<helicity>{helicity}</helicity>", parameters)
+    ods["mhd_linear.code.parameters"] = parameters
+    return ods
+
+
+@pytest.mark.parametrize("jacobian", ["pest", "hamada"])
+@pytest.mark.parametrize("phase", [0.0, 1.2, _SEPARATING_PHASE])
+def test_the_o_point_sits_a_quarter_period_below_the_resonant_flux_phase(
+    mapped, monkeypatch, jacobian, phase
+):
+    """C-44. ``Phi_res`` is a normal-field harmonic -- GPEC writes it in tesla
+    -- while the field-line Hamiltonian's potential is the flux function, and
+    harmonic k of the two differ by ``i k m``. The modulus is already inside
+    ``w_isl``; the ``1/i`` is this quarter period, and nothing in ``w_isl``
+    carries it. So the O-point is at ``arg(Phi_res) - pi/2``.
+    """
+    ods, native = mapped
+    _recorded_as(ods, jacobian=jacobian)
+    _fix_phase(monkeypatch, phase)
+    table = _gpec_resonant_table(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    law = float(np.mod(phase - 0.5 * np.pi, 2.0 * np.pi))
+
+    for index, row in enumerate(table["rows"]):
+        measured = _drawn_o_point_phase(
+            model.layers[2 + 2 * index], int(row["m_pol"]), float(row["psi_n"]),
+            native["theta"], jacobian,
+        )
+        assert _phase_miss(measured, law) < 5e-3, (row["m_pol"], measured, law)
+
+
+def test_the_phase_is_not_the_negated_argument_the_figure_used_to_draw(
+    mapped, monkeypatch
+):
+    """The regression pin. At :data:`_SEPARATING_PHASE` the law this figure
+    used -- the O-point at ``-arg(Phi_res)`` -- is half a helical period from
+    the measured one, so no sampling tolerance can hide the difference.
+    """
+    ods, native = mapped
+    _recorded_as(ods, jacobian="pest")
+    _fix_phase(monkeypatch, _SEPARATING_PHASE)
+    table = _gpec_resonant_table(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+
+    row = table["rows"][0]
+    measured = _drawn_o_point_phase(
+        model.layers[2], int(row["m_pol"]), float(row["psi_n"]), native["theta"], "pest",
+    )
+    superseded = float(np.mod(-_SEPARATING_PHASE, 2.0 * np.pi))
+    assert _phase_miss(measured, superseded) == pytest.approx(np.pi, abs=5e-3)
+
+
+def test_the_drawn_lobes_are_equally_spaced_in_the_pest_angle_and_not_in_the_mesh(
+    tmp_path, monkeypatch
+):
+    """One island's lobes are at one helical phase by definition, so they are
+    equally spaced in the angle that carries that phase and in no other.
+    Hamada, PEST and Boozer all make field lines straight, but each pairs its
+    poloidal angle with its own toroidal angle and only PEST's is the machine
+    ``phi``; drawing the Hamada angle as though it were the helical one leaves
+    the lobes scattered around the surface.
+    """
+    # A finer circuit than the shared fixture: a lobe's own maximum is located
+    # only to the sample spacing, and the claim is about spacings between them.
+    native = _run(tmp_path, theta_count=511)
+    ods = ODS(consistency_check=False)
+    gpec_ideal(ods, str(tmp_path), {"modes": [1], "include_geometry": True})
+    _fix_phase(monkeypatch, _SEPARATING_PHASE)
+    table = _gpec_resonant_table(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    spacing = 2.0 * np.pi / (native["theta"].size - 1)
+
+    for index, row in enumerate(table["rows"]):
+        m_pol = int(row["m_pol"])
+        layer = model.layers[2 + 2 * index]
+        mesh_angle, pest_angle, _ = _drawn_angles(
+            layer, float(row["psi_n"]), native["theta"], "hamada"
+        )
+        separation = _separation(layer)[:-1]
+        peaks = np.flatnonzero(
+            (separation >= np.roll(separation, 1)) & (separation >= np.roll(separation, -1))
+        )
+        assert peaks.size == m_pol, (m_pol, peaks.size)
+
+        def deviation(angle):
+            sorted_angle = np.sort(np.mod(angle[peaks], 2.0 * np.pi))
+            gaps = np.diff(np.append(sorted_angle, sorted_angle[0] + 2.0 * np.pi))
+            return float(np.max(np.abs(gaps - 2.0 * np.pi / m_pol)))
+
+        # Equal to within how well a peak can be located on this mesh ...
+        assert deviation(pest_angle) < 1.5 * spacing, m_pol
+        # ... and, in the mesh's own angle, an order of magnitude worse.
+        assert deviation(mesh_angle) > 10.0 * spacing, m_pol
+
+
+def test_a_jacobian_that_cannot_be_relabelled_from_the_mesh_is_refused(mapped):
+    """``boozer`` is a straight-field-line system and used to be accepted for
+    being one. Relabelling its poloidal angle into PEST needs ``|B|`` on the
+    same mesh, which no ``coordinate_system`` carries.
+    """
+    ods, _ = mapped
+    _recorded_as(ods, jacobian="boozer")
+
+    with pytest.raises(ValueError, match="boozer"):
+        RECIPES["mhd_linear_geometry_island"].builder(ods)
+
+
+@pytest.mark.parametrize("recorded", ["1.0", "None"])
+def test_a_helicity_the_phase_law_was_not_measured_at_is_refused(mapped, recorded):
+    """C-44 ties the conjugation's sense to the orientation of the code's
+    angles against the machine helicity, and the Poincare traces that settled
+    it ran at helicity -1. The other sign, and a run that recorded none, are
+    refused rather than drawn from a law nobody measured there.
+    """
+    ods, _ = mapped
+    _recorded_as(ods, helicity=recorded)
+
+    with pytest.raises(ValueError, match="helicity"):
+        RECIPES["mhd_linear_geometry_island"].builder(ods)
+
+
+# --- the R-01 reference value (D-13: GPEC's own DIII-D example) ----------------
+
+#: ``arg(Phi_res_v)`` at ``q = 2`` of GPEC's shipped DIII-D example, ideal
+#: ``n = 1``, read from ``gpec_profile_output_n1.nc`` [rad].
+#:
+#: Provenance: DIII-D 147131 @ 2300 ms, the kinetic EFIT equilibrium
+#: ``g147131.02300_DIIID_KEFIT`` shipped with GPEC ``docs/examples``, run with
+#: GPEC ``v1.5.5-378-gf06e6ab``, ``jac_type = "hamada"``, the six C-coils on a
+#: pure ``cos(n = 1)`` pattern, ``helicity = -1``. Publishable under D-13
+#: (2026-09-28): data shipped inside an open-source code's own repository, and
+#: outputs derived from it with that code.
+R01_Q2_RESONANT_FLUX_PHASE = 2.826799
+
+#: Where FLARE traces that island's O-point, as ``xi = m theta*`` at
+#: ``phi = 0`` in the PEST angle [rad].
+#:
+#: Measured by ``vaft-mastu`` ``tools/flare_r01_poincare.py`` on the same run's
+#: vacuum ``n = 1`` real-space field (``gpec_cbrzphi_n1.out``, the only field
+#: with a traceable island: an ideal response shields the resonant field the
+#: total harmonic is derived from): 45 field lines x 300 punctures over
+#: ``psi_N`` in [0.534, 0.654], 19 of them interior, the island width per
+#: poloidal bin fitted against the ``|cos(xi/2)|`` profile a pendulum island
+#: has, in the PEST angle of the run's own equilibrium. The fit moves by
+#: 0.008 rad across binnings from 72 to 180 bins
+#: (``vaft-mastu docs/migration/status/V5P.md``, convention C-44).
+R01_Q2_TRACED_O_POINT = 1.219653
+
+#: How far that fit moves across the four binnings [rad]: the resolution any
+#: comparison with it is entitled to.
+R01_Q2_TRACED_O_POINT_SPREAD = 0.0075
+
+
+def test_the_phase_law_reproduces_the_flare_traced_o_point_on_the_gpec_example():
+    """The measurement the law rests on, pinned as a number.
+
+    Not a figure test: it is the convention itself. ``arg(Phi_res) - pi/2``
+    lands 2.1 degrees from the traced O-point -- five times the trace's own
+    spread -- and the negated argument this figure used to draw lands
+    128 degrees away, nearly 300 spreads.
+    """
+    law = R01_Q2_RESONANT_FLUX_PHASE - 0.5 * np.pi
+    superseded = -R01_Q2_RESONANT_FLUX_PHASE
+
+    assert _phase_miss(law, R01_Q2_TRACED_O_POINT) == pytest.approx(0.03635, abs=5e-5)
+    assert _phase_miss(superseded, R01_Q2_TRACED_O_POINT) == pytest.approx(2.2367, abs=5e-4)
+    assert _phase_miss(law, R01_Q2_TRACED_O_POINT) < 5.0 * R01_Q2_TRACED_O_POINT_SPREAD
+    assert (_phase_miss(superseded, R01_Q2_TRACED_O_POINT)
+            > 100.0 * R01_Q2_TRACED_O_POINT_SPREAD)
+
+
+def test_the_recipe_and_the_pinned_r01_law_are_the_same_expression(mapped, monkeypatch):
+    """The number above and the figure must not be able to drift apart."""
+    ods, native = mapped
+    _recorded_as(ods, jacobian="pest")
+    _fix_phase(monkeypatch, R01_Q2_RESONANT_FLUX_PHASE)
+    table = _gpec_resonant_table(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+
+    row = next(row for row in table["rows"] if int(row["m_pol"]) == 2)
+    index = table["rows"].index(row)
+    measured = _drawn_o_point_phase(
+        model.layers[2 + 2 * index], 2, float(row["psi_n"]), native["theta"], "pest",
+    )
+    expected = float(np.mod(R01_Q2_RESONANT_FLUX_PHASE - 0.5 * np.pi, 2.0 * np.pi))
+    assert _phase_miss(measured, expected) < 5e-3
+    assert (_phase_miss(measured, R01_Q2_TRACED_O_POINT)
+            < 5.0 * R01_Q2_TRACED_O_POINT_SPREAD)
