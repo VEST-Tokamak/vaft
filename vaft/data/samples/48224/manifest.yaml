@@ -51,7 +51,13 @@ generation:
     1.1 mT); COCOS 12 agrees on 0/59. The measured expmpi cannot be used: it carries
     the pre-#288 sign and the probes are weighted out (see efit_magnetic_server.notes).
     The same EFIT-reconstruction test reproduces the measured +Bz field on 41524 and
-    41672, whose g-file psi is COCOS 1, the Wb/rad sibling of 11.'
+    41672, whose g-file psi is COCOS 1, the Wb/rad sibling of 11. The reference m-file
+    comes from the server EFIT run, while this ODS matches kineticEfit/g048224.00300
+    (SIMAG differs by 0.7 %); the signs, which are all the test uses, are unaffected.
+    Scope: this fixes the convention of the stored psi in EFIT''s own frame (the
+    reference is EFIT''s forward model); it does not settle the physical lab-frame
+    current direction, which stays open under issues 275/288
+    (equilibrium_orientation_is_resolved() is False).'
   wall: wall.description_2d.0.limiter.unit.0.outline is the full 17-point VEST limiter,
     identical to vaft.machine_mapping.wall, not the 5-point database stub.
   equilibria_command: 'scratch scripts run48224.py (magnetic run), kinetic_scan.py

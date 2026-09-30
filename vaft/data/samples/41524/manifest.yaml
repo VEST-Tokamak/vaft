@@ -55,7 +55,7 @@ generation:
       EFIT''s reconstructed probe field on 297/297 probe-slices (median difference
       0.14 mT) and with the measured +Bz probe field (issue 288) on 250/277 (90%);
       k = -1 (COCOS 2) agrees on 0/297 and 27/277. The same test on 39915 (declared
-      COCOS 11) splits the same way.'
+      COCOS 11) splits the same way. Scope: this fixes the convention of the stored psi in EFIT''s own frame (the reference is EFIT''s forward model from the same fit); it does not settle the physical lab-frame current direction, which stays open under issues 275/288 (equilibrium_orientation_is_resolved() is False).'
   equilibrium_cocos: 1
   signal_quality:
     projected: true
