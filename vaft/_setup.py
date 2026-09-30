@@ -22,9 +22,12 @@ Profiles:
 
 What is never touched: an explicit ``MPLBACKEND`` (other than the inline one
 Jupyter itself exports), a backend already selected in the process (``Agg``
-included), and every scientific choice -- COCOS, coordinates, filtering,
-fitting, slice selection.  Calling ``setup`` again with the same profile is a
-no-op.
+included, and ``%matplotlib inline`` where Matplotlib 3.9+ records it as
+``inline``; older releases cannot tell it from Jupyter's default), and every
+scientific choice -- COCOS, coordinates, filtering, fitting, slice selection.
+Switching to ``ipympl`` does what ``%matplotlib widget`` does, including
+interactive mode (``rcParams["interactive"]``).  Calling ``setup`` again with
+the same profile is a no-op.
 """
 
 from __future__ import annotations
@@ -146,7 +149,15 @@ def _has_ipympl() -> bool:
 
 
 def _switch_to_ipympl() -> None:
-    """Enable ``ipympl`` the way ``%matplotlib widget`` does."""
+    """Enable ``ipympl`` the way ``%matplotlib widget`` does.
+
+    The backend is named by its module path rather than ``widget``: with
+    Matplotlib 3.9+, ``widget`` becomes the backend's recorded name, and
+    :func:`vaft.plot.environment.detect_environment` recognises only the
+    module path as a live canvas -- so VAFT's own interactive plots would
+    otherwise fall back to static figures.  An IPython too old to accept a
+    module path in ``%matplotlib`` gets ``widget``.
+    """
     try:
         from IPython import get_ipython
 
@@ -154,7 +165,10 @@ def _switch_to_ipympl() -> None:
     except ImportError:  # pragma: no cover - IPython is a dependency
         shell = None
     if shell is not None:
-        shell.run_line_magic("matplotlib", "widget")
+        try:
+            shell.run_line_magic("matplotlib", _IPYMPL)
+        except (KeyError, ValueError, RuntimeError):
+            shell.run_line_magic("matplotlib", "widget")
     else:  # pragma: no cover - a kernel always has a shell
         import matplotlib
 
@@ -206,7 +220,15 @@ def _notebook(profile: str, kind: str) -> VAFTSetup:
             reasons=("figures stay static (inline)",),
             warnings=("install ipympl (pip install ipympl) for live figures with pan/zoom",),
         )
-    _switch_to_ipympl()
+    try:
+        _switch_to_ipympl()
+    except Exception as error:  # noqa: BLE001 - an installed but broken ipympl/ipywidgets
+        return VAFTSetup(
+            profile, env.kind, backend=_chosen_backend() or env.backend, previous_backend=before,
+            live_figures=False,
+            reasons=("figures stay static (inline)",),
+            warnings=(f"ipympl is installed but could not be enabled: {type(error).__name__}: {error}",),
+        )
     after = detect_environment()
     return VAFTSetup(
         profile, after.kind, backend=after.backend, previous_backend=env.backend,
@@ -220,6 +242,8 @@ def _batch(profile: str, kind: str) -> VAFTSetup:
     explicit = _explicit_backend()
     if explicit is not None:
         reason = f"MPLBACKEND={explicit} is set explicitly and is respected"
+    elif before == _INLINE:
+        reason = "the Jupyter inline default is in place; figures render to the notebook, not a window"
     elif before is not None:
         reason = f"backend {before} was already chosen in this session and is respected"
     else:

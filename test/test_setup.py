@@ -191,6 +191,83 @@ def test_an_ipython_terminal_is_not_a_notebook(kernel_env):
     assert not result.changed and fake.switches == 0 and result.backend == "tkagg"
 
 
+def test_a_broken_ipympl_install_falls_back_with_a_warning(kernel_env):
+    fake = FakeMatplotlib(kernel_env, chosen=None)
+
+    def broken():
+        raise RuntimeError("'widget' is not a recognised GUI loop or backend name")
+
+    kernel_env.setattr(_setup, "_switch_to_ipympl", broken)
+    result = setup()
+    assert not result.changed and result.live_figures is False and result.backend == INLINE
+    assert "could not be enabled" in result.warnings[0] and fake.switches == 0
+
+
+def test_batch_in_a_kernel_keeps_the_inline_default(kernel_env):
+    FakeMatplotlib(kernel_env, chosen=INLINE)
+    kernel_env.delenv("MPLBACKEND")
+    result = setup("batch")
+    assert not result.changed and "inline default" in result.reasons[0]
+
+
+# -- a real kernel ---------------------------------------------------------------
+_KERNEL_CODE = """
+import json, os, vaft
+from vaft.plot.environment import default_interaction_backend, detect_environment
+first = vaft.setup()
+second = vaft.setup()
+env = detect_environment()
+print("RESULT" + json.dumps({"first": first.as_dict(), "second": second.as_dict(),
+       "live": env.live_figures, "interaction": default_interaction_backend(env)}))
+"""
+
+
+def _kernel_run(env_update: dict) -> dict:
+    manager_module = pytest.importorskip("jupyter_client.manager")
+    env = {k: v for k, v in os.environ.items() if k != "MPLBACKEND" and not k.startswith("VSCODE_")}
+    env.update(env_update)
+    try:
+        km, kc = manager_module.start_new_kernel(kernel_name="python3", env=env, startup_timeout=120)
+    except Exception as error:  # noqa: BLE001 - no kernelspec in this environment
+        pytest.skip(f"no Jupyter kernel available: {error}")
+    output: list[str] = []
+
+    def hook(message):
+        if message["msg_type"] == "stream":
+            output.append(message["content"]["text"])
+        elif message["msg_type"] == "error":
+            output.append("\n".join(message["content"]["traceback"]))
+
+    try:
+        kc.execute_interactive(_KERNEL_CODE, output_hook=hook, timeout=300)
+    finally:
+        kc.stop_channels()
+        km.shutdown_kernel(now=True)
+    text = "".join(output)
+    assert "RESULT" in text, text
+    return json.loads(text.split("RESULT", 1)[1])
+
+
+def test_in_a_real_kernel_setup_gives_what_vaft_plots_see_as_live():
+    import importlib.util
+
+    data = _kernel_run({})
+    first, second = data["first"], data["second"]
+    assert first["environment"] == "jupyter" and not second["changed"]
+    if importlib.util.find_spec("ipympl") is None:
+        assert not first["changed"] and "pip install ipympl" in first["warnings"][0]
+    else:
+        # VAFT's own plot layer must agree that the canvas is live.
+        assert first["changed"] and first["live_figures"]
+        assert data["live"] and data["interaction"] == "matplotlib"
+
+
+def test_in_a_real_kernel_an_exported_agg_is_kept():
+    data = _kernel_run({"MPLBACKEND": "Agg"})
+    assert not data["first"]["changed"] and not data["live"]
+    assert "MPLBACKEND=Agg" in data["first"]["reasons"][0]
+
+
 # -- database: diagnosis only ----------------------------------------------------
 SECRETS = ("SEKRIT-PW-123", "SEKRIT-KEY-456")
 
