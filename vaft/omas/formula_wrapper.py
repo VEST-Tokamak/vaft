@@ -176,19 +176,30 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
     from vaft.omas.update import update_equilibrium_boundary
     update_equilibrium_boundary(ods)
 
+    def _required_scalar(path: str) -> float:
+        # By membership: on a consistency_check=False ODS a bare subscript of
+        # a missing leaf hands back an empty ODS (float() then fails with a
+        # TypeError that names no leaf) and attaches that empty node.
+        if path not in eq_ts:
+            raise KeyError(
+                f"equilibrium.time_slice[{time_slice}].{path} is not in this ODS; "
+                "compute_tau_E_engineering_parameters needs it"
+            )
+        return float(eq_ts[path])
+
     # Get engineering parameters from equilibrium global_quantities
-    I_p = abs(float(eq_ts['global_quantities.ip']))  # [A]
+    I_p = abs(_required_scalar('global_quantities.ip'))  # [A]
 
     # Get toroidal magnetic field at vessel ref position
     R_ref = 0.4 # [m] VEST reference
-    B_t_axis = float(eq_ts['global_quantities.magnetic_axis.b_field_tor'])
-    R_axis = float(eq_ts['global_quantities.magnetic_axis.r'])
+    B_t_axis = _required_scalar('global_quantities.magnetic_axis.b_field_tor')
+    R_axis = _required_scalar('global_quantities.magnetic_axis.r')
     B_t = abs(B_t_axis * R_axis / R_ref) # [T]
 
     
-    R = float(eq_ts['boundary.geometric_axis.r'])  # [m]
-    a = float(eq_ts['boundary.minor_radius'])  # [m]
-    kappa = float(eq_ts['boundary.elongation'])  # [-]
+    R = _required_scalar('boundary.geometric_axis.r')  # [m]
+    a = _required_scalar('boundary.minor_radius')  # [m]
+    kappa = _required_scalar('boundary.elongation')  # [-]
     epsilon = inverse_aspect_ratio_from_a_R(a, R)  # [-]
 
     # Compute P_loss from compute_power_balance
