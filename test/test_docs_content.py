@@ -92,6 +92,31 @@ def test_every_redirect_page_is_declared_as_a_migration():
     assert not unaccounted, f"redirect pages missing from page_migrations.yml: {unaccounted}"
 
 
+# --- prose that restates the code ---------------------------------------------
+
+NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+                "eleven", "twelve"]
+
+
+def test_the_installation_page_counts_the_extras_it_tabulates():
+    """"six extras" over an eight-row table (cold review 0.8.0 docs-and-tutorials F2).
+
+    The count is compared with ``pyproject.toml``, not with the table alone, so
+    adding an extra without a row fails here as well as in
+    test_readme_consistency (which only checks that every name is mentioned).
+    """
+    tomllib = pytest.importorskip("tomllib")  # absent on Python 3.10
+    extras = list(tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["optional-dependencies"])
+    text = (DOCS / "_guide" / "Installation.md").read_text(encoding="utf-8")
+    match = re.search(r"The project defines (\w+) extras", text)
+    assert match, "Installation.md no longer states how many extras there are"
+    assert match.group(1) == NUMBER_WORDS[len(extras)], (
+        f"Installation.md says {match.group(1)!r} extras; pyproject.toml defines {len(extras)}: {extras}"
+    )
+    rows = re.findall(r"^\| `([A-Za-z0-9_]+)` \| .* \| .* \|$", text, re.M)
+    assert sorted(rows) == sorted(extras), f"the extras table lists {rows}, pyproject.toml {extras}"
+
+
 # --- resource references -----------------------------------------------------
 
 
