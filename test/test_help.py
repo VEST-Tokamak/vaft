@@ -30,7 +30,9 @@ SUBSYSTEMS = (
     "omas",
 )
 HS_VARIABLES = ("HS_ENDPOINT", "HS_USERNAME", "HS_PASSWORD", "HS_API_KEY")
-CODE_HOMES = tuple(variable for _name, variable, _finder in _providers.CODES)
+CODE_HOMES = tuple(variable for _name, variable, _layout in _providers.CODES)
+#: Legacy variables some adapters also read; cleared so the probe is isolated.
+CODE_LEGACY = ("EFIT", "CHEASE", "CHEASE_EXEC_DIR", "RTES")
 
 
 def _run(code: str) -> None:
@@ -59,6 +61,49 @@ def test_a_topic_imports_only_its_own_subsystem():
         "assert not loaded, loaded; "
         "vaft.help('plot'); assert 'vaft.plot' in sys.modules"
     )
+
+
+# A cold process -- fresh HOME, cache and temp directories, nothing imported
+# beforehand -- is where an import-time side effect would show; these topics
+# must not import the libraries that have them.
+_COLD = """
+import os, sys, pathlib
+root = pathlib.Path(sys.argv[1])
+def files():
+    return sorted(str(p) for p in root.rglob('*'))
+import vaft
+before_env, before_files = dict(os.environ), files()
+for name, probe in (('database', False), ('code', True), ('validation', False), ('data', False), ('cli', False)):
+    page = vaft.help(name, probe=probe)
+    assert not page.warnings, (name, page.warnings)
+    str(page), page._repr_markdown_(), page.as_dict()
+heavy = sorted(m for m in ('omas', 'matplotlib', 'vaft.plot', 'vaft.omas', 'vaft.imas', 'sklearn', 'h5pyd')
+               if m in sys.modules)
+assert not heavy, heavy
+changed = {k for k in set(os.environ) | set(before_env) if os.environ.get(k) != before_env.get(k)}
+assert not changed, changed
+assert files() == before_files, sorted(set(files()) - set(before_files))
+"""
+
+
+def test_light_topics_have_no_import_side_effects_in_a_cold_process(tmp_path):
+    root = tmp_path / "cold"
+    env = dict(os.environ)
+    for name in ("home", "cache", "tmp", "config"):
+        (root / name).mkdir(parents=True)
+    env.update(
+        HOME=str(root / "home"),
+        USERPROFILE=str(root / "home"),
+        XDG_CACHE_HOME=str(root / "cache"),
+        XDG_CONFIG_HOME=str(root / "config"),
+        MPLCONFIGDIR=str(root / "config"),
+        TMPDIR=str(root / "tmp"),
+        TEMP=str(root / "tmp"),
+        TMP=str(root / "tmp"),
+    )
+    for variable in CODE_HOMES + CODE_LEGACY + HS_VARIABLES:
+        env.pop(variable, None)
+    subprocess.run([sys.executable, "-c", _COLD, str(root)], check=True, timeout=600, env=env)
 
 
 def test_the_help_command_imports_no_subsystem_before_parsing():
@@ -101,7 +146,7 @@ def _state():
 
 @pytest.mark.parametrize("probe", [False, True])
 def test_help_changes_no_runtime_state(probe, monkeypatch):
-    for variable in CODE_HOMES:
+    for variable in CODE_HOMES + CODE_LEGACY:
         monkeypatch.delenv(variable, raising=False)
     # Importing a subsystem can carry third-party import side effects (an
     # environment variable set by a library at import); help's own contract
@@ -171,7 +216,7 @@ def test_database_help_without_configuration_points_to_hsds_configure(hscfg_home
 @pytest.mark.parametrize("name", topics())
 @pytest.mark.parametrize("probe", [False, True])
 def test_every_topic_renders_offline_without_solvers(name, probe, hscfg_home, monkeypatch):
-    for variable in CODE_HOMES:
+    for variable in CODE_HOMES + CODE_LEGACY:
         monkeypatch.delenv(variable, raising=False)
     page = vaft_help(name, probe=probe)
     assert isinstance(page, HelpPage)
@@ -182,8 +227,47 @@ def test_every_topic_renders_offline_without_solvers(name, probe, hscfg_home, mo
     if name == "code" and probe:
         rows = dict(page.sections[0].rows)
         assert all(
-            value.startswith("unavailable") or code == "TES" for code, value in rows.items()
+            value.startswith("unavailable") for value in rows.values()
         ), rows
+
+
+def test_code_layouts_match_the_adapters():
+    from vaft.code.chease import CHEASE_HOME_EXECUTABLE
+    from vaft.code.efit.magnetic import EFIT_HOME_EXECUTABLE
+    from vaft.code.gacode._runtime import launcher_relative_path
+    from vaft.code.genray.config import GENRAY_HOME_EXECUTABLE
+    from vaft.code.nubeam.config import NUBEAM_HOME_EXECUTABLE
+    from vaft.code.tes.runner import TES_HOME_EXECUTABLE
+
+    layouts = {name: Path(layout) for name, _variable, layout in _providers.CODES}
+    assert layouts["EFIT"] == EFIT_HOME_EXECUTABLE
+    assert layouts["CHEASE"] == CHEASE_HOME_EXECUTABLE
+    assert layouts["GACODE"] == launcher_relative_path("neo")
+    assert layouts["GENRAY"] == GENRAY_HOME_EXECUTABLE
+    assert layouts["NUBEAM"] == NUBEAM_HOME_EXECUTABLE
+    assert layouts["TES"] == TES_HOME_EXECUTABLE
+    assert layouts["GPEC"] == Path("bin") / "dcon"
+    assert layouts["FLARE"] == Path("bin") / "flare"
+
+
+def test_code_probe_finds_an_installed_executable(tmp_path, monkeypatch):
+    home = tmp_path / "efit"
+    executable = home / "bin" / ("efit.exe" if os.name == "nt" else "efit")
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"MZ" if os.name == "nt" else b"#!/bin/sh\n")
+    executable.chmod(0o755)
+    monkeypatch.setenv("EFITHOME", str(home))
+    monkeypatch.setenv("CHEASEHOME", str(tmp_path / "missing"))
+    rows = dict(vaft_help("code", probe=True).sections[0].rows)
+    assert rows["EFIT"].startswith("available")
+    assert rows["CHEASE"].startswith("broken install")
+
+
+def test_markdown_keeps_placeholders_visible():
+    markdown = vaft_help("cli")._repr_markdown_()
+    assert "vaft &lt;command&gt; --help" in markdown
+    overview = vaft_help()._repr_markdown_()
+    assert "`vaft help <topic>`" in overview  # untouched inside a code span
 
 
 def test_a_failing_provider_becomes_a_warning(monkeypatch):
@@ -238,6 +322,21 @@ def test_help_command(capsys):
     assert any(row[0] == "vaft help" for row in data["sections"][0]["rows"])
     assert cli_main(["help", "validation", "no.such.check"]) == 2
     assert "no.such.check" in capsys.readouterr().err
+    assert cli_main(["help", "Validation"]) == 0
+    capsys.readouterr()
+    assert cli_main(["help", "data", "abc"]) == 2
+    assert "must be an integer" in capsys.readouterr().err
+    assert cli_main(["help", "database", "main", "--format", "json"]) == 0
+    assert json.loads(capsys.readouterr().out)["name"] == "main"
+
+
+def test_an_item_whose_subsystem_is_missing_exits_cleanly(monkeypatch, capsys):
+    def missing(query):
+        raise ModuleNotFoundError("No module named 'omas'")
+
+    monkeypatch.setattr(_providers, "omas_item", missing)
+    assert cli_main(["help", "omas", "ip"]) == 1
+    assert "unavailable here" in capsys.readouterr().err
 
 
 def test_argparse_help_is_unchanged_and_lists_help(capsys):

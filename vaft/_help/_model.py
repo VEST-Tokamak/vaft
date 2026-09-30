@@ -189,4 +189,8 @@ class HelpPage:
 
 
 def _md(text: str) -> str:
-    return str(text).replace("|", "\\|").replace("\n", " ")
+    """Table-safe Markdown: ``<placeholder>`` survives outside code spans."""
+    parts = str(text).replace("\n", " ").split("`")
+    for index in range(0, len(parts), 2):  # outside backticks only
+        parts[index] = parts[index].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return "`".join(parts).replace("|", "\\|")
