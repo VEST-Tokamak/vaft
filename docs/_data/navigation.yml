@@ -41,6 +41,9 @@ sections:
       - id: geometric-approximations
         title: Geometric approximations
         url: /reference/geometric-approximations/
+      - id: equilibrium-representations
+        title: Equilibrium representations
+        url: /reference/equilibrium-representations/
       - id: process-reference
         title: Process reference
         url: /reference/process/
