@@ -22,6 +22,7 @@ _COMMANDS = {
     "export": (".export", "export one shot as IMAS/OMAS/GEQDSK files"),
     "hsds": (".hsds", "configure HSDS credentials without echoing secrets"),
     "help": (".help", "what VAFT can do: topics, defaults and setup status"),
+    "setup": (".setup", "report or prepare the runtime environment (never scientific settings)"),
 }
 
 
