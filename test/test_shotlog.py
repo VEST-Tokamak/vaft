@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 from pathlib import Path
 import unicodedata
@@ -9,6 +10,8 @@ import unicodedata
 import pytest
 
 from _shotlog_fixtures import legacy_workbook, modern_workbook
+from vaft.machine_mapping.pulse_schedule.converter import validate_dataset
+from vaft.machine_mapping.pulse_schedule.records import effective_timing_by_session
 from vaft.database.filedb import FileDB, FileDBPathError
 from vaft.machine_mapping.pulse_schedule import (
     archive_workbooks,
@@ -217,6 +220,29 @@ def test_a_title_between_two_plain_cards_opens_a_run_group(tmp_path):
     # The card before the title kept its own rows: its remark is still read.
     assert _shots(dataset)[43482]["observed_outcome"]["remarks"] == ["fail: no breakdown"]
     assert "오믹 방전 만들기/ BZn" not in json.dumps(_shots(dataset)[43482]["source_occurrences"], ensure_ascii=False)
+
+
+def test_a_shot_logged_again_under_a_later_title_keeps_one_consistent_record(tmp_path):
+    source = modern_workbook(tmp_path / "ShotLog_2024_01 #44000-44020.xlsx", {"240110": [
+        {"shot": 44010, "diagnostics": {"TS": "300-302"}},
+        {"shot": 44011},
+        # The retry logged under the next title: the same discharge, a later card.
+        {"shot": 44010, "title_before": "Retry with later TS trigger", "diagnostics": {"TS": "320-322"}},
+    ]}, title="Coil test")
+    dataset = convert_sheet(source, "240110", REGISTRY, span=(43800, 44220))
+    assert [[shot["shot"] for shot in group["shots"]] for group in dataset["run_groups"]] == [[44010, 44011], []]
+    assert validate_dataset(dataset, REGISTRY) == []
+    assert dataset["review"]["shots_in_several_run_groups"] == [
+        {"shot": 44010, "run_groups": [group["id"] for group in dataset["run_groups"]]}
+    ]
+    record = _shots(dataset)[44010]
+    assert len(record["source_occurrences"]) == 2
+    windows = lambda entries: [entry["window_ms"] for entry in entries if entry["identifier"] == "TS"]  # noqa: E731
+    assert windows(record["planned_configuration"]["timing"]) == [[320, 322]]
+    assert windows(effective_timing_by_session(dataset)[44010]["timing"]) == [[320, 322]]
+    # A document that does hold one shot in two groups is not valid.
+    dataset["run_groups"][1]["shots"].append(deepcopy(record))
+    assert validate_dataset(dataset, REGISTRY) == ["duplicate_shot:44010"]
 
 
 def test_session_documents_are_reproducible(modern):

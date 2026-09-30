@@ -378,8 +378,10 @@ def validate_dataset(dataset: dict[str, Any], registry: dict[str, Any]) -> list[
             errors.append(f"missing:{key}")
     if '"shot_no"' in json.dumps(dataset, ensure_ascii=False, default=str):
         errors.append("prohibited_key:shot_no")
+    # One physical discharge has one record per session: a shot entered twice
+    # anywhere on the sheet is a duplicate, whichever run groups hold it.
+    seen: set[int] = set()
     for group in dataset.get("run_groups", []):
-        seen: set[int] = set()
         for shot in group.get("shots", []):
             value = shot.get("shot")
             if not isinstance(value, int):
@@ -472,6 +474,14 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
     active_group: dict[str, Any] | None = None
     previous_end = 0
     references: list[int] = []
+    # One record per shot for the whole sheet. A shot logged again under a
+    # later title is a retry or correction of the same discharge, so its card
+    # folds into the first record (a later card wins per timing identifier)
+    # instead of opening a second entry whose timing the per-shot records
+    # would then mix with the first one's card.
+    existing: dict[int, dict[str, Any]] = {}
+    owner: dict[int, str] = {}
+    repeated: dict[int, list[str]] = {}
 
     for marker in markers:
         if marker.kind == "reference" and marker.reference is not None:
@@ -500,15 +510,19 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
         cells = _block_cells(ws, marker.row, block_end)
         # Modern templates place their two-level header immediately before a shot row.
         mapped = _extract_mapped_fields(ws, max(1, marker.row - 2), block_end, schema)
-        existing = {shot["shot"]: shot for shot in active_group["shots"]}
         for shot_number in marker.shots:
             if shot_number in existing:
                 item = existing[shot_number]
                 item["source_occurrences"].append({"cells": cells})
+                if owner[shot_number] != active_group["id"]:
+                    groups_seen = repeated.setdefault(shot_number, [owner[shot_number]])
+                    if active_group["id"] not in groups_seen:
+                        groups_seen.append(active_group["id"])
             else:
                 item = _new_shot(shot_number, cells, mapped)
                 active_group["shots"].append(item)
                 existing[shot_number] = item
+                owner[shot_number] = active_group["id"]
             if card is not None:
                 _apply_card(item, card)
         # Where the next title search starts. `end` runs to the next shot
@@ -541,6 +555,10 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
     _apply_overrides(dataset, overrides_path)
     if unreadable:
         dataset["review"]["unreadable_shot_cells"] = unreadable
+    if repeated:
+        dataset["review"]["shots_in_several_run_groups"] = [
+            {"shot": shot, "run_groups": run_groups} for shot, run_groups in sorted(repeated.items())
+        ]
     if out_of_span:
         dataset["review"]["out_of_span_markers"] = out_of_span
     if classification is not None:
