@@ -17,7 +17,7 @@
 {% if e.fields.size > 0 or e.members.size > 0 %}<details class="ref-more"><summary>{% if e.fields.size > 0 %}{{ e.fields.size }} fields{% endif %}{% if e.fields.size > 0 and e.members.size > 0 %} · {% endif %}{% if e.members.size > 0 %}{{ e.members.size }} members{% endif %}</summary>
 <ul class="api-members">
 {% for f in e.fields %}<li><code>{{ f.name }}{% if f.type != "" %}: {{ f.type | escape }}{% endif %}</code></li>
-{% endfor %}{% for m in e.members %}<li><code>{{ m.name }}</code> <span class="ref-type">{{ m.kind }}</span>{% if m.summary != "" %} &mdash; {{ m.summary | escape }}{% endif %}</li>
+{% endfor %}{% for m in e.members %}<li><code>{{ m.name }}</code> <span class="ref-type">{{ m.kind }}</span>{% if m.summary != "" %} &mdash; {{ m.summary | markdownify | remove: "<p>" | remove: "</p>" | strip }}{% endif %}</li>
 {% endfor %}</ul>
 </details>{% endif %}
 </section>

@@ -322,7 +322,7 @@ def members_of(cls: type) -> list[dict]:
             kind, target = "method", attribute
         else:
             continue
-        rows.append({"name": name, "kind": kind, "summary": summary_of(target) if target else ""})
+        rows.append({"name": name, "kind": kind, "summary": summary_markdown(summary_of(target)) if target else ""})
     return rows
 
 
