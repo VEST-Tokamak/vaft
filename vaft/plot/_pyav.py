@@ -73,6 +73,7 @@ def _encoding(path: Path, codec: str) -> Iterator[None]:
 
 def encode_video(
     frames: Iterable[np.ndarray], path: Path, *, fps: float, codecs: tuple[str, ...] | None = None,
+    name: str | None = None,
 ) -> dict[str, Any]:
     """Encode ``uint8`` RGB ``frames`` to ``path`` at ``fps``; return the encoder facts.
 
@@ -80,22 +81,25 @@ def encode_video(
     ``i / fps`` seconds; nothing is dropped, repeated or interpolated.
     ``codecs`` narrows the candidates of :data:`VIDEO_CODECS` (the notebook
     preview accepts only H.264, the one every browser plays in an .mp4).
+    ``name`` is the file the caller asked for, when ``path`` is a temporary
+    file beside it; error messages name it.
     """
     av = require_av()
     suffix = path.suffix.lower()
     codec = _codec(av, suffix, codecs)
+    label = Path(name) if name else path
     rate = Fraction(fps).limit_denominator(1000) or Fraction(fps).limit_denominator()
     frames = iter(frames)
     count = 0
     # Only the encoder's own failures are rewrapped: an error raised while a
     # frame is drawn reaches the caller as it was raised.
-    with _encoding(path, codec):
+    with _encoding(label, codec):
         container = av.open(str(path), mode="w")
     try:
         stream = None
         for frame in frames:
             frame = even_frame(frame)
-            with _encoding(path, codec):
+            with _encoding(label, codec):
                 if stream is None:
                     stream = container.add_stream(codec, rate=rate)
                     stream.height, stream.width = frame.shape[:2]
@@ -107,7 +111,7 @@ def encode_video(
                 for packet in stream.encode(picture):
                     container.mux(packet)
             count += 1
-        with _encoding(path, codec):
+        with _encoding(label, codec):
             if stream is not None:
                 for packet in stream.encode():
                     container.mux(packet)
@@ -117,7 +121,7 @@ def encode_video(
         except Exception:  # the error already in flight is the one to report
             pass
         raise
-    with _encoding(path, codec):
+    with _encoding(label, codec):
         container.close()
     return {"container": suffix.lstrip("."), "codec": codec, "pix_fmt": "yuv420p",
             "av_version": av.__version__, "frames": count}

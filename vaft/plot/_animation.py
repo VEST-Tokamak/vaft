@@ -203,7 +203,13 @@ def _select(
         # exist are those of the camera the call draws.
         offered = tuple(range(len(axis)))
     else:
-        offered = tuple(i for i in _states(control) if i < len(axis))
+        offered = _states(control)
+        beyond = [i for i in offered if i >= len(axis)]
+        if beyond:
+            raise ValueError(
+                f"{name}: the {control.name} control offers {beyond[:3]}{'...' if len(beyond) > 3 else ''} "
+                f"but the plot's sequence holds {len(axis)} values"
+            )
     given = options.get(control.name)
     window = options.get("time_range")
     if options.get("time") is not None:
@@ -234,6 +240,9 @@ def _select(
         selection = {"kind": "all", "value": None}
     if not chosen:
         raise ValueError(f"the selection holds no {control.name} state")
+    repeated = sorted({i for i in chosen if chosen.count(i) > 1})
+    if len(set(chosen)) >= 2 and repeated:
+        raise ValueError(f"the selection repeats {control.name} {repeated}; each state is one frame")
     if len(set(chosen)) < 2:
         raise ValueError(f"the selection holds {control.name}={chosen[0]} only: {_ONE_STATE}")
     driver = Driver(
@@ -453,7 +462,13 @@ class Animation:
         for position in range(len(self)):
             figure = self._figure(position)
             try:
-                for number, axes in enumerate(_data_axes(figure)):
+                panels = _data_axes(figure)
+                if union and len(panels) != len(union):
+                    raise RuntimeError(
+                        f"{self._state(position)} draws {len(panels)} panels, the first state "
+                        f"{len(union)}; one axis range per panel needs the same panels in every state"
+                    )
+                for number, axes in enumerate(panels):
                     spans = [axes.get_xlim(), axes.get_ylim()]
                     known = union.setdefault(number, [list(spans[0]), list(spans[1])])
                     for dim, (a, b) in enumerate(spans):
@@ -538,29 +553,37 @@ class Animation:
 
             require_av()  # before anything is drawn
         path.parent.mkdir(parents=True, exist_ok=True)
+        sidecar_path = path.with_name(path.name + ".json")
         # Written beside the target and moved over it only when complete: a
-        # selection that fails part-way never costs an existing movie.
-        partial = path.with_name(f".{path.stem}.partial{suffix}")
+        # selection that fails part-way never costs an existing movie.  The
+        # old sidecar goes first, so it can never describe the new movie.
+        handle = tempfile.NamedTemporaryFile(dir=path.parent, prefix=f".{path.stem}.", suffix=suffix, delete=False)
+        handle.close()
+        partial = Path(handle.name)
         try:
-            self._encoder = self._write(partial, suffix)
+            self._encoder = self._write(partial, suffix, name=path.name)
+            sidecar_path.unlink(missing_ok=True)
             os.replace(partial, path)
         finally:
             partial.unlink(missing_ok=True)
-        sidecar_path = path.with_name(path.name + ".json")
         if sidecar:
-            partial = sidecar_path.with_name(f".{sidecar_path.name}.partial")
-            partial.write_text(json.dumps(self.metadata, indent=2) + "\n")
-            os.replace(partial, sidecar_path)
-        else:
-            sidecar_path.unlink(missing_ok=True)  # it would describe the previous movie
+            handle = tempfile.NamedTemporaryFile(
+                "w", dir=path.parent, prefix=f".{sidecar_path.name}.", delete=False,
+            )
+            try:
+                with handle:
+                    handle.write(json.dumps(self.metadata, indent=2) + "\n")
+                os.replace(handle.name, sidecar_path)
+            finally:
+                Path(handle.name).unlink(missing_ok=True)
         return path
 
-    def _write(self, path: Path, suffix: str) -> dict[str, Any]:
+    def _write(self, path: Path, suffix: str, *, name: str) -> dict[str, Any]:
         if suffix == ".gif":
             return _write_gif(self.frames(), path, fps=self.fps)
         from ._pyav import encode_video
 
-        return encode_video(self.frames(), path, fps=self.fps)
+        return encode_video(self.frames(), path, fps=self.fps, name=name)
 
     def show(self) -> Any:
         """Play the frames in a Matplotlib window; no encoder is involved."""
@@ -634,7 +657,7 @@ class Animation:
         import matplotlib.pyplot as plt
 
         limits, size = self._layout_cache if self._layout_cache is not None else (None, None)
-        if self._scale is None and not (self._image and None not in self._given_scale):
+        if self._scale is None and self._given_scale == (None, None):
             model_scale, self._scale = self._scale, {"policy": "the first state's own scale"}
             try:
                 figure = self._figure(0, limits)

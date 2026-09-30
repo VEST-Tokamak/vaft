@@ -141,6 +141,7 @@ def test_filled_equilibrium_maps_share_one_set_of_levels(equilibrium):
         ({"time": 0.31}, ValueError, "one state is a static plot"),
         ({"frame_index": [4]}, ValueError, "one state is a static plot"),
         ({"frame_index": [3, 3]}, ValueError, "one state is a static plot"),
+        ({"frame_index": [3, 3, 4]}, ValueError, r"repeats frame_index \[3\]"),
         ({"controls": ("frame_index",)}, TypeError, "offers no controls"),
         ({"frame_index": []}, ValueError, "holds no frame_index"),
         ({"frame_index": [1, 9999]}, ValueError, r"\[9999\] not offered"),
@@ -226,7 +227,7 @@ def test_a_state_that_cannot_be_drawn_is_named_not_skipped(equilibrium):
     animation = vomas.plot_equilibrium_field_2d(
         equilibrium, time_slice=[7, 8], style="surfaces", animation=True, dpi=DPI,
     )
-    with pytest.raises(RuntimeError, match=r"time_slice=8 \(time 0.331 s\)"):
+    with pytest.raises(RuntimeError, match=r"time_slice=8 \(time 0\.33"):
         list(animation.frames())
 
 

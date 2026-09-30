@@ -951,8 +951,12 @@ def sequence_values(
     if option == "time_slice" and _takes_time_slice(name):
         from .recipes import slice_times
 
-        values = slice_times(ods, _slice_container(name))
-        return "time", "s", np.asarray(values, dtype=float)
+        container = _slice_container(name)
+        values = np.asarray(slice_times(ods, container), dtype=float)
+        if not np.all(np.isfinite(values)):
+            missing = np.flatnonzero(~np.isfinite(values)).tolist()
+            raise ValueError(f"{container} {missing[:5]} store no time; a frame of it cannot be placed")
+        return "time", "s", values
     if option == "time_index" and name in ("vacuum_field", "vacuum_field_midplane"):
         return "time", "s", np.asarray(_array(ods, "pf_active.time"), dtype=float)
     if option == "frame_index" and name.startswith("camera_visible_image"):

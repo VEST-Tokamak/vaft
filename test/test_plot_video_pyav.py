@@ -93,4 +93,4 @@ def test_a_frame_that_fails_to_draw_leaves_no_video(tmp_path):
     )
     with pytest.raises(RuntimeError, match="time_slice=8"):
         animation.save(tmp_path / "broken.mp4")
-    assert not (tmp_path / "broken.mp4").exists()
+    assert list(tmp_path.iterdir()) == []
