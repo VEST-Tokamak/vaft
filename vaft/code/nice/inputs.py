@@ -381,6 +381,15 @@ def prepare_nice_inputs(ods: Any, config: NiceConfig) -> NiceInputs:
             raise ValueError(
                 "Effective NICE inoutCOCOS does not match config; explicitly set useNewCOCOSManager=1 and identical input/output COCOS"
             )
+        xml_r0 = root.findtext("r0")
+        if xml_r0 is None or not np.isclose(
+            float(xml_r0), config.major_radius, rtol=0.0, atol=1e-9
+        ):
+            raise ValueError(
+                f"param.xml r0={xml_r0!r} does not match NiceConfig.major_radius="
+                f"{config.major_radius}: Ip_B0.txt B0 = F0 / major_radius and NICE "
+                "multiplies it back by r0, so a mismatch scales F silently"
+            )
         if root.find("r_eqx_contour") is not None:
             from .geometry import validate_contour
 

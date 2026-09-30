@@ -866,3 +866,22 @@ def test_collector_judges_convergence_by_the_tolerance_nice_ran_with(tmp_path):
     assert result.termination_reason == "reconstruction tolerance not reached"
     (output / "dataEqui_convergence_cost.txt").write_text("0.331 12 5e-11 2 1 0.6 0.4\n")
     assert collect_nice_outputs(tmp_path).converged is True
+
+
+def test_major_radius_must_match_the_parameter_files_r0(tmp_path):
+    """F3: B0 = F0 / major_radius is multiplied back by the XML's r0."""
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(_MINIMAL_XML, encoding="utf-8")
+    with pytest.raises(ValueError, match="r0"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(
+                time=0.35, workdir=tmp_path / "case", parameter_file=parameter, major_radius=0.5
+            ),
+        )
+    parameter.write_text(_MINIMAL_XML.replace("<r0>0.4</r0>", ""), encoding="utf-8")
+    with pytest.raises(ValueError, match="r0=None"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(time=0.35, workdir=tmp_path / "case2", parameter_file=parameter),
+        )
