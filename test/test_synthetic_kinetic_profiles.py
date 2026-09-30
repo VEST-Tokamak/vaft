@@ -487,6 +487,24 @@ def test_contradictory_or_malformed_inputs_are_refused(build, status):
     assert info.value.status == status
 
 
+@pytest.mark.parametrize("kwargs", [
+    {"pressure_constraint": "kinetic"},
+    {"pressure_constraint": "thermal_energy", "closure": "temperature_amplitude", "T_e": ProfileSpec(TE)},
+])
+def test_a_hollow_equilibrium_pressure_is_refused_with_its_status(geqdsk, kwargs):
+    """An axis pressure sample below ``edge_floor`` of the maximum (legal for
+    a foreign g-file) used to reach a bare numpy "zero-size array" ValueError
+    under every non-local constraint (cold review 0.8.0 plasma-state-and-chease F1)."""
+    hollow = copy.deepcopy(geqdsk)
+    pressure = np.asarray(hollow["PRES"], dtype=float).copy()
+    pressure[0] = 0.5e-2 * pressure.max()
+    hollow["PRES"] = pressure
+    with pytest.raises(SyntheticProfileError, match="hollow") as info:
+        generate(hollow, _spec(**kwargs))
+    assert info.value.status == "invalid_equilibrium"
+    assert kwargs["pressure_constraint"] in str(info.value)
+
+
 def test_analytic_kernel_refusals_come_from_the_1045_layer():
     with pytest.raises(ValueError, match="outside"):
         compose_analytic_profile("T_e", axis_value=1.0, separatrix_value=0.1, pedestal_top_value=0.5,
