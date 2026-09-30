@@ -845,7 +845,6 @@ free_boundary_scan = scan
 
 
 __all__ = [
-    "free_boundary_scan",
     "CaseStatus",
     "CoilControl",
     "ScanCase",
@@ -853,4 +852,5 @@ __all__ = [
     "FreeBoundaryScanResult",
     "FreeBoundaryScan",
     "scan",
+    "free_boundary_scan",
 ]
