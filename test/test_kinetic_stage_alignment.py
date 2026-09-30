@@ -213,3 +213,12 @@ def test_usable_times_are_read_from_the_efit_collection_record():
         {"time": 0.315, "overall_status": "usable"}, {"time": 0.312, "overall_status": "physical_failed"}]}})
     assert vu.usable_equilibrium_times_ms(ods).tolist() == [315.0]
     assert vu.usable_equilibrium_times_ms(ODS(consistency_check=False)) is None
+
+
+def test_candidates_are_the_aligned_usable_times_nearest_first_then_earliest():
+    profile = np.arange(308.0, 318.0)
+    eq = np.arange(312.0, 329.0)
+    usable = np.arange(315.0, 325.0)
+    times, why = vu.profile_time_candidates(profile, eq, usable)
+    assert why == "aligned and usable" and times == [315.0, 316.0, 317.0]
+    assert vu.profile_time_candidates(profile, eq, None) == ([312.0], "aligned (no per-slice verdicts)")
