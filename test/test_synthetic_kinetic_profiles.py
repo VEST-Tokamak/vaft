@@ -599,6 +599,22 @@ def test_mislabelled_channels_and_units_are_refused(build):
         build()
 
 
+@pytest.mark.parametrize("build", [
+    lambda: _spec(T_e=ProfileSpec(TE, ScalarTarget("greenwald_fraction", 0.4))),
+    lambda: _spec(temperature=TemperatureAssumption(T_i=ProfileSpec(
+        compose_analytic_profile("T_i", axis_value=1.0, separatrix_value=0.05, core_alpha=1.0, core_beta=2.0),
+        ScalarTarget("greenwald_fraction", 0.4)))),
+])
+def test_a_greenwald_fraction_on_a_temperature_is_refused_when_the_spec_is_built(build):
+    """It used to be refused only inside the generator, after the geometry was
+    traced (cold review 0.8.0 plasma-state-and-chease F7); the density slot
+    still takes it."""
+    with pytest.raises(SyntheticProfileError, match="normalizes n_e, not T_") as info:
+        build()
+    assert info.value.status == "invalid_normalization"
+    assert _spec(n_e=ProfileSpec(NE, ScalarTarget("greenwald_fraction", 0.4))).n_e.target.kind == "greenwald_fraction"
+
+
 def test_hold_extrapolation_is_recorded(geqdsk):
     table = TabulatedProfile([0.0, 0.5, 0.9], [2e19, 1.5e19, 8e18], coordinate="rho_pol_norm", extrapolation="hold",
                              unit="m^-3")
