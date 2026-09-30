@@ -172,7 +172,7 @@ def sha256_of(path: str | os.PathLike[str]) -> str:
     return digest.hexdigest()
 
 
-def _download(url: str, destination: Path, timeout: float, sha256: str) -> None:
+def _download(url: str, destination: Path, timeout: float, sha256: str | None) -> None:
     request = Request(url, headers={"User-Agent": "vaft-public-data/1"})
     try:
         with urlopen(request, timeout=timeout) as response:
@@ -183,7 +183,7 @@ def _download(url: str, destination: Path, timeout: float, sha256: str) -> None:
     if status != 200:
         raise FetchError(f"{url} returned HTTP {status}")
     actual = hashlib.sha256(payload).hexdigest()
-    if actual != sha256.lower():
+    if sha256 is not None and actual != sha256.lower():
         # Checked before the rename, so a bad download never appears in the cache.
         raise ChecksumError(
             f"{url} delivered SHA-256 {actual}, expected {sha256}. The upstream "
