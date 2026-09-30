@@ -379,3 +379,83 @@ def test_swap_axes_maps_above_to_right():
     assert curve.allowed_side == "right"
     np.testing.assert_allclose(curve.x, [2.0, 4.0])
     np.testing.assert_allclose(curve.y, [1.0, 2.0])
+
+
+# ------------------------------------------------------------------
+# Murakami limit (#1068), checked against Murakami, Callen & Berry,
+# Nucl. Fusion 16 (1976) 347, Table I: (device, R0 [m], B_T [T], n_e max [1e19 m^-3], gas injection)
+# ------------------------------------------------------------------
+
+_MURAKAMI_TABLE_I = (
+    ("Alcator", 0.54, 7.5, 35.0, True),
+    ("TM-3", 0.40, 3.5, 7.0, False),
+    ("TFR", 0.98, 5.0, 6.3, False),
+    ("T-4", 0.90, 4.5, 4.0, False),
+    ("Pulsator", 0.70, 2.7, 10.0, True),
+    ("ST", 1.09, 4.3, 5.7, False),
+    ("T-3", 0.90, 3.4, 4.5, False),
+    ("ORMAK", 0.80, 2.5, 3.7, False),
+    ("ORMAK", 0.80, 1.8, 3.0, False),
+    ("CLEO", 0.90, 1.9, 2.0, False),
+    ("ATC", 0.90, 1.5, 2.1, False),
+    ("JFT-2", 0.90, 1.0, 1.0, False),
+    ("T-6", 0.70, 0.6, 1.0, False),
+)
+
+
+def test_murakami_is_B_over_R_in_1e19():
+    entry = B.get_boundary("murakami")
+    assert entry.target.name == "line_average_density" and entry.target.unit == "1e19 m^-3"
+    assert B.boundary_value(entry, toroidal_field=7.5, major_radius=0.54) == pytest.approx(7.5 / 0.54)
+    assert entry.allowed_side == "below" and entry.hardness == "soft"
+
+
+def test_murakami_line_matches_table_I():
+    """Stationary-fill devices scatter about the line; cold-gas injection sits ~2.5x above (Greenwald 2002: ~2x)."""
+    entry = B.get_boundary("murakami")
+    ratios = {True: [], False: []}
+    for _, R0, B_T, n_max, injected in _MURAKAMI_TABLE_I:
+        ratios[injected].append(n_max / B.boundary_value(entry, toroidal_field=B_T, major_radius=R0))
+    stationary = np.array(ratios[False])
+    assert np.all((stationary > 0.7) & (stationary < 1.6))
+    assert 0.9 < np.median(stationary) < 1.3
+    assert np.all(np.array(ratios[True]) > 2.0)
+
+
+def test_murakami_ranges_are_table_I():
+    entry = B.get_boundary("murakami")
+    R0 = [row[1] for row in _MURAKAMI_TABLE_I]
+    B_T = [row[2] for row in _MURAKAMI_TABLE_I]
+    assert entry.applicability.ranges["major_radius"] == (min(R0), max(R0))
+    assert entry.applicability.ranges["toroidal_field"] == (min(B_T), max(B_T))
+    vest = B.evaluate_boundary(entry, 3.0, toroidal_field=0.15, major_radius=0.4)
+    assert vest.extrapolated == ("toroidal_field",)  # VEST's field is below every Table I device
+
+
+def test_murakami_on_the_hugill_diagram_is_the_same_limit():
+    """n <= B/R  <=>  n R/B <= 1: both entries give the same margin for any state."""
+    line, vertical = B.get_boundary("murakami"), B.get_boundary("murakami_hugill")
+    for n, B_T, R0 in [(2.0, 1.5, 0.9), (0.5, 0.15, 0.4), (12.0, 3.0, 0.3)]:
+        m1 = B.evaluate_boundary(line, n, toroidal_field=B_T, major_radius=R0).margin
+        m2 = B.evaluate_boundary(vertical, n * R0 / B_T).margin
+        assert m1 == pytest.approx(m2)
+
+
+def test_greenwald_hugill_slope_is_greenwalds_circular_form():
+    """Greenwald 1988, after Eq. (1): circular limit (5/pi) B/(qR) in 1e20 m^-3 -> 50/pi in 1e19."""
+    entry = B.get_boundary("greenwald_hugill")
+    assert entry.coefficient == pytest.approx(10 * 5 / np.pi)
+
+
+def test_low_q_is_q_psi_above_two():
+    entry = B.get_boundary("low_q")
+    assert entry.target.name == "edge_safety_factor" and B.boundary_value(entry) == 2.0
+    assert B.evaluate_boundary(entry, 3.0).allowed and not B.evaluate_boundary(entry, 1.8).allowed
+    assert entry.family == "current_limit" and entry.event == "disruption"
+
+
+def test_every_published_entry_cites_an_equation_or_figure():
+    for key in B.list_boundaries():
+        entry = B.get_boundary(key)
+        if entry.origin == "published":
+            assert all(source.equation for source in entry.sources), key
