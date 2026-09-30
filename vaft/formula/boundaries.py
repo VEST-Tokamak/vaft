@@ -138,9 +138,9 @@ class Uncertainty:
     """Uncertainty the source itself reports, never an invented one.
 
     ``coefficient`` is the one-sigma absolute uncertainty of the leading
-    coefficient; ``coefficient_factor`` is the one-sigma multiplicative
-    factor when the source quotes it as $C e^{\pm s}$ (then the factor is
-    $e^{s}$). ``exponents`` holds the one-sigma uncertainty of each exponent,
+    coefficient; ``coefficient_factor`` is the multiplicative factor when the
+    source quotes the coefficient as $C e^{\pm s}$ (then the factor is
+    $e^{s}$; the source may not state its confidence level). ``exponents`` holds the one-sigma uncertainty of each exponent,
     keyed by input name. ``rms_relative`` is the relative RMS scatter of the
     fit about the data. ``None`` or an empty mapping means the source gives
     no value.
@@ -154,6 +154,10 @@ class Uncertainty:
 
     def __post_init__(self):
         object.__setattr__(self, "exponents", _frozen_mapping(self.exponents))
+        if self.coefficient_factor is not None and not self.coefficient_factor >= 1.0:
+            raise ValueError("coefficient_factor is a multiplicative factor e^s and must be >= 1")
+        if self.rms_relative is not None and not self.rms_relative >= 0.0:
+            raise ValueError("rms_relative must be >= 0")
 
 
 @dataclass(frozen=True)
@@ -172,12 +176,15 @@ class Boundary:
     on. ``hardness`` records how the literature treats crossing it: ``soft``
     for an empirical limit that operation can exceed.
 
-    A regime transition carries ``source_regime`` and ``target_regime`` (for
-    example ``"L_mode"`` and ``"H_mode"``). The permitted side is then the side
-    on which the target regime is accessible. ``branch`` names the part of a
-    non-monotonic dependence the relation describes, for example the high-
-    or low-density branch of the L-H threshold. A threshold evaluated on the
-    wrong branch is outside its validity even when the inputs are in range.
+    A regime-transition threshold carries ``source_regime`` and
+    ``target_regime`` (for example ``"L_mode"`` and ``"H_mode"``); its permitted
+    side is the side on which the target regime is accessible. An entry that
+    only bounds where another relation is valid (for example the density of
+    minimum L-H power) leaves both empty and says so in its notes. ``branch``
+    names the part of a non-monotonic dependence the relation describes, for
+    example the high-density branch of the L-H threshold. It is metadata:
+    nothing checks it automatically, so a caller must not evaluate a branch
+    relation outside that branch.
     """
 
     key: str
@@ -1053,16 +1060,14 @@ _register(Boundary(
     hardness="soft",
     origin="published",
     basis="semi_empirical",
-    event="L_to_H",
+    event="L_to_H_threshold_minimum",
     regime="L_mode",
-    source_regime="L_mode",
-    target_regime="H_mode",
-    branch="low_density_boundary",
     applicability=Applicability(
         machine_class="tokamak",
         assumptions=(
             "density at which the L-H power threshold is minimum; the high-density-branch scaling "
-            "(martin_2008_lh) applies above it",
+            "(martin_2008_lh) applies above it. Below it H-mode is still accessible but needs more power "
+            "(the low-density branch), so 'above' marks the validity of martin_2008_lh, not H-mode access",
             "derived for deuterium from the Martin threshold scaling and an L-mode confinement scaling, "
             "with n_e,min set by tau_E / tau_ei = 9 (the ASDEX Upgrade minimum of P_L-H, Fig. 9)",
             "checked against ASDEX Upgrade (C and W walls), Alcator C-Mod, DIII-D, JET-ILW and JFT-2M "
@@ -1074,7 +1079,8 @@ _register(Boundary(
         BoundarySource("F. Ryter et al., Nucl. Fusion 54 (2014) 083003", equation="Eq. (3), p. 7",
                        doi="10.1088/0029-5515/54/8/083003",
                        note="n_e,min ~ 0.7 I_p^0.34 B_T^0.62 a^-0.95 (R/a)^0.4 in 1e19 m^-3 using MA, T and m. "
-                            "Eq. (4) for the minimum power is not registered: as printed it does not reproduce "
-                            "the paper's own 41 MW for ITER, while Eq. (1) at n_e,min does"),
+                            "Eq. (4) for the minimum power is not registered: as printed it gives ~62 MW for ITER "
+                            "at full field against the paper's ~41 MW, and ~22 against ~16 MW at half field. "
+                            "Eq. (1) at n_e,min gives ~44 and ~16 MW"),
     ),
 ))

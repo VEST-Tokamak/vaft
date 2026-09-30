@@ -556,18 +556,22 @@ def test_ryter_reproduces_the_iter_minimum_density():
     assert half == pytest.approx(2.2, rel=0.10)
 
 
-def test_martin_at_ryter_minimum_is_the_papers_minimum_power():
-    """Ryter 2014, p. 8: inserting n_e,min in the threshold scaling gives ~41 MW for ITER at full field.
-    Eq. (1) at n_e,min (4.0e19) gives ~44 MW; the printed Eq. (4) would give ~62 MW and is not registered."""
-    n_min_1e20 = _ryter(_ITER["I_p"], _ITER["B_T"], _ITER["a"], _ITER["R"] / _ITER["a"]) / 10.0
+@pytest.mark.parametrize("scale, expected, rel", [(0.5, 16.0, 0.03), (1.0, 41.0, 0.10)])
+def test_martin_at_ryter_minimum_is_the_papers_minimum_power(scale, expected, rel):
+    """Ryter 2014, p. 8: the threshold scaling at n_e,min gives ~16 MW for ITER at half field and
+    current (checked to 3 %: 15.8 MW) and ~41 MW at full field (Eq. (1) gives ~44 MW, 9 % off).
+    The printed Eq. (4) gives ~22 and ~62 MW and is not registered."""
+    I_p, B_T = _ITER["I_p"] * scale, _ITER["B_T"] * scale
+    n_min_1e20 = _ryter(I_p, B_T, _ITER["a"], _ITER["R"] / _ITER["a"]) / 10.0
     P_min = B.boundary_value(B.get_boundary("martin_2008_lh"), line_average_density=n_min_1e20,
-                             toroidal_field=_ITER["B_T"], plasma_surface_area=_ITER["S"])
-    assert P_min == pytest.approx(41.0, rel=0.10)
+                             toroidal_field=B_T, plasma_surface_area=_ITER["S"])
+    assert P_min == pytest.approx(expected, rel=rel)
 
 
 def test_ryter_minimum_bounds_the_martin_branch_from_below():
     entry = B.get_boundary("ryter_2014_nmin")
-    assert entry.allowed_side == "above" and entry.branch == "low_density_boundary"
+    # Not an access threshold: H-mode is reachable below n_e,min too, at higher power.
+    assert entry.allowed_side == "above" and (entry.source_regime, entry.target_regime, entry.branch) == ("", "", "")
     assert entry.target.unit == "1e19 m^-3"
     assert "lh_threshold" == entry.family == B.get_boundary("martin_2008_lh").family
     assert set(B.list_boundaries("lh_threshold")) == {"martin_2008_lh", "ryter_2014_nmin"}
@@ -577,3 +581,10 @@ def test_transition_needs_both_regimes():
     with pytest.raises(ValueError, match="source_regime and target_regime"):
         B.Boundary(key="half", family="toy", target=_P, inputs=(), form="threshold", coefficient=1.0,
                    allowed_side="above", sources=_SRC, source_regime="L_mode")
+
+
+def test_uncertainty_rejects_impossible_scatter():
+    with pytest.raises(ValueError, match="coefficient_factor"):
+        B.Uncertainty(coefficient_factor=0.9)
+    with pytest.raises(ValueError, match="rms_relative"):
+        B.Uncertainty(rms_relative=-0.1)
