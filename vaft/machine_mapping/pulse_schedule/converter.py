@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
+import datetime
 import hashlib
 import json
 from pathlib import Path
@@ -68,17 +69,31 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _calendar_date(year: str, month: str, day: str) -> str | None:
+    """``YYYY-MM-DD`` when the three parts make a real date, else ``None``."""
+    try:
+        datetime.date(int(year), int(month), int(day))
+    except ValueError:
+        return None
+    return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+
+
 def derive_session(sheet_name: str, source: Path) -> tuple[str | None, str]:
-    """``(experiment_date, session_id)`` from a sheet named ``YYMMDD`` or ``YYYYMMDD``."""
+    """``(experiment_date, session_id)`` from a sheet named ``YYMMDD`` or ``YYYYMMDD``.
+
+    A sheet whose leading digits make no calendar date -- ``202306`` read as
+    ``YYMMDD`` is 2020-23-06 -- takes the workbook's month instead, as a
+    sheet with no date in its name does.
+    """
     match8 = DATE8_RE.match(sheet_name) or DATE_ISO_RE.match(sheet_name)
     match6 = DATE_RE.match(sheet_name)
+    date = None
     if match8:
-        year, month, day = match8.groups()
-        date = f"{year}-{month}-{day}"
+        date = _calendar_date(*match8.groups())
     elif match6:
         year, month, day = match6.groups()
-        date = f"20{year}-{month}-{day}"
-    else:
+        date = _calendar_date(f"20{year}", month, day)
+    if date is None:
         file_match = FILE_DATE_RE.search(source.name)
         date = f"{file_match.group(1)}-{int(file_match.group(2)):02d}-01" if file_match else None
     suffix = re.sub(r"[^A-Za-z0-9가-힣_-]+", "-", sheet_name).strip("-") or "sheet"

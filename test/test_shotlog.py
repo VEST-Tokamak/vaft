@@ -245,6 +245,22 @@ def test_a_shot_logged_again_under_a_later_title_keeps_one_consistent_record(tmp
     assert validate_dataset(dataset, REGISTRY) == ["duplicate_shot:44010"]
 
 
+@pytest.mark.parametrize("sheet_name, expected", [
+    ("230605", "2023-06-05"),
+    ("20230605", "2023-06-05"),
+    ("2023-06-05", "2023-06-05"),
+    ("202306", "2023-06-01"),     # YYYYMM, not the 6th of month 23 of 2020
+    ("991301", "2023-06-01"),     # no month 13
+    ("20231301", "2023-06-01"),
+    ("Sheet1", "2023-06-01"),
+])
+def test_a_sheet_name_that_is_no_calendar_date_takes_the_workbooks_month(sheet_name, expected):
+    from vaft.machine_mapping.pulse_schedule.converter import derive_session
+
+    date, session_id = derive_session(sheet_name, Path("ShotLog_2023_06 #39486-39888.xlsx"))
+    assert date == expected and session_id.startswith(f"{expected}__")
+
+
 def test_session_documents_are_reproducible(modern):
     assert convert_sheet(modern, "250915", REGISTRY) == convert_sheet(modern, "250915", REGISTRY)
 
