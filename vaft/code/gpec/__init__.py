@@ -71,6 +71,14 @@ from ._gpec_output import (
     read_gpec_netcdf,
 )
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
+from ._pentrc import (
+    PENTRC_MODULE,
+    peq_jacobian,
+    pentrc_output_name,
+    prepare_pentrc_run,
+    run_pentrc,
+    validate_pentrc_inputs,
+)
 from ._solvers import (
     DCON_PRODUCTS_FOR_GPEC,
     SOLVERS,
@@ -86,6 +94,9 @@ from ._types import (
     DEFAULT_MODES,
     DEFAULT_MODULES,
     GPEC_HOME_ENV,
+    PENTRC_COLLISION_OPERATORS,
+    PENTRC_IMPURITY_SPECIES,
+    PENTRC_ION_SPECIES,
     STABILITY_MODULES,
     SUPPORTED_MODULES,
     DCONOptions,
@@ -94,6 +105,7 @@ from ._types import (
     GPECSuiteConfig,
     GPECSuiteResult,
     IdealGPECOptions,
+    PENTRCOptions,
     RDCONOptions,
     STRIDEOptions,
 )
@@ -111,6 +123,13 @@ _run_policy = rt.run_policy
 _time_label = rt.time_label
 _module_dir = rt.module_dir
 format_gfile_header_for_gpec = rt.format_gfile_header_for_gpec
+
+#: One Fortran namelist group's scalar assignments, as the file writes them.
+#:
+#: Public because it is not GPEC-specific and two things outside this package
+#: already need it: ``read_coil_control`` delegates to it, and a caller reporting
+#: what a committed case ran with has to read ``pentrc.in``.
+read_namelist_group = rt.read_namelist_group
 
 
 def _normalized_modules(config: GPECSuiteConfig) -> tuple[str, ...]:
@@ -207,7 +226,10 @@ def find_gpec_executable(
     ----------
     program : str
         The program name under ``bin/``: ``"dcon"``, ``"rdcon"``,
-        ``"stride"``, ``"gpec"``, ``"match"`` or ``"rmatch"`` [-].
+        ``"stride"``, ``"gpec"``, ``"pentrc"``, ``"match"`` or ``"rmatch"``.
+        ``"pentrc"`` is not a suite module -- it runs in a completed ideal-GPEC
+        cell, see :func:`run_pentrc` -- but it is a program of the same
+        installation and resolves the same way [-].
     config : GPECSuiteConfig, optional
         Where to look; ``config.executable_dir`` wins over ``$GPECHOME``.
         Defaults to ``$GPECHOME`` alone [-].
@@ -258,6 +280,62 @@ def validate_dcon_result(
         if not ok:
             problems.append(reason)
     return problems
+
+
+def validate_threshold_inputs(run_dir: Path | str) -> list[str]:
+    """Describe what stops ``run_dir`` computing a penetration threshold.
+
+    Both of GPEC's resonant-field penetration thresholds -- Callen's
+    ``w_isl_v_crit`` and SLAYER's ``Phi_res_crit`` -- are computed from kinetic
+    profiles, which GPEC reads by calling PENTRC's own initialiser
+    (``gpec/gpec.f:620-623``).  That reads ``pentrc.in`` out of the working
+    directory and then the ``kinetic_file`` it names
+    (``pentrc/pentrc_interface.f90:205-235``), so a threshold run needs two
+    files the ideal suite does not otherwise write.
+
+    Note what it does **not** need: a kinetic DCON.  GPEC's own
+    ``docs/examples/DIIID_ideal_example`` runs ``kin_flag=f`` with
+    ``singthresh_flag=t``, a ``.kin`` and a ``pentrc.in``.  The profiles are for
+    the threshold models, not for the Euler-Lagrange equation.
+
+    Returns an empty list when the directory is ready.  Checked before GPEC is
+    launched because the alternative is an hour of solve followed by a column of
+    exact zeros, which is also what an unattainable threshold looks like.
+
+    Parameters
+    ----------
+    run_dir : Path
+        The ideal-GPEC cell that will run [-].
+
+    Returns
+    -------
+    list of str
+        One reason per missing prerequisite, empty when there are none [-].
+    """
+    run_dir = Path(run_dir)
+    pentrc_in = run_dir / "pentrc.in"
+    if not pentrc_in.is_file():
+        return [
+            f"missing pentrc.in in {run_dir}: GPEC reads the kinetic profiles for its "
+            "penetration thresholds through PENTRC's initialiser, which opens "
+            "pentrc.in in the working directory"
+        ]
+    try:
+        pent_input = rt.read_namelist_group(pentrc_in, "pent_input")
+    except OSError as error:
+        return [f"could not read {pentrc_in}: {error}"]
+    kinetic_file = pent_input.get("kinetic_file", "").strip()
+    if not kinetic_file:
+        return [f"{pentrc_in} names no kinetic_file, so there are no profiles to read"]
+    resolved = Path(kinetic_file)
+    if not resolved.is_absolute():
+        resolved = run_dir / resolved
+    if not resolved.is_file():
+        return [
+            f"{pentrc_in} names kinetic_file={kinetic_file!r}, which resolves to "
+            f"{resolved} and is not there"
+        ]
+    return []
 
 
 def _dcon_run_dir(inputs: GPECCaseInputs, mode: int, geqdsk: Path) -> Path:
@@ -370,6 +448,21 @@ def _run_module(
         # from `dcon_dir`. Staged here rather than at prepare time for the
         # obvious reason: DCON has only just produced them.
         stage_dcon_products(dcon_dir, run_dir)
+        # The threshold prerequisites are checked here rather than at prepare
+        # time because the `.kin` and `pentrc.in` are staged into an already
+        # prepared cell -- a machine layer adds them after `prepare` has written
+        # the namelists -- so at prepare time their absence says nothing.
+        if config.gpec.wants_any_threshold:
+            problems = validate_threshold_inputs(run_dir)
+            if problems:
+                reason = (
+                    f"a penetration threshold was requested but {'; '.join(problems)} "
+                    "-- GPEC would run to completion and write the threshold columns as "
+                    "exact zeros, which is also what an unattainable threshold looks like"
+                )
+                if policy == "strict":
+                    raise RuntimeError(reason)
+                return GPECModuleRun(module, mode, run_dir, status="skipped", reason=reason)
 
     # Resuming a pipeline should not re-run a completed numerical solve just
     # because another time slice in the same code/mode cell failed.  A full
@@ -614,6 +707,18 @@ __all__ = [
     "RDCONOptions",
     "STRIDEOptions",
     "IdealGPECOptions",
+    "PENTRCOptions",
+    "PENTRC_COLLISION_OPERATORS",
+    "PENTRC_IMPURITY_SPECIES",
+    "PENTRC_ION_SPECIES",
+    "PENTRC_MODULE",
+    "peq_jacobian",
+    "pentrc_output_name",
+    "prepare_pentrc_run",
+    "read_namelist_group",
+    "run_pentrc",
+    "validate_pentrc_inputs",
+    "validate_threshold_inputs",
     "GPEC_HOME_ENV",
     "GPECCaseInputs",
     "GPECModuleRun",

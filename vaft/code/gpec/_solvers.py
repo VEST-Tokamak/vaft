@@ -615,20 +615,47 @@ class IdealGPECSolver:
         # are brought here by `stage_dcon_products` once DCON has produced
         # them, which is after this runs. See that function for the failure
         # this avoids.
+        options = ctx.config.gpec
+        replacements: dict[str, object] = {
+            "dcon_dir": str(ctx.run_dir.resolve()),
+            "coil_flag": options.coil_flag,
+            # Always written: every packaged and GPEC-shipped `gpec.in` carries
+            # this key, and a run that did *not* ask for thresholds should say
+            # so in its own namelist rather than inherit whatever a template
+            # happened to hold.
+            "singthresh_flag": options.singthresh_flag,
+        }
+        if options.wants_any_threshold:
+            # Written only when asked for, because GPEC leaves these three out
+            # of every namelist it ships -- they exist as code defaults
+            # (`gpec/gpec.f:159-162`) -- so a caller's own `templates_dir` may
+            # legitimately not carry them. Patching unconditionally would make
+            # this release refuse a template that worked in the last one.
+            # The *effective* values, not the fields: `singthresh_flag=t` forces
+            # both true inside GPEC (`gpec/gpec.f:274-279`), so writing the raw
+            # `False` beside it would be a namelist that contradicts the run it
+            # describes -- and the namelist is what a reader has later.
+            replacements.update(
+                {
+                    "singthresh_callen_flag": options.wants_callen_threshold,
+                    "singthresh_slayer_flag": options.wants_slayer_threshold,
+                }
+            )
+            if options.singthresh_slayer_inpr is not None:
+                replacements["singthresh_slayer_inpr"] = float(options.singthresh_slayer_inpr)
         rt.write_template(
             ctx.template_dir / "gpec.in",
             ctx.run_dir / "gpec.in",
-            {"dcon_dir": str(ctx.run_dir.resolve()), "coil_flag": ctx.config.gpec.coil_flag},
+            replacements,
         )
         shutil.copy2(ctx.template_dir / "vac.in", ctx.run_dir / "vac.in")
         # Precedence: an explicit coil.in wins over canonical coil_specs,
         # which wins over the packaged template copied verbatim.
         if ctx.inputs.coil_in:
             shutil.copy2(Path(ctx.inputs.coil_in).expanduser(), ctx.run_dir / "coil.in")
-        elif ctx.config.gpec.coil_specs is not None:
+        elif options.coil_specs is not None:
             from ._coil_input import resolve_coil_inputs, stage_coil_data, write_coil_in
 
-            options = ctx.config.gpec
             specs = tuple(options.coil_specs)
             coil_config, ip_direction, bt_direction = resolve_coil_inputs(
                 options.machine,
@@ -660,7 +687,7 @@ class IdealGPECSolver:
 
             from ._coil_input import DEFAULT_MACHINE
 
-            assert ctx.config.gpec.machine == DEFAULT_MACHINE
+            assert options.machine == DEFAULT_MACHINE
             rt.write_template(
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",

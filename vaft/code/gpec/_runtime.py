@@ -157,6 +157,12 @@ def _format_value(value: Any) -> str:
         return _quote_namelist_string(value)
     if isinstance(value, Path):
         return _quote_namelist_string(str(value))
+    if isinstance(value, (tuple, list)):
+        # A namelist array assignment, one element per value: Fortran accepts
+        # either commas or blanks and the packaged templates use both, so the
+        # comma is chosen and applied consistently rather than matched to
+        # whatever the line being replaced happened to use.
+        return ", ".join(_format_value(item) for item in value)
     return str(value)
 
 
@@ -172,6 +178,37 @@ def _set_value(text: str, key: str, value: Any) -> str:
     if count == 0:
         raise KeyError(f"Cannot find namelist key {key!r}")
     return new_text
+
+
+def read_namelist_group(path: Path | str, group: str) -> dict[str, str]:
+    """The scalar assignments of one Fortran namelist group, as the file writes them.
+
+    Values come back as strings with quotes and trailing comments stripped;
+    nothing is defaulted, so a key the file omits is simply absent. Indexed
+    assignments (``ss_flag(3)=f``) are skipped -- they are arrays, and no caller
+    here reads one.
+
+    Comments are stripped before the group terminator is looked for, because a
+    path-valued entry (``data_dir="/a/b" ! where the .dat files are``) puts a
+    slash inside the value: the terminating ``/`` has to be recognised as its
+    own line rather than as the first slash in the text.
+
+    Group names are matched case-insensitively, because GPEC's own namelists
+    and hand-written ones disagree about the spelling.
+    """
+    text = Path(path).read_text(encoding="utf-8")
+    match = re.search(rf"&{re.escape(group)}\b", text, re.IGNORECASE)
+    body = text[match.end():] if match else text
+    values: dict[str, str] = {}
+    for raw in body.splitlines():
+        line = raw.split("!", 1)[0].strip()
+        if line.startswith("/"):
+            break
+        if "=" not in line or "(" in line.split("=", 1)[0]:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        values[key] = value.strip().strip("\"'")
+    return values
 
 
 def write_template(
