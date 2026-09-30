@@ -6,6 +6,12 @@ from typing import Any, Iterable
 
 import numpy as np
 
+__all__ = [
+    "decode_hdf5_value",
+    "discover_hsds_ids",
+    "normalize_ids",
+]
+
 
 def decode_hdf5_value(value: Any) -> Any:
     """Restore conventional Python/NumPy values from IMAS HDF5 storage."""
