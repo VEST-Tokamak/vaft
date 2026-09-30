@@ -222,3 +222,12 @@ def test_candidates_are_the_aligned_usable_times_nearest_first_then_earliest():
     times, why = vu.profile_time_candidates(profile, eq, usable)
     assert why == "aligned and usable" and times == [315.0, 316.0, 317.0]
     assert vu.profile_time_candidates(profile, eq, None) == ([312.0], "aligned (no per-slice verdicts)")
+
+
+def test_without_an_aligned_usable_slice_the_times_next_to_the_usable_window_come_first():
+    """42985: Thomson at 322-331 ms, magnetic EFIT usable only from 335 ms."""
+    profile = np.arange(322.0, 332.0)
+    eq = np.arange(318.0, 340.0)
+    usable = np.arange(335.0, 340.0)
+    times, why = vu.profile_time_candidates(profile, eq, usable)
+    assert why == "aligned, nearest the usable window" and times[:3] == [331.0, 330.0, 329.0]

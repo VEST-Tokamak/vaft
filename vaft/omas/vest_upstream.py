@@ -2063,17 +2063,27 @@ def profile_time_candidates(
     """Profile times to try, best first, and why: :func:`choose_profile_time`'s
     choice first, then every other aligned, usable one by offset and time."""
     first, why = choose_profile_time(profile_times_ms, eq_times_ms, usable_eq_times_ms, tolerance_ms=tolerance_ms)
-    if why != "aligned and usable":
-        return [first], why
     profile = np.asarray(profile_times_ms, dtype=float).reshape(-1)
     eq = np.asarray(eq_times_ms, dtype=float).reshape(-1)
     distance = np.abs(profile[:, None] - eq[None, :])
     offsets = distance.min(axis=1)
     nearest = eq[distance.argmin(axis=1)]
-    usable = np.round(np.asarray(usable_eq_times_ms, dtype=float).reshape(-1), 3)
-    good = np.flatnonzero((offsets <= tolerance_ms) & np.isin(np.round(nearest, 3), usable))
-    order = sorted(good, key=lambda i: (offsets[i], profile[i]))
-    return [float(profile[i]) for i in order], why
+    aligned = offsets <= tolerance_ms
+    if why == "aligned and usable":
+        usable = np.round(np.asarray(usable_eq_times_ms, dtype=float).reshape(-1), 3)
+        good = np.flatnonzero(aligned & np.isin(np.round(nearest, 3), usable))
+        order = sorted(good, key=lambda i: (offsets[i], profile[i]))
+        return [float(profile[i]) for i in order], why
+    usable = np.asarray(usable_eq_times_ms if usable_eq_times_ms is not None else [], dtype=float).reshape(-1)
+    if why == "aligned (no aligned slice is usable)" and usable.size and aligned.any():
+        # Thomson fired outside the magnetically usable window (the 42xxx
+        # series: profiles at 322-331 ms, usable EFIT from 333 ms). The kinetic
+        # fit is likeliest to converge next to that window, so try the aligned
+        # times closest to it first rather than the earliest.
+        gap = np.min(np.abs(profile[:, None] - usable[None, :]), axis=1)
+        order = sorted(np.flatnonzero(aligned), key=lambda i: (gap[i], offsets[i], profile[i]))
+        return [float(profile[i]) for i in order], "aligned, nearest the usable window"
+    return [first], why
 
 
 def choose_profile_time(
