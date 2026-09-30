@@ -174,6 +174,13 @@ def refresh_coupling(ods, shot: int) -> str | None:
 
     before = "em_coupling.mutual_passive_passive" in ods
     try:
+        # The coupling checks the PF and passive geometry leaf by leaf; on a
+        # lazy database ODS that is thousands of requests unless each dataset
+        # is read once first (#1331: 10+ minutes per shot without it).
+        if hasattr(ods, "prefetch"):
+            for ids_name in ("pf_active", "pf_passive"):
+                if ids_name in ods.keys():
+                    ods.prefetch(ids_name)
         em_coupling(ods, shot=int(shot))
     except Exception as error:
         return f"could not re-map: {type(error).__name__}: {error}"[:160]

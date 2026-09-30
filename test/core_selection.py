@@ -187,6 +187,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_transport_regimes.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
+    # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
+    "test_pipeline_worker.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

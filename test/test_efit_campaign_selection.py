@@ -66,6 +66,19 @@ def test_each_shot_lands_in_the_first_tier_that_applies(selection):
     assert rows[5]["important"] and not rows[5]["good_magnetics"]
 
 
+@pytest.mark.parametrize("row, important, suspect", [
+    ({"max_ip_kA": 290.0, "pulse_duration_s": 0.02, "shot_class": "Plasma"}, True, False),
+    ({"max_ip_kA": 1673.0, "pulse_duration_s": 0.034, "shot_class": "Plasma"}, False, True),   # 45781
+    ({"max_ip_kA": 0.56, "pulse_duration_s": 0.080, "shot_class": "Plasma"}, False, False),    # 32102
+    ({"max_ip_kA": 126.0, "pulse_duration_s": 0.036, "shot_class": "Plasma"}, True, False),    # 41672
+    ({"max_ip_kA": 280.0, "pulse_duration_s": 0.02, "shot_class": "BD failure"}, False, False),
+])
+def test_importance_needs_a_plasma_with_a_plausible_real_current(selection, row, important, suspect):
+    flags = selection.classify({"shot": 1, **row}, selection._quality_summary(None), thomson=False,
+                               thresholds=selection.Thresholds())
+    assert flags["important"] is important and flags["suspect_ip"] is suspect
+
+
 def test_a_failed_scan_is_not_mistaken_for_missing_magnetics(selection):
     quality = {8: {"shot": 8, "status": "absent", "reason": "OSError: [Errno 403] Forbidden"},
                9: {"shot": 9, "status": "absent", "reason": "OSError: [Errno 404] Not Found"}}
