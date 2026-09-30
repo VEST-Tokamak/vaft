@@ -22,6 +22,7 @@ _COMMANDS = {
     "export": (".export", "export one shot as IMAS/OMAS/GEQDSK files"),
     "hsds": (".hsds", "configure HSDS credentials without echoing secrets"),
     "help": (".help", "what VAFT can do: topics, defaults and setup status"),
+    "pipeline-worker": (".pipeline_worker", "poll VEST SQL and run the routine pipeline on new shots"),
 }
 
 
