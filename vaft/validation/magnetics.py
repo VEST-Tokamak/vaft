@@ -1513,6 +1513,9 @@ def magnetics_quality_metrics(
     return {
         "schema_version": 1,
         "configuration": asdict(settings),
+        # EFIT's probe count the families were split at; None when the source
+        # could not say, and then probes beyond it are not separated (#1331).
+        "efit_probe_count": nbprobe,
         "summary": summary,
         "families": families,
         "channels": channels,

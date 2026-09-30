@@ -901,3 +901,4 @@ def test_probes_beyond_efits_geometry_are_not_counted_in_an_efit_family(monkeypa
     assert families[2] == families[3] == "not_in_efit"
     assert "not_in_efit" not in (families[0], families[1])
     assert metrics["families"]["not_in_efit"]["expected"] == 2
+    assert metrics["efit_probe_count"] == 2

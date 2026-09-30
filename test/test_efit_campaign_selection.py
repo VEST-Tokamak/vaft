@@ -43,7 +43,7 @@ def test_the_raw_inventory_finds_thomson_and_ion_files(tmp_path, selection):
 
 def _quality(shot, verdict="degraded", condemned=2, outboard=20, status=None):
     if status == "absent":
-        return {"shot": shot, "status": "absent"}
+        return {"shot": shot, "status": "absent", "reason": "OSError: [Errno 404] Not Found"}
     return {"shot": shot, "verdict": verdict, "condemned": [f"p{i}" for i in range(condemned)],
             "families": {"outboard": {"usable": outboard}}}
 
@@ -64,6 +64,25 @@ def test_each_shot_lands_in_the_first_tier_that_applies(selection):
     rows = {r["shot"]: r for r in selection.select(overview, quality, thomson, {}, t)}
     assert [rows[s]["tier"] for s in range(1, 7)] == ["A", "B", "C", "D", None, None]
     assert rows[5]["important"] and not rows[5]["good_magnetics"]
+
+
+def test_a_failed_scan_is_not_mistaken_for_missing_magnetics(selection):
+    quality = {8: {"shot": 8, "status": "absent", "reason": "OSError: [Errno 403] Forbidden"},
+               9: {"shot": 9, "status": "absent", "reason": "OSError: [Errno 404] Not Found"}}
+    rows = {r["shot"]: r for r in selection.select([], quality, {8: "8_NeTe.mat", 9: "9_NeTe.mat"}, {},
+                                                   selection.Thresholds())}
+    assert rows[8]["magnetics"] == "scan_error" and rows[8]["tier"] is None and "403" in rows[8]["reason"]
+    assert rows[9]["magnetics"] == "absent" and rows[9]["tier"] == "C"
+
+
+def test_a_shot_without_a_plasma_window_writes_valid_json(tmp_path, selection):
+    overview = tmp_path / "overview.csv"
+    overview.write_text("shot,max_ip_kA,pulse_duration_s,shot_class\n5,,,BD failure\n")
+    (tmp_path / "raw").mkdir()
+    out = tmp_path / "sel.json"
+    assert selection.main(["--overview", str(overview), "--data-root", str(tmp_path / "raw"), "--output", str(out)]) == 0
+    row = json.loads(out.read_text(), parse_constant=lambda name: pytest.fail(f"non-JSON constant {name}"))["rows"][0]
+    assert row["max_ip_kA"] is None and row["pulse_duration_s"] is None
 
 
 def test_a_shot_never_scanned_is_not_called_good(selection):

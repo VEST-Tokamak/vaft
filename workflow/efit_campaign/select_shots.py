@@ -84,16 +84,25 @@ def quality_by_shot(paths: Iterable[Path]) -> dict[int, dict[str, Any]]:
     return out
 
 
+#: What a scan's ``absent`` reason says when the source really holds no magnetics
+#: for the shot -- as opposed to a scan that failed for another reason, which
+#: the scanner also records as ``absent`` and which is not "needs ingest".
+NOT_HELD = ("404", "Not Found", "carries no magnetics")
+
+
 def _quality_summary(row: Mapping[str, Any] | None) -> dict[str, Any]:
     if row is None:
-        return {"magnetics": "not_scanned", "condemned": None, "outboard_usable": None}
+        return {"magnetics": "not_scanned", "condemned": None, "outboard_usable": None, "reason": None}
     if row.get("status") == "absent":
-        return {"magnetics": "absent", "condemned": None, "outboard_usable": None}
+        reason = str(row.get("reason") or "")
+        state = "absent" if any(token in reason for token in NOT_HELD) else "scan_error"
+        return {"magnetics": state, "condemned": None, "outboard_usable": None, "reason": reason or None}
     families = row.get("families") or {}
     return {
         "magnetics": row.get("verdict") or row.get("status") or "unknown",
         "condemned": len(row.get("condemned") or []),
         "outboard_usable": (families.get("outboard") or {}).get("usable"),
+        "reason": None,
     }
 
 
@@ -106,7 +115,7 @@ def classify(overview: Mapping[str, Any] | None, quality: Mapping[str, Any], *, 
         (ip is not None and ip == ip and ip >= thresholds.important_ip_kA)
         or (duration is not None and duration == duration and duration >= thresholds.important_duration_s)
     )
-    scanned = quality["magnetics"] not in ("not_scanned", "absent", "unknown")
+    scanned = quality["magnetics"] not in ("not_scanned", "absent", "scan_error", "unknown")
     good = bool(
         scanned
         and quality["magnetics"] != "unfit"
@@ -126,10 +135,19 @@ def classify(overview: Mapping[str, Any] | None, quality: Mapping[str, Any], *, 
     return {"important": important, "good_magnetics": good, "tier": tier}
 
 
+def _finite_or_none(value: Any) -> Any:
+    """NaN/inf -> None: a shot with no plasma window has NaN Ip and duration,
+    and NaN is not JSON (strict parsers, jq and JavaScript refuse it)."""
+    if isinstance(value, float) and value != value or value in (float("inf"), float("-inf")):
+        return None
+    return value
+
+
 def select(overview_rows: Iterable[Mapping[str, Any]], quality: Mapping[int, Mapping[str, Any]],
            thomson: Mapping[int, str], ions: Mapping[int, str], thresholds: Thresholds) -> list[dict[str, Any]]:
     """Every shot any source knows of, with its tier (``None`` when it is in none)."""
-    overview = {int(row["shot"]): dict(row) for row in overview_rows}
+    overview = {int(row["shot"]): {key: _finite_or_none(value) for key, value in row.items()}
+                for row in overview_rows}
     shots = sorted(set(overview) | set(quality) | set(thomson))
     rows = []
     for shot in shots:
@@ -197,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
     payload = {"thresholds": asdict(thresholds), "data_root": str(args.data_root),
                "overview": str(args.overview), "quality": [str(p) for p in args.quality], "rows": rows}
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(payload, indent=1, default=str) + "\n", encoding="utf-8")
+    args.output.write_text(json.dumps(payload, indent=1, default=str, allow_nan=False) + "\n", encoding="utf-8")
     text = markdown(rows, thresholds)
     if args.markdown:
         args.markdown.write_text(text, encoding="utf-8")
