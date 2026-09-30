@@ -157,6 +157,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
@@ -258,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c0bb4ce</code>. What is described
+  <code>37c8a12</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -595,12 +601,17 @@ element is the answer:</p>
 <!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">alpha</span>        <span class="o">=</span> <span class="nf">ballooning_alpha_from_p_B_R</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>       <span class="c1"># alpha = -2 mu0 R q^2 (dp/dR) / B^2
 </span><span class="n">d_alpha</span><span class="p">,</span> <span class="n">a_c</span> <span class="o">=</span> <span class="nf">ballooning_stability_criterion</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>      <span class="c1"># alpha_crit = 0.6 s
-</span><span class="n">d_beta</span><span class="p">,</span> <span class="n">b_c</span>  <span class="o">=</span> <span class="nf">kink_stability_criterion</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">beta_N</span><span class="p">)</span>        <span class="c1"># beta_N_crit = 2.8 q95
-</span><span class="n">d_bp</span><span class="p">,</span>   <span class="n">bp_c</span> <span class="o">=</span> <span class="nf">sawtooth_stability_criterion</span><span class="p">(</span><span class="n">q_0</span><span class="p">,</span> <span class="n">beta_pol</span><span class="p">)</span>   <span class="c1"># beta_p_crit = 0.3 (1 - q0)
-</span><span class="n">d_bN</span><span class="p">,</span>   <span class="n">bN_c</span> <span class="o">=</span> <span class="nf">beta_stability_boundary</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">)</span>         <span class="c1"># beta_N_crit = 0.028 q95
+</span><span class="n">d_beta</span><span class="p">,</span> <span class="n">b_c</span>  <span class="o">=</span> <span class="nf">kink_stability_criterion</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">beta_N</span><span class="p">)</span>        <span class="c1"># deprecated (#350): beta_N_crit = 2.8 q95
+</span><span class="n">d_bp</span><span class="p">,</span>   <span class="n">bp_c</span> <span class="o">=</span> <span class="nf">sawtooth_stability_criterion</span><span class="p">(</span><span class="n">q_0</span><span class="p">,</span> <span class="n">beta_pol</span><span class="p">)</span>   <span class="c1"># deprecated (#350): beta_p_crit = 0.3 (1 - q0)
+</span><span class="n">d_bN</span><span class="p">,</span>   <span class="n">bN_c</span> <span class="o">=</span> <span class="nf">beta_stability_boundary</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">)</span>         <span class="c1"># deprecated (#350): beta_N_crit = 0.028 q95
 </span>
-<span class="n">beta_margin</span><span class="p">,</span> <span class="n">q_margin</span><span class="p">,</span> <span class="n">density_margin</span> <span class="o">=</span> <span class="nf">plasma_stability_margins</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">,</span> <span class="n">n_e</span><span class="p">,</span> <span class="n">n_G</span><span class="p">)</span>
-</code></pre></div></div>
+<span class="n">beta_margin</span><span class="p">,</span> <span class="n">q_margin</span><span class="p">,</span> <span class="n">density_margin</span> <span class="o">=</span> <span class="nf">plasma_stability_margins</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">,</span> <span class="n">n_e</span><span class="p">,</span> <span class="n">n_G</span><span class="p">)</span>  <span class="c1"># deprecated (#350)
+</span></code></pre></div></div>
+
+<p>The four heuristics above are deprecated (#350): no source multiplies the $\beta_N$ limit by $q_{95}$,
+and Porcelli’s sawtooth trigger is a set of conditions, not $0.3\,(1 - q_0)$. The sourced limits live
+in <code class="language-plaintext highlighter-rouge">vaft.formula.boundaries</code> (<code class="language-plaintext highlighter-rouge">"troyon"</code>, <code class="language-plaintext highlighter-rouge">"low_q"</code>, <code class="language-plaintext highlighter-rouge">"greenwald"</code>, <code class="language-plaintext highlighter-rouge">"murakami"</code>), evaluated with
+<code class="language-plaintext highlighter-rouge">evaluate_boundary</code>.</p>
 
 <p><code class="language-plaintext highlighter-rouge">kink_stability_criterion</code> and <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code> use <strong>different</strong> critical-$\beta_N$
 coefficients (2.8 versus 0.028) — the same Troyon-type relation written in two unit conventions
@@ -791,7 +802,7 @@ is the symptom.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">kink_stability_criterion</code> vs <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code></td>
-      <td>Critical-$\beta_N$ coefficients 2.8 and 0.028 — the same Troyon-type relation in two unit conventions. <code class="language-plaintext highlighter-rouge">plasma_stability_margins</code> lives in the 0.028 one.</td>
+      <td>Deprecated (#350). Critical-$\beta_N$ coefficients 2.8 and 0.028, each times an unsourced $q_{95}$. Use the <code class="language-plaintext highlighter-rouge">"troyon"</code> boundary ($\beta_N \le 2.2\,\mu_0\cdot10^6 \approx 2.76$ %·m·T/MA).</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">kink_safety_factor</code></td>
@@ -1152,7 +1163,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 04:36:43 +0000"
+        "time": "2026-09-30 04:59:50 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

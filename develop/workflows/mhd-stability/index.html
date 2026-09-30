@@ -157,6 +157,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
@@ -258,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c0bb4ce</code>. What is described
+  <code>37c8a12</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -338,11 +344,20 @@ yourself and hand them over.</p>
 <span class="n">beta_N</span> <span class="o">=</span> <span class="n">eq</span><span class="p">[</span><span class="sh">'</span><span class="s">beta_normal</span><span class="sh">'</span><span class="p">]</span>        <span class="c1"># [%·m·T/MA]
 </span><span class="n">q_95</span>   <span class="o">=</span> <span class="n">eq</span><span class="p">[</span><span class="sh">'</span><span class="s">q_95</span><span class="sh">'</span><span class="p">]</span>
 
-<span class="n">d_beta</span><span class="p">,</span> <span class="n">beta_N_crit</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">kink_stability_criterion</span><span class="p">(</span><span class="n">q_95</span><span class="p">,</span> <span class="n">beta_N</span><span class="p">)</span>
-<span class="n">d_bN</span><span class="p">,</span>   <span class="n">bN_crit</span>     <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">beta_stability_boundary</span><span class="p">(</span><span class="n">beta_N</span><span class="p">,</span> <span class="n">q_95</span><span class="p">)</span>
-</code></pre></div></div>
+<span class="n">B</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="n">boundaries</span>
+<span class="n">beta_check</span> <span class="o">=</span> <span class="n">B</span><span class="p">.</span><span class="nf">evaluate_boundary</span><span class="p">(</span><span class="n">B</span><span class="p">.</span><span class="nf">get_boundary</span><span class="p">(</span><span class="sh">"</span><span class="s">troyon</span><span class="sh">"</span><span class="p">),</span> <span class="n">beta_N</span><span class="p">)</span>   <span class="c1"># beta_N &lt;= 2.2 mu0 1e6 ~ 2.76
+</span><span class="n">q_check</span>    <span class="o">=</span> <span class="n">B</span><span class="p">.</span><span class="nf">evaluate_boundary</span><span class="p">(</span><span class="n">B</span><span class="p">.</span><span class="nf">get_boundary</span><span class="p">(</span><span class="sh">"</span><span class="s">low_q</span><span class="sh">"</span><span class="p">),</span> <span class="n">q_95</span><span class="p">)</span>      <span class="c1"># q_psi &gt; 2 (Greenwald 1988)
+</span></code></pre></div></div>
 
-<p>Every criterion returns a <code class="language-plaintext highlighter-rouge">(margin, critical_value)</code> pair, and the margin is literally
+<p><code class="language-plaintext highlighter-rouge">evaluate_boundary</code> returns a margin that is <strong>positive on the permitted side</strong> whichever way the
+limit points, together with the source (paper, equation, DOI) and the inputs that fall outside the
+range the limit was fitted on. The Troyon coefficient is Troyon <em>et al.</em> (1984), p. 214:
+$(\beta A)<em>{max} \approx 2.2\,I_N$, i.e. $\beta_N \le 2.2\,\mu_0\cdot10^6 \approx 2.76$ %·m·T/MA, the
+origin of the rounded 2.8. <code class="language-plaintext highlighter-rouge">kink_stability_criterion</code> and <code class="language-plaintext highlighter-rouge">beta_stability_boundary</code> multiply the limit by
+$q</em>{95}$, which no source does; they are deprecated (#350) and keep their old numbers only for
+compatibility.</p>
+
+<p>The remaining local criteria return a <code class="language-plaintext highlighter-rouge">(margin, critical_value)</code> pair, and the margin is literally
 <code class="language-plaintext highlighter-rouge">value - critical</code>. A <strong>positive</strong> margin therefore means the plasma sits <strong>above</strong> the boundary:</p>
 
 <!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
@@ -366,7 +381,11 @@ yourself and hand them over.</p>
 is conventionally formed with the <strong>line-averaged</strong> electron density. Both arguments to
 <code class="language-plaintext highlighter-rouge">greenwald_fraction</code> must use the same density definition and units — it just divides.</p>
 
-<h2 id="the-combined-margin-helper-and-its-one-trap">The combined margin helper, and its one trap</h2>
+<h2 id="the-combined-margin-helper-deprecated-and-its-one-trap">The combined margin helper (deprecated), and its one trap</h2>
+
+<p><code class="language-plaintext highlighter-rouge">plasma_stability_margins</code> is deprecated (#350): its beta margin uses the unsourced $0.028\,q_{95}$
+limit. Use <code class="language-plaintext highlighter-rouge">evaluate_boundary</code> with <code class="language-plaintext highlighter-rouge">"troyon"</code>, <code class="language-plaintext highlighter-rouge">"low_q"</code> and <code class="language-plaintext highlighter-rouge">"greenwald"</code> instead, which share one
+sign convention. The description below documents the old behaviour.</p>
 
 <!-- docs-snippet: skip fragment (placeholder name n_e is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">beta_margin</span><span class="p">,</span> <span class="n">q_margin</span><span class="p">,</span> <span class="n">density_margin</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">plasma_stability_margins</span><span class="p">(</span>
@@ -925,7 +944,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper, and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#3-d-coil-input-for-any-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D coil input for any machine</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-deprecated-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper (deprecated), and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#3-d-coil-input-for-any-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D coil input for any machine</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
     </nav>
 </aside>
 
@@ -1043,7 +1062,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 04:36:43 +0000"
+        "time": "2026-09-30 04:59:50 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

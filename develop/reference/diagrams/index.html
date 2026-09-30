@@ -157,6 +157,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
@@ -258,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c0bb4ce</code>. What is described
+  <code>37c8a12</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -2058,26 +2064,28 @@ not redrawn here.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">nbi_particle_lifecycle</span><span class="p">()</span>      <span class="c1"># shine-through / prompt loss / delayed loss kept apart
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">nbi_neutral_attenuation</span><span class="p">()</span>     <span class="c1"># S(s), b(s), births and f_shine from vaft.formula.nbi
-</span>
-<span class="c1">## Iteration behaviour, branch bifurcation and branch selection
-</span>
-<span class="n">Non</span><span class="o">-</span><span class="n">convergence</span> <span class="n">can</span> <span class="n">arise</span> <span class="k">from</span> <span class="n">true</span> <span class="n">branch</span> <span class="n">structure</span> <span class="ow">or</span> <span class="k">from</span> <span class="n">numerical</span> <span class="n">cycling</span><span class="p">.</span> <span class="n">A</span> <span class="n">solver</span> <span class="n">that</span> <span class="n">does</span> <span class="ow">not</span>
-<span class="n">converge</span> <span class="n">has</span> <span class="ow">not</span> <span class="n">necessarily</span> <span class="n">found</span> <span class="n">an</span> <span class="n">unphysical</span> <span class="n">solution</span><span class="p">,</span> <span class="ow">and</span> <span class="n">these</span> <span class="n">diagrams</span> <span class="n">separate</span> <span class="n">the</span> <span class="n">cases</span><span class="p">.</span> <span class="n">They</span> <span class="n">are</span>
-<span class="n">generic</span> <span class="n">concept</span> <span class="n">diagrams</span> <span class="k">for</span> <span class="n">EFIT</span> <span class="n">convergence</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">weighting</span> <span class="ow">and</span> <span class="n">continuation</span> <span class="n">studies</span><span class="p">.</span> <span class="n">No</span> <span class="n">shot</span><span class="p">,</span> <span class="n">residual</span>
-<span class="ow">or</span> <span class="n">grid</span> <span class="n">comparison</span> <span class="ow">is</span> <span class="n">shown</span> <span class="ow">or</span> <span class="n">implied</span><span class="p">,</span> <span class="ow">and</span> <span class="n">none</span> <span class="n">of</span> <span class="n">them</span> <span class="n">claims</span> <span class="n">that</span> <span class="n">a</span> <span class="n">physical</span> <span class="n">bifurcation</span> <span class="n">exists</span> <span class="ow">in</span> <span class="n">VEST</span>
-<span class="n">equilibria</span><span class="p">.</span>
+</span></code></pre></div></div>
 
-<span class="n">Every</span> <span class="n">curve</span> <span class="ow">is</span> <span class="n">computed</span><span class="p">:</span>
-<span class="o">-</span> <span class="n">the</span> <span class="n">iteration</span> <span class="n">panels</span> <span class="n">come</span> <span class="k">from</span> <span class="n">the</span> <span class="n">logistic</span> <span class="nb">map</span> <span class="err">$</span><span class="n">x_</span><span class="p">{</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">}</span> <span class="o">=</span> <span class="nf">rx_k</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">x_k</span><span class="p">)</span><span class="err">$</span> <span class="n">at</span> <span class="err">$</span><span class="n">r</span> <span class="o">=</span> <span class="mf">2.8</span><span class="err">$</span><span class="p">,</span> <span class="err">$</span><span class="mf">3.2</span><span class="err">$</span> <span class="ow">and</span> <span class="err">$</span><span class="mf">3.5</span><span class="err">$</span><span class="p">,</span>
-  <span class="ow">and</span> <span class="k">from</span> <span class="n">an</span> <span class="n">expanding</span> <span class="n">linear</span> <span class="nb">map</span><span class="p">;</span>
-<span class="o">-</span> <span class="n">the</span> <span class="n">branch</span> <span class="n">diagram</span> <span class="ow">is</span> <span class="n">the</span> <span class="n">saddle</span><span class="o">-</span><span class="n">node</span> <span class="n">normal</span> <span class="n">form</span> <span class="err">$</span>\<span class="n">dot</span> <span class="n">x</span> <span class="o">=</span> \<span class="k">lambda</span> <span class="o">+</span> <span class="n">x</span> <span class="o">-</span> <span class="n">x</span><span class="o">^</span><span class="mi">3</span><span class="err">$</span><span class="p">;</span>
-<span class="o">-</span> <span class="n">the</span> <span class="n">basins</span> <span class="n">are</span> <span class="n">its</span> <span class="n">exact</span> <span class="n">relaxation</span> <span class="n">at</span> <span class="err">$</span>\<span class="k">lambda</span> <span class="o">=</span> <span class="mi">0</span><span class="err">$</span><span class="p">.</span>
+<h2 id="iteration-behaviour-branch-bifurcation-and-branch-selection">Iteration behaviour, branch bifurcation and branch selection</h2>
 
-<span class="n">The</span> <span class="n">bifurcation</span> <span class="ow">is</span> <span class="n">drawn</span> <span class="n">once</span><span class="p">.</span> <span class="n">The</span> <span class="n">basin</span> <span class="n">diagram</span> <span class="ow">is</span> <span class="n">the</span> <span class="n">same</span> <span class="n">model</span> <span class="n">at</span> <span class="n">one</span> <span class="n">control</span> <span class="n">parameter</span><span class="p">,</span> <span class="ow">not</span> <span class="n">a</span>
-<span class="n">second</span> <span class="n">bifurcation</span> <span class="n">figure</span><span class="p">.</span>
+<p>Non-convergence can arise from true branch structure or from numerical cycling. A solver that does not
+converge has not necessarily found an unphysical solution, and these diagrams separate the cases. They are
+generic concept diagrams for EFIT convergence, grid, weighting and continuation studies. No shot, residual
+or grid comparison is shown or implied, and none of them claims that a physical bifurcation exists in VEST
+equilibria.</p>
 
-<span class="sb">``</span><span class="err">`</span><span class="n">python</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">iteration_behavior</span><span class="p">()</span>       <span class="c1"># fixed point, divergence, 2-cycle, period-4 limit cycle
+<p>Every curve is computed:</p>
+<ul>
+  <li>the iteration panels come from the logistic map $x_{k+1} = rx_k(1 - x_k)$ at $r = 2.8$, $3.2$ and $3.5$,
+and from an expanding linear map;</li>
+  <li>the branch diagram is the saddle-node normal form $\dot x = \lambda + x - x^3$;</li>
+  <li>the basins are its exact relaxation at $\lambda = 0$.</li>
+</ul>
+
+<p>The bifurcation is drawn once. The basin diagram is the same model at one control parameter, not a
+second bifurcation figure.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">iteration_behavior</span><span class="p">()</span>       <span class="c1"># fixed point, divergence, 2-cycle, period-4 limit cycle
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">branch_bifurcation</span><span class="p">()</span>       <span class="c1"># stable (solid) / unstable (dashed), folds, jumps, hysteresis
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">basin_of_attraction</span><span class="p">()</span>      <span class="c1"># initial condition selects branch A or B
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">grid_induced_two_cycle</span><span class="p">()</span>   <span class="c1"># each re-solve lands nearer the other node: a one-cell hop
@@ -2168,17 +2176,17 @@ scope.</p>
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">x_mode_dispersion</span><span class="p">(</span><span class="n">omega_pe_over_omega_ce</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>    <span class="c1"># L, R cutoffs; upper-hybrid resonance
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">cma_diagram</span><span class="p">()</span>                                    <span class="c1"># P, R, L, S = 0 and Y = 1 in (X, Y)
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">profile_propagation</span><span class="p">()</span>                            <span class="c1"># layers along an example midplane
-</span>
-<span class="c1">## Neoclassical and NTV collisionality regimes
-</span>
-<span class="n">Two</span> <span class="n">different</span> <span class="n">regime</span> <span class="n">families</span> <span class="n">that</span> <span class="n">share</span> <span class="n">the</span> <span class="n">word</span> <span class="sh">"</span><span class="s">collisionality</span><span class="sh">"</span><span class="p">.</span> <span class="n">Axisymmetric</span> <span class="n">neoclassical</span> <span class="n">transport</span>
-<span class="n">orders</span> <span class="n">the</span> <span class="n">collision</span> <span class="n">frequency</span> <span class="n">against</span> <span class="n">the</span> <span class="n">transit</span> <span class="ow">and</span> <span class="n">bounce</span> <span class="n">frequencies</span><span class="p">.</span> <span class="n">Neoclassical</span> <span class="n">toroidal</span>
-<span class="nf">viscosity </span><span class="p">(</span><span class="n">NTV</span><span class="p">)</span> <span class="ow">in</span> <span class="n">broken</span> <span class="n">symmetry</span> <span class="n">orders</span> <span class="n">it</span> <span class="n">against</span> <span class="n">the</span> <span class="n">bounce</span><span class="o">-</span><span class="n">averaged</span> <span class="n">precession</span>
-<span class="err">$</span>\<span class="n">omega_d</span> <span class="o">=</span> \<span class="n">omega_E</span> <span class="o">+</span> \<span class="n">omega_B</span><span class="err">$</span><span class="p">:</span>
+</span></code></pre></div></div>
 
-<span class="sb">``</span><span class="err">`</span><span class="n">text</span>
-<span class="n">Coulomb</span> <span class="n">collisions</span> <span class="o">-&gt;</span> <span class="n">transit</span> <span class="o">/</span> <span class="n">bounce</span> <span class="n">motion</span> <span class="o">-&gt;</span> <span class="n">nu_hat</span> <span class="o">=</span> <span class="n">qR</span> <span class="n">nu</span><span class="o">/</span><span class="n">v</span> <span class="o">-&gt;</span> <span class="n">banana</span> <span class="o">/</span> <span class="n">plateau</span> <span class="o">/</span> <span class="n">Pfirsch</span><span class="o">-</span><span class="n">Schlueter</span>
-<span class="mi">3</span><span class="o">-</span><span class="n">D</span> <span class="n">delta</span> <span class="n">B</span> <span class="o">+</span> <span class="n">precession</span> <span class="n">omega_d</span> <span class="o">-&gt;</span> <span class="mi">1</span><span class="o">/</span><span class="n">nu</span> <span class="o">/</span> <span class="n">nu</span><span class="o">-</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">nu</span><span class="p">)</span> <span class="o">/</span> <span class="n">superbanana</span><span class="o">-</span><span class="n">plateau</span> <span class="o">/</span> <span class="n">nu</span> <span class="o">-&gt;</span> <span class="n">NTV</span> <span class="n">torque</span>
+<h2 id="neoclassical-and-ntv-collisionality-regimes">Neoclassical and NTV collisionality regimes</h2>
+
+<p>Two different regime families that share the word “collisionality”. Axisymmetric neoclassical transport
+orders the collision frequency against the transit and bounce frequencies. Neoclassical toroidal
+viscosity (NTV) in broken symmetry orders it against the bounce-averaged precession
+$\omega_d = \omega_E + \omega_B$:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Coulomb collisions -&gt; transit / bounce motion -&gt; nu_hat = qR nu/v -&gt; banana / plateau / Pfirsch-Schlueter
+3-D delta B + precession omega_d -&gt; 1/nu / nu-sqrt(nu) / superbanana-plateau / nu -&gt; NTV torque
 </code></pre></div></div>
 
 <p>The axis of the first diagram is $\hat\nu = qR_0\nu/v$ (<code class="language-plaintext highlighter-rouge">collisions_per_transit</code>), not a $\nu_<em>$. VAFT’s
@@ -2462,6 +2470,98 @@ symbolic Eq. (3); their text quotes $v_* \sim 2$ km/s. Cold ions throughout: $c_
   </tbody>
 </table>
 
+<h2 id="integrated-modeling-knowledge-basis-realization-abstraction">Integrated modeling: knowledge basis, realization, abstraction</h2>
+
+<p>A single “analytic / numerical / empirical / data-driven” list mixes three independent questions. These
+diagrams keep them apart (#1085):</p>
+
+<ul>
+  <li><strong>Knowledge basis:</strong> where does the model’s knowledge come from, from first-principles to data-driven?</li>
+  <li><strong>Computational realization:</strong> how is the model evaluated, from analytical to fully numerical?</li>
+  <li><strong>Physical abstraction:</strong> at what description level is the system represented, from particle orbits to static equilibrium?</li>
+</ul>
+
+<p>The diagrams then combine the three axes into one space and connect models by typed couplings. They show
+location and character, not ranking: neither end of an axis is better.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">knowledge_basis</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">computational_realization</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">physical_abstraction</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">integrated_modeling_space</span><span class="p">()</span>                 <span class="c1"># "fusion", "tearing"
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">integrated_modeling_process</span><span class="p">()</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagram</th>
+      <th>Concept</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">knowledge_basis</code></td>
+      <td>Mechanistic/first-principles, semi-empirical/closure, empirical, data-driven. Physics-informed models (physical constraints with fitted or learned parts) are a bridge over the axis, not one point on it</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">computational_realization</code></td>
+      <td>Analytical, semi-analytical, reduced numerical, fully numerical. Learned surrogates are not a rung: they are placed by knowledge basis and role</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">physical_abstraction</code></td>
+      <td>Particle/orbit, kinetic, moment/fluid, MHD, equilibrium/static. Each arrow names its reduction: ensemble average, velocity moments + closure, single fluid at low frequency, stationary force balance</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">integrated_modeling_space</code></td>
+      <td>Knowledge basis across, realization up. The physical abstraction is shown by the fill colour of each model and repeated in its border pattern, so it survives grayscale. Conceptual and heuristic models (physical picture, cartoon, scaling argument, toy model) are an explanatory layer beside the space, not a fourth axis</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">integrated_modeling_process</code></td>
+      <td>Experiment, measurement, processing, inverse model (parameter inference), physical state, forward and data-driven models, prediction, and validation/control, with the eight coupling types of the legend</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Semi-empirical</strong> is a knowledge basis: a physical form with fitted coefficients. <strong>Semi-analytical</strong> is a
+computational realization: an asymptotic expansion, a Green-function reduction or a quadrature of a closed
+form. The words look alike but belong to different axes.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/knowledge_basis.svg" alt="knowledge basis" />
+<img src="/vaft/develop/assets/diagrams/computational_realization.svg" alt="computational realization" />
+<img src="/vaft/develop/assets/diagrams/physical_abstraction.svg" alt="physical abstraction" />
+<img src="/vaft/develop/assets/diagrams/integrated_modeling_space.svg" alt="integrated modeling space" /></p>
+
+<p>Positions are semantic, not layout. Models with the same knowledge basis share an x and are separated in y.
+A learned model is not a realization rung. A surrogate takes the y of the model it emulates and is linked to
+it; a model that emulates nothing, such as a classifier, sits at the rung of its evaluation.</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">"fusion"</code> overlay places familiar codes, from Solov’ev, EFIT and CHEASE to TGLF, TRANSP and ASCOT5, with an
+empirical confinement scaling, a neural-operator surrogate of TGLF and an event classifier. These placements are
+illustrative, not a classification:</p>
+<ul>
+  <li>EFIT is an inverse model: it solves the Grad–Shafranov equation numerically inside a fit to measurements.</li>
+  <li>TRANSP is mainly used interpretively, so it is also an inverse model.</li>
+  <li>DCON integrates the Newcomb ODE, which is a reduced numerical method.</li>
+  <li>TGLF is gyro-Landau-fluid approximating gyrokinetics, with a saturation rule fitted to nonlinear gyrokinetic
+runs, so it sits at semi-empirical/closure. The <code class="language-plaintext highlighter-rouge">"tearing"</code> variant follows one phenomenon from an island picture in
+the explanatory layer, through the Rutherford equation, to a nonlinear resistive-MHD simulation.</li>
+</ul>
+
+<p><img src="/vaft/develop/assets/diagrams/integrated_modeling_space_fusion.svg" alt="integrated modeling space, fusion" />
+<img src="/vaft/develop/assets/diagrams/integrated_modeling_space_tearing.svg" alt="integrated modeling space, tearing" /></p>
+
+<p>The coupling types are data flow, closure, parameter inference/calibration, surrogate replacement, residual
+correction, validation/benchmarking, feedback/control and iterative coupling. A coupling is a label on an
+edge. The data-driven model’s three uses are alternatives: a closure inside the forward model, or a surrogate
+replacement of it, or a residual correction of its prediction (the hybrid mode). Validation compares the
+prediction with the processed measurement, and control acts on the experiment.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/integrated_modeling_process.svg" alt="integrated modeling process" /></p>
+
+<p>The vocabulary and the example placements are data in <code class="language-plaintext highlighter-rouge">vaft.diagram._modeling_schema</code>: the axis stations,
+<code class="language-plaintext highlighter-rouge">ModelDescriptor</code>, <code class="language-plaintext highlighter-rouge">ModelCoupling</code> and the coupling types. They are kept apart from the drawing so that
+documentation and provenance tooling can reuse them. They are not a stable public API yet.</p>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -2594,7 +2694,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#toroidal-shift-action-angles-validity-and-cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidal shift, action angles, validity, and COCOS</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#field-aligned-basis-flux-tube-shear-and-the-ballooning-eigenfunction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field-aligned basis, flux tube, shear, and the ballooning eigenfunction</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#marfe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARFE</a></li><li class="page-toc-item page-toc-level-3"><a href="#divertor-heat-flux-footprint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Divertor heat-flux footprint</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#neutral-beam-injection-lifecycle-and-reduced-attenuation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neutral beam injection: lifecycle and reduced attenuation</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#sol-blobs-and-filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">SOL blobs and filaments</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#toroidal-shift-action-angles-validity-and-cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidal shift, action angles, validity, and COCOS</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#field-aligned-basis-flux-tube-shear-and-the-ballooning-eigenfunction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field-aligned basis, flux tube, shear, and the ballooning eigenfunction</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#marfe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARFE</a></li><li class="page-toc-item page-toc-level-3"><a href="#divertor-heat-flux-footprint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Divertor heat-flux footprint</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#neutral-beam-injection-lifecycle-and-reduced-attenuation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neutral beam injection: lifecycle and reduced attenuation</a></li><li class="page-toc-item page-toc-level-2"><a href="#iteration-behaviour-branch-bifurcation-and-branch-selection" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Iteration behaviour, branch bifurcation and branch selection</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical-and-ntv-collisionality-regimes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical and NTV collisionality regimes</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#sol-blobs-and-filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">SOL blobs and filaments</a></li><li class="page-toc-item page-toc-level-2"><a href="#integrated-modeling-knowledge-basis-realization-abstraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Integrated modeling: knowledge basis, realization, abstraction</a></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -2712,7 +2812,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 04:36:43 +0000"
+        "time": "2026-09-30 04:59:50 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
