@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f1429e6</code>. What is described
+  <code>4408d10</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -948,6 +948,11 @@ queue (it never started)"</code>.</p>
       <td><code class="language-plaintext highlighter-rouge">synthesize_equilibrium_from_0d</code></td>
       <td><code class="language-plaintext highlighter-rouge">SyntheticEquilibriumResult</code></td>
       <td><code class="language-plaintext highlighter-rouge">status="timeout"</code> with the reason, rather than <code class="language-plaintext highlighter-rouge">non_converged</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">synthesize_equilibrium_to_targets</code></td>
+      <td><code class="language-plaintext highlighter-rouge">MultiTargetSynthesisResult</code></td>
+      <td><code class="language-plaintext highlighter-rouge">status="chease_failed"</code>; the reason names the solve and its <code class="language-plaintext highlighter-rouge">timeout</code>, and that solve’s <code class="language-plaintext highlighter-rouge">history</code> record keeps <code class="language-plaintext highlighter-rouge">status="timeout"</code></td>
     </tr>
     <tr>
       <td>GACODE <code class="language-plaintext highlighter-rouge">run_gacode</code></td>
@@ -1691,7 +1696,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-09-30 08:32:32 +0000"
+        "time": "2026-09-30 09:31:03 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
