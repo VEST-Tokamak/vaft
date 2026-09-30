@@ -6,7 +6,7 @@ import shutil
 import numpy as np
 import pytest
 
-from vaft.diagram import _concept, _magnetic_island, _particle_motion
+from vaft.diagram import _concept, _field_configurations, _magnetic_island, _particle_motion
 from vaft.formula.equilibrium import miller_surface, vacuum_toroidal_field
 
 HAS_TEX = all(shutil.which(tool) for tool in ("latex", "dvisvgm"))
@@ -58,6 +58,10 @@ def test_no_diagram_module_restates_the_formula_geometry():
         assert "B0 * R0 / R" not in source and "B0 / R0" not in source  # vacuum_toroidal_field
         assert "arcsin(self.triangularity" not in source  # miller_surface
         assert "np.cross(B, v)" not in source and "np.cross(b0, u)" not in source  # gyration_offset
+    # a physical constant is the formula layer's, never respelled (cold review 0.8.0 diagram-B F5)
+    for module in (_field_configurations,):
+        source = inspect.getsource(module)
+        assert "4e-7" not in source and "1e-7 * " not in source  # constants.MU0
 
 
 def test_the_island_interior_test_agrees_with_the_formula_surface():
