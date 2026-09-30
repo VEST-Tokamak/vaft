@@ -31,6 +31,20 @@ $x < b$) the margin is $(b - x)/b$. For ``"above"`` (permitted $x > b$) it is
 $(x - b)/b$. A positive margin is always the permitted side, and a zero
 margin lies on the boundary.
 
+Examples
+--------
+Greenwald limit on the Hugill diagram, and one operating state on it
+(``test/test_formula_boundaries_vest_sample.py`` does this for the packaged
+VEST sample)::
+
+    import numpy as np
+    from vaft.formula import boundaries as B
+    line = B.get_boundary("greenwald_hugill")
+    curve = B.boundary_curve(line, "inverse_cylindrical_q", np.linspace(0, 0.6, 61),
+                             swap_axes=True, area_elongation=1.5)   # curve.xy -> (61, 2)
+    x, y = B.hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p)  # 1e19 m^-3, m, T, m, -, MA
+    B.evaluate_boundary(line, x, inverse_cylindrical_q=y, area_elongation=kappa_a).ratio  # = f_G
+
 References
 ----------
 .. [1] Issue #1067 (data model), #1068 (density-limit family), #1066
@@ -45,6 +59,7 @@ from typing import Callable, Mapping, Optional
 
 import numpy as np
 
+from .constants import MU0
 from .stability import greenwald_density
 
 __all__ = [
@@ -954,4 +969,56 @@ _register(Boundary(
           "evaluate_boundary reports and never counts as permitted. "
           "Compare with n_e,edge measured at rho_pol 0.85-0.95. Greenwald and Murakami bound the "
           "line-averaged density instead, so the two families are shown side by side, not substituted.",
+))
+
+# Troyon et al. 1984 give the n = 1 free-boundary limit as (beta A)_max ~ 2.2 I_N with
+# I_N = mu0 I A^2 / T_S and A = R/a (p. 214). T_S is T = r B_phi at the surface, which equals the
+# vacuum value R B (T(psi_s = 0) = T_vac, p. 210). The values printed for INTOR (286 T m, p. 210)
+# and JET (105 T m at R = 2.96 m, p. 213) are ten times R B: only T_S = R B in SI puts JET's
+# n = 1 points of Fig. 8 (about 7 % at 10 MA, A = 2.36) on the line of Fig. 10.
+# Substituting gives beta[%] <= 2.2 mu0 I/(a B): 2.2 * mu0 * 1e6 ~ 2.76 with I in MA, the
+# origin of the commonly quoted beta_N <= 2.8. The paper does not print 2.8 or a q95 factor.
+_NORMALIZED_BETA = BoundaryQuantity(
+    "normalized_beta", "beta_N", "% m T/MA",
+    "beta[%] a[m] B_T[T] / I_p[MA]. Troyon's beta is 2 int p dV / int B^2 dV (total field); "
+    "for low beta this is close to the toroidal beta 2 mu0 <p> / B_T^2 used by stability.beta_N_from_beta_a_B0_Ip.",
+)
+
+_register(Boundary(
+    key="troyon",
+    family="beta_limit",
+    target=_NORMALIZED_BETA,
+    inputs=(),
+    form="threshold",
+    coefficient=2.2 * MU0 * 1e6,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="ideal_mhd_numerical",
+    event="beta_limit",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "ideal MHD, n = 1 free-boundary kink, no conducting wall; the limit is where the normalised "
+            "growth rate squared reaches 1e-4 (p. 210)",
+            "stability to all n gives a lower limit at high current (Fig. 8); this entry is the n = 1 line",
+            "pressure profile optimised for ballooning stability; q_0 near the Mercier limit, q_s near 2",
+            "JET- and INTOR-like shapes: R/a from 2.36 to 4, elongation 1.6-1.68, triangularity 0.3",
+            "the paper notes resistivity may make the ideal limit soft",
+        ),
+    ),
+    uncertainty=Uncertainty(note=(
+        "No fit uncertainty is published; the coefficient 2.2 is read as 'approximately' from the fit "
+        "to the INTOR, R/a = 3 and JET cases in Fig. 10."
+    )),
+    sources=(
+        BoundarySource("F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209",
+                       equation="p. 214, (beta A)_max ~ 2.2 I_N with I_N = mu0 I A^2/T_S; Fig. 10",
+                       doi="10.1088/0741-3335/26/1A/319",
+                       note="T_S = r B_phi at the surface = R B_vac; the printed INTOR (286 T m) and JET "
+                            "(105 T m) values are 10x R B and are read that way to match Fig. 10; beta in %, "
+                            "beta = 2 int p dV / int B^2 dV (p. 210)"),
+    ),
+    notes="Coefficient 2.2 * mu0 * 1e6 ~ 2.76 %·m·T/MA (substituting T_S = R B_T into I_N). Compare with "
+          "stability.beta_N_from_beta_a_B0_Ip, which returns beta_N in the same %·m·T/MA convention (#349).",
 ))

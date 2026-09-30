@@ -162,6 +162,14 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "marfe_xpoint.svg": ("marfe", {"localization": "xpoint"}),
     # Eich target profile on a diverted equilibrium (#1209)
     "divertor_heat_footprint.svg": ("divertor_heat_footprint", {}),
+    # integrated modeling: three independent axes, their space and typed model coupling (#1085)
+    "knowledge_basis.svg": ("knowledge_basis", {}),
+    "computational_realization.svg": ("computational_realization", {}),
+    "physical_abstraction.svg": ("physical_abstraction", {}),
+    "integrated_modeling_space.svg": ("integrated_modeling_space", {}),
+    "integrated_modeling_space_fusion.svg": ("integrated_modeling_space", {"examples": "fusion"}),
+    "integrated_modeling_space_tearing.svg": ("integrated_modeling_space", {"examples": "tearing"}),
+    "integrated_modeling_process.svg": ("integrated_modeling_process", {}),
 }
 
 

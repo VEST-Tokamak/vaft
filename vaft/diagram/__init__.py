@@ -26,7 +26,10 @@ tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
 ``hfs_lfs_field``, ``safety_factor_winding``, ``flux_coordinates``,
 ``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``;
 toroidicity and ripple: ``trapped_and_passing_orbits``, ``toroidal_field_ripple``,
-``ripple_well_formation`` and ``stochastic_ripple_orbit``.
+``ripple_well_formation`` and ``stochastic_ripple_orbit``; integrated
+modeling (#1085): ``knowledge_basis``, ``computational_realization``,
+``physical_abstraction``, ``integrated_modeling_space`` and
+``integrated_modeling_process``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -163,6 +166,11 @@ __all__ = [
     "blob_regimes",
     "marfe",
     "divertor_heat_footprint",
+    "knowledge_basis",
+    "computational_realization",
+    "physical_abstraction",
+    "integrated_modeling_space",
+    "integrated_modeling_process",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -289,6 +297,11 @@ _LOCATIONS = {
     "blob_regimes": "._blob",
     "marfe": "._marfe",
     "divertor_heat_footprint": "._divertor_footprint",
+    "knowledge_basis": "._integrated_modeling",
+    "computational_realization": "._integrated_modeling",
+    "physical_abstraction": "._integrated_modeling",
+    "integrated_modeling_space": "._integrated_modeling",
+    "integrated_modeling_process": "._integrated_modeling",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }
