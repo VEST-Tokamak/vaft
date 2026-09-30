@@ -9,6 +9,7 @@ missing markers).  Only the pinned real discharge is fetched, and only with
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from unittest import mock
 
 import numpy as np
@@ -277,6 +278,20 @@ def test_provenance_keeps_source_names_and_units(discharge):
     assert "PR08 test/9999 TE [eV]" in sources
     assert "synthetic discharge" in ods["dataset_description.ids_properties.comment"]
     assert ods["dataset_description.data_entry.pulse"] == 9999
+
+
+def test_the_comment_file_is_read_as_utf_8_whatever_the_locale_says(discharge_dir, monkeypatch):
+    # The PR08 text files are UTF-8 regardless of the reading machine's locale;
+    # a Windows code page decoded a Korean comment into mojibake.
+    (discharge_dir / "pr08_test_9999_com.dat").write_text("  주석: 합성 방전\n", encoding="utf-8")
+    original = Path.read_text
+
+    def locale_is_cp1252(self, encoding=None, errors=None, **kwargs):
+        return original(self, encoding=encoding or "cp1252", errors=errors, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", locale_is_cp1252)
+    ods = pr08_to_omas(read_pr08(discharge_dir, "test", 9999))
+    assert "주석: 합성 방전" in ods["dataset_description.ids_properties.comment"]
 
 
 def test_coverage_lists_every_variable_with_a_reason(discharge):
