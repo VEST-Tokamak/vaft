@@ -143,7 +143,8 @@ constraint set and termination settings, not the Green functions.
 
 What this PR therefore does **not** do, on purpose: it does not replace or
 edit `vaft/data/efit`, does not add era-aware `table_dir` selection to the
-pipeline, and does not package versioned tables. Those follow from a positive
+pipeline (since added, for a different reason -- see "Per-era tables in the
+routine pipeline" below), and does not package versioned tables. Those follow from a positive
 result, and the result was negative. What it does leave behind is the
 provenance chain: a table can now be generated from the canonical geometry
 for a named era with a manifest, compared with any other, and every EFIT run
@@ -293,3 +294,35 @@ things about what the innermost probes should read from the solenoid. It is
 consistent with what the runs show: the fit to the measurements is unchanged
 (χ² identical on shared slices) while the implied field — and so where the
 separatrix lands — moves enough to take `findax` from 17 failures to 2.
+
+## Per-era tables in the routine pipeline
+
+The #805 era check refuses to reconstruct a shot against a table built for
+another era, and every shot from 45968 on is of the pf2507 era, which the
+packaged table is not. So routine processing of current discharges stopped
+at the constraint stage. The routine pipeline now builds the missing table
+itself:
+
+- **Shots of the packaged table's own era** use `efit.table_dir` verbatim,
+  with no extra input. This is not a stylistic choice: Snakemake 7.32 reruns
+  a rule whose params or inputs change, so anything else would rebuild every
+  existing constraint product, and all of EFIT after it.
+- **Shots of any other era** use a table that rule `generate_efit_table`
+  builds once per era. It is written to
+  `<base_dir>/pipeline/efit_tables/<era>-<suffix>/` through
+  `vaft.code.efit.efund.generate_era_table`, which runs the same chain as
+  `regenerate_legacy_table.py`:
+  - **Configuration:** the grid, flags and quadrature come from the packaged
+    table's manifest (`efund_config_from_manifest`), so the two tables differ
+    only in machine geometry.
+  - **`lim.dat`:** written from the era's static wall limiter, and
+    byte-identical to the packaged one for the legacy era.
+  - **Safe replacement:** the directory is assembled beside its destination
+    and renamed into place, so it is either absent or complete.
+  - **Path length:** a destination longer than EFIT's 100-character
+    `TABLE_DIR` is refused before EFUND runs.
+  - **Cost:** about 3 minutes and 170 MB per era at 129x129.
+- `efit.era_tables: false` restores the previous behaviour.
+- `efit.efund` and `efit.efund_timeout` select the binary (default
+  `$EFITHOME/bin/efund`) and its time limit.
+
