@@ -215,6 +215,7 @@ from .renderers.geometry import (
     coil_3d_geometry_topview,
     equilibrium_geometry_boundary,
     equilibrium_geometry_topview,
+    machine_geometry3d,
     machine_geometry_poloidal,
     machine_geometry_topview,
     magnetics_geometry_poloidal,
@@ -371,7 +372,9 @@ from .renderers.spectrograms import (
 from .parameter_history import plot_parameter_history
 from .analytic import (
     miller_surfaces_model,
+    plasma_state_projection_model,
     plot_miller_surfaces,
+    plot_plasma_state_projection,
     plot_solovev_equilibrium,
     solovev_equilibrium_model,
 )
@@ -425,7 +428,9 @@ _SUPPORT_EXPORTS = (
     "save_figure",
     "plot_parameter_history",
     "miller_surfaces_model",
+    "plasma_state_projection_model",
     "plot_miller_surfaces",
+    "plot_plasma_state_projection",
     "plot_solovev_equilibrium",
     "solovev_equilibrium_model",
     "cross_spectrum_model",

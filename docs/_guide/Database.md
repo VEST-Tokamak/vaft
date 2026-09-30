@@ -67,20 +67,28 @@ The supported high-level remote API is `load`, `open`, and `save`. The `raw`, `f
 ## Connecting to HSDS
 
 `h5pyd` is a declared VAFT dependency on `develop`; a normal `pip install .` installs the compatible
-client and its `hsconfigure` command. Do not install a separately pinned `--no-deps` copy.
+client and its command-line tools. Do not install a separately pinned `--no-deps` copy.
 
-Then write your credentials with `hsconfigure`:
+Then write your credentials with `vaft hsds configure`:
 
 ```bash
-hsconfigure
+vaft hsds configure
 ```
+
+> Do not use the upstream `hsconfigure` for this: it reads the password as visible text and
+> prints an already-stored password as the prompt default. `vaft hsds configure` writes the same
+> h5pyd `~/.hscfg` with hidden input and mode `0600` (on Windows file modes are not enforced; the
+> file inherits your user-profile permissions). Never commit a `.hscfg`.
 
 | Field | Value |
 | --- | --- |
 | Server endpoint | `http://147.46.36.244:5101` |
 | Username / Password | `reader` / `test` (read-only public account) |
 
-This writes `~/.hscfg`; `h5pyd` also recognizes a project-local `.hscfg`. Never commit that file.
+This writes `~/.hscfg` with mode `0600`; `h5pyd` reads a `.hscfg` in the working directory instead
+when one exists, and `HS_ENDPOINT`/`HS_USERNAME`/`HS_PASSWORD`/`HS_API_KEY` override either file.
+`python install/check_vaft_environment.py` warns when a `.hscfg` is readable by other users. Never
+commit that file.
 Check the connection from Python:
 
 <!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
@@ -388,6 +396,32 @@ Sampling intervals are `raw.FAST_DT = 4e-6` s and `raw.SLOW_DT = 4e-5` s, classi
 `raw.SLOW_DT_THRESHOLD = 5e-6` s. A DAQ trigger-delay correction is added to traces that start at the
 digitiser origin: 0.24 s for `shot < 41446`, 0.26 s for shots 41446–41451, 0.24 s for 41452–41659, and
 0.26 s from 41660 on.
+
+### Processing new shots automatically
+
+On the VEST server, `vaft pipeline-worker run` polls the SQL `shot` table and runs the routine
+Snakemake pipeline on each new shot as soon as its upload has finished (issue #58). The upload
+counts as finished when either condition holds:
+
+- the shot's field inventory contains every field the previous shot had, and nothing new has
+  arrived for 30 s;
+- no field has been uploaded for `quiet_seconds`.
+
+`raw.shot_upload_status(shot)` gives the inventory and the quiet time. Processed shots are re-checked
+for fields that arrive late (`raw.field_codes_by_shot`) and reprocessed if any do. Its configuration is server-only; the workflow directory holds
+`worker.example.yaml` as a template, and `DEPLOYMENT.md` there describes how to run it as a service.
+
+The worker keeps its state in a SQLite file. Monitoring code reads that file without writing to it:
+
+<!-- docs-snippet: skip needs-database (reads a server's worker state file) -->
+```python
+from vaft.database.worker import read_worker_state
+
+with read_worker_state("/srv/vaft/pipeline/worker/worker.sqlite") as state:
+    state.counts()               # {"completed": 812, "partial": 97, "excluded": 40, ...}
+    state.shot(48950)            # state, classification, reason, attempts, last run
+    state.stage_status(48950)    # each declared product's manifest status / replication state
+```
 
 ## Working offline
 

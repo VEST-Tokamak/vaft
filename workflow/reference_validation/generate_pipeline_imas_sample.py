@@ -136,6 +136,30 @@ def _remap_em_coupling(ods, manifest: dict) -> None:
         normalizations.append(line)
 
 
+#: The ``cocos_source`` a declaration from the manifest carries on the artifact.
+CANONICAL_COCOS_SOURCE = (
+    "generate_pipeline_imas_sample: manifest generation.canonical_equilibrium_cocos"
+)
+
+
+def _declare_canonical_cocos(ods, manifest: dict) -> None:
+    """Declare the COCOS index the canonical equilibrium was established to be in.
+
+    The canonical pipeline product holds the g-file's psi verbatim and declares
+    nothing; the only declaration it carried sat in the parser cache dropped
+    above.  The index is not inferred here: it is recorded in the manifest,
+    with the evidence that settled it, under
+    ``generation.canonical_equilibrium_cocos``.  Without that key the artifact
+    stays undeclared and the read-time probes decide, as before.
+    """
+    declared = manifest.get("generation", {}).get("canonical_equilibrium_cocos")
+    if declared is None or "equilibrium" not in ods:
+        return
+    from vaft.omas.general import set_ods_cocos
+
+    set_ods_cocos(ods, int(declared["index"]), source=CANONICAL_COCOS_SOURCE)
+
+
 def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
     """Return the pipeline ODS in the portable DD 3.41 representation."""
     version = str(manifest["imas_dd_version"])
@@ -148,6 +172,7 @@ def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
     # source product, but omit this serializer-only cache from the native view.
     if "equilibrium.code.parameters" in ods:
         del ods["equilibrium.code.parameters"]
+    _declare_canonical_cocos(ods, manifest)
 
     # DD 3.41 accepts heterogeneous Mirnov coordinates. OMAS exposes missing
     # optional channels as scalar defaults, which cannot be written as 1-D
@@ -164,12 +189,13 @@ def normalized_pipeline_ods(canonical_source: Path, manifest: dict):
     if "equilibrium.time" in ods:
         set_path(ods, "equilibrium.ids_properties.homogeneous_time", 1)
     # Opt-in per manifest (issue #478): the 41524/41672 artifacts are not
-    # regenerated with it yet, so their legacy Wb/rad psi stays undeclared and
-    # the read-time probes settle the convention.
+    # regenerated with it yet, so they keep the legacy Wb/rad psi, declared
+    # through generation.canonical_equilibrium_cocos above.
     if "equilibrium_psi_weber" in manifest.get("generation", {}).get("normalizations", []):
         vaft.omas.equilibrium_psi_to_weber(
             ods, source="generate_pipeline_imas_sample: legacy Wb/rad canonical source"
         )
+    if vaft.omas.ods_cocos(ods) is not None:
         manifest["generation"]["equilibrium_cocos"] = vaft.omas.ods_cocos(ods)
     _project_signal_quality(ods, manifest)
     _remap_em_coupling(ods, manifest)

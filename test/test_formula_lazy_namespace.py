@@ -40,6 +40,14 @@ _IMPORT_ORDER = (
     "particle",
     "geometry",
     "ripple",
+    "disruption",
+    "nbi",
+    "waves",
+    "ntv",
+    "vde",
+    "pwi",
+    "sol",
+    "boundaries",
 )
 
 

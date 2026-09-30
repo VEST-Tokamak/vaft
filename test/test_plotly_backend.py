@@ -81,7 +81,7 @@ def test_the_public_backends_and_their_resolution():
     assert resolve_render_backend(None) == "matplotlib"
     with pytest.raises(ValueError, match="backend must be one of"):
         resolve_render_backend("bokeh")
-    assert set(PLOTLY_MODELS) == {LineSeries, Profile1D, Field2D, Spectrogram, TextPanel, Panels}
+    assert set(PLOTLY_MODELS) == {LineSeries, Profile1D, Field2D, Spectrogram, TextPanel, Panels, Geometry3DLayers}
 
 
 @pytest.mark.parametrize("spec", _SPECS, ids=[s.name for s in _SPECS])
@@ -292,7 +292,60 @@ def test_mathtext_labels_reach_plotly_as_text(sample):
     figure = vaft.omas.plot_equilibrium_profile_q(sample, backend="plotly", time_slice=4)
     assert "$" not in figure.layout.xaxis.title.text
     # The lazy table answers every dict access, not only the overridden ones.
-    assert PLOTLY_MODELS.get(LineSeries) is not None and len(list(PLOTLY_MODELS.items())) == 6
+    assert PLOTLY_MODELS.get(LineSeries) is not None and len(list(PLOTLY_MODELS.items())) == 7
+
+
+def _coils_3d_ods():
+    from vaft.machine_mapping.coils_non_axisymmetric import coils_non_axisymmetric
+
+    ods = omas.ODS()
+    coils_non_axisymmetric(ods)
+    return ods
+
+
+def test_the_3d_coils_agree_between_the_libraries():
+    """#1087: one Scatter3d per Matplotlib line, one legend entry and one legend group per coil set."""
+    ods = _coils_3d_ods()
+    # "C<n>" follows Matplotlib's *current* cycle -- a line keeps the literal
+    # "C0" and to_hex resolves it when called, and another test may have set
+    # seaborn's cycle -- while Plotly maps it to tab10, Matplotlib's default.
+    with plt.style.context("default"):
+        mpl_figure, axes = vaft.omas.plot_coil_3d_geometry3d(ods)
+        figure = vaft.omas.plot_coil_3d_geometry3d(ods, backend="plotly")
+        traces = _traces(figure)
+        assert all(isinstance(trace, go.Scatter3d) for trace in traces)
+        assert len(traces) == len(axes.lines) == 18
+        for line, trace in zip(axes.lines, traces):
+            x, y, z = line.get_data_3d()
+            assert np.allclose(x, trace.x) and np.allclose(y, trace.y) and np.allclose(z, trace.z)
+            assert matplotlib.colors.to_hex(line.get_color()) == trace.line.color
+        legend = [trace.name for trace in traces if trace.showlegend]
+        assert legend == [text.get_text() for text in axes.get_legend().get_texts()] == ["UP", "MID", "LOW"]
+    groups = {}
+    for trace in traces:
+        groups.setdefault(trace.legendgroup, set()).add(trace.meta["group"].split("/")[1])
+    assert len(groups) == 3 and all(len(sets) == 1 for sets in groups.values())
+    assert all(trace.meta["group"].startswith("coils_non_axisymmetric/") for trace in traces)
+    # Equal ranges on the three axes: toroidal placement reads true, as with set_*lim.
+    spans = [np.ptp(getattr(figure.layout.scene, axis).range) for axis in ("xaxis", "yaxis", "zaxis")]
+    assert np.allclose(spans, spans[0]) and figure.layout.scene.aspectmode == "cube"
+    plt.close(mpl_figure)
+
+
+def test_the_3d_machine_scene_draws_points_as_markers(sample):
+    figure = vaft.omas.plot_machine_geometry3d(sample, backend="plotly")
+    kinds = {trace.meta["kind"]: trace.mode for trace in _traces(figure)}
+    assert kinds == {"polyline": "lines", "points": "markers"}
+    assert figure.layout.scene.xaxis.title.text == "x [m]"
+
+
+def test_a_3d_member_of_a_composite_gets_a_scene_cell():
+    x = np.linspace(0.0, 1.0, 8)
+    model = Panels(models=(Geometry3DLayers(layers=(Geometry3DLayer(x=x, y=x, z=x, label="coil"),)),
+                           LineSeries(series=(Series(x=x, y=x, label="a"),), y_label="y")), nrows=1, ncols=2)
+    figure = PLOTLY_MODELS[Panels].render(model)
+    assert isinstance(figure.data[0], go.Scatter3d) and figure.data[0].scene == "scene"
+    assert isinstance(figure.data[1], go.Scatter)
 
 
 def test_a_single_reference_contour_is_drawn_rather_than_given_a_zero_step():

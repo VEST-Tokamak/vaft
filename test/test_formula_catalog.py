@@ -69,16 +69,17 @@ def test_the_catalog_counts_the_known_public_surface():
         # The electron and ion thermal pressures p = n T e (#952): 82 + 2 = 84.
         # #782 added the dimensional internal inductance and its li_3
         # conversions: 84 + 3 = 87.
-        "equilibrium": 91,  # +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074)
+        # +4 psi_N profile kernels and their derivatives (#552): 93 + 4 = 97.
+        "equilibrium": 99,  # +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
-        "stability": 32,
+        "stability": 37,  # +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
-        "atomic": 6,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952)
+        "atomic": 8,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046)
         "statistics": 22,
         "magnetics": 2,
         # #781 child A: Romero's exact transformer identities.
         "transformer": 8,   # +Romero first-order closure (#781 child C)
-        "neoclassical": 12,
+        "neoclassical": 18,  # +orbit scales and regime orderings (#1111)
         # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
         # #783 comment 1 added the post-avalanche equilibrium-field and
         # flux-closure kernels and the limiter-aperture geometry, comment 2
@@ -93,8 +94,16 @@ def test_the_catalog_counts_the_known_public_surface():
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
         "particle": 13,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
-        "geometry": 9,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072)
+        "geometry": 12,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
+        "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
+        "nbi": 6,  # beam rate, attenuation, birth density, shine-through, momentum rate (#1136)
+        "waves": 7,  # cold-plasma frequencies, Stix parameters, dielectric tensor, n^2 roots, CMA, regime (#1113)
+        "ntv": 2,  # precession frequency and flux-torque relation (#1111)
+        "sol": 19,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951), MARFE (#1209), blobs (#1211)
+        "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
+        "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
+        "boundaries": 7,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
@@ -313,7 +322,9 @@ def test_snapshot_schema():
         assert row["id"] == f"{row['category']}.{row['name']}"
         for section in row["sections"]:
             assert section["title"] in SECTION_VOCABULARY, row["id"]
-        assert ":func:" not in yaml.safe_dump(row), row["id"]
+        # the inline source (#1069) is the code as written, roles and all
+        prose = {**row, "source": {k: v for k, v in row["source"].items() if k != "code"}}
+        assert ":func:" not in yaml.safe_dump(prose), row["id"]
         assert "Raises" not in [section["title"] for section in row["sections"]], row["id"]
         assert row["source"]["path"] == f"vaft/formula/{row['category']}.py", row["id"]
         for item in row["raises"]:

@@ -39,7 +39,9 @@ Contract details specific to Slurm:
   minute for the prolog.
 * ``max_wait`` bounds the total blocking time of a batch job, queue included;
   past it the job is cancelled and reported timed out, with the reason in
-  ``stderr`` (or the log).
+  ``stderr`` (or the log). A job cancelled before its program started has
+  ``runtime_status="queue_timeout"``; one cancelled while running,
+  ``"timeout"``.
 * ``returncode`` is ``None`` only on a timeout. A job ended around the program
   (cancelled, node failure, preemption, out of memory) gets a non-zero code,
   and its Slurm state is appended to ``stderr`` or to the log file.
@@ -515,6 +517,9 @@ class SlurmBackend:
         if cancelled and exited:
             cancelled = False  # the program exited before the cancel landed
         timed_out = cancelled or state in TIMEOUT_STATES
+        # The script stamps ``started`` as the program begins, so a cancelled
+        # job without it never left the queue (#1016: "queue_timeout").
+        never_started = cancelled and not (_read(scratch / "started") or "").strip()
         if not timed_out and state is None and terminated:
             timed_out = self._walltime_kill(recorded, scratch, request)
 
@@ -528,7 +533,12 @@ class SlurmBackend:
             returncode = exit_code or (143 if terminated else 1)
 
         note = ""
-        if cancelled:
+        if never_started:
+            note = (
+                f"slurm job {job_id} was cancelled after waiting max_wait={self.max_wait} s "
+                "in the queue (it never started)"
+            )
+        elif cancelled:
             note = f"slurm job {job_id} cancelled after max_wait={self.max_wait} s"
         elif state not in (None, "COMPLETED", "FAILED"):
             note = f"slurm job {job_id} ended {state}"
@@ -561,6 +571,7 @@ class SlurmBackend:
             launcher=tuple(argv),
             log_path=log_path,
             job_id=job_id,
+            runtime_status="queue_timeout" if never_started else "",
         )
 
     def _slurm(self, argv: list[str], *, environment: Optional[dict[str, str]] = None) -> subprocess.CompletedProcess:

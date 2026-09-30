@@ -35,7 +35,7 @@ NEUTRAL = frozenset({
     "impa_time_field", "impa_time_voltage", "impa_profile_field",
     "soft_x_rays_geometry_lines_of_sight", "coil_3d_geometry3d", "coil_3d_geometry_topview",
     "pf_coil_geometry_poloidal", "passive_structure_geometry_poloidal", "machine_geometry_poloidal",
-    "equilibrium_geometry_topview", "machine_geometry_topview",
+    "equilibrium_geometry_topview", "machine_geometry_topview", "machine_geometry3d",
     "electron_temperature_field", "electron_density_field",
     "camera_visible_animation_frames", "camera_visible_spectrogram",
     "limiter_current_time", "mirnov_spatial_phase", "diagnostics_spectrum_coherence",
@@ -55,6 +55,9 @@ NEUTRAL = frozenset({
     # issue #952: the constraint weights and the pressure-weight scan read
     # through vaft.omas.efit_quality, which reads through vaft.ods_access.
     "equilibrium_overview_constraint_weights", "equilibrium_overview_pressure_weight_scan",
+    # issue #1099: the FLARE connection-length map reads plasma_initiation
+    # through the accessor only.
+    "field_line_topology_field_connection_length",
 })
 OMAS_BOUND = frozenset({
     "passive_structure_geometry_wall_mode",

@@ -85,7 +85,7 @@ git clone https://github.com/VEST-Tokamak/vaft.git
 cd vaft
 bash install/linux.sh          # or install/macos.sh, install/windows_wsl.sh
                                # on native Windows, see the table above
-hsconfigure                    # only if you need the remote VEST database
+vaft hsds configure            # only if you need the remote VEST database
 conda activate vaft && jupyter lab
 ```
 
@@ -153,13 +153,19 @@ silently.
 
 ## HSDS configuration
 
-The remote VEST database is reached through HSDS. Configure it with the
-interactive tool that ships with `h5pyd`:
+The remote VEST database is reached through HSDS. Configure it with VAFT's
+credential prompt, which writes the h5pyd configuration file:
 
 ```bash
 conda activate vaft
-hsconfigure
+vaft hsds configure
 ```
+
+The password and API key are read with hidden input, an existing one is shown
+only as `[configured]` (Enter keeps it), and the file is written with mode
+`0600`. Avoid the upstream `hsconfigure`: it echoes the password as you type and
+prints a stored password as the prompt default. On Windows file modes are not
+enforced; `.hscfg` inherits the permissions of your user profile.
 
 | Field | Value |
 | --- | --- |
@@ -167,8 +173,10 @@ hsconfigure
 | Username | contact [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
 | Password | contact [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
 
-`hsconfigure` writes `~/.hscfg` in your home directory. That file holds your
-credentials and belongs **only** there.
+`vaft hsds configure` writes `~/.hscfg` in your home directory. That file holds
+your credentials and belongs **only** there. The environment check warns when a
+`.hscfg` (in your home or in the checkout) is readable by other users, with the
+`chmod 600` that fixes it.
 
 The VAFT bootstrap scripts never ask for, store, print, or transmit your
 credentials. The checker reads `~/.hscfg` only to report whether it exists and
@@ -221,7 +229,7 @@ Every failure names the corrective action:
 ```text
 [WARN] HSDS configuration
        /home/student/.hscfg does not exist; needed only for remote database access
-       -> Run `hsconfigure`, then rerun this check.
+       -> Run `vaft hsds configure`, then rerun this check.
 ```
 
 ```text
@@ -401,6 +409,8 @@ Need DCON/GPEC? Linux/macOS -> bash install/install_gpec.sh --source PATH
                 Windows     -> install_gpec_windows.ps1 -BuildDependencies
 Need EFIT/EFUND? Linux/macOS -> bash install/install_efit.sh --source PATH --accept-efit-users-agreement
                 Windows     -> install_efit_windows.ps1 -AcceptEfitUsersAgreement
+Need GENRAY?    Linux/macOS -> bash install/install_genray.sh --source PATH
+                Windows     -> not supported (see Per-code notes)
 ```
 
 **You obtain the source yourself.** The installers take the path to a checkout
@@ -437,6 +447,7 @@ missing, they never run a package manager:
 | --- | --- |
 | CHEASE | `gfortran make git` |
 | GPEC | `gfortran gcc make git libnetcdff-dev liblapack-dev libblas-dev` |
+| GENRAY | `gfortran make git libnetcdff-dev` (macOS: `brew install gcc netcdf-fortran`) |
 
 Three things about the Linux build worth knowing before they bite:
 
@@ -991,6 +1002,36 @@ one you point at a binary you brought. There is no `install_tes_*.sh` and no
 `check_tes.py`, and adding either would imply an obtainable source that is not
 there.
 
+### GENRAY
+
+**Open source (https://github.com/compxco/genray); clone it yourself.**
+`install/install_genray.sh --source PATH` builds the committed revision in a
+temporary directory (it exports `git archive HEAD`, so no source file is touched
+and uncommitted changes are not built), installs `bin/xgenray` into
+`<source>/vaft-install` (an untracked directory; `--prefix` moves it), and
+runs `install/check_genray.py`. The checker reruns upstream's own EC regression
+case (`00_Genray_Regression_Tests/ci-tests/test-EC-ITER-Centra-CD`) and compares
+power, driven current and ray end points with upstream's `gold-genray.nc`.
+Export `GENRAYHOME` to the prefix it prints.
+
+Two build choices worth knowing:
+
+* **No PGPLOT.** Upstream links `-lpgplot -lX11` for its diagnostic plots. VAFT
+  reads `genray.nc` only, so the build links `install/genray/pgplot_stub.f`
+  (empty routines) instead. The rays and the netCDF file are unchanged.
+* **`-Wl,-noinhibit-exec` is dropped.** Upstream's makefiles pass it, and with it
+  GNU ld writes an executable even when symbols are unresolved. The installer
+  clears it, so a missing routine fails the build.
+
+`vaft.code.genray` turns `ec_launchers + equilibrium + core_profiles` into a
+GENRAY case (`prepare_genray_inputs`), runs it (`run_genray`, or `run` for all
+three steps), and maps the rays into IMAS `waves` (`genray_to_waves`). The wave
+mode is required and is never inferred. Launched power and Zeff come from the
+ODS or must be passed. A fitted Te that reaches zero at the separatrix is refused
+unless you pass `minimum_temperature_ev`. GENRAY exits 0 on some input errors, so
+`GENRAYResult.ok` also requires a `genray.nc`. Native Windows is not supported:
+upstream ships no Windows build that VAFT has verified.
+
 ### TRANSP
 
 **Not open source, and nothing here would launch it anyway.** TRANSP runs at the
@@ -1102,8 +1143,8 @@ kernel.
 
 ### What it never removes
 
-- **`~/.hscfg`.** The bootstrap never wrote it — `hsconfigure` did, when you
-  ran it — and it holds your HSDS credentials. Uninstalling VAFT should not
+- **`~/.hscfg`.** The bootstrap never wrote it — `vaft hsds configure` (or
+  `hsconfigure`) did, when you ran it — and it holds your HSDS credentials. Uninstalling VAFT should not
   make you type them again.
 - **Any Conda environment whose name is not exactly `vaft`.** The removal is
   pinned to `--name vaft`, with no prefix or pattern match, so an environment
@@ -1161,8 +1202,9 @@ bash install/linux.sh
 **JupyterLab shows no "Python (vaft)" kernel** — you started Jupyter from a
 different environment. Run `conda activate vaft` first, or rerun the bootstrap.
 
-**`hsconfigure: command not found`** — the `h5pyd` command-line tools live
-inside the environment. Run `conda activate vaft` first.
+**`vaft: command not found`** or **`hsget: command not found`** — the VAFT and
+`h5pyd` command-line tools live inside the environment. Run `conda activate vaft`
+first.
 
 **A network check fails but everything else passes** — that is expected off
 campus or without credentials. The whole offline course works anyway; the HSDS

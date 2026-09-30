@@ -48,6 +48,7 @@ EXTERNAL_CODE_WINDOWS_SCRIPTS = (
 EXTERNAL_CODE_POSIX_SCRIPTS = (
     "install_chease.sh",
     "install_efit.sh",
+    "install_genray.sh",
     "install_gpec.sh",
 )
 #: Rules that hold for an external-code installer whatever it is written in.
@@ -59,6 +60,7 @@ EXTERNAL_CODE_CHECKERS = (
     "check_chease.py",
     "check_efit.py",
     "check_gacode.py",
+    "check_genray.py",
     "check_gpec.py",
     "check_nubeam.py",
 )
@@ -154,7 +156,7 @@ checker = _load_checker()
 #: own README, reference cases and validation notes. This is not the axis
 #: #225's flatness rule is about -- that one forbids splitting the *bootstrap*
 #: by platform or by role, which is what a student would have to navigate.
-EXTERNAL_CODE_DIRECTORIES = ("gacode", "nubeam")
+EXTERNAL_CODE_DIRECTORIES = ("gacode", "genray", "nubeam")
 
 
 def test_install_directory_is_flat_and_complete():
@@ -322,13 +324,13 @@ def test_missing_hsds_configuration_warns_but_does_not_fail_offline(tmp_path):
     result = checker.check_hsds_configuration(path=tmp_path / ".hscfg")
     assert result.status == checker.WARN
     assert not result.failed
-    assert "hsconfigure" in result.remediation
+    assert "vaft hsds configure" in result.remediation
 
 
 def test_missing_hsds_configuration_fails_when_a_network_probe_was_requested(tmp_path):
     result = checker.check_hsds_configuration(path=tmp_path / ".hscfg", required=True)
     assert result.failed
-    assert "hsconfigure" in result.remediation
+    assert "vaft hsds configure" in result.remediation
 
 
 def test_offline_run_passes_without_any_credentials(monkeypatch, tmp_path):
@@ -370,7 +372,7 @@ def test_offline_run_skips_the_network_probe(monkeypatch):
 def test_network_probe_delegates_to_the_shared_helper():
     assert checker.check_hsds_connection(probe=lambda: True).status == checker.PASS
     failed = checker.check_hsds_connection(probe=lambda: False)
-    assert failed.failed and "hsconfigure" in failed.remediation
+    assert failed.failed and "vaft hsds configure" in failed.remediation
 
 
 def test_connection_errors_are_reported_not_raised():
@@ -818,7 +820,7 @@ def test_bootstrap_performs_the_documented_steps_in_order(fake_conda, monkeypatc
     assert positions == sorted(positions), "bootstrap steps ran out of order"
     assert "pip install -e ." in stdout  # via the stub echo
     assert "check_vaft_environment" in stdout, "the bootstrap must end by verifying"
-    assert "hsconfigure" in stdout
+    assert "vaft hsds configure" in stdout
     assert "never asks for, stores, or transmits your credentials" in stdout
 
 

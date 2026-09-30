@@ -21,11 +21,68 @@ and reaches nobody's review. Change documentation here, on the branch it belongs
 to.
 
 Building each track from its own branch is the point rather than a detail. The
-generated reference pages -- `/reference/vest-diagnostics/`, and
-`/reference/formula/` and `/reference/process/` on branches that ship the
-`vaft.formula.catalog` and `vaft.process.catalog` generators -- are built
-by introspecting the library, so they are only correct for the exact tree they
-were generated from.
+generated reference pages are built by introspecting the library, so they are
+only correct for the exact tree they were generated from. Which ones a track has
+is whatever its own `generators.yml` declares:
+
+| Generated page | Generator | `main` | `develop` |
+| --- | --- | --- | --- |
+| `/reference/vest-diagnostics/` | `vaft.machine_mapping.registry` | yes | yes |
+| `/reference/formula/` | `vaft.formula.catalog` | yes | yes |
+| `/reference/process/` | `vaft.process.catalog` | yes | yes |
+| `/reference/plot/` | `vaft.plot.docs_catalog` | no | yes |
+| `/reference/diagram/` | `vaft.diagram.docs_catalog` | no | yes |
+| `/reference/api/<page>/` | `vaft._api_catalog` | no | yes |
+
+`main` gains the last two when a release carries the generators and its
+`generators.yml` declares them; nothing about the stable track changes before then.
+
+On a track that ships `scripts/catalog_coverage.py`, `build.py` runs it right
+after the generators, against the same tree. It fails the build when a public
+formula, process, plot or diagram is in no catalog, or a catalog entry no longer
+exists; its docstring says what "public" means for each layer.
+`validate_docs.rb` then checks the other half: every catalog entry is rendered
+exactly once on its reference page (`data-catalog` elements in the built HTML),
+and nothing is rendered that the catalog no longer holds.
+
+The API pages under `/reference/api/` list every object a public module (no `_`
+in its dotted name) names in its `__all__`, with the signature, summary,
+deprecation status and source read from the code. `api_inventory.yml` says which
+page each module belongs to and lists the public modules that declare no `__all__`
+yet. A new module without `__all__` fails the build until it declares one or is
+added to that list; so does a listed module that has since declared one.
+Functions with a scientific detail page (formula, process, plot, diagram) appear
+there only as a link. The API pages are left out of the site search index, which
+would otherwise double in size.
+
+Every generated entry (formula, process, plot, diagram, API object and class
+member) links its source as
+`github.com/VEST-Tokamak/vaft/blob/<commit>/<path>#L<first>-L<last>`. `<commit>`
+is the catalog's `provenance.commit`, and the range is the whole definition,
+decorators included. There is never a branch link, and a catalog without a
+provenance commit renders no links. `build.py` archives the commit it pins to.
+`npm run data` pins to `HEAD` but reads the working tree, so uncommitted edits
+shift the local links.
+
+On the formula, process, plot and diagram pages, functions of at most 80 lines
+(`vaft._docstring.INLINE_SOURCE_LINES`) also show that code under a collapsed
+"Show source". The API pages link only: inlining their ~3000 functions would
+double the site.
+
+`catalog_coverage.py` resolves each row's object and requires the span to be
+its definition in the tree: its file, its first line, and the end of its block.
+It also requires the inline code to be exactly those lines. `validate_docs.rb`
+requires every rendered link and inline view to match its catalog.
+
+The pictures on `/reference/plot/` are committed, not drawn by the build.
+`python -m vaft.plot.docs_thumbnails` renders each registered plot from the first
+packaged sample that can draw it into `assets/plots/<name>.png`, and records in
+`assets/plots/manifest.json` the sample, renderer and view-model hashes it was
+drawn from (or why a plot has no picture). A missing, orphaned or hand-edited
+thumbnail fails the build; a stale one -- its renderer or sample changed since --
+only warns and is labelled on the page. Re-render after changing a renderer with
+the same command (a few minutes; `--only NAME` for one plot), and run
+`--check` to also compare the view models, which needs the samples.
 
 ## Building
 
@@ -70,7 +127,8 @@ npm run test:docs:develop
 ```
 
 `_data/vest_diagnostics.yml`, `_data/formula_catalog.yml`,
-`_data/process_catalog.yml` and `_data/provenance.yml` are generated and are
+`_data/process_catalog.yml`, `_data/plot_catalog.yml`,
+`_data/diagram_catalog.yml`, `_data/api_catalog.yml` and `_data/provenance.yml` are generated and are
 not committed. `generators.yml`
 declares which generators this branch has, which is why that file differs
 between `main` and `develop`.
@@ -99,6 +157,7 @@ Linux renderer.
 | `_includes/`, `_layouts/` | vendored theme partials, locally modified |
 | `assets/` | images and theme assets |
 | `scripts/validate_docs.rb` | the validator that `build.py` and `npm run test:docs` run |
+| `scripts/catalog_coverage.py` | the public-surface check `build.py` runs after the generators |
 | `build.py`, `generators.yml` | the build and publish pipeline |
 
 Sidebar order and canonical URLs come only from `_data/navigation.yml`; page

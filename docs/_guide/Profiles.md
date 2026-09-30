@@ -104,6 +104,13 @@ which is a different coordinate.
 > the coordinate you select (`coordinate=`), `rho_tor_norm` by default; pass `coordinate="psi_norm"` to
 > reproduce the old numbers. A bare array is still accepted, but only together with
 > `coordinate="psi_norm"`, because that is the only thing it ever meant.
+
+The same equilibrium carried through all of its representations -- the four radial coordinates side
+by side, a PEST grid, Miller and Fourier fits, $a/L_T$ in four gradient conventions, a prescribed
+island, a 3-D embedding and a camera projection, each checked against the same source, time, COCOS
+and flux unit -- is `notebooks/equilibrium_representation_reference.ipynb` (#1201). Which of these
+is a coordinate, a projection, a representation, a derived quantity or a solver convention is set
+out in [Equilibrium representations]({{ '/reference/equilibrium-representations/' | relative_url }}).
 Building an equilibrium is covered in [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/).
 
 ## Stage 2 — profile fitting
@@ -295,6 +302,109 @@ Both read `equilibrium.time_slice[i].profiles_1d.pressure` and write a `core_pro
 matching equilibrium time. The factor of 2 absorbs the assumption $T_i = T_e$; there is no $Z_{eff}$ or
 impurity modelling. These are synthetic profiles — useful to seed a code that needs *some* kinetic
 input, not a measurement.
+
+### Analytic L-mode, H-mode and ITB states
+
+The opposite direction — prescribe the kinetic profiles, derive the pressure — is a small preset
+layer (#1045). Each channel is a generalized-parabolic core plus optional Groebner tanh steps (the
+#552 kernels): an edge pedestal whose top value holds exactly at the knee, and an internal
+transport barrier with its own position, full width and step amplitude per channel. Axis and separatrix
+values hold exactly; `n_i` follows from quasi-neutrality with a uniform `z_eff`, and `p_e`, `p_i`,
+`p` and `dp/dψ_N` are derived, never specified. The coordinate is `psi_norm`; units are m⁻³, eV
+and Pa.
+
+```python
+from vaft.process.equilibrium import solovev_example
+from vaft.process.profile import analytic_hmode_itb_state, project_plasma_state
+
+state = analytic_hmode_itb_state(te_axis=400.0, te_ped=80.0, te_sep=10.0,
+                                 pedestal_position=0.93, pedestal_width=0.05,
+                                 itb_position={"n_e": 0.3, "T_e": 0.3, "T_i": 0.45})
+geometry = solovev_example("limited")
+p_rz = project_plasma_state(state, geometry, "p_total")   # NaN outside the LCFS
+```
+
+The presets are `analytic_lmode_state`, `analytic_hmode_state`, `analytic_itb_state` and
+`analytic_hmode_itb_state`; `compose_analytic_profile` and `compose_plasma_state` build any other
+combination, and `vaft.plot.plot_plasma_state_projection` draws a projected quantity. A state is
+**not** an equilibrium: projecting it onto a geometry leaves that geometry solved for its own
+sources. See `notebooks/analytic_plasma_state_presets.ipynb`.
+
+### Synthetic kinetic profiles from an equilibrium
+
+`generate_synthetic_kinetic_profiles` (#122) generalizes both directions above: it takes an
+equilibrium (GEQDSK, ODS or `EquilibriumData`) and a `SyntheticKineticSpec` of declared
+assumptions, and returns `n_e`, `T_e`, `T_i`, the main-ion and impurity densities and the pressures
+on the equilibrium's `psi_norm` grid, with `rho_tor_norm` derived from its `q`. The fidelity ladder
+is explicit in the records (`vaft.data`): Level 0 `SqrtPressureSplit` (the `core_profiles_from_eq`
+closure above, bit for bit), Level 1 `ProfileSpec` with an `AnalyticProfile` (the #1045
+composition) or a `TabulatedProfile`, Level 2 a `ScalarTarget` (axis, separatrix, line or volume
+average, Greenwald fraction), a peaking factor, `T_i/T_e` or `p_e/p`, and Level 3 a
+`GradientProfile` of prescribed `a/L`. The composition is a hydrogenic main ion plus at most one
+impurity at uniform `Z_eff`.
+
+```python
+from vaft.data import (Composition, ProfileSpec, ScalarTarget, SyntheticKineticSpec,
+                       TemperatureAssumption)
+from vaft.data.resources import sample_geqdsk
+from vaft.process.profile import (compose_analytic_profile, generate_synthetic_kinetic_profiles,
+                                  write_synthetic_core_profiles)
+
+shape = compose_analytic_profile("n_e", axis_value=1.0, separatrix_value=0.2, core_beta=1.5)
+spec = SyntheticKineticSpec(
+    # peaking is solved through the core exponent (beta >= 1), so it cannot go below the beta = 1
+    # value of this shape (about 1.74 here); a lower request comes back constraint_not_reached.
+    n_e=ProfileSpec(shape, ScalarTarget("greenwald_fraction", 0.3), peaking_factor=1.8),
+    temperature=TemperatureAssumption(ti_over_te=0.5),
+    composition=Composition("D", "C", z_eff=2.0),
+    pressure_constraint="equilibrium", closure="temperature",   # solve T_e so p_kin = p_eq
+)
+result = generate_synthetic_kinetic_profiles(sample_geqdsk(), spec, time=0.319)
+result.status, [(t.name, t.requested, t.achieved) for t in result.targets]
+ods = write_synthetic_core_profiles(result)                      # refused unless status == "success"
+```
+
+`pressure_constraint="equilibrium"` makes `p_kin = p_eq` locally and names the solved variable
+(`closure="temperature"`, `"density"` or `"sqrt_split"`); `"thermal_energy"` matches only
+`W = 3/2 ∫ p dV` and reports the local mismatch; `"kinetic"` keeps the profiles and reports it.
+Every target is recomputed from the final arrays, a contradictory request (a prescribed `T_e` with a
+closure that solves `T_e`) raises `SyntheticProfileError` with a status, and an incompatible one
+returns `pressure_closure_failed`. The profiles are assumptions, never measured or
+transport-predicted, and the slice says so. See
+`notebooks/synthetic_kinetic_profiles_from_equilibrium.ipynb`.
+
+### A self-consistent equilibrium and kinetic state
+
+`vaft.code.chease_kinetic_iteration.build_consistent_state` (#123) makes the equilibrium and the
+synthetic profiles agree under a declared `EquilibriumKineticSpec`. With
+`closure="equilibrium_pressure"` the equilibrium pressure is authoritative: #122 decomposes it once,
+and CHEASE is not called. With `closure="kinetic_pressure"` the kinetic pressure is authoritative.
+CHEASE re-solves the fixed-boundary equilibrium with `PRES`/`PPRIME` built from `p_kin` (a PCHIP
+interpolant and its derivative) and `FF'` from an explicit `CurrentPolicy`: the initial `FF'` shape
+or an analytic `g`, with `I_p` or `q95` held. The profiles are then regenerated on the new
+equilibrium from the same spec, and the loop repeats. Every state is kept with its residuals and
+validation, and the status names the outcome: `converged`, `max_iterations`, `diverged`,
+`oscillating`, `stagnated`, or a failure. The result is an assumption-driven self-consistent state,
+not a transport prediction or a reconstruction.
+
+```python
+from vaft.code.chease_kinetic_iteration import build_consistent_state
+from vaft.data import (EquilibriumKineticSpec, ProfileSpec, SyntheticKineticSpec,
+                       TemperatureAssumption)
+from vaft.data.resources import sample_geqdsk
+from vaft.process.profile import compose_analytic_profile
+
+n_e = ProfileSpec(compose_analytic_profile("n_e", axis_value=1e19, separatrix_value=2e18))
+decompose = EquilibriumKineticSpec(
+    SyntheticKineticSpec(n_e=n_e, temperature=TemperatureAssumption(ti_over_te=0.5),
+                         pressure_constraint="equilibrium", closure="temperature"),
+    closure="equilibrium_pressure")                              # no CHEASE solve
+state = build_consistent_state(sample_geqdsk(), decompose, time=0.319)
+state.status, state.initial.metrics["closure_max_relative"], len(state.iterations)
+```
+
+See `notebooks/self_consistent_equilibrium_kinetic_iteration.ipynb` for the `kinetic_pressure` loop
+on 39915.
 
 ## Plotting
 

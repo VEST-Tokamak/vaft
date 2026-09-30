@@ -119,8 +119,26 @@ constraints:
   - 0.01
 efit:
   run: true
+  # Named EFIT configuration from vaft.code.efit.PRESETS. Empty or `routine` is
+  # the production path with constraints.npprime/nffprime above;
+  # statistical_891 is the #891 working setting (statistical sigma, diamagnetic
+  # flux fitted, (2,1) basis, psi-only exit), which ignores npprime/nffprime.
+  # A preset run writes over the same products: give it its own base_dir.
+  preset: ""
   executable: ${EFIT}
+  # The base Green table. A Green table is valid for one machine era only
+  # (#805); a shot of the base table's era uses this directory as is, and a
+  # shot of any other era uses a table built once per era by rule
+  # generate_efit_table (EFUND, ~3 min and ~170 MB at 129x129, under
+  # <base_dir>/pipeline/efit_tables/, or <base_dir>/efit_tables/ with
+  # layout: shot_first) with this table's grid and flags. Replacing this
+  # table rebuilds them; moving it, efund or efund_timeout does not.
+  # `era_tables: false` turns that off; such shots are then refused.
   table_dir: ${VAFT_DATA_DIR}/efit/
+  era_tables: true
+  # EFUND for those builds: empty means $EFITHOME/bin/efund.
+  efund: ""
+  efund_timeout: 1800
   args: "129"
   timeout: 600
 chease:

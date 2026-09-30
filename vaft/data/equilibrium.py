@@ -253,6 +253,9 @@ class MillerSurface:
     q: float | None = None
     magnetic_shear: float | None = None
     alpha: float | None = None
+    #: Inboard indentation, the bean-shaping coefficient of #941.  Last, so
+    #: positional construction is unchanged; zero is the surface without it.
+    indentation: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -295,6 +298,222 @@ SOLOVEV_CONSTRAINT_KINDS = (
 
 
 @dataclass(frozen=True)
+class GuazzottoFreidbergEquilibrium:
+    """An analytic Guazzotto-Freidberg (2021, Part 1) equilibrium in normalized form (#1148).
+
+    ``psi(x, y) = sum_j coefficients[j] * Y_j(h_n y) * X_j(x)`` solves
+    ``(1 + eps_hat x) psi_xx + psi_yy/(1 + eps**2) = -alpha**2 (1 + eps_hat nu x) psi``
+    with ``psi = 1`` on the magnetic axis and ``0`` on the plasma surface, in
+    ``R = R0 sqrt(1 + eps**2 + 2 eps x)``, ``Z = a y``.  Pressure and ``F**2``
+    are quadratic in psi, so p, p' and J_phi vanish on the surface.  The
+    eigenvalue ``alpha`` fixes the flux on axis once ``R0``, ``B0`` and ``beta0``
+    (or ``q0``) are chosen; see :func:`guazzotto_freidberg_to_equilibrium`.
+
+    Part 2 (#1149) adds an edge current pedestal ``current_pedestal`` (f_J),
+    for which ``coefficients`` expand ``psi_J = psi + f_J/(1 - f_J)``;
+    toroidal flow at axis Mach number ``mach_number`` with
+    ``adiabatic_index`` 2 or inf, which changes the source to
+    ``alpha**2 (1 + nu G(x))``; and the surface-current inputs
+    ``pressure_pedestal`` (f_P) and ``bootstrap_fraction`` (f_B), which leave
+    the interior flux unchanged and enter only the plasma parameters.  All
+    default to zero, which is Part 1.
+    """
+
+    topology: str
+    inverse_aspect_ratio: float
+    nu: float
+    alpha: float
+    coefficients: np.ndarray
+    separation_h: np.ndarray
+    separation_k: np.ndarray
+    magnetic_axis: tuple[float, float]
+    elongation: float | None = None
+    triangularity: float | None = None
+    x_point_elongation: float | None = None
+    x_point_triangularity: float | None = None
+    eigen_residual: float = 0.0
+    condition_number: float = float("nan")
+    series_terms: int = 250
+    status: str = "converged"
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+    current_pedestal: float = 0.0
+    pressure_pedestal: float = 0.0
+    bootstrap_fraction: float = 0.0
+    mach_number: float = 0.0
+    adiabatic_index: float | None = None
+
+
+@dataclass(frozen=True)
+class CurrentMomentRepresentation:
+    """Toroidal current density reduced to its total, centroid and central moments (#943).
+
+    ``central_moments[(p, q)]`` is the *normalized central* moment
+    ``mu_pq = (1/I_p) * integral (R - R_c)**p (Z - Z_c)**q J_phi dA`` in
+    m**(p+q), for ``2 <= p + q <= max_order``; ``mu_10 = mu_01 = 0`` by the
+    centroid's definition and are not stored.  These describe the current
+    distribution, not the boundary: ``mu_20`` is not a minor radius and a third
+    moment is not a triangularity.
+    """
+
+    total_current: float
+    centroid_r: float
+    centroid_z: float
+    central_moments: Mapping[tuple[int, int], float]
+    max_order: int
+    current_density_source: str
+    provenance: DerivationProvenance
+
+    @property
+    def covariance(self) -> np.ndarray:
+        """The second-order tensor ``[[mu_20, mu_11], [mu_11, mu_02]]`` [m^2]."""
+        m = self.central_moments
+        return np.array([[m[(2, 0)], m[(1, 1)]], [m[(1, 1)], m[(0, 2)]]], dtype=float)
+
+
+@dataclass(frozen=True)
+class FourierSurface:
+    """A closed contour as a truncated Fourier series in a uniform arc-length angle (#945).
+
+    ``R(theta) = sum_m r_cos[m] cos(m theta) + r_sin[m] sin(m theta)`` and the
+    same for ``Z``, for ``m = 0 .. modes``.  ``theta = 2 pi s / L`` is arc
+    length ``s`` counted counter-clockwise in the (R, Z) plane over the
+    perimeter ``L``, with its origin where the first harmonic of ``R`` peaks,
+    i.e. ``r_sin[1] = 0`` and ``r_cos[1] > 0``.  So the ``m = 0`` terms are the
+    perimeter centroid, ``r_sin[0] = z_sin[0] = 0``, and an up-down symmetric
+    surface -- racetracks included -- has ``r_sin = 0`` and ``z_cos[1:] = 0``.
+    """
+
+    r_cos: np.ndarray
+    r_sin: np.ndarray
+    z_cos: np.ndarray
+    z_sin: np.ndarray
+    radial_value: float | None = None
+    radial_coordinate: str = "psi_n"
+    angle_convention: str = "arc_length"
+
+    def __post_init__(self) -> None:
+        arrays = [np.asarray(getattr(self, name), dtype=float).reshape(-1) for name in ("r_cos", "r_sin", "z_cos", "z_sin")]
+        if len({a.size for a in arrays}) != 1 or arrays[0].size < 2:
+            raise ValueError("FourierSurface needs four coefficient arrays of one common length, at least two (m = 0, 1)")
+        if arrays[1][0] != 0.0 or arrays[3][0] != 0.0:
+            raise ValueError("the m = 0 sine coefficients must be zero")
+        if self.angle_convention != "arc_length":
+            raise ValueError(f"unsupported angle convention {self.angle_convention!r}; only 'arc_length' is defined")
+        for name, value in zip(("r_cos", "r_sin", "z_cos", "z_sin"), arrays):
+            object.__setattr__(self, name, value)
+
+    @property
+    def modes(self) -> int:
+        """Highest poloidal harmonic kept."""
+        return int(self.r_cos.size - 1)
+
+    @property
+    def reference_r(self) -> float:
+        """The ``m = 0`` radial term: the perimeter centroid's major radius."""
+        return float(self.r_cos[0])
+
+    @property
+    def reference_z(self) -> float:
+        """The ``m = 0`` vertical term: the perimeter centroid's height."""
+        return float(self.z_cos[0])
+
+
+@dataclass(frozen=True)
+class FourierFitResult:
+    surface: FourierSurface
+    contour: Contour
+    reconstructed: Contour
+    rms_error: float
+    normalized_rms_error: float
+    max_error: float
+    hausdorff_distance: float
+    accepted: bool
+    reason: str | None
+    provenance: DerivationProvenance
+
+
+@dataclass(frozen=True)
+class FourierSequenceResult:
+    fits: tuple[FourierFitResult, ...]
+    skipped: tuple[float, ...] = ()
+    provenance: DerivationProvenance | None = None
+
+    def coefficient(self, name: str, m: int, *, accepted_only: bool = True) -> tuple[np.ndarray, np.ndarray]:
+        """``(radial values, coefficient)`` of one family and harmonic across the sequence."""
+        if name not in ("r_cos", "r_sin", "z_cos", "z_sin"):
+            raise ValueError(f"unknown coefficient family {name!r}")
+        items = [f for f in self.fits if f.accepted or not accepted_only]
+        radial = np.array([f.surface.radial_value for f in items], dtype=float)
+        values = np.array([getattr(f.surface, name)[m] for f in items], dtype=float)
+        return radial, values
+
+
+@dataclass(frozen=True)
+class SolovevFit:
+    """A Solov'ev model fitted to an existing equilibrium, with its fidelity (#1166).
+
+    ``status`` is ``"accepted"``, ``"poor_fidelity"`` (a valid model that
+    misses the equilibrium by more than the tolerance), ``"not_representable"``
+    (the fitted flux has no closed boundary) or ``"failed"`` (no model).
+    ``metrics`` holds only what was evaluated.
+    """
+
+    model: "SolovevEquilibrium | None"
+    metrics: Mapping[str, Any]
+    status: str
+    reason: str | None
+    provenance: DerivationProvenance
+
+
+@dataclass(frozen=True)
+class MXHChebyshevRepresentation:
+    """Flux surfaces as MXH shapes with shifted-Chebyshev radial profiles (Xie & Li 2026; #1166).
+
+    ``profiles[name] = (edge_value, coefficients)`` for ``h``, ``v``,
+    ``kappa``, ``a``, ``c0`` and ``c1..cM``, ``s1..sM``; each profile is
+    ``edge_value + sum_l coefficients[l] (1 - rho**2) T_l(2 rho**2 - 1)`` in
+    ``rho = sqrt(psi_N)``.  ``status`` is ``"accepted"``, ``"poor_fidelity"``
+    or ``"failed"`` (too few closed surfaces for the radial order).
+    """
+
+    r0: float
+    z0: float
+    harmonics: int
+    radial_order: int
+    profiles: Mapping[str, tuple[float, tuple[float, ...]]]
+    parameter_count: int
+    metrics: Mapping[str, float]
+    status: str
+    reason: str | None
+    provenance: DerivationProvenance
+
+
+@dataclass(frozen=True)
+class GradShafranovResidualModes:
+    """The Grad-Shafranov residual projected onto poloidal harmonics, surface by surface (#948).
+
+    Row ``i`` is the surface at ``radial_values[i]``; ``cos[i, m]`` and
+    ``sin[i, m]`` are the residual's harmonics in T/m with the arc-length angle
+    of :class:`FourierSurface`, ``rms[i]`` its RMS on that surface, and
+    ``scale`` the whole-plasma RMS of the source for normalization.
+    """
+
+    radial_values: np.ndarray
+    cos: np.ndarray
+    sin: np.ndarray
+    rms: np.ndarray
+    scale: float
+    radial_coordinate: str = "psi_n"
+    angle_convention: str = "arc_length"
+    skipped: tuple[float, ...] = ()
+    provenance: DerivationProvenance | None = None
+
+    def amplitude(self, m: int) -> np.ndarray:
+        """``sqrt(cos**2 + sin**2)`` of harmonic *m* on every surface [T/m]."""
+        return np.hypot(self.cos[:, m], self.sin[:, m])
+
+
+@dataclass(frozen=True)
 class SolovevConstraint:
     """One linear condition on psi at a point: ``kind`` of psi equals ``value``.
 
@@ -331,7 +550,11 @@ class SolovevEquilibrium:
     psi_boundary: float = 0.0
     pressure_boundary: float = 0.0
     f_boundary: float = 1.0
-    f_sign: int = 1
+    #: Sign of F(psi) = R B_phi.  ``None`` derives it from ``f_boundary`` (and
+    #: +1 for a zero ``f_boundary``); an explicit sign that contradicts a
+    #: non-zero ``f_boundary`` is refused, since ``bt0`` follows ``f_boundary``
+    #: (#1307).
+    f_sign: int | None = None
     rank: int | None = None
     residual_norm: float | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -347,6 +570,38 @@ class SolovevEquilibrium:
         if self.rref <= 0:
             raise ValueError("rref must be positive")
         object.__setattr__(self, "coefficients", coefficients)
+        object.__setattr__(self, "f_sign", _resolve_solovev_f_sign(self.f_boundary, self.f_sign, allow_zero=True))
+
+
+def _resolve_solovev_f_sign(f_boundary: float, f_sign: int | None, *, allow_zero: bool = False) -> int:
+    """The sign of F(psi) implied by ``f_boundary``, checked against an explicit ``f_sign``.
+
+    ``f_boundary`` is the one source of truth for the sign of B_phi: the record's
+    ``bt0`` is ``f_boundary/rref``.  ``f_sign=None`` takes ``sign(f_boundary)``;
+    an explicit sign must be +1 or -1 and agree with it (#1307).  A zero
+    ``f_boundary`` is refused unless *allow_zero*, in which case the sign is the
+    explicit one, or +1.
+    """
+
+    f_boundary = float(f_boundary)
+    if f_sign is not None and f_sign not in (1, -1):
+        raise ValueError(f"f_sign must be +1, -1 or None, got {f_sign!r}")
+    if not np.isfinite(f_boundary):
+        raise ValueError(f"f_boundary must be finite, got {f_boundary!r}")
+    if f_boundary == 0.0:
+        if not allow_zero:
+            raise ValueError("f_boundary must be non-zero: its sign sets the direction of B_phi and of F(psi)")
+        return 1 if f_sign is None else int(f_sign)
+    implied = 1 if f_boundary > 0 else -1
+    if f_sign is None:
+        return implied
+    if int(f_sign) != implied:
+        raise ValueError(
+            f"f_sign={int(f_sign):+d} contradicts f_boundary={f_boundary:g}: F(psi) would take the sign of "
+            "f_sign while bt0 = f_boundary/rref takes the sign of f_boundary.  Reverse B_phi by negating "
+            "f_boundary and leave f_sign=None"
+        )
+    return implied
 
 
 @dataclass(frozen=True)
@@ -424,5 +679,7 @@ __all__ = [
     "EquilibriumConvention", "EquilibriumData", "Gap", "GlobalEquilibriumDescriptors",
     "MillerFitResult", "MillerSequenceResult", "MillerSurface", "SolovevConstraint",
     "SolovevEquilibrium", "StationaryPoint", "StrikePoint", "Topology", "ValidationIssue",
-    "ValidationReport", "XPoint", "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
+    "ValidationReport", "XPoint", "CurrentMomentRepresentation", "GradShafranovResidualModes", "FourierFitResult",
+    "GuazzottoFreidbergEquilibrium", "FourierSequenceResult", "FourierSurface", "MXHChebyshevRepresentation",
+    "SolovevFit", "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
 ]

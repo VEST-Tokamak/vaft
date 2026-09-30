@@ -62,6 +62,7 @@ CORE_MODULES: tuple[str, ...] = (
     # with what the packages actually export.
     "test_cli.py",
     "test_formula_catalog.py",
+    "test_hsds_configure.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
     "test_plot_submodule.py",
@@ -84,6 +85,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_line_abscissa.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_plot_3d_contract.py",
     "test_plot_contract.py",
     "test_plot_intent.py",
     "test_plot_presentation.py",
@@ -94,11 +96,14 @@ CORE_MODULES: tuple[str, ...] = (
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
+    # The process-tree stop behind LocalBackend runs small Python/sh trees.
     "test_code_execution.py",
     "test_code_resources.py",
+    "test_process_tree.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
-    # writes, plus the canonical-IDS contract fixtures.
+    # writes, plus the canonical-IDS contract fixtures and the canonical
+    # public-database tables (synthetic rows, mocked network).
     "contracts/test_contract_legacy_rejections.py",
     "contracts/test_contract_samples.py",
     "contracts/test_contract_synthetic.py",
@@ -110,6 +115,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_dataset_description.py",
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
+    "test_public_confinement.py",
+    "test_public_profile.py",
+    "test_public_transition.py",
     "test_shotlog.py",
     # Packaging and documentation policy. Metadata reads; they catch the
     # breakage `package` cannot see until it is already building a wheel.
@@ -134,25 +142,53 @@ CORE_MODULES: tuple[str, ...] = (
     # author ever opening docs/, which is exactly what develop should catch.
     # The committed diagram SVGs are checked against their TikZ source too.
     "test_diagram_render.py",
+    "test_docs_api.py",
+    "test_docs_catalogs.py",
     "test_docs_content.py",
     "test_docs_snippets.py",
+    "test_docs_sources.py",
+    "test_docs_thumbnails.py",
     "test_readme_consistency.py",
+    # Operational boundaries (#1067): every published limit is called and
+    # checked against its source's numbers and its permitted side. Pure NumPy.
+    "test_formula_boundaries.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
+    "test_diagram_blob.py",
+    "test_diagram_cold_plasma_waves.py",
     "test_diagram_collision.py",
     "test_diagram_cylindrical_modes.py",
+    "test_diagram_disruption.py",
+    "test_diagram_divertor_footprint.py",
+    "test_diagram_equilibrium_phenomena.py",
+    "test_diagram_field_aligned.py",
+    "test_diagram_field_configurations.py",
     "test_diagram_geometry.py",
+    "test_diagram_gs_equilibrium.py",
     "test_diagram_guiding_center.py",
     "test_diagram_harmonic.py",
     "test_diagram_infrastructure.py",
+    "test_diagram_integrated_modeling.py",
+    "test_diagram_iteration_dynamics.py",
     "test_diagram_magnetic_island.py",
+    "test_diagram_marfe.py",
+    "test_diagram_mhd_waves.py",
+    "test_diagram_nbi.py",
     "test_diagram_particle_motion.py",
+    "test_diagram_pwi.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
+    "test_diagram_sfl_coordinates_part2.py",
     "test_diagram_slab_parity.py",
+    "test_diagram_spectroscopy.py",
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
+    "test_diagram_transport_regimes.py",
+    "test_diagram_vde.py",
+    "test_diagram_wall_conditioning.py",
+    # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
+    "test_pipeline_worker.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

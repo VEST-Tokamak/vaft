@@ -13,3 +13,6 @@ _data/provenance.yml
 _data/vest_diagnostics.yml
 _data/formula_catalog.yml
 _data/process_catalog.yml
+_data/plot_catalog.yml
+_data/diagram_catalog.yml
+_data/api_catalog.yml

@@ -48,16 +48,17 @@ relevant external-code roots, such as `CHEASEHOME`, `EFITHOME`, and `GPECHOME`.
 | Session | Topic | Workflow role | Status |
 | --- | --- | --- | --- |
 | 01 | Getting Started with VAFT | diagnostic data and public plotting APIs | complete |
-| 02 | Startup Scenario and Vacuum Fields | breakdown timing, actuators, vessel circuit, vacuum-field startup proxies, multi-shot comparison | complete |
+| 02 | Startup Scenario and Vacuum Fields | breakdown timing, actuators, vessel circuit, vacuum-field startup proxies, reduced models of burn-through, shielding, current penetration, ramp and flux closure, multi-shot comparison | complete |
 | 03 | Equilibrium and Kinetic Profiles | equilibrium representation, analytic shapes, EFIT constraints and weights, flux-coordinate mapping and profile-fit statistics, derived kinetic state, Grad-Shafranov residual, multi-time and multi-shot comparison | complete |
 | 04 | Fluctuation Diagnostics for Plasma Perturbations and Transient Events | lab vs plasma frame, VEST fluctuation-diagnostic coverage, Mirnov / SXR / fast-camera perturbations, cross-spectral coherence and phase, toroidal mode number with its alias step, rational surfaces, transients as sequences, multi-time and multi-shot comparison | complete |
-| 05 | MHD Stability and 3D Perturbed Equilibrium | equilibrium-to-stability/response modelling | scaffold |
-| 06 | Operational Space and Statistics | cross-shot filtering, limits, and statistical analysis | scaffold |
+| 05 | MHD Stability and Perturbed Equilibria | rational surfaces, ideal stability (DCON, $\delta W$), tearing (RDCON, $\Delta'$), VEST 3-D coils and sector harmonics, vacuum field and relative phase by linearity, driven response (GPEC); solvers in lab mode | complete |
+| 06 | Operational Space and Data-Driven Analysis | units of analysis, coverage and validity, representative states, distributions, observed envelope vs limit, reference-limit provenance, dimensionless variables and H factors, confounding, similarity, events joined by time, planned data-driven representations | complete |
 
 Each session assumes the one before it. Session 02 starts from a discharge you
 can load and plot; session 03 from a discharge you can place in time; session 04
-from an equilibrium you can interrogate. Only session 04 currently says so in its
-own text.
+from an equilibrium you can interrogate; session 05 from a measured perturbation
+and the rational surfaces it could sit on. Sessions 04 and 05 say so in their own
+text.
 
 One promise is session-scoped and worth knowing about: session 01 tells you that
 you need no NumPy and no VAFT submodule imported by hand. That holds for session

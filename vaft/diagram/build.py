@@ -82,10 +82,94 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"slab_parity_{p}.svg": ("slab_parity", {"parity": p}) for p in ("tearing", "twisting")},
     **{f"{name}.svg": (name, {}) for name in ("slab_parity_comparison", "poloidal_harmonic_coupling",
                                               "resonant_layer_matching")},
+    # disruption physics: the quench sequence, causal chain, runaway generation, energy paths (#1041)
+    **{f"{name}.svg": (name, {}) for name in ("disruption_timeline", "disruption_causal_chain",
+                                              "runaway_generation", "disruption_energy_pathways")},
+    # equilibrium-aware phenomena on the default Solov'ev equilibrium (#1209)
+    "kink_mode_1_1_internal.svg": ("kink_mode", {}),
+    "kink_mode_2_1_global.svg": ("kink_mode", {"m": 2, "n": 1, "radial_profile": "global", "amplitude": 0.08,
+                                               "harmonics": {2: 1.0, 3: 0.3}}),
+    **{f"sawtooth_{stage}.svg": ("sawtooth", {"stage": stage}) for stage in ("precursor", "reconnection",
+                                                                             "post_crash")},
+    **{f"stochastic_layer_{regime}.svg": ("stochastic_layer", {"regime": regime})
+       for regime in ("isolated", "touching", "overlapping")},
+    "separatrix_lobes.svg": ("separatrix_lobes", {}),
+    # vertical displacement events: hot/cold VDE, halo currents, timescales (#1042)
+    **{f"{name}.svg": (name, {}) for name in ("hot_vde_sequence", "cold_vde_bifurcation",
+                                              "plasma_wall_halo_current", "vde_timescales")},
+    # the Grad-Shafranov problem: regions, boundaries, topology, problem classes (#1052)
+    **{f"{name}.svg": (name, {}) for name in ("grad_shafranov_domain_decomposition",
+                                              "fixed_vs_free_boundary_equilibrium",
+                                              "limiter_and_diverted_topologies", "equilibrium_problem_taxonomy",
+                                              "poloidal_flux_source_decomposition")},
     # cylindrical geometry: profiles, mode shapes, matching
     **{f"{name}.svg": (name, {}) for name in ("current_to_q_profile", "cylindrical_rational_surfaces",
                                               "cylindrical_mode_morphology", "internal_external_kink",
                                               "plasma_vacuum_wall", "cylindrical_tearing_outer")},
+    # canonical field configurations, reconnection topology and ideal-MHD waves (#1063)
+    **{f"slab_field_configuration_{k}.svg": ("slab_field_configuration", {"kind": k})
+       for k in ("uniform", "sheared", "reversed", "guide")},
+    "current_sheet.svg": ("current_sheet", {}),
+    "current_sheet_guide_field.svg": ("current_sheet", {"guide_field": True}),
+    **{f"{name}.svg": (name, {}) for name in ("harris_sheet", "x_point", "magnetic_reconnection",
+                                              "island_formation", "shear_alfven_wave",
+                                              "fast_magnetosonic_wave", "mhd_wave_family")},
+    # plasma-wall interaction concepts (#1047)
+    **{f"{name}.svg": (name, {}) for name in ("plasma_wall_interaction_processes", "plasma_wall_interaction_reflection",
+                                              "plasma_wall_interaction_recycling",
+                                              "plasma_wall_interaction_energy_partition")},
+    # E_s = 8.68 eV: the sublimation energy of W, the usual surface binding energy (Behrisch & Eckstein,
+    # "Sputtering by Particle Bombardment", Springer 2007, tables) -- an input, shown on the figure
+    "plasma_wall_interaction_sputtering.svg": ("plasma_wall_interaction_sputtering", {"surface_binding_energy": 8.68}),
+    # spectroscopy and ionization concepts (#1046)
+    "spectroscopy_ionization_stages.svg": ("spectroscopy_ionization_stages", {"term": "C III"}),
+    **{f"spectroscopy_transitions_{name}.svg": ("spectroscopy_transitions", {"term": term})
+       for name, term in (("h_alpha", "H-alpha"), ("oi_7770", "OI_7770"))},
+    "spectroscopy_energy_levels.svg": ("spectroscopy_energy_levels", {"term": "D-alpha"}),
+    "spectroscopy_spectrum.svg": ("spectroscopy_spectrum", {}),
+    # neutral beam injection: lifecycle and reduced attenuation (#1136)
+    **{f"{name}.svg": (name, {}) for name in ("nbi_particle_lifecycle", "nbi_neutral_attenuation")},
+    # iteration behaviour, branch bifurcation and branch selection (#1093)
+    **{f"{name}.svg": (name, {}) for name in ("iteration_behavior", "branch_bifurcation", "basin_of_attraction",
+                                              "grid_induced_two_cycle", "branch_selection")},
+    # cold-plasma waves from their equations (#1113)
+    **{f"{name}.svg": (name, {}) for name in ("o_mode_cutoff", "x_mode_dispersion", "cma_diagram",
+                                              "profile_propagation")},
+    # neoclassical and NTV collisionality regimes (#1111)
+    "neoclassical_collisionality.svg": ("neoclassical_collisionality", {}),
+    "ntv_collisionality.svg": ("ntv_collisionality", {}),
+    "ntv_precession_regimes.svg": ("ntv_precession_regimes", {}),
+    # wall conditioning as wall-state transitions (#1051)
+    "wall_conditioning_baking.svg": ("wall_conditioning_baking", {}),
+    "wall_conditioning_gdc_deuterium.svg": ("wall_conditioning_gdc", {"gas": "D2"}),
+    "wall_conditioning_gdc_helium.svg": ("wall_conditioning_gdc", {"gas": "He"}),
+    "wall_conditioning_boronization.svg": ("wall_conditioning_boronization", {}),
+    "wall_conditioning_sequence.svg": ("wall_conditioning_sequence", {}),
+    # field-aligned coordinates, flux tubes, shear and the ballooning eigenfunction (#1075 part 2)
+    **{f"{name}.svg": (name, {}) for name in ("field_aligned_basis", "flux_tube_patch",
+                                              "magnetic_shear_field_aligned", "ballooning_eigenfunction")},
+    # a toroidal mode number: the shift nu couples harmonics in every angle but PEST (#1074)
+    "sfl_fourier_convergence_n2.svg": ("sfl_fourier_convergence", {"n": 2}),
+    # SFL coordinates part 2: action-angle, validity near a separatrix, coordinates vs COCOS (#1074)
+    **{f"{name}.svg": (name, {}) for name in ("field_line_action_angle", "sfl_coordinate_validity",
+                                              "coordinates_vs_cocos")},
+    # SOL blobs and filaments: mechanism, velocity scaling, regimes (#1211)
+    **{f"{name}.svg": (name, {}) for name in ("blob_polarization", "blob_velocity_scaling", "blob_regimes")},
+    "blob_polarization_hole.svg": ("blob_polarization", {"perturbation": "hole"}),
+    **{f"blob_current_closure_{r}.svg": ("blob_current_closure", {"regime": r}) for r in ("sheath", "inertial")},
+    # MARFE on the high-field side and next to the X-point, with Drake's condition (#1209)
+    "marfe.svg": ("marfe", {}),
+    "marfe_xpoint.svg": ("marfe", {"localization": "xpoint"}),
+    # Eich target profile on a diverted equilibrium (#1209)
+    "divertor_heat_footprint.svg": ("divertor_heat_footprint", {}),
+    # integrated modeling: three independent axes, their space and typed model coupling (#1085)
+    "knowledge_basis.svg": ("knowledge_basis", {}),
+    "computational_realization.svg": ("computational_realization", {}),
+    "physical_abstraction.svg": ("physical_abstraction", {}),
+    "integrated_modeling_space.svg": ("integrated_modeling_space", {}),
+    "integrated_modeling_space_fusion.svg": ("integrated_modeling_space", {"examples": "fusion"}),
+    "integrated_modeling_space_tearing.svg": ("integrated_modeling_space", {"examples": "tearing"}),
+    "integrated_modeling_process.svg": ("integrated_modeling_process", {}),
 }
 
 

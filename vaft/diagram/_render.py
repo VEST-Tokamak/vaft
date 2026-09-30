@@ -30,6 +30,7 @@ RENDER_RECIPE = "latex -> dvisvgm --no-fonts --bbox=papersize --optimize; normal
 _TOOLS = ("latex", "dvisvgm")
 _MARKER_RADIUS = 0.06  # cm, filled O-point dot
 _CROSS_HALF = 0.09  # cm, half arm of the X-point cross
+_DOT_RADIUS = 0.016  # cm, a Poincare-section puncture
 
 
 class DiagramToolchainError(RuntimeError):
@@ -54,6 +55,8 @@ def _tikz_item(item) -> str:
     if isinstance(item, Marker):
         if item.kind == "o":
             return f"\\fill[{item.style}] {_xy(item.at)} circle[radius={_MARKER_RADIUS}];"
+        if item.kind == ".":
+            return f"\\fill[{item.style}] {_xy(item.at)} circle[radius={_DOT_RADIUS}];"
         d = _num(_CROSS_HALF)
         return (f"\\draw[{item.style}] {_xy(item.at)} +(-{d},-{d}) -- +({d},{d}) "
                 f"+(-{d},{d}) -- +({d},-{d});")
@@ -70,9 +73,33 @@ def template() -> str:
     return resources.files("vaft.diagram").joinpath("templates/standalone.tex").read_text(encoding="utf-8")
 
 
+def _tikz_lines(items):
+    """One TikZ command per item, except that a run of ``"."`` markers in one style becomes few ``\\fill``.
+
+    A Poincare section has thousands of punctures; drawn one path each they
+    make a megabyte-sized SVG, as one path a fraction of that.
+    """
+    run_style, run = None, []
+    for item in items:
+        if isinstance(item, Marker) and item.kind == ".":
+            # at most 200 per path: one path of thousands of circles exhausts TeX's main memory
+            if (item.style != run_style or len(run) >= 200) and run:
+                yield f"\\fill[{run_style}] " + " ".join(run) + ";"
+                run = []
+            run_style = item.style
+            run.append(f"{_xy(item.at)} circle[radius={_DOT_RADIUS}]")
+            continue
+        if run:
+            yield f"\\fill[{run_style}] " + " ".join(run) + ";"
+            run_style, run = None, []
+        yield _tikz_item(item)
+    if run:
+        yield f"\\fill[{run_style}] " + " ".join(run) + ";"
+
+
 def tikz_document(scene: Scene) -> str:
     """The complete, compilable LaTeX document for ``scene``."""
-    body = "\n".join(_tikz_item(item) for item in scene.items)
+    body = "\n".join(_tikz_lines(scene.items))
     text = template()
     slot = f"\n{_BODY_SLOT}\n"
     if text.count(slot) != 1:
@@ -209,6 +236,41 @@ def render_pdf(document: str, target: Path) -> None:
         shutil.copyfile(cwd / "diagram.pdf", target)
 
 
+def committed_assets_dir() -> Path:
+    """``docs/assets/diagrams`` of the source checkout this module runs from."""
+    return Path(__file__).resolve().parents[2] / "docs" / "assets" / "diagrams"
+
+
+def committed_svg(source_sha256: str) -> Optional[str]:
+    """The committed SVG rendered from exactly this TikZ source, if there is one.
+
+    An installed package has no ``docs/`` beside it, and an asset whose
+    manifest hash differs was drawn from different source; both return
+    ``None``.
+    """
+    import json
+
+    directory = committed_assets_dir()
+    try:
+        manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    for name, entry in manifest.get("diagrams", {}).items():
+        if entry.get("source_sha256") != source_sha256:
+            continue
+        path = directory / name
+        if not path.is_file():
+            return None
+        raw = path.read_bytes()
+        # The source hash says which picture the asset should be; the SVG hash
+        # (over the bytes, as the build writes it) says the file still is that
+        # picture, not a stale or hand-edited one.
+        if hashlib.sha256(raw).hexdigest() != entry.get("svg_sha256"):
+            return None
+        return raw.decode("utf-8")
+    return None
+
+
 class Diagram:
     """A built scientific diagram: TikZ source now, SVG on first request.
 
@@ -234,9 +296,22 @@ class Diagram:
 
     @property
     def svg(self) -> str:
-        """The rendered, normalised SVG text. Renders on first access."""
+        """The rendered, normalised SVG text. Renders on first access.
+
+        Without the TeX toolchain, a diagram whose TikZ source matches a
+        committed asset is served from ``docs/assets/diagrams/``: the manifest
+        records the source hash each asset was rendered from, so the file is
+        the picture this call would have drawn, not a nearby one. Anything
+        else still raises :class:`DiagramToolchainError`.
+        """
         if self._svg is None:
-            self._svg = render_svg(self.tikz)
+            try:
+                self._svg = render_svg(self.tikz)
+            except DiagramToolchainError:
+                committed = committed_svg(self.source_sha256)
+                if committed is None:
+                    raise
+                self._svg = committed
         return self._svg
 
     def _repr_svg_(self) -> str:

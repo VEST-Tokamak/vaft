@@ -58,6 +58,8 @@ DEFINITIONAL = frozenset({
     "time_derivative",
     # Containment in the LCFS outline, or the flux threshold where there is none.
     "plasma_cell_weights",
+    # #1087: one harmonic's sector currents, the inverse of toroidal_mode_decomposition
+    "phased_sector_currents",
     "filter_dataframe",
     "log_transform",
     "analyze_significance",
@@ -99,6 +101,8 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # nbi (#1136): optical depth -> survival and birth -> shine-through -> power bookkeeping
+    "neutral_beam_attenuation_along_path",
     # equilibrium / magnetic_island / line_of_sight / soft_x_rays (#886):
     # map -> island -> emissivity -> chord integral
     "straight_field_line_map",
@@ -107,6 +111,8 @@ PIPELINE = frozenset({
     "synthetic_island_soft_x_rays",
     # profile (V4/D-05): window, fit, accept-or-fall-back
     "pedestal_top",
+    # profile (#122): grid -> shapes -> normalization -> closure -> residuals
+    "generate_synthetic_kinetic_profiles",
     # magnetics / electromagnetics / fluctuation (#418)
     "analyze_fluctuation_spectrum",
     "b_field_pol_probe_field",
@@ -145,6 +151,12 @@ PIPELINE = frozenset({
     "psi_to_rz",
     "solve_solovev_constraints",
     "solovev_example",
+    "solve_guazzotto_freidberg",
+    "guazzotto_freidberg_parameters",
+    "guazzotto_freidberg_to_equilibrium",
+    "derive_current_moments",
+    "fit_solovev",
+    "fit_mxh_chebyshev",
     "connection_length_map",
     "ejiri_mirror_geometry",
     "romero_flux_balance",
@@ -232,6 +244,9 @@ STATEFUL = frozenset({
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
     "compute_line_radiation_power_series",
+    # profile (#122): equilibrium + assumptions -> synthetic; synthetic -> stored slice
+    "generate_synthetic_kinetic_profiles",
+    "write_synthetic_core_profiles",
 
     # camera_fluctuation (#161): power and frames arrive on different time bases
     "normalize_by_local_emission",
@@ -299,6 +314,23 @@ CONVENTION_SENSITIVE = frozenset({
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
     "pedestal_top",
+    # profile (#1045): analytic plasma states are defined in psi_norm with
+    # full-width barriers, and the projection relies on the COCOS-free ratio
+    "analytic_hmode_itb_state",
+    "analytic_hmode_state",
+    "analytic_itb_state",
+    "analytic_lmode_state",
+    "compose_analytic_profile",
+    "compose_plasma_state",
+    "evaluate_analytic_profile",
+    "evaluate_plasma_state",
+    "project_flux_function",
+    "project_plasma_state",
+    # profile (#122): psi_norm of the source equilibrium, rho_tor from q, psi in
+    # Wb / COCOS 11 only when the convention fixes it, the declared average chord
+    "generate_synthetic_kinetic_profiles",
+    "spec_from_plasma_state",
+    "write_synthetic_core_profiles",
     # magnetics / electromagnetics / fluctuation (#418): integration sign,
     # shot-era baselines, per-unit-current responses, and the toroidal mode-number
     # entry points harmonized under standard right-handed coordinates (#638)
@@ -381,6 +413,7 @@ CONVENTION_SENSITIVE = frozenset({
     "compare_contours",
     "computed_diamagnetism_from_phi",
     "contour_shape_parameters",
+    "contour_shaping_observables",
     "convert_cocos",
     "derive_boundary_representation",
     "derive_global_descriptors",
@@ -416,6 +449,21 @@ CONVENTION_SENSITIVE = frozenset({
     "solovev_example",
     "solovev_shape_constraints",
     "miller_surfaces",
+    "evaluate_guazzotto_freidberg",
+    "guazzotto_freidberg_parameters",
+    "guazzotto_freidberg_to_equilibrium",
+    "solve_guazzotto_freidberg",
+    "current_centroid",
+    "current_covariance",
+    "current_moment",
+    "derive_current_moments",
+    "evaluate_mxh_chebyshev",
+    "fit_mxh_chebyshev",
+    "fit_solovev",
+    "evaluate_fourier_surface",
+    "fit_fourier_surface",
+    "fit_fourier_surface_sequence",
+    "grad_shafranov_residual_modes",
     "connection_length_map",
     "ejiri_mirror_geometry",
     "romero_flux_balance",
@@ -484,6 +532,7 @@ CONVENTION_SENSITIVE = frozenset({
     "export_electron_profile_txt",
     "toroidal_mode_decomposition",
     "biot_savart_filaments",
+    "phased_sector_currents",
 
     # camera_fluctuation (#161): the frame axis comes first, band edges are
     # closed, pixel bounds are row-then-column while projected pixels are

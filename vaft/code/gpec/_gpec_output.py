@@ -50,6 +50,17 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle guard
 
 #: Control-surface eigen-decomposition and coupling variables preserved
 #: verbatim (complex, native dims) because they have no IMAS home.
+#: Complex control-file variables kept in ``GpecControlOutput.extras``.
+#:
+#: The eigen-decompositions, and the **singular-coupling block**: ``C_xe`` is the
+#: energy-normed coupling matrix from the external field to the singular fields,
+#: ``Phi_xe`` the energy-normed external field it acts on, and ``O_CPhi_xe``
+#: GPEC's own projection of the second onto the first.  Those three are what
+#: :func:`vaft.process.perturbation.edge_overlap_metric` takes -- its docstring
+#: names ``C_xe`` as the already-normed matrix to hand it -- so a reader that
+#: dropped them made the only documented input to that function unreachable.
+#: ``C_coil``, ``Phi_coile`` and ``J_surf_2`` complete the block: the coupling of
+#: each coil, the external flux it drives, and the surface-current operator.
 _CONTROL_EXTRA_VARIABLES = (
     "L",
     "Lambda",
@@ -65,6 +76,12 @@ _CONTROL_EXTRA_VARIABLES = (
     "P_xe_eigenvector",
     "X_eigenvalue",
     "X_eigenvector",
+    "C_xe",
+    "Phi_xe",
+    "O_CPhi_xe",
+    "C_coil",
+    "Phi_coile",
+    "J_surf_2",
 )
 
 

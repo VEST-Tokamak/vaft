@@ -40,6 +40,7 @@ import numpy as np
 # One shared non-mutating accessor, dispatched on the object (issues #118, #63).
 from vaft.plot.backend.access import array as _array, count as _count, get as _get, has as _has
 
+from vaft.machine_mapping.conventions import cylindrical_to_cartesian
 from vaft.plot.intent import palette
 from vaft.plot.presentation import EQUILIBRIUM_ROLE
 from vaft.plot.models import (
@@ -680,6 +681,13 @@ class ProfileRecipe:
 
     y_path: str
     coordinate_paths: dict[str, str] = field(default_factory=dict)
+    #: How a declared coordinate leaf becomes the coordinate it is named for
+    #: (issue #1314), by coordinate name: ``"square"`` draws the square of the
+    #: leaf, for a leaf that stores the coordinate's square root (the DD
+    #: ``grid.rho_pol_norm`` is sqrt(psi_N), so ``psi_norm`` squares it).  A
+    #: coordinate not named here is drawn as stored.  The axis is always
+    #: labelled with the coordinate's name, so the value drawn must be it.
+    coordinate_forms: dict[str, str] = field(default_factory=dict)
     default_coordinate: str = "rho_tor_norm"
     slice_container: str = ""
     index: str = "time_slice"
@@ -1190,6 +1198,9 @@ def _core_profile_field_reads(quantity: str) -> tuple[str, ...]:
         "equilibrium.time_slice.{i}.profiles_2d.0.psi",
         "equilibrium.time_slice.{i}.global_quantities.psi_axis",
         "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+        "equilibrium.time_slice.{i}.profiles_1d.psi",
+        "equilibrium.time_slice.{i}.profiles_1d.q",
+        "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
         "core_profiles.time",
         "core_profiles.profiles_1d.{i}.time",
         f"core_profiles.profiles_1d.{{i}}.electrons.{quantity}",
@@ -1715,6 +1726,8 @@ RECIPES: dict[str, Any] = {
             "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
             "psi_norm": "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
         },
+        # grid.rho_pol_norm is sqrt(psi_N): drawn squared under the psi_N label.
+        coordinate_forms={"psi_norm": "square"},
         slice_container="core_profiles.profiles_1d",
         y_label="Electron Temperature",
         y_unit="eV",
@@ -1725,6 +1738,8 @@ RECIPES: dict[str, Any] = {
             "rho_tor_norm": "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
             "psi_norm": "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
         },
+        # grid.rho_pol_norm is sqrt(psi_N): drawn squared under the psi_N label.
+        coordinate_forms={"psi_norm": "square"},
         slice_container="core_profiles.profiles_1d",
         y_label="Electron Density",
         y_unit="m^-3",
@@ -3446,6 +3461,49 @@ def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
     return layers
 
 
+def _first_finite(value: Any) -> float | None:
+    """The first finite sample of a scalar or a time trace, else ``None``.
+
+    EC launching positions are time traces in the DD (antenna positions are
+    read through their ``.data``); a fixed launcher repeats one value, and the
+    top view draws where it sits.
+    """
+    if value is None:
+        return None
+    samples = np.asarray(value, dtype=float).reshape(-1)
+    samples = samples[np.isfinite(samples)]
+    return float(samples[0]) if samples.size else None
+
+
+#: Length of the drawn initial EC launch direction [m].
+_EC_RAY_LENGTH = 0.25
+
+
+def _ec_launch_ray_topview(ods: Any, index: int, radius: float, phi: float) -> GeometryLayer | None:
+    """The initial straight launch direction of EC beam ``index`` in the top view.
+
+    The wave vector follows the DD 3.41 steering definitions
+    ``angle_pol = atan2(-k_Z, -k_R)`` and ``angle_tor = arcsin(k_phi/k)``.
+    """
+    base = f"ec_launchers.beam.{index}"
+    angle_pol = _first_finite(_get(ods, f"{base}.steering_angle_pol"))
+    angle_tor = _first_finite(_get(ods, f"{base}.steering_angle_tor"))
+    if angle_pol is None or angle_tor is None:
+        return None
+    k_r = -np.cos(angle_pol) * np.cos(angle_tor)
+    k_phi = np.sin(angle_tor)
+    x0, y0 = radius * np.cos(phi), radius * np.sin(phi)
+    dx = k_r * np.cos(phi) - k_phi * np.sin(phi)
+    dy = k_r * np.sin(phi) + k_phi * np.cos(phi)
+    return GeometryLayer(
+        r=[x0, x0 + _EC_RAY_LENGTH * dx],
+        z=[y0, y0 + _EC_RAY_LENGTH * dy],
+        kind="polyline",
+        label=f"EC launch direction {index}",
+        style={"lw": 1.2, "linestyle": "--"},
+    )
+
+
 def _build_machine_topview(
     ods: Any, *, time_slice: int = 0, **_: Any
 ) -> GeometryLayers:
@@ -3475,7 +3533,8 @@ def _build_machine_topview(
     for container, r_path, label, style in (
         (
             "lh_antennas.antenna",
-            "lh_antennas.antenna.{i}.position.r",
+            # DD 3.41 stores antenna positions as signals (`.data` + `.time`).
+            "lh_antennas.antenna.{i}.position.r.data",
             "LH antenna",
             {"marker": "s"},
         ),
@@ -3487,11 +3546,13 @@ def _build_machine_topview(
         ),
     ):
         for index in range(_count(ods, container)):
-            radius = _get(ods, r_path.format(i=index))
-            phi = _get(ods, r_path.format(i=index).replace(".r", ".phi"), 0.0)
-            if radius is None:
+            radius = _first_finite(_get(ods, r_path.format(i=index)))
+            stored_phi = _get(ods, r_path.format(i=index).replace(".r", ".phi"))
+            # No phi at all keeps the old 12 o'clock default; a phi that is
+            # stored but never finite is unknown, and nothing is drawn.
+            phi = 0.0 if stored_phi is None else _first_finite(stored_phi)
+            if radius is None or phi is None:
                 continue
-            radius, phi = float(radius), float(phi or 0.0)
             layers.append(
                 GeometryLayer(
                     r=[radius * np.cos(phi)],
@@ -3501,6 +3562,10 @@ def _build_machine_topview(
                     style=style,
                 )
             )
+            if container == "ec_launchers.beam":
+                ray = _ec_launch_ray_topview(ods, index, radius, phi)
+                if ray is not None:
+                    layers.append(ray)
     layers.extend(_topview_diagnostic_layers(ods))
     for index, (radius, phi) in enumerate(_pellet_positions(ods, time_slice)):
         layers.append(
@@ -4335,6 +4400,49 @@ def _core_profile_slice_at(ods: Any, time_slice: int) -> int:
     return nearest
 
 
+def _rho_tor_of_psi_norm(ods: Any, time_slice: int) -> tuple[np.ndarray, np.ndarray]:
+    """``(psi_N, rho_tor_norm)`` of one equilibrium slice, as an interpolation table.
+
+    The stored ``profiles_1d.rho_tor_norm`` when it is a real toroidal
+    coordinate, else the one integrated from ``q`` (``rho_tor_profile``).  The
+    ``sqrt(psi_N)`` proxy older files carry is refused like a missing leaf.
+    ``psi_N`` is normalised by the 1-D profile's own ends, so it runs 0 to 1
+    whatever the sign or per-radian convention of ``psi``.  Raises when the
+    slice cannot supply a toroidal coordinate: drawing the profile at
+    ``sqrt(psi_N)`` instead would place every value at the wrong radius.
+    """
+    from vaft.data._derived import is_rho_pol_proxy, rho_tor_profile
+
+    base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
+    psi = _array(ods, f"{base}.psi")
+    if psi is None or psi.size < 2 or not np.all(np.isfinite(psi)) or psi[-1] == psi[0]:
+        raise ValueError(
+            f"{base}.psi is required to map a core profile's rho_tor_norm grid "
+            "onto the poloidal plane"
+        )
+    psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
+    if np.any(np.diff(psi_norm) <= 0.0):
+        raise ValueError(f"{base}.psi is not monotonic from the axis to the boundary")
+    stored = _array(ods, f"{base}.rho_tor_norm")
+    if (
+        stored is not None and stored.size == psi.size and np.all(np.isfinite(stored))
+        # a coordinate at all: axis to edge, never turning back (an all-zero
+        # leaf from a failed slice would paint the plasma at Te(0))
+        and abs(stored[0]) < 1e-6 and abs(stored[-1] - 1.0) < 1e-6
+        and np.all(np.diff(stored) >= 0.0)
+        and not is_rho_pol_proxy(stored, psi_norm)
+    ):
+        return psi_norm, stored
+    q = _array(ods, f"{base}.q")
+    derived = rho_tor_profile(q, psi) if q is not None else None
+    if derived is None or derived.rho_tor_norm.size != psi.size:
+        raise ValueError(
+            f"{base} supplies no toroidal coordinate: rho_tor_norm is missing or the "
+            "sqrt(psi_N) proxy, and q cannot be integrated into toroidal flux"
+        )
+    return psi_norm, derived.rho_tor_norm
+
+
 def _build_core_profile_field(
     ods: Any, *, quantity: str, time_slice: int = 0, **_: Any
 ) -> Field2D:
@@ -4367,7 +4475,15 @@ def _build_core_profile_field(
             "rho_tor_norm grid are required"
         )
     if psi_axis is None or psi_boundary is None:
-        psi_axis, psi_boundary = float(np.nanmin(psi_2d)), float(np.nanmax(psi_2d))
+        # The profile's own ends, so the 2-D psi_N and the rho_tor table below
+        # share one normalisation; the grid's extrema lie beyond the separatrix.
+        psi_1d = _array(ods, f"equilibrium.time_slice.{time_slice}.profiles_1d.psi")
+        if psi_1d is None or psi_1d.size < 2:
+            raise ValueError(
+                f"equilibrium.time_slice.{time_slice} has neither global_quantities "
+                "psi_axis/psi_boundary nor profiles_1d.psi to normalise its flux map"
+            )
+        psi_axis, psi_boundary = float(psi_1d[0]), float(psi_1d[-1])
     span = float(psi_boundary) - float(psi_axis)
     if span == 0.0:
         raise ValueError("equilibrium psi_axis and psi_boundary are equal")
@@ -4383,8 +4499,12 @@ def _build_core_profile_field(
             f"{psi_norm.shape}, which is neither (dim1, dim2) = "
             f"{(grid_r.size, grid_z.size)} nor its transpose"
         )
-    rho_2d = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
-    values = np.interp(rho_2d.ravel(), rho, profile).reshape(rho_2d.shape)
+    # The profile lives on rho_tor_norm; each cell knows only its psi_N.  The
+    # slice's own rho_tor_norm(psi_N) carries one to the other -- sqrt(psi_N)
+    # is rho_pol, up to 0.15 away (issue #335, the last instance of #276).
+    table_psi, table_rho = _rho_tor_of_psi_norm(ods, int(time_slice))
+    rho_2d = np.interp(np.clip(psi_norm, 0.0, 1.0).ravel(), table_psi, table_rho)
+    values = np.interp(rho_2d, rho, profile).reshape(psi_norm.shape)
     values = np.where(psi_norm <= 1.0, values, np.nan)
     labels = {
         "temperature": "Electron Temperature [eV]",
@@ -4430,21 +4550,32 @@ def _coil_set_color(set_label: str, seen_sets: dict[str, str]) -> str:
     return seen_sets[set_label]
 
 
+def _coil_group(set_label: str, label: str) -> str:
+    """``coils_non_axisymmetric/<set>/<coil>``; ``/`` inside a name is not a level."""
+    parts = [part.replace("/", "-") for part in (set_label, label)]
+    if parts[0] == parts[1]:
+        parts = parts[:1]
+    return "/".join(["coils_non_axisymmetric", *parts])
+
+
 def _build_coils_non_axisymmetric_3d(ods: Any, **_: Any) -> Geometry3DLayers:
     """Every non-axisymmetric coil filament as a 3D polyline."""
     layers = []
     seen_sets: dict[str, str] = {}
     for label, radius, phi, height in _coil_filament_paths(ods):
-        # One legend entry (and one color) per coil set, not per sector.
+        # One legend entry (and one color) per coil set, not per sector; the
+        # sector keeps its identity in ``group``.
         set_label = label.rsplit(" sector", 1)[0]
         first_of_set = set_label not in seen_sets
+        x, y, z = cylindrical_to_cartesian(radius, phi, height)
         layers.append(
             Geometry3DLayer(
-                x=radius * np.cos(phi),
-                y=radius * np.sin(phi),
-                z=height,
+                x=x,
+                y=y,
+                z=z,
                 label=set_label if first_of_set else "",
                 style={"color": _coil_set_color(set_label, seen_sets)},
+                group=_coil_group(set_label, label),
             )
         )
     return Geometry3DLayers(
@@ -4472,6 +4603,162 @@ def _build_coils_non_axisymmetric_topview(ods: Any, **_: Any) -> GeometryLayers:
         x_label="x [m]",
         y_label="y [m]",
         title="Non-axisymmetric 3D Coils (top view)",
+    )
+
+
+#: Toroidal angles [rad] at which an axisymmetric outline (wall, plasma
+#: boundary) is drawn in the 3-D machine scene: a wireframe, not a surface.
+_MACHINE_3D_CUTS = tuple(np.deg2rad([0.0, 90.0, 180.0, 270.0]))
+_MACHINE_3D_RING = np.linspace(0.0, 2.0 * np.pi, 181)
+
+
+def _toroidal_ring_3d(radius: float, height: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    return cylindrical_to_cartesian(radius, _MACHINE_3D_RING, height)
+
+
+def _outline_cuts_3d(
+    r: np.ndarray, z: np.ndarray, *, label: str, group: str, style: Mapping[str, Any]
+) -> list[Geometry3DLayer]:
+    """A closed poloidal outline at every :data:`_MACHINE_3D_CUTS` angle."""
+    r = np.append(r, r[0])
+    z = np.append(z, z[0])
+    layers = []
+    for position, phi in enumerate(_MACHINE_3D_CUTS):
+        x, y, height = cylindrical_to_cartesian(r, phi, z)
+        layers.append(Geometry3DLayer(
+            x=x, y=y, z=height, label=label if position == 0 else "", style=style,
+            group=f"{group}/phi={np.rad2deg(phi):.0f}deg",
+        ))
+    return layers
+
+
+def _cylindrical_position(ods: Any, base: str) -> tuple[float, float, float] | None:
+    """``(r, phi, z)`` stored under ``base``; ``None`` when any of the three is missing.
+
+    The 3-D scene places a channel only where the data state all three
+    coordinates -- a missing height is not assumed to be the midplane.
+    """
+    planar = _toroidal_position(ods, base)
+    if planar is None:
+        return None
+    prefix = f"{base}.0" if base.startswith(_LISTED_POSITIONS) and base.endswith(".position") else base
+    height = _get(ods, f"{prefix}.z")
+    try:
+        height = float(np.asarray(height, dtype=float).ravel()[0])
+    except (IndexError, TypeError, ValueError):
+        return None
+    if not np.isfinite(height):
+        return None
+    return planar[0], planar[1], height
+
+
+def _diagnostic_layers_3d(ods: Any) -> list[Geometry3DLayer]:
+    """:data:`_TOPVIEW_DIAGNOSTICS` in machine Cartesian coordinates, one group per family."""
+    layers: list[Geometry3DLayer] = []
+    for container, label, kind, style in _TOPVIEW_DIAGNOSTICS:
+        count = _count(ods, container)
+        if not count:
+            continue
+        group = f"diagnostics/{container}"
+        first_label = True
+        if kind in ("segments", "rings"):
+            for index in range(count):
+                if kind == "segments":
+                    base = f"{container}.{index}.line_of_sight"
+                    ends = [_cylindrical_position(ods, f"{base}.{point}")
+                            for point in ("first_point", "second_point")]
+                    if None in ends:
+                        continue
+                    r, phi, z = (np.array(values) for values in zip(*ends))
+                    x, y, height = cylindrical_to_cartesian(r, phi, z)
+                else:
+                    position = _cylindrical_position(ods, f"{container}.{index}.position")
+                    if position is None:
+                        continue
+                    x, y, height = _toroidal_ring_3d(position[0], position[2])
+                layers.append(Geometry3DLayer(
+                    x=x, y=y, z=height, label=label if first_label else "", style=style,
+                    group=f"{group}/{index}",
+                ))
+                first_label = False
+            continue
+        positions = [_cylindrical_position(ods, f"{container}.{index}.position") for index in range(count)]
+        positions = [position for position in positions if position is not None]
+        if positions:
+            r, phi, z = (np.array(values) for values in zip(*positions))
+            x, y, height = cylindrical_to_cartesian(r, phi, z)
+            layers.append(Geometry3DLayer(
+                x=x, y=y, z=height, kind="points", label=label, style=style, group=group,
+            ))
+    return layers
+
+
+def _build_machine_3d(ods: Any, *, time_slice: int = 0, **_: Any) -> Geometry3DLayers:
+    """Compose the machine in 3-D: wall and plasma cuts, coils, diagnostics.
+
+    Axisymmetric parts are a wireframe -- the poloidal outline at four
+    toroidal angles plus toroidal rings -- because :class:`Geometry3DLayers`
+    carries points and polylines, not surfaces.  Diagnostics appear only
+    where the ODS stores ``r``, ``phi`` and ``z``.
+    """
+    layers: list[Geometry3DLayer] = []
+    wall_style = {"color": "feature:wall", "lw": 1.0}
+    for index, outline in enumerate(_wall_layers(ods)):
+        r, z = np.asarray(outline.r, dtype=float), np.asarray(outline.z, dtype=float)
+        group = f"machine/wall/limiter {index}"
+        layers.extend(_outline_cuts_3d(r, z, label="Limiter" if index == 0 else "",
+                                       group=group, style=wall_style))
+        for where, position in (("outboard", int(np.argmax(r))), ("inboard", int(np.argmin(r)))):
+            x, y, height = _toroidal_ring_3d(r[position], z[position])
+            layers.append(Geometry3DLayer(x=x, y=y, z=height, style=wall_style,
+                                          group=f"{group}/{where} ring"))
+    labelled_pf = False
+    for index in range(_count(ods, "pf_active.coil")):
+        outlines = _element_outlines(ods, f"pf_active.coil.{index}")
+        if not outlines:
+            continue
+        name = _channel_label(ods, "pf_active.coil.{i}.name", index, f"PF{index + 1}")
+        # One ring per spatially separate group: an up/down pair is two rings.
+        for part, (r_group, z_group) in enumerate(_element_groups(outlines)):
+            x, y, height = _toroidal_ring_3d(float(r_group.mean()), float(z_group.mean()))
+            layers.append(Geometry3DLayer(
+                x=x, y=y, z=height, label="" if labelled_pf else "PF coils",
+                style={"color": "feature:coil", "lw": 1.2},
+                group=f"machine/pf_active/{str(name).replace('/', '-')}/{part}",
+            ))
+            labelled_pf = True
+    if _count(ods, "coils_non_axisymmetric.coil"):
+        try:
+            coils = _build_coils_non_axisymmetric_3d(ods)
+        except ValueError:
+            coils = None
+        if coils is not None:
+            layers.extend(replace(layer, group=f"machine/{layer.group}") for layer in coils.layers)
+    boundary_r = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
+    boundary_z = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
+    if boundary_r is not None and boundary_z is not None and boundary_r.size == boundary_z.size > 2:
+        layers.extend(_outline_cuts_3d(
+            boundary_r, boundary_z, label="Plasma boundary", group="equilibrium/boundary",
+            style={"color": "feature:boundary", "lw": 1.0, "linestyle": "--"},
+        ))
+    layers.extend(_diagnostic_layers_3d(ods))
+    if not layers:
+        raise ValueError(
+            "none of the machine geometry IDS (wall, pf_active, coils_non_axisymmetric, "
+            "equilibrium boundary, diagnostics with r/phi/z) are present"
+        )
+    return Geometry3DLayers(layers=tuple(layers), title="Machine Geometry (3D)")
+
+
+def _machine_3d_reads() -> tuple[str, ...]:
+    """What :func:`_build_machine_3d` reads: the top-view positions plus their heights."""
+    reads = list(_topview_reads())
+    reads += [read[: -len(".r")] + ".z" for read in reads if read.endswith(".r")]
+    return (
+        *_WALL_LIMITER_READS, *_PF_COIL_READS, *_COIL_3D_READS,
+        "equilibrium.time_slice.{i}.boundary.outline.r",
+        "equilibrium.time_slice.{i}.boundary.outline.z",
+        *reads,
     )
 
 
@@ -4679,6 +4966,11 @@ def _coil_excitation_title(rows: Sequence[Mapping[str, Any]], heading: str) -> s
     return heading if instant is None else f"{heading} at t={instant:.4g} s"
 
 
+#: Sector currents and harmonic amplitudes are discrete samples: a marker
+#: each, and no line asserting a value between two coils or two mode numbers.
+_DISCRETE_SAMPLES = {"marker": "o", "linestyle": "none"}
+
+
 def _build_coil_3d_profile_current(ods: Any, **options: Any) -> Profile1D:
     """The sector currents of each coil set against toroidal angle.
 
@@ -4696,13 +4988,14 @@ def _build_coil_3d_profile_current(ods: Any, **options: Any) -> Profile1D:
             x=np.degrees(row["phi"]),
             y=row["current"] * display.scale,
             label=f"{row['label']} ({row['phi'].size} sectors)",
+            style=_DISCRETE_SAMPLES,
         )
         for row in rows
     )
     return Profile1D(
         series=series,
         coordinate_label=r"toroidal angle $\phi$ [deg]",
-        y_label=f"coil current per filament [{display.unit}]",
+        y_label="coil current per filament",
         y_unit=display.unit,
         x_limits=(0.0, 360.0),
         title=_coil_excitation_title(rows, "Non-axisymmetric coil excitation"),
@@ -4743,6 +5036,7 @@ def _build_coil_3d_spectrum_current(ods: Any, **options: Any) -> Profile1D:
                 x=np.asarray(modes, dtype=float),
                 y=amplitude * display.scale,
                 label=f"{row['label']} ({sectors} sectors, |n| <= {limit} resolved)",
+                style=_DISCRETE_SAMPLES,
             )
         )
         if any(abs(n) > limit for n in modes):
@@ -4757,7 +5051,7 @@ def _build_coil_3d_spectrum_current(ods: Any, **options: Any) -> Profile1D:
         # `coil.turns` and the mapper keeps the two apart, so a reader who
         # wants ampere-turns multiplies. Said on the axis because the
         # difference is a factor of 20 on VEST.
-        y_label=rf"$|C_n|$ per filament [{display.unit}]",
+        y_label=r"$|C_n|$ per filament",
         y_unit=display.unit,
         title=title,
         display=display,
@@ -4800,6 +5094,12 @@ RECIPES["coil_3d_geometry3d"] = CallableRecipe(
     builder=_build_coils_non_axisymmetric_3d,
     description="Every non-axisymmetric coil filament as a 3D machine-coordinate polyline.",
     reads=_COIL_3D_READS,
+    backend=NEUTRAL,
+)
+RECIPES["machine_geometry3d"] = CallableRecipe(
+    builder=_build_machine_3d,
+    description="Wall and plasma-boundary cuts, PF rings, 3D coils and diagnostics in machine Cartesian coordinates.",
+    reads=_machine_3d_reads(),
     backend=NEUTRAL,
 )
 RECIPES["coil_3d_geometry_topview"] = CallableRecipe(
@@ -5021,7 +5321,7 @@ RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
 RECIPES["machine_geometry_topview"] = CallableRecipe(
     builder=_build_machine_topview,
     description="Plasma extent plus launcher and antenna positions in the top view.",
-    reads=(*_WALL_LIMITER_READS, *_WALL_VESSEL_READS, "equilibrium.time_slice.{i}.boundary.outline.r", "lh_antennas.antenna.{i}.position.r", "lh_antennas.antenna.{i}.position.phi", "ec_launchers.beam.{i}.launching_position.r", "ec_launchers.beam.{i}.launching_position.phi", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.phi", *_topview_reads()),
+    reads=(*_WALL_LIMITER_READS, *_WALL_VESSEL_READS, "equilibrium.time_slice.{i}.boundary.outline.r", "lh_antennas.antenna.{i}.position.r.data", "lh_antennas.antenna.{i}.position.phi.data", "ec_launchers.beam.{i}.launching_position.r", "ec_launchers.beam.{i}.launching_position.phi", "ec_launchers.beam.{i}.steering_angle_pol", "ec_launchers.beam.{i}.steering_angle_tor", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.phi", *_topview_reads()),
     backend=NEUTRAL,
 )
 RECIPES["equilibrium_field_psi_vacuum"] = CallableRecipe(
@@ -7047,6 +7347,20 @@ def _profile_coordinate(recipe: ProfileRecipe, name: str) -> str | None:
     return _EQUILIBRIUM_COORDINATES.get(name)
 
 
+#: The forms :attr:`ProfileRecipe.coordinate_forms` may name.
+COORDINATE_FORMS = ("stored", "square")
+
+
+def _declared_coordinate_form(recipe: ProfileRecipe, name: str, values: Any) -> Any:
+    """``values`` of the declared leaf of ``name`` turned into ``name`` itself (#1314)."""
+    form = recipe.coordinate_forms.get(name, "stored")
+    if form not in COORDINATE_FORMS:
+        raise ValueError(f"coordinate form must be one of {', '.join(COORDINATE_FORMS)}; got {form!r}")
+    if values is None or form == "stored":
+        return values
+    return np.square(np.asarray(values, dtype=float))
+
+
 def _radial_coordinates_for(ods: Any, index: int, cache: dict | None = None) -> Any:
     """A private copy of the equilibrium with slice ``index``'s midplane radii.
 
@@ -7230,6 +7544,7 @@ def _equilibrium_trace(
         x = _array(ods, coordinate_path.format(i=time_slice)) if coordinate_path else None
         if x is not None and x.size != y.size:
             x = None
+        x = _declared_coordinate_form(recipe, coordinate, x)
         resolved = coordinate
     elif coordinate == "r_major":
         radial = _radial_arrays(ods, time_slice, y.size, cache)
@@ -10855,7 +11170,9 @@ def _build_mhd_linear_eigenfunction_profile(
     if stride is not None and stride > 1:
         notes.append(f"every {stride}th radial sample")
     if notes:
-        title += f" ({'; '.join(notes)})"
+        # A second line: on one line the notes pushed the title past a default
+        # figure's width, and past half of it in the two-panel overview.
+        title += f"\n({'; '.join(notes)})"
 
     return Profile1D(
         series=series,

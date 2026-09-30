@@ -21,6 +21,8 @@ c_s    : ion-sound speed                             [m/s]
 τ_E    : energy confinement time                     [s]
 """
 
+import warnings
+
 import numpy as np
 from typing import Union, Tuple
 
@@ -69,6 +71,11 @@ __all__ = [
     "s_alpha_curvature_drive",
     "field_line_label",
     "v_alfven_from_B_n_mi",
+    "shear_alfven_frequency",
+    "magnetosonic_phase_speeds",
+    "kadomtsev_mixing_radius",
+    "ballooning_radial_wavenumber",
+    "s_alpha_ballooning_eigenmode",
 ]
 
 
@@ -418,7 +425,14 @@ def ballooning_stability_criterion(alpha: Union[float, np.ndarray],
 
 def kink_stability_criterion(q_95: float,
                            beta_N: float) -> Tuple[float, float]:
-    r"""Heuristic kink margin against $\beta_{N,crit} = 2.8\,q_{95}$.
+    r"""Deprecated: heuristic margin against an unsourced $\beta_{N,crit} = 2.8\,q_{95}$; use the ``troyon`` boundary.
+
+    Neither Troyon et al. [1]_ nor any other recorded source multiplies the
+    $\beta_N$ limit by $q_{95}$ (#350). The sourced limit is
+    ``vaft.formula.boundaries.get_boundary("troyon")``: Troyon's
+    $(\beta A)_{max} \approx 2.2\,I_N$ (p. 214), i.e.
+    $\beta_N \le 2.2\,\mu_0\cdot10^6 \approx 2.76$ %·m·T/MA with no $q_{95}$ factor.
+    Results are unchanged; a ``DeprecationWarning`` is emitted.
 
     $$\Delta = \beta_N - \beta_{N,crit}, \qquad \beta_{N,crit} = 2.8\,q_{95}$$
 
@@ -438,8 +452,9 @@ def kink_stability_criterion(q_95: float,
 
     Validity
     --------
-    Empirical fit.  The coefficient 2.8 is the Troyon limit $\beta_N \le 2.8$
-    [1]_; the multiplication by $q_{95}$ has no source in the literature or the
+    Empirical fit.  The coefficient 2.8 is the rounded Troyon limit
+    $2.2\,\mu_0\cdot10^6 \approx 2.76$ [1]_ (p. 214, $(\beta A)_{max} \approx 2.2\,I_N$);
+    the multiplication by $q_{95}$ has no source in the literature or the
     VAFT history and makes the limit rise with $q_{95}$, opposite to the
     observed trend.  :func:`beta_stability_boundary` uses the same form with
     0.028, i.e. the fraction rather than percent convention of $\beta_N$.
@@ -454,13 +469,26 @@ def kink_stability_criterion(q_95: float,
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
     """
+    warnings.warn(
+        "`kink_stability_criterion` is deprecated: its q_95 factor has no source (#350). Use "
+        "`vaft.formula.boundaries.get_boundary('troyon')` (beta_N <= 2.2 mu0 1e6 ~ 2.76, %·m·T/MA).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     beta_N_crit = 2.8 * q_95
     return beta_N - beta_N_crit, beta_N_crit
 
 
 def sawtooth_stability_criterion(q_0: float,
                                beta_pol: float) -> Tuple[float, float]:
-    r"""Heuristic sawtooth margin against $\beta_{p,crit} = 0.3\,(1 - q_0)$.
+    r"""Deprecated: heuristic margin against an unsourced $\beta_{p,crit} = 0.3\,(1 - q_0)$; no replacement.
+
+    Porcelli et al. [1]_ trigger the crash on conditions in the internal-kink
+    energy $\delta\hat W$, the fast-ion precession frequency, the ion diamagnetic
+    frequency (Eqs. 13-15) and, through Eq. (15a), the shear $s_1$ at $q = 1$, with $\beta_{p1}$
+    defined inside the $q = 1$ surface (Eq. 12). None reduces to a threshold
+    $0.3\,(1 - q_0)$ on the global $\beta_p$ (#350), so this has no drop-in
+    replacement. Results are unchanged; a ``DeprecationWarning`` is emitted.
 
     $$\Delta = \beta_p - \beta_{p,crit}, \qquad \beta_{p,crit} = 0.3\,(1 - q_0)$$
 
@@ -494,8 +522,14 @@ def sawtooth_stability_criterion(q_0: float,
     References
     ----------
     .. [1] F. Porcelli, D. Boucher and M. N. Rosenbluth, Plasma Phys. Control.
-           Fusion 38 (1996) 2163, Sec. 3.
+           Fusion 38 (1996) 2163, Sec. 3, Eqs. (12)-(15a).
     """
+    warnings.warn(
+        "`sawtooth_stability_criterion` is deprecated: 0.3 (1 - q_0) on the global beta_p has no source "
+        "(#350); the Porcelli trigger is a set of conditions (PPCF 38 (1996) 2163, Eqs. 12-15), not a beta threshold.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     beta_pol_crit = 0.3 * (1 - q_0)
     return beta_pol - beta_pol_crit, beta_pol_crit
 
@@ -667,7 +701,12 @@ def power_limit_from_q(q_95: float,
 
 def beta_stability_boundary(beta_N: float,
                             q_95: float) -> Tuple[float, float]:
-    r"""Heuristic beta margin against $\beta_{N,crit} = 0.028\,q_{95}$.
+    r"""Deprecated: fraction-convention twin of :func:`kink_stability_criterion`; use the ``troyon`` boundary.
+
+    The $q_{95}$ factor has no source (#350). Since #349 $\beta_N$ is in
+    %·m·T/MA, where the sourced limit is
+    ``vaft.formula.boundaries.get_boundary("troyon")`` ($\approx 2.76$).
+    Results are unchanged; a ``DeprecationWarning`` is emitted.
 
     $$\Delta = \beta_N - \beta_{N,crit}, \qquad \beta_{N,crit} = 0.028\,q_{95}$$
 
@@ -697,6 +736,12 @@ def beta_stability_boundary(beta_N: float,
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
     """
+    warnings.warn(
+        "`beta_stability_boundary` is deprecated: its q_95 factor has no source (#350). Use "
+        "`vaft.formula.boundaries.get_boundary('troyon')` with beta_N in %·m·T/MA.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     beta_N_crit = 0.028 * q_95
     stab_margin = beta_N - beta_N_crit
     return stab_margin, beta_N_crit
@@ -706,7 +751,13 @@ def plasma_stability_margins(beta_N: float,
                              q_95: float,
                              n_e: float,
                              n_G: float) -> Tuple[float, float, float]:
-    r"""Beta, $q_{95}$ and density margins in one call.
+    r"""Deprecated: beta, $q_{95}$ and density margins built on the unsourced $0.028\,q_{95}$ beta limit.
+
+    The beta margin comes from :func:`beta_stability_boundary`, whose $q_{95}$
+    factor has no source (#350). Use ``vaft.formula.boundaries``:
+    ``evaluate_boundary`` with ``"troyon"``, ``"low_q"`` and ``"greenwald"``
+    gives each margin with its source and one sign convention. Results are
+    unchanged; a ``DeprecationWarning`` is emitted.
 
     $$\Delta_\beta = \beta_N - 0.028\,q_{95}, \qquad
       \Delta_q = q_{95} - 2, \qquad
@@ -743,7 +794,13 @@ def plasma_stability_margins(beta_N: float,
     .. [1] J. A. Wesson et al., Nucl. Fusion 29 (1989) 641.
     .. [2] M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27.
     """
-    beta_margin, _ = beta_stability_boundary(beta_N, q_95)
+    warnings.warn(
+        "`plasma_stability_margins` is deprecated: its beta margin uses the unsourced 0.028 q_95 limit "
+        "(#350). Use vaft.formula.boundaries.evaluate_boundary with 'troyon', 'low_q' and 'greenwald'.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    beta_margin = beta_N - 0.028 * q_95  # beta_stability_boundary, without its own warning
     q_margin = q_95 - 2.0  # Minimum q_95 for stability
     density_margin = greenwald_fraction(n_e, n_G)
     return beta_margin, q_margin, density_margin
@@ -871,6 +928,185 @@ def c_s_from_Te_Ti_mi(T_e_keV: float,
     Te_J = T_e_keV * 1e3 * QE
     Ti_J = T_i_keV * 1e3 * QE
     return np.sqrt((Te_J + Ti_J) / m_i)
+
+
+def shear_alfven_frequency(k_parallel, v_A):
+    r"""Frequency of the ideal shear Alfven wave in a uniform plasma.
+
+    $$\omega^2 = k_\parallel^2v_A^2,\qquad \omega = |k_\parallel|\,v_A$$
+
+    Parameters
+    ----------
+    k_parallel : float or np.ndarray
+        Wavenumber along $\mathbf B_0$, signed [1/m].
+    v_A : float or np.ndarray
+        Alfven speed $B_0/\sqrt{\mu_0\rho}$ (``v_alfven_from_B_n_mi``), non-negative [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\omega \ge 0$ [rad/s].
+
+    Raises
+    ------
+    ValueError
+        ``v_A`` is negative.
+
+    Physical interpretation
+    -----------------------
+    Field-line bending restored by magnetic tension: the displacement and
+    $\delta\mathbf B_\perp = -\delta\mathbf v_\perp\,B_0/v_A$ (forward wave)
+    are perpendicular to both $\mathbf B_0$ and $\mathbf k$, and $|\mathbf B|$
+    is unchanged to first order. $\omega$ depends on $k_\perp$ not at all, so
+    energy travels along $\mathbf B_0$ only; in an inhomogeneous plasma this
+    gives the Alfven continuum $\omega = k_\parallel(r)v_A(r)$.
+
+    Assumptions
+    -----------
+    Uniform ideal MHD plasma, linear, $\omega \ll \Omega_i$; no finite
+    Larmor radius or electron inertia (kinetic and inertial Alfven waves).
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 10.2.
+    .. [2] H. Alfven, Nature 150, 405 (1942).
+    """
+    v_A = np.asarray(v_A, dtype=float)
+    if np.any(v_A < 0.0):
+        raise ValueError("v_A must be non-negative")
+    return np.abs(np.asarray(k_parallel, dtype=float)) * v_A
+
+
+def magnetosonic_phase_speeds(theta, v_A, c_s):
+    r"""Fast and slow magnetosonic phase speeds at angle $\theta$ to $\mathbf B_0$.
+
+    $$v_{f,s}^2 = \tfrac12\left[v_A^2 + c_s^2 \pm
+      \sqrt{\left(v_A^2 + c_s^2\right)^2 - 4v_A^2c_s^2\cos^2\theta}\right]$$
+
+    Parameters
+    ----------
+    theta : float or np.ndarray
+        Angle between $\mathbf k$ and $\mathbf B_0$ [rad].
+    v_A : float
+        Alfven speed, non-negative [m/s].
+    c_s : float
+        Sound speed $\sqrt{\gamma p/\rho}$, non-negative [m/s].
+
+    Returns
+    -------
+    tuple of (float or np.ndarray)
+        $(v_f, v_s)$, $v_f \ge v_s \ge 0$ [m/s].
+
+    Raises
+    ------
+    ValueError
+        ``v_A`` or ``c_s`` is negative.
+
+    Physical interpretation
+    -----------------------
+    The two compressive ideal-MHD branches, polarized in the
+    $\mathbf k$-$\mathbf B_0$ plane. The fast wave is magnetic and thermal
+    pressure acting together; at $\theta = 90^\circ$ it is
+    $\sqrt{v_A^2 + c_s^2}$, and for $c_s \ll v_A$ it is the compressional
+    Alfven wave $\omega \simeq kv_A$ with $\delta B_\parallel \ne 0$. The
+    slow wave has them in antiphase and vanishes at $\theta = 90^\circ$. With
+    the shear Alfven speed $v_A|\cos\theta|$ (``shear_alfven_frequency``$/k$)
+    they are ordered $v_s \le v_A|\cos\theta| \le v_f$ at every angle -- the
+    Friedrichs diagram.
+
+    Assumptions
+    -----------
+    Uniform ideal MHD plasma, adiabatic, linear. Pass the adiabatic
+    $c_s$; ``c_s_from_Te_Ti_mi`` is the isothermal ($\gamma = 1$) one.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 10.2.
+    .. [2] T. J. M. Boyd and J. J. Sanderson, *The Physics of Plasmas*,
+           Cambridge University Press (2003), Sec. 4.8.
+    """
+    v_A = float(v_A)
+    c_s = float(c_s)
+    if v_A < 0.0 or c_s < 0.0:
+        raise ValueError(f"v_A and c_s must be non-negative, not {v_A!r} and {c_s!r}")
+    cos2 = np.cos(np.asarray(theta, dtype=float)) ** 2
+    total = v_A * v_A + c_s * c_s
+    root = np.sqrt(np.maximum(total * total - 4.0 * v_A * v_A * c_s * c_s * cos2, 0.0))
+    fast = np.sqrt(0.5 * (total + root))
+    # v_s^2 = v_A^2 c_s^2 cos^2 / v_f^2: no cancellation where the minus-sign form loses digits
+    slow = np.sqrt(np.divide(v_A * v_A * c_s * c_s * cos2, fast * fast, out=np.zeros_like(fast), where=fast > 0.0))
+    return fast, slow
+
+
+def kadomtsev_mixing_radius(r, q):
+    r"""Kadomtsev mixing radius: where the $m/n = 1/1$ helical flux returns to its axis value.
+
+    $$\psi_*(r) \propto \int_0^r r'\left(\frac{1}{q(r')} - 1\right)dr',\qquad
+      \psi_*(r_\mathrm{mix}) = \psi_*(0),\ r_\mathrm{mix} > r_1$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor radius (or a radial label used as one), increasing from the
+        axis, first point at or near zero [m or -].
+    q : np.ndarray
+        Safety factor on ``r``, below one on the axis [-].
+
+    Returns
+    -------
+    float
+        $r_\mathrm{mix}$, in the unit of ``r`` [m or -].
+
+    Raises
+    ------
+    ValueError
+        ``r`` and ``q`` differ in length or ``r`` is not increasing,
+        $q(0) \ge 1$ (no $q = 1$ surface to reconnect), or $\psi_*$ does not
+        return to zero within ``r``.
+
+    Convention
+    ----------
+    Cylindrical helical flux of the 1/1 harmonic,
+    $d\psi_*/dr = rB_z(1/q - 1)/R_0$, up to the constant factor that cancels
+    in the root; it rises inside $q = 1$ ($r_1$) and falls outside it.
+    The integral starts at ``r[0]``, so pass the axis.
+
+    Physical interpretation
+    -----------------------
+    Full reconnection pairs each surface inside $r_1$ with the surface
+    outside it of equal helical flux; the outermost pair is the axis and
+    $r_\mathrm{mix}$. Everything inside $r_\mathrm{mix}$ is mixed and flattened
+    and $q$ there is raised to about one. When $1/q - 1$ is parabolic,
+    $\propto 1 - r^2/r_1^2$, $r_\mathrm{mix} = \sqrt 2\,r_1$ exactly; a
+    parabolic $q$ gives a little more.
+
+    Assumptions
+    -----------
+    Complete (Kadomtsev) reconnection in a cylinder; large aspect ratio.
+    Many sawteeth reconnect only partly, so $r_\mathrm{mix}$ is an upper bound
+    on the region a real crash flattens.
+
+    References
+    ----------
+    .. [1] B. B. Kadomtsev, Sov. J. Plasma Phys. 1, 389 (1975).
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 7.6.
+    """
+    r = np.asarray(r, dtype=float).ravel()
+    q = np.asarray(q, dtype=float).ravel()
+    if r.shape != q.shape or r.size < 3 or np.any(np.diff(r) <= 0.0):
+        raise ValueError("r must be increasing and the same length as q (at least 3 points)")
+    if q[0] >= 1.0:
+        raise ValueError(f"q on the axis is {q[0]:g} >= 1: there is no q = 1 surface to reconnect")
+    integrand = r * (1.0 / q - 1.0)
+    psi_star = np.concatenate([[0.0], np.cumsum(0.5 * (integrand[1:] + integrand[:-1]) * np.diff(r))])
+    past = np.flatnonzero((psi_star[1:] <= 0.0) & (psi_star[:-1] > 0.0))
+    if not past.size:
+        raise ValueError("the helical flux does not return to its axis value within r: r_mix is beyond the range")
+    i = int(past[0])
+    return float(r[i] + (r[i + 1] - r[i]) * psi_star[i] / (psi_star[i] - psi_star[i + 1]))
 
 
 # ------------------------------------------------------------------
@@ -1768,6 +2004,171 @@ def s_alpha_ballooning_solution(s, alpha, theta_max=8.0 * np.pi, step=_S_ALPHA_S
         G = G + h / 6 * (k1G + 2 * k2G + 2 * k3G + k4G)
         out.append(F)
     return thetas, np.array(out)
+
+
+
+def ballooning_radial_wavenumber(k_y, s, theta, alpha=0.0, theta0=0.0):
+    r"""Radial wavenumber of a ballooning mode along the field line, in the $s$-$\alpha$ local frame.
+
+    $$k_x = k_y\,\Lambda,\qquad \Lambda = s(\theta - \theta_0) - \alpha(\sin\theta - \sin\theta_0)$$
+
+    Parameters
+    ----------
+    k_y : float or np.ndarray
+        Binormal wavenumber, set by the toroidal mode number [1/m].
+    s : float or np.ndarray
+        Magnetic shear [-].
+    theta : float or np.ndarray
+        Extended poloidal angle along the field line, the parallel
+        coordinate $z$ [rad].
+    alpha : float or np.ndarray
+        Normalised pressure gradient; zero gives the sheared-slab relation [-].
+    theta0 : float or np.ndarray
+        Ballooning angle, where $k_x$ vanishes [rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $k_x$, same units as ``k_y`` [1/m].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input.
+
+    Convention
+    ----------
+    The $\Lambda$ of ``s_alpha_curvature_drive`` and
+    ``s_alpha_ballooning_solution``: $k_\perp^2 = k_y^2(1 + \Lambda^2)$. With
+    $\alpha = 0$ it is the sheared slab's $k_x(z) = k_{x0} + k_y\hat s z$ with
+    $z = \theta$ and $k_{x0} = -k_y\hat s\theta_0$; in physical length
+    $z_\mathrm{phys} = qR\theta$ and $\hat s = qR/L_s$. Constant $k_y$ along
+    the line, as in the field-aligned $(x, y, z)$ frame. Codes differ in the
+    sign of $\theta_0$: gyrokinetic flux-tube codes (GS2, GENE) define it
+    through $k_{x0}/(\hat s k_y)$, which is $-\theta_0$ here.
+
+    Physical interpretation
+    -----------------------
+    Magnetic shear tilts the phase fronts of a mode that is aligned with the
+    field: moving along the line, neighbouring field lines slide past each
+    other, so a fixed binormal structure acquires a growing radial
+    wavenumber -- the link between ballooning geometry and sheared-slab models.
+
+    References
+    ----------
+    .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Proc. R. Soc. A 365,
+           1 (1979).
+    """
+    vals = [np.asarray(v, dtype=float) for v in (k_y, s, theta, alpha, theta0)]
+    if not all(np.all(np.isfinite(v)) for v in vals):
+        raise ValueError("inputs must be finite")
+    k_y, s, theta, alpha, theta0 = vals
+    result = k_y * (s * (theta - theta0) - alpha * (np.sin(theta) - np.sin(theta0)))
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def s_alpha_ballooning_eigenmode(s, alpha, theta_max=6.0 * np.pi, n_points=1201):
+    r"""The most unstable localised eigenmode of the $s$-$\alpha$ ballooning equation with inertia.
+
+    $$\frac{\mathrm{d}}{\mathrm{d}\theta}\left[(1+\Lambda^{2})\frac{\mathrm{d}F}{\mathrm{d}\theta}\right]
+    + \alpha\,(\cos\theta + \Lambda\sin\theta)\,F = \hat\gamma^2\,(1+\Lambda^{2})\,F,\qquad
+    F(\pm\theta_\mathrm{max}) = 0$$
+
+    Parameters
+    ----------
+    s : float
+        Magnetic shear [-].
+    alpha : float
+        Normalised pressure gradient [-].
+    theta_max : float
+        Half-length of the extended-angle interval, positive [rad].
+    n_points : int
+        Grid points on $[-\theta_\mathrm{max}, \theta_\mathrm{max}]$, at least 101 [-].
+
+    Returns
+    -------
+    growth_rate_squared : float
+        $\hat\gamma^2 = \gamma^2 q^2R^2/v_A^2$ of the most unstable mode;
+        positive is unstable [-].
+    theta : np.ndarray
+        Extended angle [rad].
+    F : np.ndarray
+        The eigenfunction, even, normalised to $\max|F| = 1$ with $F(0) > 0$ [-].
+
+    Raises
+    ------
+    ValueError
+        A non-positive ``theta_max`` or too few points.
+
+    Convention
+    ----------
+    $\Lambda = s\theta - \alpha\sin\theta$ and the operator of
+    ``s_alpha_ballooning_solution``; the inertia term $(1+\Lambda^2)$ is
+    $k_\perp^2$ along the line and the growth rate is in Alfvén units
+    $v_A/(qR)$, the circular large-aspect-ratio normalisation. Second-order
+    finite differences, a symmetric generalised eigenproblem, Dirichlet ends:
+    for a stable surface the largest eigenvalue is near zero and negative
+    (the discretised continuum), for an unstable one it is positive and the
+    mode decays well inside the interval. The matrix is scaled by
+    $M^{-1/2}$ to a symmetric tridiagonal one, so the cost is linear in
+    ``n_points``.
+
+    Physical interpretation
+    -----------------------
+    The mode balloons: largest at $\theta = 0$, the outboard midplane where
+    the curvature is bad, and decaying over a few poloidal transits of the
+    extended angle -- the "ballooning" the name refers to.
+
+    Assumptions
+    -----------
+    As ``s_alpha_ballooning_stable``; ideal MHD, incompressible, $n \to \infty$.
+
+    Validity
+    --------
+    The unstable mode decays over $\sim 1/\hat\gamma$ in $\theta$, so the
+    Dirichlet box needs $\theta_\mathrm{max} \gg 1/\hat\gamma$; near a
+    stability boundary $\hat\gamma \to 0$ and the box stabilises the marginal
+    mode. With the default $6\pi$ a verdict within about $0.015$ of the
+    boundary in $\alpha$ is unreliable (at $s = 1$ the modes for
+    $\alpha \in (0.61, 0.625)$ come out stable while
+    ``s_alpha_ballooning_stable`` finds them unstable); use
+    ``s_alpha_ballooning_stable`` for the verdict and this function for the
+    mode structure and growth rate away from the boundary. Like that
+    function it needs $s \gtrsim 0.05$ to resolve the envelope.
+
+    References
+    ----------
+    .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40,
+           396 (1978).
+    .. [2] J. W. Connor, R. J. Hastie and J. B. Taylor, Proc. R. Soc. A 365,
+           1 (1979).
+    """
+    from scipy.linalg import eigh_tridiagonal
+
+    if not theta_max > 0.0:
+        raise ValueError("theta_max must be positive")
+    n_points = int(n_points)
+    if n_points < 101:
+        raise ValueError("n_points must be at least 101")
+    s, a = float(s), float(alpha)
+    theta = np.linspace(-theta_max, theta_max, n_points)
+    h = theta[1] - theta[0]
+    lam = lambda t: s * t - a * np.sin(t)
+    p = 1.0 + lam(theta) ** 2
+    half = 1.0 + lam(0.5 * (theta[1:] + theta[:-1])) ** 2
+    drive = a * (np.cos(theta) + lam(theta) * np.sin(theta))
+    inner = slice(1, n_points - 1)
+    diag = -(half[:-1] + half[1:]) / h**2 + drive[inner]
+    off = half[1:-1] / h**2
+    # A F = w M F with M = diag(p) -> the symmetric tridiagonal M^{-1/2} A M^{-1/2} u = w u, F = M^{-1/2} u
+    root = np.sqrt(p[inner])
+    k = n_points - 3
+    w, v = eigh_tridiagonal(diag / p[inner], off / (root[:-1] * root[1:]), select="i", select_range=(k, k))
+    F = np.concatenate([[0.0], v[:, 0] / root, [0.0]])
+    F = F / F[np.argmax(np.abs(F))]
+    if F[n_points // 2] < 0:
+        F = -F
+    return float(w[0]), theta, F
 
 
 def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):

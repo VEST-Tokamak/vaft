@@ -244,7 +244,9 @@ def test_snapshot_schema():
         assert row["machine_scope"] in (None, "independent", "vest")
         for section in row["sections"]:
             assert section["title"] in SECTION_VOCABULARY, row["id"]
-        assert ":func:" not in yaml.safe_dump(row), row["id"]
+        # the inline source (#1069) is the code as written, roles and all
+        prose = {**row, "source": {k: v for k, v in row["source"].items() if k != "code"}}
+        assert ":func:" not in yaml.safe_dump(prose), row["id"]
         assert "Raises" not in [section["title"] for section in row["sections"]], row["id"]
 
 

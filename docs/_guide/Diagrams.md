@@ -25,6 +25,10 @@ three layers split the work:
 A diagram never restates an equation. It calls the formula function, so the picture and the
 [formula reference]({{ site.baseurl }}/reference/formula/) cannot drift apart.
 
+This page explains the diagrams family by family. The complete list -- every builder, every committed
+SVG and the exact call that draws it -- is the generated
+[diagram gallery]({{ site.baseurl }}/reference/diagram/).
+
 ## Magnetic island
 
 ```python
@@ -383,6 +387,49 @@ vaft.diagram.sfl_fourier_convergence()
 * **COCOS is not a coordinate choice.** It fixes signs and orientations across every node of the
   taxonomy, independently of which angle is chosen.
 
+
+### Toroidal shift, action angles, validity, and COCOS
+
+Every straight-field-line angle except PEST needs its own toroidal angle $\zeta = \phi + \nu$.
+`vaft.formula.equilibrium.sfl_toroidal_angle_shift` gives the shift as $\nu = q(\theta_\mathrm{sfl} -
+\theta_\mathrm{PEST})$, which follows from $d\phi = q\,d\theta_\mathrm{PEST}$ and $d\zeta = q\,d\theta_\mathrm{sfl}$
+along a field line. For a toroidal mode number $n \neq 0$, a mode aligned with the nearest rational surface
+$q = m_0/n$, read at fixed $\zeta$, has in every angle the $n = 0$ spectrum moved to $m \approx m_0$ with its width
+unchanged. `sfl_fourier_convergence(n=2)` shows this: the shift $\nu$ is what keeps such a mode compact. A
+structure fixed in the geometric $\phi$ is instead moved by the angle-dependent $\nu$, and stays unshifted only
+in PEST (`spectra_with_toroidal_mode`).
+
+- `field_line_action_angle` follows one field line over a poloidal turn. Against the geometric angles
+  $(\phi, \vartheta)$ it bends; against $(\zeta, \theta_\mathrm{PEST})$ it is the straight line of slope $1/q$.
+  Nested surfaces make the field-line flow integrable, so SFL coordinates are its action-angle variables; the
+  action is the toroidal flux, and the poloidal flux is the Hamiltonian.
+  Canonical SFL coordinates, which also give the guiding-centre Hamiltonian its canonical form, stay a branch of
+  `sfl_coordinate_taxonomy`; no transformation is implemented here.
+- `sfl_coordinate_validity` computes $|q|$ toward the last closed surface. On a limited Solov'ev equilibrium it
+  settles; on a single-null one it grows as $-\ln(1 - \psi_N)$, because $B_p \to 0$ at the X-point and $\theta^*$
+  degenerates there. Islands and stochastic fields have no global surfaces at all (see `magnetic_island` and
+  `stochastic_layer`).
+- `coordinates_vs_cocos` draws the coordinate choice and the COCOS convention as orthogonal axes: every
+  combination is valid, and a coordinate system is not a COCOS convention.
+
+DCON and GPEC use the generalized family (PEST, Boozer, Hamada, equal-arc, and $J \propto R^{p_R}/(B_p^{p_{B_p}}
+B^{p_B})$). An input or output handled in VAFT should therefore keep four things together: the coordinate type,
+its powers, the Fourier convention $e^{i(m\theta - n\zeta)}$, and where the mapping came from. Two analyses in
+different SFL coordinates describe the same equilibrium with different harmonic content. DCON output
+already keeps `jac_type` and the powers (`vaft.code.gpec`).
+
+```python
+vaft.diagram.sfl_fourier_convergence(n=2)
+vaft.diagram.field_line_action_angle()
+vaft.diagram.sfl_coordinate_validity()
+vaft.diagram.coordinates_vs_cocos()
+```
+
+| | |
+| --- | --- |
+| ![n = 2]({{ '/assets/diagrams/sfl_fourier_convergence_n2.svg' | relative_url }}) | ![action angle]({{ '/assets/diagrams/field_line_action_angle.svg' | relative_url }}) |
+| ![validity]({{ '/assets/diagrams/sfl_coordinate_validity.svg' | relative_url }}) | ![cocos]({{ '/assets/diagrams/coordinates_vs_cocos.svg' | relative_url }}) |
+
 ## Clebsch labels and the ballooning representation
 
 These figures go from straight-field-line coordinates to the local, field-aligned and ballooning
@@ -415,6 +462,43 @@ vaft.diagram.ballooning_workflow()
 
 The straight-field-line coordinates they start from are in the section above (`sfl_coordinate_taxonomy`).
 The resulting $(s, \alpha)$ stability diagram is `s_alpha_ballooning`.
+
+
+### Field-aligned basis, flux tube, shear, and the ballooning eigenfunction
+
+- `field_aligned_basis` unrolls one flux surface. Its field lines are the lines of constant
+  $\alpha = \phi - q\theta$. With $x = \psi$, $y = \alpha$ and $z = \theta$, two coordinates are constant along
+  $\mathbf B$, so $\mathbf B\cdot\nabla = (\mathbf B\cdot\nabla z)\,\partial_z$.
+- `flux_tube_patch` goes from a flux surface to one field line, then to its thin neighbourhood, then to the
+  local $(x, y, z)$ box used by flux-tube gyrokinetic codes and by the sheared slab.
+- `magnetic_shear_field_aligned` follows a mode along the line. With
+  $k_x = k_y\hat s\theta$ (`ballooning_radial_wavenumber` at $\alpha = 0$, the $\Lambda$ of the $s$-$\alpha$ model),
+  its phase fronts rotate: the sheared slab's $k_x(z) = k_{x0} + k_y\hat s z$, seen in the tokamak. The binormal
+  period stays fixed, so the spacing across the fronts shrinks as $1/\sqrt{1+\hat s^2\theta^2}$; that growth of
+  $k_\perp$ is the $(1+\Lambda^2)$ of line bending and inertia.
+- `ballooning_eigenfunction` solves the $s$-$\alpha$ equation with inertia on the extended angle
+  (`s_alpha_ballooning_eigenmode`). An unstable surface has a mode peaked at the outboard midplane (bad
+  curvature) that decays within a few transits; a stable surface has only the continuum.
+
+Boundary conditions differ between the two pictures. The ballooning representation requires decay on the
+extended angle, while flux-tube codes join the sheared ends of the box (twist and shift, not derived here).
+Near an X-point $B_p \to 0$ and $q \to \infty$, so ordinary field-aligned coordinates distort; see
+`sfl_coordinate_validity` (#1074) and X-point-adapted coordinates for the edge.
+
+```python
+vaft.diagram.field_aligned_basis(q=2.5)
+vaft.diagram.flux_tube_patch()
+vaft.diagram.magnetic_shear_field_aligned(shear=1.0)
+vaft.diagram.ballooning_eigenfunction()
+```
+
+| | |
+| --- | --- |
+| ![basis]({{ '/assets/diagrams/field_aligned_basis.svg' | relative_url }}) | ![eigenfunction]({{ '/assets/diagrams/ballooning_eigenfunction.svg' | relative_url }}) |
+
+![flux tube]({{ '/assets/diagrams/flux_tube_patch.svg' | relative_url }})
+
+![shear]({{ '/assets/diagrams/magnetic_shear_field_aligned.svg' | relative_url }})
 
 ## Slab resonant layers: tearing and twisting parity
 
@@ -481,6 +565,650 @@ From the cylinder to the slab: `mode_number_mapping` expands $k_\parallel(r)$ ab
 slab of `local_slab_from_cylinder`, and `resonant_layer_matching` couples several such layers.
 The screw-pinch field line itself is `field_line_geometry("cylindrical")`, and the cylinder-vs-torus harmonic
 picture (independent $m$ vs toroidally coupled $m, m\pm1$) is `poloidal_harmonic_coupling`.
+
+## Field configurations, reconnection and MHD waves
+
+The canonical slab configurations, the topology of reconnection, and the linear ideal-MHD waves.
+All are drawn in the slab frame of `vaft.formula.geometry`: $x$ is the sheet normal (radial), $y$ the
+reconnecting (binormal) direction, and $z$ the current and guide-field direction. The geometry itself
+(slab, sheared slab, cylinder, torus) belongs to [Geometric approximations]({{ '/reference/geometric-approximations/' | relative_url }}).
+The formulas are `harris_sheet_field`, `harris_sheet_current_density` and `x_point_flux` in `geometry`,
+and `shear_alfven_frequency` and `magnetosonic_phase_speeds` in `stability`.
+
+```python
+vaft.diagram.slab_field_configuration(kind="sheared")   # "uniform", "reversed", "guide"
+vaft.diagram.current_sheet(guide_field=False)
+vaft.diagram.harris_sheet()
+vaft.diagram.x_point()
+vaft.diagram.magnetic_reconnection()
+vaft.diagram.island_formation()
+vaft.diagram.shear_alfven_wave()
+vaft.diagram.fast_magnetosonic_wave()
+vaft.diagram.mhd_wave_family()
+```
+
+| | |
+| --- | --- |
+| ![sheared]({{ '/assets/diagrams/slab_field_configuration_sheared.svg' | relative_url }}) | ![reversed]({{ '/assets/diagrams/slab_field_configuration_reversed.svg' | relative_url }}) |
+| ![sheet]({{ '/assets/diagrams/current_sheet.svg' | relative_url }}) | ![harris]({{ '/assets/diagrams/harris_sheet.svg' | relative_url }}) |
+| ![x-point]({{ '/assets/diagrams/x_point.svg' | relative_url }}) | ![reconnection]({{ '/assets/diagrams/magnetic_reconnection.svg' | relative_url }}) |
+| ![shear Alfven]({{ '/assets/diagrams/shear_alfven_wave.svg' | relative_url }}) | ![fast]({{ '/assets/diagrams/fast_magnetosonic_wave.svg' | relative_url }}) |
+
+![island formation]({{ '/assets/diagrams/island_formation.svg' | relative_url }})
+
+![wave family]({{ '/assets/diagrams/mhd_wave_family.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `slab_field_configuration` | The field on stacked $x$ = const sheets. Uniform; sheared, where the direction rotates and $\lvert\mathbf B\rvert = B_0$ to first order in $x/L_s$; reversed, where $B_y(-x) = -B_y(x)$ with a null at $x = 0$; and reversed with a guide field $B_g$, which rotates with no null. Shear and reversal are different things |
+| `current_sheet` | The reversing Harris field seen along the current, with lines at equal flux spacing (spacing $\propto 1/\lvert B_y\rvert$), the sheet of thickness $2a$, its normal, and $\otimes J_z$. With `guide_field=True`, $B_g\hat{\mathbf z}$ removes the null and leaves $J_z$ unchanged |
+| `harris_sheet` | $B_y = B_0\tanh(x/a)$ and $J_z = (B_0/\mu_0a)\,\mathrm{sech}^2(x/a)$ on one chart: the reversal and the localized current are the same layer |
+| `x_point` | The current-free null $\psi = B'(x^2 - y^2)/2$: four branches and two separatrices at right angles. Geometry only |
+| `magnetic_reconnection` | Model-neutral reconnection: inflow, outflow jets, diffusion region, upstream and reconnected field lines about a stretched X-point. No Sweet–Parker, Petschek, Hall or kinetic assumption |
+| `island_formation` | `slab_perturbed_flux` with growing $\psi_0$: straight sheared lines, then X- and O-points, then an island of width $w = 4\sqrt{\psi_0/B'}$. The growth is `delta_prime`, `slab_parity` and `tearing_layer_matching` |
+| `shear_alfven_wave` | Field-line bending with equally spaced lines, so $\lvert\mathbf B\rvert$ is unchanged to first order. $\delta\mathbf v_\perp$ and $\delta\mathbf B_\perp = -(B_0/v_A)\delta\mathbf v_\perp$ lie normal to the $\mathbf k$-$\mathbf B_0$ plane, and $\omega = \lvert k_\parallel\rvert v_A$ |
+| `fast_magnetosonic_wave` | At $\mathbf k \perp \mathbf B_0$ the lines bunch and spread, $\delta B_z = -B_0\partial_x\xi_x$, and $v_f = (v_A^2 + c_s^2)^{1/2}$. It is the compressional Alfvén wave only in the limit $c_s \ll v_A$ |
+| `mhd_wave_family` | The Friedrichs diagram of fast, shear-Alfvén and slow phase speeds against the angle to $\mathbf B_0$ ($v_s \le v_A\lvert\cos\theta\rvert \le v_f$), with each branch's restoring force, compressibility and polarization |
+
+From these to the tokamak: the current sheet and the island lead to the tearing layer (`slab_parity`),
+then to the cylindrical and toroidal tearing mode (`delta_prime`, `resonant_layer_matching`). Here
+$q(r_s) = m/n$ globally is $k_\parallel = 0$ locally (`mode_number_mapping`). The uniform-slab shear
+Alfvén wave leads to the Alfvén continuum, where $v_A(r)$ and $k_\parallel(r)$ vary. Toroidal coupling
+(`poloidal_harmonic_coupling`) then opens the gaps of the TAE and EAE. Those are not computed here.
+
+## The Grad–Shafranov problem: regions, boundaries and problem classes
+
+The axisymmetric field is $\mathbf B = R^{-1}\nabla\psi\times\hat{\boldsymbol\phi} + F(\psi)R^{-1}\hat{\boldsymbol\phi}$,
+with $\psi$ the poloidal flux per radian and $F = RB_\phi$ the poloidal-current function. Its components are
+`radial_magnetic_field_from_psi` and `vertical_magnetic_field_from_psi` (COCOS-aware); in vacuum $F$ is constant, and
+$B_\phi = F/R$ is `vacuum_toroidal_field`. One flux function $\psi(R, Z)$ is solved across the plasma, vacuum and coil regions, each with its own
+source. `vaft.formula.grad_shafranov_source` gives the Ampère form $\Delta^*\psi = -\mu_0RJ_\phi$,
+which holds in every region. `toroidal_current_density_from_p_prime_ff_prime` gives the plasma current
+that force balance allows, $J_\phi = Rp' + FF'/(\mu_0R)$. On a grid, the operator is
+`vaft.process.equilibrium.grad_shafranov_operator`. The flux maps are a toy: prescribed ring currents
+and three coils superposed through `green_psi_exact`. The topology (axis, X-point, limiter contact, LCFS)
+is then found from the total flux, as a free-boundary code finds it. A production solver would also make
+the plasma current consistent with $p'$ and $FF'$.
+
+```python
+vaft.diagram.grad_shafranov_domain_decomposition()
+vaft.diagram.fixed_vs_free_boundary_equilibrium()
+vaft.diagram.limiter_and_diverted_topologies()
+vaft.diagram.equilibrium_problem_taxonomy()
+vaft.diagram.poloidal_flux_source_decomposition()
+```
+
+![domains]({{ '/assets/diagrams/grad_shafranov_domain_decomposition.svg' | relative_url }})
+
+![fixed vs free]({{ '/assets/diagrams/fixed_vs_free_boundary_equilibrium.svg' | relative_url }})
+
+![topologies]({{ '/assets/diagrams/limiter_and_diverted_topologies.svg' | relative_url }})
+
+![taxonomy]({{ '/assets/diagrams/equilibrium_problem_taxonomy.svg' | relative_url }})
+
+![sources]({{ '/assets/diagrams/poloidal_flux_source_decomposition.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `grad_shafranov_domain_decomposition` | Same $\psi$, different $J_\phi$. The plasma source comes from force balance. The vacuum is homogeneous, $\Delta^*\psi = 0$: Laplace-type, but not $\nabla^2$. A coil carries its prescribed current. All of this sits inside the computational boundary |
+| `fixed_vs_free_boundary_equilibrium` | The boundary is an input (LCFS and $\psi_b$ given, only the inside solved) or it is part of the solution (coils and sources given, $\psi$ everywhere, LCFS read from the topology) |
+| `limiter_and_diverted_topologies` | Limited: the LCFS is the surface through the limiter tip. Diverted: the separatrix through the X-point ($\nabla\psi = 0$), with SOL and private flux. The boundary is the larger of $\psi_\mathrm{lim}$ and $\psi_X$ |
+| `equilibrium_problem_taxonomy` | Forward/inverse and fixed/free are separate axes. CHEASE is forward and fixed, TokaMaker forward and free, EFIT inverse and free. Free boundary and inverse are not synonyms |
+| `poloidal_flux_source_decomposition` | $\psi_\mathrm{plasma} + \psi_\mathrm{coil} = \psi_\mathrm{total}$. Only the sum has the X-point and the LCFS. $\psi_\mathrm{passive}$ (eddy currents) is a further term, not drawn |
+
+## Equilibrium-aware phenomena: kink displacement and sawtooth
+
+This layer sits between the reference diagrams and result plotting. The geometry comes from an
+equilibrium (any `vaft.data.equilibrium.EquilibriumData`); the physical state is a prescribed, documented
+model. The default equilibrium is the exact Solov'ev (Cerfon–Freidberg) equilibrium of
+`vaft.process.equilibrium.solovev_example` with $A = 0$, where $q$ rises from about 0.8 to 3. Surfaces,
+normals and the PEST angle $\theta^*$ come from `straight_field_line_map`, and $q(\rho)$ from
+`calculate_q_profile_from_psi`, with $\rho = \sqrt{\psi_N}$. The mode phase uses $\theta^*$. The drawing
+uses the real $(R, Z)$ surfaces.
+
+```python
+vaft.diagram.kink_mode(equilibrium=None, m=1, n=1, amplitude=0.06, radial_profile="internal")
+vaft.diagram.kink_mode(m=2, n=1, radial_profile="global", harmonics={2: 1.0, 3: 0.3})
+vaft.diagram.sawtooth(stage="precursor")   # "reconnection", "post_crash"
+```
+
+| | |
+| --- | --- |
+| ![1/1 internal]({{ '/assets/diagrams/kink_mode_1_1_internal.svg' | relative_url }}) | ![2/1 global]({{ '/assets/diagrams/kink_mode_2_1_global.svg' | relative_url }}) |
+
+![precursor]({{ '/assets/diagrams/sawtooth_precursor.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![reconnection]({{ '/assets/diagrams/sawtooth_reconnection.svg' | relative_url }}) | ![post crash]({{ '/assets/diagrams/sawtooth_post_crash.svg' | relative_url }}) |
+
+| Diagram | Model class | Concept |
+| --- | --- | --- |
+| `kink_mode` | synthetic parameterization | Each surface moves along its normal by $\xi_n = A\,a\,F(\rho)\,\mathrm{Re}\sum c_m e^{i(m\theta^* - n\phi)}$, with a named envelope. `internal` is a top hat inside $q = m/n$, `global` is $\rho^{m-1}$, and `edge` is $\rho^{4m}$. Under flux freezing this is `flux_perturbation_from_normal_displacement`, $\delta\psi = -\xi_n\lvert\nabla\psi\rvert$. It is not an eigenfunction. The cylindrical reference view is `internal_external_kink` |
+| `sawtooth` | reduced model | `precursor`: the 1/1 internal kink inside $q = 1$, with nested topology kept. `reconnection`: a hot core of radius $\rho_1(1-f)$ pushed against an outer separatrix, with the X-point where they touch and the 1/1 island in the crescent between. `post_crash`: nested surfaces again, with the region inside the Kadomtsev mixing radius flattened at conserved $\int T\rho\,d\rho$ |
+
+Two reduced Hamiltonian models extend the vocabulary of `magnetic_island` to several resonances, and to the
+X-point.
+
+```python
+vaft.diagram.stochastic_layer(regime="touching")   # "isolated", "overlapping"; or overlap=, perturbations=
+vaft.diagram.separatrix_lobes(perturbation=0.02, m=8, n=4)       # or separatrix_lobes(equilibrium, ...)
+```
+
+| | |
+| --- | --- |
+| ![isolated]({{ '/assets/diagrams/stochastic_layer_isolated.svg' | relative_url }}) | ![overlapping]({{ '/assets/diagrams/stochastic_layer_overlapping.svg' | relative_url }}) |
+
+![touching]({{ '/assets/diagrams/stochastic_layer_touching.svg' | relative_url }})
+
+![lobes]({{ '/assets/diagrams/separatrix_lobes.svg' | relative_url }})
+
+| Diagram | Model class | Concept |
+| --- | --- | --- |
+| `stochastic_layer` | reduced Hamiltonian | A Poincaré section of $H = \int\iota\,d\psi_N - \sum_k\epsilon_k\cos(m_k\theta^* - n_k\phi)$ on the equilibrium's $q$ (default 3/2 and 2/1). Each resonance alone is the pendulum of `island_pendulum_hamiltonian`, width $4\sqrt{\epsilon/\lvert\iota'\rvert}$. The pair overlap $\sigma$ (`vaft.process.perturbation.chirikov`) is 0.5, 1 or 1.6. The inset shows where the section sits |
+| `separatrix_lobes` | reduced Hamiltonian | A lower-single-null equilibrium (by default the single-null Solov'ev) plus a prescribed $\delta\psi \propto (r/r_X)^m\cos(m\vartheta - n\phi)$. The field-line map over $2\pi/n$ has a hyperbolic fixed point (Newton, multipliers $\lambda$ and $1/\lambda$). Its unstable and stable manifolds split from the unperturbed separatrix and cross each other, which makes lobes, and one strike point on the target becomes several |
+
+In `stochastic_layer`, $x = \psi_N$ stands in for the toroidal-flux action, so $\epsilon$ is a model amplitude and area in the section is not flux. `separatrix_lobes` takes any lower-single-null `EquilibriumData`: the X-point must be a saddle of the flux on the boundary value, below the axis, and the window scales with the minor radius; a limited equilibrium is refused. Neither diagram is a GPEC, MARS or vacuum-field trace: those belong to result plotting.
+
+The mixing radius comes from `vaft.formula.kadomtsev_mixing_radius`: the 1/1 helical flux
+$\psi_* \propto \int r(1/q - 1)\,dr$ returns to its axis value there. It equals $\sqrt2\,r_1$ when
+$1/q - 1$ is parabolic. Complete (Kadomtsev) reconnection is the $f \to 1$ limit, not a claim about every
+crash.
+
+### MARFE
+
+`marfe` puts a prescribed radiation condensation on the edge of an equilibrium and shows the condition that
+makes it.
+- On the high-field side (`localization="hfs"`, the usual location) the band straddles the last closed
+  surface. It is about 30° wide poloidally and 0.1$a$ deep, as Lipschultz (1987) reports.
+- Next to the X-point (`"xpoint"`, Greenwald 2002 p. R35) the band is drawn on the closed side with the same
+  sizes, which are borrowed, not measured there.
+- Its $T_e$ is below about 10 eV (Greenwald p. R34), and it is toroidally symmetric: a ring.
+
+The right panel is Drake's (1987) constant-pressure criterion in dimensionless form, computed from
+`vaft.formula.sol.radiative_condensation_growth_rate`. For $k_\parallel > 0$ the boundary is
+$k_\parallel^2\kappa_\parallel T/L = 2 - \partial\ln L/\partial\ln T$, so condensation does not need a
+falling radiation curve. On the $k_\parallel = 0$ axis only the constant-density flute limit
+(`radiative_thermal_instability_growth_rate`) applies, and it is unstable where $L$ falls with $T$.
+
+The band is prescribed, not solved, and no cooling curve or density-limit formula is built in; MARFE onset
+and density-limit semantics belong to #1068. The API names its sizes `poloidal_width_deg` and
+`radial_fraction`; the issue's `"prescribed"` localization is not implemented.
+
+```python
+vaft.diagram.marfe(localization="hfs")      # or "xpoint"; poloidal_width_deg=30, radial_fraction=0.1
+```
+
+| | |
+| --- | --- |
+| ![marfe]({{ '/assets/diagrams/marfe.svg' | relative_url }}) | ![marfe x-point]({{ '/assets/diagrams/marfe_xpoint.svg' | relative_url }}) |
+
+
+
+### Divertor heat-flux footprint
+
+`divertor_heat_footprint` maps an Eich target profile onto a diverted equilibrium. The geometry comes from
+the equilibrium itself: the X-point is the zero of $\nabla\psi$ next to the lowest boundary point, the
+strike point is where the separatrix leg crosses a horizontal target, and the total flux expansion
+$f_x = (\partial\psi/\partial R)_\mathrm{OMP} / (\partial\psi/\partial s)_\mathrm{target}$ is
+evaluated on the flux, not assumed. The profile is `vaft.formula.sol.eich_target_heat_flux_profile` with
+that $f_x$. $\lambda_q$ (at the outer midplane) and $S$ (at the target) are illustrative inputs: this is a
+schematic, and measured IR profiles belong in `vaft.plot`. The SOL surfaces one, two and three $\lambda_q$
+outside the separatrix at the midplane fan out to about $k\lambda_q f_x$ on the target. The equilibrium must be
+lower single null, with an X-point on its boundary flux and legs that reach the target inside the limiter;
+anything else is refused rather than drawn.
+
+```python
+vaft.diagram.divertor_heat_footprint(lambda_q=0.004, spreading=0.0015, target="outer")
+```
+
+![footprint]({{ '/assets/diagrams/divertor_heat_footprint.svg' | relative_url }})
+## Disruption physics: quench sequence, runaways and energy paths
+
+The chain from loss of confinement to a runaway plateau, each link a relation in the new
+`vaft.formula.disruption` category or an existing one:
+- `thermal_quench_temperature`, `current_quench_current` and `inductive_parallel_electric_field`;
+- `connor_hastie_critical_field`, `dreicer_field`, `runaway_critical_momentum` and
+  `relativistic_collision_time`;
+- `dreicer_generation_rate`, `avalanche_growth_rate`, `avalanche_efolds_from_current_drop` and
+  `runaway_current_from_density`;
+- the Spitzer resistivity, and the `startup` plasma resistance, inductance and L/R time.
+
+Detecting a disruption in data stays in `vaft.process.transients`. Simulating one belongs to kinetic or
+integrated codes.
+
+```python
+vaft.diagram.disruption_timeline()
+vaft.diagram.disruption_causal_chain()
+vaft.diagram.runaway_generation()
+vaft.diagram.disruption_energy_pathways()
+```
+
+![timeline]({{ '/assets/diagrams/disruption_timeline.svg' | relative_url }})
+
+![causal chain]({{ '/assets/diagrams/disruption_causal_chain.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![runaway generation]({{ '/assets/diagrams/runaway_generation.svg' | relative_url }}) | ![energy]({{ '/assets/diagrams/disruption_energy_pathways.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `disruption_timeline` | A 0-D reference model built from the formulas. A prescribed thermal quench raises the Spitzer $\eta$. The L/R current quench then induces $E_\parallel \approx 10^3E_c$ ($\approx 2\,\%$ of $E_D$). A Dreicer seed of a few kA is multiplied about 25-fold by the avalanche (at 1 MA, only a few e-folds) into a runaway plateau. Magnitudes are illustrative: no universal waveform |
+| `disruption_causal_chain` | The same sequence as cause and effect, each arrow labelled by its formula |
+| `runaway_generation` | The avalanche rate (per runaway) and the Dreicer rate (per electron) against $E/E_c$. The normalisations differ, so the two magnitudes are not compared. Nothing runs away below $E_c$, and Dreicer is drawn only within its asymptotic range, $E \le 0.1E_D$. Hot-tail seeding is not drawn |
+| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `stored_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
+
+## Vertical displacement events: hot and cold VDE, halo currents
+
+A hot VDE moves a still-hot plasma into the wall, and the scraping can trigger the thermal quench. A cold
+VDE follows the quench, as the decaying current loses its centred vertical equilibrium. Wall contact then
+drives halo currents through the scrape-off layer and the wall. The model-neutral reference quantities are
+in the new `vaft.formula.vde` category:
+- `vertical_velocity` and `vde_growth_rate` (a local $d\ln\lvert\Delta Z\rvert/dt$);
+- `thin_wall_time` and `wall_mode_decay_time`;
+- `halo_current_fraction` and `toroidal_peaking_factor`.
+
+A wall element's $L/R$ is `lr_time_from_L_R`. The named reduced VDE models (edge-current loss,
+filament-plus-wall, analytic halo) are not chosen yet. The disruption chain these diagrams couple to is
+`vaft.formula.disruption`.
+
+```python
+vaft.diagram.hot_vde_sequence()
+vaft.diagram.cold_vde_bifurcation()
+vaft.diagram.plasma_wall_halo_current()
+vaft.diagram.vde_timescales()
+```
+
+![hot VDE]({{ '/assets/diagrams/hot_vde_sequence.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![cold VDE]({{ '/assets/diagrams/cold_vde_bifurcation.svg' | relative_url }}) | ![halo]({{ '/assets/diagrams/plasma_wall_halo_current.svg' | relative_url }}) |
+
+![timescales]({{ '/assets/diagrams/vde_timescales.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `hot_vde_sequence` | The Solov'ev plasma moved 0, 8 and 16 cm into its limiter. The limiting surface shrinks, so the edge moves inward to lower $q$ (the equilibrium's own profile; the cylindrical estimate at fixed $I_p$ falls as $a^2$). Below, the causal chain towards the thermal quench |
+| `cold_vde_bifurcation` | A schematic normal form: below a critical current the centred equilibrium is lost, and the plasma follows an off-centre branch into the wall as $I_p$ decays. The real branches come from a model not chosen here |
+| `plasma_wall_halo_current` | Poloidal halo current through the scrape-off layer and the wall, toroidal eddy currents in the wall, and $\mathbf J_\mathrm{halo}\times\mathbf B_\phi$ on the floor, for one sign of $I_p$ and $B_\phi$ |
+| `vde_timescales` | $a/v_A$, the $m = 1$ wall time, and the L/R current-quench time at 5 and 20 eV for one medium-tokamak parameter set. The ordering is not universal |
+
+## Plasma-wall interaction
+
+The plasma-wall vocabulary: one impact and its outcomes, reflection (particle versus energy), physical
+sputtering, recycling versus retention, and particle versus energy balance. This is level 0 of the
+issue's enrichment, semantics only. No reflection or sputtering coefficient, yield or threshold is drawn
+unless it is computed by a `vaft.formula.pwi` relation from inputs the caller supplies:
+- `binary_collision_energy_transfer_factor`, the exact elastic kinematics;
+- `mean_reflected_energy_fraction`, which is $R_E/R_N$;
+- `recycling_coefficient`;
+- `sputtering_threshold_bohdansky`, a named empirical fit that needs the surface binding energy.
+
+Projectile and target species go through `vaft.spectroscopy` and are drawn apart: projectile blue,
+target dark. Each diagram's model names the IMAS paths of the quantities it shows, under
+`wall.global_quantities.neutral[:]`: the recycling particle and energy coefficients, the fluxes from the
+plasma and from the wall, the wall inventory, and the per-incident-species sputtering coefficients.
+IMAS's recycling *energy* coefficient covers all recycling channels, so it is not the prompt-reflection
+$R_E$. The canonical sputtering figure uses $E_s = 8.68$ eV, the sublimation energy of W, as a stated input.
+
+```python
+vaft.diagram.plasma_wall_interaction_processes(projectile="D", target="W")
+vaft.diagram.plasma_wall_interaction_reflection()
+vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68)   # threshold only if E_s given
+vaft.diagram.plasma_wall_interaction_recycling()
+vaft.diagram.plasma_wall_interaction_energy_partition()
+```
+
+![processes]({{ '/assets/diagrams/plasma_wall_interaction_processes.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![reflection]({{ '/assets/diagrams/plasma_wall_interaction_reflection.svg' | relative_url }}) | ![sputtering]({{ '/assets/diagrams/plasma_wall_interaction_sputtering.svg' | relative_url }}) |
+| ![recycling]({{ '/assets/diagrams/plasma_wall_interaction_recycling.svg' | relative_url }}) | ![energy]({{ '/assets/diagrams/plasma_wall_interaction_energy_partition.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `plasma_wall_interaction_processes` | Reflection (fast atom), implantation and retention, re-emission (thermal molecule), sputtering (target atom), and heat |
+| `plasma_wall_interaction_reflection` | $E_\mathrm{in}$, $E_\mathrm{refl}$, $\theta_\mathrm{in}$ and $\theta_\mathrm{refl}$ as separate quantities; $R_N$ is not $R_E$ |
+| `plasma_wall_interaction_sputtering` | A collision cascade ejects a target atom. One collision passes at most $\gamma E$ (D on W: $\gamma = 0.043$), hence the high threshold |
+| `plasma_wall_interaction_recycling` | Prompt reflection plus delayed re-emission make recycling; retention is the rest |
+| `plasma_wall_interaction_energy_partition` | Particle balance and energy balance side by side. They are not the same bookkeeping |
+
+## Spectroscopy and ionization
+
+Concept diagrams in the vocabulary of `vaft.spectroscopy`. `parse_emission_term` and `parse_line_label` are
+the same parsers `emission=` uses in `vaft.plot`, so a term that selects a trace selects the same diagram.
+Metadata is progressive, and nothing is fabricated:
+- level 0 is the semantic identity (stage, charge, element);
+- level 1 is what the data declare (the wavelength in an IMAS `processed_line` label such as `OI_7770`);
+- hydrogenic lines add Bohr-model levels and Rydberg vacuum wavelengths with the isotope's reduced mass
+  (`hydrogenic_energy_level` and `hydrogenic_transition_wavelength` in `vaft.formula.atomic`). For one-electron
+  systems this model is the authoritative source; each model records it under `source`;
+- many-electron levels and photon emissivities would need OPEN-ADAS ADF04 and ADF15. Those are extension
+  points and are not loaded; ADF11 stays in `vaft.formula.atomic`.
+
+```python
+vaft.diagram.spectroscopy_ionization_stages("C III")   # "C2+", "carbon", "CIII_1909" too
+vaft.diagram.spectroscopy_transitions("H-alpha")        # "OI_7770": declared wavelength only
+vaft.diagram.spectroscopy_energy_levels("D-alpha")
+vaft.diagram.spectroscopy_spectrum()                    # the labels VEST's spectrometer declares
+```
+
+![stages]({{ '/assets/diagrams/spectroscopy_ionization_stages.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![H-alpha]({{ '/assets/diagrams/spectroscopy_transitions_h_alpha.svg' | relative_url }}) | ![O I]({{ '/assets/diagrams/spectroscopy_transitions_oi_7770.svg' | relative_url }}) |
+
+![levels]({{ '/assets/diagrams/spectroscopy_energy_levels.svg' | relative_url }})
+
+![spectrum]({{ '/assets/diagrams/spectroscopy_spectrum.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `spectroscopy_ionization_stages` | Every stage of an element, with the named one outlined. Stage $s$ is charge $s - 1$, and D and T are hydrogen with a mass number. Semantic only |
+| `spectroscopy_transitions` | A hydrogen series member gets Bohr-model levels and its vacuum wavelength (an unspecified isotope is taken as protium, and the title says so). Fully stripped ions are refused, since they have no lines. Any other line gets unnamed levels, and a wavelength only if its label declares one |
+| `spectroscopy_energy_levels` | The hydrogenic ladder with the Lyman, Balmer and Paschen series. Hydrogenic only: other species need ADF04 |
+| `spectroscopy_spectrum` | Declared lines, each at its label's wavelength (air above 200 nm by convention). Computed hydrogenic lines are dashed and in vacuum. Lines with no wavelength are listed, not placed |
+
+## Neutral beam injection: lifecycle and reduced attenuation
+
+A small, machine-independent NBI layer. It is not NUBEAM, ASCOT5 or BEAMS3D, and it never replaces
+`vaft.code.nubeam`.
+- **Formulas** (`vaft.formula.nbi`): `beam_particle_rate_from_power_energy` (per energy component, in eV),
+  `neutral_beam_optical_depth`, `neutral_survival_fraction_from_optical_depth`,
+  `beam_birth_probability_density` (a density along the path, not a volumetric deposition),
+  `shine_through_fraction`, and `injected_toroidal_angular_momentum_rate`. The last is the ideal rate
+  carried in, not the torque on the plasma.
+- **Process** (`vaft.process.nbi.neutral_beam_attenuation_along_path`): composes these along a prescribed
+  1-D path and adds the particle and power bookkeeping. Births are counted per path cell as
+  $S_i - S_{i+1}$, so $\sum_i + f_\mathrm{shine} = 1$ and $P_\mathrm{birth} + P_\mathrm{shine} =
+  P_\mathrm{injected}$ hold exactly on any grid. The "power birth profile" is where neutrals become
+  fast ions, not where the plasma is heated. The process module's docstring tabulates what this layer
+  answers and what needs a full solver; related work is #265 (VEST NBI description), #592 (NUBEAM → IMAS),
+  #1064 and #1092 (scales, orbits).
+
+The attenuation coefficient $\alpha = \sum_j n_j\sigma_j$ is always an input; no beam-stopping data are
+built in. Orbits, trapped and passing fast ions, and $P_\phi$ are the particle-motion diagrams', and are
+not redrawn here.
+
+```python
+vaft.diagram.nbi_particle_lifecycle()      # shine-through / prompt loss / delayed loss kept apart
+vaft.diagram.nbi_neutral_attenuation()     # S(s), b(s), births and f_shine from vaft.formula.nbi
+```
+
+## Iteration behaviour, branch bifurcation and branch selection
+
+Non-convergence can arise from true branch structure or from numerical cycling. A solver that does not
+converge has not necessarily found an unphysical solution, and these diagrams separate the cases. They are
+generic concept diagrams for EFIT convergence, grid, weighting and continuation studies. No shot, residual
+or grid comparison is shown or implied, and none of them claims that a physical bifurcation exists in VEST
+equilibria.
+
+Every curve is computed:
+- the iteration panels come from the logistic map $x_{k+1} = rx_k(1 - x_k)$ at $r = 2.8$, $3.2$ and $3.5$,
+  and from an expanding linear map;
+- the branch diagram is the saddle-node normal form $\dot x = \lambda + x - x^3$;
+- the basins are its exact relaxation at $\lambda = 0$.
+
+The bifurcation is drawn once. The basin diagram is the same model at one control parameter, not a
+second bifurcation figure.
+
+```python
+vaft.diagram.iteration_behavior()       # fixed point, divergence, 2-cycle, period-4 limit cycle
+vaft.diagram.branch_bifurcation()       # stable (solid) / unstable (dashed), folds, jumps, hysteresis
+vaft.diagram.basin_of_attraction()      # initial condition selects branch A or B
+vaft.diagram.grid_induced_two_cycle()   # each re-solve lands nearer the other node: a one-cell hop
+vaft.diagram.branch_selection()         # the last two side by side under one caption
+```
+
+![iteration]({{ '/assets/diagrams/iteration_behavior.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![bifurcation]({{ '/assets/diagrams/branch_bifurcation.svg' | relative_url }}) | ![basin]({{ '/assets/diagrams/basin_of_attraction.svg' | relative_url }}) |
+
+![branch selection]({{ '/assets/diagrams/branch_selection.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `iteration_behavior` | $x_k$ against $k$ in one format. The fixed point $x^*$ (thin line) exists in every panel but is stable only in the first; guides mark the four levels of the period-4 cycle |
+| `branch_bifurcation` | Stable and unstable branches, the two folds, the jump at each fold, and the hysteresis loop; three equilibria coexist between the folds |
+| `basin_of_attraction` | Two stable solutions at one control parameter. The unstable equilibrium is the basin boundary, and the start decides the branch |
+| `grid_induced_two_cycle` | A numerical artifact. Solved from A the optimum lands nearer B, and from B nearer A, so the index hops by one grid cell and the pattern changes with the grid. The fit stays nearly flat (a secondary cue). It is not a second physical branch |
+| `branch_selection` | `basin_of_attraction` beside `grid_induced_two_cycle`: physical branch structure against numerical cycling |
+
+## Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram
+
+Each diagram is drawn from the cold-plasma equations in `vaft.formula.waves`:
+- `plasma_frequency`;
+- `stix_parameters`, giving $R, L, S, D, P$ with the signed cyclotron frequency, so $\Omega_e < 0$, and
+  `dielectric_tensor`;
+- `cold_plasma_refractive_index_squared`, the two roots of $An^4 - Bn^2 + C = 0$, in a cancellation-free
+  form that keeps the finite root at a resonance cone;
+- `perpendicular_refractive_index_squared`, giving $n_O^2 = P$ and $n_X^2 = RL/S$;
+- `cma_coordinates`, giving $X = \omega_{pe}^2/\omega^2$ and $Y = |\Omega_e|/\omega$;
+- `propagation_regime`, which classifies propagating, evanescent, cutoff and resonance.
+
+Boundaries are zeros or poles of the Stix parameters, located by bracketing the formulas; no closed form
+is typed into a drawing. The $\pm$ roots are algebraic branches, not mode names, so O/X and R/L are named
+only where the mode is tracked: at $\theta = \pi/2$ and $\theta = 0$. Electrons only, ions immobile:
+the electron-cyclotron range. Warm-plasma effects, damping, ray tracing and full-wave solutions are out of
+scope.
+
+```python
+vaft.diagram.o_mode_cutoff()                                  # n_O^2 = P, cutoff at omega_pe
+vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=1.2)    # L, R cutoffs; upper-hybrid resonance
+vaft.diagram.cma_diagram()                                    # P, R, L, S = 0 and Y = 1 in (X, Y)
+vaft.diagram.profile_propagation()                            # layers along an example midplane
+```
+
+## Neoclassical and NTV collisionality regimes
+
+Two different regime families that share the word "collisionality". Axisymmetric neoclassical transport
+orders the collision frequency against the transit and bounce frequencies. Neoclassical toroidal
+viscosity (NTV) in broken symmetry orders it against the bounce-averaged precession
+$\omega_d = \omega_E + \omega_B$:
+
+```text
+Coulomb collisions -> transit / bounce motion -> nu_hat = qR nu/v -> banana / plateau / Pfirsch-Schlueter
+3-D delta B + precession omega_d -> 1/nu / nu-sqrt(nu) / superbanana-plateau / nu -> NTV torque
+```
+
+The axis of the first diagram is $\hat\nu = qR_0\nu/v$ (`collisions_per_transit`), not a $\nu_*$. VAFT's
+several $\nu_*$ conventions (issue 353) share the symbol but not the value. The boundaries
+$\hat\nu = \epsilon^{3/2}$ and $1$ come from `neoclassical_regime_boundaries`. The orbit scales behind
+them are `transit_frequency`, `deeply_trapped_bounce_frequency`,
+`trapped_particle_effective_collision_frequency` and `banana_width` in `vaft.formula.neoclassical`.
+
+`vaft.formula.ntv` holds the exact, convention-bearing relations:
+- `ntv_precession_frequency`, whose zero is the superbanana-plateau resonance. $\omega_E$ is the
+  $E\times B$ frequency `omega_exb`, never the toroidal rotation, and both $\omega_E$ and $\omega_B$ are measured along the plasma current;
+- `nonambipolar_torque_density`, the torque on the plasma: the $\mathbf J\times\mathbf B$ of the return current that cancels the non-ambipolar flux. Ion loss in a co-current plasma drives counter-current rotation.
+
+The size of the flux needs a drift-kinetic code (`vaft.code`), and Shaing's connected formula is not
+implemented, so the NTV regime diagram shows slopes only.
+
+```python
+vaft.diagram.neoclassical_collisionality(epsilon=0.1)
+vaft.diagram.ntv_collisionality()
+vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
+```
+
+| | |
+| --- | --- |
+| ![lifecycle]({{ '/assets/diagrams/nbi_particle_lifecycle.svg' | relative_url }}) | ![attenuation]({{ '/assets/diagrams/nbi_neutral_attenuation.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `nbi_particle_lifecycle` | Injection, ionisation, fast-ion birth, confinement, slowing down, heating and drive, then thermalisation. Each loss branches at its own stage: shine-through while neutral, prompt orbit loss after ionisation, delayed loss after confinement |
+| `nbi_neutral_attenuation` | Survival $e^{-\tau}$ and birth density $\alpha S$ along a path through a parabolic plasma (an illustrative $\alpha$). Births are drawn at equal probability steps, and the shine-through is marked at the exit |
+
+| ![O mode]({{ '/assets/diagrams/o_mode_cutoff.svg' | relative_url }}) | ![X mode]({{ '/assets/diagrams/x_mode_dispersion.svg' | relative_url }}) |
+| ![CMA]({{ '/assets/diagrams/cma_diagram.svg' | relative_url }}) | ![profile]({{ '/assets/diagrams/profile_propagation.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `o_mode_cutoff` | Evanescent below $\omega_{pe}$, propagating above; the cutoff $P = 0$ does not depend on $B$ |
+| `x_mode_dispersion` | Evanescent below $\omega_L$, propagating to the upper-hybrid pole, evanescent to $\omega_R$, then propagating. Poles are masked |
+| `cma_diagram` | Cutoffs (solid) and resonances (dashed) of a cold electron plasma in the CMA plane |
+| `profile_propagation` | $n_O^2$ and $n_X^2$ along $R$, with strips where each mode propagates (`propagation_regime`), for an example tokamak (not a device) at the on-axis electron cyclotron frequency: O cutoffs, L and R cutoffs, the upper-hybrid layer behind the R cutoff, and the ECR |
+
+| ![neoclassical]({{ '/assets/diagrams/neoclassical_collisionality.svg' | relative_url }}) | ![ntv]({{ '/assets/diagrams/ntv_collisionality.svg' | relative_url }}) |
+| ![precession]({{ '/assets/diagrams/ntv_precession_regimes.svg' | relative_url }}) | |
+
+| Diagram | Concept |
+| --- | --- |
+| `neoclassical_collisionality` | $D/D_\mathrm{plateau}$ against $\hat\nu$: asymptotes $\hat\nu/\epsilon^{3/2}$, 1 and $\hat\nu$ meeting at the formula's boundaries. Orderings, not phase boundaries |
+| `ntv_collisionality` | Non-resonant ($1/\nu$, then $\nu$--$\sqrt\nu$) and resonant ($1/\nu$, superbanana plateau, superbanana $\nu$) branches, with Shaing's exponents. Schematic breakpoints |
+| `ntv_precession_regimes` | $\nu_\mathrm{eff}$ against $\omega_E/\omega_B$: the resonance $\omega_d = 0$ and the ordering $\nu_\mathrm{eff} = |\omega_d|$ from `ntv_precession_frequency`. A schematic resonant band holds the superbanana plateau and $\nu$ regimes |
+
+## Wall conditioning
+
+Baking, glow-discharge cleaning and boronization, each drawn as a transition of the wall state
+$S^{(0)}_\mathrm{wall} \to S^{(1)}_\mathrm{wall}$ (`WALL_STATE_CHANGE` in the module), not only as
+"cleaning". The diagrams are reduced and semantic, and share one vessel with an inlet port, a pump port
+and a wall-surface primitive:
+- baking is thermal desorption only: no glow, anode, ion bombardment or coating;
+- the glow discharges share one apparatus template: gas feed, glow, anode, the wall as cathode, and ions
+  accelerated across the cathode sheath onto the whole wall. H$_2$/D$_2$ is reactive cleaning, with
+  volatile O/C products that match the feed isotope. He is ion-induced release of retained H/D, drawn
+  with its own arrow style;
+- boronization names a "B-containing precursor" unless one is passed, and leaves a B-rich layer.
+
+Species are examples. No temperature, precursor, pressure or thickness is built in. A temperature (in K
+or °C) or a thickness is drawn only when the caller passes it together with its source. The sequence
+ends in plasma operation; how the conditioned wall responds then is the [plasma-wall
+interaction](#plasma-wall-interaction) section.
+
+```python
+vaft.diagram.wall_conditioning_baking()        # temperature=, temperature_unit="K"|"degC", temperature_source=
+vaft.diagram.wall_conditioning_gdc("D2")       # "H2", "D2" or "He"
+vaft.diagram.wall_conditioning_boronization(precursor="B$_2$H$_6$")
+vaft.diagram.wall_conditioning_sequence(("baking", "D2_gdc", "He_gdc", "boronization"))
+```
+
+![sequence]({{ '/assets/diagrams/wall_conditioning_sequence.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![baking]({{ '/assets/diagrams/wall_conditioning_baking.svg' | relative_url }}) | ![boronization]({{ '/assets/diagrams/wall_conditioning_boronization.svg' | relative_url }}) |
+| ![D2 GDC]({{ '/assets/diagrams/wall_conditioning_gdc_deuterium.svg' | relative_url }}) | ![He GDC]({{ '/assets/diagrams/wall_conditioning_gdc_helium.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `wall_conditioning_baking` | External heat drives adsorbed water and gases off the wall into the pump |
+| `wall_conditioning_gdc` | One glow-discharge template. H$_2$/D$_2$: O and C leave as volatile products. He: He$^+$ bombardment releases retained H/D |
+| `wall_conditioning_boronization` | A B-containing precursor in a deposition plasma leaves a B-rich surface layer, a change of surface state rather than cleaning |
+| `wall_conditioning_sequence` | The single stages in the caller's order, each arrow a wall-state transition, ending in plasma operation. The order is not a recommended procedure |
+
+## SOL blobs and filaments
+
+A blob is a localized positive density (pressure) perturbation in the scrape-off layer, and a hole is a
+negative one. The filament is the field-aligned structure whose perpendicular cross-section is the blob.
+
+How a blob moves:
+- curvature and $\nabla B$ drift ions and electrons apart;
+- the density monopole becomes a charge dipole, $+$ above and $-$ below;
+- the dipole's $E$ field drives an $E\times B$ drift outward on the low-field side, down $\nabla B$ (a hole
+  moves inward).
+
+How fast it moves depends on where the polarization current closes:
+- along the field to the sheaths (sheath-connected, $v \propto \delta^{-2}$);
+- across the field by ion inertia (inertial or resistive-ballooning, $v \propto \delta^{1/2}$);
+- with resistivity and X-point fanning, in between.
+
+`vaft.formula.sol` holds the prescribed filament state `blob_density_perturbation` (a blob, or a hole below
+the background), the reference size $\delta_* = \rho_s^{4/5}L_\parallel^{2/5}/R^{1/5}$, the
+reference velocity $v_*$, the collisionality $\Lambda$, both limits, the interpolation, and the four regime
+scalings. All follow D'Ippolito, Myra and Zweben (2011), with a Gaussian of radius $\delta$. The $O(1)$
+prefactors in Krasheninnikov (2001) and Theiler et al. (2011) belong to their own size definitions. The NSTX
+parameters of Myra et al. (2006) give $\hat a \approx 1.3$, as in their Fig. 1, and $v_* \approx 3$ km/s from their
+symbolic Eq. (3); their text quotes $v_* \sim 2$ km/s. Cold ions throughout: $c_s = (T_e/m_i)^{1/2}$.
+
+```python
+vaft.diagram.blob_polarization()        # the mechanism: dipole, E, E x B; perturbation="hole" reverses it
+vaft.diagram.blob_current_closure(regime="sheath")   # or "inertial": where the current closes
+vaft.diagram.blob_velocity_scaling()    # v/v* against delta/delta*: both limits and Eq. (9)
+vaft.diagram.blob_regimes(epsilon_x=0.1)  # Lambda against Theta = delta_hat^{5/2}: RB, RX, C_i, C_s
+```
+
+| | |
+| --- | --- |
+| ![polarization]({{ '/assets/diagrams/blob_polarization.svg' | relative_url }}) | ![hole]({{ '/assets/diagrams/blob_polarization_hole.svg' | relative_url }}) |
+| ![sheath closure]({{ '/assets/diagrams/blob_current_closure_sheath.svg' | relative_url }}) | ![inertial closure]({{ '/assets/diagrams/blob_current_closure_inertial.svg' | relative_url }}) |
+
+| | |
+| --- | --- |
+| ![velocity]({{ '/assets/diagrams/blob_velocity_scaling.svg' | relative_url }}) | ![regimes]({{ '/assets/diagrams/blob_regimes.svg' | relative_url }}) |
+
+## Integrated modeling: knowledge basis, realization, abstraction
+
+A single "analytic / numerical / empirical / data-driven" list mixes three independent questions. These
+diagrams keep them apart (#1085):
+
+- **Knowledge basis:** where does the model's knowledge come from, from first-principles to data-driven?
+- **Computational realization:** how is the model evaluated, from analytical to fully numerical?
+- **Physical abstraction:** at what description level is the system represented, from particle orbits to static equilibrium?
+
+The diagrams then combine the three axes into one space and connect models by typed couplings. They show
+location and character, not ranking: neither end of an axis is better.
+
+```python
+vaft.diagram.knowledge_basis()
+vaft.diagram.computational_realization()
+vaft.diagram.physical_abstraction()
+vaft.diagram.integrated_modeling_space()                 # "fusion", "tearing"
+vaft.diagram.integrated_modeling_process()
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `knowledge_basis` | Mechanistic/first-principles, semi-empirical/closure, empirical, data-driven. Physics-informed models (physical constraints with fitted or learned parts) are a bridge over the axis, not one point on it |
+| `computational_realization` | Analytical, semi-analytical, reduced numerical, fully numerical. Learned surrogates are not a rung: they are placed by knowledge basis and role |
+| `physical_abstraction` | Particle/orbit, kinetic, moment/fluid, MHD, equilibrium/static. Each arrow names its reduction: ensemble average, velocity moments + closure, single fluid at low frequency, stationary force balance |
+| `integrated_modeling_space` | Knowledge basis across, realization up. The physical abstraction is shown by the fill colour of each model and repeated in its border pattern, so it survives grayscale. Conceptual and heuristic models (physical picture, cartoon, scaling argument, toy model) are an explanatory layer beside the space, not a fourth axis |
+| `integrated_modeling_process` | Experiment, measurement, processing, inverse model (parameter inference), physical state, forward and data-driven models, prediction, and validation/control, with the eight coupling types of the legend |
+
+**Semi-empirical** is a knowledge basis: a physical form with fitted coefficients. **Semi-analytical** is a
+computational realization: an asymptotic expansion, a Green-function reduction or a quadrature of a closed
+form. The words look alike but belong to different axes.
+
+![knowledge basis]({{ '/assets/diagrams/knowledge_basis.svg' | relative_url }})
+![computational realization]({{ '/assets/diagrams/computational_realization.svg' | relative_url }})
+![physical abstraction]({{ '/assets/diagrams/physical_abstraction.svg' | relative_url }})
+![integrated modeling space]({{ '/assets/diagrams/integrated_modeling_space.svg' | relative_url }})
+
+Positions are semantic, not layout. Models with the same knowledge basis share an x and are separated in y.
+A learned model is not a realization rung. A surrogate takes the y of the model it emulates and is linked to
+it; a model that emulates nothing, such as a classifier, sits at the rung of its evaluation.
+
+The `"fusion"` overlay places familiar codes, from Solov'ev, EFIT and CHEASE to TGLF, TRANSP and ASCOT5, with an
+empirical confinement scaling, a neural-operator surrogate of TGLF and an event classifier. These placements are
+illustrative, not a classification:
+- EFIT is an inverse model: it solves the Grad–Shafranov equation numerically inside a fit to measurements.
+- TRANSP is mainly used interpretively, so it is also an inverse model.
+- DCON integrates the Newcomb ODE, which is a reduced numerical method.
+- TGLF is gyro-Landau-fluid approximating gyrokinetics, with a saturation rule fitted to nonlinear gyrokinetic
+  runs, so it sits at semi-empirical/closure. The `"tearing"` variant follows one phenomenon from an island picture in
+the explanatory layer, through the Rutherford equation, to a nonlinear resistive-MHD simulation.
+
+![integrated modeling space, fusion]({{ '/assets/diagrams/integrated_modeling_space_fusion.svg' | relative_url }})
+![integrated modeling space, tearing]({{ '/assets/diagrams/integrated_modeling_space_tearing.svg' | relative_url }})
+
+The coupling types are data flow, closure, parameter inference/calibration, surrogate replacement, residual
+correction, validation/benchmarking, feedback/control and iterative coupling. A coupling is a label on an
+edge. The data-driven model's three uses are alternatives: a closure inside the forward model, or a surrogate
+replacement of it, or a residual correction of its prediction (the hybrid mode). Validation compares the
+prediction with the processed measurement, and control acts on the experiment.
+
+![integrated modeling process]({{ '/assets/diagrams/integrated_modeling_process.svg' | relative_url }})
+
+The vocabulary and the example placements are data in `vaft.diagram._modeling_schema`: the axis stations,
+`ModelDescriptor`, `ModelCoupling` and the coupling types. They are kept apart from the drawing so that
+documentation and provenance tooling can reuse them. They are not a stable public API yet.
 
 ## Using the committed assets
 

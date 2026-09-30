@@ -1,0 +1,34 @@
+{%- comment -%}
+One builder of the generated diagram gallery (diagram_catalog.yml): its
+committed SVGs first, then how to draw them and what physics they call.
+
+  include.b     the builder row
+  include.ref   git ref the source link points at
+
+validate_docs.rb counts the data-catalog elements: one per builder
+(data-catalog="diagram") and one per asset (data-catalog="diagram-asset").
+{%- endcomment -%}
+{%- assign b = include.b -%}
+{%- assign formula = site.data.formula_catalog -%}
+<section class="ref-entry" id="{{ b.name }}" data-catalog="diagram" markdown="block">
+<header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#{{ b.name }}"><code>{{ b.name }}</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">{{ b.assets.size }} asset{% if b.assets.size != 1 %}s{% endif %}</span></span>
+{% include reference/source-link.html src=b.source ref=include.ref key=b.name %}
+</header>
+<div class="ref-gallery">
+{% for name in b.assets %}{% assign a = site.data.diagram_catalog.assets | where: "asset", name | first %}<figure class="ref-figure" id="asset-{{ a.id }}" data-catalog="diagram-asset" data-asset="{{ a.asset }}">
+<a href="{{ site.baseurl }}/{{ a.svg }}"><img src="{{ site.baseurl }}/{{ a.svg }}" alt="{{ b.name }}: {{ a.asset }}" loading="lazy"></a>
+<figcaption><code>{{ a.call | escape }}</code></figcaption>
+</figure>
+{% endfor %}</div>
+
+{{ b.summary }}
+
+<pre class="ref-signature"><code>vaft.diagram.{{ b.name }}{{ b.signature | escape }}</code></pre>
+{% include reference/source-code.html src=b.source ref=include.ref key=b.name %}
+
+{% if b.formula.size > 0 %}<p class="ref-note">Formula functions referenced:
+{% for f in b.formula %}{% assign entry = formula.formulas | where: "category", f.category | where: "name", f.name | first %}{% if f.category != "" %}{% assign label = f.category | append: "." | append: f.name %}{% else %}{% assign label = f.name %}{% endif %}{% if entry %}<a href="{{ site.baseurl }}/reference/formula/{{ f.category }}/#{{ f.name }}"><code>{{ label }}</code></a>{% else %}<code>{{ label }}</code>{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}</p>
+{% endif %}
+</section>

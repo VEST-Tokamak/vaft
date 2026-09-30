@@ -1,0 +1,144 @@
+# The published VAFT Python API (issue #162).
+#
+# `python -m vaft._api_catalog` documents every public module (no `_` in its
+# dotted name) that declares `__all__`: `__all__` is the module's own statement
+# of what it publishes, and this file only says how the modules are grouped
+# into pages.  `docs/scripts/catalog_coverage.py` fails the build when
+#
+#   * a public module declares no `__all__` and is not listed under
+#     `undeclared` -- a new module has to say what it publishes, or be listed
+#     here as publishing nothing yet;
+#   * a module listed under `undeclared` declares `__all__` or no longer
+#     exists -- the list is stale;
+#   * a public module belongs to no page below.
+#
+# Order is page order.  `modules` are dotted prefixes covering a module and its
+# submodules (the longest match wins), except `vaft`, which covers only itself.
+pages:
+  - slug: core
+    title: Top level and utilities
+    modules: [vaft, vaft.compat, vaft.ods_access, vaft.spectroscopy]
+  - slug: database
+    title: vaft.database
+    modules: [vaft.database]
+  - slug: data
+    title: vaft.data
+    modules: [vaft.data]
+  - slug: machine-mapping
+    title: vaft.machine_mapping
+    modules: [vaft.machine_mapping]
+  - slug: omas
+    title: vaft.omas
+    modules: [vaft.omas]
+  - slug: imas
+    title: vaft.imas
+    modules: [vaft.imas]
+  - slug: process
+    title: vaft.process
+    modules: [vaft.process]
+  - slug: formula
+    title: vaft.formula
+    modules: [vaft.formula]
+  - slug: plot
+    title: vaft.plot
+    modules: [vaft.plot]
+  - slug: diagram
+    title: vaft.diagram
+    modules: [vaft.diagram]
+  - slug: validation
+    title: vaft.validation
+    modules: [vaft.validation]
+  - slug: code
+    title: vaft.code
+    modules: [vaft.code]
+  - slug: cli
+    title: vaft.cli
+    modules: [vaft.cli]
+
+# Public-looking modules that declare no `__all__`, so publish nothing yet.
+# Declaring `__all__` in one of them publishes it: remove it from this list.
+undeclared:
+  - vaft.cli
+  - vaft.cli.compare_ods
+  - vaft.cli.export
+  - vaft.cli.filedb
+  - vaft.cli.plot
+  - vaft.cli.raw_redump
+  - vaft.cli.raw_upgrade
+  - vaft.cli.sxr_pack
+  - vaft.code.base
+  - vaft.code.efit.kfile
+  - vaft.code.efit.legacy
+  - vaft.code.efit.magnetic
+  - vaft.code.gacode.inputs
+  - vaft.code.gacode.neo.inputs
+  - vaft.code.gacode.neo.outputs
+  - vaft.code.gacode.neo.runner
+  - vaft.code.genray.config
+  - vaft.code.nice.config
+  - vaft.code.nice.diagnostics
+  - vaft.code.nice.geometry
+  - vaft.code.nice.inputs
+  - vaft.code.nice.outputs
+  - vaft.code.nice.response
+  - vaft.code.nice.runner
+  - vaft.code.nice.study
+  - vaft.code.nice.validate_reference
+  - vaft.code.nubeam.config
+  - vaft.code.nubeam.inputs
+  - vaft.code.nubeam.outputs
+  - vaft.code.nubeam.runner
+  - vaft.code.snakemake
+  - vaft.code.tes.config
+  - vaft.code.tes.inputs
+  - vaft.code.tes.outputs
+  - vaft.code.tes.runner
+  - vaft.code.tes.scan
+  - vaft.code.tokamaker.config
+  - vaft.code.tokamaker.evolve
+  - vaft.code.tokamaker.free_boundary
+  - vaft.code.tokamaker.geometry
+  - vaft.code.tokamaker.inputs
+  - vaft.code.tokamaker.mesh
+  - vaft.code.tokamaker.outputs
+  - vaft.code.tokamaker.runner
+  - vaft.code.tokamaker.scan
+  - vaft.code.tokamaker.stability
+  - vaft.code.tokamaker.topology
+  - vaft.code.tokamaker.vessel
+  - vaft.data.eqdsk
+  - vaft.data.resources
+  - vaft.database.h5image
+  - vaft.database.ids
+  - vaft.database.lazy_common
+  - vaft.database.ods
+  - vaft.database.product_migration
+  - vaft.database.raw
+  - vaft.database.staging
+  - vaft.database.transport
+  - vaft.database.utils
+  - vaft.diagram.build
+  - vaft.imas.code_parameters
+  - vaft.imas.omas_imas
+  - vaft.machine_mapping.mhd_linear
+  - vaft.machine_mapping.pulse_schedule.card
+  - vaft.machine_mapping.pulse_schedule.converter
+  - vaft.machine_mapping.pulse_schedule.schema
+  - vaft.machine_mapping.pulse_schedule.values
+  - vaft.machine_mapping.registry
+  - vaft.machine_mapping.summary
+  - vaft.omas
+  - vaft.omas.formula_wrapper
+  - vaft.omas.general
+  - vaft.omas.process_wrapper
+  - vaft.omas.update
+  - vaft.plot.analysis
+  - vaft.plot.backend
+  - vaft.plot.backend.convention
+  - vaft.plot.history
+  - vaft.plot.mirnov
+  - vaft.plot.onedim
+  - vaft.plot.profile
+  - vaft.plot.time
+  - vaft.plot.twodim
+  - vaft.version

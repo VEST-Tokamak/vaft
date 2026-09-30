@@ -53,12 +53,12 @@ SESSIONS = {
         "qmd": "presentations/04_fluctuation_diagnostics_for_plasma_perturbations_and_transient_events.qmd",
     },
     5: {
-        "notebook": "05_mhd_stability_and_3d_perturbations.ipynb",
-        "qmd": "presentations/05_mhd_stability_and_3d_perturbations.qmd",
+        "notebook": "05_mhd_stability_and_perturbed_equilibria.ipynb",
+        "qmd": "presentations/05_mhd_stability_and_perturbed_equilibria.qmd",
     },
     6: {
-        "notebook": "06_operational_space_and_statistics.ipynb",
-        "qmd": "presentations/06_operational_space_and_statistics.qmd",
+        "notebook": "06_operational_space_and_data_driven_analysis.ipynb",
+        "qmd": "presentations/06_operational_space_and_data_driven_analysis.qmd",
     },
 }
 

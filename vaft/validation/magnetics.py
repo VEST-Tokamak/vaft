@@ -1378,20 +1378,46 @@ def unusable_channels_at(
 # Manifest metrics
 # ---------------------------------------------------------------------------
 
-def _family(quality: ChannelQuality, positions: Mapping[tuple[str, int], tuple[float, float]]) -> str:
+#: The family of a B-pol probe beyond EFIT's geometry: the trailing
+#: fluctuation/phase-reference Mirnov coils (30 ``OutMirnov_*`` on 447xx).
+#: They are not constraints, so they are not counted in an EFIT family.
+NOT_IN_EFIT = "not_in_efit"
+
+
+def _family(
+    quality: ChannelQuality,
+    positions: Mapping[tuple[str, int], tuple[float, float]],
+    nbprobe: int | None = None,
+) -> str:
     """The EFIT-submitted family a channel belongs to.
 
     Classified by :func:`vaft.omas.vacuum_magnetics.probe_family`, the one place
     that owns those boundaries, so a coverage report and a forward model cannot
     disagree about what "inboard" means.  Imported lazily: it reaches the
     machine-mapping layer, which the validation core does not depend on.
+
+    A probe at or beyond ``nbprobe`` (EFIT's probe count) is
+    :data:`NOT_IN_EFIT` whatever its position: counting the outboard Mirnov
+    array made 44780's "outboard" family expect 52 channels, 31 of them absent.
     """
     from vaft.omas.vacuum_magnetics import probe_family
 
+    if nbprobe is not None and quality.kind == "b_field_pol_probe" and quality.index >= nbprobe:
+        return NOT_IN_EFIT
     position = positions.get((quality.kind, quality.index))
     if position is None:
         return "unknown"
     return probe_family(quality.kind, *position)
+
+
+def _efit_probe_count(source: Any) -> int | None:
+    """EFIT's probe count, or ``None`` when the source cannot say (no magnetics)."""
+    from vaft.machine_mapping.magnetics import equilibrium_probe_count
+
+    try:
+        return int(equilibrium_probe_count(source))
+    except Exception:  # noqa: BLE001 - a report must not fail on a partial source
+        return None
 
 
 def _positions(source: Any, report: Iterable[ChannelQuality]) -> dict[tuple[str, int], tuple[float, float]]:
@@ -1423,6 +1449,7 @@ def magnetics_quality_metrics(
     """
     entries = tuple(report)
     positions = _positions(source, entries)
+    nbprobe = _efit_probe_count(source)
     channels = []
     for quality in entries:
         channels.append(
@@ -1432,7 +1459,7 @@ def magnetics_quality_metrics(
                 "name": quality.name,
                 "quantity": quality.quantity,
                 "unit": quality.unit,
-                "family": _family(quality, positions),
+                "family": _family(quality, positions, nbprobe),
                 "status": str(quality.status),
                 "validity": quality.validity,
                 "valid_fraction": quality.valid_fraction,
@@ -1486,6 +1513,9 @@ def magnetics_quality_metrics(
     return {
         "schema_version": 1,
         "configuration": asdict(settings),
+        # EFIT's probe count the families were split at; None when the source
+        # could not say, and then probes beyond it are not separated (#1331).
+        "efit_probe_count": nbprobe,
         "summary": summary,
         "families": families,
         "channels": channels,

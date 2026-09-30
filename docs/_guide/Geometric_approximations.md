@@ -20,7 +20,9 @@ reductions using the literature's names. The formulas are in
 
 The toroidal parent geometry itself (flux surfaces, the Shafranov shift, shaping, $q$ as a winding
 number, and $\theta$ versus $\theta^*$) is drawn in the tokamak-geometry section of
-[Scientific diagrams]({{ '/reference/diagrams/' | relative_url }}).
+[Scientific diagrams]({{ '/reference/diagrams/' | relative_url }}). How VAFT keeps coordinates,
+projections, representations, derived quantities and solver conventions of one real equilibrium
+apart is on [Equilibrium representations]({{ '/reference/equilibrium-representations/' | relative_url }}).
 
 ## Two axes, not one hierarchy
 
@@ -83,6 +85,11 @@ large-aspect-ratio theories stay toroidal.
 * **Drops:** global geometry, and curvature unless it is added.
 * **Used for:** the inner layer of tearing modes (FKR, Rutherford), drift waves with shear, and the
   local limits of gyrokinetics.
+* **Related configurations in the same frame:** the reversing field of a Harris current sheet,
+  $B_y = B_0\tanh(x/a)$ (`harris_sheet_field`, `harris_sheet_current_density`), whose centre is a
+  sheared slab with $B_y' = B_0/a$ and no guide field, and the current-free X-point
+  $\psi = B'(x^2 - y^2)/2$ (`x_point_flux`). These configurations, not geometries, are drawn in the
+  field-configuration section of the diagrams guide.
 
 ## Curved slab
 
@@ -191,7 +198,9 @@ straight / sheared / curved slab -> drift waves, interchange, reduced edge turbu
 ```
 
 The tearing diagrams (`rational_surface`, `delta_prime`, `tearing_layer_matching`) start from the
-cylinder and sheared slab described here. See [Scientific diagrams]({{ '/reference/diagrams/' | relative_url }}).
+cylinder and sheared slab described here. The current-sheet, X-point, reconnection and MHD-wave
+diagrams (`current_sheet`, `x_point`, `magnetic_reconnection`, `shear_alfven_wave`, `mhd_wave_family`)
+use the slab frame of this page. See [Scientific diagrams]({{ '/reference/diagrams/' | relative_url }}).
 
 ## References
 

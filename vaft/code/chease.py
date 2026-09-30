@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 import shutil
-import subprocess
+import subprocess  # tests intercept launches through vaft.code.chease.subprocess.run
 from typing import Any, Mapping, Optional, Sequence
 import warnings
 
@@ -18,8 +18,14 @@ from vaft.formula.statistics import rms
 
 from ..compat import is_executable, resolve_executable
 from ._executables import ExecutableNotLaunchable, executable_from_home, missing_home_message
-from .execution import ExecutionBackend, ExecutionRequest, ExecutionResult, resolve_backend
-from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner
+from .execution import (
+    ExecutionBackend,
+    ExecutionRequest,
+    ExecutionResult,
+    resolve_backend,
+    timeout_reason,
+)
+from .base import CodeConfig, CodeInputs, CodeResult, CodeRunner, RunOutcome
 
 MU0 = 4.0e-7 * np.pi
 NCHEASE = 401
@@ -117,6 +123,10 @@ DEFAULT_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy()
 PENALIZING_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy(positive_r_rule="penalize")
 
 
+#: ``NPBPS`` of upstream ``globals.f90``: the largest EQDSK box side CHEASE writes.
+CHEASE_MAX_BOX = 2300
+
+
 @dataclass(frozen=True)
 class CHEASEConfig:
     """Runtime and numerical configuration for CHEASE refinement.
@@ -137,10 +147,15 @@ class CHEASEConfig:
     # validates 0 to 10 (`cotrol.f90`) and quits on anything else before any
     # equilibrium work, which is how the old default of 11 failed (#717).
     nideal: Optional[int] = None
-    #: Size of the R-Z box CHEASE writes its EQDSK on (``NRBOX = NZBOX``).  This
-    #: is the *output* grid only: the equilibrium is solved on the ``ns`` x
-    #: ``nt`` finite-element mesh and interpolated onto it.
+    #: Size of the R-Z box CHEASE writes its EQDSK on, radially (``NRBOX``).
+    #: This is the *output* grid only: the equilibrium is solved on the ``ns``
+    #: x ``nt`` finite-element mesh and interpolated onto it.
     nw: int = 513
+    #: Vertical size of that box (``NZBOX``); ``None`` keeps it square
+    #: (``NZBOX = NRBOX``).  Upstream CHEASE reads the two independently and
+    #: silently clamps each to ``NPBPS = 2300`` (``psibox.f90``), so both are
+    #: validated against that here (#459).
+    nh: Optional[int] = None
     #: CHEASE's solver mesh: radial (``NS``) and poloidal (``NT``) finite
     #: elements, and the ``NPSI`` x ``NCHI`` flux-coordinate mapping.  ``None``
     #: takes the default for the resolved ``NIDEAL``; see
@@ -194,6 +209,13 @@ class CHEASEConfig:
             value = getattr(self, key)
             if value is not None and int(value) < 2:
                 raise ValueError(f"CHEASEConfig.{key} must be at least 2; got {value}")
+        for key in ("nw", "nh"):
+            value = getattr(self, key)
+            if value is not None and not 2 <= int(value) <= CHEASE_MAX_BOX:
+                raise ValueError(
+                    f"CHEASEConfig.{key} must lie in 2..{CHEASE_MAX_BOX} (CHEASE's NPBPS, "
+                    f"beyond which it silently clamps the EQDSK box); got {value}"
+                )
         if self.nideal is not None:
             warnings.warn(
                 f"CHEASEConfig(nideal={self.nideal}) overrides the NIDEAL that "
@@ -215,6 +237,11 @@ class CHEASEConfig:
             if value is not None:
                 mesh[key] = int(value)
         return mesh
+
+    @property
+    def resolved_nh(self) -> int:
+        """The ``NZBOX`` written to the namelist: ``nh``, or ``nw`` for a square box."""
+        return int(self.nh) if self.nh is not None else int(self.nw)
 
     @property
     def resolved_nideal(self) -> int:
@@ -289,7 +316,7 @@ class CHEASEInputs:
 
 
 @dataclass
-class CHEASEResult:
+class CHEASEResult(RunOutcome):
     """CHEASE run status, produced files, and parsed refined equilibrium."""
 
     returncode: Optional[int]
@@ -307,6 +334,11 @@ class CHEASEResult:
     #: What this run handed CHEASE, when it came through :func:`run_chease`;
     #: see :class:`CHEASEMaterializedInput`.
     materialized: Optional["CHEASEMaterializedInput"] = None
+
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    runtime_status: str = "completed"
+    #: Wall time from launch to exit or stop [s].
+    elapsed_s: Optional[float] = None
 
     @property
     def ok(self) -> bool:
@@ -1059,7 +1091,7 @@ def _namelist_lines(config: CHEASEConfig, params: Mapping[str, float]) -> list[s
         "COCOS_IN = 2,\n",
         "COCOS_OUT = 2,\n",
         f"NRBOX={int(config.nw)},\n",
-        f"NZBOX={int(config.nw)},\n",
+        f"NZBOX={int(config.resolved_nh)},\n",
         "NEQDXTPO=2,\n",
         "NVEXP=1, REXT=10.0, R0W=1., RZ0W=0.,\n",
         "MSMAX=1,\n",
@@ -1202,6 +1234,7 @@ def prepare_chease_inputs(source: Any, config: CHEASEConfig | None = None) -> CH
                 "neqdsk": 0,
                 "mesh": config.resolved_mesh,
                 "output_grid": int(config.nw),
+                "output_grid_z": int(config.resolved_nh),
                 "target_psin": float(config.target_psin),
                 "boundary_smoothing": str(config.boundary_smoothing),
                 "raw_boundary_points": int(materialized.raw_boundary.shape[0]),
@@ -1424,8 +1457,8 @@ def _comparison_model(original: Any, refined: Any):
         )
 
     r1, z1, psi1 = _psi_norm_for_plot(refined)
-    input_layers = _boundary_and_limiter_layers(original, "input", "tab:blue", "--")
-    refined_layers = _boundary_and_limiter_layers(refined, "CHEASE", "tab:orange", "-")
+    input_layers = _boundary_and_limiter_layers(original, "input", "palette:0", "--")
+    refined_layers = _boundary_and_limiter_layers(refined, "CHEASE", "palette:1", "-")
     panels.append(
         Field2D(
             r=r1,
@@ -1519,12 +1552,28 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
             stderr=f"CHEASE could not be launched ({executable}): {error.__cause__ or error}",
             launcher=command,
         )
-    if completed.timed_out:
-        # Callers have always seen the stdlib's exception here.
-        raise subprocess.TimeoutExpired(
-            list(command), config.timeout or completed.elapsed_s, completed.stdout, completed.stderr
-        )
     log_path = inputs.workdir / "chease.log"
+    if completed.timed_out:
+        # A result, not an exception (#1016): one stopped case must not end a
+        # scan. Nothing is collected -- files already in the directory are an
+        # earlier run's or half-written, not this run's refined equilibrium.
+        reason = timeout_reason("CHEASE", completed, config.timeout)
+        stderr = f"{completed.stderr}\n{reason}" if completed.stderr else reason
+        stdout = completed.stdout or ""
+        if stdout and not stdout.endswith("\n"):
+            stdout += "\n"
+        log_path.write_text(stdout + stderr + "\n", encoding="utf-8")
+        return CHEASEResult(
+            returncode=None,
+            workdir=Path(inputs.workdir),
+            input_geqdsk=inputs.input_geqdsk,
+            logs=(log_path,),
+            stdout=completed.stdout,
+            stderr=stderr,
+            materialized=inputs.materialized,
+            runtime_status=completed.runtime_status,
+            elapsed_s=completed.elapsed_s,
+        )
     log_path.write_text((completed.stdout or "") + (completed.stderr or ""), encoding="utf-8")
 
     raw = inputs.workdir / "EQDSK_COCOS_02.OUT"
@@ -1569,6 +1618,7 @@ def run_chease(inputs: CHEASEInputs, config: CHEASEConfig | None = None) -> CHEA
     result.returncode = effective_returncode
     result.stdout = completed.stdout
     result.stderr = (completed.stderr or "") + (("\n" + missing_output_message) if missing_output_message else "")
+    result.elapsed_s = completed.elapsed_s
     if config.cleanup and result.ok:
         # Keep the returned paths meaningful only for non-cleanup workflows; cleanup is
         # intended for fire-and-forget integration jobs.

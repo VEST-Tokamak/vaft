@@ -568,3 +568,27 @@ def make_coil_3d_excitation(_sample: ODS) -> ODS:
 
 for _name in ("coil_3d_profile_current", "coil_3d_spectrum_current"):
     SYNTHETIC[_name] = make_coil_3d_excitation
+
+
+# ---------------------------------------------------------------------------
+# field_line_topology_field_connection_length -- one traced plane written
+# through the FLARE mapper, adapted from test/test_field_line_connection_plot.py
+# (`traced`). The grid is deliberately not square, so a transposed read fails.
+# ---------------------------------------------------------------------------
+
+
+def make_field_line_plane(_sample: ODS) -> ODS:
+    from vaft.machine_mapping.field_line_topology import write_b_field_lines
+
+    grid_r = np.array([1.0, 1.5, 2.0, 2.5])
+    grid_z = np.array([-1.0, 0.0])
+    r, z = (a.ravel() for a in np.meshgrid(grid_r, grid_z))
+    out = ODS()
+    write_b_field_lines(
+        out, grid_r=grid_r, grid_z=grid_z, starting_r=r, starting_z=z,
+        lengths=100.0 * r + z, open_fraction=0.5, time=0.1, phi_deg=30.0,
+    )
+    return out
+
+
+SYNTHETIC["field_line_topology_field_connection_length"] = make_field_line_plane

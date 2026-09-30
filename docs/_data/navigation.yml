@@ -41,9 +41,18 @@ sections:
       - id: geometric-approximations
         title: Geometric approximations
         url: /reference/geometric-approximations/
+      - id: equilibrium-representations
+        title: Equilibrium representations
+        url: /reference/equilibrium-representations/
       - id: process-reference
         title: Process reference
         url: /reference/process/
+      - id: plot-reference
+        title: Plot reference
+        url: /reference/plot/
+      - id: diagram-reference
+        title: Diagram gallery
+        url: /reference/diagram/
       - id: kinetic-profile-files
         title: Kinetic profile file formats
         url: /reference/kinetic-profile-files/
