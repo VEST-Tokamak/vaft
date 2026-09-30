@@ -7,7 +7,10 @@ The chain is the one the provenance record needs to be able to state::
 
     build_static_ods(era) -> efund_geometry_from_static -> mhdin.dat -> efund -> tables + manifest
 
-Nothing here touches ``vaft/data/efit``: the output directory is yours, and
+The chain itself is :func:`vaft.code.efit.efund.generate_era_table`, which
+the routine pipeline also runs for an era its packaged table does not cover
+(rule ``generate_efit_table``).  Nothing here touches ``vaft/data/efit``: the
+output directory is yours, and
 ``compare_tables.py`` / ``ab_efit_table.py`` are how a generated table is
 judged against the bundled one.  The era is named explicitly (default: the
 legacy era shot 39915 belongs to) and is never derived from a shot here.
@@ -19,44 +22,14 @@ import argparse
 import json
 import os
 import sys
-import time
 from pathlib import Path
 
-from vaft.code.efit.efund import (
-    EFUNDConfig,
-    prepare_efund_inputs,
-    run_efund,
-    write_table_manifest,
-)
+from vaft.code.efit.efund import EFUNDConfig, generate_era_table
 from vaft.code.efit.toolchain import resolve_toolchain, toolchain_identities
-from vaft.code.efit.config import IGNORE_CRITERION
-from vaft.machine_mapping.efund_geometry import vest_acceptance_envelope
-from vaft.omas.vest_upstream import VEST_MACHINE_ERAS, build_static_ods
+from vaft.data.resources import data_path
+from vaft.omas.vest_upstream import VEST_MACHINE_ERAS
 
 DEFAULT_ERA = "vest-pre-43017-pf1906"
-
-
-#: Era-independent files EFIT reads from the table directory alongside the
-#: Green tables EFUND writes. Copied from the packaged directory so a
-#: generated table can actually be run.
-RUNTIME_COMPANIONS = ("lim.dat", "dprobe.dat")
-
-
-def _copy_runtime_companions(output: Path) -> list[str]:
-    """Place EFIT's non-EFUND inputs beside a freshly generated table."""
-    import shutil
-
-    from vaft.data.resources import data_path
-
-    source = Path(data_path("efit"))
-    copied: list[str] = []
-    for name in RUNTIME_COMPANIONS:
-        origin = source / name
-        target = output / name
-        if origin.is_file() and not target.exists():
-            shutil.copy2(origin, target)
-            copied.append(name)
-    return copied
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -98,7 +71,6 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {role}: {identity['path']}  sha256 {identity['sha256'][:12]}  {identity.get('build_revision')}")
 
     output = args.output.expanduser()
-    output.mkdir(parents=True, exist_ok=True)
     box = {
         name: getattr(args, name)
         for name in ("rleft", "rright", "zbotto", "ztop")
@@ -120,9 +92,6 @@ def main(argv: list[str] | None = None) -> int:
         f"{(config.rright - config.rleft) / (config.nw - 1) * 1e3:.2f} x "
         f"{(config.ztop - config.zbotto) / (config.nh - 1) * 1e3:.2f} mm"
     )
-    started = time.perf_counter()
-    ods, manifest = build_static_ods(args.era)
-
     # EFUND ignores `&incheck`; EFIT reads it from the same file at run time and
     # rejects a reconstruction against it. Deriving it from the machine is the
     # whole point of `vest_acceptance_envelope`, and until #649 the generated
@@ -136,42 +105,37 @@ def main(argv: list[str] | None = None) -> int:
     # and #8 `rcurrt`. With the derived envelope, ten of fourteen are accepted
     # and the remaining four fail chi-square, which is a fit result rather than
     # a bound.
-    envelope = (
-        None
-        if args.no_acceptance_envelope
-        else vest_acceptance_envelope(ods, nw=config.nw, rleft=config.rleft, rright=config.rright)
-    )
-    if envelope is not None:
-        print(
-            f"acceptance envelope: aminor {envelope.aminor_min:.2f}-{envelope.aminor_max:.2f} cm, "
-            f"virial checks {'on' if envelope.delbp_diff < IGNORE_CRITERION else 'disabled'}"
+    #
+    # EFIT also reads `lim.dat` from the same directory. Without it the
+    # directory is not runnable -- EFIT dies in `read_limiter.f90` naming the
+    # file (#805) -- so `generate_era_table` writes it from the era's wall.
+    try:
+        result = generate_era_table(
+            args.era,
+            output,
+            config=config,
+            base_table_dir=data_path("efit"),
+            acceptance_envelope=not args.no_acceptance_envelope,
+            label=args.label,
+            extra={"generator": "workflow/efit_tables/regenerate_legacy_table.py"},
         )
-    inputs = prepare_efund_inputs(ods, config, manifest=manifest, envelope=envelope)
-    print(f"input: {inputs.mhdin} sha256 {inputs.mhdin_sha256[:12]} counts {inputs.counts}")
-    result = run_efund(inputs, config)
-    elapsed = time.perf_counter() - started
-    print(f"efund: status {result.status} returncode {result.returncode} in {elapsed:.0f} s")
+    except (FileExistsError, ValueError) as error:
+        # An existing table, a non-empty directory, or a path too long for
+        # EFIT's TABLE_DIR: all things the operator decides, not tracebacks.
+        print(f"refused: {error}", file=sys.stderr)
+        return 2
+    print(f"efund: status {result.status} returncode {result.returncode}")
     if not result.ok:
         print(f"  reason: {result.reason}", file=sys.stderr)
+        for log in result.logs:
+            print(f"  log: {log}", file=sys.stderr)
         return 1
-    path = write_table_manifest(
-        result,
-        inputs,
-        config,
-        label=args.label or f"{args.era}-{config.table_suffix}",
-        extra={"generator": "workflow/efit_tables/regenerate_legacy_table.py", "seconds": elapsed},
-    )
-    # EFUND produces the Green tables; EFIT also reads a limiter contour and a
-    # probe description from the same directory, and neither depends on the
-    # era. Without them the generated directory is not runnable: EFIT dies in
-    # `read_limiter.f90` with a Fortran runtime error naming `lim.dat`, which
-    # is a confusing way to learn that a table is incomplete (#805).
-    copied = _copy_runtime_companions(output)
-    if copied:
-        print("companions: " + ", ".join(sorted(copied)))
-
+    path = result.manifest
     payload = json.loads(path.read_text(encoding="utf-8"))
     print(f"manifest: {path}")
+    print(f"input: {payload['efund']['input']['name']} sha256 {payload['efund']['input']['sha256'][:12]} "
+          f"counts {payload['machine']['counts']}")
+    print(f"built in {payload['extra']['seconds']:.0f} s")
     print(f"table identity: {payload['table']['identity']}")
     for name, record in payload["table"]["files"].items():
         print(f"  {name:14s} {record['size']:>12d} bytes  sha256 {record['sha256'][:12]}")
