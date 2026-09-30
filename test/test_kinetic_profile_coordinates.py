@@ -255,6 +255,33 @@ def test_core_profiles_evaluates_each_fit_in_its_own_coordinate(shot_ods):
     assert not np.allclose(stored["rho_tor_norm"], stored["psi_norm"], rtol=1e-3)
 
 
+def test_core_profiles_marks_grid_psi_as_post_1292_weber(shot_ods):
+    """The per-slice line says grid.psi is Wb from the fixed path (#1338).
+
+    Products written before #1292 stored grid.psi 2*pi too large and nothing else
+    in them differs, so the token is the only way a reader can tell. It is a
+    plain ``key=value`` token in the string ``code.parameters``, which is what
+    survives replication.
+    """
+    ods, geq = shot_ods
+    mapped = P.equilibrium_mapping_thomson_scattering(ods, geq)
+    ne_fit, te_fit, *_ = P.profile_fitting_thomson_scattering(ods, TIME_MS, mapped, time_tolerance_ms=3.0)
+    work = ODS()
+    work["thomson_scattering"] = ods["thomson_scattering"]
+    P.core_profiles(work, TIME_MS, mapped, ne_fit, te_fit, geq=geq, time_tolerance_ms=3.0)
+    params = work["core_profiles.code.parameters"]
+    assert isinstance(params, str)
+    (line,) = [item for item in params.splitlines() if item.startswith("profiles_1d time=")]
+    assert "grid=equilibrium grid.psi=Wb(#1292) " in line
+    assert "core_profiles.profiles_1d.0.grid.psi" in work
+    # the token names the flux the geq actually carries: absolute weber
+    gq = geq.to_omas()["equilibrium.time_slice.0.global_quantities"]
+    psi = np.asarray(work["core_profiles.profiles_1d.0.grid.psi"], dtype=float)
+    np.testing.assert_allclose(
+        [psi[0], psi[-1]], [gq["psi_axis"], gq["psi_boundary"]], rtol=1e-6
+    )
+
+
 def test_core_profiles_refuses_a_relabelled_fit(shot_ods):
     ods, geq = shot_ods
     mapped = P.equilibrium_mapping_thomson_scattering(ods, geq)
