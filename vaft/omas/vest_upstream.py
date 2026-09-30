@@ -2031,6 +2031,36 @@ def _has_kinetic_slice(ods: ODS) -> bool:
     )
 
 
+def kinetic_efit_parameters(stage: str, efit_preset: str | None) -> str:
+    """The ``equilibrium.code.parameters`` payload of a kinetic EFIT product.
+
+    Names the preset that built the base k-file and, as the top-level
+    ``uncertainty_model`` that :func:`vaft.omas.efit_quality.constraint_uncertainty_model`
+    reads, the uncertainty model its constraints were fitted under -- the
+    routine scientific configuration's when no preset was named, since that is
+    what :func:`vaft.code.efit.kinetic.prepare_kinetic_efit_inputs` builds the
+    k-file with then.
+    """
+    from vaft.code.efit.config import EFITScientificConfig
+
+    record = None
+    if efit_preset:
+        from vaft.code.efit.presets import efit_preset as _efit_preset
+
+        preset = _efit_preset(efit_preset)
+        record = preset.record()
+        scientific = preset.scientific
+    else:
+        scientific = EFITScientificConfig()
+    return json.dumps(
+        {
+            "kinetic_efit": {"stage": stage, "efit_preset": record},
+            "uncertainty_model": scientific.constraints.uncertainty_mode,
+        },
+        sort_keys=True,
+    )
+
+
 def build_kinetic_efit_ods(
     *,
     shot: int,
@@ -2249,6 +2279,10 @@ def build_kinetic_efit_ods(
 
         # Read the g-file before the workdir goes away.
         to_omas(read_geqdsk_file(result.gfile), ods=out)
+        # The g-file carries no record of how the constraints were weighted;
+        # the preset (or its absence) does.  Serialized, as `code.parameters`
+        # is a STR_0D that a nested tree does not survive (#380/#642).
+        out["equilibrium.code.parameters"] = kinetic_efit_parameters(stage, efit_preset)
         manifest["status"] = "success"
         manifest["quality_summary"]["unavailable"] = []
         # Recording a path under a directory about to be deleted would name a
