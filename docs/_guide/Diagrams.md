@@ -1142,6 +1142,72 @@ vaft.diagram.blob_regimes(epsilon_x=0.1)  # Lambda against Theta = delta_hat^{5/
 | --- | --- |
 | ![velocity]({{ '/assets/diagrams/blob_velocity_scaling.svg' | relative_url }}) | ![regimes]({{ '/assets/diagrams/blob_regimes.svg' | relative_url }}) |
 
+## Integrated modeling: knowledge basis, realization, abstraction
+
+A single "analytic / numerical / empirical / data-driven" list mixes three independent questions. These
+diagrams keep them apart (#1085):
+
+- **Knowledge basis:** where does the model's knowledge come from, from first-principles to data-driven?
+- **Computational realization:** how is the model evaluated, from analytical to fully numerical?
+- **Physical abstraction:** at what description level is the system represented, from particle orbits to static equilibrium?
+
+The diagrams then combine the three axes into one space and connect models by typed couplings. They show
+location and character, not ranking: neither end of an axis is better.
+
+```python
+vaft.diagram.knowledge_basis()
+vaft.diagram.computational_realization()
+vaft.diagram.physical_abstraction()
+vaft.diagram.integrated_modeling_space()                 # "fusion", "tearing"
+vaft.diagram.integrated_modeling_process()
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `knowledge_basis` | Mechanistic/first-principles, semi-empirical/closure, empirical, data-driven. Physics-informed models (physical constraints with fitted or learned parts) are a bridge over the axis, not one point on it |
+| `computational_realization` | Analytical, semi-analytical, reduced numerical, fully numerical. Learned surrogates are not a rung: they are placed by knowledge basis and role |
+| `physical_abstraction` | Particle/orbit, kinetic, moment/fluid, MHD, equilibrium/static. Each arrow names its reduction: ensemble average, velocity moments + closure, single fluid at low frequency, stationary force balance |
+| `integrated_modeling_space` | Knowledge basis across, realization up. The physical abstraction is shown by the fill colour of each model and repeated in its border pattern, so it survives grayscale. Conceptual and heuristic models (physical picture, cartoon, scaling argument, toy model) are an explanatory layer beside the space, not a fourth axis |
+| `integrated_modeling_process` | Experiment, measurement, processing, inverse model (parameter inference), physical state, forward and data-driven models, prediction, and validation/control, with the eight coupling types of the legend |
+
+**Semi-empirical** is a knowledge basis: a physical form with fitted coefficients. **Semi-analytical** is a
+computational realization: an asymptotic expansion, a Green-function reduction or a quadrature of a closed
+form. The words look alike but belong to different axes.
+
+![knowledge basis]({{ '/assets/diagrams/knowledge_basis.svg' | relative_url }})
+![computational realization]({{ '/assets/diagrams/computational_realization.svg' | relative_url }})
+![physical abstraction]({{ '/assets/diagrams/physical_abstraction.svg' | relative_url }})
+![integrated modeling space]({{ '/assets/diagrams/integrated_modeling_space.svg' | relative_url }})
+
+Positions are semantic, not layout. Models with the same knowledge basis share an x and are separated in y.
+A learned model is not a realization rung. A surrogate takes the y of the model it emulates and is linked to
+it; a model that emulates nothing, such as a classifier, sits at the rung of its evaluation.
+
+The `"fusion"` overlay places familiar codes, from Solov'ev, EFIT and CHEASE to TGLF, TRANSP and ASCOT5, with an
+empirical confinement scaling, a neural-operator surrogate of TGLF and an event classifier. These placements are
+illustrative, not a classification:
+- EFIT is an inverse model: it solves the Grad–Shafranov equation numerically inside a fit to measurements.
+- TRANSP is mainly used interpretively, so it is also an inverse model.
+- DCON integrates the Newcomb ODE, which is a reduced numerical method.
+- TGLF is gyro-Landau-fluid approximating gyrokinetics, with a saturation rule fitted to nonlinear gyrokinetic
+  runs, so it sits at semi-empirical/closure. The `"tearing"` variant follows one phenomenon from an island picture in
+the explanatory layer, through the Rutherford equation, to a nonlinear resistive-MHD simulation.
+
+![integrated modeling space, fusion]({{ '/assets/diagrams/integrated_modeling_space_fusion.svg' | relative_url }})
+![integrated modeling space, tearing]({{ '/assets/diagrams/integrated_modeling_space_tearing.svg' | relative_url }})
+
+The coupling types are data flow, closure, parameter inference/calibration, surrogate replacement, residual
+correction, validation/benchmarking, feedback/control and iterative coupling. A coupling is a label on an
+edge. The data-driven model's three uses are alternatives: a closure inside the forward model, or a surrogate
+replacement of it, or a residual correction of its prediction (the hybrid mode). Validation compares the
+prediction with the processed measurement, and control acts on the experiment.
+
+![integrated modeling process]({{ '/assets/diagrams/integrated_modeling_process.svg' | relative_url }})
+
+The vocabulary and the example placements are data in `vaft.diagram._modeling_schema`: the axis stations,
+`ModelDescriptor`, `ModelCoupling` and the coupling types. They are kept apart from the drawing so that
+documentation and provenance tooling can reuse them. They are not a stable public API yet.
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
