@@ -411,8 +411,9 @@ def fit_ti_te_ratio(te, ti, te_std=None, ti_std=None, max_iter=200, tol=1e-12):
 
     Applicability
     -------------
-    Machine-independent.  The VEST value it produced (0.17, sigma 0.08) lives in
-    ``vest.yaml``, not here.
+    Machine-independent.  The VEST value it produced (0.17, sigma 0.08) is kept
+    in ``vest.yaml`` as ``superseded_inference``; the policy in force there is an
+    assumed Ti = Te until more ion-diagnostic shots exist (#1331).
 
     Limitations
     -----------

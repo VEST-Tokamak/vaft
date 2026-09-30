@@ -264,8 +264,10 @@ The fits are evaluated on the equilibrium grid **in their own coordinate** and s
 record; that absence marks a legacy product fitted in $\psi_N$.
 
 Thomson-only slices need an ion temperature. The statistical Ti/Te coefficient is **VEST policy**, not a
-processing default: it lives in `vest.yaml` (`diagnostics.core_profiles.ti_te_ratio`, status
-`inferred`, with its derivation record) and the kinetic-EFIT pipeline resolves it per shot with
+processing default: it lives in `vest.yaml` (`diagnostics.core_profiles.ti_te_ratio`). It is currently **Ti = Te**
+(value 1.0, σ 0.5, status `assumed`, so the total pressure is about twice the Thomson electron pressure),
+chosen on #1331 until enough CES/IDS shots exist to infer it. The earlier inference, 0.17 from 9 slices of
+48224/48226/48233, is kept there as `superseded_inference` and the kinetic-EFIT pipeline resolves it per shot with
 `vaft.machine_mapping.core_profiles.vest_core_profiles_policy(shot)` before calling `core_profiles`.
 
 It writes, for the new slice index `i`:
