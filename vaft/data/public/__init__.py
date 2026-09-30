@@ -1,7 +1,8 @@
 """Public multi-machine databases mapped into common VAFT semantics (#1205).
 
 Source-specific readers (:mod:`.itpa_hmode`, :mod:`.tcv_lh`, :mod:`.itpa_tc26`) normalise
-published databases into canonical tables (:mod:`.schema`); VEST enters the same tables through
+published databases into canonical tables (:mod:`.schema`); profile databases
+(:mod:`.itpa_profile`, PR08) map into ODS instead; VEST enters the same tables through
 :mod:`.vest_confinement`; :mod:`.analysis` and :mod:`vaft.plot.population`
 work on the canonical tables only.  Files are fetched on demand with a pinned
 checksum (:mod:`._fetch`) and are never shipped with VAFT.
@@ -18,13 +19,17 @@ __all__ = [
     "confinement_coverage",
     "empty_confinement_table",
     "empty_transition_table",
+    "fetch_pr08",
     "fetch_source",
     "h_factor",
     "normalize_db5",
     "normalize_tc26",
     "normalize_tcv_lh",
+    "pr08_mapping_coverage",
+    "pr08_to_omas",
     "predict_confinement_time",
     "read_db5",
+    "read_pr08",
     "read_tc26",
     "read_tcv_lh",
     "transition_margin",
@@ -43,6 +48,10 @@ _EXPORT_MAP = {
     "validate_transition_table": (".schema", "validate_transition_table"),
     "read_tcv_lh": (".tcv_lh", "read_tcv_lh"),
     "read_tc26": (".itpa_tc26", "read_tc26"),
+    "read_pr08": (".itpa_profile", "read_pr08"),
+    "fetch_pr08": (".itpa_profile", "fetch_pr08"),
+    "pr08_to_omas": (".itpa_profile", "pr08_to_omas"),
+    "pr08_mapping_coverage": (".itpa_profile", "pr08_mapping_coverage"),
     "normalize_tc26": (".itpa_tc26", "normalize_tc26"),
     "normalize_tcv_lh": (".tcv_lh", "normalize_tcv_lh"),
     "transition_margin": (".analysis", "transition_margin"),
