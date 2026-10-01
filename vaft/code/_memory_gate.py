@@ -16,7 +16,8 @@ things are needed for that, and both live here:
 The ledger is a directory of one JSON file per admitted job plus a lock file
 (``flock``), so it works across unrelated processes of the same user. A
 record whose owner process is gone is dropped on the next admission. On a
-host without ``fcntl`` (Windows) admission is not enforced.
+host without ``fcntl`` (Windows) admission is still enforced, but without
+the lock: two workers admitting at the same instant may both be admitted.
 
 The ledger is shared only by processes that use the same directory. The
 default is per user under the temp directory, so workers with different
@@ -125,14 +126,47 @@ def _alive(pid: int) -> bool:
     The ledger directory is private to one user, so an owner pid that now
     belongs to someone else (``PermissionError``) was reused: the record is
     stale.
+
+    ``os.kill(pid, 0)`` is a probe only on POSIX. On Windows every signal
+    number other than the two console events is ``TerminateProcess``, so the
+    probe would kill the owner (another VAFT worker, or this process), and a
+    dead pid raises a plain ``OSError`` from ``OpenProcess``. The Windows
+    branch therefore asks psutil (a dependency of snakemake and ipykernel, so
+    always installed) or ``OpenProcess`` itself, and never sends a signal.
     """
     if pid <= 0:
         return False
+    if os.name == "nt":
+        return _alive_windows(pid)
     try:
         os.kill(pid, 0)
-    except (ProcessLookupError, PermissionError):
+    except OSError:  # ProcessLookupError, PermissionError
         return False
     return True
+
+
+def _alive_windows(pid: int) -> bool:
+    try:
+        import psutil
+    except ImportError:  # pragma: no cover - psutil is a transitive dependency
+        psutil = None
+    if psutil is not None:
+        try:
+            return bool(psutil.pid_exists(pid))
+        except Exception:  # pragma: no cover - psutil platform failure
+            pass
+    try:  # pragma: no cover - Windows without psutil
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        process_query_limited_information = 0x1000
+        handle = kernel32.OpenProcess(process_query_limited_information, False, int(pid))
+        if not handle:
+            return False
+        kernel32.CloseHandle(handle)
+        return True
+    except (AttributeError, OSError):
+        return False
 
 
 def _write_json_atomic(path: Path, record: dict) -> None:

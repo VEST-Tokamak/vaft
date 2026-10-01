@@ -75,12 +75,48 @@ def test_the_ledger_counts_what_admitted_jobs_have_not_yet_used(tmp_path):
     assert ledger.try_admit(500) is not None
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="admission needs fcntl")
 def test_a_record_left_by_a_dead_owner_is_dropped(tmp_path):
+    # The lock is a no-op without fcntl; the probe itself must work everywhere.
     ledger = MemoryLedger(tmp_path, floor_mb=0, available=lambda: 1000.0)
     (tmp_path / "stale.json").write_text(json.dumps({"owner": 2**22 + 12345, "reserve_mb": 900, "root": None}))
     assert ledger.try_admit(500) is not None
     assert not (tmp_path / "stale.json").exists()
+
+
+def test_the_owner_probe_never_signals_on_windows(monkeypatch):
+    """``os.kill(pid, 0)`` is TerminateProcess on Windows: the ledger must not use it there.
+
+    Runs on every platform by simulating ``os.name == "nt"`` with a psutil stub,
+    so the POSIX CI legs guard the Windows branch (cold review 0.8.0 delta-absorb-5 F1).
+    """
+    import types
+
+    from vaft.code import _memory_gate as mg
+
+    dead = 2**22 + 12345
+    kills: list[tuple[int, int]] = []
+    real_kill = os.kill
+
+    def recording_kill(pid, sig):
+        kills.append((int(pid), int(sig)))
+        return real_kill(pid, sig)
+
+    monkeypatch.setattr(os, "kill", recording_kill)
+
+    # POSIX branch: a probe, and a dead owner is "gone", not an exception.
+    if os.name != "nt":
+        assert mg._alive(os.getpid()) is True
+        assert mg._alive(dead) is False
+        assert (os.getpid(), 0) in kills and (dead, 0) in kills
+
+    # Simulated Windows: psutil answers, os.kill is never reached.
+    kills.clear()
+    monkeypatch.setattr(os, "name", "nt")
+    monkeypatch.setitem(sys.modules, "psutil", types.SimpleNamespace(pid_exists=lambda pid: pid == os.getpid()))
+    assert mg._alive(os.getpid()) is True
+    assert mg._alive(dead) is False
+    assert mg._alive(0) is False
+    assert kills == []
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="admission needs fcntl")
