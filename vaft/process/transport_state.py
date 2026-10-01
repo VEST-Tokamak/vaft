@@ -364,7 +364,9 @@ def resolve_transport_state(
        that equilibrium time, both by time within ``tolerance``.
     2. Resolve the ion temperature: measured, then ``inferred_ti``, then the policy
        ratio, else insufficient; write a main ion into a deep copy when needed.
-    3. Convert with :func:`vaft.code.gacode.inputs.prepare_gacode_profile`, which
+    3. Derive ``r_inboard``/``r_outboard`` from the 2-D flux map when the slice does
+       not carry them (on the copy).
+    4. Convert with :func:`vaft.code.gacode.inputs.prepare_gacode_profile`, which
        applies the composition closure and refuses non-positive profiles.
 
     Applicability
@@ -493,7 +495,7 @@ def resolve_transport_state(
             temperature = ratio * te
             ti = {"lineage": f"{status}_ti_te_{ratio:g}", "method": "ti_te_ratio",
                   "ratio": ratio, "sigma": sigma, "kind": status, "source": source}
-        work = copy.deepcopy(ods)
+        work = copy.deepcopy(ods) if work is ods else work
         ion = f"{prefix}.ion.0"
         if not ions:
             # An electron-only product stores `ion` as a null leaf (NaN once loaded),
@@ -513,7 +515,22 @@ def resolve_transport_state(
     ti["hierarchy"] = hierarchy
     base["ti"] = ti
 
-    # 3. composition and conversion -------------------------------------------------
+    # 3. geometry --------------------------------------------------------------------
+    # GACODE's rmin/rmaj are the midplane half-width and centre at the axis height.
+    # EFIT products carry no r_inboard/r_outboard, so derive them from the 2-D flux
+    # map on the working copy -- the same routine the NEO comparison path uses.
+    eq_base = f"equilibrium.time_slice.{eq_index}.profiles_1d"
+    geometry = {"kind": "reconstructed", "source": f"{eq_base}.r_inboard/r_outboard"}
+    if _get(ods, f"{eq_base}.r_inboard") is None or _get(ods, f"{eq_base}.r_outboard") is None:
+        from vaft.omas import update_equilibrium_profiles_1d_radial_coordinates
+
+        work = copy.deepcopy(ods) if work is ods else work
+        update_equilibrium_profiles_1d_radial_coordinates(work, time_slice=eq_index)
+        geometry = {"kind": "derived",
+                    "source": "midplane crossings of profiles_2d psi at the axis height",
+                    "routine": "vaft.omas.update_equilibrium_profiles_1d_radial_coordinates"}
+
+    # 4. composition and conversion -------------------------------------------------
     from vaft.code.gacode.inputs import ProfileConversionError, prepare_gacode_profile
 
     try:
@@ -537,6 +554,7 @@ def resolve_transport_state(
     provenance["equilibrium"] = {"kind": "reconstructed", "lineage": key.efit_lineage,
                                  "label": efit_label, "quality_source": quality_source}
     provenance["q"] = {"kind": "reconstructed", "source": "equilibrium"}
+    provenance["midplane_geometry"] = geometry
     provenance["magnetic_shear"] = {"kind": "derived", "source": "equilibrium q"}
     profile.provenance = provenance
     composition = {
