@@ -101,6 +101,13 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
+    # match -> scan -> minimise; nominal -> perturbed re-fits
+    "smooth_local_polynomial",
+    "observed_resistance",
+    "model_resistance",
+    "infer_resistive_zeff",
+    "resistive_zeff_sensitivity",
     # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
     "radial_coordinate_map",
     "profile_gradient",
@@ -259,6 +266,11 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
+    # the parallel (not perpendicular) Spitzer coefficient; <J.B>, not j_tor
+    "observed_resistance",
+    "parallel_conductivity",
+    "model_resistance",
     # profile_gradient (#551): midplane r_minor (not the contour half-width), the
     # reference length's definition, and each code's gradient normalization
     "radial_coordinate_map",
