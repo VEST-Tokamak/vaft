@@ -37,6 +37,9 @@ def test_run_lifecycle_order_and_outputs(tmp_path, monkeypatch):
     assert Path(save_name).name == "g039915.00325"
     assert save_kwargs["cocos"] == config.eqdsk_cocos
     assert save_kwargs["run_info"] == "# 39915 325ms"
+    # RBBBS/ZBBBS must be the LCFS itself, not the 1 - lcfs_pad surface (#882, #1469)
+    assert save_kwargs["truncate_eq"] is False
+    assert save_kwargs["lcfs_pad"] == config.eqdsk_lcfs_pad
 
     assert result.ok
     assert result.returncode == 0
@@ -44,6 +47,8 @@ def test_run_lifecycle_order_and_outputs(tmp_path, monkeypatch):
     assert result.scalars["converged"] is True
     assert result.scalars["q_95"] == pytest.approx(5.0)
     assert result.scalars["coil_currents_A"]["PF1"] == pytest.approx(-640.0)
+    assert result.scalars["diverted"] is False
+    assert result.scalars["lim_point"] == pytest.approx([0.105, 0.0])
     # the fake g-file is not parseable; that stays best-effort
     assert "_geqdsk_error" in result.scalars
 
@@ -151,3 +156,20 @@ def test_reused_workdir_never_yields_a_stale_gfile(tmp_path, monkeypatch):
     assert failed.gfile is None
     assert failed.geqdsk == ()
     assert failed.ods is None
+
+
+def test_limiter_search_excludes_the_vest_chambers_by_default(tmp_path, monkeypatch):
+    # The chamber corners at |Z| = 1.185 m carry the most-interior wall flux but
+    # are not connected to the core; with them as limiter candidates the
+    # 39915 @ 325 ms "LCFS" floated 6 cm off the inboard limiter (#1469).
+    make_fake_oft(monkeypatch)
+    fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
+
+    run_tokamaker(make_inputs(tmp_path), TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path))
+    assert fake.settings_at_setup["lim_zmax"] == pytest.approx(0.6)
+
+    run_tokamaker(
+        make_inputs(tmp_path),
+        TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path, lim_zmax=None),
+    )
+    assert fake.settings_at_setup["lim_zmax"] == pytest.approx(1.0e99)

@@ -77,6 +77,8 @@ def _configure_tokamaker(oft, mygs, inputs, config: TokaMakerConfig) -> dict[str
         mygs.settings.urf = float(config.urf)
     if config.nl_tol is not None:
         mygs.settings.nl_tol = float(config.nl_tol)
+    if config.lim_zmax is not None:
+        mygs.settings.lim_zmax = float(config.lim_zmax)
     mygs.setup(order=config.order, F0=inputs.f0)
     return cond_regions
 
@@ -103,6 +105,42 @@ def _apply_profiles(oft, mygs, config: TokaMakerConfig) -> None:
         ffp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_f_a, config.alpha_f_b),
         pp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_p_a, config.alpha_p_b),
     )
+
+
+def _save_eqdsk(mygs, path: Path, config: TokaMakerConfig, run_info: str) -> None:
+    """Export the current equilibrium as a gEQDSK whose boundary is the LCFS.
+
+    ``truncate_eq=False`` keeps ``lcfs_pad`` for tracing but extrapolates the
+    contour back to the true boundary flux. OFT's default (``True``) writes the
+    ``1 - lcfs_pad`` surface as RBBBS/ZBBBS and as the boundary flux, so a
+    limited plasma never shows wall contact in the export (issue #882 item 1).
+    """
+    mygs.save_eqdsk(
+        str(path),
+        nr=config.eqdsk_nr,
+        nz=config.eqdsk_nz,
+        lcfs_pad=config.eqdsk_lcfs_pad,
+        truncate_eq=False,
+        run_info=run_info,
+        cocos=config.eqdsk_cocos,
+    )
+
+
+def _boundary_state(mygs) -> dict[str, Any]:
+    """Native boundary bookkeeping: what set the boundary flux, and where.
+
+    OFT's ``lim_point`` is the limiting wall point of a limited plasma and the
+    active X-point of a diverted one, so it is recorded under the matching
+    name. OFT leaves it at ``(-1, 1e99)`` when no bound was found.
+    """
+    diverted = bool(mygs.diverted)
+    state: dict[str, Any] = {"diverted": diverted}
+    point = getattr(mygs, "lim_point", None)
+    if point is not None:
+        point = [float(v) for v in np.asarray(point).ravel()[:2]]
+        if len(point) == 2 and point[0] >= 0.0 and abs(point[1]) < 1.0e98:
+            state["active_x_point" if diverted else "lim_point"] = point
+    return state
 
 
 def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMakerResult:
@@ -158,15 +196,8 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
         sidecar["stats"] = mygs.get_stats()
         sidecar["coil_currents_A"] = dict(mygs.get_coil_currents()[0])
         sidecar["o_point"] = mygs.o_point
-        sidecar["diverted"] = bool(mygs.diverted)
-        mygs.save_eqdsk(
-            str(gpath),
-            nr=config.eqdsk_nr,
-            nz=config.eqdsk_nz,
-            lcfs_pad=config.eqdsk_lcfs_pad,
-            run_info=f"# {shot} {ctime}ms",
-            cocos=config.eqdsk_cocos,
-        )
+        sidecar.update(_boundary_state(mygs))
+        _save_eqdsk(mygs, gpath, config, f"# {shot} {ctime}ms")
         returncode = 0
     except Exception as exc:
         error = str(exc)

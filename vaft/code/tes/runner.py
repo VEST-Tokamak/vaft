@@ -88,4 +88,10 @@ def run_tes(inputs: TESInputs, config: TESConfig) -> TESResult:
     result.stdout = execution.stdout
     result.stderr = execution.stderr
     result.elapsed_s = execution.elapsed_s
+    if result.returncode == 0 and result.gfile is None:
+        # rtes exits 0 when the Picard loop diverges ("(r,z) is out of range")
+        # and simply writes no equilibrium; without a g-file there is no result.
+        result.returncode = 1
+        note = "rtes exited 0 but wrote no g-file (the solve did not converge; see tes.log)"
+        result.stderr = f"{result.stderr}\n{note}" if result.stderr else note
     return result

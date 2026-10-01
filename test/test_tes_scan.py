@@ -85,6 +85,7 @@ def test_run_tes_builds_its_command_for_the_configured_backend(tmp_path):
         timeout=30.0,
         backend=backend,
     )
+    (tmp_path / "g039915.00325").write_text("stub")   # what a converged rtes leaves behind
     result = run_tes(_tes_case(tmp_path), config)
 
     (request,) = backend.requests
@@ -93,6 +94,22 @@ def test_run_tes_builds_its_command_for_the_configured_backend(tmp_path):
     assert request.env == {"TES_FLAG": "1"}
     assert request.timeout == 30.0
     assert (result.returncode, result.stdout) == (0, "done")
+
+
+def test_run_tes_without_a_gfile_is_a_failed_result(tmp_path):
+    # rtes exits 0 when its Picard loop diverges and writes no equilibrium
+    import sys
+
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.tes.runner import run_tes
+
+    backend = RecordingBackend(ExecutionResult(returncode=0, stdout="[Warn] out of range", stderr=""))
+    result = run_tes(_tes_case(tmp_path), TESConfig(executable=sys.executable, backend=backend))
+
+    assert not result.ok
+    assert result.returncode == 1
+    assert "wrote no g-file" in result.stderr
 
 
 def test_run_tes_returns_a_backend_timeout_as_a_failed_result(tmp_path):

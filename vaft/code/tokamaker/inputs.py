@@ -66,6 +66,32 @@ def _resolve_time(ods: Any, config: TokaMakerConfig) -> float:
     raise ValueError("TokaMakerConfig.time (seconds) or TokaMakerConfig.time_index is required")
 
 
+def reference_axis_pressure(ods: Any, time: float, *, time_index: int | None = None) -> float:
+    """Axis pressure [Pa] of the reference equilibrium slice nearest ``time``.
+
+    A forward solve that targets only Ip leaves TokaMaker's pressure scale at
+    its built-in default: on 39915 @ 325 ms that gives beta_pol ~ 5 against the
+    reference EFIT pressure of ~12 Pa on axis. Passing this value as
+    ``TokaMakerConfig.pax`` anchors the pressure to the reference state
+    instead. The value comes from ``profiles_1d.pressure[0]`` of the
+    ``equilibrium`` IDS. An explicit ``time_index`` wins over ``time``.
+    """
+    if "equilibrium.time" not in ods:
+        raise ValueError("reference_axis_pressure needs an equilibrium IDS with a time array")
+    idx = time_index
+    if idx is None:
+        eqtime = np.asarray(ods["equilibrium.time"], dtype=float)
+        idx = int(np.argmin(np.abs(eqtime - time)))
+    # `in` first: reading a missing ODS path creates it.
+    path = f"equilibrium.time_slice.{int(idx)}.profiles_1d.pressure"
+    if path not in ods:
+        raise ValueError(f"reference equilibrium slice {idx} carries no profiles_1d.pressure")
+    pressure = np.asarray(ods[path], dtype=float)
+    if pressure.size == 0 or not np.isfinite(pressure[0]) or pressure[0] <= 0.0:
+        raise ValueError(f"reference equilibrium slice {idx} has no positive axis pressure")
+    return float(pressure[0])
+
+
 def _ip_from_magnetics(ods: Any, time: float) -> float:
     mg = ods["magnetics"]
     return float(np.interp(time, mg["ip.0.time"], mg["ip.0.data"]))

@@ -40,7 +40,13 @@ from .config import (
 )
 from .mesh import build_tokamaker_mesh
 from .outputs import EVOLUTION_SIDECAR_NAME, _merge_equilibrium
-from .runner import _apply_profiles, _apply_vsc, _configure_tokamaker, _json_safe
+from .runner import (
+    _apply_profiles,
+    _apply_vsc,
+    _configure_tokamaker,
+    _json_safe,
+    _save_eqdsk,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -142,14 +148,7 @@ def run_tokamaker_evolution(
                     converged = True
                     stats = dict(mygs.get_stats())
                     gfile = base.workdir / f"g{shot:06d}.{ms:05d}"
-                    mygs.save_eqdsk(
-                        str(gfile),
-                        nr=config.eqdsk_nr,
-                        nz=config.eqdsk_nz,
-                        lcfs_pad=config.eqdsk_lcfs_pad,
-                        run_info=f"# {shot} {ms}ms",
-                        cocos=config.eqdsk_cocos,
-                    )
+                    _save_eqdsk(mygs, gfile, config, f"# {shot} {ms}ms")
             except Exception as exc:
                 error = str(exc)
                 _log.warning(

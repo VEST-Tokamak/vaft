@@ -26,6 +26,7 @@ class FakeSettings:
         self.maxits = 40
         self.urf = 0.2
         self.nl_tol = 1e-6
+        self.lim_zmax = 1.0e99
 
 
 class FakeFieldInterpolator:
@@ -84,6 +85,7 @@ def make_fake_oft(
             calls.append(("init", env))
             self.settings = FakeSettings()
             self.o_point = np.array([0.4, 0.0])
+            self.lim_point = np.array([0.105, 0.0])
             self.diverted = False
             self.np = FAKE_NP
             self.r = np.zeros((FAKE_NP, 3))
@@ -103,6 +105,8 @@ def make_fake_oft(
 
         def setup(self, order=2, F0=0.0):
             calls.append(("setup", order, F0))
+            # the settings OFT pushes to Fortran inside setup()
+            type(self).settings_at_setup = dict(vars(self.settings))
 
         def update_settings(self):
             calls.append(("update_settings", self.settings.nl_tol))
