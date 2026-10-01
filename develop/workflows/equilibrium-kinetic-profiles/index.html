@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2859ece</code>. What is described
+  <code>dd6b15a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1030,6 +1030,94 @@ happily reproduce measurement noise.</li>
 <p>Always keep <code class="language-plaintext highlighter-rouge">uncertainty_option=1</code> if error bars exist. With it disabled every channel is weighted
 equally, including ones the diagnostic itself flagged as unreliable.</p>
 
+<h2 id="equilibrium-reconstruction-with-efit">Equilibrium reconstruction with EFIT</h2>
+
+<p>The profiles above are mapped on an equilibrium, and on VEST that equilibrium is an EFIT
+reconstruction: <code class="language-plaintext highlighter-rouge">vaft.code.efit</code> writes the k-files, runs the code and collects its output. The
+per-shot stages live in <a href="/vaft/develop/workflows/automated-pipelines/">Automated pipelines</a> and
+the functions in the <a href="/vaft/develop/reference/api/code/">code API</a>. Two parts of that machinery
+belong on this page: the named configurations a run selects, and the poloidal field derived from the
+flux map it returns.</p>
+
+<h3 id="named-configurations-presets">Named configurations (presets)</h3>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.code.efit.PRESETS</code> names complete EFIT configurations: the scientific configuration written into the k-file, plus the sigma floor applied to the constraints first.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>preset</th>
+      <th>what it is</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">routine</code></td>
+      <td>The production configuration: legacy weights, a (2,2) basis, EFIT’s own termination. Selecting it is the same as selecting nothing.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">statistical_891</code></td>
+      <td>The #891 working setting. Statistical σ with a 2 % floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1).</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A preset floors the constraints before the k-file is written; <code class="language-plaintext highlighter-rouge">prepare_constraints</code> returns the
+floored copy and what it changed, per slice and family:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code.efit</span> <span class="kn">import</span> <span class="n">efit_preset</span>
+
+<span class="n">preset</span> <span class="o">=</span> <span class="nf">efit_preset</span><span class="p">(</span><span class="sh">"</span><span class="s">statistical_891</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>   <span class="c1"># shot 39915, whose equilibrium carries the EFIT constraints
+</span><span class="n">constraints</span><span class="p">,</span> <span class="n">floor_changes</span> <span class="o">=</span> <span class="n">preset</span><span class="p">.</span><span class="nf">prepare_constraints</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>   <span class="c1"># a floored copy of the constraints ODS
+</span><span class="n">floor_changes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>   <span class="c1"># {'slice': 0, 'family': 'bpol_probe', 'floor': ..., 'raised': ..., 'fitted': ...}
+</span></code></pre></div></div>
+
+<p>The k-file is then written from the floored copy with the preset’s scientific configuration:</p>
+
+<!-- docs-snippet: skip needs-data (generate_kfile reads the k-file inputs generate_constraints_ods records under equilibrium.code.parameters, which the packaged sample lacks) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code.efit</span> <span class="kn">import</span> <span class="n">generate_kfile</span>
+
+<span class="nf">generate_kfile</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="sh">"</span><span class="s">efit-run</span><span class="sh">"</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">preset</span><span class="p">.</span><span class="n">scientific</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>Selecting a preset in the pipelines.</strong></p>
+<ul>
+  <li><strong>Pipeline 1:</strong> <code class="language-plaintext highlighter-rouge">efit.preset</code> in <code class="language-plaintext highlighter-rouge">config.yaml</code> selects it. The k-file stage then writes <code class="language-plaintext highlighter-rouge">efit_preset.json</code> beside its manifest, and the EFIT product carries that record under <code class="language-plaintext highlighter-rouge">code.parameters</code> (<code class="language-plaintext highlighter-rouge">efit_collection.efit_preset</code>).</li>
+  <li><strong>Pipeline 2:</strong> <code class="language-plaintext highlighter-rouge">kinetic.efit_preset</code> builds the kinetic lineages’ base magnetic k-file with the same preset (<code class="language-plaintext highlighter-rouge">KineticEFITConfig.efit_preset</code>).</li>
+</ul>
+
+<p>A preset run writes the same product paths as a routine one, so give it its own <code class="language-plaintext highlighter-rouge">base_dir</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">statistical_891</code> allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot’s slices in one EFIT call. So raise <code class="language-plaintext highlighter-rouge">efit.timeout</code>: 3600 s held for the #1331 Tier A campaign, while 600 s timed out 26 of 33 shots.</p>
+
+<p><code class="language-plaintext highlighter-rouge">statistical_891</code> was calibrated on 39915’s flat-top. The weight-study README (<code class="language-plaintext highlighter-rouge">workflow/efit_uncertainty_calibration</code>) records how.</p>
+
+<h3 id="poloidal-field-on-the-boundary-and-the-flux-convention">Poloidal field on the boundary and the flux convention</h3>
+
+<p>The poloidal field on the LCFS, which <code class="language-plaintext highlighter-rouge">shafranov_integrals</code> turns into $S_1, S_2, S_3$ for
+$\beta_p$ and $l_i$, is read off the flux map by bicubic spline. The map’s flux convention is an
+argument, not an assumption: an ODS stores $\psi$ in Wb (COCOS 11), while the function’s default is
+Wb/rad, a factor $2\pi$ in the field.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.equilibrium</span> <span class="kn">import</span> <span class="n">poloidal_field_at_boundary</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>   <span class="c1"># shot 39915: psi stored in Wb, and the record says so
+</span><span class="n">slice_0</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">equilibrium.time_slice.0</span><span class="sh">"</span><span class="p">]</span>
+<span class="n">R_grid_1d</span> <span class="o">=</span> <span class="n">slice_0</span><span class="p">[</span><span class="sh">"</span><span class="s">profiles_2d.0.grid.dim1</span><span class="sh">"</span><span class="p">]</span>
+<span class="n">Z_grid_1d</span> <span class="o">=</span> <span class="n">slice_0</span><span class="p">[</span><span class="sh">"</span><span class="s">profiles_2d.0.grid.dim2</span><span class="sh">"</span><span class="p">]</span>
+<span class="n">psi_grid</span> <span class="o">=</span> <span class="n">slice_0</span><span class="p">[</span><span class="sh">"</span><span class="s">profiles_2d.0.psi</span><span class="sh">"</span><span class="p">]</span>
+<span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span> <span class="o">=</span> <span class="n">slice_0</span><span class="p">[</span><span class="sh">"</span><span class="s">boundary.outline.r</span><span class="sh">"</span><span class="p">],</span> <span class="n">slice_0</span><span class="p">[</span><span class="sh">"</span><span class="s">boundary.outline.z</span><span class="sh">"</span><span class="p">]</span>
+
+<span class="n">B_p_bdry</span><span class="p">,</span> <span class="n">B_R_bdry</span><span class="p">,</span> <span class="n">B_Z_bdry</span> <span class="o">=</span> <span class="nf">poloidal_field_at_boundary</span><span class="p">(</span>
+    <span class="n">R_grid_1d</span><span class="p">,</span> <span class="n">Z_grid_1d</span><span class="p">,</span> <span class="n">psi_grid</span><span class="p">,</span> <span class="n">R_bdry</span><span class="p">,</span> <span class="n">Z_bdry</span><span class="p">,</span>
+    <span class="n">cocos</span><span class="o">=</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">ods_cocos</span><span class="p">(</span><span class="n">ods</span><span class="p">),</span>  <span class="c1"># the flux convention the record declares: 11 for IMAS psi in Wb; omitting it assumes Wb/rad
+</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The rest of the chain – <code class="language-plaintext highlighter-rouge">shafranov_integrals</code>, <code class="language-plaintext highlighter-rouge">efit_virial_volume_integrals</code>, <code class="language-plaintext highlighter-rouge">calculate_diamagnetism</code>
+– is documented in the <a href="/vaft/develop/reference/process/equilibrium/">process reference</a>.</p>
+
 <h2 id="references">References</h2>
 
 <ul>
@@ -1260,7 +1348,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#analytic-l-mode-h-mode-and-itb-states" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Analytic L-mode, H-mode and ITB states</a></li><li class="page-toc-item page-toc-level-3"><a href="#synthetic-kinetic-profiles-from-an-equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic kinetic profiles from an equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#a-self-consistent-equilibrium-and-kinetic-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A self-consistent equilibrium and kinetic state</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#kinetic-profile-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic-profile files</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#osborne-pfiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Osborne pfiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#mars-profin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARS PROF*.IN</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#analytic-l-mode-h-mode-and-itb-states" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Analytic L-mode, H-mode and ITB states</a></li><li class="page-toc-item page-toc-level-3"><a href="#synthetic-kinetic-profiles-from-an-equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic kinetic profiles from an equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#a-self-consistent-equilibrium-and-kinetic-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A self-consistent equilibrium and kinetic state</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#kinetic-profile-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic-profile files</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#osborne-pfiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Osborne pfiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#mars-profin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARS PROF*.IN</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-reconstruction-with-efit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium reconstruction with EFIT</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#named-configurations-presets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Named configurations (presets)</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal-field-on-the-boundary-and-the-flux-convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Poloidal field on the boundary and the flux convention</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -1378,7 +1466,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-01 03:13:30 +0000"
+        "time": "2026-10-01 04:06:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

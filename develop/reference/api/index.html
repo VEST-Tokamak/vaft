@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2859ece</code>. What is described
+  <code>dd6b15a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -911,7 +911,7 @@ raises. The result says:</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">elapsed_s</code></td>
-      <td>wall time from launch to stop [s] (set on every run, not only a timeout)</td>
+      <td>wall time from launch to stop [s] (set on every run, not only a timeout); for a Slurm batch job, from submission, queue wait included</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">timed_out</code></td>
@@ -921,7 +921,8 @@ raises. The result says:</p>
 </table>
 
 <p>A stop well short of <code class="language-plaintext highlighter-rouge">timeout</code> (a scheduler’s <code class="language-plaintext highlighter-rouge">max_wait</code> cancelling a running job) reports the time
-actually run. The reason is the last line of <code class="language-plaintext highlighter-rouge">stderr</code>, or of the log for codes that write one, worded
+actually run: a batch job’s own start and termination stamps (<code class="language-plaintext highlighter-rouge">ExecutionResult.run_s</code>), so a long
+queue wait is not reported as running time. The reason is the last line of <code class="language-plaintext highlighter-rouge">stderr</code>, or of the log for codes that write one, worded
 <code class="language-plaintext highlighter-rouge">"&lt;code&gt; timed out after N s of running"</code> or <code class="language-plaintext highlighter-rouge">"&lt;code&gt; was cancelled after waiting N s in the scheduler
 queue (it never started)"</code>.</p>
 
@@ -1696,7 +1697,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-01 03:13:30 +0000"
+        "time": "2026-10-01 04:06:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
