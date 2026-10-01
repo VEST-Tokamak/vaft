@@ -38,6 +38,19 @@ from vaft.formula.equilibrium import (
 )
 from vaft.formula.constants import _SCALING_COEFS
 
+# The names defined here.  What this module imports (``omas``, NumPy, other
+# VAFT modules) is not re-exported through it (#1382).
+__all__ = [
+    "compute_bremsstrahlung_power",
+    "compute_confiment_time_paramters",
+    "compute_magnetic_shear",
+    "compute_power_balance",
+    "compute_tau_E_engineering_parameters",
+    "compute_tau_E_exp",
+    "compute_tau_E_scaling",
+    "compute_voltage_consumption",
+]
+
 # One entry per live ODS: id(ods) -> (content signature, power balance).
 # An ODS is unhashable (omas 0.95.2 says so explicitly), so it cannot key a
 # WeakKeyDictionary; the entry is evicted by a weakref.finalize on the ODS
