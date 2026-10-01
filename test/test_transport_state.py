@@ -749,3 +749,34 @@ def test_mem_mb_is_the_configs_memory_reservation_not_a_slurm_only_flag(driver, 
             if backend == "slurm":
                 # One --mem only: the backend's _sizing writes it from memory_mb.
                 assert not any("--mem" in str(a) for a in config.backend.extra_args)
+
+
+def test_a_product_without_a_time_vector_is_listed_missing_not_silently_empty(driver, sample, tmp_path):
+    """F8: consistency_check=False products read a missing time as [], hiding the lineage."""
+    from omas import ODS
+
+    ods = _electron_only(sample)
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    labels = {(48224, 300): "good"}
+
+    # Equilibrium without `time`: that lineage is reported, the enumeration continues.
+    filedb = tmp_path / "a"
+    no_time = copy.deepcopy(eq)
+    del no_time["equilibrium.time"]
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", no_time)
+    states, counts = driver.enumerate_states(filedb, labels, [48224], ["magnetics"])
+    assert states == []
+    assert counts["missing_products"] == [{"shot": 48224, "stage": "magnetics", "status": "no_time"}]
+
+    # core_profiles without `time`: a reason, not a ValueError from an empty min().
+    filedb = tmp_path / "b"
+    no_time = copy.deepcopy(cp)
+    del no_time["core_profiles.time"]
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", no_time)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    states, counts = driver.enumerate_states(filedb, labels, [48224], ["magnetics"])
+    assert states == []
+    assert counts["missing_products"] == [{"shot": 48224, "stage": "core_profiles", "status": "no_time"}]

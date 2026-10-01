@@ -108,6 +108,21 @@ def compose(equilibrium_ods: Any, profiles_ods: Any) -> Any:
     return ods
 
 
+def _time_vector(ods: Any, path: str) -> np.ndarray:
+    """The IDS time vector, or an empty array when the product carries none.
+
+    Products load with ``consistency_check=False``, where a bare subscript of a
+    missing ``time`` reads as an empty node rather than raising; read by membership
+    so "absent" is a visible outcome, not a lineage that silently yields no state.
+    """
+    from vaft.ods_access import path_value
+
+    values = path_value(ods, path, None)
+    if values is None:
+        return np.empty(0)
+    return np.atleast_1d(np.asarray(values, dtype=float))
+
+
 def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages: Iterable[str]):
     """Yield ``(key, efit_quality, quality_source)`` for every good/admissible state.
 
@@ -128,11 +143,18 @@ def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages:
                 counts["missing_products"].append({"shot": shot, "stage": lineage,
                                                    "status": eq_manifest.get("status")})
                 continue
-            eq = _load(eq_path)
-            times = np.atleast_1d(np.asarray(eq["equilibrium.time"], dtype=float))
+            times = _time_vector(_load(eq_path), "equilibrium.time")
+            if times.size == 0:
+                counts["missing_products"].append({"shot": shot, "stage": lineage,
+                                                   "status": "no_time"})
+                continue
             if lineage == "magnetics":
                 # A magnetics state exists where a core_profiles slice sits on the slice.
-                cp_times = np.atleast_1d(np.asarray(_load(cp_path)["core_profiles.time"], dtype=float))
+                cp_times = _time_vector(_load(cp_path), "core_profiles.time")
+                if cp_times.size == 0:
+                    counts["missing_products"].append({"shot": shot, "stage": "core_profiles",
+                                                       "status": "no_time"})
+                    continue
                 candidates = [t for t in times
                               if np.min(np.abs(cp_times - t)) <= DEFAULT_TIME_TOLERANCE_S]
                 source = "criteria"
