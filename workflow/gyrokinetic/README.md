@@ -53,7 +53,7 @@ sbatch -p lowpri-short -A tdst -n 32 --mem=32G -t 06:00:00 \
 `--mem-mb` set, but a 360-run grid would then flood the shared queue.
 
 Every run is resumable: a `record.json` whose input hash matches and whose status is
-`solved` is reused, so a timed-out allocation is continued by resubmitting.
+`solved` or `decayed` (stable, amplitude underflow) is reused, so a timed-out allocation is continued by resubmitting.
 
 ## Products
 

@@ -148,9 +148,13 @@ def _run_cgyro_job(job: dict, workdir: Path) -> dict:
 
     staged = stage_cgyro_case(job["local"], workdir, job["config"], state_key=job["state_key"])
     previous = _record(workdir / "record.json")
-    if (previous and previous.get("status") == "solved"
-            and previous.get("input_sha256") == staged.provenance["input_sha256"]):
-        return {**previous, "cached": True}
+    if previous and previous.get("input_sha256") == staged.provenance["input_sha256"]:
+        decayed = previous.get("status") == "decayed" or any(
+            "Underflow in calculation of frequency error" in str(e)
+            for e in previous.get("errors") or ())
+        # A decayed (stable) mode is a result too: rerunning it reproduces the underflow.
+        if previous.get("status") == "solved" or decayed:
+            return {**previous, "status": "decayed" if decayed else "solved", "cached": True}
     result = run_cgyro(staged, job["config"], check=False)
     native = result.outputs_native
     omega = None if native is None else native.frequency_ion_negative
