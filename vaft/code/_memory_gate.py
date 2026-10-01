@@ -17,6 +17,11 @@ The ledger is a directory of one JSON file per admitted job plus a lock file
 (``flock``), so it works across unrelated processes of the same user. A
 record whose owner process is gone is dropped on the next admission. On a
 host without ``fcntl`` (Windows) admission is not enforced.
+
+The ledger is shared only by processes that use the same directory. The
+default is per user under the temp directory, so workers with different
+``TMPDIR`` (Slurm jobs, for instance) must set :data:`LEDGER_ENV` to one path.
+The directory is created ``0700`` and refused if another user owns it.
 """
 
 from __future__ import annotations
@@ -28,10 +33,12 @@ import subprocess
 import tempfile
 import time
 import uuid
+import warnings
 from pathlib import Path
 from typing import Callable, Iterable, Iterator, Optional
 
-from .resources import _available_mib
+from . import _process_tree
+from .resources import _DEFAULT_MEMINFO, _available_mib
 
 try:  # POSIX only
     import fcntl
@@ -56,43 +63,97 @@ def available_mb() -> Optional[float]:
     return _available_mib(None)
 
 
-def tree_rss_mb(pids: Iterable[int]) -> float:
-    """Summed resident set size of ``pids`` in MiB; processes that are gone count 0."""
-    pids = [int(pid) for pid in pids]
+def total_mb() -> Optional[float]:
+    """Physical memory of the host in MiB; ``None`` if unknown."""
+    try:
+        for line in _DEFAULT_MEMINFO.read_text().splitlines():
+            if line.startswith("MemTotal:"):
+                return float(line.split()[1]) / 1024.0
+    except (OSError, ValueError, IndexError):
+        pass
+    try:
+        import psutil  # optional
+    except ImportError:
+        return None
+    try:
+        return float(psutil.virtual_memory().total) / (1024.0 * 1024.0)
+    except Exception:  # pragma: no cover - psutil platform failure
+        return None
+
+
+def rss_by_pid(pids: Iterable[int]) -> dict[int, float]:
+    """Resident size [MiB] of each live pid in ``pids``; one ``ps`` call off Linux."""
+    pids = sorted({int(pid) for pid in pids})
     if not pids:
-        return 0.0
+        return {}
+    found: dict[int, float] = {}
     if os.path.isdir("/proc/self/task"):
-        total_kib = 0.0
         for pid in pids:
             try:
                 with open(f"/proc/{pid}/status", "rb") as status:
                     for line in status:
                         if line.startswith(b"VmRSS:"):
-                            total_kib += float(line.split()[1])
+                            found[pid] = float(line.split()[1]) / 1024.0
                             break
             except (OSError, ValueError, IndexError):
                 continue
-        return total_kib / 1024.0
+        return found
     try:
         listing = _STDLIB_RUN(
-            ["ps", "-o", "rss=", "-p", ",".join(str(pid) for pid in pids)],
+            ["ps", "-o", "pid=,rss=", "-p", ",".join(str(pid) for pid in pids)],
             capture_output=True,
             text=True,
             check=False,
         )
     except OSError:
-        return 0.0
-    return sum(float(part) for part in listing.stdout.split() if part.strip().isdigit()) / 1024.0
+        return found
+    for line in listing.stdout.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            found[int(parts[0])] = float(parts[1]) / 1024.0
+    return found
+
+
+def tree_rss_mb(pids: Iterable[int]) -> float:
+    """Summed resident set size of ``pids`` in MiB; processes that are gone count 0."""
+    return sum(rss_by_pid(pids).values())
 
 
 def _alive(pid: int) -> bool:
+    """Whether ``pid`` is a live process of this user.
+
+    The ledger directory is private to one user, so an owner pid that now
+    belongs to someone else (``PermissionError``) was reused: the record is
+    stale.
+    """
+    if pid <= 0:
+        return False
     try:
         os.kill(pid, 0)
-    except ProcessLookupError:
+    except (ProcessLookupError, PermissionError):
         return False
-    except PermissionError:
-        return True
     return True
+
+
+def _write_json_atomic(path: Path, record: dict) -> None:
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    temporary.write_text(json.dumps(record))
+    os.replace(temporary, path)
+
+
+def _private_directory(directory: Path) -> Path:
+    """Create ``directory`` 0700, or refuse one that is not this user's own."""
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if directory.is_symlink():
+        raise PermissionError(f"memory ledger {directory} is a symlink; refusing it")
+    if hasattr(os, "getuid"):
+        info = directory.stat()
+        if info.st_uid != os.getuid():
+            raise PermissionError(f"memory ledger {directory} belongs to uid {info.st_uid}; set {LEDGER_ENV}")
+    return directory
+
+
+_UNKNOWN_AVAILABILITY_WARNED = False
 
 
 class Reservation:
@@ -106,8 +167,8 @@ class Reservation:
     def attach(self, root_pid: int) -> None:
         """Record the launched program's pid so its growth reduces what it still claims."""
         record = {"owner": os.getpid(), "reserve_mb": self.reserve_mb, "root": int(root_pid)}
-        with contextlib.suppress(OSError):
-            self.path.write_text(json.dumps(record))
+        with contextlib.suppress(OSError), self.ledger._locked():
+            _write_json_atomic(self.path, record)
 
     def release(self) -> None:
         with contextlib.suppress(OSError):
@@ -117,9 +178,9 @@ class Reservation:
 class MemoryLedger:
     """Host-wide admission control for memory reservations (see module docstring).
 
-    ``members`` maps a recorded root pid to the pids of its tree; it defaults
-    to the root alone and is replaced by :class:`LocalBackend` with the
-    process-tree walk, so descendants count too.
+    A recorded root pid counts together with its descendants, found from one
+    process table per admission. ``available`` and ``total`` are injectable
+    for tests.
     """
 
     def __init__(
@@ -128,16 +189,18 @@ class MemoryLedger:
         *,
         floor_mb: float = 4096.0,
         available: Callable[[], Optional[float]] = available_mb,
-        members: Callable[[int], Iterable[int]] = lambda root: (root,),
+        total: Callable[[], Optional[float]] = total_mb,
     ) -> None:
+        if floor_mb < 0:
+            raise ValueError(f"floor_mb must be >= 0, got {floor_mb}")
         self.directory = Path(directory) if directory is not None else default_ledger_dir()
         self.floor_mb = float(floor_mb)
         self._available = available
-        self._members = members
+        self._total = total
 
     @contextlib.contextmanager
     def _locked(self) -> Iterator[None]:
-        self.directory.mkdir(parents=True, exist_ok=True)
+        _private_directory(self.directory)
         with open(self.directory / ".lock", "a+") as lock:
             if fcntl is not None:
                 fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
@@ -148,34 +211,65 @@ class MemoryLedger:
                     fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
     def outstanding_mb(self) -> float:
-        """Reserved but not yet resident memory of live admitted jobs; drops dead records."""
-        total = 0.0
+        """Reserved but not yet resident memory of live admitted jobs.
+
+        Records of dead owners and records that cannot be read as
+        ``{"owner": int, "reserve_mb": number, "root": int | null}`` are removed.
+        """
+        records = []
         for path in self.directory.glob("*.json"):
             try:
                 record = json.loads(path.read_text())
-            except (OSError, ValueError):
-                continue
-            if not _alive(int(record.get("owner", -1))):
+                owner = int(record["owner"])
+                reserve = float(record["reserve_mb"])
+                root = None if record.get("root") is None else int(record["root"])
+            except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                record = None
+            if record is None or not _alive(owner):
                 with contextlib.suppress(OSError):
                     path.unlink()
                 continue
-            root = record.get("root")
-            used = 0.0 if root is None else tree_rss_mb(self._members(int(root)))
-            total += max(0.0, float(record["reserve_mb"]) - used)
+            records.append((reserve, root))
+        roots = [root for _, root in records if root is not None]
+        table = _process_tree._process_table() if roots else {}
+        trees = {root: {root} | _process_tree._descendants(root, table) for root in roots}
+        rss = rss_by_pid(pid for tree in trees.values() for pid in tree)
+        total = 0.0
+        for reserve, root in records:
+            used = 0.0 if root is None else sum(rss.get(pid, 0.0) for pid in trees[root])
+            total += max(0.0, reserve - used)
         return total
+
+    def fits(self, reserve_mb: float) -> bool:
+        """Whether ``reserve_mb`` + floor could ever be admitted on this host."""
+        total = self._total()
+        return total is None or reserve_mb + self.floor_mb <= total
 
     def try_admit(self, reserve_mb: float) -> Optional[Reservation]:
         """Admit now if the host has room, else ``None``. Unknown availability admits."""
+        global _UNKNOWN_AVAILABILITY_WARNED
         with self._locked():
             available = self._available()
+            if available is None and not _UNKNOWN_AVAILABILITY_WARNED:
+                _UNKNOWN_AVAILABILITY_WARNED = True
+                warnings.warn(
+                    "available memory cannot be read on this host; memory admission is not enforced",
+                    RuntimeWarning,
+                    stacklevel=3,
+                )
             if available is not None and available - self.outstanding_mb() < reserve_mb + self.floor_mb:
                 return None
             path = self.directory / f"{uuid.uuid4().hex}.json"
-            path.write_text(json.dumps({"owner": os.getpid(), "reserve_mb": float(reserve_mb), "root": None}))
+            _write_json_atomic(path, {"owner": os.getpid(), "reserve_mb": float(reserve_mb), "root": None})
             return Reservation(self, path, float(reserve_mb))
 
     def admit(self, reserve_mb: float, *, wait_s: Optional[float], poll_s: float = 5.0) -> Optional[Reservation]:
-        """Wait up to ``wait_s`` seconds (``None``: forever) for admission."""
+        """Wait up to ``wait_s`` seconds (``None``: forever) for admission.
+
+        A reservation that cannot fit even on an idle host returns ``None`` at once.
+        """
+        if not self.fits(reserve_mb):
+            return None
         started = time.monotonic()
         while True:
             reservation = self.try_admit(reserve_mb)
@@ -186,4 +280,13 @@ class MemoryLedger:
             time.sleep(poll_s)
 
 
-__all__ = ["LEDGER_ENV", "MemoryLedger", "Reservation", "available_mb", "default_ledger_dir", "tree_rss_mb"]
+__all__ = [
+    "LEDGER_ENV",
+    "MemoryLedger",
+    "Reservation",
+    "available_mb",
+    "default_ledger_dir",
+    "rss_by_pid",
+    "total_mb",
+    "tree_rss_mb",
+]

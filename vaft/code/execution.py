@@ -130,9 +130,9 @@ class ExecutionResult:
     #: Largest resident size of the program's process tree that the backend
     #: sampled [MiB]; only a backend that watches memory sets it.
     peak_rss_mb: Optional[float] = None
-    #: What a ``queue_timeout`` waited for: ``"scheduler"`` (a batch queue) or
-    #: ``"memory"`` (local memory admission, #1460).
-    waited_for: str = "scheduler"
+    #: What a ``queue_timeout`` waited for: ``"memory"`` for local memory
+    #: admission (#1460); empty otherwise, including a scheduler queue.
+    waited_for: str = ""
 
     def __post_init__(self) -> None:
         if not self.runtime_status:
@@ -239,6 +239,11 @@ class LocalBackend:
         Memory left free for everything else on the host.
     ``poll_interval_s``
         How often a running tree's resident size is sampled.
+    ``ledger_dir``
+        The reservation ledger; default ``$VAFT_MEMORY_LEDGER_DIR`` or a
+        per-user temp directory. Only processes sharing one directory see each
+        other's reservations, so give workers with different ``TMPDIR`` the
+        same ``VAFT_MEMORY_LEDGER_DIR``.
     """
 
     def __init__(
@@ -254,6 +259,10 @@ class LocalBackend:
         for name, value in (("reserve_mb", reserve_mb), ("memory_limit_mb", memory_limit_mb)):
             if value is not None and value <= 0:
                 raise ValueError(f"{name} must be > 0 or None, got {value}")
+        if poll_interval_s <= 0:
+            raise ValueError(f"poll_interval_s must be > 0, got {poll_interval_s}")
+        if floor_mb < 0:
+            raise ValueError(f"floor_mb must be >= 0, got {floor_mb}")
         self.reserve_mb = reserve_mb
         self.memory_limit_mb = memory_limit_mb
         self.admission_wait_s = admission_wait_s
@@ -285,16 +294,18 @@ class LocalBackend:
         if reserve is None:
             reserve = self.reserve_mb
         reservation = None
-        if reserve is not None:
-            from ._memory_gate import MemoryLedger
-
-            waited = time.monotonic()
-            reservation = MemoryLedger(self.ledger_dir, floor_mb=self.floor_mb, members=_tree_members).admit(
-                float(reserve), wait_s=self.admission_wait_s, poll_s=max(self.poll_interval_s, 1.0)
-            )
-            if reservation is None:
-                return self._not_admitted(command, request, float(reserve), time.monotonic() - waited)
         try:
+            # Admission sits inside the try, so an interrupt right after it
+            # still releases the record.
+            if reserve is not None:
+                from ._memory_gate import MemoryLedger
+
+                waited = time.monotonic()
+                reservation = MemoryLedger(self.ledger_dir, floor_mb=self.floor_mb).admit(
+                    float(reserve), wait_s=self.admission_wait_s, poll_s=max(self.poll_interval_s, 1.0)
+                )
+                if reservation is None:
+                    return self._not_admitted(command, request, float(reserve), time.monotonic() - waited)
             if request.log_path is None:
                 return self._run(command, request, kwargs, reservation)
             # Opened outside the launch so a bad log path stays its own error
@@ -484,12 +495,6 @@ class LocalBackend:
                 tree.terminate()
                 stdout, stderr = tree.collect()
                 return stdout, stderr, not over_memory, over_memory, peak
-
-
-def _tree_members(root: int) -> set[int]:
-    """Pids of the tree rooted at ``root``, for the memory ledger's accounting."""
-    table = _process_tree._process_table()
-    return {root} | _process_tree._descendants(root, table)
 
 
 #: Environment variable that picks the backend for configs that name none.

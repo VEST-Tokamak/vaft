@@ -97,7 +97,8 @@ def test_a_launch_never_admitted_is_returned_not_raised(tmp_path):
 @pytest.mark.skipif(sys.platform == "win32", reason="admission needs fcntl")
 def test_the_reservation_is_released_after_the_run(tmp_path):
     ledger_dir = tmp_path / "ledger"
-    backend = LocalBackend(reserve_mb=1, ledger_dir=ledger_dir)
+    # floor 0 and a short wait: on a loaded host MemAvailable may be below the default floor.
+    backend = LocalBackend(reserve_mb=1, floor_mb=0, admission_wait_s=5, ledger_dir=ledger_dir)
     result = _run(backend, tmp_path, "print('ok')", resources=ResourceRequest(memory_mb=2))
     assert result.returncode == 0
     assert list(ledger_dir.glob("*.json")) == []
@@ -115,3 +116,47 @@ def test_tree_rss_of_this_process_is_positive_and_gone_pids_count_zero():
     assert tree_rss_mb([os.getpid()]) > 0
     assert tree_rss_mb([2**22 + 12345]) == 0
     assert tree_rss_mb([]) == 0
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="admission needs fcntl")
+def test_unreadable_ledger_records_are_dropped_not_fatal(tmp_path):
+    ledger = MemoryLedger(tmp_path, floor_mb=0, available=lambda: 1000.0)
+    ledger.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    (tmp_path / "list.json").write_text("[1, 2]")
+    (tmp_path / "no_owner.json").write_text(json.dumps({"reserve_mb": 900}))
+    (tmp_path / "partial.json").write_text('{"owner": ')
+    assert ledger.try_admit(500) is not None
+    assert sorted(p.name for p in tmp_path.glob("*.json") if p.name in ("list.json", "no_owner.json", "partial.json")) == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="admission needs fcntl")
+def test_a_reservation_larger_than_the_host_is_refused_at_once(tmp_path):
+    import time
+
+    ledger = MemoryLedger(tmp_path, floor_mb=100, available=lambda: 1000.0, total=lambda: 1000.0)
+    started = time.monotonic()
+    assert ledger.admit(950, wait_s=60, poll_s=1) is None
+    assert time.monotonic() - started < 5
+
+
+@pytest.mark.skipif(not hasattr(os, "getuid"), reason="POSIX ownership")
+def test_the_ledger_directory_is_private(tmp_path):
+    ledger = MemoryLedger(tmp_path / "ledger", floor_mb=0, available=lambda: 1000.0)
+    assert ledger.try_admit(1) is not None
+    assert (tmp_path / "ledger").stat().st_mode & 0o777 == 0o700
+
+
+def test_memory_settings_are_validated():
+    with pytest.raises(ValueError):
+        LocalBackend(poll_interval_s=0)
+    with pytest.raises(ValueError):
+        LocalBackend(floor_mb=-1)
+    with pytest.raises(ValueError):
+        LocalBackend(memory_limit_mb=0)
+
+
+def test_a_memory_stop_counts_as_a_limit_stop_for_adapters():
+    from vaft.code.base import CodeResult
+
+    stopped = CodeResult(returncode=None, workdir=Path("."), runtime_status="memory_limit")
+    assert stopped.timed_out and stopped.status == "failed"
