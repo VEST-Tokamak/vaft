@@ -47,9 +47,12 @@ vaft.omas.plot_plasma_current_time(ods, yunit="kA")
 
 A plot that has a slice control (`time_slice`, a camera's `frame_index`, the PF programme's
 `time_index`) can be presented three ways. They share every plot keyword; only the choice of state
-differs: one index, a slider over all of them, or a sequence:
+differs: one index, a slider over all of them, or a sequence. Camera frames are packaged with
+shot 40600:
 
+<!-- docs-snippet: skip needs-file (writes camera.mp4, which needs the video extra) -->
 ```python
+ods = vaft.omas.sample_ods(40600)
 vaft.omas.plot_camera_visible_image(ods, frame_index=120)                    # one state: a figure
 vaft.omas.plot_camera_visible_image(ods, interactive=True)                   # a slider over the states
 movie = vaft.omas.plot_camera_visible_image(ods, time_range=(0.3095, 0.3105), animation=True, fps=10)
