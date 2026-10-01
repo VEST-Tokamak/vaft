@@ -66,7 +66,9 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("xunit", "str", description="display unit of the x axis"),
         OptionSpec("time_slice", "int", description="stored equilibrium slice index"),
         OptionSpec("time", "float", description="a time in seconds, snapped to a stored slice"),
-        OptionSpec("time_range", "range", description="(start, stop) in seconds"),
+        OptionSpec("time_range", "range",
+                   description="(start, stop) in seconds: the window of a time history, honoured "
+                               "on a time axis or refused -- never accepted and ignored"),
         OptionSpec("smooth", "float", description="rolling-median window in seconds applied to line traces"),
         # A dense time base is indexed, not chosen from a list: the vacuum map
         # runs over the PF samples, thousands of them, where time_slice= names
@@ -269,6 +271,13 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
 
             if name in recipes.RECIPES and not recipes.time_axis_of(name):
                 raise ValueError(recipes.no_time_option_message(name))
+        if key == "time_range" and value is not None:
+            # The same rule for a window (cold review 0.8.0 delta-absorb-2
+            # F2): a profile, a map or a drawing has no time history to limit.
+            from . import recipes
+
+            if name in recipes.RECIPES and not recipes.takes_time_range(name):
+                raise ValueError(recipes.no_time_range_option_message(name))
         if key == "members" and _plot_scoped_choices(name, key) is None:
             raise ValueError(
                 f"{name!r} is not a panel composite and takes no members=; "

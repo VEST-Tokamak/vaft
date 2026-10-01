@@ -921,6 +921,10 @@ class CallableRecipe:
     #: array of structures ``time_slice=`` indexes (``equilibrium.time_slice``),
     #: and :func:`build_model` snaps ``time=`` to the nearest of its elements.
     time_axis: str = ""
+    #: ``True`` for a builder that reads ``time_range=`` and windows its time
+    #: history to it; otherwise the option is refused (:func:`takes_time_range`)
+    #: rather than accepted and ignored.
+    windowed: bool = False
 
     def __post_init__(self) -> None:
         if self.backend not in BACKENDS:
@@ -5353,6 +5357,7 @@ RECIPES["startup_proxies_time"] = CallableRecipe(
     backend=OMAS_BOUND,
     reason='vaft.omas.process_wrapper.compute_startup_proxies_ods solves and stores the vessel currents on a private copy of pf_active/pf_passive/wall/equilibrium/tf (_isolated_copy)',
     multi_entry=True,
+    windowed=True,
 )
 RECIPES["vacuum_field_midplane"] = CallableRecipe(
     builder=_build_vacuum_field_midplane,
@@ -6266,6 +6271,7 @@ RECIPES["camera_visible_spectrogram"] = CallableRecipe(
     description="Time-frequency map of the camera intensity summed over one image region.",
     reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
     backend=NEUTRAL,
+    windowed=True,
 )
 
 
@@ -7124,7 +7130,8 @@ def _smoothed_trace(trace: Series, window: float) -> Series:
 def _build_line_series(
     entries: Sequence[tuple[str, Any]], recipe: LineRecipe, **options: Any
 ) -> LineSeries:
-    spec = get_spec(options.pop("_plot_name")) if "_plot_name" in options else None
+    plot_name = options.pop("_plot_name", None)
+    spec = get_spec(plot_name) if plot_name is not None else None
     subject = spec.subject if spec is not None else None
     # Inside a composite the suptitle carries subject/unit/shot, so a member
     # keeps the short recipe title that identifies it within the figure.
@@ -7194,10 +7201,18 @@ def _build_line_series(
     # ``time_range`` (seconds) is the time window a caller asks for; it was
     # accepted and then ignored by every line plot. On a time axis it sets the
     # limits, converted to the axis's display unit; an explicit ``x_limits``
-    # (already in display units) still wins.
+    # (already in display units) still wins.  On any other abscissa -- asked
+    # for with ``x=``, or the sample index the figure fell back to -- a window
+    # in seconds means nothing, and it is refused rather than dropped (cold
+    # review 0.8.0 delta-absorb-2 F2): the rule ``time=`` follows.
     x_limits = options.get("x_limits")
     window = _range_option(options, "time_range")
-    if x_limits is None and window is not None and drawn.name == "time":
+    if x_limits is None and window is not None:
+        if drawn.name != "time":
+            raise ValueError(
+                f"time_range= windows the time axis; {plot_name or recipe.title!r} draws x={drawn.name!r} "
+                f"({drawn.label}) here, which a window in seconds cannot limit"
+            )
         x_limits = (float(window[0]) * x_display.scale, float(window[1]) * x_display.scale)
     model = LineSeries(
         series=scaled,
@@ -8854,6 +8869,7 @@ def _build_panels(
     member_options, member_style = split_options(recipe.member_defaults)
     members = []
     timed: list[str] = []
+    windowed: list[str] = []
     for name in recipe.members:
         if chosen is not None and name not in chosen:
             continue
@@ -8876,6 +8892,12 @@ def _build_panels(
             merged.pop("time", None)
         elif merged.get("time") is not None:
             timed.append(name)
+        # And for a window: it limits the members that draw a time history
+        # and leaves a profile or a map beside them alone.
+        if not takes_time_range(name):
+            merged.pop("time_range", None)
+        elif merged.get("time_range") is not None:
+            windowed.append(name)
         members.append(build_model(name, entries, _panel_member=True, **merged))
     if members and options.get("time") is not None and not timed:
         # The member that would have taken it has no data here, so what is
@@ -8883,6 +8905,11 @@ def _build_panels(
         raise ValueError(
             "time= selects nothing in this overview: none of the panels this input "
             "supports draws a single instant (takes no time= here)"
+        )
+    if members and options.get("time_range") is not None and not windowed:
+        raise ValueError(
+            "time_range= windows nothing in this overview: none of the panels this "
+            "input supports draws a time history (takes no time_range= here)"
         )
     if not members:
         raise ValueError(
@@ -9479,6 +9506,35 @@ def no_time_option_message(name: str) -> str:
     return (
         f"{name!r} takes no time=: it draws no single instant "
         "(use time_range= to window a time history)"
+    )
+
+
+def takes_time_range(name: str) -> bool:
+    """Whether plot ``name`` windows a time history to ``time_range=``.
+
+    ``time_range=`` is honoured or refused, never accepted and ignored (cold
+    review 0.8.0 delta-absorb-2 F2, the rule ``time=`` follows).  A line plot
+    takes it on its time abscissa (and refuses it when drawn against another,
+    see :func:`_build_line_series`); a spectrogram and a power spectrum trim
+    their signal to it; a computed view declares it (``CallableRecipe.windowed``);
+    a composite takes it when a member does.  A profile, a 2-D map and a
+    machine drawing have no time history to window.
+    """
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, (LineRecipe, SpectrogramRecipe, PowerSpectrumRecipe)):
+        return True
+    if isinstance(recipe, CallableRecipe):
+        return recipe.windowed
+    if isinstance(recipe, PanelRecipe):
+        return any(takes_time_range(member) for member in recipe.members)
+    return False
+
+
+def no_time_range_option_message(name: str) -> str:
+    """The refusal of time_range= by a plot that draws no time history."""
+    return (
+        f"{name!r} takes no time_range=: nothing it draws is windowed to a time "
+        "interval (a plot of one instant takes time= or time_slice= instead)"
     )
 
 
@@ -13200,6 +13256,7 @@ RECIPES["diagnostics_spectrum_coherence"] = CallableRecipe(
         for template in (*signals, *times, name)
     ),
     backend=NEUTRAL,
+    windowed=True,
 )
 
 
