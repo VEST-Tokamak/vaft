@@ -25,8 +25,8 @@
 
     force_xialpha = f                   ! Calculates tangential displacement from radial displacement and toroidal force balance (overwrites peq_file values)
 
-    atol_xlmda = 1e-9                   ! Absolute tolerance in energy and pitch integration
-    rtol_xlmda = 1e-5                   ! Relative tolerance in energy and pitch integration
+    atol_xlmda = 1e-9                   ! Absolute tolerance in PITCH integration. Current GPEC derives the energy tolerance from it (atol_x = 1e-2*atol_xlmda) unless atol_x is set; atol_x/rtol_x are not named here because a GPEC that predates them stops at the namelist read
+    rtol_xlmda = 1e-5                   ! Relative tolerance in PITCH integration; see atol_xlmda for the derived energy tolerance
     atol_psi = 1e-4                     ! Absolute tolerance in psi_n integration
     rtol_psi = 1e-4                     ! Relative tolerance in psi_n integration
     ntheta = 128                        ! Poloidal angle grid for bounce integration

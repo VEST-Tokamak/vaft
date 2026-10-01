@@ -80,7 +80,9 @@ def optional_executable(config: "GPECSuiteConfig", program: str) -> Path | None:
 def unconfigured_reason() -> str:
     return missing_home_message(
         home_variable=GPEC_HOME_ENV,
-        relative_path="bin/{dcon,match,rdcon,rmatch,stride,gpec}",
+        # `pentrc` included: it is resolved out of the same `bin` and a reason
+        # that listed every other program implied PENTRC was somewhere else.
+        relative_path="bin/{dcon,match,rdcon,rmatch,stride,gpec,pentrc}",
         code_name="GPEC suite",
     )
 

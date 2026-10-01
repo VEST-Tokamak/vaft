@@ -86,7 +86,7 @@ _RATIONAL_COMPLEX = ("Phi_res", "Phi_res_v", "Delta", "B_pen", "I_res")
 #: that knows one spelling returns ``None`` for the other, which is indistinguishable
 #: from a run that did not compute the field -- so the two names are normalised here
 #: and every caller downstream sees one.  Measured on two files from one machine:
-#: ``B_pen`` in output from ``f06e6ab``, ``b_pen`` from ``e68d7ac2``.
+#: ``B_pen`` in output from ``f06e6abd``, ``b_pen`` from ``e68d7ac2``.
 _RENAMED_VARIABLES = {"b_pen": "B_pen"}
 
 #: Radial (``psi_n``) profiles kept as named fields.

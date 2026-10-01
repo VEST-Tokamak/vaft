@@ -29,6 +29,13 @@ from vaft.code.gpec import IdealGPECOptions
 
 from external_code_stubs import write_launchable_stub
 
+#: An inverse Prandtl number with enough digits to catch a reformat.
+#:
+#: Arbitrary, and deliberately so: a value carried over from a real discharge
+#: would make this fixture a measurement of that discharge.
+AWKWARD_INPR = 3.14159265
+
+
 GFILE_TEXT = "  EFITD   01/01/2024   #  39915  325ms        3  65  65\n 1.0 2.0 3.0\n"
 
 #: The three keys this feature adds to the packaged ``gpec.in``.
@@ -142,13 +149,13 @@ def test_singthresh_flag_writes_both_sub_flags_as_gpec_would_force_them(case):
     ``singthresh_flag=t`` would be a namelist that contradicts the run.
     """
     cell = _prepared_gpec_cell(
-        case, IdealGPECOptions(singthresh_flag=True, singthresh_slayer_inpr=7.287)
+        case, IdealGPECOptions(singthresh_flag=True, singthresh_slayer_inpr=AWKWARD_INPR)
     )
     values = _namelist(cell / "gpec.in")
     assert values["singthresh_flag"] == "t"
     assert values["singthresh_callen_flag"] == "t"
     assert values["singthresh_slayer_flag"] == "t"
-    assert float(values["singthresh_slayer_inpr"]) == pytest.approx(7.287)
+    assert float(values["singthresh_slayer_inpr"]) == pytest.approx(AWKWARD_INPR)
 
 
 def test_callen_alone_leaves_slayer_off_and_needs_no_prandtl_number(case):
@@ -173,10 +180,10 @@ def test_slayer_alone_leaves_callen_off(case):
 def test_an_options_change_alone_moves_the_prandtl_number(case):
     """The number in the file is the number that was asked for, to its digits."""
     cell = _prepared_gpec_cell(
-        case, IdealGPECOptions(singthresh_slayer_flag=True, singthresh_slayer_inpr=7.28701557)
+        case, IdealGPECOptions(singthresh_slayer_flag=True, singthresh_slayer_inpr=AWKWARD_INPR)
     )
     assert float(_namelist(cell / "gpec.in")["singthresh_slayer_inpr"]) == pytest.approx(
-        7.28701557, abs=0.0
+        AWKWARD_INPR, abs=0.0
     )
 
 
