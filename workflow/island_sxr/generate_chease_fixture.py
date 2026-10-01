@@ -115,14 +115,14 @@ def main(argv=None) -> int:
         # The overrides above sit on CHEASEConfig defaults that change between
         # VAFT versions (the solver mesh, for one), so the namelist CHEASE was
         # actually given is kept verbatim.
-        "chease_namelist": (workdir / "chease_namelist").read_text()
+        "chease_namelist": (workdir / "chease_namelist").read_text(encoding="utf-8")
         if (workdir / "chease_namelist").is_file() else None,
         "chease_executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
         "chease_source_revision": _git("rev-parse", "--short", "HEAD", cwd=executable.parent) or None,
         "vaft_commit": _git("describe", "--always", "--dirty", "--abbrev=10", cwd=REPOSITORY) or None,
         "geqdsk_sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
     }
-    (args.output / PROVENANCE_NAME).write_text(json.dumps(provenance, indent=2) + "\n")
+    (args.output / PROVENANCE_NAME).write_text(json.dumps(provenance, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {target} and {args.output / PROVENANCE_NAME}")
     if args.keep_workdir is None:
         shutil.rmtree(workdir, ignore_errors=True)

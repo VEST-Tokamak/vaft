@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess  # tests intercept launches through vaft.code.chease.subprocess.run
+import sys
 from typing import Any, Mapping, Optional, Sequence
 import warnings
 
@@ -127,6 +128,20 @@ PENALIZING_BOUNDARY_CONTOUR_POLICY = BoundaryContourPolicy(positive_r_rule="pena
 CHEASE_MAX_BOX = 2300
 
 
+def _constructed_by_dataclasses_replace() -> bool:
+    """Whether the ``__post_init__`` calling this was reached through ``dataclasses.replace``.
+
+    A deprecation warns once, where the user wrote the override; the copies
+    the adapters make with ``replace(config, workdir=...)`` carry the value
+    on and must not re-warn from inside ``dataclasses.py`` (cold review 0.8.0
+    plasma-state-and-chease F6).  The frame above ``__init__`` is ``replace``
+    itself on 3.12 and its ``_replace`` helper on 3.13+; both live in the
+    ``dataclasses`` module.
+    """
+    frame = sys._getframe(3)  # this <- __post_init__ <- __init__ <- the caller of the constructor
+    return frame.f_globals.get("__name__") == "dataclasses"
+
+
 @dataclass(frozen=True)
 class CHEASEConfig:
     """Runtime and numerical configuration for CHEASE refinement.
@@ -216,7 +231,7 @@ class CHEASEConfig:
                     f"CHEASEConfig.{key} must lie in 2..{CHEASE_MAX_BOX} (CHEASE's NPBPS, "
                     f"beyond which it silently clamps the EQDSK box); got {value}"
                 )
-        if self.nideal is not None:
+        if self.nideal is not None and not _constructed_by_dataclasses_replace():
             warnings.warn(
                 f"CHEASEConfig(nideal={self.nideal}) overrides the NIDEAL that "
                 f"output={self.output!r} selects "

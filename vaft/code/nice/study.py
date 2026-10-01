@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Optional, Sequence
 
 import numpy as np
 
@@ -162,6 +162,31 @@ def lcfs_rms_displacement(left_r, left_z, right_r, right_z) -> float:
     return float(min(candidates))
 
 
+def _profile_psi_norm(ods: Any, base: str) -> Optional[np.ndarray]:
+    """The slice's ``profiles_1d.psi`` as psi_N in [0, 1], or None when absent."""
+    try:
+        psi = np.asarray(ods[f"{base}.profiles_1d.psi"], float)
+        axis = float(ods[f"{base}.global_quantities.psi_axis"])
+        boundary = float(ods[f"{base}.global_quantities.psi_boundary"])
+    except Exception:
+        return None
+    if psi.ndim != 1 or psi.size < 2 or not np.isfinite(psi).all():
+        return None
+    if not (np.isfinite(axis) and np.isfinite(boundary)) or axis == boundary:
+        return None
+    psi_norm = (psi - axis) / (boundary - axis)
+    if np.any(np.diff(psi_norm) <= 0):
+        return None
+    return psi_norm
+
+
+def _side_grid(psi_norm: Optional[np.ndarray], values: np.ndarray) -> np.ndarray:
+    """The abscissa of one side's profile: its psi_N, else the index grid."""
+    if psi_norm is not None and psi_norm.size == values.size:
+        return psi_norm
+    return np.linspace(0.0, 1.0, values.size)
+
+
 def compare_equilibria(nice_ods: Any, efit_ods: Any, time: float) -> dict[str, Any]:
     """Compare common physical quantities on the closest matched slice."""
     ni, ei = _slice_index(nice_ods, time), _slice_index(efit_ods, time)
@@ -208,6 +233,12 @@ def compare_equilibria(nice_ods: Any, efit_ods: Any, time: float) -> dict[str, A
         except Exception:
             psi_factor[side] = float("nan")
     per_psi = {"dpressure_dpsi", "f_df_dpsi"}
+    # Each side is compared on its own declared normalised psi, not by array
+    # index: the two codes need not tabulate profiles on the same grid.
+    profile_grid = {
+        side: _profile_psi_norm(ods, base)
+        for side, ods, base in (("nice", nice_ods, nb), ("efit", efit_ods, eb))
+    }
     profiles = {}
     for name in ("pressure", "dpressure_dpsi", "f_df_dpsi", "j_tor", "q"):
         try:
@@ -216,8 +247,8 @@ def compare_equilibria(nice_ods: Any, efit_ods: Any, time: float) -> dict[str, A
             if name in per_psi:
                 nv, ev = nv / psi_factor["nice"], ev / psi_factor["efit"]
             grid = np.linspace(0.0, 1.0, 101)
-            delta = np.interp(grid, np.linspace(0, 1, len(nv)), nv) - np.interp(
-                grid, np.linspace(0, 1, len(ev)), ev
+            delta = np.interp(grid, _side_grid(profile_grid["nice"], nv), nv) - np.interp(
+                grid, _side_grid(profile_grid["efit"], ev), ev
             )
             profiles[name] = {
                 "rms": float(np.sqrt(np.mean(delta**2))),
@@ -237,6 +268,10 @@ def compare_equilibria(nice_ods: Any, efit_ods: Any, time: float) -> dict[str, A
         ),
         "quantities": values,
         "profiles": profiles,
+        "profile_grid": {
+            side: "psi_norm" if grid is not None else "index"
+            for side, grid in profile_grid.items()
+        },
         "psi_to_wb_per_radian_factor": psi_factor,
     }
 

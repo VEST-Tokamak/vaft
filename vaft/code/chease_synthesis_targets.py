@@ -114,6 +114,9 @@ __all__ = [
 ]
 
 #: Targets the outer solve accepts, and the achieved descriptor each is read from.
+#: The units are the descriptors' own: ``beta_p`` is the dimensionless
+#: ``2*mu0*<p>/<Bp>_boundary^2`` (a fraction, not a percentage); only
+#: ``beta_n`` carries the Troyon ``% m T / MA`` scaling.
 TARGET_DESCRIPTORS = {"plasma_current": "ip", "q95": "q95", "beta_p": "beta_p", "beta_n": "beta_n",
                       "li": "li_virial", "q0": "q0"}
 
@@ -354,9 +357,11 @@ def synthesize_equilibrium_to_targets(
     spec : ZeroDimensionalEquilibriumSpec
         Boundary, field and source model; its knob fields are the initial guess [-].
     targets : Mapping[str, float]
-        Target name to requested value: ``plasma_current`` [A], ``q95``,
-        ``q0``, ``beta_p``, ``beta_n`` [%, as in the descriptors], ``li``
-        (the virial l_i) [-].
+        Target name to requested value: ``plasma_current`` [A]; ``q95``,
+        ``q0`` and ``li`` (the virial l_i) dimensionless; ``beta_p`` the
+        dimensionless fraction ``2*mu0*<p>/<Bp>_boundary^2`` (0.4 is 40 %,
+        not 0.4 %); ``beta_n`` the Troyon-scaled ``100*beta_t*a*|Bt0|/Ip_MA``
+        in % m T / MA, as the descriptors report them [-].
     knobs : Mapping[str, Any], optional
         Per-target knob override, :class:`TargetKnob` or ``(name, lower, upper)`` [-].
     config : CHEASEConfig, optional

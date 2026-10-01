@@ -60,6 +60,16 @@ def _ods():
     return ods
 
 
+# The smallest parameter file preparation accepts: COCOS declaration, the
+# major radius the B0 line is derived from, and NICE's stopping criteria.
+_MINIMAL_XML = (
+    "<parameters><inCOCOS>11</inCOCOS><outCOCOS>11</outCOCOS>"
+    "<useNewCOCOSManager>1</useNewCOCOSManager><inoutCOCOS>11</inoutCOCOS>"
+    "<r0>0.4</r0><iterMaxRecon>30</iterMaxRecon>"
+    "<epsStopRecon>1.0e-10</epsStopRecon></parameters>"
+)
+
+
 def test_prepare_is_nice_free_and_hashes_fixed_passive_state(tmp_path):
     inputs = prepare_nice_inputs(
         _ods(),
@@ -177,9 +187,7 @@ def test_effective_cocos_manager_is_required(tmp_path):
             _ods(),
             NiceConfig(time=0.35, workdir=tmp_path / "case", parameter_file=parameter),
         )
-    parameter.write_text(
-        "<parameters><inCOCOS>11</inCOCOS><outCOCOS>11</outCOCOS><useNewCOCOSManager>1</useNewCOCOSManager><inoutCOCOS>11</inoutCOCOS></parameters>"
-    )
+    parameter.write_text(_MINIMAL_XML)
     inputs = prepare_nice_inputs(
         _ods(),
         NiceConfig(
@@ -769,3 +777,183 @@ def test_a_local_launch_writes_each_stream_to_its_own_log(tmp_path):
     assert result.returncode == 0
     assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8").strip() == "to stdout"
     assert (inputs.workdir / "nice.stderr.log").read_text(encoding="utf-8").strip() == "to stderr"
+
+
+# -- cold review 0.8.0 external-codes-genray-nice ----------------------------
+
+
+def test_solver_tolerances_are_written_into_param_xml_and_read_back(tmp_path):
+    """F1: the manifest records what NICE will read, and the file carries it."""
+    import xml.etree.ElementTree as ET
+
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(
+        '<?xml version="1.0"?>\n<!-- reviewed -->\n' + _MINIMAL_XML, encoding="utf-8"
+    )
+    inputs = prepare_nice_inputs(
+        _ods(),
+        NiceConfig(
+            time=0.35,
+            workdir=tmp_path / "case",
+            parameter_file=parameter,
+            solver_tolerances={"epsStopRecon": 1e-12, "iterMaxRecon": 5},
+        ),
+    )
+    written = inputs.input_dir / "param.xml"
+    root = ET.parse(written).getroot()
+    assert root.findtext("epsStopRecon") == "1e-12"
+    assert root.findtext("iterMaxRecon") == "5"
+    assert root.findtext("inoutCOCOS") == "11"
+    assert "<!-- reviewed -->" in written.read_text(encoding="utf-8")
+    assert inputs.manifest["solver_tolerances"] == {
+        "epsStopRecon": 1e-12,
+        "iterMaxRecon": 5,
+    }
+    manifest = json.loads(inputs.manifest_file.read_text(encoding="utf-8"))
+    assert manifest["solver_tolerances"] == inputs.manifest["solver_tolerances"]
+    # Untouched: the copy is the source file.
+    assert (
+        prepare_nice_inputs(
+            _ods(), NiceConfig(time=0.35, workdir=tmp_path / "plain", parameter_file=parameter)
+        ).input_dir
+        / "param.xml"
+    ).read_bytes() == parameter.read_bytes()
+
+
+@pytest.mark.parametrize(
+    "tolerances, match",
+    [
+        ({"epsStopReco": 1e-12}, "matched 0 elements"),
+        ({"epsStopRecon": float("inf")}, "finite"),
+        ({"eps<Stop": 1e-12}, "element name"),
+    ],
+)
+def test_a_tolerance_that_cannot_reach_nice_is_refused(tmp_path, tolerances, match):
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(_MINIMAL_XML, encoding="utf-8")
+    with pytest.raises(ValueError, match=match):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(
+                time=0.35,
+                workdir=tmp_path / "case",
+                parameter_file=parameter,
+                solver_tolerances=tolerances,
+            ),
+        )
+    with pytest.raises(ValueError, match="parameter_file"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(
+                time=0.35, workdir=tmp_path / "none", solver_tolerances={"epsStopRecon": 1e-12}
+            ),
+        )
+
+
+def test_collector_judges_convergence_by_the_tolerance_nice_ran_with(tmp_path):
+    """F1: an iteration-cap stop at a residual above param.xml's epsStopRecon
+    is not converged, whatever the manifest (or its absence) says."""
+    output = tmp_path / "output"
+    output.mkdir()
+    (tmp_path / "input").mkdir()
+    (tmp_path / "input" / "param.xml").write_text(_MINIMAL_XML, encoding="utf-8")
+    (tmp_path / "nice_case_manifest.json").write_text('{"cocos_out": 11}')
+    (output / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1.0 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2 0\n"
+    )
+    (output / "dataEqui_convergence_cost.txt").write_text("0.331 30 5e-9 2 1 0.6 0.4\n")
+    result = collect_nice_outputs(tmp_path)
+    assert result.converged is False
+    assert result.termination_reason == "reconstruction tolerance not reached"
+    (output / "dataEqui_convergence_cost.txt").write_text("0.331 12 5e-11 2 1 0.6 0.4\n")
+    assert collect_nice_outputs(tmp_path).converged is True
+
+
+def test_flux_loop_polarity_defaults_to_the_vest_convention(tmp_path):
+    """F2: the only machine VAFT maps needs -1; the README example relies on it."""
+    assert NiceConfig().flux_loop_input_sign == -1
+    inputs = prepare_nice_inputs(_ods(), NiceConfig(time=0.35, workdir=tmp_path))
+    assert inputs.manifest["flux_loop_input_sign"] == -1
+    native_flux = np.loadtxt(inputs.input_dir / "fluxloops_meas.txt", skiprows=1)
+    flux = next(d for d in inputs.diagnostics if d.family == "flux_loop")
+    assert native_flux[0] == pytest.approx(-flux.value)
+
+
+def test_major_radius_must_match_the_parameter_files_r0(tmp_path):
+    """F3: B0 = F0 / major_radius is multiplied back by the XML's r0."""
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(_MINIMAL_XML, encoding="utf-8")
+    with pytest.raises(ValueError, match="r0"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(
+                time=0.35, workdir=tmp_path / "case", parameter_file=parameter, major_radius=0.5
+            ),
+        )
+    parameter.write_text(_MINIMAL_XML.replace("<r0>0.4</r0>", ""), encoding="utf-8")
+    with pytest.raises(ValueError, match="r0=None"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(time=0.35, workdir=tmp_path / "case2", parameter_file=parameter),
+        )
+
+
+def test_a_probe_without_poloidal_angle_is_disabled_not_measured_at_zero():
+    """F4: the measurement direction is unknown, so the channel cannot be fitted."""
+    from vaft.code.nice.diagnostics import diagnostics_from_ods
+
+    ods = _ods()
+    del ods["magnetics.b_field_pol_probe.0.poloidal_angle"]
+    probe = next(
+        d for d in diagnostics_from_ods(ods, 0.35, NiceConfig()) if d.family == "bpol_probe"
+    )
+    assert not probe.enabled
+    assert "poloidal_angle" in probe.reason
+    assert probe.geometry["poloidal_angle"] is None
+
+
+def test_diagnostics_do_not_materialise_missing_paths_in_the_callers_ods():
+    """N1: reading ``magnetics.ip`` when absent must not create it."""
+    from vaft.code.nice.diagnostics import diagnostics_from_ods
+
+    ods = _ods()
+    del ods["magnetics.ip"]
+    ip = next(
+        d
+        for d in diagnostics_from_ods(ods, 0.35, NiceConfig(include_diamagnetic_flux=True))
+        if d.family == "plasma_current"
+    )
+    assert not ip.enabled
+    assert "magnetics.ip" not in ods
+    assert "magnetics.diamagnetic_flux" not in ods
+
+
+def test_profiles_are_compared_on_each_sides_declared_psi_norm():
+    """F5: NICE on a non-uniform psi grid vs EFIT uniform, same analytic profile."""
+    from vaft.code.nice import compare_equilibria
+
+    def side(psi_norm, psi_axis, psi_boundary):
+        ods = ODS(consistency_check=False)
+        b = "equilibrium.time_slice.0"
+        ods["equilibrium.time"] = [0.331]
+        ods[f"{b}.time"] = 0.331
+        ods[f"{b}.global_quantities.psi_axis"] = psi_axis
+        ods[f"{b}.global_quantities.psi_boundary"] = psi_boundary
+        ods[f"{b}.profiles_1d.psi"] = psi_axis + (psi_boundary - psi_axis) * psi_norm
+        ods[f"{b}.profiles_1d.pressure"] = 1000.0 * (1 - psi_norm) ** 2
+        ods["equilibrium.vacuum_toroidal_field.r0"] = 0.4
+        ods["equilibrium.vacuum_toroidal_field.b0"] = [0.2]
+        return ods
+
+    nice = side(np.linspace(0, 1, 40) ** 2, 0.0, 0.06)
+    efit = side(np.linspace(0, 1, 129), -0.01, 0.05)
+    report = compare_equilibria(nice, efit, 0.331)
+    assert report["profile_grid"] == {"nice": "psi_norm", "efit": "psi_norm"}
+    assert report["profiles"]["pressure"]["max_abs"] < 1.0  # linear interpolation only
+    # By index the same profiles disagree by hundreds of Pa.
+    by_index = np.interp(
+        np.linspace(0, 1, 101), np.linspace(0, 1, 40), nice["equilibrium.time_slice.0.profiles_1d.pressure"]
+    ) - np.interp(
+        np.linspace(0, 1, 101), np.linspace(0, 1, 129), efit["equilibrium.time_slice.0.profiles_1d.pressure"]
+    )
+    assert np.max(np.abs(by_index)) > 100.0

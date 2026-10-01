@@ -5,6 +5,7 @@
     python -m vaft.plot.docs_thumbnails            # re-render thumbnails whose recipe changed
     python -m vaft.plot.docs_thumbnails --force    # re-render all of them
     python -m vaft.plot.docs_thumbnails --check    # verify; renders nothing
+    python -m vaft.plot.docs_thumbnails --rehash   # recompute the view-model hashes; renders nothing
 
 Every plot the registry holds gets an entry in ``docs/assets/plots/manifest.json``.
 A plot that one of the packaged samples (:func:`vaft.data.available_samples`) can
@@ -22,7 +23,11 @@ PNGs.  Each rendered entry records the SHA-256 of
   ``vaft.plot.renderers`` (composites draw through each other's bodies) and
   ``style``, ``presentation``, ``models`` and ``intent``, with line endings
   normalised;
-* ``model_sha256`` -- the view model ``vaft.plot.extract(name, sample)`` returned;
+* ``model_sha256`` -- the view model ``vaft.plot.extract(name, sample)`` returned,
+  with every float quantised to ``MODEL_HASH_DIGITS`` significant figures
+  (relative to the array's largest magnitude) so that the hash follows the
+  data the picture shows and not the last bits of the numpy/scipy build that
+  computed it; ``--rehash`` recomputes these after a change to the rule itself;
 * ``png_sha256`` -- the committed PNG itself.
 
 :func:`check` treats the cases differently, by design:
@@ -58,6 +63,7 @@ import hashlib
 import inspect
 import io
 import json
+import re
 import sys
 import warnings
 from collections.abc import Iterable, Mapping
@@ -68,12 +74,14 @@ __all__ = [
     "DPI",
     "FIGSIZE",
     "MANIFEST",
+    "MODEL_HASH_DIGITS",
     "PALETTE_COLORS",
     "build",
     "check",
     "default_output",
     "main",
     "model_sha256",
+    "rehash",
     "render_one",
     "renderer_sha256",
     "sample_candidates",
@@ -92,6 +100,17 @@ FIGSIZE = (5.0, 3.5)
 DPI = 80
 #: Palette size of the committed PNG; see :func:`_compact_png`.
 PALETTE_COLORS = 128
+#: Significant figures a float is quantised to before it is hashed into
+#: ``model_sha256``.  Hashing exact float bytes made the hash a fingerprint of
+#: the numpy/scipy build: 26 of 109 thumbnails rendered under numpy 2.5.3 read
+#: as stale under 2.4.3, the computed models (FFT and Welch spectra, Green's
+#: function fields, fits, flux-surface contours) differing in their last bits
+#: (cold review 0.8.0 docs-and-tutorials F5).  A change a thumbnail can show is
+#: orders of magnitude larger than that; six figures, relative to the array's
+#: largest magnitude, keep the hash sensitive to the picture and blind to the
+#: build.
+MODEL_HASH_DIGITS = 6
+_ADDRESS = re.compile(r" at 0x[0-9a-fA-F]+")
 
 
 def default_output() -> Path:
@@ -172,6 +191,33 @@ def renderer_sha256(spec) -> str:
     return digest.hexdigest()
 
 
+def _quantised_bytes(array) -> bytes:
+    """The bytes of a float array at ``MODEL_HASH_DIGITS`` figures, relative to its largest magnitude.
+
+    Every element is scaled by the largest finite ``|x|`` of the array and
+    rounded to that many decimals, so a spectrum is judged at one scale and a
+    last-bit difference between library builds rounds away; the scale itself
+    is written first, at the same number of figures, so a magnitude change is
+    still a change.  ``-0.0`` becomes ``0.0`` and NaN is written in one
+    canonical form.  Complex arrays are hashed as their real and imaginary
+    parts; every other dtype as it is.
+    """
+    import numpy as np
+
+    values = np.ascontiguousarray(array)
+    if values.dtype.kind == "c":
+        values = values.view(values.real.dtype)
+    if values.dtype.kind != "f":
+        return values.tobytes()
+    values = values.astype(np.float64, copy=True)
+    finite = values[np.isfinite(values)]
+    scale = float(np.max(np.abs(finite))) if finite.size else 0.0
+    if scale > 0.0:
+        values = np.round(values / scale, MODEL_HASH_DIGITS)
+    values = np.where(np.isnan(values), np.nan, values) + 0.0
+    return f"<scale {scale:.{MODEL_HASH_DIGITS}g}>".encode() + values.tobytes()
+
+
 def _feed(value: Any, digest) -> None:
     import numpy as np
 
@@ -182,7 +228,9 @@ def _feed(value: Any, digest) -> None:
             _feed(getattr(value, field.name), digest)
     elif isinstance(value, np.ndarray):
         digest.update(f"<array {value.dtype} {value.shape}>".encode())
-        digest.update(np.ascontiguousarray(value).tobytes())
+        digest.update(_quantised_bytes(value))
+    elif isinstance(value, (float, np.floating)) and not isinstance(value, bool):
+        digest.update(f"<float {float(value):.{MODEL_HASH_DIGITS}g}>".encode())
     elif isinstance(value, Mapping):
         digest.update(b"{")
         for key in sorted(value, key=str):
@@ -195,11 +243,17 @@ def _feed(value: Any, digest) -> None:
             _feed(item, digest)
         digest.update(b"]")
     else:
-        digest.update(repr(value).encode())
+        # Nothing in the registry reaches here with an object repr today; the
+        # address strip keeps it that way if one ever does.
+        digest.update(_ADDRESS.sub("", repr(value)).encode())
 
 
 def model_sha256(model: Any) -> str:
-    """A canonical hash of a view model: dataclasses, arrays, mappings and sequences."""
+    """A canonical hash of a view model: dataclasses, arrays, mappings and sequences.
+
+    Floats are quantised (``MODEL_HASH_DIGITS``) so the hash is the same on
+    every numpy/scipy build that draws the same picture.
+    """
     digest = hashlib.sha256()
     _feed(model, digest)
     return digest.hexdigest()
@@ -372,6 +426,42 @@ def build(out_dir: Path | None = None, *, force: bool = False, only: Iterable[st
     return written
 
 
+def rehash(out_dir: Path | None = None, *, only: Iterable[str] | None = None) -> list[str]:
+    """Recompute ``model_sha256`` of the rendered entries from their recorded sample; render nothing.
+
+    For a change to the hashing rule itself: the committed PNGs still show the
+    same view models, only the way the model is hashed moved.  Returns the
+    names whose hash changed.  The toolchain record is left as it was, since
+    no picture was drawn.
+    """
+    import vaft
+    import vaft.plot  # noqa: F401 -- registers every renderer
+
+    from . import registry
+
+    out_dir = Path(out_dir or default_output())
+    specs = {spec.name: spec for spec in registry.specs(status=None)}
+    entries = _read_manifest(out_dir)
+    selected = set(specs) & set(entries) if only is None else set(only) & set(specs) & set(entries)
+    samples: dict[int, Any] = {}
+    changed: list[str] = []
+    for name in sorted(selected):
+        entry = entries[name]
+        if entry.get("status") != "rendered":
+            continue
+        shot = int(entry["shot"])
+        if shot not in samples:
+            with _quiet():
+                samples[shot] = vaft.omas.load(vaft.data.sample(shot))
+        with _quiet():
+            current = model_sha256(vaft.plot.extract(name, samples[shot]))
+        if current != entry.get("model_sha256"):
+            entries[name] = {**entry, "model_sha256": current}
+            changed.append(name)
+    _write_manifest(out_dir, entries)
+    return changed
+
+
 # --------------------------------------------------------------------------
 # checking
 # --------------------------------------------------------------------------
@@ -478,6 +568,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m vaft.plot.docs_thumbnails",
                                      description=__doc__.split("\n\n")[0])
     parser.add_argument("--check", action="store_true", help="verify the committed thumbnails; renders nothing")
+    parser.add_argument("--rehash", action="store_true",
+                        help="recompute the view-model hashes of the rendered thumbnails; renders nothing")
     parser.add_argument("--force", action="store_true", help="re-render every thumbnail, fresh or not")
     parser.add_argument("--only", nargs="+", metavar="NAME", help="restrict rendering to these plots")
     parser.add_argument("--output", type=Path, default=None, help="asset directory (default: docs/assets/plots)")
@@ -490,6 +582,10 @@ def main(argv: list[str] | None = None) -> int:
             print(problem, file=sys.stderr)
         print(f"{len(problems)} problems, {len(notes)} warnings")
         return 1 if problems else 0
+    if arguments.rehash:
+        changed = rehash(arguments.output, only=arguments.only)
+        print(f"rehashed {len(changed)} view models" + (f": {', '.join(changed)}" if changed else ""))
+        return 0
     written = build(arguments.output, force=arguments.force, only=arguments.only)
     print(f"rendered {len(written)} thumbnails" + (f": {', '.join(written)}" if written else ""))
     return 0

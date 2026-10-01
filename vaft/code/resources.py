@@ -256,11 +256,14 @@ class MemoryBudgetInfo:
     candidate that set it. Both are ``None`` when no source reported a limit.
     ``candidates`` keeps every limit that was found, keyed by source.
 
-    ``usage_cgroup`` is the directory of the tightest cgroup limit found and
-    ``usage_kind`` its version (``"v2"``/``"v1"``). A cgroup limit counts
+    ``usage_cgroup`` is the directory of the cgroup whose limit set the
+    budget and ``usage_kind`` its version (``"v2"``/``"v1"``); both are
+    ``None`` when the budget came from another source. A cgroup limit counts
     everything in the cgroup -- child processes, sibling tasks, tmpfs -- so
-    :class:`MemoryBudget` compares its non-reclaimable usage, not only this
-    process's RSS, against the budget.
+    :class:`MemoryBudget` then compares its non-reclaimable usage, not only
+    this process's RSS, against the budget; a budget from Slurm's variables
+    or ``VAFT_MEMORY_BUDGET_MB`` is compared with this process's RSS alone.
+    A cgroup limit that ties with another source is reported as the cgroup.
     """
 
     limit_mb: Optional[float]
@@ -514,12 +517,21 @@ def memory_budget(
         # resident pages, so the ceiling for this process is RSS + headroom.
         candidates["mem_available"] = available + (rss_mb() or 0.0)
 
-    usage = {} if tightest is None else {
-        "usage_cgroup": str(tightest[0]), "usage_kind": tightest[1],
-    }
     if not candidates:
-        return MemoryBudgetInfo(limit_mb=None, source=None, candidates={}, **usage)
+        return MemoryBudgetInfo(limit_mb=None, source=None, candidates={})
     source = min(candidates, key=lambda name: candidates[name])
+    # A cgroup limit is enforced on the whole cgroup, so when it ties with
+    # another source (``--mem`` equal to the job cgroup it creates) it is the
+    # one that binds: name it, so the usage source below follows.
+    cgroup_source = f"cgroup_{tightest[1]}" if tightest is not None else None
+    if cgroup_source in candidates and candidates[cgroup_source] == candidates[source]:
+        source = cgroup_source
+    # The usage compared with the budget follows the budget's source: only a
+    # cgroup limit counts the cgroup's other processes, so only then is the
+    # cgroup's usage the right measure; an env/Slurm budget is this process's.
+    usage = {}
+    if tightest is not None and source == cgroup_source:
+        usage = {"usage_cgroup": str(tightest[0]), "usage_kind": tightest[1]}
     return MemoryBudgetInfo(
         limit_mb=candidates[source], source=source, candidates=candidates, **usage
     )

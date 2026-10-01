@@ -356,6 +356,35 @@ def test_efit_reliability_skips_nonfinite_and_malformed_fits():
     assert rows == []
 
 
+def _efit_slice_with_a_vessel_term():
+    import omas
+
+    ods = omas.ODS()
+    ods["equilibrium.time"] = np.array([0.3])
+    prefix = "equilibrium.time_slice.0"
+    ods[f"{prefix}.time"] = 0.3
+    ods[f"{prefix}.global_quantities.ip"] = 1.0e5
+    ods[f"{prefix}.constraints.chi_squared_reduced"] = 1.2  # per degree of freedom
+    ods[f"{prefix}.constraints.ip.measured"] = 1.0e5
+    ods[f"{prefix}.constraints.ip.reconstructed"] = 1.01e5
+    ods[f"{prefix}.constraints.ip.measured_error_upper"] = 1.0e3  # z = 1, chi = 1
+    ods[f"{prefix}.constraints.ip.chi_squared"] = 50.0  # EFIT's total with the vessel term: 49
+    return ods
+
+
+def test_the_aggregate_chi_squared_is_unavailable_without_the_degree_count():
+    # A foreign product with chi_squared_reduced but no freedom_degrees_n:
+    # the raw vessel term (49) cannot be taken off a per-degree value (1.2).
+    ods = _efit_slice_with_a_vessel_term()
+    (row,) = summary_module._extract_efit_reliability_families(ods, 1, [("ip", False)])
+    assert row["chi_squared"] == pytest.approx(1.0)
+    assert np.isnan(row["chi_squared_reduced"])
+
+    ods["equilibrium.time_slice.0.constraints.freedom_degrees_n"] = 60
+    (row,) = summary_module._extract_efit_reliability_families(ods, 1, [("ip", False)])
+    assert row["chi_squared_reduced"] == pytest.approx(1.2 - 49.0 / 60.0)
+
+
 def test_split_reliability_summary_injects_database_source(monkeypatch):
     # An experiment namespace outside the catalog, opted into explicitly.
     monkeypatch.setenv("VAFT_HSDS_EXTRA_SOURCES", "private")
