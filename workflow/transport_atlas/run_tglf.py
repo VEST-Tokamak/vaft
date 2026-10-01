@@ -41,6 +41,8 @@ import numpy as np
 
 from vaft.process.transport_state import (
     DEFAULT_RHO_MAX,
+    classical_heat_fluxes,
+    surface_toroidal_field,
     DEFAULT_SURFACES,
     DEFAULT_TIME_TOLERANCE_S,
     EFIT_QUALITIES,
@@ -335,6 +337,20 @@ def project_state(state, surfaces: list[dict], jobs: dict) -> dict:
             "surfaces": rows}
 
 
+def classical_record(profile: Any, local: Any) -> tuple[Optional[dict], Optional[str]]:
+    """The classical baseline for one surface, or why there is none -- never a raise.
+
+    It is computed after every solver run has finished, so one surface it cannot be
+    evaluated on must not cost the run its index and manifest.
+    """
+    if getattr(local, "normalisation", None) is None:
+        return None, "local input carries no normalisation"
+    try:
+        return classical_heat_fluxes(local, surface_toroidal_field(profile, local)), None
+    except (ValueError, ArithmeticError) as error:
+        return None, f"{type(error).__name__}: {error}"
+
+
 def state_status(readiness, surfaces: list[dict], resolved: bool) -> str:
     if not resolved:
         return "not_ready"
@@ -457,6 +473,10 @@ def main(argv: Optional[list[str]] = None) -> int:
                 if job is not None:
                     entry["run_identity"] = job["identity"]
                     entry["local"] = job["local"]
+                    # The classical baseline (#1435) needs no solver: it is evaluated
+                    # from the same local input, so it describes the same surface.
+                    entry["classical"], entry["classical_error"] = classical_record(
+                        job["profile"], job["local_input"])
                     record = results.get(job["workdir"])
                     if record is not None:
                         entry.update({k: record.get(k) for k in

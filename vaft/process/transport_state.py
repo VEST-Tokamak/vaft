@@ -57,6 +57,9 @@ __all__ = [
     "TransportStateKey",
     "assess_neo_readiness",
     "assess_tglf_readiness",
+    "CLASSICAL_MODEL",
+    "classical_heat_fluxes",
+    "surface_toroidal_field",
     "physics_parameters",
     "resolve_transport_state",
     "run_identity",
@@ -1048,3 +1051,160 @@ def transport_partition(
             "rho_tor_norm": float(turbulent["rho_tor_norm"]),
             "components": ["neo", "turb"] + (["classical"] if classical is not None else []),
             "channels": channels}
+
+
+# --------------------------------------------------------------------------- classical (#1435)
+
+#: GACODE's deuterium mass, the unit TGLF's MASS_* carry [kg].
+_MASS_DEUTERIUM_KG = 3.34358e-27
+
+CLASSICAL_MODEL = {
+    "formulation": "Braginskii perpendicular conductive heat flux, strongly magnetised limit",
+    "terms": "q_perp,s = -kappa_perp,s dT_s/dr for electrons and the main ion only; "
+             "no particle flux, no thermal-force cross terms, no impurity heat flux",
+    "coefficients": {"electron": "Braginskii gamma_1' at Z_eff (4.66 at Z=1, 4.0 at Z=2)",
+                     "ion": 2.0},
+    "collision_times": "tau_e with n_i Z^2 -> n_e Z_eff; tau_i against every ion species, "
+                       "Z_i^2 sum_j n_j Z_j^2 (like-particle form for unlike field ions); "
+                       "lnLambda_e from vaft.formula.equilibrium.coulomb_logarithm_from_n_T, "
+                       "lnLambda_ii from the NRL ion-ion form",
+    "geometry": "|B| = toroidal field at the surface centre, |B_centr| R_centr / R (B_pol "
+                "neglected); slab <|grad r|^2> = 1; dT/dr from the TGLF local a/L_T "
+                "(GACODE's differentiate-then-interpolate order)",
+    "reference": "S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205; NRL Plasma Formulary",
+}
+
+#: Braginskii's gamma_1' (electron perpendicular heat conductivity) against Z.
+_GAMMA1_PERP = ((1.0, 4.66), (2.0, 4.0), (3.0, 3.7), (4.0, 3.6), (1e9, 3.2))
+
+
+def surface_toroidal_field(profile: Any, local: Any) -> float:
+    """The toroidal field at a surface's centre, ``|B_centr| R_centr / R``.
+
+    GACODE's ``B_unit`` is a flux-coordinate field (about twice B0 on VEST), not the
+    field a gyro-orbit sees, so the classical baseline does not use it.
+
+    Parameters
+    ----------
+    profile : GACODEProfile
+        Supplies ``bcentr`` and ``rcentr`` [T].
+    local : TGLFInput
+        Supplies ``rmaj_loc`` and the minor radius of the surface [-].
+
+    Returns
+    -------
+    float
+        ``|B_T|`` at ``R = rmaj_loc * a``; the poloidal field is neglected [T].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Vacuum toroidal field ``B_T = B_0 R_0 / R``; GACODE ``input.gacode``
+       ``bcentr``/``rcentr`` (https://gacode.io/input_gacode.html).
+    """
+    r_surface = float(local.rmaj_loc) * float(local.normalisation.minor_radius)
+    return abs(float(profile.bcentr)) * float(profile.rcentr) / r_surface
+
+
+def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
+    """Classical perpendicular heat fluxes at one surface, from a TGLF local input.
+
+    Parameters
+    ----------
+    local : TGLFInput
+        From :func:`assess_tglf_readiness`, supplying n_e, T_e, Ti/Te, every ion's
+        n/n_e and charge, a/L_T, the main ion's mass and a at the surface [-].
+    b_tesla : float
+        Magnetic-field magnitude at the surface, e.g. :func:`surface_toroidal_field` [T].
+
+    Returns
+    -------
+    dict
+        ``r_over_a``; ``electron_energy_flux_W_m2``; ``ion_energy_flux_W_m2`` keyed
+        ``z=<charge>`` for the main ion; ``chi_e_m2_s``, ``chi_i_m2_s``; the collision
+        times, Coulomb logarithms, ``coulomb_log_valid`` and ``model``
+        (:data:`CLASSICAL_MODEL`) [W/m^2].
+
+    Convention
+    ----------
+    ``kappa_perp,e = gamma_1'(Z_eff) n_e T_e / (m_e Omega_e^2 tau_e)`` and
+    ``kappa_perp,i = 2 n_i T_i / (m_i Omega_i^2 tau_i)``; ``q = kappa T (a/L_T) / a``,
+    so a positive flux runs down the temperature gradient, the sign the TGLF and NEO
+    mappers use.  This is a physical flux of a stated reduced model, not the
+    order-of-magnitude ``nu rho^2`` reference scale (#780/#1112), and nothing here is
+    projected into ``core_transport``.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Electrons and one main ion only; no particle flux or thermal-force terms; unlike
+    field ions enter tau_i in the like-particle form; slab geometry and B_pol neglected.
+    ``coulomb_log_valid`` is False below 10 eV, where the electron form is not
+    defined.  The rest is listed in #1453.
+
+    Provenance
+    ----------
+    .. [1] S. I. Braginskii, "Transport processes in a plasma", Rev. Plasma Phys. 1
+       (1965) 205: kappa_perp,e coefficient gamma_1'(Z) (4.66, 4.0, 3.7, 3.6, 3.2 for
+       Z = 1, 2, 3, 4, inf) and kappa_perp,i coefficient 2.
+    .. [2] NRL Plasma Formulary: tau_e = 3.44e5 T_e^1.5 / (n lnLambda),
+       tau_i = 2.09e7 T_i^1.5 mu^0.5 / (n lnLambda Z^4) and the ion-ion lnLambda
+       (cgs, eV), which the SI forms here reproduce (test_transport_state.py).
+    """
+    from scipy import constants as c
+
+    from vaft.formula.equilibrium import coulomb_logarithm_from_n_T
+
+    norm = local.normalisation
+    ne = float(norm.electron_density)
+    te = float(norm.electron_temperature)               # J
+    te_ev = te / c.e
+    a = float(norm.minor_radius)
+    b = abs(float(b_tesla))
+    zeff = float(local.zeff)
+    charges = np.asarray(local.zs, dtype=float)[1:]
+    fractions = np.asarray(local.as_, dtype=float)[1:]
+    z_i = float(charges[0])
+    if z_i != float(charges.min()):
+        raise ValueError(f"species 1 (z={z_i:g}) is not the lowest-charge ion; it is not the main ion")
+    m_i = float(local.mass[1]) * _MASS_DEUTERIUM_KG
+    n_i = float(fractions[0]) * ne
+    ti = float(local.taus[1]) * te
+    ti_ev = ti / c.e
+    lnl_e = float(coulomb_logarithm_from_n_T(ne, te_ev))
+    # NRL ion-ion, same species: 23 - ln[(Z^2 / T_i) (2 n_i Z^2 / T_i)^(1/2)], cgs/eV.
+    lnl_i = 23.0 - np.log(z_i ** 2 / ti_ev * np.sqrt(2.0 * n_i * 1e-6 * z_i ** 2 / ti_ev))
+    field_density = float(np.sum(fractions * ne * charges ** 2))   # sum_j n_j Z_j^2
+
+    tau_e = (6.0 * np.sqrt(2.0) * np.pi ** 1.5 * c.epsilon_0 ** 2 * np.sqrt(c.m_e) * te ** 1.5
+             / (lnl_e * c.e ** 4 * ne * zeff))
+    # Braginskii: tau_i / tau_e = sqrt(2 m_i / m_e) (T_i/T_e)^1.5 at equal density and
+    # Z = 1, i.e. 12 here against 6 sqrt(2) above (NRL: 2.09e7 vs 3.44e5).
+    tau_i = (12.0 * np.pi ** 1.5 * c.epsilon_0 ** 2 * np.sqrt(m_i) * ti ** 1.5
+             / (lnl_i * c.e ** 4 * z_i ** 2 * field_density))
+    gamma1 = float(np.interp(zeff, *zip(*_GAMMA1_PERP)))
+    omega_e = c.e * b / c.m_e
+    omega_i = z_i * c.e * b / m_i
+    chi_e = gamma1 * te / (c.m_e * omega_e ** 2 * tau_e)
+    chi_i = 2.0 * ti / (m_i * omega_i ** 2 * tau_i)
+    q_e = ne * chi_e * te * float(local.rlts[0]) / a
+    q_i = n_i * chi_i * ti * float(local.rlts[1]) / a
+    return {
+        "r_over_a": float(local.rho),
+        "electron_energy_flux_W_m2": float(q_e),
+        "electron_particle_flux_m2_s": None,
+        "ion_energy_flux_W_m2": {f"z={z_i:g}": float(q_i)},
+        "ion_particle_flux_m2_s": {},
+        "chi_e_m2_s": float(chi_e), "chi_i_m2_s": float(chi_i),
+        "tau_e_s": float(tau_e), "tau_i_s": float(tau_i),
+        "coulomb_logarithm": lnl_e, "coulomb_logarithm_ion": float(lnl_i),
+        "coulomb_log_valid": bool(te_ev >= 10.0),
+        "gamma1_perp": gamma1, "b_tesla": b,
+        "model": CLASSICAL_MODEL,
+    }

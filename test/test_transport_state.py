@@ -558,3 +558,62 @@ def test_neo_driver_maps_one_profile_run_and_checks_its_surfaces(neo_driver, sam
     neo_driver.main(common + ["--out", str(tmp_path / "b")])
     state = json.loads((tmp_path / "b" / "48224" / "magnetics" / "00300" / "state.json").read_text())
     assert state["status"] == "partial"
+
+
+# --------------------------------------------------------------------------- classical (#1435)
+
+
+def test_classical_collision_times_match_the_nrl_forms(sample):
+    from vaft.process.transport_state import classical_heat_fluxes, surface_toroidal_field
+
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    local = assess_tglf_readiness(state, (0.5,)).surfaces[0].local_input
+    d = classical_heat_fluxes(local, surface_toroidal_field(state.profile, local))
+    norm = local.normalisation
+    ne_cm3 = norm.electron_density * 1e-6
+    te_ev = norm.electron_temperature / 1.602176634e-19
+    # NRL: tau_e = 3.44e5 Te^1.5 / (n lnL) for Z = 1; Braginskii's n_i Z^2 is n_e Z_eff.
+    assert d["tau_e_s"] * float(local.zeff) == pytest.approx(
+        3.44e5 * te_ev ** 1.5 / (ne_cm3 * d["coulomb_logarithm"]), rel=0.01)
+    # NRL tau_i for the main ion alone, then scaled by the extra field-ion collisions.
+    ti_ev = te_ev * float(local.taus[1])
+    zs, fr = np.asarray(local.zs)[1:], np.asarray(local.as_)[1:]
+    ni_cm3 = ne_cm3 * fr[0]
+    mu = float(local.mass[1]) * 3.34358e-27 / 1.67262192e-27
+    self_only = 2.09e7 * ti_ev ** 1.5 * mu ** 0.5 / (ni_cm3 * d["coulomb_logarithm_ion"] * zs[0] ** 4)
+    boost = np.sum(fr * zs ** 2) / (fr[0] * zs[0] ** 2)
+    assert boost > 2.0  # H + C6+ at Z_eff = 2: carbon raises the ion collisionality ~2.5x
+    assert d["tau_i_s"] == pytest.approx(self_only / boost, rel=0.01)
+    assert d["gamma1_perp"] == pytest.approx(4.0, rel=0.01)  # Braginskii at Z = 2
+
+
+def test_classical_uses_the_physical_field_not_b_unit(sample):
+    from vaft.process.transport_state import surface_toroidal_field
+
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    local = assess_tglf_readiness(state, (0.5,)).surfaces[0].local_input
+    b = surface_toroidal_field(state.profile, local)
+    r = float(local.rmaj_loc) * local.normalisation.minor_radius
+    assert b == pytest.approx(abs(state.profile.bcentr) * state.profile.rcentr / r)
+    assert b < abs(local.normalisation.b_unit)  # B_unit is a flux-coordinate field, larger on VEST
+
+
+def test_classical_flux_runs_down_the_gradient_and_scales_as_one_over_b_squared(sample):
+    from vaft.process.transport_state import classical_heat_fluxes
+
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    local = assess_tglf_readiness(state, (0.6,)).surfaces[0].local_input
+    d = classical_heat_fluxes(local, 0.3)
+    assert np.sign(d["electron_energy_flux_W_m2"]) == np.sign(local.rlts[0])
+    assert np.sign(d["ion_energy_flux_W_m2"]["z=1"]) == np.sign(local.rlts[1])
+    assert classical_heat_fluxes(local, 0.6)["chi_e_m2_s"] == pytest.approx(d["chi_e_m2_s"] / 4.0)
+    assert d["electron_particle_flux_m2_s"] is None  # not modelled: missing, not zero
+
+
+def test_a_classical_failure_is_recorded_not_raised(driver, sample):
+    import dataclasses
+
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    local = assess_tglf_readiness(state, (0.5,)).surfaces[0].local_input
+    record, error = driver.classical_record(state.profile, dataclasses.replace(local, normalisation=None))
+    assert record is None and "normalisation" in error
