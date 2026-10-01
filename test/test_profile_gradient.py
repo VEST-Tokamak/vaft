@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 from vaft.data.equilibrium import Contour, EquilibriumConvention, EquilibriumData
-from vaft.process.profile_gradient import (
+from vaft.process.profile_gradients import (
     CONVENTIONS,
     RADIAL_COORDINATES,
     profile_gradient,
@@ -72,6 +72,20 @@ def shifted():
 # --------------------------------------------------------------------------
 # the coordinate map
 # --------------------------------------------------------------------------
+
+
+def test_the_module_name_does_not_shadow_the_function():
+    import vaft.process
+    from vaft.process import profile_gradients
+
+    assert callable(profile_gradients.profile_gradient)
+    assert profile_gradients.profile_gradient is profile_gradient
+    namespace: dict = {}
+    exec("from vaft.process import *", namespace)
+    assert callable(namespace["profile_gradient"])
+    assert not isinstance(namespace["profile_gradient"], type(vaft.process))
+    assert namespace["profile_gradient"] is profile_gradient
+    assert vaft.process.profile_gradient is profile_gradient
 
 
 def test_the_registry_names_every_coordinate_the_issue_asks_for():
@@ -320,6 +334,23 @@ def test_a_minor_without_an_lcfs_surface_is_refused():
     assert not cmap.a_minor.available
     with pytest.raises(ValueError, match="unavailable"):
         resolve_reference_length("a_minor", cmap)
+
+
+def test_a_resampled_boundary_surface_still_gives_a_minor():
+    eq = shifted_circles(0.0)
+    reference = radial_coordinate_map(eq)
+    # a psi_1d that lands 1e-7 short of the boundary flux, as a resampled grid does
+    cmap = radial_coordinate_map(replace(eq, psi_1d=eq.psi_1d * (1.0 - 1e-7)))
+    assert cmap.a_minor.available
+    assert cmap.a_minor.value == pytest.approx(reference.a_minor.value, rel=1e-6)
+
+
+def test_a_boundary_mismatch_is_reported_with_its_size():
+    eq = shifted_circles(0.0)
+    cmap = radial_coordinate_map(replace(eq, psi_1d=eq.psi_1d * (1.0 - 1e-4)))
+    assert not cmap.a_minor.available
+    assert "|psi_norm - 1| = 0.0001" in cmap.a_minor.reason
+    assert "0.9999" in cmap.a_minor.reason
 
 
 # --------------------------------------------------------------------------

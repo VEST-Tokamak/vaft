@@ -122,7 +122,7 @@ quantity.
 * Shaping observables from `vaft.process.contour_shaping_observables`, and the boundary topology
   record from `vaft.process.derive_boundary_representation` (`Topology`, X-points, strike points,
   gaps).
-* Normalized gradients: `vaft.process.profile_gradient.profile_gradient`, which keeps the plot
+* Normalized gradients: `vaft.process.profile_gradients.profile_gradient`, which keeps the plot
   coordinate, the gradient coordinate and the reference length apart and records all three
   (see [Profile gradients](#profile-gradients) below). The older kernels
   `vaft.formula.normalized_gradient_scale_length(x, y, a)` and
@@ -134,7 +134,7 @@ defined only once its derivative coordinate and its reference length are stated.
 
 ### Profile gradients
 
-`vaft.process.profile_gradient` (#551) computes $-L\,d\ln f/dx_g$ with four separate roles:
+`vaft.process.profile_gradients` (#551) computes $-L\,d\ln f/dx_g$ with four separate roles:
 
 | argument | role | values |
 | --- | --- | --- |
@@ -156,7 +156,7 @@ The profile is differentiated on its own grid. The chain rule $d/dx_g = (dx_p/dx
 then carries it through the map, and only then is it interpolated, which is GACODE's order.
 
 ```python
-from vaft.process.profile_gradient import profile_gradient, radial_coordinate_map
+from vaft.process.profile_gradients import profile_gradient, radial_coordinate_map
 
 cmap = radial_coordinate_map(eq, time=eq.time)
 a_lt = profile_gradient(te, psi_norm, "psi_norm", equilibrium=cmap,
@@ -229,7 +229,7 @@ it.
 | Diagnostic projections | projection | `vaft.omas.camera_projection_for`, `vaft.omas.compute_camera_visible_efit_overlay` | partly met |
 | Compact geometric representations | representation | `vaft.process.fit_miller_surface`, `vaft.process.fit_fourier_surface`, `vaft.process.evaluate_fourier_surface`, `vaft.data.MXHChebyshevRepresentation` | Miller and Fourier met |
 | Analytic hierarchy | representation | `vaft.process.solovev_to_equilibrium`, `vaft.process.solovev_example`, `vaft.process.guazzotto_freidberg_to_equilibrium`, `vaft.process.fit_solovev` | partly met |
-| Kinetic / gradient representations | derived quantity | `vaft.process.profile_gradient.profile_gradient`, `vaft.process.profile_gradient.radial_coordinate_map`, `vaft.formula.normalized_gradient_scale_length`, `vaft.data.SyntheticKineticProfiles`, `vaft.data.GradientProfile` | process layer met; views not met |
+| Kinetic / gradient representations | derived quantity | `vaft.process.profile_gradients.profile_gradient`, `vaft.process.profile_gradients.radial_coordinate_map`, `vaft.formula.normalized_gradient_scale_length`, `vaft.data.SyntheticKineticProfiles`, `vaft.data.GradientProfile` | process layer met; views not met |
 | Boundary / topology | derived quantity | `vaft.process.derive_boundary_representation`, `vaft.data.BoundaryRepresentation`, `vaft.data.Topology`, `vaft.process.contour_shaping_observables` | shape vs topology met |
 | Perturbed / helical | representation | `vaft.process.MagneticIslandSpec`, `vaft.process.magnetic_island_topology`, `GpecCylindricalOutput` in `vaft.code.gpec` | partly met |
 | Conventions (all branches) | solver convention | `vaft.data.EquilibriumConvention`, `vaft.process.convert_cocos`, `vaft.process.make_equilibrium_field_interpolator` | partly met |
@@ -297,7 +297,7 @@ each. "Unowned" means no issue other than #1201 tracks it.
 
 **Not met**
 
-* Gradient views. The process contract exists (`vaft.process.profile_gradient`), but no
+* Gradient views. The process contract exists (`vaft.process.profile_gradients`), but no
   `*_profile_gradient` plot view or extract result consumes it yet (#551; #563 was closed as
   its duplicate).
 
@@ -311,7 +311,7 @@ each. "Unowned" means no issue other than #1201 tracks it.
     leaf does not (unowned).
 * Geometric radii.
   * `r_minor`, `r_minor_norm` and `r_center` are defined in
-    `vaft.process.profile_gradient.RADIAL_COORDINATES` (#551).
+    `vaft.process.profile_gradients.RADIAL_COORDINATES` (#551).
   * The older tuples in `vaft.plot` and `vaft.process.profile` are not unified with it.
   * `vaft/plot/onedim.py` still uses $r - r_{axis}$ (#479).
 * Flux coordinates. The native map is PEST only. There is no direct inverse

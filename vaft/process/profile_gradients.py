@@ -50,7 +50,16 @@ and the GACODE ``rmin`` VAFT writes.  It is not the contour half-width
 ``(max R - min R)/2`` that
 :func:`vaft.process.equilibrium.derive_global_descriptors` reports as
 ``minor_radius``, and it is never ``R_out - R_axis``, ``rho_tor_norm``,
-``rho_pol_norm`` or ``sqrt(psi_norm)``.  The existing coordinate tuples in
+``rho_pol_norm`` or ``sqrt(psi_norm)``.
+
+``r_minor`` is VAFT's ``rmin``: the half-distance between the two crossings at
+the axis height, exactly as :mod:`vaft.code.gacode.inputs` writes it into
+``input.gacode``.  GACODE's own ``RMIN_LOC`` is the half-width about the
+flux-surface centroid, so the two agree only for surfaces centred at the axis
+height (up-down symmetric about ``Z_axis``); for an up-down asymmetric surface
+the ``tglf``/``cgyro`` presets reproduce VAFT's ``rmin``, not ``RMIN_LOC``.
+
+The existing coordinate tuples in
 :mod:`vaft.plot` and :mod:`vaft.process.profile` are unchanged; only this layer
 reads :data:`RADIAL_COORDINATES`.
 
@@ -305,7 +314,7 @@ def radial_coordinate_map(source: Any, time: float | None = None) -> RadialCoord
     The eight names of :data:`RADIAL_COORDINATES` are derived on the slice's own
     ``psi_1d`` surfaces, each as a :class:`~vaft.data.equilibrium.DerivedValue`
     with its definition and derivation record, together with the two scalar
-    reference lengths ``a_minor`` and ``R_major_axis`` [-].
+    reference lengths ``a_minor`` and ``R_major_axis`` [m].
 
     Parameters
     ----------
@@ -323,7 +332,8 @@ def radial_coordinate_map(source: Any, time: float | None = None) -> RadialCoord
     RadialCoordinateMap
         The coordinates, and ``a_minor`` and ``R_major_axis`` in metres.  An
         unavailable entry carries its reason; a surface outside the support of
-        the midplane inversion carries NaN [-].
+        the midplane inversion carries NaN; ``a_minor`` and ``R_major_axis``
+        are in metres [m].
 
     Raises
     ------
@@ -420,12 +430,23 @@ def radial_coordinate_map(source: Any, time: float | None = None) -> RadialCoord
         return RadialCoordinateMap(coordinates, a_minor, _axis_radius(eq, prov), eq.time, _describe(eq))
 
     boundary = int(np.argmin(np.abs(psi_n - 1.0)))
-    at_boundary = abs(psi_n[boundary] - 1.0) < 1e-9
+    mismatch = abs(float(psi_n[boundary]) - 1.0)
+    at_boundary = mismatch <= _BOUNDARY_TOLERANCE
     _geometric(coordinates, inboard, outboard, boundary if at_boundary else None,
                _provenance(method, fields, interpolation="pchip", **prov),
-               "no psi_1d surface is at psi_norm = 1" if not at_boundary else None)
+               None if at_boundary else (
+                   f"no psi_1d surface is at psi_norm = 1: the closest is psi_norm = "
+                   f"{float(psi_n[boundary]):.9g}, |psi_norm - 1| = {mismatch:.3g} > "
+                   f"{_BOUNDARY_TOLERANCE:g}"))
     a_minor = coordinates.pop("_a_minor")
     return RadialCoordinateMap(coordinates, a_minor, _axis_radius(eq, prov), eq.time, _describe(eq))
+
+
+#: How far the last ``psi_1d`` surface may sit from ``psi_norm = 1`` and still be
+#: read as the boundary for ``a_minor``.  A ``psi_1d`` resampled onto a new grid
+#: (a g-file round trip, an interpolated time slice) lands within ~1e-8 of the
+#: boundary flux rather than exactly on it; a truncated grid misses by 1e-2 or more.
+_BOUNDARY_TOLERANCE = 1e-6
 
 
 _A_MINOR_DEFINITION = (
@@ -845,12 +866,16 @@ CONVENTIONS: Mapping[str, ConventionPreset] = {
     for item in (
         ConventionPreset(
             "tglf", "RLTS_*/RLNS_* = -a d ln(T, n)/dr, r = rmin the midplane minor radius, "
-            "a = rmin on the last surface of input.gacode",
+            "a = rmin on the last surface of input.gacode; r is VAFT's rmin (the crossings "
+            "at the axis height, as vaft.code.gacode.inputs writes it), which equals "
+            "GACODE's centroid-based RMIN_LOC only for surfaces centred at the axis height",
             "https://gacode.io/tglf/tglf_list.html; https://gacode.io/input_gacode.html",
             "r_minor", "a_minor",
         ),
         ConventionPreset(
-            "cgyro", "DLNTDR/DLNNDR = -a d ln(T, n)/dr, the same GACODE r and a as TGLF",
+            "cgyro", "DLNTDR/DLNNDR = -a d ln(T, n)/dr, the same GACODE r and a as TGLF; "
+            "r is VAFT's rmin (the crossings at the axis height), which equals GACODE's "
+            "centroid-based RMIN_LOC only for surfaces centred at the axis height",
             "https://gacode.io/cgyro/cgyro_list.html; https://gacode.io/input_gacode.html",
             "r_minor", "a_minor",
         ),
@@ -918,7 +943,9 @@ def resolve_convention(name: str, metadata: Mapping[str, Any] | None = None) -> 
     Convention
     ----------
     ``tglf`` and ``cgyro``: ``r_minor`` and ``a_minor``, the GACODE midplane
-    ``rmin`` and its last-surface value.  ``gs2``: ``irho = 2`` with
+    ``rmin`` and its last-surface value -- VAFT's ``rmin``, the crossings at the
+    axis height, which equals GACODE's centroid-based ``RMIN_LOC`` only for
+    surfaces centred at the axis height.  ``gs2``: ``irho = 2`` with
     ``local_eq = False`` is ``r_minor`` and ``a_minor``; with ``local_eq = True``
     it is ``r_minor`` and the run's ``L_ref``; ``irho`` 1, 3 and 4 are refused.
     ``gkw``: ``circ`` is ``r_minor`` and ``R_major_axis``; ``s-alpha`` is
