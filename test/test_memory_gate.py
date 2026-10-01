@@ -57,6 +57,15 @@ def test_a_program_under_the_limit_completes_with_its_peak(tmp_path):
     assert result.peak_rss_mb is not None and 0 < result.peak_rss_mb < 4096
 
 
+def test_a_watched_run_that_ends_before_the_first_poll_still_reports_a_peak(tmp_path):
+    # Otherwise it is indistinguishable from an unwatched run (cold review 0.8.0 delta-absorb-5 F7).
+    backend = LocalBackend(memory_limit_mb=4096, poll_interval_s=5.0, ledger_dir=tmp_path / "ledger")
+    result = _run(backend, tmp_path, "print('done')", timeout=30)
+    assert result.runtime_status == "completed" and result.stdout.strip() == "done"
+    assert result.peak_rss_mb is not None and result.peak_rss_mb >= 0
+    assert result.elapsed_s < 5
+
+
 def test_the_time_limit_still_applies_while_memory_is_watched(tmp_path):
     backend = LocalBackend(memory_limit_mb=1e6, poll_interval_s=0.2, ledger_dir=tmp_path / "ledger")
     result = _run(backend, tmp_path, "import time; time.sleep(30)", timeout=0.6)
