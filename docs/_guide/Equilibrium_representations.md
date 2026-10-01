@@ -158,11 +158,15 @@ then carries it through the map, and only then is it interpolated, which is GACO
 ```python
 from vaft.process.profile_gradients import profile_gradient, radial_coordinate_map
 
-cmap = radial_coordinate_map(eq, time=eq.time)
+cmap = radial_coordinate_map(ods, time=0.32)          # one equilibrium slice, chosen by time
+psi_norm = np.linspace(0.0, 1.0, 101)
+te = 200.0 * (1.0 - 0.9 * psi_norm) ** 1.5 + 10.0   # an analytic T_e [eV] on psi_norm
+rho = np.linspace(0.2, 0.8, 4)
 a_lt = profile_gradient(te, psi_norm, "psi_norm", equilibrium=cmap,
-                        coordinate="rho_tor_norm", convention="tglf")
+                        coordinate="rho_tor_norm", convention="tglf", at=rho)
 r_lt = profile_gradient(te, psi_norm, "psi_norm", equilibrium=cmap, coordinate="rho_tor_norm",
-                        gradient_coordinate="r_minor", reference_length="R_major_axis")
+                        gradient_coordinate="r_minor", reference_length="R_major_axis", at=rho)
+r_lt.values / a_lt.values                      # R0/a at every point: the same physical derivative
 a_lt.metadata["mathematical_definition"]     # '-a * d(log(f)) / d(r_minor)'
 ```
 
