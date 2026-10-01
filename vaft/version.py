@@ -73,7 +73,11 @@ __version__ = "0.8.0"
 #   jupyter3d extras (#1087), recipes label the coordinate they draw, the
 #   core-profile map at rho_tor (#335), colours by intent (#748), the camera
 #   overlay never bridges NaN gaps (#1314), committed thumbnails with a
-#   freshness manifest (#1097)
+#   freshness manifest (#1097); animation=True renders a plot sequence to
+#   mp4/webm/gif through a private PyAV backend, time_range= sets the
+#   window and the *_animation_frames helpers are deprecated (#1049,
+#   #1050); time_range= is honoured on a time axis or refused, never
+#   accepted and ignored
 # - database, HSDS and ShotLog: h5pyd pinned at 0.24.0 with `vaft hsds
 #   configure` (#969), the VEST ShotLog as a FileDB archive and
 #   pulse_schedule (#995), SXR digitizer CSVs packed into lossless HDF5
@@ -88,7 +92,8 @@ __version__ = "0.8.0"
 #   VEST-server worker polls for new shots and runs the pipeline (#58)
 # - new adapters: GENRAY EC ray tracing (#264), an experimental NICE
 #   reconstruction (#666), the provisional 6 kW ECH launch from CAD (#266),
-#   vaft.process.ml with vaft-nn resolution and the ml extra (#669)
+#   vaft.process.ml with vaft-nn resolution and the ml extra (#669);
+#   NUBEAM's Plasma State is built from public NTCC sources only
 # - packaging and Python: 3.14 canonical, 3.10-3.14 supported (#1008);
 #   freeze-era pins replaced by a documented policy, astropy/fortranformat/
 #   imageio/pyjwt/requests-unixsocket/setuptools/urllib3 dropped, numba in
@@ -97,7 +102,10 @@ __version__ = "0.8.0"
 #   configure`, `vaft pipeline-worker`
 # - docs and tutorials: source-synchronised API reference with
 #   revision-pinned source links (#162, #1069), generated plot/diagram
-#   catalogs with a coverage gate, tutorials 02-06 revamped (#783, #952,
+#   catalogs with a coverage gate, the Formula / Process / Code layers and
+#   the optional Actor contract documented (#1078), the framework concept
+#   diagrams (#1090), __all__ declared across vaft.omas, vaft.imas and
+#   vaft.machine_mapping (#1382), tutorials 02-06 revamped (#783, #952,
 #   #1005, #1023, #1052, #1091)
 # - removed: current_density_from_psi,
 #   bremsstrahlung_power_density_from_Z_eff_n_e_T_e and the seven renamed
