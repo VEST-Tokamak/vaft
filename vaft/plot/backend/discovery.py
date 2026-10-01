@@ -286,6 +286,16 @@ def _declare(record: PlotCapability) -> PlotCapability:
         updates["computation"] = {
             "backend": recipe.backend, "reason": recipe.reason, "reads": tuple(recipe.reads),
         }
+        if recipe.coordinates is not None:
+            options = tuple(recipe.coordinates.options)
+            updates["coordinates"] = {
+                "default": recipe.coordinates.default, "options": options, "declared": options,
+            }
+        if recipe.choices:
+            updates["choices"] = {
+                option: {"default": choice.default, "options": tuple(choice.options)}
+                for option, choice in recipe.choices.items()
+            }
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")

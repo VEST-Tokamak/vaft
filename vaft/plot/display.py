@@ -45,8 +45,10 @@ __all__ = [
     "QuantityDisplay",
     "SUBJECT_UNIT_DEFAULTS",
     "SUBJECT_NOTATION_DEFAULTS",
+    "RADIAL_COORDINATE_LABELS",
     "channel_label",
     "figure_title",
+    "gradient_label",
     "quantity_for_unit",
     "resolve_display",
     "subject_display_name",
@@ -85,6 +87,64 @@ COORDINATE_LABELS = {
     "r_major": "Major Radius R [m]",
     "r_minor": "Minor Radius r [m]",
 }
+
+
+#: Axis labels of every coordinate of
+#: :data:`vaft.process.profile_gradients.RADIAL_COORDINATES` (issue #551), the
+#: abscissae a profile gradient view can be placed on.
+RADIAL_COORDINATE_LABELS = {
+    "psi_norm": COORDINATE_LABELS["psi_norm"],
+    "rho_pol_norm": r"Normalized Poloidal Flux Radius $\sqrt{\psi_N}$",
+    "rho_tor_norm": COORDINATE_LABELS["rho_tor_norm"],
+    "r_inboard": r"Inboard Midplane Radius $R_{in}$ [m]",
+    "r_outboard": r"Outboard Midplane Radius $R_{out}$ [m]",
+    "r_center": r"Midplane Surface Centre $(R_{out}+R_{in})/2$ [m]",
+    "r_minor": r"Midplane Minor Radius $r=(R_{out}-R_{in})/2$ [m]",
+    "r_minor_norm": r"Normalized Midplane Minor Radius $r/a$",
+}
+
+#: Mathtext of each radial coordinate as a derivative variable.
+_GRADIENT_VARIABLES = {
+    "psi_norm": r"\psi_N",
+    "rho_pol_norm": r"\rho_{pol,N}",
+    "rho_tor_norm": r"\rho_{tor,N}",
+    "r_inboard": r"R_{in}",
+    "r_outboard": r"R_{out}",
+    "r_center": r"R_c",
+    "r_minor": "r",
+    "r_minor_norm": "r/a",
+}
+
+#: Mathtext of each differentiated profile, by ``source_quantity``.
+_GRADIENT_SUBJECTS = {"T_e": "T_e", "n_e": "n_e", "T_i": "T_i"}
+
+
+def gradient_label(metadata: Mapping[str, Any]) -> tuple[str, str]:
+    """``(label, unit)`` of a profile gradient, read from its resolved record (issue #551).
+
+    The notation follows the record, never the request: ``a/L_{T_i}`` for
+    ``a_minor``, ``R_0/L_{T_i}`` for ``R_major_axis``, ``R/L_{T_i}`` for the
+    local ``R_major_surface``, ``<symbol>/L_{T_i}`` for a stated ``L_ref``, and
+    ``-d ln T_i/dr`` with the inverse unit of the gradient coordinate when no
+    reference length multiplies it.  A gradient coordinate other than
+    ``r_minor`` is named beside a normalized label, since ``L`` is a decay
+    length along it.  ``metadata`` is the record of
+    :func:`vaft.process.profile_gradients.profile_gradient`.
+    """
+    source = str(metadata.get("source_quantity") or "f")
+    subject = _GRADIENT_SUBJECTS.get(source, source)
+    gradient = str(metadata.get("gradient_coordinate") or "r_minor")
+    variable = _GRADIENT_VARIABLES.get(gradient, gradient)
+    unit = str(metadata.get("unit") or "1")
+    reference = metadata.get("reference_length")
+    if not reference:
+        label = rf"$-\partial \ln {subject}/\partial {variable}$"
+        return label, "" if unit == "1" else unit
+    symbol = str(reference.get("symbol") or reference.get("name"))
+    label = rf"${symbol}/L_{{{subject}}}$"
+    if gradient != "r_minor":
+        label += rf" (along ${variable}$)"
+    return label, ""
 
 
 NOTATIONS = ("auto", "plain", "scientific", "scaled_axis", "percent")
@@ -194,6 +254,8 @@ _QUANTITIES = (
     ),
     QuantityDisplay("velocity", "m/s", {"m/s": 1.0, "km/s": 1e-3}, "km/s"),
     QuantityDisplay("time", "s", {"s": 1.0, "ms": 1e3, "us": 1e6}, "s"),
+    # A dimensional profile gradient, -d ln f/dr (issue #551).
+    QuantityDisplay("inverse_length", "m^-1", {"m^-1": 1.0}, "m^-1"),
 )
 
 #: Quantity name -> :class:`QuantityDisplay`.
@@ -230,6 +292,11 @@ DIMENSIONLESS_DISPLAY: dict[tuple[str, str], tuple[str, float, str]] = {
     # A ratio of a field gradient to the field; the stable window 0 < n < 1.5
     # is quoted in these units and no other, so there is nothing to convert.
     ("vacuum", "decay_index"): ("", 1.0, "auto"),
+    # A normalized gradient such as a/L_T (issue #551): a ratio of lengths,
+    # with nothing to convert.
+    ("electron_temperature", "gradient"): ("", 1.0, "auto"),
+    ("electron_density", "gradient"): ("", 1.0, "auto"),
+    ("ion_temperature", "gradient"): ("", 1.0, "auto"),
 }
 
 

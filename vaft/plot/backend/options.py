@@ -176,6 +176,15 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("psi_n", "float", description="normalized poloidal flux of the surface a poloidal spectrum is cut at"),
         OptionSpec("pedestal", description="fitted pedestal whose top is marked on a psi_N abscissa"),
         OptionSpec("phi_deg", "float", description="toroidal angle in degrees of an island cross-section"),
+        # Profile gradient views (issue #551): what the derivative is taken
+        # against, the length that multiplies it, and a code preset resolving
+        # both.  The vocabularies are vaft.process.profile_gradients' own.
+        OptionSpec("gradient_coordinate", "choice", "recipes.GRADIENT_COORDINATES",
+                   "radial coordinate a profile gradient is taken with respect to"),
+        OptionSpec("reference_length", "choice", "recipes.GRADIENT_REFERENCE_LENGTHS",
+                   "length that multiplies a profile gradient; 'none' for the dimensional one"),
+        OptionSpec("convention", "choice", "recipes.GRADIENT_CONVENTIONS",
+                   "code preset resolving gradient_coordinate and reference_length"),
     )
 
 
@@ -289,9 +298,13 @@ def _plot_scoped_choices(name: str, key: str) -> tuple[Any, ...] | None:
     ``overlay`` (issue #483) are declared per recipe, so the schema's static
     list is only the union: what a given plot accepts is asked of the plot.
     """
+    from . import recipes
+
+    declared = recipes.choice_options_for(name, key)
+    if declared is not None:
+        return declared
     if key not in ("coordinate", "x", "field", "overlay", "members"):
         return None
-    from . import recipes
 
     resolve = {
         "coordinate": recipes.coordinate_options_for,
