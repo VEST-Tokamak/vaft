@@ -162,6 +162,45 @@ def test_bdy_crat_outside_what_ntcc_accepts_is_refused(vest_case):
         _spec(vest_case, bdy_crat=0.2)
 
 
+@pytest.mark.parametrize(
+    "field, value",
+    [("nth_eq", 16), ("nth_eq", 2002), ("nrho", 2), ("nrho", 2002), ("nmom", 0), ("nmom", 65)],
+)
+def test_grid_sizes_outside_the_generator_bounds_are_refused(vest_case, field, value):
+    """The generator's check_inputs stops on these after the case is staged;
+    the spec names the bound up front (nth_eq >= 17 from the f90 check)."""
+    with pytest.raises(ps.PlasmaStateInputError, match=field):
+        _spec(vest_case, **{field: value})
+    _spec(vest_case, nth_eq=17, nrho=3, nmom=1)
+
+
+@pytest.mark.parametrize(
+    "form, text",
+    [
+        ("comma", "iZatom_S(1) = 1, 6\niAMU_S(1) = 1, 12\n"),
+        ("blank-separated", "iZatom_S = 1 6\niAMU_S = 1 12\n"),
+        ("repeat count", "iZatom_S = 1, 6\niAMU_S = 2*12\n"),
+        ("two per line", "iZatom_S(1)=1,6 iAMU_S(1)=1,12\n"),
+        ("per index", "iZatom_S(1)=1\niZatom_S(2)=6\niAMU_S(1)=1\niAMU_S(2)=12\n"),
+    ],
+)
+def test_fortran_namelist_value_forms_are_read(tmp_path, form, text):
+    """Blank separators, ``r*value`` repeats and several assignments per
+    record are legal namelist input that NTCC's reader accepts."""
+    path = tmp_path / "sconfig.dat"
+    path.write_text("&sconfig\n" + text + "/\n", encoding="utf-8")
+    config = ps.read_shot_configuration(path)
+    assert config.ion_charge_numbers == (1, 6)
+    assert config.ion_mass_numbers == ((12, 12) if form == "repeat count" else (1, 12))
+
+
+def test_an_unreadable_namelist_value_names_the_file_line_and_token(tmp_path):
+    path = tmp_path / "sconfig.dat"
+    path.write_text("&sconfig\niZatom_S(1) = 1, 6\niAMU_S(1) = 1, twelve\n/\n", encoding="utf-8")
+    with pytest.raises(ps.PlasmaStateInputError, match=r"sconfig\.dat:3: cannot read iAMU_S value 'twelve'"):
+        ps.read_shot_configuration(path)
+
+
 def test_the_error_is_a_nubeam_input_error():
     assert issubclass(ps.PlasmaStateInputError, nubeam.NUBEAMInputError)
 

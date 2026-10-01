@@ -170,6 +170,14 @@ class ImasBranchRegressionTests(unittest.TestCase):
             with patch.object(omas_imas, "recursive_glob", return_value=[]):
                 self.assertEqual(omas_imas.browse_imas(quiet=True), {"someone_else": {}})
 
+    def test_the_default_imasdb_dir_does_not_need_a_home_variable(self):
+        # vaft.compat establishes HOME on Windows at import; the default must
+        # not depend on that ordering (or on a POSIX shell exporting HOME).
+        without_home = {k: v for k, v in omas_imas.os.environ.items() if k != "HOME"}
+        with patch.dict(omas_imas.os.environ, without_home, clear=True):
+            with patch.object(omas_imas, "recursive_glob", return_value=[]):
+                self.assertIsInstance(omas_imas.browse_imas(quiet=True), dict)
+
 
 if __name__ == "__main__":
     unittest.main()
