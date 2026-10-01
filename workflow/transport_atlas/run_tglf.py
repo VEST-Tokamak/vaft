@@ -386,9 +386,9 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     import vaft
 
-    label = config_label(args.sat_rule, args.field_model)
+    tglf_config = config_label(args.sat_rule, args.field_model)
     # One tree per configuration: two configurations never share a native directory.
-    out = args.out / label
+    out = args.out / tglf_config
     out.mkdir(parents=True, exist_ok=True)
     labels = load_labels(args.labels)
     shots = args.shots or sorted({shot for shot, _ in labels})
@@ -471,7 +471,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             mapping = project_state(state, surfaces, state_jobs) if status in ("solved", "partial") else None
             payload = {**state.summary(), "solver": "tglf", "status": status,
                        "readiness": readiness.summary(), "surfaces": surfaces,
-                       "core_transport": mapping, "tglf_config": label,
+                       "core_transport": mapping, "tglf_config": tglf_config,
                        "tglf_parameters": parameters,
                        "gacode_revision": revision}
             state_dir.mkdir(parents=True, exist_ok=True)
@@ -486,7 +486,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "argv": sys.argv[:1] + list(argv if argv is not None else sys.argv[1:]),
         "vaft": vaft.__file__, "vaft_version": vaft.__version__,
         "vaft_git": _git_sha(Path(vaft.__file__).parent.parent),
-        "gacode_revision": revision, "tglf_config": label, "tglf_parameters": parameters,
+        "gacode_revision": revision, "tglf_config": tglf_config, "tglf_parameters": parameters,
         "enumeration": counts, "states_run": len(prepared), "surface_jobs": len(jobs),
         "status_counts": _count(out / "states.jsonl"),
     }
