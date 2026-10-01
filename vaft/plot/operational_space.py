@@ -259,7 +259,11 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             kw.update(facecolors="none", edgecolors=col)
         else:
             kw.update(c=col if isinstance(col, str) else np.asarray(col), edgecolors="white", linewidths=0.4)
-        sc = ax.scatter(xs[mask], ys[mask], label=(f"{marker}={name}" if name is not None else None), **kw)
+        sc = ax.scatter(xs[mask], ys[mask], label=(f"{marker}={name}" if name is not None and color is None else None),
+                        **kw)
+        if name is not None and color is not None:  # shape legend in neutral grey; colour has its own entries
+            ax.scatter([], [], marker=shape, s=30, label=f"{marker}={name}",
+                       **({"facecolors": "none", "edgecolors": "#6b6b66"} if open_marker else {"c": "#6b6b66"}))
         if numeric_color and not open_marker:
             mappable = sc
     if numeric_color:
@@ -277,6 +281,17 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                               units=units, x_range=ax.get_xlim() if len(xs) else None,
                               y_range=ax.get_ylim() if len(ys) else None)
     xlim, ylim = ax.get_xlim(), ax.get_ylim()
+    # a threshold just outside the data span is still part of the picture: widen to show it
+    for curve in plan.curves:
+        for values, lim, axis in ((curve.x, xlim, "x"), (curve.y, ylim, "y")):
+            if values.size and np.ptp(values) == 0:
+                level = float(values[0])
+                span = lim[1] - lim[0]
+                if lim[1] < level <= lim[1] + 0.5 * span:
+                    lim = (lim[0], level + 0.05 * span)
+                elif lim[0] - 0.5 * span <= level < lim[0]:
+                    lim = (level - 0.05 * span, lim[1])
+                xlim, ylim = (lim, ylim) if axis == "x" else (xlim, lim)
     for i, curve in enumerate(plan.curves):
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
         ax.plot(curve.x, curve.y, color=c, linewidth=1.6, label=_boundary_label(curve), zorder=2)
