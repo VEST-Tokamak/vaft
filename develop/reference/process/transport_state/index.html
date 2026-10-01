@@ -1,0 +1,1063 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: transport_state · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/profile_gradients/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: transport_state</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>49031a7</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_transport_state">Process reference: transport_state</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.transport_state, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.transport_state</code>:
+<strong>5</strong> public functions. Each entry is what
+<code>vaft.process.describe("transport_state.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Routine transport analysis (issues #1428, #1431, #1435) asks the same upstream
+question before any solver runs: <em>which</em> equilibrium and kinetic-profile slice
+describe this instant, where did each kinetic quantity come from, and is the result
+fit to hand to a model?  This module answers it once, so a TGLF and a NEO result
+that are later compared describe the same plasma rather than two independently
+resolved ones.</p>
+
+<p>The chain::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ODS (equilibrium + core_profiles)
+-&gt; equilibrium slice at the state time, core_profiles slice within dt   [times]
+-&gt; ion temperature: measured -&gt; pressure-inferred (#1426) -&gt; policy      [ti]
+-&gt; composition closure via prepare_gacode_profile(impurity=, z_eff=)     [GACODEProfile]
+-&gt; ResolvedTransportState (profile + per-quantity provenance + identity)
+-&gt; solver readiness: assess_tglf_readiness / assess_neo_readiness
+</code></pre></div></div>
+
+<p>Nothing here runs a solver.  Execution stays with <code class="language-plaintext highlighter-rouge">vaft.code.gacode</code>; this
+layer only decides what is run and records why.</p>
+
+<p><code class="language-plaintext highlighter-rouge">time_efit_s</code> is the equilibrium slice time and is the state’s time.  The
+core_profiles slice is matched to it <strong>by time</strong> within an explicit tolerance, never
+by index.  <code class="language-plaintext highlighter-rouge">r_over_a</code> is GACODE’s <code class="language-plaintext highlighter-rouge">rmin/rmin[-1]</code> on the converted profile, whose
+outer edge is <code class="language-plaintext highlighter-rouge">rho_max</code>; it is not <code class="language-plaintext highlighter-rouge">rho_tor_norm</code>.  The ODS passed in is never
+modified: the ion-temperature policy writes into a deep copy.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 5 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="assess_neo_readiness"><td><a href="#assess_neo_readiness"><code>assess_neo_readiness</code></a></td><td>Decide whether a resolved state can go to NEO.
+</td></tr>
+  <tr data-ref-row="assess_tglf_readiness"><td><a href="#assess_tglf_readiness"><code>assess_tglf_readiness</code></a></td><td>Decide whether a resolved state, and each requested surface, can go to TGLF.
+</td></tr>
+  <tr data-ref-row="physics_parameters"><td><a href="#physics_parameters"><code>physics_parameters</code></a></td><td>The physics half of a GACODE config, with runtime-only fields dropped.
+</td></tr>
+  <tr data-ref-row="resolve_transport_state"><td><a href="#resolve_transport_state"><code>resolve_transport_state</code></a></td><td>Resolve one plasma state into a shared GACODE profile with per-quantity provenance.
+</td></tr>
+  <tr data-ref-row="run_identity"><td><a href="#run_identity"><code>run_identity</code></a></td><td>Deterministic identity of one solver calculation on one resolved state.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="assess_neo_readiness" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#assess_neo_readiness"><code>assess_neo_readiness</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="assess_neo_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/49031a7cead83a398c2914faa882eae69ed575e5/vaft/process/transport_state.py#L816-L849" title="vaft/process/transport_state.py, lines 816–849 at 49031a7">source</a>
+</header>
+    <pre class="ref-signature"><code>assess_neo_readiness(state)</code></pre>
+    <details class="ref-code" data-source-code="assess_neo_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 816–849</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assess_neo_readiness</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReadinessReport</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Decide whether a resolved state can go to NEO.
+
+    Parameters
+    ----------
+    state : ResolvedTransportState
+        From :func:`resolve_transport_state` [-].
+
+    Returns
+    -------
+    ReadinessReport
+        ``ready``/``conditional``/``insufficient``; NEO is a profile code, so no
+        per-surface entries [-].
+
+    Processing steps
+    ----------------
+    1. An unresolved state is ``insufficient``.
+    2. ``GACODEProfile.check_neo_requirements`` (the executable-input contract) must
+       report nothing missing.
+    3. Declared assumptions make the state ``conditional``.
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">state</span><span class="p">.</span><span class="n">resolved</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span> <span class="n">reasons</span><span class="o">=</span><span class="n">state</span><span class="p">.</span><span class="n">reasons</span><span class="p">)</span>
+    <span class="n">missing</span> <span class="o">=</span> <span class="nf">tuple</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">profile</span><span class="p">.</span><span class="nf">check_neo_requirements</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span>
+                               <span class="n">reasons</span><span class="o">=</span><span class="nf">tuple</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">missing_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="sh">"</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">missing</span><span class="p">))</span>
+    <span class="n">conditions</span> <span class="o">=</span> <span class="nf">_state_conditions</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">conditional</span><span class="sh">"</span> <span class="k">if</span> <span class="n">conditions</span> <span class="k">else</span> <span class="sh">"</span><span class="s">ready</span><span class="sh">"</span><span class="p">,</span>
+                           <span class="n">conditions</span><span class="o">=</span><span class="n">conditions</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Decide whether a resolved state can go to NEO.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">ResolvedTransportState</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">resolve_transport_state</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ReadinessReport</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">ready</code>/<code class="language-plaintext highlighter-rouge">conditional</code>/<code class="language-plaintext highlighter-rouge">insufficient</code>; NEO is a profile code, so no per-surface entries.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>An unresolved state is <code class="language-plaintext highlighter-rouge">insufficient</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">GACODEProfile.check_neo_requirements</code> (the executable-input contract) must
+report nothing missing.</li>
+        <li>Declared assumptions make the state <code class="language-plaintext highlighter-rouge">conditional</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="assess_tglf_readiness" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#assess_tglf_readiness"><code>assess_tglf_readiness</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="assess_tglf_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/49031a7cead83a398c2914faa882eae69ed575e5/vaft/process/transport_state.py#L752-L813" title="vaft/process/transport_state.py, lines 752–813 at 49031a7">source</a>
+</header>
+    <pre class="ref-signature"><code>assess_tglf_readiness(state, surfaces=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8), *, config=None)</code></pre>
+    <details class="ref-code" data-source-code="assess_tglf_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 752–813</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assess_tglf_readiness</span><span class="p">(</span>
+    <span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span>
+    <span class="n">surfaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_SURFACES</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReadinessReport</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Decide whether a resolved state, and each requested surface, can go to TGLF.
+
+    Parameters
+    ----------
+    state : ResolvedTransportState
+        From :func:`resolve_transport_state` [-].
+    surfaces : sequence of float
+        Requested surfaces as r/a [-].
+    config : TGLFConfig, optional
+        Only ``n_species`` is consulted, through ``prepare_tglf_input`` [-].
+
+    Returns
+    -------
+    ReadinessReport
+        State verdict plus one :class:`SurfaceReadiness` per surface, each carrying
+        the built ``TGLFInput`` when ready [-].
+
+    Processing steps
+    ----------------
+    1. An unresolved state is ``insufficient`` and no surface is built.
+    2. Each surface is projected with ``prepare_tglf_input``; its documented refusal
+       becomes a reason code, then ``check_tglf_requirements`` and finite gradients
+       are required.
+    3. A runnable state with declared assumptions is ``conditional``.
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">state</span><span class="p">.</span><span class="n">resolved</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span> <span class="n">reasons</span><span class="o">=</span><span class="n">state</span><span class="p">.</span><span class="n">reasons</span><span class="p">)</span>
+    <span class="kn">from</span> <span class="n">vaft.code.gacode.tglf.inputs</span> <span class="kn">import</span> <span class="n">LocalConversionError</span><span class="p">,</span> <span class="n">prepare_tglf_input</span>
+
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">radius</span> <span class="ow">in</span> <span class="n">surfaces</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">local</span> <span class="o">=</span> <span class="nf">prepare_tglf_input</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">profile</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">radius</span><span class="p">),</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">LocalConversionError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="n">results</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">SurfaceReadiness</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">radius</span><span class="p">),</span> <span class="nf">_surface_code</span><span class="p">(</span><span class="n">error</span><span class="p">),</span> <span class="nf">str</span><span class="p">(</span><span class="n">error</span><span class="p">)))</span>
+            <span class="k">continue</span>
+        <span class="n">absent</span> <span class="o">=</span> <span class="n">local</span><span class="p">.</span><span class="nf">check_tglf_requirements</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">absent</span><span class="p">:</span>
+            <span class="n">code</span> <span class="o">=</span> <span class="sh">"</span><span class="s">invalid_gradient</span><span class="sh">"</span> <span class="k">if</span> <span class="nf">set</span><span class="p">(</span><span class="n">absent</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">{</span><span class="sh">"</span><span class="s">rlns</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rlts</span><span class="sh">"</span><span class="p">}</span> <span class="k">else</span> <span class="sh">"</span><span class="s">local_conversion_failure</span><span class="sh">"</span>
+            <span class="n">results</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">SurfaceReadiness</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">radius</span><span class="p">),</span> <span class="n">code</span><span class="p">,</span> <span class="sh">"</span><span class="s">, </span><span class="sh">"</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">absent</span><span class="p">),</span> <span class="n">local</span><span class="p">))</span>
+            <span class="k">continue</span>
+        <span class="n">results</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">SurfaceReadiness</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">radius</span><span class="p">),</span> <span class="sh">"</span><span class="s">ready</span><span class="sh">"</span><span class="p">,</span> <span class="sh">""</span><span class="p">,</span> <span class="n">local</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nf">any</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">ready</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">results</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span> <span class="n">reasons</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">no_ready_surface</span><span class="sh">"</span><span class="p">,),</span>
+                               <span class="n">surfaces</span><span class="o">=</span><span class="nf">tuple</span><span class="p">(</span><span class="n">results</span><span class="p">))</span>
+    <span class="n">conditions</span> <span class="o">=</span> <span class="nf">_state_conditions</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">any</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">ready</span> <span class="ow">and</span> <span class="n">s</span><span class="p">.</span><span class="n">local_input</span><span class="p">.</span><span class="n">vexb_shear</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">results</span><span class="p">):</span>
+        <span class="c1"># prepare_tglf_input does not derive ExB shear yet (#553), so TGLF runs with
+</span>        <span class="c1"># its own zero whatever rotation core_profiles carries.
+</span>        <span class="n">conditions</span> <span class="o">=</span> <span class="p">(</span><span class="o">*</span><span class="n">conditions</span><span class="p">,</span> <span class="sh">"</span><span class="s">no_exb_shear</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">conditional</span><span class="sh">"</span> <span class="k">if</span> <span class="n">conditions</span> <span class="k">else</span> <span class="sh">"</span><span class="s">ready</span><span class="sh">"</span><span class="p">,</span>
+                           <span class="n">conditions</span><span class="o">=</span><span class="n">conditions</span><span class="p">,</span> <span class="n">surfaces</span><span class="o">=</span><span class="nf">tuple</span><span class="p">(</span><span class="n">results</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Decide whether a resolved state, and each requested surface, can go to TGLF.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">ResolvedTransportState</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">resolve_transport_state</code>.</p>
+</td></tr>
+  <tr><td><code>surfaces</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Requested surfaces as r/a.</p>
+</td></tr>
+  <tr><td><code>config</code></td><td class="ref-type">TGLFConfig, optional</td><td class="ref-unit">-</td><td><p>Only <code class="language-plaintext highlighter-rouge">n_species</code> is consulted, through <code class="language-plaintext highlighter-rouge">prepare_tglf_input</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ReadinessReport</td><td class="ref-unit">-</td><td><p>State verdict plus one <code class="language-plaintext highlighter-rouge">SurfaceReadiness</code> per surface, each carrying the built <code class="language-plaintext highlighter-rouge">TGLFInput</code> when ready.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>An unresolved state is <code class="language-plaintext highlighter-rouge">insufficient</code> and no surface is built.</li>
+        <li>Each surface is projected with <code class="language-plaintext highlighter-rouge">prepare_tglf_input</code>; its documented refusal
+becomes a reason code, then <code class="language-plaintext highlighter-rouge">check_tglf_requirements</code> and finite gradients
+are required.</li>
+        <li>A runnable state with declared assumptions is <code class="language-plaintext highlighter-rouge">conditional</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="physics_parameters" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#physics_parameters"><code>physics_parameters</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="physics_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/49031a7cead83a398c2914faa882eae69ed575e5/vaft/process/transport_state.py#L897-L929" title="vaft/process/transport_state.py, lines 897–929 at 49031a7">source</a>
+</header>
+    <pre class="ref-signature"><code>physics_parameters(config, *, exclude=())</code></pre>
+    <details class="ref-code" data-source-code="physics_parameters"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 897–929</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">physics_parameters</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">exclude</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">())</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">The physics half of a GACODE config, with runtime-only fields dropped.
+
+    ``backend``, ``timeout``, ``env``, ``home``, ``executable``, ``platform`` and the
+    MPI/OMP counts decide *where* a run happens, not *what* it computes, so they stay
+    out of identity.
+
+    Parameters
+    ----------
+    config : GACODEConfig
+        A ``TGLFConfig`` or ``NEOConfig`` dataclass [-].
+    exclude : iterable of str
+        Further field names to leave out [-].
+
+    Returns
+    -------
+    dict
+        Field name to JSON-ready value, for :func:`run_identity` [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">fields</span> <span class="k">as</span> <span class="n">dataclass_fields</span>
+
+    <span class="n">runtime</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">backend</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">timeout</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">env</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">home</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">executable</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">workdir</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">args</span><span class="sh">"</span><span class="p">,</span>
+               <span class="sh">"</span><span class="s">platform</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_mpi</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_omp</span><span class="sh">"</span><span class="p">,</span> <span class="o">*</span><span class="n">exclude</span><span class="p">}</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="nf">dataclass_fields</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">entry</span><span class="p">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">runtime</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">entry</span><span class="p">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="nf">_jsonable</span><span class="p">(</span><span class="nf">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">entry</span><span class="p">.</span><span class="n">name</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">out</span></code></pre></figure>
+
+</details>
+
+    <p>The physics half of a GACODE config, with runtime-only fields dropped.</p>
+
+    <p><code class="language-plaintext highlighter-rouge">backend</code>, <code class="language-plaintext highlighter-rouge">timeout</code>, <code class="language-plaintext highlighter-rouge">env</code>, <code class="language-plaintext highlighter-rouge">home</code>, <code class="language-plaintext highlighter-rouge">executable</code>, <code class="language-plaintext highlighter-rouge">platform</code> and the
+MPI/OMP counts decide <em>where</em> a run happens, not <em>what</em> it computes, so they stay
+out of identity.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>config</code></td><td class="ref-type">GACODEConfig</td><td class="ref-unit">-</td><td><p>A <code class="language-plaintext highlighter-rouge">TGLFConfig</code> or <code class="language-plaintext highlighter-rouge">NEOConfig</code> dataclass.</p>
+</td></tr>
+  <tr><td><code>exclude</code></td><td class="ref-type">iterable of str</td><td class="ref-unit">-</td><td><p>Further field names to leave out.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p>Field name to JSON-ready value, for <code class="language-plaintext highlighter-rouge">run_identity</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="resolve_transport_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#resolve_transport_state"><code>resolve_transport_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span></span>
+<a class="ref-source" data-source="resolve_transport_state" href="https://github.com/VEST-Tokamak/vaft/blob/49031a7cead83a398c2914faa882eae69ed575e5/vaft/process/transport_state.py#L423-L723" title="vaft/process/transport_state.py, lines 423–723 at 49031a7">source</a>
+</header>
+    <pre class="ref-signature"><code>resolve_transport_state(ods, key, *, efit_quality, quality_source=&#39;criteria&#39;, tolerance=0.0005, ti_te_ratio=&#39;policy&#39;, ti_te_ratio_sigma=None, inferred_ti=None, z_eff=2.0, impurity=&#39;C&#39;, rho_max=0.95, inputs=None)</code></pre>
+
+    <p>Resolve one plasma state into a shared GACODE profile with per-quantity provenance.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">omas.ODS</td><td class="ref-unit">-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">equilibrium</code> and <code class="language-plaintext highlighter-rouge">core_profiles</code> for the shot; never modified.</p>
+</td></tr>
+  <tr><td><code>key</code></td><td class="ref-type">TransportStateKey</td><td class="ref-unit">s</td><td><p><code class="language-plaintext highlighter-rouge">(shot, time_efit_s, efit_lineage)</code>; <code class="language-plaintext highlighter-rouge">time_efit_s</code> must be an equilibrium slice time within <code class="language-plaintext highlighter-rouge">tolerance</code>.</p>
+</td></tr>
+  <tr><td><code>efit_quality</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>The #1331 slice label, <code class="language-plaintext highlighter-rouge">"good"</code> or <code class="language-plaintext highlighter-rouge">"admissible"</code>; anything else is refused with <code class="language-plaintext highlighter-rouge">ValueError</code>, an unreconstructible slice not being a state.</p>
+</td></tr>
+  <tr><td><code>quality_source</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Where <code class="language-plaintext highlighter-rouge">efit_quality</code> came from, e.g. <code class="language-plaintext highlighter-rouge">"criteria"</code> or <code class="language-plaintext highlighter-rouge">"magnetic_slice_at_same_time"</code>.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td class="ref-type">float</td><td class="ref-unit">s</td><td><table>
+  <tbody>
+    <tr>
+      <td>Largest allowed</td>
+      <td>t_core_profiles - t_equilibrium</td>
+      <td>and</td>
+      <td>t_equilibrium - time_efit_s</td>
+      <td>.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  <tr><td><code>ti_te_ratio</code></td><td class="ref-type">str or float</td><td class="ref-unit">-</td><td><p>Ion-temperature fallback when no ion temperature is measured: <code class="language-plaintext highlighter-rouge">"policy"</code> reads <code class="language-plaintext highlighter-rouge">vest.yaml</code> through <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.core_profiles.policy_for_ods</code>; a number is used as given and recorded as caller-supplied; <code class="language-plaintext highlighter-rouge">None</code> disables the fallback.</p>
+</td></tr>
+  <tr><td><code>ti_te_ratio_sigma</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Its 1-sigma, for provenance; the policy’s when <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  <tr><td><code>inferred_ti</code></td><td class="ref-type">mapping, optional</td><td class="ref-unit">eV</td><td><p>A pressure-partition result (#1426), <code class="language-plaintext highlighter-rouge">{"temperature", "method", "time"}</code> on the core_profiles grid of the matched slice, preferred over the policy fallback; its <code class="language-plaintext highlighter-rouge">time</code> must match the paired slice within <code class="language-plaintext highlighter-rouge">tolerance</code>.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Effective charge the composition closure realizes.</p>
+</td></tr>
+  <tr><td><code>impurity</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Impurity species of the closure (<code class="language-plaintext highlighter-rouge">"C"</code> -&gt; C6+); <code class="language-plaintext highlighter-rouge">None</code> keeps one main ion.</p>
+</td></tr>
+  <tr><td><code>rho_max</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Outer edge of the converted profile, as rho_tor_norm.</p>
+</td></tr>
+  <tr><td><code>inputs</code></td><td class="ref-type">mapping, optional</td><td class="ref-unit">-</td><td><p>Identity of the products the ODS was assembled from (paths, sha256).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ResolvedTransportState</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">status</code> <code class="language-plaintext highlighter-rouge">"resolved"</code> with <code class="language-plaintext highlighter-rouge">profile</code> set, or <code class="language-plaintext highlighter-rouge">"insufficient"</code> with machine-readable <code class="language-plaintext highlighter-rouge">reasons</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Match the equilibrium slice to <code class="language-plaintext highlighter-rouge">time_efit_s</code> and the core_profiles slice to
+that equilibrium time, both by time within <code class="language-plaintext highlighter-rouge">tolerance</code>.</li>
+        <li>Resolve the ion temperature: measured, then <code class="language-plaintext highlighter-rouge">inferred_ti</code>, then the policy
+ratio, else insufficient; write a main ion into a deep copy when needed.</li>
+        <li>Derive <code class="language-plaintext highlighter-rouge">r_inboard</code>/<code class="language-plaintext highlighter-rouge">r_outboard</code> and, when absent, the elongation and
+triangularity profiles from the 2-D flux map (on the copy), recording that
+they were derived here.</li>
+        <li>Convert with <code class="language-plaintext highlighter-rouge">vaft.code.gacode.inputs.prepare_gacode_profile</code>, which
+applies the composition closure and refuses non-positive profiles.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>VEST-specific. The policy default reads VEST’s <code class="language-plaintext highlighter-rouge">vest.yaml</code>
+(<code class="language-plaintext highlighter-rouge">diagnostics.core_profiles.ti_te_ratio</code>) and the composition default is the
+VEST modelling policy (H+, C6+, Z_eff = 2); campaign core_profiles and EFIT
+stage products are the data it was built against.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1428 sections 2-7: the Ti hierarchy (measured, #1426 pressure partition, empirical ratio, insufficient), the VEST H+/C6+ Z_eff = 2 composition policy and explicit time alignment.
+</li>
+  <li>Issue #1414: VEST Thomson-only slices take Ti = Te with sigma 0.5 (<code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">diagnostics.core_profiles.ti_te_ratio</code>, status <code class="language-plaintext highlighter-rouge">assumed</code>).
+</li>
+  <li>GACODE <code class="language-plaintext highlighter-rouge">input.gacode</code>: <code class="language-plaintext highlighter-rouge">rmin</code>/<code class="language-plaintext highlighter-rouge">rmaj</code> are the midplane half-width and centre at the axis height (https://gacode.io/input_gacode.html), derived here with <code class="language-plaintext highlighter-rouge">vaft.omas.update_equilibrium_profiles_1d_radial_coordinates</code>.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="run_identity" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#run_identity"><code>run_identity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="run_identity" href="https://github.com/VEST-Tokamak/vaft/blob/49031a7cead83a398c2914faa882eae69ed575e5/vaft/process/transport_state.py#L855-L894" title="vaft/process/transport_state.py, lines 855–894 at 49031a7">source</a>
+</header>
+    <pre class="ref-signature"><code>run_identity(state, *, solver, parameters, surface=None, solver_revision=None)</code></pre>
+    <details class="ref-code" data-source-code="run_identity"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 855–894</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">run_identity</span><span class="p">(</span>
+    <span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">solver</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">parameters</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">surface</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">solver_revision</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Deterministic identity of one solver calculation on one resolved state.
+
+    Parameters
+    ----------
+    state : ResolvedTransportState
+        The upstream state; its own identity is folded in [-].
+    solver : str
+        ``</span><span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="s">``, ``</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="s">`` or ``</span><span class="sh">"</span><span class="s">classical</span><span class="sh">"</span><span class="s">`` [-].
+    parameters : mapping
+        The solver</span><span class="sh">'</span><span class="s">s effective settings (e.g. ``dataclasses.asdict(config)`` minus
+        runtime-only fields) [-].
+    surface : float, optional
+        r/a of a local calculation [-].
+    solver_revision : str, optional
+        The GACODE revision the run used or will use [-].
+
+    Returns
+    -------
+    str
+        sha256 hex digest; equal inputs give equal identities, which is the cache key [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_digest</span><span class="p">({</span>
+        <span class="sh">"</span><span class="s">state</span><span class="sh">"</span><span class="p">:</span> <span class="n">state</span><span class="p">.</span><span class="n">identity</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">solver</span><span class="sh">"</span><span class="p">:</span> <span class="n">solver</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">parameters</span><span class="sh">"</span><span class="p">:</span> <span class="nf">dict</span><span class="p">(</span><span class="n">parameters</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">surface</span><span class="sh">"</span><span class="p">:</span> <span class="bp">None</span> <span class="k">if</span> <span class="n">surface</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="nf">round</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">surface</span><span class="p">),</span> <span class="mi">6</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">solver_revision</span><span class="sh">"</span><span class="p">:</span> <span class="n">solver_revision</span><span class="p">,</span>
+    <span class="p">})</span></code></pre></figure>
+
+</details>
+
+    <p>Deterministic identity of one solver calculation on one resolved state.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">ResolvedTransportState</td><td class="ref-unit">-</td><td><p>The upstream state; its own identity is folded in.</p>
+</td></tr>
+  <tr><td><code>solver</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"tglf"</code>, <code class="language-plaintext highlighter-rouge">"neo"</code> or <code class="language-plaintext highlighter-rouge">"classical"</code>.</p>
+</td></tr>
+  <tr><td><code>parameters</code></td><td class="ref-type">mapping</td><td class="ref-unit">-</td><td><p>The solver’s effective settings (e.g. <code class="language-plaintext highlighter-rouge">dataclasses.asdict(config)</code> minus runtime-only fields).</p>
+</td></tr>
+  <tr><td><code>surface</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>r/a of a local calculation.</p>
+</td></tr>
+  <tr><td><code>solver_revision</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>The GACODE revision the run used or will use.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>sha256 hex digest; equal inputs give equal identities, which is the cache key.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/profile_gradients/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: profile_gradients">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VEST diagnostics and data availability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_transport_state.md",
+        "mtime": "2026-09-30 13:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-01 20:52:35 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>
