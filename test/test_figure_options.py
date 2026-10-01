@@ -266,3 +266,68 @@ def test_presentation_formats_are_large_type_and_heavy_lines(name):
 def test_a_slide_figure_fits_a_16_by_9_slide():
     fmt = pres.FORMATS["slide"]
     assert fmt.width_in <= 13.333 and fmt.max_height_in <= 7.5
+
+
+# ---------------------------------------------------------------------------
+# cold-review cases
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("word, expected", [("false", False), ("no", False), ("off", False), ("true", True), ("yes", True)])
+def test_cli_booleans_are_read_as_booleans(word, expected):
+    options = FigureOptions.from_cli([f"grid={word}", f"panel_labels={word}", f"transparent={word}"])
+    assert options.grid is expected and options.panel_labels is expected and options.transparent is expected
+
+
+def test_grid_false_from_the_cli_turns_the_grid_off():
+    options = FigureOptions.from_cli(["grid=false"])
+    figure, axes = renderers.render_line_series(_lines(), theme="technical", figure_options=options)
+    assert not any(line.get_visible() for line in axes.get_xgridlines())
+
+
+def test_a_non_boolean_word_is_refused():
+    with pytest.raises(ValueError, match="true or false"):
+        FigureOptions.from_cli(["legend=maybe"])
+
+
+def test_colour_options_leave_a_callers_other_subplots_alone():
+    figure, (mine, theirs) = plt.subplots(1, 2)
+    theirs.imshow(np.arange(12.0).reshape(3, 4), cmap="viridis")
+    renderers.render_field_2d(_field(), ax=mine, figure_options={"cmap": "magma"})
+    assert theirs.images[0].get_cmap().name == "viridis"
+
+
+def test_a_rebuilt_legend_keeps_the_policy_size_and_columns():
+    figure, axes = renderers.render_line_series(_lines())
+    policy_size = axes.get_legend().get_texts()[0].get_fontsize()
+    figure, axes = renderers.render_line_series(_lines(), figure_options={"legend_ncols": 2})
+    assert axes.get_legend().get_texts()[0].get_fontsize() == pytest.approx(policy_size)
+    figure, axes = renderers.render_line_series(
+        _lines(), figure_options={"legend_ncols": 2, "legend_frame": False},
+    )
+    assert axes.get_legend()._ncols == 2
+
+
+def test_a_forced_legend_replaces_the_count_note():
+    from vaft.plot.style import _COUNT_NOTE_GID
+
+    figure, axes = renderers.render_line_series(_lines(12))
+    assert any(t.get_gid() == _COUNT_NOTE_GID for t in axes.texts)
+    figure, axes = renderers.render_line_series(_lines(12), figure_options={"legend": True})
+    assert axes.get_legend() is not None
+    assert not any(t.get_gid() == _COUNT_NOTE_GID for t in axes.texts)
+
+
+def test_the_legacy_format_takes_options_too():
+    figure, axes = renderers.render_line_series(_lines(), format="legacy", figure_options={"xlim": (0.3, 0.6)})
+    assert axes.get_xlim() == (0.3, 0.6)
+
+
+def test_an_animation_refuses_axes_options_but_takes_typography():
+    from vaft.plot.models import ImageSequence
+
+    frames = np.random.default_rng(0).random((3, 4, 5))
+    model = ImageSequence(frames=frames, time=np.arange(3.0))
+    with pytest.raises(ValueError, match="animation takes only"):
+        renderers.render_image_sequence(model, figure_options={"xlim": (0, 1)})
+    result = renderers.render_image_sequence(model, figure_options={"font_size": 9})
+    assert len(result) == 3

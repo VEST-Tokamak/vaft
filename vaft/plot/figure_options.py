@@ -71,6 +71,14 @@ MATH_FONTSETS = ("dejavusans", "dejavuserif", "cm", "stix", "stixsans", "custom"
 
 _TICK_DIRECTIONS = ("in", "out", "inout")
 
+#: Fields read as booleans; a CLI value arrives as text ("false", "no", ...).
+_BOOL_FIELDS = ("minor_ticks", "mirror_ticks", "grid", "legend", "legend_frame", "panel_labels", "transparent")
+_TRUE_WORDS = ("true", "yes", "on", "1")
+_FALSE_WORDS = ("false", "no", "off", "0")
+
+#: Fields applied while drawing or saving, not to the finished axes.
+_RENDER_FIELDS = frozenset({"font_family", "math_fontset", "font_size", "dpi", "transparent"})
+
 
 @dataclass(frozen=True)
 class FigureOptions:
@@ -154,6 +162,12 @@ class FigureOptions:
                 raise ValueError(f"{name} must be a positive number; got {value!r}")
         if self.legend_ncols is not None and int(self.legend_ncols) < 1:
             raise ValueError(f"legend_ncols must be at least 1; got {self.legend_ncols!r}")
+        for name in _BOOL_FIELDS:
+            object.__setattr__(self, name, _as_bool(name, getattr(self, name)))
+
+    def draws_on_axes(self) -> bool:
+        """Whether anything beyond typography and export is set."""
+        return any(key not in _RENDER_FIELDS for key in self.explicit())
 
     # -- intent ------------------------------------------------------------
 
@@ -245,8 +259,22 @@ class FigureOptions:
         return matplotlib.rc_context(rc=rc) if rc else contextlib.nullcontext()
 
     def apply(self, figure: Any, axes: Any) -> None:
-        """Adjust a finished figure: axes, ticks, legend, colour scale, labels."""
+        """Adjust a finished figure: axes, ticks, legend, colour scale, labels.
+
+        Only the axes the renderer drew (and their colorbars) are touched, so
+        a caller's other subplots in the same figure are left alone.  A 3-D
+        view takes none of the axes options; a warning says so.
+        """
         data_axes = _data_axes(figure, axes)
+        if self.draws_on_axes() and any(
+            getattr(a, "name", "") == "3d" for a in _listed_axes(figure, axes)
+        ):
+            import warnings
+
+            warnings.warn(
+                "figure_options axes, legend and colour settings are not applied to a 3-D view",
+                UserWarning, stacklevel=3,
+            )
         for axis in data_axes:
             self._apply_axes(axis)
             self._apply_legend(axis)
@@ -258,7 +286,7 @@ class FigureOptions:
             else:
                 for axis in data_axes:
                     axis.set_title(self.title)
-        self._apply_colour_scale(figure)
+        self._apply_colour_scale(data_axes)
         if self.panel_labels and len(data_axes) > 1:
             for index, axis in enumerate(data_axes):
                 _panel_label(axis, index)
@@ -326,25 +354,39 @@ class FigureOptions:
             handles = list(legend.legend_handles)
             labels = [text.get_text() for text in legend.get_texts()]
             title = legend.get_title().get_text()
-        kwargs: dict[str, Any] = {}
-        if legend is not None and title:
-            kwargs["title"] = title
+        from .style import _COUNT_NOTE_GID, _POLICY_LEGEND_GID
+
+        # The rebuilt legend keeps what the policy gave the old one: its type
+        # size, placement, columns, frame and identity -- only what is set changes.
+        kwargs: dict[str, Any] = {"fontsize": "small"}
+        gid = _POLICY_LEGEND_GID
+        if legend is not None:
+            kwargs["fontsize"] = legend.get_texts()[0].get_fontsize() if legend.get_texts() else "small"
+            kwargs["loc"] = legend._loc  # noqa: SLF001 - keep the policy's placement
+            kwargs["ncols"] = legend._ncols  # noqa: SLF001
+            kwargs["frameon"] = legend.get_frame_on()
+            gid = legend.get_gid() or gid
+            if title:
+                kwargs["title"] = title
+        else:
+            # A forced legend replaces the policy's "N traces" note.
+            for text in list(axis.texts):
+                if text.get_gid() == _COUNT_NOTE_GID:
+                    text.remove()
         if self.legend_loc is not None:
             kwargs["loc"] = self.legend_loc
-        elif legend is not None:
-            kwargs["loc"] = legend._loc  # noqa: SLF001 - keep the policy's placement
         if self.legend_ncols is not None:
             kwargs["ncols"] = int(self.legend_ncols)
         if self.legend_frame is not None:
             kwargs["frameon"] = bool(self.legend_frame)
-        axis.legend(handles, labels, **kwargs)
+        axis.legend(handles, labels, **kwargs).set_gid(gid)
 
-    def _apply_colour_scale(self, figure: Any) -> None:
+    def _apply_colour_scale(self, data_axes: list[Any]) -> None:
         if self.clim is None and self.cmap is None and self.norm is None:
             return
         import matplotlib.colors as mcolors
 
-        for mappable in _scalar_mappables(figure):
+        for mappable in _scalar_mappables(data_axes):
             if self.cmap is not None:
                 mappable.set_cmap(self.cmap)
             vmin, vmax = self.clim if self.clim is not None else mappable.get_clim()
@@ -428,33 +470,64 @@ def reproduce_python(
     return "\n".join(lines)
 
 
+def _as_bool(name: str, value: Any) -> bool | None:
+    """``None``, a bool, or one of the yes/no words, as a bool; anything else is refused."""
+    if value is None or isinstance(value, (bool, np.bool_)):
+        return None if value is None else bool(value)
+    if isinstance(value, (int, np.integer)) and value in (0, 1):
+        return bool(value)
+    word = str(value).strip().lower()
+    if word in _TRUE_WORDS:
+        return True
+    if word in _FALSE_WORDS:
+        return False
+    raise ValueError(f"{name} must be true or false; got {value!r}")
+
+
 def _choice(name: str, value: Any, allowed: tuple[str, ...]) -> None:
     if value is not None and value not in allowed:
         raise ValueError(f"{name} must be one of {', '.join(allowed)}; got {value!r}")
 
 
-def _data_axes(figure: Any, axes: Any) -> list[Any]:
-    """The axes that draw data: the renderer's, without colorbars and hidden cells."""
+def _listed_axes(figure: Any, axes: Any) -> list[Any]:
+    """The renderer's axes, flattened and de-duplicated (a spanned cell may repeat)."""
     from .presentation import _axes_of
 
     listed = _axes_of(axes) or list(getattr(figure, "axes", []))
-    colorbars = {
-        id(getattr(m, "colorbar").ax)
-        for m in _scalar_mappables(figure)
-        if getattr(m, "colorbar", None) is not None
-    }
+    unique: list[Any] = []
+    for axis in listed:
+        if all(axis is not seen for seen in unique):
+            unique.append(axis)
+    return unique
+
+
+def _colorbar_axes(figure: Any) -> set[int]:
+    """Identities of the figure's colorbar axes."""
+    found = set()
+    for axis in getattr(figure, "axes", []):
+        for artist in (*axis.images, *axis.collections):
+            colorbar = getattr(artist, "colorbar", None)
+            if colorbar is not None:
+                found.add(id(colorbar.ax))
+    return found
+
+
+def _data_axes(figure: Any, axes: Any) -> list[Any]:
+    """The 2-D axes that draw data: the renderer's, without colorbars and hidden cells."""
+    colorbars = _colorbar_axes(figure)
     return [
-        axis for axis in listed
+        axis for axis in _listed_axes(figure, axes)
         if axis.get_visible() and axis.axison and id(axis) not in colorbars
         and getattr(axis, "name", "") != "3d"
     ]
 
 
-def _scalar_mappables(figure: Any) -> list[Any]:
+def _scalar_mappables(data_axes: list[Any]) -> list[Any]:
+    """The colour-mapped artists of ``data_axes`` -- never a colorbar's own mesh."""
     from matplotlib.cm import ScalarMappable
 
     found = []
-    for axis in getattr(figure, "axes", []):
+    for axis in data_axes:
         for artist in (*axis.images, *axis.collections):
             if isinstance(artist, ScalarMappable) and artist.get_array() is not None:
                 found.append(artist)

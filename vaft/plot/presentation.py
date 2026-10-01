@@ -889,6 +889,13 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
             from .figure_options import as_figure_options
 
             options = as_figure_options(figure_options)
+            if options is not None and options.draws_on_axes() and type(model).__name__ == "ImageSequence":
+                # An animation is drawn and saved frame by frame inside the
+                # renderer, before anything here could adjust its axes.
+                raise ValueError(
+                    "an animation takes only the typography and export fields of figure_options "
+                    "(font_family, math_fontset, font_size, dpi, transparent)"
+                )
             if format in (None, "", "none") and ax is None and figsize is None:
                 # The canonical default, for a canvas nobody else decides;
                 # the empty spellings a control or the CLI may pass mean it too.
