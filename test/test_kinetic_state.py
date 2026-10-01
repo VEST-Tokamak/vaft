@@ -486,3 +486,98 @@ def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
     assert stored["time"] == [0.313, 0.314]
     assert [ion["label"] for ion in stored["profiles_1d"][0]["ion"]] == ["H+", "C6+"]
     assert json.loads(stored["code"]["parameters"])["origin"] == "inferred"
+
+    # readiness on the same atlas: every state and lineage gets a verdict and a reason
+    spec = importlib.util.spec_from_file_location("lane_k_build_readiness", folder / "build_readiness.py")
+    readiness = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(folder))
+    try:
+        spec.loader.exec_module(readiness)
+        summary = readiness.build(filedb, atlas)
+    finally:
+        sys.path.remove(str(folder))
+    with open(atlas / "readiness_state.csv", newline="") as handle:
+        verdicts = list(csv.DictReader(handle))
+    # two magnetics states x two lineages, plus the kinetic state's assumed lineage
+    assert len(verdicts) == 5
+    assert {v["status"] for v in verdicts} <= set(ks.READINESS_STATUSES)
+    assert all(v["status"] == "ready" or v["reason"] for v in verdicts)
+    assert not any(v["efit_lineage"] == "electron_kinetic" and v["ti_lineage"] == "pressure_partition_inferred"
+                   for v in verdicts)
+    assert sum(summary["targets"].values()) == 15
+
+
+# ---------------------------------------------------------------------------
+# transport readiness (#1428): on the packaged 48224 kinetic sample
+# ---------------------------------------------------------------------------
+
+def _sample_48224():
+    import json
+    from pathlib import Path
+
+    from vaft.data.resources import data_path
+
+    path = Path(data_path("kineticEfit/ods_48224_300ms.json"))
+    if not path.exists():
+        pytest.skip("the packaged 48224 kinetic sample is a repository-only asset")
+    document = json.loads(path.read_text())
+    p = document["core_profiles"]["profiles_1d"][0]
+    rho = np.asarray(p["grid"]["rho_tor_norm"], dtype=float)
+    n_e = np.asarray(p["electrons"].get("density_thermal", p["electrons"].get("density")), dtype=float)
+    t_e = np.asarray(p["electrons"]["temperature"], dtype=float)
+    return {"equilibrium": document["equilibrium"]}, rho, n_e, t_e
+
+
+def test_assumed_ti_is_conditional_with_its_reasons():
+    eq, rho, n_e, t_e = _sample_48224()
+    got = ks.assess_transport_readiness(eq, time_s=0.3, profile_time_s=0.3, rho_tor_norm=rho, n_e=n_e, t_e=t_e,
+                                        t_i=t_e, ti_lineage="ti_eq_te_assumed")
+    assert got["status"] == "conditional"
+    assert [t["status"] for t in got["targets"]] == ["conditional"] * 3
+    reason = got["targets"][1]["reason"]
+    assert "#1414" in reason and "policy composition" in reason
+    assert got["targets"][1]["ti_te"] == pytest.approx(1.0, rel=1e-6)
+    assert any("rotation" in a for a in got["assumptions"])
+
+
+def test_inferred_ti_truncates_at_its_first_flag():
+    eq, rho, n_e, t_e = _sample_48224()
+    t_i = 1.5 * t_e
+    flags = ["p_i_nonpositive" if r > 0.6 else "" for r in rho]
+    t_i = np.where(rho > 0.6, np.nan, t_i)
+    got = ks.assess_transport_readiness(eq, time_s=0.3, profile_time_s=0.3, rho_tor_norm=rho, n_e=n_e, t_e=t_e,
+                                        t_i=t_i, ti_lineage="pressure_partition_inferred", ti_flags=flags,
+                                        ts_rho_span=(0.0, 0.6), rho_targets=(0.3, 0.9))
+    assert got["provenance"]["inferred_ti_rho_max"] <= 0.6
+    inner, outer = got["targets"]
+    assert inner["status"] == "conditional" and "#1414" not in inner["reason"]
+    assert outer["status"] == "insufficient" and "beyond the usable grid" in outer["reason"]
+
+
+def test_inferred_ti_outside_the_thomson_span_is_conditional():
+    eq, rho, n_e, t_e = _sample_48224()
+    got = ks.assess_transport_readiness(eq, time_s=0.3, profile_time_s=0.3, rho_tor_norm=rho, n_e=n_e, t_e=t_e,
+                                        t_i=1.2 * t_e, ti_lineage="pressure_partition_inferred",
+                                        ts_rho_span=(0.5, 0.9), rho_targets=(0.2,))
+    assert "extrapolated" in got["targets"][0]["reason"]
+
+
+def test_inferred_ti_flagged_at_the_axis_is_insufficient():
+    eq, rho, n_e, t_e = _sample_48224()
+    got = ks.assess_transport_readiness(eq, time_s=0.3, profile_time_s=0.3, rho_tor_norm=rho, n_e=n_e, t_e=t_e,
+                                        t_i=np.full(rho.size, np.nan), ti_lineage="pressure_partition_inferred",
+                                        ti_flags=["p_i_nonpositive"] * rho.size)
+    assert got["status"] == "insufficient" and "axis" in got["reason"]
+
+
+def test_a_refusal_from_the_converter_is_quoted():
+    eq, rho, n_e, t_e = _sample_48224()
+    got = ks.assess_transport_readiness(eq, time_s=0.3, profile_time_s=0.3, rho_tor_norm=rho, n_e=np.zeros_like(n_e),
+                                        t_e=t_e, t_i=t_e, ti_lineage="ti_eq_te_assumed")
+    assert got["status"] == "insufficient" and got["reason"].startswith("prepare_gacode_profile:")
+    far = ks.assess_transport_readiness(eq, time_s=0.35, profile_time_s=0.35, rho_tor_norm=rho, n_e=n_e, t_e=t_e,
+                                        t_i=t_e, ti_lineage="ti_eq_te_assumed", tolerance_s=1e-3)
+    assert far["status"] == "insufficient"
+    with pytest.raises(ValueError):
+        ks.assess_transport_readiness(eq, time_s=0.3, profile_time_s=0.3, rho_tor_norm=rho, n_e=n_e, t_e=t_e,
+                                      t_i=t_e, ti_lineage="measured")

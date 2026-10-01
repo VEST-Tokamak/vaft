@@ -64,7 +64,10 @@ from vaft.ods_access import path_count, path_value
 __all__ = [
     "CONTRACT_VERSION",
     "INDEPENDENT_LINEAGES",
+    "READINESS_STATUSES",
+    "TI_LINEAGES",
     "TI_FLAGS",
+    "assess_transport_readiness",
     "default_tolerance",
     "LINEAGES",
     "QUALITIES",
@@ -493,3 +496,209 @@ def infer_ti_pressure_partition(p_eq: Any, n_e: Any, t_e: Any, *, composition: M
         "p_e": p_e, "p_i": p_i, "sigma_p_i": sigma_p_i,
         "t_i": t_i, "sigma_t_i": sigma_t_i, "ti_te": ti_te, "flags": flags,
     }
+
+
+# ---------------------------------------------------------------------------
+# transport readiness (#1428, the part before any solver runs)
+# ---------------------------------------------------------------------------
+
+#: ``ready``: a defensible TGLF/NEO input on measured or inferred quantities.
+#: ``conditional``: it converts, but rests on declared assumptions.
+#: ``insufficient``: it does not convert, or a required input is not there.
+READINESS_STATUSES = ("ready", "conditional", "insufficient")
+
+#: Where the ion temperature of a state comes from.
+TI_LINEAGES = ("ti_eq_te_assumed", "pressure_partition_inferred")
+
+
+def _to_ods(document: Mapping[str, Any]):
+    """An ODS from a plain JSON document, through the documented loader."""
+    import json
+    import tempfile
+    from pathlib import Path
+
+    from omas import load_omas_json
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+        json.dump(document, handle, default=lambda x: x.tolist() if isinstance(x, np.ndarray) else str(x))
+    try:
+        return load_omas_json(handle.name, consistency_check=False)
+    finally:
+        Path(handle.name).unlink()
+
+
+def assess_transport_readiness(equilibrium: Mapping[str, Any], *, time_s: float, profile_time_s: float,
+                               rho_tor_norm: Any, n_e: Any, t_e: Any, t_i: Any, ti_lineage: str,
+                               ti_flags: Sequence[str] = (), ts_rho_span: tuple[float, float] | None = None,
+                               rho_targets: Sequence[float] = (0.3, 0.5, 0.7), z_eff: float = 2.0,
+                               impurity: str = "C", tolerance_s: float | None = None,
+                               rho_max: float = 0.95) -> dict[str, Any]:
+    """Whether one kinetic state can feed TGLF/NEO, per target radius, and why.
+
+    The state is assembled here -- the equilibrium (a plain FileDB document,
+    selected by ``time_s``), the electron profiles and an ion temperature on
+    ``rho_tor_norm`` at ``profile_time_s`` -- because which T_i it carries is the
+    lineage being assessed (#1426/#1428).  The composition is the Z_eff closure
+    (``z_eff`` with ``impurity``), applied by the converter.
+
+    The executable half is decided by **calling** the converters, never by
+    restating their rules: :func:`vaft.code.gacode.inputs.prepare_gacode_profile`
+    for the state, then :func:`vaft.code.gacode.tglf.inputs.prepare_tglf_input`
+    and ``check_tglf_requirements`` at each ``r/a`` in ``rho_targets``.  A refusal
+    is quoted.  The scientific half (#1428 section 5) is the overlay:
+
+    * an assumed Ti/Te, the machine composition policy, or an inferred T_i
+      outside the Thomson span make a radius ``conditional``;
+    * an inferred T_i that is flagged (``p_i`` non-positive or not significant)
+      anywhere inside ``rho_max`` truncates the grid at the last valid point, and
+      radii beyond it are ``insufficient``.
+
+    ``rho_targets`` are ``rho_tor_norm`` values; each is converted to the TGLF
+    ``r/a`` of the converted profile (whose ``a`` a ``rho_max`` cut changes).
+    ``ti_flags`` are the per-point flags of the inferred T_i (``""`` for none).
+    """
+    from vaft.code.gacode.inputs import ProfileConversionError, prepare_gacode_profile
+    from vaft.code.gacode.tglf.inputs import LocalConversionError, prepare_tglf_input
+
+    if ti_lineage not in TI_LINEAGES:
+        raise ValueError(f"ti_lineage must be one of {TI_LINEAGES}, not {ti_lineage!r}")
+    rho = np.asarray(rho_tor_norm, dtype=float)
+    n_e, t_e, t_i = (np.asarray(x, dtype=float) for x in (n_e, t_e, t_i))
+    flags = [str(f) for f in ti_flags] if len(ti_flags) else [""] * rho.size
+    assumptions = [f"composition: H+ with {impurity}, Z_eff={z_eff:g} (machine policy)",
+                   "no rotation / ExB shear data: TGLF runs without vexb_shear"]
+    conditions = [f"policy composition Z_eff={z_eff:g} ({impurity})"]
+    if ti_lineage == "ti_eq_te_assumed":
+        conditions.append("T_i = (Ti/Te) T_e assumed (#1414)")
+    out: dict[str, Any] = {"ti_lineage": ti_lineage, "assumptions": assumptions, "provenance": {}}
+
+    # where an inferred T_i stops being usable, outward from the axis
+    effective_max = float(rho_max)
+    if ti_lineage == "pressure_partition_inferred":
+        hard = [i for i, f in enumerate(flags) if any(x in f for x in TI_FLAGS) or not math.isfinite(t_i[i])]
+        if hard:
+            first = min(rho[hard])
+            inner = rho[rho < first]
+            if inner.size < 2:
+                out.update(status="insufficient", targets=[
+                    {"rho": float(r), "status": "insufficient",
+                     "reason": f"the inferred T_i is flagged from rho_tor_norm {first:.3g} outward, at the axis"}
+                    for r in rho_targets])
+                out["reason"] = out["targets"][0]["reason"]
+                return out
+            effective_max = min(effective_max, float(inner.max()))
+            out["provenance"]["inferred_ti_rho_max"] = effective_max
+            # drop the flagged tail itself: an interpolating converter would
+            # otherwise reach into it from the last valid point
+            keep = rho < first
+            rho, n_e, t_e, t_i = rho[keep], n_e[keep], t_e[keep], t_i[keep]
+
+    # One equilibrium slice, picked by time, with its own b0: the private ODS the
+    # converter reads is cut to the state being assessed.
+    try:
+        index, _ = slice_at_time(equilibrium, time_s, tolerance_s=tolerance_s)
+    except LookupError as missing:
+        reason = f"no equilibrium slice: {missing}"
+        out.update(status="insufficient", reason=reason,
+                   targets=[{"rho": float(r), "status": "insufficient", "reason": reason} for r in rho_targets])
+        return out
+    source = equilibrium["equilibrium"]
+    chosen = dict(source["time_slice"][index])
+    chosen["time"] = _slice_times(equilibrium, "equilibrium")[index]
+    eq_doc = {key: value for key, value in source.items() if key not in ("time_slice", "time", "vacuum_toroidal_field")}
+    eq_doc.update(time_slice=[chosen], time=[chosen["time"]])
+    vacuum = dict(source.get("vacuum_toroidal_field") or {})
+    b0 = np.atleast_1d(np.asarray(vacuum.get("b0", []), dtype=float))
+    if b0.size:
+        vacuum["b0"] = [float(b0[index] if index < b0.size else b0[0])]
+    eq_doc["vacuum_toroidal_field"] = vacuum
+    document = {
+        "equilibrium": eq_doc,
+        "core_profiles": {
+            "ids_properties": {"homogeneous_time": 0},
+            "time": [float(profile_time_s)],
+            "profiles_1d": [{
+                "time": float(profile_time_s),
+                "grid": {"rho_tor_norm": rho.tolist()},
+                "electrons": {"density_thermal": n_e.tolist(), "temperature": t_e.tolist()},
+                "ion": [{"label": "H+", "z_ion": 1.0, "element": [{"z_n": 1.0, "a": 1.00784}],
+                         "density_thermal": n_e.tolist(), "temperature": t_i.tolist()}],
+            }],
+        },
+    }
+    state = _to_ods(document)
+    shape = chosen.get("profiles_1d", {})
+    if not all(shape.get(name) for name in ("r_inboard", "r_outboard", "elongation")):
+        # An EFIT g-file carries no flux-surface geometry; derive it from the 2-D
+        # flux map on the private copy, and say so.
+        from vaft.omas.update import (
+            update_equilibrium_profiles_1d_geometry,
+            update_equilibrium_profiles_1d_radial_coordinates,
+        )
+
+        try:
+            update_equilibrium_profiles_1d_geometry(state, [0])
+            update_equilibrium_profiles_1d_radial_coordinates(state, time_slice=0)
+            out["provenance"]["geometry"] = "derived from the 2-D flux map (vaft.omas.update)"
+        except Exception as error:  # noqa: BLE001 - an underivable slice is reported
+            out["provenance"]["geometry"] = f"not derivable: {error!r}"
+    try:
+        profile = prepare_gacode_profile(state, time=float(chosen["time"]), tolerance=tolerance_s,
+                                         rho_max=effective_max, z_eff=z_eff, impurity=impurity)
+    except ProfileConversionError as refusal:
+        reason = f"prepare_gacode_profile: {refusal}"
+        out.update(status="insufficient", reason=reason,
+                   targets=[{"rho": float(r), "status": "insufficient", "reason": reason} for r in rho_targets])
+        return out
+    out["provenance"].update({key: profile.provenance[key] for key in ("time", "rho_max") if key in profile.provenance})
+    if profile.rmin is None or profile.kappa is None:
+        missing = ", ".join(name for name, value in (("rmin", profile.rmin), ("kappa", profile.kappa)) if value is None)
+        reason = (f"the converted profile has no {missing}: "
+                  f"{out['provenance'].get('geometry', 'the equilibrium carries no flux-surface geometry')}")
+        out.update(status="insufficient", reason=reason,
+                   targets=[{"rho": float(r), "status": "insufficient", "reason": reason} for r in rho_targets])
+        return out
+    minor = np.asarray(profile.rmin, dtype=float)
+    profile_rho = np.asarray(profile.rho, dtype=float)
+    r_over_a = minor / minor[-1]
+    edge_rho = float(profile_rho[-1])
+    targets = []
+    for target in rho_targets:
+        # Targets are rho_tor_norm (the contract coordinate).  TGLF's radius is
+        # r/a with a = rmin at the edge of the *converted* grid, which a rho_max
+        # cut moves; so the conversion is per profile, never a fixed r/a.
+        entry: dict[str, Any] = {"rho": float(target)}
+        if target > edge_rho:
+            entry.update(status="insufficient",
+                         reason=f"beyond the usable grid: the converted profile ends at rho_tor_norm {edge_rho:.3g}")
+            targets.append(entry)
+            continue
+        local_r = float(np.interp(target, profile_rho, r_over_a))
+        entry["r_over_a"] = local_r
+        try:
+            local = prepare_tglf_input(profile, local_r)
+        except LocalConversionError as refusal:
+            entry.update(status="insufficient", reason=f"prepare_tglf_input: {refusal}")
+            targets.append(entry)
+            continue
+        missing = local.check_tglf_requirements()
+        if missing:
+            entry.update(status="insufficient", reason=f"TGLF inputs absent or non-finite: {', '.join(missing)}")
+            targets.append(entry)
+            continue
+        reasons = list(conditions)
+        if ti_lineage == "pressure_partition_inferred" and ts_rho_span is not None:
+            lo, hi = ts_rho_span
+            if not (lo <= target <= hi):
+                reasons.append(f"inferred T_i extrapolated: rho_tor_norm {target:.3g} outside the Thomson span "
+                               f"[{lo:.3g}, {hi:.3g}]")
+        entry.update(status="conditional" if reasons else "ready", reason="; ".join(reasons) or None,
+                     a_lti=float(local.rlts[1]) if len(local.rlts) > 1 else math.nan,
+                     a_lte=float(local.rlts[0]), a_lne=float(local.rlns[0]),
+                     ti_te=float(local.taus[1]) if len(local.taus) > 1 else math.nan)
+        targets.append(entry)
+    order = {name: i for i, name in enumerate(READINESS_STATUSES)}
+    best = min((t["status"] for t in targets), key=order.__getitem__)
+    out.update(status=best, targets=targets,
+               reason=None if best == "ready" else next(t["reason"] for t in targets if t["status"] == best))
+    return out
