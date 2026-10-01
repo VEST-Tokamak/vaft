@@ -11,7 +11,11 @@ things are needed for that, and both live here:
   ``outstanding`` is what already-admitted jobs have reserved but not yet
   touched (reservation minus their tree's current RSS). Counting only
   ``MemAvailable`` would admit every waiting job at once, because a job that
-  was just started has not grown yet.
+  was just started has not grown yet. ``available`` is the smaller of the
+  host's ``MemAvailable`` and the headroom under the process's effective
+  budget (:func:`~vaft.code.resources.memory_budget`: a cgroup, Slurm or
+  ``VAFT_MEMORY_BUDGET_MB`` limit), the same source the in-process guard
+  uses, since a launched tree lands in the same cgroup as its launcher.
 
 The ledger is a directory of one JSON file per admitted job plus a lock file
 (``flock``), so it works across unrelated processes of the same user. A
@@ -39,7 +43,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Iterator, Optional
 
 from . import _process_tree
-from .resources import _DEFAULT_MEMINFO, _available_mib
+from .resources import MemoryBudgetInfo, _DEFAULT_MEMINFO, _available_mib, cgroup_usage_mb, memory_budget, rss_mb
 
 try:  # POSIX only
     import fcntl
@@ -80,6 +84,23 @@ def total_mb() -> Optional[float]:
         return float(psutil.virtual_memory().total) / (1024.0 * 1024.0)
     except Exception:  # pragma: no cover - psutil platform failure
         return None
+
+
+def budget_headroom_mb(info: MemoryBudgetInfo) -> Optional[float]:
+    """Room left under the effective budget ``info`` in MiB; ``None`` if it sets none.
+
+    Usage follows the budget's source as :class:`~vaft.code.resources.MemoryBudget`
+    does: the cgroup's non-reclaimable memory for a cgroup limit, this
+    process's RSS otherwise. A budget set by ``MemAvailable`` itself is the
+    host reading already and is reported as ``None``.
+    """
+    if info.limit_mb is None or info.source == "mem_available":
+        return None
+    if info.usage_cgroup is not None:
+        used = cgroup_usage_mb(info.usage_cgroup, info.usage_kind or "v2")
+    else:
+        used = rss_mb()
+    return float(info.limit_mb) - (used or 0.0)
 
 
 def rss_by_pid(pids: Iterable[int]) -> dict[int, float]:
@@ -213,8 +234,9 @@ class MemoryLedger:
     """Host-wide admission control for memory reservations (see module docstring).
 
     A recorded root pid counts together with its descendants, found from one
-    process table per admission. ``available`` and ``total`` are injectable
-    for tests.
+    process table per admission. ``available`` and ``total`` are the host
+    readings; ``budget`` is the process's effective limit, which caps both.
+    All three are injectable for tests.
     """
 
     def __init__(
@@ -224,6 +246,7 @@ class MemoryLedger:
         floor_mb: float = 4096.0,
         available: Callable[[], Optional[float]] = available_mb,
         total: Callable[[], Optional[float]] = total_mb,
+        budget: Callable[[], MemoryBudgetInfo] = memory_budget,
     ) -> None:
         if floor_mb < 0:
             raise ValueError(f"floor_mb must be >= 0, got {floor_mb}")
@@ -231,6 +254,15 @@ class MemoryLedger:
         self.floor_mb = float(floor_mb)
         self._available = available
         self._total = total
+        self._budget = budget
+
+    def available_mb(self) -> Optional[float]:
+        """Host ``MemAvailable`` capped by the budget's headroom; ``None`` if neither is known."""
+        return _least(self._available(), budget_headroom_mb(self._budget()))
+
+    def total_mb(self) -> Optional[float]:
+        """Host memory capped by the budget's limit; ``None`` if neither is known."""
+        return _least(self._total(), self._budget().limit_mb)
 
     @contextlib.contextmanager
     def _locked(self) -> Iterator[None]:
@@ -275,15 +307,15 @@ class MemoryLedger:
         return total
 
     def fits(self, reserve_mb: float) -> bool:
-        """Whether ``reserve_mb`` + floor could ever be admitted on this host."""
-        total = self._total()
+        """Whether ``reserve_mb`` + floor could ever be admitted under this budget."""
+        total = self.total_mb()
         return total is None or reserve_mb + self.floor_mb <= total
 
     def try_admit(self, reserve_mb: float) -> Optional[Reservation]:
-        """Admit now if the host has room, else ``None``. Unknown availability admits."""
+        """Admit now if the budget has room, else ``None``. Unknown availability admits."""
         global _UNKNOWN_AVAILABILITY_WARNED
         with self._locked():
-            available = self._available()
+            available = self.available_mb()
             if available is None and not _UNKNOWN_AVAILABILITY_WARNED:
                 _UNKNOWN_AVAILABILITY_WARNED = True
                 warnings.warn(
@@ -314,11 +346,17 @@ class MemoryLedger:
             time.sleep(poll_s)
 
 
+def _least(*values: Optional[float]) -> Optional[float]:
+    known = [float(value) for value in values if value is not None]
+    return min(known) if known else None
+
+
 __all__ = [
     "LEDGER_ENV",
     "MemoryLedger",
     "Reservation",
     "available_mb",
+    "budget_headroom_mb",
     "default_ledger_dir",
     "rss_by_pid",
     "total_mb",

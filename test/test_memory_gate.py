@@ -175,6 +175,42 @@ def test_a_reservation_larger_than_the_host_is_refused_at_once(tmp_path):
     assert time.monotonic() - started < 5
 
 
+def test_admission_is_measured_against_the_process_budget_not_only_the_host(tmp_path):
+    """A cgroup/Slurm/env limit (memory_budget, #1433) caps the ledger's room too.
+
+    The host reports 10 GB free, the budget allows 1000 MiB; the launched
+    tree lands in the same cgroup as its launcher, so the budget is what
+    binds (cold review 0.8.0 delta-absorb-5 F2).
+    """
+    from vaft.code.resources import MemoryBudgetInfo
+
+    # A cgroup budget: usage is the cgroup's non-reclaimable memory, read from memory.stat.
+    cgroup = tmp_path / "cgroup"
+    cgroup.mkdir()
+    (cgroup / "memory.stat").write_text(f"anon {100 * 1024 * 1024}\nshmem 0\nfile {5 * 1024 * 1024}\n")
+    info = MemoryBudgetInfo(limit_mb=1000.0, source="cgroup_v2", candidates={"cgroup_v2": 1000.0},
+                            usage_cgroup=str(cgroup), usage_kind="v2")
+    ledger = MemoryLedger(tmp_path / "ledger", floor_mb=100, available=lambda: 10000.0,
+                          total=lambda: 10000.0, budget=lambda: info)
+    assert ledger.available_mb() == 900.0 and ledger.total_mb() == 1000.0
+    first = ledger.try_admit(450)
+    assert first is not None
+    assert ledger.try_admit(450) is None  # 900 - 450 outstanding < 450 + 100
+    first.release()
+    assert ledger.admit(950, wait_s=60, poll_s=1) is None  # never fits under the budget
+
+    # An env/Slurm budget: usage is this process's RSS; a huge budget keeps the host reading.
+    loose = MemoryBudgetInfo(limit_mb=10**7, source="env", candidates={"env": 10**7})
+    host = MemoryLedger(tmp_path / "ledger", floor_mb=100, available=lambda: 10000.0,
+                        total=lambda: 10000.0, budget=lambda: loose)
+    assert host.available_mb() == 10000.0 and host.total_mb() == 10000.0
+    # No budget at all: the host readings alone.
+    none = MemoryBudgetInfo(limit_mb=None, source=None, candidates={})
+    bare = MemoryLedger(tmp_path / "ledger", floor_mb=0, available=lambda: None, total=lambda: None,
+                        budget=lambda: none)
+    assert bare.available_mb() is None and bare.total_mb() is None
+
+
 @pytest.mark.skipif(not hasattr(os, "getuid"), reason="POSIX ownership")
 def test_the_ledger_directory_is_private(tmp_path):
     ledger = MemoryLedger(tmp_path / "ledger", floor_mb=0, available=lambda: 1000.0)
