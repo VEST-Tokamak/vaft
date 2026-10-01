@@ -349,9 +349,10 @@ def test_driver_runs_good_and_admissible_states_only(driver, sample, tmp_path, m
                           outputs_native=native)
 
     monkeypatch.setattr(tglf, "run_tglf_case", fake_run)
-    out = tmp_path / "out"
-    assert driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(out),
-                        "--lineages", "magnetics-only", "--workers", "2"]) == 0
+    assert driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(tmp_path / "out"),
+                        "--lineages", "magnetics-only", "--workers", "2",
+                        "--sat-rule", "2", "--field-model", "es"]) == 0
+    out = tmp_path / "out" / "tglf-sat2-es"
 
     rows = [json.loads(line) for line in (out / "states.jsonl").read_text().splitlines()]
     assert [(r["time_efit_s"], r["efit_label"], r["status"]) for r in rows] == [(0.3, "good", "partial")]
@@ -370,9 +371,20 @@ def test_driver_runs_good_and_admissible_states_only(driver, sample, tmp_path, m
     # A second run reuses every solved surface by identity and re-runs only the failure.
     calls = []
     monkeypatch.setattr(tglf, "run_tglf_case", lambda *a, **k: calls.append(a[1]) or fake_run(*a, **k))
-    driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(out),
-                 "--lineages", "magnetics-only", "--workers", "1"])
+    driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(tmp_path / "out"),
+                 "--lineages", "magnetics-only", "--workers", "1", "--sat-rule", "2", "--field-model", "es"])
     assert calls == [0.8]
+    assert state["tglf_config"] == "tglf-sat2-es"
+    assert (state["tglf_parameters"]["sat_rule"], state["tglf_parameters"]["use_bper"],
+            state["tglf_parameters"]["use_bpar"]) == (2, False, False)
+
+
+def test_the_tglf_configuration_has_no_default(driver, tmp_path):
+    with pytest.raises(SystemExit):
+        driver.main(["--filedb", str(tmp_path), "--labels", str(tmp_path / "l.json"),
+                     "--out", str(tmp_path / "o")])
+    assert driver.config_label(3, "em-bper") == "tglf-sat3-em-bper"
+    assert driver.FIELD_MODELS["em-bper-bpar"] == {"use_bper": True, "use_bpar": True}
 
 
 def test_an_infrastructure_error_is_recorded_per_surface(driver, sample, tmp_path, monkeypatch):

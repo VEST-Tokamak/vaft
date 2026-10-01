@@ -4,7 +4,7 @@ This directory holds the drivers for the Tier A transport atlas. TGLF, NEO and c
 
 | script | issue | what it does |
 |---|---|---|
-| `run_tglf.py` | #1428 | Enumerates the states (good/admissible slices that carry a core_profiles slice within 0.5 ms), resolves each through `vaft.process.transport_state`, and runs native TGLF at r/a = 0.30, 0.40, …, 0.80 through the existing runner and execution backend. Projects the solved surfaces with `core_transport_from_tglf`. Writes `states.jsonl`, `run_manifest.json`, and one `state.json` plus the native directories per state. Resumable: a surface already solved under the same run identity is not run again. |
+| `run_tglf.py` | #1428 | Enumerates the states (good/admissible slices that carry a core_profiles slice within 0.5 ms), resolves each through `vaft.process.transport_state`, and runs native TGLF at r/a = 0.30, 0.40, …, 0.80 through the existing runner and execution backend. Projects the solved surfaces with `core_transport_from_tglf`. Writes `states.jsonl`, `run_manifest.json`, and one `state.json` plus the native directories per state. Resumable: a surface already solved under the same run identity is not run again. `--sat-rule` and `--field-model` (`es`, `em-bper`, `em-bper-bpar`) are required and have no default (#1482). Each configuration writes its own `tglf-sat<n>-<field>/` tree. |
 
 The shared resolver is `vaft.process.transport_state`:
 - **State key** (provisional, until lane K's contract): `(shot, time_efit_s, efit_lineage)`, with `efit_lineage ∈ {magnetics-only, electron-kinetic}` and an `efit_label ∈ {good, admissible}` column. Unreconstructible slices are refused, not run.

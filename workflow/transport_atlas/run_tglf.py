@@ -6,7 +6,10 @@ good/admissible state of both EFIT lineages, resolves each through
 :func:`vaft.process.transport_state.resolve_transport_state`, and runs native TGLF on
 every ready surface through the existing runner and execution backend.
 
-Output tree (``--out``)::
+Every run names its TGLF configuration: ``--sat-rule`` and ``--field-model`` have no
+defaults (#1482), and the outputs go to ``--out/tglf-sat<n>-<field>/``.
+
+Output tree (``--out/<config>``)::
 
     run_manifest.json                       enumeration counts, settings, versions
     states.jsonl                            one line per state (summary + status)
@@ -170,6 +173,23 @@ def gacode_revision(config: Any = None) -> Optional[str]:
         return None
 
 
+#: The field models of the #1482 sensitivity space. ``em-bper-bpar`` is a separate
+#: diagnostic assumption and is never grouped under "EM".
+FIELD_MODELS = {
+    "es": {"use_bper": False, "use_bpar": False},
+    "em-bper": {"use_bper": True, "use_bpar": False},
+    "em-bper-bpar": {"use_bper": True, "use_bpar": True},
+}
+
+
+def config_label(sat_rule: int, field_model: str) -> str:
+    """``tglf-sat<n>-<field>``: the #1482 source-style name of one configuration.
+
+    A discovery label only; the full settings travel as ``tglf_parameters``.
+    """
+    return f"tglf-sat{int(sat_rule)}-{field_model}"
+
+
 def build_config(args) -> Any:
     from vaft.code.gacode.tglf import TGLFConfig
 
@@ -182,7 +202,7 @@ def build_config(args) -> Any:
         backend = SlurmBackend(partition=args.partition, account=args.account,
                                mode="batch", max_wait=args.max_wait,
                                extra_args=(f"--mem={int(args.mem_mb)}M",))
-    return TGLFConfig(sat_rule=args.sat_rule, use_bper=args.use_bper,
+    return TGLFConfig(sat_rule=args.sat_rule, **FIELD_MODELS[args.field_model],
                       backend=backend, timeout=args.timeout)
 
 
@@ -347,8 +367,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--ti-te-ratio", default="policy",
                         help="'policy' (vest.yaml, #1414) or a number")
     parser.add_argument("--rho-max", type=float, default=DEFAULT_RHO_MAX)
-    parser.add_argument("--sat-rule", type=int, default=3)
-    parser.add_argument("--use-bper", action=argparse.BooleanOptionalAction, default=True)
+    # No defaults on purpose (#1482): which saturation rule and field model suit VEST
+    # is an open validation question, so every run names its configuration.
+    parser.add_argument("--sat-rule", type=int, choices=(0, 1, 2, 3), required=True)
+    parser.add_argument("--field-model", choices=tuple(FIELD_MODELS), required=True)
     parser.add_argument("--backend", choices=("local", "slurm"), default="local")
     parser.add_argument("--partition", default="lowpri-short")
     parser.add_argument("--account")
@@ -364,7 +386,9 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     import vaft
 
-    out = args.out
+    label = config_label(args.sat_rule, args.field_model)
+    # One tree per configuration: two configurations never share a native directory.
+    out = args.out / label
     out.mkdir(parents=True, exist_ok=True)
     labels = load_labels(args.labels)
     shots = args.shots or sorted({shot for shot, _ in labels})
@@ -447,7 +471,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             mapping = project_state(state, surfaces, state_jobs) if status in ("solved", "partial") else None
             payload = {**state.summary(), "solver": "tglf", "status": status,
                        "readiness": readiness.summary(), "surfaces": surfaces,
-                       "core_transport": mapping, "tglf_parameters": parameters,
+                       "core_transport": mapping, "tglf_config": label,
+                       "tglf_parameters": parameters,
                        "gacode_revision": revision}
             state_dir.mkdir(parents=True, exist_ok=True)
             (state_dir / "state.json").write_text(json.dumps(payload, indent=1, default=float),
@@ -461,7 +486,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "argv": sys.argv[:1] + list(argv if argv is not None else sys.argv[1:]),
         "vaft": vaft.__file__, "vaft_version": vaft.__version__,
         "vaft_git": _git_sha(Path(vaft.__file__).parent.parent),
-        "gacode_revision": revision, "tglf_parameters": parameters,
+        "gacode_revision": revision, "tglf_config": label, "tglf_parameters": parameters,
         "enumeration": counts, "states_run": len(prepared), "surface_jobs": len(jobs),
         "status_counts": _count(out / "states.jsonl"),
     }
