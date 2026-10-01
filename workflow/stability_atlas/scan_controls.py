@@ -187,7 +187,9 @@ def run_job(
     timeout: float,
     *,
     prune: bool = False,
+    backend: Any = None,
 ) -> dict:
+    """Run one (equilibrium, variant, n) job; ``backend`` is the GPEC suite's ExecutionBackend (default local)."""
     jobdir = out / eq.label / variant.name / f"nn{mode}"
     done = jobdir / "result.json"
     if done.exists():
@@ -204,6 +206,7 @@ def run_job(
         verify_outputs=True,
         timeout=timeout,
         dcon=variant.dcon,
+        backend=backend,
     )
     start = time.monotonic()
     result = run_gpec_suite_case(
@@ -224,6 +227,9 @@ def run_job(
         "wall_s": round(elapsed, 1),
         "run_dir": str(record.workdir),
         "controls": json.dumps(controls(variant), sort_keys=True),
+        # Which GPEC build ran: a locally patched build is used only where the
+        # stock one cannot run, and the row must say so.
+        "gpec_home": os.environ.get("GPECHOME"),
     }
     if record.ok:
         row.update(metrics(variant.module, Path(record.workdir), mode))
