@@ -27,11 +27,11 @@ by index.  ``r_over_a`` is GACODE's ``rmin/rmin[-1]`` on the converted profile, 
 outer edge is ``rho_max``; it is not ``rho_tor_norm``.  The ODS passed in is never
 modified: the ion-temperature policy writes into a deep copy.
 
-Applicability
--------------
-VEST-specific: the default ion-temperature policy and composition (H+ with C6+ at
-Z_eff = 2) are VEST's, read through :mod:`vaft.machine_mapping.core_profiles`.  The
-mechanics are machine-independent and every policy value is an argument.
+Notes
+-----
+The default ion-temperature policy and composition (H+ with C6+ at Z_eff = 2) are
+VEST's, read through :mod:`vaft.machine_mapping.core_profiles`.  The mechanics are
+machine-independent and every policy value is an argument.
 """
 
 from __future__ import annotations
@@ -436,13 +436,13 @@ def resolve_transport_state(
     Parameters
     ----------
     ods : omas.ODS
-        Carries ``equilibrium`` and ``core_profiles`` for the shot [-].  Never modified.
+        Carries ``equilibrium`` and ``core_profiles`` for the shot; never modified [-].
     key : TransportStateKey
         ``(shot, time_efit_s, efit_lineage)``; ``time_efit_s`` must be an equilibrium
         slice time within ``tolerance`` [s].
     efit_label : str
-        The #1331 slice label, ``"good"`` or ``"admissible"`` [-].  Anything else is
-        refused with :class:`ValueError`: an unreconstructible slice is not a state.
+        The #1331 slice label, ``"good"`` or ``"admissible"``; anything else is
+        refused with :class:`ValueError`, an unreconstructible slice not being a state [-].
     quality_source : str
         Where ``efit_label`` came from, e.g. ``"criteria"`` or
         ``"magnetic_slice_at_same_time"`` [-].
@@ -457,10 +457,9 @@ def resolve_transport_state(
     ti_te_ratio_sigma : float, optional
         Its 1-sigma, for provenance; the policy's when ``None`` [-].
     inferred_ti : mapping, optional
-        A pressure-partition result (#1426): ``{"temperature": array [eV], "method":
-        str, "time": float [s]}`` on the core_profiles grid of the matched slice [eV].
-        Preferred over the policy fallback when given; its ``time`` must match the
-        paired core_profiles slice within ``tolerance``.
+        A pressure-partition result (#1426), ``{"temperature", "method", "time"}`` on
+        the core_profiles grid of the matched slice, preferred over the policy
+        fallback; its ``time`` must match the paired slice within ``tolerance`` [eV].
     z_eff : float, optional
         Effective charge the composition closure realizes [-].
     impurity : str, optional
@@ -476,8 +475,8 @@ def resolve_transport_state(
         ``status`` ``"resolved"`` with ``profile`` set, or ``"insufficient"`` with
         machine-readable ``reasons`` [-].
 
-    Processing
-    ----------
+    Processing steps
+    ----------------
     1. Match the equilibrium slice to ``time_efit_s`` and the core_profiles slice to
        that equilibrium time, both by time within ``tolerance``.
     2. Resolve the ion temperature: measured, then ``inferred_ti``, then the policy
@@ -490,8 +489,21 @@ def resolve_transport_state(
 
     Applicability
     -------------
-    VEST-specific: the policy default reads VEST's ``vest.yaml``; the composition
-    default is the VEST modelling policy (H+, C6+, Z_eff = 2).
+    VEST-specific. The policy default reads VEST's ``vest.yaml``
+    (``diagnostics.core_profiles.ti_te_ratio``) and the composition default is the
+    VEST modelling policy (H+, C6+, Z_eff = 2); campaign core_profiles and EFIT
+    stage products are the data it was built against.
+
+    Provenance
+    ----------
+    .. [1] Issue #1428 sections 2-7: the Ti hierarchy (measured, #1426 pressure
+       partition, empirical ratio, insufficient), the VEST H+/C6+ Z_eff = 2 composition
+       policy and explicit time alignment.
+    .. [2] Issue #1414: VEST Thomson-only slices take Ti = Te with sigma 0.5
+       (``vest.yaml`` ``diagnostics.core_profiles.ti_te_ratio``, status ``assumed``).
+    .. [3] GACODE ``input.gacode``: ``rmin``/``rmaj`` are the midplane half-width and
+       centre at the axis height (https://gacode.io/input_gacode.html), derived here
+       with :func:`vaft.omas.update_equilibrium_profiles_1d_radial_coordinates`.
     """
     if efit_label not in EFIT_LABELS:
         raise ValueError(
@@ -753,8 +765,8 @@ def assess_tglf_readiness(
         State verdict plus one :class:`SurfaceReadiness` per surface, each carrying
         the built ``TGLFInput`` when ready [-].
 
-    Processing
-    ----------
+    Processing steps
+    ----------------
     1. An unresolved state is ``insufficient`` and no surface is built.
     2. Each surface is projected with ``prepare_tglf_input``; its documented refusal
        becomes a reason code, then ``check_tglf_requirements`` and finite gradients
@@ -808,8 +820,8 @@ def assess_neo_readiness(state: ResolvedTransportState) -> ReadinessReport:
         ``ready``/``conditional``/``insufficient``; NEO is a profile code, so no
         per-surface entries [-].
 
-    Processing
-    ----------
+    Processing steps
+    ----------------
     1. An unresolved state is ``insufficient``.
     2. ``GACODEProfile.check_neo_requirements`` (the executable-input contract) must
        report nothing missing.
@@ -876,10 +888,27 @@ def run_identity(
 
 
 def physics_parameters(config: Any, *, exclude: Iterable[str] = ()) -> dict[str, Any]:
-    """The physics half of a GACODE config: runtime-only fields dropped.
+    """The physics half of a GACODE config, with runtime-only fields dropped.
 
-    ``backend``, ``timeout``, ``env``, ``home``, ``executable`` and the MPI/OMP counts
-    decide *where* a run happens, not *what* it computes, so they stay out of identity.
+    ``backend``, ``timeout``, ``env``, ``home``, ``executable``, ``platform`` and the
+    MPI/OMP counts decide *where* a run happens, not *what* it computes, so they stay
+    out of identity.
+
+    Parameters
+    ----------
+    config : GACODEConfig
+        A ``TGLFConfig`` or ``NEOConfig`` dataclass [-].
+    exclude : iterable of str
+        Further field names to leave out [-].
+
+    Returns
+    -------
+    dict
+        Field name to JSON-ready value, for :func:`run_identity` [-].
+
+    Applicability
+    -------------
+    Machine-independent.
     """
     from dataclasses import fields as dataclass_fields
 
