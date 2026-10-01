@@ -2570,7 +2570,10 @@ def core_profiles(
     ----------
     .. [1] Per-slice fit records in ``electrons.{density,temperature}_fit.parameters``
        and ``ion.0.temperature_fit.parameters``, and one line per slice in
-       ``core_profiles.code.parameters``; issue #420.
+       ``core_profiles.code.parameters``; issue #420. A slice whose
+       ``grid.psi`` comes from the equilibrium carries ``grid.psi=Wb(#1292)``
+       in that line; a product without it predates the #1292 fix, when this
+       leaf was stored 2*pi too large (#1338).
     """
     _refuse_synthetic_core_profiles(ods)
     mapped_positions = _legacy_keyword(mapped_positions, mapped_rho_position, "mapped_rho_position")
@@ -2834,11 +2837,15 @@ def core_profiles(
     # --- IDS bookkeeping: producer and per-slice provenance, then the time base ---
     if 'core_profiles.code.name' not in ods:
         ods['core_profiles.code.name'] = 'vaft.process.profile'
+    # `grid.psi=Wb(#1292)` marks absolute flux written after #1292: before it the
+    # stage path stored grid.psi 2*pi too large, and nothing else in a product
+    # tells the two apart (#1338). Only where grid.psi is actually written.
+    psi_record = " grid.psi=Wb(#1292)" if eq_grid is not None and psi_grid is not None else ""
     _append_code_parameters(
         ods,
         'core_profiles',
         f"profiles_1d time={target_s:.6f} coordinate={coord} "
-        f"grid={'equilibrium' if eq_grid is not None else 'uniform'} "
+        f"grid={'equilibrium' if eq_grid is not None else 'uniform'}{psi_record} "
         f"electrons={electron_record or 'none'} ions={ion_record or 'none'}",
         replace_key=f"time={target_s:.6f} ",
     )

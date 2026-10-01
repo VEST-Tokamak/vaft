@@ -120,6 +120,44 @@ class TestDiagnosticsSpectrumCoherence:
         with pytest.raises(ValueError, match="unknown diagnostic"):
             build_model("diagnostics_spectrum_coherence", normalize_entries(ods), x_signal="ece:0")
 
+    def test_a_crop_that_leaves_no_bin_is_refused_by_name(self):
+        """F3: a band above Nyquist or a ceiling below 0 Hz names the data's band, not an IndexError."""
+        from vaft.plot.fluctuation import cross_spectrum_model
+
+        ods = _two_diagnostics()
+        entries = normalize_entries(ods)
+        with pytest.raises(ValueError, match=r"frequency_range=\(5e\+06.*no frequency bin.*spans 0-"):
+            build_model("diagnostics_spectrum_coherence", entries, nperseg=500, frequency_range=(5e6, 6e6))
+        with pytest.raises(ValueError, match="max_frequency=-1 Hz leaves no frequency bin"):
+            build_model("diagnostics_spectrum_coherence", entries, nperseg=500, max_frequency=-1.0)
+        with pytest.raises(ValueError, match="max_frequency=1000 Hz leaves no frequency bin"):
+            build_model(
+                "diagnostics_spectrum_coherence", entries, nperseg=500,
+                frequency_range=(1e5, 1.2e5), max_frequency=1e3,
+            )
+        time = np.arange(2_000) / 200e3
+        result = cross_spectrum(time, np.sin(2 * np.pi * F0 * time), time, np.cos(2 * np.pi * F0 * time), nperseg=200)
+        with pytest.raises(ValueError, match="no frequency bin to draw"):
+            cross_spectrum_model(result, max_frequency=-1.0)
+
+    def test_a_calibrated_only_mirnov_product_is_a_channel(self):
+        """F6: a probe stored as field.data (no voltage) is listed by the bandwidth table, so it is selectable here."""
+        from vaft.omas.fluctuation import fluctuation_bandwidths
+
+        source = _two_diagnostics()
+        ods = ODS(consistency_check=False)
+        for index in (0, 1):
+            probe = f"magnetics.b_field_pol_probe.{index}"
+            ods[f"{probe}.name"] = f"probe {index}"
+            ods[f"{probe}.field.time"] = source["magnetics.b_field_pol_probe.0.voltage.time"]
+            ods[f"{probe}.field.data"] = source["magnetics.b_field_pol_probe.0.voltage.data"] * (0.01 + index)
+        assert "Mirnov / magnetic probes" in fluctuation_bandwidths(ods)
+        assert missing_required_path(ods, "diagnostics_spectrum_coherence") is None
+        model = build_model("diagnostics_spectrum_coherence", normalize_entries(ods), nperseg=500)
+        assert "probe 1 relative to x = probe 0" in model.models[0].title
+        coherence = model.models[0].series[0]
+        assert coherence.y[np.argmin(np.abs(coherence.x * 1e3 - F0))] > 0.99
+
     def test_one_channel_is_not_enough(self):
         ods = ODS(consistency_check=False)
         ods["magnetics.b_field_pol_probe.0.voltage.time"] = np.arange(100) / 1e5

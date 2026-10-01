@@ -139,3 +139,15 @@ def test_classification():
         propagation_regime(np.nan)
     with pytest.raises(ValueError):
         propagation_regime(1.0, atol=-1.0)
+
+
+def test_perpendicular_propagation_with_p_and_rl_zero_gives_the_double_zero_root():
+    # theta = pi/2, P = 0, L = 0: A = S = 1, B = C = 0, so A n^4 = 0 and both
+    # roots are zero; the q = 0 branch used to hand back R and L instead.
+    from vaft.formula.waves import cold_plasma_refractive_index_squared
+
+    plus, minus = cold_plasma_refractive_index_squared(2.0, 0.0, 0.0, np.pi / 2)
+    assert plus == 0.0 and minus == 0.0
+    # The genuinely degenerate parallel case (A = B = C = 0) still returns R and L.
+    plus, minus = cold_plasma_refractive_index_squared(2.0, 0.5, 0.0, 0.0)
+    assert (plus, minus) == (2.0, 0.5)

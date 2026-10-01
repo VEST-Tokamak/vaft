@@ -221,7 +221,12 @@ def check(out_dir: Optional[Path] = None) -> List[str]:
         if not svg.exists():
             problems.append(f"{name}: missing")
             continue
-        if _diagram(builder, kwargs).source_sha256 != entry.get("source_sha256"):
+        try:
+            source_sha256 = _diagram(builder, kwargs).source_sha256
+        except Exception as exc:  # noqa: BLE001 -- one broken builder must not hide the report on the others
+            problems.append(f"{name}: builder raised {type(exc).__name__}: {exc}")
+            continue
+        if source_sha256 != entry.get("source_sha256"):
             problems.append(f"{name}: stale -- its TikZ source or the render recipe changed; run python -m vaft.diagram.build")
         if _sha256(svg.read_bytes()) != entry.get("svg_sha256"):
             problems.append(f"{name}: the SVG does not match {MANIFEST} (edited by hand?)")

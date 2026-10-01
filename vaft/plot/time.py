@@ -14,7 +14,7 @@ from vaft.formula.constants import PA_PER_TORR
 # `ods[path]` materializes a missing path rather than raising (issue #118).
 from vaft.ods_access import path_value as _value
 from vaft.omas import odc_or_ods_check
-from vaft.plot.utils import get_from_path, extract_labels_from_odc
+from vaft.plot.utils import extract_labels_from_odc
 from vaft.omas.process_wrapper import compute_point_vacuum_fields_ods
 import vaft.omas
 
@@ -2171,32 +2171,29 @@ def plot_core_profiles_time_volume_averaged(ods):
     if 'core_profiles.global_quantities' in first_ods:
         gq = first_ods['core_profiles.global_quantities']
         # Only add ion quantities if ion key exists and has data
-        if 'ion' in gq and gq['ion']:
-            # Get all ion indices
-            if isinstance(gq['ion'], (list, tuple)):
-                ion_indices = list(range(len(gq['ion'])))
-            elif isinstance(gq['ion'], dict):
+        if 'ion' in gq and len(gq['ion']):
+            # Get all ion indices.  On a real ODS the container is an OMAS
+            # struct array (neither a list nor a dict), indexed by position
+            # like a list; a plain dict only on hand-built inputs.
+            if isinstance(gq['ion'], dict):
                 ion_indices = list(gq['ion'].keys())
             else:
-                ion_indices = []
+                ion_indices = list(range(len(gq['ion'])))
             
             for ion_idx in ion_indices:
                 # Check if this ion has volume_average data before adding
                 try:
-                    if isinstance(gq['ion'], (list, tuple)):
-                        ion_item = gq['ion'][ion_idx]
-                    else:
-                        ion_item = gq['ion'][ion_idx]
+                    ion_item = gq['ion'][ion_idx]
                     
                     # Only add if both n_i and t_i exist
                     if 'n_i_volume_average' in ion_item and 't_i_volume_average' in ion_item:
                         quantities.append({
-                            'path': f'core_profiles.global_quantities.ion[{ion_idx}].n_i_volume_average',
+                            'path': f'core_profiles.global_quantities.ion.{ion_idx}.n_i_volume_average',
                             'label': f'$n_{{i,{ion_idx}}}$',
                             'unit': r'm$^{-3}$'
                         })
                         quantities.append({
-                            'path': f'core_profiles.global_quantities.ion[{ion_idx}].t_i_volume_average',
+                            'path': f'core_profiles.global_quantities.ion.{ion_idx}.t_i_volume_average',
                             'label': f'$T_{{i,{ion_idx}}}$',
                             'unit': 'keV'
                         })
@@ -2238,28 +2235,14 @@ def plot_core_profiles_time_volume_averaged(ods):
                     else:
                         continue
                 
-                # Get quantity data
-                # Handle OMAS path with array indices like 'ion[0]'
+                # Get quantity data by its dotted OMAS path (the `in` check
+                # first: reading a missing path would create it).  An ODS is
+                # neither a dict nor attribute-addressable, so a generic
+                # dict/getattr walk finds nothing on it.
                 try:
-                    if '[' in qty['path'] and ']' in qty['path']:
-                        # Split path and handle array indices
-                        parts = qty['path'].split('.')
-                        obj = ods_item
-                        for part in parts:
-                            if '[' in part and ']' in part:
-                                # Extract key and index
-                                key = part.split('[')[0]
-                                idx_str = part.split('[')[1].split(']')[0]
-                                idx = int(idx_str)
-                                obj = obj[key][idx]
-                            else:
-                                obj = obj[part] if isinstance(obj, dict) else getattr(obj, part, None)
-                            if obj is None:
-                                break
-                        qty_data = obj
-                    else:
-                        qty_data = get_from_path(ods_item, qty['path'])
-                    
+                    if qty['path'] not in ods_item:
+                        continue
+                    qty_data = ods_item[qty['path']]
                     if qty_data is None:
                         continue
                     
@@ -2592,7 +2575,7 @@ def time_energy(ods, figsize=(4, 4)):
             print(f"Warning: volume not found for time_slice {i}")
             volume = np.nan
         
-        # Calculate thermal energy from core_profiles: W_th = p_vol_average * 2/3 * volume
+        # Calculate thermal energy from core_profiles: W_th = 3/2 * p_vol_average * volume
         if p_vol_avg_cp is not None and not np.isnan(p_vol_avg_cp[i]) and not np.isnan(volume):
             W_th_cp[i] = p_vol_avg_cp[i] * (3.0 / 2.0) * volume
         else:

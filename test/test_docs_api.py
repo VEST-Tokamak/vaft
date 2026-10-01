@@ -285,13 +285,16 @@ def test_suppressing_a_deprecation_warning_is_not_raising_one():
 
 
 def test_a_type_checking_only_annotation_does_not_break_the_signature(tmp_path, monkeypatch):
+    # ``from __future__ import annotations`` is what makes this module importable
+    # before Python 3.14 (eager annotations would raise NameError at ``def``);
+    # 3.14 evaluates lazily either way. Both paths must render the name as written.
     (tmp_path / "typing_only_mod.py").write_text(
+        "from __future__ import annotations\n"
         "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from decimal import Decimal\n\n"
         "def f(x: Decimal) -> Decimal:\n    return x\n", encoding="utf-8")
     monkeypatch.syspath_prepend(str(tmp_path))
     module = importlib.import_module("typing_only_mod")
-    shown = api.signature_of(module.f)
-    assert shown in ("(x: Decimal) -> Decimal", "")
+    assert api.signature_of(module.f) == "(x: Decimal) -> Decimal"
 
 
 def test_summaries_cannot_inject_html_but_keep_code_spans():

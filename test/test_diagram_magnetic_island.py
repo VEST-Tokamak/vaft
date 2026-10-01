@@ -374,3 +374,12 @@ def test_every_drawn_surface_stays_inside_the_plasma(kw):
         for curve in d.scene.role(role):
             r = np.hypot(*(np.asarray(curve.points) / S).T)
             assert r.max() <= 1.0 + 1e-9 and r.min() >= 0.0, role
+
+
+@pytest.mark.parametrize("projection", ["top", "3d"])
+def test_the_separatrix_toggle_is_refused_where_no_separatrix_is_drawn(projection):
+    """``show_separatrix=False`` was a silent no-op in the top and 3-D views. Cold review 0.8.0 diagram-B F7."""
+    with pytest.raises(ValueError, match="poloidal"):
+        vaft.diagram.magnetic_island(projection=projection, show_separatrix=False)
+    d = vaft.diagram.magnetic_island(projection=projection)  # the default is still accepted
+    assert d.scene.items and not d.scene.role("separatrix")
