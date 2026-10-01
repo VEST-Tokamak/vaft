@@ -228,6 +228,11 @@ def main():
             prepare_efit_inputs,
             run_efit,
         )
+        from vaft.code.efit.config import (
+            routine_constraint_config,
+            routine_numerics_config,
+            routine_profile_config,
+        )
 
         try:
             ec = EFITConfig(
@@ -236,7 +241,11 @@ def main():
                 workdir=args.native_dir / "efit-exact",
                 timeout=60,
                 args=("129",),
-                constraints=EFITConstraintConfig(
+                # The routine profile and numerics this reference was recorded
+                # with, and its own constraint choices on top of the routine ones.
+                profile=routine_profile_config(),
+                numerics=routine_numerics_config(),
+                constraints=routine_constraint_config(
                     uncertainty_mode="standard_deviation",
                     use_diamagnetic_flux=False,
                     wall_current_mode="measured",

@@ -209,6 +209,11 @@ EFIT_RELIABILITY_COLUMNS = (
     "convergence_deviation",
     "equilibrium_source",
     "equilibrium_lineage",
+    # Which EFIT configuration produced the row: chi-square, weight and the
+    # iteration counts mean different things under the routine legacy weights
+    # and the statistical default of 2026-10-01 (#891), so rows of both must
+    # not be read as one population.  "name@sha12", or "unrecorded".
+    "efit_configuration",
 )
 
 EFIT_MAGNETIC_FAMILIES = (
@@ -909,6 +914,26 @@ def _efit_collection(ods) -> dict:
         return {}  # CHEASE writes its own payload here, and XML is not ours
 
 
+def _efit_configuration(ods, collection: dict) -> str:
+    """``"name@sha12"`` of the EFIT configuration that built this product.
+
+    The magnetic collection records it as ``efit_collection.efit_preset``;
+    a kinetic product as ``kinetic_efit.efit_preset``.  A product written
+    before configurations were recorded says ``"unrecorded"`` -- which on the
+    production database means the routine configuration.
+    """
+    record = collection.get("efit_preset")
+    if not record:
+        raw = _safe_get(ods, "equilibrium.code.parameters", None)
+        try:
+            record = (json.loads(raw).get("kinetic_efit") or {}).get("efit_preset") if isinstance(raw, str) else None
+        except (TypeError, ValueError, AttributeError):
+            record = None
+    if not isinstance(record, dict) or not record.get("name"):
+        return "unrecorded"
+    return f"{record['name']}@{str(record.get('scientific_sha256', ''))[:12]}"
+
+
 def _slice_artifacts(collection: dict, eq_time) -> dict:
     """The artifact hashes of the slice at ``eq_time``, from the payload.
 
@@ -1102,6 +1127,7 @@ def _extract_efit_reliability_families(
         return []
     equilibrium_times = _safe_get(ods, "equilibrium.time", [])
     collection = _efit_collection(ods)
+    configuration = _efit_configuration(ods, collection)
     rows: list[dict] = []
     for eq_index in range(len(ods["equilibrium.time_slice"])):
         equilibrium_slice = ods["equilibrium.time_slice"][eq_index]
@@ -1206,6 +1232,7 @@ def _extract_efit_reliability_families(
                         "convergence_deviation": convergence_deviation,
                         "equilibrium_source": "",
                         "equilibrium_lineage": lineage,
+                        "efit_configuration": configuration,
                     }
                 )
     return rows

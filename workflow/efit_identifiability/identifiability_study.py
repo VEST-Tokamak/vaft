@@ -979,6 +979,7 @@ def resumable_case_manifest(
 
 def fixed_scientific_config() -> Any:
     """Reconstruct the frozen #579/#663 scientific baseline locally."""
+    from vaft.code.efit.config import routine_constraint_config
     from vaft.code.efit import (
         EFITConstraintConfig,
         EFITInitializationConfig,
@@ -1000,7 +1001,9 @@ def fixed_scientific_config() -> Any:
             convergence_mode=2,
             inner_iterations=1,
         ),
-        constraints=EFITConstraintConfig(),
+        # The legacy routine constraints the study was recorded with (#891 made
+        # the statistical setting the default on 2026-10-01).
+        constraints=routine_constraint_config(),
     )
 
 

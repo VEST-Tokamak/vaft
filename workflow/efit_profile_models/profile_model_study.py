@@ -180,8 +180,12 @@ def fixed_scientific_config():
         EFITScientificConfig,
     )
 
+    from vaft.code.efit.config import routine_constraint_config, routine_profile_config
+
+    # The legacy routine profile and constraints the study was recorded with
+    # (#891 made the statistical setting the default on 2026-10-01).
     return EFITScientificConfig(
-        profile=EFITProfileConfig(),
+        profile=routine_profile_config(),
         initialization=EFITInitializationConfig(ellipse_rzero=0.32, icinit=2),
         numerics=EFITNumericsConfig(
             relaxation=1.0,
@@ -193,7 +197,7 @@ def fixed_scientific_config():
             convergence_mode=2,
             inner_iterations=1,
         ),
-        constraints=EFITConstraintConfig(),
+        constraints=routine_constraint_config(),
     )
 
 

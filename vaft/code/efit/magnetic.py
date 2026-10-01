@@ -77,8 +77,10 @@ class EFITConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     args: Sequence[str] = ()
     timeout: Optional[float] = None
-    npprime: int = 2
-    nffprime: int = 2
+    #: Historical basis overrides; ``None`` takes the typed profile's (the
+    #: working (2,1) basis by default).
+    npprime: Optional[int] = None
+    nffprime: Optional[int] = None
     stack_size_kb: Optional[int] = 32768
     profile: EFITProfileConfig | None = None
     initialization: EFITInitializationConfig = field(
@@ -106,15 +108,17 @@ class EFITConfig:
     def __post_init__(self) -> None:
         for name in ("npprime", "nffprime"):
             value = getattr(self, name)
+            if value is None:
+                continue
             if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
                 raise ValueError(f"{name} must be a positive integer")
             object.__setattr__(self, name, int(value))
         if self.profile is not None:
-            if self.npprime not in (2, self.profile.kppcur):
+            if self.npprime not in (None, self.profile.kppcur):
                 raise ValueError(
                     "npprime conflicts with profile.kppcur; use the typed profile only"
                 )
-            if self.nffprime not in (2, self.profile.kffcur):
+            if self.nffprime not in (None, self.profile.kffcur):
                 raise ValueError(
                     "nffprime conflicts with profile.kffcur; use the typed profile only"
                 )
@@ -151,9 +155,10 @@ class EFITConfig:
         The historical ``npprime`` and ``nffprime`` fields are honored when a
         typed profile configuration was not supplied.
         """
+        default = EFITProfileConfig()
         profile = self.profile or EFITProfileConfig(
-            kppcur=self.npprime,
-            kffcur=self.nffprime,
+            kppcur=default.kppcur if self.npprime is None else self.npprime,
+            kffcur=default.kffcur if self.nffprime is None else self.nffprime,
         )
         return EFITScientificConfig(
             profile=profile,

@@ -38,6 +38,23 @@ def _unit_uncertainty_scales() -> dict[str, float]:
     return {name: 1.0 for name in sorted(DIAGNOSTIC_GROUPS)}
 
 
+#: The default sigma scales: the #891 working setting, calibrated
+#: self-consistently on the reference shots (probe x3.62, loop x2.15 over the
+#: stored sigma), the diamagnetic flux fitted at x16 and Ip sigma 20 % (x4 of
+#: 5 %).  ``uncertainty_scales`` divides sigma, so a multiplier m is 1/m.
+WORKING_UNCERTAINTY_SCALES = MappingProxyType({
+    "bpol_probe": 1.0 / 3.62,
+    "flux_loop": 1.0 / 2.15,
+    "plasma_current": 1.0 / 4.0,
+    "diamagnetic_flux": 1.0 / 16.0,
+    "pf_current": 1.0,
+})
+
+
+def _working_uncertainty_scales() -> dict[str, float]:
+    return dict(WORKING_UNCERTAINTY_SCALES)
+
+
 def _require_finite(name: str, value: float, *, positive: bool = False) -> None:
     if not math.isfinite(float(value)):
         raise ValueError(f"{name} must be finite")
@@ -51,7 +68,9 @@ class EFITProfileConfig:
     """Pressure and FF-prime representation written to the EFIT namelist."""
 
     kppcur: int = 2
-    kffcur: int = 2
+    #: One FF' coefficient: the #891 working basis (2,1).  (2,2) is the
+    #: legacy routine basis; see :func:`routine_scientific_config`.
+    kffcur: int = 1
     kppfnc: int = 0
     kfffnc: int = 0
     pcurbd: int = 1
@@ -189,26 +208,30 @@ class EFITNumericsConfig:
     criterion after eleven iterations while the ``ERROR`` written beside it
     asks for 1e-5 and is never reached.
 
-    They are ``None`` by default and a ``None`` writes no key, so the emitted
-    k-file is byte-identical to before and EFIT's default still applies.  A
-    study sets them explicitly; nothing infers them.
+    The defaults are the #891 working setting (2026-10-01): the fit stops on
+    psi convergence alone -- ERRMIN 1e-4, SAICON out of reach, one inner
+    iteration, MXITER 514 = (515 - 1) // NXITER -- and chi-square is judged
+    afterwards, not by the exit.  ``None`` writes no key, so EFIT's own
+    default applies; :func:`routine_scientific_config` is the legacy routine
+    configuration that leaves them all to EFIT.
     """
 
     relaxation: float = 1.0
     error_tolerance: float = 1.0e-5
     measurement_error_floor: float = 5.0e-4
-    max_iterations: int = 100
+    max_iterations: int = 514
     #: ``ERRMIN``: the relative-error floor the fit must reach. EFIT's default
     #: is 1e-2, two orders looser than the ``ERROR`` VEST writes.
-    error_minimum: float | None = None
+    error_minimum: float | None = 1.0e-4
     #: ``SAICON``: the chi-square the fit is allowed to stop at. EFIT's
-    #: default is 80, which VEST's flat-top passes on the way down.
-    chi_squared_target: float | None = None
+    #: default is 80, which VEST's flat-top passes on the way down; 1e10 is
+    #: out of reach, so the exit is ERRMIN plus a chi-square stall (#891).
+    chi_squared_target: float | None = 1.0e10
     #: ``ICONVR``: which criterion terminates the outer loop. VEST runs 2
     #: (chi-square) by not writing the key at all.
     convergence_mode: int | None = None
     #: ``NXITER``: the inner equilibrium iteration count per outer step.
-    inner_iterations: int | None = None
+    inner_iterations: int | None = 1
 
     def __post_init__(self) -> None:
         _require_finite("relaxation", self.relaxation, positive=True)
@@ -395,9 +418,18 @@ class EFITConstraintConfig:
     #: :attr:`uncertainty_mode` settings, so a weight ladder stays continuous
     #: across the mode boundary.
     uncertainty_scales: Mapping[str, float] = field(
-        default_factory=_unit_uncertainty_scales
+        default_factory=_working_uncertainty_scales
     )
-    uncertainty_mode: str = "legacy_weight"
+    #: ``"standard_deviation"`` since the #891 working setting: the submitted
+    #: sigma is the measurement's.  ``"legacy_weight"`` is the routine
+    #: configuration's (see :func:`routine_scientific_config`).
+    uncertainty_mode: str = "standard_deviation"
+    #: Relative sigma floor: before the k-file is written, each fitted
+    #: channel of these families has its sigma raised to at least this
+    #: fraction of its family's median |measured|, per slice.  0 changes
+    #: nothing.  The #891 calibration assumes 2 % on probes and loops.
+    sigma_floor: float = 0.02
+    sigma_floor_families: tuple[str, ...] = ("bpol_probe", "flux_loop")
     legacy_vbit: float = 10.0
     legacy_weight_scale: float = 10_000.0
     use_diamagnetic_flux: bool = True
@@ -451,6 +483,15 @@ class EFITConstraintConfig:
                 _require_finite(f"{field_name}[{name!r}]", value, positive=positive)
                 if not positive and value < 0:
                     raise ValueError(f"{field_name}[{name!r}] must be non-negative")
+        _require_finite("sigma_floor", self.sigma_floor)
+        if self.sigma_floor < 0:
+            raise ValueError("sigma_floor must be non-negative")
+        families = tuple(str(name) for name in self.sigma_floor_families)
+        unknown_floor = set(families) - DIAGNOSTIC_GROUPS
+        if unknown_floor:
+            raise ValueError(f"unknown sigma_floor_families: {', '.join(sorted(unknown_floor))}")
+        object.__setattr__(self, "sigma_floor", float(self.sigma_floor))
+        object.__setattr__(self, "sigma_floor_families", families)
         if self.uncertainty_mode not in {"legacy_weight", "standard_deviation"}:
             raise ValueError(
                 "uncertainty_mode must be 'legacy_weight' or 'standard_deviation'"
@@ -529,7 +570,11 @@ class EFITConstraintConfig:
 
 @dataclass(frozen=True)
 class EFITScientificConfig:
-    """Complete scientific configuration used to generate routine k-files."""
+    """Complete scientific configuration a k-file is written from.
+
+    The defaults are the #891 working setting (the ``statistical_891``
+    preset); :func:`routine_scientific_config` is the legacy routine one.
+    """
 
     profile: EFITProfileConfig = field(default_factory=EFITProfileConfig)
     initialization: EFITInitializationConfig = field(
@@ -556,6 +601,8 @@ class EFITScientificConfig:
             constraints["coil_constraint_targets"] = tuple(
                 constraints["coil_constraint_targets"]
             )
+        if constraints.get("sigma_floor_families") is not None:
+            constraints["sigma_floor_families"] = tuple(constraints["sigma_floor_families"])
         return cls(
             profile=EFITProfileConfig(**dict(payload.get("profile", {}))),
             initialization=EFITInitializationConfig(
@@ -572,6 +619,53 @@ class EFITScientificConfig:
             self.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False
         ).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# The legacy routine configuration
+# ---------------------------------------------------------------------------
+#
+# Until 2026-10-01 the dataclass defaults above *were* this configuration.
+# It stays reachable, exactly, for the studies and references recorded with
+# it and as the ``routine`` preset: legacy weights, a (2,2) basis, EFIT's own
+# termination, no sigma floor.
+
+
+def routine_profile_config(**overrides: Any) -> EFITProfileConfig:
+    """The routine (2,2) profile basis, with ``overrides``."""
+    return EFITProfileConfig(**{"kppcur": 2, "kffcur": 2, **overrides})
+
+
+def routine_numerics_config(**overrides: Any) -> EFITNumericsConfig:
+    """The routine numerics -- EFIT's own termination, MXITER 100 -- with ``overrides``."""
+    base = {
+        "max_iterations": 100,
+        "error_minimum": None,
+        "chi_squared_target": None,
+        "convergence_mode": None,
+        "inner_iterations": None,
+    }
+    return EFITNumericsConfig(**{**base, **overrides})
+
+
+def routine_constraint_config(**overrides: Any) -> EFITConstraintConfig:
+    """The routine constraints -- legacy weights, unit scales, no floor -- with ``overrides``."""
+    base = {
+        "uncertainty_scales": _unit_uncertainty_scales(),
+        "uncertainty_mode": "legacy_weight",
+        "sigma_floor": 0.0,
+    }
+    return EFITConstraintConfig(**{**base, **overrides})
+
+
+def routine_scientific_config(**overrides: Any) -> EFITScientificConfig:
+    """The legacy routine scientific configuration (the defaults before 2026-10-01)."""
+    base = {
+        "profile": routine_profile_config(),
+        "numerics": routine_numerics_config(),
+        "constraints": routine_constraint_config(),
+    }
+    return EFITScientificConfig(**{**base, **overrides})
 
 
 def _canonical(value: Any) -> Any:
@@ -642,5 +736,10 @@ __all__ = [
     "EFITNumericsConfig",
     "EFITProfileConfig",
     "EFITScientificConfig",
+    "WORKING_UNCERTAINTY_SCALES",
     "efit_parameter_grid",
+    "routine_constraint_config",
+    "routine_numerics_config",
+    "routine_profile_config",
+    "routine_scientific_config",
 ]

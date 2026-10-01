@@ -3,6 +3,7 @@
 Moved verbatim out of the former monolithic ``efit.py``.
 """
 
+import copy
 import json
 import numpy as np
 import os
@@ -745,18 +746,35 @@ def generate_kfile(
                 "argument or make the values equal"
             )
     elif config is None:
-        scientific = EFITScientificConfig(
-            profile=EFITProfileConfig(
-                kppcur=2 if npprime is None else npprime,
-                kffcur=2 if nffprime is None else nffprime,
+        if npprime is None and nffprime is None:
+            # The default: the #891 working setting (statistical_891).
+            scientific = EFITScientificConfig()
+        else:
+            # The positional basis is the legacy call, and it means the legacy
+            # routine configuration with that basis -- not the working setting
+            # with a (2,2) basis, which nothing was ever calibrated for.
+            from .config import routine_profile_config, routine_scientific_config
+
+            scientific = routine_scientific_config(
+                profile=routine_profile_config(
+                    kppcur=2 if npprime is None else npprime,
+                    kffcur=2 if nffprime is None else nffprime,
+                )
             )
-        )
     else:
         raise TypeError("config must be EFITConfig, EFITScientificConfig, or None")
     profile = scientific.profile
     initialization = scientific.initialization
     numerics = scientific.numerics
     constraint_config = scientific.constraints
+
+    # The sigma floor is part of the configuration, so it is applied here, on a
+    # copy, for every caller -- the routine configuration's is 0 (#891).
+    if constraint_config.sigma_floor:
+        from .presets import apply_sigma_floor
+
+        ods = copy.deepcopy(ods)
+        apply_sigma_floor(ods, constraint_config.sigma_floor, constraint_config.sigma_floor_families)
 
     # Load the constraints ODS
     EQ = ods["equilibrium"]

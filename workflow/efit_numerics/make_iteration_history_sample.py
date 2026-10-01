@@ -67,7 +67,14 @@ def run_case(ods, workdir: Path, inner_iterations: int | None):
 
     shutil.rmtree(workdir, ignore_errors=True)
     workdir.mkdir(parents=True)
-    numerics = EFITNumericsConfig(
+    from vaft.code.efit.config import (
+        routine_constraint_config,
+        routine_numerics_config,
+        routine_profile_config,
+    )
+
+    # The routine configuration the packaged history sample was recorded with.
+    numerics = routine_numerics_config(
         inner_iterations=inner_iterations,
         max_iterations=(ITERATION_ARRAY_BOUND - 1) // inner_iterations if inner_iterations else 100,
     )
@@ -75,6 +82,7 @@ def run_case(ods, workdir: Path, inner_iterations: int | None):
     config = EFITConfig(
         workdir=workdir, shot=SHOT, times=times, args=("129",),
         numerics=numerics, iteration_history="summary",
+        profile=routine_profile_config(), constraints=routine_constraint_config(),
     )
     inputs = prepare_efit_inputs(copy.deepcopy(ods), config)
     result = run_efit(inputs, config)

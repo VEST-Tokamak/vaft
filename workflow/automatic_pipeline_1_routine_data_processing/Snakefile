@@ -62,13 +62,10 @@ IMPA_CONFIG = config.get("impa", {}) or {}
 EDDY_CONFIG = config.get("eddy", {})
 CONSTRAINTS_CONFIG = config.get("constraints", {})
 EFIT_CONFIG = config.get("efit", {})
-# Named EFIT configuration (vaft.code.efit.PRESETS). Empty and `routine` are
-# the routine path itself -- npprime/nffprime and no preset record -- so naming
-# the routine preset changes nothing. Checked here so a typo fails the DAG,
-# not every shot's k-file job.
+# Named EFIT configuration (vaft.code.efit.PRESETS). Empty is the library
+# default (statistical_891 since 2026-10-01); `routine` is the legacy one.
+# Checked here so a typo fails the DAG, not every shot's k-file job.
 EFIT_PRESET = EFIT_CONFIG.get("preset") or None
-if EFIT_PRESET == "routine":
-    EFIT_PRESET = None
 if EFIT_PRESET:
     from vaft.code.efit import efit_preset as _efit_preset
     _efit_preset(EFIT_PRESET)
@@ -699,10 +696,9 @@ rule generate_kfile:
     params:
         # A named preset (efit.preset) carries its own profile basis, sigma
         # and termination; without one the routine npprime/nffprime apply.
-        configuration=(
-            f"--preset {EFIT_PRESET}" if EFIT_PRESET else
-            f"--npprime {CONSTRAINTS_CONFIG.get('npprime', 2)} --nffprime {CONSTRAINTS_CONFIG.get('nffprime', 2)}"
-        )
+        # Empty is the library default (statistical_891), which generate_kfile.py
+        # records like any named preset; `routine` is the legacy opt-out.
+        configuration=f"--preset {EFIT_PRESET}" if EFIT_PRESET else ""
     conda:
         CONDA if CONDA else None
     shell:
