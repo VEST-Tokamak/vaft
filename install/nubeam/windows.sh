@@ -814,7 +814,11 @@ link_libraries() {
     name="${name#lib}"
     name="${name%.a}"
     # netCDF and HDF5 are named by path below, never found by -l search.
-    case "$name" in netcdff|netcdf|hdf5|hdf5_hl) continue ;; esac
+    # cdf_dummy is NTCC's no-netCDF stand-in: it defines nf_open_, nf_get_vara_*
+    # and the rest as stubs. Inside the group it can satisfy a reference before
+    # the real libnetcdff is reached, and vaft_plasma_state then fails with
+    # "multiple definition of nf_put_vara_int_" (or, worse, links the stubs).
+    case "$name" in netcdff|netcdf|hdf5|hdf5_hl|cdf_dummy) continue ;; esac
     case " $group " in *" -l$name "*) continue ;; esac
     group="$group -l$name"
   done
