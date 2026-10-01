@@ -183,6 +183,11 @@ def test_j_tor_sign_follows_sigma_bp_not_a_hard_coded_minus(reference):
         ts[leaf] = -np.asarray(ts[leaf], float)
     for leaf in ("j_tor", "gm1", "gm9", "phi", "rho_tor"):
         del ts[f"profiles_1d.{leaf}"]
+    # The reference declares COCOS 11; negating psi is COCOS 13, so relabel it
+    # rather than leave a declaration the flipped data contradict.
+    from vaft.omas.general import set_ods_cocos
+
+    set_ods_cocos(flipped, 13, source="test: psi negated")
 
     update.update_equilibrium_profiles_1d_j_tor(flipped)
     j_tor = np.asarray(ts["profiles_1d.j_tor"], float)

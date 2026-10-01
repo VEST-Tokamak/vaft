@@ -708,6 +708,35 @@ HS_ENDPOINT=http://127.0.0.1:1 python replicate_to_hsds.py \
 
 Expect two logged attempts, a `state: "failed"` record, and a non-zero exit.
 
+### Regenerating products after a machine-history change
+
+A release that moves a machine-era boundary changes what the mapper builds for
+the shots on the moved side, and nothing re-runs them on its own. 0.8.0 is such
+a release (#956/#961): the wall-2409 loops now start at shot 43017
+(`WALL_GEOMETRY_2409_FIRST_SHOT`) and the PF-2507 geometry at 45968 rather than
+45958 (`PF_GEOMETRY_2507_FIRST_SHOT`), so every diagnostics, eddy, EFIT and
+downstream product for a shot **>= 43017** built before 0.8.0 differs from what
+the release mapper produces: 43017–45957 gain the 15 wall loops, 45958–45967
+additionally change PF geometry (2507 → 1906), and >= 45968 change the wall.
+Shots below 43017 are unaffected.
+
+Nothing has to be deleted. A shot's static input path is derived from its era
+name, so a shot on the moved side now resolves to a static product that did not
+exist before; Snakemake 7.32 reruns a job whose input set changed (`input` is in
+its rerun triggers) and everything downstream follows, replication included.
+But only for shots that are in a run: the worker processes new shots, so list
+the affected shots explicitly (`shots:` in the config, in batches) after
+deploying.
+
+A stale product is identifiable from its manifest without reading the data: the
+diagnostics and eddy manifests record `machine_version` (the era name the
+product was built under -- the retired names `vest-43017-45957-pf1906`,
+`vest-45958-45966-pf2507` and `vest-45967-plus-pf2507` no longer resolve, and
+`machine_era()` refuses them) and `input.static_sha256` (the hash of the static
+product it was built from). A product whose `machine_version` is not one of
+`VEST_MACHINE_ERAS`, or whose `static_sha256` differs from the current static
+product's, is one the release will rebuild.
+
 ---
 
 ## 7. Enable pipeline replication
@@ -792,3 +821,138 @@ the corrective updaters' one-time bootstrap of their shot registry, which opens
 - [ ] A rerun reused the record — no upload
 - [ ] Per-shot folder behaviour recorded — auto-created, or `hstouch` needed
 - [ ] `/public/` unchanged throughout — entry count and modified timestamp
+
+---
+
+## 10. Running the new-shot worker
+
+`vaft pipeline-worker` watches the VEST SQL `shot` table and runs this pipeline on each new shot
+(issue #58). It only calls Snakemake, so everything above still applies, including section 7's
+requirement that one shot is replicated before replication is enabled for all of them.
+
+### Configure
+
+```bash
+cp worker.example.yaml /srv/vaft/worker.yaml   # outside the repository
+$EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout, paths
+```
+
+- **SQL credentials must already be provisioned** for the account the worker runs as. They live in
+  `~/.vest/database_raw_info.yaml` together with `~/.vest/encryption_key.key`. If they are missing, the
+  worker refuses to start. It does not fall back to `raw.setup_raw_db()`, because that prompt would
+  block forever under a service with no terminal.
+- **`pipeline_config` must set `raw.mode: sql`.** For each run the worker replaces `shots:` and forces
+  `conda: null`, and it keeps that run's config next to the run log under
+  `log_dir/runs/<run_id>/`.
+- **Paths may use environment variables**, e.g. `${VAFT_CHECKOUT}` in the example. An unset variable
+  stops the worker instead of silently creating a new state file under a literal `${...}` directory.
+- **The worker reproduces Snakemake's config merge.** Snakemake merges `pipeline_config` over the
+  workflow's own `config.yaml`, and the worker checks and harvests against that same merged result.
+- **`first_shot` is where the worker's responsibility starts.** Shots below it belong to batch
+  regeneration and the worker never looks at them.
+
+### What a cycle does
+
+1. **Detect.** Every shot in SQL above the watermark is inserted into the state file. Inserting a
+   shot that is already there does nothing, so polling the same shot twice changes nothing.
+2. **Wait for the upload.** The DAQ writes one complete field per SQL row. A shot goes ahead as soon
+   as either condition holds:
+   - its inventory contains every field the previous shot had, and no new field has arrived for
+     30 s (fields within one core upload arrive at most ~10 s apart); or
+   - no field has been uploaded for `quiet_seconds` (default 600).
+
+   On VEST (shots 48800–48916) the 177 core fields arrive 126–196 s after the shot record, so a
+   routine shot starts about 2–3 minutes after it is fired, before the next one. Pressure, Plasma
+   Current and the 6 kW ECH powers form a separate group. It lands up to 261 s after the core
+   fields, or a day later, or never. While it is missing, the quiet limit decides.
+3. **Classify.** The classifier runs before anything is scheduled:
+   - no waveform fields → `excluded`, and Snakemake never sees the shot;
+   - required raw fields missing → only the raw dump is archived;
+   - otherwise → the whole pipeline runs.
+
+   Fields that arrive after a shot was processed are handled by the re-check below, so none of these
+   verdicts is final.
+
+4. **Run.** One `snakemake` process runs in this directory with `--keep-going --rerun-incomplete
+   --scheduler greedy --resources hsds=1`.
+   - `hsds=1` stops replications from overlapping, which is the #913 master-link race. A worker
+     batch of a few shots is exactly the case where that race occurs.
+   - A manual run holding the directory lock makes the worker **busy**: it tries again next cycle
+     and does not count an attempt.
+   - The worker runs `--unlock` only when no live Snakemake process is working in the workflow
+     directory. It checks by command line and cwd, via psutil or `/proc`, not by a recorded pid,
+     which a reboot can hand to an unrelated process. A lock whose holder cannot be ruled out is
+     left alone.
+5. **Harvest.** Each shot's state comes from the products on disk, not from Snakemake's exit code.
+   The worker reads every declared stage manifest's `status`, every replication record's `state`, and
+   the raw preflight's exclusion list. It also checks that each required validation plot exists.
+
+   | Shot state | Meaning |
+   | --- | --- |
+   | `completed` | Every declared product succeeded. |
+   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. |
+   | `excluded` | The classifier, the raw preflight or an operator ruled the shot out. |
+   | `failed` | A declared product is missing. The shot is retried on the next cycle, and Snakemake rebuilds only what is missing. |
+   | `gave_up` | The shot has used `max_attempts` runs and waits for an operator. |
+
+6. **Re-check for late fields.** For `recheck_seconds` (3 days) after processing, the worker compares
+   each shot's SQL inventory with a baseline. The baseline is the fields SQL listed when the shot
+   settled plus the fields in the dump manifest's `inventory`. A field the dump failed to load is
+   therefore not mistaken for a late arrival. When new fields have arrived, the worker reprocesses
+   the shot:
+   - It moves the shot's raw dump and manifest to `log_dir/superseded/<shot>/<time>/`. They are
+     moved, never deleted.
+   - It returns the shot to `detected`, so it is classified and run again.
+   - Snakemake then re-exports the raw dump and reruns every product downstream of it, because
+     that input is newer. **This includes HSDS replication, which replaces what was published.**
+
+   Reprocessing happens at most `max_reprocess` times per shot (3 by default). Later arrivals are
+   recorded as a `late_fields_ignored` event. An operator-excluded shot is never reprocessed.
+
+### Run as a service
+
+```ini
+# /etc/systemd/system/vaft-pipeline-worker.service
+[Unit]
+Description=VAFT new-shot pipeline worker
+After=network-online.target
+
+[Service]
+User=vaft
+Environment=VAFT_FILEDB_DIR=/srv/vest.filedb
+Environment=VAFT_CHECKOUT=/home/vaft/git/vaft
+Environment=VAFT_WORKER_CONFIG=/srv/vaft/worker.yaml
+ExecStart=/opt/conda/envs/vaft/bin/vaft pipeline-worker run
+KillSignal=SIGTERM
+TimeoutStopSec=300
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- **Stopping.** SIGTERM lets the running Snakemake finish its bookkeeping and release the lock.
+- **A run that has to be SIGKILLed** leaves the directory lock behind. The worker removes it at once,
+  because that lock is provably its own.
+- **Restarting after a crash or a reboot.** The worker puts every shot left `running` back into the
+  queue and removes a lock that no live Snakemake holds.
+- **One worker per state file.** A second worker exits immediately.
+
+### Operate
+
+```bash
+vaft pipeline-worker status                  # watermark, counts, failed/gave_up shots
+vaft pipeline-worker status --shot 48950     # one shot: stages and event log
+vaft pipeline-worker retry --shot 48950      # fresh attempt budget
+vaft pipeline-worker exclude --shot 48950 --reason "calibration shot"
+vaft pipeline-worker run --once              # a single cycle, e.g. to test a config
+```
+
+- **`retry` on a shot the classifier excluded or limited to the raw dump** sends it back to be
+  classified again, because SQL may have finished writing it since. For a raw-only shot, delete its
+  raw dump and manifest first. They are Snakemake outputs, so otherwise the truncated dump would be
+  reused as is.
+- **The watermark assumes VEST numbers shots in acquisition order.** A row inserted later below the
+  watermark is not detected.
+- **Monitoring.** Monitoring code (#1347) reads the same file through
+  `vaft.database.worker.read_worker_state`.

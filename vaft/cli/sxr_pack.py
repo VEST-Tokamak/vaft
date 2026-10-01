@@ -76,9 +76,9 @@ def _sha256(path: Path) -> str:
 def _record_provenance(shot_dir: Path, entries: dict[str, dict[str, Any]]) -> None:
     path = shot_dir / PROVENANCE_NAME
     payload = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    payload.setdefault("containers", {}).update(entries)
     if not isinstance(payload, dict):
         raise ValueError(f"{path} does not hold a JSON object; not rewriting it")
+    payload.setdefault("containers", {}).update(entries)
     temp = path.with_name(f".{PROVENANCE_NAME}.partial")
     temp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     dh.fsync_path(temp)

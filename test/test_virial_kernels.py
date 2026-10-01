@@ -318,3 +318,10 @@ def test_li_volume_integral_reproduces_the_equilibrium_magnetic_energy():
     assert magnetic_energy_from_li_B_pa_V_p(li, B_pa, Omega) == pytest.approx(
         virial_magnetic_energy(np.array([B_pa]), Omega), rel=1e-12, abs=0.0
     )
+
+
+def test_the_deprecated_virial_criterion_keeps_its_source():
+    # Deprecated or not, the shim still states where its numbers come from; the
+    # docstring gate skips deprecated specs, so pin the References here.
+    doc = virial_stability_criterion.__doc__
+    assert "References" in doc and "Shafranov" in doc

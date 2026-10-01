@@ -38,16 +38,32 @@ plot
     helpers -- is support API for #162.  Every registered spec, whatever its
     status, is a ``plots`` entry.
 plot thumbnails
-    ``vaft.plot.docs_thumbnails.check`` without the samples: every registered
-    plot has a manifest entry, every rendered one its PNG, no PNG or entry is
-    orphaned, and no PNG differs from its recorded hash.  A stale thumbnail is
-    printed as a warning and does not fail.
+    ``vaft.plot.docs_thumbnails.check`` without the samples: every rendered
+    entry has its PNG, no PNG or entry is orphaned, and no PNG differs from its
+    recorded hash.  A stale thumbnail, and a newly registered plot with no
+    manifest entry yet, are printed as warnings and do not fail.
 diagram
     every public function **defined in a vaft.diagram module on disk** that is
     annotated to return a ``Diagram`` is a builder entry and is in
     ``vaft.diagram.__all__``; every asset :data:`vaft.diagram.build.CANONICAL`
     declares and every ``*.svg`` committed under ``docs/assets/diagrams`` is an
     asset entry; every builder has at least one asset.
+
+python API (#162)
+    every public module found **on disk** either declares ``__all__`` and
+    belongs to a page of ``docs/api_inventory.yml``, or is listed there as
+    ``undeclared``; a stale ``undeclared`` entry fails too.  Every name in an
+    ``__all__`` must exist and be public, and every exported object must be
+    described by exactly one entry of ``api_catalog.yml`` (matched by object
+    identity; constants by exported name).
+
+source spans (#1069)
+    every rendered source span is the whole definition of the object its row
+    names, resolved here from the row: its file, its first line (the first
+    decorator) where ``ast`` finds a def or class of its name, the end of its
+    block, and -- on the scientific pages -- inline ``code`` that is exactly
+    those lines.  The tree is the provenance commit's, so the pinned links and
+    the inline source show the revision the pages describe.
 
 Finally every ``vaft`` module imported while checking must come from the tree
 being documented, so an editable install that serves a missing subpackage from
@@ -229,7 +245,7 @@ def check_plot(snapshot: dict) -> list[str]:
 
 
 def check_plot_thumbnails(snapshot: dict, root: Path) -> list[str]:
-    """Missing, orphaned or hand-edited thumbnails fail; stale ones are only reported.
+    """Orphaned or hand-edited thumbnails fail; stale ones and new plots without one are only reported.
 
     Structural only (``full=False``): the samples are not loaded here.
     """
@@ -314,6 +330,252 @@ def check_diagram(snapshot: dict, root: Path) -> list[str]:
 
 
 # --------------------------------------------------------------------------
+# the Python API reference (#162)
+# --------------------------------------------------------------------------
+
+
+def check_api(snapshot: dict, root: Path) -> list[str]:
+    """Every public module is accounted for, and every published object has one entry.
+
+    The module list comes from the files on disk, not from the generator: a
+    public module (no ``_`` in its dotted name) either declares ``__all__`` and
+    belongs to an inventory page, or is listed under ``undeclared`` in
+    ``docs/api_inventory.yml``.  The objects come from each module's
+    ``__all__``, read here again, and are matched to entries by identity.
+    """
+    import pkgutil
+    import warnings
+
+    import vaft
+    import yaml
+
+    problems: list[str] = []
+    inventory = yaml.safe_load((root / "docs" / "api_inventory.yml").read_text(encoding="utf-8")) or {}
+    prefixes = {prefix for page in inventory.get("pages") or [] for prefix in page.get("modules") or []}
+    undeclared = set(inventory.get("undeclared") or [])
+
+    def on_a_page(name: str) -> bool:
+        # the root "vaft" covers only itself, as in vaft._api_catalog.covers
+        return any(name == prefix or (prefix != "vaft" and name.startswith(prefix + ".")) for prefix in prefixes)
+
+    names = ["vaft"] + [info.name for info in pkgutil.walk_packages(vaft.__path__, "vaft.")]
+    public = sorted(name for name in names if not any(part.startswith("_") for part in name.split(".")))
+    #: every published name -> the object it is bound to (kept alive, so no id is ever reused)
+    published: dict[str, object] = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for name in public:
+            module = importlib.import_module(name)
+            declared = getattr(module, "__all__", None)
+            if declared is None:
+                if name not in undeclared:
+                    problems.append(f"api: public module {name} declares no __all__ and is not listed under "
+                                    f"undeclared in docs/api_inventory.yml; declare what it publishes")
+                continue
+            if name in undeclared:
+                problems.append(f"api: {name} now declares __all__; remove it from undeclared in docs/api_inventory.yml")
+            if not on_a_page(name):
+                problems.append(f"api: public module {name} belongs to no page of docs/api_inventory.yml")
+            for export in declared:
+                if export.startswith("_") and not (export.startswith("__") and export.endswith("__")):
+                    problems.append(f"api: {name}.__all__ lists private name {export}")
+                if not hasattr(module, export):
+                    problems.append(f"api: {name}.__all__ lists {export}, which the module does not define")
+                    continue
+                obj = getattr(module, export)
+                if not inspect.ismodule(obj):
+                    published[f"{name}.{export}"] = obj
+    for name in sorted(undeclared - set(public)):
+        problems.append(f"api: {name} is listed under undeclared in docs/api_inventory.yml but is not a public module")
+
+    # Every published name is claimed by exactly one entry -- as its id or one of
+    # its exported_as names -- and that entry describes the object the name is
+    # bound to: the same object for a function or class, a constant for a constant.
+    claimed: dict[str, str] = {}
+    for entry in snapshot.get("entries") or []:
+        names_of_entry = [entry["id"], *(entry.get("exported_as") or [])]
+        if f"{entry['module']}.{entry['name']}" != entry["id"]:
+            problems.append(f"api: entry {entry['id']} is not {entry['module']}.{entry['name']}")
+        home = published.get(entry["id"])
+        if entry["id"] not in published:
+            problems.append(f"api: entry {entry['id']} vanished: {entry['module']} no longer exports {entry['name']}")
+        for qualified in names_of_entry:
+            if qualified in claimed:
+                problems.append(f"api: {qualified} is claimed by more than one entry: {claimed[qualified]}, {entry['id']}")
+                continue
+            claimed[qualified] = entry["id"]
+            if qualified not in published:
+                if qualified != entry["id"]:
+                    problems.append(f"api: entry {entry['id']} lists {qualified}, which is not published")
+                continue
+            obj = published[qualified]
+            is_data = not (inspect.isclass(obj) or callable(obj))
+            if (entry.get("kind") == "data") != is_data:
+                problems.append(f"api: entry {entry['id']} is a {entry.get('kind')} but {qualified} is "
+                                f"{'data' if is_data else 'callable'}")
+            elif not is_data and home is not None and obj is not home:
+                problems.append(f"api: entry {entry['id']} lists {qualified}, which is a different object")
+    for qualified in sorted(set(published) - set(claimed)):
+        problems.append(f"api: {qualified} is published but no entry of api_catalog.yml describes it")
+    return problems
+
+
+# --------------------------------------------------------------------------
+# source spans (#1069)
+# --------------------------------------------------------------------------
+
+
+def _resolve(module_name: str, name: str):
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return getattr(importlib.import_module(module_name), name)
+
+
+def _member(cls, name: str):
+    attribute = vars(cls)[name]
+    if isinstance(attribute, property):
+        return attribute.fget
+    return getattr(attribute, "__func__", attribute)
+
+
+def _located(generator: str, snapshot: dict):
+    """``(label, span, object)`` for every source span a catalog renders, the object resolved here.
+
+    The object comes from where the row says it lives (``module`` and ``name``,
+    a renderer's qualified name, a class and its member), not from the span, so
+    a span that describes another definition cannot pass for this one.
+    """
+    rows: list[tuple[str, dict, object]] = []
+
+    def add(label, span, resolve):
+        try:
+            obj = resolve()
+        except Exception:  # noqa: BLE001 -- the catalog's own check reports what does not resolve
+            obj = None
+        rows.append((label, span or {}, obj))
+
+    if generator in ("vaft.formula.catalog", "vaft.process.catalog"):
+        for row in snapshot.get("formulas") or snapshot.get("functions") or []:
+            add(row["id"], row.get("source"), lambda row=row: _resolve(row["module"], row["name"]))
+    elif generator == "vaft.plot.docs_catalog":
+        for row in snapshot.get("plots") or []:
+            module_name, _, qualname = row["renderer"].rpartition(".")
+            add(row["id"], row.get("source"), lambda m=module_name, q=qualname: _resolve(m, q))
+        for row in snapshot.get("entry_points") or []:
+            add(row["id"], row.get("source"), lambda row=row: _resolve("vaft.plot", row["name"]))
+    elif generator == "vaft.diagram.docs_catalog":
+        for row in snapshot.get("builders") or []:
+            add(row["id"], row.get("source"), lambda row=row: _resolve("vaft.diagram", row["name"]))
+    elif generator == "vaft._api_catalog":
+        for entry in snapshot.get("entries") or []:
+            if entry.get("kind") == "data":
+                continue
+            add(entry["id"], entry.get("source"), lambda e=entry: _resolve(e["module"], e["name"]))
+            for member in entry.get("members") or []:
+                add(f"{entry['id']}.{member['name']}", member.get("source"),
+                    lambda e=entry, m=member: _member(_resolve(e["module"], e["name"]), m["name"]))
+    return rows
+
+
+def _definitions(path: Path, cache: dict = {}) -> dict[int, list[str]]:  # noqa: B006 -- a per-run cache
+    """First line of every def and class in a file, decorators included -> the names defined there."""
+    import ast
+
+    if path not in cache:
+        found: dict[int, list[str]] = {}
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                first = min([node.lineno, *(decorator.lineno for decorator in node.decorator_list)])
+                found.setdefault(first, []).append(node.name)
+        cache[path] = found
+    return cache[path]
+
+
+def check_sources(generator: str, snapshot: dict, root: Path) -> list[str]:
+    """Every rendered source span is the whole definition of the object its row names, in ``root``.
+
+    The pages link each span as ``blob/<provenance commit>/<path>#L<line>-L<end_line>``
+    and, on the scientific pages, show ``code`` beside it (``validate_docs.rb``
+    checks the rendering); this checks the span against the tree the catalog
+    was generated from, which is that commit's tree.  For each row the object
+    is resolved from the row itself, and its span must be
+
+    * in the file that defines it, starting at its first line (the code
+      object's ``co_firstlineno`` or the class's ``__firstlineno__``: the first
+      decorator), where ``ast`` finds a ``def``/``class`` of its name;
+    * ending where that block ends (``inspect.getblock`` over the file's lines);
+    * with ``code`` equal to exactly those lines, dedented, when the page shows
+      it: on every page but the API pages, for a definition of at most
+      ``INLINE_SOURCE_LINES`` lines; and empty otherwise.
+
+    An object ``inspect`` cannot locate (a typing alias, a lambda, a builtin)
+    must have an empty span; a function or class of ``vaft`` must not.
+    """
+    import textwrap
+
+    from vaft._docstring import INLINE_SOURCE_LINES
+
+    inline = generator != "vaft._api_catalog"
+    root = root.resolve()
+    problems: list[str] = []
+    for label, span, obj in _located(generator, snapshot):
+        if obj is None:
+            continue
+        path, line, end = str(span.get("path") or ""), int(span.get("line") or 0), int(span.get("end_line") or 0)
+        code = span.get("code") or ""
+        target = inspect.unwrap(obj)
+        first = None
+        if inspect.isfunction(target):
+            first = target.__code__.co_firstlineno
+        elif inspect.isclass(target):
+            # __firstlineno__ from Python 3.13; before it, what inspect finds
+            first = vars(target).get("__firstlineno__")
+            if first is None:
+                try:
+                    first = inspect.getsourcelines(target)[1]
+                except (OSError, TypeError):
+                    first = None
+        try:
+            defined_in = Path(inspect.getsourcefile(target)).resolve()
+        except (TypeError, OSError):
+            defined_in = None
+        locatable = (first is not None and defined_in is not None and defined_in.is_relative_to(root / "vaft")
+                     and getattr(getattr(target, "__code__", None), "co_name", "") != "<lambda>")
+        if not locatable:
+            if line > 0:
+                problems.append(f"{generator} {label}: has a source span but its object has no definition in the tree")
+            continue
+        if line <= 0:
+            problems.append(f"{generator} {label}: has no source location")
+            continue
+        expected_path = defined_in.relative_to(root).as_posix()
+        if path != expected_path:
+            problems.append(f"{generator} {label}: source is {path!r}, but it is defined in {expected_path}")
+            continue
+        text = defined_in.read_text(encoding="utf-8")
+        lines = text.split("\n")
+        # the def's own name: a factory closure may carry the name it is exported under
+        defined_as = target.__code__.co_name if inspect.isfunction(target) else target.__name__
+        if line != first or defined_as not in _definitions(defined_in).get(line, []):
+            problems.append(f"{generator} {label}: {path}#L{line} is not where {defined_as} is defined (line {first})")
+            continue
+        block = inspect.getblock([f"{row}\n" for row in lines[line - 1:]])
+        if end != line + len(block) - 1:
+            problems.append(f"{generator} {label}: {path}#L{line}-L{end} does not end where the definition does "
+                            f"(line {line + len(block) - 1})")
+            continue
+        shown = textwrap.dedent("\n".join(lines[line - 1:end])).rstrip()
+        due = inline and end - line + 1 <= INLINE_SOURCE_LINES
+        if due and code != shown:
+            problems.append(f"{generator} {label}: inline source is not {path} lines {line}-{end}")
+        elif not due and code:
+            problems.append(f"{generator} {label}: carries inline source the page does not show")
+    return problems
+
+
+# --------------------------------------------------------------------------
 # entry point
 # --------------------------------------------------------------------------
 
@@ -324,6 +586,7 @@ CHECKS = {
     "vaft.process.catalog": lambda snapshot, root: check_process(snapshot),
     "vaft.plot.docs_catalog": lambda snapshot, root: check_plot(snapshot) + check_plot_thumbnails(snapshot, root),
     "vaft.diagram.docs_catalog": check_diagram,
+    "vaft._api_catalog": check_api,
 }
 
 
@@ -365,7 +628,9 @@ def check(docs: Path = DOCS, root: Path | None = None) -> list[str]:
         if not output.is_file():
             problems.append(f"{generator['output']} is declared but was not generated")
             continue
-        problems.extend(checker(_load(output) or {}, root))
+        snapshot = _load(output) or {}
+        problems.extend(checker(snapshot, root))
+        problems.extend(check_sources(generator["module"], snapshot, root))
     for module in foreign_modules(root):
         problems.append(f"{module} was imported from outside the tree being documented ({root})")
     return problems
@@ -381,7 +646,7 @@ def main(argv: list[str] | None = None) -> int:
     if problems:
         print(f"catalog coverage: {len(problems)} problems", file=sys.stderr)
         return 1
-    print("catalog coverage: every public formula, process, plot and diagram is catalogued")
+    print("catalog coverage: every public formula, process, plot, diagram and API object is catalogued")
     return 0
 
 

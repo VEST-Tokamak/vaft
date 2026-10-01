@@ -4651,6 +4651,8 @@ NaN
 "equilibrium": {
 "code": {
 "parameters": {
+"cocos": 11,
+"cocos_source": "declared in place on the frozen OMFIT-built ODS; evidence in vaft/data/samples/48224/manifest.yaml",
 "time_slice": {
 "0": {
 "basis": {

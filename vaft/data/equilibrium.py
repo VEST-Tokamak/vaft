@@ -553,7 +553,9 @@ class SolovevEquilibrium:
     #: Sign of F(psi) = R B_phi.  ``None`` derives it from ``f_boundary`` (and
     #: +1 for a zero ``f_boundary``); an explicit sign that contradicts a
     #: non-zero ``f_boundary`` is refused, since ``bt0`` follows ``f_boundary``
-    #: (#1307).
+    #: (#1307).  Breaking change in 0.8.0: through 0.7.x this defaulted to +1
+    #: and overrode the sign of ``f_boundary``; pass a signed ``f_boundary``
+    #: instead.
     f_sign: int | None = None
     rank: int | None = None
     residual_norm: float | None = None
@@ -581,6 +583,13 @@ def _resolve_solovev_f_sign(f_boundary: float, f_sign: int | None, *, allow_zero
     an explicit sign must be +1 or -1 and agree with it (#1307).  A zero
     ``f_boundary`` is refused unless *allow_zero*, in which case the sign is the
     explicit one, or +1.
+
+    Breaking change in 0.8.0: through 0.7.x ``f_sign`` defaulted to +1 and was
+    applied to F(psi) regardless of ``f_boundary``, so ``f_sign=-1`` with a
+    positive ``f_boundary`` was accepted and produced a record whose F(psi) and
+    ``bt0`` disagreed in sign.  That combination is now a ``ValueError``; the
+    sign is derived from ``f_boundary``, so pass a signed ``f_boundary``
+    (negate it to reverse B_phi) and leave ``f_sign=None``.
     """
 
     f_boundary = float(f_boundary)
@@ -598,8 +607,10 @@ def _resolve_solovev_f_sign(f_boundary: float, f_sign: int | None, *, allow_zero
     if int(f_sign) != implied:
         raise ValueError(
             f"f_sign={int(f_sign):+d} contradicts f_boundary={f_boundary:g}: F(psi) would take the sign of "
-            "f_sign while bt0 = f_boundary/rref takes the sign of f_boundary.  Reverse B_phi by negating "
-            "f_boundary and leave f_sign=None"
+            "f_sign while bt0 = f_boundary/rref takes the sign of f_boundary.  Through 0.7.x this "
+            "combination was accepted and F(psi) silently disagreed in sign with bt0; since 0.8.0 the "
+            "sign of F is derived from f_boundary (#1307).  Reverse B_phi by passing a signed "
+            f"f_boundary={-abs(f_boundary) if int(f_sign) < 0 else abs(f_boundary):g} and leave f_sign=None"
         )
     return implied
 

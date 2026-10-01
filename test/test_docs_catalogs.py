@@ -167,9 +167,14 @@ def test_every_layer_is_fully_catalogued(coverage, snapshots):
 def _docs_tree(tmp_path, snapshots):
     docs = tmp_path / "docs"
     (docs / "_data").mkdir(parents=True)
-    shutil.copy(DOCS / "generators.yml", docs / "generators.yml")
     names = {"formula": "formula_catalog.yml", "process": "process_catalog.yml",
              "plot": "plot_catalog.yml", "diagram": "diagram_catalog.yml"}
+    # Only the generators whose snapshots this helper writes; the API catalog
+    # has its own tests (test_docs_api.py).
+    declared = yaml.safe_load((DOCS / "generators.yml").read_text(encoding="utf-8"))
+    declared["generators"] = [g for g in declared["generators"] if Path(g["output"]).name in names.values()
+                              or g["module"] == "vaft.machine_mapping.registry"]
+    (docs / "generators.yml").write_text(yaml.safe_dump(declared), encoding="utf-8")
     for kind, name in names.items():
         (docs / "_data" / name).write_text(yaml.safe_dump(snapshots[kind]), encoding="utf-8")
     return docs
@@ -409,8 +414,9 @@ def test_the_plot_catalog_hashes_every_file_of_the_package(snapshots):
     on_disk = {path.relative_to(ROOT).as_posix() for path in (ROOT / "vaft" / "plot").rglob("*.py")
                if "__pycache__" not in path.parts}
     assert on_disk <= recorded
-    # Beyond the package: the thumbnail manifest and the samples its pictures were drawn from.
-    assert all(path == "docs/assets/plots/manifest.json" or path.startswith("vaft/data/samples/")
+    # Beyond the package: the thumbnail manifest, the samples its pictures were drawn from,
+    # and vaft/_docstring.py, which reads every source span.
+    assert all(path in {"docs/assets/plots/manifest.json", "vaft/_docstring.py"} or path.startswith("vaft/data/samples/")
                for path in recorded - on_disk), recorded - on_disk
 
 

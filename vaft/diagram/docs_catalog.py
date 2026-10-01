@@ -30,6 +30,18 @@ import re
 from collections.abc import Mapping
 from pathlib import Path
 
+from vaft._docstring import source_span
+
+__all__ = [
+    "ASSET_DIR",
+    "SCHEMA_VERSION",
+    "builder_names",
+    "documentation_snapshot",
+    "export_documentation_snapshot",
+    "formula_references",
+    "main",
+]
+
 SCHEMA_VERSION = 1
 _GENERATOR = "python -m vaft.diagram.docs_catalog --output docs/_data/diagram_catalog.yml"
 _PACKAGE = Path(__file__).resolve().parent
@@ -201,12 +213,12 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
         path for path in _PACKAGE.rglob("*") if path.is_file() and "__pycache__" not in path.parts
     }
     sources.add(manifest_path)
+    sources.add(_ROOT / "vaft" / "_docstring.py")  # decides every source span
     for name in builder_names():
         function = inspect.unwrap(getattr(diagram, name))
         module = inspect.getmodule(function)
         path = Path(inspect.getsourcefile(function)).resolve()
         sources.add(path)
-        _, line = inspect.getsourcelines(function)
         family = module.__name__.rsplit(".", 1)[-1].lstrip("_")
         if family not in families:
             families[family] = {"name": family, "title": _family_title(module), "module": module.__name__,
@@ -231,7 +243,7 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
                 "signature": _plain_signature(function),
                 "formula": formula_rows,
                 "assets": assets_by_builder.get(name, []),
-                "source": {"path": _relative(path), "line": line},
+                "source": source_span(function, _ROOT),
             }
         )
 

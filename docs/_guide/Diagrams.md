@@ -937,6 +937,7 @@ not redrawn here.
 ```python
 vaft.diagram.nbi_particle_lifecycle()      # shine-through / prompt loss / delayed loss kept apart
 vaft.diagram.nbi_neutral_attenuation()     # S(s), b(s), births and f_shine from vaft.formula.nbi
+```
 
 ## Iteration behaviour, branch bifurcation and branch selection
 
@@ -1002,6 +1003,7 @@ vaft.diagram.o_mode_cutoff()                                  # n_O^2 = P, cutof
 vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=1.2)    # L, R cutoffs; upper-hybrid resonance
 vaft.diagram.cma_diagram()                                    # P, R, L, S = 0 and Y = 1 in (X, Y)
 vaft.diagram.profile_propagation()                            # layers along an example midplane
+```
 
 ## Neoclassical and NTV collisionality regimes
 

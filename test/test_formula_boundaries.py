@@ -157,6 +157,23 @@ def test_non_finite_inputs_are_out_of_domain():
     assert result.extrapolated == ("x",)
 
 
+def test_a_nan_operating_value_is_reported_not_silently_counted_as_a_violation():
+    entry = B.get_boundary("greenwald")
+    scalar = B.evaluate_boundary(entry, np.nan, plasma_current=0.1, minor_radius=0.25)
+    assert scalar.allowed is False and math.isnan(scalar.margin) and math.isnan(scalar.ratio)
+    assert len(scalar.warnings) == 1 and "operating value is not finite" in scalar.warnings[0]
+    # A NaN gap in a trace: one true violation, one gap.  The gap is not
+    # permitted (allowed is strict), but it is flagged, and the margin says NaN.
+    trace = B.evaluate_boundary(entry, np.array([1.0, np.nan, 50.0]), plasma_current=0.1, minor_radius=0.25)
+    np.testing.assert_array_equal(trace.allowed, [True, False, False])
+    np.testing.assert_array_equal(np.isnan(trace.margin), [False, True, False])
+    assert int(np.sum(trace.margin < 0)) == 1
+    assert len(trace.warnings) == 1 and "operating value" in trace.warnings[0]
+    # A finite trace against a healthy boundary still carries no warning.
+    clean = B.evaluate_boundary(entry, np.array([1.0, 50.0]), plasma_current=0.1, minor_radius=0.25)
+    assert clean.warnings == ()
+
+
 # ------------------------------------------------------------------
 # Threshold and window
 # ------------------------------------------------------------------
@@ -307,3 +324,380 @@ def test_registry_lists_and_resolves():
 def test_registered_keys_are_unique():
     with pytest.raises(ValueError, match="already registered"):
         B._register(B.get_boundary("greenwald"))
+
+
+# ------------------------------------------------------------------
+# Hugill diagram (#1068): the Greenwald line in (nR/B, 1/q_cyl)
+# ------------------------------------------------------------------
+
+def test_greenwald_hugill_slope_is_50_kappa_over_pi():
+    entry = B.get_boundary("greenwald_hugill")
+    inv_q = np.linspace(0.05, 0.5, 10)
+    curve = B.boundary_curve(entry, "inverse_cylindrical_q", inv_q, swap_axes=True, area_elongation=1.7)
+    np.testing.assert_allclose(curve.x / curve.y, 50.0 * 1.7 / np.pi)
+    assert curve.x_quantity.name == "murakami_parameter" and curve.y_quantity.name == "inverse_cylindrical_q"
+    assert curve.allowed_side == "left"
+
+
+@pytest.mark.parametrize("kappa", [1.0, 1.7])
+def test_greenwald_hugill_is_the_diagram_line(kappa):
+    from vaft.diagram._stability_space import hugill
+
+    xy = hugill(elongation=kappa, labels=False).model.curves["greenwald"][1:]
+    entry = B.get_boundary("greenwald_hugill")
+    np.testing.assert_allclose(
+        B.boundary_value(entry, inverse_cylindrical_q=xy[:, 1], area_elongation=kappa), xy[:, 0], rtol=1e-12
+    )
+
+
+@pytest.mark.parametrize("R, B_t, a, kappa", [(0.4, 0.15, 0.236, 1.52), (1.7, 2.0, 0.6, 1.8)])
+def test_a_state_at_the_greenwald_density_lies_on_the_hugill_line(R, B_t, a, kappa):
+    """Any machine size and shape: a, R, B_T and kappa_a cancel, so n = n_G(I_p, a) is exactly on the line."""
+    I_p = np.linspace(0.03, 0.12, 7) * (a / 0.236) ** 2
+    x, y = B.hugill_coordinates(greenwald_density(I_p, a), R, B_t, a, kappa, I_p)
+    result = B.evaluate_boundary(B.get_boundary("greenwald_hugill"), x, inverse_cylindrical_q=y, area_elongation=kappa)
+    np.testing.assert_allclose(result.ratio, 1.0)
+    below = B.evaluate_boundary(B.get_boundary("greenwald_hugill"), 0.5 * x, inverse_cylindrical_q=y, area_elongation=kappa)
+    assert np.all(below.allowed) and np.allclose(below.margin, 0.5)
+
+
+def test_hugill_coordinates_drop_the_current_and_field_sign():
+    plus = B.hugill_coordinates(3.0, 0.4, 0.15, 0.236, 1.52, 0.08)
+    minus = B.hugill_coordinates(3.0, 0.4, -0.15, 0.236, 1.52, -0.08)
+    assert plus == pytest.approx(minus)
+    assert plus[0] == pytest.approx(3.0 * 0.4 / 0.15)
+
+
+def test_hugill_y_is_the_inverse_of_the_repository_q_cyl():
+    from vaft.formula.equilibrium import q_cyl_from_B_R_epsilon_kappa_I
+
+    R, B_t, a, kappa, I_p = 0.4, 0.15, 0.236, 1.52, np.array([0.03, 0.08])
+    _, y = B.hugill_coordinates(1.0, R, B_t, a, kappa, I_p)
+    np.testing.assert_allclose(y, 1.0 / q_cyl_from_B_R_epsilon_kappa_I(B_t, R, a / R, kappa, I_p * 1e6), rtol=1e-12)
+    assert B.hugill_coordinates(3.0, R, B_t, a, kappa, 0.08)[1] == pytest.approx(0.4 * 0.08 / (5 * 0.236**2 * 1.52 * 0.15))
+
+
+def test_hugill_coordinates_map_zero_current_to_the_origin():
+    """A VEST time trace starts and ends at I_p = 0; it must project, not raise."""
+    x, y = B.hugill_coordinates(np.array([0.0, 2.0]), 0.4, 0.15, 0.236, 1.52, np.array([0.0, 0.08]))
+    assert x[0] == 0.0 and y[0] == 0.0 and y[1] > 0
+
+
+def test_hugill_coordinates_reject_unphysical_inputs():
+    with pytest.raises(ValueError, match="n_e"):
+        B.hugill_coordinates(-1.0, 0.4, 0.15, 0.236, 1.52, 0.08)
+    with pytest.raises(ValueError, match="kappa_a"):
+        B.hugill_coordinates(1.0, 0.4, 0.15, 0.236, 0.0, 0.08)
+
+
+def test_swap_axes_maps_above_to_right():
+    boundary = _power_law(side="above")
+    curve = B.boundary_curve(boundary, "x", [1.0, 2.0], swap_axes=True, y=1.0)
+    assert curve.allowed_side == "right"
+    np.testing.assert_allclose(curve.x, [2.0, 4.0])
+    np.testing.assert_allclose(curve.y, [1.0, 2.0])
+
+
+# ------------------------------------------------------------------
+# Murakami limit (#1068), checked against Murakami, Callen & Berry,
+# Nucl. Fusion 16 (1976) 347, Table I: (device, R0 [m], B_T [T], n_e max [1e19 m^-3], gas injection)
+# ------------------------------------------------------------------
+
+_MURAKAMI_TABLE_I = (
+    ("Alcator", 0.54, 7.5, 35.0, True),
+    ("TM-3", 0.40, 3.5, 7.0, False),
+    ("TFR", 0.98, 5.0, 6.3, False),
+    ("T-4", 0.90, 4.5, 4.0, False),
+    ("Pulsator", 0.70, 2.7, 10.0, True),
+    ("ST", 1.09, 4.3, 5.7, False),
+    ("T-3", 0.90, 3.4, 4.5, False),
+    ("ORMAK", 0.80, 2.5, 3.7, False),
+    ("ORMAK", 0.80, 1.8, 3.0, False),
+    ("CLEO", 0.90, 1.9, 2.0, False),
+    ("ATC", 0.90, 1.5, 2.1, False),
+    ("JFT-2", 0.90, 1.0, 1.0, False),
+    ("T-6", 0.70, 0.6, 1.0, False),
+)
+
+
+def test_murakami_is_B_over_R_in_1e19():
+    entry = B.get_boundary("murakami")
+    assert entry.target.name == "line_average_density" and entry.target.unit == "1e19 m^-3"
+    assert B.boundary_value(entry, toroidal_field=7.5, major_radius=0.54) == pytest.approx(7.5 / 0.54)
+    assert entry.allowed_side == "below" and entry.hardness == "soft"
+
+
+def test_murakami_line_matches_table_I():
+    """Stationary-fill devices scatter about the line; cold-gas injection sits ~2.5x above (Greenwald 2002: ~2x)."""
+    entry = B.get_boundary("murakami")
+    ratios = {True: [], False: []}
+    for _, R0, B_T, n_max, injected in _MURAKAMI_TABLE_I:
+        ratios[injected].append(n_max / B.boundary_value(entry, toroidal_field=B_T, major_radius=R0))
+    stationary = np.array(ratios[False])
+    assert np.all((stationary > 0.7) & (stationary < 1.6))
+    assert 0.9 < np.median(stationary) < 1.3
+    assert np.all(np.array(ratios[True]) > 2.0)
+
+
+def test_murakami_ranges_are_table_I():
+    entry = B.get_boundary("murakami")
+    R0 = [row[1] for row in _MURAKAMI_TABLE_I]
+    B_T = [row[2] for row in _MURAKAMI_TABLE_I]
+    assert entry.applicability.ranges["major_radius"] == (min(R0), max(R0))
+    assert entry.applicability.ranges["toroidal_field"] == (min(B_T), max(B_T))
+    vest = B.evaluate_boundary(entry, 3.0, toroidal_field=0.15, major_radius=0.4)
+    assert vest.extrapolated == ("toroidal_field",)  # VEST's field is below every Table I device
+
+
+def test_murakami_on_the_hugill_diagram_is_the_same_limit():
+    """n <= B/R  <=>  n R/B <= 1: both entries give the same margin for any state."""
+    line, vertical = B.get_boundary("murakami"), B.get_boundary("murakami_hugill")
+    for n, B_T, R0 in [(2.0, 1.5, 0.9), (0.5, 0.15, 0.4), (12.0, 3.0, 0.3)]:
+        m1 = B.evaluate_boundary(line, n, toroidal_field=B_T, major_radius=R0).margin
+        m2 = B.evaluate_boundary(vertical, n * R0 / B_T).margin
+        assert m1 == pytest.approx(m2)
+
+
+def test_greenwald_hugill_slope_is_greenwalds_circular_form():
+    """Greenwald 1988, after Eq. (1): circular limit (5/pi) B/(qR) in 1e20 m^-3 -> 50/pi in 1e19."""
+    entry = B.get_boundary("greenwald_hugill")
+    assert entry.coefficient == pytest.approx(10 * 5 / np.pi)
+
+
+def test_low_q_is_q_psi_above_two():
+    entry = B.get_boundary("low_q")
+    assert entry.target.name == "edge_safety_factor" and B.boundary_value(entry) == 2.0
+    assert B.evaluate_boundary(entry, 3.0).allowed and not B.evaluate_boundary(entry, 1.8).allowed
+    assert entry.family == "current_limit" and entry.event == "disruption"
+
+
+def test_every_published_entry_cites_a_location_in_its_source():
+    for key in B.list_boundaries():
+        entry = B.get_boundary(key)
+        if entry.origin == "published":
+            assert all(source.equation for source in entry.sources), key
+
+
+# ------------------------------------------------------------------
+# Giacomin et al. 2022 edge density limit (#1068): the paper's worked predictions
+# ------------------------------------------------------------------
+
+def _giacomin(A, a, P, R, q, kappa, B_T):
+    return B.boundary_value(B.get_boundary("giacomin_edge"), mass_number=A, minor_radius=a,
+                            separatrix_power=P, major_radius=R, edge_safety_factor_95=q,
+                            elongation=kappa, toroidal_field=B_T)
+
+
+@pytest.mark.parametrize("A, a, P, R, q, kappa, B_T, expected, rel", [
+    (2.0, 0.22, 5.0, 0.67, 4.0, 1.5, 8.0, 5.0, 0.10),     # Alcator C-Mod, p. 5: "n_lim = 5e20"
+    (2.0, 2.0, 50.0, 6.2, 3.0, 1.8, 5.3, 2.5, 0.10),      # ITER, p. 5: "~2.5e20"
+    (2.5, 0.57, 28.0, 1.85, 3.0, 2.0, 12.2, 8.7, 0.01),   # SPARC, p. 5: "~8.7e20"
+])
+def test_giacomin_reproduces_the_papers_predictions(A, a, P, R, q, kappa, B_T, expected, rel):
+    """The paper states no mass number for these cases. SPARC pins it: A = 2.5 (D-T) gives 8.70
+    exactly. C-Mod and ITER are quoted to one significant figure and fit within 10 % for A = 1-3,
+    so they check the geometry and power dependence, not A."""
+    assert _giacomin(A, a, P, R, q, kappa, B_T) == pytest.approx(expected, rel=rel)
+
+
+def test_giacomin_rejects_signed_field_as_non_finite():
+    entry = B.get_boundary("giacomin_edge")
+    result = B.evaluate_boundary(entry, 0.3, mass_number=2.0, minor_radius=0.5, separatrix_power=2.0,
+                                 major_radius=1.5, edge_safety_factor_95=4.0, elongation=1.5, toroidal_field=-2.0)
+    assert result.allowed is False and any("non-positive or not finite" in w for w in result.warnings)
+
+
+def test_giacomin_exponents_are_eq_12():
+    base = dict(A=2.0, a=0.5, P=2.0, R=1.5, q=4.0, kappa=1.5, B_T=2.0)
+    ref = _giacomin(**base)
+    for name, factor, exponent in [("A", 2, 1 / 6), ("a", 2, 3 / 14), ("P", 2, 10 / 21),
+                                   ("R", 2, -43 / 42), ("q", 2, -22 / 21), ("B_T", 2, 2 / 3)]:
+        scaled = dict(base, **{name: base[name] * factor})
+        assert _giacomin(**scaled) / ref == pytest.approx(factor ** exponent)
+    assert _giacomin(**dict(base, kappa=2.0)) / ref == pytest.approx(((1 + 4.0) / (1 + 2.25)) ** (-1 / 3))
+
+
+def test_giacomin_targets_edge_density_and_reports_extrapolation():
+    entry = B.get_boundary("giacomin_edge")
+    assert entry.target.name == "edge_density" and entry.target.unit == "1e20 m^-3"
+    assert entry.uncertainty.coefficient == 0.3
+    vest = B.evaluate_boundary(entry, 0.05, mass_number=1.0, minor_radius=0.24, separatrix_power=0.1,
+                               major_radius=0.4, edge_safety_factor_95=6.0, elongation=1.5, toroidal_field=0.15)
+    assert set(vest.extrapolated) == {"toroidal_field", "major_radius"}
+
+
+# ------------------------------------------------------------------
+# Troyon beta limit (#350): Troyon et al., PPCF 26 (1984) 209, p. 214
+# ------------------------------------------------------------------
+
+def test_troyon_coefficient_is_2p2_mu0_in_percent_m_T_per_MA():
+    entry = B.get_boundary("troyon")
+    assert entry.target.unit == "% m T/MA" and entry.allowed_side == "below"
+    assert B.boundary_value(entry) == pytest.approx(2.2 * 4e-7 * np.pi * 1e6, rel=1e-9)
+    assert 2.7 < B.boundary_value(entry) < 2.8  # the rounded "2.8" of later literature
+
+
+def test_troyon_puts_jet_fully_stable_equilibrium_below_the_line():
+    """Troyon 1984: JET extended performance, R = 2.96 m, R/a = 2.36, T_S = 105 T m (p. 213)
+    read as 10 x R B; the fully stable equilibrium of Fig. 9 has I = 9.6 MA and beta = 5.5 %.
+    Stability to all n is stricter than the n = 1 line, so it must sit below it, but not far below."""
+    R, A, I_MA, beta_percent = 2.96, 2.36, 9.6, 5.5
+    a, B_T = R / A, (105.0 / 10.0) / R
+    beta_N = beta_percent * a * B_T / I_MA
+    result = B.evaluate_boundary(B.get_boundary("troyon"), beta_N)
+    assert result.allowed and 0.0 < result.margin < 0.15
+    # Taking the printed 105 T m literally would put the same point ten times above the limit.
+    assert beta_percent * a * (105.0 / R) / I_MA > 9 * B.boundary_value(B.get_boundary("troyon"))
+
+
+def test_troyon_uses_the_same_beta_N_convention_as_the_stability_module():
+    from vaft.formula.stability import beta_N_from_beta_a_B0_Ip
+
+    limit = B.get_boundary("troyon")
+    beta_N = beta_N_from_beta_a_B0_Ip(3.0, 1.0, 2.0, 1.0)  # 3 % at a = 1 m, B = 2 T, I = 1 MA
+    assert beta_N == pytest.approx(6.0)
+    assert not B.evaluate_boundary(limit, beta_N).allowed
+
+
+# ------------------------------------------------------------------
+# L-H threshold family (#1066): Martin et al. 2008 and Ryter et al. 2014
+# ------------------------------------------------------------------
+
+# ITER as the papers use it: B_T = 5.3 T and S = 678 m^2 (Martin 2008, p. 4); I_p = 15 MA
+# (Martin 2008, p. 7); R0 = 6.2 m and a = 2 m (Giacomin et al. 2022, p. 5).
+_ITER = dict(B_T=5.3, S=678.0, I_p=15.0, R=6.2, a=2.0)
+
+
+@pytest.mark.parametrize("n_e20, expected", [(0.5, 52.0), (1.0, 86.0)])
+def test_martin_reproduces_table_1_for_iter(n_e20, expected):
+    entry = B.get_boundary("martin_2008_lh")
+    P = B.boundary_value(entry, line_average_density=n_e20, toroidal_field=_ITER["B_T"],
+                         plasma_surface_area=_ITER["S"])
+    assert P == pytest.approx(expected, rel=0.01)
+
+
+def test_martin_is_an_L_to_H_access_threshold_on_loss_power():
+    entry = B.get_boundary("martin_2008_lh")
+    assert (entry.source_regime, entry.target_regime, entry.branch) == ("L_mode", "H_mode", "high_density")
+    assert entry.target.name == "loss_power" and entry.allowed_side == "above"
+    assert entry.input("line_average_density").unit == "1e20 m^-3"
+    below = B.evaluate_boundary(entry, 40.0, line_average_density=0.5, toroidal_field=5.3, plasma_surface_area=678.0)
+    above = B.evaluate_boundary(entry, 60.0, line_average_density=0.5, toroidal_field=5.3, plasma_surface_area=678.0)
+    assert not below.allowed and above.allowed and above.ratio == pytest.approx(60.0 / 52.3, rel=0.01)
+
+
+def test_martin_uncertainty_is_the_published_fit_statistics():
+    u = B.get_boundary("martin_2008_lh").uncertainty
+    assert u.coefficient_factor == pytest.approx(np.exp(0.057))
+    assert dict(u.exponents) == {"line_average_density": 0.035, "toroidal_field": 0.032, "plasma_surface_area": 0.019}
+    assert u.rms_relative == 0.308
+
+
+def _ryter(I_p, B_T, a, aspect_ratio):
+    return B.boundary_value(B.get_boundary("ryter_2014_nmin"), plasma_current=I_p, toroidal_field=B_T,
+                            minor_radius=a, aspect_ratio=aspect_ratio)
+
+
+def test_ryter_reproduces_the_iter_minimum_density():
+    """Ryter 2014, p. 8: ~4e19 m^-3 at full field and current, ~2.2e19 at half field and current."""
+    full = _ryter(_ITER["I_p"], _ITER["B_T"], _ITER["a"], _ITER["R"] / _ITER["a"])
+    half = _ryter(_ITER["I_p"] / 2, _ITER["B_T"] / 2, _ITER["a"], _ITER["R"] / _ITER["a"])
+    assert full == pytest.approx(4.0, rel=0.05)
+    assert half == pytest.approx(2.2, rel=0.10)
+
+
+@pytest.mark.parametrize("scale, expected, rel", [(0.5, 16.0, 0.03), (1.0, 41.0, 0.10)])
+def test_martin_at_ryter_minimum_is_the_papers_minimum_power(scale, expected, rel):
+    """Ryter 2014, p. 8: the threshold scaling at n_e,min gives ~16 MW for ITER at half field and
+    current (checked to 3 %: 15.8 MW) and ~41 MW at full field (Eq. (1) gives ~44 MW, 9 % off).
+    The printed Eq. (4) gives ~22 and ~62 MW and is not registered."""
+    I_p, B_T = _ITER["I_p"] * scale, _ITER["B_T"] * scale
+    n_min_1e20 = _ryter(I_p, B_T, _ITER["a"], _ITER["R"] / _ITER["a"]) / 10.0
+    P_min = B.boundary_value(B.get_boundary("martin_2008_lh"), line_average_density=n_min_1e20,
+                             toroidal_field=B_T, plasma_surface_area=_ITER["S"])
+    assert P_min == pytest.approx(expected, rel=rel)
+
+
+def test_ryter_minimum_bounds_the_martin_branch_from_below():
+    entry = B.get_boundary("ryter_2014_nmin")
+    # Not an access threshold: H-mode is reachable below n_e,min too, at higher power.
+    assert entry.allowed_side == "above" and (entry.source_regime, entry.target_regime, entry.branch) == ("", "", "")
+    assert entry.target.unit == "1e19 m^-3"
+    assert "lh_threshold" == entry.family == B.get_boundary("martin_2008_lh").family
+    assert set(B.list_boundaries("lh_threshold")) == {"martin_2008_lh", "ryter_2014_nmin", "takizuka_2004_lh"}
+
+
+def test_transition_needs_both_regimes():
+    with pytest.raises(ValueError, match="source_regime and target_regime"):
+        B.Boundary(key="half", family="toy", target=_P, inputs=(), form="threshold", coefficient=1.0,
+                   allowed_side="above", sources=_SRC, source_regime="L_mode")
+
+
+def test_uncertainty_rejects_impossible_scatter():
+    with pytest.raises(ValueError, match="coefficient_factor"):
+        B.Uncertainty(coefficient_factor=0.9)
+    with pytest.raises(ValueError, match="rms_relative"):
+        B.Uncertainty(rms_relative=-0.1)
+
+
+# ------------------------------------------------------------------
+# Takizuka et al. 2004 (ITPA04): the low-aspect-ratio L-H threshold (#1066)
+# ------------------------------------------------------------------
+
+def test_takizuka_aspect_factor_matches_the_paper():
+    """p. A232: F(A) = 0.1 A / f(A) has its minimum at A ~ 2.7; F = 1.03 for ITER (A = 3.1)."""
+    A = np.linspace(1.1, 6.0, 5000)
+    assert A[np.argmin(B._takizuka_aspect_factor(A))] == pytest.approx(2.7, abs=0.05)
+    assert float(B._takizuka_aspect_factor(3.1)) == pytest.approx(1.03, abs=0.005)
+
+
+@pytest.mark.parametrize("A, ratio_to_P0star, expected", [(1.32, 2.8, 2.0), (1.45, 1.25, 1.0)])
+def test_takizuka_gamma_half_reproduces_the_nstx_and_mast_ratios(A, ratio_to_P0star, expected):
+    """p. A230 / A232: P_thr/P_thr0* is 2.8 (NSTX) and 1.25 (MAST); dividing by F(A)^gamma gives
+    ~2.0 and ~1.0. With gamma = 0.5 (the central value used here) the reduction matches."""
+    assert ratio_to_P0star / float(B._takizuka_aspect_factor(A)) ** 0.5 == pytest.approx(expected, rel=0.05)
+
+
+def test_takizuka_iter_prediction_and_the_outer_field_discrepancy():
+    """p. A232: ITER (R 6.2, a 2, B_t 5.3, I_p 15, S 680, n20 0.5, Z_eff ~ 2) gives 40-50 MW. The printed
+    |B|_out definition gives 4.47 T where the text quotes 4.3 T; the entry follows the printed formula."""
+    assert float(B._takizuka_outer_field(5.3, 15.0, 2.0, 3.1)) == pytest.approx(4.47, abs=0.01)
+    P = B.boundary_value(B.get_boundary("takizuka_2004_lh"), line_average_density=0.5, toroidal_field=5.3,
+                         plasma_current=15.0, minor_radius=2.0, aspect_ratio=3.1, plasma_surface_area=680.0,
+                         effective_charge=2.0)
+    assert 40.0 <= P <= 50.0
+
+
+def test_takizuka_rises_above_martin_at_low_aspect_ratio():
+    """Same density, field and area: towards A -> 1
+    Takizuka rises (F(A) grows) while Martin has no aspect-ratio term."""
+    common = dict(line_average_density=0.3, toroidal_field=0.5, plasma_surface_area=10.0)
+    martin = B.boundary_value(B.get_boundary("martin_2008_lh"), **common)
+    tak = [B.boundary_value(B.get_boundary("takizuka_2004_lh"), plasma_current=0.3, minor_radius=0.5,
+                            aspect_ratio=A, effective_charge=2.0, **common) for A in (3.1, 1.5, 1.2)]
+    assert tak[0] < tak[1] < tak[2]
+    assert all(t > 0 for t in tak) and martin > 0
+
+
+def test_low_aspect_ratio_caveats_are_attached_to_both_lh_scalings():
+    for key in ("martin_2008_lh", "takizuka_2004_lh"):
+        text = " ".join(B.get_boundary(key).applicability.assumptions)
+        assert "Pegasus" in text and "7-15x" in text and "NSTX" in text
+
+
+def test_takizuka_gamma_is_an_explicit_keyword_spanning_the_published_range():
+    """gamma = 0.5 +- 0.5 (p. A232): the kernel takes it as a keyword, the registered boundary
+    uses the central value, and the two bounds differ by exactly F(A) (1.85x at NSTX, A = 1.32)."""
+    kw = dict(line_average_density=0.3, toroidal_field=0.5, plasma_current=0.8, minor_radius=0.6,
+              aspect_ratio=1.32, plasma_surface_area=20.0, effective_charge=2.0)
+    central = B._takizuka_2004_threshold(**kw)
+    assert central == pytest.approx(B.boundary_value(B.get_boundary("takizuka_2004_lh"), **kw))
+    assert central == pytest.approx(B._takizuka_2004_threshold(**kw, gamma=B.TAKIZUKA_GAMMA_DEFAULT))
+    assert B.TAKIZUKA_GAMMA_DEFAULT == 0.5
+    upper, lower = B._takizuka_2004_threshold(**kw, gamma=1.0), B._takizuka_2004_threshold(**kw, gamma=0.0)
+    assert upper / lower == pytest.approx(float(B._takizuka_aspect_factor(1.32)))
+    assert upper / lower == pytest.approx(1.85, abs=0.01)
+    assert central == pytest.approx(math.sqrt(upper * lower))
+    for outside in (-0.1, 1.1):
+        with pytest.raises(ValueError, match="gamma"):
+            B._takizuka_2004_threshold(**kw, gamma=outside)

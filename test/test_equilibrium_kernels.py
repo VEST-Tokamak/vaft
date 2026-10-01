@@ -22,12 +22,10 @@ from vaft.formula import (
     auxiliary_heating_power,
     bootstrap_current_fraction,
     bremsstrahlung_power_density_from_T_e_p_Z_eff,
-    bremsstrahlung_power_density_from_Z_eff_n_e_T_e,
     bremsstrahlung_power_density_from_n_e_T_e_Z_eff,
     bremsstrahlung_radiation_power_from_z_eff_n_e_t_e,
     confinement_time_from_P_loss_W_th,
     current_density_from_B,
-    current_density_from_psi,
     current_drive_efficiency,
     current_limit_from_beta,
     current_limit_from_q,
@@ -288,36 +286,6 @@ def test_an_explicit_cocos_index_rescales_the_field_by_the_factor_ratio():
     cocos11 = vertical_magnetic_field_from_psi(psi, R, np.zeros_like(R), cocos=11)
     ratio = poloidal_field_factor(11) / poloidal_field_factor(None)
     assert cocos11 == pytest.approx(default * ratio, rel=1e-12, abs=0.0)
-
-
-def test_current_density_from_psi_is_minus_b_z_over_mu0_and_warns():
-    # #355: the value is -B_Z/mu0 [A/m], a current per unit length, not a
-    # current density.  The docstring used to say +B_Z/mu0, which is the sign
-    # this module's own default convention (k = -1) does not give -- anyone
-    # migrating on that advice would have flipped sign.  Pin the sign, not the
-    # prose.
-    R = np.linspace(1.0, 2.0, 41)
-    psi = 0.3 + 0.07 * R
-    b_z = vertical_magnetic_field_from_psi(psi, R, np.zeros_like(R))
-    with pytest.warns(DeprecationWarning, match="not a current density"):
-        value = current_density_from_psi(psi, R)
-    assert value == pytest.approx(-b_z / MU0, rel=1e-10, abs=0.0)
-    # ... which is the same thing the inline k = -1 spelled out.
-    assert value == pytest.approx(
-        b_z / (MU0 * poloidal_field_factor(None)), rel=1e-10, abs=0.0
-    )
-
-
-def test_the_documented_replacement_for_current_density_from_psi_agrees():
-    # The migration path the docstring names must reproduce the old number
-    # exactly, or the deprecation sends callers somewhere wrong.
-    R = np.linspace(1.0, 2.0, 41)
-    Z = np.zeros_like(R)
-    psi = 0.3 + 0.07 * R
-    with pytest.warns(DeprecationWarning):
-        legacy = current_density_from_psi(psi, R)
-    replacement = -vertical_magnetic_field_from_psi(psi, R, Z) / MU0
-    assert replacement == pytest.approx(legacy, rel=1e-13, abs=0.0)
 
 
 def test_current_density_from_B_is_the_radial_derivative_over_mu0():
@@ -747,22 +715,6 @@ def test_the_canonical_bremsstrahlung_form_refuses_a_positional_Z_eff():
         bremsstrahlung_power_density_from_n_e_T_e_Z_eff(2.0, 1e19, 1000.0)
     with pytest.raises(TypeError):
         bremsstrahlung_power_density_from_n_e_T_e_Z_eff(1e19, 1000.0, 2.0)
-
-
-def test_the_deprecated_bremsstrahlung_name_warns_and_forwards_unchanged():
-    # A caller written against the old *signature* must keep its answer; the
-    # shim only adds the warning.  One written against the old *name* keeps its
-    # wrong answer, which a compatibility shim cannot detect -- the warning is
-    # what points at the fix.
-    with pytest.warns(DeprecationWarning, match="from_n_e_T_e_Z_eff"):
-        legacy = bremsstrahlung_power_density_from_Z_eff_n_e_T_e(1e19, 1000.0, 2.0)
-    assert legacy == bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
-        1e19, 1000.0, Z_eff=2.0
-    )
-    with pytest.warns(DeprecationWarning):
-        assert bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
-            1e19, 1000.0
-        ) == bremsstrahlung_power_density_from_n_e_T_e_Z_eff(1e19, 1000.0)
 
 
 def test_nrl_bremsstrahlung_matches_its_published_coefficient():

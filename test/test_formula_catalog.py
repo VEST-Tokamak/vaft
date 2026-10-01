@@ -70,7 +70,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # #782 added the dimensional internal inductance and its li_3
         # conversions: 84 + 3 = 87.
         # +4 psi_N profile kernels and their derivatives (#552): 93 + 4 = 97.
-        "equilibrium": 99,  # +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        # 0.8.0 removed the two deprecated shims promised gone in it (#355, #760):
+        # current_density_from_psi and the Z_eff-first bremsstrahlung spelling, 99 - 2 = 97.
+        "equilibrium": 97,  # +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
         "stability": 37,  # +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
@@ -103,7 +105,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "sol": 19,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951), MARFE (#1209), blobs (#1211)
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
-        "boundaries": 6,  # operational-boundary data model: value, margin, window, curve, registry (#1067)
+        "boundaries": 7,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
@@ -322,7 +324,9 @@ def test_snapshot_schema():
         assert row["id"] == f"{row['category']}.{row['name']}"
         for section in row["sections"]:
             assert section["title"] in SECTION_VOCABULARY, row["id"]
-        assert ":func:" not in yaml.safe_dump(row), row["id"]
+        # the inline source (#1069) is the code as written, roles and all
+        prose = {**row, "source": {k: v for k, v in row["source"].items() if k != "code"}}
+        assert ":func:" not in yaml.safe_dump(prose), row["id"]
         assert "Raises" not in [section["title"] for section in row["sections"]], row["id"]
         assert row["source"]["path"] == f"vaft/formula/{row['category']}.py", row["id"]
         for item in row["raises"]:

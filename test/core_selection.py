@@ -62,11 +62,13 @@ CORE_MODULES: tuple[str, ...] = (
     # with what the packages actually export.
     "test_cli.py",
     "test_formula_catalog.py",
+    "test_help.py",
     "test_hsds_configure.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
     "test_plot_submodule.py",
     "test_process_catalog.py",
+    "test_setup.py",
     # Layer boundaries. Source-level architecture checks -- no solves, no I/O.
     "contracts/test_machine_mapping_boundaries.py",
     "test_api_layer_boundaries.py",
@@ -116,6 +118,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
     "test_public_confinement.py",
+    "test_public_profile.py",
     "test_public_transition.py",
     "test_shotlog.py",
     # Packaging and documentation policy. Metadata reads; they catch the
@@ -141,9 +144,11 @@ CORE_MODULES: tuple[str, ...] = (
     # author ever opening docs/, which is exactly what develop should catch.
     # The committed diagram SVGs are checked against their TikZ source too.
     "test_diagram_render.py",
+    "test_docs_api.py",
     "test_docs_catalogs.py",
     "test_docs_content.py",
     "test_docs_snippets.py",
+    "test_docs_sources.py",
     "test_docs_thumbnails.py",
     "test_readme_consistency.py",
     # Operational boundaries (#1067): every published limit is called and
@@ -185,6 +190,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
+    # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
+    "test_pipeline_worker.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

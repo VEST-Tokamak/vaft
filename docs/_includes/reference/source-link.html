@@ -1,0 +1,16 @@
+{%- comment -%}
+The [source] link of one generated reference entry (#1069).
+
+  include.src   the entry's source span: {path, line, end_line, code}
+  include.ref   the commit the catalog was generated from (its provenance.commit)
+  include.key   what validate_docs.rb matches the link against: the entry's id,
+                or "<id>.<member>" for a class member
+
+The link is pinned to the commit and to the definition's line range, never to
+a branch: a catalog without a provenance commit (a bare `jekyll build`)
+renders no link.
+{%- endcomment -%}
+{%- assign src = include.src -%}
+{%- if include.ref != "" and src.line > 0 -%}
+<a class="ref-source" data-source="{{ include.key }}" href="https://github.com/VEST-Tokamak/vaft/blob/{{ include.ref }}/{{ src.path }}#L{{ src.line }}-L{{ src.end_line }}" title="{{ src.path }}, lines {{ src.line }}–{{ src.end_line }} at {{ include.ref | slice: 0, 7 }}">source</a>
+{%- endif -%}

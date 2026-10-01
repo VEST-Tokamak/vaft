@@ -123,7 +123,9 @@ def _require_toolchain() -> dict:
 
 
 def _run(cmd, cwd: Path, what: str) -> None:
-    proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    # utf-8 with replacement, not the locale codec: a stray byte in a TeX message must not turn the report
+    # into a UnicodeDecodeError
+    proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if proc.returncode != 0:
         log = cwd / "diagram.log"
         detail = log.read_text(encoding="utf-8", errors="replace")[-3000:] if log.exists() else proc.stdout[-3000:]

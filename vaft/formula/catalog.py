@@ -50,7 +50,7 @@ from ._docstring import (
     ReturnDoc,
     parse_docstring,
     parse_module_docstring,
-    source_location,
+    source_span,
     strip_roles,
 )
 
@@ -114,6 +114,8 @@ class FormulaSpec:
     raises: tuple[RaiseDoc, ...] = ()
     source_path: str = ""
     source_line: int = 0
+    source_end_line: int = 0
+    source_code: str = ""
     definitions: tuple[str, ...] = ()
 
     @property
@@ -347,7 +349,12 @@ class FormulaSpec:
                 {"type": item.type, "description": strip_roles(item.description)}
                 for item in self.raises
             ],
-            "source": {"path": self.source_path, "line": self.source_line},
+            "source": {
+                "path": self.source_path,
+                "line": self.source_line,
+                "end_line": self.source_end_line,
+                "code": self.source_code,
+            },
             "definitions": list(self.definitions),
             "aliases": list(self.aliases),
             "shadowed_by": self.shadowed_by,
@@ -450,7 +457,7 @@ def _signature(fn) -> str:
 
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> FormulaSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
-    path, line = source_location(fn, Path(__file__).resolve().parents[2])
+    span = source_span(fn, Path(__file__).resolve().parents[2])
     return FormulaSpec(
         name=name,
         category=category,
@@ -469,8 +476,10 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         shadowed_by=_shadowing_category(category, name),
         errors=parsed.errors,
         raises=parsed.raises,
-        source_path=path,
-        source_line=line,
+        source_path=span["path"],
+        source_line=span["line"],
+        source_end_line=span["end_line"],
+        source_code=span["code"],
         definitions=tuple(equation.strip() for equation in _DISPLAY_MATH.findall(parsed.description)),
     )
 

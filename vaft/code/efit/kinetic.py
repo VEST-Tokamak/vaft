@@ -36,8 +36,8 @@ Design rules honoured here:
   resolved it returns a ``status='skipped'`` result instead of raising.
 * Thomson-only shots (no IDS/charge_exchange ion data) fall back to the
   statistical ``Ti = ratio * Te``, where the ratio is VEST policy resolved
-  from ``vest.yaml`` (``diagnostics.core_profiles.ti_te_ratio``, fitted on the
-  shots that carry both diagnostics) by
+  from ``vest.yaml`` (``diagnostics.core_profiles.ti_te_ratio``; currently an
+  assumed Ti = Te, #1331) by
   :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`.
   Control it via ``ti_te_ratio`` (``'auto'`` default / float / ``None`` =
   strict).  The radial coordinate the profiles are fitted in is resolved the
@@ -117,11 +117,10 @@ def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None, *, ods=None, shot=
     """Resolve the statistical Ti/Te fallback coefficient to (ratio, sigma).
 
     ``'auto'`` / ``'vest'`` -> the VEST policy value
-    (``vest.yaml`` ``diagnostics.core_profiles.ti_te_ratio``, fitted on the
-    VEST shots that carry BOTH Thomson and IDS/charge_exchange profiles; see
-    ``vaft.process.profile.fit_ti_te_ratio`` for the estimator).  A float is
-    used as-is.  ``ti_te_ratio_sigma=None`` falls back to the policy sigma
-    (the slice-to-slice scatter).
+    (``vest.yaml`` ``diagnostics.core_profiles.ti_te_ratio``; currently an
+    assumed Ti = Te with sigma 0.5, #1331 -- ``vaft.process.profile.fit_ti_te_ratio``
+    is the estimator the earlier, superseded value was derived with).  A float
+    is used as-is.  ``ti_te_ratio_sigma=None`` falls back to the policy sigma.
 
     The policy is read through :mod:`vaft.machine_mapping`; the processing
     layer holds no VEST number (issue #420).
@@ -527,6 +526,38 @@ def _raw_ne_te_ti(
     return (*values, fallback_meta) if return_fallback_meta else values
 
 
+def _nearest_profile_index(ods: Any, time_ms: float) -> int:
+    """The ``core_profiles.profiles_1d`` slice nearest ``time_ms``."""
+    target_s = time_ms / 1000.0
+    n = len(ods["core_profiles.profiles_1d"])
+    if n == 0:
+        raise RuntimeError("no core_profiles.profiles_1d in ODS for spline encoding")
+    return min(range(n), key=lambda i: abs(float(ods[f"core_profiles.profiles_1d.{i}.time"]) - target_s))
+
+
+def _ratio_pressure_fraction(ods: Any, index: int) -> Optional[float]:
+    """Relative pressure uncertainty an assumed ``Ti = ratio*Te`` carries, or ``None``.
+
+    Read from the slice's own ``ion.0.temperature_fit.parameters`` record, which
+    ``core_profiles`` writes only for a ratio-derived Ti: ``p = e*ne*(1+ratio)*Te``,
+    so the ratio's sigma contributes ``sigma/(1+ratio)`` of ``p``.  ``None`` for a
+    measured Ti, or a record that does not state the sigma.
+    """
+    key = f"core_profiles.profiles_1d.{index}.ion.0.temperature_fit.parameters"
+    try:
+        record = str(ods[key]) if key in ods else ""
+    except Exception:  # noqa: BLE001 - an unreadable record is no record
+        return None
+    fields = dict(
+        part.strip().split("=", 1) for part in record.split(";") if "=" in part
+    )
+    try:
+        ratio, sigma = float(fields["ti_te_ratio"]), float(fields["sigma"])
+    except (KeyError, ValueError):
+        return None
+    return sigma / (1.0 + ratio) if ratio > -1.0 else None
+
+
 def _spline_pressure(ods: Any, time_ms: float, npts: int = SPLINE_NPTS):
     """Return (psi_N grid [129], p_kin [Pa]) resampled from core_profiles.
 
@@ -536,17 +567,7 @@ def _spline_pressure(ods: Any, time_ms: float, npts: int = SPLINE_NPTS):
     e*ne*(Te+Ti), written by :func:`build_kinetic_core_profiles`) and resampled
     onto a uniform 129-pt psi_N grid.
     """
-    target_s = time_ms / 1000.0
-    n = len(ods["core_profiles.profiles_1d"])
-    if n == 0:
-        raise RuntimeError("no core_profiles.profiles_1d in ODS for spline encoding")
-    idx, best = 0, float("inf")
-    for i in range(n):
-        t = float(ods[f"core_profiles.profiles_1d.{i}.time"])
-        d = abs(t - target_s)
-        if d < best:
-            best, idx = d, i
-    base = f"core_profiles.profiles_1d.{idx}"
+    base = f"core_profiles.profiles_1d.{_nearest_profile_index(ods, time_ms)}"
 
     if f"{base}.grid.psi" in ods:
         psi = np.asarray(ods[f"{base}.grid.psi"], dtype=float)
@@ -588,7 +609,9 @@ def kinetic_pressure_points(
         The 5 real-space TS points only.
     ``spline``
         129-pt psi-space profile (``RPRESS=-psi_N``) with the half-cosine
-        ``FWTPRE`` taper and constant ``SIGPRE = SPLINE_SIG_FRAC * p(axis)``.
+        ``FWTPRE`` taper and constant ``SIGPRE = SPLINE_SIG_FRAC * p(axis)``,
+        widened to the assumed ratio's ``sigma/(1+ratio)`` when the slice's Ti
+        is ``ratio * Te`` (as the raw encodings propagate it).
 
     For measured Ti in the raw encodings ``p = e*ne*(Te+Ti)`` and
     ``SIGPRE = e*sqrt(((Te+Ti)*sne)^2 + (ne*sTe)^2 + (ne*sTi)^2)`` floored at
@@ -645,7 +668,10 @@ def kinetic_pressure_points(
 
     if enc == "spline":
         psi_n, p = _spline_pressure(ods, time_ms)
-        s0 = SPLINE_SIG_FRAC * float(p[0])
+        # An assumed Ti/Te is at least as uncertain as the ratio says: with
+        # Ti = Te +/- 0.5 Te that is 25 % of p, above the fixed 15 % (#1414).
+        ratio_fraction = _ratio_pressure_fraction(ods, _nearest_profile_index(ods, time_ms))
+        s0 = max(SPLINE_SIG_FRAC, ratio_fraction or 0.0) * float(p[0])
         rpress = [float(-x) for x in psi_n]        # negative => psi_N abscissa
         pressr = [float(x) for x in p]
         sigpre = [s0] * len(psi_n)
@@ -795,7 +821,7 @@ def build_kinetic_core_profiles(
     Thomson-only slices (``ti_te_fallback=True`` and no usable ion fit): the ion
     temperature falls back to ``Ti = ti_te_ratio * Te``. The default
     ``ti_te_ratio='auto'`` resolves to the statistical VEST policy value in
-    ``vest.yaml`` (fitted on the shots carrying both diagnostics; see
+    ``vest.yaml`` (currently an assumed Ti = Te, #1331; see
     :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`) and
     -- unlike the legacy ``Ti=Te`` fallback -- also writes
     ``pressure_thermal = e*ne*(1+ratio)*Te``, so the kinetic-EFIT spline

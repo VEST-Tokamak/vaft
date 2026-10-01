@@ -268,7 +268,9 @@ def current_quench(
     time_80 = _crossing(t, magnitude, index_80, high)
     time_20 = _crossing(t, magnitude, index_20 - 1, low)
 
-    if smoothing_s is None:
+    if smoothing_s is None or magnitude.size < 3:
+        # A Savitzky-Golay window is at least three samples (odd, above the
+        # quadratic's order); a two-sample record has only its one slope.
         rate = np.gradient(magnitude, t)
     else:
         from scipy.signal import savgol_filter

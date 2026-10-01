@@ -115,6 +115,11 @@ class ExecutionResult:
     #: ``"completed"`` (the program exited; see ``returncode``), ``"timeout"``
     #: or ``"queue_timeout"``. Left empty, it is derived from ``timed_out``.
     runtime_status: str = ""
+    #: How long the program itself ran [s], when the backend can tell that
+    #: apart from time spent queued: a scheduler batch job's own start and
+    #: termination stamps. ``None`` when ``elapsed_s`` is the only measure
+    #: (a local launch, or a job that left no termination record).
+    run_s: Optional[float] = None
 
     def __post_init__(self) -> None:
         if not self.runtime_status:
@@ -142,17 +147,21 @@ def timeout_reason(program: str, execution: ExecutionResult, timeout: Optional[f
     """The one-line reason an adapter gives for a timed-out execution.
 
     A job that never left the scheduler queue did not "time out after N
-    seconds" of running, so the two limits are worded apart.
+    seconds" of running, so the two limits are worded apart. The running
+    time is ``run_s`` when the backend measured it (a batch job's own
+    stamps; ``elapsed_s`` there counts from submission, queue wait included),
+    else ``elapsed_s``.
     """
     if execution.runtime_status == RUNTIME_QUEUE_TIMEOUT:
         return (
             f"{program} was cancelled after waiting {execution.elapsed_s:.0f} s "
             "in the scheduler queue (it never started)"
         )
+    ran = execution.elapsed_s if execution.run_s is None else execution.run_s
     # A stop well short of ``timeout`` (a scheduler's max_wait cancelling a
     # running job) did not run for ``timeout`` seconds; say how long it did.
-    if timeout is None or execution.elapsed_s < 0.9 * timeout:
-        return f"{program} timed out after {execution.elapsed_s:.3g} s of running"
+    if timeout is None or ran < 0.9 * timeout:
+        return f"{program} timed out after {ran:.3g} s of running"
     return f"{program} timed out after {timeout:g} s of running"
 
 

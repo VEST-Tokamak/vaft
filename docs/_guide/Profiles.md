@@ -108,7 +108,9 @@ which is a different coordinate.
 The same equilibrium carried through all of its representations -- the four radial coordinates side
 by side, a PEST grid, Miller and Fourier fits, $a/L_T$ in four gradient conventions, a prescribed
 island, a 3-D embedding and a camera projection, each checked against the same source, time, COCOS
-and flux unit -- is `notebooks/equilibrium_representation_reference.ipynb` (#1201).
+and flux unit -- is `notebooks/equilibrium_representation_reference.ipynb` (#1201). Which of these
+is a coordinate, a projection, a representation, a derived quantity or a solver convention is set
+out in [Equilibrium representations]({{ '/reference/equilibrium-representations/' | relative_url }}).
 Building an equilibrium is covered in [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/).
 
 ## Stage 2 — profile fitting
@@ -261,10 +263,13 @@ The fits are evaluated on the equilibrium grid **in their own coordinate** and s
 `core_profiles.code.parameters` carries one line per slice. A slice written before #420 has no such
 record; that absence marks a legacy product fitted in $\psi_N$.
 
-Thomson-only slices need an ion temperature. The statistical Ti/Te coefficient is **VEST policy**, not a
-processing default: it lives in `vest.yaml` (`diagnostics.core_profiles.ti_te_ratio`, status
-`inferred`, with its derivation record) and the kinetic-EFIT pipeline resolves it per shot with
-`vaft.machine_mapping.core_profiles.vest_core_profiles_policy(shot)` before calling `core_profiles`.
+Thomson-only slices need an ion temperature. The Ti/Te coefficient is **VEST policy**, not a
+processing default: it lives in `vest.yaml` (`diagnostics.core_profiles.ti_te_ratio`). It is currently **Ti = Te**
+(value 1.0, σ 0.5, status `assumed`, so the total pressure is about twice the Thomson electron pressure),
+chosen on #1331 until enough CES/IDS shots exist to infer it. The earlier inference, 0.17 from 9 slices of
+48224/48226/48233, is kept there as `superseded_inference`, as a record only. The kinetic-EFIT pipeline resolves
+the policy per shot with `vaft.machine_mapping.core_profiles.vest_core_profiles_policy(shot)` before calling
+`core_profiles`.
 
 It writes, for the new slice index `i`:
 
@@ -662,6 +667,81 @@ more than it would on a large device:
 
 Always keep `uncertainty_option=1` if error bars exist. With it disabled every channel is weighted
 equally, including ones the diagnostic itself flagged as unreliable.
+
+## Equilibrium reconstruction with EFIT
+
+The profiles above are mapped on an equilibrium, and on VEST that equilibrium is an EFIT
+reconstruction: `vaft.code.efit` writes the k-files, runs the code and collects its output. The
+per-shot stages live in [Automated pipelines]({{ site.baseurl }}/workflows/automated-pipelines/) and
+the functions in the [code API]({{ site.baseurl }}/reference/api/code/). Two parts of that machinery
+belong on this page: the named configurations a run selects, and the poloidal field derived from the
+flux map it returns.
+
+### Named configurations (presets)
+
+`vaft.code.efit.PRESETS` names complete EFIT configurations: the scientific configuration written into the k-file, plus the sigma floor applied to the constraints first.
+
+| preset | what it is |
+| --- | --- |
+| `routine` | The production configuration: legacy weights, a (2,2) basis, EFIT's own termination. Selecting it is the same as selecting nothing. |
+| `statistical_891` | The #891 working setting. Statistical σ with a 2 % floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1). |
+
+A preset floors the constraints before the k-file is written; `prepare_constraints` returns the
+floored copy and what it changed, per slice and family:
+
+```python
+from vaft.code.efit import efit_preset
+
+preset = efit_preset("statistical_891")
+ods = vaft.omas.sample_ods()   # shot 39915, whose equilibrium carries the EFIT constraints
+constraints, floor_changes = preset.prepare_constraints(ods)   # a floored copy of the constraints ODS
+floor_changes[0]   # {'slice': 0, 'family': 'bpol_probe', 'floor': ..., 'raised': ..., 'fitted': ...}
+```
+
+The k-file is then written from the floored copy with the preset's scientific configuration:
+
+<!-- docs-snippet: skip needs-data (generate_kfile reads the k-file inputs generate_constraints_ods records under equilibrium.code.parameters, which the packaged sample lacks) -->
+```python
+from vaft.code.efit import generate_kfile
+
+generate_kfile(constraints, 39915, save_dir="efit-run", config=preset.scientific)
+```
+
+**Selecting a preset in the pipelines.**
+- **Pipeline 1:** `efit.preset` in `config.yaml` selects it. The k-file stage then writes `efit_preset.json` beside its manifest, and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`).
+- **Pipeline 2:** `kinetic.efit_preset` builds the kinetic lineages' base magnetic k-file with the same preset (`KineticEFITConfig.efit_preset`).
+
+A preset run writes the same product paths as a routine one, so give it its own `base_dir`.
+
+`statistical_891` allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot's slices in one EFIT call. So raise `efit.timeout`: 3600 s held for the #1331 Tier A campaign, while 600 s timed out 26 of 33 shots.
+
+`statistical_891` was calibrated on 39915's flat-top. The weight-study README (`workflow/efit_uncertainty_calibration`) records how.
+
+### Poloidal field on the boundary and the flux convention
+
+The poloidal field on the LCFS, which `shafranov_integrals` turns into $S_1, S_2, S_3$ for
+$\beta_p$ and $l_i$, is read off the flux map by bicubic spline. The map's flux convention is an
+argument, not an assumption: an ODS stores $\psi$ in Wb (COCOS 11), while the function's default is
+Wb/rad, a factor $2\pi$ in the field.
+
+```python
+from vaft.process.equilibrium import poloidal_field_at_boundary
+
+ods = vaft.omas.sample_ods()   # shot 39915: psi stored in Wb, and the record says so
+slice_0 = ods["equilibrium.time_slice.0"]
+R_grid_1d = slice_0["profiles_2d.0.grid.dim1"]
+Z_grid_1d = slice_0["profiles_2d.0.grid.dim2"]
+psi_grid = slice_0["profiles_2d.0.psi"]
+R_bdry, Z_bdry = slice_0["boundary.outline.r"], slice_0["boundary.outline.z"]
+
+B_p_bdry, B_R_bdry, B_Z_bdry = poloidal_field_at_boundary(
+    R_grid_1d, Z_grid_1d, psi_grid, R_bdry, Z_bdry,
+    cocos=vaft.omas.ods_cocos(ods),  # the flux convention the record declares: 11 for IMAS psi in Wb; omitting it assumes Wb/rad
+)
+```
+
+The rest of the chain -- `shafranov_integrals`, `efit_virial_volume_integrals`, `calculate_diamagnetism`
+-- is documented in the [process reference]({{ site.baseurl }}/reference/process/equilibrium/).
 
 ## References
 

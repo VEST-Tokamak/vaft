@@ -586,7 +586,7 @@ def test_the_region_equations_and_boundary_problem_are_taught(book):
     markdown = _markdown(book)
     for token in ("One flux function, three regions", "homogeneous", "boundary is part of the solution",
                   "scrape-off layer", "private-flux region", "Free-boundary and inverse are not synonyms",
-                  "#1258", "#1236"):
+                  "#1258"):
         assert token in markdown, token
 
 
@@ -608,3 +608,38 @@ def test_the_region_equations_are_checked_on_the_computed_flux(executed):
     vacuum = float(re.search(r"max \|Delta\* psi\| = ([0-9.e+-]+) of its plasma value", printed).group(1))
     assert abs(ratio - 1.0) < 0.05
     assert vacuum < 0.02
+
+
+GS_DIAGRAMS = ("equilibrium_problem_taxonomy", "fixed_vs_free_boundary_equilibrium",
+               "grad_shafranov_domain_decomposition", "poloidal_flux_source_decomposition",
+               "limiter_and_diverted_topologies")
+
+
+def test_the_grad_shafranov_concept_diagrams_are_shown_canonically(book):
+    """#1236: the five concept diagrams, called with their canonical arguments so they
+    render from the committed assets on a machine without TeX."""
+    executable = _executable(book)
+    for name in GS_DIAGRAMS:
+        assert f"vaft.diagram.{name}()" in executable, name
+    calls = re.findall(r"vaft\.diagram\.(\w+)\(([^)]*)\)", executable)
+    assert calls and all(arguments.strip() == "" for _name, arguments in calls), calls
+
+
+def test_the_concepts_precede_the_computation_and_the_schematics_follow_it(book):
+    order = [_first_code_index(book, f"vaft.diagram.{name}()") for name in GS_DIAGRAMS[:3]]
+    sources = _first_code_index(book, "vaft.formula.green_psi_exact(")
+    maps = _first_code_index(book, "find_stationary_points(vaft.data.EquilibriumData(")
+    after = [_first_code_index(book, f"vaft.diagram.{name}()") for name in GS_DIAGRAMS[3:]]
+    assert order == sorted(order) and max(order) < sources
+    assert min(after) > maps
+    # the region check follows the schematics, and its intro sits right before it
+    check = _first_code_index(book, "grad_shafranov_operator(total")
+    assert max(after) < check
+    assert book.cells[check - 1].id == "s03-region-check-intro"
+
+
+def test_every_grad_shafranov_diagram_is_drawn(executed):
+    for cell_id in ("s03-taxonomy-diagram", "s03-fixed-free-diagram", "s03-domain-diagram",
+                    "s03-source-diagram", "s03-topology-diagram"):
+        outputs = _cell(executed, cell_id).outputs
+        assert any("image/svg+xml" in output.get("data", {}) for output in outputs), cell_id

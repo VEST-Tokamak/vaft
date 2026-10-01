@@ -243,6 +243,14 @@ def test_runtime_status_is_derived_from_timed_out_and_kept_consistent():
     # A scheduler's max_wait stopping a running job at 2 s of a 600 s walltime.
     early = ExecutionResult(returncode=None, timed_out=True, elapsed_s=2.0)
     assert timeout_reason("X", early, 600.0) == "X timed out after 2 s of running"
+    # A batch job's elapsed_s counts from submission; the running time is
+    # run_s when the backend measured it (cold review 0.8.0 execution-backend F2).
+    queued_then_ran = ExecutionResult(
+        returncode=None, timed_out=True, elapsed_s=1000.0, run_s=1.4, job_id="7"
+    )
+    assert timeout_reason("X", queued_then_ran, 600.0) == "X timed out after 1.4 s of running"
+    ran_out = ExecutionResult(returncode=None, timed_out=True, elapsed_s=1000.0, run_s=598.0)
+    assert timeout_reason("X", ran_out, 600.0) == "X timed out after 600 s of running"
     with pytest.raises(ValueError, match="disagrees"):
         ExecutionResult(returncode=0, runtime_status="timeout")
     with pytest.raises(ValueError, match="must be one of"):

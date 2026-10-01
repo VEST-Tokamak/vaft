@@ -21,6 +21,11 @@ This page is the map of the `vaft` package: what each subpackage is for, the ent
 expected to call, and where the detailed guide for each area lives. The signatures shown here are the
 real ones — copy them.
 
+The complete list of what each subpackage publishes -- every object in a module's `__all__`, with its
+signature, summary, deprecation status and source -- is generated from the code on every publish:
+follow the **API** link of a subpackage in the table below. `docs/api_inventory.yml` groups the
+modules into those pages and lists the modules that publish nothing yet.
+
 ```python
 import vaft
 
@@ -50,18 +55,21 @@ flowchart TD
     ODS --> IMASP["vaft.imas<br/>OMAS to IMAS Access Layer"]
 ```
 
-| Subpackage | Purpose | Deep dive |
-| --- | --- | --- |
-| `vaft.database` | Load/save VEST shots (ODS, native IDS) and reach the raw SQL DAQ archive | [Data structures]({{ site.baseurl }}/guide/Data_structures/) |
-| `vaft.omas` | The ODS-aware API: `find_*`, `compute_*`, `update_*`, sample data | this page |
-| `vaft.process` | Array-in / array-out signal processing, EM response, magnetics chains | [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) |
-| `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Formula reference]({{ site.baseurl }}/reference/formula/) |
-| `vaft.machine_mapping` | Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults | this page |
-| `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page |
-| `vaft.diagram` | Explanatory schematics (magnetic-island topology, ...) drawn from `vaft.formula` and rendered to SVG | [Scientific diagrams]({{ site.baseurl }}/reference/diagrams/) |
-| `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM, TRANSP) | this page |
-| `vaft.data` | GEQDSK read/write and packaged sample files | this page |
-| `vaft.imas` | OMAS to IMAS Access Layer bridge | [Data structures]({{ site.baseurl }}/guide/Data_structures/) |
+| Subpackage | Purpose | Deep dive | Generated reference |
+| --- | --- | --- | --- |
+| `vaft.database` | Load/save VEST shots (ODS, native IDS) and reach the raw SQL DAQ archive | [Data structures]({{ site.baseurl }}/guide/Data_structures/) | [API]({{ site.baseurl }}/reference/api/database/) |
+| `vaft.omas` | The ODS-aware API: `find_*`, `compute_*`, `update_*`, sample data | this page | [API]({{ site.baseurl }}/reference/api/omas/) |
+| `vaft.process` | Array-in / array-out signal processing, EM response, magnetics chains | [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) | [API]({{ site.baseurl }}/reference/api/process/) |
+| `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Formula reference]({{ site.baseurl }}/reference/formula/) | [API]({{ site.baseurl }}/reference/api/formula/) |
+| `vaft.machine_mapping` | Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults | this page | [API]({{ site.baseurl }}/reference/api/machine-mapping/) |
+| `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page | [API]({{ site.baseurl }}/reference/api/plot/) |
+| `vaft.diagram` | Explanatory schematics (magnetic-island topology, ...) drawn from `vaft.formula` and rendered to SVG | [Scientific diagrams]({{ site.baseurl }}/reference/diagrams/) | [API]({{ site.baseurl }}/reference/api/diagram/) |
+| `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM, TRANSP) | this page | [API]({{ site.baseurl }}/reference/api/code/) |
+| `vaft.data` | GEQDSK read/write and packaged sample files | this page | [API]({{ site.baseurl }}/reference/api/data/) |
+| `vaft.imas` | OMAS to IMAS Access Layer bridge | [Data structures]({{ site.baseurl }}/guide/Data_structures/) | [API]({{ site.baseurl }}/reference/api/imas/) |
+| `vaft.validation` | Scientific assessment: benchmarks, comparisons, regression evidence | | [API]({{ site.baseurl }}/reference/api/validation/) |
+| `vaft.cli` | Command-line workflows over the library APIs | | [API]({{ site.baseurl }}/reference/api/cli/) |
+| `vaft`, `vaft.compat`, `vaft.ods_access`, `vaft.spectroscopy` | Top level and small utilities | | [API]({{ site.baseurl }}/reference/api/core/) |
 
 Everything in an ODS is in **IMAS SI units**: seconds, amperes, tesla, weber, m$^{-3}$, and eV or J
 where the Data Dictionary says so. The plotting layer is the only place that rescales (for example A
@@ -281,22 +289,10 @@ vaft.omas.update_core_profiles_global_quantities_volume_average(ods, time_slice=
 `vaft.process` is the numerical layer (NumPy in, NumPy out) and `vaft.formula` is the closed-form
 physics layer. Neither one touches an ODS. Modules at a glance:
 
-| Module | Contents |
-| --- | --- |
-| `vaft.process.signal_processing` | `smooth`, `define_baseline`, `subtract_baseline`, `signal_on_offset`, `is_signal_active`, `process_signal` |
-| `vaft.process.numerical` | `time_derivative(time, data)` on a non-uniform grid |
-| `vaft.process.electromagnetics` | `compute_br_bz_phi`, `calc_grid`, `compute_response_matrix`, `compute_impedance_matrices`, `solve_eddy_currents`, `compute_vacuum_fields_1d` |
-| `vaft.process.magnetics` | `rogowski_coil_ip`, `flux_loop_flux`, `b_field_pol_probe_field`, `mirnov_spectrogram`, `toroidal_mode_analysis`, `toroidal_phase_fit_at_time` |
-| `vaft.process.equilibrium` | `psi_to_rz`, `psi_to_rho`, `volume_average`, `shafranov_integrals`, `efit_virial_volume_integrals`, `calculate_diamagnetism` |
-| `vaft.process.profile` | Thomson and charge-exchange mapping/fitting, `core_profiles`, `core_profiles_from_eq` |
-| `vaft.process.statistical_analysis` | `generate_core_profiles_history_dataframe`, `perform_ols_regression`, `compute_metrics` |
-| `vaft.formula.equilibrium` | flux, `q` and shear; geometry from an $(R,Z)$ boundary; virial (Shafranov) relations; power balance; confinement scalings |
-| `vaft.formula.stability` | `beta_N_from_beta_a_B0_Ip`, `greenwald_density`, `greenwald_fraction`, ballooning/kink/sawtooth criteria |
-| `vaft.formula.green` | `greens_function_2d`, `green_br_bz`, complete elliptic integrals |
-| `vaft.formula.utils` | `gradient`, `trapz_integral`, `fit_profile`, `make_fit_function` |
-| `vaft.formula.atomic` | `interpolate_adf11`, `fractional_abundances`, `line_cooling_coefficient` on OPEN-ADAS ADF11 tables |
-| `vaft.formula.statistics` | residual, goodness-of-fit and convergence statistics (`rms`, `chi_squared`, `runs_test_z`, `log10_decay_rate`, ...) |
-| `vaft.formula.constants` | Physical constants used by the formula layer |
+Every function of both layers has its own entry in the [process reference]({{ site.baseurl }}/reference/process/)
+and the [formula reference]({{ site.baseurl }}/reference/formula/), grouped by submodule, and the
+[`vaft.process` API]({{ site.baseurl }}/reference/api/process/) and
+[`vaft.formula` API]({{ site.baseurl }}/reference/api/formula/) pages list the classes and constants beside them.
 
 Both are documented in full on the
 [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) and
@@ -450,15 +446,9 @@ result  = run_efit(inputs, cfg)              # EFITResult
 outputs = collect_efit_outputs(workdir, cfg)
 ```
 
-| Code | Entry points |
-| --- | --- |
-| EFIT (equilibrium reconstruction) | `EFITConfig`, `EFITInputs`, `EFITResult`, `prepare_efit_inputs`, `run_efit`, `collect_efit_outputs`, `generate_kfile`, `generate_constraints_ods`, `apply_channel_decisions`, `gaussian_probe_recovery`, `probe_families`, `gfile_to_omas` |
-| CHEASE (fixed-boundary refinement) | `CHEASEConfig`, `CHEASEInputs`, `CHEASEResult`, `find_chease_executable`, `prepare_chease_inputs`, `run_chease`, `refine_equilibrium` |
-| GPEC (perturbed equilibrium, 3-D response) | `GPECSuiteConfig`, `GPECCaseInputs`, `GPECModuleRun`, `GPECSuiteResult`, `find_gpec_executable`, `prepare_gpec_suite_case`, `run_gpec_suite_case`, `run_gpec`, `collect_gpec_suite_outputs`, `format_gfile_header_for_gpec` |
-| TES (forward equilibrium) | `TESConfig`, `TESInputs`, `TESResult`, `prepare_tes_inputs`, `run_tes`, `collect_tes_outputs`, `scan_tes`, `parse_result_scalars`, `parse_result_coils` |
-| NUBEAM (neutral-beam Monte Carlo) | `NUBEAMConfig`, `NUBEAMInputs`, `NUBEAMResult`, `find_nubeam_executable`, `prepare_nubeam_inputs`, `run_nubeam`, `run_nubeam_case`, `collect_nubeam_outputs` |
-| TRANSP (transport, **read-only**) | `TranspOutput`, `TranspSlice`, `TranspVariable`, `TRANSPResult`, `read_transp_output`, `collect_transp_outputs`, `enclosed_torque`, `input_torque_density`, `zone_volume` |
-| Base classes | `CodeConfig`, `CodeInputs`, `CodeResult`, `CodeRunner` |
+The configuration, input, result and runner types of every adapter -- EFIT, CHEASE, GPEC, TES,
+NUBEAM, TRANSP and the others -- are listed with their signatures on the generated
+[`vaft.code` API]({{ site.baseurl }}/reference/api/code/) page, one section per module.
 
 `run_nubeam_case(input_dir, gfile=..., workdir=...)` is the NUBEAM equivalent: it stages a case,
 builds its Plasma State, and runs INIT then STEP. Results come back as a native container, and
@@ -550,11 +540,12 @@ raises. The result says:
 | `status` | `"failed"` (a property: `"completed"` when `ok`, else `"failed"`) |
 | `runtime_status` | `"timeout"`: the program ran past its limit and was stopped. `"queue_timeout"`: a scheduler job cancelled by `max_wait` before it started |
 | `returncode` | `None` |
-| `elapsed_s` | wall time from launch to stop [s] (set on every run, not only a timeout) |
+| `elapsed_s` | wall time from launch to stop [s] (set on every run, not only a timeout); for a Slurm batch job, from submission, queue wait included |
 | `timed_out` | `True` for either timeout kind (a property) |
 
 A stop well short of `timeout` (a scheduler's `max_wait` cancelling a running job) reports the time
-actually run. The reason is the last line of `stderr`, or of the log for codes that write one, worded
+actually run: a batch job's own start and termination stamps (`ExecutionResult.run_s`), so a long
+queue wait is not reported as running time. The reason is the last line of `stderr`, or of the log for codes that write one, worded
 `"<code> timed out after N s of running"` or `"<code> was cancelled after waiting N s in the scheduler
 queue (it never started)"`.
 
@@ -563,6 +554,7 @@ queue (it never started)"`.
 | CHEASE `run_chease`, `refine_equilibrium` | `CHEASEResult` | nothing is collected; `chease.log` holds the partial output and the reason |
 | `scan_chease` | the case keeps its `CHEASEResult` | `case.error` names the limit; the scan goes on (`keep_going`) |
 | `synthesize_equilibrium_from_0d` | `SyntheticEquilibriumResult` | `status="timeout"` with the reason, rather than `non_converged` |
+| `synthesize_equilibrium_to_targets` | `MultiTargetSynthesisResult` | `status="chease_failed"`; the reason names the solve and its `timeout`, and that solve's `history` record keeps `status="timeout"` |
 | GACODE `run_gacode` | `GACODERun` | unpacks as `(returncode, log)` as before, with `returncode=None`; `.runtime_status`, `.elapsed_s` |
 | NEO `run_neo`, TGLF `run_tglf` | `NEOResult`, `TGLFResult` | `check=True` (the default) raises `NEOExecutionError`/`TGLFExecutionError` naming the limit, as for any failure; `check=False` returns it |
 | NUBEAM `run_nubeam`, `run_nubeam_case` | `NUBEAMResult` | a stopped INIT, STEP or Plasma State stage; `generate_plasma_state` returns a path, so there it raises `NUBEAMExecutionError` |

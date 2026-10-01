@@ -34,6 +34,8 @@ DEFINITIONAL = frozenset({
     "boundary_curve",
     "get_boundary",
     "list_boundaries",
+    # A change of coordinates onto the Hugill plane (#1068); q_cyl carries its own source.
+    "hugill_coordinates",
     # A parameterization with no physics of its own (#552).
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
@@ -137,7 +139,6 @@ CONVENTION_SENSITIVE = frozenset({
     "poloidal_field_factor",
     "radial_magnetic_field_from_psi",
     "vertical_magnetic_field_from_psi",
-    "current_density_from_psi",
     "current_density_from_B",
     "mean_reflected_energy_fraction",
     "recycling_coefficient",
@@ -305,6 +306,8 @@ CONVENTION_SENSITIVE = frozenset({
     # #782: Romero's full-weber V_B = -dpsi_B/dt, and the one-half on dL_i/dt.
     "boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j",
     "internal_inductive_voltage_terms_from_L_i_I_p",
+    # cylindrical q, not q95, on the Hugill y axis (#1068)
+    "hugill_coordinates",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.

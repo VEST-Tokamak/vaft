@@ -231,6 +231,47 @@ class HSDSStore(dynamic_ODS):
         self._aos_length_cache[cache_key] = length
         return length
 
+    def prefetch(self, location: Any) -> int:
+        """Read every dataset under ``location`` in one request each, and serve it from memory.
+
+        A walk over a structure -- ``node.flat()``, a geometry signature --
+        otherwise asks HSDS for every leaf of every AOS element separately:
+        thousands of requests for ``pf_active``'s coil elements, one per value.
+        HSDS stores each template as one array, so reading the array once and
+        slicing it locally gives the same values.  Returns how many datasets
+        were read.  ``location`` is an IDS name or a path inside one.
+        """
+        parts = _path_parts(location)
+        if not parts:
+            raise ValueError("prefetch needs an IDS name")
+        ids_name = str(parts[0])
+        self._ensure_index(ids_name)
+
+        def under(template: tuple[Any, ...]) -> bool:
+            return self._prefix_matches(template, parts)
+
+        def in_memory(dataset: Any) -> Any:
+            if isinstance(dataset, np.ndarray):
+                return dataset
+            self._metrics["payload_selection_count"] += 1
+            return np.asarray(dataset[...])
+
+        read = 0
+        records = []
+        for record in self._records[ids_name]:
+            if under(record.template) and not isinstance(record.dataset, np.ndarray):
+                record = _DatasetRecord(record.template, in_memory(record.dataset))
+                read += 1
+            records.append(record)
+        self._records[ids_name] = records
+        self._record_by_template[ids_name] = {record.template: record for record in records}
+        for table in (self._shape_datasets[ids_name], self._aos_shape_datasets[ids_name]):
+            for template, dataset in list(table.items()):
+                if under(template) and not isinstance(dataset, np.ndarray):
+                    table[template] = in_memory(dataset)
+                    read += 1
+        return read
+
     def keys(self, location: Any) -> list[Any]:
         parts = _path_parts(location)
         if not parts:
@@ -245,7 +286,13 @@ class HSDSStore(dynamic_ODS):
                 children.update(range(self._aos_length(ids_name, aos_template, parts)))
             else:
                 children.add(child)
-        return sorted(children, key=lambda value: (isinstance(value, int), str(value)))
+        # Names first, then AOS indices in *numeric* order: OMAS fills an AOS
+        # only index by index, so a walk in string order (0, 1, 10, 2, ...)
+        # asks for element 10 while 2-9 do not exist yet and is refused.
+        return sorted(
+            children,
+            key=lambda value: (1, value, "") if isinstance(value, int) else (0, 0, str(value)),
+        )
 
     def __contains__(self, location: Any) -> bool:
         parts = _path_parts(location)
@@ -374,6 +421,10 @@ class HSDSODS(omas.ODS):
                     container.setraw(len(container.keys(dynamic=0)), container.same_init_ods())
             self.__setitem__(requested, value)
         return super().__getitem__(key, cocos_and_coords)
+
+    def prefetch(self, location: Any) -> int:
+        """Bulk-read everything under ``location``; see :meth:`HSDSStore.prefetch`."""
+        return self.store.prefetch(location)
 
     def __enter__(self) -> "HSDSODS":
         return self

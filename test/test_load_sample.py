@@ -587,3 +587,106 @@ def test_camera_sample_40600_carries_the_frames_and_the_lfs_probe():
     assert time[0] <= times[0] and times[-1] <= time[-1]
     assert "ip" in ods["magnetics"]
     assert "alpha" in str(ods["spectrometer_uv.channel.0.name"]).lower()
+
+
+# The index each equilibrium sample declares, and the manifest key that says why.
+# 41524/41672 keep the g-file's Wb/rad, so they are COCOS 1, the per-radian
+# sibling of 11; the evidence is recorded in each manifest.
+_DECLARED_COCOS = {39915: 11, 41524: 1, 41672: 1, 48224: 11}
+
+
+def _first_plasma_slice(ods):
+    for index in range(len(ods["equilibrium.time_slice"])):
+        if abs(float(ods[f"equilibrium.time_slice.{index}.global_quantities.ip"])) > 1.0:
+            return index
+    raise AssertionError("sample has no slice with plasma current")
+
+
+@pytest.mark.parametrize("shot, cocos", sorted(_DECLARED_COCOS.items()))
+def test_equilibrium_samples_declare_the_cocos_their_data_supports(shot, cocos):
+    from vaft.process.equilibrium import as_equilibrium
+
+    ods = vaft.omas.load(vaft.data.sample(shot))
+    assert vaft.omas.ods_cocos(ods) == cocos
+    manifest = vaft.data.sample_manifest(shot)
+    assert manifest["generation"].get("equilibrium_cocos") == cocos
+    convention = as_equilibrium(ods, time_index=_first_plasma_slice(ods)).convention
+    assert convention.cocos == cocos
+    assert convention.candidates == (cocos,)
+    assert cocos in convention.identified
+    assert convention.psi_per_radian is (cocos < 10)
+
+
+@pytest.mark.parametrize("shot", sorted(_DECLARED_COCOS))
+def test_equilibrium_sample_fields_derive_without_an_orientation_assumption(shot):
+    import warnings
+
+    from vaft.omas.update import update_equilibrium_profiles_2d_b_field
+    from vaft.process.equilibrium import (
+        as_equilibrium,
+        equilibrium_field_on_grid,
+        make_equilibrium_field_interpolator,
+    )
+
+    ods = vaft.omas.load(vaft.data.sample(shot))
+    index = _first_plasma_slice(ods)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", category=UserWarning)
+        eq = as_equilibrium(ods, time_index=index)
+        equilibrium_field_on_grid(eq)
+        make_equilibrium_field_interpolator(eq)
+        update_equilibrium_profiles_2d_b_field(ods, time_slice=index)
+    assert f"equilibrium.time_slice.{index}.profiles_2d.0.b_field_z" in ods
+
+
+def _poloidal_field_z(eq, r, z):
+    from vaft.process.equilibrium import make_equilibrium_field_interpolator
+
+    field = make_equilibrium_field_interpolator(eq)
+    return np.asarray([np.asarray(field(ri, zi)).reshape(-1)[1] for ri, zi in zip(r, z)])
+
+
+@pytest.mark.parametrize("shot", [39915, 41524, 41672])
+def test_declared_cocos_reproduces_efit_probe_field_on_pipeline_samples(shot):
+    """The index is physical: B_Z from psi has EFIT's sign at every probe."""
+    from vaft.process.equilibrium import as_equilibrium
+
+    ods = vaft.omas.load(vaft.data.sample(shot))
+    index = _first_plasma_slice(ods)
+    probes = ods["magnetics.b_field_pol_probe"]
+    r = np.asarray([float(probes[i]["position.r"]) for i in range(len(probes))])
+    z = np.asarray([float(probes[i]["position.z"]) for i in range(len(probes))])
+    reconstructed = np.asarray([
+        float(ods[f"equilibrium.time_slice.{index}.constraints.bpol_probe.{i}.reconstructed"])
+        for i in range(len(probes))
+    ])
+    b_z = _poloidal_field_z(as_equilibrium(ods, time_index=index), r, z)
+    strong = np.abs(reconstructed) > 5e-3
+    assert strong.sum() > 40
+    assert np.all(np.sign(b_z[strong]) == np.sign(reconstructed[strong]))
+    assert np.median(np.abs(b_z - reconstructed)) < 2e-3
+
+
+def test_declared_cocos_reproduces_efit_probe_field_on_sample_48224():
+    """48224 has no magnetics IDS: EFIT's own probe reconstruction is the reference."""
+    import f90nml
+
+    from vaft.data.meqdsk import read_meqdsk
+    from vaft.process.equilibrium import as_equilibrium
+
+    probes = next(
+        group for group in f90nml.read(str(vaft.data.data_path("efit/dprobe.dat"))).values()
+        if "xmp2" in group
+    )
+    assert set(np.atleast_1d(probes["amp2"])) == {-270.0}  # every probe measures +Z
+    mfile = read_meqdsk(vaft.data.data_path("samples/48224/efit_magnetic_server/m048224.00300"))
+    reconstructed = np.asarray(mfile["cmpr2"].data, float).reshape(-1)
+    ods = vaft.omas.load(vaft.data.sample(48224))
+    b_z = _poloidal_field_z(
+        as_equilibrium(ods, time_index=0),
+        np.asarray(probes["xmp2"], float), np.asarray(probes["ymp2"], float),
+    )
+    strong = np.abs(reconstructed) > 5e-3
+    assert strong.sum() > 40
+    assert np.all(np.sign(b_z[strong]) == np.sign(reconstructed[strong]))
+    assert np.median(np.abs(b_z - reconstructed)) < 3e-3
