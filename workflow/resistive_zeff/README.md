@@ -35,6 +35,15 @@ written to `core_profiles.zeff`.
 | `--inductive-max` | 1.0 | slices where |V_I| ≥ |V_B| are not fitted |
 | `--flattop-max` | 0.3 | a window whose median |V_I|/|V_B| is below this is classed `flattop` |
 
+**Boundary voltage cross-check (Lane D, #548).** The observed path uses
+Romero's EFIT ψ_B (#1214 Sec. 4). Every fitted window is also re-fitted with
+V_B taken from the inboard midplane flux loop #10 (R = 0.091 m), which is
+what Lane D's `resistive_loop_voltage` uses. The loop sits inside the LCFS,
+so the flux between the loop and the LCFS biases it. The shift is reported
+as `zeff_flux_loop` / `delta_boundary_voltage_source`, as a
+`boundary_voltage_source` row in `sensitivity.csv`, and per slice as
+`v_loop_fl10_v`.
+
 A window that cannot be inferred is still a row, with
 `status = not_identifiable` and the reason (#1214 Sec. 10).
 

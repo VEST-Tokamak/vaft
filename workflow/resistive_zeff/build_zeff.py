@@ -91,6 +91,10 @@ WINDOW_COLUMNS: dict[str, tuple[str, str]] = {
     "max_abs_delta_n_e": ("number", "largest |dZ| for n_e x(1 +/- d)"),
     "max_abs_delta_li_3": ("number", "largest |dZ| for li_3 x(1 +/- d)"),
     "max_abs_delta_conductivity_model": ("number", "largest |dZ| across the other models"),
+    "zeff_flux_loop": ("number", "Z_eff with V_B from the inboard flux loop #10 (R = 0.091 m) "
+                                 "instead of EFIT psi_B, same states and model (Lane D cross-check)"),
+    "delta_boundary_voltage_source": ("number", "zeff_flux_loop - zeff: the loop sits inside the "
+                                                "LCFS, so the flux between them biases it"),
     "efit_product": ("string", "EFIT product path relative to the FileDB"),
     "efit_product_sha256": ("string", "sha256 of that product"),
     "profiles_source": ("string", "Lane K core_profiles file relative to the state atlas"),
@@ -111,6 +115,7 @@ SLICE_COLUMNS: dict[str, tuple[str, str]] = {
     "v_r_v": ("number", "resistive voltage V_B - V_I [V]"),
     "r_p_obs_ohm": ("number", "observed plasma resistance V_R / (I_p - I_ni) [Ohm]"),
     "inductive_fraction": ("number", "|V_I| / |V_B|"),
+    "v_loop_fl10_v": ("number", "inboard flux loop #10 voltage, sign-aligned to V_B [V]"),
     "flags": ("string", "observed-path flags, ';'-separated"),
     "has_state": ("boolean", "electron profiles at this time were used in the fit"),
     "r_p_model_ohm": ("number", "nominal-model resistance at the fitted Z_eff [Ohm]"),
@@ -207,6 +212,45 @@ def _graded_runs(times: list[float], product_times: np.ndarray) -> list[list[flo
     return [[float(product_times[k]) for k, _ in run] for run in runs]
 
 
+#: The inboard midplane flux loop Lane D uses for V_loop (#548).
+FLUX_LOOP_NAME = "Flux Loop - #10"
+
+
+def _flux_loop(filedb: Path, shot: int):
+    """``(time, flux)`` of the inboard midplane loop, or ``None``."""
+    path = filedb / "omas" / "diagnostics" / str(shot) / "output" / "diagnostics.json.gz"
+    if not path.exists():
+        return None
+    with gzip.open(path, "rt") as handle:
+        loops = json.load(handle).get("magnetics", {}).get("flux_loop", [])
+    for loop in loops:
+        if loop.get("name") == FLUX_LOOP_NAME:
+            flux = loop["flux"]
+            return (np.asarray(flux["time"], dtype=float),
+                    np.asarray(flux["data"], dtype=float))
+    return None
+
+
+def _flux_loop_variant(flux, loop):
+    """The same RomeroBoundaryFlux with psi_B replaced by the loop flux.
+
+    The loop's sign convention is not assumed: it is aligned with psi_B by the
+    sign of the correlation of their time derivatives.
+    """
+    from dataclasses import replace
+
+    t_loop, psi_loop = loop
+    if flux.time[0] < t_loop[0] or flux.time[-1] > t_loop[-1]:
+        return None
+    on_grid = np.interp(flux.time, t_loop, psi_loop)
+    sign = np.sign(np.dot(np.gradient(on_grid, flux.time), np.gradient(flux.psi_boundary, flux.time)))
+    if sign == 0:
+        return None
+    return replace(flux, psi_boundary=sign * on_grid,
+                   flux_normalization=f"measured {FLUX_LOOP_NAME} (R = 0.091 m), full Wb, "
+                                      "sign aligned to psi_B")
+
+
 def _states_for(ods, window: list[float]):
     from vaft.omas.resistive_zeff import flux_surface_state_ods
 
@@ -225,10 +269,12 @@ def _states_for(ods, window: list[float]):
     return states, notes
 
 
-def infer_window(shot: int, window: list[float], ods, args) -> tuple[dict, list[dict], list[dict]]:
+def infer_window(shot: int, window: list[float], ods, args, loop=None
+                 ) -> tuple[dict, list[dict], list[dict]]:
     from vaft.omas.resistive_zeff import romero_boundary_flux_ods
     from vaft.process.resistive_zeff import (
         Smoothing,
+        infer_resistive_zeff,
         model_resistance,
         observed_resistance,
         resistive_zeff_sensitivity,
@@ -266,6 +312,13 @@ def infer_window(shot: int, window: list[float], ods, args) -> tuple[dict, list[
             "inductive_fraction": observed.inductive_fraction[k],
             "flags": ";".join(observed.flags[k]), "has_state": False,
         })
+
+    loop_flux = _flux_loop_variant(flux, loop) if loop is not None else None
+    loop_observed = (observed_resistance(loop_flux, I_ni=0.0, smoothing=smoothing)
+                     if loop_flux is not None else None)
+    if loop_observed is not None:
+        for k in range(len(slices)):
+            slices[k]["v_loop_fl10_v"] = loop_observed.V_B[k]
 
     states, notes = _states_for(ods, window)
     row["n_states"] = len(states)
@@ -308,6 +361,19 @@ def infer_window(shot: int, window: list[float], ods, args) -> tuple[dict, list[
                 state, est["zeff"], model=args.model, ln_lambda=args.ln_lambda).R_p
             slices[k]["excluded_current_fraction"] = state.source.get("excluded_current_fraction")
     sens = [{"t_start_s": window[0], **entry} for entry in table]
+    if loop_observed is not None:
+        try:
+            alt = infer_resistive_zeff(loop_observed, usable, model=args.model,
+                                       ln_lambda=args.ln_lambda, bounds=tuple(args.bounds),
+                                       weights="uniform")
+            z_loop, status = alt.zeff, alt.status
+        except ValueError as error:
+            z_loop, status = None, f"error: {error}"
+        delta = (z_loop - est["zeff"]) if (z_loop is not None and est["zeff"] is not None) else None
+        row.update(zeff_flux_loop=z_loop, delta_boundary_voltage_source=delta)
+        sens.append({"t_start_s": window[0], "input": "boundary_voltage_source",
+                     "setting": FLUX_LOOP_NAME, "zeff": z_loop, "delta": delta,
+                     "status": status})
     return row, slices, sens
 
 
@@ -344,7 +410,8 @@ def build(filedb: Path, atlas: Path, out: Path, args) -> dict:
             continue
         window = max(runs, key=len) if runs else []
         try:
-            row, srows, sens = infer_window(shot, window, ods, args)
+            row, srows, sens = infer_window(shot, window, ods, args,
+                                            loop=_flux_loop(filedb, shot))
         except Exception as error:  # noqa: BLE001
             row, srows, sens = ({"t_start_s": window[0] if window else None,
                                  "n_slices": len(window), "status": "not_identifiable",
