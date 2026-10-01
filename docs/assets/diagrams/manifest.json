@@ -302,8 +302,8 @@
     },
     "hugill.svg": {
       "call": "vaft.diagram.hugill()",
-      "source_sha256": "67285201d0c8e58f4a602758bbf16f5b297741dd9941f6e2c1c6e58c655ce78d",
-      "svg_sha256": "a698afc97f6b20f0d3f66b095f6bed229fbeb01021df9bd90f40fdcea097d31c"
+      "source_sha256": "8fbf2e40c57038d78cc9a79541f5d433effa813faf1c3be9666a09d67cc1fe11",
+      "svg_sha256": "dd359d13bca70c72a3bd1779a88f8b02378b352c83e8970018ed3b526aa55d49"
     },
     "integrated_modeling_process.svg": {
       "call": "vaft.diagram.integrated_modeling_process()",
@@ -732,8 +732,8 @@
     },
     "troyon.svg": {
       "call": "vaft.diagram.troyon()",
-      "source_sha256": "cbd7e82ad7428b124af1e46be00e5430df16708ae609ec87b015de9c066040c5",
-      "svg_sha256": "279a677a497f0eb052ed17b9c8148eb6a13359d5f2fb34c66803fc1c46fde83b"
+      "source_sha256": "bd2335ce4df5254d26364bf5f94e22f3d910aac5fd387cf09900308da00f2d98",
+      "svg_sha256": "48d4aada48b4a3af8d0a7843b8bd9bac567b06f672c6dcdf91272c6aaf4e8860"
     },
     "unwrapped_flux_surface.svg": {
       "call": "vaft.diagram.unwrapped_flux_surface()",
