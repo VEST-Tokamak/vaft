@@ -631,3 +631,15 @@ def test_the_page_loads_plotly_up_front(monkeypatch):
     monkeypatch.setattr(pn.state, "onload", lambda callback: None)
     gui_app.build_app(sample=39915).close()
     assert asked and "plotly" in asked[-1]
+
+
+def test_serve_signs_in_with_hsds_accounts(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pn, "serve", lambda panels, **kwargs: calls.append(kwargs))
+    monkeypatch.delenv("VAFT_GUI_PASSWORD", raising=False)
+    monkeypatch.setenv("HS_ENDPOINT", "http://127.0.0.1:5101/")
+    gui_app.serve(hosted=True, auth="hsds")
+    kwargs = calls[-1]
+    assert "basic_auth" not in kwargs, "no shared password: the accounts are HSDS's"
+    assert kwargs["auth_provider"].login_handler.__name__ == "HSDSLoginHandler"
+    assert kwargs["cookie_secret"]

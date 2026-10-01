@@ -42,14 +42,15 @@ def main(argv: Iterable[str] | None = None) -> int:
         help="extra origin the browser may connect from (repeatable)",
     )
     parser.add_argument(
-        "--auth", choices=("auto", "password", "none"), default="auto",
+        "--auth", choices=("auto", "password", "hsds", "none"), default="auto",
         help="ask for a password: under SSH or off loopback (auto, default), always, or never; "
-             "the password is $VAFT_GUI_PASSWORD or a random one printed at start",
+             "the password is $VAFT_GUI_PASSWORD or a random one printed at start. "
+             "hsds: sign in with an HSDS account instead, checked against $HS_ENDPOINT",
     )
     parser.add_argument(
         "--hosted", action="store_true",
         help="serve readers who are not this server's user, behind a reverse proxy: samples and "
-             "database shots only (no server files, no uploads), $VAFT_GUI_PASSWORD required",
+             "database shots only (no server files, no uploads); needs $VAFT_GUI_PASSWORD, or --auth hsds",
     )
     parser.add_argument("--prefix", help="URL path to serve under, e.g. /gui behind a proxy")
     show = parser.add_mutually_exclusive_group()
@@ -58,7 +59,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
     if args.hosted and args.file is not None:
         parser.error("--hosted opens no files; use --sample or --shot")
-    if args.hosted and args.auth != "none" and not os.environ.get("VAFT_GUI_PASSWORD"):
+    if args.hosted and args.auth in ("auto", "password") and not os.environ.get("VAFT_GUI_PASSWORD"):
         # serve() refuses too; said here without a traceback.
         print("vaft gui: a hosted server needs its password set: export VAFT_GUI_PASSWORD", file=sys.stderr)
         return 1
@@ -71,6 +72,15 @@ def main(argv: Iterable[str] | None = None) -> int:
         print(f"vaft gui: {error}", file=sys.stderr)
         return 1
     from ..gui.app import serve
+
+    if args.auth == "hsds":
+        from ..gui.auth import hsds_endpoint
+
+        try:
+            hsds_endpoint()
+        except ValueError as error:
+            print(f"vaft gui: {error}", file=sys.stderr)
+            return 1
 
     serve(
         address=args.address,

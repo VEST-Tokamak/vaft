@@ -677,7 +677,7 @@ def build_app(
     return app
 
 
-AUTH_MODES = ("auto", "password", "none")
+AUTH_MODES = ("auto", "password", "hsds", "none")
 #: The largest upload one browser message may carry (all files of one upload).
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
@@ -715,6 +715,11 @@ def serve(
     ``prefix`` serves the app under a URL path, e.g. ``/gui`` when the proxy
     passes ``https://host/gui/`` through.  The proxy's public host name goes
     in ``websocket_origin``.
+
+    ``auth="hsds"`` replaces the shared password with HSDS accounts: the
+    login form's user name and password are checked against the HSDS the
+    GUI reads from (:mod:`vaft.gui.auth`).  Only the sign-in changes; the
+    data is still read with the server's own HSDS credentials.
     """
     pn = require_panel()
     import secrets
@@ -754,7 +759,13 @@ def serve(
             origins.append(f"{address}:{port}")
     protected = auth == "password" or (auth == "auto" and (hosted or remote or address not in LOOPBACK))
     options: dict[str, Any] = {}
-    if protected:
+    if auth == "hsds":
+        from .auth import hsds_auth_provider, hsds_endpoint
+
+        options.update(
+            auth_provider=hsds_auth_provider(hsds_endpoint()), cookie_secret=secrets.token_urlsafe(32),
+        )
+    elif protected:
         password = password or os.environ.get("VAFT_GUI_PASSWORD") or None
         if password is None and hosted:
             raise ValueError("a hosted server needs its password set: export VAFT_GUI_PASSWORD")

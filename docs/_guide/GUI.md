@@ -137,14 +137,16 @@ terminates HTTPS. What changes against a personal `vaft gui`:
 - **Samples and database shots only.** The file source, the server file browser and uploads are
   left out of the page, and a file source is refused even if one is sent. A reader cannot reach
   the server's disk through the GUI.
-- **The password is always asked, and must be set.** `vaft gui --hosted` does not start without
-  `VAFT_GUI_PASSWORD` (a random one would change unseen on every restart). It is one shared
-  password for the page; any user name is accepted. `--auth none` is for a proxy that
-  authenticates by itself.
+- **Every reader signs in.** With `--auth hsds`, readers sign in with their own HSDS account:
+  the user name and password are checked against the HSDS the GUI reads from (`GET /about`,
+  which answers 401 to a wrong account) and kept nowhere. Otherwise `--hosted` asks one shared
+  password, which must be set in `VAFT_GUI_PASSWORD` (a random one would change unseen on every
+  restart). `--auth none` is for a proxy that authenticates by itself.
 - **The proxy's headers are trusted** (`X-Forwarded-For`, `X-Forwarded-Proto`), and `--prefix`
   serves the app under a path, so it can sit next to another service on the same host.
 
-Everyone reads the database with the credentials the service runs with. Give it a **read-only
+Whoever signs in, everyone reads the database with the credentials the service runs with:
+`--auth hsds` decides who may enter, not what they may read. Give it a **read-only
 HSDS account** through `HS_ENDPOINT`, `HS_USERNAME` and `HS_PASSWORD`, never an admin one.
 
 The files in [`install/gui/`](https://github.com/VEST-Tokamak/vaft/tree/develop/install/gui)

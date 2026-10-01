@@ -78,3 +78,18 @@ def test_a_hosted_server_without_its_password_does_not_start(monkeypatch, capsys
     monkeypatch.delenv("VAFT_GUI_PASSWORD", raising=False)
     assert gui_cli.main(["--hosted", "--no-show"]) == 1
     assert "VAFT_GUI_PASSWORD" in capsys.readouterr().err and not served
+
+
+def test_hosted_with_hsds_accounts_needs_no_shared_password(monkeypatch, capsys):
+    pytest.importorskip("panel")
+    calls = []
+    monkeypatch.setattr("vaft.gui.app.serve", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.delenv("VAFT_GUI_PASSWORD", raising=False)
+    monkeypatch.setenv("HS_ENDPOINT", "http://127.0.0.1:5101")
+    assert gui_cli.main(["--hosted", "--auth", "hsds", "--no-show"]) == 0
+    assert calls[-1]["auth"] == "hsds"
+    monkeypatch.delenv("HS_ENDPOINT")
+    monkeypatch.setenv("HOME", "/nonexistent")
+    monkeypatch.chdir("/")
+    assert gui_cli.main(["--hosted", "--auth", "hsds", "--no-show"]) == 1
+    assert "HS_ENDPOINT" in capsys.readouterr().err
