@@ -418,6 +418,18 @@ def _run_module(
         record.status = "skipped"
         record.reason = "run_mode=prepare_only"
         return record
+    if not run_dir.is_dir():
+        # Reachable only through `run_gpec_suite_case(..., prepare=False)`, which
+        # writes nothing. Named rather than created, because creating it would
+        # launch the solver in an empty directory and report a Fortran error
+        # about a namelist nobody wrote.
+        reason = (
+            f"{module} cell has not been prepared: {run_dir} does not exist. Call "
+            "prepare_gpec_suite_case first, or run with prepare=True"
+        )
+        if policy == "strict":
+            raise FileNotFoundError(reason)
+        return GPECModuleRun(module, mode, run_dir, status="skipped", reason=reason)
 
     program = module
     executable = rt.executable(config, program)
@@ -672,11 +684,50 @@ def _run_module(
 def run_gpec_suite_case(
     inputs: GPECCaseInputs,
     config: GPECSuiteConfig | None = None,
+    *,
+    prepare: bool = True,
 ) -> GPECSuiteResult:
-    """Prepare and optionally run all configured VEST GPEC-suite modules."""
+    """Prepare and optionally run all configured VEST GPEC-suite modules.
+
+    Parameters
+    ----------
+    inputs : GPECCaseInputs
+        The case [-].
+    config : GPECSuiteConfig, optional
+        Modules, modes, per-solver options and run policy [-].
+    prepare : bool
+        Whether to write the input tree first.  Pass ``False`` for a tree that
+        has already been prepared **and then added to**, which is the only way
+        to run one: this function otherwise re-prepares, and preparation
+        rewrites every namelist it owns from the template.
+
+        What that costs, measured on this adapter: a caller that prepares a case,
+        patches ``dcon.in``'s ``kin_flag`` to ``t`` and stages the ``.kin`` the
+        flag refers to -- which is what a kinetic case is -- and then calls this
+        function gets ``kin_flag=f`` back and an *ideal* solve, silently, because
+        every file is present and DCON is happy either way.  The staged files
+        survive; only the namelists are reverted, which is what makes it quiet.
+
+        With ``prepare=False`` nothing is written and each module runs against
+        what is on disk.  A run directory that does not exist is reported per
+        module rather than created, so a tree that was never prepared fails
+        naming the cell.
+
+    Returns
+    -------
+    GPECSuiteResult
+        One record per module and mode [-].
+    """
 
     config = config or GPECSuiteConfig()
-    prepare_gpec_suite_case(inputs, config)
+    if prepare:
+        prepare_gpec_suite_case(inputs, config)
+    else:
+        # Normalization happens inside `prepare_gpec_suite_case`, so an
+        # unsupported module name would otherwise reach `SOLVERS[module]` as a
+        # KeyError instead of the suite's own message.
+        _normalized_modules(config)
+        _normalized_modes(config)
     records: list[GPECModuleRun] = []
     modules = _normalized_modules(config)
     modes = _normalized_modes(config)
