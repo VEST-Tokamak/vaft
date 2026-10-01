@@ -165,16 +165,20 @@ def _status(record: Mapping[str, Any], name: str) -> str | None:
 
 
 def _kinetic_veto(criteria, equilibrium: Mapping[str, Any], manifest: Mapping[str, Any],
-                  magnetic_record: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, float]]:
-    """criteria.admissible on the electron EFIT, from what its product carries."""
+                  magnetic_record: Mapping[str, Any], time_s: float) -> tuple[dict[str, Any], dict[str, float]]:
+    """criteria.admissible on the electron EFIT, from what its product carries.
+
+    The slice graded is the one at ``time_s`` (within :data:`SLICE_TOLERANCE_S`),
+    the same match the Thomson comparison of this row makes; a product with
+    no slice there raises :class:`LookupError`.
+    """
     import tempfile
 
     from omas import load_omas_json
 
     from vaft.process.equilibrium import as_equilibrium, derive_global_descriptors
+    from vaft.validation import kinetic_state as ks
 
-    root = equilibrium["equilibrium"]["time_slice"][0]
-    gq = root.get("global_quantities", {})
     # descriptors need an ODS; go through the documented JSON loader rather than
     # assigning into one (an ODS assignment is where paths get vivified)
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
@@ -183,7 +187,10 @@ def _kinetic_veto(criteria, equilibrium: Mapping[str, Any], manifest: Mapping[st
         ods = load_omas_json(handle.name, consistency_check=False)
     finally:
         Path(handle.name).unlink()
-    values = derive_global_descriptors(as_equilibrium(ods, time_index=0)).values
+    index, _ = ks.slice_at_time(ods, time_s, tolerance_s=SLICE_TOLERANCE_S)
+    root = equilibrium["equilibrium"]["time_slice"][index]
+    gq = root.get("global_quantities", {})
+    values = derive_global_descriptors(as_equilibrium(ods, time_index=index)).values
 
     def pick(key):
         return float(values[key].value) if key in values and values[key].available else math.nan
@@ -329,7 +336,8 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
         kin_path = kin_dir / "output" / "electron_efit.json.gz"
         kin = _load(kin_path)
         pair = mag_rows[kin_time_ms]
-        veto, kin_scalars = _kinetic_veto(criteria, kin, kin_manifest, records[(shot, kin_time_ms)])
+        veto, kin_scalars = _kinetic_veto(criteria, kin, kin_manifest, records[(shot, kin_time_ms)],
+                                          kin_time_ms * 1e-3)
         row = {**key_fields(shot, kin_time_ms * 1e-3, "electron_kinetic", pair["efit_quality"]),
                "efit_setting": ((kin_manifest.get("configuration") or {}).get("efit_preset") or {}).get("name"),
                "efit_product": str(kin_path.relative_to(filedb)), "efit_product_sha256": _sha256(kin_path),
