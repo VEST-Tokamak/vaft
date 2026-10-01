@@ -3671,8 +3671,9 @@ def compute_diamagnetism(ods, time_index=0):
     )
 
 
-def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optional[int] = None, 
-                                                    Z_eff: float = 2.0, ln_Lambda: float = 17.0) -> float:
+def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optional[int] = None,
+                                                    Z_eff: Optional[float] = None,
+                                                    ln_Lambda: Optional[float] = None) -> float:
     """
     Compute ohmic heating power from core profiles.
     
@@ -3684,8 +3685,10 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     Args:
         ods: OMAS data structure
         time_slice: Time slice index for core profile (None = use first available)
-        Z_eff: Effective charge (default: 2.0)
-        ln_Lambda: Coulomb logarithm (default: 17.0)
+        Z_eff: Effective charge for the NRL parallel Spitzer resistivity.
+            Required in substance: omitting it is deprecated (#1188) and falls
+            back to 2.0 with a FutureWarning until 0.9.
+        ln_Lambda: Coulomb logarithm; as Z_eff (former fallback 17.0).
     
     Returns:
         P_ohm: Ohmic heating power [W]
@@ -3695,7 +3698,22 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
         ValueError: If plasma volume is zero
     """
     from vaft.omas.update import update_equilibrium_profiles_1d_normalized_psi, update_equilibrium_profiles_2d_j_tor
-    
+
+    if Z_eff is None or ln_Lambda is None:
+        import warnings
+
+        missing = [name for name, value in (("Z_eff", Z_eff), ("ln_Lambda", ln_Lambda))
+                   if value is None]
+        warnings.warn(
+            f"compute_ohmic_heating_power_from_core_profiles called without {', '.join(missing)}; "
+            "the hidden fallbacks Z_eff=2, ln_Lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        Z_eff = 2.0 if Z_eff is None else Z_eff
+        ln_Lambda = 17.0 if ln_Lambda is None else ln_Lambda
+
     # Find matching time indices between core_profiles and equilibrium
     cp_idx, equil_idx, time = find_matching_time_indices(ods, time_slice)
     
@@ -4722,65 +4740,15 @@ def compute_grad_shafranov_residual(
     )
 
 
-def compute_romero_flux_balance_ods(
-    ods: ODS,
-    *,
-    R_p,
-    I_ni,
-    time_range: Optional[Tuple[float, float]] = None,
+def _romero_boundary_histories(
+    ods: ODS, time_range: Optional[Tuple[float, float]]
 ) -> Dict[str, Any]:
-    """Romero's voltage and volt-second balance over the equilibrium slices of a shot.
+    """Plasma current, Romero boundary flux and ``li_3`` of the selected slices.
 
-    Reads the plasma current and boundary flux of every ``equilibrium``
-    time slice in ``time_range``, brings the flux to Romero's convention, takes
-    the internal inductance from the poloidal-field energy, and hands the
-    histories to :func:`vaft.process.equilibrium.romero_flux_balance` (issue
-    #781).
-
-    Args:
-        ods: OMAS data structure with an ``equilibrium`` carrying
-            ``profiles_2d.0.psi`` on each slice. Not modified: the inductance is
-            derived on a copy.
-        R_p: Plasma resistance, one value or one per selected slice [Ohm].
-        I_ni: Non-inductively driven current, one value or one per selected
-            slice; ``0`` asserts a purely Ohmic discharge [A]. Required, as in
-            the process function.
-        time_range: ``(t_start, t_end)`` inclusive, in seconds. ``None`` takes
-            every slice; a slice with zero or missing current then raises, so
-            the flux-closure window must be chosen, not assumed.
-
-    Returns:
-        The process function's mapping, plus ``time_index`` (the slices used),
-        ``psi_per_radian`` (the stored convention detected), ``flux_sign``
-        (the factor, ``+1`` or ``-1``, that brought the stored flux to
-        Romero's sign), ``R0`` (the radius ``li_3`` was normalised by),
-        ``li_3``, and ``R_closing`` -- the resistance that would close the
-        instantaneous balance, ``(V_B - V_I) / (I_p - I_ni)``.
-
-    Raises:
-        ValueError: Fewer than three usable slices, a slice with no current or
-            no derivable ``li_3``, slices that disagree on the flux sign, or any
-            rejection by the process function.
-
-    Notes:
-        ``psi_C`` is not integrated from a current density, which the packaged
-        equilibria do not carry: it is ``psi_B + L_i I_p``, Romero's exact
-        eqs. (35)-(36), with ``L_i = mu0 R0 li_3 / 2`` and ``li_3`` recomputed
-        from ``int B_p^2 dV`` by
-        :func:`vaft.omas.update.update_equilibrium_global_quantities_beta_li`
-        rather than read from the stored leaf, whose normalising radius is not
-        recorded. The flux sign is set per slice from
-        ``(psi_axis - psi_boundary) * I_p``, which has the sign of
-        ``psi_C - psi_B`` for any monotonic profile -- the data decide it, not
-        an assumed COCOS.
-
-        On the packaged samples ``R_closing`` is 2-50 micro-ohm and falls
-        through each discharge, the size of a Spitzer estimate at a few tens of
-        eV. Two symptoms mark slices to cut from the window: ``li_3`` running
-        away (41672 reaches 2.4-12 after 0.345 s, as the reconstruction
-        collapses) and a negative ``R_closing``. ``Phi_B`` and
-        ``Phi_B_direct`` differ by a few percent at 1 ms sampling with gaps,
-        which is the differencing and not the physics.
+    The slice reading shared by :func:`compute_romero_flux_balance_ods` and
+    :func:`vaft.omas.resistive_zeff.romero_boundary_flux_ods`: the flux comes
+    back in full webers and Romero's sign, ``L_i = mu0 R0 li_3 / 2`` with
+    ``li_3`` recomputed from ``int B_p^2 dV`` on a copy of ``ods``.
     """
     import copy
 
@@ -4789,7 +4757,7 @@ def compute_romero_flux_balance_ods(
         resolve_reference_major_radius,
         update_equilibrium_global_quantities_beta_li,
     )
-    from vaft.process.equilibrium import as_equilibrium, romero_flux_balance
+    from vaft.process.equilibrium import as_equilibrium
 
     # Read by membership: on a consistency_check=False ODS a bare subscript
     # of a missing leaf attaches an empty node that `in` and flat() then hide
@@ -4855,21 +4823,99 @@ def compute_romero_flux_balance_ods(
     flux_sign = float(signs[0])
     ip_arr, li_arr = np.asarray(ip), np.asarray(li_3)
     psi_b_romero = flux_sign * np.asarray(psi_b)
-    l_i = 0.5 * MU0 * r0 * li_arr
+    return {
+        "time": times[selected],
+        "time_index": np.asarray(selected),
+        "I_p": ip_arr,
+        "psi_boundary": psi_b_romero,
+        "li_3": li_arr,
+        "L_i": 0.5 * MU0 * r0 * li_arr,
+        "R0": r0,
+        "flux_sign": flux_sign,
+        "psi_per_radian": per_radian[0],
+    }
+
+
+
+def compute_romero_flux_balance_ods(
+    ods: ODS,
+    *,
+    R_p,
+    I_ni,
+    time_range: Optional[Tuple[float, float]] = None,
+) -> Dict[str, Any]:
+    """Romero's voltage and volt-second balance over the equilibrium slices of a shot.
+
+    Reads the plasma current and boundary flux of every ``equilibrium``
+    time slice in ``time_range``, brings the flux to Romero's convention, takes
+    the internal inductance from the poloidal-field energy, and hands the
+    histories to :func:`vaft.process.equilibrium.romero_flux_balance` (issue
+    #781).
+
+    Args:
+        ods: OMAS data structure with an ``equilibrium`` carrying
+            ``profiles_2d.0.psi`` on each slice. Not modified: the inductance is
+            derived on a copy.
+        R_p: Plasma resistance, one value or one per selected slice [Ohm].
+        I_ni: Non-inductively driven current, one value or one per selected
+            slice; ``0`` asserts a purely Ohmic discharge [A]. Required, as in
+            the process function.
+        time_range: ``(t_start, t_end)`` inclusive, in seconds. ``None`` takes
+            every slice; a slice with zero or missing current then raises, so
+            the flux-closure window must be chosen, not assumed.
+
+    Returns:
+        The process function's mapping, plus ``time_index`` (the slices used),
+        ``psi_per_radian`` (the stored convention detected), ``flux_sign``
+        (the factor, ``+1`` or ``-1``, that brought the stored flux to
+        Romero's sign), ``R0`` (the radius ``li_3`` was normalised by),
+        ``li_3``, and ``R_closing`` -- the resistance that would close the
+        instantaneous balance, ``(V_B - V_I) / (I_p - I_ni)``.
+
+    Raises:
+        ValueError: Fewer than three usable slices, a slice with no current or
+            no derivable ``li_3``, slices that disagree on the flux sign, or any
+            rejection by the process function.
+
+    Notes:
+        ``psi_C`` is not integrated from a current density, which the packaged
+        equilibria do not carry: it is ``psi_B + L_i I_p``, Romero's exact
+        eqs. (35)-(36), with ``L_i = mu0 R0 li_3 / 2`` and ``li_3`` recomputed
+        from ``int B_p^2 dV`` by
+        :func:`vaft.omas.update.update_equilibrium_global_quantities_beta_li`
+        rather than read from the stored leaf, whose normalising radius is not
+        recorded. The flux sign is set per slice from
+        ``(psi_axis - psi_boundary) * I_p``, which has the sign of
+        ``psi_C - psi_B`` for any monotonic profile -- the data decide it, not
+        an assumed COCOS.
+
+        On the packaged samples ``R_closing`` is 2-50 micro-ohm and falls
+        through each discharge, the size of a Spitzer estimate at a few tens of
+        eV. Two symptoms mark slices to cut from the window: ``li_3`` running
+        away (41672 reaches 2.4-12 after 0.345 s, as the reconstruction
+        collapses) and a negative ``R_closing``. ``Phi_B`` and
+        ``Phi_B_direct`` differ by a few percent at 1 ms sampling with gaps,
+        which is the differencing and not the physics.
+    """
+    from vaft.process.equilibrium import romero_flux_balance
+
+    hist = _romero_boundary_histories(ods, time_range)
+    ip_arr, l_i = hist["I_p"], hist["L_i"]
+    psi_b_romero = hist["psi_boundary"]
     psi_c_romero = psi_b_romero + l_i * ip_arr
 
     out = romero_flux_balance(
-        times[selected], ip_arr, psi_b_romero, psi_c_romero, R_p, I_ni
+        hist["time"], ip_arr, psi_b_romero, psi_c_romero, R_p, I_ni
     )
     driven = np.broadcast_to(np.asarray(I_ni, dtype=float), ip_arr.shape)
     with np.errstate(divide="ignore", invalid="ignore"):
         closing = (out["V_B"] - out["V_I"]) / (ip_arr - driven)
     out.update(
-        time_index=np.asarray(selected),
-        psi_per_radian=per_radian[0],
-        flux_sign=flux_sign,
-        R0=r0,
-        li_3=li_arr,
+        time_index=hist["time_index"],
+        psi_per_radian=hist["psi_per_radian"],
+        flux_sign=hist["flux_sign"],
+        R0=hist["R0"],
+        li_3=hist["li_3"],
         R_closing=closing,
     )
     return out

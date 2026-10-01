@@ -5024,8 +5024,8 @@ def resistive_layer_parameters(
     n_e,
     psi_norm_kinetic=None,
     ion_mass_amu=1.0,
-    z_eff=2.0,
-    ln_lambda=17.0,
+    z_eff=None,
+    ln_lambda=None,
     m_range=None,
 ):
     """Resistivity and mass density at each rational surface of a toroidal mode.
@@ -5055,10 +5055,14 @@ def resistive_layer_parameters(
     ion_mass_amu : float, optional
         Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default,
         which is what VEST runs [-].
-    z_eff : float, optional
-        Effective ion charge, passed to the Spitzer resistivity [-].
-    ln_lambda : float, optional
-        Coulomb logarithm, passed to the Spitzer resistivity [-].
+    z_eff : float
+        Effective ion charge, passed to the Spitzer resistivity. Omitting it
+        is deprecated (#1188): it falls back to 2 with a ``FutureWarning``
+        and will raise in 0.9 [-].
+    ln_lambda : float
+        Coulomb logarithm, passed to the Spitzer resistivity. Omitting it is
+        deprecated (#1188): it falls back to 17 with a ``FutureWarning`` and
+        will raise in 0.9 [-].
     m_range : tuple of int, optional
         Forwarded to :func:`find_rational_surfaces` [-].
 
@@ -5148,8 +5152,8 @@ def resistive_layer_at(
     t_e,
     n_e,
     ion_mass_amu=1.0,
-    z_eff=2.0,
-    ln_lambda=17.0,
+    z_eff=None,
+    ln_lambda=None,
 ):
     """Resistivity and mass density at flux surfaces someone else located.
 
@@ -5171,10 +5175,12 @@ def resistive_layer_at(
         Electron density [m^-3].
     ion_mass_amu : float, optional
         Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default [-].
-    z_eff : float, optional
-        Effective ion charge [-].
-    ln_lambda : float, optional
-        Coulomb logarithm [-].
+    z_eff : float
+        Effective ion charge; omitting it is deprecated as in
+        :func:`resistive_layer_parameters` (#1188) [-].
+    ln_lambda : float
+        Coulomb logarithm; omitting it is deprecated as in
+        :func:`resistive_layer_parameters` (#1188) [-].
 
     Returns
     -------
@@ -5218,6 +5224,20 @@ def resistive_layer_at(
 
     if float(ion_mass_amu) <= 0.0:
         raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+    if z_eff is None or ln_lambda is None:
+        import warnings
+
+        missing = [name for name, value in (("z_eff", z_eff), ("ln_lambda", ln_lambda))
+                   if value is None]
+        warnings.warn(
+            f"resistive_layer_at called without {', '.join(missing)}; the hidden "
+            "fallbacks z_eff=2, ln_lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        z_eff = 2.0 if z_eff is None else z_eff
+        ln_lambda = 17.0 if ln_lambda is None else ln_lambda
 
     coordinate = _np.asarray(psi_norm, dtype=float)
     t_e = _np.asarray(t_e, dtype=float)
