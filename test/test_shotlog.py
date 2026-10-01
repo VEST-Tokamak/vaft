@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 from pathlib import Path
 import unicodedata
@@ -9,6 +10,8 @@ import unicodedata
 import pytest
 
 from _shotlog_fixtures import legacy_workbook, modern_workbook
+from vaft.machine_mapping.pulse_schedule.converter import validate_dataset
+from vaft.machine_mapping.pulse_schedule.records import effective_timing_by_session
 from vaft.database.filedb import FileDB, FileDBPathError
 from vaft.machine_mapping.pulse_schedule import (
     archive_workbooks,
@@ -202,6 +205,62 @@ def test_a_title_between_cards_opens_a_run_group_and_card_rows_do_not(tmp_path):
     assert groups == [("Coil 전류 테스트", [43481, 43482]), ("오믹 방전 만들기/ BZn", [43483, 43484])]
 
 
+def test_a_title_between_two_plain_cards_opens_a_run_group(tmp_path):
+    # No reference card ends the block early here: the title sits inside the
+    # rows that run from 43482's card to 43483's header, and used to be lost.
+    source = modern_workbook(tmp_path / "ShotLog_2024_08 #43481-43484.xlsx", {"240821": [
+        {"shot": 43481},
+        {"shot": 43482, "remark": "fail: no breakdown"},
+        {"shot": 43483, "title_before": "오믹 방전 만들기/ BZn"},
+        {"shot": 43484},
+    ]}, title="Coil 전류 테스트")
+    dataset = convert_sheet(source, "240821", REGISTRY)
+    groups = [(group["title"]["raw"], [shot["shot"] for shot in group["shots"]]) for group in dataset["run_groups"]]
+    assert groups == [("Coil 전류 테스트", [43481, 43482]), ("오믹 방전 만들기/ BZn", [43483, 43484])]
+    # The card before the title kept its own rows: its remark is still read.
+    assert _shots(dataset)[43482]["observed_outcome"]["remarks"] == ["fail: no breakdown"]
+    assert "오믹 방전 만들기/ BZn" not in json.dumps(_shots(dataset)[43482]["source_occurrences"], ensure_ascii=False)
+
+
+def test_a_shot_logged_again_under_a_later_title_keeps_one_consistent_record(tmp_path):
+    source = modern_workbook(tmp_path / "ShotLog_2024_01 #44000-44020.xlsx", {"240110": [
+        {"shot": 44010, "diagnostics": {"TS": "300-302"}},
+        {"shot": 44011},
+        # The retry logged under the next title: the same discharge, a later card.
+        {"shot": 44010, "title_before": "Retry with later TS trigger", "diagnostics": {"TS": "320-322"}},
+    ]}, title="Coil test")
+    dataset = convert_sheet(source, "240110", REGISTRY, span=(43800, 44220))
+    assert [[shot["shot"] for shot in group["shots"]] for group in dataset["run_groups"]] == [[44010, 44011], []]
+    assert validate_dataset(dataset, REGISTRY) == []
+    assert dataset["review"]["shots_in_several_run_groups"] == [
+        {"shot": 44010, "run_groups": [group["id"] for group in dataset["run_groups"]]}
+    ]
+    record = _shots(dataset)[44010]
+    assert len(record["source_occurrences"]) == 2
+    windows = lambda entries: [entry["window_ms"] for entry in entries if entry["identifier"] == "TS"]  # noqa: E731
+    assert windows(record["planned_configuration"]["timing"]) == [[320, 322]]
+    assert windows(effective_timing_by_session(dataset)[44010]["timing"]) == [[320, 322]]
+    # A document that does hold one shot in two groups is not valid.
+    dataset["run_groups"][1]["shots"].append(deepcopy(record))
+    assert validate_dataset(dataset, REGISTRY) == ["duplicate_shot:44010"]
+
+
+@pytest.mark.parametrize("sheet_name, expected", [
+    ("230605", "2023-06-05"),
+    ("20230605", "2023-06-05"),
+    ("2023-06-05", "2023-06-05"),
+    ("202306", "2023-06-01"),     # YYYYMM, not the 6th of month 23 of 2020
+    ("991301", "2023-06-01"),     # no month 13
+    ("20231301", "2023-06-01"),
+    ("Sheet1", "2023-06-01"),
+])
+def test_a_sheet_name_that_is_no_calendar_date_takes_the_workbooks_month(sheet_name, expected):
+    from vaft.machine_mapping.pulse_schedule.converter import derive_session
+
+    date, session_id = derive_session(sheet_name, Path("ShotLog_2023_06 #39486-39888.xlsx"))
+    assert date == expected and session_id.startswith(f"{expected}__")
+
+
 def test_session_documents_are_reproducible(modern):
     assert convert_sheet(modern, "250915", REGISTRY) == convert_sheet(modern, "250915", REGISTRY)
 
@@ -357,6 +416,28 @@ def test_a_log_without_a_named_span_ignores_strays_far_from_its_shots(tmp_path):
     (item,) = discover_sources(tmp_path).included
     lower, upper = item.span()
     assert lower <= 4861 and upper >= 4869 and not lower <= 400
+    # A sparse log keeps every run of shots it holds; only lone numbers are strays.
+    legacy_workbook(tmp_path / "conditioning.xlsx", sheet="Sheet1",
+                    shots=(4861, 4862, 4863, 6120, 6121, 1000, 1000, 1000, 400))
+    (item,) = discover_sources(tmp_path).included
+    lower, upper = item.span()
+    assert lower <= 4861 and upper >= 6121 and not lower <= 1000
+
+
+def test_a_month_saved_without_its_span_never_takes_bare_numbers_for_shots(tmp_path):
+    # ``ShotLog_2013_03.xlsx`` before the operator appended ``#first-last``:
+    # the 400 V, 1000 and the year in column A are values, not discharges.
+    legacy_workbook(tmp_path / "ShotLog_2013_03.xlsx", sheet="20130305",
+                    shots=(2998, 2999, 3000, 3001, 3002, 3003, 3004, 3005, 3006, 2013, 400, 1000))
+    (item,) = discover_sources(tmp_path).included
+    assert item.role == "monthly_record" and item.first_shot is None
+    lower, upper = item.span()
+    assert lower <= 2998 and upper >= 3006 and not lower <= 2013
+    sessions, records, manifest = _records(tmp_path)
+    assert (min(records), max(records)) == (2998, 3006)
+    assert [item["shots"] for item in sessions[0][1]["review"]["out_of_span_markers"]] == [[2013], [400], [1000]]
+    (entry,) = manifest["included_files"]
+    assert entry["span_source"] == "content" and entry["span"] == [lower, upper]
 
 
 def test_a_supplementary_log_is_converted_but_ranks_below_the_month(tmp_path):
@@ -386,6 +467,37 @@ def test_an_unclassified_sheet_still_gives_its_shots_records(tmp_path):
     assert any(cell["raw"] == "Coil" for cell in _shots(dataset)[31000]["source_occurrences"][0]["cells"])
     _, records, _ = _records(tmp_path)
     assert records[31001]["schema_version"] == "unclassified"
+
+
+def test_a_sheet_matching_two_templates_goes_to_the_declared_priority_then_registry_order(tmp_path):
+    from openpyxl import Workbook
+    from vaft.machine_mapping.pulse_schedule.converter import detect_schema
+
+    workbook = Workbook()
+    ws = workbook.active
+    ws.title = "230605"
+    # An integrated sheet that also lists the legacy headers somewhere.
+    for column, header in enumerate(["Shot", "TF", "PF", "SW1", "C1", "gas", "C (mF)", "NBI", "Gas Injection",
+                                     "Remark"], start=1):
+        ws.cell(2, column, header)
+    ws.cell(3, 1, 39500)
+    assert detect_schema(ws, REGISTRY)[0] == "integrated_v3"
+    # With no priority to separate them, the first schema in the registry
+    # wins -- whichever id sorts first -- and the session says it was a tie.
+    schemas = {schema_id: {**schema, "detection": {**schema["detection"], "priority": 0}}
+               for schema_id, schema in REGISTRY["schemas"].items() if schema_id in {"integrated_v3", "legacy_v1"}}
+    forward = {**REGISTRY, "schemas": dict(sorted(schemas.items()))}
+    reverse = {**REGISTRY, "schemas": dict(sorted(schemas.items(), reverse=True))}
+    assert detect_schema(ws, forward)[0] == "integrated_v3"
+    assert detect_schema(ws, reverse)[0] == "legacy_v1"
+    assert detect_schema(ws, reverse)[1]["tied_with"] == ["integrated_v3"]
+    path = tmp_path / "ShotLog_2023_06 #39486-39888.xlsx"
+    workbook.save(path)
+    dataset = convert_sheet(path, "230605", reverse)
+    assert dataset["schema_version"] == "legacy_v1"
+    assert dataset["review"]["schema_tie"] == {"chosen": "legacy_v1", "tied_with": ["integrated_v3"],
+                                               "basis": "registry_order"}
+    assert "schema_tie" not in convert_sheet(path, "230605", REGISTRY)["review"]
 
 
 def test_the_split_switch_power_supply_sheets_have_a_schema(tmp_path):

@@ -1144,13 +1144,22 @@ def _extract_efit_reliability_families(
         # built from the same total.  Both are recomputed from the plasma-only
         # residual EFIT fitted (vaft.omas.efit_quality.IP_CHI_SQUARED_CONVENTION).
         ip_record = _ip_chi_squared(equilibrium_slice)
-        if ip_record is not None and np.isfinite(ip_record["vessel_accounting_term"]):
+        if (
+            ip_record is not None
+            and np.isfinite(ip_record["vessel_accounting_term"])
+            and ip_record["vessel_accounting_term"] != 0.0
+        ):
             freedom = _as_float(
                 _safe_get(equilibrium_slice, "constraints.freedom_degrees_n")
             )
-            freedom = freedom if np.isfinite(freedom) and freedom > 0 else 1.0
+            # The reported aggregate is per degree of freedom; the vessel term
+            # is a raw chi-square.  Without the degree count the two cannot be
+            # combined, so the aggregate is unavailable rather than the raw
+            # term subtracted whole (which gave -47.8 for a 1.2 fit).
             aggregate_chi_squared = (
                 aggregate_chi_squared - ip_record["vessel_accounting_term"] / freedom
+                if np.isfinite(freedom) and freedom > 0
+                else np.nan
             )
         convergence_iterations = _as_float(
             _safe_get(equilibrium_slice, "convergence.iterations_n")

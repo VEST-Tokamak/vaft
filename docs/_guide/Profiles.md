@@ -668,6 +668,90 @@ more than it would on a large device:
 Always keep `uncertainty_option=1` if error bars exist. With it disabled every channel is weighted
 equally, including ones the diagnostic itself flagged as unreliable.
 
+## Equilibrium reconstruction with EFIT
+
+The profiles above are mapped on an equilibrium, and on VEST that equilibrium is an EFIT
+reconstruction: `vaft.code.efit` writes the k-files, runs the code and collects its output. The
+per-shot stages live in [Automated pipelines]({{ site.baseurl }}/workflows/automated-pipelines/) and
+the functions in the [code API]({{ site.baseurl }}/reference/api/code/). Two parts of that machinery
+belong on this page: the named configurations a run selects, and the poloidal field derived from the
+flux map it returns.
+
+### Named configurations (presets)
+
+`vaft.code.efit.PRESETS` names complete EFIT configurations: the scientific configuration written into the k-file, sigma floor included.
+Since 2026-10-01 the defaults of `EFITScientificConfig` *are* the #891 working setting, so a run that names no configuration writes it (`DEFAULT_PRESET = "statistical_891"`).
+
+| preset | what it is |
+| --- | --- |
+| `statistical_891` (default) | The #891 working setting. Statistical σ with a 2 % probe/loop floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1, MXITER 514). |
+| `routine` | The legacy configuration, the default before 2026-10-01: legacy weights, a (2,2) basis, EFIT's own termination, 100 iterations, no floor. It gave βp ≈ 0 on the reference slices; keep it for reproducing old results. |
+
+`generate_kfile` applies the configured floor to a copy of the constraints, so the product itself is
+never changed. `prepare_constraints` shows what the floor does, per slice and family:
+
+```python
+from vaft.code.efit import efit_preset
+
+preset = efit_preset("statistical_891")
+ods = vaft.omas.sample_ods()   # shot 39915, whose equilibrium carries the EFIT constraints
+constraints, floor_changes = preset.prepare_constraints(ods)   # a floored copy of the constraints ODS
+floor_changes[0]   # {'slice': 0, 'family': 'bpol_probe', 'floor': ..., 'raised': ..., 'fitted': ...}
+```
+
+Writing the k-files needs no configuration for the default; the legacy one is named:
+
+<!-- docs-snippet: skip needs-data (generate_kfile reads the k-file inputs generate_constraints_ods records under equilibrium.code.parameters, which the packaged sample lacks) -->
+```python
+from vaft.code.efit import generate_kfile
+
+generate_kfile(ods, 39915, save_dir="efit-run")                                       # statistical_891
+generate_kfile(ods, 39915, save_dir="efit-legacy", config=efit_preset("routine").scientific)
+```
+
+`routine_profile_config()`, `routine_numerics_config()`, `routine_constraint_config()` and
+`routine_scientific_config()` in `vaft.code.efit.config` build the legacy pieces one at a time.
+Passing `npprime`/`nffprime` to `generate_kfile` without a `config` also selects the legacy
+configuration with that basis. `EFITConfig.npprime`/`nffprime` only override the basis of the
+configuration the `EFITConfig` carries; to run the legacy configuration through
+`prepare_efit_inputs`, pass its `profile`, `initialization`, `numerics` and `constraints`.
+
+**Selecting a preset in the pipelines.**
+- **Pipeline 1:** `efit.preset` in `config.yaml` is empty for the default and `routine` for the legacy configuration. The k-file stage always writes `efit_preset.json` beside its manifest, and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`). `vaft.database.summary` reports it as `efit_configuration` (`name@sha12`, or `unrecorded` for products written before the record existed).
+- **Pipeline 2:** `kinetic.efit_preset` builds the kinetic lineages' base magnetic k-file the same way (`KineticEFITConfig.efit_preset`).
+
+A `routine` run writes the same product paths as a default one, so give it its own `base_dir`.
+
+The default allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot's slices in one EFIT call, so `efit.timeout` is 3600 s: 600 s timed out 26 of 33 shots in the #1331 Tier A campaign.
+
+`statistical_891` was calibrated on 39915's flat-top. The weight-study README (`workflow/efit_uncertainty_calibration`) records how.
+
+### Poloidal field on the boundary and the flux convention
+
+The poloidal field on the LCFS, which `shafranov_integrals` turns into $S_1, S_2, S_3$ for
+$\beta_p$ and $l_i$, is read off the flux map by bicubic spline. The map's flux convention is an
+argument, not an assumption: an ODS stores $\psi$ in Wb (COCOS 11), while the function's default is
+Wb/rad, a factor $2\pi$ in the field.
+
+```python
+from vaft.process.equilibrium import poloidal_field_at_boundary
+
+ods = vaft.omas.sample_ods()   # shot 39915: psi stored in Wb, and the record says so
+slice_0 = ods["equilibrium.time_slice.0"]
+R_grid_1d = slice_0["profiles_2d.0.grid.dim1"]
+Z_grid_1d = slice_0["profiles_2d.0.grid.dim2"]
+psi_grid = slice_0["profiles_2d.0.psi"]
+R_bdry, Z_bdry = slice_0["boundary.outline.r"], slice_0["boundary.outline.z"]
+
+B_p_bdry, B_R_bdry, B_Z_bdry = poloidal_field_at_boundary(
+    R_grid_1d, Z_grid_1d, psi_grid, R_bdry, Z_bdry,
+    cocos=vaft.omas.ods_cocos(ods),  # the flux convention the record declares: 11 for IMAS psi in Wb; omitting it assumes Wb/rad
+)
+```
+
+The rest of the chain -- `shafranov_integrals`, `efit_virial_volume_integrals`, `calculate_diamagnetism`
+-- is documented in the [process reference]({{ site.baseurl }}/reference/process/equilibrium/).
+
 ## References
 
 - Notebook: [profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb)

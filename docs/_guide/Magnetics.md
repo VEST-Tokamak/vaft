@@ -374,6 +374,44 @@ vaft.omas.plot_equilibrium_time_diamagnetic_flux(ods)   # magnetics + measured +
 
 See [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) for how the reconstructed value is computed.
 
+## 3-D scenes and ParaView
+
+`Geometry3DLayers` is the lightweight 3-D view model: points and polylines in
+machine Cartesian metres (IMAS `phi` counter-clockwise from above, through
+`vaft.machine_mapping.conventions.cylindrical_to_cartesian`). Each layer names
+its subsystem in `group`, a `/` path such as `machine/pf_active/PF1/0`.
+Surfaces, grids and fields are not layers; they belong to the scientific mesh
+work (#909, #1100).
+
+| Tool | Role | Entry point | Install |
+|---|---|---|---|
+| Matplotlib | static validation and publication figures | `plot_machine_geometry3d(ods)`, `plot_coil_3d_geometry3d(ods)` | core |
+| Plotly | browser figure, hover, legend toggles per set | the same, `backend="plotly"` | core |
+| PyVista / VTK | scientific 3-D objects, `.vtm`/`.vtp` files | `vaft.plot.pyvista.to_pyvista`, `write_vtk` | `vaft[vtk]` |
+| K3D | interactive scene in Jupyter | `vaft.plot.k3d.to_k3d`, `coil_phase_explorer` | `vaft[jupyter3d]` |
+| ParaView | external viewer of the exported files | open the `.vtm` | not a dependency |
+
+The scene is extracted like any other view model; the adapters are subpackages that
+`import vaft` does not load, so import them by name:
+
+```python
+scene = vaft.plot.extract("machine_geometry3d", ods)
+scene.layers[0].group   # 'machine/...': the block path ParaView and K3D keep
+```
+
+<!-- docs-snippet: skip needs-extra (write_vtk needs vaft[vtk] and coil_phase_explorer vaft[jupyter3d], neither of which the core install provides) -->
+```python
+from vaft.plot.pyvista import write_vtk
+from vaft.plot.k3d import coil_phase_explorer
+
+write_vtk(scene, "machine.vtm")                  # blocks follow `group`
+coil_phase_explorer(ods, coil_set="MID")         # n / phase sliders
+```
+
+`RENDER_BACKENDS` stays Matplotlib and Plotly: `vaft.plot.pyvista` and
+`vaft.plot.k3d` are adapters of the model beside `vaft.plot.plotly`, imported
+only on use, and no data or physics API returns their objects.
+
 ---
 
 # Mirnov and fluctuation diagnostics
