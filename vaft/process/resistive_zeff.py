@@ -904,8 +904,9 @@ def infer_resistive_zeff(
     Processing steps
     ----------------
     1. Match each state to the observed sample at its time.
-    2. Drop samples flagged ``R_p_nonpositive``; none left gives
-       ``not_identifiable``.
+    2. Keep every matched sample, counting those flagged
+       ``R_p_nonpositive`` (dropping them would bias Z upward); a
+       non-positive mean ``V_R`` gives ``not_identifiable``.
     3. Scan ``R_p^model(Z)`` over the bounds; a non-monotonic response gives
        ``non_monotonic`` without a fit.
     4. Minimise ``J(Z) = sum w (V_R^obs - R_p^model(Z) (I_p - I_ni))^2``
@@ -974,8 +975,12 @@ def infer_resistive_zeff(
     except Exception:  # pragma: no cover - import of the package itself
         provenance["vaft_version"] = "unknown"
 
-    keep = [(k, s, w) for (k, s), w in zip(pairs, w_all)
-            if "R_p_nonpositive" not in observed.flags[k] and w > 0.0]
+    # Non-positive R_p samples stay in: dropping only the negative side of the
+    # noise would keep the positive half and bias Z_eff upward. They are
+    # counted in the quality, and a window whose mean V_R is not positive has
+    # no resistance to fit.
+    keep = [(k, s, w) for (k, s), w in zip(pairs, w_all) if w > 0.0]
+    n_nonpositive = sum("R_p_nonpositive" in observed.flags[k] for k, _, _ in keep)
 
     def result(status, *, zeff=None, uncertainty=None, objective=None, reason=None,
                times=(), v_obs=(), v_model=(), r_obs=(), r_model=(), quality=None):
@@ -993,9 +998,9 @@ def infer_resistive_zeff(
             reason=reason,
         )
 
-    if not keep:
+    if not keep or float(np.mean([observed.V_R[k] for k, _, _ in keep])) <= 0.0:
         return result("not_identifiable",
-                      reason="no matched sample with a positive observed resistance")
+                      reason="the matched samples carry no positive mean resistive voltage")
 
     idx = np.array([k for k, _, _ in keep])
     w = np.array([wt for _, _, wt in keep])
@@ -1014,6 +1019,7 @@ def infer_resistive_zeff(
     steps = np.diff(scan, axis=0)
     monotonic = bool(np.all(steps > 0.0) or np.all(steps < 0.0))
     quality = {"monotonic": monotonic, "n_samples": int(idx.size),
+               "n_nonpositive_samples": int(n_nonpositive),
                "max_inductive_fraction": float(np.nanmax(observed.inductive_fraction[idx]))}
     if not monotonic:
         return result("non_monotonic", times=observed.time[idx], v_obs=v_obs,

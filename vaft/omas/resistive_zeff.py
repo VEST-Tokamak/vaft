@@ -114,6 +114,8 @@ def flux_surface_state_ods(
     time_slice: int,
     bootstrap: str = "none",
     bootstrap_z_eff: Optional[float] = None,
+    time_tolerance_s: float = 5e-5,
+    gs_tolerance: float = 0.1,
     source: Optional[dict] = None,
 ) -> FluxSurfaceState:
     """One paired equilibrium / core_profiles slice as a :class:`FluxSurfaceState`.
@@ -127,21 +129,31 @@ def flux_surface_state_ods(
         bootstrap_z_eff: The Z_eff the bootstrap current is evaluated at;
             required when ``bootstrap`` is not ``"none"``. It is held fixed
             while Z_eff is fitted, which is recorded in the label.
+        time_tolerance_s: Largest core_profiles/equilibrium time gap accepted [s];
+            the same tolerance the resistive Z_eff atlas keys on.
+        gs_tolerance: Largest relative mismatch between ``ip`` and the current
+            Grad-Shafranov gives from the converted ``p'`` and ``FF'``.
         source: Extra provenance to carry along.
+
+    Raises:
+        ValueError: ... or the converted derivatives fail the Grad-Shafranov
+            current check -- psi converted but its derivatives not (or the
+            reverse) would enter R_p squared as (2 pi)^2.
 
     Notes:
         ``<J.B> = -(F p' + F F' <B^2> / (mu0 F))`` with ``p'`` and ``F F'``
         converted to per-radian psi; its overall sign is taken so that it has
         the sign of ``I_p``. Surfaces where T_e or n_e is missing or not
         positive are dropped (the profiles are not extrapolated), and the
-        share of the j_tor current they carry is recorded as
+        share of the Grad-Shafranov current they carry is recorded as
         ``excluded_current_fraction``.
     """
     from vaft.formula.constants import MU0
     from vaft.omas.general import find_matching_time_indices
     from vaft.omas.neoclassical import _kinetic_on, _radial_extent
 
-    cp_index, eq_index, time = find_matching_time_indices(ods, time_slice=time_slice)
+    cp_index, eq_index, time = find_matching_time_indices(
+        ods, time_slice=time_slice, atol=time_tolerance_s)
     detected = detected_psi_per_radian(ods, eq_index)
     if detected is None:
         raise ValueError(
@@ -151,7 +163,7 @@ def flux_surface_state_ods(
 
     work = ods
     ts = ods["equilibrium.time_slice"][eq_index]
-    if any(_leaf(ts, name) is None for name in ("gm5", "volume")):
+    if any(_leaf(ts, name) is None for name in ("gm1", "gm5", "volume")):
         from omas import ODS
 
         from vaft.omas.update import update_equilibrium_profiles_1d_geometry
@@ -162,10 +174,10 @@ def flux_surface_state_ods(
         ts = work["equilibrium.time_slice"][eq_index]
 
     leaves = {name: _leaf(ts, name) for name in (
-        "psi", "rho_tor_norm", "q", "f", "dpressure_dpsi", "f_df_dpsi", "gm5", "volume",
-        "trapped_fraction", "j_tor", "area")}
+        "psi", "rho_tor_norm", "q", "f", "dpressure_dpsi", "f_df_dpsi", "gm1", "gm5",
+        "volume", "trapped_fraction")}
     missing = [n for n in ("psi", "rho_tor_norm", "q", "f", "dpressure_dpsi", "f_df_dpsi",
-                           "gm5", "volume") if leaves[n] is None]
+                           "gm1", "gm5", "volume") if leaves[n] is None]
     if missing:
         raise ValueError(f"equilibrium slice {eq_index} lacks {', '.join(missing)}")
     size = leaves["psi"].size
@@ -183,6 +195,17 @@ def flux_surface_state_ods(
     j_dot_b = -(f * dp + ffp * leaves["gm5"] / (MU0 * f))
     # Fix the overall sign by the current, not by an assumed COCOS.
     from scipy.integrate import trapezoid
+
+    # Check the converted derivatives themselves, not only psi's unit: the
+    # Grad-Shafranov current int <j_phi/R> dV / 2 pi, with
+    # <j_phi/R> = -(p' + FF' <1/R^2> / mu0), must reproduce ip.
+    gs_current = abs(trapezoid(-(dp + ffp * leaves["gm1"] / MU0), leaves["volume"])) / (2 * np.pi)
+    ratio = gs_current / abs(ip)
+    if not abs(ratio - 1.0) <= gs_tolerance:
+        raise ValueError(
+            f"equilibrium slice {eq_index}: the Grad-Shafranov current from p' and FF' is "
+            f"{ratio:.3g} x ip; the psi derivatives are not in the unit psi was detected in"
+        )
 
     j_dot_b = j_dot_b * np.sign(ip) * np.sign(trapezoid(j_dot_b, leaves["volume"]))
 
@@ -207,13 +230,13 @@ def flux_surface_state_ods(
     if not np.all(keep[span]):
         raise ValueError("the kinetic profiles have interior gaps; refusing to bridge them")
 
-    excluded = None
-    if leaves["j_tor"] is not None and leaves["area"] is not None:
-        total = trapezoid(leaves["j_tor"], leaves["area"])
-        inside = trapezoid(leaves["j_tor"][span], leaves["area"][span])
-        excluded = float(1.0 - inside / total) if total else None
-    elif last < size - 1 or first > 0:
-        excluded = float("nan")
+    # Share of the Grad-Shafranov current (already checked against ip above)
+    # carried by surfaces outside the profiles' support; always computable,
+    # unlike j_tor/area, which EFIT products do not store.
+    current_density = -(dp + ffp * leaves["gm1"] / MU0)
+    total = trapezoid(current_density, leaves["volume"])
+    inside = trapezoid(current_density[span], leaves["volume"][span])
+    excluded = float(1.0 - inside / total) if total else None
 
     jbs = None
     label = "none"
@@ -234,6 +257,7 @@ def flux_surface_state_ods(
         "psi_per_radian": bool(detected),
         "j_dot_b": "-(F p' + F F' <B^2>/(mu0 F)), sign of I_p",
         "psi_norm_range": f"{psi_norm[first]:.3f}-{psi_norm[last]:.3f}",
+        "gs_current_ratio": float(ratio),
         "excluded_current_fraction": excluded,
         **(source or {}),
     }

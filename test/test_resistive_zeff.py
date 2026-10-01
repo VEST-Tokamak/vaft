@@ -337,3 +337,34 @@ def test_the_ohmic_power_wrapper_warns_without_its_spitzer_inputs():
 
     with pytest.warns(FutureWarning, match="#1188"):
         compute_ohmic_heating_power_from_core_profiles(sample_ods(48224), time_slice=0)
+
+
+def test_non_positive_samples_are_kept_and_counted_not_dropped():
+    """Dropping only the negative side of the noise would bias Z upward (cold review)."""
+    states = [_state(time=t) for t in (0.002, 0.003, 0.005, 0.007)]
+    r_true = model_resistance(states[0], 2.0, model="redl", ln_lambda=15.0).R_p
+    flux = _flat_top(r_true)
+    v = r_true * 1e5
+    kick = np.zeros(flux.time.size)
+    kick[4] = 2.5 * v * 1e-3  # central differences: V_B at 3 ms negative, at 5 ms raised
+    bent = RomeroBoundaryFlux(**{**flux.__dict__, "psi_boundary": flux.psi_boundary + kick})
+    observed = observed_resistance(bent, I_ni=0.0, smoothing=Smoothing("none"))
+    assert "R_p_nonpositive" in observed.flags[3]
+    result = infer_resistive_zeff(observed, states, model="redl", ln_lambda=15.0,
+                                  bounds=(1.0, 8.0), weights="uniform")
+    assert result.quality["n_nonpositive_samples"] == 1
+    assert result.quality["n_samples"] == 4
+
+
+def test_the_parameters_variant_warns_at_the_callers_line():
+    import warnings
+
+    from vaft.process.equilibrium import resistive_layer_parameters
+
+    psi = np.linspace(0.0, 1.0, 32)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        resistive_layer_parameters(psi, 2.0 + 10.0 * psi**2, 1, t_e=100.0 * (1.1 - psi),
+                                   n_e=np.full(32, 1e19))
+    deprecations = [w for w in caught if issubclass(w.category, FutureWarning)]
+    assert deprecations and deprecations[0].filename == __file__

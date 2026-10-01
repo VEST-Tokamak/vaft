@@ -180,3 +180,17 @@ def test_neo_conductivity_matches_sauter_resistance_at_its_own_charge(state48224
     neo = model_resistance(band, charge, model=table, ln_lambda="sauter").R_p
     sauter = model_resistance(band, charge, model="sauter", ln_lambda="sauter").R_p
     assert 0.8 < neo / sauter < 1.25, neo / sauter
+
+
+def test_derivatives_in_the_wrong_unit_fail_the_grad_shafranov_check():
+    """psi converted but p' and FF' not: a (2 pi)^2 error in R_p, caught on the current."""
+    ods = sample_ods(48224)
+    ts = ods["equilibrium.time_slice"][0]["profiles_1d"]
+    for leaf in ("dpressure_dpsi", "f_df_dpsi"):
+        ts[leaf] = np.asarray(ts[leaf], float) * 2.0 * np.pi
+    with pytest.raises(ValueError, match="Grad-Shafranov"):
+        flux_surface_state_ods(ods, time_slice=0)
+
+
+def test_the_state_records_its_grad_shafranov_current(state48224):
+    assert abs(state48224.source["gs_current_ratio"] - 1.0) < 0.05

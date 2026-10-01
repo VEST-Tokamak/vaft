@@ -5129,6 +5129,22 @@ def resistive_layer_parameters(
 
     if float(ion_mass_amu) <= 0.0:
         raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+    if z_eff is None or ln_lambda is None:
+        # Warned here, not in resistive_layer_at, so the warning names the
+        # caller's line rather than this module.
+        import warnings
+
+        missing = [name for name, value in (("z_eff", z_eff), ("ln_lambda", ln_lambda))
+                   if value is None]
+        warnings.warn(
+            f"resistive_layer_parameters called without {', '.join(missing)}; the hidden "
+            "fallbacks z_eff=2, ln_lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        z_eff = 2.0 if z_eff is None else z_eff
+        ln_lambda = 17.0 if ln_lambda is None else ln_lambda
 
     surfaces = find_rational_surfaces(psi_norm, q, n, m_range=m_range)
     return {

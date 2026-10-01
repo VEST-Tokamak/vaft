@@ -119,7 +119,7 @@ SLICE_COLUMNS: dict[str, tuple[str, str]] = {
     "flags": ("string", "observed-path flags, ';'-separated"),
     "has_state": ("boolean", "electron profiles at this time were used in the fit"),
     "r_p_model_ohm": ("number", "nominal-model resistance at the fitted Z_eff [Ohm]"),
-    "excluded_current_fraction": ("number", "share of j_tor outside the profiles' support"),
+    "excluded_current_fraction": ("number", "share of the Grad-Shafranov current outside the profiles' support"),
 }
 
 SENSITIVITY_COLUMNS: dict[str, tuple[str, str]] = {
@@ -263,7 +263,8 @@ def _states_for(ods, window: list[float]):
         if not any(abs(t - w) <= KEY_TOLERANCE_S for w in window):
             continue
         try:
-            states.append(flux_surface_state_ods(ods, time_slice=i))
+            states.append(flux_surface_state_ods(ods, time_slice=i,
+                                                 time_tolerance_s=KEY_TOLERANCE_S))
         except ValueError as error:
             notes.append(f"t={t:.4f}: {error}")
     return states, notes
@@ -327,13 +328,19 @@ def infer_window(shot: int, window: list[float], ods, args, loop=None
                    reason="no slice has electron profiles at its own time"
                    + (f" ({'; '.join(notes)})" if notes else ""))
         return row, slices, []
+    # The model omits the surfaces outside the profiles' support -- the cold,
+    # most resistive edge -- while the observed R_p includes them, so a state
+    # missing much of the current would bias Z_eff high.
+    states = [s for s in states
+              if (s.source.get("excluded_current_fraction") or 0.0) <= args.max_excluded_current]
     usable = [s for s in states
               if observed.inductive_fraction[int(np.argmin(np.abs(observed.time - s.time)))]
               < args.inductive_max]
     if not usable:
         row.update(status="not_identifiable",
-                   reason=f"|V_I|/|V_B| >= {args.inductive_max} at every profiled slice: "
-                          "V_R is a small difference of large numbers")
+                   reason=f"every profiled slice has |V_I|/|V_B| >= {args.inductive_max} "
+                          "(V_R a small difference of large numbers) or more than "
+                          f"{args.max_excluded_current:g} of j_tor outside the profiles")
         return row, slices, []
 
     nominal, table = resistive_zeff_sensitivity(
@@ -448,6 +455,7 @@ def build(filedb: Path, atlas: Path, out: Path, args) -> dict:
                    "state_sha256": _sha256(atlas / "state.csv")},
         "settings": {"model": args.model, "ln_lambda": args.ln_lambda, "bounds": args.bounds,
                      "flattop_max": args.flattop_max, "inductive_max": args.inductive_max,
+                     "max_excluded_current": args.max_excluded_current,
                      "perturbation": args.perturbation, "bootstrap": "none",
                      "I_ni": 0.0, "smoothing": "none"},
         "counts": {status: sum(1 for w in windows if w.get("status") == status)
@@ -469,6 +477,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="median |V_I|/|V_B| below which a window is a flat top")
     parser.add_argument("--inductive-max", type=float, default=1.0,
                         help="slices with |V_I|/|V_B| at or above this are not fitted")
+    parser.add_argument("--max-excluded-current", type=float, default=0.05,
+                        help="states with a larger share of j_tor outside the profiles are not fitted")
     parser.add_argument("--perturbation", type=float, default=0.1)
     args = parser.parse_args(argv)
     if args.ln_lambda != "sauter":
