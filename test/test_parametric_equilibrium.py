@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pytest
 
@@ -1010,10 +1012,20 @@ def test_solovev_field_sign_is_consistent_between_f_and_bt0(f_boundary, f_sign):
 
 @pytest.mark.parametrize("f_boundary, f_sign", [(-0.04, 1), (0.04, -1)])
 def test_solovev_contradictory_field_sign_is_refused(f_boundary, f_sign):
-    with pytest.raises(ValueError, match="contradicts f_boundary"):
+    """The refusal is a 0.8.0 breaking change for the 0.7.x-legal
+    ``f_sign=-1, f_boundary>0``, so the message names the old behaviour and
+    the exact replacement (cold review 0.8.0 equilibrium-representation F4)."""
+    expected = rf"0\.7\.x.*derived from f_boundary.*f_boundary={-f_boundary:g} and leave f_sign=None"
+    with pytest.raises(ValueError, match="contradicts f_boundary") as info:
         _field_sign_record(f_boundary, f_sign)
-    with pytest.raises(ValueError, match="contradicts f_boundary"):
+    assert re.search(expected, str(info.value)), str(info.value)
+    with pytest.raises(ValueError, match="contradicts f_boundary") as info:
         SolovevEquilibrium(np.zeros(5), -1.0, 0.0, 1.0, f_boundary=f_boundary, f_sign=f_sign)
+    assert re.search(expected, str(info.value)), str(info.value)
+    from vaft.data.equilibrium import _resolve_solovev_f_sign
+
+    assert "0.7.x" in _resolve_solovev_f_sign.__doc__
+    assert "0.7.x" in solve_solovev_constraints.__doc__
 
 
 def test_solovev_zero_or_invalid_field_sign_inputs_are_refused():

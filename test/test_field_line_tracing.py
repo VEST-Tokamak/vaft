@@ -616,17 +616,54 @@ def undeclared_ods():
     return ods
 
 
-def test_a_record_whose_candidates_disagree_on_the_field_direction_is_refused(undeclared_ods):
-    """Review repro: cocos=None, candidates (11, 12), Wb -- B_p used to come out reversed."""
+def test_a_record_whose_candidates_disagree_on_the_field_direction_warns_like_its_arrays(undeclared_ods):
+    """Review repro: cocos=None, candidates (11, 12), Wb -- B_p used to come out reversed, silently.
+
+    The record form then refused such a record outright while the array form
+    on the same arrays only announced the assumed orientation, so the form
+    the docstring says to prefer raised on the canonical sample (cold review
+    0.8.0 equilibrium-representation F1).  Both forms now take the same
+    announced assumption and give the same field.
+    """
     from vaft.process.equilibrium import as_equilibrium, equilibrium_field_on_grid
 
     eq = as_equilibrium(undeclared_ods, time_index=0)
     assert eq.convention.cocos is None and set(eq.convention.candidates) == {11, 12}
     assert eq.convention.psi_per_radian is False
-    with pytest.raises(ValueError, match=r"\(11, 12\)"):
-        make_equilibrium_field_interpolator(eq)
-    with pytest.raises(ValueError, match="direction"):
-        equilibrium_field_on_grid(eq)
+    with pytest.warns(UserWarning, match="record declares a flux storage family but no COCOS index"):
+        record_field = make_equilibrium_field_interpolator(eq)
+    with pytest.warns(UserWarning, match="orientation is assumed"):
+        record_grid = equilibrium_field_on_grid(eq)
+    with pytest.warns(UserWarning, match="orientation is assumed"):
+        array_field = make_equilibrium_field_interpolator(
+            eq.r, eq.z, eq.psi, eq.psi_1d, eq.f, psi_per_radian=False,
+        )
+    with pytest.warns(UserWarning, match="orientation is assumed"):
+        array_grid = equilibrium_field_on_grid(eq.r, eq.z, eq.psi, eq.psi_1d, eq.f, psi_per_radian=False)
+    for r, z in _points_inside(eq):
+        np.testing.assert_allclose(record_field(r, z), array_field(r, z), rtol=1e-12)
+    for record_component, array_component in zip(record_grid, array_grid):
+        np.testing.assert_allclose(record_component, array_component, rtol=1e-12)
+
+
+def test_the_packaged_g_file_record_is_accepted_with_the_announced_orientation():
+    """``as_equilibrium(sample_geqdsk())`` is open between COCOS 1 and 2 (no
+    ``COCOS=`` token), the very record the docstring's preferred form is
+    built for; it warns like its arrays instead of raising."""
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium
+
+    eq = as_equilibrium(sample_geqdsk())
+    assert eq.convention.cocos is None and set(eq.convention.candidates) == {1, 2}
+    assert eq.convention.psi_per_radian is True
+    with pytest.warns(UserWarning, match="orientation is assumed"):
+        record_field = make_equilibrium_field_interpolator(eq)
+    with pytest.warns(UserWarning, match="orientation is assumed"):
+        array_field = make_equilibrium_field_interpolator(
+            eq.r, eq.z, eq.psi, eq.psi_1d, eq.f, psi_per_radian=True,
+        )
+    for r, z in _points_inside(eq):
+        np.testing.assert_allclose(record_field(r, z), array_field(r, z), rtol=1e-12)
 
 
 def test_a_record_whose_candidates_agree_uses_their_common_factor(ods_equilibrium):

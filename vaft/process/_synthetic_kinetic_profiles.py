@@ -599,6 +599,16 @@ def generate_synthetic_kinetic_profiles(
         _fail("invalid_equilibrium",
               f"p_eq falls below edge_floor = {spec.edge_floor:g} of its maximum next to the axis; "
               "there is no region to close the pressure on")
+    if k_exact < 0:
+        # A hollow p_eq (axis sample below the floor) leaves the region the
+        # non-local constraints judge their residual on empty; refused with the
+        # status rather than left to a bare numpy reduction error (cold review
+        # 0.8.0 plasma-state-and-chease F1).
+        _fail("invalid_equilibrium",
+              f"the equilibrium pressure is hollow: its axis sample {p_eq[0]:g} Pa is below edge_floor = "
+              f"{spec.edge_floor:g} of its maximum {np.max(p_eq):g} Pa, so the region on which "
+              f"pressure_constraint={mode!r} judges the kinetic pressure against p_eq is empty; "
+              "give an equilibrium whose pressure peaks on axis, or a smaller edge_floor")
     psi_exact = float(grid[k_exact])
 
     def carry_edge(values):

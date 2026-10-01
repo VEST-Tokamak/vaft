@@ -487,6 +487,24 @@ def test_contradictory_or_malformed_inputs_are_refused(build, status):
     assert info.value.status == status
 
 
+@pytest.mark.parametrize("kwargs", [
+    {"pressure_constraint": "kinetic"},
+    {"pressure_constraint": "thermal_energy", "closure": "temperature_amplitude", "T_e": ProfileSpec(TE)},
+])
+def test_a_hollow_equilibrium_pressure_is_refused_with_its_status(geqdsk, kwargs):
+    """An axis pressure sample below ``edge_floor`` of the maximum (legal for
+    a foreign g-file) used to reach a bare numpy "zero-size array" ValueError
+    under every non-local constraint (cold review 0.8.0 plasma-state-and-chease F1)."""
+    hollow = copy.deepcopy(geqdsk)
+    pressure = np.asarray(hollow["PRES"], dtype=float).copy()
+    pressure[0] = 0.5e-2 * pressure.max()
+    hollow["PRES"] = pressure
+    with pytest.raises(SyntheticProfileError, match="hollow") as info:
+        generate(hollow, _spec(**kwargs))
+    assert info.value.status == "invalid_equilibrium"
+    assert kwargs["pressure_constraint"] in str(info.value)
+
+
 def test_analytic_kernel_refusals_come_from_the_1045_layer():
     with pytest.raises(ValueError, match="outside"):
         compose_analytic_profile("T_e", axis_value=1.0, separatrix_value=0.1, pedestal_top_value=0.5,
@@ -579,6 +597,22 @@ def test_ods_input_uses_its_declared_cocos_for_psi(geqdsk, eq_ods):
 def test_mislabelled_channels_and_units_are_refused(build):
     with pytest.raises(SyntheticProfileError):
         build()
+
+
+@pytest.mark.parametrize("build", [
+    lambda: _spec(T_e=ProfileSpec(TE, ScalarTarget("greenwald_fraction", 0.4))),
+    lambda: _spec(temperature=TemperatureAssumption(T_i=ProfileSpec(
+        compose_analytic_profile("T_i", axis_value=1.0, separatrix_value=0.05, core_alpha=1.0, core_beta=2.0),
+        ScalarTarget("greenwald_fraction", 0.4)))),
+])
+def test_a_greenwald_fraction_on_a_temperature_is_refused_when_the_spec_is_built(build):
+    """It used to be refused only inside the generator, after the geometry was
+    traced (cold review 0.8.0 plasma-state-and-chease F7); the density slot
+    still takes it."""
+    with pytest.raises(SyntheticProfileError, match="normalizes n_e, not T_") as info:
+        build()
+    assert info.value.status == "invalid_normalization"
+    assert _spec(n_e=ProfileSpec(NE, ScalarTarget("greenwald_fraction", 0.4))).n_e.target.kind == "greenwald_fraction"
 
 
 def test_hold_extrapolation_is_recorded(geqdsk):

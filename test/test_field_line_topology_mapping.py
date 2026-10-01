@@ -165,6 +165,44 @@ def test_an_earlier_instant_is_refused_for_the_divertor_signals_too():
         write_divertor_incident_fractions(ods, fractions=FRACTIONS, time=0.2)
 
 
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+def test_a_non_finite_instant_is_refused_by_both_writers_and_nothing_is_written(bad):
+    """A NaN instant used to be acknowledged, stored in ``divertors.time`` and
+    then silently dropped -- its data slot overwritten -- by the next finite
+    write (cold review 0.8.0 perturbation-topology-sxr N1)."""
+    ods = ODS()
+    with pytest.raises(ValueError, match="finite instant"):
+        written(ods, time=bad)
+    with pytest.raises(ValueError, match="finite instant"):
+        write_divertor_incident_fractions(ods, fractions=FRACTIONS, time=bad)
+    assert ods.flat() == {}
+
+
+def test_a_finite_write_after_a_refused_nan_lands_where_it_should():
+    ods = ODS()
+    with pytest.raises(ValueError, match="finite instant"):
+        write_divertor_incident_fractions(ods, fractions=FRACTIONS, time=float("nan"))
+    write_divertor_incident_fractions(ods, fractions=FRACTIONS, time=0.1)
+    write_divertor_incident_fractions(ods, fractions={"inner_lower": 0.2, "outer_lower": 0.8}, time=0.2)
+    np.testing.assert_allclose(ods["divertors.time"], [0.1, 0.2])
+    np.testing.assert_allclose(ods["divertors.divertor.0.target.0.power_incident_fraction.data"], [0.7, 0.2])
+
+
+def test_a_refused_out_of_order_instant_leaves_even_the_homogeneous_time_flag_alone():
+    """``_time_base`` set ``homogeneous_time = 1`` before refusing (cold review
+    0.8.0 perturbation-topology-sxr F4): a refused write on a foreign
+    heterogeneous divertors IDS flipped the flag."""
+    ods = ODS()
+    ods["divertors.time"] = np.array([0.2])
+    ods["divertors.ids_properties.homogeneous_time"] = 0
+    before = dict(ods.flat())
+    with pytest.raises(ValueError, match="increasing order"):
+        write_divertor_incident_fractions(ods, fractions=FRACTIONS, time=0.1)
+    after = dict(ods.flat())
+    assert after.keys() == before.keys()
+    assert after["divertors.ids_properties.homogeneous_time"] == 0
+
+
 def test_an_absent_open_fraction_is_omitted_and_the_omission_recorded():
     """It is a required argument whose None is the decision, so a caller who
     has no status data says so rather than leaving it out by accident."""
