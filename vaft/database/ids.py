@@ -27,6 +27,11 @@ from .h5image import publish_image
 from .sources import resolve as resolve_source
 from .staging import external_h5_links, stage_imas_shot
 
+__all__ = [
+    "load",
+    "save",
+]
+
 
 def _download_remote_image(remote_uri: str, out_path: Path) -> Path:
     """Download HSDS domain to a local HDF5 file via hsget."""
