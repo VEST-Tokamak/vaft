@@ -7,7 +7,7 @@ import re
 from dataclasses import replace
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 from omas import save_omas_json
@@ -38,7 +38,8 @@ def _key(text, name):
 
 
 def _golden_kfile(tmp_path, **kwargs):
-    generate_kfile(_constraints_ods(Path("/GOLDEN_INPUT_DIR")), 39915, save_dir=str(tmp_path), **kwargs)
+    # PurePosixPath: the golden INPUT_DIR is written with a forward slash on every OS.
+    generate_kfile(_constraints_ods(PurePosixPath("/GOLDEN_INPUT_DIR")), 39915, save_dir=str(tmp_path), **kwargs)
     return next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
 
 
