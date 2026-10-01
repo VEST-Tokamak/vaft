@@ -60,6 +60,8 @@ ATLAS_VERSION = 1
 
 ZERO_CROSSING = re.compile(r"Zero crossing at psi =\s*([-+0-9.Ee]+), q =\s*([-+0-9.Ee]+)")
 
+#: #142's enum, as used here. MARGINAL is reserved and never produced: no
+#: tolerance band around W_t = 0 has been derived yet (#141 follow-up).
 STATUS_VALUES = (
     "VALID_STABLE",
     "VALID_UNSTABLE",
@@ -69,6 +71,11 @@ STATUS_VALUES = (
     "SOLVER_FAILURE",
     "NOT_APPLICABLE",
 )
+#: Atlas extensions. NOT_CHECKED: the mpsi 512 check run is missing or
+#: failed, so convergence is unknown (not "unresolved"). RESOLVED: a Δ′
+#: column has at least one resolved interior surface. Δ′ never gets a
+#: stable/unstable label, because Δ′ alone is not a tearing verdict (#939).
+EXTENSION_VALUES = ("NOT_CHECKED", "RESOLVED")
 
 
 def _result(job: Path) -> Optional[dict]:
@@ -145,22 +152,33 @@ def dcon_columns(result: Optional[dict], prefix: str) -> dict[str, Any]:
                 "psi_n_at_max_D_R": psi_dr,
                 "min_C_A": min_ca,
                 "psi_n_at_min_C_A": psi_ca,
-                "mercier_evaluated": bool(out.evaluation.mer_flag) if out.evaluation else None,
-                "ballooning_evaluated": None if evaluated is None else bool(evaluated.any()),
+                "mercier_evaluated": None if out.evaluation is None else out.evaluation.mercier,
+                "ballooning_evaluated": None
+                if evaluated is None or out.evaluation is None
+                else bool(out.evaluation.ballooning and evaluated.any()),
                 # Sign rules from #142: D_I > 0 is ideal-interchange unstable,
                 # D_R > 0 resistive-interchange unstable, C_A < 0 ballooning unstable.
-                "ideal_interchange_unstable": None if max_di is None else bool(max_di > 0),
-                "resistive_interchange_unstable": None if max_dr is None else bool(max_dr > 0),
+                "ideal_interchange_unstable": None
+                if max_di is None or not (out.evaluation and out.evaluation.mercier)
+                else bool(max_di > 0),
+                "resistive_interchange_unstable": None
+                if max_dr is None or not (out.evaluation and out.evaluation.mercier)
+                else bool(max_dr > 0),
                 "ballooning_unstable": None if min_ca is None else bool(min_ca < 0),
             }
         )
     return columns
 
 
-def dcon_status(w_256: Optional[float], w_512: Optional[float], raw_256: Optional[str]) -> str:
+def dcon_status(
+    w_256: Optional[float], w_512: Optional[float], raw_256: Optional[str], raw_512: Optional[str]
+) -> str:
+    """#142 status of one DCON treatment from its mpsi 256 run and mpsi 512 check."""
     if w_256 is None:
         return "SOLVER_FAILURE" if raw_256 is not None else "NOT_APPLICABLE"
-    if w_512 is None or np.sign(w_256) != np.sign(w_512):
+    if w_512 is None:
+        return "NOT_CHECKED"
+    if np.sign(w_256) != np.sign(w_512):
         return "NUMERICALLY_UNRESOLVED"
     return "VALID_STABLE" if w_256 > 0 else "VALID_UNSTABLE"
 
@@ -174,7 +192,7 @@ def matching_surfaces(result: Optional[dict], solver: str) -> list[dict]:
     run_dir = Path(result["run_dir"])
     n = int(result["n"])
     out = read_pest3_matching_output(run_dir, solver=solver, mode=n)
-    rows = out.delta_prime_diagonal()
+    rows = [row for row in out.delta_prime_diagonal() if row["psi_n"] is not None]
     if solver == "rdcon":
         ggj = rdcon_ggj(run_dir / f"rdcon_output_n{n}.nc")
         for row in rows:
@@ -236,16 +254,29 @@ def summary_eligible(surface: dict) -> bool:
     return surface["resolved"] and surface["position"] == "interior"
 
 
-def matching_summary(surfaces: list[dict], status_raw: Optional[str], prefix: str) -> dict[str, Any]:
+def matching_summary(
+    surfaces: list[dict], status_raw: Optional[str], prefix: str, *, checked: bool = True
+) -> dict[str, Any]:
+    """Per-n Δ′ summary over resolved interior surfaces, with a status that is not a verdict.
+
+    ``checked`` is False when the mpsi 512 run is missing or failed: then no
+    surface can be resolved, and the status says so instead of claiming
+    "unresolved".
+    """
     resolved = [s for s in surfaces if summary_eligible(s)]
     best = max(resolved, key=lambda s: s["delta_prime_real"], default=None)
-    if not surfaces:
-        status = "SOLVER_FAILURE" if status_raw is not None else "NOT_APPLICABLE"
+    if status_raw is None:
+        status = "NOT_APPLICABLE"
+    elif status_raw not in ("completed", "stable"):
+        status = "SOLVER_FAILURE"
+    elif not surfaces:
+        status = "NOT_APPLICABLE"  # the run completed but found no rational surface in range
+    elif not checked:
+        status = "NOT_CHECKED"
     elif not resolved:
         status = "NUMERICALLY_UNRESOLVED"
     else:
-        # Δ′ alone is not a tearing verdict (#939): no stable/unstable label.
-        status = "VALID_UNSTABLE" if best["delta_prime_real"] > 0 else "VALID_STABLE"
+        status = "RESOLVED"
     return {
         f"{prefix}_status": status,
         f"{prefix}_n_rational_surfaces": len(surfaces),
@@ -259,7 +290,33 @@ def matching_summary(surfaces: list[dict], status_raw: Optional[str], prefix: st
     }
 
 
-def slice_rows(base: Path, row: dict, modes: Iterable[int], provenance: dict) -> tuple[list[dict], list[dict]]:
+def equilibrium_status(slice_dir: Path, row: dict) -> str:
+    """Whether the slice's equilibrium reached the solvers: ok | missing_source | chease_failed."""
+    name = f"g{row['shot']:06d}.{row['time_ms']:05d}"
+    if not (slice_dir / "source" / name).exists():
+        return "missing_source"
+    if not (slice_dir / "chease" / name).exists():
+        return "chease_failed"
+    return "ok"
+
+
+def _solver_build(results: Iterable[Optional[dict]], builds: dict[str, str]) -> Optional[str]:
+    """The GPEC build(s) that produced a solver's runs for one row.
+
+    Taken from each job's own ``gpec_home`` (written by ``run_job``), not
+    from the build-time environment. Rows from before that field existed
+    report ``unrecorded``.
+    """
+    homes = sorted({r.get("gpec_home") or "unrecorded" for r in results if r is not None})
+    if not homes:
+        return None
+    return ";".join(builds.get(home, home) for home in homes)
+
+
+def slice_rows(
+    base: Path, row: dict, modes: Iterable[int], provenance: dict, *, builds: Optional[dict] = None, config_sha=None
+) -> tuple[list[dict], list[dict]]:
+    builds = builds or {}
     label = f"{row['shot']}.{row['time_ms']:05d}"
     slice_dir = base / row["efit_lineage"] / label
     key = {
@@ -270,27 +327,42 @@ def slice_rows(base: Path, row: dict, modes: Iterable[int], provenance: dict) ->
         "efit_setting": row["efit_setting"],
         "kinetic_chi2": row["kinetic_chi2"],
     }
+    equilibrium = equilibrium_status(slice_dir, row)
     atlas, surfaces = [], []
     for n in modes:
         job = lambda variant: _result(slice_dir / variant / f"nn{n}")  # noqa: E731
-        record: dict[str, Any] = {**key, "n_tor": n}
-        full_256, full_512, trunc = job("dcon_mpsi256"), job("dcon_mpsi512"), job("dcon_trunc_mpsi256")
-        record.update(dcon_columns(full_256, "dcon_full_256"))
-        record.update(dcon_columns(full_512, "dcon_full_512"))
-        record.update(dcon_columns(trunc, "dcon_trunc_256"))
-        w256, w512 = record.get("dcon_full_256_W_t"), record.get("dcon_full_512_W_t")
-        record["dcon_full_status"] = dcon_status(w256, w512, record["dcon_full_256_status_raw"])
-        record["ideal_stable_full_edge"] = None if w256 is None else bool(w256 > 0)
-        wt = record.get("dcon_trunc_256_W_t")
-        record["dcon_trunc_status"] = (
-            ("VALID_STABLE" if wt > 0 else "VALID_UNSTABLE") if wt is not None
-            else ("SOLVER_FAILURE" if record["dcon_trunc_256_status_raw"] is not None else "NOT_APPLICABLE")
-        )
-        record["ideal_stable_truncated_edge"] = None if wt is None else bool(wt > 0)
+        record: dict[str, Any] = {
+            **key,
+            "n_tor": n,
+            "equilibrium_status": equilibrium,
+            "efit_config_sha256": config_sha,
+        }
+        runs = {v: job(v) for v in ("dcon_mpsi256", "dcon_mpsi512", "dcon_trunc_mpsi256", "dcon_trunc_mpsi512")}
+        record.update(dcon_columns(runs["dcon_mpsi256"], "dcon_full_256"))
+        record.update(dcon_columns(runs["dcon_mpsi512"], "dcon_full_512"))
+        record.update(dcon_columns(runs["dcon_trunc_mpsi256"], "dcon_trunc_256"))
+        record.update(dcon_columns(runs["dcon_trunc_mpsi512"], "dcon_trunc_512"))
+        for treatment in ("full", "trunc"):
+            record[f"dcon_{treatment}_status"] = dcon_status(
+                record.get(f"dcon_{treatment}_256_W_t"),
+                record.get(f"dcon_{treatment}_512_W_t"),
+                record[f"dcon_{treatment}_256_status_raw"],
+                record[f"dcon_{treatment}_512_status_raw"],
+            )
+        status = {"full": record["dcon_full_status"], "trunc": record["dcon_trunc_status"]}
+        # A stability flag only where its status is a VALID_* verdict.
+        record["ideal_stable_full_edge"] = {"VALID_STABLE": True, "VALID_UNSTABLE": False}.get(status["full"])
+        record["ideal_stable_truncated_edge"] = {"VALID_STABLE": True, "VALID_UNSTABLE": False}.get(status["trunc"])
+        record["dcon_gpec_build"] = _solver_build(runs.values(), builds)
         for solver in ("rdcon", "stride"):
             primary, check = job(f"{solver}_mpsi256"), job(f"{solver}_mpsi512")
             paired = pair_surfaces(matching_surfaces(primary, solver), matching_surfaces(check, solver))
-            record.update(matching_summary(paired, None if primary is None else primary.get("status"), solver))
+            record.update(
+                matching_summary(
+                    paired, None if primary is None else primary.get("status"), solver, checked=_ok(check)
+                )
+            )
+            record[f"{solver}_gpec_build"] = _solver_build((primary, check), builds)
             for s in paired:
                 surfaces.append(
                     {
@@ -311,9 +383,13 @@ def slice_rows(base: Path, row: dict, modes: Iterable[int], provenance: dict) ->
                         "D_R": s.get("D_R"),
                         "H": s.get("H"),
                         "C_A": s.get("C_A"),
+                        "gpec_build": _solver_build((primary,), builds),
                         "run_dir": None if primary is None else primary["run_dir"],
                     }
                 )
+        if equilibrium != "ok":
+            for name in ("dcon_full_status", "dcon_trunc_status", "rdcon_status", "stride_status"):
+                record[name] = "INVALID_EQUILIBRIUM"
         record.update(provenance)
         record["slice_dir"] = str(slice_dir)
         atlas.append(record)
@@ -327,7 +403,46 @@ def _git(path: Path, *args: str) -> str:
         return "unknown"
 
 
+#: Column dictionary for schema.json: (type, unit, meaning). Columns with a
+#: treatment/resolution prefix are described once by their pattern.
+COLUMNS: dict[str, tuple[str, str, str]] = {
+    "shot": ("int", "", "VEST shot"),
+    "time_efit_s": ("float", "s", "EFIT slice time"),
+    "efit_lineage": ("str", "", "magnetics-only | electron-kinetic"),
+    "efit_label": ("str", "", "#1331 label: good | admissible"),
+    "efit_setting": ("str", "", "EFIT preset the label belongs to"),
+    "efit_config_sha256": ("str", "", "magnetic EFIT configuration hash recorded by the campaign for this slice"),
+    "kinetic_chi2": ("float", "", "electron-EFIT chi2 (electron-kinetic rows only)"),
+    "n_tor": ("int", "", "toroidal mode number"),
+    "equilibrium_status": ("str", "", "ok | missing_source | chease_failed"),
+    "dcon_{t}_{r}_W_t": ("float", "DCON-normalized", "least-stable total energy eigenvalue; >0 stable"),
+    "dcon_{t}_{r}_W_p": ("float", "DCON-normalized", "plasma energy at the least-stable mode"),
+    "dcon_{t}_{r}_W_v": ("float", "DCON-normalized", "vacuum energy at the least-stable mode"),
+    "dcon_{t}_{r}_W_v_imag_ratio": ("float", "", "|Im W_v / Re W_v| (should be ~0)"),
+    "dcon_{t}_{r}_m_dominant": ("int", "", "dominant poloidal harmonic of the least-stable eigenfunction"),
+    "dcon_{t}_{r}_psilim": ("float", "", "effective edge psi_N (post-truncation for trunc)"),
+    "dcon_{t}_{r}_qlim": ("float", "", "q at psilim"),
+    "dcon_{t}_{r}_n_zero_crossings": ("int", "", "confirmed Newcomb zero crossings in dcon.out"),
+    "dcon_{t}_status": ("str", "", "#142 status of treatment t (full | trunc) from mpsi 256 + 512"),
+    "ideal_stable_full_edge": ("bool", "", "only when dcon_full_status is VALID_*"),
+    "ideal_stable_truncated_edge": ("bool", "", "only when dcon_trunc_status is VALID_*"),
+    "max_D_I": ("float", "", "max Mercier D_I (DCON, mpsi 256, full edge); >0 ideal-interchange unstable"),
+    "max_D_R": ("float", "", "max resistive interchange D_R; >0 unstable"),
+    "min_C_A": ("float", "", "min ballooning C_A over evaluated surfaces; <0 unstable"),
+    "{s}_status": ("str", "", "RESOLVED | NUMERICALLY_UNRESOLVED | NOT_CHECKED | SOLVER_FAILURE | NOT_APPLICABLE | INVALID_EQUILIBRIUM"),
+    "{s}_delta_prime_max": ("float", "1 (PEST3 normalization)", "max diagonal Δ′ over resolved interior surfaces"),
+    "{s}_n_summary_surfaces": ("int", "", "resolved interior surfaces used in the summary"),
+    "{s}_gpec_build": ("str", "", "GPEC build(s) that ran this solver for the row"),
+    "delta_prime": ("float", "1 (PEST3 normalization)", "surface table: diagonal Δ′ at mpsi 256"),
+    "D_I": ("float", "", "surface table, RDCON only: D_I at the surface"),
+    "D_R": ("float", "", "surface table, RDCON only: D_R = D_I + (H - 1/2)^2"),
+    "H": ("float", "", "surface table, RDCON only: Glasser H"),
+    "C_A": ("float", "", "surface table, RDCON only: ballooning C_A"),
+}
+
+
 def write_csv(rows: list[dict], path: Path) -> Path:
+    """Write rows with the union of their columns. Booleans are True/False, missing values empty."""
     columns: list[str] = []
     for row in rows:
         columns.extend(k for k in row if k not in columns)
@@ -342,16 +457,17 @@ SCHEMA_NOTES = {
     "key": ["shot", "time_efit_s", "efit_lineage", "n_tor"],
     "key_contract": "provisional (shot, time_efit_s, efit_lineage) per lane log #1448, until lane K publishes its State key contract",
     "efit_label": "#1331 criteria label of the magnetics-only EFIT at this time: good | admissible. Unreconstructible slices are never present.",
-    "efit_lineage": "magnetics-only (statistical_891 magnetic EFIT) | electron-kinetic (electron EFIT, label inherited from the magnetics-only slice at exactly the same time)",
+    "efit_lineage": "magnetics-only (statistical_891 magnetic EFIT from the campaign FileDB the labels were computed on) | electron-kinetic (electron EFIT; label inherited from the magnetics-only slice at exactly the same time)",
     "equilibrium_input": "EFIT g-file refined by CHEASE with pipeline 1's run_chease_refinement.py defaults (target_psin 0.993, nw 513)",
     "energies": "DCON least-stable normalized eigenvalues (not Joules). Positive = stable.",
-    "edge_treatments": "dcon_full_* = psiedge 1 (full edge, psihigh 0.994); dcon_trunc_256 = psiedge 0.95 (truncated at the dW_edge peak). Never combine. Full-edge W_t is psihigh-sensitive (#141, #792).",
-    "resolution": "mpsi 256 is the reported value; mpsi 512 is the convergence check (#141).",
-    "delta_prime": f"Diagonal classical Δ′ (RDCON/STRIDE PEST3 matching matrix). A surface is resolved when mpsi 256 and 512 agree in sign and within {DELTA_PRIME_RTOL:.0%}. Per-n summaries use resolved interior surfaces only (first/last rational surface excluded; in_summary column). RDCON and STRIDE are never combined.",
-    "status": list(STATUS_VALUES),
-    "status_semantics": "dcon_*_status: sign of W_t, NUMERICALLY_UNRESOLVED when mpsi 256/512 disagree in sign. rdcon/stride_status: VALID_UNSTABLE if any resolved surface has Δ′ > 0 (classical Δ′ only, not a tearing verdict; RMATCH out of scope, #797).",
-    "local_criteria": "max_D_I > 0 ideal interchange, max_D_R > 0 resistive interchange, min_C_A < 0 ballooning (evaluated surfaces only); from DCON at mpsi 256.",
+    "edge_treatments": "dcon_full_* = psiedge 1 (full edge, psihigh 0.994); dcon_trunc_* = psiedge 0.95 (truncated at the dW_edge peak). Never combine. Full-edge W_t is psihigh-sensitive (#141, #792).",
+    "resolution": "{r} = 256 is the reported value; 512 is the convergence check (#141).",
+    "delta_prime": f"Diagonal classical Δ′ (RDCON/STRIDE PEST3 matching matrix). A surface is resolved when mpsi 256 and 512 agree in sign and within {DELTA_PRIME_RTOL:.0%}. Per-n summaries use resolved interior surfaces only (first/last rational surface excluded; in_summary column). RDCON and STRIDE are never combined. RDCON Δ′ also moves ~3% between compiler builds of the same source (#1448).",
+    "status": list(STATUS_VALUES) + list(EXTENSION_VALUES),
+    "status_semantics": "dcon_*_status: VALID_* when mpsi 256 and 512 agree in the sign of W_t, NUMERICALLY_UNRESOLVED when they disagree, NOT_CHECKED when the 512 run is missing/failed. {s}_status never carries a stability verdict: Δ′ alone is not one (#939; RMATCH out of scope, #797). INVALID_EQUILIBRIUM: the source g-file or its CHEASE refinement is missing. MARGINAL is reserved, not produced.",
+    "local_criteria": "max_D_I > 0 ideal interchange, max_D_R > 0 resistive interchange, min_C_A < 0 ballooning (evaluated surfaces only); from DCON at mpsi 256 with mer_flag/bal_flag recorded.",
     "zero_crossings": "Confirmed Newcomb zero crossings from dcon.out (termbycross_flag=f).",
+    "csv_types": "booleans are written True/False, missing values as empty fields; use the column dictionary for types.",
     "rules": ["no cross-n combination", "no DCON/RDCON combined scalar", "do not drop the efit_label/efit_lineage columns"],
 }
 
@@ -360,24 +476,38 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--batch", type=Path, required=True, help="run_batch.py output directory")
     parser.add_argument("--out", type=Path, required=True, help="atlas output directory")
+    parser.add_argument("--filedb", type=Path, required=True, help="campaign FileDB (for EFIT configuration hashes)")
     parser.add_argument("--modes", nargs="+", type=int, default=[1, 2])
-    parser.add_argument("--gpec-home", type=Path, required=True)
-    parser.add_argument("--gpec-patch", default="", help="Describe any local GPEC patch used by some runs.")
+    parser.add_argument(
+        "--gpec-build",
+        action="append",
+        default=[],
+        metavar="HOME=LABEL",
+        help="Label for a GPECHOME seen in the runs, e.g. ~/work/lane-n-gpec='e68d7ac2+gal.f i3.3 patch'.",
+    )
     args = parser.parse_args()
 
     import vaft
 
+    from run_batch import magnetic_config_sha
+
+    builds = {}
+    for item in args.gpec_build:
+        home, label = item.split("=", 1)
+        builds[str(Path(home).expanduser())] = label
+    root = Path(vaft.__file__).resolve().parents[1]
     provenance = {
         "atlas_version": ATLAS_VERSION,
-        "vaft_commit": _git(Path(vaft.__file__).resolve().parents[1], "rev-parse", "--short", "HEAD"),
-        "gpec_commit": _git(args.gpec_home, "rev-parse", "--short", "HEAD"),
-        "gpec_patch": args.gpec_patch,
+        # The tree the builder imports; the solver runs record their own GPECHOME per job.
+        "vaft_commit_build": _git(root, "rev-parse", "--short", "HEAD"),
+        "vaft_dirty_build": bool(_git(root, "status", "--porcelain", "--untracked-files=no")),
     }
     batch = args.batch.expanduser().resolve()
     rows = read_slices(batch / "slices.csv")
     atlas, surfaces = [], []
     for row in rows:
-        a, s = slice_rows(batch, row, args.modes, provenance)
+        sha = magnetic_config_sha(args.filedb, row) if row["efit_lineage"] == "magnetics-only" else None
+        a, s = slice_rows(batch, row, args.modes, provenance, builds=builds, config_sha=sha)
         atlas.extend(a)
         surfaces.extend(s)
     out = args.out.expanduser().resolve()
@@ -386,7 +516,9 @@ def main() -> int:
     write_csv(surfaces, out / "atlas_surfaces.csv")
     schema = {
         **SCHEMA_NOTES,
-        "provenance": provenance,
+        "provenance": {**provenance, "gpec_builds": builds},
+        "column_dictionary": {name: {"type": t, "unit": u, "meaning": m} for name, (t, u, m) in COLUMNS.items()},
+        "column_patterns": {"{t}": "full | trunc", "{r}": "256 | 512", "{s}": "rdcon | stride"},
         "atlas_n_columns": sorted({k for r in atlas for k in r}),
         "atlas_surfaces_columns": sorted({k for r in surfaces for k in r}),
         "rows": {"atlas_n": len(atlas), "atlas_surfaces": len(surfaces)},

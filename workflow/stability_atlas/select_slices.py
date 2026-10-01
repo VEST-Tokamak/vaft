@@ -65,8 +65,12 @@ def select(analysis: dict[str, Any], *, shots: Iterable[int] | None = None) -> t
             selected.append(_row(shot, time_ms, MAGNETICS_ONLY, row["label"], _setting(row)))
 
     dropped: list[dict] = []
+    seen: set[tuple[int, int]] = set()
     for entry in analysis.get("kinetic", []):
         shot, time_ms = int(entry["shot"]), int(entry["time_ms"])
+        if (shot, time_ms) in seen:
+            raise ValueError(f"duplicate electron-kinetic entry for shot {shot} at {time_ms} ms")
+        seen.add((shot, time_ms))
         if allowed is not None and shot not in allowed:
             continue
         partner = labels.get((shot, time_ms))

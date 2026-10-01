@@ -30,8 +30,10 @@ import argparse
 import gzip
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import replace
 from pathlib import Path
@@ -62,11 +64,14 @@ NO_TERMINATION = {"termbycross_flag": False}
 
 ATLAS_VARIANTS: tuple[Variant, ...] = (
     *(Variant(f"dcon_mpsi{m}", "dcon", {"equil.in": {"mpsi": m}, "dcon.in": NO_TERMINATION}) for m in MPSI),
-    Variant(
-        "dcon_trunc_mpsi256",
-        "dcon",
-        {"equil.in": {"mpsi": 256}, "dcon.in": NO_TERMINATION},
-        dcon=replace(DCON, psiedge=TRUNCATED_PSIEDGE),
+    *(
+        Variant(
+            f"dcon_trunc_mpsi{m}",
+            "dcon",
+            {"equil.in": {"mpsi": m}, "dcon.in": NO_TERMINATION},
+            dcon=replace(DCON, psiedge=TRUNCATED_PSIEDGE),
+        )
+        for m in MPSI
     ),
     *(Variant(f"rdcon_mpsi{m}", "rdcon", {"equil.in": {"mpsi": m}}) for m in MPSI),
     *(Variant(f"stride_mpsi{m}", "stride", {"equil.in": {"mpsi": m}}) for m in MPSI),
@@ -87,6 +92,34 @@ def gfile_name(row: dict) -> str:
     return f"g{row['shot']:06d}.{row['time_ms']:05d}"
 
 
+def magnetic_config_sha(filedb: Path, row: dict) -> str | None:
+    """The EFIT configuration hash the campaign recorded for this magnetic slice.
+
+    The magnetics-only g-files come from the same campaign FileDB the #1331
+    labels were computed from. The hash makes that link checkable per row
+    instead of assumed.
+    """
+    manifest = filedb / "omas" / "efit" / "magnetic" / str(row["shot"]) / "metadata" / "manifest.json"
+    if not manifest.exists():
+        return None
+    for status in json.loads(manifest.read_text()).get("slice_statuses", []):
+        # slice_statuses[].time is in seconds; labels are integer ms.
+        if status.get("time") is not None and round(float(status["time"]) * 1000) == row["time_ms"]:
+            return status.get("provenance", {}).get("configuration", {}).get("scientific_sha256")
+    return None
+
+
+def _write_atomic(path: Path, write) -> None:
+    """Write via a temporary file so a killed job never leaves a truncated input behind."""
+    handle, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    os.close(handle)
+    try:
+        write(Path(temporary))
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
 def write_source(row: dict, filedb: Path, slice_dir: Path) -> dict:
     """Stage the source g-file for one slice; return a stage record."""
     source = slice_dir / "source" / gfile_name(row)
@@ -94,12 +127,14 @@ def write_source(row: dict, filedb: Path, slice_dir: Path) -> dict:
     if source.exists():
         return {**record, "status": "ok", "path": str(source), "cached": True}
     source.parent.mkdir(parents=True, exist_ok=True)
+    if source.is_symlink():  # dangling: its target disappeared
+        source.unlink()
     if row["efit_lineage"] == MAGNETICS_ONLY:
         native = filedb / "efit" / "magnetic" / str(row["shot"]) / "gfile" / gfile_name(row)
         if not native.exists():
             return {**record, "status": "missing", "reason": f"no g-file {native}"}
         source.symlink_to(native)
-        return {**record, "status": "ok", "path": str(source)}
+        return {**record, "status": "ok", "path": str(source), "efit_config_sha256": magnetic_config_sha(filedb, row)}
     if row["efit_lineage"] == ELECTRON_KINETIC:
         import omas
 
@@ -110,12 +145,15 @@ def write_source(row: dict, filedb: Path, slice_dir: Path) -> dict:
             return {**record, "status": "missing", "reason": f"no electron-EFIT product {product}"}
         with gzip.open(product, "rt") as handle:
             ods = omas.load_omas_json(handle)
-        times = np.asarray(ods["equilibrium.time"], dtype=float)
+        # from_omas reads equilibrium.time_slice[index], so the time must come
+        # from the same slice, not from the separate equilibrium.time vector.
+        count = len(ods["equilibrium.time_slice"])
+        times = np.array([float(ods["equilibrium.time_slice"][i]["time"]) for i in range(count)])
         index = int(np.argmin(np.abs(times - row["time_efit_s"])))
         dt = float(times[index] - row["time_efit_s"])
         if abs(dt) > KINETIC_TIME_TOLERANCE_S:
             return {**record, "status": "missing", "reason": f"nearest electron-EFIT slice is {dt * 1e3:+.3f} ms away"}
-        write_geqdsk(from_omas(ods, index), source)
+        _write_atomic(source, lambda path: write_geqdsk(from_omas(ods, index), path))
         return {**record, "status": "ok", "path": str(source), "dt_s": dt}
     raise ValueError(f"unknown lineage {row['efit_lineage']!r}")
 
@@ -156,6 +194,18 @@ def prepare(row: dict, filedb: Path, out: Path, chease: str, timeout: float) -> 
     return [source, refine(row, slice_dir, chease, timeout)]
 
 
+def prepared(future: Any, row: dict) -> list[dict]:
+    """A slice's stage records; an error while preparing it becomes an ``error`` record.
+
+    A corrupt ODS or an unexpected layout in one slice must not end the
+    preparation of the other 149 (the module docstring's promise).
+    """
+    error = future.exception()
+    if error is None:
+        return future.result()
+    return [{"stage": "source", "slice": slice_label(row), "lineage": row["efit_lineage"], "status": "error", "reason": repr(error)}]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--slices", type=Path, required=True)
@@ -175,17 +225,22 @@ def main() -> int:
     out = args.out.expanduser().resolve()
     out.mkdir(parents=True, exist_ok=True)
     rows = read(args.slices)
+    # build_atlas.py reads the slice list from the batch directory.
+    if not (out / "slices.csv").exists():
+        shutil.copy(args.slices, out / "slices.csv")
     # Good slices first: they carry the headline results.
     rows.sort(key=lambda r: (r["efit_label"] != "good", r["shot"], r["time_ms"], r["efit_lineage"]))
 
     stages: list[dict] = []
-    with ProcessPoolExecutor(max_workers=args.workers) as pool:
-        futures = [pool.submit(prepare, row, args.filedb, out, args.chease, args.chease_timeout) for row in rows]
+    with ProcessPoolExecutor(max_workers=args.workers) as pool, (out / "stages.jsonl").open("a") as log:
+        futures = {pool.submit(prepare, row, args.filedb, out, args.chease, args.chease_timeout): row for row in rows}
         for future in as_completed(futures):
-            stages.extend(future.result())
-    with (out / "stages.jsonl").open("a") as handle:
-        for record in stages:
-            handle.write(json.dumps(record) + "\n")
+            records = prepared(future, futures[future])
+            stages.extend(records)
+            for record in records:
+                if not record.get("cached"):
+                    log.write(json.dumps(record) + "\n")
+                    log.flush()
     refined = {(r["slice"], r["lineage"]): Path(r["path"]) for r in stages if r["stage"] == "chease" and r["status"] == "ok"}
     print(f"refined {len(refined)}/{len(rows)} slices", flush=True)
 

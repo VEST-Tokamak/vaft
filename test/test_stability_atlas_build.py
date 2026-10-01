@@ -115,29 +115,49 @@ def test_summary_uses_resolved_interior_surfaces_only(build):
     assert summary["rdcon_n_resolved_surfaces"] == 4
     assert summary["rdcon_n_summary_surfaces"] == 2
     assert summary["rdcon_delta_prime_max"] == 40.0 and summary["rdcon_m_at_delta_prime_max"] == 4
-    assert summary["rdcon_status"] == "VALID_UNSTABLE"
+    # Δ′ never gets a stable/unstable label (#939).
+    assert summary["rdcon_status"] == "RESOLVED"
 
 
 def test_summary_status_without_usable_surfaces(build):
     assert build.matching_summary([], "failed", "stride")["stride_status"] == "SOLVER_FAILURE"
     assert build.matching_summary([], None, "stride")["stride_status"] == "NOT_APPLICABLE"
-    lonely = build.pair_surfaces([_surface(4, 0.7, -20.0)], [])
-    assert build.matching_summary(lonely, "stable", "stride")["stride_status"] == "NUMERICALLY_UNRESOLVED"
+    # Completed, but no rational surface in range: not a solver failure.
+    assert build.matching_summary([], "stable", "stride")["stride_status"] == "NOT_APPLICABLE"
+    three = [_surface(3, 0.5, -10.0), _surface(4, 0.7, -20.0), _surface(5, 0.8, -30.0)]
+    disagree = build.pair_surfaces(three, [_surface(m["m"], m["psi_n"], -2 * m["delta_prime_real"]) for m in three])
+    assert build.matching_summary(disagree, "stable", "stride")["stride_status"] == "NUMERICALLY_UNRESOLVED"
+    # No 512 check at all is "not checked", never "unresolved".
+    unchecked = build.pair_surfaces(three, [])
+    assert build.matching_summary(unchecked, "stable", "stride", checked=False)["stride_status"] == "NOT_CHECKED"
 
 
 @pytest.mark.parametrize(
-    ("w256", "w512", "raw", "expected"),
+    ("w256", "w512", "raw256", "raw512", "expected"),
     [
-        (2.7, 2.71, "stable", "VALID_STABLE"),
-        (-1.0, -0.9, "completed", "VALID_UNSTABLE"),
-        (0.04, -0.2, "stable", "NUMERICALLY_UNRESOLVED"),
-        (2.7, None, "stable", "NUMERICALLY_UNRESOLVED"),
-        (None, None, "failed", "SOLVER_FAILURE"),
-        (None, None, None, "NOT_APPLICABLE"),
+        (2.7, 2.71, "stable", "stable", "VALID_STABLE"),
+        (-1.0, -0.9, "completed", "completed", "VALID_UNSTABLE"),
+        (0.04, -0.2, "stable", "completed", "NUMERICALLY_UNRESOLVED"),
+        (2.7, None, "stable", "failed", "NOT_CHECKED"),
+        (2.7, None, "stable", None, "NOT_CHECKED"),
+        (None, 2.7, "failed", "stable", "SOLVER_FAILURE"),
+        (None, None, None, None, "NOT_APPLICABLE"),
     ],
 )
-def test_dcon_status(build, w256, w512, raw, expected):
-    assert build.dcon_status(w256, w512, raw) == expected
+def test_dcon_status(build, w256, w512, raw256, raw512, expected):
+    assert build.dcon_status(w256, w512, raw256, raw512) == expected
+
+
+def test_a_slice_without_its_equilibrium_is_invalid_not_unrun(build, select, tmp_path):
+    row = select.select(ANALYSIS)[0][0]
+    rows, surfaces = build.slice_rows(tmp_path, row, (1, 2), {"atlas_version": 1})
+    assert [r["n_tor"] for r in rows] == [1, 2] and surfaces == []
+    for record in rows:
+        assert record["equilibrium_status"] == "missing_source"
+        assert {record[k] for k in ("dcon_full_status", "dcon_trunc_status", "rdcon_status", "stride_status")} == {
+            "INVALID_EQUILIBRIUM"
+        }
+        assert record["ideal_stable_full_edge"] is None
 
 
 def test_zero_crossings_are_read_from_dcon_out(build, tmp_path):
@@ -181,3 +201,47 @@ def test_dcon_columns_of_a_failed_run_carry_only_the_status(build):
         "dcon_full_512_status_raw": "failed"
     }
     assert build.dcon_columns(None, "dcon_full_512") == {"dcon_full_512_status_raw": None}
+
+
+@pytest.fixture(scope="module")
+def batch(build):
+    yield _load("run_batch")
+    sys.modules.pop("run_batch", None)
+
+
+def test_one_failing_slice_does_not_stop_preparation(batch):
+    from concurrent.futures import Future
+
+    future = Future()
+    future.set_exception(KeyError("equilibrium.time_slice"))
+    row = {"shot": 39915, "time_ms": 316, "efit_lineage": "electron-kinetic"}
+    records = batch.prepared(future, row)
+    assert records == [
+        {
+            "stage": "source",
+            "slice": "39915.00316",
+            "lineage": "electron-kinetic",
+            "status": "error",
+            "reason": "KeyError('equilibrium.time_slice')",
+        }
+    ]
+
+
+def test_config_hash_is_matched_by_time_in_seconds(batch, tmp_path):
+    import json
+
+    manifest = tmp_path / "omas" / "efit" / "magnetic" / "39915" / "metadata" / "manifest.json"
+    manifest.parent.mkdir(parents=True)
+    statuses = [
+        {"time": 0.318, "provenance": {"configuration": {"scientific_sha256": "a318"}}},
+        {"time": 0.319, "provenance": {"configuration": {"scientific_sha256": "a319"}}},
+    ]
+    manifest.write_text(json.dumps({"slice_statuses": statuses}))
+    assert batch.magnetic_config_sha(tmp_path, {"shot": 39915, "time_ms": 319}) == "a319"
+    assert batch.magnetic_config_sha(tmp_path, {"shot": 39915, "time_ms": 320}) is None
+
+
+def test_duplicate_kinetic_entries_are_refused(select):
+    bad = {"labels": ANALYSIS["labels"], "kinetic": [ANALYSIS["kinetic"][0], ANALYSIS["kinetic"][0]]}
+    with pytest.raises(ValueError, match="duplicate electron-kinetic"):
+        select.select(bad)
