@@ -120,7 +120,6 @@ undeclared:
   - vaft.diagram.build
   - vaft.imas.code_parameters
   - vaft.imas.omas_imas
-  - vaft.omas
   - vaft.omas.formula_wrapper
   - vaft.omas.general
   - vaft.omas.process_wrapper
