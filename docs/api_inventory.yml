@@ -54,6 +54,9 @@ pages:
   - slug: cli
     title: vaft.cli
     modules: [vaft.cli]
+  - slug: mcp
+    title: vaft.mcp
+    modules: [vaft.mcp]
 
 # Public-looking modules that declare no `__all__`, so publish nothing yet.
 # Declaring `__all__` in one of them publishes it: remove it from this list.

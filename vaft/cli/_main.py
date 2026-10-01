@@ -24,6 +24,7 @@ _COMMANDS = {
     "pipeline-worker": (".pipeline_worker", "poll VEST SQL and run the routine pipeline on new shots"),
     "help": (".help", "what VAFT can do: topics, defaults and setup status"),
     "setup": (".setup", "report or prepare the runtime environment (never scientific settings)"),
+    "mcp": (".mcp", "serve read-only VAFT discovery tools to an MCP client over stdio"),
 }
 
 

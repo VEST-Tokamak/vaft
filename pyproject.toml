@@ -123,6 +123,10 @@ jupyter3d = ["k3d>=2.16"]
 # entirely. A kernel that later adopts it must keep a NumPy fallback that
 # produces the same result, and must import numba lazily inside that kernel.
 accel = ["numba"]
+# The local, read-only MCP server (`python -m vaft.mcp`, `vaft mcp`; #1423).
+# Only vaft.mcp.server imports the SDK, inside build_server(): `import vaft` and
+# `import vaft.mcp` never need it. In [dev] too, so CI runs the stdio round trip.
+mcp = ["mcp>=1.26,<2"]
 dev = [
   "pytest",
   # so the surrogate's arithmetic check actually runs on the gate. CI installs
@@ -143,6 +147,8 @@ dev = [
   # (issue #753).
   "ruff",
   "ipykernel>=7.2.0",
+  # the MCP SDK, so test_mcp_server.py's stdio round trip runs on the gate
+  "mcp>=1.26,<2",
   "nbclient>=0.10",
   "nbformat>=5.10",
 ]

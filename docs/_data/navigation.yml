@@ -32,6 +32,9 @@ sections:
       - id: api
         title: VAFT API
         url: /reference/api/
+      - id: mcp
+        title: MCP server for agents
+        url: /reference/mcp/
       - id: formula-reference
         title: Formula reference
         url: /reference/formula/
