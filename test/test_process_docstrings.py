@@ -101,6 +101,9 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
+    "radial_coordinate_map",
+    "profile_gradient",
     # nbi (#1136): optical depth -> survival and birth -> shine-through -> power bookkeeping
     "neutral_beam_attenuation_along_path",
     # equilibrium / magnetic_island / line_of_sight / soft_x_rays (#886):
@@ -256,6 +259,13 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # profile_gradient (#551): midplane r_minor (not the contour half-width), the
+    # reference length's definition, and each code's gradient normalization
+    "radial_coordinate_map",
+    "radial_coordinate_map_from_arrays",
+    "resolve_reference_length",
+    "resolve_convention",
+    "profile_gradient",
     "dominant_mode",
     "finite_width_delta",
     "jump_width",
