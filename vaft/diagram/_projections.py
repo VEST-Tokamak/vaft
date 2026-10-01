@@ -4,7 +4,7 @@ A projection names the exact physical quantity on each axis -- by the same
 :class:`~vaft.formula.boundaries.BoundaryQuantity` identity the registered
 boundaries use -- its literature references, and the registered boundaries
 that are compatible with it by default. Compatibility is decided by quantity
-identity, never by shape or a similar name: a boundary on ``q_psi`` is not
+identity (name and unit), never by shape or a similar name: a boundary on ``q_psi`` is not
 drawn on a ``q_cyl`` axis, and ``q95`` is neither.
 
 ``vaft.diagram`` builds its reference diagrams from these projections and
@@ -58,6 +58,15 @@ def placement(projection: OperationalProjection, boundary: Boundary, fixed: Mapp
     target, inputs = _target_and_inputs(boundary)
     axes = {projection.x.name: "x", projection.y.name: "y"}
     fixed = dict(fixed)
+    # a name can carry two units in the registry (line_average_density is 1e19 and 1e20 m^-3)
+    units = {projection.x.name: projection.x.unit, projection.y.name: projection.y.unit}
+    if projection.ratio is not None:
+        units[projection.ratio.name] = projection.ratio.unit
+    for quantity in (boundary.target, *boundary.inputs):
+        if quantity.name in units and quantity.unit != units[quantity.name]:
+            raise IncompatibleBoundary(
+                f"boundary {boundary.key!r} gives {quantity.name!r} in {quantity.unit!r}; "
+                f"projection {projection.key!r} plots it in {units[quantity.name]!r}")
     if boundary.form == "threshold":
         if target in axes:
             return {"kind": "vertical" if axes[target] == "x" else "horizontal", "sweep": None}

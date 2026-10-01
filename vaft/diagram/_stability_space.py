@@ -223,6 +223,10 @@ def _current_at_q(elongation: float, aspect_ratio: float, q_limit: float) -> flo
     return float(q_at_1MA) / q_limit
 
 
+#: the registered boundaries hugill() knows how to draw
+_HUGILL_DRAWS = frozenset({"greenwald_hugill", "murakami_hugill"})
+
+
 def hugill(*, elongation: float = 1.0, q_limit: float = 2.0, boundaries: Tuple[str, ...] = ("greenwald_hugill",),
            labels: bool = True) -> Diagram:
     r"""Hugill diagram: $1/q_\mathrm{cyl}$ against the Murakami parameter $\bar n R/B$.
@@ -243,9 +247,14 @@ def hugill(*, elongation: float = 1.0, q_limit: float = 2.0, boundaries: Tuple[s
     the equilibrium edge $q_\psi$, which this axis does not carry.
     """
     _validate_shape(None, elongation, q_limit)
+    if isinstance(boundaries, str):
+        raise TypeError(f"boundaries must be a tuple of registered keys, not the string {boundaries!r}")
     projection = get_projection("hugill")
     fixed = {"area_elongation": elongation}
     placed = {key: placement(projection, get_boundary(key), fixed) for key in boundaries}
+    undrawn = set(placed) - _HUGILL_DRAWS
+    if undrawn:
+        raise ValueError(f"hugill() draws only {sorted(_HUGILL_DRAWS)}; {sorted(undrawn)} sit on its axes but are not drawn")
     if "greenwald_hugill" not in placed:
         raise ValueError("hugill() draws the density limit; boundaries must include 'greenwald_hugill'")
     y_max = 1.4 / q_limit
@@ -297,7 +306,6 @@ def troyon(*, beta_N_max: Optional[float] = None, aspect_ratio: float = 3.0, elo
     $I_p/(aB_T) = 5\varepsilon\kappa_a/q_\mathrm{limit}$.
     """
     projection = get_projection("troyon")
-    placement(projection, get_boundary("troyon"))
     if beta_N_max is None:
         beta_N_max = float(boundary_value(get_boundary("troyon")))
     _validate_shape(aspect_ratio, elongation, q_limit)

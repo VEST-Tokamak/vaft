@@ -74,3 +74,19 @@ def test_the_projections_name_their_references():
         assert projection.references and projection.key == key
     with pytest.raises(KeyError, match="hugill"):
         P.get_projection("nope")
+
+
+def test_a_boundary_in_another_unit_is_not_compatible():
+    """Quantity identity is name and unit: the registry holds line_average_density in 1e19 and 1e20 m^-3."""
+    hugill = P.get_projection("hugill")
+    other_unit = B.BoundaryQuantity(hugill.x.name, hugill.x.symbol, "1e20 m^-2 T^-1")
+    boundary = B.Boundary(key="test_other_unit", family="density_limit", target=other_unit, inputs=(),
+                          form="threshold", coefficient=0.1, allowed_side="below",
+                          sources=(B.BoundarySource("test only"),))
+    with pytest.raises(P.IncompatibleBoundary, match="1e20"):
+        P.placement(hugill, boundary)
+
+
+def test_hugill_rejects_a_string_for_boundaries():
+    with pytest.raises(TypeError):
+        vaft.diagram.hugill(boundaries="greenwald_hugill")
