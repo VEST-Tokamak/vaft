@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>dd6b15a</code>. What is described
+  <code>5d3291a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -443,13 +443,116 @@ quantity.</p>
   <li>Shaping observables from <code class="language-plaintext highlighter-rouge">vaft.process.contour_shaping_observables</code>, and the boundary topology
 record from <code class="language-plaintext highlighter-rouge">vaft.process.derive_boundary_representation</code> (<code class="language-plaintext highlighter-rouge">Topology</code>, X-points, strike points,
 gaps).</li>
-  <li>Normalized gradients: <code class="language-plaintext highlighter-rouge">vaft.formula.normalized_gradient_scale_length(x, y, a)</code> and
-<code class="language-plaintext highlighter-rouge">SyntheticKineticProfiles.a_over_L(channel, coordinate)</code>.</li>
+  <li>Normalized gradients: <code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.profile_gradient</code>, which keeps the plot
+coordinate, the gradient coordinate and the reference length apart and records all three
+(see <a href="#profile-gradients">Profile gradients</a> below). The older kernels
+<code class="language-plaintext highlighter-rouge">vaft.formula.normalized_gradient_scale_length(x, y, a)</code> and
+<code class="language-plaintext highlighter-rouge">SyntheticKineticProfiles.a_over_L(channel, coordinate)</code> take no equilibrium map.</li>
 </ul>
 
 <p><strong>Is not:</strong> $a/L_T$ is not a radial coordinate. On one $T_e$ profile at $\rho_{tor,N}=0.6$, the
 reference notebook gets 3.0, 2.95, 2.07 and 2.95 from four gradient conventions. A gradient is
 defined only once its derivative coordinate and its reference length are stated.</p>
+
+<h3 id="profile-gradients">Profile gradients</h3>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients</code> (#551) computes $-L\,d\ln f/dx_g$ with four separate roles:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>argument</th>
+      <th>role</th>
+      <th>values</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">coordinate</code></td>
+      <td>the abscissa the result is placed on</td>
+      <td>any <code class="language-plaintext highlighter-rouge">RADIAL_COORDINATES</code> name</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gradient_coordinate</code></td>
+      <td>what the derivative is taken with respect to</td>
+      <td>any <code class="language-plaintext highlighter-rouge">RADIAL_COORDINATES</code> name; <code class="language-plaintext highlighter-rouge">r_minor</code> or <code class="language-plaintext highlighter-rouge">r_outboard</code> for a normalized result</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">reference_length</code></td>
+      <td>the length that multiplies the derivative</td>
+      <td><code class="language-plaintext highlighter-rouge">None</code>, <code class="language-plaintext highlighter-rouge">a_minor</code>, <code class="language-plaintext highlighter-rouge">R_major_axis</code>, <code class="language-plaintext highlighter-rouge">R_major_surface</code>, <code class="language-plaintext highlighter-rouge">L_ref</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">convention</code></td>
+      <td>a code preset resolving the two above</td>
+      <td><code class="language-plaintext highlighter-rouge">tglf</code>, <code class="language-plaintext highlighter-rouge">cgyro</code>, <code class="language-plaintext highlighter-rouge">gs2</code>, <code class="language-plaintext highlighter-rouge">gkw</code>, <code class="language-plaintext highlighter-rouge">gene</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">radial_coordinate_map(eq, time)</code> gives every coordinate of the registry on one slice’s
+$\psi$ grid, each as a <code class="language-plaintext highlighter-rouge">DerivedValue</code>: $\psi_N$, $\rho_{pol,N}$, $\rho_{tor,N}$ (from $q$, never the
+$\sqrt{\psi_N}$ proxy), the midplane crossings <code class="language-plaintext highlighter-rouge">r_inboard</code>/<code class="language-plaintext highlighter-rouge">r_outboard</code> at the axis height,
+<code class="language-plaintext highlighter-rouge">r_center</code>, <code class="language-plaintext highlighter-rouge">r_minor</code> $=(R_{out}-R_{in})/2$ and <code class="language-plaintext highlighter-rouge">r_minor_norm</code> $= r_{minor}/a$. Here $a$ is
+<code class="language-plaintext highlighter-rouge">r_minor</code> on the LCFS. That is not the contour half-width <code class="language-plaintext highlighter-rouge">minor_radius</code> of
+<code class="language-plaintext highlighter-rouge">derive_global_descriptors</code>, and <code class="language-plaintext highlighter-rouge">r_minor</code> is never $R_{out}-R_{axis}$.
+<code class="language-plaintext highlighter-rouge">radial_coordinate_map_from_arrays</code> builds the same map from stored radii, such as an
+<code class="language-plaintext highlighter-rouge">input.gacode</code>.</p>
+
+<p>The profile is differentiated on its own grid. The chain rule $d/dx_g = (dx_p/dx_g)\,d/dx_p$
+then carries it through the map, and only then is it interpolated, which is GACODE’s order.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.profile_gradients</span> <span class="kn">import</span> <span class="n">profile_gradient</span><span class="p">,</span> <span class="n">radial_coordinate_map</span>
+
+<span class="n">cmap</span> <span class="o">=</span> <span class="nf">radial_coordinate_map</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="mf">0.32</span><span class="p">)</span>          <span class="c1"># one equilibrium slice, chosen by time
+</span><span class="n">psi_norm</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>
+<span class="n">te</span> <span class="o">=</span> <span class="mf">200.0</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="mf">0.9</span> <span class="o">*</span> <span class="n">psi_norm</span><span class="p">)</span> <span class="o">**</span> <span class="mf">1.5</span> <span class="o">+</span> <span class="mf">10.0</span>   <span class="c1"># an analytic T_e [eV] on psi_norm
+</span><span class="n">rho</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">a_lt</span> <span class="o">=</span> <span class="nf">profile_gradient</span><span class="p">(</span><span class="n">te</span><span class="p">,</span> <span class="n">psi_norm</span><span class="p">,</span> <span class="sh">"</span><span class="s">psi_norm</span><span class="sh">"</span><span class="p">,</span> <span class="n">equilibrium</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+                        <span class="n">coordinate</span><span class="o">=</span><span class="sh">"</span><span class="s">rho_tor_norm</span><span class="sh">"</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">,</span> <span class="n">at</span><span class="o">=</span><span class="n">rho</span><span class="p">)</span>
+<span class="n">r_lt</span> <span class="o">=</span> <span class="nf">profile_gradient</span><span class="p">(</span><span class="n">te</span><span class="p">,</span> <span class="n">psi_norm</span><span class="p">,</span> <span class="sh">"</span><span class="s">psi_norm</span><span class="sh">"</span><span class="p">,</span> <span class="n">equilibrium</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">coordinate</span><span class="o">=</span><span class="sh">"</span><span class="s">rho_tor_norm</span><span class="sh">"</span><span class="p">,</span>
+                        <span class="n">gradient_coordinate</span><span class="o">=</span><span class="sh">"</span><span class="s">r_minor</span><span class="sh">"</span><span class="p">,</span> <span class="n">reference_length</span><span class="o">=</span><span class="sh">"</span><span class="s">R_major_axis</span><span class="sh">"</span><span class="p">,</span> <span class="n">at</span><span class="o">=</span><span class="n">rho</span><span class="p">)</span>
+<span class="n">r_lt</span><span class="p">.</span><span class="n">values</span> <span class="o">/</span> <span class="n">a_lt</span><span class="p">.</span><span class="n">values</span>                      <span class="c1"># R0/a at every point: the same physical derivative
+</span><span class="n">a_lt</span><span class="p">.</span><span class="n">metadata</span><span class="p">[</span><span class="sh">"</span><span class="s">mathematical_definition</span><span class="sh">"</span><span class="p">]</span>     <span class="c1"># '-a * d(log(f)) / d(r_minor)'
+</span></code></pre></div></div>
+
+<p>Each result carries <code class="language-plaintext highlighter-rouge">quantity</code>, <code class="language-plaintext highlighter-rouge">source_quantity</code>, <code class="language-plaintext highlighter-rouge">plot_coordinate</code>, <code class="language-plaintext highlighter-rouge">gradient_coordinate</code>,
+<code class="language-plaintext highlighter-rouge">reference_length</code> (definition, symbol, value, unit, provenance), <code class="language-plaintext highlighter-rouge">requested_convention</code>, the
+resolved convention and <code class="language-plaintext highlighter-rouge">mathematical_definition</code>.</p>
+
+<p><strong>Presets</strong></p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">tglf</code> and <code class="language-plaintext highlighter-rouge">cgyro</code> resolve to <code class="language-plaintext highlighter-rouge">r_minor</code> and <code class="language-plaintext highlighter-rouge">a_minor</code>, the GACODE definition. On the
+locpargen 48224 fixture, <code class="language-plaintext highlighter-rouge">tglf</code> reproduces <code class="language-plaintext highlighter-rouge">RLTS_*</code>/<code class="language-plaintext highlighter-rouge">RLNS_*</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">gs2</code> needs the run’s <code class="language-plaintext highlighter-rouge">irho</code> and <code class="language-plaintext highlighter-rouge">local_eq</code>:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">irho = 2</code> with a numerical equilibrium resolves to <code class="language-plaintext highlighter-rouge">a_minor</code>;</li>
+      <li><code class="language-plaintext highlighter-rouge">irho = 2</code> with Miller (<code class="language-plaintext highlighter-rouge">local_eq</code>) resolves to the run’s own <code class="language-plaintext highlighter-rouge">L_ref</code>;</li>
+      <li>other <code class="language-plaintext highlighter-rouge">irho</code> values are refused.</li>
+    </ul>
+  </li>
+  <li><code class="language-plaintext highlighter-rouge">gkw</code> needs <code class="language-plaintext highlighter-rouge">geom_type</code>:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">circ</code> resolves to <code class="language-plaintext highlighter-rouge">R_major_axis</code>;</li>
+      <li><code class="language-plaintext highlighter-rouge">s-alpha</code> resolves to the run’s <code class="language-plaintext highlighter-rouge">L_ref</code>;</li>
+      <li>shaped geometries are refused, because their $\psi$ uses the surface’s global $R$
+extremes.</li>
+    </ul>
+  </li>
+  <li><code class="language-plaintext highlighter-rouge">gene</code> takes the run’s own gradient coordinate and <code class="language-plaintext highlighter-rouge">L_ref</code> and is never a fixed major radius.</li>
+</ul>
+
+<p>Whatever cannot be formed is refused with <code class="language-plaintext highlighter-rouge">ValueError</code>, never extrapolated:</p>
+
+<ul>
+  <li>a non-monotonic map;</li>
+  <li>a point outside the radial support;</li>
+  <li>a profile value that is not positive;</li>
+  <li>an unavailable coordinate or reference length.</li>
+</ul>
+
+<p>The plot views are not yet built on this layer.</p>
 
 <h3 id="solver-convention">Solver convention</h3>
 
@@ -529,8 +632,8 @@ it.</p>
     <tr>
       <td>Kinetic / gradient representations</td>
       <td>derived quantity</td>
-      <td><code class="language-plaintext highlighter-rouge">vaft.formula.normalized_gradient_scale_length</code>, <code class="language-plaintext highlighter-rouge">vaft.data.SyntheticKineticProfiles</code>, <code class="language-plaintext highlighter-rouge">vaft.data.GradientProfile</code></td>
-      <td>not met</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.profile_gradient</code>, <code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.radial_coordinate_map</code>, <code class="language-plaintext highlighter-rouge">vaft.formula.normalized_gradient_scale_length</code>, <code class="language-plaintext highlighter-rouge">vaft.data.SyntheticKineticProfiles</code>, <code class="language-plaintext highlighter-rouge">vaft.data.GradientProfile</code></td>
+      <td>process layer met; views not met</td>
     </tr>
     <tr>
       <td>Boundary / topology</td>
@@ -639,8 +742,9 @@ each. “Unowned” means no issue other than #1201 tracks it.</p>
 <p><strong>Not met</strong></p>
 
 <ul>
-  <li>Gradient semantics. No <code class="language-plaintext highlighter-rouge">gradient_coordinate</code> / <code class="language-plaintext highlighter-rouge">reference_length</code> contract, and no $1/L$,
-$a/L$, $R/L$ quantity family (#551; #563 was closed as its duplicate).</li>
+  <li>Gradient views. The process contract exists (<code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients</code>), but no
+<code class="language-plaintext highlighter-rouge">*_profile_gradient</code> plot view or extract result consumes it yet (#551; #563 was closed as
+its duplicate).</li>
 </ul>
 
 <p><strong>Partly met</strong></p>
@@ -655,9 +759,14 @@ recipe detects this with <code class="language-plaintext highlighter-rouge">vaft
 leaf does not (unowned).</li>
     </ul>
   </li>
-  <li>Geometric radii. <code class="language-plaintext highlighter-rouge">r_minor</code> exists only in <code class="language-plaintext highlighter-rouge">vaft.plot</code> as $(R_{out}-R_{in})/2$, and
-<code class="language-plaintext highlighter-rouge">vaft/plot/onedim.py</code> uses $r - r_{axis}$. <code class="language-plaintext highlighter-rouge">r_minor_norm</code> and <code class="language-plaintext highlighter-rouge">r_center</code> have no definition
-(#479).</li>
+  <li>Geometric radii.
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">r_minor</code>, <code class="language-plaintext highlighter-rouge">r_minor_norm</code> and <code class="language-plaintext highlighter-rouge">r_center</code> are defined in
+<code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.RADIAL_COORDINATES</code> (#551).</li>
+      <li>The older tuples in <code class="language-plaintext highlighter-rouge">vaft.plot</code> and <code class="language-plaintext highlighter-rouge">vaft.process.profile</code> are not unified with it.</li>
+      <li><code class="language-plaintext highlighter-rouge">vaft/plot/onedim.py</code> still uses $r - r_{axis}$ (#479).</li>
+    </ul>
+  </li>
   <li>Flux coordinates. The native map is PEST only. There is no direct inverse
 $(\psi,\theta^*)\to(R,Z)$, no Jacobian output, no native Boozer or Hamada map (only the
 per-surface formulas), and no closure or Jacobian residual on the map (#472).</li>
@@ -686,7 +795,8 @@ their angle convention (#942).</li>
   </li>
   <li>Flow equilibria. <code class="language-plaintext highlighter-rouge">EquilibriumData</code> has no governing-equation field. A Guazzotto–Freidberg flow
 case is kept distinct only because exporting it raises (#1149).</li>
-  <li>Code presets. Only TGLF resolves its normalization. CGYRO, GS2, GENE and GKW are absent (#551).</li>
+  <li>Code presets. TGLF and CGYRO resolve fixed. GS2 and GKW resolve only the configurations their
+manuals fix, and GENE resolves only from the run’s own metadata (#551).</li>
   <li>Advanced divertors. Snowflake, X-divertor and Super-X exist only as a TES input (#950).</li>
   <li>Islands and perturbations (unowned; #886 covers the prescribed island):
     <ul>
@@ -855,7 +965,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-five-categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The five categories</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#coordinate" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coordinate</a></li><li class="page-toc-item page-toc-level-3"><a href="#projection" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Projection</a></li><li class="page-toc-item page-toc-level-3"><a href="#representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derived-quantity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantity</a></li><li class="page-toc-item page-toc-level-3"><a href="#solver-convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Solver convention</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#the-hierarchy-in-vaft" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The hierarchy in VAFT</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-provenance-thread" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The provenance thread</a></li><li class="page-toc-item page-toc-level-2"><a href="#gaps" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Gaps</a></li><li class="page-toc-item page-toc-level-2"><a href="#see-also" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">See also</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-five-categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The five categories</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#coordinate" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coordinate</a></li><li class="page-toc-item page-toc-level-3"><a href="#projection" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Projection</a></li><li class="page-toc-item page-toc-level-3"><a href="#representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derived-quantity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantity</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile-gradients" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Profile gradients</a></li><li class="page-toc-item page-toc-level-3"><a href="#solver-convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Solver convention</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#the-hierarchy-in-vaft" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The hierarchy in VAFT</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-provenance-thread" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The provenance thread</a></li><li class="page-toc-item page-toc-level-2"><a href="#gaps" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Gaps</a></li><li class="page-toc-item page-toc-level-2"><a href="#see-also" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">See also</a></li></ul>
     </nav>
 </aside>
 
@@ -973,7 +1083,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-01 04:06:44 +0000"
+        "time": "2026-10-01 09:03:51 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
