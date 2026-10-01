@@ -195,7 +195,8 @@ def _local_summary(local: Any) -> dict[str, Any]:
         "as": [float(v) for v in local.as_],
         "vexb_shear": None if local.vexb_shear is None else float(local.vexb_shear),
         "normalisation": None if norm is None else {
-            "a_m": float(norm.a), "b_unit_T": float(norm.b_unit),
+            "a_m": float(norm.minor_radius), "b_unit_T": float(norm.b_unit),
+            "rho_s_m": float(norm.gyroradius), "c_s_m_s": float(norm.sound_speed),
             "q_gb_W_m2": float(norm.energy_flux), "gamma_gb_m2_s": float(norm.particle_flux),
         },
     }
