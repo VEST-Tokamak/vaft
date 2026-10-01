@@ -35,21 +35,23 @@ class DCONOptions:
     unchanged here, but note it makes DCON the odd one out: ``rdcon.in`` and
     ``stride.in`` both ship ``bal_flag=t``.
 
-    ``con_flag`` is the packaged namelist's ``t``, which is also what GPEC's own
-    ``input/dcon.in`` ships -- and it makes a penetration threshold impossible.
-    GPEC computes the resonant-field quantities only inside ``IF (singfld_flag)``
-    and turns that flag **off** when ``con_flag`` is true
-    (``gpec/gpec.f:560-565``), warning ``singfld_flag not supported with
-    con_flag`` and writing no rational-surface block at all. So a case that asks
-    for ``singthresh_*`` with the packaged template gets zeros, which is also
-    what an unattainable threshold looks like. Exposed here so a threshold run can
-    turn it off, and :func:`~vaft.code.gpec.validate_threshold_inputs` refuses the
-    combination before GPEC is launched rather than after.
+    ``con_flag`` decides whether ideal GPEC can compute a penetration threshold at
+    all.  GPEC computes every resonant-field quantity inside ``IF (singfld_flag)``
+    and turns that flag **off** when ``con_flag`` is true (``gpec/gpec.f:560-565``),
+    warning ``singfld_flag not supported with con_flag`` and writing no
+    rational-surface block -- so a case that asks for ``singthresh_*`` against a
+    template shipping ``con_flag=t`` gets zeros, which is also what an unattainable
+    threshold looks like.  The packaged ``dcon.in`` ships ``t``, and so does GPEC's
+    own ``input/dcon.in``.
 
-    The default is unchanged because ``con_flag`` is not a reporting switch: it
-    continues the integration through the singular layers instead of applying the
-    ideal jump condition at each one, so flipping it silently would change every
-    existing run's eigenvalues.
+    ``None`` leaves whatever the template holds, which is why it is the default:
+    ``con_flag`` is not a reporting switch -- it continues the integration through
+    the singular layers instead of applying the ideal jump condition at each one --
+    and a machine layer with its own ``templates_dir`` may deliberately ship ``f``.
+    Writing a default over that would change its eigenvalues silently.  Set it
+    explicitly (``con_flag=False``) for a threshold run, and
+    :func:`~vaft.code.gpec.validate_threshold_inputs` reads the *prepared file*
+    either way, so the check holds whichever template supplied the value.
     """
 
     sas_flag: bool = False
@@ -58,7 +60,7 @@ class DCONOptions:
     mer_flag: bool = True
     bal_flag: bool = False
     thmax0: float = 1.0
-    con_flag: bool = True
+    con_flag: Optional[bool] = None
 
 
 @dataclass(frozen=True)

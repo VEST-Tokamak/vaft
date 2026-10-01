@@ -731,3 +731,56 @@ def test_a_second_torque_run_does_not_overwrite_the_first_record(tmp_path):
         kinetic_file=kin,
     )
     assert (cell / gpec.PRIOR_PENTRC_INPUT).read_bytes() == first
+
+
+def test_a_template_that_ships_con_flag_off_keeps_it(case, tmp_path):
+    """``None`` means "whatever the template holds", and that is the default.
+
+    A machine layer with its own ``templates_dir`` may deliberately ship
+    ``con_flag=f`` -- which is what makes its cases able to carry a threshold at
+    all. Writing this option's default over that would change DCON's integration,
+    and so its eigenvalues, silently on every one of that layer's runs.
+    """
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    packaged = gpec._runtime.package_vest_dir()
+    for name in ("gpec.in", "coil.in", "equil.in", "dcon.in", "vac.in", "match.in"):
+        shutil.copy2(packaged / name, templates / name)
+    off = (templates / "dcon.in").read_text(encoding="utf-8").replace(
+        "con_flag = t", "con_flag = f", 1
+    )
+    (templates / "dcon.in").write_text(off, encoding="utf-8")
+
+    from vaft.code.gpec._runtime import read_namelist_group
+
+    config = gpec.GPECSuiteConfig(
+        modules=("dcon",), modes=(1,), templates_dir=templates,
+        gpec_home=tmp_path / "gpec_home",
+    )
+    assert config.dcon.con_flag is None
+    gpec.prepare_gpec_suite_case(case, config)
+    cell = gpec._module_dir(case.workdir, case.time_ms, "dcon", 1, geqdsk=case.geqdsk)
+    assert read_namelist_group(cell / "dcon.in", "dcon_control")["con_flag"] == "f"
+
+
+def test_a_template_without_con_flag_refuses_an_explicit_request(case, tmp_path):
+    """Asked for, it has to land: a silent pass would be a threshold of zeros."""
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    packaged = gpec._runtime.package_vest_dir()
+    for name in ("gpec.in", "coil.in", "equil.in", "dcon.in", "vac.in", "match.in"):
+        shutil.copy2(packaged / name, templates / name)
+    stripped = "\n".join(
+        line
+        for line in (templates / "dcon.in").read_text(encoding="utf-8").splitlines()
+        if "con_flag" not in line
+    )
+    (templates / "dcon.in").write_text(stripped + "\n", encoding="utf-8")
+
+    config = gpec.GPECSuiteConfig(
+        modules=("dcon",), modes=(1,), templates_dir=templates,
+        gpec_home=tmp_path / "gpec_home",
+        dcon=gpec.DCONOptions(con_flag=False),
+    )
+    with pytest.raises(KeyError, match="con_flag"):
+        gpec.prepare_gpec_suite_case(case, config)

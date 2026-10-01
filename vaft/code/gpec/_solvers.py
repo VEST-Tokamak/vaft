@@ -264,24 +264,24 @@ class DCONSolver:
     name = "dcon"
 
     def prepare(self, ctx: SolverContext) -> None:
+        replacements: dict[str, object] = {
+            "nn": ctx.mode,
+            "sas_flag": ctx.config.dcon.sas_flag,
+            "qhigh": ctx.config.dcon.qhigh,
+            "psiedge": ctx.config.dcon.psiedge,
+            "mer_flag": ctx.config.dcon.mer_flag,
+            "bal_flag": ctx.config.dcon.bal_flag,
+            "thmax0": ctx.config.dcon.thmax0,
+        }
+        # `None` means "whatever the template holds": `con_flag` changes DCON's
+        # integration rather than its reporting, and a caller's own
+        # `templates_dir` may deliberately ship the opposite of the packaged one.
+        # Asked for explicitly it has to land, so it joins the required set and a
+        # template that cannot express it is an error rather than a silent pass.
+        if ctx.config.dcon.con_flag is not None:
+            replacements["con_flag"] = ctx.config.dcon.con_flag
         rt.write_template(
-            ctx.template_dir / "dcon.in",
-            ctx.run_dir / "dcon.in",
-            {
-                "nn": ctx.mode,
-                "sas_flag": ctx.config.dcon.sas_flag,
-                "qhigh": ctx.config.dcon.qhigh,
-                "psiedge": ctx.config.dcon.psiedge,
-                "mer_flag": ctx.config.dcon.mer_flag,
-                "bal_flag": ctx.config.dcon.bal_flag,
-                "thmax0": ctx.config.dcon.thmax0,
-                # Written explicitly even though the default matches the
-                # template: this is the key that decides whether ideal GPEC can
-                # compute a penetration threshold at all (gpec/gpec.f:560-565),
-                # so the namelist a reader has later must state what was asked
-                # for rather than inherit it.
-                "con_flag": ctx.config.dcon.con_flag,
-            },
+            ctx.template_dir / "dcon.in", ctx.run_dir / "dcon.in", replacements
         )
         shutil.copy2(ctx.template_dir / "match.in", ctx.run_dir / "match.in")
 
