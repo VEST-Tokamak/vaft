@@ -43,6 +43,26 @@ from omas.omas_utils import _extra_structures
 
 from .code_parameters import entry_safe_code_parameters
 
+# The low-level bridge VAFT calls and the guide documents.  Not listed: the
+# star import above (``omas.omas_utils`` is OMAS's API, not VAFT's), and the
+# AL4 / ITER-scenario / MDSplus-browsing code this file inherited from the
+# OMAS fork, which VAFT never calls; those stay reachable as attributes.
+__all__ = [
+    "IDS",
+    "IMAS_DD_VERSION_CONVERSION",
+    "IMAS_REMOVED_IDS",
+    "filled_paths_in_ids",
+    "imas_empty",
+    "imas_get",
+    "imas_open",
+    "imas_open_uri",
+    "imas_set",
+    "infer_fetch_paths",
+    "load_omas_imas",
+    "ods_from_toplevels",
+    "save_omas_imas",
+]
+
 
 class _CurrentUser:
     """Default that resolves to ``$USER`` when the function is called.

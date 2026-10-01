@@ -118,8 +118,6 @@ undeclared:
   - vaft.database.transport
   - vaft.database.utils
   - vaft.diagram.build
-  - vaft.imas.code_parameters
-  - vaft.imas.omas_imas
   - vaft.machine_mapping.mhd_linear
   - vaft.machine_mapping.pulse_schedule.card
   - vaft.machine_mapping.pulse_schedule.converter
