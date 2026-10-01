@@ -80,7 +80,8 @@ class Pest3MatchingOutput:
     #: so it is exactly D_R of Glasser, Greene & Johnson. ``h`` (Glasser's H)
     #: is written by RDCON only; it is ``None`` for STRIDE. ``ca1`` is NaN where
     #: the ballooning scan left the zero it was initialised with, the same rule
-    #: as :attr:`DconOutput.ca1`.
+    #: as :attr:`DconOutput.ca1`: RDCON's own ``bal.f:53`` integrates only where
+    #: ``di <= 0`` (and ``psi <= 1``), exactly like DCON's.
     psi_n: Optional[np.ndarray] = None
     q: Optional[np.ndarray] = None
     di: Optional[np.ndarray] = None
@@ -136,7 +137,10 @@ class Pest3MatchingOutput:
         if values is None or self.psi_n is None or psi_n is None:
             return None
         grid = np.asarray(self.psi_n, dtype=float)
-        if not grid[0] <= psi_n <= grid[-1]:
+        values = np.asarray(values, dtype=float)
+        # A surface beyond the solver's profile grid (it ends at psihigh, e.g.
+        # 0.994) has no criteria rather than an extrapolated value.
+        if values.shape != grid.shape or not grid[0] <= psi_n <= grid[-1]:
             return None
         value = float(np.interp(psi_n, grid, np.asarray(values, dtype=float)))
         return None if np.isnan(value) else value
@@ -162,8 +166,8 @@ class Pest3MatchingOutput:
             return None if value is None else {"real": float(value.real), "imag": float(value.imag)}
 
         def _r(arr: Optional[np.ndarray]) -> Optional[list]:
-            # NaN (unevaluated ca1) is not valid JSON; it round-trips as null.
-            return None if arr is None else [None if np.isnan(v) else float(v) for v in np.asarray(arr, dtype=float)]
+            # NaN (unevaluated ca1) and +-inf are not valid JSON; they serialize as null.
+            return None if arr is None else [float(v) if np.isfinite(v) else None for v in np.asarray(arr, dtype=float)]
 
         return {
             "schema": "vaft.code.gpec.Pest3MatchingOutput",

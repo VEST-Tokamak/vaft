@@ -133,7 +133,7 @@ def _xml_attrs(**values: Any) -> str:
         if value is None:
             continue
         text = repr(float(value)) if isinstance(value, (float, np.floating)) else str(value)
-        parts.append(f' {key}="{escape(text)}"')
+        parts.append(f' {key}="{escape(text, {chr(34): "&quot;"})}"')
     return "".join(parts)
 
 
@@ -145,27 +145,45 @@ def ntms_solver_surfaces(ods: ODS) -> list[dict[str, Any]]:
     ``n_tor``, ``time_slice``, ``mode`` (the ``ntms.mode[]`` index), ``m``,
     ``psi_n``, ``q``, ``delta_prime_imag`` and, where the solver wrote them,
     ``di``/``dr``/``h``/``ca1``. Version-1 fragments carry no index range and
-    yield nothing; their surfaces cannot be attributed. The ODS is not
-    modified.
+    yield nothing; their surfaces cannot be attributed. A fragment whose
+    surfaces do not cover exactly its declared ``mode_start``/``mode_count``
+    range, or that is otherwise malformed, is skipped with a warning. The ODS
+    is not modified.
     """
     import xml.etree.ElementTree as ET
 
     if not path_exists(ods, "ntms.code.parameters"):
         return []
-    root = ET.fromstring(ods["ntms.code.parameters"])
+    text = ods["ntms.code.parameters"]
+    try:
+        root = ET.fromstring(text.decode() if isinstance(text, bytes) else str(text))
+    except ET.ParseError as exc:
+        warnings.warn(f"ntms.code.parameters is not XML ({exc}); no solver attribution", RuntimeWarning, stacklevel=2)
+        return []
     rows: list[dict[str, Any]] = []
     for solver in root.iter("solver"):
         if int(solver.get("version", "1")) < 2:
             continue
-        for surface in solver.iter("surface"):
-            row: dict[str, Any] = {
-                "solver": solver.get("name"),
-                "n_tor": int(solver.get("n_tor")),
-                "time_slice": int(solver.get("time_slice")),
-            }
-            for key, value in surface.attrib.items():
-                row[key] = int(value) if key in ("mode", "m") else float(value)
-            rows.append(row)
+        try:
+            n_tor, time_slice = int(solver.get("n_tor")), int(solver.get("time_slice"))
+            start, count = int(solver.get("mode_start")), int(solver.get("mode_count"))
+            entries = [
+                {key: int(value) if key in ("mode", "m") else float(value) for key, value in surface.attrib.items()}
+                for surface in solver.iter("surface")
+            ]
+        except (TypeError, ValueError) as exc:
+            warnings.warn(f"skipping malformed ntms solver fragment: {exc}", RuntimeWarning, stacklevel=2)
+            continue
+        if [entry.get("mode") for entry in entries] != list(range(start, start + count)):
+            warnings.warn(
+                f"skipping ntms fragment for {solver.get('name')} n={n_tor}: its surfaces do not cover "
+                f"mode[{start}:{start + count}]",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            continue
+        for entry in entries:
+            rows.append({"solver": solver.get("name"), "n_tor": n_tor, "time_slice": time_slice, **entry})
     return rows
 
 
@@ -483,7 +501,20 @@ def _write_resistive_entry(
     # exact index range this call wrote and, per entry, the values with no
     # IMAS slot: the imaginary part of Delta-prime and the local criteria at
     # the surface. Without the range a surface cannot be attributed (#143).
-    criteria = {(row["m"], row["psi_n"]): row for row in result.rational_surface_stability()}
+    # Both lists come from the same delta_prime_diagonal(), row for row; pair
+    # them by position and say so loudly if a caller ever hands in a diagonal
+    # that does not line up, rather than silently dropping the criteria.
+    criteria = result.rational_surface_stability()
+    if criteria and [row["m"] for row in criteria] != [surface["m"] for surface in diagonal]:
+        warnings.warn(
+            f"{result.solver} n={result.n_tor}: the surface list does not match the solver's own; "
+            "local criteria are left out of ntms.code.parameters",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        criteria = []
+    if not criteria:
+        criteria = [{} for _ in diagonal]
     surfaces = "".join(
         "<surface"
         + _xml_attrs(
@@ -492,7 +523,7 @@ def _write_resistive_entry(
             psi_n=surface.get("psi_n"),
             q=surface.get("q"),
             delta_prime_imag=surface.get("delta_prime_imag"),
-            **{key: criteria.get((surface["m"], surface.get("psi_n")), {}).get(key) for key in ("di", "dr", "h", "ca1")},
+            **{key: criteria[offset].get(key) for key in ("di", "dr", "h", "ca1")},
         )
         + "/>"
         for offset, surface in enumerate(diagonal)

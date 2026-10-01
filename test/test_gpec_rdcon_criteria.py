@@ -117,3 +117,50 @@ def test_version_1_fragments_are_not_attributed():
     ods = ODS(consistency_check=False)
     ods["ntms.code.parameters"] = '<parameters><solver name="rdcon" n_tor="1"><msing>9</msing></solver></parameters>'
     assert ntms_solver_surfaces(ods) == []
+
+
+def test_stride_output_has_no_h_and_the_mapping_leaves_it_out(tmp_path):
+    # STRIDE writes di/dr/ca1 but not h (stride_netcdf.f:193-195): build such a
+    # file from the real one by dropping h.
+    import xarray as xr
+
+    target = tmp_path / "stride"
+    target.mkdir()
+    with xr.open_dataset(FIXTURE / "rdcon_output_n1.nc") as ds:
+        ds.drop_vars("h").load().to_netcdf(target / "stride_output_n1.nc")
+    stride = read_pest3_matching_output(target, solver="stride", mode=1)
+    assert stride.h is None and stride.di is not None
+    rows = stride.rational_surface_stability()
+    assert all(row["h"] is None and row["di"] is not None for row in rows)
+    ods = ODS(consistency_check=False)
+    mhd_linear(ods, str(target), {"module": "stride", "modes": [1]})
+    surfaces = ntms_solver_surfaces(ods)
+    assert len(surfaces) == 9 and all("h" not in row and "di" in row for row in surfaces)
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        '{"not": "xml"}',
+        '<parameters><solver name="rdcon" version="2"><surface mode="0" m="3"/></solver></parameters>',
+    ],
+)
+def test_malformed_attribution_is_skipped_with_a_warning(parameters):
+    ods = ODS(consistency_check=False)
+    ods["ntms.code.parameters"] = parameters
+    with pytest.warns(RuntimeWarning):
+        assert ntms_solver_surfaces(ods) == []
+
+
+def test_a_fragment_whose_surfaces_do_not_cover_its_range_is_skipped():
+    ods = ODS(consistency_check=False)
+    ods["ntms.code.parameters"] = (
+        '<parameters><solver name="rdcon" n_tor="1" version="2" time_slice="0" mode_start="0" mode_count="2">'
+        '<surface mode="0" m="3"/></solver></parameters>'
+    )
+    with pytest.warns(RuntimeWarning, match="do not cover"):
+        assert ntms_solver_surfaces(ods) == []
+
+
+def test_a_profile_of_the_wrong_length_gives_no_value(rdcon):
+    assert rdcon._profile_at(rdcon.di[:-1], 0.5) is None
