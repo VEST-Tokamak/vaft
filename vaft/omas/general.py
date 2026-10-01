@@ -7,6 +7,36 @@ from omas import *
 
 import vaft
 
+# The names defined here.  What this module imports (``omas``, NumPy, other
+# VAFT modules) is not re-exported through it (#1382).
+__all__ = [
+    "COCOS_PARAMETER_PATH",
+    "ONSET_METHOD",
+    "ONSET_METHOD_LEGACY",
+    "change_time_convention",
+    "classify_shot",
+    "combine_ods",
+    "equilibrium_psi_to_weber",
+    "find_breakdown_onset",
+    "find_bt",
+    "find_chamber_boundary",
+    "find_ip_onset",
+    "find_major_radius",
+    "find_matching_time_indices",
+    "find_max_ip",
+    "find_pf_active_onset",
+    "find_pulse_duration",
+    "find_shotclass",
+    "find_shotnumber",
+    "find_vloop_onset",
+    "odc_or_ods_check",
+    "ods_cocos",
+    "print_info",
+    "set_ods_cocos",
+    "shift_time",
+    "signal_time",
+]
+
 # ----------------------------------------------------------------------
 # Find information from ODS
 # ----------------------------------------------------------------------

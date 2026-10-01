@@ -19,6 +19,18 @@ import requests
 from .sources import LEGACY_SOURCE, MissingSourceError
 from .sources import resolve as resolve_source
 
+__all__ = [
+    "CP_REGISTRY_GROUP",
+    "CX_REGISTRY_GROUP",
+    "TS_REGISTRY_GROUP",
+    "ensure_imas_hdf5_userblock",
+    "exist_shot",
+    "is_connect",
+    "processed_registry_uri",
+    "read_legacy_processed_registry",
+    "require_source_exists",
+]
+
 
 def require_source_exists(source: str) -> None:
     """Fail with the administrator fix when a source folder is not there yet.

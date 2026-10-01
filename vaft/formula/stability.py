@@ -1354,13 +1354,51 @@ def helical_phase(theta, phi, m_pol, n_tor, phase=0.0):
     the outboard midplane towards the top of the cross-section, and $\phi$
     increases counter-clockwise seen from above, so a field line of
     $q = m/n$ keeps $\xi$ constant. In a geometric poloidal angle it does
-    not, even on circular surfaces. Both mode numbers are
+    not, even on circular surfaces. **Which** straight-field-line angle is
+    not free once $\phi$ is the machine angle: Hamada, PEST and Boozer all
+    make field lines straight, but each pairs its poloidal angle with its own
+    toroidal angle, and PEST's is the machine $\phi$. So this expression is
+    the helical phase in the PEST angle and in no other; a mesh in another
+    one is relabelled first (see
+    ``vaft.process.equilibrium.pest_angle_from_jacobian_angle``). At the
+    resonant surface, where $m = nq$, the phase itself is the same in every
+    straight-field-line system -- which is why a code may report a resonant
+    harmonic's phase without naming its jacobian -- but the *position* that
+    phase corresponds to at fixed machine $\phi$ is not. Both mode numbers are
     positive and the sign of the helicity sits in the minus sign; a
     perturbation of the opposite helicity is $n \to -n$ in this expression,
     not a negative argument. This $\phi$ is the IMAS one; only VEST's port
     clock numbering runs the other way (see
     ``vaft.machine_mapping.conventions``), which matters when a measured
     phase is converted, not for this definition.
+
+    **$\phi_0$ from a resonant flux harmonic.** For GPEC's ``Phi_res`` (and
+    its equal-argument ``I_res``) the O-point of the island sits at
+    $\xi = 0$ with $\phi_0 = \arg\Phi_\mathrm{res} - \pi/2$, not at
+    $\phi_0 = -\arg\Phi_\mathrm{res}$. ``Phi_res`` is a *normal-field*
+    harmonic in tesla, while the field-line Hamiltonian's potential is the
+    flux function, and harmonic $k$ of the two differ by $i\,k\,m$: the
+    modulus is already inside the island width, the $1/i$ is this quarter
+    period. Equivalently, the potential's own phase is
+    $\delta = \pi/2 - \arg\Phi_\mathrm{res}$ and
+    $V = -(w/4)^{2}\cos(\xi + \delta)$ puts its O-point at $\xi = -\delta$;
+    a potential phase and an O-point location are the same statement with
+    opposite sign, and quoting one as the other inverts the law.
+
+    Measured rather than derived, on a FLARE Poincare trace of the DIII-D GPEC
+    example at $q = 2$ on the vacuum $n = 1$ field: the traced O-point is
+    2.1 degrees from where that law puts it and 128 degrees from where
+    $\phi_0 = -\arg\Phi_\mathrm{res}$ does. The conjugation's sense follows
+    the orientation of the code's angles against the machine helicity and was
+    traced at $\mathrm{helicity} = -1$ only, so it is not a law to carry to
+    the other sign without a trace there. Provenance (D-13, 2026-09-28):
+    DIII-D 147131 @ 2300 ms, GPEC ``v1.5.5-378-gf06e6ab``, equilibrium
+    ``g147131.02300_DIIID_KEFIT`` (SHA-256 ``35bf902f...bfe579``) and vacuum
+    field ``gpec_cbrzphi_n1.out`` (SHA-256 ``718da784...05a8fa``), traced by
+    ``tools/flare_r01_poincare.py OUTDIR --c1 1 --c3 0 --field coil --q 2
+    --span 0.06 --surfaces 45 --punctures 300 --run`` of
+    ``HongSik-Yun-Fusion/vaft-mastu`` against FLARE ``7ad6d2dc``; the full
+    hashes are in ``test/test_gpec_island_geometry.py::R01_PROVENANCE``.
 
     Physical interpretation
     -----------------------

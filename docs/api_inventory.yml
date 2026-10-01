@@ -58,20 +58,7 @@ pages:
 # Public-looking modules that declare no `__all__`, so publish nothing yet.
 # Declaring `__all__` in one of them publishes it: remove it from this list.
 undeclared:
-  - vaft.database.h5image
-  - vaft.database.ids
-  - vaft.database.lazy_common
-  - vaft.database.ods
-  - vaft.database.product_migration
-  - vaft.database.raw
-  - vaft.database.staging
-  - vaft.database.transport
-  - vaft.database.utils
   - vaft.diagram.build
-  - vaft.omas.formula_wrapper
-  - vaft.omas.general
-  - vaft.omas.process_wrapper
-  - vaft.omas.update
   - vaft.plot.analysis
   - vaft.plot.backend
   - vaft.plot.backend.convention
