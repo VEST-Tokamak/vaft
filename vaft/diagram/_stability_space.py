@@ -252,16 +252,17 @@ def hugill(*, elongation: float = 1.0, q_limit: Optional[float] = None, labels: 
     chart = Chart(x_range=(0.0, x_max), y_range=(0.0, y_max))
     chart.curves["greenwald"] = curves["greenwald_hugill"].xy
     chart.curves["murakami"] = curves["murakami_hugill"].xy
-    styles = {"greenwald": "boundary", "murakami": "boundary"}
+    # Murakami is a soft, Ohmic-era scaling: dashed, so the solid line stays the Greenwald limit
+    styles = {"greenwald": "boundary", "murakami": "approx"}
     x_m = float(_b.boundary_value(_b.get_boundary("murakami_hugill")))
     chart.labels.update({
         "accessible": (0.45 * x_q, 0.85 / q_size),
         "density": (1.2 * x_q, 0.45 / q_size),
-        "murakami": (x_m + 0.3 * x_q, 1.25 / q_size),
+        "murakami": (x_m + 0.42 * x_q, 1.25 / q_size),
     })
-    text = {"accessible": "Accessible",
+    text = {"accessible": "\\begin{tabular}{c}Below\\\\Greenwald\\end{tabular}",
             "density": "\\begin{tabular}{c}Density limit\\\\($\\bar n_e > n_G$)\\end{tabular}",
-            "murakami": "Murakami"}
+            "murakami": "Murakami (Ohmic)"}
     if q_limit is not None:
         chart.curves["low_q"] = np.array([[0.0, 1.0 / q_limit], [x_max, 1.0 / q_limit]])
         styles["low_q"] = "approx"

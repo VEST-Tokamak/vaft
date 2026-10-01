@@ -34,6 +34,7 @@ __all__ = [
     "get_projection",
     "list_projections",
     "overlay_plan",
+    "requested_boundaries",
 ]
 
 
@@ -265,6 +266,24 @@ def _curve(projection: OperationalProjection, boundary: _b.Boundary, xs: np.ndar
             f"which is neither axis ({px.name}, {py.name})")
 
 
+def requested_boundaries(projection: OperationalProjection,
+                         boundaries: Union[str, bool, None, Sequence[str]] = "default") -> Tuple[str, ...]:
+    """Normalise a ``boundaries=`` argument to registry keys, in order and without repeats.
+
+    ``"default"`` or ``True`` give the projection's defaults; ``False`` or ``None`` give none;
+    a sequence of keys is taken as given. Any other string raises ``ValueError``.
+    """
+    if boundaries is True:
+        return tuple(projection.default_boundaries)
+    if boundaries is False or boundaries is None:
+        return ()
+    if isinstance(boundaries, str):
+        if boundaries != "default":
+            raise ValueError(f"boundaries must be 'default', True, False or a list of keys, not {boundaries!r}")
+        return tuple(projection.default_boundaries)
+    return tuple(dict.fromkeys(boundaries))
+
+
 def overlay_plan(projection: Union[str, OperationalProjection], boundaries: Union[str, bool, Sequence[str]] = "default",
                  *, x_range: Tuple[float, float], y_range: Tuple[float, float],
                  fixed: Optional[Mapping[str, float]] = None, samples: int = 201) -> OverlayPlan:
@@ -292,14 +311,7 @@ def overlay_plan(projection: Union[str, OperationalProjection], boundaries: Unio
         not compatible with the axes. Nothing is drawn on a near match.
     """
     proj = get_projection(projection) if isinstance(projection, str) else projection
-    if boundaries is False or boundaries is None:
-        keys: Tuple[str, ...] = ()
-    elif isinstance(boundaries, str):
-        if boundaries != "default":
-            raise ValueError(f"boundaries must be 'default', False or a list of keys, not {boundaries!r}")
-        keys = proj.default_boundaries
-    else:
-        keys = tuple(boundaries)
+    keys = requested_boundaries(proj, boundaries)
     xs = np.linspace(float(x_range[0]), float(x_range[1]), samples)
     ys = np.linspace(float(y_range[0]), float(y_range[1]), samples)
     curves, omitted = [], []

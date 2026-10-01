@@ -302,8 +302,8 @@
     },
     "hugill.svg": {
       "call": "vaft.diagram.hugill()",
-      "source_sha256": "8fbf2e40c57038d78cc9a79541f5d433effa813faf1c3be9666a09d67cc1fe11",
-      "svg_sha256": "dd359d13bca70c72a3bd1779a88f8b02378b352c83e8970018ed3b526aa55d49"
+      "source_sha256": "9706d35a260d4843df3d7941e88fa3bd5d0dfab39f0c91b7129f40543a67e693",
+      "svg_sha256": "81433ebd873f70dd9a6293b7e31b5030a0ae092330d799fc92c0818e9103bba1"
     },
     "integrated_modeling_process.svg": {
       "call": "vaft.diagram.integrated_modeling_process()",

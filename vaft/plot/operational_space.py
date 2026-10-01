@@ -26,7 +26,13 @@ from typing import Mapping, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from vaft.diagram._op_space import OperationalProjection, OverlayPlan, get_projection, overlay_plan
+from vaft.diagram._op_space import (
+    OperationalProjection,
+    OverlayPlan,
+    get_projection,
+    overlay_plan,
+    requested_boundaries,
+)
 from vaft.formula import boundaries as _b
 
 __all__ = ["operational_space_population", "population_overlay"]
@@ -34,6 +40,7 @@ __all__ = ["operational_space_population", "population_overlay"]
 #: Categorical slots in fixed order (the validated palette of vaft.plot.population).
 CATEGORICAL = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7")
 MARKERS = ("o", "s", "^", "D", "v", "P", "X")
+MISSING_COLOR = "#b8b7ae"
 BOUNDARY_COLORS = ("#1a1a19", "#a3442b", "#2f6f4f", "#5b4a9e")
 
 
@@ -101,8 +108,7 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
     y = y or proj.y.name
     declared = _declared_units(table, units)
     reasons = [r for r in (_axis_mismatch(x, proj.x, declared), _axis_mismatch(y, proj.y, declared)) if r]
-    requested = (proj.default_boundaries if boundaries == "default"
-                 else () if boundaries is False or boundaries is None else tuple(boundaries))
+    requested = requested_boundaries(proj, boundaries)
     if reasons:
         return OverlayPlan(proj.key, (), tuple((key, "; ".join(reasons)) for key in requested))
 
@@ -117,6 +123,7 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
         pad = 0.1 * (hi - lo) if hi > lo else 0.1 * max(abs(hi), 1.0)
         return (min(0.0, lo - pad) if lo >= 0 else lo - pad, hi + pad)
 
+    plotted = np.isfinite(_finite(table, x)) & np.isfinite(_finite(table, y))
     fixed = dict(boundary_inputs or {})
     for key in requested:
         entry = _b.get_boundary(key)
@@ -124,10 +131,10 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
             if q.name in fixed or q.name not in table.columns or q.name in (x, y):
                 continue
             if _axis_mismatch(q.name, q, declared) is None:
-                values = _finite(table, q.name)
+                values = _finite(table, q.name)[plotted]
                 if np.isfinite(values).any():
                     fixed[q.name] = float(np.nanmedian(values))
-    return overlay_plan(proj, boundaries, x_range=span(x, x_range), y_range=span(y, y_range), fixed=fixed)
+    return overlay_plan(proj, requested, x_range=span(x, x_range), y_range=span(y, y_range), fixed=fixed)
 
 
 def _label(quantity: _b.BoundaryQuantity, column: str) -> str:
@@ -143,6 +150,27 @@ def _boundary_label(curve: _b.BoundaryCurve) -> str:
     """Key and fixed inputs; the full citation stays on the registered entry."""
     fixed = ", ".join(f"{k} = {v:.3g}" for k, v in curve.fixed.items())
     return curve.key + (f" ({fixed})" if fixed else "")
+
+
+def _applicability_warnings(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tuple[str, str]):
+    """Where the plotted states or the fixed inputs leave the boundary's declared fitted ranges."""
+    entry = _b.get_boundary(curve.key)
+    ranges = getattr(entry.applicability, "ranges", {}) or {}
+    for name, (lo, hi) in ranges.items():
+        if name in curve.fixed:
+            values = np.array([curve.fixed[name]])
+        elif name in axes:
+            values = _finite(rows, name)
+            values = values[np.isfinite(values)]
+        else:
+            continue
+        outside = (values < lo) | (values > hi)
+        if outside.any():
+            yield (f"boundary {curve.key!r} is extrapolated: {int(outside.sum())} of {values.size} value(s) of "
+                   f"{name} lie outside its fitted range {lo:g}..{hi:g}")
+    machine = getattr(entry.applicability, "machine_class", "")
+    if machine and machine != "tokamak":
+        yield f"boundary {curve.key!r} applies to: {machine}"
 
 
 def _shade_forbidden(ax, curve: _b.BoundaryCurve, color: str) -> None:
@@ -229,7 +257,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         groups = [(name, (labels == name).to_numpy()) for name in pd.unique(labels)]
     hollow = {str(h) for h in hollow}
 
-    numeric_color = color is not None and pd.api.types.is_numeric_dtype(rows[color])
+    numeric_color = (color is not None and pd.api.types.is_numeric_dtype(rows[color])
+                     and not pd.api.types.is_bool_dtype(rows[color]))
     norm = None
     if numeric_color:
         cvals = pd.to_numeric(rows[color], errors="coerce").to_numpy(float)
@@ -237,7 +266,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         from matplotlib.colors import Normalize
         norm = Normalize(vmin=float(finite_c.min()) if finite_c.size else 0.0,
                          vmax=float(finite_c.max()) if finite_c.size else 1.0)
-        colormap = plt.get_cmap(cmap)
+        colormap = plt.get_cmap(cmap).with_extremes(bad=MISSING_COLOR)  # a missing colour value stays visible
     elif color is not None:
         cats = rows[color].astype(object).where(rows[color].notna(), "unknown").astype(str)
         palette = {name: CATEGORICAL[i % len(CATEGORICAL)] for i, name in enumerate(pd.unique(cats))}
@@ -287,10 +316,13 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             if values.size and np.ptp(values) == 0:
                 level = float(values[0])
                 span = lim[1] - lim[0]
-                if lim[1] < level <= lim[1] + 0.5 * span:
-                    lim = (lim[0], level + 0.05 * span)
-                elif lim[0] - 0.5 * span <= level < lim[0]:
-                    lim = (level - 0.05 * span, lim[1])
+                if lim[1] < level <= lim[1] + 3.0 * span:
+                    lim = (lim[0], level + 0.05 * (level - lim[0]))
+                elif lim[0] - 3.0 * span <= level < lim[0]:
+                    lim = (level - 0.05 * (lim[1] - level), lim[1])
+                elif not lim[0] <= level <= lim[1]:
+                    warnings.warn(f"boundary {curve.key!r} at {axis} = {level:.3g} lies outside the plotted "
+                                  f"range {lim[0]:.3g}..{lim[1]:.3g} and is not in view", stacklevel=2)
                 xlim, ylim = (lim, ylim) if axis == "x" else (xlim, lim)
     for i, curve in enumerate(plan.curves):
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
@@ -298,6 +330,9 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         _shade_forbidden(ax, curve, c)
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    for curve in plan.curves:
+        for message in _applicability_warnings(curve, rows, (x, y)):
+            warnings.warn(message, stacklevel=2)
     for key, reason in plan.omitted:
         warnings.warn(f"boundary {key!r} not drawn on {proj.key!r}: {reason}", stacklevel=2)
 

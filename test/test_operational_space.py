@@ -84,7 +84,7 @@ def test_every_projection_default_is_drawable_on_its_own_axes():
 def test_the_q_psi_low_q_limit_is_never_drawn_on_a_q_cyl_or_q95_or_other_axis(projection):
     plan = ops.overlay_plan(projection, ["low_q"], x_range=(0, 1), y_range=(0, 1))
     assert plan.curves == ()
-    assert plan.omitted[0][0] == "low_q" and "edge_safety_factor" in plan.omitted[0][1]
+    assert plan.omitted[0][0] == "low_q" and "targets edge_safety_factor [-]" in plan.omitted[0][1]
 
 
 def test_a_power_law_needs_its_off_axis_inputs():
@@ -105,6 +105,12 @@ def test_boundaries_false_and_explicit_lists():
         ops.overlay_plan("hugill", ["no_such_boundary"], x_range=(0, 1), y_range=(0, 1))
     with pytest.raises(ValueError):
         ops.overlay_plan("hugill", "all", x_range=(0, 1), y_range=(0, 1))
+    assert ops.overlay_plan("hugill", True, x_range=(0, 1), y_range=(0, 1),
+                            fixed={"area_elongation": 1.5}).keys == ("greenwald_hugill", "murakami_hugill")
+    assert ops.overlay_plan("hugill", ["murakami_hugill"] * 2, x_range=(0, 1), y_range=(0, 1)).keys == (
+        "murakami_hugill",)
+    with pytest.raises(ValueError):
+        population_overlay(_hugill_table(), "hugill", boundaries="all")
 
 
 def test_the_troyon_transform_is_the_definition_of_beta_n():
@@ -189,3 +195,35 @@ def test_the_population_renderer_imports_no_ods_or_database_layer():
             "print(','.join(bad))")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == ""
+
+
+def test_missing_colour_values_stay_visible_and_bools_are_categories():
+    t = _hugill_table()
+    t["R_p"] = np.where(np.arange(len(t)) % 2 == 0, np.nan, 1.0)
+    fig, ax = operational_space_population(t, "hugill", color="R_p")
+    faces = np.concatenate([c.get_facecolors() for c in ax.collections if len(c.get_offsets())])
+    assert np.all(faces[:, 3] > 0)
+    t["stable"] = np.arange(len(t)) % 2 == 0
+    fig, ax = operational_space_population(t, "hugill", color="stable")
+    assert len(fig.axes) == 1  # no colour bar for a bool column
+
+
+def test_extrapolated_boundaries_are_warned_about():
+    t = pd.DataFrame({"edge_safety_factor": [1.5, 6.0, 12.0], "internal_inductance_li3": [0.5, 0.6, 0.7]})
+    from vaft.formula.boundaries import list_boundaries
+    if "wesson_1989_jet_li_qpsi_lower" not in list_boundaries():
+        pytest.skip("li-q family lands with #1422")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        operational_space_population(t, "li_qa_wesson")
+    assert any("extrapolated" in str(w.message) for w in caught)
+
+
+def test_a_far_threshold_is_warned_not_silently_off_screen():
+    t = pd.DataFrame({"internal_inductance_li3": [0.4, 0.5, 0.6], "normalized_beta": [0.01, 0.02, 0.03]})
+    t.attrs["units"] = {"normalized_beta": "% m T/MA"}
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _, ax = operational_space_population(t, "beta_n_li")
+    assert ax.get_ylim()[1] < 1.0
+    assert any("not in view" in str(w.message) for w in caught)
