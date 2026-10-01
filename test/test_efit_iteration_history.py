@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from vaft.code.efit.config import routine_numerics_config
 import json
 import math
 from pathlib import Path
@@ -57,7 +58,8 @@ def _mfile(path: Path, time_ms: float, cerror, cchisq, czmaxi_cm) -> Path:
 
 def _configuration(inner_iterations=None):
     return resolved_efit_configuration(
-        EFITConfig(shot=39915, numerics=EFITNumericsConfig(inner_iterations=inner_iterations))
+        # The routine configuration the packaged log was recorded with.
+        EFITConfig(shot=39915, numerics=routine_numerics_config(inner_iterations=inner_iterations))
     )
 
 

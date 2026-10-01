@@ -286,11 +286,12 @@ def test_a_pipeline_2_kinetic_product_states_its_uncertainty_model():
     """Pipeline 2 put the preset record in the manifest only; the product said nothing."""
     from vaft.omas.vest_upstream import kinetic_efit_parameters
 
-    for preset, expected in ((None, "legacy_weight"), ("routine", "legacy_weight"),
+    # No preset named is the default, statistical_891, since 2026-10-01.
+    for preset, expected in ((None, "standard_deviation"), ("routine", "legacy_weight"),
                              ("statistical_891", "standard_deviation")):
         ods = _ods()
         ods["equilibrium.code.parameters"] = kinetic_efit_parameters("kinetic_efit", preset)
         assert constraint_uncertainty_model(ods) == expected, preset
         decoded = json.loads(ods["equilibrium.code.parameters"])
         assert decoded["kinetic_efit"]["stage"] == "kinetic_efit"
-        assert (decoded["kinetic_efit"]["efit_preset"] or {}).get("name") == preset
+        assert (decoded["kinetic_efit"]["efit_preset"] or {}).get("name") == (preset or "statistical_891")

@@ -29,7 +29,12 @@ import pytest
 from omas import load_omas_json
 
 from vaft.code.efit import generate_constraints_ods, generate_kfile
-from vaft.code.efit.config import EFITConstraintConfig, EFITProfileConfig, EFITScientificConfig
+from vaft.code.efit.config import (
+    EFITScientificConfig,
+    routine_constraint_config,
+    routine_profile_config,
+    routine_scientific_config,
+)
 from vaft.machine_mapping.magnetics import (
     LIMITER_SHUNT_CHANNELS,
     TOROIDAL_MIRNOV_REFERENCE_CHANNELS,
@@ -177,9 +182,9 @@ def _build_kfile_config(nbcoil: int) -> EFITScientificConfig:
     # own unrelated shape guard doesn't block a test that isn't exercising
     # PF-coil constraints. The shape comes from the constraint tree rather than
     # a literal: it is the coilset's size, and #708 changed that.
-    return EFITScientificConfig(
-        profile=EFITProfileConfig(kppcur=2, kffcur=2),
-        constraints=EFITConstraintConfig(
+    return routine_scientific_config(
+        profile=routine_profile_config(kppcur=2, kffcur=2),
+        constraints=routine_constraint_config(
             coil_constraint_matrix=tuple((1.0,) for _ in range(nbcoil)),
             coil_constraint_targets=(0.0,),
         ),

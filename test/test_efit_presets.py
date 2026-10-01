@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 import subprocess
 import sys
 from pathlib import Path
@@ -13,7 +14,13 @@ from omas import save_omas_json
 
 from test_efit_config import _constraints_ods
 from vaft.code.efit import PRESETS, EFITScientificConfig, apply_sigma_floor, efit_preset, generate_kfile
-from vaft.code.efit.presets import PRESET_RECORD, PSI_ONLY_SAICON
+from vaft.code.efit.config import routine_scientific_config
+from vaft.code.efit.presets import DEFAULT_PRESET, PRESET_RECORD, PSI_ONLY_SAICON
+
+#: k-files written on develop before the 2026-10-01 default change, from the
+#: `_constraints_ods` fixture with INPUT_DIR=/GOLDEN_INPUT_DIR: the routine
+#: default and the statistical_891 preset of #1339.
+GOLDEN = Path(__file__).resolve().parent / "data" / "efit_kfile_golden"
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 PIPELINE1 = REPOSITORY / "workflow" / "automatic_pipeline_1_routine_data_processing"
@@ -30,16 +37,38 @@ def _key(text, name):
     return match.group(1).strip()
 
 
-def test_the_routine_preset_is_the_production_configuration(tmp_path):
+def _golden_kfile(tmp_path, **kwargs):
+    generate_kfile(_constraints_ods(Path("/GOLDEN_INPUT_DIR")), 39915, save_dir=str(tmp_path), **kwargs)
+    return next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
+
+
+def test_the_default_is_the_working_setting_byte_for_byte(tmp_path):
+    """2026-10-01: the defaults are statistical_891, whose k-file is unchanged from #1339."""
+    assert DEFAULT_PRESET == "statistical_891"
+    assert efit_preset(DEFAULT_PRESET).scientific == EFITScientificConfig()
+    golden = (GOLDEN / "statistical_891.k").read_text(encoding="utf-8")
+    assert _golden_kfile(tmp_path / "default") == golden
+    assert _golden_kfile(tmp_path / "preset", config=efit_preset("statistical_891").scientific) == golden
+
+
+def test_the_routine_preset_is_the_old_default_byte_for_byte(tmp_path):
+    """The legacy configuration stays reachable exactly, by name or by a positional basis."""
     routine = efit_preset("routine")
-    assert routine.scientific == EFITScientificConfig()
-    assert routine.scientific.sha256 == EFITScientificConfig().sha256
+    assert routine.scientific == routine_scientific_config()
     assert routine.sigma_floor == 0.0
+    golden = (GOLDEN / "routine.k").read_text(encoding="utf-8")
+    assert _golden_kfile(tmp_path / "preset", config=routine.scientific) == golden
+    assert _golden_kfile(tmp_path / "positional", npprime=2, nffprime=2) == golden
+
+
+def test_the_writer_applies_the_configured_sigma_floor(tmp_path):
+    """The floor is part of the configuration: no prepare step is needed for it."""
     ods = _constraints_ods(tmp_path)
-    legacy = _kfile(tmp_path / "legacy", ods, npprime=2, nffprime=2)
-    prepared, changes = routine.prepare_constraints(ods)
-    assert changes == []
-    assert _kfile(tmp_path / "preset", prepared, config=routine.scientific) == legacy
+    ods["equilibrium.time_slice.0.constraints.bpol_probe.0.measured_error_upper"] = 1e-9
+    default = _kfile(tmp_path / "default", ods)
+    unfloored = _kfile(tmp_path / "unfloored", ods, config=EFITScientificConfig(
+        constraints=replace(EFITScientificConfig().constraints, sigma_floor=0.0)))
+    assert default != unfloored
 
 
 def test_statistical_891_writes_the_working_setting(tmp_path):
@@ -125,12 +154,19 @@ def test_generate_kfile_refuses_a_preset_with_a_basis_override(tmp_path):
     assert result.returncode != 0 and "--preset carries its own" in result.stderr
 
 
-def test_a_routine_run_removes_a_stale_preset_record(tmp_path):
+def test_a_legacy_basis_run_removes_a_stale_preset_record(tmp_path):
     manifest, first = _run_generate_kfile(tmp_path, "--preset", "statistical_891")
     assert first.returncode == 0, first.stderr[-2000:]
     _, second = _run_generate_kfile(tmp_path, "--npprime", "2", "--nffprime", "2")
     assert second.returncode == 0, second.stderr[-2000:]
     assert not (manifest.parent / PRESET_RECORD).exists()
+
+
+def test_a_run_naming_nothing_records_the_default(tmp_path):
+    manifest, result = _run_generate_kfile(tmp_path)
+    assert result.returncode == 0, result.stderr[-2000:]
+    record = json.loads((manifest.parent / PRESET_RECORD).read_text())
+    assert record["name"] == DEFAULT_PRESET
 
 
 def test_the_efit_collection_records_a_preset_only_when_one_was_used():
@@ -148,7 +184,7 @@ def test_the_efit_collection_records_a_preset_only_when_one_was_used():
     assert with_preset["efit_preset"]["name"] == "statistical_891"
 
 
-@pytest.mark.parametrize("preset, kffcur", [(None, 2), ("statistical_891", 1)])
+@pytest.mark.parametrize("preset, kffcur", [(None, 1), ("statistical_891", 1), ("routine", 2)])
 def test_the_kinetic_base_kfile_follows_the_preset(tmp_path, monkeypatch, preset, kffcur):
     from vaft.code.efit import kinetic
 
@@ -157,4 +193,4 @@ def test_the_kinetic_base_kfile_follows_the_preset(tmp_path, monkeypatch, preset
     config = kinetic.KineticEFITConfig(workdir=tmp_path, shot=39915, time_ms=319.0, efit_preset=preset)
     inputs = kinetic.prepare_kinetic_efit_inputs(_constraints_ods(tmp_path), None, config)
     assert int(_key(inputs.base_kfile_text, "KFFCUR")) == kffcur
-    assert ("SAICON" in inputs.base_kfile_text) == (preset is not None)
+    assert ("SAICON" in inputs.base_kfile_text) == (preset != "routine")

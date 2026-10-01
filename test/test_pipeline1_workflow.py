@@ -125,18 +125,20 @@ def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
     command = _kfile_command(preset.stdout)
     assert "--preset statistical_891" in command
     assert "--npprime" not in command  # the constraints stage still takes its own
-    routine = _dry_run(tmp_path, target, extra=["-p"])
-    assert routine.returncode == 0, routine.stderr[-3000:]
-    command = _kfile_command(routine.stdout)
-    assert "--npprime 2 --nffprime 2" in command and "--preset" not in command
+    # Naming nothing is the library default (statistical_891 since 2026-10-01):
+    # no basis and no preset flag; generate_kfile.py records the default itself.
+    default = _dry_run(tmp_path, target, extra=["-p"])
+    assert default.returncode == 0, default.stderr[-3000:]
+    command = _kfile_command(default.stdout)
+    assert "--preset" not in command and "--npprime" not in command
 
 
-def test_naming_the_routine_preset_is_the_routine_path(tmp_path):
+def test_the_routine_preset_is_an_explicit_opt_out(tmp_path):
     target = [_paths(tmp_path).kfile_manifest(SHOT)]
     result = _dry_run(tmp_path, target, extra=["-p", "--config", 'efit={"preset": "routine"}'])
     assert result.returncode == 0, result.stderr[-3000:]
     command = _kfile_command(result.stdout)
-    assert "--npprime 2 --nffprime 2" in command and "--preset" not in command
+    assert "--preset routine" in command and "--npprime" not in command
 
 
 def test_an_unknown_efit_preset_fails_the_run_before_any_job(tmp_path):
