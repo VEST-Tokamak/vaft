@@ -18,7 +18,8 @@ Output tree (``--out/<config>``)::
 
 Status vocabulary per state: ``not_ready`` (the state did not resolve or no solver
 input could be built), ``skipped`` (resolved but no surface ready), ``failed`` (every
-run failed), ``partial`` and ``solved``.  A solver timeout is a failed run whose
+run failed, or the runs solved but no surface could be projected -- see ``reasons``),
+``partial`` and ``solved``.  A solver timeout is a failed run whose
 ``runtime_status`` says ``timeout``; it is recorded, not raised.
 
 Unreconstructible slices are never enumerated: they are counted in the manifest and
@@ -468,8 +469,15 @@ def main(argv: Optional[list[str]] = None) -> int:
                     entry["status"] = "not_ready"
                 surfaces.append(entry)
             status = state_status(readiness, surfaces, state.resolved) if not args.dry_run else "dry_run"
+            reasons = list(state.reasons)
             mapping = project_state(state, surfaces, state_jobs) if status in ("solved", "partial") else None
-            payload = {**state.summary(), "solver": "tglf", "status": status,
+            if mapping is not None and not mapping["surfaces"]:
+                # The run records say solved, but the mapper refused every surface
+                # (a NaN or non-monotone rmin, a species-count disagreement): no flux
+                # was written, and a state without fluxes is not a solved state.
+                status = "failed"
+                reasons += [f"no_surface_mapped: {reason}" for reason in mapping["skipped"]]
+            payload = {**state.summary(), "solver": "tglf", "status": status, "reasons": reasons,
                        "readiness": readiness.summary(), "surfaces": surfaces,
                        "core_transport": mapping, "tglf_config": tglf_config,
                        "tglf_parameters": parameters,

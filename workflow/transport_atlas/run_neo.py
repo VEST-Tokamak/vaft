@@ -274,14 +274,20 @@ def main(argv: Optional[list[str]] = None) -> int:
             else:
                 status = record["status"]
             mapping = None
+            reasons = list(state.reasons)
             if status == "solved":
                 native = NeoOutputs.read_json(Path(job["workdir"]) / "outputs.json")
                 mapping = project(native, state.key.time_efit_s)
                 requested = sorted(float(s) for s in args.surfaces)
                 got = sorted(row["r_over_a"] for row in mapping["surfaces"])
-                if len(got) != len(requested) or not np.allclose(got, requested, atol=1e-4):
+                if not got:
+                    # NEO exited cleanly but the mapper wrote nothing (no exprhon /
+                    # expnorm / species table): a state without fluxes is not solved.
+                    status = "failed"
+                    reasons += [f"no_surface_mapped: {reason}" for reason in mapping["skipped"]]
+                elif len(got) != len(requested) or not np.allclose(got, requested, atol=1e-4):
                     status = "partial"
-            payload = {**state.summary(), "solver": "neo", "status": status,
+            payload = {**state.summary(), "solver": "neo", "status": status, "reasons": reasons,
                        "readiness": readiness.summary(), "run": record,
                        "run_identity": None if job is None else job["identity"],
                        "core_transport": mapping, "neo_parameters": parameters,

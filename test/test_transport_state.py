@@ -558,3 +558,86 @@ def test_neo_driver_maps_one_profile_run_and_checks_its_surfaces(neo_driver, sam
     neo_driver.main(common + ["--out", str(tmp_path / "b")])
     state = json.loads((tmp_path / "b" / "48224" / "magnetics" / "00300" / "state.json").read_text())
     assert state["status"] == "partial"
+
+
+# --------------------------------------------------------------------------- cold review 0.8.0 delta-absorb-7
+
+
+def _one_state_filedb(sample, tmp_path, label="good"):
+    """A FileDB with one magnetics state (48224 @ 300 ms) and its label file."""
+    from omas import ODS
+
+    ods = _electron_only(sample)
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps({"labels": [{"shot": 48224, "time_ms": 300, "label": label}]}))
+    return ["--filedb", str(filedb), "--labels", str(labels), "--lineages", "magnetics"]
+
+
+def _solved_tglf_run(profile, rho, workdir, config=None, *, check=True):
+    from vaft.code.gacode.tglf import TGLFResult
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    workdir = Path(workdir)
+    workdir.mkdir(parents=True, exist_ok=True)
+    flux = np.array([1.0, 2.0, 0.1]) * rho
+    native = TglfOutputs(directory=str(workdir), version={"revision": "test"},
+                         gbflux={"particle": 0.1 * flux, "energy": flux,
+                                 "momentum": 0 * flux, "exchange": 0 * flux},
+                         grid={"n_species": 3, "n_xgrid": 4})
+    return TGLFResult(returncode=0, runtime_status="completed", workdir=workdir,
+                      outputs_native=native)
+
+
+def test_a_tglf_state_the_mapper_refuses_is_not_solved(driver, sample, tmp_path, monkeypatch):
+    """P1: every surface ran, but no flux was projected -- the row must say so."""
+    import vaft.code.gacode.tglf as tglf
+    import vaft.machine_mapping.turbulence as turbulence
+
+    monkeypatch.setattr(tglf, "run_tglf_case", _solved_tglf_run)
+    monkeypatch.setattr(turbulence, "core_transport_from_tglf",
+                        lambda ods, pairs, profile, time: {"model": 0, "written": [],
+                                                           "skipped": ["rmin is not monotone"]})
+    common = _one_state_filedb(sample, tmp_path)
+    assert driver.main(common + ["--out", str(tmp_path / "out"), "--workers", "1",
+                                 "--sat-rule", "2", "--field-model", "es"]) == 0
+    out = tmp_path / "out" / "tglf-sat2-es"
+    (row,) = [json.loads(line) for line in (out / "states.jsonl").read_text().splitlines()]
+    assert row["status"] == "failed"
+    assert row["reasons"] == ["no_surface_mapped: rmin is not monotone"]
+    state = json.loads((out / "48224" / "magnetics" / "00300" / "state.json").read_text())
+    assert state["core_transport"]["surfaces"] == []
+    assert all(s["status"] == "solved" for s in state["surfaces"])  # the runs themselves did solve
+    assert json.loads((out / "run_manifest.json").read_text())["status_counts"] == {"failed": 1}
+
+
+def test_a_neo_run_that_maps_nothing_is_not_solved(neo_driver, sample, tmp_path, monkeypatch):
+    """F1: a clean NEO exit whose tree has no exprhon table projects no surface."""
+    import dataclasses
+
+    import vaft.code.gacode.neo as neo
+    from vaft.code.gacode.neo import NEOResult
+    from vaft.code.gacode.neo.outputs import collect_neo_outputs
+
+    fixture = ROOT / "test" / "data" / "gacode" / "neo_vest_48224_carbon"
+
+    def fake_run(profile, workdir, config=None, *, check=True):
+        Path(workdir).mkdir(parents=True, exist_ok=True)
+        native = dataclasses.replace(collect_neo_outputs(fixture), coordinates=None)
+        return NEOResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                         outputs_native=native)
+
+    monkeypatch.setattr(neo, "run_neo_case", fake_run)
+    common = _one_state_filedb(sample, tmp_path, label="admissible")
+    seven = [f"{0.2 + 0.1 * i:.1f}" for i in range(7)]
+    assert neo_driver.main(common + ["--out", str(tmp_path / "out"), "--surfaces", *seven]) == 0
+    (row,) = [json.loads(line) for line in (tmp_path / "out" / "states.jsonl").read_text().splitlines()]
+    assert row["status"] == "failed"
+    assert len(row["reasons"]) == 1 and "exprhon" in row["reasons"][0]
+    state = json.loads((tmp_path / "out" / "48224" / "magnetics" / "00300" / "state.json").read_text())
+    assert state["run"]["status"] == "solved" and state["core_transport"]["surfaces"] == []
