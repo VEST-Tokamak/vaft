@@ -481,15 +481,32 @@ def test_the_packaged_run_writes_nothing_pentrc_can_read(case, tmp_path):
     with ``ascii_flag`` *and* ``xclebsch_flag`` on, and the packaged template
     ships the second without the first. So the default run computes the
     displacement, writes it to netCDF, and leaves the torque unreachable.
+
+    Both options default to ``None`` -- "whatever the template holds" -- so
+    ``writes_pentrc_input`` is ``None`` on the options and the question is settled
+    by the prepared file, which is what it is read off here.
     """
-    assert gpec.IdealGPECOptions().writes_pentrc_input is False
+    assert gpec.IdealGPECOptions().writes_pentrc_input is None
     written, _ = _prepared_gpec_in(case, tmp_path)
     assert (written["ascii_flag"], written["xclebsch_flag"]) == ("f", "t")
 
 
 def test_asking_for_pentrcs_input_writes_both_flags(case, tmp_path):
-    options = gpec.IdealGPECOptions(ascii_flag=True)
+    options = gpec.IdealGPECOptions(ascii_flag=True, xclebsch_flag=True)
     assert options.writes_pentrc_input is True
+    written, _ = _prepared_gpec_in(case, tmp_path, ascii_flag=True, xclebsch_flag=True)
+    assert (written["ascii_flag"], written["xclebsch_flag"]) == ("t", "t")
+
+
+def test_asking_for_ascii_alone_leaves_the_displacement_to_the_template(case, tmp_path):
+    """``None`` is not ``False``: the template's ``t`` survives.
+
+    A machine layer that already ships ``ascii_flag=t`` for exactly this reason
+    must not have it taken away by an option default, which is why neither flag
+    defaults to a value.
+    """
+    options = gpec.IdealGPECOptions(ascii_flag=True)
+    assert options.writes_pentrc_input is None, "the template decides the other half"
     written, _ = _prepared_gpec_in(case, tmp_path, ascii_flag=True)
     assert (written["ascii_flag"], written["xclebsch_flag"]) == ("t", "t")
 
@@ -497,6 +514,7 @@ def test_asking_for_pentrcs_input_writes_both_flags(case, tmp_path):
 def test_the_displacement_can_be_turned_off_without_turning_ascii_off(case, tmp_path):
     """Both directions, because either flag alone writes nothing PENTRC opens."""
     options = gpec.IdealGPECOptions(ascii_flag=True, xclebsch_flag=False)
+    assert options.writes_pentrc_input is False
     assert options.writes_pentrc_input is False
     written, _ = _prepared_gpec_in(case, tmp_path, ascii_flag=True, xclebsch_flag=False)
     assert (written["ascii_flag"], written["xclebsch_flag"]) == ("t", "f")

@@ -160,7 +160,10 @@ class IdealGPECOptions:
     the machine word.
 
     ``ascii_flag`` and ``xclebsch_flag`` are what decide whether PENTRC has an
-    input at all.  PENTRC reads the **ASCII** displacement,
+    input at all, and both default to ``None`` -- "whatever the template holds".
+    A machine layer with its own ``templates_dir`` may already ship
+    ``ascii_flag=t`` precisely so that its torque runs have something to read, and
+    writing a default over that would silently take it away.  PENTRC reads the **ASCII** displacement,
     ``gpec_xclebsch_n<n>.out`` (``pentrc/inputs.f90`` opens ``peq_file`` as a
     text table), and GPEC writes that file only when both flags are on
     (``gpec/gpout.f:5755``).  The packaged template ships ``xclebsch_flag=t``
@@ -175,12 +178,14 @@ class IdealGPECOptions:
     """
 
     coil_flag: bool = True
-    #: Write every output in ASCII as well as netCDF.  The packaged template's
-    #: ``f``; PENTRC's input exists only with ``t``.
-    ascii_flag: bool = False
-    #: Compute the Clebsch-coordinate displacement PENTRC integrates.  The
-    #: packaged template's ``t`` -- on its own it only reaches the netCDF.
-    xclebsch_flag: bool = True
+    #: Write every output in ASCII as well as netCDF.  ``None`` leaves the
+    #: template's value, which is ``f`` in the packaged one; PENTRC's input exists
+    #: only with ``t``.
+    ascii_flag: Optional[bool] = None
+    #: Compute the Clebsch-coordinate displacement PENTRC integrates.  ``None``
+    #: leaves the template's value, ``t`` in the packaged one -- on its own it only
+    #: reaches the netCDF.
+    xclebsch_flag: Optional[bool] = None
     coil_specs: Optional[Sequence["CoilInputSpec"]] = None
     machine: str = "vest"
     coil_config: Optional[Mapping[str, "CoilSet3D"]] = None
@@ -226,12 +231,19 @@ class IdealGPECOptions:
     singthresh_slayer_inpr_prof: Optional[Sequence[float]] = None
 
     @property
-    def writes_pentrc_input(self) -> bool:
+    def writes_pentrc_input(self) -> Optional[bool]:
         """Whether this run will leave the ASCII displacement PENTRC reads.
 
         Both flags, because either alone writes nothing PENTRC can open: the
         netCDF carries the same displacement and PENTRC does not read it.
+
+        ``None`` when either is ``None``: the answer is then the template's, and
+        this object does not know which template it will be prepared against.
+        :func:`~vaft.code.gpec.validate_pentrc_inputs` reads the prepared cell,
+        which does.
         """
+        if self.ascii_flag is None or self.xclebsch_flag is None:
+            return None
         return bool(self.ascii_flag and self.xclebsch_flag)
 
     @property

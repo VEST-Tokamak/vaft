@@ -689,13 +689,16 @@ class IdealGPECSolver:
         replacements: dict[str, object] = {
             "dcon_dir": str(ctx.run_dir.resolve()),
             "coil_flag": options.coil_flag,
-            # PENTRC reads the ASCII displacement and GPEC writes it only with
-            # both of these on, so they are part of what a run *is* rather than
-            # a formatting preference. Both are in every packaged and
-            # GPEC-shipped `gpec.in`.
-            "ascii_flag": options.ascii_flag,
-            "xclebsch_flag": options.xclebsch_flag,
         }
+        # PENTRC reads the ASCII displacement and GPEC writes it only with both of
+        # these on, so they are part of what a run *is* rather than a formatting
+        # preference -- but `None` means "whatever the template holds", because a
+        # machine layer may already ship `ascii_flag=t` so that its torque runs
+        # have something to read.
+        for name in ("ascii_flag", "xclebsch_flag"):
+            value = getattr(options, name)
+            if value is not None:
+                replacements[name] = value
         # Restated rather than requested when no threshold was asked for: a
         # custom `templates_dir` need not carry the key, and `f` is what GPEC
         # defaults to anyway -- but a template shipping `t` must not turn a
