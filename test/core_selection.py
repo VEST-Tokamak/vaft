@@ -214,6 +214,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
+    # Transport atlas (lane T): the shared transport-state resolver on the packaged
+    # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
+    # reg05 fixture, and the routine driver with a fake runner. No solver runs.
+    "test_transport_state.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
