@@ -29,6 +29,9 @@ class FakeHSDS:
     def __init__(self):
         self.folders: dict[tuple[str, int], dict[str, bytes]] = {}
         self.payload_delay = 0.0
+        #: When set, every payload upload waits here: two writers meet inside
+        #: the window between their master read and their master replace.
+        self.barrier: threading.Barrier | None = None
         self._guard = threading.Lock()
 
     @staticmethod
@@ -51,6 +54,8 @@ class FakeHSDS:
     def put(self, local, uri):
         source, shot, name = self.parse(uri)
         if name != "master.h5":
+            if self.barrier is not None:
+                self.barrier.wait()
             time.sleep(self.payload_delay)  # the window between the master read and its replacement
         data = Path(local).read_bytes()
         with self._guard:
@@ -144,7 +149,7 @@ def test_without_the_fix_concurrent_stages_lose_a_link(hsds, two_stages, monkeyp
     monkeypatch.setattr(replication, "shot_master_lock", lambda *a, **k: nullcontext())
     monkeypatch.setattr(_master_lock, "shot_master_lock", lambda *a, **k: nullcontext())
     monkeypatch.setattr(ods_module, "_merge_current_master", lambda source, shot, then=None: then or (lambda m: None))
-    hsds.payload_delay = 0.3
+    hsds.barrier = threading.Barrier(2, timeout=30)  # both payloads in flight at once: the 09-17 overlap
     _replicate_concurrently(two_stages)
     linked = hsds.master_links("main", SHOT, tmp_path)
     assert set(hsds.entries("main", SHOT)) >= {"magnetics.h5", "pf_passive.h5"}
@@ -214,25 +219,45 @@ def test_a_plain_save_merges_instead_of_replacing_the_master(hsds, tmp_path):
 # --------------------------------------------------------------------------- #
 # the lock itself
 # --------------------------------------------------------------------------- #
-def _hold_in_threads(keys, hold):
-    def work(key):
-        with _master_lock.shot_master_lock(*key):
-            time.sleep(hold)
-
-    started = time.monotonic()
-    threads = [threading.Thread(target=work, args=(key,)) for key in keys]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-    return time.monotonic() - started
-
-
-@pytest.mark.skipif(not hasattr(__import__("os"), "fork"), reason="POSIX advisory locks")
 def test_one_shot_is_serialized_and_different_shots_are_not(monkeypatch, tmp_path):
     monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(tmp_path))
-    assert _hold_in_threads([("main", 1), ("main", 1)], 0.4) >= 0.75
-    assert _hold_in_threads([("main", 1), ("main", 2)], 0.4) < 0.75
+    holding, release = threading.Event(), threading.Event()
+
+    def holder():
+        with _master_lock.shot_master_lock("main", 1):
+            holding.set()
+            release.wait(10)
+
+    thread = threading.Thread(target=holder)
+    thread.start()
+    try:
+        assert holding.wait(10)
+        with _master_lock.shot_master_lock("main", 2, timeout=5):
+            pass  # another shot: no wait
+        with pytest.raises(_master_lock.MasterLockTimeout):
+            with _master_lock.shot_master_lock("main", 1, timeout=0.3):
+                pass  # the same shot: waits, and here gives up
+    finally:
+        release.set()
+        thread.join()
+    with _master_lock.shot_master_lock("main", 1, timeout=5):
+        pass  # free again once released
+
+
+def test_lock_files_are_shareable_and_a_read_only_one_still_locks(monkeypatch, tmp_path):
+    """Another account's lock file must not lock this one out (flock needs no write access)."""
+    import os
+    import stat
+
+    monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(tmp_path / "locks"))
+    with _master_lock.shot_master_lock("main", 5):
+        pass
+    created = _master_lock.lock_path("main", 5)
+    assert stat.S_IMODE(created.stat().st_mode) == 0o666
+    if os.name == "posix" and os.geteuid() != 0:
+        created.chmod(0o444)  # as if created read-only by another account
+        with _master_lock.shot_master_lock("main", 5, timeout=5):
+            pass
 
 
 def test_the_lock_is_reentrant_within_a_thread(monkeypatch, tmp_path):
@@ -317,3 +342,26 @@ def test_the_audit_reports_absent_masterless_and_unreadable_shots(hsds, monkeypa
     monkeypatch.setattr(replication, "_remote_entries", busy)
     report = maintenance.audit_master_link(3)
     assert report["status"] == maintenance.MASTER_UNREADABLE and "503" in report["error"]
+
+
+def test_a_folder_of_derived_images_only_is_absent_not_masterless(hsds, monkeypatch, tmp_path):
+    monkeypatch.setattr("vaft.database.sources.resolve", lambda source, writable=False, **k: source or "main")
+    image = tmp_path / "magnetics.h5image.h5"
+    image.write_bytes(b"image")
+    hsds.put(image, "hdf5://main/4/magnetics.h5image.h5")
+    report = maintenance.audit_master_link(4)
+    assert report["status"] == maintenance.MASTER_ABSENT and "derived" in report["note"]
+
+
+@pytest.mark.parametrize(
+    ("status", "code"),
+    [("complete", 0), ("absent", 0), ("repaired", 0), ("links_missing", 1), ("no_master", 1), ("unreadable", 1)],
+)
+def test_the_audit_command_fails_while_data_is_hidden(monkeypatch, status, code, capsys):
+    from vaft.cli import maintenance as cli
+
+    monkeypatch.setattr(
+        "vaft.database.maintenance.audit_master_links",
+        lambda shots, source=None, repair=False: [{"shot": 1, "status": status, "missing": ["a.h5"]}],
+    )
+    assert cli.main(["audit-masters", "--shots", "1"]) == code

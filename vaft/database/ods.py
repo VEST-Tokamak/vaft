@@ -667,26 +667,34 @@ def save_ods(
         # copy read before the payload went up (#913). Without the merge a
         # plain save (the corrective updaters') replaced the master with one
         # naming only its own IDS.
-        _publish_staged_shot(shot_dir, source, shot, finalize_master)
-        if derived_mode != "none":
-            wall_time.sleep(8.0)
-        if derived_mode in {"imas-images", "both"}:
-            for image_path in sorted(shot_dir.glob("*.h5")):
-                try:
-                    result = publish_image(
-                        image_path,
-                        source,
-                        shot,
-                        imas_version=imas_version,
-                    )
-                    print(f"[INFO] Published derived IMAS image: {result['uri']}")
-                except Exception as exc:
-                    logging.warning(
-                        "Could not publish derived IMAS image for shot %s (%s): %s",
-                        shot,
-                        image_path.name,
-                        exc,
-                    )
+        from ._master_lock import shot_master_lock
+
+        # The derived images are published under the same hold of the shot's
+        # lock: the master image is stamped with the stored master's revision
+        # at publish time, so publishing it after another writer replaced the
+        # master would label this write's master as that writer's -- and the
+        # reader would trust it, and lose the other writer's IDS (#913).
+        with shot_master_lock(source, shot):
+            _publish_staged_shot(shot_dir, source, shot, finalize_master)
+            if derived_mode != "none":
+                wall_time.sleep(8.0)
+            if derived_mode in {"imas-images", "both"}:
+                for image_path in sorted(shot_dir.glob("*.h5")):
+                    try:
+                        result = publish_image(
+                            image_path,
+                            source,
+                            shot,
+                            imas_version=imas_version,
+                        )
+                        print(f"[INFO] Published derived IMAS image: {result['uri']}")
+                    except Exception as exc:
+                        logging.warning(
+                            "Could not publish derived IMAS image for shot %s (%s): %s",
+                            shot,
+                            image_path.name,
+                            exc,
+                        )
         if derived_mode in {"omas", "both"}:
             try:
                 cache_uri = _publish_derived_omas_cache(

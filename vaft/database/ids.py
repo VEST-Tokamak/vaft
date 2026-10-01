@@ -9,6 +9,7 @@ conversion.
 from __future__ import annotations
 
 import logging
+import shutil
 import time
 from contextlib import nullcontext
 from pathlib import Path
@@ -128,28 +129,38 @@ def save(
             ids_remote_uri = f"hdf5://{source}/{shot}/{filename}"
             run_hsload(_staging_dir / filename, ids_remote_uri)
             verify_uploaded_image(_staging_dir / filename, ids_remote_uri)
-            _merge_current_master(source, int(shot))(_staging_dir / "master.h5")
+            # Merged in a copy: imas_core may still hold the master it wrote
+            # open after DBEntry.close() (see the staging note above), and
+            # HDF5's file locking can refuse a second, writable open of it.
+            merged_dir = _staging_dir / "merged"
+            merged_dir.mkdir()
+            master_path = merged_dir / "master.h5"
+            shutil.copy2(_staging_dir / "master.h5", master_path)
+            _merge_current_master(source, int(shot))(master_path)
             master_remote_uri = f"hdf5://{source}/{shot}/master.h5"
-            run_hsload(_staging_dir / "master.h5", master_remote_uri)
-            verify_uploaded_image(_staging_dir / "master.h5", master_remote_uri)
-        if derived_mode == "imas-images":
-            time.sleep(8.0)
-            for local_path in (_staging_dir / filename, _staging_dir / "master.h5"):
-                try:
-                    result = publish_image(
-                        local_path,
-                        source,
-                        int(shot),
-                        imas_version=dd_version,
-                    )
-                    print(f"[INFO] Published derived IMAS image: {result['uri']}")
-                except Exception as exc:
-                    logging.warning(
-                        "Could not publish derived IMAS image for shot %s (%s): %s",
-                        shot,
-                        local_path.name,
-                        exc,
-                    )
+            run_hsload(master_path, master_remote_uri)
+            verify_uploaded_image(master_path, master_remote_uri)
+            # Published under the same hold, for the reason given in
+            # vaft.database.ods.save_ods: a master image stamped after another
+            # writer replaced the master would be trusted as that writer's.
+            if derived_mode == "imas-images":
+                time.sleep(8.0)
+                for local_path in (_staging_dir / filename, master_path):
+                    try:
+                        result = publish_image(
+                            local_path,
+                            source,
+                            int(shot),
+                            imas_version=dd_version,
+                        )
+                        print(f"[INFO] Published derived IMAS image: {result['uri']}")
+                    except Exception as exc:
+                        logging.warning(
+                            "Could not publish derived IMAS image for shot %s (%s): %s",
+                            shot,
+                            local_path.name,
+                            exc,
+                        )
         return ids_remote_uri
 
 

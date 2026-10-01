@@ -24,7 +24,12 @@ def _shots(values: Iterable[str]) -> list[int]:
 def _audit_masters(args: argparse.Namespace) -> int:
     from collections import Counter
 
-    from vaft.database.maintenance import MASTER_LINKS_MISSING, MASTER_UNREADABLE, audit_master_links
+    from vaft.database.maintenance import (
+        MASTER_LINKS_MISSING,
+        MASTER_MISSING,
+        MASTER_UNREADABLE,
+        audit_master_links,
+    )
 
     reports = audit_master_links(_shots(args.shots), source=args.source, repair=args.apply)
     if args.report:
@@ -34,12 +39,15 @@ def _audit_masters(args: argparse.Namespace) -> int:
     for report in reports:
         if report["status"] in ("complete", "absent"):
             continue
-        detail = report.get("error") or ", ".join(report["missing"])
+        detail = report.get("error") or ", ".join(report["missing"]) or report.get("note", "")
         print(f"shot {report['shot']}: {report['status']}: {detail}")
     counts = Counter(report["status"] for report in reports)
     print(", ".join(f"{status} {count}" for status, count in sorted(counts.items()))
           + ("" if args.apply else "; dry run, nothing was written"))
-    return 1 if counts.get(MASTER_LINKS_MISSING) or counts.get(MASTER_UNREADABLE) else 0
+    # A shot with IDS files and no master is unreadable data too, though
+    # `--apply` cannot fix it: there is no link to copy the shape of.
+    hidden = (MASTER_LINKS_MISSING, MASTER_MISSING, MASTER_UNREADABLE)
+    return 1 if any(counts.get(status) for status in hidden) else 0
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -265,6 +265,11 @@ def audit_master_link(shot: int, *, source: str | None = None, repair: bool = Fa
         files = _remote_canonical_files(entries)
         if not entries:
             report["status"] = MASTER_ABSENT
+        elif "master.h5" not in entries and not files:
+            # Derived .h5image.h5 files and no canonical IDS: nothing readable
+            # was ever published here, and nothing is hidden.
+            report["status"] = MASTER_ABSENT
+            report["note"] = "only derived images: " + ", ".join(entries)
         elif "master.h5" not in entries:
             # Nothing to copy a link's shape from; a re-replication writes one.
             report["status"] = MASTER_MISSING

@@ -63,6 +63,32 @@ def lock_path(source: str, shot: int) -> Path:
     return lock_directory() / f"{safe}.{int(shot)}.lock"
 
 
+def _open_shared(path: Path) -> int:
+    """Open a lock file every account on the host can lock.
+
+    Created world-writable (the umask would otherwise leave it 0644, and a
+    second account could not open it for writing). ``flock`` needs no write
+    access, so a file some other account created read-only is opened read-only
+    rather than refused -- one operator's audit must not lock the worker out.
+    """
+    directory = path.parent
+    if not directory.is_dir():
+        directory.mkdir(parents=True, exist_ok=True)
+        try:
+            os.chmod(directory, 0o1777)  # sticky and shared, like /tmp itself
+        except OSError:
+            pass
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o666)
+    except PermissionError:
+        return os.open(path, os.O_RDONLY)
+    try:
+        os.fchmod(fd, 0o666)
+    except OSError:  # not the owner: the owner made it shareable already, or not
+        pass
+    return fd
+
+
 @contextmanager
 def shot_master_lock(source: str, shot: int, *, timeout: float | None = DEFAULT_TIMEOUT) -> Iterator[None]:
     """Hold the exclusive master lock of ``(source, shot)``; see the module docstring."""
@@ -86,21 +112,16 @@ def shot_master_lock(source: str, shot: int, *, timeout: float | None = DEFAULT_
         return
 
     path = lock_path(source, shot)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        os.chmod(path.parent, 0o1777)  # shared by every account on the host
-    except OSError:
-        pass
-    handle = path.open("a+", encoding="utf-8")
+    fd = _open_shared(path)
     try:
         try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
             logger.info("waiting for another writer of %s shot %s (%s)", source, shot, path)
             deadline = None if timeout is None else time.monotonic() + timeout
             while True:
                 try:
-                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     break
                 except OSError:
                     if deadline is not None and time.monotonic() >= deadline:
@@ -116,9 +137,9 @@ def shot_master_lock(source: str, shot: int, *, timeout: float | None = DEFAULT_
         finally:
             with _registry:
                 _held.pop(key, None)
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            fcntl.flock(fd, fcntl.LOCK_UN)
     finally:
-        handle.close()
+        os.close(fd)
 
 
 __all__ = ["DEFAULT_LOCK_DIR", "LOCK_DIR_ENV", "MasterLockTimeout", "lock_path", "shot_master_lock"]

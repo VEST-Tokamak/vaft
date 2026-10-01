@@ -1002,8 +1002,8 @@ Each shot is reported as one of:
 | `complete` | The master links every stored IDS file. |
 | `links_missing` | Files are stored that the master does not link. `--apply` relinks them, under the shot's lock. |
 | `no_master` | Files are stored but there is no master. Nothing can be copied from it, so re-replicate the shot. |
-| `absent` | No such shot folder. |
+| `absent` | No such shot folder, or one holding only derived images. |
 | `unreadable` | Listing or reading failed. The error is in the report. |
 
-The command exits non-zero while any shot is `links_missing` or `unreadable`.
+The command exits non-zero while any shot is `links_missing`, `no_master` or `unreadable`.
 
