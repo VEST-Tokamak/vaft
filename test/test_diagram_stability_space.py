@@ -243,3 +243,12 @@ def test_charts_always_get_readable_ticks():
         scene = vaft.diagram.troyon(**kw).scene
         ticks = [item for item in scene.role("ticks") if hasattr(item, "text")]
         assert len(ticks) >= 6  # at least three per axis
+
+
+def test_the_hugill_docstring_states_the_slope_that_is_drawn():
+    """The docstring said the Greenwald line's slope is 50 kappa/pi; the drawn 1/q against nR/B has slope
+    pi/(50 kappa), which the chart and the closed form agree on. Cold review 0.8.0 diagram-A F2."""
+    g = vaft.diagram.hugill(elongation=1.6).model.curves["greenwald"]
+    assert g[-1, 1] / g[-1, 0] == pytest.approx(np.pi / (50 * 1.6), rel=1e-9)
+    assert r"(\pi/50\kappa_a)" in vaft.diagram.hugill.__doc__
+    assert r"50\kappa_a/\pi" not in vaft.diagram.hugill.__doc__

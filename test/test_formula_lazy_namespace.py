@@ -259,16 +259,14 @@ def test_a_re_imported_name_is_not_a_formula(name):
 
 
 @pytest.mark.parametrize(
-    ("old_name", "replacement"),
-    [("e", "QE"), ("eV_to_J", "QE"), ("m_e", "ME"), ("epsilon_0", "EPS0"),
-     ("k_B", "K_BOLTZMANN"), ("c", "C_LIGHT"), ("h", "H_PLANCK")],
+    "old_name", ["e", "eV_to_J", "m_e", "epsilon_0", "k_B", "c", "h"],
 )
-def test_a_leaked_duplicate_constant_deprecates_to_its_canonical_name(old_name, replacement):
-    """`vaft.formula.e` was the elementary charge; say so rather than vanish."""
+def test_a_leaked_duplicate_constant_is_gone(old_name):
+    """`vaft.formula.e` was the elementary charge (#368); the one-release shim
+    that mapped it onto `QE` was promised gone in 0.8.0, and is."""
     assert old_name not in vaft.formula.__all__
-    with pytest.warns(DeprecationWarning, match=replacement):
-        value = getattr(vaft.formula, old_name)
-    assert value == getattr(vaft.formula, replacement)
+    with pytest.raises(AttributeError, match=f"no attribute '{old_name}'"):
+        getattr(vaft.formula, old_name)
 
 
 def test_the_plumbing_gets_no_shim():

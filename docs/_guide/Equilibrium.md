@@ -380,6 +380,8 @@ generate_kfile(constraints, 39915, save_dir="/tmp/efit-run", config=preset.scien
 
 A preset run writes the same product paths as a routine one, so give it its own `base_dir`.
 
+`statistical_891` allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot's slices in one EFIT call. So raise `efit.timeout`: 3600 s held for the #1331 Tier A campaign, while 600 s timed out 26 of 33 shots.
+
 `statistical_891` was calibrated on 39915's flat-top. The weight-study README (`workflow/efit_uncertainty_calibration`) records how.
 
 #### Channel decisions

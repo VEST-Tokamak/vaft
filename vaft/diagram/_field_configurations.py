@@ -33,6 +33,7 @@ from typing import List
 
 import numpy as np
 
+from vaft.formula.constants import MU0
 from vaft.formula.geometry import harris_sheet_current_density, harris_sheet_field, sheared_slab_field, x_point_flux
 from vaft.formula.stability import slab_perturbed_flux
 
@@ -266,7 +267,7 @@ def harris_sheet(*, labels: bool = True) -> Diagram:
     labels = _check_labels(labels)
     x = np.linspace(-3.0, 3.0, 301)
     b = harris_sheet_field(x * _A, _B0, _A) / _B0
-    j = harris_sheet_current_density(x * _A, _B0, _A) / (_B0 / (4e-7 * math.pi * _A))
+    j = harris_sheet_current_density(x * _A, _B0, _A) / (_B0 / (MU0 * _A))
     chart = Chart(x_range=(-3.0, 3.0), y_range=(-1.25, 1.25))
     chart.curves.update({"B_y": np.stack([x, b], -1), "J_z": np.stack([x, j], -1),
                          "zero": np.array([[-3.0, 0.0], [3.0, 0.0]])})

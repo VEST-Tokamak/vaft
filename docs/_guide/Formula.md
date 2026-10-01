@@ -122,7 +122,7 @@ Fields and current density from the flux map:
 ```python
 B_r = vaft.formula.radial_magnetic_field_from_psi(psi, R, Z)      # B_r = -(1/R) dpsi/dZ
 B_z = vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z)    # B_z = +(1/R) dpsi/dR
-# current_density_from_psi is deprecated (#355): it returns -B_Z/mu0 [A/m],
+# current_density_from_psi (removed in 0.8.0, #355) returned -B_Z/mu0 [A/m],
 # not a current density.  For that quantity, note the minus sign:
 j   = -vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z) / MU0   # [A/m]
 # For a real toroidal current density use the Grad-Shafranov operator:
