@@ -918,9 +918,11 @@ def _efit_configuration(ods, collection: dict) -> str:
     """``"name@sha12"`` of the EFIT configuration that built this product.
 
     The magnetic collection records it as ``efit_collection.efit_preset``;
-    a kinetic product as ``kinetic_efit.efit_preset``.  A product written
-    before configurations were recorded says ``"unrecorded"`` -- which on the
-    production database means the routine configuration.
+    a kinetic product as ``kinetic_efit.efit_preset``.  ``"unrecorded"`` is a
+    product written before configurations were recorded (on the production
+    database, the routine configuration), or one whose k-files came from an
+    explicit ``--config`` payload or a legacy ``--npprime/--nffprime`` basis,
+    which name no preset.
     """
     record = collection.get("efit_preset")
     if not record:

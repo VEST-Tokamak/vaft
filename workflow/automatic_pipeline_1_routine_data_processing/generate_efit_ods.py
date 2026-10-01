@@ -10,7 +10,7 @@ from pathlib import Path
 
 from omas import ODS, load_omas_json
 
-from vaft.code.efit import EFITConfig, collect_efit_outputs
+from vaft.code.efit import EFITConfig, EFITScientificConfig, collect_efit_outputs
 from vaft.code.efit.presets import PRESET_RECORD
 from vaft.data.meqdsk import EFIT_MAPPING_SOURCE_REVISION
 from vaft.omas import save as save_ods
@@ -53,8 +53,9 @@ def efit_collection_parameters(
     it is recorded here, where it replicates (#728).
 
     `efit_preset` is the record the k-file stage wrote when a named EFIT
-    configuration built the k-files (#891); a routine run has none, and then
-    the payload is exactly what it was before presets existed.  A record also
+    configuration built the k-files (#891).  The k-file stage writes one on
+    every run since 2026-10-01; a product from before presets existed has none,
+    and then the payload is exactly what it was.  A record also
     states the uncertainty model the constraints were fitted under, which is
     written once more as the top-level `uncertainty_model` --  the key
     `vaft.omas.efit_quality.constraint_uncertainty_model` reads, and what
@@ -114,8 +115,15 @@ def main() -> int:
     status_text = args.status.read_text(encoding="utf-8").strip() if args.status.exists() else "unknown"
     constraints_ods = load_omas_json(str(args.constraints_ods), consistency_check=False)
     kfiles = tuple(Path(line.strip()) for line in args.kfile_manifest.read_text(encoding="utf-8").splitlines() if line.strip())
+    preset = _preset_record(args.kfile_manifest)
+    # Each slice status records the configuration it was collected under: the
+    # one the k-file stage recorded, so a `routine` run does not claim the default.
+    scientific = (EFITScientificConfig.from_dict(preset["scientific"])
+                  if preset and "scientific" in preset else EFITScientificConfig())
     result = collect_efit_outputs(
-        workdir, EFITConfig(workdir=workdir, shot=args.shot),
+        workdir, EFITConfig(workdir=workdir, shot=args.shot, profile=scientific.profile,
+                            initialization=scientific.initialization,
+                            numerics=scientific.numerics, constraints=scientific.constraints),
         expected_kfiles=kfiles, constraints_ods=constraints_ods,
     )
 
@@ -142,7 +150,7 @@ def main() -> int:
             artifact_manifest=json.loads(
                 args.artifact_manifest.read_text(encoding="utf-8")
             ),
-            efit_preset=_preset_record(args.kfile_manifest),
+            efit_preset=preset,
         )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

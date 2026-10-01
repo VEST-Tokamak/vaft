@@ -161,8 +161,10 @@ def run_shot(
         shot=shot,
         times=times.tolist(),
         args=("129",),
-        npprime=scientific.profile.kppcur,
-        nffprime=scientific.profile.kffcur,
+        profile=scientific.profile,
+        initialization=scientific.initialization,
+        numerics=scientific.numerics,
+        constraints=scientific.constraints,
     )
     inputs = prepare_efit_inputs(source, config)
     started = _clock.perf_counter()

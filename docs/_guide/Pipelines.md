@@ -173,7 +173,7 @@ from vaft.data.eqdsk import read_geqdsk
 # EFIT: run, then collect whatever landed in the workdir
 result = run_efit(EFITInputs(workdir=workdir, kfiles=kfiles),
                   EFITConfig(executable=exe, workdir=workdir, shot=shot,
-                             args=("129",), timeout=600))
+                             args=("129",), timeout=3600))
 result = collect_efit_outputs(workdir, EFITConfig(workdir=workdir, shot=shot))
 
 # CHEASE: resolve the binary ($CHEASEHOME/bin/chease, then $CHEASE,

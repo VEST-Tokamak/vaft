@@ -584,13 +584,31 @@ class EFITScientificConfig:
     constraints: EFITConstraintConfig = field(default_factory=EFITConstraintConfig)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a sorted, JSON-compatible resolved representation."""
-        return _canonical(self)
+        """Return a sorted, JSON-compatible resolved representation.
+
+        A configuration without a sigma floor omits the floor keys, so its
+        payload and :attr:`sha256` are those written before the floor was part
+        of the configuration (2026-10-01): the routine hash did not move.
+        """
+        payload = _canonical(self)
+        if not self.constraints.sigma_floor:
+            payload["constraints"].pop("sigma_floor", None)
+            payload["constraints"].pop("sigma_floor_families", None)
+        return payload
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "EFITScientificConfig":
-        """Rebuild a validated configuration from :meth:`to_dict` output."""
-        constraints = dict(payload.get("constraints", {}))
+        """Rebuild a validated configuration from :meth:`to_dict` output.
+
+        A key the payload lacks takes its *legacy* value, not today's default:
+        a payload written before a key existed was run with the routine value
+        (no sigma floor, EFIT's own termination), and replaying it must not
+        pick up the working setting instead.
+        """
+        legacy = _canonical(routine_scientific_config())
+        payload = {section: {**legacy.get(section, {}), **dict(payload.get(section, {}))}
+                   for section in ("profile", "initialization", "numerics", "constraints")}
+        constraints = dict(payload["constraints"])
         # `None` survives the round trip: it means "derive from the coilset",
         # which is a choice worth preserving rather than materialising.
         if constraints.get("coil_constraint_matrix") is not None:

@@ -96,10 +96,9 @@ constraints:
   # Recovery backend: 0 none, 1 refit rejected probes from their family's
   # Gaussian profile, 2 refit every probe.
   gaussian_fit_option: 1
-  # The basis recorded in the constraints product (code.parameters). The k-file
-  # basis comes from the EFIT configuration (efit.preset below), not from here.
-  npprime: 2
-  nffprime: 1
+  # npprime/nffprime: the basis recorded in the constraints product
+  # (code.parameters). Unset, it follows the EFIT configuration (efit.preset
+  # below), which is also what the k-files use.
   uncertainty:
   - 1.0e-4
   - 1.0e-4

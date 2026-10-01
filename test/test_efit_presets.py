@@ -194,3 +194,40 @@ def test_the_kinetic_base_kfile_follows_the_preset(tmp_path, monkeypatch, preset
     inputs = kinetic.prepare_kinetic_efit_inputs(_constraints_ods(tmp_path), None, config)
     assert int(_key(inputs.base_kfile_text, "KFFCUR")) == kffcur
     assert ("SAICON" in inputs.base_kfile_text) == (preset != "routine")
+
+
+#: `EFITScientificConfig().sha256` on develop before 2026-10-01: the routine
+#: configuration keeps it, so records that name it still match.
+ROUTINE_SHA256 = "9bbb69a6a858bede8184c72e3ad4436d952215ca6f71710ed2fa6433cb6812ee"
+
+
+def test_the_routine_hash_did_not_move():
+    assert routine_scientific_config().sha256 == ROUTINE_SHA256
+    assert "sigma_floor" not in routine_scientific_config().to_dict()["constraints"]
+    assert "sigma_floor" in EFITScientificConfig().to_dict()["constraints"]
+
+
+def test_a_payload_without_the_new_keys_replays_the_legacy_values():
+    """A configuration recorded before a key existed ran with its legacy value."""
+    payload = EFITScientificConfig().to_dict()
+    payload["constraints"].pop("sigma_floor")
+    payload["constraints"].pop("sigma_floor_families")
+    for key in ("error_minimum", "chi_squared_target", "inner_iterations"):
+        payload["numerics"].pop(key)
+    replayed = EFITScientificConfig.from_dict(payload)
+    assert replayed.constraints.sigma_floor == 0.0
+    assert replayed.numerics.error_minimum is None and replayed.numerics.inner_iterations is None
+    assert replayed.constraints.uncertainty_mode == "standard_deviation"  # present keys win
+    assert EFITScientificConfig.from_dict(routine_scientific_config().to_dict()) == routine_scientific_config()
+
+
+@pytest.mark.parametrize("driver", [
+    "workflow/efit_numerics/baseline_termination.py",
+    "workflow/efit_temporal/run_cadence_study.py",
+    "workflow/efit_tables/ab_efit_table.py",
+])
+def test_routine_study_drivers_pass_the_whole_configuration(driver):
+    """`EFITConfig(npprime=..)` swaps only the basis on top of today's defaults."""
+    source = (REPOSITORY / driver).read_text(encoding="utf-8")
+    assert "npprime=scientific" not in source
+    assert "numerics=scientific.numerics" in source and "constraints=scientific.constraints" in source

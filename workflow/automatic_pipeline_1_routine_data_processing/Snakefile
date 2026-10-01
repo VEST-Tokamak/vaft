@@ -69,6 +69,10 @@ EFIT_PRESET = EFIT_CONFIG.get("preset") or None
 if EFIT_PRESET:
     from vaft.code.efit import efit_preset as _efit_preset
     _efit_preset(EFIT_PRESET)
+# The basis the constraints product records follows the k-file configuration
+# unless constraints.npprime/nffprime override it.
+from vaft.code.efit.presets import PRESETS as _EFIT_PRESETS, DEFAULT_PRESET as _DEFAULT_EFIT_PRESET
+EFIT_PROFILE = _EFIT_PRESETS[EFIT_PRESET or _DEFAULT_EFIT_PRESET].scientific.profile
 # Per-era Green tables. `efit.table_dir` is the base table, and a shot of its
 # own era uses it exactly as configured. A shot of another era gets a table the
 # pipeline builds once per era (rule generate_efit_table) with the base table's
@@ -619,8 +623,8 @@ rule generate_constraints_ods:
         detect_broken=bool_text(CONSTRAINTS_CONFIG.get("detect_broken", False)),
         fl_correct_option=CONSTRAINTS_CONFIG.get("fl_correct_option", 0),
         gaussian_fit_option=CONSTRAINTS_CONFIG.get("gaussian_fit_option", 1),
-        npprime=CONSTRAINTS_CONFIG.get("npprime", 2),
-        nffprime=CONSTRAINTS_CONFIG.get("nffprime", 2),
+        npprime=CONSTRAINTS_CONFIG.get("npprime", EFIT_PROFILE.kppcur),
+        nffprime=CONSTRAINTS_CONFIG.get("nffprime", EFIT_PROFILE.kffcur),
         uncertainty=csv(CONSTRAINTS_CONFIG.get("uncertainty", DEFAULT_UNCERTAINTY)),
         weighting=csv(CONSTRAINTS_CONFIG.get("weighting", DEFAULT_WEIGHTING)),
         efit_table_dir=efit_table_dir_for_shot
@@ -695,8 +699,7 @@ rule generate_kfile:
         PATHS.shot_pattern("log", "generate_kfile")
     params:
         # A named preset (efit.preset) carries its own profile basis, sigma
-        # and termination; without one the routine npprime/nffprime apply.
-        # Empty is the library default (statistical_891), which generate_kfile.py
+        # and termination. Empty is the library default (statistical_891), which generate_kfile.py
         # records like any named preset; `routine` is the legacy opt-out.
         configuration=f"--preset {EFIT_PRESET}" if EFIT_PRESET else ""
     conda:

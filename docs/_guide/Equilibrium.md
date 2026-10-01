@@ -373,7 +373,7 @@ generate_kfile(constraints_ods, 39915, save_dir="/tmp/efit-legacy",
                config=efit_preset("routine").scientific)                     # the legacy k-file
 ```
 
-The writer applies the configured floor to a copy of the constraints; the product itself is never changed. `routine_profile_config()`, `routine_numerics_config()`, `routine_constraint_config()` and `routine_scientific_config()` in `vaft.code.efit.config` build the legacy pieces one at a time. Passing `npprime`/`nffprime` to `generate_kfile` also selects the legacy configuration with that basis.
+The writer applies the configured floor to a copy of the constraints; the product itself is never changed. `routine_profile_config()`, `routine_numerics_config()`, `routine_constraint_config()` and `routine_scientific_config()` in `vaft.code.efit.config` build the legacy pieces one at a time. Passing `npprime`/`nffprime` to `generate_kfile` without a `config` also selects the legacy configuration with that basis. `EFITConfig.npprime`/`nffprime` only override the basis of the configuration the `EFITConfig` carries; to run the legacy configuration through `prepare_efit_inputs`, pass its `profile`, `initialization`, `numerics` and `constraints`.
 
 **Selecting a preset in the pipelines.**
 - **Pipeline 1:** `efit.preset` is empty for the default and `routine` for the legacy configuration. The k-file stage always writes `efit_preset.json` beside its manifest, and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`). `vaft.database.summary` reports it as `efit_configuration` (`name@sha`, or `unrecorded` for products written before the record existed).
