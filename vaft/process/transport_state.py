@@ -407,6 +407,9 @@ def _derive_shape_profiles(work: Any, eq_index: int) -> Optional[dict[str, Any]]
         good = np.isfinite(values)
         # The axis level has no contour; it takes the innermost traced value, as the
         # g-file converter's fill does.  Interior gaps are interpolated in psi_N.
+        # anti-alias: not a time series and not a downsample. This fills the few
+        # psi_N levels of one equilibrium slice whose contour could not be traced,
+        # on the same radial grid; there is no sample rate to reduce.
         values[~good] = np.interp(psin[~good], psin[good], values[good])
         work[f"{ts}.profiles_1d.{name}"] = values
     return {"kind": "derived", "levels_traced": traced, "levels": int(psin.size),
