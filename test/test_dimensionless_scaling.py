@@ -13,6 +13,7 @@ from vaft.formula.equilibrium import (
     coulomb_logarithm,
     dimensionless_scaling_coeffs_from_engineering_scaling_coeffs,
     coulomb_logarithm_from_n_T,
+    engineering_exponents_from_dimensionless_coeffs,
     kadomtsev_constraint_from_engineering_exponents,
     line_to_volume_avg_density,
     nu_star_from_n_T_B_R_epsilon_kappa_I,
@@ -20,6 +21,7 @@ from vaft.formula.equilibrium import (
     q_cyl_from_B_R_epsilon_kappa_I,
     rho_star_from_M_T_B_R_epsilon,
     beta_t_from_n_T_B,
+    verify_kadomtsev_constraint,
 )
 
 
@@ -212,16 +214,115 @@ class EngineeringToDimensionlessTests(unittest.TestCase):
     ITER89P = dict(a_I=0.85, a_B=0.2, a_P=-0.5, a_n=0.1, a_M=0.5, a_R=1.5,
                    a_eps=0.3, a_kappa=0.5)
 
-    def test_iter89p_reproduces_the_luce_transformation(self):
+    #: IPB98(y,2) at fixed epsilon; its a^0.58 is inside the epsilon exponent.
+    IPB98 = dict(a_I=0.93, a_B=0.15, a_P=-0.69, a_n=0.41, a_M=0.19, a_R=1.97,
+                 a_eps=0.58, a_kappa=0.78)
+
+    @staticmethod
+    def _solve_dimensional_analysis(a_I, a_B, a_P, a_n, a_R):
+        """Least-squares dimensional analysis, independent of the closed form.
+
+        B tau ~ rho*^x beta^y nu*^z q^w with rho* ~ T^1/2 / (B L),
+        beta ~ n T / B^2, nu* ~ n L / T^2, q ~ L B / I, and tau's own
+        exponents after eliminating P = W / tau ~ n T L^3 / tau.  Rows are
+        n, T, B, L, I; the T row is the one a Kadomtsev-violating scaling
+        cannot meet, so it is dropped to match the transformation.
+        """
+        d = 1.0 + a_P
+        tau = {"n": (a_n + a_P) / d, "T": a_P / d, "B": a_B / d,
+               "L": (a_R + 3 * a_P) / d, "I": a_I / d}
+        #            x     y     z     w
+        rows = {"n": [0.0, 1.0, 1.0, 0.0],
+                "T": [0.5, 1.0, -2.0, 0.0],
+                "B": [-1.0, -2.0, 0.0, 1.0],
+                "L": [-1.0, 0.0, 1.0, 1.0],
+                "I": [0.0, 0.0, 0.0, -1.0]}
+        rhs = {"n": tau["n"], "T": tau["T"], "B": tau["B"] + 1.0,
+               "L": tau["L"], "I": tau["I"]}
+        keys = ["n", "B", "L", "I"]
+        matrix = np.array([rows[k] for k in keys])
+        vector = np.array([rhs[k] for k in keys])
+        return np.linalg.solve(matrix, vector)
+
+    def test_ipb98_reproduces_the_published_dimensionless_form(self):
+        """#351: IPB98(y,2) is rho*^-2.70 beta^-0.90 nu*^-0.01 (ITER PB 1999)."""
         mu_rho, mu_beta, mu_nu, mu_M, mu_kappa = (
-            dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(**self.ITER89P)
+            dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(**self.IPB98)
         )
-        # a_L = a_R + a_I = 2.35, a_B* = a_B + a_I = 1.05, D = 1 + a_P = 0.5
-        self.assertAlmostEqual(mu_rho, (3 * 2.35 + 1.05 + 0.1 + 1.0 - 5) / 0.5, places=12)
-        self.assertAlmostEqual(mu_beta, (-2.35 - 0.2 - 1.05 - 1.5 + 3) / 0.5, places=12)
-        self.assertAlmostEqual(mu_nu, (2.35 + 0.3 + 1.05 + 1.0 - 4) / 1.0, places=12)
-        self.assertEqual(mu_M, self.ITER89P["a_M"])
-        self.assertEqual(mu_kappa, self.ITER89P["a_kappa"])
+        self.assertAlmostEqual(mu_rho, -2.70, delta=0.03)
+        self.assertAlmostEqual(mu_beta, -0.90, delta=0.03)
+        self.assertAlmostEqual(mu_nu, -0.01, delta=0.03)
+        self.assertEqual(mu_M, self.IPB98["a_M"])
+        self.assertEqual(mu_kappa, self.IPB98["a_kappa"])
+
+    def test_iter89p_matches_an_independent_dimensional_analysis(self):
+        e = self.ITER89P
+        x, y, z, _w = self._solve_dimensional_analysis(
+            e["a_I"], e["a_B"], e["a_P"], e["a_n"], e["a_R"])
+        mu_rho, mu_beta, mu_nu, _, _ = (
+            dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(**e)
+        )
+        np.testing.assert_allclose([mu_rho, mu_beta, mu_nu], [x, y, z], atol=1e-12)
+        # The pre-#351 closed form gave (8.4, -4.2, 0.7) here.
+        self.assertAlmostEqual(mu_rho, -1.9, places=12)
+
+    def test_random_exponents_match_the_dimensional_analysis(self):
+        rng = np.random.default_rng(351)
+        for a_I, a_B, a_P, a_n, a_R in rng.uniform(-1.5, 2.5, size=(50, 5)):
+            if abs(1 + a_P) < 0.05:
+                continue
+            x, y, z, _w = self._solve_dimensional_analysis(a_I, a_B, a_P, a_n, a_R)
+            got = dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
+                a_I, a_B, a_P, a_n, 0.0, a_R, 0.0, 0.0)[:3]
+            np.testing.assert_allclose(got, [x, y, z], atol=1e-9)
+
+    def test_round_trip_through_the_inverse_with_the_q_index(self):
+        e = self.IPB98
+        x, y, z, w = self._solve_dimensional_analysis(
+            e["a_I"], e["a_B"], e["a_P"], e["a_n"], e["a_R"])
+        got = engineering_exponents_from_dimensionless_coeffs(x, y, z, e["a_P"], mu_q=w)
+        np.testing.assert_allclose(
+            got, [e["a_I"], e["a_B"], e["a_P"], e["a_n"], e["a_R"]], atol=1e-12)
+        # IPB98's q index is the familiar ~ -3.
+        self.assertAlmostEqual(w, -3.0, delta=0.01)
+
+    def test_fixed_q_inverse_folds_the_current_into_field_and_size(self):
+        e = self.IPB98
+        mu = dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(**e)[:3]
+        a_I, a_B, a_P, a_n, a_R = engineering_exponents_from_dimensionless_coeffs(
+            *mu, e["a_P"])
+        self.assertEqual(a_I, 0.0)
+        self.assertAlmostEqual(a_B, e["a_B"] + e["a_I"], places=12)
+        self.assertAlmostEqual(a_R, e["a_R"] + e["a_I"], places=12)
+        self.assertAlmostEqual(a_n, e["a_n"], places=12)
+
+    def test_check_and_verify_compute_the_same_residual(self):
+        """#351: the two Kadomtsev checks used to disagree (-0.15 vs 16.4)."""
+        rng = np.random.default_rng(548)
+        for a_I, a_B, a_P, a_n, a_R in rng.uniform(-1.5, 2.5, size=(50, 5)):
+            if abs(1 + a_P) < 0.05:
+                continue
+            mu = dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
+                a_I, a_B, a_P, a_n, 0.0, a_R, 0.0, 0.0)[:3]
+            with self.assertWarns(FutureWarning):
+                residual = verify_kadomtsev_constraint(*mu, a_P)
+            expected = kadomtsev_constraint_from_engineering_exponents(
+                a_I, a_B, a_P, a_n, a_R)
+            self.assertAlmostEqual(residual, expected, places=9)
+            tol = abs(expected) + 1e-6
+            self.assertTrue(check_kadomtsev_constraint(a_I, a_B, a_P, a_n, a_R, tol=tol))
+
+    def test_published_scalings_carry_their_published_residuals(self):
+        with self.assertWarns(FutureWarning):
+            iter89p = verify_kadomtsev_constraint(
+                *dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
+                    **self.ITER89P)[:3], self.ITER89P["a_P"])
+        self.assertAlmostEqual(iter89p, -0.15, places=9)
+        with self.assertWarns(FutureWarning):
+            ipb98 = verify_kadomtsev_constraint(
+                *dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
+                    **self.IPB98)[:3], self.IPB98["a_P"])
+        self.assertAlmostEqual(ipb98, -0.01, places=9)
 
     def test_the_degenerate_exponent_raises_and_names_itself(self):
         """a_P = -1 is exact power degradation, not an exotic input."""
