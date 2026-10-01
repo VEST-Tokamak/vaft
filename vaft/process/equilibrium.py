@@ -2792,8 +2792,19 @@ def _enclosing_segment(
     A level can return several disconnected segments -- the confined surface,
     private-flux lobes, scrape-off branches clipped by the grid. Longest-wins
     picks the wrong one often enough to matter (up to every level on a limited
-    VEST slice), so the segment enclosing the magnetic axis wins outright and
-    length only breaks ties among those.
+    VEST slice), so the segment enclosing the magnetic axis wins outright.
+
+    Enclosing the axis is not enough on its own. Outside a limited plasma psi
+    turns back, so a level just inside the boundary can also trace an *open*
+    branch that runs from grid edge to grid edge round the whole plasma; closed
+    by the chord between its ends, that polygon contains the axis too, and it is
+    longer than the real surface. Picking it put a 10 m^3 "surface" at psi_N
+    0.875-0.94 on late, low-current EFIT slices and inflated ``li_3`` up to 10x
+    and ``beta_normal`` up to 4x (issue #1462). So closed segments are preferred
+    over open ones, and among those left the innermost -- the smallest enclosed
+    area -- wins: flux surfaces nest, so any other enclosing contour at the same
+    level lies outside the plasma. Length only ranks segments when none
+    encloses the axis.
 
     ``min_points`` is applied *after* that choice, never before it. Screening on
     size first lets a large scrape-off branch outlive the small contour that is
@@ -2814,9 +2825,27 @@ def _enclosing_segment(
             if _MplPath(np.column_stack([r_closed, z_closed])).contains_point(axis_rz):
                 enclosing.append((r_seg, z_seg))
         if enclosing:
-            candidates = enclosing
+            closed = [segment for segment in enclosing if _is_closed_segment(*segment)]
+            candidates = closed or enclosing
+            chosen = min(candidates, key=lambda segment: _segment_area(*segment))
+            return chosen if chosen[0].size >= min_points else None
     chosen = max(candidates, key=lambda segment: segment[0].size)
     return chosen if chosen[0].size >= min_points else None
+
+
+def _is_closed_segment(r_seg: np.ndarray, z_seg: np.ndarray) -> bool:
+    """Whether a traced segment returns to its start, rather than ending on the grid edge."""
+    length = float(np.sum(np.hypot(np.diff(r_seg), np.diff(z_seg))))
+    gap = float(np.hypot(r_seg[0] - r_seg[-1], z_seg[0] - z_seg[-1]))
+    return gap <= 1e-3 * length
+
+
+def _segment_area(r_seg: np.ndarray, z_seg: np.ndarray) -> float:
+    """Shoelace area of a segment, closed by the chord between its ends."""
+    r_closed, z_closed = _closed_contour(r_seg, z_seg)
+    return 0.5 * abs(
+        float(np.dot(r_closed, np.roll(z_closed, 1)) - np.dot(z_closed, np.roll(r_closed, 1)))
+    )
 
 
 #: Every profile :func:`flux_surface_quantities` returns.
