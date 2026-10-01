@@ -9,9 +9,10 @@ writes a file, contacts a server, runs a solver or executes caller-supplied
 code.  The functions are importable and testable without the ``mcp`` SDK;
 :mod:`vaft.mcp.server` registers them as tools.
 
-Results are dictionaries.  A list that was cut to ``limit`` says so with
-``total`` and ``truncated``; arrays come back as shape, dtype, finite range and
-a strided preview (see :mod:`vaft.mcp._jsonable`).
+Results are dictionaries, and every one carries ``truncated``: ``count`` of
+the places something was shortened (a list cut to ``limit``, a long string, an
+array preview) and the first of those ``paths``.  Arrays come back as shape,
+dtype, finite range and a strided preview (see :mod:`vaft.mcp._jsonable`).
 
 Errors are :class:`ToolInputError` (a ``ValueError``) with a message that says
 what to call instead; the server turns them into MCP tool errors.
@@ -23,7 +24,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from ._jsonable import Bounded
+from ._jsonable import REPORTED_PATHS, Bounded, bounded_json
 
 __all__ = ["TOOLS", "ToolInputError"]
 
@@ -32,6 +33,15 @@ MAX_LIMIT = 500
 MAX_POINTS = 5000
 #: Longest list kept inside an extracted view model (e.g. a 2-D map's machine overlays).
 MAX_EXTRACT_ITEMS = 50
+#: Byte cap on one extraction result; beyond it arrays are reduced to statistics.
+MAX_EXTRACT_BYTES = 50_000
+#: Atlas bounds: file size, listed columns, group columns, cell text, directory scan.
+MAX_ATLAS_BYTES = 50 * 1024 * 1024
+MAX_ATLAS_COLUMNS = 200
+MAX_ATLAS_GROUPS = 3
+MAX_ATLAS_CELL = 200
+MAX_ATLAS_SCAN = 1000
+MAX_ATLAS_DEPTH = 3
 DEFAULT_REFERENCE_SHOT = 39915
 DEFAULT_ATLAS_GROUPS = ("efit_quality", "efit_lineage")
 ATLAS_ENV = "VAFT_ATLAS_DIR"
@@ -57,9 +67,26 @@ def _clamp(value: int, ceiling: int, name: str) -> int:
     return min(value, ceiling)
 
 
-def _page(rows: list, limit: int) -> dict[str, Any]:
+def _page(rows: list, limit: int) -> tuple[dict[str, Any], list[str]]:
+    """The first ``limit`` rows, the total, and a truncation note when rows were cut."""
     limit = _clamp(limit, MAX_LIMIT, "limit")
-    return {"total": len(rows), "truncated": len(rows) > limit, "items": rows[:limit]}
+    notes = [f"$.items ({len(rows)} items, kept {limit})"] if len(rows) > limit else []
+    return {"total": len(rows), "items": rows[:limit]}, notes
+
+
+def _finish(payload: Any, *, converter: Bounded | None = None, notes=(), converted: bool = False) -> dict[str, Any]:
+    """``payload`` as bounded JSON with its ``truncated`` record.
+
+    A dictionary result gets ``truncated`` beside its own keys; anything else
+    (or a dictionary that already uses that key) is returned under ``result``.
+    """
+    converter = converter or Bounded()
+    data = payload if converted else converter(payload)
+    cut = list(notes) + converter.truncated
+    record = {"count": len(cut), "paths": cut[:REPORTED_PATHS]}
+    if isinstance(data, dict) and "truncated" not in data:
+        return {**data, "truncated": record}
+    return {"result": data, "truncated": record}
 
 
 def _without_source_code(row: dict) -> dict:
@@ -84,11 +111,18 @@ def get_capabilities() -> dict[str, Any]:
     from vaft._help import help as vaft_help
     from vaft._help._registry import TOPICS
 
-    return {
+    return _finish({
         "topics": [{"name": name, "summary": topic.summary, "has_items": bool(topic.item)}
                    for name, topic in TOPICS.items()],
         "overview": vaft_help().as_dict(),
-    }
+    })
+
+
+def _shot_number(item: str) -> int:
+    try:
+        return int(str(item).strip().lstrip("#"))
+    except ValueError:
+        raise ToolInputError(f"a data item is a sample shot number such as 39915, got {item!r}") from None
 
 
 #: Per-item help answered by the matching MCP tool, so an item view never
@@ -98,7 +132,7 @@ _ITEM_ROUTES = {
     "process": lambda item: describe_process(item),
     "validation": lambda item: describe_validation_check(item),
     "plot": lambda item: list_plots(query=item),
-    "data": lambda item: describe_sample(int(item)),
+    "data": lambda item: describe_sample(_shot_number(item)),
 }
 
 
@@ -116,17 +150,20 @@ def get_capability(topic: str, item: str | None = None) -> dict[str, Any]:
     if name not in topics():
         raise ToolInputError(f"unknown capability topic {topic!r}; choose from: {', '.join(topics())}")
     if item is None:
-        return vaft_help(name).as_dict()
+        return _finish(vaft_help(name).as_dict())
     if name in _ITEM_ROUTES:
         try:
-            return {"topic": name, "item": str(item), "result": _ITEM_ROUTES[name](str(item))}
+            routed = dict(_ITEM_ROUTES[name](str(item)))
         except ValueError as error:
             raise ToolInputError(_message(error)) from None
+        record = routed.pop("truncated")
+        return {"topic": name, "item": str(item), "result": routed, "truncated": record}
     try:
         result = vaft_help(name, str(item))
     except (KeyError, ValueError) as error:
         raise ToolInputError(_message(error)) from None
-    return {"topic": name, "item": str(item), "result": Bounded(drop_keys={"code"})(result)}
+    return _finish({"topic": name, "item": str(item), "result": result},
+                   converter=Bounded(drop_keys={"code"}))
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +193,8 @@ def search_formulas(text: str, category: str | None = None, limit: int = 50) -> 
         specs = catalog.search(str(text), category=category) if str(text).strip() else catalog.list_formulas(category)
     except (KeyError, ValueError) as error:
         raise ToolInputError(_message(error)) from None
-    return {"query": text, "category": category, **_page([_catalog_row(s) for s in specs], limit)}
+    page, notes = _page([_catalog_row(s) for s in specs], limit)
+    return _finish({"query": text, "category": category, **page}, notes=notes)
 
 
 def describe_formula(name: str) -> dict[str, Any]:
@@ -164,7 +202,7 @@ def describe_formula(name: str) -> dict[str, Any]:
 
     Signature, parameters and returns with units, definition sections, references,
     empirical/convention flags and the source location (not the source code).
-    name is a bare name ("q95") or "category.name".
+    name is a bare name or "category.name" (see search_formulas).
     """
     from vaft.formula import catalog
 
@@ -172,7 +210,7 @@ def describe_formula(name: str) -> dict[str, Any]:
         spec = catalog.describe(str(name))
     except (KeyError, ValueError) as error:
         raise ToolInputError(_message(error)) from None
-    return _without_source_code(spec.as_dict())
+    return _finish(_without_source_code(spec.as_dict()))
 
 
 def search_processes(text: str, category: str | None = None, limit: int = 50) -> dict[str, Any]:
@@ -187,7 +225,8 @@ def search_processes(text: str, category: str | None = None, limit: int = 50) ->
         specs = catalog.search(str(text), category=category) if str(text).strip() else catalog.list_processes(category)
     except (KeyError, ValueError) as error:
         raise ToolInputError(_message(error)) from None
-    return {"query": text, "category": category, **_page([_catalog_row(s) for s in specs], limit)}
+    page, notes = _page([_catalog_row(s) for s in specs], limit)
+    return _finish({"query": text, "category": category, **page}, notes=notes)
 
 
 def describe_process(name: str) -> dict[str, Any]:
@@ -202,7 +241,7 @@ def describe_process(name: str) -> dict[str, Any]:
         spec = catalog.describe(str(name))
     except (KeyError, ValueError) as error:
         raise ToolInputError(_message(error)) from None
-    return _without_source_code(spec.as_dict())
+    return _finish(_without_source_code(spec.as_dict()))
 
 
 # ---------------------------------------------------------------------------
@@ -211,9 +250,11 @@ def describe_process(name: str) -> dict[str, Any]:
 
 
 def _check_dict(spec) -> dict[str, Any]:
+    import dataclasses
+
     from vaft.validation.registry import MEASURES
 
-    row = Bounded()(spec)
+    row = dataclasses.asdict(spec)
     row["measure_description"] = MEASURES.get(spec.measure, "")
     return row
 
@@ -230,7 +271,7 @@ def list_validation_checks(category: str | None = None) -> dict[str, Any]:
     if category is not None and category not in categories:
         raise ToolInputError(f"no validation category {category!r}; choose from: {', '.join(categories)}")
     rows = [_check_dict(spec) for spec in CHECKS.values() if category is None or spec.category == category]
-    return {"categories": categories, "total": len(rows), "items": rows}
+    return _finish({"categories": categories, "total": len(rows), "items": rows})
 
 
 def describe_validation_check(key: str) -> dict[str, Any]:
@@ -238,7 +279,7 @@ def describe_validation_check(key: str) -> dict[str, Any]:
     from vaft.validation.registry import describe
 
     try:
-        return _check_dict(describe(str(key)))
+        return _finish(_check_dict(describe(str(key))))
     except KeyError as error:
         raise ToolInputError(_message(error)) from None
 
@@ -278,7 +319,8 @@ def list_plots(
         {key: getattr(record, key) for key in _PLOT_ROW_KEYS}
         for record in _plot_catalog(query=query, domain=domain, subject=subject, view=view, status=status)
     ]
-    return {"query": query, **_page(rows, limit)}
+    page, notes = _page(rows, limit)
+    return _finish({"query": query, **page}, notes=notes)
 
 
 def describe_plot(name: str) -> dict[str, Any]:
@@ -289,7 +331,7 @@ def describe_plot(name: str) -> dict[str, Any]:
     """
     for record in _plot_catalog(status="all"):
         if record.name == name:
-            return Bounded()(record.as_dict())
+            return _finish(record.as_dict())
     raise ToolInputError(f"no plot named {name!r}; list them with list_plots(query=...)")
 
 
@@ -305,7 +347,28 @@ def get_plot_requirements(name: str) -> dict[str, Any]:
         paths = dd(str(name))
     except (KeyError, ValueError) as error:
         raise ToolInputError(_message(error)) from None
-    return {"name": name, "paths": Bounded()(list(paths))}
+    return _finish({"name": name, "paths": list(paths)})
+
+
+def extraction_option_names() -> tuple[str, ...]:
+    """The extraction option keys ``extract_plot_data`` accepts, from VAFT's option schema."""
+    from vaft.plot.backend.options import EXTRACTION_OPTIONS
+
+    return tuple(sorted(EXTRACTION_OPTIONS))
+
+
+def _checked_options(options: Any) -> dict[str, Any]:
+    if options is None:
+        return {}
+    if not isinstance(options, dict):
+        raise ToolInputError(f"options must be an object of extraction keywords, got {type(options).__name__}")
+    allowed = set(extraction_option_names())
+    refused = sorted(str(k) for k in options if not isinstance(k, str) or k.startswith("_") or k not in allowed)
+    if refused:
+        raise ToolInputError(
+            f"options {refused} are not extraction options; allowed: {', '.join(sorted(allowed))}"
+        )
+    return dict(options)
 
 
 def extract_plot_data(
@@ -317,43 +380,35 @@ def extract_plot_data(
     """The numbers behind canonical plot name for a packaged reference shot, undrawn.
 
     Runs VAFT's own extraction for that plot and returns its view model: labels
-    and units as stored, and every array as shape, dtype, finite min/max over all
-    values and a strided preview of at most max_points values (array[::stride],
-    not a resampling). options are the plot's extraction options (no rendering
-    keywords). shot must be one of list_samples().
+    and units as stored, and every array as shape, dtype and finite min/max over
+    all values, plus a strided preview (array[::stride], not a resampling).
+    max_points is the budget for the whole result, shared across its arrays; a
+    result over about 50 kB keeps array statistics only. options are the plot's
+    extraction options (no rendering keywords). shot must be one of list_samples().
     """
     from vaft.plot import extract
+    from vaft.plot.registry import get_spec
 
     from ._source import load_reference_shot
-
-    from vaft.plot.registry import get_spec
 
     points = _clamp(max_points, MAX_POINTS, "max_points")
     try:
         get_spec(str(name))
     except KeyError:
         raise ToolInputError(f"no plot named {name!r}; list them with list_plots(query=...)") from None
-    if options is not None and not isinstance(options, dict):
-        raise ToolInputError(f"options must be an object of extraction keywords, got {type(options).__name__}")
+    keywords = _checked_options(options)
     source = load_reference_shot(shot)
     try:
-        model = extract(str(name), source, **dict(options or {}))
+        model = extract(str(name), source, **keywords)
     except AttributeError as error:
         if f"extract_{name}" not in str(error):
             raise
         raise ToolInputError(f"plot {name!r} has no extraction view (a composite or rendering-only plot)") from None
-    except (KeyError, ValueError, TypeError) as error:
-        raise ToolInputError(f"{name} on shot {shot}: {_message(error)}") from None
-    bounded = Bounded(max_items=MAX_EXTRACT_ITEMS, max_points=points)
-    data = bounded(model)
-    return {
-        "name": name,
-        "shot": int(shot),
-        "model": type(model).__name__,
-        "max_points": points,
-        "truncated": bounded.truncated,
-        "data": data,
-    }
+    except (LookupError, ValueError, TypeError) as error:
+        raise ToolInputError(f"{name} on shot {shot}: {type(error).__name__}: {_message(error)}") from None
+    data, converter = bounded_json(model, budget=points, max_bytes=MAX_EXTRACT_BYTES, max_items=MAX_EXTRACT_ITEMS)
+    payload = {"name": name, "shot": int(shot), "model": type(model).__name__, "max_points": points, "data": data}
+    return _finish(payload, converter=converter, converted=True)
 
 
 # ---------------------------------------------------------------------------
@@ -380,7 +435,7 @@ def list_samples() -> dict[str, Any]:
             "scope": list(pipeline.get("scope", ())),
             "installed": installed,
         })
-    return {"total": len(rows), "items": rows}
+    return _finish({"total": len(rows), "items": rows})
 
 
 def describe_sample(shot: int) -> dict[str, Any]:
@@ -390,7 +445,7 @@ def describe_sample(shot: int) -> dict[str, Any]:
     shot = int(shot)
     if shot not in tuple(int(s) for s in available_samples()):
         raise ToolInputError(f"no packaged reference shot {shot}; available: {list(available_samples())}")
-    return Bounded()(sample_manifest(shot))
+    return _finish(sample_manifest(shot))
 
 
 # ---------------------------------------------------------------------------
@@ -420,7 +475,7 @@ def list_boundaries(family: str | None = None) -> dict[str, Any]:
     families = sorted({getattr(get_boundary(k), "family", "") for k in keys()})
     if family is not None and not rows:
         raise ToolInputError(f"no boundary family {family!r}; choose from: {', '.join(families)}")
-    return {"families": families, "total": len(rows), "items": rows}
+    return _finish({"families": families, "total": len(rows), "items": rows})
 
 
 def describe_boundary(key: str) -> dict[str, Any]:
@@ -431,7 +486,8 @@ def describe_boundary(key: str) -> dict[str, Any]:
         entry = get_boundary(str(key))
     except KeyError as error:
         raise ToolInputError(_message(error)) from None
-    return {"kind": type(entry).__name__, **Bounded()(entry)}
+    converter = Bounded()
+    return _finish({"kind": type(entry).__name__, **converter(entry)}, converter=converter, converted=True)
 
 
 # ---------------------------------------------------------------------------
@@ -448,95 +504,83 @@ def _atlas_root() -> Path:
         )
     root = Path(configured).expanduser()
     if not root.is_dir():
-        raise ToolInputError(f"{ATLAS_ENV}={configured!r} is not a directory")
+        raise ToolInputError(f"{ATLAS_ENV} does not name a directory")
     return root.resolve(strict=True)
 
 
-def _atlas_tables(root: Path) -> list[str]:
-    tables = []
-    for path in sorted(root.rglob("*")):
-        if path.suffix.lower() in ATLAS_SUFFIXES and path.is_file():
-            try:
-                path.resolve(strict=True).relative_to(root)
-            except ValueError:  # a symlink leading out of the directory
-                continue
-            tables.append(path.relative_to(root).as_posix())
-    return tables
+def _refused(path: Any) -> ToolInputError:
+    """The one answer for every refused path, so a refusal reveals nothing about the filesystem."""
+    return ToolInputError(
+        f"no readable atlas table {str(path)[:200]!r}: pass a relative .csv or .parquet path "
+        f"inside {ATLAS_ENV} (omit path to use the only table there)"
+    )
+
+
+def _lexical_parts(path: str) -> tuple[str, ...]:
+    """Validate ``path`` without touching the filesystem; its parts when acceptable.
+
+    Absolute, drive-qualified and UNC paths, ``..`` components, NUL bytes and
+    other suffixes are refused before any ``stat``, so a hostile path never
+    reaches the disk (or, on Windows, an SMB share).
+    """
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    text = str(path)
+    if not text or "\x00" in text or text.startswith(("/", "\\", "~")) or ":" in text:
+        raise _refused(path)
+    windows = PureWindowsPath(text)
+    if windows.is_absolute() or windows.drive or windows.root or PurePosixPath(text).is_absolute():
+        raise _refused(path)
+    parts = tuple(part for part in text.replace("\\", "/").split("/") if part not in ("", "."))
+    if not parts or any(part == ".." for part in parts):
+        raise _refused(path)
+    if PurePosixPath(parts[-1]).suffix.lower() not in ATLAS_SUFFIXES:
+        raise _refused(path)
+    return parts
+
+
+def _contained(root: Path, candidate: Path) -> Path | None:
+    try:
+        resolved = candidate.resolve(strict=True)
+        resolved.relative_to(root)
+    except (OSError, ValueError, RuntimeError):
+        return None
+    return resolved if resolved.is_file() else None
+
+
+def _atlas_tables(root: Path) -> tuple[list[str], bool]:
+    """Tables under ``root``, at most :data:`MAX_ATLAS_DEPTH` deep and :data:`MAX_ATLAS_SCAN` entries."""
+    tables: list[str] = []
+    scanned = 0
+    for directory, subdirectories, files in os.walk(root, followlinks=False):
+        depth = len(Path(directory).relative_to(root).parts)
+        if depth >= MAX_ATLAS_DEPTH:
+            subdirectories[:] = []
+        subdirectories.sort()
+        for name in sorted(files):
+            scanned += 1
+            if scanned > MAX_ATLAS_SCAN:
+                return tables, True
+            candidate = Path(directory) / name
+            if candidate.suffix.lower() in ATLAS_SUFFIXES and _contained(root, candidate):
+                tables.append(candidate.relative_to(root).as_posix())
+    return tables, False
 
 
 def _atlas_table(root: Path, path: str | None) -> Path:
     if path is None:
-        tables = _atlas_tables(root)
-        if len(tables) != 1:
+        tables, incomplete = _atlas_tables(root)
+        if len(tables) != 1 or incomplete:
             raise ToolInputError(
-                f"{len(tables)} atlas tables under {ATLAS_ENV}; pass path= one of: {tables[:50]}"
+                f"{len(tables)}{'+' if incomplete else ''} atlas tables under {ATLAS_ENV}; "
+                f"pass path= one of: {tables[:50]}"
             )
         path = tables[0]
-    candidate = Path(str(path))
-    if not candidate.is_absolute():
-        candidate = root / candidate
-    try:
-        resolved = candidate.resolve(strict=True)
-    except (FileNotFoundError, OSError):
-        raise ToolInputError(f"no atlas table {path!r} under {ATLAS_ENV}") from None
-    try:
-        resolved.relative_to(root)
-    except ValueError:
-        raise ToolInputError(f"atlas table {path!r} is outside {ATLAS_ENV}; only files under it are read") from None
-    if not resolved.is_file() or resolved.suffix.lower() not in ATLAS_SUFFIXES:
-        raise ToolInputError(f"atlas table {path!r} is not a {' or '.join(ATLAS_SUFFIXES)} file")
+    parts = _lexical_parts(path)
+    resolved = _contained(root, root.joinpath(*parts))
+    if resolved is None or resolved.suffix.lower() not in ATLAS_SUFFIXES:
+        raise _refused(path)
     return resolved
-
-
-def get_atlas_summary(
-    path: str | None = None,
-    group_by: list[str] | None = None,
-    limit: int = 50,
-) -> dict[str, Any]:
-    """Summarise an operating-space atlas table from the directory named by VAFT_ATLAS_DIR.
-
-    Reads one .csv or .parquet file under that directory (path is relative to it;
-    omit it when the directory holds exactly one table) and returns its columns,
-    row count, row counts per value of each group_by column (default efit_quality
-    and efit_lineage) and its first limit rows. Files outside the directory are refused.
-    """
-    import pandas as pd
-
-    root = _atlas_root()
-    table = _atlas_table(root, path)
-    try:
-        frame = pd.read_parquet(table) if table.suffix.lower() == ".parquet" else pd.read_csv(table)
-    except ImportError as error:
-        raise ToolInputError(f"reading {table.name} needs an optional dependency: {error}") from None
-    groups = list(DEFAULT_ATLAS_GROUPS if group_by is None else group_by)
-    counts: dict[str, Any] = {}
-    missing = []
-    bounded = Bounded(max_items=MAX_LIMIT)
-    for column in groups:
-        if column not in frame.columns:
-            missing.append(column)
-            continue
-        tally = frame[column].value_counts(dropna=False)
-        counts[column] = [
-            {"value": bounded(None if pd.isna(value) else value), "rows": int(rows)}
-            for value, rows in list(tally.items())[:MAX_LIMIT]
-        ]
-    head = frame.head(_clamp(limit, MAX_LIMIT, "limit"))
-    rows = [
-        {str(k): bounded(None if _isna(v) else (v.isoformat() if hasattr(v, "isoformat") else v))
-         for k, v in record.items()}
-        for record in head.to_dict(orient="records")
-    ]
-    return {
-        "path": table.relative_to(root).as_posix(),
-        "rows": int(len(frame)),
-        "columns": [{"name": str(c), "dtype": str(t)} for c, t in frame.dtypes.items()],
-        "group_by": groups,
-        "missing_group_columns": missing,
-        "counts": counts,
-        "head": rows,
-        "head_truncated": len(frame) > len(head),
-    }
 
 
 def _isna(value: Any) -> bool:
@@ -546,6 +590,94 @@ def _isna(value: Any) -> bool:
         return bool(pd.isna(value))
     except (TypeError, ValueError):  # array-like cells
         return False
+
+
+def _cell(value: Any) -> Any:
+    if _isna(value):
+        return None
+    return value.isoformat() if hasattr(value, "isoformat") else value
+
+
+def _read_atlas(table: Path, groups: list[str], limit: int):
+    """Column names and dtypes, row count, the group columns in full, and the first ``limit`` rows."""
+    import pandas as pd
+
+    if table.suffix.lower() == ".parquet":
+        import pyarrow.parquet as pq
+
+        handle = pq.ParquetFile(table)
+        schema = handle.schema_arrow
+        columns = [(field.name, str(field.type)) for field in schema]
+        rows = handle.metadata.num_rows
+        present = [g for g in groups if g in schema.names]
+        grouped = handle.read(columns=present).to_pandas() if present else pd.DataFrame()
+        batch = next(handle.iter_batches(batch_size=limit), None)
+        head = batch.to_pandas() if batch is not None else pd.DataFrame(columns=schema.names)
+        return columns, rows, grouped, head.head(limit)
+    header = pd.read_csv(table, nrows=0)
+    names = [str(c) for c in header.columns]
+    present = [g for g in groups if g in names]
+    counted = pd.read_csv(table, usecols=present or names[:1]) if names else pd.DataFrame()
+    head = pd.read_csv(table, nrows=limit) if names else pd.DataFrame()
+    columns = [(str(c), str(t)) for c, t in head.dtypes.items()] or [(n, "object") for n in names]
+    return columns, int(len(counted)), counted[present] if present else pd.DataFrame(), head
+
+
+def get_atlas_summary(
+    path: str | None = None,
+    group_by: list[str] | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Summarise an operating-space atlas table from the directory named by VAFT_ATLAS_DIR.
+
+    Reads one .csv or .parquet file (at most 50 MB) under that directory; path is
+    relative to it, and may be omitted when the directory holds exactly one table.
+    Returns its columns, row count, row counts per value of up to three group_by
+    columns (default efit_quality and efit_lineage) and its first limit rows.
+    Absolute paths, '..' and anything resolving outside the directory are refused.
+    """
+    root = _atlas_root()
+    table = _atlas_table(root, path)
+    size = table.stat().st_size
+    if size > MAX_ATLAS_BYTES:
+        raise ToolInputError(f"atlas table is {size} bytes; the limit is {MAX_ATLAS_BYTES}")
+    groups = [str(g) for g in (DEFAULT_ATLAS_GROUPS if group_by is None else group_by)]
+    if len(groups) > MAX_ATLAS_GROUPS:
+        raise ToolInputError(f"group_by takes at most {MAX_ATLAS_GROUPS} columns, got {len(groups)}")
+    limit = _clamp(limit, MAX_LIMIT, "limit")
+    try:
+        columns, rows, grouped, head = _read_atlas(table, groups, limit)
+    except ImportError as error:
+        raise ToolInputError(f"reading {table.suffix} tables needs an optional dependency: {error}") from None
+    notes = []
+    if len(columns) > MAX_ATLAS_COLUMNS:
+        notes.append(f"$.columns and $.head ({len(columns)} columns, kept {MAX_ATLAS_COLUMNS})")
+    counts: dict[str, Any] = {}
+    for column in groups:
+        if column not in grouped.columns:
+            continue
+        tally = grouped[column].map(lambda v: None if _isna(v) else (v if isinstance(v, (str, int, float, bool)) else str(v)))
+        tally = tally.value_counts(dropna=False)
+        if len(tally) > MAX_LIMIT:
+            notes.append(f"$.counts.{column} ({len(tally)} values, kept {MAX_LIMIT})")
+        counts[column] = [
+            {"value": None if _isna(value) else value, "rows": int(n)}
+            for value, n in list(tally.items())[:MAX_LIMIT]
+        ]
+    payload = {
+        "path": table.relative_to(root).as_posix(),
+        "rows": int(rows),
+        "column_count": len(columns),
+        "columns": [{"name": n, "dtype": t} for n, t in columns[:MAX_ATLAS_COLUMNS]],
+        "group_by": groups,
+        "missing_group_columns": [g for g in groups if g not in counts],
+        "counts": counts,
+        "head": [{str(k): _cell(v) for k, v in list(record.items())[:MAX_ATLAS_COLUMNS]}
+                 for record in head.to_dict(orient="records")],
+        "head_truncated": int(rows) > len(head),
+    }
+    converter = Bounded(max_items=MAX_LIMIT, max_string=MAX_ATLAS_CELL)
+    return _finish(payload, converter=converter, notes=notes)
 
 
 #: Every tool the server exposes, in listing order.  Each is read-only.

@@ -49,10 +49,20 @@ interpreter of the environment where VAFT is installed. `import vaft` never need
 | `get_atlas_summary(path, group_by, limit)` | a `.csv`/`.parquet` table under `VAFT_ATLAS_DIR` |
 
 `extract_plot_data` returns the plot's view model, with labels and units as VAFT stores them. Each
-array comes back as its shape, dtype, finite minimum and maximum over all values, and a strided
-preview of at most `max_points` values. The preview is `array[::stride]`, a transport bound, not a
-resampling. Lists are capped too, and every result names what was cut in `truncated`. Shot 39915
-ships in the wheel; the other samples load from a Git checkout.
+array comes back as its shape, dtype, and finite minimum and maximum over all values, plus a
+strided preview. The preview is `array[::stride]`, a transport bound, not a resampling.
+`max_points` is a budget for the whole result, shared across its arrays, so a panel overview with
+hundreds of arrays gets a few points per array. A result that would exceed about 50 kB keeps array
+statistics only. `options` takes VAFT's extraction options only; the tool description lists the
+allowed keys.
+
+Every result carries `truncated`: the `count` of places something was shortened (a list cut to
+`limit`, a long string, an array preview) and the first 20 of those `paths`. Shot 39915 ships in the
+wheel; the other samples load from a Git checkout.
+
+Tools run one at a time in a worker thread, so a slow extraction does not stall the protocol. The
+server keeps the JSON-RPC stream on a private copy of standard output and points file descriptor 1
+at stderr, so output printed by Python, C or Fortran code VAFT calls cannot corrupt the stream.
 
 ## Read-only by construction
 
@@ -65,10 +75,13 @@ the loading code can change behind the same tool schema.
 ## Atlas tables
 
 `get_atlas_summary` reads tables only from the directory in the `VAFT_ATLAS_DIR` environment
-variable of the server process, and it refuses to run when that variable is unset. Paths are
-resolved, symlinks included, and any path outside that directory is refused. The result gives the
-columns, the row count, the row counts per value of each `group_by` column (default `efit_quality`
-and `efit_lineage`) and the first `limit` rows.
+variable of the server process, and it refuses to run when that variable is unset. `path` must be
+relative to that directory. Absolute, drive and UNC paths and `..` components are refused before
+any file is touched. The path is then resolved, symlinks included, and refused if it lands outside
+the directory. Every refusal gives the same message. Tables are limited to 50 MB and `group_by` to
+three columns. The result gives the columns (first 200), the row count, the row counts per value
+of each `group_by` column (default `efit_quality` and `efit_lineage`) and the first `limit` rows,
+with cell text cut to 200 characters.
 
 ```bash
 claude mcp add vaft -e VAFT_ATLAS_DIR=/path/to/atlas -- python -m vaft.mcp
