@@ -184,7 +184,17 @@ def dcon_status(
 
 
 def matching_surfaces(result: Optional[dict], solver: str) -> list[dict]:
-    """Per-surface diagonal Δ′ (and GGJ for RDCON) from one matching run."""
+    """Per-surface diagonal Δ′ (and GGJ for RDCON) from one matching run.
+
+    The local criteria come from the library's
+    :meth:`~vaft.code.gpec.Pest3MatchingOutput.rational_surface_stability`,
+    which already applies RDCON's own rules: ``C_A`` is ``None`` where
+    ``bal.f`` never evaluated the ballooning integral (it leaves ``ca1 = 0``
+    where ``D_I > 0``), and every criterion is ``None`` for a surface outside
+    the solver's ψ_N profile grid instead of a clamped value. Interpolating the
+    raw netCDF profiles here reported those placeholder zeros as a marginal
+    ``C_A`` (cold review 0.8.0 delta-absorb-6 F1/F2).
+    """
     from vaft.code.gpec import read_pest3_matching_output
 
     if not _ok(result):
@@ -192,38 +202,19 @@ def matching_surfaces(result: Optional[dict], solver: str) -> list[dict]:
     run_dir = Path(result["run_dir"])
     n = int(result["n"])
     out = read_pest3_matching_output(run_dir, solver=solver, mode=n)
-    rows = [row for row in out.delta_prime_diagonal() if row["psi_n"] is not None]
-    if solver == "rdcon":
-        ggj = rdcon_ggj(run_dir / f"rdcon_output_n{n}.nc")
-        for row in rows:
-            row.update(ggj_at(ggj, row["psi_n"]))
+    rows = []
+    for row in out.rational_surface_stability():
+        if row["psi_n"] is None:
+            continue
+        criteria = {GGJ_COLUMNS[k]: row.pop(k) for k in GGJ_COLUMNS}
+        if solver == "rdcon":
+            row.update(criteria)
+        rows.append(row)
     return rows
 
 
-def rdcon_ggj(path: Path) -> Optional[dict[str, np.ndarray]]:
-    """RDCON's Glasser-Greene-Johnson profiles on its own ψ_N grid.
-
-    RDCON writes ``di`` (ideal Mercier D_I), ``dr`` (resistive D_R), ``h``
-    (Glasser's H) and ``ca1`` (ballooning C_A) as 1-D profiles of ``psi_n`` in
-    ``rdcon_output_n<n>.nc``. They are evaluated at each rational surface by
-    linear interpolation in ψ_N.
-    """
-    if not path.exists():
-        return None
-    import netCDF4
-
-    with netCDF4.Dataset(path) as ds:
-        if "psi_n" not in ds.variables:
-            return None
-        return {k: np.asarray(ds.variables[k][:], dtype=float) for k in ("psi_n", "di", "dr", "h", "ca1") if k in ds.variables}
-
-
-def ggj_at(ggj: Optional[dict[str, np.ndarray]], psi_n: float) -> dict[str, Optional[float]]:
-    if ggj is None:
-        return {"D_I": None, "D_R": None, "H": None, "C_A": None}
-    grid = ggj["psi_n"]
-    names = {"di": "D_I", "dr": "D_R", "h": "H", "ca1": "C_A"}
-    return {names[k]: float(np.interp(psi_n, grid, ggj[k])) if k in ggj else None for k in names}
+#: Library profile name -> surface-table column (RDCON only; STRIDE writes no ``h``).
+GGJ_COLUMNS = {"di": "D_I", "dr": "D_R", "h": "H", "ca1": "C_A"}
 
 
 def pair_surfaces(primary: list[dict], check: list[dict]) -> list[dict]:

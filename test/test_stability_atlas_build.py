@@ -169,12 +169,44 @@ def test_zero_crossings_are_read_from_dcon_out(build, tmp_path):
     assert build.zero_crossings(tmp_path / "missing") == []
 
 
-def test_ggj_is_interpolated_at_the_surface(build):
-    grid = np.linspace(0.0, 1.0, 11)
-    ggj = {"psi_n": grid, "di": -grid, "dr": -grid + 0.25, "h": 0.5 + 0 * grid, "ca1": 2 * grid}
-    at = build.ggj_at(ggj, 0.45)
-    assert at == pytest.approx({"D_I": -0.45, "D_R": -0.2, "H": 0.5, "C_A": 0.9})
-    assert build.ggj_at(None, 0.45) == {"D_I": None, "D_R": None, "H": None, "C_A": None}
+RDCON_RUN = Path(__file__).resolve().parent / "data" / "gpec" / "rdcon_39915_319_n1"
+
+
+def _rdcon_run_with_unevaluated_band(tmp_path, lo, hi):
+    """A copy of the RDCON fixture whose ``ca1`` is the raw zero on lo < psi_n < hi.
+
+    That is what ``bal.f`` leaves on a Mercier-unstable (D_I > 0) band: the
+    ballooning integral is never evaluated there and the profile keeps its
+    initial 0 (cold review 0.8.0 delta-absorb-6 F1).
+    """
+    import xarray as xr
+
+    with xr.open_dataset(RDCON_RUN / "rdcon_output_n1.nc") as ds:
+        ds = ds.load()
+    ca1 = ds["ca1"].values.copy()
+    ca1[(ds["psi_n"].values > lo) & (ds["psi_n"].values < hi)] = 0.0
+    ds["ca1"].values[:] = ca1
+    ds.to_netcdf(tmp_path / "rdcon_output_n1.nc")
+    return tmp_path
+
+
+def test_ggj_at_a_surface_follows_the_library_reader(build, tmp_path):
+    from vaft.code.gpec import read_pest3_matching_output
+
+    run_dir = _rdcon_run_with_unevaluated_band(tmp_path, 0.6, 0.75)  # contains the m=4 surface at 0.698
+    rows = build.matching_surfaces({"status": "stable", "run_dir": str(run_dir), "n": 1}, "rdcon")
+    by_m = {row["m"]: row for row in rows}
+    assert len(rows) == 9 and {3, 4, 5} <= set(by_m)
+    # Inside the band the ballooning criterion was never evaluated: no value, not 0.
+    assert by_m[4]["C_A"] is None
+    assert by_m[4]["D_I"] == pytest.approx(-0.35825, abs=1e-4) and by_m[4]["D_R"] is not None and by_m[4]["H"] is not None
+    # At the band edge no blend with the placeholder zero leaks out either.
+    library = {r["m"]: r for r in read_pest3_matching_output(run_dir, solver="rdcon", mode=1).rational_surface_stability()}
+    for m, row in by_m.items():
+        assert row["C_A"] == library[m]["ca1"]
+        assert row["D_I"] == library[m]["di"] and row["D_R"] == library[m]["dr"] and row["H"] == library[m]["h"]
+    assert by_m[3]["C_A"] == pytest.approx(49.6923, abs=1e-3) and by_m[5]["C_A"] == pytest.approx(184.314, abs=1e-2)
+    assert build.matching_surfaces({"status": "failed", "run_dir": str(run_dir), "n": 1}, "rdcon") == []
 
 
 REFERENCE = Path(__file__).resolve().parent / "data" / "gpec" / "dcon_edge_792"
