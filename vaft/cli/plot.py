@@ -89,6 +89,14 @@ def _request_from(args: argparse.Namespace, options: dict[str, Any], parser: arg
     from vaft.plot.request import DataSource, PlotRequest
 
     if args.request:
+        given = [flag for flag, value in (
+            ("a plot name", args.name), ("--shot", args.shot), ("--sample", args.sample), ("--file", args.file),
+            ("--source", args.source), ("--compose", args.compose), ("--option", args.option),
+            ("--format", args.format), ("--theme", args.theme), ("--backend", args.backend),
+            ("--figure-options", args.figure_options),
+        ) if value]
+        if given:
+            parser.error(f"--request carries the whole figure; drop {', '.join(given)}")
         return PlotRequest.from_dict(_json_argument(args.request, "--request", parser))
     inputs = [(kind, values) for kind, values in (("shot", args.shot), ("sample", args.sample), ("file", args.file)) if values]
     if len(inputs) > 1:
@@ -96,6 +104,10 @@ def _request_from(args: argparse.Namespace, options: dict[str, Any], parser: arg
     if not inputs:
         parser.error("--shot, --sample or --file is required (or --list)")
     kind, values = inputs[0]
+    if kind != "shot" and args.source:
+        parser.error("--source names a database namespace; it applies to --shot only")
+    if kind != "shot" and args.no_lazy:
+        parser.error("--no-lazy applies to database shots (--shot) only")
     if kind == "shot" and not args.compose:
         return None  # the database path below opens only what the plot reads
     if bool(args.compose) == bool(args.name):
@@ -178,7 +190,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     except KeyboardInterrupt:
         print("vaft plot: interrupted", file=sys.stderr)
         return 130
-    except (KeyError, ValueError, NotImplementedError, OSError) as error:
+    except (KeyError, TypeError, ValueError, NotImplementedError, OSError) as error:
         # A refused plot, an unknown source or shot, a backend that cannot draw
         # it, or an output path that cannot be written: one line, exit 1.
         message = error.args[0] if isinstance(error, KeyError) and error.args else error

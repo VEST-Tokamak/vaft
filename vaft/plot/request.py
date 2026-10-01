@@ -69,10 +69,17 @@ class DataSource:
     def __post_init__(self) -> None:
         if self.kind not in DATA_KINDS:
             raise ValueError(f"DataSource.kind must be one of {', '.join(DATA_KINDS)}; got {self.kind!r}")
-        values = (self.values,) if isinstance(self.values, (str, int)) else tuple(self.values)
+        import numbers
+        import os
+
+        scalar = isinstance(self.values, (str, os.PathLike, numbers.Integral))
+        values = (self.values,) if scalar else tuple(self.values)
         if not values:
             raise ValueError("DataSource needs at least one value")
-        values = tuple(str(value) for value in values) if self.kind == "file" else tuple(int(value) for value in values)
+        values = (
+            tuple(os.fspath(value) for value in values) if self.kind == "file"
+            else tuple(int(value) for value in values)
+        )
         object.__setattr__(self, "values", values)
         if self.namespace is not None and self.kind != "shot":
             raise ValueError("DataSource.namespace applies to database shots only")
@@ -168,9 +175,8 @@ class PlotRequest:
             shot = shots[0] if len(shots) == 1 else shots
             if self.composition is not None:
                 return plotting.compose(self.composition, shot, self.source.namespace, show=show, **keywords)
-            return plotting.render(
-                self.plot, shot, self.source.namespace, lazy=False, show=show, **dict(self.options), **keywords,
-            )
+            # The call to_python() writes, so the code reproduces this figure.
+            return plotting.render(self.plot, shot, self.source.namespace, show=show, **dict(self.options), **keywords)
         import vaft.omas
 
         data = self.source.load()
