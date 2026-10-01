@@ -41,7 +41,28 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _tolerate_unencodable_output() -> None:
+    """Never let a console encoding kill a command over a glyph.
+
+    ``vaft plot --list`` draws its tree with box-drawing characters and the
+    reference pages print em-dashes; a Windows console or a ``text=True`` pipe
+    runs under the locale codec (cp1252, cp949), where ``print`` raises
+    ``UnicodeEncodeError`` and the command exits 1 with its work done. The
+    streams keep their encoding (a caller decoding the pipe with the same
+    locale still reads it) and only the error handler changes, so an
+    unencodable glyph becomes ``?`` instead of a crash.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        encoding = (getattr(stream, "encoding", None) or "").replace("-", "").lower()
+        if encoding != "utf8" and getattr(stream, "errors", None) == "strict":
+            reconfigure(errors="replace")
+
+
 def main(argv: Iterable[str] | None = None) -> int:
+    _tolerate_unencodable_output()
     arguments = list(sys.argv[1:] if argv is None else argv)
     parser = _parser()
     if not arguments or arguments[0] in {"-h", "--help"}:
