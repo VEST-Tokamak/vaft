@@ -193,7 +193,7 @@ def run_job(
     jobdir = out / eq.label / variant.name / f"nn{mode}"
     done = jobdir / "result.json"
     if done.exists():
-        cached = json.loads(done.read_text())
+        cached = json.loads(done.read_text(encoding="utf-8"))
         if cached["status"] != "failed":
             return cached
     jobdir.mkdir(parents=True, exist_ok=True)
@@ -243,7 +243,7 @@ def run_job(
 def _write_atomic(path: Path, text: str) -> None:
     """A killed job must not leave a truncated ``result.json`` behind."""
     handle, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    with os.fdopen(handle, "w") as stream:
+    with os.fdopen(handle, "w", encoding="utf-8") as stream:
         stream.write(text)
     os.replace(temporary, path)
 
@@ -300,12 +300,12 @@ def collect(future: Any, eq: Equilibrium, variant: Variant, mode: int) -> dict:
 
 
 def summarize(out: Path) -> Path:
-    rows = [json.loads(p.read_text()) for p in sorted(out.glob("*/*/nn*/result.json"))]
+    rows = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(out.glob("*/*/nn*/result.json"))]
     columns: list[str] = []
     for row in rows:
         columns.extend(k for k in row if k not in columns)
     table = out / "scan_controls.csv"
-    with table.open("w", newline="") as handle:
+    with table.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
         writer.writerows(rows)

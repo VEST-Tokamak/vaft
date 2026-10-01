@@ -88,7 +88,15 @@ def select(analysis: dict[str, Any], *, shots: Iterable[int] | None = None) -> t
 
 
 def _setting(row: dict) -> str:
-    settings = row.get("admissible") or []
+    """The EFIT preset(s) the slice's label belongs to, ``;``-joined when several.
+
+    A ``good`` slice is good under its ``good`` presets (a subset of the
+    ``admissible`` ones, ``criteria.py``); an ``admissible`` slice has only
+    the admissible list. Joining ``admissible`` for both labelled a good
+    slice with presets it is merely admissible under (cold review 0.8.0
+    delta-absorb-6 F5).
+    """
+    settings = (row.get("good") if row.get("label") == "good" else None) or row.get("admissible") or []
     return settings[0] if len(settings) == 1 else ";".join(settings)
 
 
@@ -105,7 +113,7 @@ def _row(shot: int, time_ms: int, lineage: str, label: str, setting: str, *, kin
 
 
 def write(rows: list[dict], path: Path) -> Path:
-    with path.open("w", newline="") as handle:
+    with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=COLUMNS)
         writer.writeheader()
         writer.writerows(rows)
@@ -113,7 +121,7 @@ def write(rows: list[dict], path: Path) -> Path:
 
 
 def read(path: Path) -> list[dict]:
-    with path.open(newline="") as handle:
+    with path.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     for row in rows:
         row["shot"] = int(row["shot"])
@@ -129,7 +137,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True, help="slices.csv to write")
     parser.add_argument("--shots", type=int, nargs="*", default=None)
     args = parser.parse_args()
-    selected, dropped = select(json.loads(args.analysis.read_text()), shots=args.shots)
+    selected, dropped = select(json.loads(args.analysis.read_text(encoding="utf-8")), shots=args.shots)
     write(selected, args.out)
     counts: dict[tuple[str, str], int] = {}
     for row in selected:
