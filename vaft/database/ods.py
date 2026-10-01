@@ -236,6 +236,62 @@ def upload_order(filenames: Iterable[str]) -> list[str]:
     return payload + master
 
 
+def _merge_current_master(
+    source: str, shot: int, then: Optional[Callable[[Path], None]] = None
+) -> Callable[[Path], None]:
+    """A finalizer that folds the master stored *now* into the one about to replace it.
+
+    Read immediately before the replacement, after this write's payload is
+    remote, so a link another writer added meanwhile is kept rather than
+    overwritten. ``then`` -- the caller's own finalizer, replication's merge of
+    the master it captured before its first attempt -- runs afterwards.
+    """
+    import tempfile
+
+    def finalize(local_master: Path) -> None:
+        from .replication import (
+            ReplicationError,
+            _fetch_remote_master,
+            _remote_canonical_files,
+            _require_remote_entries,
+        )
+        from .staging import merge_master_links
+
+        with tempfile.TemporaryDirectory(prefix="vaft-master-current-") as workdir:
+            current = _fetch_remote_master(source, shot, Path(workdir) / "master.current.h5")
+            if current is not None:
+                present = _remote_canonical_files(_require_remote_entries(source, shot))
+                if not present:
+                    raise ReplicationError(
+                        f"/{source}/{shot}/ lists no IDS files right after this write's "
+                        "payload was uploaded; refusing to merge against an empty listing, "
+                        "which would drop every link the stored master carries."
+                    )
+                merge_master_links(local_master, current, present_files=present)
+        if then is not None:
+            then(local_master)
+
+    return finalize
+
+
+def _publish_staged_shot(
+    shot_dir: Path,
+    source: str,
+    shot: int,
+    finalize_master: Optional[Callable[[Path], None]] = None,
+) -> list[str]:
+    """Upload a staged shot under its master lock, merging the stored master (#913)."""
+    from ._master_lock import shot_master_lock
+
+    with shot_master_lock(source, shot):
+        return _upload_local_shot(
+            shot_dir=shot_dir,
+            directory=source,
+            shot=shot,
+            finalize_master=_merge_current_master(source, shot, finalize_master),
+        )
+
+
 def _upload_local_shot(
     shot_dir: Path,
     directory: str,
@@ -606,12 +662,12 @@ def save_ods(
             verbose=verbose,
             uri="imas:hdf5?path=" + str(shot_dir),
         )
-        _upload_local_shot(
-            shot_dir=shot_dir,
-            directory=source,
-            shot=shot,
-            finalize_master=finalize_master,
-        )
+        # One writer of this shot's master at a time on this host, and the
+        # master replaced is "what is there *now*, plus this write" -- never a
+        # copy read before the payload went up (#913). Without the merge a
+        # plain save (the corrective updaters') replaced the master with one
+        # naming only its own IDS.
+        _publish_staged_shot(shot_dir, source, shot, finalize_master)
         if derived_mode != "none":
             wall_time.sleep(8.0)
         if derived_mode in {"imas-images", "both"}:

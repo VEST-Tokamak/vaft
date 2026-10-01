@@ -874,9 +874,8 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    verdicts is final.
 
 4. **Run.** One `snakemake` process runs in this directory with `--keep-going --rerun-incomplete
-   --scheduler greedy --resources hsds=1`.
-   - `hsds=1` stops replications from overlapping, which is the #913 master-link race. A worker
-     batch of a few shots is exactly the case where that race occurs.
+   --scheduler greedy`. HSDS concurrency is the pipeline config's `hsds.concurrency`; replications of
+     one shot no longer race for its `master.h5` (#913, section 11).
    - A manual run holding the directory lock makes the worker **busy**: it tries again next cycle
      and does not count an attempt.
    - The worker runs `--unlock` only when no live Snakemake process is working in the workflow
@@ -956,3 +955,55 @@ vaft pipeline-worker run --once              # a single cycle, e.g. to test a co
   watermark is not detected.
 - **Monitoring.** Monitoring code (#1347) reads the same file through
   `vaft.database.worker.read_worker_state`.
+
+---
+
+## 11. One writer per shot master (#913)
+
+Every HSDS write of a shot replaces its `master.h5` with the stored master plus the write's own IDS.
+Before #913 two overlapping writes of one shot both read the old master, and whichever replaced it
+last dropped the other's links. On 2026-09-17 this hid six IDS of shots 39241 and 39620 behind
+replication records that said `passed: true`.
+
+The write path now does two things:
+
+- **Holds a per-shot lock** across the read, merge and replace. Replication holds it from the
+  capture of the previous master through its safety-net merge. Every VAFT writer on this host is
+  covered: the routine pipeline, the corrective updaters, the new-shot worker and the maintenance
+  repairs. Different shots never wait for each other. The lock files live in `$VAFT_HSDS_LOCK_DIR`,
+  default `/tmp/vaft-hsds-locks`. The location is deliberately fixed rather than `$TMPDIR`, so that
+  two writers always meet at the same lock.
+- **Re-reads the stored master immediately before replacing it**, so a link added in the meantime is
+  kept. This also applies to a plain `vaft.database.save`, which used to replace the master with one
+  naming only its own IDS.
+
+What it does **not** cover:
+
+- writers on another host;
+- `hsload` run by hand;
+- Windows, where the lock is a no-op.
+
+The re-read narrows those windows; it cannot close them.
+
+With the race gone, `hsds.concurrency` can go back above 1. The new-shot worker no longer forces
+`--resources hsds=1`.
+
+### Audit and repair
+
+```bash
+vaft maintenance audit-masters --shots 39000-48916 --report audit.json          # read-only
+vaft maintenance audit-masters --shots 39241 39620 43245 44148 --apply          # relink
+```
+
+Each shot is reported as one of:
+
+| Status | Meaning |
+| --- | --- |
+| `complete` | The master links every stored IDS file. |
+| `links_missing` | Files are stored that the master does not link. `--apply` relinks them, under the shot's lock. |
+| `no_master` | Files are stored but there is no master. Nothing can be copied from it, so re-replicate the shot. |
+| `absent` | No such shot folder. |
+| `unreadable` | Listing or reading failed. The error is in the report. |
+
+The command exits non-zero while any shot is `links_missing` or `unreadable`.
+

@@ -117,13 +117,21 @@ def save(
             dbentry.put(ids)
         print(f"[INFO] Saved {filename} to local: {_staging_dir / filename}")
 
-        # Upload to explicitly requested HSDS namespace.
-        ids_remote_uri = f"hdf5://{source}/{shot}/{filename}"
-        run_hsload(_staging_dir / filename, ids_remote_uri)
-        verify_uploaded_image(_staging_dir / filename, ids_remote_uri)
-        master_remote_uri = f"hdf5://{source}/{shot}/master.h5"
-        run_hsload(_staging_dir / "master.h5", master_remote_uri)
-        verify_uploaded_image(_staging_dir / "master.h5", master_remote_uri)
+        # Upload to explicitly requested HSDS namespace. The master replaced is
+        # the stored one plus this IDS, merged under the shot's lock -- not a
+        # master naming this IDS alone, which hid every other IDS of the shot
+        # (#913; see vaft.database._master_lock).
+        from ._master_lock import shot_master_lock
+        from .ods import _merge_current_master
+
+        with shot_master_lock(source, int(shot)):
+            ids_remote_uri = f"hdf5://{source}/{shot}/{filename}"
+            run_hsload(_staging_dir / filename, ids_remote_uri)
+            verify_uploaded_image(_staging_dir / filename, ids_remote_uri)
+            _merge_current_master(source, int(shot))(_staging_dir / "master.h5")
+            master_remote_uri = f"hdf5://{source}/{shot}/master.h5"
+            run_hsload(_staging_dir / "master.h5", master_remote_uri)
+            verify_uploaded_image(_staging_dir / "master.h5", master_remote_uri)
         if derived_mode == "imas-images":
             time.sleep(8.0)
             for local_path in (_staging_dir / filename, _staging_dir / "master.h5"):

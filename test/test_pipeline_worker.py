@@ -32,7 +32,7 @@ from vaft.database.worker.config import (
     worker_config_from_mapping,
 )
 from vaft.database.worker.poll import SqlShotSource, upload_finished
-from vaft.database.worker.runner import HSDS_RESOURCE, RunPlan, RunResult, SnakemakeRunner, _runs_in
+from vaft.database.worker.runner import RunPlan, RunResult, SnakemakeRunner, _runs_in
 from vaft.database.worker.service import PipelineWorker
 from vaft.database.worker.status import PipelineHarvester
 
@@ -502,9 +502,9 @@ def test_the_snakemake_command(setup, tmp_path):
     for flag in ("--keep-going", "--rerun-incomplete"):
         assert flag in command
     assert command[command.index("--scheduler") + 1] == "greedy"
-    assert command[command.index("--resources") + 1] == HSDS_RESOURCE == "hsds=1"
+    # No forced `--resources hsds=1` since #913: the pipeline config decides.
+    assert "--resources" not in command
     assert command[command.index("--directory") + 1] == str(WORKFLOW)
-    assert command[-1] == HSDS_RESOURCE
     assert not any(flag.startswith("--force") for flag in command)
 
     raw_only = runner.command(RunPlan(run_id=8, full_shots=(), file_targets=("/x/a",)), configfile)
