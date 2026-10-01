@@ -25,7 +25,8 @@ production counterpart of the interactive notebooks: the same `vaft` library cal
 > **These are scripts, not a package.** `workflow/` contains no `__init__.py`; nothing in it is importable as
 > `vaft.workflow.*`. Each directory is self-contained and is meant to be run **from inside itself**, because
 > several scripts resolve output paths relative to the working directory. Only the `vaft.*` calls they make
-> are library API.
+> are library API. No `vaft.workflow` abstraction is planned; see
+> [Computational layers]({{ '/reference/computational-layers/' | relative_url }}).
 
 | Pipeline | Orchestration | Purpose |
 |---|---|---|

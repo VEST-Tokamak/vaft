@@ -17,7 +17,8 @@ related:
   outputs: [external-readiness, equilibrium-inputs]
 ---
 
-`vaft.process` is the **computation layer** of VAFT. Almost every function in it takes plain NumPy
+`vaft.process` is the **computation layer** of VAFT (its boundary with `vaft.formula` and `vaft.code`
+is on [Computational layers]({{ '/reference/computational-layers/' | relative_url }})). Almost every function in it takes plain NumPy
 arrays and scalars and returns arrays, tuples or dataclasses — it does not read or write ODS. The
 ODS-aware layer lives in `vaft.omas` (mainly `vaft.omas.process_wrapper`), which pulls geometry and
 signals out of an ODS, calls into `vaft.process`, and writes the results back.
