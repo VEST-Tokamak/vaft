@@ -1160,6 +1160,7 @@ vaft.diagram.scientific_infrastructure_principles()
 vaft.diagram.machine_agnostic_architecture()
 vaft.diagram.experiment_modeling_theory_data_network()   # "point_to_point", "common_model", "equilibrium"
 vaft.diagram.human_ai_interface()
+vaft.diagram.machine_research_archive()
 ```
 
 | Diagram | Concept |
@@ -1173,6 +1174,7 @@ vaft.diagram.human_ai_interface()
 | `machine_agnostic_architecture` | Theory, experiment, modelling and simulation, and data-driven methods share one scientific framework and one Common Data Model (IMAS), which holds design, experimental and simulation data and is stored in the IMAS database. Machine-specific data access and mapping absorbs device differences, so the same architecture serves existing fusion experiments and future devices and reactor concepts. No device is named |
 | `experiment_modeling_theory_data_network` | A three-step argument for a common data model. Point to point needs $N(N-1)/2$ pairwise adapters, and a new mode needs $N-1$ more. The Common Data Model (IMAS) needs $N$ adapters, and a new mode needs one. The IMAS equilibrium IDS, a standardized equilibrium representation, then serves as a tokamak example with representative routes and references |
 | `human_ai_interface` | Three layers: actors, shared access interfaces and one backend. Human researchers and AI agents collaborate through the Python API, CLI, GUI, repository and docs, and MCP (planned). The interface layer reaches the framework and the IMAS database through one common connection |
+| `machine_research_archive` | VEST's institutional and scientific memory since 2012: machine history, research on VEST and research knowledge feed one living archive, which new analyses and research build on. No dates are drawn beyond the start of operation |
 
 ![The four pillars of VAFT]({{ '/assets/diagrams/vaft_four_pillars.svg' | relative_url }})
 ![Research-learning cycle]({{ '/assets/diagrams/fusion_science_knowledge_lifecycle.svg' | relative_url }})
@@ -1185,6 +1187,7 @@ vaft.diagram.human_ai_interface()
 ![With a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network.svg' | relative_url }})
 ![The IMAS equilibrium as a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network_equilibrium.svg' | relative_url }})
 ![Human-AI collaborative access]({{ '/assets/diagrams/human_ai_interface.svg' | relative_url }})
+![Machine and research archive]({{ '/assets/diagrams/machine_research_archive.svg' | relative_url }})
 
 The pillar names are the four README sections.
 The diagrams are built from the concept primitives in `vaft.diagram._concept`: `box`, `connector`, `band`,
