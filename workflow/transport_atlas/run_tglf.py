@@ -29,7 +29,6 @@ import concurrent.futures
 
 import datetime as _dt
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -153,12 +152,19 @@ def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages:
 # --------------------------------------------------------------------------- running
 
 
-def gacode_revision() -> Optional[str]:
-    root = os.environ.get("GACODE_ROOT")
-    if not root:
+def gacode_revision(config: Any = None) -> Optional[str]:
+    """The revision of the GACODE tree the runner will actually launch from.
+
+    Resolved through the runner's own ``gacode_home`` (``config.home``, then
+    ``GACODEHOME``, then ``GACODE_ROOT``), so it cannot name a different tree.
+    """
+    from vaft.code.gacode._runtime import gacode_home
+
+    home = gacode_home(config)
+    if home is None:
         return None
     try:
-        return subprocess.run(["git", "-C", root, "rev-parse", "--short=7", "HEAD"],
+        return subprocess.run(["git", "-C", str(home), "rev-parse", "--short=7", "HEAD"],
                               capture_output=True, text=True, check=True).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         return None
@@ -206,9 +212,24 @@ def _local_summary(local: Any) -> dict[str, Any]:
 
 
 def run_surface(job: dict, config: Any) -> dict:
-    """Run (or reuse) one surface. Returns its record; never raises on a solver failure."""
+    """Run (or reuse) one surface and return its record.
+
+    A solver failure or timeout is already a result (``run_tglf_case(check=False)``).
+    Anything else that stops one surface -- a missing launcher, a refused ``sbatch``,
+    a full disk -- is recorded as ``runtime_status="error"`` for that surface rather
+    than aborting the pool and losing every finished surface with it.
+    """
+    try:
+        return _run_surface(job, config)
+    except Exception as error:  # noqa: BLE001 - recorded per surface, see docstring
+        return {"r_over_a": job["r_over_a"], "run_identity": job["identity"],
+                "status": "failed", "runtime_status": "error", "returncode": None,
+                "elapsed_s": None, "errors": [f"{type(error).__name__}: {error}"],
+                "version": None, "local": job["local"], "cached": False}
+
+
+def _run_surface(job: dict, config: Any) -> dict:
     from vaft.code.gacode.tglf import run_tglf_case
-    from vaft.code.gacode.tglf.outputs import TglfOutputs
 
     workdir = Path(job["workdir"])
     record_path = workdir / "record.json"
@@ -257,8 +278,16 @@ def project_state(state, surfaces: list[dict], jobs: dict) -> dict:
     ods = ODS(consistency_check=False)
     report = core_transport_from_tglf(ods, pairs, state.profile, time=state.key.time_efit_s)
     base = f"core_transport.model.{report['model']}.profiles_1d.0"
+    if not report["written"] or f"{base}.grid_flux.rho_tor_norm" not in ods:
+        return {"written": [], "skipped": report["skipped"], "surfaces": []}
     rho = np.asarray(ods[f"{base}.grid_flux.rho_tor_norm"], dtype=float)
-    radii = sorted(float(local.rho) for local, _ in pairs)
+    # The mapper keeps only pairs that solved *and* carry a normalisation, sorted by
+    # r/a; rebuild exactly that list so each column lines up with its radius.
+    radii = sorted(float(local.rho) for local, native in pairs
+                   if getattr(native, "solved", False) and local.normalisation is not None)
+    if len(radii) != rho.size:
+        return {"written": [], "skipped": report["skipped"] + [
+            f"surface count mismatch ({len(radii)} radii, {rho.size} mapped)"], "surfaces": []}
 
     def column(path: str) -> list:
         return [float(v) for v in np.asarray(ods[path], dtype=float)] if path in ods else [None] * len(radii)
@@ -297,7 +326,8 @@ def state_status(readiness, surfaces: list[dict], resolved: bool) -> str:
         return "skipped"
     if not solved:
         return "failed"
-    return "solved" if len(solved) == len(readiness.surfaces) else "partial"
+    runnable = [s for s in readiness.surfaces if s.ready]
+    return "solved" if len(solved) == len(runnable) else "partial"
 
 
 # --------------------------------------------------------------------------- main
@@ -328,6 +358,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--dry-run", action="store_true", help="resolve and assess only")
     args = parser.parse_args(argv)
+    names = [f"r{value:.2f}" for value in args.surfaces]
+    if len(set(names)) != len(names):
+        parser.error(f"surfaces {args.surfaces} collide in their r{{:.2f}} workdir names")
 
     import vaft
 
@@ -341,7 +374,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.max_states:
         states = states[: args.max_states]
     config = build_config(args)
-    revision = gacode_revision()
+    revision = gacode_revision(config)
     parameters = physics_parameters(config)
     ratio = args.ti_te_ratio if args.ti_te_ratio == "policy" else float(args.ti_te_ratio)
 
@@ -425,7 +458,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     manifest = {
         "created": _dt.datetime.now(_dt.timezone.utc).isoformat(),
-        "argv": sys.argv, "vaft": vaft.__file__,
+        "argv": sys.argv[:1] + list(argv if argv is not None else sys.argv[1:]),
+        "vaft": vaft.__file__, "vaft_version": vaft.__version__,
         "vaft_git": _git_sha(Path(vaft.__file__).parent.parent),
         "gacode_revision": revision, "tglf_parameters": parameters,
         "enumeration": counts, "states_run": len(prepared), "surface_jobs": len(jobs),

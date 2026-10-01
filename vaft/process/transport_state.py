@@ -154,15 +154,27 @@ class ResolvedTransportState:
         return str(self.ti.get("lineage", "unresolved"))
 
     def identity_payload(self) -> dict[str, Any]:
-        """Everything that, changed, makes this a different state."""
+        """Everything that, changed, makes this a different state.
+
+        The resolved profile's own arrays are hashed, so a different input file, a
+        different #1426 temperature or a change in the GACODE converter all change
+        the identity without anyone bumping a version.  Paths and the Ti sigma
+        (provenance only) are left out: moving a file or restating an uncertainty
+        does not change the physics a solver is given.
+        """
+        inputs = {
+            name: (value.get("sha256") if isinstance(value, Mapping) else value)
+            for name, value in self.inputs.items()
+        }
         return {
             "resolver_version": RESOLVER_VERSION,
             "key": self.key.as_dict(),
             "times": dict(self.times),
-            "ti": {k: self.ti.get(k) for k in ("lineage", "method", "ratio", "sigma")},
+            "ti": {k: self.ti.get(k) for k in ("lineage", "method", "ratio", "temperature_sha256")},
             "composition": dict(self.composition),
-            "inputs": dict(self.inputs),
+            "inputs": inputs,
             "settings": dict(self.settings),
+            "profile_sha256": _profile_digest(self.profile),
         }
 
     @property
@@ -249,6 +261,43 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+#: The GACODEProfile arrays a solver input is built from.
+_PROFILE_FIELDS = (
+    "rho", "rmin", "rmaj", "zmag", "q", "kappa", "delta", "zeta", "polflux", "ne", "te",
+    "ni", "ti", "z", "mass", "masse", "z_eff", "vtor", "torfluxa", "rcentr", "bcentr",
+    "current",
+)
+
+
+def _profile_digest(profile: Any) -> Optional[str]:
+    if profile is None:
+        return None
+    digest = hashlib.sha256()
+    for name in _PROFILE_FIELDS:
+        value = getattr(profile, name, None)
+        digest.update(name.encode())
+        if value is None:
+            digest.update(b"<none>")
+        else:
+            digest.update(np.ascontiguousarray(np.asarray(value, dtype=float)).tobytes())
+    return digest.hexdigest()
+
+
+def _finite_profile(values: Any) -> bool:
+    if values is None:
+        return False
+    array = np.atleast_1d(np.asarray(values, dtype=float))
+    return bool(array.size > 1 and np.all(np.isfinite(array)))
+
+
+def _usable(values: Any) -> bool:
+    """A profile that can stand for a measured quantity: non-empty, finite, positive."""
+    if values is None:
+        return False
+    array = np.atleast_1d(np.asarray(values, dtype=float))
+    return bool(array.size > 1 and np.all(np.isfinite(array)) and np.all(array > 0.0))
+
+
 def _digest(payload: Any) -> str:
     text = json.dumps(_jsonable(payload), sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -269,20 +318,9 @@ def _times(ods: Any, path: str) -> Optional[np.ndarray]:
     return array if array.size else None
 
 
-def _slice_times(ods: Any, ids: str, aos: str) -> Optional[np.ndarray]:
-    """Per-slice times, from ``<ids>.time`` or else each slice's own ``time`` leaf."""
-    times = _times(ods, f"{ids}.time")
-    if times is not None:
-        return times
-    collected = []
-    index = 0
-    while True:
-        value = _get(ods, f"{ids}.{aos}.{index}.time")
-        if value is None:
-            break
-        collected.append(float(value))
-        index += 1
-    return np.asarray(collected, dtype=float) if collected else None
+def _slice_times(ods: Any, ids: str) -> Optional[np.ndarray]:
+    """``<ids>.time``: the homogeneous time vector the GACODE converter also reads."""
+    return _times(ods, f"{ids}.time")
 
 
 def _nearest(times: Optional[np.ndarray], target: float) -> tuple[Optional[int], float]:
@@ -416,8 +454,9 @@ def resolve_transport_state(
         Its 1-sigma, for provenance; the policy's when ``None`` [-].
     inferred_ti : mapping, optional
         A pressure-partition result (#1426): ``{"temperature": array [eV], "method":
-        str, ...}`` on the core_profiles grid of the matched slice [eV].  Preferred
-        over the policy fallback when given.
+        str, "time": float [s]}`` on the core_profiles grid of the matched slice [eV].
+        Preferred over the policy fallback when given; its ``time`` must match the
+        paired core_profiles slice within ``tolerance``.
     z_eff : float, optional
         Effective charge the composition closure realizes [-].
     impurity : str, optional
@@ -473,14 +512,14 @@ def resolve_transport_state(
     }
 
     # 1. times ---------------------------------------------------------------------
-    eq_times = _slice_times(ods, "equilibrium", "time_slice")
+    eq_times = _slice_times(ods, "equilibrium")
     eq_index, eq_offset = _nearest(eq_times, key.time_efit_s)
     if eq_index is None:
         return _insufficient(base, "no_equilibrium")
     if abs(eq_offset) > tolerance:
         return _insufficient(base, "no_equilibrium_within_tolerance")
     eq_time = float(eq_times[eq_index])
-    cp_times = _slice_times(ods, "core_profiles", "profiles_1d")
+    cp_times = _slice_times(ods, "core_profiles")
     cp_index, cp_offset = _nearest(cp_times, eq_time)
     times = {
         "time_equilibrium_s": eq_time,
@@ -516,7 +555,7 @@ def resolve_transport_state(
     ) is not None:
         ions.append(position)
         position += 1
-    measured = [i for i in ions if _get(ods, f"{prefix}.ion.{i}.temperature") is not None]
+    measured = [i for i in ions if _usable(_get(ods, f"{prefix}.ion.{i}.temperature"))]
     hierarchy: list[dict[str, Any]] = []
     work = ods
     if ions and len(measured) == len(ions):
@@ -536,9 +575,18 @@ def resolve_transport_state(
             temperature = np.asarray(inferred_ti["temperature"], dtype=float)
             if temperature.shape != te.shape:
                 return _insufficient(base, "inferred_ti_grid_mismatch")
+            # The array carries no grid identity of its own, so its time is required
+            # and checked: a result for another slice of the same length is refused.
+            inferred_time = inferred_ti.get("time")
+            if inferred_time is None or abs(float(inferred_time) - float(cp_times[cp_index])) > tolerance:
+                return _insufficient(base, "inferred_ti_time_mismatch")
+            if not _usable(temperature):
+                return _insufficient(base, "inferred_ti_not_positive")
             ti = {"lineage": f"inferred_{inferred_ti.get('method', 'pressure_partition')}",
                   "method": str(inferred_ti.get("method", "equilibrium_pressure_partition")),
-                  "ratio": None, "sigma": None, "kind": "inferred"}
+                  "ratio": None, "sigma": None, "kind": "inferred",
+                  "temperature_sha256": hashlib.sha256(
+                      np.ascontiguousarray(temperature).tobytes()).hexdigest()}
         else:
             hierarchy.append({"step": "pressure_inferred", "status": "unavailable",
                               "reason": "no #1426 result supplied"})
@@ -606,7 +654,7 @@ def resolve_transport_state(
                     "source": "midplane crossings of profiles_2d psi at the axis height",
                     "routine": "vaft.omas.update_equilibrium_profiles_1d_radial_coordinates"}
     shape = {"kind": "reconstructed", "source": f"{eq_base}.elongation/triangularity_*"}
-    if any(np.size(_get(ods, f"{eq_base}.{name}")) in (0, 1) for name in _SHAPE):
+    if not all(_finite_profile(_get(ods, f"{eq_base}.{name}")) for name in _SHAPE):
         work = copy.deepcopy(ods) if work is ods else work
         shape = _derive_shape_profiles(work, eq_index)
         if shape is None:

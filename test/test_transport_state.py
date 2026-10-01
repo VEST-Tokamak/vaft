@@ -154,9 +154,26 @@ def test_an_inferred_profile_outranks_the_policy(sample):
     ods = _electron_only(sample)
     te = np.asarray(sample["core_profiles.profiles_1d.0.electrons.temperature"], dtype=float)
     state = resolve_transport_state(ods, _key(0.3), efit_label="good",
-                                    inferred_ti={"temperature": 0.5 * te, "method": "pressure_partition"})
+                                    inferred_ti={"temperature": 0.5 * te, "method": "pressure_partition",
+                                                 "time": 0.3})
     assert state.ti["kind"] == "inferred"
     np.testing.assert_allclose(state.profile.ti[0], 0.5 * state.profile.te, rtol=1e-9)
+
+
+def test_an_inferred_profile_for_another_time_is_refused(sample):
+    te = np.asarray(sample["core_profiles.profiles_1d.0.electrons.temperature"], dtype=float)
+    state = resolve_transport_state(_electron_only(sample), _key(0.3), efit_label="good",
+                                    inferred_ti={"temperature": 0.5 * te, "time": 0.31})
+    assert state.reasons == ("inferred_ti_time_mismatch",)
+
+
+def test_a_nan_placeholder_ion_temperature_is_not_a_measurement(sample):
+    ods = copy.deepcopy(sample)
+    te = np.asarray(ods["core_profiles.profiles_1d.0.ion.0.temperature"], dtype=float)
+    ods["core_profiles.profiles_1d.0.ion.0.temperature"] = np.full_like(te, np.nan)
+    state = resolve_transport_state(ods, _key(0.3), efit_label="good")
+    assert state.ti["kind"] == "assumed"
+    assert np.all(np.isfinite(state.profile.ti))
 
 
 def test_no_fallback_means_insufficient(sample):
@@ -226,6 +243,28 @@ def test_identity_is_deterministic_and_tracks_every_upstream_choice(sample):
         run_identity(base, solver="tglf", parameters=params, surface=0.5, solver_revision="x"),
     ]
     assert len({ident, *variants}) == 1 + len(variants)
+
+
+def test_identity_follows_content_not_names(sample):
+    from vaft.code.gacode.tglf import TGLFConfig
+
+    params = physics_parameters(TGLFConfig())
+    ods = _electron_only(sample)
+    te = np.asarray(sample["core_profiles.profiles_1d.0.electrons.temperature"], dtype=float)
+
+    def ident(o, **kw):
+        return run_identity(resolve_transport_state(o, _key(0.3), efit_label="good", **kw),
+                            solver="tglf", parameters=params, surface=0.5)
+
+    hotter = copy.deepcopy(ods)
+    hotter["core_profiles.profiles_1d.0.electrons.temperature"] = 1.1 * te
+    assert ident(ods) != ident(hotter)  # same key, same (absent) input hashes
+    one = {"temperature": 0.5 * te, "method": "m", "time": 0.3}
+    two = {"temperature": 0.6 * te, "method": "m", "time": 0.3}
+    assert ident(ods, inferred_ti=one) != ident(ods, inferred_ti=two)
+    moved = {"core_profiles": {"path": "/a", "sha256": "x"}}
+    assert ident(ods, inputs=moved) == ident(ods, inputs={"core_profiles": {"path": "/b", "sha256": "x"}})
+    assert ident(ods, ti_te_ratio_sigma=0.1) == ident(ods, ti_te_ratio_sigma=0.9)
 
 
 def test_runtime_settings_stay_out_of_identity():
@@ -326,9 +365,59 @@ def test_driver_runs_good_and_admissible_states_only(driver, sample, tmp_path, m
     assert all(0 < s["rho_tor_norm"] < 1 for s in mapped)
     assert state["core_transport"]["code"] == {"name": "TGLF", "version": "test"}
 
+    assert manifest["status_counts"] == {"partial": 1}
+
     # A second run reuses every solved surface by identity and re-runs only the failure.
     calls = []
     monkeypatch.setattr(tglf, "run_tglf_case", lambda *a, **k: calls.append(a[1]) or fake_run(*a, **k))
     driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(out),
                  "--lineages", "magnetics-only", "--workers", "1"])
     assert calls == [0.8]
+
+
+def test_an_infrastructure_error_is_recorded_per_surface(driver, sample, tmp_path, monkeypatch):
+    import vaft.code.gacode.tglf as tglf
+
+    state = resolve_transport_state(sample, _key(0.3), efit_label="good")
+    surface = assess_tglf_readiness(state, (0.5,)).surfaces[0]
+
+    def boom(*args, **kwargs):
+        raise FileNotFoundError("no GACODE launcher")
+
+    monkeypatch.setattr(tglf, "run_tglf_case", boom)
+    job = {"workdir": str(tmp_path / "r0.50"), "r_over_a": 0.5, "identity": "i",
+           "profile": state.profile, "local_input": surface.local_input, "local": {}}
+    record = driver.run_surface(job, None)
+    assert (record["status"], record["runtime_status"]) == ("failed", "error")
+    assert "no GACODE launcher" in record["errors"][0]
+
+
+def test_projection_lines_up_when_the_mapper_drops_a_surface(driver, sample, tmp_path):
+    import dataclasses
+
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    state = resolve_transport_state(sample, _key(0.3), efit_label="good")
+    report = assess_tglf_readiness(state, (0.3, 0.5, 0.7))
+    jobs, surfaces = {}, []
+    for index, surface in enumerate(report.surfaces):
+        local = surface.local_input
+        if surface.r_over_a == 0.5:  # solved, but cannot be dimensionalised
+            local = dataclasses.replace(local, normalisation=None)
+        workdir = tmp_path / f"r{surface.r_over_a:.2f}"
+        flux = np.array([1.0, 2.0, 3.0]) * (index + 1)
+        TglfOutputs(directory=str(workdir), gbflux={"particle": flux, "energy": flux,
+                    "momentum": 0 * flux, "exchange": 0 * flux},
+                    grid={"n_species": 3, "n_xgrid": 4}).write_json(workdir / "outputs.json")
+        jobs[surface.r_over_a] = {"workdir": str(workdir), "local_input": local}
+        surfaces.append({"r_over_a": surface.r_over_a, "status": "solved"})
+    mapped = driver.project_state(state, surfaces, jobs)
+    rows = mapped["surfaces"]
+    assert [row["r_over_a"] for row in rows] == [0.3, 0.7]
+    norm = report.surfaces[2].local_input.normalisation
+    assert rows[1]["electron_energy_flux_W_m2"] == pytest.approx(3.0 * norm.energy_flux)
+
+    # Nothing usable: reported, not a KeyError that loses the run.
+    for job in jobs.values():
+        job["local_input"] = dataclasses.replace(job["local_input"], normalisation=None)
+    assert driver.project_state(state, surfaces, jobs)["surfaces"] == []
