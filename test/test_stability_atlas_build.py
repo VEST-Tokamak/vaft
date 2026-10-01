@@ -251,7 +251,12 @@ assert select.read(select.write([row], out / "slices.csv"))[0]["efit_setting"] =
 print("ok")
 """
     env = {**os.environ, "LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0", "PYTHONIOENCODING": "utf-8"}
-    result = subprocess.run([sys.executable, "-c", script, str(ROOT), str(tmp_path)], env=env, capture_output=True, text=True)
+    # The script goes through a file, not `-c`: under a C locale on Linux the
+    # interpreter cannot decode non-ASCII argv at all ("Unable to decode the
+    # command from the command line"), while a source file is UTF-8 by default.
+    probe = tmp_path / "probe.py"
+    probe.write_text(script, encoding="utf-8")
+    result = subprocess.run([sys.executable, str(probe), str(ROOT), str(tmp_path)], env=env, capture_output=True, text=True)
     assert result.returncode == 0 and result.stdout.strip() == "ok", result.stderr
 
 
