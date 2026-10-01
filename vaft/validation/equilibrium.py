@@ -1096,7 +1096,7 @@ def thomson_pressure_samples(equilibrium: Any, time_slice: int, diagnostics: Any
     channel's ``(R, Z)`` is mapped through the slice's 2-D psi to psi_N and the
     reconstructed pressure is sampled there.
 
-    Returns ``{"available": False, "reason", ...}`` when the slice cannot be
+    Returns ``{"available": False, "code", "reason", ...}`` when the slice cannot be
     compared, else ``{"available": True, "time_offset", "ts_index", "ts_time",
     "tolerance", "channels": [...]}`` where each channel inside the LCFS carries
     ``channel, r, z, psi_norm, n_e, t_e, n_e_error, t_e_error, p_e, p_recon``
@@ -1108,19 +1108,19 @@ def thomson_pressure_samples(equilibrium: Any, time_slice: int, diagnostics: Any
     ods = equilibrium
     channels = path_count(diagnostics, "thomson_scattering.channel")
     if channels == 0:
-        return {"available": False, "reason": "no thomson_scattering channels to compare against"}
+        return {"available": False, "code": "no_thomson", "reason": "no thomson_scattering channels to compare against"}
     target = _slice_time(ods, index)
     times = _array(diagnostics, "thomson_scattering.time")
     if times is None:
         times = _array(diagnostics, "thomson_scattering.channel.0.n_e.time")
     if times is None or not math.isfinite(target):
-        return {"available": False, "reason": "no thomson_scattering time base to match on"}
+        return {"available": False, "code": "no_thomson", "reason": "no thomson_scattering time base to match on"}
     position, offset = _nearest(times, target)
     tolerance = _time_tolerance(ods) if tolerance is None else float(tolerance)
     timing = {"time_offset": offset, "ts_index": position, "ts_time": float(times[position]),
               "tolerance": tolerance}
     if offset > tolerance:
-        return {"available": False, **timing,
+        return {"available": False, "code": "beyond_tolerance", **timing,
                 "reason": f"the nearest Thomson time is {offset:.4g} s away, beyond {tolerance:.4g} s"}
     root = f"equilibrium.time_slice.{index}"
     r_grid, z_grid = _array(ods, f"{root}.profiles_2d.0.grid.dim1"), _array(ods, f"{root}.profiles_2d.0.grid.dim2")
@@ -1128,7 +1128,7 @@ def thomson_pressure_samples(equilibrium: Any, time_slice: int, diagnostics: Any
     axis = _float(path_value(ods, f"{root}.global_quantities.psi_axis"))
     boundary = _float(path_value(ods, f"{root}.global_quantities.psi_boundary"))
     if r_grid is None or z_grid is None or psi_2d is None or not (math.isfinite(axis) and math.isfinite(boundary)) or axis == boundary:
-        return {"available": False, **timing,
+        return {"available": False, "code": "no_equilibrium_grid", **timing,
                 "reason": "the slice has no 2-D psi grid to map channel positions through"}
     if psi_2d.shape == (z_grid.size, r_grid.size) and r_grid.size != z_grid.size:
         psi_2d = psi_2d.T
@@ -1151,18 +1151,19 @@ def thomson_pressure_samples(equilibrium: Any, time_slice: int, diagnostics: Any
             errors = []
             for quantity in ("n_e", "t_e"):
                 error = _array(diagnostics, f"{base}.{quantity}.data_error_upper")
-                errors.append(float(error[position]) if error is not None and position < error.size else math.nan)
+                errors.append(float(error[position]) if error is not None and error.ndim == 1
+                              and position < error.size else math.nan)
             samples.append({
                 "channel": channel, "r": r, "z": z, "psi_norm": psi_norm,
                 "n_e": density, "t_e": temperature, "n_e_error": errors[0], "t_e_error": errors[1],
                 "p_e": density * temperature * _ELEMENTARY_CHARGE,
             })
     if not samples:
-        return {"available": False, **timing,
+        return {"available": False, "code": "no_channel_inside", **timing,
                 "reason": "no Thomson channel with finite n_e and T_e lies inside the LCFS at this time"}
     reconstructed = _pressure_on(ods, index, np.asarray([sample["psi_norm"] for sample in samples]))
     if reconstructed is None:
-        return {"available": False, **timing,
+        return {"available": False, "code": "no_pressure", **timing,
                 "reason": "the reconstructed pressure cannot be sampled at the channel positions"}
     for sample, value in zip(samples, reconstructed):
         sample["p_recon"] = float(value)

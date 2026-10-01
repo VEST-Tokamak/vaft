@@ -108,10 +108,13 @@ def _slice_times(ods: Any, ids: str) -> np.ndarray | None:
     count = path_count(ods, f"{ids}.{container}")
     if count == 0:
         return None
-    times = _array(ods, f"{ids}.time")
-    if times is not None and times.size == count:
-        return times
-    return np.array([_float(path_value(ods, f"{ids}.{container}.{i}.time")) for i in range(count)])
+    # The per-slice time wins where present, as in vaft.validation.equilibrium:
+    # the slice that is compared and the time it is reported under must be one.
+    times = np.array([_float(path_value(ods, f"{ids}.{container}.{i}.time")) for i in range(count)])
+    shared = _array(ods, f"{ids}.time")
+    if shared is not None and shared.size == count:
+        times = np.where(np.isfinite(times), times, shared)
+    return times
 
 
 def default_tolerance(times: np.ndarray) -> float:
@@ -172,15 +175,26 @@ def rho_tor_norm_of(ods: Any, index: int) -> dict[str, Any]:
     psi_norm = _psi_norm_profile(ods, index)
     if psi_norm is None:
         return {"coordinate": "unavailable", "reason": "the slice has no psi profile"}
+    order = np.argsort(psi_norm)
     phi = _array(ods, f"{root}.phi")
-    if phi is not None and phi.size == psi_norm.size and np.all(np.isfinite(phi)) and phi[-1] != phi[0]:
-        rho = np.sqrt(np.clip((phi - phi[0]) / (phi[-1] - phi[0]), 0.0, None))
-        return {"coordinate": "rho_tor_norm", "source": "phi", "psi_norm": psi_norm, "rho_tor_norm": rho}
+    if phi is not None and phi.size == psi_norm.size and np.all(np.isfinite(phi)):
+        # normalized from the axis end, whichever end of the array that is
+        flux = np.abs(phi - phi[order[0]])
+        if flux[order[-1]] > 0 and np.all(np.diff(flux[order]) >= 0):
+            rho = np.sqrt(flux / flux[order[-1]])
+            return {"coordinate": "rho_tor_norm", "source": "phi", "psi_norm": psi_norm, "rho_tor_norm": rho}
     stored = _array(ods, f"{root}.rho_tor_norm")
-    if stored is not None and stored.size == psi_norm.size and not is_rho_pol_proxy(stored, psi_norm):
-        return {"coordinate": "rho_tor_norm", "source": "stored", "psi_norm": psi_norm, "rho_tor_norm": stored}
-    reason = "rho_tor_norm is the sqrt(psi_N) proxy" if stored is not None else "no phi and no rho_tor_norm"
-    return {"coordinate": "unavailable", "reason": reason, "psi_norm": psi_norm}
+    if stored is not None and stored.size == psi_norm.size:
+        if is_rho_pol_proxy(stored, psi_norm):
+            return {"coordinate": "unavailable", "reason": "rho_tor_norm is the sqrt(psi_N) proxy", "psi_norm": psi_norm}
+        along = stored[order]
+        plausible = (np.all(np.isfinite(along)) and np.all(np.diff(along) >= 0)
+                     and abs(along[0]) < 0.05 and abs(along[-1] - 1.0) < 0.05)
+        if plausible:
+            return {"coordinate": "rho_tor_norm", "source": "stored", "psi_norm": psi_norm, "rho_tor_norm": stored}
+        return {"coordinate": "unavailable", "psi_norm": psi_norm,
+                "reason": "the stored rho_tor_norm is not a monotonic 0-to-1 coordinate"}
+    return {"coordinate": "unavailable", "reason": "no usable phi and no rho_tor_norm", "psi_norm": psi_norm}
 
 
 def match_thomson_pressure(equilibrium: Any, thomson: Any, *, time_s: float,
@@ -210,8 +224,7 @@ def match_thomson_pressure(equilibrium: Any, thomson: Any, *, time_s: float,
         out.update(time_ts_s=sampled["ts_time"], dt_ts_efit_s=sampled["ts_time"] - time_efit,
                    ts_tolerance_s=sampled["tolerance"])
     if not sampled["available"]:
-        beyond = "ts_time" in sampled and sampled["time_offset"] > sampled["tolerance"]
-        unmatched = beyond or "time base" in sampled["reason"] or "no thomson" in sampled["reason"]
+        unmatched = sampled["code"] in ("beyond_tolerance", "no_thomson")
         out.update(ts_status="unmatched" if unmatched else "invalid", reason=sampled["reason"])
         return out
     coordinate = rho_tor_norm_of(equilibrium, index)
@@ -298,6 +311,8 @@ def integrated_pressure_ratio(equilibrium: Any, index: int, rho_tor_norm: np.nda
     if r_grid is None or z_grid is None or psi_2d is None or pressure is None or not (
             math.isfinite(axis) and math.isfinite(boundary)) or axis == boundary:
         return {"available": False, "reason": "the slice has no 2-D psi, pressure or flux bounds"}
+    if pressure.size != coordinate["psi_norm"].size:
+        return {"available": False, "reason": "profiles_1d.pressure and psi differ in length"}
     if psi_2d.shape == (z_grid.size, r_grid.size) and r_grid.size != z_grid.size:
         psi_2d = psi_2d.T
     psi_n = (psi_2d - axis) / (boundary - axis)

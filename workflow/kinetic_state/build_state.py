@@ -6,7 +6,8 @@ JSON Schemas and a manifest into one versioned atlas directory (contract #1454).
 
 Rows
 ----
-* one ``magnetics`` row per (shot, time) graded ``good`` or ``admissible``;
+* one ``magnetics`` row per (shot, time) graded ``good`` or ``admissible`` by
+  ``criteria.slice_labels`` re-run on the analysis records with this checkout;
 * one ``electron_kinetic`` row per successful ``electron_efit`` whose paired
   magnetics slice (same shot, same time) is ``good`` or ``admissible``.  Its
   ``efit_quality`` is that pair's label; ``kinetic_admissible`` is the kinetic
@@ -42,6 +43,10 @@ from typing import Any, Mapping
 import numpy as np
 
 REPOSITORY = Path(__file__).resolve().parents[2]
+
+#: How far the EFIT slice may sit from a graded time.  Graded times are
+#: ``round(t * 1e3)`` ms, so up to half a millisecond plus float noise.
+SLICE_TOLERANCE_S = 0.6e-3
 CRITERIA_PATH = REPOSITORY / "workflow" / "efit_uncertainty_calibration" / "criteria.py"
 
 #: Column name -> (JSON type, description).  The schema files are generated from
@@ -81,8 +86,9 @@ STATE_COLUMNS: dict[str, tuple[str, str]] = {
     "r_w_full": ("number", "same over the whole plasma; extrapolates the core_profiles fit"),
     "r_w_cell_weights": ("string", "outline | psi_threshold"),
     "r_w_reason": ("string", "why r_w is empty"),
-    "delta_r_w": ("number", "electron_kinetic rows: r_w - r_w of the paired magnetics row"),
-    "c_p": ("number", "electron_kinetic rows: ln(r_w / r_w of the paired magnetics row)"),
+    "r_w_on_pair_span": ("number", "electron_kinetic rows: r_w over the paired magnetics row's psi_N span"),
+    "delta_r_w": ("number", "electron_kinetic rows: r_w_on_pair_span - r_w of the paired magnetics row"),
+    "c_p": ("number", "electron_kinetic rows: ln(r_w_on_pair_span / r_w of the paired magnetics row)"),
     "ip_measured_a": ("number", "measured Ip [A]"),
     "ip_reconstructed_a": ("number", "reconstructed Ip [A]"),
     "betap": ("number", "poloidal beta"),
@@ -201,12 +207,26 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
 
     criteria = _criteria()
     analysis = _load(analysis_path)
-    labels = {(int(l["shot"]), int(l["time_ms"])): l["label"] for l in analysis["labels"]
-              if l["label"] in ks.QUALITIES}
-    records = {(int(r["shot"]), int(r["time_ms"])): r for r in analysis["records"]}
-    # the evaluation stored in the JSON is re-derived, so a criteria change shows up here
-    for key, record in records.items():
-        record["evaluation"] = criteria.evaluate(record)
+    # Labels are re-derived from the records with this checkout's criteria, so
+    # gating and the verdict columns always come from one rule; disagreements
+    # with the labels stored in the JSON are counted in the manifest.
+    derived = criteria.slice_labels(analysis["records"])
+    stored = {(int(l["shot"]), int(l["time_ms"])): l["label"] for l in analysis.get("labels", [])}
+    label_rows = {(int(l["shot"]), int(l["time_ms"])): l for l in derived}
+    relabelled = sorted(k for k, l in label_rows.items() if stored.get(k, l["label"]) != l["label"])
+    labels = {k: l["label"] for k, l in label_rows.items() if l["label"] in ks.QUALITIES}
+    # One slice can carry a record per study setting, plus the routine and error
+    # records.  The row's context comes from the setting that earned the label
+    # (the first good one, else the first admissible one, in name order).
+    by_slice: dict[tuple[int, int], list[dict[str, Any]]] = {}
+    for record in analysis["records"]:
+        if "error" not in record:
+            by_slice.setdefault((int(record["shot"]), int(record["time_ms"])), []).append(record)
+    records: dict[tuple[int, int], dict[str, Any]] = {}
+    for key, label in labels.items():
+        earned = label_rows[key]["good"] or label_rows[key]["admissible"]
+        chosen = next(r for name in earned for r in by_slice[key] if r.get("setting") == name)
+        records[key] = {**chosen, "evaluation": criteria.evaluate(chosen)}
     labels_sha = _sha256(analysis_path)
     criteria_sha = _git("hash-object", str(CRITERIA_PATH))
     omas = filedb / "omas"
@@ -220,7 +240,7 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
 
     def add_match(row, eq, thomson, cp, time_s, tolerance):
         try:
-            match = ks.match_thomson_pressure(eq, thomson, time_s=time_s, slice_tolerance_s=0.5e-3,
+            match = ks.match_thomson_pressure(eq, thomson, time_s=time_s, slice_tolerance_s=SLICE_TOLERANCE_S,
                                               ts_tolerance_s=tolerance)
         except LookupError as missing:
             row.update(efit_status="unavailable", efit_status_reason=str(missing))
@@ -258,6 +278,8 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
             row["r_w_reason"] = span["reason"]
         if full["available"]:
             row["r_w_full"] = full["ratio"]
+        match["integrate"] = lambda psi_span: ks.integrated_pressure_ratio(  # noqa: E731
+            eq, match["time_slice"], electron["rho_tor_norm"], electron["p_e"], psi_norm_span=psi_span)
         return match
 
     shots = sorted({shot for shot, _ in labels})
@@ -318,10 +340,15 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
                                            if int(k["shot"]) == shot and int(k["time_ms"]) == kin_time_ms), None),
                "ip_measured_a": pair["ip_measured_a"], "ip_reconstructed_a": kin_scalars["ipmhd"],
                "betap": kin_scalars["betap"], "q95": kin_scalars["q95"], "wmhd_j": kin_scalars["wmhd"]}
-        add_match(row, kin, thomson, cp, kin_time_ms * 1e-3, tolerance)
-        if math.isfinite(_f(row.get("r_w"))) and math.isfinite(_f(pair.get("r_w"))):
-            row["delta_r_w"] = row["r_w"] - pair["r_w"]
-            row["c_p"] = math.log(row["r_w"] / pair["r_w"]) if row["r_w"] > 0 and pair["r_w"] > 0 else None
+        match = add_match(row, kin, thomson, cp, kin_time_ms * 1e-3, tolerance)
+        # Compare the two reconstructions over ONE domain: the magnetics row's
+        # channel span, so c_p is not partly a difference of integration domains.
+        if match is not None and "integrate" in match and math.isfinite(_f(pair.get("r_w"))):
+            shared = match["integrate"]((pair["psi_norm_lo"], pair["psi_norm_hi"]))
+            if shared["available"] and shared["ratio"] > 0 and pair["r_w"] > 0:
+                row["r_w_on_pair_span"] = shared["ratio"]
+                row["delta_r_w"] = shared["ratio"] - pair["r_w"]
+                row["c_p"] = math.log(shared["ratio"] / pair["r_w"])
         state_rows.append(row)
 
     out.mkdir(parents=True, exist_ok=True)
@@ -351,6 +378,8 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
         "criteria_sha": criteria_sha,
         "inputs": {"filedb": str(filedb), "analysis": str(analysis_path), "analysis_sha256": labels_sha},
         "rows": {"state": len(state_rows), "profiles": len(profile_rows)},
+        "labels": {"derived_with": "criteria.slice_labels", "differ_from_stored": len(relabelled),
+                   "differing": [list(k) for k in relabelled]},
     }
     (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1) + "\n")
     return {"state": state_rows, "profiles": profile_rows, "manifest": manifest}

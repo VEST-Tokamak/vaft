@@ -225,3 +225,118 @@ def test_inputs_are_not_mutated():
     ks.integrated_pressure_ratio(eq, 1, coordinate["rho_tor_norm"], np.ones(41))
     ks.core_profiles_electron_pressure(eq, time_s=0.313)
     assert set(eq.flat()) == before_eq and set(ts.flat()) == before_ts
+
+
+def test_per_slice_time_wins_over_a_stale_shared_time():
+    eq = _equilibrium()
+    eq["equilibrium.time"] = np.asarray(sorted(TIMES))  # stale: no longer the stored order
+    for t in TIMES:
+        index, _ = ks.slice_at_time(eq, t)
+        assert TIMES[index] == t
+    row = ks.match_thomson_pressure(eq, _thomson(), time_s=0.316)
+    assert row["time_efit_s"] == 0.316 and row["dt_ts_efit_s"] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_phi_stored_edge_to_axis_keeps_rho_zero_on_axis():
+    eq = _equilibrium(times=(0.314,))
+    level = np.linspace(0.0, 1.0, 41)
+    root = "equilibrium.time_slice.0.profiles_1d"
+    eq[f"{root}.psi"] = (-0.02 + 0.05 * level)[::-1]
+    eq[f"{root}.pressure"] = (_p0(0.314) * (1.0 - level))[::-1]
+    eq[f"{root}.phi"] = (-0.01 * level ** 1.3)[::-1]
+    coordinate = ks.rho_tor_norm_of(eq, 0)
+    assert coordinate["source"] == "phi"
+    np.testing.assert_allclose(coordinate["rho_tor_norm"], (level ** 0.65)[::-1], atol=1e-12)
+
+
+def test_an_implausible_stored_rho_is_not_used():
+    eq = _equilibrium(times=(0.314,), phi=False)
+    eq["equilibrium.time_slice.0.profiles_1d.rho_tor_norm"] = np.zeros(41)
+    coordinate = ks.rho_tor_norm_of(eq, 0)
+    assert coordinate["coordinate"] == "unavailable" and "monotonic" in coordinate["reason"]
+    eq["equilibrium.time_slice.0.profiles_1d.rho_tor_norm"] = np.linspace(0, 1, 41) ** 0.6
+    assert ks.rho_tor_norm_of(eq, 0)["source"] == "stored"
+
+
+def test_a_scalar_error_node_does_not_break_the_sampler():
+    ts = _thomson()
+    ts["thomson_scattering.channel.0.n_e.data_error_upper"] = 1e17
+    sampled = thomson_pressure_samples(_equilibrium(), 0, ts)
+    assert sampled["available"] and math.isnan(sampled["channels"][0]["n_e_error"])
+
+
+def test_mismatched_pressure_length_is_reported_not_raised():
+    eq = _equilibrium(times=(0.314,))
+    eq["equilibrium.time_slice.0.profiles_1d.pressure"] = np.ones(10)
+    coordinate = ks.rho_tor_norm_of(eq, 0)
+    got = ks.integrated_pressure_ratio(eq, 0, coordinate["rho_tor_norm"], np.ones(41))
+    assert not got["available"] and "length" in got["reason"]
+
+
+def test_unavailable_samples_carry_a_code():
+    eq = _equilibrium()
+    assert thomson_pressure_samples(eq, 0, ODS(consistency_check=False))["code"] == "no_thomson"
+    assert thomson_pressure_samples(eq, 0, _thomson(times=(0.2, 0.21)))["code"] == "beyond_tolerance"
+    assert thomson_pressure_samples(eq, 0, _thomson(radii=(0.78,)))["code"] == "no_channel_inside"
+
+
+# ---------------------------------------------------------------------------
+# the Tier A build, end to end on a synthetic FileDB
+# ---------------------------------------------------------------------------
+
+def _plain(ods: ODS, path) -> None:
+    import gzip
+    import json
+    from omas import save_omas_json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    raw = path.with_suffix("")
+    save_omas_json(ods, str(raw))
+    with open(raw) as source, gzip.open(path, "wt") as target:
+        target.write(source.read())
+    raw.unlink()
+
+
+def _record(shot, time_ms, *, setting="statistical_891", betap=0.2, converged=True):
+    return {"setting": setting, "shot": shot, "time_ms": time_ms, "converged": converged,
+            "scalars": {"betap": betap, "wmhd": 100.0, "q95": 5.0, "ipmhd": 9.5e4, "li": 0.8},
+            "pressure_min": 0.0, "ip_measured": 1e5, "fit": {"probe_reduced_chi2": 1.0, "loop_reduced_chi2": 1.0,
+                                                              "ip_sigma_median": 1e4},
+            "gs": {}, "virial": None, "thomson": None}
+
+
+def test_build_gates_on_rederived_labels_and_uses_the_earning_setting(tmp_path):
+    import importlib.util
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "workflow" / "kinetic_state" / "build_state.py"
+    spec = importlib.util.spec_from_file_location("lane_k_build_state", root)
+    build_state = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(build_state)
+
+    shot = 99001
+    filedb = tmp_path / "filedb"
+    _plain(_equilibrium(), filedb / "omas/efit/magnetic" / str(shot) / "output/efit.json.gz")
+    _plain(_thomson(), filedb / "omas/thomson" / str(shot) / "output/thomson.json.gz")
+    records = [
+        _record(shot, 312),                                         # admissible
+        _record(shot, 313, betap=-1.0),                             # vetoed: never a row
+        _record(shot, 314, setting="routine"),                      # routine only: never counts
+        _record(shot, 315, setting="a_scan", betap=-1.0),           # a setting that failed...
+        _record(shot, 315, setting="b_scan"),                       # ...and the one that earned it
+        {"setting": "c_scan", "shot": shot, "time_ms": 315, "error": "boom"},
+    ]
+    analysis = tmp_path / "analysis.json"
+    analysis.write_text(json.dumps({"records": records, "labels": [
+        {"shot": shot, "time_ms": 313, "label": "admissible"}]}))  # stale: criteria say otherwise
+    out = tmp_path / "atlas"
+    result = build_state.build(filedb, analysis, out, ti_te_ratio=1.0)
+
+    rows = {r["time_efit_s"]: r for r in result["state"]}
+    assert sorted(rows) == [0.312, 0.315]
+    assert rows[0.315]["efit_setting"] == "b_scan"
+    assert all(r["efit_lineage"] == "magnetics" and r["efit_status"] == "valid" for r in rows.values())
+    assert rows[0.312]["ts_status"] == "matched"
+    assert result["manifest"]["labels"]["differ_from_stored"] == 1
+    assert (out / "state.csv").is_file() and (out / "schema/state.schema.json").is_file()
