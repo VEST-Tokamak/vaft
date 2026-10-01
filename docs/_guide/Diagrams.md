@@ -1142,6 +1142,52 @@ vaft.diagram.blob_regimes(epsilon_x=0.1)  # Lambda against Theta = delta_hat^{5/
 | --- | --- |
 | ![velocity]({{ '/assets/diagrams/blob_velocity_scaling.svg' | relative_url }}) | ![regimes]({{ '/assets/diagrams/blob_regimes.svg' | relative_url }}) |
 
+## The VAFT framework: pillars, research cycle, managed pipeline, provenance
+
+These diagrams describe what VAFT is and how scientific data moves through it (#1090). They work at the level of
+scientific capabilities, not deployment: no storage backend, endpoint, path or module name appears in them, and
+a test enforces this. The README uses the four pillars, the research cycle and the managed pipeline.
+
+```python
+vaft.diagram.vaft_four_pillars()
+vaft.diagram.fusion_science_knowledge_lifecycle()
+vaft.diagram.scientific_workflow()
+vaft.diagram.interoperability_layers()
+vaft.diagram.scientific_provenance_chain()
+vaft.diagram.scientific_infrastructure_principles()
+vaft.diagram.machine_agnostic_architecture()
+vaft.diagram.experiment_modeling_theory_data_network()   # "point_to_point", "common_model", "equilibrium"
+vaft.diagram.human_ai_interface()
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `vaft_four_pillars` | Four capabilities at one level: the Standardized Data Interface, the Traceable & Reproducible Pipeline, the FAIR Scientific Data Repository and the Machine Knowledge Archive. They sit under the purpose (integrate fusion experiment, modelling, data and knowledge, so that plasma states are findable, comparable, reproducible and testable) and stand on the shared design principles. VEST is labelled as the reference implementation, not the foundation |
+| `fusion_science_knowledge_lifecycle` | A research-learning cycle: Experiment → Machine Description & Raw Data → Data Processing & Qualification → Modelling & Analysis → Physical Interpretation → Comparison & Synthesis → Discovery & New Questions → Experiment. New questions return only to the experiment |
+| `scientific_workflow` | A managed pipeline. Heterogeneous machine and experimental sources feed ingestion and orchestration, then diagnostic processing → equilibrium reconstruction and profile fitting → interpretive simulation, all reading and writing the standardized scientific state held in the Common Data Model (IMAS). Configuration and description, provenance and versioning, and V&V with quality assessment cut across it, and V&V feeds back to the configurations. The product is qualified, analysis-ready data |
+| `interoperability_layers` | From machine to scientific workflows in both directions, through the native representation, validation/standardization, the Common Data Model (IMAS) and the IMAS database. Native artifacts are stored alongside the standard (the dashed path) |
+| `scientific_provenance_chain` | An example tokamak analysis chain: raw signal → processed data → equilibrium reconstruction and profile fitting → derived physics quantities → analysis and visualization. Versioned inputs and configurations are kept apart from the cross-cutting quality metadata |
+| `scientific_infrastructure_principles` | Two foundations, both converging on VAFT. On one side are the common principles for modern scientific infrastructure (FAIR, W3C PROV, TRUST). On the other are three fusion-community requirements: verification and validation, integrated modelling and data analysis, and multi-machine comparison and extrapolation. Each side's references, FAIR4RS among them, sit beneath it |
+| `machine_agnostic_architecture` | Theory, experiment, modelling and simulation, and data-driven methods share one scientific framework and one Common Data Model (IMAS), which holds design, experimental and simulation data and is stored in the IMAS database. Machine-specific data access and mapping absorbs device differences, so the same architecture serves existing fusion experiments and future devices and reactor concepts. No device is named |
+| `experiment_modeling_theory_data_network` | A three-step argument for a common data model. Point to point needs $N(N-1)/2$ pairwise adapters, and a new mode needs $N-1$ more. The Common Data Model (IMAS) needs $N$ adapters, and a new mode needs one. The IMAS equilibrium IDS, a standardized equilibrium representation, then serves as a tokamak example with representative routes and references |
+| `human_ai_interface` | Three layers: actors, shared access interfaces and one backend. Human researchers and AI agents collaborate through the Python API, CLI, GUI, repository and docs, and MCP (planned). The interface layer reaches the framework and the IMAS database through one common connection |
+
+![The four pillars of VAFT]({{ '/assets/diagrams/vaft_four_pillars.svg' | relative_url }})
+![Research-learning cycle]({{ '/assets/diagrams/fusion_science_knowledge_lifecycle.svg' | relative_url }})
+![Managed scientific processing pipeline]({{ '/assets/diagrams/scientific_workflow.svg' | relative_url }})
+![Interoperability layers]({{ '/assets/diagrams/interoperability_layers.svg' | relative_url }})
+![Scientific provenance chain]({{ '/assets/diagrams/scientific_provenance_chain.svg' | relative_url }})
+![Principles for scientific infrastructure]({{ '/assets/diagrams/scientific_infrastructure_principles.svg' | relative_url }})
+![Machine-agnostic architecture]({{ '/assets/diagrams/machine_agnostic_architecture.svg' | relative_url }})
+![Without a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network_point_to_point.svg' | relative_url }})
+![With a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network.svg' | relative_url }})
+![The IMAS equilibrium as a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network_equilibrium.svg' | relative_url }})
+![Human-AI collaborative access]({{ '/assets/diagrams/human_ai_interface.svg' | relative_url }})
+
+The pillar names are the four README sections.
+The diagrams are built from the concept primitives in `vaft.diagram._concept`: `box`, `connector`, `band`,
+and `database`, a drum drawn as polylines. They use the `concept …` and `connector …` styles of the template.
+
 ## Integrated modeling: knowledge basis, realization, abstraction
 
 A single "analytic / numerical / empirical / data-driven" list mixes three independent questions. These

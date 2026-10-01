@@ -170,6 +170,20 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "integrated_modeling_space_fusion.svg": ("integrated_modeling_space", {"examples": "fusion"}),
     "integrated_modeling_space_tearing.svg": ("integrated_modeling_space", {"examples": "tearing"}),
     "integrated_modeling_process.svg": ("integrated_modeling_process", {}),
+    # the VAFT framework: lifecycle, pillars, workflow, interoperability, provenance, architecture (#1090)
+    "fusion_science_knowledge_lifecycle.svg": ("fusion_science_knowledge_lifecycle", {}),
+    "vaft_four_pillars.svg": ("vaft_four_pillars", {}),
+    "scientific_workflow.svg": ("scientific_workflow", {}),
+    "interoperability_layers.svg": ("interoperability_layers", {}),
+    "scientific_provenance_chain.svg": ("scientific_provenance_chain", {}),
+    "scientific_infrastructure_principles.svg": ("scientific_infrastructure_principles", {}),
+    "machine_agnostic_architecture.svg": ("machine_agnostic_architecture", {}),
+    "experiment_modeling_theory_data_network.svg": ("experiment_modeling_theory_data_network", {}),
+    "experiment_modeling_theory_data_network_point_to_point.svg": ("experiment_modeling_theory_data_network",
+                                                                   {"communication": "point_to_point"}),
+    "experiment_modeling_theory_data_network_equilibrium.svg": ("experiment_modeling_theory_data_network",
+                                                                {"communication": "equilibrium"}),
+    "human_ai_interface.svg": ("human_ai_interface", {}),
 }
 
 
