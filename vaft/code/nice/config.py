@@ -56,8 +56,11 @@ class NiceConfig:
     diagnostic_source: str = "magnetics"
     correct_active_response: bool = False
     # Winding polarity of physical flux measurements relative to NICE's
-    # COCOS flux input. VEST's calibrated +Green-flux convention requires -1.
-    flux_loop_input_sign: float = 1.0
+    # COCOS flux input.  VAFT maps VEST, whose calibrated +Green-flux loop
+    # values need -1 (NICE then applies CocosInToNice_Fmeas=-1; see
+    # validation/nice_issue_666/isolation_331ms/COCOS_AUDIT.md), so that is
+    # the default; +1 is for a source whose loops already carry NICE's sign.
+    flux_loop_input_sign: float = -1.0
     default_bpol_uncertainty: float = 1.0e-3
     default_flux_uncertainty: float = 1.0e-4
     default_ip_uncertainty: float = 1.0e3

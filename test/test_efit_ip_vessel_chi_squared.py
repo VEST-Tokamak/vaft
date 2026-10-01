@@ -203,3 +203,94 @@ def test_reliability_rows_carry_the_recomputed_ip_chi_squared():
     assert (ip_rows["chi_squared"] < 1e-12).all()
     # The slice aggregate loses the same vessel term, per slice.
     assert (ip_rows["chi_squared_reduced"] < 1e-6).all()
+
+
+# --------------------------------------------------------------------------- #
+# The writers say what the reader reads (cold review 0.8.0 efit-and-magnetics F1)
+# --------------------------------------------------------------------------- #
+def _efit_collection_parameters():
+    """The pipeline-1 EFIT collection stage's payload builder, imported by path."""
+    import importlib.util
+    from pathlib import Path
+
+    script = (
+        Path(__file__).resolve().parents[1]
+        / "workflow" / "automatic_pipeline_1_routine_data_processing" / "generate_efit_ods.py"
+    )
+    spec = importlib.util.spec_from_file_location("_generate_efit_ods_for_uncertainty_model", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.efit_collection_parameters
+
+
+def _pipeline1_product(preset_name):
+    from vaft.code.efit.presets import efit_preset
+
+    build = _efit_collection_parameters()
+    common = dict(status="success", slice_statuses=[], mapping_diagnostics=[],
+                  artifact_hashes={}, artifact_manifest={})
+    if preset_name is None:
+        payload = build(**common)
+    else:
+        # What the k-file stage leaves beside its manifest: the record plus the floor changes.
+        record = {**efit_preset(preset_name).record(), "sigma_floor_changes": []}
+        payload = build(**common, efit_preset=record)
+    ods = _ods()
+    ods["equilibrium.code.parameters"] = payload
+    return ods, json.loads(payload)
+
+
+def test_a_pipeline_1_statistical_product_is_graded():
+    """The preset stated `standard_deviation`; the reader used to answer "unknown"."""
+    from vaft.validation.equilibrium import validate_magnetic_fit
+
+    ods, decoded = _pipeline1_product("statistical_891")
+    assert decoded["uncertainty_model"] == "standard_deviation"
+    assert constraint_uncertainty_model(ods) == "standard_deviation"
+    results = validate_magnetic_fit(ods, time_slice=0)
+    for check in ("bpol_probe", "ip", "global"):
+        assert results[check]["status"] != "not_available", check
+        assert results[check]["uncertainty_model"] == "standard_deviation"
+
+
+def test_a_pipeline_1_routine_preset_product_says_legacy_weight_and_is_not_graded():
+    from vaft.validation.equilibrium import validate_magnetic_fit
+
+    ods, decoded = _pipeline1_product("routine")
+    assert decoded["uncertainty_model"] == "legacy_weight"
+    assert constraint_uncertainty_model(ods) == "legacy_weight"
+    assert validate_magnetic_fit(ods, time_slice=0)["ip"]["status"] == "not_available"
+
+
+def test_a_pipeline_1_product_without_a_preset_record_stays_unknown():
+    """No preset, no statement: the routine payload is what it was before presets."""
+    ods, decoded = _pipeline1_product(None)
+    assert "uncertainty_model" not in decoded and "efit_preset" not in decoded["efit_collection"]
+    assert constraint_uncertainty_model(ods) == "unknown"
+
+
+def test_a_product_written_before_the_key_existed_is_read_from_its_preset_record():
+    """0.8.0-era payloads carry the preset record but no top-level key."""
+    ods, decoded = _pipeline1_product("statistical_891")
+    del decoded["uncertainty_model"]
+    ods["equilibrium.code.parameters"] = json.dumps(decoded, sort_keys=True)
+    assert constraint_uncertainty_model(ods) == "standard_deviation"
+
+    # A record that does not carry the mode is not a statement either.
+    decoded["efit_collection"]["efit_preset"]["scientific"]["constraints"].pop("uncertainty_mode")
+    ods["equilibrium.code.parameters"] = json.dumps(decoded, sort_keys=True)
+    assert constraint_uncertainty_model(ods) == "unknown"
+
+
+def test_a_pipeline_2_kinetic_product_states_its_uncertainty_model():
+    """Pipeline 2 put the preset record in the manifest only; the product said nothing."""
+    from vaft.omas.vest_upstream import kinetic_efit_parameters
+
+    for preset, expected in ((None, "legacy_weight"), ("routine", "legacy_weight"),
+                             ("statistical_891", "standard_deviation")):
+        ods = _ods()
+        ods["equilibrium.code.parameters"] = kinetic_efit_parameters("kinetic_efit", preset)
+        assert constraint_uncertainty_model(ods) == expected, preset
+        decoded = json.loads(ods["equilibrium.code.parameters"])
+        assert decoded["kinetic_efit"]["stage"] == "kinetic_efit"
+        assert (decoded["kinetic_efit"]["efit_preset"] or {}).get("name") == preset

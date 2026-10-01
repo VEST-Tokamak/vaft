@@ -14,9 +14,11 @@ NUBEAM_HOME_ENV = "NUBEAMHOME"
 #: Serial NUBEAM, relative to ``$NUBEAMHOME``.
 NUBEAM_HOME_EXECUTABLE = Path("bin/nubeam_comp_exec")
 
-#: The Plasma State generator. The NTCC archive ships no main program for it;
-#: this is built from ``plasma_state_test.f90`` by ``install/nubeam/macos.sh``.
-NUBEAM_GENERATOR_EXECUTABLE = Path("bin/plasma_state_test")
+#: The Plasma State generator. The public NTCC archive ships the Plasma State
+#: library but no program that creates a state, so this is VAFT's own,
+#: ``install/nubeam/plasma_state/vaft_plasma_state.f90``, compiled by the
+#: installers against the NTCC build (see :mod:`vaft.code.nubeam.plasma_state`).
+NUBEAM_GENERATOR_EXECUTABLE = Path("bin/vaft_plasma_state")
 
 #: Merges NUBEAM's own state-change output into a full Plasma State.
 NUBEAM_UPDATE_STATE_EXECUTABLE = Path("bin/update_state")

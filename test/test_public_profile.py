@@ -9,6 +9,7 @@ missing markers).  Only the pinned real discharge is fetched, and only with
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from unittest import mock
 
 import numpy as np
@@ -227,6 +228,21 @@ def test_q_is_signed_by_current_and_field_under_cocos_11(discharge):
     assert ods["equilibrium.time_slice.0.global_quantities.ip"] == pytest.approx(8.0e5)
 
 
+@pytest.mark.parametrize("bt", [-0.5, 0.5])
+def test_a_q_file_that_is_already_signed_gets_the_documented_sign_not_a_double_one(tmp_path, bt):
+    (tmp_path / "pr08_test_9999_2d.dat").write_text(_block_2d("Q", "0", RHO_B, TIMES, _profile(-2.0, RHO_B)))
+    (tmp_path / "pr08_test_9999_1d.dat").write_text(
+        _block_1d("IP", "Amps", [0.19, 0.25], [8.0e5, 8.1e5]) + _block_1d("BT", "Tesla", [0.19, 0.20], [bt, bt])
+    )
+    (tmp_path / "pr08_test_9999_0d.dat").write_text(
+        "TOK,SHOT,TIME,PGASA,PGASZ,EVAP,BT,IP,RGEO\n"
+        f"TEST,9999,1.900E-01,2.000E+00,1.000E+00,????????,{bt:.3E},8.000E+05,1.000E+00\n"
+    )
+    ods = pr08_to_omas(read_pr08(tmp_path, "test", 9999))
+    # sign(Ip) sign(B0) |q|, as documented, whatever sign the file stored q with.
+    np.testing.assert_allclose(ods["equilibrium.time_slice.0.profiles_1d.q"], np.sign(bt) * _profile(2.0, RHO_B)[0])
+
+
 def test_contradicting_current_signs_leave_sign_bearing_quantities_out(discharge_dir):
     # As in MAST 8302: the 0D IP is negative, the 1D IP positive.
     path = discharge_dir / "pr08_test_9999_0d.dat"
@@ -277,6 +293,20 @@ def test_provenance_keeps_source_names_and_units(discharge):
     assert "PR08 test/9999 TE [eV]" in sources
     assert "synthetic discharge" in ods["dataset_description.ids_properties.comment"]
     assert ods["dataset_description.data_entry.pulse"] == 9999
+
+
+def test_the_comment_file_is_read_as_utf_8_whatever_the_locale_says(discharge_dir, monkeypatch):
+    # The PR08 text files are UTF-8 regardless of the reading machine's locale;
+    # a Windows code page decoded a Korean comment into mojibake.
+    (discharge_dir / "pr08_test_9999_com.dat").write_text("  주석: 합성 방전\n", encoding="utf-8")
+    original = Path.read_text
+
+    def locale_is_cp1252(self, encoding=None, errors=None, **kwargs):
+        return original(self, encoding=encoding or "cp1252", errors=errors, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", locale_is_cp1252)
+    ods = pr08_to_omas(read_pr08(discharge_dir, "test", 9999))
+    assert "주석: 합성 방전" in ods["dataset_description.ids_properties.comment"]
 
 
 def test_coverage_lists_every_variable_with_a_reason(discharge):

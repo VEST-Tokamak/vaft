@@ -154,13 +154,16 @@ to either platform.
 
 Linux compiles a different `nubeam.cpp` than macOS does. The 2021 distribution's
 copy calls a PSPLINE C API that current PPPL PSPLINE no longer provides, so
-`linux.sh` compiles the adapted copy from `vendor/server-ntcc-2021/` instead,
-with the `_r8` suffixes upstream has since removed. The prefix records which
-file was used, with its digest, in `vaft-external-install.json`.
+`linux.sh` adapts it in the build directory: `Nubeam::interp1d` gets an opaque
+PSPLINE handle, passed first to each of its five `czspline_*` calls. The prefix
+records the file actually compiled, with its digest, in
+`vaft-external-install.json`.
 
-That substitution affects `Nubeam::interp1d` only, and the agreement above is
-the evidence that it changed nothing observable: a wrong interpolation would
-not leave 63 profiles within a tenth of a percent of the macOS build.
+That adaptation affects `Nubeam::interp1d` only, and the agreement above is the
+evidence that it changed nothing observable: a wrong interpolation would not
+leave 63 profiles within a tenth of a percent of the macOS build. (That run
+compiled an equivalent copy from a PPPL server tree; the adaptation now applied
+to the public file produces the same five calls.)
 
 ## Notes
 
@@ -177,40 +180,53 @@ not leave 63 profiles within a tenth of a percent of the macOS build.
   `nubeam_init_Preact.dat` / `nubeam_step_Preact.dat` namelists are absent from
   the 2021 archive.
 
-## Generator parity: local `plasma_state_test` vs the server's `plasma_state_test_new`
+## Generator parity: `vaft_plasma_state` vs the 2021 server-tree generator
 
-The NTCC archive ships no main program for the Plasma State generator, and the
-server's `plasma_state_test_new.f90` is mode `0600` under another user's home
-directory, so it could not be read. What this build uses instead is
-`plasma_state_test.f90` from the vendored 2021 server tree -- a sibling program
-of the same family, byte-identical to the readable copy on the server
-(md5 `81ba2642...`).
+The public NTCC archives ship the Plasma State library but no program that
+creates a state. VAFT's generator, `plasma_state/vaft_plasma_state.f90`, calls
+the documented API (`ps_mdescr_read`, `ps_sconfig_read`,
+`ps_update_equilibrium`, `ps_mhdeq_derive`, `ps_store_plasma_state`) and is
+built from the public sources alone. Before it, this build used a
+`plasma_state_test.f90` from a PPPL server tree that is not publicly
+distributed.
 
-That substitution was the main open risk, so it was measured directly. The same
-G-EQDSK (md5 `f7d11c47...`, `g020000.015100`) and the same `inputf` were run
-through both generators:
+The packaged VEST case (`g020000.015100`, its `inputf` and `profiles`) was run
+through both, on the same macOS build of the NTCC libraries:
 
-| | server `_new` | local `plasma_state_test` |
+| | server-tree `plasma_state_test` | `vaft_plasma_state` |
 | --- | --- | --- |
-| Plasma State version | 2.044 | 2.055 |
-| output size | 1,482,532 B | 1,523,584 B |
-| variables | 414 | 415 |
+| variables | 415 | 383 (all shared) |
+| kinetic profiles, species, beams, neutral source | -- | identical |
+| equilibrium-derived quantities | -- | within 1e-3 relative (`phit` 9e-4, `curt` 4e-4, `psipol` 9e-5) |
 
-**239 shared profiles compared; median integral disagreement 0.00%.** The
-equilibrium geometry, currents and profiles are numerically identical. Only two
-quantities differ, and both are the same schema change rather than a physics
-difference:
+- The 32 variables only the old generator wrote are inputs for other
+  components (ICRF, ECH, LH, runaway, anomalous transport) and were all zero.
+- The equilibrium-derived differences do not depend on `bdy_crat` (0.08 and
+  0.075 give the same result); they come from the old program's own surface
+  treatment and stay well under the Monte Carlo noise of a NUBEAM run.
+- `psmom_nc` keeps the API default of 16 Pfirsch-Schlueter moments rather than
+  64; it feeds NCLASS, not NUBEAM.
 
-- `psmom_nc` -- flux-surface moment coefficients. Both builds declare
-  `nmom = 64`, but 2.044 stores 16 per surface (101x16) and 2.055 stores all 64
-  (101x64). The values agree over their common range.
-- `psmom_errck` -- the residual of that moment fit, and consequently smaller in
-  the build that keeps more moments: max 1.4e-4 locally against 1.2e-3 on the
-  server, an order of magnitude better.
+Both states were then run through NUBEAM (packaged VEST namelists,
+`nptcls = nptclf = 2000`, `NUBEAM_REPEAT_COUNT=1x0.001`, `init_hold` seed) and
+the `state_changes.cdf` outputs compared with `compare-plasma-state.py`:
 
-So the sibling source is not a risk in practice. Obtaining `_new` (a `chmod g+r`
-away) would still be worth doing if exact provenance ever matters, but nothing
-currently depends on it.
+| profile | integral | L2 |
+| --- | --- | --- |
+| `pbe` beam power to electrons | 0.03% | 0.51% |
+| `pbi` beam power to ions | 0.27% | 4.2% |
+| `pbth` thermalization power | 1.8% | 12.7% |
+| `nbeami` fast-ion density | 0.57% | 2.2% |
+| `curbeam` beam-driven current | 0.46% | 1.1% |
+| `sbedep` beam electron deposition | 0.00% | 0.02% |
+| `eperp_beami` / `epll_beami` | 0.47% / 0.11% | 1.9% / 1.5% |
+| `tqbe` / `tqbi` torque | 0.24% / 8.2% | 1.1% / 28% |
+
+Deposition and the power, density and current profiles agree to well under
+2% in the integral; the point-by-point L2 and the torque channels carry the
+Monte Carlo scatter of a 2000-marker run (`tqbjxb` integrates to nearly zero, so
+its relative integral is not meaningful). The full-count (50000-marker) run was
+not repeated: its STEP alone exceeds 40 minutes on this machine.
 
 ## End-to-end VEST run
 

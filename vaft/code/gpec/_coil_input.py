@@ -297,13 +297,19 @@ def coil_filaments_from_coil_in(
     FileNotFoundError
         A ``.dat`` file an activated set names is not there.
     ValueError
-        The file activates no set, or every activated set carries zero current.
+        The file names no ``machine`` (the ``.dat`` prefix), activates no set,
+        or every activated set carries zero current.
     """
     from vaft.machine_mapping.coils_non_axisymmetric_geometry import parse_gpec_coil_dat
 
     path = Path(path).expanduser()
     control = read_coil_control(path)
-    machine = control.get("machine", "")
+    machine = str(control.get("machine", "") or "").strip()
+    if not machine:
+        raise ValueError(
+            f"{path} names no machine in &COIL_CONTROL; the coil sets are read from "
+            "<machine>_<set>.dat, so without the word there is no file to look for"
+        )
     if coil_data_dir is not None:
         data_dir = Path(coil_data_dir).expanduser()
     elif control.get("data_dir"):

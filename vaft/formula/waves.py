@@ -291,7 +291,9 @@ def cold_plasma_refractive_index_squared(R, L, P, theta):
     and both roots are real for real Stix parameters. The roots are
     evaluated as $q/A$ and $C/q$ with $q = (B + \mathrm{sign}(B)F)/2$, so the
     finite root stays accurate as $A \to 0$; in the degenerate parallel case
-    $P = 0$ ($A = B = C = 0$) they are $R$ and $L$. The $\pm$ labels are
+    $P = 0$ ($A = B = C = 0$) they are $R$ and $L$, and where $B = C = 0$
+    with $A \ne 0$ (perpendicular propagation with $P = 0$ and $RL = 0$)
+    both roots are the double zero of $A n^4 = 0$. The $\pm$ labels are
     the algebraic branches, not O/X or R/L: which physical mode a branch is
     changes across $A = 0$ and $\theta$, so name modes from a tracked root
     (``perpendicular_refractive_index_squared`` at $\theta = \pi/2$; $R$
@@ -325,8 +327,13 @@ def cold_plasma_refractive_index_squared(R, L, P, theta):
         small = np.where(q != 0.0, C / q, np.nan)
     plus = np.where(sign > 0.0, big, small)
     minus = np.where(sign > 0.0, small, big)
+    # q = 0 means B = 0 and F = 0, so AC = 0.  With A != 0 the quartic is A n^4 = 0
+    # (e.g. theta = pi/2 with P = 0 and RL = 0): a double root at zero, not R and L.
+    double_zero = (q == 0.0) & (A != 0.0)
+    plus = np.where(double_zero, 0.0, plus)
+    minus = np.where(double_zero, 0.0, minus)
     # A = B = C = 0: the parallel case with P = 0, where the roots are R and L themselves
-    degenerate = q == 0.0
+    degenerate = (q == 0.0) & (A == 0.0)
     plus = np.where(degenerate, R, plus)
     minus = np.where(degenerate, L, minus)
     return _out(plus), _out(minus)

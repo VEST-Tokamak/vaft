@@ -100,3 +100,28 @@ def band(x0: float, x1: float, y0: float, y1: float, text: str = "", *, style: s
     if text:
         items.append(Label((x0 + _PAD, y1 - _PAD), text, "concept band label", anchor="north west", role=role))
     return items
+
+
+def database(x: float, y: float, width: float, height: float, text: str, *, style: str = "concept database",
+             text_style: str = "concept text", role: str = "", latex: bool = False) -> Box:
+    """A database cylinder centred at ``(x, y)``: a body and a front rim, drawn as polylines.
+
+    The body is one closed outline -- the top ellipse's back half, the
+    sides and the bottom ellipse's front half -- and the rim is the top
+    ellipse's front half, so the drum reads as a store without a TikZ shape
+    library. Connectors attach to its bounding box like a :func:`box`.
+    """
+    if not width > 2 * _PAD or not height > 0:
+        raise ValueError(f"database needs a width above {2 * _PAD} cm and a positive height, not {width} x {height}")
+    hw, hh = 0.5 * width, 0.5 * height
+    ry = min(0.18 * width, 0.25 * height)  # ellipse half-height
+    t = np.linspace(0.0, np.pi, 25)
+    top_back = np.stack([x + hw * np.cos(t), y + hh - ry + ry * np.sin(t)], -1)          # right to left, over
+    bottom_front = np.stack([x - hw * np.cos(t), y - hh + ry - ry * np.sin(t)], -1)     # left to right, under
+    body = Polyline.of(np.concatenate([top_back, bottom_front]), style, role=role, closed=True)
+    rim = Polyline.of(np.stack([x - hw * np.cos(t), y + hh - ry - ry * np.sin(t)], -1), "concept database rim",
+                      role=role)
+    # centred in the body below the rim: between the rim's lowest point (y + hh - 2 ry) and the base (y - hh)
+    label = Label((x, y - ry), text if latex else escape_latex(text),
+                  f"{text_style},text width={width - 2 * _PAD:.2f}cm", role=role)
+    return Box(x, y, width, height, (body, rim, label))

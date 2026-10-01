@@ -115,6 +115,11 @@ ml = ["torch", "onnx", "onnxruntime", "scikit-learn", "skl2onnx"]
 # most 1-D/2-D workflows never need, and K3D matters only in a notebook.
 vtk = ["pyvista>=0.44"]
 jupyter3d = ["k3d>=2.16"]
+# Video files of an animated plot (#1050): `plot_*(..., animation=True).save("x.mp4")`
+# encodes through PyAV, which carries its own FFmpeg. It is imported only when an
+# .mp4/.webm is written or previewed; static plots, interactive sliders and .gif
+# export (Pillow, already a Matplotlib dependency) never need it.
+video = ["av>=13"]
 # Numba is reserved for measured acceleration work (#1013) and is not a runtime
 # dependency: no VAFT module imports it yet. It used to be required, but
 # electromagnetics.py only checked whether it imported and printed a warning when
@@ -131,6 +136,9 @@ dev = [
   "onnxruntime",
   # for test_fit_profile_gp_backends.py, which compares the two GP backends
   "scikit-learn",
+  # so test_plot_video_pyav.py encodes and decodes a real video on the gate
+  # instead of skipping; the animation contract tests themselves need no PyAV.
+  "av>=13",
   # The suite is 4800+ largely independent tests; running them on one core is
   # what made the required CI check a 20-minute gate (issue #413).
   "pytest-xdist",

@@ -123,6 +123,28 @@ def test_an_output_the_adapter_cannot_read_is_refused():
         ch.CHEASEConfig(output="gyrokinetic")
 
 
+def test_the_nideal_deprecation_warns_where_it_is_written_not_on_every_copy():
+    """The adapters copy a config with ``dataclasses.replace(config, workdir=...)``
+    several times per solve; each copy re-ran ``__post_init__`` and re-warned
+    from inside ``dataclasses.py`` (cold review 0.8.0 plasma-state-and-chease F6)."""
+    import warnings
+    from dataclasses import replace
+
+    with pytest.warns(FutureWarning, match="deprecated") as record:
+        cfg = ch.CHEASEConfig(nideal=11)
+    assert len(record) == 1 and record[0].filename == __file__
+    with warnings.catch_warnings(record=True) as copies:
+        warnings.simplefilter("always")
+        for index in range(3):
+            cfg = replace(cfg, workdir=f"copy_{index}")
+    assert cfg.resolved_nideal == 11 and cfg.nideal == 11
+    assert [str(w.message) for w in copies] == []
+    # A fresh construction by the user is a fresh override, and warns once more, at their line.
+    with pytest.warns(FutureWarning, match="deprecated") as again:
+        ch.CHEASEConfig(**vars(cfg))
+    assert len(again) == 1 and again[0].filename == __file__
+
+
 def test_namelist_epslon_default_and_jsk95_nideal_on_request():
     """jsk95 parity is a property of the writer, not of the default.
 

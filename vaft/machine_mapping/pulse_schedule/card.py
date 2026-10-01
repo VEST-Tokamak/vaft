@@ -38,6 +38,13 @@ from .values import (
     parse_value,
 )
 
+__all__ = [
+    "extract_card",
+    "find_header_row",
+    "is_header_row",
+    "section_columns",
+]
+
 #: Diagnostic labels whose value is a trigger time or window. Other labels in
 #: the block (FastCam frame rate, filter, MD hardware notes, SEED) carry
 #: settings, not times, and are kept as settings rather than guessed at.
@@ -105,6 +112,26 @@ def is_header_row(ws: Any, row: int) -> bool:
     titles = {_key(ws.cell(row, column).value) for column in range(2, SCAN_MAX_COLUMNS + 1)}
     return any(title.startswith("diagnostics trigger") for title in titles) and any(
         title.startswith("h & cd trigger") for title in titles
+    )
+
+
+def is_title_row(ws: Any, row: int) -> bool:
+    """A row whose only content is text in column A: an operator's title.
+
+    A card's rows below the shot number leave column A empty, so text alone
+    in column A is what the operator typed between two cards to open a run
+    group. A bare number there is a shot the parser could not read, not a
+    title.
+    """
+    first = ws.cell(row, 1).value
+    if first is None or isinstance(first, (int, float)):
+        return False
+    text = _text(first)
+    if not text or _key(first) == "shot#" or re.fullmatch(r"[\d\s,~/\-\u2013]+", text):
+        return False
+    return all(
+        ws.cell(row, column).value is None or not _text(ws.cell(row, column).value)
+        for column in range(2, SCAN_MAX_COLUMNS + 1)
     )
 
 
@@ -292,10 +319,12 @@ def extract_card(ws: Any, shot_row: int, end_row: int) -> dict[str, Any] | None:
     # A shot block runs to the next shot number, which puts the *next* card's
     # two header rows -- and the next shot's plasma current -- inside it. It
     # also swallows any card whose column A is not a shot number, such as a
-    # reference card ("REF!!! 43013"), whose settings are not this shot's.
+    # reference card ("REF!!! 43013"), whose settings are not this shot's,
+    # and the title the operator typed between two cards to open a run group
+    # -- which, inside this card's rows, the converter never saw.
     last = end_row
     for row in range(shot_row + 1, end_row + 1):
-        if is_header_row(ws, row):
+        if is_header_row(ws, row) or is_title_row(ws, row):
             last = row - 1
             break
     rows = range(shot_row, last + 1)

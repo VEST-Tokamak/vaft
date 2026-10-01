@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, Sequence
 
 from vaft.compat import is_executable, resolve_executable
 from vaft.code._executables import executable_from_home, missing_home_message
@@ -22,13 +22,30 @@ from .config import (
     NUBEAM_UPDATE_STATE_EXECUTABLE,
     NUBEAMConfig,
 )
-from .inputs import NUBEAMInputs, prepare_nubeam_inputs
+from .inputs import (
+    NUBEAMInputError,
+    NUBEAMInputs,
+    prepare_nubeam_inputs,
+    stage_nubeam_namelists,
+)
+from .plasma_state import (
+    PLASMA_STATE_NAMELIST,
+    PlasmaStateSpec,
+    check_spec_against_namelists,
+    legacy_case_spec,
+    render_plasma_state_namelist,
+    spec_from_ods,
+)
 from .outputs import NUBEAMResult, collect_nubeam_outputs
 
 #: NUBEAM reports success on stdout rather than through its exit status in
 #: some paths, so these are checked as well as the return code.
 INIT_SUCCESS = "nubeam INIT completed:  normal exit."
 STEP_SUCCESS = "nubeam STEP completed:  normal exit."
+
+
+#: Log and error file stem of the Plasma State generator run.
+GENERATOR_LOG_STEM = "vaft_plasma_state"
 
 
 class NUBEAMExecutionError(RuntimeError):
@@ -76,7 +93,7 @@ def find_nubeam_executable(config: Optional[NUBEAMConfig] = None) -> Optional[Pa
 def find_plasma_state_generator(
     config: Optional[NUBEAMConfig] = None,
 ) -> Optional[Path]:
-    """Resolve the Plasma State generator ``plasma_state_test``."""
+    """Resolve the Plasma State generator ``vaft_plasma_state``."""
     config = config or NUBEAMConfig()
     return _resolve(
         config.generator_executable,
@@ -182,6 +199,15 @@ def _run(
     return completed
 
 
+def _stopped_generator(workdir: Path, completed: ExecutionResult) -> NUBEAMResult:
+    """A stopped generator is the case's result, not an exception (#1016)."""
+    return _stopped(
+        workdir,
+        completed,
+        (workdir / f"{GENERATOR_LOG_STEM}.log", workdir / f"{GENERATOR_LOG_STEM}.err"),
+    )
+
+
 def _stopped(
     workdir: Path,
     completed: ExecutionResult,
@@ -206,23 +232,48 @@ def _stopped(
 def generate_plasma_state(
     inputs: NUBEAMInputs, config: Optional[NUBEAMConfig] = None
 ) -> Path:
-    """Run ``plasma_state_test`` to build the Plasma State NUBEAM will read.
+    """Build the Plasma State NUBEAM will read, for a staged legacy case.
+
+    The case's ``inputf`` and ``profiles`` are read into a
+    :class:`~vaft.code.nubeam.plasma_state.PlasmaStateSpec` and handed to
+    :func:`build_plasma_state`.
 
     Raises :class:`NUBEAMExecutionError` when no state comes out -- including
     a run a time limit stopped, since this returns a path, not a result.
     :func:`run_nubeam_case` reports that stop as its result instead.
     """
-    completed, state = _generate(inputs, config or NUBEAMConfig())
+    config = config or NUBEAMConfig()
+    return build_plasma_state(_legacy_spec(inputs), inputs.workdir, config)
+
+
+def build_plasma_state(
+    spec: PlasmaStateSpec,
+    workdir: str | Path,
+    config: Optional[NUBEAMConfig] = None,
+) -> Path:
+    """Write *spec* into *workdir* as a Plasma State with ``vaft_plasma_state``.
+
+    Raises :class:`NUBEAMExecutionError` when no state comes out, including a
+    run a time limit stopped.
+    """
+    workdir = Path(workdir)
+    completed, state = _generate(spec, workdir, config or NUBEAMConfig())
     if state is None:
         raise NUBEAMExecutionError(
             f"{completed.stderr.strip().splitlines()[-1]}; see "
-            f"{inputs.workdir / 'plasma_state_test.err'}"
+            f"{workdir / (GENERATOR_LOG_STEM + '.err')}"
         )
     return state
 
 
+def _legacy_spec(inputs: NUBEAMInputs) -> PlasmaStateSpec:
+    if inputs.gfile is None:
+        raise NUBEAMInputError("the staged inputs name no G-EQDSK")
+    return legacy_case_spec(inputs.workdir, gfile=inputs.gfile)
+
+
 def _generate(
-    inputs: NUBEAMInputs, config: NUBEAMConfig
+    spec: PlasmaStateSpec, workdir: Path, config: NUBEAMConfig
 ) -> tuple[ExecutionResult, Optional[Path]]:
     """Build the Plasma State; ``(execution, None)`` when a time limit stopped it."""
     executable = _require(
@@ -230,32 +281,33 @@ def _generate(
         NUBEAM_GENERATOR_EXECUTABLE,
         "NUBEAM Plasma State generator",
     )
+    check_spec_against_namelists(spec)
+    workdir.mkdir(parents=True, exist_ok=True)
+    (workdir / PLASMA_STATE_NAMELIST).write_text(
+        render_plasma_state_namelist(spec, workdir), encoding="utf-8"
+    )
 
-    # The output file is the only success signal (below), so one left by an
-    # earlier run in the same work directory must not be there to satisfy it:
-    # a generator that fails quietly would otherwise hand back old physics.
-    if inputs.plasma_state is not None:
-        inputs.plasma_state.unlink(missing_ok=True)
+    # A state left by an earlier run in the same directory must not stand in
+    # for this one if the generator stops before writing.
+    state = workdir / spec.output_name
+    state.unlink(missing_ok=True)
 
     completed = _run(
         executable,
-        workdir=inputs.workdir,
+        workdir=workdir,
         env={},
-        log_stem="plasma_state_test",
+        log_stem=GENERATOR_LOG_STEM,
         config=config,
     )
     if completed.timed_out:
         return completed, None
 
-    # The generator reports its own errors on stdout and still exits 0 -- a
-    # missing G-EQDSK produces "?geq_init: file ... does not exist" and a zero
-    # status -- so the output file is the only trustworthy success signal.
-    state = inputs.plasma_state
-    if state is None or not state.is_file() or state.stat().st_size == 0:
+    # vaft_plasma_state exits non-zero on every failure; the file check guards
+    # against a generator that is not VAFT's (a configured override).
+    if completed.returncode != 0 or not state.is_file() or state.stat().st_size == 0:
         raise NUBEAMExecutionError(
-            f"plasma_state_test did not create {state}; "
-            f"exit status was {completed.returncode}. See "
-            f"{inputs.workdir / 'plasma_state_test.log'}"
+            f"vaft_plasma_state did not create {state}; exit status was "
+            f"{completed.returncode}. See {workdir / (GENERATOR_LOG_STEM + '.log')}"
         )
     return completed, state
 
@@ -347,17 +399,59 @@ def run_nubeam_case(
     inputs = prepare_nubeam_inputs(
         input_dir, gfile=gfile, workdir=workdir, config=config
     )
-    generated, state = _generate(inputs, config)
+    generated, state = _generate(_legacy_spec(inputs), inputs.workdir, config)
     if state is None:
-        # A stopped generator is this case's result, not an exception (#1016).
-        return _stopped(
-            inputs.workdir,
-            generated,
-            (
-                inputs.workdir / "plasma_state_test.log",
-                inputs.workdir / "plasma_state_test.err",
-            ),
-        )
+        return _stopped_generator(inputs.workdir, generated)
+    return run_nubeam(inputs, config)
+
+
+def run_nubeam_ods(
+    ods: Any,
+    *,
+    time: float,
+    case_dir: str | Path,
+    workdir: str | Path,
+    beam_power_w: Sequence[float],
+    beam_energy_kev: Sequence[float],
+    config: Optional[NUBEAMConfig] = None,
+    **spec_options: Any,
+) -> NUBEAMResult:
+    """Run NUBEAM at one time from ``equilibrium`` and ``core_profiles``.
+
+    *case_dir* supplies what the ODS does not carry: the four NUBEAM
+    namelists and one mdescr / sconfig pair (beam geometry, species, neutral
+    sources) -- ``vaft/data/nubeam/vest_case`` for VEST. The Plasma State is
+    built from the ODS by :func:`vaft.code.nubeam.plasma_state.spec_from_ods`;
+    *spec_options* go to it (``zeff``, ``duration``, ``nrho``, ...). Beam power
+    [W] and energy [keV] are run choices, one per mdescr beam.
+
+    The run id is ``config.runid``, and the work directory is budgeted
+    against it as in :func:`run_nubeam_case`.
+    """
+    config = config or NUBEAMConfig()
+    staged = stage_nubeam_namelists(case_dir, workdir=workdir, config=config)
+    spec, _ = spec_from_ods(
+        ods,
+        time=time,
+        workdir=staged.workdir,
+        mdescr=staged.mdescr,
+        sconfig=staged.sconfig,
+        beam_power_w=beam_power_w,
+        beam_energy_kev=beam_energy_kev,
+        runid=config.runid,
+        output_name=staged.state_name,
+        **spec_options,
+    )
+    generated, state = _generate(spec, staged.workdir, config)
+    if state is None:
+        return _stopped_generator(staged.workdir, generated)
+    inputs = NUBEAMInputs(
+        workdir=staged.workdir,
+        files=staged.files,
+        gfile=spec.gfile,
+        plasma_state=state,
+        runid=config.runid,
+    )
     return run_nubeam(inputs, config)
 
 

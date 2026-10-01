@@ -19,6 +19,27 @@ import yaml
 from .conventions import port_toroidal_angle, vest_clock_angle
 from .utils import package_data_path
 
+__all__ = [
+    "AVAILABILITY_VALUES",
+    "DiagnosticRegistryError",
+    "LIFECYCLE_VALUES",
+    "MAPPING_STATUS_VALUES",
+    "PORT_MAP_KEY",
+    "PortMapError",
+    "REGISTRY_KEY",
+    "documentation_snapshot",
+    "export_documentation_snapshot",
+    "load_diagnostic_registry",
+    "load_port_map",
+    "main",
+    "port_clock",
+    "port_clock_angle",
+    "port_phi",
+    "registry_path",
+    "validate_diagnostic_registry",
+    "validate_port_map",
+]
+
 
 REGISTRY_KEY = "diagnostic_registry"
 AVAILABILITY_VALUES = frozenset({"Routine", "If-requested", "Retired"})

@@ -473,3 +473,11 @@ def test_a_stopped_genray_run_is_a_failed_result(tmp_path):
     assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
     assert result.elapsed_s == 9.0 and result.parsed is None
     assert result.stderr == "GENRAY timed out after 9 s of running"
+
+
+@pytest.mark.parametrize("field", ["power_w", "zeff", "minimum_temperature_ev"])
+@pytest.mark.parametrize("value", [float("inf"), float("nan")])
+def test_config_refuses_non_finite_numbers(field, value):
+    """cold review 0.8.0 N2: ``inf`` would reach genray.dat as a bare token."""
+    with pytest.raises(ValueError, match="finite"):
+        GENRAYConfig(mode="O", time=0.3, **{field: value})

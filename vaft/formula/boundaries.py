@@ -150,7 +150,7 @@ class Applicability:
 
 @dataclass(frozen=True)
 class Uncertainty:
-    """Uncertainty the source itself reports, never an invented one.
+    r"""Uncertainty the source itself reports, never an invented one.
 
     ``coefficient`` is the one-sigma absolute uncertainty of the leading
     coefficient; ``coefficient_factor`` is the multiplicative factor when the
@@ -454,8 +454,11 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
     of different boundaries share one sign convention. ``allowed`` is strict:
     a state exactly on the boundary is not counted as permitted. A boundary
     value that is zero, negative or not finite gives NaN margin and ratio, is
-    never permitted, and adds a warning. Pass magnitudes where a sign
-    convention could make the boundary negative.
+    never permitted, and adds a warning. An operating value that is not
+    finite (a NaN gap in a trace) is likewise reported as not permitted, with
+    NaN margin and ratio and a warning: ``allowed`` is False there, not
+    unknown, so count violations from ``margin`` when a trace has gaps. Pass
+    magnitudes where a sign convention could make the boundary negative.
 
     Notes
     -----
@@ -469,10 +472,11 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
     difference = x - b_arr
     signed = -difference if boundary.allowed_side == "below" else difference
     valid = np.isfinite(b_arr) & (b_arr > 0)
+    x_finite = np.isfinite(x)
     with np.errstate(divide="ignore", invalid="ignore"):
         margin = np.where(valid, signed / np.where(valid, b_arr, 1.0), np.nan)
         ratio = np.where(valid, x / np.where(valid, b_arr, 1.0), np.nan)
-    allowed = valid & (signed > 0)
+    allowed = valid & x_finite & (signed > 0)
     extrapolated = _extrapolated(boundary, inputs)
     warnings = tuple(
         f"{name} lies outside the range {boundary.applicability.ranges[name]} "
@@ -482,6 +486,11 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
     if not np.all(valid):
         warnings += (
             f"{boundary.key!r} is non-positive or not finite at some inputs; margin and ratio are NaN "
+            "and the state is not counted as permitted there",
+        )
+    if not np.all(x_finite):
+        warnings += (
+            "the operating value is not finite at some inputs; margin and ratio are NaN "
             "and the state is not counted as permitted there",
         )
     return BoundaryEvaluation(
@@ -1166,7 +1175,10 @@ _register(Boundary(
 # Takizuka et al. (ITPA H-mode Power Threshold Database Working Group), PPCF 46 (2004) A227,
 # Eq. (4): the threshold scaling that brings MAST and NSTX closer to conventional tokamaks
 # through the absolute field at the outer midplane and an aspect-ratio factor F(A)^gamma.
-_TAKIZUKA_GAMMA = 0.5
+# The paper gives gamma = 0.5 +- 0.5 ("rather uncertain"); 0.5 is its central value and the
+# registered boundary's default, 0 and 1 bound the range, and Thome et al. 2017 evaluate the
+# scaling at the maximum gamma = 1.
+TAKIZUKA_GAMMA_DEFAULT = 0.5
 
 
 def _takizuka_outer_field(toroidal_field, plasma_current, minor_radius, aspect_ratio):
@@ -1184,13 +1196,25 @@ def _takizuka_aspect_factor(aspect_ratio):
 
 
 def _takizuka_2004_threshold(line_average_density, toroidal_field, plasma_current, minor_radius,
-                             aspect_ratio, plasma_surface_area, effective_charge):
-    """Eq. (4) of Takizuka et al. 2004 with gamma = 0.5, in MW."""
+                             aspect_ratio, plasma_surface_area, effective_charge, *,
+                             gamma=TAKIZUKA_GAMMA_DEFAULT):
+    """Eq. (4) of Takizuka et al. 2004 in MW, with the aspect-ratio exponent explicit.
+
+    ``gamma`` is the exponent of F(A): the paper gives 0.5 +- 0.5, so the
+    published range is 0 <= gamma <= 1 with 0.5 the central value used by the
+    registered boundary; Thome et al. 2017 evaluate the scaling at gamma = 1.
+    F(A)^gamma is 1.0-1.85 across that range at NSTX (A = 1.32) and 1.0-1.22 at
+    VEST (A = 1.7). A value outside [0, 1] is refused: it is outside what the
+    source states.
+    """
+    gamma = float(gamma)
+    if not 0.0 <= gamma <= 1.0:
+        raise ValueError(f"gamma must lie in the published range [0, 1]; got {gamma!r}")
     b_out = _takizuka_outer_field(toroidal_field, plasma_current, minor_radius, aspect_ratio)
     return (0.072 * b_out**0.7 * np.asarray(line_average_density, dtype=float) ** 0.7
             * np.asarray(plasma_surface_area, dtype=float) ** 0.9
             * (np.asarray(effective_charge, dtype=float) / 2.0) ** 0.7
-            * _takizuka_aspect_factor(aspect_ratio) ** _TAKIZUKA_GAMMA)
+            * _takizuka_aspect_factor(aspect_ratio) ** gamma)
 
 
 
@@ -1244,7 +1268,9 @@ _register(Boundary(
         BoundarySource("Y. Andrew et al., Plasma 2 (2019) 328", equation="abstract", doi="10.3390/plasma2030024",
                        note="MAST: P_th rises 3x over a 10-12 cm X-point height scan"),
     ),
-    notes="Gamma is fixed at its central value 0.5; gamma = 0 and 1 bound the paper's range. At low "
+    notes="The registered boundary evaluates F(A)^gamma at the paper's central value gamma = 0.5 "
+          "(TAKIZUKA_GAMMA_DEFAULT); gamma = 0 and 1 bound its range, and _takizuka_2004_threshold "
+          "takes gamma as a keyword to evaluate either bound (Thome 2017 use gamma = 1). At low "
           "aspect ratio even this scaling underestimates measured thresholds (Pegasus ~6x, Thome 2017). "
           "A VEST-like device (A ~ 1.7, B_T ~ 0.15 T; the repo's own values, not from these papers) lies "
           "inside the fitted aspect-ratio range but below the field and size of the fitted data: treat "

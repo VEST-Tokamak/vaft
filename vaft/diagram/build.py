@@ -170,6 +170,20 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "integrated_modeling_space_fusion.svg": ("integrated_modeling_space", {"examples": "fusion"}),
     "integrated_modeling_space_tearing.svg": ("integrated_modeling_space", {"examples": "tearing"}),
     "integrated_modeling_process.svg": ("integrated_modeling_process", {}),
+    # the VAFT framework: lifecycle, pillars, workflow, interoperability, provenance, architecture (#1090)
+    "fusion_science_knowledge_lifecycle.svg": ("fusion_science_knowledge_lifecycle", {}),
+    "vaft_four_pillars.svg": ("vaft_four_pillars", {}),
+    "scientific_workflow.svg": ("scientific_workflow", {}),
+    "interoperability_layers.svg": ("interoperability_layers", {}),
+    "scientific_provenance_chain.svg": ("scientific_provenance_chain", {}),
+    "scientific_infrastructure_principles.svg": ("scientific_infrastructure_principles", {}),
+    "machine_agnostic_architecture.svg": ("machine_agnostic_architecture", {}),
+    "experiment_modeling_theory_data_network.svg": ("experiment_modeling_theory_data_network", {}),
+    "experiment_modeling_theory_data_network_point_to_point.svg": ("experiment_modeling_theory_data_network",
+                                                                   {"communication": "point_to_point"}),
+    "experiment_modeling_theory_data_network_equilibrium.svg": ("experiment_modeling_theory_data_network",
+                                                                {"communication": "equilibrium"}),
+    "human_ai_interface.svg": ("human_ai_interface", {}),
 }
 
 
@@ -221,7 +235,12 @@ def check(out_dir: Optional[Path] = None) -> List[str]:
         if not svg.exists():
             problems.append(f"{name}: missing")
             continue
-        if _diagram(builder, kwargs).source_sha256 != entry.get("source_sha256"):
+        try:
+            source_sha256 = _diagram(builder, kwargs).source_sha256
+        except Exception as exc:  # noqa: BLE001 -- one broken builder must not hide the report on the others
+            problems.append(f"{name}: builder raised {type(exc).__name__}: {exc}")
+            continue
+        if source_sha256 != entry.get("source_sha256"):
             problems.append(f"{name}: stale -- its TikZ source or the render recipe changed; run python -m vaft.diagram.build")
         if _sha256(svg.read_bytes()) != entry.get("svg_sha256"):
             problems.append(f"{name}: the SVG does not match {MANIFEST} (edited by hand?)")

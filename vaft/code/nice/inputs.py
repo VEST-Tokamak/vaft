@@ -6,6 +6,7 @@ from dataclasses import asdict, replace
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 from typing import Any, Iterable
@@ -159,6 +160,55 @@ def _subtract_fixed_passive_response(geometry, diagnostics, currents):
     return tuple(corrected)
 
 
+def _apply_solver_tolerances(
+    target: Path, tolerances: Any
+) -> dict[str, Any]:
+    """Write ``solver_tolerances`` into the copied ``param.xml``; return them read back.
+
+    Each key must name exactly one element of the parameter file (for example
+    ``epsStopRecon``, ``iterMaxRecon``); the replacement is textual so the
+    reviewed file keeps its comments and layout.  The returned mapping holds
+    the values NICE will actually read, parsed from the written file, so the
+    manifest and the solver input cannot disagree.
+    """
+    if not tolerances:
+        return {}
+    text = target.read_text(encoding="utf-8")
+    for key, value in tolerances.items():
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", str(key)):
+            raise ValueError(f"solver_tolerances key {key!r} is not an XML element name")
+        if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+            raise ValueError(
+                f"solver_tolerances[{key!r}] must be a finite number or a string"
+            )
+        if isinstance(value, (int, float)) and not np.isfinite(value):
+            raise ValueError(f"solver_tolerances[{key!r}] must be finite, got {value!r}")
+        # repr is the shortest round-trip form: 1e-12 stays "1e-12", not
+        # "9.9999999999999998e-13", for whoever reads the file.
+        rendered = repr(value) if isinstance(value, float) else str(value)
+        pattern = re.compile(rf"(<{re.escape(str(key))}>)[^<]*(</{re.escape(str(key))}>)")
+        text, count = pattern.subn(
+            lambda match: f"{match.group(1)}{rendered}{match.group(2)}", text
+        )
+        if count != 1:
+            raise ValueError(
+                f"solver_tolerances key {key!r} matched {count} elements of "
+                f"{target.name}; it must name exactly one"
+            )
+    target.write_text(text, encoding="utf-8")
+    root = ET.parse(target).getroot()
+    effective: dict[str, Any] = {}
+    for key, value in tolerances.items():
+        written = root.findtext(str(key))
+        if isinstance(value, int) and not isinstance(value, bool):
+            effective[str(key)] = int(written)
+        elif isinstance(value, float):
+            effective[str(key)] = float(written)
+        else:
+            effective[str(key)] = written
+    return effective
+
+
 def prepare_nice_inputs(ods: Any, config: NiceConfig) -> NiceInputs:
     """Write deterministic NICE text inputs without importing or executing NICE."""
     if config.cocos_in != 11 or config.cocos_out != 11:
@@ -295,12 +345,19 @@ def prepare_nice_inputs(ods: Any, config: NiceConfig) -> NiceInputs:
         )
     )
 
+    effective_tolerances: dict[str, Any] = {}
+    if config.parameter_file is None and config.solver_tolerances:
+        raise ValueError(
+            "solver_tolerances can only reach NICE through param.xml; "
+            "set NiceConfig.parameter_file"
+        )
     if config.parameter_file is not None:
         source = Path(config.parameter_file).expanduser()
         if not source.is_file():
             raise FileNotFoundError(f"NICE parameter file not found: {source}")
         target = input_dir / "param.xml"
         shutil.copyfile(source, target)
+        effective_tolerances = _apply_solver_tolerances(target, config.solver_tolerances)
         root = ET.parse(target).getroot()
         cocos_node = root.find(".//inCOCOS")
         if cocos_node is None or int(cocos_node.text) != config.cocos_in:
@@ -322,6 +379,15 @@ def prepare_nice_inputs(ods: Any, config: NiceConfig) -> NiceInputs:
         ):
             raise ValueError(
                 "Effective NICE inoutCOCOS does not match config; explicitly set useNewCOCOSManager=1 and identical input/output COCOS"
+            )
+        xml_r0 = root.findtext("r0")
+        if xml_r0 is None or not np.isclose(
+            float(xml_r0), config.major_radius, rtol=0.0, atol=1e-9
+        ):
+            raise ValueError(
+                f"param.xml r0={xml_r0!r} does not match NiceConfig.major_radius="
+                f"{config.major_radius}: Ip_B0.txt B0 = F0 / major_radius and NICE "
+                "multiplies it back by r0, so a mismatch scales F silently"
             )
         if root.find("r_eqx_contour") is not None:
             from .geometry import validate_contour
@@ -406,7 +472,8 @@ def prepare_nice_inputs(ods: Any, config: NiceConfig) -> NiceInputs:
         "vaft_revision": vaft_revision,
         "build_options": dict(config.build_options),
         "profile_basis": dict(config.profile_basis),
-        "solver_tolerances": dict(config.solver_tolerances),
+        # The values as written into param.xml (read back), not the request.
+        "solver_tolerances": effective_tolerances,
         "initialization_method": config.initialization_method,
     }
     manifest_file = workdir / "nice_case_manifest.json"

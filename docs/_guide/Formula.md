@@ -18,7 +18,9 @@ related:
 ---
 
 `vaft.formula` is the **physics layer** of VAFT: closed-form expressions, empirical scalings and
-Green's functions, written as pure functions of NumPy arrays and scalars. Nothing in it touches an
+Green's functions, written as pure functions of NumPy arrays and scalars. How it sits beside
+`vaft.process` and `vaft.code` is set out on
+[Computational layers]({{ '/reference/computational-layers/' | relative_url }}). Nothing in it touches an
 ODS, reads a file, or plots. To evaluate the same physics directly on a VEST shot, use the ODS-aware
 wrappers in `vaft.omas.formula_wrapper` (the `vaft.omas.compute_*` functions), which pull the inputs
 out of the IDSs and hand them to these functions.
@@ -122,7 +124,7 @@ Fields and current density from the flux map:
 ```python
 B_r = vaft.formula.radial_magnetic_field_from_psi(psi, R, Z)      # B_r = -(1/R) dpsi/dZ
 B_z = vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z)    # B_z = +(1/R) dpsi/dR
-# current_density_from_psi is deprecated (#355): it returns -B_Z/mu0 [A/m],
+# current_density_from_psi (removed in 0.8.0, #355) returned -B_Z/mu0 [A/m],
 # not a current density.  For that quantity, note the minus sign:
 j   = -vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z) / MU0   # [A/m]
 # For a real toroidal current density use the Grad-Shafranov operator:

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
+import datetime
 import hashlib
 import json
 from pathlib import Path
@@ -29,6 +30,19 @@ import yaml
 
 from .card import extract_card
 from .values import normalize_status, parse_value
+
+__all__ = [
+    "Marker",
+    "convert_sheet",
+    "derive_session",
+    "detect_schema",
+    "load_overrides",
+    "marker_shots",
+    "session_path",
+    "set_path",
+    "sha256_file",
+    "validate_dataset",
+]
 
 SHOT_RE = re.compile(r"^\s*(\d{3,6})\s*$")
 SHOT_RANGE_RE = re.compile(r"^\s*(\d{3,6})\s*[-~–]\s*(\d{3,6})\s*$")
@@ -68,17 +82,31 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _calendar_date(year: str, month: str, day: str) -> str | None:
+    """``YYYY-MM-DD`` when the three parts make a real date, else ``None``."""
+    try:
+        datetime.date(int(year), int(month), int(day))
+    except ValueError:
+        return None
+    return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+
+
 def derive_session(sheet_name: str, source: Path) -> tuple[str | None, str]:
-    """``(experiment_date, session_id)`` from a sheet named ``YYMMDD`` or ``YYYYMMDD``."""
+    """``(experiment_date, session_id)`` from a sheet named ``YYMMDD`` or ``YYYYMMDD``.
+
+    A sheet whose leading digits make no calendar date -- ``202306`` read as
+    ``YYMMDD`` is 2020-23-06 -- takes the workbook's month instead, as a
+    sheet with no date in its name does.
+    """
     match8 = DATE8_RE.match(sheet_name) or DATE_ISO_RE.match(sheet_name)
     match6 = DATE_RE.match(sheet_name)
+    date = None
     if match8:
-        year, month, day = match8.groups()
-        date = f"{year}-{month}-{day}"
+        date = _calendar_date(*match8.groups())
     elif match6:
         year, month, day = match6.groups()
-        date = f"20{year}-{month}-{day}"
-    else:
+        date = _calendar_date(f"20{year}", month, day)
+    if date is None:
         file_match = FILE_DATE_RE.search(source.name)
         date = f"{file_match.group(1)}-{int(file_match.group(2)):02d}-01" if file_match else None
     suffix = re.sub(r"[^A-Za-z0-9가-힣_-]+", "-", sheet_name).strip("-") or "sheet"
@@ -180,7 +208,10 @@ def detect_schema(ws: Any, registry: dict[str, Any]) -> tuple[str | None, dict[s
     Ties go to the higher ``detection.priority``: the modern card also
     contains ``C (mF)``, ``NBI``, ``Gas Injection`` and ``Remark``, so the
     integrated_v3 test passes on it too. Counting headers does not separate
-    them -- integrated_v3 asks for more, and more generic, ones.
+    them -- integrated_v3 asks for more, and more generic, ones. Schemas of
+    equal score and priority are taken in registry order, and the returned
+    schema then carries ``tied_with`` naming the ones it beat, so the choice
+    is recorded rather than made by whichever id sorts first.
     """
     values = [
         _normalise(cell.value)
@@ -189,18 +220,23 @@ def detect_schema(ws: Any, registry: dict[str, Any]) -> tuple[str | None, dict[s
         if cell.value is not None
     ]
     text = "\n".join(values)
-    candidates: list[tuple[float, int, str, dict[str, Any]]] = []
-    for schema_id, schema in registry["schemas"].items():
+    candidates: list[tuple[float, int, int, str, dict[str, Any]]] = []
+    for position, (schema_id, schema) in enumerate(registry["schemas"].items()):
         required = schema["detection"].get("required_headers", [])
         matched = sum(1 for header in required if _normalise(header) in text)
         score = matched / len(required) if required else 0.0
         priority = schema["detection"].get("priority", 0)
-        candidates.append((score, priority, schema_id, schema))
+        candidates.append((score, priority, -position, schema_id, schema))
     if not candidates:
         return None, {"score": 0.0}
-    score, _, schema_id, schema = max(candidates, key=lambda item: item[:3])
+    candidates.sort(key=lambda item: item[:3], reverse=True)
+    score, priority, _, schema_id, schema = candidates[0]
     minimum = schema.get("detection", {}).get("minimum_score", 1.0)
-    return (schema_id, schema) if score >= minimum else (None, {"score": score})
+    if score < minimum:
+        return None, {"score": score}
+    tied_with = [other_id for other_score, other_priority, _, other_id, _ in candidates[1:]
+                 if (other_score, other_priority) == (score, priority)]
+    return schema_id, ({**schema, "tied_with": tied_with} if tied_with else schema)
 
 
 def _find_value_below(ws: Any, row: int, column: int, end: int, labels: set[str]) -> tuple[Any, str] | None:
@@ -378,8 +414,10 @@ def validate_dataset(dataset: dict[str, Any], registry: dict[str, Any]) -> list[
             errors.append(f"missing:{key}")
     if '"shot_no"' in json.dumps(dataset, ensure_ascii=False, default=str):
         errors.append("prohibited_key:shot_no")
+    # One physical discharge has one record per session: a shot entered twice
+    # anywhere on the sheet is a duplicate, whichever run groups hold it.
+    seen: set[int] = set()
     for group in dataset.get("run_groups", []):
-        seen: set[int] = set()
         for shot in group.get("shots", []):
             value = shot.get("shot")
             if not isinstance(value, int):
@@ -472,6 +510,14 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
     active_group: dict[str, Any] | None = None
     previous_end = 0
     references: list[int] = []
+    # One record per shot for the whole sheet. A shot logged again under a
+    # later title is a retry or correction of the same discharge, so its card
+    # folds into the first record (a later card wins per timing identifier)
+    # instead of opening a second entry whose timing the per-shot records
+    # would then mix with the first one's card.
+    existing: dict[int, dict[str, Any]] = {}
+    owner: dict[int, str] = {}
+    repeated: dict[int, list[str]] = {}
 
     for marker in markers:
         if marker.kind == "reference" and marker.reference is not None:
@@ -500,15 +546,19 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
         cells = _block_cells(ws, marker.row, block_end)
         # Modern templates place their two-level header immediately before a shot row.
         mapped = _extract_mapped_fields(ws, max(1, marker.row - 2), block_end, schema)
-        existing = {shot["shot"]: shot for shot in active_group["shots"]}
         for shot_number in marker.shots:
             if shot_number in existing:
                 item = existing[shot_number]
                 item["source_occurrences"].append({"cells": cells})
+                if owner[shot_number] != active_group["id"]:
+                    groups_seen = repeated.setdefault(shot_number, [owner[shot_number]])
+                    if active_group["id"] not in groups_seen:
+                        groups_seen.append(active_group["id"])
             else:
                 item = _new_shot(shot_number, cells, mapped)
                 active_group["shots"].append(item)
                 existing[shot_number] = item
+                owner[shot_number] = active_group["id"]
             if card is not None:
                 _apply_card(item, card)
         # Where the next title search starts. `end` runs to the next shot
@@ -541,11 +591,18 @@ def _convert(source, sheet_name, registry, overrides_path, workbook, source_hash
     _apply_overrides(dataset, overrides_path)
     if unreadable:
         dataset["review"]["unreadable_shot_cells"] = unreadable
+    if repeated:
+        dataset["review"]["shots_in_several_run_groups"] = [
+            {"shot": shot, "run_groups": run_groups} for shot, run_groups in sorted(repeated.items())
+        ]
     if out_of_span:
         dataset["review"]["out_of_span_markers"] = out_of_span
     if classification is not None:
         dataset["classification"] = classification
         dataset["review"]["reason"] = "unclassified_template"
+    if schema.get("tied_with"):
+        dataset["review"]["schema_tie"] = {"chosen": schema_id, "tied_with": schema["tied_with"],
+                                           "basis": "registry_order"}
     errors = validate_dataset(dataset, registry)
     if errors:
         dataset["review"]["validation_errors"] = errors

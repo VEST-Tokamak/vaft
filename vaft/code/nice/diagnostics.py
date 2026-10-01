@@ -11,6 +11,10 @@ from .config import NiceConfig, NiceDiagnostic
 
 
 def _value_at(ods: Any, base: str, time: float) -> float:
+    # ``in`` before indexing: reading a missing path would create it in the
+    # caller's ODS (cold review 0.8.0 N1).
+    if f"{base}.data" not in ods:
+        return float("nan")
     try:
         data = np.asarray(ods[f"{base}.data"], float)
     except Exception:
@@ -18,6 +22,8 @@ def _value_at(ods: Any, base: str, time: float) -> float:
     if data.ndim != 1 or not data.size:
         return float("nan")
     try:
+        if f"{base}.time" not in ods:
+            raise ValueError
         times = np.asarray(ods[f"{base}.time"], float)
         if times.ndim != 1 or not times.size:
             raise ValueError
@@ -30,14 +36,16 @@ def _value_at(ods: Any, base: str, time: float) -> float:
 
 def _uncertainty_at(ods: Any, base: str, time: float, default: float) -> float:
     for leaf in ("data_error_upper", "data_error_lower"):
+        if f"{base}.{leaf}" not in ods:
+            continue
         try:
             values = np.abs(np.asarray(ods[f"{base}.{leaf}"], float))
             if values.size == 1:
                 value = float(values[0])
             else:
-                try:
+                if f"{base}.time" in ods:
                     times = np.asarray(ods[f"{base}.time"], float)
-                except Exception:
+                else:
                     times = np.asarray(ods["magnetics.time"], float)
                 value = float(np.interp(time, times, values))
             if np.isfinite(value) and value > 0:
@@ -74,7 +82,8 @@ def diagnostics_from_ods(
     ip_path = "magnetics.ip.0"
     if config.include_plasma_current:
         value = _value_at(ods, ip_path, time)
-        identifier = _identity(ods[ip_path], "Ip")
+        # Indexing a missing path would create it in the caller's ODS.
+        identifier = _identity(ods[ip_path] if ip_path in ods else {}, "Ip")
         enabled = bool(
             np.isfinite(value) and not _explicitly_disabled(config, ip_path, identifier)
         )
@@ -118,7 +127,11 @@ def diagnostics_from_ods(
             base = f"{root}.{signal}"
             node = ods[root]
             identifier = _identity(node, f"{family}:{index}")
+            reason = ""
             if family == "bpol_probe":
+                # phi does not enter an axisymmetric fit; poloidal_angle is
+                # the measurement direction, so a probe without one cannot be
+                # fitted and must not be recorded as measured at 0.0.
                 geometry = {
                     "r": float(node["position.r"]),
                     "z": float(node["position.z"]),
@@ -127,8 +140,10 @@ def diagnostics_from_ods(
                     else 0.0,
                     "poloidal_angle": float(node["poloidal_angle"])
                     if "poloidal_angle" in node
-                    else 0.0,
+                    else None,
                 }
+                if geometry["poloidal_angle"] is None:
+                    reason = "no poloidal_angle: measurement direction unknown"
             else:
                 geometry = {"positions": []}
                 for pos in range(len(node["position"])):
@@ -143,9 +158,12 @@ def diagnostics_from_ods(
             value = _value_at(ods, base, time)
             uncertainty = _uncertainty_at(ods, base, time, default)
             enabled = bool(
-                np.isfinite(value)
+                not reason
+                and np.isfinite(value)
                 and not _explicitly_disabled(config, root, identifier)
             )
+            if not enabled and not reason:
+                reason = "missing/non-finite or explicitly disabled"
             result.append(
                 NiceDiagnostic(
                     family,
@@ -156,7 +174,7 @@ def diagnostics_from_ods(
                     uncertainty,
                     uncertainty,
                     enabled,
-                    "" if enabled else "missing/non-finite or explicitly disabled",
+                    reason,
                 )
             )
     if config.include_diamagnetic_flux:
@@ -166,7 +184,7 @@ def diagnostics_from_ods(
             NiceDiagnostic(
                 "diamagnetic_flux",
                 root,
-                _identity(ods[root], "diamagnetic_flux"),
+                _identity(ods[root] if root in ods else {}, "diamagnetic_flux"),
                 {},
                 value,
                 _uncertainty_at(

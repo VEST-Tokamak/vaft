@@ -27,7 +27,9 @@ implementation for modern, reproducible, and data-driven fusion research.
 
 Four things, which together are what "framework" means here.
 
-### Integrated Standardized Interface
+![The four pillars of VAFT](docs/assets/diagrams/vaft_four_pillars.svg)
+
+### Standardized Data Interface
 
 Integrate standardized data representations, scientific data processing,
 validation, visualization, and physics codes into one consistent scientific
@@ -38,7 +40,7 @@ representations, VAFT processing and plotting, verification and validation, and
 community physics codes — EFIT, CHEASE, GPEC, TokaMaker, VFIT — interoperate
 rather than being reimplemented here.
 
-### Version-Controlled Data Pipeline
+### Traceable & Reproducible Pipeline
 
 Produce traceable and reproducible data products across the whole workflow, from
 machine design and data acquisition to reconstructed and simulated physics states.
@@ -49,7 +51,7 @@ source code: machine descriptions and geometry, diagnostic mappings, calibration
 conventions, processing logic, validation criteria, model configuration, and
 schema versions.
 
-### IMAS-FAIR Database
+### FAIR Scientific Data Repository
 
 Preserve, discover, access, and share validated data through both native and
 standardized representations, following the FAIR principles — Findability,
@@ -59,13 +61,20 @@ partial access, and programmatic APIs are the foundation for finding which
 experimental and modelling information exists for a shot. Standardized access
 **complements** native scientific artifacts rather than replacing them.
 
-### Machine & Research Archive
+### Machine Knowledge Archive
 
-A living archive of the VEST tokamak and its research ecosystem since operation
-began in 2012 — machine history, technical documentation, experimental practices,
-tutorials, example notebooks, and reproducible research knowledge, kept usable for
+A living archive of machine knowledge — machine configuration and history,
+experimental history, operational decisions, technical documentation, tutorials,
+example notebooks, and institutional scientific knowledge of the VEST tokamak since
+operation began in 2012 — kept usable for
 long-term verification, comparison, and study across generations of researchers
 and collaborating institutions.
+
+Together they close a research-learning cycle: from the experiment through machine
+description and raw data, processing, modelling and interpretation to comparison and
+discovery, whose new questions drive the next experiment.
+
+![Research-learning cycle](docs/assets/diagrams/fusion_science_knowledge_lifecycle.svg)
 
 ## What can I do with VAFT?
 
@@ -140,6 +149,16 @@ VAFT extends that ecosystem into a shareable, interoperable scientific framework
 
 
 ## Architecture
+
+Heterogeneous machine and experimental sources become qualified, analysis-ready data
+through a managed pipeline: diagnostic processing, equilibrium reconstruction and
+profile fitting, and interpretive simulation share one standardized scientific state
+in the Common Data Model (IMAS), and verification,
+validation and quality assessment feed back into the processing configurations.
+
+![Managed scientific processing pipeline](docs/assets/diagrams/scientific_workflow.svg)
+
+The current VEST deployment:
 
 ```
 VEST Data Analysis Platform
