@@ -195,6 +195,7 @@ CORE_MODULES: tuple[str, ...] = (
     # read back through the reader and the edge classifier, and the #141 scan
     # driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
+    "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
     # The gate's own contract.
     "test_core_selection.py",

@@ -224,6 +224,9 @@ def run_job(
         "wall_s": round(elapsed, 1),
         "run_dir": str(record.workdir),
         "controls": json.dumps(controls(variant), sort_keys=True),
+        # Which GPEC build ran: a locally patched build is used only where the
+        # stock one cannot run, and the row must say so.
+        "gpec_home": os.environ.get("GPECHOME"),
     }
     if record.ok:
         row.update(metrics(variant.module, Path(record.workdir), mode))
