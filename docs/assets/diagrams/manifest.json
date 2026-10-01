@@ -492,8 +492,8 @@
     },
     "plasma_wall_interaction_sputtering.svg": {
       "call": "vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68)",
-      "source_sha256": "85361b22b554d1a1451c2c6f3b3dc812e4da5944648966091bb0601fa53a8677",
-      "svg_sha256": "3a5c2e92e5635e96db7c5bad337715dc71ff87532b1f428f53cbf389d2b5a906"
+      "source_sha256": "9f8a4890fb2c595250b207d81649f2dc75e27f27279dd1d47c05dec64ffa2df5",
+      "svg_sha256": "d48e628beaf8cdc30db687bd1dfbec202c5ccbbf6310fc77afd962de138f2a42"
     },
     "poloidal_angle_comparison.svg": {
       "call": "vaft.diagram.poloidal_angle_comparison()",

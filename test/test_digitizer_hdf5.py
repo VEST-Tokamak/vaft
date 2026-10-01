@@ -172,6 +172,15 @@ def test_cli_packs_deletes_only_verified_csvs_and_records_provenance(tmp_path, c
     assert "FAILED 101" in capsys.readouterr().err
 
 
+def test_a_provenance_file_that_is_not_an_object_is_refused_by_name_and_left_alone(tmp_path):
+    shot_dir = tmp_path / "40000"
+    shot_dir.mkdir()
+    (shot_dir / "provenance.json").write_text("[1, 2]", encoding="utf-8")
+    with pytest.raises(ValueError, match="provenance.json"):
+        sxr_pack._record_provenance(shot_dir, {"x.h5": {"sha256": "0"}})
+    assert (shot_dir / "provenance.json").read_text(encoding="utf-8") == "[1, 2]"
+
+
 def test_cli_resumes_by_verifying_an_existing_container(tmp_path):
     root = _archive(tmp_path)
     csv = root / "100" / "digitizer_17592_100.csv"

@@ -14,6 +14,7 @@ from os import PathLike
 from typing import TypeAlias
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_index
 from scipy.interpolate import RegularGridInterpolator
 
 from vaft.data.open_adas import (
@@ -367,7 +368,13 @@ def mean_charge_from_charge_state_densities(n_z, axis=-1):
     z_eff_from_n_s_Z_s
     """
     density = np.asarray(n_z, dtype=float)
-    if density.ndim == 0 or density.shape[axis] == 0:
+    if density.ndim == 0:
+        raise ValueError("n_z needs at least one charge state along axis")
+    try:
+        axis = normalize_axis_index(axis, density.ndim)
+    except (IndexError, np.exceptions.AxisError) as exc:  # numpy raises AxisError, an IndexError subclass
+        raise ValueError(f"axis {axis} is out of range for a {density.ndim}-D n_z") from exc
+    if density.shape[axis] == 0:
         raise ValueError("n_z needs at least one charge state along axis")
     if not np.all(np.isfinite(density)) or np.any(density < 0.0):
         raise ValueError("n_z must be finite and non-negative")

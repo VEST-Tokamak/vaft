@@ -741,11 +741,11 @@ def _dd_defines(ods, path):
 
 
 #: Equilibrium leaves that scale with psi (times 2*pi from Wb/rad to Wb) and
-#: the psi-derivative leaves that scale inversely.  Only leaves the slice holds
-#: are touched.  The list covers what VAFT's own writers (eqdsk, vfit, the
-#: update helpers) produce; DD leaves no VAFT path writes
-#: (``q_min.psi``, ``psi_external_average``, ``constraints.*.position.psi``)
-#: are not on it, so point this at externally produced ODSs with care.
+#: the psi-derivative leaves that scale inversely.  The list covers what
+#: VAFT's own writers (eqdsk, vfit, the update helpers) produce; DD leaves no
+#: VAFT path writes (``q_min.psi``, ``psi_external_average``,
+#: ``constraints.*.position.psi``) are not on it, so point this at externally
+#: produced ODSs with care.
 _PSI_LIKE_LEAVES = (
     "global_quantities.psi_axis",
     "global_quantities.psi_boundary",
@@ -760,32 +760,139 @@ _PER_PSI_LEAVES = (
     "profiles_1d.dvolume_dpsi",
     "profiles_1d.darea_dpsi",
 )
+#: Slice leaves whose sign follows the COCOS orientation (ip, q, F, B_phi,
+#: toroidal flux and current) plus the 2-D flux map.
+#: The OMAS table uses DD 3 names, so both ``b_field_tor`` and ``b_tor`` are listed.
+_SLICE_ORIENTED_LEAVES = (
+    "global_quantities.ip",
+    "global_quantities.q_axis",
+    "global_quantities.q_95",
+    "global_quantities.q_min.value",
+    "global_quantities.magnetic_axis.b_field_tor",
+    "global_quantities.magnetic_axis.b_tor",
+    "profiles_1d.f",
+    "profiles_1d.q",
+    "profiles_1d.phi",
+    "profiles_1d.j_tor",
+    "profiles_1d.j_parallel",
+    "profiles_2d.:.psi",
+    "profiles_2d.:.b_field_tor",
+    "profiles_2d.:.b_tor",
+    "profiles_2d.:.j_tor",
+    "profiles_2d.:.j_parallel",
+    "profiles_2d.:.phi",
+)
+#: Every leaf :func:`equilibrium_psi_to_weber` transforms, as OMAS generic
+#: paths; each one's factor is read from ``omas.omas_physics.cocos_signals``.
+#: ``equilibrium.time_slice.:.constraints`` is deliberately absent: VAFT's EFIT
+#: products copy those from the DD-conformant magnetics and pf_active IDSs, so
+#: they are already in weber and DD sign whatever the equilibrium declares.
+#: Of ``core_profiles`` the leaves VAFT derives from the equilibrium are here
+#: (the psi grid, and ``b0`` beside ``j_bootstrap`` from the neoclassical
+#: stage) together with the other orientation-carrying profiles, so a record
+#: converted from 2-8 is not left internally inconsistent.
+#: core_profiles is assumed to share the equilibrium's declared convention;
+#: the declaration lives on the equilibrium and none is read for core_profiles.
+_COCOS_TRANSFORMED_LEAVES = frozenset(
+    tuple(
+        f"equilibrium.time_slice.:.{leaf}"
+        for leaf in _PSI_LIKE_LEAVES + _PER_PSI_LEAVES + _SLICE_ORIENTED_LEAVES
+    )
+    + (
+        "equilibrium.vacuum_toroidal_field.b0",
+        "core_profiles.vacuum_toroidal_field.b0",
+        "core_profiles.global_quantities.ip",
+        "core_profiles.profiles_1d.:.grid.psi",
+        "core_profiles.profiles_1d.:.grid.psi_boundary",
+        "core_profiles.profiles_1d.:.grid.psi_magnetic_axis",
+        "core_profiles.profiles_1d.:.q",
+        "core_profiles.profiles_1d.:.j_tor",
+        "core_profiles.profiles_1d.:.j_total",
+        "core_profiles.profiles_1d.:.j_ohmic",
+        "core_profiles.profiles_1d.:.j_bootstrap",
+        "core_profiles.profiles_1d.:.j_non_inductive",
+    )
+)
+_ERROR_SUFFIXES = ("_error_upper", "_error_lower")
+
+
+def _transform_cocos_leaves(ods, source_cocos, target_cocos):
+    """Apply the COCOS ``source_cocos -> target_cocos`` transform in place.
+
+    Only the leaves in :data:`_COCOS_TRANSFORMED_LEAVES` are touched.  Each is
+    multiplied by its :func:`omas.omas_physics.cocos_transform` factor, looked
+    up through :data:`omas.omas_physics.cocos_signals`, and its
+    ``*_error_upper``/``*_error_lower`` by the factor's magnitude.
+    """
+    import numpy as np
+    from omas.omas_physics import cocos_signals, cocos_transform
+    from omas.omas_utils import l2u, p2l
+
+    factors = cocos_transform(source_cocos, target_cocos)
+    for root in ("equilibrium", "core_profiles"):
+        if root not in ods:
+            continue
+        for relative, value in ods[root].flat().items():
+            path = f"{root}.{relative}"
+            generic = l2u(p2l(path))
+            magnitude = False
+            for suffix in _ERROR_SUFFIXES:
+                if generic.endswith(suffix):
+                    generic, magnitude = generic[: -len(suffix)], True
+                    break
+            if generic not in _COCOS_TRANSFORMED_LEAVES:
+                continue
+            factor = factors[cocos_signals[generic]]
+            if magnitude:
+                factor = abs(factor)
+            if factor == 1:
+                continue
+            scaled = np.asarray(value, float) * factor
+            ods[path] = float(scaled) if scaled.ndim == 0 else scaled
 
 
 def equilibrium_psi_to_weber(ods, *, source=None):
-    """Rewrite a legacy Wb/rad equilibrium in place to the DD's full weber.
+    """Rewrite a per-radian equilibrium in place to COCOS 11, the DD's weber.
 
     The IMAS Data Dictionary stores ``equilibrium.*.psi`` in Wb (COCOS 11);
     artifacts written before issue #236 hold the g-file's Wb/rad verbatim and
-    declare nothing.  This multiplies every psi-like leaf by 2*pi, divides the
-    psi-derivative profiles by it, does the same to ``core_profiles`` psi grids,
-    and then declares COCOS 11 through :func:`set_ods_cocos` so no reader has
-    to guess again.
+    declare nothing.  After this call the ODS holds and declares
+    :data:`~vaft.data.cocos.VAFT_INTERNAL_COCOS` (11) through
+    :func:`set_ods_cocos`, so no reader has to guess again.
+
+    * A declared COCOS 1-8 is trusted as provenance and fully transformed to
+      COCOS 11 by :func:`omas.omas_physics.cocos_transform`, without probing
+      the data.  The leaves transformed are the fixed set
+      ``_COCOS_TRANSFORMED_LEAVES``: the equilibrium flux, its derivatives,
+      ``ip``, ``b0``, ``f``, ``q``, ``phi``, ``j_tor`` and ``b_field_tor``, and
+      the ``core_profiles`` psi grid, ``q``, currents, ``ip`` and ``b0``.  Each
+      leaf takes its factor from OMAS's ``cocos_signals`` table, and its error
+      bars take the magnitude of that factor.  Only COCOS 1 differs from 11 by
+      nothing but ``2*pi``; for 2-8 the flux, ``ip``, ``b0``/``f``, ``q`` and
+      ``b_field_tor`` also change sign as the index requires.  Scaling by
+      ``2*pi`` alone would turn COCOS k into k+10, not 11, and relabelling that
+      as 11 inverts the poloidal field (issue #1371).
+      ``equilibrium.time_slice.*.constraints`` is never touched: VAFT copies
+      it from the DD-conformant magnetics and pf_active IDSs.
+    * A declared COCOS 11-18 already stores psi in weber and is left alone:
+      the declaration is honest and every reader honours it, so ``False`` is
+      returned and neither the data nor the declaration changes.  Use
+      :func:`vaft.process.equilibrium.convert_cocos` to change orientation.
+    * An undeclared ODS is probed by :func:`vaft.data.eqdsk.flux_exponent_tier`,
+      which runs one probe over every slice before trying the next.  A
+      per-radian verdict is taken as COCOS 1 and transformed exactly as a
+      declared COCOS 1 would be, so a labelled and an unlabelled copy of one
+      file come out the same.  ``ValueError`` is raised when the slices that
+      tier decided disagree about their storage family or when no tier
+      settles it -- guessing would silently corrupt the flux by 2*pi, which
+      is what this function exists to end (issue #478).
 
     Returns ``True`` when a conversion was applied and ``False`` when the ODS
-    already declares a weber convention or holds no equilibrium.  A declared
-    COCOS 1-8 is trusted as provenance and converted without probing the
-    data.  An undeclared ODS is probed by
-    :func:`vaft.data.eqdsk.flux_exponent_tier`, which runs one probe over every
-    slice before trying the next, and ``ValueError`` is raised when the slices
-    that tier decided disagree about their storage family or when no tier
-    settles it -- guessing would silently corrupt the flux by 2*pi, which is
-    what this function exists to end (issue #478).
+    already declares a weber convention, is found to hold weber (it is then
+    only declared 11), or holds no equilibrium.
     """
-    import numpy as np
-
     from vaft.data.cocos import VAFT_INTERNAL_COCOS
-    from vaft.data.eqdsk import TWO_PI, _slice_reader, flux_exponent_tier
+    from vaft.data.eqdsk import _slice_reader, flux_exponent_tier
 
     if "equilibrium" not in ods or "equilibrium.time_slice" not in ods:
         return False
@@ -793,53 +900,38 @@ def equilibrium_psi_to_weber(ods, *, source=None):
     if declared is not None:
         if declared >= 11:
             return False
-        exponents = {0}
-    else:
-        # One tier for the whole file: a slice that only the weakest probe can
-        # read must not be weighed against slices the strongest one decided.
-        # Mixing tiers turns "this file is self-consistent" into "these two
-        # probes disagree", which is a different question.
-        readers = [
-            _slice_reader(ods[f"equilibrium.time_slice.{index}"])
-            for index in range(len(ods["equilibrium.time_slice"]))
-        ]
-        _tier, decided = flux_exponent_tier(readers)
-        exponents = set(decided.values())
-        if not exponents:
-            raise ValueError(
-                "No equilibrium time slice carries enough data (profiles_1d.phi, "
-                "or a boundary outline with psi and ip, or a q profile its own "
-                "psi map reproduces) to settle whether psi is stored in Wb or "
-                "Wb/rad; declare the COCOS index instead"
-            )
-        if len(exponents) > 1:
-            raise ValueError(
-                "Equilibrium time slices disagree about their psi convention; "
-                "refusing to convert an inconsistent ODS"
-            )
-        if exponents == {1}:
-            set_ods_cocos(ods, VAFT_INTERNAL_COCOS, source=source)
-            return False
+        _transform_cocos_leaves(ods, declared, VAFT_INTERNAL_COCOS)
+        set_ods_cocos(ods, VAFT_INTERNAL_COCOS, source=source)
+        return True
 
-    for index in range(len(ods["equilibrium.time_slice"])):
-        ts = ods[f"equilibrium.time_slice.{index}"]
-        for leaf in _PSI_LIKE_LEAVES:
-            if leaf in ts:
-                scaled = np.asarray(ts[leaf], float) * TWO_PI
-                ts[leaf] = float(scaled) if scaled.ndim == 0 else scaled
-        for leaf in _PER_PSI_LEAVES:
-            if leaf in ts:
-                ts[leaf] = np.asarray(ts[leaf], float) / TWO_PI
-        if "profiles_2d" in ts:
-            for grid_index in range(len(ts["profiles_2d"])):
-                if f"profiles_2d.{grid_index}.psi" in ts:
-                    ts[f"profiles_2d.{grid_index}.psi"] = (
-                        np.asarray(ts[f"profiles_2d.{grid_index}.psi"], float) * TWO_PI
-                    )
-    if "core_profiles.profiles_1d" in ods:
-        for index in range(len(ods["core_profiles.profiles_1d"])):
-            leaf = f"core_profiles.profiles_1d.{index}.grid.psi"
-            if leaf in ods:
-                ods[leaf] = np.asarray(ods[leaf], float) * TWO_PI
+    # One tier for the whole file: a slice that only the weakest probe can
+    # read must not be weighed against slices the strongest one decided.
+    # Mixing tiers turns "this file is self-consistent" into "these two
+    # probes disagree", which is a different question.
+    readers = [
+        _slice_reader(ods[f"equilibrium.time_slice.{index}"])
+        for index in range(len(ods["equilibrium.time_slice"]))
+    ]
+    _tier, decided = flux_exponent_tier(readers)
+    exponents = set(decided.values())
+    if not exponents:
+        raise ValueError(
+            "No equilibrium time slice carries enough data (profiles_1d.phi, "
+            "or a boundary outline with psi and ip, or a q profile its own "
+            "psi map reproduces) to settle whether psi is stored in Wb or "
+            "Wb/rad; declare the COCOS index instead"
+        )
+    if len(exponents) > 1:
+        raise ValueError(
+            "Equilibrium time slices disagree about their psi convention; "
+            "refusing to convert an inconsistent ODS"
+        )
+    if exponents == {1}:
+        set_ods_cocos(ods, VAFT_INTERNAL_COCOS, source=source)
+        return False
+
+    # A per-radian verdict is taken as COCOS 1: the same leaf set, whose
+    # 1 -> 11 factors are 2*pi on the flux and 1/(2*pi) on its derivatives.
+    _transform_cocos_leaves(ods, 1, VAFT_INTERNAL_COCOS)
     set_ods_cocos(ods, VAFT_INTERNAL_COCOS, source=source)
     return True

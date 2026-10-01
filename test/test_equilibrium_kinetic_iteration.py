@@ -392,6 +392,31 @@ def test_a_hollow_kinetic_pressure_is_refused_before_any_solve(fake, tmp_path):
     assert solver.calls == []
 
 
+def test_a_multi_target_synthesis_result_is_accepted_as_the_initial_equilibrium(tmp_path):
+    """The #1378 result carries its g-file through the solve it reports; it used
+    to die in ``_coerce_geqdsk`` with "not subscriptable", and so did any other
+    unrecognised object (cold review 0.8.0 plasma-state-and-chease F3)."""
+    from vaft.code.chease_synthesis import SyntheticEquilibriumResult, ZeroDimensionalEquilibriumSpec
+    from vaft.code.chease_synthesis_targets import MultiTargetSynthesisResult, TargetIterationRecord
+
+    spec = ZeroDimensionalEquilibriumSpec(major_radius=0.4, minor_radius=0.235, elongation=1.7,
+                                          triangularity=0.35, toroidal_field=0.18, plasma_current=1.2e5)
+    path = tmp_path / "g_synth"
+    write_geqdsk(sample_geqdsk(), path)
+    solved = SyntheticEquilibriumResult("success", None, spec, "plasma_current", {"plasma_current": 1.2e5},
+                                        refined_geqdsk=path)
+    record = TargetIterationRecord(1, 1, "probe", {}, {}, {}, {}, "success", None, result=solved)
+    converged = MultiTargetSynthesisResult("converged", None, spec, {"plasma_current": 1.2e5}, record=record)
+    geqdsk, label, _ = module._coerce_initial(converged)
+    assert geqdsk["NW"] == sample_geqdsk()["NW"] and str(path) in label
+
+    failed = MultiTargetSynthesisResult("chease_failed", "the solver stopped", spec, {"plasma_current": 1.2e5})
+    with pytest.raises(ValueError, match="chease_failed.*the solver stopped"):
+        module._coerce_initial(failed)
+    with pytest.raises(ValueError, match="MultiTargetSynthesisResult.*got object"):
+        module._coerce_initial(object())
+
+
 # --- restart -------------------------------------------------------------------------------------
 
 

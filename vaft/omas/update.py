@@ -2,6 +2,8 @@
 Update derived quantities for the ods data structure.
 """
 
+from collections.abc import Mapping
+
 import numpy as np
 from scipy.interpolate import interp1d
 import logging
@@ -1546,6 +1548,19 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
             )
             return profile_RZ, psiN_RZ
 
+        # Plasma mask of THIS slice, built once from the first psi_N map
+        # either branch produces (psi_N is the same for every profile of the
+        # slice) so an ion-only slice never inherits the previous slice's mask.
+        plasma_weights = None
+
+        def weights_for(psiN_RZ_slice):
+            nonlocal plasma_weights
+            if plasma_weights is None:
+                from vaft.omas.process_wrapper import _slice_plasma_weights
+
+                plasma_weights = _slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ_slice)
+            return plasma_weights
+
         # Step 2: Process electron profiles
         psiN_RZ = None
         n_e_vol = np.nan
@@ -1556,9 +1571,7 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                 # Process n_e
                 n_e_1d_rho = np.asarray(cp_ts['electrons.density'], float)
                 n_e_RZ, psiN_RZ = convert_to_2d(n_e_1d_rho)
-                from vaft.omas.process_wrapper import _slice_plasma_weights
-
-                plasma_weights = _slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ)
+                plasma_weights = weights_for(psiN_RZ)
                 n_e_vol, _ = volume_average(
                     n_e_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
                 )
@@ -1577,14 +1590,20 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
         n_e_vol_list.append(n_e_vol)
         T_e_vol_list.append(T_e_vol)
 
-        # Step 2: Process ion profiles (each ion individually)
-        if 'ion' in cp_ts and cp_ts['ion']:
+        # Step 2: Process ion profiles (each ion individually). The container
+        # is an ODS struct array on a real core_profiles (a plain dict or list
+        # only on hand-built inputs); all three are indexed by position.
+        if 'ion' in cp_ts and len(cp_ts['ion']):
             # Get list of ion indices
-            ion_indices = []
             if isinstance(cp_ts['ion'], dict):
                 ion_indices = list(cp_ts['ion'].keys())
-            elif isinstance(cp_ts['ion'], (list, tuple)):
+            else:
                 ion_indices = list(range(len(cp_ts['ion'])))
+            # Ions seen on earlier slices but absent here keep their lists aligned.
+            for ion_idx in ion_vol_dict.keys():
+                if ion_idx not in ion_indices:
+                    ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                    ion_vol_dict[ion_idx]['T_i'].append(np.nan)
             
             for ion_idx in ion_indices:
                 # Initialize ion result lists if not exists
@@ -1595,14 +1614,11 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                         ion_vol_dict[ion_idx]['n_i'].append(np.nan)
                         ion_vol_dict[ion_idx]['T_i'].append(np.nan)
                 
-                # Get ion data
-                if isinstance(cp_ts['ion'], dict):
-                    ion_ts = cp_ts['ion'][ion_idx]
-                else:
-                    ion_ts = cp_ts['ion'][ion_idx]
+                # Get ion data (an ODS, or a dict on hand-built inputs)
+                ion_ts = cp_ts['ion'][ion_idx]
                 
                 # Check if ion_ts is valid and has required keys
-                if not isinstance(ion_ts, dict) or ion_ts is None:
+                if not isinstance(ion_ts, Mapping):
                     ion_vol_dict[ion_idx]['n_i'].append(np.nan)
                     ion_vol_dict[ion_idx]['T_i'].append(np.nan)
                     continue
@@ -1627,15 +1643,17 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                         ion_vol_dict[ion_idx]['T_i'].append(np.nan)
                         continue
                     
-                    # Convert to 2D RZ and compute volume average
-                    n_i_RZ, _ = convert_to_2d(n_i_1d_rho)
+                    # Convert to 2D RZ and compute volume average with this
+                    # slice's own mask (an ion-only slice has no electron psi_N).
+                    n_i_RZ, psiN_RZ_ion = convert_to_2d(n_i_1d_rho)
                     T_i_RZ, _ = convert_to_2d(T_i_1d_rho)
+                    ion_weights = weights_for(psiN_RZ_ion)
                     
                     n_i_vol, _ = volume_average(
-                        n_i_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                        n_i_RZ, psiN_RZ_ion, R_grid, Z_grid, weights=ion_weights
                     )
                     T_i_vol, _ = volume_average(
-                        T_i_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                        T_i_RZ, psiN_RZ_ion, R_grid, Z_grid, weights=ion_weights
                     )
                     
                     ion_vol_dict[ion_idx]['n_i'].append(n_i_vol)
@@ -1659,20 +1677,12 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
     gq['n_e_volume_average'] = n_e_vol_list
     gq['t_e_volume_average'] = T_e_vol_list
     
-    # Store ion results only if ion data exists
-    if ion_vol_dict:
-        # Store ion results
-        if 'ion' not in gq:
-            gq['ion'] = []
-        
-        # Ensure ion array has enough elements
-        max_ion_idx = max(ion_vol_dict.keys())
-        while len(gq['ion']) <= max_ion_idx:
-            gq['ion'].append(ODS())
-        
-        for ion_idx, results in ion_vol_dict.items():
-            gq['ion'][ion_idx]['n_i_volume_average'] = results['n_i']
-            gq['ion'][ion_idx]['t_i_volume_average'] = results['T_i']
+    # Store ion results only if ion data exists, on the DD nodes
+    # core_profiles.global_quantities.ion[:].{n_i,t_i}_volume_average (writing
+    # the struct array as an empty list fails OMAS's coordinate check).
+    for ion_idx, results in ion_vol_dict.items():
+        gq[f'ion.{int(ion_idx)}.n_i_volume_average'] = np.asarray(results['n_i'], float)
+        gq[f'ion.{int(ion_idx)}.t_i_volume_average'] = np.asarray(results['T_i'], float)
 
 
 def update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None):

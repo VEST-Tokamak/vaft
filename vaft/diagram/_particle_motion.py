@@ -52,6 +52,12 @@ def _check_projection(projection: str, allowed) -> str:
     return projection
 
 
+def _check_labels(labels) -> bool:
+    if not isinstance(labels, bool):
+        raise ValueError(f"labels must be True or False, not {labels!r}")
+    return labels
+
+
 @dataclass(eq=False)
 class ParticleFigure:
     """What a particle-motion diagram shows, in normalised units."""
@@ -154,6 +160,7 @@ def exb_drift(*, mass_ratio: float = 4.0, projection: str = "perpendicular", lab
     along $\mathbf{B}$ drifting sideways.
     """
     _check_projection(projection, ("perpendicular", "3d"))
+    labels = _check_labels(labels)
     mass_ratio = _validate_mass_ratio(mass_ratio)
     E, B = np.array([0.2, 0.0, 0.0]), np.array([0.0, 0.0, 1.0])
     v_E = exb_drift_velocity(E, B)
@@ -254,6 +261,7 @@ def curvature_drift(*, projection: str = "3d", labels: bool = True) -> Diagram:
     ``vaft.diagram.canonical_toroidal_momentum``.
 """
     _check_projection(projection, ("3d", "poloidal", "top"))
+    labels = _check_labels(labels)
     R0, B0, q, m = 6.0, 4.0, 1.0, 1.0
     v_par, v_perp = 1.0, 2.0
     B_field = _toroidal_field(R0, B0)
@@ -348,6 +356,7 @@ def magnetization_current(*, projection: str = "perpendicular", labels: bool = T
     columns along $\mathbf{B}$ with the edge current wrapped around them.
     """
     _check_projection(projection, ("perpendicular", "3d"))
+    labels = _check_labels(labels)
     q, m, B0, rho = 1.0, 1.0, 1.0, 1.0
     B = np.array([0.0, 0.0, -B0])
     side, spacing = 8.0, 1.6
@@ -451,6 +460,7 @@ def toroidal_drift(*, aspect_ratio: float = 2.2, projection: str = "3d", labels:
     from ._magnetic_island import _validate as _island_model
 
     _check_projection(projection, ("3d", "poloidal", "top"))
+    labels = _check_labels(labels)
     if not (math.isfinite(aspect_ratio) and aspect_ratio > 1.3):
         raise ValueError(f"aspect_ratio must be finite and exceed 1.3, not {aspect_ratio!r}")
     R0, a, B0 = float(aspect_ratio), 1.0, 1.0

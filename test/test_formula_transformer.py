@@ -44,7 +44,7 @@ def test_a_uniform_channel_has_li_3_one_half_through_its_fluxes(ip):
     psi, j, ds, psi_b, r0 = _uniform_channel(ip)
     psi_c = current_weighted_flux_from_psi_j_dS(psi, j, ds)
     l_i = internal_inductance_from_psi_C_psi_B_I_p(psi_c, psi_b, ip)
-    assert l_i == pytest.approx(MU0 * r0 / 4.0, rel=1e-6)
+    assert l_i == pytest.approx(MU0 * r0 / 4.0, rel=1e-6, abs=0)  # 1.3e-7: the default abs would be 8x looser
     # The same L_i as the field-energy route: int B_p^2 dV = mu0^2 I^2 R0 / 4.
     li_3 = li_3_from_Bp2_volume_integral(MU0**2 * ip**2 * r0 / 4.0, ip, r0)
     assert 2.0 * l_i / (MU0 * r0) == pytest.approx(li_3, rel=1e-6)

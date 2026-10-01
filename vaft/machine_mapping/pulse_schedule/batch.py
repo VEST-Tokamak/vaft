@@ -193,20 +193,29 @@ def has_shot_markers(path: Path, minimum: int = 2, rows: int = 60) -> bool:
 
 
 def _content_span(path: Path) -> tuple[int, int] | None:
-    """The span a log without ``#first-last`` implies: its middle 80 %, widened.
+    """The span a log without ``#first-last`` implies: where its shots cluster.
 
     ``ERC_ShotLog`` or ``conditioning`` name no range, and without one every
     number in column A would be a shot -- including the 400s and 1000s that
-    turned out not to be. The bulk of the file's own numbers says where its
-    shots are; a stray far from them is a reference or a value, not a shot.
+    turned out not to be. The file's own numbers say where its shots are:
+    logged shots run in near-consecutive clusters, while a value or a year
+    is a single number far from any other. The numbers are split where two
+    neighbours are more than :data:`SPAN_MARGIN` apart; a cluster of one
+    distinct number is a stray unless it is all the file has. (Trimming the
+    outer 10 % instead let three strays among twelve numbers through.)
     """
-    shots = sorted(_column_a_shots(path))
+    shots = sorted(set(_column_a_shots(path)))
     if not shots:
         return None
-    low = shots[len(shots) // 10]
-    high = shots[(len(shots) * 9) // 10]
-    margin = max(SPAN_MARGIN, (high - low) // 2)
-    return low - margin, high + margin
+    clusters: list[list[int]] = [[shots[0]]]
+    for shot in shots[1:]:
+        if shot - clusters[-1][-1] > SPAN_MARGIN:
+            clusters.append([shot])
+        else:
+            clusters[-1].append(shot)
+    largest = max(clusters, key=len)
+    kept = [cluster for cluster in clusters if len(cluster) > 1 or cluster is largest]
+    return kept[0][0] - SPAN_MARGIN, kept[-1][-1] + SPAN_MARGIN
 
 
 def _relative(path: Path, root: Path | None) -> str:
@@ -345,10 +354,13 @@ def discover_sources(
             following = next((later.first_shot for later in monthly_records[index + 1:]
                               if later.first_shot is not None), None)
             monthly_records[index] = replace(item, span_limit=following)
-    supplementary = [
-        item if item.first_shot is not None else replace(item, content_span=_content_span(item.path))
-        for item in supplementary
-    ]
+    # A log whose name carries no ``#first-last`` gets the span its own
+    # column A implies. That guard used to reach only the supplementary logs:
+    # a month saved as ``ShotLog_2013_03.xlsx`` before the operator appended
+    # the span had ``span() is None``, and every number in column A -- the
+    # 400s, 1000s and a ``2013`` -- became a shot record, silently.
+    monthly_records = [_with_content_span(item) for item in monthly_records]
+    supplementary = [_with_content_span(item) for item in supplementary]
     discovery.included = _unique_paths(monthly_records + supplementary)
     discovery.archived_only = _unique_paths(discovery.archived_only)
     discovery.fallback = [
@@ -366,6 +378,13 @@ def _other_path(path: Path, root: Path) -> str:
         return "other/" + display_name(path)
 
 
+def _with_content_span(item: SourceWorkbook) -> SourceWorkbook:
+    """``item`` bounded by its own column A when its name names no span."""
+    if item.first_shot is not None:
+        return item
+    return replace(item, content_span=_content_span(item.path))
+
+
 def _fallback(item: ArchivedFile) -> SourceWorkbook:
     described = _describe(item.path)
     first, last = _name_span(item.path)
@@ -373,7 +392,7 @@ def _fallback(item: ArchivedFile) -> SourceWorkbook:
         item.path, described.year if described else None, described.month if described else None,
         first, last, role=item.role, archive_path=item.archive_path,
     )
-    return workbook if first is not None else replace(workbook, content_span=_content_span(item.path))
+    return _with_content_span(workbook)
 
 
 def _unique_paths(items: list) -> list:
@@ -417,6 +436,10 @@ def iter_sessions(
         source_hash = sha256_file(source.path)
         entry: dict[str, Any] = {"source_file": display_name(source.path), "source_sha256": source_hash,
                                  "role": source.role, "sheets": []}
+        if source.first_shot is None and source.content_span is not None:
+            # The name gave no span: say the one in force was derived from the file.
+            entry["span"] = list(source.content_span)
+            entry["span_source"] = "content"
         record["included_files"].append(entry)
         try:
             workbook = load_workbook(source.path, read_only=False, data_only=False)

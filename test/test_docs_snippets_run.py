@@ -74,6 +74,7 @@ SKIP_CLASSES = {
     "needs-external-code": "runs an external physics code or a pipeline stage that does",
     "needs-file": "opens a user-supplied file or directory the repository does not ship",
     "needs-data": "needs an IDS the packaged sample shot does not carry",
+    "needs-extra": "needs an optional-dependency extra (vaft[...]) the core install does not provide",
     "fragment": "uses placeholder names the page never defines; shows a call shape",
     "signature": "a signature listing or pseudo-code, not a Python program",
 }
@@ -97,12 +98,26 @@ def _front_matter(path: Path) -> dict:
     return yaml.safe_load(match.group(1)) if match else {}
 
 
+def _site_pages() -> list[Path]:
+    pages = sorted(DOCS.glob("_guide/*.md")) + sorted(DOCS.glob("_pages/*.md"))
+    return [p for p in pages + [DOCS / "index.markdown"] if p.is_file()]
+
+
+def _redirect_stubs() -> list[Path]:
+    return [p for p in _site_pages() if _front_matter(p).get("layout") == "redirect"]
+
+
 def _pages() -> list[Path]:
     """Rendered guide/site pages plus the READMEs (the PyPI long description)."""
-    pages = sorted(DOCS.glob("_guide/*.md")) + sorted(DOCS.glob("_pages/*.md"))
-    pages = [p for p in pages + [DOCS / "index.markdown"] if p.is_file()]
-    pages = [p for p in pages if _front_matter(p).get("layout") != "redirect"]
+    pages = [p for p in _site_pages() if _front_matter(p).get("layout") != "redirect"]
     return pages + [p for p in (ROOT / "README.md", ROOT / "README.ko.md") if p.is_file()]
+
+
+def _stub_body(path: Path) -> str:
+    """What follows the front matter of a redirect stub."""
+    text = path.read_text(encoding="utf-8")
+    match = re.match(r"\A---\s*\n.*?\n---[ \t]*\n?", text, re.S)
+    return text[match.end():] if match else text
 
 
 def extract_fences(path: Path, root: Path = ROOT) -> tuple[list[dict], list[str]]:
@@ -295,6 +310,42 @@ def test_every_marker_is_well_formed_and_the_corpus_is_not_empty():
     assert len(_executed()) >= MINIMUM_EXECUTED, (
         f"only {len(_executed())} fences are executed; the rest are marked skip. "
         "A marker is for a fence that cannot run offline, not for one that is inconvenient."
+    )
+
+
+#: What a redirect stub may carry after its front matter: pointer comments for
+#: the GitHub reader, nothing a page is made of.
+STUB_BODY_LINES = 3
+
+
+def test_redirect_stubs_carry_no_page_content():
+    """A ``layout: redirect`` page renders only its redirect, and this gate skips it.
+
+    0.8.0 documented the EFIT presets, the ``cocos=`` argument, the 3-D export
+    API and ``vaft hsds configure`` on three redirect stubs (cold review 0.8.0
+    docs-and-tutorials F1): ``docs/_layouts/redirect.html`` never emits
+    ``{{ content }}``, so no reader saw it, and the two new fences were wrong
+    (a ``NameError`` and an ``AttributeError``) without anything noticing.
+    Content belongs on the page the stub redirects to.
+    """
+    stubs = _redirect_stubs()
+    assert stubs, "no redirect stubs found; the layout name or the page glob changed"
+    offending = []
+    for stub in stubs:
+        body = _stub_body(stub)
+        lines = [line for line in body.splitlines() if line.strip()]
+        has_markup = any(
+            line.lstrip().startswith(("#", "```", "|", "* ", "- ", ">")) or set(line.strip()) <= set("=-") and len(line.strip()) >= 3
+            for line in lines
+        )
+        if has_markup or len(lines) > STUB_BODY_LINES:
+            offending.append(
+                f"{stub.relative_to(ROOT).as_posix()}: {len(lines)} body lines"
+                + (" with headings, fences or tables" if has_markup else "")
+            )
+    assert not offending, (
+        "\n" + "\n".join(offending) + "\n\nA layout: redirect page renders nothing but the redirect; "
+        f"move the content to the page named by its redirect_to (at most {STUB_BODY_LINES} pointer lines may stay)."
     )
 
 

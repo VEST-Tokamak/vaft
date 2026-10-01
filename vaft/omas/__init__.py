@@ -104,29 +104,6 @@ from vaft.process.equilibrium import (
 )
 from vaft.process.numerical import time_derivative
 
-#: What this package publishes: everything its star-imported submodules
-#: publish, plus the functions defined or imported by name here.  The plotting,
-#: reference and comparison names served lazily by ``__getattr__`` are left
-#: out, as they always were from ``from vaft.omas import *`` (for the plotting
-#: names, so that the star import does not load Matplotlib); they are published
-#: by their own modules.
-__all__ = [
-    *_general.__all__,
-    *_process_wrapper.__all__,
-    *_formula_wrapper.__all__,
-    *_update.__all__,
-    *_sample.__all__,
-    "NULL_FIELD_THRESHOLD_T",
-    "startup_summary",
-    "VerticalPositionHistory",
-    "fluctuation_bandwidths",
-    "vertical_position_history",
-    "load_omas_json",
-    "load",
-    "save",
-    "to_equilibrium",
-]
-
 #: Plotting adapters live in ``.plotting`` and are resolved lazily so that
 #: importing ``vaft.omas`` does not pull in Matplotlib.
 def _plotting_exports() -> frozenset:
@@ -302,3 +279,32 @@ def to_equilibrium(ods, *, time_index=0, profile_index=0, convention=None):
     return as_equilibrium(
         ods, time_index=time_index, profile_index=profile_index, convention=convention
     )
+
+#: What ``vaft.omas`` publishes: everything its star-imported submodules
+#: publish (each declares its own ``__all__`` since #1382), the functions
+#: defined or imported by name here, and the reference and comparison exports
+#: resolved by ``__getattr__``.  The plotting adapters are published by
+#: ``vaft.omas.plotting.__all__`` and stay out of this list so that
+#: ``from vaft.omas import *`` does not load Matplotlib.  Every other name bound
+#: here -- the ``vaft.process`` and ``vaft.formula`` functions imported above --
+#: stays reachable as an attribute but is not this package's API.  The generated
+#: API reference reads this list (cold review 0.8.0 docs-and-tutorials F4;
+#: test/test_docs_omas_surface.py).
+__all__ = [
+    *_general.__all__,
+    *_process_wrapper.__all__,
+    *_formula_wrapper.__all__,
+    *_update.__all__,
+    *_sample.__all__,
+    "NULL_FIELD_THRESHOLD_T",
+    "startup_summary",
+    "VerticalPositionHistory",
+    "fluctuation_bandwidths",
+    "vertical_position_history",
+    "load_omas_json",
+    "load",
+    "save",
+    "to_equilibrium",
+    *sorted(_REFERENCE_EXPORTS),
+    *sorted(_COMPARISON_EXPORTS),
+]

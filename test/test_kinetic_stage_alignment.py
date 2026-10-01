@@ -186,3 +186,115 @@ def test_the_core_profile_psi_grid_is_the_equilibrium_s_own_weber(tmp_path):
     ts = source["equilibrium.time_slice.0"]
     assert grid[0] == pytest.approx(float(ts["global_quantities.psi_axis"]), rel=1e-6)
     assert grid[-1] == pytest.approx(float(ts["global_quantities.psi_boundary"]), rel=1e-6)
+
+
+def test_an_aligned_usable_slice_wins_over_an_earlier_aligned_failed_one():
+    """#1331: Thomson and EFIT share a 1 ms grid on 39915, so every profile time
+    is aligned; the first was 312 ms, a negative-pressure slice the kinetic fit
+    never converged from, while 316 ms converges at scale 1.0."""
+    profile = np.arange(308.0, 318.0)
+    eq = np.arange(312.0, 329.0)
+    usable = np.arange(315.0, 325.0)
+    time_ms, why = vu.choose_profile_time(profile, eq, usable)
+    assert time_ms == 315.0 and why == "aligned and usable"
+
+
+def test_without_verdicts_or_usable_slices_the_best_aligned_time_is_kept():
+    profile, eq = np.array([306.0, 307.0]), np.array([308.0, 309.0, 311.0])
+    assert vu.choose_profile_time(profile, eq, None) == (307.0, "aligned (no per-slice verdicts)")
+    assert vu.choose_profile_time(profile, eq, np.array([311.0])) == (307.0, "aligned (no aligned slice is usable)")
+
+
+def test_usable_times_are_read_from_the_efit_collection_record():
+    import json
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.code.parameters"] = json.dumps({"efit_collection": {"slice_statuses": [
+        {"time": 0.315, "overall_status": "usable"}, {"time": 0.312, "overall_status": "physical_failed"}]}})
+    assert vu.usable_equilibrium_times_ms(ods).tolist() == [315.0]
+    assert vu.usable_equilibrium_times_ms(ODS(consistency_check=False)) is None
+
+
+def test_candidates_are_the_aligned_usable_times_nearest_first_then_earliest():
+    profile = np.arange(308.0, 318.0)
+    eq = np.arange(312.0, 329.0)
+    usable = np.arange(315.0, 325.0)
+    times, why = vu.profile_time_candidates(profile, eq, usable)
+    assert why == "aligned and usable" and times == [315.0, 316.0, 317.0]
+    assert vu.profile_time_candidates(profile, eq, None) == ([312.0], "aligned (no per-slice verdicts)")
+
+
+def test_without_an_aligned_usable_slice_the_times_next_to_the_usable_window_come_first():
+    """42985: Thomson at 322-331 ms, magnetic EFIT usable only from 335 ms."""
+    profile = np.arange(322.0, 332.0)
+    eq = np.arange(318.0, 340.0)
+    usable = np.arange(335.0, 340.0)
+    times, why = vu.profile_time_candidates(profile, eq, usable)
+    assert why == "aligned, nearest the usable window" and times[:3] == [331.0, 330.0, 329.0]
+
+
+def _stage_inputs(tmp_path, monkeypatch, outcomes):
+    """build_kinetic_efit_ods over fake products; `outcomes` maps time_ms to what the fit does."""
+    import json
+    from types import SimpleNamespace
+
+    import vaft.code.efit.kinetic as kinetic
+    import vaft.data.eqdsk as eqdsk
+    import vaft.process.equilibrium as process_equilibrium
+
+    paths = {name: tmp_path / f"{name}.json" for name in ("core_profiles", "constraints", "efit")}
+    for path in paths.values():
+        path.write_text("{}")
+    profiles = _core_profiles([314.0, 315.0, 316.0, 317.0])
+    profiles["thomson_scattering.time"] = np.array([0.315])
+    constraints = ODS(consistency_check=False)
+    constraints["equilibrium.time"] = np.array([0.315])
+    solution = ODS(consistency_check=False)
+    solution["equilibrium.time"] = np.arange(312.0, 320.0) / 1e3
+    for i in range(8):
+        solution[f"equilibrium.time_slice.{i}.global_quantities.ip"] = 1.0
+    solution["equilibrium.code.parameters"] = json.dumps({"efit_collection": {"slice_statuses": [
+        {"time": t / 1e3, "overall_status": "usable"} for t in (315.0, 316.0, 317.0)]}})
+    products = {str(paths["core_profiles"]): profiles, str(paths["constraints"]): constraints,
+                str(paths["efit"]): solution}
+    monkeypatch.setattr(vu, "load_ods", lambda path: (products[str(path)], {}))
+    monkeypatch.setattr(process_equilibrium, "as_equilibrium", lambda sol, time_index: time_index)
+    monkeypatch.setattr(eqdsk, "from_equilibrium", lambda index: index)
+    monkeypatch.setattr(eqdsk, "to_omas", lambda geq, ods: ods)
+    monkeypatch.setattr(vu, "read_geqdsk_file", lambda path: path)
+    tried = []
+
+    def fake_chain(ods, geq, time_ms, efit_config):
+        tried.append((time_ms, str(efit_config.workdir)))
+        outcome = outcomes[time_ms]
+        if outcome == "raise":
+            raise RuntimeError("EFIT crashed")
+        converged = outcome == "converge"
+        return {"kinetic_efit": SimpleNamespace(status="ok", converged=converged, scale=1.0 if converged else None,
+                                                chi2=100.0 if converged else None,
+                                                reason="" if converged else "no PLASMA scale converged",
+                                                gfile="g" if converged else None)}
+
+    monkeypatch.setattr(kinetic, "run_kinetic_chain", fake_chain)
+    kwargs = dict(shot=39915, stage="electron_efit", core_profiles_product=paths["core_profiles"],
+                  constraints_product=paths["constraints"], efit_product=paths["efit"], workdir=tmp_path / "work")
+    return kwargs, tried
+
+
+def test_the_stage_moves_past_a_failed_and_a_crashed_slice_to_one_that_converges(tmp_path, monkeypatch):
+    kwargs, tried = _stage_inputs(tmp_path, monkeypatch, {315.0: "fail", 316.0: "raise", 317.0: "converge"})
+    _, manifest = vu.build_kinetic_efit_ods(**kwargs)
+    assert [t for t, _ in tried] == [315.0, 316.0, 317.0]
+    assert manifest["status"] == "success" and manifest["configuration"]["time_ms"] == 317.0
+    assert "error" not in manifest and "traceback" not in manifest
+    assert manifest["reconstruction"]["converged"] and manifest["reconstruction"]["chi2"] == 100.0
+    assert [(a["time_ms"], a["status"]) for a in manifest["attempts"]] == [(315.0, "ok"), (316.0, "failed"), (317.0, "ok")]
+    assert all(workdir.endswith(f"t{t:.3f}") for t, workdir in tried)
+
+
+def test_when_every_slice_fails_the_last_attempt_is_what_the_manifest_says(tmp_path, monkeypatch):
+    kwargs, _ = _stage_inputs(tmp_path, monkeypatch, {315.0: "raise", 316.0: "fail", 317.0: "fail"})
+    _, manifest = vu.build_kinetic_efit_ods(**kwargs)
+    assert manifest["status"] == "no_output" and manifest["error"] == "no PLASMA scale converged"
+    assert manifest["configuration"]["time_ms"] == 317.0 and "traceback" not in manifest
+    assert len(manifest["attempts"]) == 3

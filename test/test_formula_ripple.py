@@ -91,3 +91,22 @@ def test_the_gwb_threshold_falls_with_gyroradius_shear_and_coil_count():
     for bad in ({"rho": 0.0}, {"dq_dr": -1.0}, {"n_tf": 0}):
         with pytest.raises(ValueError):
             gwb_stochastic_threshold(**{**base, **bad})
+
+
+@pytest.mark.parametrize("epsilon", [-0.2, np.nan])
+def test_a_negative_or_nan_inverse_aspect_ratio_is_refused_everywhere(epsilon):
+    # toroidal_ripple_field already refused it; the well and GWB functions
+    # used to return a negative alpha* or a silent NaN threshold instead.
+    with pytest.raises(ValueError, match="epsilon"):
+        ripple_well_parameter(epsilon, 0.8, 2.0, 0.01, 16)
+    with pytest.raises(ValueError, match="epsilon"):
+        gwb_stochastic_threshold(epsilon, 2.0, 4.0, 0.02, 16)
+    with pytest.raises(ValueError, match="epsilon"):
+        gwb_stochasticity_parameter(0.01, epsilon, 2.0, 4.0, 0.02, 16)
+    with pytest.raises(ValueError, match="epsilon"):
+        ripple_well_parameter(np.array([0.1, epsilon]), 0.8, 2.0, 0.01, 16)
+
+
+def test_the_midplane_limit_epsilon_zero_stays_allowed():
+    assert ripple_well_parameter(0.0, 0.8, 2.0, 0.01, 16) == 0.0
+    assert gwb_stochastic_threshold(0.0, 2.0, 4.0, 0.02, 16) == 0.0
