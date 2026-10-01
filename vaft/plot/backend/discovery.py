@@ -88,7 +88,15 @@ from .recipes import (
     missing_required_path,
 )
 
-__all__ = ["describe_by_ids", "describe_entries", "INTERACTION", "INTERACTION_ENTRY_POINTS", "OVERVIEW_CONTENTS", "ANALYSIS_METHODS"]
+__all__ = [
+    "describe_by_ids",
+    "describe_entries",
+    "sequence_values",
+    "INTERACTION",
+    "INTERACTION_ENTRY_POINTS",
+    "OVERVIEW_CONTENTS",
+    "ANALYSIS_METHODS",
+]
 
 #: Interaction modes a plot offers (issue #261 sections 14-17).  A static
 #: summary is the baseline; a time-navigable entry point appears beside it.

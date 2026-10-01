@@ -206,6 +206,23 @@ def test_every_slice_control_has_per_state_values(shot):
     assert checked >= 5
 
 
+def test_the_sequence_seam_is_published_beside_its_sibling():
+    """The seam the tripwire above points contributors at must be public.
+
+    ``frame_renderers`` from the same change is in ``render.__all__``; the
+    API catalog documents a module's ``__all__``, so the star import and the
+    generated reference omitted ``sequence_values`` while naming its sibling.
+    """
+    from vaft import _api_catalog
+    from vaft.plot.backend import discovery, render
+
+    assert "sequence_values" in discovery.__all__ and "frame_renderers" in render.__all__
+    namespace: dict = {}
+    exec("from vaft.plot.backend.discovery import *", namespace)
+    assert namespace["sequence_values"] is discovery.sequence_values
+    assert _api_catalog.page_for(discovery.__name__, _api_catalog.load_inventory()) == "plot"
+
+
 def test_vacuum_field_frames_carry_the_pf_programme_times(equilibrium):
     animation = vomas.plot_vacuum_field(equilibrium, time_index=range(0, 2000, 400), animation=True)
     pf_time = np.asarray(equilibrium["pf_active.time"], dtype=float)
