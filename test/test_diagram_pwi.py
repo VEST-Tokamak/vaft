@@ -83,9 +83,16 @@ def test_every_pwi_diagram_is_deterministic_and_exported(name):
 
 
 def test_the_bohdansky_branches_meet_within_their_documented_step_and_take_arrays():
-    lo = sputtering_threshold_bohdansky(1.0, 0.2 * (1 - 1e-12), 1.0)
-    hi = sputtering_threshold_bohdansky(1.0, 0.2 * (1 + 1e-12), 1.0)
-    assert lo == pytest.approx(4.05, abs=0.01) and hi == pytest.approx(4.20, abs=0.01)
+    # The published breakpoint is m1/m2 = 0.3 (Nozawa 2006 Eq. 12; Eckstein-Preuss
+    # 2003), where the branches differ by 1.75 %; the earlier 0.2 was a misreading.
+    lo = sputtering_threshold_bohdansky(1.0, 0.3 * (1 - 1e-12), 1.0)
+    hi = sputtering_threshold_bohdansky(1.0, 0.3 * (1 + 1e-12), 1.0)
+    assert lo == pytest.approx(4.857, abs=0.005) and hi == pytest.approx(4.943, abs=0.005)
+    # D on Be (ratio 0.223) sits between the two candidate breakpoints and is on
+    # the light branch: E_th = E_s / (gamma (1 - gamma)) = 4.157 E_s.
+    gamma_d_be = binary_collision_energy_transfer_factor(2.014, 9.012)
+    assert sputtering_threshold_bohdansky(1.0, 2.014, 9.012) == pytest.approx(1.0 / (gamma_d_be * (1 - gamma_d_be)))
+    assert sputtering_threshold_bohdansky(1.0, 2.014, 9.012) == pytest.approx(4.157, abs=0.002)
     both = sputtering_threshold_bohdansky(8.68, [2.014, 183.84], 183.84)
     assert both[0] == pytest.approx(sputtering_threshold_bohdansky(8.68, 2.014, 183.84))
     assert both[1] == pytest.approx(8 * 8.68)

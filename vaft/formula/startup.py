@@ -1163,7 +1163,8 @@ def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li, kappa=1
     ------
     ValueError
         Non-finite or non-positive current, major radius, minor radius or
-        elongation, or a minor radius that is not smaller than the major one.
+        elongation, a minor radius that is not smaller than the major one, or
+        a non-finite ``li``.
 
     Convention
     ----------
@@ -1240,7 +1241,7 @@ def vertical_field_from_I_p_R0_a_beta_p_li(I_p_A, R0_m, a_m, beta_p, li, kappa=1
         )
     shape = _require_positive("kappa", kappa)
     beta = np.asarray(beta_p, dtype=float)
-    inductance = np.asarray(li, dtype=float)
+    inductance = _require_finite("li", li)
     l_kappa = np.sqrt(0.5 * (1.0 + shape**2))
     bracket = (
         np.log(8.0 * major / (minor * l_kappa)) + beta + 0.5 * inductance - 1.5
@@ -1805,8 +1806,10 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
     Raises
     ------
     ValueError
-        Non-finite or non-positive radius or elongation, or a minor radius that
-        is not smaller than the major one.
+        Non-finite or non-positive radius or elongation, a minor radius that
+        is not smaller than the major one, or a non-finite ``li`` (an
+        unconverged reconstruction's NaN would otherwise surface downstream
+        naming ``L_p_H``).
 
     Convention
     ----------
@@ -1868,8 +1871,9 @@ def plasma_inductance_circular_from_R0_a_li(R0_m, a_m, li, kappa=1.0):
             f"a_m must be smaller than R0_m; got {a_m!r} and {R0_m!r}"
         )
     l_kappa = np.sqrt(0.5 * (1.0 + shape**2))
+    inductance_norm = _require_finite("li", li)
     inductance = MU0 * major * (
-        np.log(8.0 * major / (minor * l_kappa)) + 0.5 * np.asarray(li, dtype=float) - 2.0
+        np.log(8.0 * major / (minor * l_kappa)) + 0.5 * inductance_norm - 2.0
     )
     outside = inductance <= 0.0
     if np.any(outside):
