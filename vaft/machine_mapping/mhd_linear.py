@@ -56,7 +56,13 @@ import numpy as np
 from omas import ODS
 
 from vaft.code.gpec import DconOutput, Pest3MatchingOutput, read_dcon_output, read_pest3_matching_output
+from vaft.machine_mapping.utils import path_exists
 from vaft.ods_access import path_count
+
+#: Version of the ``<solver>`` fragment RDCON/STRIDE write into ``ntms.code.parameters``.
+#: 2 added ``time_slice``/``mode_start``/``mode_count`` and one ``<surface>`` per
+#: ``ntms.mode[]`` entry (#143 solver attribution, #939 local criteria).
+NTMS_FRAGMENT_VERSION = 2
 
 _MODULE_PATTERNS = {
     "dcon": re.compile(r"dcon_output_n(\d+)\.nc"),
@@ -118,6 +124,49 @@ def _append_code_parameters(ods: ODS, ids: str, fragment_xml: str, *, code_name:
 #: which is exactly right for a slice we are only padding past to reach a
 #: later one -- and it is overwritten with 0 if that slice later succeeds.
 _OUTPUT_FLAG_NOT_RUN = -1
+
+
+def _xml_attrs(**values: Any) -> str:
+    """`` key="value"`` pairs, skipping ``None``; floats keep full precision."""
+    parts = []
+    for key, value in values.items():
+        if value is None:
+            continue
+        text = repr(float(value)) if isinstance(value, (float, np.floating)) else str(value)
+        parts.append(f' {key}="{escape(text)}"')
+    return "".join(parts)
+
+
+def ntms_solver_surfaces(ods: ODS) -> list[dict[str, Any]]:
+    """Which solver produced each ``ntms.time_slice[t].mode[i]``, with its native extras.
+
+    Reads the version-2 fragments :func:`mhd_linear` writes into
+    ``ntms.code.parameters``. Returns one dict per surface: ``solver``,
+    ``n_tor``, ``time_slice``, ``mode`` (the ``ntms.mode[]`` index), ``m``,
+    ``psi_n``, ``q``, ``delta_prime_imag`` and, where the solver wrote them,
+    ``di``/``dr``/``h``/``ca1``. Version-1 fragments carry no index range and
+    yield nothing; their surfaces cannot be attributed. The ODS is not
+    modified.
+    """
+    import xml.etree.ElementTree as ET
+
+    if not path_exists(ods, "ntms.code.parameters"):
+        return []
+    root = ET.fromstring(ods["ntms.code.parameters"])
+    rows: list[dict[str, Any]] = []
+    for solver in root.iter("solver"):
+        if int(solver.get("version", "1")) < 2:
+            continue
+        for surface in solver.iter("surface"):
+            row: dict[str, Any] = {
+                "solver": solver.get("name"),
+                "n_tor": int(solver.get("n_tor")),
+                "time_slice": int(solver.get("time_slice")),
+            }
+            for key, value in surface.attrib.items():
+                row[key] = int(value) if key in ("mode", "m") else float(value)
+            rows.append(row)
+    return rows
 
 
 def ensure_toroidal_mode_grid(ods: ODS, time_slice: int, n_tor_grid: Sequence[int]) -> None:
@@ -429,7 +478,30 @@ def _write_resistive_entry(
         # `deltaw[:].value` is FLT_0D (real-valued): the imaginary part has no
         # slot here and stays only in the native Pest3MatchingOutput.
         contribution["value"] = surface["delta_prime_real"]
-    ntms_fragment = f'<solver name="{escape(result.solver)}" n_tor="{result.n_tor}"><msing>{result.msing}</msing></solver>'
+    # `ntms.mode[]` has no field naming the code that produced an entry, and
+    # RDCON and STRIDE append to the same AOS, so the fragment records the
+    # exact index range this call wrote and, per entry, the values with no
+    # IMAS slot: the imaginary part of Delta-prime and the local criteria at
+    # the surface. Without the range a surface cannot be attributed (#143).
+    criteria = {(row["m"], row["psi_n"]): row for row in result.rational_surface_stability()}
+    surfaces = "".join(
+        "<surface"
+        + _xml_attrs(
+            mode=start + offset,
+            m=surface["m"],
+            psi_n=surface.get("psi_n"),
+            q=surface.get("q"),
+            delta_prime_imag=surface.get("delta_prime_imag"),
+            **{key: criteria.get((surface["m"], surface.get("psi_n")), {}).get(key) for key in ("di", "dr", "h", "ca1")},
+        )
+        + "/>"
+        for offset, surface in enumerate(diagonal)
+    )
+    ntms_fragment = (
+        f'<solver name="{escape(result.solver)}" n_tor="{result.n_tor}" version="{NTMS_FRAGMENT_VERSION}"'
+        f' time_slice="{time_slice}" mode_start="{start}" mode_count="{len(diagonal)}">'
+        f"<msing>{result.msing}</msing>{surfaces}</solver>"
+    )
     _append_code_parameters(ods, "ntms", ntms_fragment, code_name="GPEC-suite")
     _set_output_flag(ods, "ntms", time_slice, 0)
 
