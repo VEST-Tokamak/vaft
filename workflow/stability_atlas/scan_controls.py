@@ -11,17 +11,21 @@ Usage::
     python scan_controls.py --out DIR --eq SHOT:TIME_MS:GFILE [--eq ...] \
         [--modes 1 2] [--workers 12] [--only VARIANT ...]
 
-A finished job leaves ``result.json`` in its directory and is skipped on the
-next invocation, so the scan is resumable. ``summarize`` reads the results
-into one CSV table.
+Every job leaves ``result.json`` in its directory. A later invocation skips a
+job whose result succeeded and retries one that failed, so the scan is
+resumable and a raised ``--timeout`` takes effect. ``summarize`` reads the
+results into one CSV table.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import filecmp
 import json
+import os
 import shutil
+import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
@@ -34,6 +38,7 @@ from vaft.code.gpec import (
     DCONOptions,
     GPECCaseInputs,
     GPECSuiteConfig,
+    find_gpec_executable,
     read_dcon_output,
     read_pest3_matching_output,
     run_gpec_suite_case,
@@ -84,7 +89,8 @@ VARIANTS: tuple[Variant, ...] = (
     Variant("rdcon_psihigh0990", "rdcon", psihigh=0.990),
     Variant("rdcon_psihigh0997", "rdcon", psihigh=0.997),
     Variant("stride_base", "stride"),
-    Variant("stride_dm16", "stride", {"stride.in": {"delta_mlow": 16, "delta_mhigh": 16}}),
+    # stride.in already ships delta_mlow=16; only delta_mhigh moves.
+    Variant("stride_dmhigh16", "stride", {"stride.in": {"delta_mhigh": 16}}),
     Variant("stride_mpsi256", "stride", {"equil.in": {"mpsi": 256}}),
     Variant("stride_mpsi512", "stride", {"equil.in": {"mpsi": 512}}),
     Variant("stride_mpsi1024", "stride", {"equil.in": {"mpsi": 1024}}),
@@ -108,22 +114,86 @@ def parse_equilibrium(text: str) -> Equilibrium:
 
 
 def materialize_templates(variant: Variant, root: Path) -> Path:
-    """Copy the packaged templates and apply the variant's patches."""
+    """Copy the packaged templates and apply the variant's patches.
+
+    An existing directory is reused only if it is identical to what would be
+    written now. A changed variant (or package template) is refused rather
+    than overwritten, because the results already under the variant's name
+    were produced with the old files, and because another invocation on the
+    same output may be reading them.
+    """
     target = root / variant.name
-    if target.exists():
-        shutil.rmtree(target)
-    shutil.copytree(package_vest_dir(), target)
-    for filename, keys in variant.patches.items():
-        path = target / filename
-        write_template(path, path, keys)
-    return target
+    root.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{variant.name}.", dir=root))
+    try:
+        built = staging / "templates"
+        shutil.copytree(package_vest_dir(), built)
+        for filename, keys in variant.patches.items():
+            path = built / filename
+            write_template(path, path, keys)
+        if target.exists():
+            if not _same_tree(built, target):
+                raise ValueError(
+                    f"{target} differs from variant {variant.name!r} as defined now; "
+                    "its results were produced with the old templates -- use a new --out"
+                )
+            return target
+        os.replace(built, target)
+        return target
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
 
 
-def run_job(eq: Equilibrium, variant: Variant, mode: int, templates: Path, out: Path, timeout: float) -> dict:
+def _same_tree(a: Path, b: Path) -> bool:
+    names = sorted(p.name for p in a.iterdir())
+    if names != sorted(p.name for p in b.iterdir()):
+        return False
+    _, mismatch, errors = filecmp.cmpfiles(a, b, names, shallow=False)
+    return not mismatch and not errors
+
+
+def controls(variant: Variant) -> dict[str, Any]:
+    """The control values a variant runs with, recorded beside its results."""
+    return {
+        "patches": variant.patches,
+        "psihigh": variant.psihigh if variant.psihigh is not None else GPECSuiteConfig.psihigh,
+        "dcon": variant.dcon.__dict__ if variant.module == "dcon" else None,
+    }
+
+
+def preflight(modules: set[str]) -> None:
+    """Fail before queueing anything if a solver or its companion is missing.
+
+    ``run_mode="strict"`` would raise from inside every worker instead.
+    """
+    companions = {"dcon": "match", "rdcon": "rmatch"}
+    programs = set(modules) | {companions[m] for m in modules if m in companions}
+    missing = sorted(p for p in programs if find_gpec_executable(p, GPECSuiteConfig()) is None)
+    if missing:
+        raise SystemExit(f"GPEC executables not found (GPECHOME={os.environ.get('GPECHOME')}): {', '.join(missing)}")
+
+
+#: Solver scratch the atlas never reads. ``euler.bin`` alone is ~0.3-0.9 GB per
+#: DCON run, and only the ideal-GPEC stage (not run here) consumes it.
+SCRATCH = ("euler.bin", "vmat.bin", "contour.bin", "psi_in.bin")
+
+
+def run_job(
+    eq: Equilibrium,
+    variant: Variant,
+    mode: int,
+    templates: Path,
+    out: Path,
+    timeout: float,
+    *,
+    prune: bool = False,
+) -> dict:
     jobdir = out / eq.label / variant.name / f"nn{mode}"
     done = jobdir / "result.json"
     if done.exists():
-        return json.loads(done.read_text())
+        cached = json.loads(done.read_text())
+        if cached["status"] != "failed":
+            return cached
     jobdir.mkdir(parents=True, exist_ok=True)
     config = GPECSuiteConfig(
         modules=(variant.module,),
@@ -153,11 +223,23 @@ def run_job(eq: Equilibrium, variant: Variant, mode: int, templates: Path, out: 
         "reason": record.reason,
         "wall_s": round(elapsed, 1),
         "run_dir": str(record.workdir),
+        "controls": json.dumps(controls(variant), sort_keys=True),
     }
     if record.ok:
         row.update(metrics(variant.module, Path(record.workdir), mode))
-    done.write_text(json.dumps(row, indent=1, default=str))
+    if prune:
+        for name in SCRATCH:
+            (Path(record.workdir) / name).unlink(missing_ok=True)
+    _write_atomic(done, json.dumps(row, indent=1, default=str))
     return row
+
+
+def _write_atomic(path: Path, text: str) -> None:
+    """A killed job must not leave a truncated ``result.json`` behind."""
+    handle, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    with os.fdopen(handle, "w") as stream:
+        stream.write(text)
+    os.replace(temporary, path)
 
 
 def metrics(module: str, run_dir: Path, mode: int) -> dict[str, Any]:
@@ -177,7 +259,7 @@ def metrics(module: str, run_dir: Path, mode: int) -> dict[str, Any]:
             "psilim": out.psilim,
             "qlim": out.qlim,
             "edge_treatment": out.edge_treatment,
-            "edge_peak_psi": None if out.edge_scan is None else float(out.edge_scan.psi_n[int(np.nanargmax(out.edge_scan.dW))]),
+            "edge_peak_psi": None if out.edge_scan is None else float(out.edge_scan.psi_n[int(np.nanargmax(np.real(out.edge_scan.dW)))]),
             "max_di": None if di is None or not di.size else float(np.nanmax(di)),
             "n_ca1_negative": None if ca1 is None or evaluated is None else int(np.sum((ca1 < 0) & evaluated)),
             "n_ca1_evaluated": None if evaluated is None else int(np.sum(evaluated)),
@@ -195,6 +277,20 @@ def metrics(module: str, run_dir: Path, mode: int) -> dict[str, Any]:
         "n_positive_delta_prime": sum(d["delta_prime_real"] > 0 for d in diag),
         "W_t_min": None if out.total1 is None else float(out.total1.real),
     }
+
+
+def collect(future: Any, eq: Equilibrium, variant: Variant, mode: int) -> dict:
+    """A job's row; an error inside the job becomes a printed ``error`` row.
+
+    Solver failures and timeouts already come back as rows. What reaches here
+    is a reader or I/O error. It is reported for that one job instead of
+    ending the loop, which would otherwise wait for every queued job and then
+    skip the summary.
+    """
+    error = future.exception()
+    if error is None:
+        return future.result()
+    return {"equilibrium": eq.label, "variant": variant.name, "n": mode, "status": "error", "reason": repr(error)}
 
 
 def summarize(out: Path) -> Path:
@@ -215,21 +311,23 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--eq", action="append", required=True, type=parse_equilibrium, help="SHOT:TIME_MS:GFILE")
     parser.add_argument("--modes", nargs="+", type=int, default=[1, 2])
-    parser.add_argument("--workers", type=int, default=12)
+    parser.add_argument("--workers", type=int, default=min(12, os.cpu_count() or 1))
     parser.add_argument("--timeout", type=float, default=2400.0)
     parser.add_argument("--only", nargs="*", default=None, help="Variant names to run (default: all).")
+    parser.add_argument("--prune", action="store_true", help=f"Delete {', '.join(SCRATCH)} after each job.")
     args = parser.parse_args()
 
     variants = [v for v in VARIANTS if not args.only or v.name in args.only]
+    preflight({v.module for v in variants})
     out = args.out.expanduser().resolve()
     templates = {v.name: materialize_templates(v, out / "_templates") for v in variants}
     jobs = [(eq, v, n) for eq in args.eq for v in variants for n in args.modes]
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
-        futures = {pool.submit(run_job, eq, v, n, templates[v.name], out, args.timeout): (eq, v, n) for eq, v, n in jobs}
+        futures = {pool.submit(run_job, eq, v, n, templates[v.name], out, args.timeout, prune=args.prune): (eq, v, n) for eq, v, n in jobs}
         for future in as_completed(futures):
             eq, v, n = futures[future]
-            row = future.result()
-            print(f"{eq.label} {v.name} n={n}: {row['status']} {row['wall_s']} s", flush=True)
+            row = collect(future, eq, v, n)
+            print(f"{eq.label} {v.name} n={n}: {row['status']} {row.get('wall_s')} s", flush=True)
     print(summarize(out))
     return 0
 
