@@ -275,6 +275,12 @@ class DCONSolver:
                 "mer_flag": ctx.config.dcon.mer_flag,
                 "bal_flag": ctx.config.dcon.bal_flag,
                 "thmax0": ctx.config.dcon.thmax0,
+                # Written explicitly even though the default matches the
+                # template: this is the key that decides whether ideal GPEC can
+                # compute a penetration threshold at all (gpec/gpec.f:560-565),
+                # so the namelist a reader has later must state what was asked
+                # for rather than inherit it.
+                "con_flag": ctx.config.dcon.con_flag,
             },
         )
         shutil.copy2(ctx.template_dir / "match.in", ctx.run_dir / "match.in")
@@ -303,6 +309,15 @@ class DCONSolver:
 
     def stability_output(self, mode: int) -> str | None:
         return f"dcon_output_n{mode}.nc"
+
+
+def _names_key(namelist: Path, key: str) -> bool:
+    """Whether *namelist* assigns *key* at all, in any group."""
+    try:
+        text = Path(namelist).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return re.search(rf"(?im)^\s*{re.escape(key)}\s*=", text) is not None
 
 
 def _namelist_array(name: str, values, *, note: str = "") -> str:
@@ -667,13 +682,23 @@ class IdealGPECSolver:
         replacements: dict[str, object] = {
             "dcon_dir": str(ctx.run_dir.resolve()),
             "coil_flag": options.coil_flag,
-            # Always written: every packaged and GPEC-shipped `gpec.in` carries
-            # this key, and a run that did *not* ask for thresholds should say
-            # so in its own namelist rather than inherit whatever a template
-            # happened to hold.
-            "singthresh_flag": options.singthresh_flag,
+            # PENTRC reads the ASCII displacement and GPEC writes it only with
+            # both of these on, so they are part of what a run *is* rather than
+            # a formatting preference. Both are in every packaged and
+            # GPEC-shipped `gpec.in`.
+            "ascii_flag": options.ascii_flag,
+            "xclebsch_flag": options.xclebsch_flag,
         }
+        # Restated rather than requested when no threshold was asked for: a
+        # custom `templates_dir` need not carry the key, and `f` is what GPEC
+        # defaults to anyway -- but a template shipping `t` must not turn a
+        # threshold on behind a caller who did not ask for one, which is why
+        # this is written rather than left alone.
+        optional: dict[str, object] = {"singthresh_flag": options.singthresh_flag}
         if options.wants_any_threshold:
+            # Asked for, so it has to land: a template without the key is a
+            # template that cannot express this run.
+            replacements["singthresh_flag"] = optional.pop("singthresh_flag")
             # Written only when asked for, because GPEC leaves these three out
             # of every namelist it ships -- they exist as code defaults
             # (`gpec/gpec.f:159-162`) -- so a caller's own `templates_dir` may
@@ -691,10 +716,32 @@ class IdealGPECSolver:
             )
             if options.singthresh_slayer_inpr is not None:
                 replacements["singthresh_slayer_inpr"] = float(options.singthresh_slayer_inpr)
+            if options.singthresh_slayer_inpr_prof is not None:
+                # Deliberately *not* in the packaged template: only GPEC from
+                # `28f6df64` onwards declares this key, and a namelist READ stops
+                # the program on a name it does not declare -- whatever the flags
+                # say -- so shipping it would break every run on an older build,
+                # which is the trap `out_ahg2msc` already cost this suite once.
+                # A caller with a per-surface profile therefore brings a
+                # `templates_dir` whose `gpec.in` carries it, and gets told so.
+                if not _names_key(ctx.template_dir / "gpec.in", "singthresh_slayer_inpr_prof"):
+                    raise ValueError(
+                        f"{ctx.template_dir / 'gpec.in'} does not declare "
+                        "singthresh_slayer_inpr_prof, so a per-surface Prandtl "
+                        "profile cannot be written into it. The packaged template "
+                        "omits the key on purpose: a GPEC that predates it stops at "
+                        "the namelist read. Point templates_dir at a gpec.in from "
+                        "the GPEC you are running, or use the scalar "
+                        "singthresh_slayer_inpr"
+                    )
+                replacements["singthresh_slayer_inpr_prof"] = tuple(
+                    float(value) for value in options.singthresh_slayer_inpr_prof
+                )
         rt.write_template(
             ctx.template_dir / "gpec.in",
             ctx.run_dir / "gpec.in",
             replacements,
+            optional=optional,
         )
         shutil.copy2(ctx.template_dir / "vac.in", ctx.run_dir / "vac.in")
         # Precedence: an explicit coil.in wins over canonical coil_specs,

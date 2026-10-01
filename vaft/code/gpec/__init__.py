@@ -282,7 +282,18 @@ def validate_dcon_result(
     return problems
 
 
-def validate_threshold_inputs(run_dir: Path | str) -> list[str]:
+#: Keys of the DCON run a threshold needs, and why each one blocks it.
+#:
+#: Both are read out of the DCON cell's own ``dcon.in`` rather than from the
+#: options, because the DCON that wrote ``euler.bin`` may not be the one this
+#: config describes -- a resumed scan, a hand-made cell, ``dcon_workdir``
+#: pointing at another tree.
+_THRESHOLD_BLOCKING_DCON_KEYS = ("con_flag", "kin_flag")
+
+
+def validate_threshold_inputs(
+    run_dir: Path | str, dcon_dir: Path | str | None = None
+) -> list[str]:
     """Describe what stops ``run_dir`` computing a penetration threshold.
 
     Both of GPEC's resonant-field penetration thresholds -- Callen's
@@ -293,10 +304,28 @@ def validate_threshold_inputs(run_dir: Path | str) -> list[str]:
     (``pentrc/pentrc_interface.f90:205-235``), so a threshold run needs two
     files the ideal suite does not otherwise write.
 
-    Note what it does **not** need: a kinetic DCON.  GPEC's own
-    ``docs/examples/DIIID_ideal_example`` runs ``kin_flag=f`` with
-    ``singthresh_flag=t``, a ``.kin`` and a ``pentrc.in``.  The profiles are for
-    the threshold models, not for the Euler-Lagrange equation.
+    **And two keys of the DCON run it reads.** GPEC computes every resonant-field
+    quantity inside ``IF (singfld_flag)`` and turns that flag off in two cases
+    (``gpec/gpec.f:560-569``), after which it writes no rational-surface block and
+    therefore no threshold:
+
+    * ``con_flag=t`` in ``dcon.in`` -- "singfld_flag not supported with con_flag".
+      This is the **packaged default**, and GPEC's own ``input/dcon.in`` ships it
+      too, so the combination is what a caller gets by asking for nothing;
+      :class:`~vaft.code.gpec.DCONOptions` exposes ``con_flag`` so a threshold run
+      can turn it off.
+    * ``kin_flag=t`` -- GPEC counts ``msing`` by counting the type-4 records in
+      ``euler.bin`` (``gpec/idcon.f:158-160``), and those are written by
+      ``ode_ideal_cross`` and ``ode_resist_cross`` only (``dcon/ode.f:470,763``).
+      A kinetic DCON crosses its singular surfaces through ``ode_kin_cross``,
+      which writes none (``dcon/ode.f:101-110``), so ``msing`` is **0** however
+      many rational surfaces the equilibrium has -- and GPEC then reports "no
+      rationals for singfld_flag".
+
+    So a threshold needs the kinetic *profiles* and an **ideal** DCON, which is
+    what GPEC's own ``docs/examples/DIIID_ideal_example`` runs: ``kin_flag=f``
+    with ``singthresh_flag=t``, a ``.kin`` and a ``pentrc.in``. The profiles are
+    for the threshold models, not for the Euler-Lagrange equation.
 
     Returns an empty list when the directory is ready.  Checked before GPEC is
     launched because the alternative is an hour of solve followed by a column of
@@ -306,6 +335,13 @@ def validate_threshold_inputs(run_dir: Path | str) -> list[str]:
     ----------
     run_dir : Path
         The ideal-GPEC cell that will run [-].
+    dcon_dir : Path, optional
+        The completed DCON cell it reads.  Defaults to *run_dir*, which is
+        GPEC's own single-directory layout; in the per-module layout the
+        ``dcon.in`` is in the DCON cell and is not staged over (GPEC never reads
+        it), so a caller there has to say where it is.  When no ``dcon.in`` is
+        found the keys are reported as *unchecked* rather than passed over --
+        silence about them reads as "nothing blocks a threshold here" [-].
 
     Returns
     -------
@@ -313,29 +349,73 @@ def validate_threshold_inputs(run_dir: Path | str) -> list[str]:
         One reason per missing prerequisite, empty when there are none [-].
     """
     run_dir = Path(run_dir)
+    problems: list[str] = []
+    problems.extend(
+        _threshold_blockers_in_dcon(Path(dcon_dir) if dcon_dir else run_dir)
+    )
     pentrc_in = run_dir / "pentrc.in"
     if not pentrc_in.is_file():
-        return [
+        problems.append(
             f"missing pentrc.in in {run_dir}: GPEC reads the kinetic profiles for its "
             "penetration thresholds through PENTRC's initialiser, which opens "
             "pentrc.in in the working directory"
-        ]
+        )
+        return problems
     try:
         pent_input = rt.read_namelist_group(pentrc_in, "pent_input")
     except OSError as error:
-        return [f"could not read {pentrc_in}: {error}"]
+        problems.append(f"could not read {pentrc_in}: {error}")
+        return problems
     kinetic_file = pent_input.get("kinetic_file", "").strip()
     if not kinetic_file:
-        return [f"{pentrc_in} names no kinetic_file, so there are no profiles to read"]
+        problems.append(
+            f"{pentrc_in} names no kinetic_file, so there are no profiles to read"
+        )
+        return problems
     resolved = Path(kinetic_file)
     if not resolved.is_absolute():
         resolved = run_dir / resolved
     if not resolved.is_file():
-        return [
+        problems.append(
             f"{pentrc_in} names kinetic_file={kinetic_file!r}, which resolves to "
             f"{resolved} and is not there"
+        )
+    return problems
+
+
+def _threshold_blockers_in_dcon(dcon_dir: Path) -> list[str]:
+    """The two ``dcon.in`` keys that leave GPEC with nothing to threshold."""
+    namelist = dcon_dir / "dcon.in"
+    if not namelist.is_file():
+        return [
+            f"no dcon.in in {dcon_dir}, so con_flag and kin_flag could not be "
+            "checked; either leaves GPEC with no rational-surface block"
         ]
-    return []
+    try:
+        control = rt.read_namelist_group(namelist, "dcon_control")
+    except OSError as error:  # pragma: no cover - unreadable namelist
+        return [f"could not read {namelist}: {error}"]
+    problems = []
+    for key in _THRESHOLD_BLOCKING_DCON_KEYS:
+        raw = control.get(key)
+        if raw is None or not str(raw).strip().strip(".").lower().startswith("t"):
+            continue
+        if key == "con_flag":
+            problems.append(
+                f"{namelist} has con_flag=t: GPEC refuses singfld_flag with it "
+                "(gpec/gpec.f:561-565) and writes no rational-surface block, so no "
+                "threshold is computed. It is the packaged default; set "
+                "DCONOptions(con_flag=False) for a threshold run"
+            )
+        else:
+            problems.append(
+                f"{namelist} has kin_flag=t: a kinetic DCON crosses its singular "
+                "surfaces through ode_kin_cross, which writes no type-4 euler.bin "
+                "record (dcon/ode.f:101-110,470,763), so GPEC counts msing=0 "
+                "(gpec/idcon.f:158-160) and has no surface to attach a threshold "
+                "to. A threshold needs the profiles and an *ideal* DCON"
+            )
+    return problems
 
 
 def _dcon_run_dir(inputs: GPECCaseInputs, mode: int, geqdsk: Path) -> Path:
@@ -479,7 +559,7 @@ def _run_module(
         # prepared cell -- a machine layer adds them after `prepare` has written
         # the namelists -- so at prepare time their absence says nothing.
         if config.gpec.wants_any_threshold:
-            problems = validate_threshold_inputs(run_dir)
+            problems = validate_threshold_inputs(run_dir, dcon_dir)
             if problems:
                 reason = (
                     f"a penetration threshold was requested but {'; '.join(problems)} "

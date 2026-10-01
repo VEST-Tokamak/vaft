@@ -34,6 +34,22 @@ class DCONOptions:
     ``bal_flag`` defaults to the packaged namelist's ``f``. That is deliberately
     unchanged here, but note it makes DCON the odd one out: ``rdcon.in`` and
     ``stride.in`` both ship ``bal_flag=t``.
+
+    ``con_flag`` is the packaged namelist's ``t``, which is also what GPEC's own
+    ``input/dcon.in`` ships -- and it makes a penetration threshold impossible.
+    GPEC computes the resonant-field quantities only inside ``IF (singfld_flag)``
+    and turns that flag **off** when ``con_flag`` is true
+    (``gpec/gpec.f:560-565``), warning ``singfld_flag not supported with
+    con_flag`` and writing no rational-surface block at all. So a case that asks
+    for ``singthresh_*`` with the packaged template gets zeros, which is also
+    what an unattainable threshold looks like. Exposed here so a threshold run can
+    turn it off, and :func:`~vaft.code.gpec.validate_threshold_inputs` refuses the
+    combination before GPEC is launched rather than after.
+
+    The default is unchanged because ``con_flag`` is not a reporting switch: it
+    continues the integration through the singular layers instead of applying the
+    ideal jump condition at each one, so flipping it silently would change every
+    existing run's eigenvalues.
     """
 
     sas_flag: bool = False
@@ -42,6 +58,7 @@ class DCONOptions:
     mer_flag: bool = True
     bal_flag: bool = False
     thmax0: float = 1.0
+    con_flag: bool = True
 
 
 @dataclass(frozen=True)
@@ -139,9 +156,29 @@ class IdealGPECOptions:
     ``__post_init__`` validates them as one group: DCON, RDCON and STRIDE
     never see a coil.  Move them up only if a stability module starts needing
     the machine word.
+
+    ``ascii_flag`` and ``xclebsch_flag`` are what decide whether PENTRC has an
+    input at all.  PENTRC reads the **ASCII** displacement,
+    ``gpec_xclebsch_n<n>.out`` (``pentrc/inputs.f90`` opens ``peq_file`` as a
+    text table), and GPEC writes that file only when both flags are on
+    (``gpec/gpout.f:5755``).  The packaged template ships ``xclebsch_flag=t``
+    and ``ascii_flag=f``, so the default run writes everything in netCDF and
+    nothing PENTRC can read -- which made the torque unreachable through this
+    API until these two were exposed.
+
+    ``ascii_flag`` is all-or-nothing in GPEC: it writes *every* output in ASCII,
+    including the ``*_fun`` (psi, theta) reconstructions when ``fun_flag`` is on,
+    which is hundreds of megabytes per run.  Turn it on for a run whose torque
+    you want, not as a habit.
     """
 
     coil_flag: bool = True
+    #: Write every output in ASCII as well as netCDF.  The packaged template's
+    #: ``f``; PENTRC's input exists only with ``t``.
+    ascii_flag: bool = False
+    #: Compute the Clebsch-coordinate displacement PENTRC integrates.  The
+    #: packaged template's ``t`` -- on its own it only reaches the netCDF.
+    xclebsch_flag: bool = True
     coil_specs: Optional[Sequence["CoilInputSpec"]] = None
     machine: str = "vest"
     coil_config: Optional[Mapping[str, "CoilSet3D"]] = None
@@ -181,6 +218,19 @@ class IdealGPECOptions:
     #: value set on a run that computed no threshold would therefore sit in the
     #: output looking like the Prandtl number one was computed at.
     singthresh_slayer_inpr: Optional[float] = None
+    #: Per-rational-surface inverse Prandtl numbers, ascending in ``q``, at most
+    #: 20 entries.  GPEC falls back to the scalar for any entry ``<= 0``
+    #: (``input/gpec.in:62``), so the scalar is required alongside it.
+    singthresh_slayer_inpr_prof: Optional[Sequence[float]] = None
+
+    @property
+    def writes_pentrc_input(self) -> bool:
+        """Whether this run will leave the ASCII displacement PENTRC reads.
+
+        Both flags, because either alone writes nothing PENTRC can open: the
+        netCDF carries the same displacement and PENTRC does not read it.
+        """
+        return bool(self.ascii_flag and self.xclebsch_flag)
 
     @property
     def wants_callen_threshold(self) -> bool:
@@ -250,6 +300,27 @@ class IdealGPECOptions:
                 "computed at. Set singthresh_slayer_flag (or singthresh_flag) too, or "
                 "leave it None"
             )
+        if self.singthresh_slayer_inpr_prof is not None:
+            profile = tuple(self.singthresh_slayer_inpr_prof)
+            if not self.wants_slayer_threshold:
+                raise ValueError(
+                    "singthresh_slayer_inpr_prof is set but no SLAYER threshold is "
+                    "requested; set singthresh_slayer_flag (or singthresh_flag) too, "
+                    "or leave it None"
+                )
+            if not 1 <= len(profile) <= 20:
+                raise ValueError(
+                    "singthresh_slayer_inpr_prof takes 1 to 20 entries, one per "
+                    f"rational surface in ascending q; got {len(profile)} "
+                    "(gpec/gpec.f reads a fixed 20-element array)"
+                )
+            if self.singthresh_slayer_inpr is None:
+                raise ValueError(
+                    "singthresh_slayer_inpr_prof needs singthresh_slayer_inpr beside "
+                    "it: GPEC falls back to the scalar for any profile entry <= 0 "
+                    "(input/gpec.in:62), and a run with no scalar would fall back to "
+                    "whatever the template happened to hold"
+                )
 
 
 #: Main-ion species PENTRC may be run for, as ``(mass number [u], charge [e])``.

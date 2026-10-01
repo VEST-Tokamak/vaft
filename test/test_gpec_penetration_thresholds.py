@@ -19,6 +19,7 @@ Every test writes namelists and stubs; none needs a GPEC installation.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -243,16 +244,32 @@ def test_the_three_wants_properties_agree_with_gpecs_own_forcing():
 # --------------------------------------------------------------------------
 
 
+#: An ideal DCON namelist, reduced to the two keys the check reads.
+#:
+#: ``con_flag=f`` is **not** the packaged default; the packaged ``dcon.in`` and
+#: GPEC's own ``input/dcon.in`` both ship ``t``, which is why a caller who asks
+#: for nothing cannot get a threshold.
+IDEAL_DCON_IN = "&DCON_CONTROL\n    con_flag=f\n    kin_flag=f\n/\n"
+
+
+def _profiles(directory, *, kinetic_file: str = "p.kin", present: bool = True) -> None:
+    (directory / "pentrc.in").write_text(
+        f'&PENT_INPUT\n    kinetic_file = "{kinetic_file}"\n/\n', encoding="utf-8"
+    )
+    if present and kinetic_file:
+        (directory / kinetic_file).write_text("psi ne\n0 1\n", encoding="utf-8")
+
+
 def test_a_directory_with_no_pentrc_in_cannot_compute_a_threshold(tmp_path):
+    (tmp_path / "dcon.in").write_text(IDEAL_DCON_IN, encoding="utf-8")
     problems = gpec.validate_threshold_inputs(tmp_path)
     assert len(problems) == 1
     assert "pentrc.in" in problems[0]
 
 
 def test_a_pentrc_in_naming_a_missing_kin_is_reported_with_both_names(tmp_path):
-    (tmp_path / "pentrc.in").write_text(
-        '&PENT_INPUT\n    kinetic_file = "gone.kin"\n/\n', encoding="utf-8"
-    )
+    (tmp_path / "dcon.in").write_text(IDEAL_DCON_IN, encoding="utf-8")
+    _profiles(tmp_path, kinetic_file="gone.kin", present=False)
     problems = gpec.validate_threshold_inputs(tmp_path)
     assert len(problems) == 1
     assert "gone.kin" in problems[0]
@@ -260,34 +277,93 @@ def test_a_pentrc_in_naming_a_missing_kin_is_reported_with_both_names(tmp_path):
 
 
 def test_a_pentrc_in_naming_no_kin_at_all_is_reported(tmp_path):
-    (tmp_path / "pentrc.in").write_text(
-        '&PENT_INPUT\n    kinetic_file = ""\n/\n', encoding="utf-8"
-    )
+    (tmp_path / "dcon.in").write_text(IDEAL_DCON_IN, encoding="utf-8")
+    _profiles(tmp_path, kinetic_file="")
     assert "names no kinetic_file" in gpec.validate_threshold_inputs(tmp_path)[0]
 
 
-def test_a_staged_pair_is_accepted(tmp_path):
-    (tmp_path / "pentrc.in").write_text(
-        '&PENT_INPUT\n    kinetic_file = "p.kin"\n/\n', encoding="utf-8"
-    )
-    (tmp_path / "p.kin").write_text("psi ne\n0 1\n", encoding="utf-8")
+def test_a_staged_pair_beside_an_ideal_dcon_is_accepted(tmp_path):
+    """GPEC's own single-directory layout: ``dcon_dir`` defaults to ``run_dir``."""
+    (tmp_path / "dcon.in").write_text(IDEAL_DCON_IN, encoding="utf-8")
+    _profiles(tmp_path)
     assert gpec.validate_threshold_inputs(tmp_path) == []
+
+
+def test_the_dcon_namelist_can_live_in_another_cell(tmp_path):
+    """Which is this adapter's own layout, where ``dcon.in`` is never staged over."""
+    gpec_cell, dcon_cell = tmp_path / "gpec", tmp_path / "dcon"
+    gpec_cell.mkdir()
+    dcon_cell.mkdir()
+    _profiles(gpec_cell)
+    (dcon_cell / "dcon.in").write_text(IDEAL_DCON_IN, encoding="utf-8")
+    assert gpec.validate_threshold_inputs(gpec_cell, dcon_cell) == []
+    # And without it the keys are reported unchecked rather than passed over.
+    unchecked = gpec.validate_threshold_inputs(gpec_cell)
+    assert len(unchecked) == 1
+    assert "could not be checked" in unchecked[0]
 
 
 def test_kinetic_profiles_are_not_the_same_thing_as_a_kinetic_dcon(tmp_path):
-    """The prerequisite is the two files, and nothing asks about ``kin_flag``.
+    """The profiles are the prerequisite; a kinetic DCON is a *blocker*.
 
     GPEC's own ``docs/examples/DIIID_ideal_example`` runs ``kin_flag=f`` with
     ``singthresh_flag=t``, a ``.kin`` and a ``pentrc.in``: the profiles feed the
-    threshold models, not the Euler-Lagrange equation.  A check that keyed on a
-    kinetic DCON would refuse that example.
+    threshold models, not the Euler-Lagrange equation. The first version of this
+    check read that as "``kin_flag`` is irrelevant", which is the opposite of
+    true -- with ``kin_flag=t`` GPEC counts ``msing = 0`` and writes no
+    rational-surface block at all, so there is nothing for a per-surface
+    threshold to attach to.
     """
-    (tmp_path / "pentrc.in").write_text(
-        '&PENT_INPUT\n    kinetic_file = "p.kin"\n/\n', encoding="utf-8"
+    _profiles(tmp_path)
+    (tmp_path / "dcon.in").write_text(
+        "&DCON_CONTROL\n    con_flag=f\n    kin_flag=t\n/\n", encoding="utf-8"
     )
-    (tmp_path / "p.kin").write_text("psi ne\n0 1\n", encoding="utf-8")
-    (tmp_path / "dcon.in").write_text("&DCON_CONTROL\n    kin_flag=f\n/\n", encoding="utf-8")
-    assert gpec.validate_threshold_inputs(tmp_path) == []
+    (problem,) = gpec.validate_threshold_inputs(tmp_path)
+    assert "kin_flag=t" in problem
+    assert "msing=0" in problem
+
+
+def test_the_packaged_con_flag_is_itself_a_blocker(tmp_path):
+    """The default path, and the reason this check exists at all.
+
+    ``con_flag=t`` is what the packaged ``dcon.in`` ships, so a caller who sets
+    ``singthresh_flag`` and nothing else gets a run GPEC refuses to compute a
+    threshold in -- and the refusal is a warning in the log followed by a column
+    of exact zeros, which is also what an unattainable threshold looks like.
+    """
+    _profiles(tmp_path)
+    (tmp_path / "dcon.in").write_text(
+        "&DCON_CONTROL\n    con_flag=t\n    kin_flag=f\n/\n", encoding="utf-8"
+    )
+    (problem,) = gpec.validate_threshold_inputs(tmp_path)
+    assert "con_flag=t" in problem
+    assert "DCONOptions(con_flag=False)" in problem
+
+
+def test_the_packaged_dcon_namelist_still_ships_the_blocking_value(tmp_path):
+    """Read off the template, not asserted from memory.
+
+    If a future template drops ``con_flag`` or ships ``f``, the two tests above
+    stop describing the default and this one says so.
+    """
+    from vaft.code.gpec._runtime import package_vest_dir, read_namelist_group
+
+    control = read_namelist_group(package_vest_dir() / "dcon.in", "dcon_control")
+    assert control["con_flag"] == "t"
+
+
+def test_a_threshold_run_can_turn_con_flag_off(case, tmp_path):
+    """And the prepared namelist says so, which is what the check then reads."""
+    config = gpec.GPECSuiteConfig(
+        modules=("dcon",), modes=(1,),
+        dcon=gpec.DCONOptions(con_flag=False),
+        gpec_home=tmp_path / "gpec_home",
+    )
+    gpec.prepare_gpec_suite_case(case, config)
+    cell = gpec._module_dir(case.workdir, case.time_ms, "dcon", 1, geqdsk=case.geqdsk)
+    from vaft.code.gpec._runtime import read_namelist_group
+
+    assert read_namelist_group(cell / "dcon.in", "dcon_control")["con_flag"] == "f"
 
 
 # --------------------------------------------------------------------------
@@ -372,3 +448,149 @@ def test_a_case_that_asked_for_no_threshold_is_not_checked(case, tmp_path):
     (record,) = result.records
     assert record.status != "skipped"
     assert "pentrc.in" not in record.reason
+
+
+# --------------------------------------------------------------------------
+# PENTRC's input, and the per-surface Prandtl profile
+# --------------------------------------------------------------------------
+
+
+def _prepared_gpec_in(case, tmp_path, **options):
+    config = gpec.GPECSuiteConfig(
+        modules=("gpec",), modes=(1,), gpec_home=tmp_path / "gpec_home",
+        gpec=gpec.IdealGPECOptions(**options),
+    )
+    gpec.prepare_gpec_suite_case(case, config)
+    cell = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+    from vaft.code.gpec._runtime import read_namelist_group
+
+    return read_namelist_group(cell / "gpec.in", "gpec_output"), cell
+
+
+def test_the_packaged_run_writes_nothing_pentrc_can_read(case, tmp_path):
+    """Which is why ``ascii_flag`` had to be exposed at all.
+
+    PENTRC reads the ASCII ``gpec_xclebsch_n<n>.out``; GPEC writes that file only
+    with ``ascii_flag`` *and* ``xclebsch_flag`` on, and the packaged template
+    ships the second without the first. So the default run computes the
+    displacement, writes it to netCDF, and leaves the torque unreachable.
+    """
+    assert gpec.IdealGPECOptions().writes_pentrc_input is False
+    written, _ = _prepared_gpec_in(case, tmp_path)
+    assert (written["ascii_flag"], written["xclebsch_flag"]) == ("f", "t")
+
+
+def test_asking_for_pentrcs_input_writes_both_flags(case, tmp_path):
+    options = gpec.IdealGPECOptions(ascii_flag=True)
+    assert options.writes_pentrc_input is True
+    written, _ = _prepared_gpec_in(case, tmp_path, ascii_flag=True)
+    assert (written["ascii_flag"], written["xclebsch_flag"]) == ("t", "t")
+
+
+def test_the_displacement_can_be_turned_off_without_turning_ascii_off(case, tmp_path):
+    """Both directions, because either flag alone writes nothing PENTRC opens."""
+    options = gpec.IdealGPECOptions(ascii_flag=True, xclebsch_flag=False)
+    assert options.writes_pentrc_input is False
+    written, _ = _prepared_gpec_in(case, tmp_path, ascii_flag=True, xclebsch_flag=False)
+    assert (written["ascii_flag"], written["xclebsch_flag"]) == ("t", "f")
+
+
+def test_a_per_surface_prandtl_profile_needs_a_template_that_declares_it(case, tmp_path):
+    """The packaged one does not, and that is deliberate.
+
+    Only GPEC from ``28f6df64`` onwards declares
+    ``singthresh_slayer_inpr_prof``, and a Fortran namelist READ stops the program
+    on a name it does not declare whatever the flags say -- so shipping the key
+    would break every run on an older build. The refusal names the way out.
+    """
+    config = gpec.GPECSuiteConfig(
+        modules=("gpec",), modes=(1,), gpec_home=tmp_path / "gpec_home",
+        gpec=gpec.IdealGPECOptions(
+            singthresh_slayer_flag=True,
+            singthresh_slayer_inpr=5.0,
+            singthresh_slayer_inpr_prof=(3.0, 5.0, 8.0),
+        ),
+    )
+    with pytest.raises(ValueError, match="does not declare"):
+        gpec.prepare_gpec_suite_case(case, config)
+
+
+def test_a_template_that_declares_it_gets_the_profile_comma_separated(case, tmp_path):
+    """Written the way GPEC reads a list: one assignment, comma separated."""
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    packaged = gpec._runtime.package_vest_dir()
+    for name in ("gpec.in", "coil.in", "equil.in", "dcon.in", "vac.in", "match.in"):
+        shutil.copy2(packaged / name, templates / name)
+    patched = (templates / "gpec.in").read_text(encoding="utf-8").replace(
+        "   singthresh_slayer_inpr=5.0",
+        "   singthresh_slayer_inpr=5.0\n   singthresh_slayer_inpr_prof=-1.0",
+        1,
+    )
+    (templates / "gpec.in").write_text(patched, encoding="utf-8")
+
+    config = gpec.GPECSuiteConfig(
+        modules=("gpec",), modes=(1,), gpec_home=tmp_path / "gpec_home",
+        templates_dir=templates,
+        gpec=gpec.IdealGPECOptions(
+            singthresh_slayer_flag=True,
+            singthresh_slayer_inpr=5.0,
+            singthresh_slayer_inpr_prof=(3.0, 5.0, 8.0),
+        ),
+    )
+    gpec.prepare_gpec_suite_case(case, config)
+    cell = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+    line = [
+        text for text in (cell / "gpec.in").read_text(encoding="utf-8").splitlines()
+        if "singthresh_slayer_inpr_prof" in text
+    ]
+    assert line and "3.0, 5.0, 8.0" in line[0]
+
+
+def test_a_template_without_singthresh_flag_still_prepares(case, tmp_path):
+    """A caller's own ``gpec.in`` is entitled not to carry a key GPEC defaults.
+
+    Restating ``singthresh_flag=f`` on a run that asked for no threshold must not
+    refuse such a template -- but a template shipping ``t`` must still be
+    overridden, or a threshold would run behind a caller who never asked.
+    """
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    packaged = gpec._runtime.package_vest_dir()
+    for name in ("gpec.in", "coil.in", "equil.in", "dcon.in", "vac.in", "match.in"):
+        shutil.copy2(packaged / name, templates / name)
+    stripped = "\n".join(
+        line for line in (templates / "gpec.in").read_text(encoding="utf-8").splitlines()
+        if "singthresh" not in line
+    )
+    (templates / "gpec.in").write_text(stripped + "\n", encoding="utf-8")
+
+    config = gpec.GPECSuiteConfig(
+        modules=("gpec",), modes=(1,), gpec_home=tmp_path / "gpec_home",
+        templates_dir=templates,
+    )
+    gpec.prepare_gpec_suite_case(case, config)  # no KeyError
+    cell = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+    assert "singthresh" not in (cell / "gpec.in").read_text(encoding="utf-8")
+
+
+def test_a_template_shipping_singthresh_flag_on_is_turned_off_when_unasked(case, tmp_path):
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    packaged = gpec._runtime.package_vest_dir()
+    for name in ("gpec.in", "coil.in", "equil.in", "dcon.in", "vac.in", "match.in"):
+        shutil.copy2(packaged / name, templates / name)
+    enabled = (templates / "gpec.in").read_text(encoding="utf-8").replace(
+        "singthresh_flag=f", "singthresh_flag=t", 1
+    )
+    (templates / "gpec.in").write_text(enabled, encoding="utf-8")
+
+    config = gpec.GPECSuiteConfig(
+        modules=("gpec",), modes=(1,), gpec_home=tmp_path / "gpec_home",
+        templates_dir=templates,
+    )
+    gpec.prepare_gpec_suite_case(case, config)
+    cell = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+    from vaft.code.gpec._runtime import read_namelist_group
+
+    assert read_namelist_group(cell / "gpec.in", "gpec_output")["singthresh_flag"] == "f"
