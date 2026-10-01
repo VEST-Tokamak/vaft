@@ -369,7 +369,9 @@ def write_mhdin(
     for line in _header_lines(geometry, config, extra):
         buffer.write(f"! {line}\n")
     efund_namelist(geometry, config, envelope=envelope).write(buffer)
-    destination.write_text(buffer.getvalue(), encoding="utf-8")
+    # newline="\n": text mode would write os.linesep, and a CRLF mhdin.dat on
+    # Windows would hash differently from the same input written on Linux.
+    destination.write_text(buffer.getvalue(), encoding="utf-8", newline="\n")
     return destination
 
 
@@ -900,7 +902,7 @@ def write_limiter_file(static_ods: Any, path: str | os.PathLike[str]) -> Path:
     lines = [f"{0:7d}{r.size:13d}"]
     lines += [_fortran_e(ri) + _fortran_e(zi) for ri, zi in zip(r, z)]
     target = Path(path)
-    target.write_text("\n".join(lines) + "\n", encoding="ascii")
+    target.write_text("\n".join(lines) + "\n", encoding="ascii", newline="\n")
     return target
 
 
@@ -956,7 +958,13 @@ def generate_era_table(
     a lock beside ``output``, so a second builder waits and then finds the
     table present (:class:`TableExistsError`).  A failed EFUND run leaves
     ``output`` untouched and its logs in ``<output>.failed-logs``; the staging
-    directory, some 170 MB at 129x129, is removed either way.
+    directory, some 170 MB at 129x129, is removed either way, so a result
+    that is not ok names ``output`` as its ``workdir`` (the directory that
+    would have been built, absent) and lists no files.
+
+    ``lim.dat`` is written before the manifest and recorded under
+    ``table.files`` with its hash, so it is part of ``table.identity``: two
+    tables that differ only in the limiter are different tables to EFIT.
 
     An ``output`` that exists without a manifest is refused unless it is empty
     or ``replace_incomplete`` is set -- by a caller that owns the directory,
@@ -1000,7 +1008,20 @@ def generate_era_table(
             result = run_efund(inputs, config)
             if not result.ok:
                 result.logs = _keep_failure_logs(result.logs, final.with_name(f"{final.name}.failed-logs"))
+                # The staging directory is about to go: point at the table
+                # that was not built rather than at paths that no longer exist.
+                result.workdir = final
+                result.files = {}
                 return result
+            # The limiter is an input EFIT reads from the table directory, so
+            # it is part of the table: written before the manifest and hashed
+            # into it (`expected` has no size for it; EFUND did not write it).
+            result.files[LIMITER_NAME] = write_limiter_file(ods, staging / LIMITER_NAME)
+            if base_table_dir is not None:
+                for name in REFERENCE_COMPANIONS:
+                    origin = Path(base_table_dir).expanduser() / name
+                    if origin.is_file():
+                        shutil.copy2(origin, staging / name)
             write_table_manifest(
                 result,
                 inputs,
@@ -1012,12 +1033,6 @@ def generate_era_table(
                     "seconds": time.perf_counter() - started,
                 },
             )
-            write_limiter_file(ods, staging / LIMITER_NAME)
-            if base_table_dir is not None:
-                for name in REFERENCE_COMPANIONS:
-                    origin = Path(base_table_dir).expanduser() / name
-                    if origin.is_file():
-                        shutil.copy2(origin, staging / name)
 
             if final.exists():
                 # Empty, or incomplete and the caller owns it (checked above).
