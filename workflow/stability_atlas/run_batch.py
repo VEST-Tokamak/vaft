@@ -134,7 +134,7 @@ def magnetic_config_sha(filedb: Path, row: dict) -> str | None:
     manifest = filedb / "omas" / "efit" / "magnetic" / str(row["shot"]) / "metadata" / "manifest.json"
     if not manifest.exists():
         return None
-    for status in json.loads(manifest.read_text()).get("slice_statuses", []):
+    for status in json.loads(manifest.read_text(encoding="utf-8")).get("slice_statuses", []):
         # slice_statuses[].time is in seconds; labels are integer ms.
         if status.get("time") is not None and round(float(status["time"]) * 1000) == row["time_ms"]:
             return status.get("provenance", {}).get("configuration", {}).get("scientific_sha256")
@@ -192,7 +192,7 @@ def write_source(row: dict, filedb: Path, slice_dir: Path) -> dict:
         product = filedb / "omas" / "electron_efit" / str(row["shot"]) / "output" / "electron_efit.json.gz"
         if not product.exists():
             return {**record, "status": "missing", "reason": f"no electron-EFIT product {product}"}
-        with gzip.open(product, "rt") as handle:
+        with gzip.open(product, "rt", encoding="utf-8") as handle:
             ods = omas.load_omas_json(handle)
         # from_omas reads equilibrium.time_slice[index], so the time must come
         # from the same slice, not from the separate equilibrium.time vector.
@@ -215,7 +215,7 @@ def refine(row: dict, slice_dir: Path, chease: str, timeout: float) -> dict:
     if refined.exists():
         return {**record, "status": "ok", "path": str(refined), "cached": True}
     workdir.mkdir(parents=True, exist_ok=True)
-    (workdir / "gfiles.txt").write_text(str((slice_dir / "source" / gfile_name(row)).resolve()) + "\n")
+    (workdir / "gfiles.txt").write_text(str((slice_dir / "source" / gfile_name(row)).resolve()) + "\n", encoding="utf-8")
     command = [
         sys.executable,
         str(PIPELINE / "run_chease_refinement.py"),
@@ -227,9 +227,9 @@ def refine(row: dict, slice_dir: Path, chease: str, timeout: float) -> dict:
         "--timeout", str(timeout),
         "--create-plot", "false",
     ]  # fmt: skip
-    with (workdir / "chease.log").open("w") as log:
+    with (workdir / "chease.log").open("w", encoding="utf-8") as log:
         returncode = subprocess.run(command, cwd=workdir, stdout=log, stderr=subprocess.STDOUT).returncode
-    status = (workdir / "status.txt").read_text().strip() if (workdir / "status.txt").exists() else ""
+    status = (workdir / "status.txt").read_text(encoding="utf-8").strip() if (workdir / "status.txt").exists() else ""
     if returncode == 0 and refined.exists():
         return {**record, "status": "ok", "path": str(refined), "chease_status": status}
     return {**record, "status": "failed", "returncode": returncode, "chease_status": status}
@@ -288,7 +288,7 @@ def main() -> int:
     rows.sort(key=lambda r: (r["efit_label"] != "good", r["shot"], r["time_ms"], r["efit_lineage"]))
 
     stages: list[dict] = []
-    with ProcessPoolExecutor(max_workers=args.workers) as pool, (out / "stages.jsonl").open("a") as log:
+    with ProcessPoolExecutor(max_workers=args.workers) as pool, (out / "stages.jsonl").open("a", encoding="utf-8") as log:
         futures = {pool.submit(prepare, row, args.filedb, out, args.chease, args.chease_timeout): row for row in rows}
         for future in as_completed(futures):
             records = prepared(future, futures[future])

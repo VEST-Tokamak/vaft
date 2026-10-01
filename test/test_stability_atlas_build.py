@@ -228,6 +228,33 @@ def test_ggj_at_a_surface_follows_the_library_reader(build, tmp_path):
     assert build.matching_surfaces({"status": "failed", "run_dir": str(run_dir), "n": 1}, "rdcon") == []
 
 
+def test_atlas_text_io_does_not_depend_on_the_locale(tmp_path):
+    # Under an ASCII locale (no UTF-8 mode, no C-locale coercion) a non-ASCII
+    # reason or setting must still round-trip: the scripts name their encoding.
+    import os
+    import subprocess
+
+    script = """
+import csv, importlib.util, sys
+from pathlib import Path
+def load(name):
+    spec = importlib.util.spec_from_file_location(name, Path(sys.argv[1]) / f"{name}.py")
+    module = importlib.util.module_from_spec(spec); sys.modules[name] = module; spec.loader.exec_module(module); return module
+select, build = load("select_slices"), load("build_atlas")
+out = Path(sys.argv[2])
+reason = "Δ′ unresolved — café"
+build.write_csv([{"shot": 39915, "reason": reason}], out / "atlas_n.csv")
+with (out / "atlas_n.csv").open(newline="", encoding="utf-8") as handle:
+    assert next(csv.DictReader(handle))["reason"] == reason
+row = {"shot": 39915, "time_ms": 316, "time_efit_s": 0.316, "efit_lineage": "magnetics-only", "efit_label": "good", "efit_setting": "statistical_891;σ×3.62", "kinetic_chi2": None}
+assert select.read(select.write([row], out / "slices.csv"))[0]["efit_setting"] == row["efit_setting"]
+print("ok")
+"""
+    env = {**os.environ, "LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0", "PYTHONIOENCODING": "utf-8"}
+    result = subprocess.run([sys.executable, "-c", script, str(ROOT), str(tmp_path)], env=env, capture_output=True, text=True)
+    assert result.returncode == 0 and result.stdout.strip() == "ok", result.stderr
+
+
 REFERENCE = Path(__file__).resolve().parent / "data" / "gpec" / "dcon_edge_792"
 
 

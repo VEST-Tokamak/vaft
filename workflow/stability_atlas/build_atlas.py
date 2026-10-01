@@ -80,7 +80,7 @@ EXTENSION_VALUES = ("NOT_CHECKED", "RESOLVED")
 
 def _result(job: Path) -> Optional[dict]:
     path = job / "result.json"
-    return json.loads(path.read_text()) if path.exists() else None
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
 
 def _ok(result: Optional[dict]) -> bool:
@@ -96,7 +96,7 @@ def zero_crossings(run_dir: Path) -> list[tuple[float, float]]:
     out = run_dir / "dcon.out"
     if not out.exists():
         return []
-    return [(float(a), float(b)) for a, b in ZERO_CROSSING.findall(out.read_text(errors="replace"))]
+    return [(float(a), float(b)) for a, b in ZERO_CROSSING.findall(out.read_text(encoding="utf-8", errors="replace"))]
 
 
 def _extremum(values: Optional[np.ndarray], psi: Optional[np.ndarray], mask: Optional[np.ndarray], *, largest: bool):
@@ -437,7 +437,7 @@ def write_csv(rows: list[dict], path: Path) -> Path:
     columns: list[str] = []
     for row in rows:
         columns.extend(k for k in row if k not in columns)
-    with path.open("w", newline="") as handle:
+    with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
         writer.writerows(rows)
@@ -514,7 +514,7 @@ def main() -> int:
         "atlas_surfaces_columns": sorted({k for r in surfaces for k in r}),
         "rows": {"atlas_n": len(atlas), "atlas_surfaces": len(surfaces)},
     }
-    (out / "schema.json").write_text(json.dumps(schema, indent=1))
+    (out / "schema.json").write_text(json.dumps(schema, indent=1), encoding="utf-8")
     print(f"{len(atlas)} atlas rows, {len(surfaces)} surface rows -> {out}")
     return 0
 

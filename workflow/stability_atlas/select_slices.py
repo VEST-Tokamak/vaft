@@ -113,7 +113,7 @@ def _row(shot: int, time_ms: int, lineage: str, label: str, setting: str, *, kin
 
 
 def write(rows: list[dict], path: Path) -> Path:
-    with path.open("w", newline="") as handle:
+    with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=COLUMNS)
         writer.writeheader()
         writer.writerows(rows)
@@ -121,7 +121,7 @@ def write(rows: list[dict], path: Path) -> Path:
 
 
 def read(path: Path) -> list[dict]:
-    with path.open(newline="") as handle:
+    with path.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     for row in rows:
         row["shot"] = int(row["shot"])
@@ -137,7 +137,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True, help="slices.csv to write")
     parser.add_argument("--shots", type=int, nargs="*", default=None)
     args = parser.parse_args()
-    selected, dropped = select(json.loads(args.analysis.read_text()), shots=args.shots)
+    selected, dropped = select(json.loads(args.analysis.read_text(encoding="utf-8")), shots=args.shots)
     write(selected, args.out)
     counts: dict[tuple[str, str], int] = {}
     for row in selected:
