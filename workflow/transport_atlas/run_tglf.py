@@ -18,7 +18,8 @@ Output tree (``--out/<config>``)::
 
 Status vocabulary per state: ``not_ready`` (the state did not resolve or no solver
 input could be built), ``skipped`` (resolved but no surface ready), ``failed`` (every
-run failed), ``partial`` and ``solved``.  A solver timeout is a failed run whose
+run failed, or the runs solved but no surface could be projected -- see ``reasons``),
+``partial`` and ``solved``.  A solver timeout is a failed run whose
 ``runtime_status`` says ``timeout``; it is recorded, not raised.
 
 Unreconstructible slices are never enumerated: they are counted in the manifest and
@@ -109,6 +110,21 @@ def compose(equilibrium_ods: Any, profiles_ods: Any) -> Any:
     return ods
 
 
+def _time_vector(ods: Any, path: str) -> np.ndarray:
+    """The IDS time vector, or an empty array when the product carries none.
+
+    Products load with ``consistency_check=False``, where a bare subscript of a
+    missing ``time`` reads as an empty node rather than raising; read by membership
+    so "absent" is a visible outcome, not a lineage that silently yields no state.
+    """
+    from vaft.ods_access import path_value
+
+    values = path_value(ods, path, None)
+    if values is None:
+        return np.empty(0)
+    return np.atleast_1d(np.asarray(values, dtype=float))
+
+
 def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages: Iterable[str]):
     """Yield ``(key, efit_quality, quality_source)`` for every good/admissible state.
 
@@ -129,11 +145,18 @@ def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages:
                 counts["missing_products"].append({"shot": shot, "stage": lineage,
                                                    "status": eq_manifest.get("status")})
                 continue
-            eq = _load(eq_path)
-            times = np.atleast_1d(np.asarray(eq["equilibrium.time"], dtype=float))
+            times = _time_vector(_load(eq_path), "equilibrium.time")
+            if times.size == 0:
+                counts["missing_products"].append({"shot": shot, "stage": lineage,
+                                                   "status": "no_time"})
+                continue
             if lineage == "magnetics":
                 # A magnetics state exists where a core_profiles slice sits on the slice.
-                cp_times = np.atleast_1d(np.asarray(_load(cp_path)["core_profiles.time"], dtype=float))
+                cp_times = _time_vector(_load(cp_path), "core_profiles.time")
+                if cp_times.size == 0:
+                    counts["missing_products"].append({"shot": shot, "stage": "core_profiles",
+                                                       "status": "no_time"})
+                    continue
                 candidates = [t for t in times
                               if np.min(np.abs(cp_times - t)) <= DEFAULT_TIME_TOLERANCE_S]
                 source = "criteria"
@@ -201,11 +224,12 @@ def build_config(args) -> Any:
 
         # Without --mem this cluster's default is the whole node's memory, so a
         # one-core TGLF job waits for an empty node (measured on tdst, 2026-10-01).
+        # The reservation travels as config.memory_mb (ResourceRequest.memory_mb),
+        # so the same number gates a memory-watching local backend too.
         backend = SlurmBackend(partition=args.partition, account=args.account,
-                               mode="batch", max_wait=args.max_wait,
-                               extra_args=(f"--mem={int(args.mem_mb)}M",))
+                               mode="batch", max_wait=args.max_wait)
     return TGLFConfig(sat_rule=args.sat_rule, **FIELD_MODELS[args.field_model],
-                      backend=backend, timeout=args.timeout)
+                      backend=backend, timeout=args.timeout, memory_mb=int(args.mem_mb))
 
 
 def _local_summary(local: Any) -> dict[str, Any]:
@@ -255,7 +279,9 @@ def _run_surface(job: dict, config: Any) -> dict:
 
     workdir = Path(job["workdir"])
     record_path = workdir / "record.json"
-    if record_path.is_file():
+    # A solved record is only reusable with the outputs.json it was written from;
+    # a pruned native directory that kept record.json is re-run, not projected.
+    if record_path.is_file() and (workdir / "outputs.json").is_file():
         previous = json.loads(record_path.read_text(encoding="utf-8"))
         if previous.get("run_identity") == job["identity"] and previous.get("status") == "solved":
             previous["cached"] = True
@@ -390,7 +416,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--backend", choices=("local", "slurm"), default="local")
     parser.add_argument("--partition", default="lowpri-short")
     parser.add_argument("--account")
-    parser.add_argument("--mem-mb", type=int, default=2048, help="Slurm --mem per run [MB]")
+    parser.add_argument("--mem-mb", type=int, default=2048,
+                        help="memory reserved per run [MB]: Slurm --mem, or the admission "
+                             "reservation of a memory-watching local backend")
     parser.add_argument("--timeout", type=float, default=1800.0)
     parser.add_argument("--max-wait", type=float, default=6 * 3600.0)
     parser.add_argument("--workers", type=int, default=8)
@@ -488,8 +516,23 @@ def main(argv: Optional[list[str]] = None) -> int:
                     entry["status"] = "not_ready"
                 surfaces.append(entry)
             status = state_status(readiness, surfaces, state.resolved) if not args.dry_run else "dry_run"
-            mapping = project_state(state, surfaces, state_jobs) if status in ("solved", "partial") else None
-            payload = {**state.summary(), "solver": "tglf", "status": status,
+            reasons = list(state.reasons)
+            mapping = None
+            if status in ("solved", "partial"):
+                try:
+                    mapping = project_state(state, surfaces, state_jobs)
+                except Exception as error:  # noqa: BLE001 - one state's row, not the batch
+                    # A missing or unreadable outputs.json fails this state; raising
+                    # here would truncate states.jsonl and lose every finished state.
+                    status = "failed"
+                    reasons.append(f"projection_error: {type(error).__name__}: {error}")
+            if mapping is not None and not mapping["surfaces"]:
+                # The run records say solved, but the mapper refused every surface
+                # (a NaN or non-monotone rmin, a species-count disagreement): no flux
+                # was written, and a state without fluxes is not a solved state.
+                status = "failed"
+                reasons += [f"no_surface_mapped: {reason}" for reason in mapping["skipped"]]
+            payload = {**state.summary(), "solver": "tglf", "status": status, "reasons": reasons,
                        "readiness": readiness.summary(), "surfaces": surfaces,
                        "core_transport": mapping, "tglf_config": tglf_config,
                        "tglf_parameters": parameters,

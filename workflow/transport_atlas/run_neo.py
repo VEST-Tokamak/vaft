@@ -77,10 +77,9 @@ def build_config(args) -> Any:
         from vaft.code.slurm import SlurmBackend
 
         backend = SlurmBackend(partition=args.partition, account=args.account,
-                               mode="batch", max_wait=args.max_wait,
-                               extra_args=(f"--mem={int(args.mem_mb)}M",))
+                               mode="batch", max_wait=args.max_wait)
     return NEOConfig(n_radial=n_radial, rmin_over_a=first, rmin_over_a_2=last,
-                     backend=backend, timeout=args.timeout)
+                     backend=backend, timeout=args.timeout, memory_mb=int(args.mem_mb))
 
 
 def project(native: Any, time: float) -> dict[str, Any]:
@@ -144,7 +143,9 @@ def _run_state(job: dict, config: Any) -> dict:
 
     workdir = Path(job["workdir"])
     record_path = workdir / "record.json"
-    if record_path.is_file():
+    # A solved record is only reusable with the outputs.json it was written from;
+    # a pruned native directory that kept record.json is re-run, not projected.
+    if record_path.is_file() and (workdir / "outputs.json").is_file():
         previous = json.loads(record_path.read_text(encoding="utf-8"))
         if previous.get("run_identity") == job["identity"] and previous.get("status") == "solved":
             previous["cached"] = True
@@ -199,7 +200,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--backend", choices=("local", "slurm"), default="local")
     parser.add_argument("--partition", default="lowpri-short")
     parser.add_argument("--account")
-    parser.add_argument("--mem-mb", type=int, default=2048)
+    parser.add_argument("--mem-mb", type=int, default=2048,
+                        help="memory reserved per run [MB], as in run_tglf.py")
     parser.add_argument("--timeout", type=float, default=1800.0)
     parser.add_argument("--max-wait", type=float, default=6 * 3600.0)
     parser.add_argument("--workers", type=int, default=8)
@@ -274,14 +276,27 @@ def main(argv: Optional[list[str]] = None) -> int:
             else:
                 status = record["status"]
             mapping = None
+            reasons = list(state.reasons)
             if status == "solved":
-                native = NeoOutputs.read_json(Path(job["workdir"]) / "outputs.json")
-                mapping = project(native, state.key.time_efit_s)
+                try:
+                    native = NeoOutputs.read_json(Path(job["workdir"]) / "outputs.json")
+                    mapping = project(native, state.key.time_efit_s)
+                except Exception as error:  # noqa: BLE001 - one state's row, not the batch
+                    # A missing or unreadable outputs.json fails this state; raising
+                    # here would truncate states.jsonl and lose every finished state.
+                    status = "failed"
+                    reasons.append(f"projection_error: {type(error).__name__}: {error}")
+            if mapping is not None:
                 requested = sorted(float(s) for s in args.surfaces)
                 got = sorted(row["r_over_a"] for row in mapping["surfaces"])
-                if len(got) != len(requested) or not np.allclose(got, requested, atol=1e-4):
+                if not got:
+                    # NEO exited cleanly but the mapper wrote nothing (no exprhon /
+                    # expnorm / species table): a state without fluxes is not solved.
+                    status = "failed"
+                    reasons += [f"no_surface_mapped: {reason}" for reason in mapping["skipped"]]
+                elif len(got) != len(requested) or not np.allclose(got, requested, atol=1e-4):
                     status = "partial"
-            payload = {**state.summary(), "solver": "neo", "status": status,
+            payload = {**state.summary(), "solver": "neo", "status": status, "reasons": reasons,
                        "readiness": readiness.summary(), "run": record,
                        "run_identity": None if job is None else job["identity"],
                        "core_transport": mapping, "neo_parameters": parameters,
