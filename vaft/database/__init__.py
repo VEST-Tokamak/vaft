@@ -433,7 +433,7 @@ def __getattr__(name: str):
     # Plot adapters (issue #63) and their dd_*/extract_* twins (umbrella #434):
     # resolved lazily so importing vaft.database pulls in neither the
     # plotting stack nor Matplotlib.
-    if name.startswith(("plot_", "extract_", "dd_")) or name == "available_plots":
+    if name.startswith(("plot_", "extract_", "dd_")) or name in ("available_plots", "stored_ids"):
         plotting = import_module(".plotting", __name__)
         try:
             value = getattr(plotting, name)
@@ -465,7 +465,7 @@ def __dir__():
         # not the plotting module's own helpers (render, extract, dd).
         names |= {
             name for name in dir(import_module(".plotting", __name__))
-            if name.startswith(("plot_", "extract_", "dd_")) or name == "available_plots"
+            if name.startswith(("plot_", "extract_", "dd_")) or name in ("available_plots", "stored_ids")
         }
     except Exception:  # pragma: no cover - the plotting stack is optional at dir() time
         pass

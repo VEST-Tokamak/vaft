@@ -197,8 +197,8 @@ def sputtering_threshold_bohdansky(E_s, m_1, m_2):
     r"""Physical-sputtering threshold energy, Bohdansky's empirical fit.
 
     $$E_\mathrm{th} = \begin{cases}
-      \dfrac{E_s}{\gamma(1 - \gamma)}, & m_1/m_2 \le 0.2 \\[1ex]
-      8E_s\left(\dfrac{m_1}{m_2}\right)^{2/5}, & m_1/m_2 > 0.2
+      \dfrac{E_s}{\gamma(1 - \gamma)}, & m_1/m_2 \le 0.3 \\[1ex]
+      8E_s\left(\dfrac{m_1}{m_2}\right)^{2/5}, & m_1/m_2 > 0.3
       \end{cases},\qquad \gamma = \frac{4m_1m_2}{(m_1 + m_2)^2}$$
 
     Parameters
@@ -226,9 +226,13 @@ def sputtering_threshold_bohdansky(E_s, m_1, m_2):
     A named empirical model (Bohdansky 1984), not a table: $E_s$ is an
     input and no material data are built in. Fits of Eckstein and others
     differ by tens of per cent near threshold; use tabulated thresholds for
-    quantitative work. The two branches do not join exactly: at
-    $m_1/m_2 = 0.2$ the light branch gives $4.05E_s$ and the heavy one
-    $4.20E_s$, a 4 % step.
+    quantitative work. The breakpoint between the light-ion and heavy-ion
+    branches is $m_1/m_2 = 0.3$, as every restatement of the fit gives it
+    ([2]_ Eq. 12; [3]_); the two branches do not join exactly there: at
+    $m_1/m_2 = 0.3$ the light branch gives $4.86E_s$ and the heavy one
+    $4.94E_s$, a 1.75 % step. (An earlier revision of this function broke
+    at 0.2, which put D on Be, He on N and He on O -- ratios between 0.2
+    and 0.3 -- on the heavy branch, 6 % high.)
 
     Physical interpretation
     -----------------------
@@ -242,6 +246,11 @@ def sputtering_threshold_bohdansky(E_s, m_1, m_2):
     ----------
     .. [1] J. Bohdansky, J. Roth and H. L. Bay, J. Appl. Phys. 51 (1980) 2861;
            J. Bohdansky, Nucl. Instrum. Methods B 2 (1984) 587.
+    .. [2] T. Nozawa, T. Kozasa and A. Habe, Astrophys. J. 648 (2006) 435,
+           Eq. (12): the threshold with its $M_1/M_2 \le 0.3$ breakpoint.
+    .. [3] W. Eckstein and R. Preuss, J. Nucl. Mater. 320 (2003) 209 (after
+           C. Garcia-Rosales et al., J. Nucl. Mater. 218 (1994) 8): the same
+           light/heavy split at $M_1/M_2 = 0.3$.
     """
     E_s = _positive(E_s, "E_s")
     m_1 = _positive(m_1, "m_1")
@@ -250,4 +259,4 @@ def sputtering_threshold_bohdansky(E_s, m_1, m_2):
     gamma = 4.0 * m_1 * m_2 / (m_1 + m_2) ** 2
     with np.errstate(divide="ignore"):
         light = E_s / (gamma * (1.0 - gamma))  # gamma = 1 (equal masses) only reaches the heavy branch
-    return _out(np.where(ratio <= 0.2, light, 8.0 * E_s * ratio**0.4))
+    return _out(np.where(ratio <= 0.3, light, 8.0 * E_s * ratio**0.4))

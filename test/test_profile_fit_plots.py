@@ -95,6 +95,52 @@ def test_time_index_picks_the_diagnostic_sample(ods):
     assert "299.0 ms" in model.title or "300.0 ms" in model.title
 
 
+def _three_slices(ods, times, *, keep_time_base):
+    """``ods`` with its one equilibrium slice copied to three, at ``times``, each psi map scaled apart."""
+    import copy
+
+    several = omas.ODS(consistency_check=False)
+    several.update(ods)
+    for index, instant in enumerate(times):
+        if index:
+            several[f"equilibrium.time_slice.{index}"] = copy.deepcopy(several["equilibrium.time_slice.0"])
+        several[f"equilibrium.time_slice.{index}.time"] = instant
+        for leaf in ("profiles_2d.0.psi", "global_quantities.psi_boundary", "global_quantities.psi_axis"):
+            several[f"equilibrium.time_slice.{index}.{leaf}"] = (
+                several[f"equilibrium.time_slice.0.{leaf}"] * (1.0 + 0.5 * index)
+            )
+    if keep_time_base:
+        several["equilibrium.time"] = np.asarray(times)
+    else:
+        del several["equilibrium.time"]
+    return several
+
+
+def test_a_short_or_absent_equilibrium_time_base_still_pairs_the_slice_by_time(ods):
+    """F7: the slices' own time leaves pair the equilibrium; slice 0 by position was silent."""
+    from vaft.plot.backend.recipes import _equilibrium_slice_for
+
+    times = (0.250, 0.350, 0.305)  # the diagnostic sample is at 307 ms: slice 2 is the one
+    complete = _three_slices(ods, times, keep_time_base=True)
+    expected = _build(complete, time=0.35)
+    for keep in (True, False):
+        several = _three_slices(ods, times, keep_time_base=keep)
+        if keep:
+            several["equilibrium.time"] = np.asarray(times[:1])  # shorter than the slices
+        _, when, text = _equilibrium_slice_for(several, 0.307)
+        assert (when, text) == (0.305, "slice 2")
+        model = _build(several, time=0.35)
+        assert "equilibrium at 305.0 ms" in model.title
+        np.testing.assert_allclose(model.series[0].x, expected.series[0].x)
+    # no time anywhere: slice 0 is all there is, and the title says its instant is unknown
+    for index in range(3):
+        del complete[f"equilibrium.time_slice.{index}.time"]
+    del complete["equilibrium.time"]
+    _, when, text = _equilibrium_slice_for(complete, 0.307)
+    assert when is None and text.startswith("slice 0")
+    assert "equilibrium time unknown" in _build(complete, time_index=0).title
+
+
 def test_an_unknown_field_or_coordinate_is_refused(ods):
     with pytest.raises(ValueError, match="field"):
         _build(ods, field="ti")

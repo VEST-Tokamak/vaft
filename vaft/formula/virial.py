@@ -232,6 +232,11 @@ def virial_stability_criterion(W_mag: float,
     See Also
     --------
     virial_theorem : the virial ratio $r_v$ without a threshold.
+
+    References
+    ----------
+    .. [1] V. D. Shafranov, in *Reviews of Plasma Physics*, Vol. 2, Consultants
+           Bureau (1966), p. 103.
     """
     warnings.warn(
         "`virial_stability_criterion` is deprecated: its threshold 0.5 has no source and the "

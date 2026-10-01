@@ -139,7 +139,6 @@ CONVENTION_SENSITIVE = frozenset({
     "poloidal_field_factor",
     "radial_magnetic_field_from_psi",
     "vertical_magnetic_field_from_psi",
-    "current_density_from_psi",
     "current_density_from_B",
     "mean_reflected_energy_fraction",
     "recycling_coefficient",

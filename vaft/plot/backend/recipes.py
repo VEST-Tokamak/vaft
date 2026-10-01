@@ -921,6 +921,10 @@ class CallableRecipe:
     #: array of structures ``time_slice=`` indexes (``equilibrium.time_slice``),
     #: and :func:`build_model` snaps ``time=`` to the nearest of its elements.
     time_axis: str = ""
+    #: ``True`` for a builder that reads ``time_range=`` and windows its time
+    #: history to it; otherwise the option is refused (:func:`takes_time_range`)
+    #: rather than accepted and ignored.
+    windowed: bool = False
 
     def __post_init__(self) -> None:
         if self.backend not in BACKENDS:
@@ -4728,11 +4732,17 @@ def _build_machine_3d(ods: Any, *, time_slice: int = 0, **_: Any) -> Geometry3DL
             ))
             labelled_pf = True
     if _count(ods, "coils_non_axisymmetric.coil"):
+        # The composed scene is drawable without the coils, but a coil set
+        # the dedicated coil_3d_geometry3d view refuses must not vanish from
+        # it silently: the exported scene would simply lack them.
         try:
             coils = _build_coils_non_axisymmetric_3d(ods)
-        except ValueError:
-            coils = None
-        if coils is not None:
+        except ValueError as exc:
+            warnings.warn(
+                f"machine_geometry3d: coils_non_axisymmetric skipped ({exc})",
+                UserWarning, stacklevel=2,
+            )
+        else:
             layers.extend(replace(layer, group=f"machine/{layer.group}") for layer in coils.layers)
     boundary_r = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
     boundary_z = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
@@ -5347,6 +5357,7 @@ RECIPES["startup_proxies_time"] = CallableRecipe(
     backend=OMAS_BOUND,
     reason='vaft.omas.process_wrapper.compute_startup_proxies_ods solves and stores the vessel currents on a private copy of pf_active/pf_passive/wall/equilibrium/tf (_isolated_copy)',
     multi_entry=True,
+    windowed=True,
 )
 RECIPES["vacuum_field_midplane"] = CallableRecipe(
     builder=_build_vacuum_field_midplane,
@@ -6260,6 +6271,7 @@ RECIPES["camera_visible_spectrogram"] = CallableRecipe(
     description="Time-frequency map of the camera intensity summed over one image region.",
     reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
     backend=NEUTRAL,
+    windowed=True,
 )
 
 
@@ -7118,7 +7130,8 @@ def _smoothed_trace(trace: Series, window: float) -> Series:
 def _build_line_series(
     entries: Sequence[tuple[str, Any]], recipe: LineRecipe, **options: Any
 ) -> LineSeries:
-    spec = get_spec(options.pop("_plot_name")) if "_plot_name" in options else None
+    plot_name = options.pop("_plot_name", None)
+    spec = get_spec(plot_name) if plot_name is not None else None
     subject = spec.subject if spec is not None else None
     # Inside a composite the suptitle carries subject/unit/shot, so a member
     # keeps the short recipe title that identifies it within the figure.
@@ -7185,6 +7198,22 @@ def _build_line_series(
         default_title = f"{default_title} — intuitive orientation (sign flipped)"
     if smooth is not None:
         default_title = f"{default_title} {_smooth_note(smooth)}"
+    # ``time_range`` (seconds) is the time window a caller asks for; it was
+    # accepted and then ignored by every line plot. On a time axis it sets the
+    # limits, converted to the axis's display unit; an explicit ``x_limits``
+    # (already in display units) still wins.  On any other abscissa -- asked
+    # for with ``x=``, or the sample index the figure fell back to -- a window
+    # in seconds means nothing, and it is refused rather than dropped (cold
+    # review 0.8.0 delta-absorb-2 F2): the rule ``time=`` follows.
+    x_limits = options.get("x_limits")
+    window = _range_option(options, "time_range")
+    if x_limits is None and window is not None:
+        if drawn.name != "time":
+            raise ValueError(
+                f"time_range= windows the time axis; {plot_name or recipe.title!r} draws x={drawn.name!r} "
+                f"({drawn.label}) here, which a window in seconds cannot limit"
+            )
+        x_limits = (float(window[0]) * x_display.scale, float(window[1]) * x_display.scale)
     model = LineSeries(
         series=scaled,
         x_label=drawn.label,
@@ -7192,7 +7221,7 @@ def _build_line_series(
         y_label=recipe.y_label,
         y_unit=y_display.unit,
         title=options.get("title", default_title),
-        x_limits=options.get("x_limits"),
+        x_limits=x_limits,
         log_y=bool(options.get("log_y", False)),
         display=y_display,
     )
@@ -8840,6 +8869,7 @@ def _build_panels(
     member_options, member_style = split_options(recipe.member_defaults)
     members = []
     timed: list[str] = []
+    windowed: list[str] = []
     for name in recipe.members:
         if chosen is not None and name not in chosen:
             continue
@@ -8862,6 +8892,12 @@ def _build_panels(
             merged.pop("time", None)
         elif merged.get("time") is not None:
             timed.append(name)
+        # And for a window: it limits the members that draw a time history
+        # and leaves a profile or a map beside them alone.
+        if not takes_time_range(name):
+            merged.pop("time_range", None)
+        elif merged.get("time_range") is not None:
+            windowed.append(name)
         members.append(build_model(name, entries, _panel_member=True, **merged))
     if members and options.get("time") is not None and not timed:
         # The member that would have taken it has no data here, so what is
@@ -8869,6 +8905,11 @@ def _build_panels(
         raise ValueError(
             "time= selects nothing in this overview: none of the panels this input "
             "supports draws a single instant (takes no time= here)"
+        )
+    if members and options.get("time_range") is not None and not windowed:
+        raise ValueError(
+            "time_range= windows nothing in this overview: none of the panels this "
+            "input supports draws a time history (takes no time_range= here)"
         )
     if not members:
         raise ValueError(
@@ -8965,8 +9006,11 @@ def _lay_out(
         raise ValueError(f"layout must be one of {', '.join(LAYOUTS)}; got {layout!r}")
     if layout == "overlay":
         return model
+    # Every panel keeps the window and the scale the caller asked for: a split
+    # layout used to drop both, so x_limits/time_range/log_y worked only overlaid.
     common = dict(x_label=model.x_label, x_unit=model.x_unit, y_label=model.y_label,
-                  y_unit=model.y_unit, display=model.display)
+                  y_unit=model.y_unit, display=model.display, x_limits=model.x_limits,
+                  log_y=model.log_y)
 
     if layout == "subplots":
         # One panel per channel, in resolved order; several shots of one channel
@@ -9462,6 +9506,35 @@ def no_time_option_message(name: str) -> str:
     return (
         f"{name!r} takes no time=: it draws no single instant "
         "(use time_range= to window a time history)"
+    )
+
+
+def takes_time_range(name: str) -> bool:
+    """Whether plot ``name`` windows a time history to ``time_range=``.
+
+    ``time_range=`` is honoured or refused, never accepted and ignored (cold
+    review 0.8.0 delta-absorb-2 F2, the rule ``time=`` follows).  A line plot
+    takes it on its time abscissa (and refuses it when drawn against another,
+    see :func:`_build_line_series`); a spectrogram and a power spectrum trim
+    their signal to it; a computed view declares it (``CallableRecipe.windowed``);
+    a composite takes it when a member does.  A profile, a 2-D map and a
+    machine drawing have no time history to window.
+    """
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, (LineRecipe, SpectrogramRecipe, PowerSpectrumRecipe)):
+        return True
+    if isinstance(recipe, CallableRecipe):
+        return recipe.windowed
+    if isinstance(recipe, PanelRecipe):
+        return any(takes_time_range(member) for member in recipe.members)
+    return False
+
+
+def no_time_range_option_message(name: str) -> str:
+    """The refusal of time_range= by a plot that draws no time history."""
+    return (
+        f"{name!r} takes no time_range=: nothing it draws is windowed to a time "
+        "interval (a plot of one instant takes time= or time_slice= instead)"
     )
 
 
@@ -12645,11 +12718,23 @@ def _equilibrium_slice_for(source: Any, target: float) -> tuple[Any, float | Non
     count = _count(source, "equilibrium.time_slice") if hasattr(source, "keys") else 0
     if not count:
         return source, None, "given equilibrium"
-    times = _array(source, "equilibrium.time")
-    if times is None or times.size < count:
-        return source, None, "slice 0"
-    # the same time pairing the public mappers apply with time=
-    equilibrium, index, when = _equilibrium_slice_at_time(source, target)
+    try:
+        # the same time pairing the public mappers apply with time=
+        equilibrium, index, when = _equilibrium_slice_at_time(source, target)
+    except ValueError:
+        # equilibrium.time is absent or shorter than the slices: the mappers
+        # refuse, but the slices' own time leaves still pair one by time.
+        # Falling back to slice 0 by position would map every profile through
+        # the first equilibrium silently, however far it is from target.
+        from vaft.process.profile import _single_slice_ods
+
+        times = slice_times(source, "equilibrium.time_slice")
+        stored = np.flatnonzero(np.isfinite(times))
+        if stored.size == 0:
+            return source, None, "slice 0 (no equilibrium time)"
+        index = int(stored[int(np.argmin(np.abs(times[stored] - float(target))))])
+        equilibrium = source if index == 0 else _single_slice_ods(source, index)
+        when = float(times[index])
     return equilibrium, when, f"slice {index}"
 
 
@@ -12838,6 +12923,10 @@ def _build_profile_fit(entries: Sequence[tuple[str, Any]], *, _plot_name: str, *
     eq_note = ""
     if first[4] is not None and abs(first[4] - first[6].time) > 5e-4:
         eq_note = f", equilibrium at {first[4] * 1e3:.1f} ms"
+    elif first[4] is None and "no equilibrium time" in first[5]:
+        # an ODS equilibrium whose slice carries no time: say so rather than
+        # let the title imply the instants match
+        eq_note = ", equilibrium time unknown"
     outside = f" ({hidden} outside the LCFS)" if hidden and coordinate != "r_major" else ""
     shot = _entry_shot(entries)
     title = options.get("title") or (
@@ -12919,7 +13008,7 @@ del _name, _diagnostic
 _CALLABLE_TIME_AXES: dict[str, str] = {
     **dict.fromkeys(
         (
-            "equilibrium_geometry_topview", "machine_geometry_topview",
+            "equilibrium_geometry_topview", "machine_geometry_topview", "machine_geometry3d",
             "equilibrium_overview_constraints", "equilibrium_overview_residuals",
             "equilibrium_overview_fit_quality", "equilibrium_overview_verification",
             "equilibrium_overview_constraint_weights", "equilibrium_overview_pressure_weight_scan",
@@ -12931,6 +13020,9 @@ _CALLABLE_TIME_AXES: dict[str, str] = {
         (
             "mhd_linear_profile_displacement", "mhd_linear_profile_b_field_perturbed",
             "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",
+            # the same (time_slice, n_tor) cell selection as the profiles above
+            "mhd_linear_profile_chirikov", "mhd_linear_field_spectrum",
+            "mhd_linear_spectrum_b_field_perturbed", "mhd_linear_geometry_island",
         ),
         "mhd_linear.time_slice",
     ),
@@ -12948,6 +13040,8 @@ _CALLABLE_TIME_AXES: dict[str, str] = {
             "vacuum_field_midplane", "impa_profile_field",
             "camera_visible_image_vacuum_field_line",
             "thomson_scattering_profile_fit", "charge_exchange_profile_fit",
+            # _coil_set_excitation resolves time= to the nearest current sample
+            "coil_3d_profile_current", "coil_3d_spectrum_current",
         ),
         OWN_TIME,
     ),
@@ -12964,10 +13058,14 @@ del _name, _axis
 #: The channels ``diagnostics_spectrum_coherence`` can compare:
 #: ``diagnostic -> (container, signal templates, time templates, name template)``.
 _COHERENCE_SOURCES: dict[str, tuple[str, tuple[str, ...], tuple[str, ...], str]] = {
+    # the same signal family, in the same order, as
+    # vaft.omas.fluctuation.FLUCTUATION_DIAGNOSTICS: a product listed by
+    # fluctuation_bandwidths() is selectable here
     "mirnov": (
         "magnetics.b_field_pol_probe",
-        ("magnetics.b_field_pol_probe.{i}.voltage.data",),
-        ("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.time"),
+        ("magnetics.b_field_pol_probe.{i}.voltage.data", "magnetics.b_field_pol_probe.{i}.field.data"),
+        ("magnetics.b_field_pol_probe.{i}.voltage.time", "magnetics.b_field_pol_probe.{i}.field.time",
+         "magnetics.time"),
         "magnetics.b_field_pol_probe.{i}.name",
     ),
     "soft_x_rays": (
@@ -13120,11 +13218,23 @@ def _build_diagnostics_spectrum_coherence(
         time_x, x, time_y, y, sample_rate=sample_rate, nperseg=nperseg, noverlap=noverlap,
         window=window, detrend=detrend,
     )
+    band = f"0-{float(result.frequency[-1]):g} Hz" if result.frequency.size else "no frequency bin"
     if frequency_range is not None:
         keep = (result.frequency >= float(frequency_range[0])) & (result.frequency <= float(frequency_range[1]))
+        if not keep.any():
+            raise ValueError(
+                f"frequency_range=({float(frequency_range[0]):g}, {float(frequency_range[1]):g}) Hz "
+                "leaves no frequency "
+                f"bin of the cross-spectrum, which spans {band}"
+            )
         result = _replace(
             result, frequency=result.frequency[keep], csd=result.csd[keep],
             coherence=result.coherence[keep], phase=result.phase[keep],
+        )
+    if max_frequency is not None and not (result.frequency <= float(max_frequency)).any():
+        raise ValueError(
+            f"max_frequency={float(max_frequency):g} Hz leaves no frequency bin of the "
+            f"cross-spectrum, which spans {band}"
         )
     grid = (
         f"{result.sample_rate / 1e3:.4g} kHz grid, {result.time_range[0]:.4g}-{result.time_range[1]:.4g} s"
@@ -13146,6 +13256,7 @@ RECIPES["diagnostics_spectrum_coherence"] = CallableRecipe(
         for template in (*signals, *times, name)
     ),
     backend=NEUTRAL,
+    windowed=True,
 )
 
 

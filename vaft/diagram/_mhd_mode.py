@@ -176,10 +176,16 @@ def kink_mode(equilibrium=None, m: int = 1, n: int = 1, *, amplitude: float = 0.
         x_mid = _S * geom.axis[0]
         right = _S * float(np.max(geom.equilibrium.lcfs.r)) + 0.6
         def term(k, c):
-            coefficient = "" if c == 1 else f"{abs(c):g}\\,"
-            return coefficient + ("e^{i\\theta^*}" if k == 1 else f"e^{{i{k}\\theta^*}}")
+            # the coefficient the drawing uses: a real one with its sign, a complex one as |c| and its phase
+            basis = "e^{i\\theta^*}" if k == 1 else f"e^{{i{k}\\theta^*}}"
+            if c.imag == 0.0:
+                magnitude = abs(c.real)
+                return ("-" if c.real < 0.0 else "+"), ("" if magnitude == 1.0 else f"{magnitude:g}\\,") + basis
+            angle = ("" if k == 1 else f"{k}") + f"\\theta^* {np.angle(c):+.3g}"
+            return "+", f"{abs(c):g}\\,e^{{i({angle})}}"
 
-        terms = " + ".join(term(k, c) for k, c in sorted(harmonics.items()))
+        signed = [term(k, c) for k, c in sorted(harmonics.items())]
+        terms = ("-" if signed[0][0] == "-" else "") + signed[0][1] + "".join(f" {s} {t}" for s, t in signed[1:])
         items += [
             Label((x_mid, top), f"prescribed $m/n = {m}/{n}$ displacement, {radial_profile} envelope", "label",
                   anchor="south", role="title"),

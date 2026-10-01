@@ -156,3 +156,28 @@ def test_mxh_inputs_are_checked(sample):
         fit_mxh_chebyshev(sample, harmonics=0)
     with pytest.raises(ValueError, match="surfaces"):
         fit_mxh_chebyshev(sample, radial_order=6, surfaces=5)
+
+
+def test_fit_solovev_takes_the_boundary_f_and_pressure_at_psi_boundary_not_at_the_last_sample(sample):
+    """A boundary-first profile storage (legal for an ODS) used to hand the
+    model the axis F and pressure while every psi metric stayed identical
+    (cold review 0.8.0 equilibrium-representation F2)."""
+    import warnings
+
+    from vaft.data.equilibrium import EquilibriumData
+
+    reversed_storage = EquilibriumData(**{
+        **sample.__dict__,
+        **{name: getattr(sample, name)[::-1]
+           for name in ("psi_1d", "q", "f", "pressure", "pprime", "ffprime")},
+    })
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        forward, backward = fit_solovev(sample), fit_solovev(reversed_storage)
+    edge = int(np.argmin(np.abs(sample.psi_1d - sample.psi_boundary)))
+    assert forward.model.f_boundary == float(sample.f[edge])
+    assert forward.model.pressure_boundary == float(sample.pressure[edge])
+    assert backward.model.f_boundary == forward.model.f_boundary
+    assert backward.model.pressure_boundary == forward.model.pressure_boundary
+    assert backward.model.f_sign == forward.model.f_sign
+    assert backward.metrics["psi_rms_error"] == forward.metrics["psi_rms_error"]

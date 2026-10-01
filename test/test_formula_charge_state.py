@@ -159,3 +159,10 @@ def test_z_eff_broadcasts_over_leading_axes():
 def test_z_eff_refuses_a_non_physical_input(kwargs):
     with pytest.raises(ValueError):
         z_eff_from_n_s_Z_s(**kwargs)
+
+
+@pytest.mark.parametrize("axis", [1, -2])
+def test_mean_charge_reports_an_out_of_range_axis_as_the_documented_value_error(axis):
+    with pytest.raises(ValueError, match="axis"):
+        mean_charge_from_charge_state_densities([1.0, 2.0, 3.0], axis=axis)
+    assert mean_charge_from_charge_state_densities([1.0, 2.0, 3.0], axis=-1) == pytest.approx(4.0 / 3.0)

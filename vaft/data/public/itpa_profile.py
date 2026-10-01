@@ -233,7 +233,7 @@ def read_ufiles(path: str | os.PathLike[str]) -> dict[str, UFileSignal]:
     ValueError
         A block's point counts do not match its data, or a label repeats.
     """
-    text = Path(path).read_text(errors="replace")
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
     signals: dict[str, UFileSignal] = {}
     # Each block ends with END-OF-DATA plus a comment; the next one starts at
     # the following SHOT line, so split just before every SHOT line.
@@ -275,7 +275,7 @@ def read_pr08_0d(path: str | os.PathLike[str]) -> pd.DataFrame:
         One row per record (time), source names; numbers as float with missing
         NaN, strings with missing ``None`` [table].
     """
-    text = Path(path).read_text(errors="replace")
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
     lines = [line for line in text.splitlines() if line.strip()]
     if lines and "," in lines[0]:
         rows = list(csv.reader(lines))
@@ -349,7 +349,7 @@ def read_pr08(directory: str | os.PathLike[str], machine: str, shot) -> Pr08Disc
         zero_d=read_pr08_0d(zero_path) if zero_path.exists() else pd.DataFrame(),
         one_d=read_ufiles(one_path) if one_path.exists() else {},
         two_d=read_ufiles(two_d_path),
-        comments=com_path.read_text(errors="replace").strip() if com_path.exists() else "",
+        comments=com_path.read_text(encoding="utf-8", errors="replace").strip() if com_path.exists() else "",
         files=files,
     )
 
@@ -720,9 +720,10 @@ def _fill_all(discharge: Pr08Discharge, ods, two_d, outcomes: dict[str, _Outcome
                 if np.isfinite(ip[t_index]):
                     ods[f"equilibrium.time_slice.{t_index}.global_quantities.ip"] = float(ip[t_index])
                 if np.isfinite(ip[t_index]) and np.isfinite(bt[t_index]):
-                    magnitude = np.abs(q.values[t_index]) if np.nanmin(q.values) >= 0.0 else q.values[t_index]
+                    # Always |q|: a file that already carries a signed q got
+                    # sign(IP) sign(BT) applied to it a second time.
                     ods[f"equilibrium.time_slice.{t_index}.profiles_1d.q"] = (
-                        np.sign(ip[t_index]) * np.sign(bt[t_index]) * magnitude
+                        np.sign(ip[t_index]) * np.sign(bt[t_index]) * np.abs(q.values[t_index])
                     )
                     written += 1
             missing = "no IP/BT sample at some equilibrium times"

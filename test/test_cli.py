@@ -140,3 +140,25 @@ def test_export_cli_imports_nothing_heavy_before_parsing():
         "assert not heavy, heavy"
     )
     subprocess.run([sys.executable, "-c", code], check=True, timeout=300)
+
+
+def test_the_plot_listing_survives_a_locale_console(tmp_path):
+    """A cp1252 console (the Windows leg, or a ``text=True`` pipe there) cannot
+    encode the listing's box-drawing glyphs; the command must still exit 0 with
+    the listing, glyphs replaced, rather than die in ``print`` (0.8.0 release
+    PR #1391, Windows leg: the plotting sample notebook's ``vaft plot --list``
+    cell raised CalledProcessError)."""
+    import os
+    import subprocess
+    import sys
+
+    environment = dict(os.environ, PYTHONIOENCODING="cp1252:strict", PYTHONUTF8="0")
+    environment.pop("PYTHONLEGACYWINDOWSSTDIO", None)
+    completed = subprocess.run(
+        [sys.executable, "-m", "vaft.cli", "plot", "--list", "--query", "mirnov"],
+        capture_output=True, cwd=str(tmp_path), env=environment, timeout=600,
+    )
+    assert completed.returncode == 0, completed.stderr.decode("cp1252", "replace")[-2000:]
+    listing = completed.stdout.decode("cp1252", "replace")
+    assert "mirnov" in listing and "UnicodeEncodeError" not in listing
+

@@ -19,7 +19,9 @@ related:
 
 This page is the map of the `vaft` package: what each subpackage is for, the entry points you are
 expected to call, and where the detailed guide for each area lives. The signatures shown here are the
-real ones — copy them.
+real ones — copy them. How `vaft.formula`, `vaft.process` and `vaft.code` divide the computation, and
+when an optional Actor contract would group their realizations, is set out on
+[Computational layers]({{ '/reference/computational-layers/' | relative_url }}).
 
 The complete list of what each subpackage publishes -- every object in a module's `__all__`, with its
 signature, summary, deprecation status and source -- is generated from the code on every publish:
@@ -540,11 +542,12 @@ raises. The result says:
 | `status` | `"failed"` (a property: `"completed"` when `ok`, else `"failed"`) |
 | `runtime_status` | `"timeout"`: the program ran past its limit and was stopped. `"queue_timeout"`: a scheduler job cancelled by `max_wait` before it started |
 | `returncode` | `None` |
-| `elapsed_s` | wall time from launch to stop [s] (set on every run, not only a timeout) |
+| `elapsed_s` | wall time from launch to stop [s] (set on every run, not only a timeout); for a Slurm batch job, from submission, queue wait included |
 | `timed_out` | `True` for either timeout kind (a property) |
 
 A stop well short of `timeout` (a scheduler's `max_wait` cancelling a running job) reports the time
-actually run. The reason is the last line of `stderr`, or of the log for codes that write one, worded
+actually run: a batch job's own start and termination stamps (`ExecutionResult.run_s`), so a long
+queue wait is not reported as running time. The reason is the last line of `stderr`, or of the log for codes that write one, worded
 `"<code> timed out after N s of running"` or `"<code> was cancelled after waiting N s in the scheduler
 queue (it never started)"`.
 
@@ -553,6 +556,7 @@ queue (it never started)"`.
 | CHEASE `run_chease`, `refine_equilibrium` | `CHEASEResult` | nothing is collected; `chease.log` holds the partial output and the reason |
 | `scan_chease` | the case keeps its `CHEASEResult` | `case.error` names the limit; the scan goes on (`keep_going`) |
 | `synthesize_equilibrium_from_0d` | `SyntheticEquilibriumResult` | `status="timeout"` with the reason, rather than `non_converged` |
+| `synthesize_equilibrium_to_targets` | `MultiTargetSynthesisResult` | `status="chease_failed"`; the reason names the solve and its `timeout`, and that solve's `history` record keeps `status="timeout"` |
 | GACODE `run_gacode` | `GACODERun` | unpacks as `(returncode, log)` as before, with `returncode=None`; `.runtime_status`, `.elapsed_s` |
 | NEO `run_neo`, TGLF `run_tglf` | `NEOResult`, `TGLFResult` | `check=True` (the default) raises `NEOExecutionError`/`TGLFExecutionError` naming the limit, as for any failure; `check=False` returns it |
 | NUBEAM `run_nubeam`, `run_nubeam_case` | `NUBEAMResult` | a stopped INIT, STEP or Plasma State stage; `generate_plasma_state` returns a path, so there it raises `NUBEAMExecutionError` |

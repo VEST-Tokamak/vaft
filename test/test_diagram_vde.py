@@ -79,3 +79,14 @@ def test_every_vde_diagram_is_deterministic_and_exported(name):
     assert fn().scene.role("note") and not fn(labels=False).scene.role("note")
     assert sum(isinstance(i, Label) for i in fn(labels=False).scene.items) < sum(
         isinstance(i, Label) for i in fn().scene.items)
+
+
+def test_editing_the_sequence_model_does_not_change_the_next_build():
+    """The frames come from an lru_cached model; handing the cached list out let ``frames.clear()`` empty the
+    next build. Cold review 0.8.0 diagram-B F6."""
+    d = vaft.diagram.hot_vde_sequence()
+    n_frames, n_items = len(d.model["frames"]), len(d.scene.items)
+    d.model["frames"].clear()
+    again = vaft.diagram.hot_vde_sequence()
+    assert len(again.model["frames"]) == n_frames == len(vd.SHIFTS)
+    assert len(again.scene.items) == n_items
