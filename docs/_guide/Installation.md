@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines eight extras (seven optional-dependency groups plus `dev`); none is needed for the first result on this page:
+The project defines nine extras (eight optional-dependency groups plus `dev`); none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
@@ -49,8 +49,9 @@ The project defines eight extras (seven optional-dependency groups plus `dev`); 
 | `ml` | torch, onnx, onnxruntime, scikit-learn, skl2onnx | the `torch` and `sklearn` backends of `vaft.process.ml` and ONNX export; datasets, splits, the `numpy` backend and resolving a published model need no extra |
 | `vtk` | pyvista (VTK) | `vaft.plot.pyvista.to_pyvista` / `write_vtk`: 3-D scenes as PyVista multiblocks and `.vtm`/`.vtp` files for ParaView (#1087) |
 | `jupyter3d` | k3d | `vaft.plot.k3d.to_k3d` and `coil_phase_explorer`: interactive 3-D scenes in Jupyter (#1087) |
+| `video` | PyAV (av) | writing `.mp4`/`.webm` from `plot_*(..., animation=True)` and its inline notebook preview; `.gif` export needs no extra (#1050) |
 | `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
-| `dev` | pytest, pytest-xdist, pre-commit and the two runtimes above | running the test suite and contributing |
+| `dev` | pytest, pytest-xdist, pre-commit, the two runtimes above and PyAV | running the test suite and contributing |
 
 ```bash
 python -m pip install -e ".[dev]"            # development tooling

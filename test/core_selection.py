@@ -77,6 +77,15 @@ CORE_MODULES: tuple[str, ...] = (
     "test_no_pyplot_outside_plot.py",
     "test_plot_backend_boundaries.py",
     "test_validation_architecture.py",
+    # Flux-coordinate conventions, and where a renderer puts a feature because
+    # of them. Cheap: a Solov'ev equilibrium and a synthetic GPEC run, no
+    # solver. Added after V5P found an island figure drawing its O-points a
+    # quarter period and a whole angle convention away from where a Poincare
+    # trace puts them, with every shipped test passing -- the kind of defect
+    # only an absolute-placement check sees, and which the develop gate has to
+    # be able to see.
+    "test_gpec_island_geometry.py",
+    "test_magnetic_island.py",
     # Registry, taxonomy and display policy: the vocabulary the rest of the
     # package indexes itself by.
     "test_diagnostic_registry.py",
@@ -190,6 +199,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
     "test_diagram_transport_regimes.py",
+    "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.

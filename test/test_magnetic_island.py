@@ -9,6 +9,7 @@ against an equilibrium whose surfaces are known in closed form.
 from __future__ import annotations
 
 import dataclasses
+import re
 
 import numpy as np
 import pytest
@@ -18,6 +19,7 @@ from scipy.optimize import brentq
 from vaft.data.equilibrium import EquilibriumConvention, SolovevConstraint
 from vaft.formula.constants import MU0
 from vaft.process.equilibrium import (
+    pest_angle_from_jacobian_angle,
     calculate_q_profile_from_psi,
     make_equilibrium_field_interpolator,
     solovev_to_equilibrium,
@@ -410,3 +412,115 @@ def test_emissivity_rejects_bad_models(eq):
         island_emissivity(topology)
     with pytest.raises(ValueError, match="smoothing"):
         island_emissivity(topology, profile=_profile, smoothing=0.0)
+
+
+# --- Hamada -> PEST, from R alone (C-44 / V5P) ---------------------------------
+
+
+def _hamada_circuit(sfl, psi_norm, samples=513):
+    """One flux surface parametrised in the Hamada angle, from the equilibrium.
+
+    Built from the surface's own weights rather than from the relation under
+    test: ``J dtheta`` is the same for every angle, so a constant-``J``
+    (Hamada) angle advances as ``R dl / |grad psi|`` and the PEST angle as
+    ``dl / (R |grad psi|)``.  ``surface()["weight"]`` is the second of those
+    per unit geometric angle, so the first is ``R**2`` times it.
+    """
+    surface = sfl.surface(psi_norm, n_theta=2048)
+    theta_geo = np.concatenate((surface["theta"], [2.0 * np.pi]))
+
+    def circuit(weight):
+        closed = np.concatenate((weight, weight[:1]))
+        step = np.diff(theta_geo)
+        total = np.concatenate(([0.0], np.cumsum(0.5 * (closed[1:] + closed[:-1]) * step)))
+        return total / total[-1]
+
+    pest = circuit(surface["weight"])
+    hamada = circuit(surface["weight"] * surface["r"] ** 2)
+    grid = np.linspace(0.0, 1.0, samples)
+    return {
+        "theta_norm": grid,
+        "r": np.interp(grid, hamada, np.concatenate((surface["r"], surface["r"][:1]))),
+        "theta_pest": 2.0 * np.pi * np.interp(grid, hamada, pest),
+    }
+
+
+def test_the_hamada_angle_is_relabelled_into_the_equilibriums_pest_angle(sfl):
+    """The conversion is checked against an angle built from the equilibrium's
+    own surface weights, not against the ``1/R**2`` relation it implements.
+
+    **This is the independent check of the relation itself**, and the only one:
+    ``J_1 dtheta_1 = J_2 dtheta_2`` is applied to a Solov'ev equilibrium whose
+    surfaces are known in closed form, with both angles integrated from
+    ``surface()["weight"]`` -- so nothing here is the ``R**-2`` expression
+    under test. The island-renderer tests in
+    ``test_gpec_island_geometry.py`` ask a different question: given the
+    relation, does the recipe apply it, to the right surface, and does the
+    O-point then land where the law says? Their ground truth is the circle's
+    own antiderivative (``_circular_pest_angle``), which pins the quadrature
+    but takes the ``1/R**2`` weight as given. Both are needed; neither
+    substitutes for the other.
+    """
+    for psi_norm in (0.4, 0.6, 0.8):
+        circuit = _hamada_circuit(sfl, psi_norm)
+        converted = pest_angle_from_jacobian_angle(
+            circuit["theta_norm"], circuit["r"], "hamada"
+        )
+        assert np.max(np.abs(converted - circuit["theta_pest"])) < 2e-4, psi_norm
+        # ... and the unconverted angle is nowhere near it, so the test is not
+        # passing on a conversion that does nothing.
+        raw = 2.0 * np.pi * circuit["theta_norm"]
+        assert np.max(np.abs(raw - circuit["theta_pest"])) > 0.05, psi_norm
+
+
+def test_a_pest_mesh_passes_through_with_only_the_2pi_normalisation(sfl):
+    circuit = _hamada_circuit(sfl, 0.6)
+    np.testing.assert_allclose(
+        pest_angle_from_jacobian_angle(circuit["theta_norm"], circuit["r"], "pest"),
+        2.0 * np.pi * circuit["theta_norm"],
+        atol=1e-12,
+    )
+
+
+def test_the_conversion_keeps_the_input_angles_origin(sfl):
+    """A resonant phase a code reports is referenced to that code's own angle
+    origin, so a conversion that moved the origin would rotate every pattern
+    built on it."""
+    circuit = _hamada_circuit(sfl, 0.6)
+    converted = pest_angle_from_jacobian_angle(
+        circuit["theta_norm"], circuit["r"], "hamada"
+    )
+    assert converted[0] == 0.0
+    assert converted[-1] == pytest.approx(2.0 * np.pi)
+    assert np.all(np.diff(converted) > 0.0)
+
+
+@pytest.mark.parametrize("jacobian, field", [("boozer", "|B|"), ("park", "|B|"),
+                                             ("equal_arc", "B_p")])
+def test_a_jacobian_that_needs_a_field_is_refused_by_name(jacobian, field):
+    theta = np.linspace(0.0, 1.0, 65)
+    with pytest.raises(ValueError, match=re.escape(field)):
+        pest_angle_from_jacobian_angle(theta, 1.7 + 0.3 * np.cos(2 * np.pi * theta), jacobian)
+
+
+def test_an_unknown_jacobian_is_not_guessed_at():
+    theta = np.linspace(0.0, 1.0, 65)
+    with pytest.raises(ValueError, match="not a DCON jacobian"):
+        pest_angle_from_jacobian_angle(theta, np.full(65, 1.7), "straight")
+
+
+#: A circuit that spans exactly one turn but doubles back inside it: the span
+#: check passes and the monotonicity check is the one that must catch it.
+_NON_MONOTONIC_CIRCUIT = np.concatenate(([0.0, 0.30, 0.25], np.linspace(0.35, 1.0, 62)))
+
+
+@pytest.mark.parametrize("theta, radius, message", [
+    (np.linspace(0.0, 2.0 * np.pi, 65), np.full(65, 1.7), "normalized to 1"),
+    (_NON_MONOTONIC_CIRCUIT, np.full(65, 1.7), "strictly increasing"),
+    (np.linspace(0.0, 1.0, 65), np.full(65, -1.7), "positive and finite"),
+    (np.linspace(0.0, 1.0, 65), np.full(64, 1.7), "same poloidal circuit"),
+    (np.linspace(0.0, 1.0, 2), np.full(2, 1.7), "at least three samples"),
+])
+def test_a_circuit_that_is_not_one_is_refused(theta, radius, message):
+    with pytest.raises(ValueError, match=message):
+        pest_angle_from_jacobian_angle(theta, radius, "hamada")

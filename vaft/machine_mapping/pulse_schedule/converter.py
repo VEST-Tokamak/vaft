@@ -31,6 +31,19 @@ import yaml
 from .card import extract_card
 from .values import normalize_status, parse_value
 
+__all__ = [
+    "Marker",
+    "convert_sheet",
+    "derive_session",
+    "detect_schema",
+    "load_overrides",
+    "marker_shots",
+    "session_path",
+    "set_path",
+    "sha256_file",
+    "validate_dataset",
+]
+
 SHOT_RE = re.compile(r"^\s*(\d{3,6})\s*$")
 SHOT_RANGE_RE = re.compile(r"^\s*(\d{3,6})\s*[-~–]\s*(\d{3,6})\s*$")
 #: ``Ref. #41234``, ``Reference: 41234``, and the ``REF!!! 43013`` a reference
