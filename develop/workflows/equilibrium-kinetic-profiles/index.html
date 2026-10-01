@@ -270,7 +270,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>11593c0</code>. What is described
+  <code>7bfd8d7</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -772,6 +772,81 @@ equilibrium profiles accept more, including <code class="language-plaintext high
 <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_charge_exchange_profile_ion_temperature</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>   <span class="c1"># measured Ti versus position
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_charge_exchange_time_ion_temperature</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>      <span class="c1"># per-channel Ti history
 </span></code></pre></div></div>
+
+<h3 id="normalized-gradients">Normalized gradients</h3>
+
+<p><code class="language-plaintext highlighter-rouge">plot_electron_temperature_profile_gradient</code>, <code class="language-plaintext highlighter-rouge">plot_electron_density_profile_gradient</code> and
+<code class="language-plaintext highlighter-rouge">plot_ion_temperature_profile_gradient</code> draw $-L\,d\ln f/dx_g$ of the stored <code class="language-plaintext highlighter-rouge">core_profiles</code> slice
+(#551). The builder calls <code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.profile_gradient</code> once, and the renderer
+only draws the result. Four options keep the choices apart:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>option</th>
+      <th>default</th>
+      <th>meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">coordinate</code></td>
+      <td><code class="language-plaintext highlighter-rouge">rho_tor_norm</code></td>
+      <td>the abscissa, any <code class="language-plaintext highlighter-rouge">RADIAL_COORDINATES</code> name</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gradient_coordinate</code></td>
+      <td><code class="language-plaintext highlighter-rouge">r_minor</code></td>
+      <td>what the derivative is taken with respect to</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">reference_length</code></td>
+      <td><code class="language-plaintext highlighter-rouge">a_minor</code></td>
+      <td>the length multiplying it; <code class="language-plaintext highlighter-rouge">"none"</code> gives the dimensional $-d\ln f/dr$ in m$^{-1}$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">convention</code></td>
+      <td>none</td>
+      <td><code class="language-plaintext highlighter-rouge">tglf</code> or <code class="language-plaintext highlighter-rouge">cgyro</code>, which resolve the two above to <code class="language-plaintext highlighter-rouge">r_minor</code> and <code class="language-plaintext highlighter-rouge">a_minor</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The default is therefore $a/L$, and the axis label is generated from the resolved record:
+$a/L_{T_i}$, $R_0/L_{T_i}$ for <code class="language-plaintext highlighter-rouge">R_major_axis</code>, or $-\partial\ln T_i/\partial r$ [m$^{-1}$] for
+<code class="language-plaintext highlighter-rouge">"none"</code>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">vaft</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="mi">48224</span><span class="p">))</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_ion_temperature_profile_gradient</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">coordinate</span><span class="o">=</span><span class="sh">"</span><span class="s">rho_tor_norm</span><span class="sh">"</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">extract_ion_temperature_profile_gradient</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">reference_length</span><span class="o">=</span><span class="sh">"</span><span class="s">R_major_axis</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">model</span><span class="p">.</span><span class="n">y_label</span>                                  <span class="c1"># '$R_0/L_{T_i}$'
+</span><span class="n">model</span><span class="p">.</span><span class="n">metadata</span><span class="p">[</span><span class="sh">"</span><span class="s">mathematical_definition</span><span class="sh">"</span><span class="p">]</span>      <span class="c1"># '-R_0 * d(log(T_i)) / d(r_minor)'
+</span><span class="n">model</span><span class="p">.</span><span class="nf">to_xarray</span><span class="p">().</span><span class="n">attrs</span><span class="p">[</span><span class="sh">"</span><span class="s">metadata</span><span class="sh">"</span><span class="p">]</span>            <span class="c1"># the same record, as JSON text
+</span></code></pre></div></div>
+
+<p>The profile is paired with the equilibrium slice at its own time, never by index. Its grid is
+read from <code class="language-plaintext highlighter-rouge">grid.psi</code> (normalized by that slice’s axis and boundary flux), else <code class="language-plaintext highlighter-rouge">grid.rho_pol_norm</code>,
+else <code class="language-plaintext highlighter-rouge">grid.rho_tor_norm</code>, and the record names the one used. A stored <code class="language-plaintext highlighter-rouge">grid.rho_tor_norm</code> is used
+only when it equals the slice’s own <code class="language-plaintext highlighter-rouge">profiles_1d.rho_tor_norm</code>, is not the $\sqrt{\psi_N}$ proxy, and
+lies within <code class="language-plaintext highlighter-rouge">RHO_TOR_GRID_TOLERANCE</code> (0.05) of the map’s $q$-integrated $\rho_{tor,N}$; the check is
+recorded in <code class="language-plaintext highlighter-rouge">profile_grid_check</code>. Samples with $f \le 0$ or a non-finite value at either end of the
+profile are left out and counted by side and cause in <code class="language-plaintext highlighter-rouge">excluded_points</code> and in the title.
+Everything else is refused with its reason:</p>
+
+<ul>
+  <li>an equilibrium that is not at the profile’s time;</li>
+  <li>a non-positive value inside the profile;</li>
+  <li>a point outside the map’s support;</li>
+  <li><code class="language-plaintext highlighter-rouge">gs2</code>, <code class="language-plaintext highlighter-rouge">gkw</code>, <code class="language-plaintext highlighter-rouge">gene</code> and <code class="language-plaintext highlighter-rouge">L_ref</code>, which need run settings a plot option cannot carry. For
+these, call <code class="language-plaintext highlighter-rouge">profile_gradient</code> with <code class="language-plaintext highlighter-rouge">metadata=</code>;</li>
+  <li>a flux-label <code class="language-plaintext highlighter-rouge">gradient_coordinate</code> with a reference length (pass <code class="language-plaintext highlighter-rouge">reference_length="none"</code>);</li>
+  <li>an explicit <code class="language-plaintext highlighter-rouge">reference_length=None</code>, which <code class="language-plaintext highlighter-rouge">profile_gradient</code> reads as <code class="language-plaintext highlighter-rouge">"none"</code>.</li>
+</ul>
+
+<p>Choosing a convention in the interactive controls stops the <code class="language-plaintext highlighter-rouge">gradient_coordinate</code> and
+<code class="language-plaintext highlighter-rouge">reference_length</code> controls from being sent, since the preset resolves both.</p>
 
 <h2 id="kinetic-profile-files">Kinetic-profile files</h2>
 
@@ -1354,7 +1429,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#analytic-l-mode-h-mode-and-itb-states" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Analytic L-mode, H-mode and ITB states</a></li><li class="page-toc-item page-toc-level-3"><a href="#synthetic-kinetic-profiles-from-an-equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic kinetic profiles from an equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#a-self-consistent-equilibrium-and-kinetic-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A self-consistent equilibrium and kinetic state</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a></li><li class="page-toc-item page-toc-level-2"><a href="#kinetic-profile-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic-profile files</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#osborne-pfiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Osborne pfiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#mars-profin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARS PROF*.IN</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-reconstruction-with-efit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium reconstruction with EFIT</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#named-configurations-presets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Named configurations (presets)</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal-field-on-the-boundary-and-the-flux-convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Poloidal field on the boundary and the flux convention</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline</a></li><li class="page-toc-item page-toc-level-2"><a href="#loading-kinetic-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Loading kinetic diagnostics</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-1--equilibrium-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 1 — equilibrium mapping</a></li><li class="page-toc-item page-toc-level-2"><a href="#stage-2--profile-fitting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stage 2 — profile fitting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fitting-methods" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fitting methods</a></li><li class="page-toc-item page-toc-level-3"><a href="#calling-the-fitting-engine-directly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Calling the fitting engine directly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pedestal-top" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pedestal top</a></li><li class="page-toc-item page-toc-level-2"><a href="#writing-core_profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Writing core_profiles</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#synthetic-profiles-from-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic profiles from equilibrium pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#analytic-l-mode-h-mode-and-itb-states" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Analytic L-mode, H-mode and ITB states</a></li><li class="page-toc-item page-toc-level-3"><a href="#synthetic-kinetic-profiles-from-an-equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Synthetic kinetic profiles from an equilibrium</a></li><li class="page-toc-item page-toc-level-3"><a href="#a-self-consistent-equilibrium-and-kinetic-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A self-consistent equilibrium and kinetic state</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plotting</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#normalized-gradients" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Normalized gradients</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#kinetic-profile-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic-profile files</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#osborne-pfiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Osborne pfiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#mars-profin" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARS PROF*.IN</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#exporting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting</a></li><li class="page-toc-item page-toc-level-2"><a href="#full-example" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Full example</a></li><li class="page-toc-item page-toc-level-2"><a href="#choosing-a-fitting-method" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Choosing a fitting method</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-reconstruction-with-efit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium reconstruction with EFIT</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#named-configurations-presets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Named configurations (presets)</a></li><li class="page-toc-item page-toc-level-3"><a href="#poloidal-field-on-the-boundary-and-the-flux-convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Poloidal field on the boundary and the flux convention</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -1472,7 +1547,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-01 18:51:21 +0000"
+        "time": "2026-10-01 19:01:59 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

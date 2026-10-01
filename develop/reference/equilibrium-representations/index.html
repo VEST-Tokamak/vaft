@@ -270,7 +270,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>11593c0</code>. What is described
+  <code>7bfd8d7</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -558,7 +558,8 @@ extremes.</li>
   <li>an unavailable coordinate or reference length.</li>
 </ul>
 
-<p>The plot views are not yet built on this layer.</p>
+<p>The <code class="language-plaintext highlighter-rouge">*_profile_gradient</code> plot views are built on this layer; see
+<a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/#normalized-gradients">Normalized gradients</a>.</p>
 
 <h3 id="solver-convention">Solver convention</h3>
 
@@ -639,7 +640,7 @@ it.</p>
       <td>Kinetic / gradient representations</td>
       <td>derived quantity</td>
       <td><code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.profile_gradient</code>, <code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.radial_coordinate_map</code>, <code class="language-plaintext highlighter-rouge">vaft.formula.normalized_gradient_scale_length</code>, <code class="language-plaintext highlighter-rouge">vaft.data.SyntheticKineticProfiles</code>, <code class="language-plaintext highlighter-rouge">vaft.data.GradientProfile</code></td>
-      <td>process layer met; views not met</td>
+      <td>met: process layer and <code class="language-plaintext highlighter-rouge">*_profile_gradient</code> views</td>
     </tr>
     <tr>
       <td>Boundary / topology</td>
@@ -744,14 +745,6 @@ packaged.</p>
 
 <p>These are the items the #1201 audit grades <em>not met</em> or <em>partly met</em>, with the issue that owns
 each. “Unowned” means no issue other than #1201 tracks it.</p>
-
-<p><strong>Not met</strong></p>
-
-<ul>
-  <li>Gradient views. The process contract exists (<code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients</code>), but no
-<code class="language-plaintext highlighter-rouge">*_profile_gradient</code> plot view or extract result consumes it yet (#551; #563 was closed as
-its duplicate).</li>
-</ul>
 
 <p><strong>Partly met</strong></p>
 
@@ -1089,7 +1082,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-01 18:51:21 +0000"
+        "time": "2026-10-01 19:01:59 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
