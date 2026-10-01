@@ -6,24 +6,117 @@ __version__ = "0.8.0"
 # patch notes
 # ────────────────────────────────────────────────────────
 # 0.8.0
-# - development release line 2026-09-18 .. 2026-10-06 merged into main;
-#   the detailed notes are on the release pull request and the GitHub
-#   release. Headlines are filled in during the release review.
-# - Changed (#1016): a timeout is a result, not an exception, for CHEASE
-#   (run_chease, refine_equilibrium, scan_chease), GACODE (run_gacode, NEO,
-#   TGLF), NUBEAM, FLARE, TES, NICE and GENRAY. The result has
-#   status="failed", runtime_status="timeout" (or "queue_timeout" for a
-#   Slurm job cancelled by max_wait before it started), returncode=None and
-#   elapsed_s. CHEASE, GACODE, NUBEAM and FLARE used to raise
-#   subprocess.TimeoutExpired; TES, NICE and GENRAY returned 124;
-#   scan_chease kept an error string. run_gacode returns a GACODERun that
-#   still unpacks as (returncode, log); run_neo/run_tglf with check=True raise
-#   their own error naming the limit; synthesize_equilibrium_from_0d reports
-#   status="timeout". EFIT, EFUND and the GPEC suite are
-#   unchanged until after 2026-10-06. Table in docs/_guide/API_reference.md.
-# - Changed (#1016): a local launch stops the program's whole process tree on
-#   a timeout, Ctrl-C or SIGTERM/SIGHUP to Python; the program stays in the
-#   caller's process group, and each launch carries VAFT_PROCESS_TREE (#1274).
+# - development release line 2026-09-18 .. 2026-10-06 merged into main: ~190
+#   pull requests; the detailed notes are on the release pull request and
+#   the GitHub release. Headlines:
+# - equilibrium representations: Fourier, Miller with inboard indentation,
+#   Solov'ev fit and X-point topology, Guazzotto-Freidberg, MXH-Chebyshev
+#   compact forms, the Contour interchange, toroidal current-density
+#   moments, the Grad-Shafranov residual in poloidal harmonics, and one
+#   coordinate/projection/representation taxonomy (#941-#945, #948, #1148,
+#   #1149, #1166, #1201); Solov'ev f_sign is derived from f_boundary and a
+#   contradictory pair is refused (BREAKING, #1307)
+# - flux conventions: weber against weber-per-radian decided from contour q
+#   as well as Ampere's law, flux helpers take their family explicitly,
+#   from_equilibrium writes a per-radian g-file and a COCOS 11 ODS no longer
+#   gains 2*pi on core_profiles grid.psi, the field interpolator reads the
+#   record's convention, packaged samples declare their COCOS (#354, #1292,
+#   #1313, #1372); every volume average takes the plasma from the LCFS
+#   outline, not psi_N <= 1, so <p>, mu_i and W change (#1004)
+# - synthetic plasma states and CHEASE synthesis: L/H/ITB presets, kinetic
+#   profiles at fidelity 0-3, self-consistent equilibrium-kinetic iteration,
+#   fixed-boundary equilibria from 0D descriptors meeting several targets at
+#   once, pedestal/ITB source shapes, independent NZBOX, NIDEAL from the
+#   GEQDSK contract (#120, #122, #123, #459, #1045, #1166)
+# - EFIT: opt-in Picard iteration history, convergence against an
+#   independent GS residual, standard_deviation means the sigma EFIT fits
+#   against, the magnetic-sigma scan and the (2,1) working setting, named
+#   presets in pipelines 1 and 2, Ip chi-square with the prescribed vessel
+#   current, the Green table built per machine era (#891, #918, #924,
+#   #1038, #1379)
+# - magnetics and machine history: probe wiring, the +0.06 probe, wall 2409
+#   and the PF boundary versioned from raw signals (#956); probe C4-04 and
+#   array-contradicted probes excluded (#977); the diamagnetic channel's
+#   real history (#993); limiter faces off the EFIT grid lines (#965);
+#   stored diamagnetic flux is paramagnetic-POSITIVE (#1196): packaged
+#   samples were rewritten in place and method_name carries the token,
+#   products written before 0.8.0 keep the old sign
+# - startup: Romero's exact plasma-transformer identities and first-order
+#   current-diffusion closure, loop voltage at the boundary with its
+#   inductive part, Townsend coefficients for H2/He/Ar, the burn-through
+#   barrier, mean and effective charge, the lumped circuit, Tutorial 02
+#   reduced models (#652, #676, #781-#783)
+# - stability and 3-D fields: analytic islands integrated along SXR chords,
+#   GPEC perturbation renderers, the toroidal-phase convention audit, DCON
+#   products in the ideal-GPEC cell, PENTRC torque parts, resistive-layer
+#   metrics, FLARE field-line products as IMAS stand-ins, kink/sawtooth/
+#   stochastic-layer/separatrix-lobe phenomena on an equilibrium (#886,
+#   #1209)
+# - operational boundaries: vaft.formula.boundaries with Greenwald, Hugill,
+#   Murakami, the L-H threshold family (Martin 2008, Ryter, Takizuka ITPA04),
+#   a sourced Troyon limit, canonical public tables (ITPA DB5.2.3, TCV,
+#   TC-26, PR08 profiles) and the VEST density-limit recipe (#350, #636,
+#   #1066-#1068, #1205); the unsourced stability heuristics and
+#   virial_stability_criterion are deprecated (#366, #350)
+# - formula families: definitions as data with a Jupyter card (#889),
+#   geometry, toroidicity and ripple, single-particle motion and
+#   guiding-centre invariants, neoclassical/NTV scales, cold-plasma waves,
+#   NBI attenuation, plasma-wall interaction, disruption and VDE
+#   quantities, edge/SOL, blobs and MARFE (#951, #1041, #1042, #1047,
+#   #1062, #1070, #1092, #1111, #1113, #1136, #1211)
+# - vaft.diagram: reproducible TikZ-rendered schematics for islands,
+#   tokamak geometry and coordinates, tearing and ballooning, harmonics,
+#   disruptions, VDEs, the edge, wall conditioning, spectroscopy, waves and
+#   integrated modelling; 156 canonical SVGs hash-pinned in docs (#890,
+#   #1039, #1051, #1052, #1063, #1071-#1075, #1085, #1088, #1093, #1215)
+# - plotting: 3-D scenes in Plotly, VTK/ParaView and K3D with the vtk and
+#   jupyter3d extras (#1087), recipes label the coordinate they draw, the
+#   core-profile map at rho_tor (#335), colours by intent (#748), the camera
+#   overlay never bridges NaN gaps (#1314), committed thumbnails with a
+#   freshness manifest (#1097)
+# - database, HSDS and ShotLog: h5pyd pinned at 0.24.0 with `vaft hsds
+#   configure` (#969), the VEST ShotLog as a FileDB archive and
+#   pulse_schedule (#995), SXR digitizer CSVs packed into lossless HDF5
+#   (#1186), a hard_x_rays prototype (#1160), bulk prefetch for the lazy
+#   HSDS store (#1331)
+# - execution: one ExecutionBackend for TES, GACODE, GPEC, NUBEAM, CHEASE,
+#   FLARE, EFUND, EFIT and NICE, a Slurm backend, an in-process memory
+#   guard (#671, #1017, #1146); a timeout is a failed result, not an
+#   exception, for CHEASE, GACODE, NUBEAM, FLARE, TES, NICE and GENRAY
+#   (EFIT/EFUND/GPEC unchanged until after 2026-10-06), and a local launch
+#   stops the whole process tree on timeout, Ctrl-C or SIGTERM (#1016); a
+#   VEST-server worker polls for new shots and runs the pipeline (#58)
+# - new adapters: GENRAY EC ray tracing (#264), an experimental NICE
+#   reconstruction (#666), the provisional 6 kW ECH launch from CAD (#266),
+#   vaft.process.ml with vaft-nn resolution and the ml extra (#669)
+# - packaging and Python: 3.14 canonical, 3.10-3.14 supported (#1008);
+#   freeze-era pins replaced by a documented policy, astropy/fortranformat/
+#   imageio/pyjwt/requests-unixsocket/setuptools/urllib3 dropped, numba in
+#   the accel extra (#1007, #1012); omas 0.95.2 (an ODS is unhashable);
+#   vaft.help() and `vaft help` (#1203); `vaft shotlog`, `vaft hsds
+#   configure`, `vaft pipeline-worker`
+# - docs and tutorials: source-synchronised API reference with
+#   revision-pinned source links (#162, #1069), generated plot/diagram
+#   catalogs with a coverage gate, tutorials 02-06 revamped (#783, #952,
+#   #1005, #1023, #1052, #1091)
+# - removed: current_density_from_psi,
+#   bremsstrahlung_power_density_from_Z_eff_n_e_T_e and the seven renamed
+#   constants of vaft.formula (promised for 0.8.0); the legacy and renamed
+#   vaft.plot names now say 0.9.0 and a test holds every promise to its date
+# - cold review of this line (16 slices, every finding re-verified):
+#   113 findings, 0 critical, 9 major, all fixed before the merge (#1410-
+#   #1412, #1417-#1419, #1432-#1434): EFIT diagnostic-fit grades were never
+#   produced, separatrix lobes traced a 2*pi-wrong pitch on per-radian
+#   records, two 3-D coil plots refused time= on the public path, NICE
+#   tolerances never reached param.xml, documentation added to redirect
+#   stubs never rendered; and three defects older than this line:
+#   diamagnetism normalised by half the plasma volume, W_th with 2/3
+#   (#1282), a power-balance cache that served stale results
+# - known issues: products for shots >= 43017 built before 0.8.0 differ
+#   from the release mapper (regeneration note in DEPLOYMENT.md); the
+#   Takizuka L-H gamma is not reachable through boundary_value; the ion
+#   volume averages only now exist, so older summaries lack them; #926,
+#   #927, #825 and #1338 remain open
 # 0.7.1
 # - bug-fix release: the verified findings of the 0.7.0 cold review that
 #   shipped as known issues (#920), one commit each with a failing-before
