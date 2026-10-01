@@ -44,12 +44,22 @@ AXES = ("x", "y")
 
 
 def _plain(value: Any) -> Any:
-    """``value`` as JSON-friendly data: tuples become lists, mappings dicts."""
+    """``value`` as JSON data: tuples become lists, mappings dicts, numpy values Python ones."""
     if isinstance(value, Mapping):
         return {str(key): _plain(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_plain(item) for item in value]
+    tolist = getattr(value, "tolist", None)  # numpy scalars and arrays
+    if callable(tolist) and type(value).__module__ == "numpy":
+        return _plain(tolist())
     return value
+
+
+#: Keywords that shape the whole figure, set on ``compose(...)``, never on a cell.
+FIGURE_LEVEL_OPTIONS = frozenset({
+    "format", "theme", "figsize", "save_path", "row_heights", "ax", "show", "backend",
+    "interactive", "animation", "fps", "duration", "interval_ms", "controls", "interaction_backend",
+})
 
 
 @dataclass(frozen=True)
@@ -80,8 +90,19 @@ class FigureCell:
             raise ValueError(f"FigureCell {self.plot!r}: row and col start at 0; got ({self.row}, {self.col})")
         if self.rowspan < 1 or self.colspan < 1:
             raise ValueError(f"FigureCell {self.plot!r}: rowspan and colspan are at least 1")
-        object.__setattr__(self, "options", MappingProxyType(dict(self.options)))
+        figure_level = sorted(FIGURE_LEVEL_OPTIONS & set(self.options))
+        if figure_level:
+            raise ValueError(
+                f"FigureCell {self.plot!r}: {', '.join(figure_level)} shape the whole figure; "
+                "set them on compose(...), not on a cell"
+            )
+        # Stored as the JSON form to_dict() writes, so a composition rebuilt
+        # from its dict compares equal and builds the same figure.
+        object.__setattr__(self, "options", MappingProxyType(_plain(dict(self.options))))
         object.__setattr__(self, "name", str(self.name or self.plot))
+
+    #: Equal by value, not hashable: the options are a mapping.
+    __hash__ = None  # type: ignore[assignment]
 
     @property
     def region(self) -> tuple[int, int, int, int]:
@@ -172,7 +193,7 @@ class FigureComposition:
         if rows < 1 or cols < 1:
             raise ValueError(f"FigureComposition.shape needs at least one row and column; got {(rows, cols)}")
         object.__setattr__(self, "shape", (rows, cols))
-        cells = tuple(cell if isinstance(cell, FigureCell) else FigureCell(cell) for cell in self.cells)
+        cells = tuple(_as_cell(cell) for cell in self.cells)
         if not cells:
             raise ValueError("FigureComposition.cells must hold at least one plot")
         names: dict[str, FigureCell] = {}
@@ -197,6 +218,9 @@ class FigureComposition:
                     f"cells: {', '.join(names)}"
                 )
         object.__setattr__(self, "links", links)
+
+    #: Equal by value, not hashable: the cells' options are mappings.
+    __hash__ = None  # type: ignore[assignment]
 
     # -- convenient shapes ---------------------------------------------------
     @classmethod
@@ -229,19 +253,19 @@ class FigureComposition:
     def resolved_links(self) -> tuple[tuple[str, tuple[int, ...]], ...]:
         """Every axis link as ``(axis, cell indices)``, groups that touch merged.
 
-        ``share_x`` contributes one group per column (the cells that start in
-        it), ``share_y`` one per row; a group that shares a cell with another
-        group on the same axis is joined to it, since an axis follows one
-        anchor only.
+        ``share_x`` contributes one group per column (every cell covering
+        it, so a full-width trace joins the columns beneath it), ``share_y``
+        one per row; a group that shares a cell with another group on the
+        same axis is joined to it, since an axis follows one anchor only.
         """
         index = {cell.name: position for position, cell in enumerate(self.cells)}
         groups: list[tuple[str, set[int]]] = []
         if self.share_x:
             for col in range(self.shape[1]):
-                groups.append(("x", {i for i, cell in enumerate(self.cells) if cell.col == col}))
+                groups.append(("x", {i for i, cell in enumerate(self.cells) if cell.col <= col < cell.col + cell.colspan}))
         if self.share_y:
             for row in range(self.shape[0]):
-                groups.append(("y", {i for i, cell in enumerate(self.cells) if cell.row == row}))
+                groups.append(("y", {i for i, cell in enumerate(self.cells) if cell.row <= row < cell.row + cell.rowspan}))
         groups += [(link.axis, {index[name] for name in link.cells}) for link in self.links]
         merged: list[tuple[str, set[int]]] = []
         for axis, members in groups:
@@ -288,6 +312,14 @@ class FigureComposition:
             title=data.get("title"),
             panel_labels=bool(data.get("panel_labels", False)),
         )
+
+
+def _as_cell(cell: Any) -> FigureCell:
+    if isinstance(cell, FigureCell):
+        return cell
+    if isinstance(cell, Mapping):
+        return FigureCell.from_dict(cell)
+    return FigureCell(cell)
 
 
 def _placed(plot: str | FigureCell, *, row: int, col: int) -> FigureCell:

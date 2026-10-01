@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -201,13 +201,21 @@ def render_panels(
         # arrangement the slice navigator uses: a colorbar taken out of an
         # equal-aspect axes shrinks the map instead, and the taller the row
         # the smaller the map came out (issue #711).
-        field_slot = next(
-            (i for i, m in enumerate(model.models) if isinstance(m, Field2D) and m.colorbar), None,
-        )
-        flat, colorbar_axes = slice_grid_axes(figure, gridspec, model, top=0, colorbar_slot=field_slot)
-        if colorbar_axes is not None:
+        if model.links:
+            # A composed figure (#1467): every colorbar gets a cell of its own,
+            # and a panel x-linked with one keeps the same width, so the time
+            # axes of a stack line up.
+            flat, colorbar_cells = _aligned_grid_axes(figure, gridspec, model)
+        else:
+            field_slot = next(
+                (i for i, m in enumerate(model.models) if isinstance(m, Field2D) and m.colorbar), None,
+            )
+            flat, colorbar_axes = slice_grid_axes(figure, gridspec, model, top=0, colorbar_slot=field_slot)
+            colorbar_cells = {} if colorbar_axes is None else {field_slot: colorbar_axes}
+        if colorbar_cells:
             styles = [dict(s) for s in (model.member_styles or ({},) * len(model.models))]
-            styles[field_slot]["colorbar_ax"] = colorbar_axes
+            for slot, colorbar_axes in colorbar_cells.items():
+                styles[slot]["colorbar_ax"] = colorbar_axes
             model = replace(model, member_styles=tuple(styles))
         grid = flat
     else:
@@ -308,50 +316,78 @@ def render_panels(
     return figure, grid
 
 
-def _slots(model: Panels) -> list[tuple[int, int, int, int]]:
-    """``(row, col, rowspan, colspan)`` of every panel, spans or not."""
-    if model.spans is not None:
-        return [tuple(span) for span in model.spans]
-    return [(slot // model.ncols, slot % model.ncols, 1, 1) for slot in range(len(model.models))]
+def _link_anchor(flat: Any, members: Sequence[int], axis_name: str) -> int:
+    """The panel a link follows: the first that fixed its own limits, else the first."""
+    for slot in members:
+        if not getattr(flat[slot], f"get_autoscale{axis_name}_on")():
+            return slot
+    return members[0]
 
 
 def _link_axes(flat: Any, model: Panels) -> None:
     """Make each link's panels zoom and pan together (issue #1467).
 
-    The first panel of a link is the anchor; the view is rescaled over every
-    linked panel's data unless one of them fixed its own limits.  On an x
-    link only the lowest linked panel of a column keeps its tick labels --
-    the stacked-time-trace convention ``share_x`` follows.
+    A panel that fixed its own limits (``time_range=``, ``x_limits=``) sets
+    the linked range, whatever its place in the link; otherwise the view is
+    rescaled over every linked panel's data.
     """
-    slots = _slots(model)
     for axis_name, members in model.links:
-        anchor = flat[members[0]]
-        for slot in members[1:]:
-            getattr(flat[slot], f"share{axis_name}")(anchor)
-        autoscaled = all(
-            getattr(flat[slot], f"get_autoscale{axis_name}_on")() for slot in members
-        )
-        if autoscaled:
+        anchor_slot = _link_anchor(flat, members, axis_name)
+        anchor = flat[anchor_slot]
+        fixed = not getattr(anchor, f"get_autoscale{axis_name}_on")()
+        for slot in members:
+            if slot != anchor_slot:
+                getattr(flat[slot], f"share{axis_name}")(anchor)
+        if not fixed:
             anchor.autoscale_view(scalex=axis_name == "x", scaley=axis_name == "y")
+    from .._panel_grid import linked_above
+
+    for slot in linked_above(model):
+        flat[slot].tick_params(labelbottom=False)
+        flat[slot].set_xlabel("")
+
+
+def _has_colorbar(model: Any, style: Mapping[str, Any]) -> bool:
+    if style.get("colorbar", True) is False:
+        return False
+    return (isinstance(model, Field2D) and model.colorbar) or isinstance(model, (Spectrogram, Image2D))
+
+
+def _aligned_grid_axes(figure: Any, grid: Any, model: Panels) -> tuple[np.ndarray, dict[int, Any]]:
+    """Axes for a linked grid: a colorbar cell for every colorbar, and the same
+    reserved width for the panels x-linked with one, so linked axes align."""
+    from .._panel_grid import columns, panel_slots
+
+    slots = panel_slots(model)
+    styles = model.member_styles or ({},) * len(model.models)
+    bars = {i for i, member in enumerate(model.models) if _has_colorbar(member, styles[i])}
+    padded = set()
+    for axis_name, members in model.links:
         if axis_name != "x":
             continue
-        lowest: dict[int, int] = {}
         for slot in members:
-            row, col, rowspan, _ = slots[slot]
-            if col not in lowest or row + rowspan > slots[lowest[col]][0] + slots[lowest[col]][2]:
-                lowest[col] = slot
-        for slot in members:
-            if slot != lowest[slots[slot][1]]:
-                flat[slot].tick_params(labelbottom=False)
-                flat[slot].set_xlabel("")
-
-
-def panel_label(index: int) -> str:
-    """``(a)``, ``(b)``, ... ``(z)``, then ``(27)``, ``(28)``, ...: slot ``index``'s mark."""
-    return f"({chr(ord('a') + index)})" if index < 26 else f"({index + 1})"
+            if slot not in bars and any(
+                other in bars and columns(slots[other]) & columns(slots[slot])
+                for other in members
+            ):
+                padded.add(slot)
+    axes = []
+    colorbar_cells: dict[int, Any] = {}
+    for slot, (row, col, rowspan, colspan) in enumerate(slots):
+        cell = grid[row:row + rowspan, col:col + colspan]
+        if slot in bars or slot in padded:
+            sub = cell.subgridspec(1, 2, width_ratios=[1.0, 0.05], wspace=0.06)
+            axes.append(figure.add_subplot(sub[0, 0]))
+            if slot in bars:
+                colorbar_cells[slot] = figure.add_subplot(sub[0, 1])
+        else:
+            axes.append(figure.add_subplot(cell))
+    return np.array(axes, dtype=object), colorbar_cells
 
 
 def _label_panels(axes: Any) -> None:
+    from .._panel_grid import panel_label
+
     for index, axis in enumerate(axes):
         axis.annotate(
             panel_label(index), xy=(0, 1), xycoords="axes fraction", xytext=(-6, 6),

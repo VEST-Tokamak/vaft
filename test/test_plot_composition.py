@@ -227,3 +227,92 @@ def test_panel_links_are_validated(entries):
         Panels(models=model.models, links=(("x", (0, 5)),))
     with pytest.raises(ValueError, match="fewer than two"):
         Panels(models=model.models, links=(("x", (1, 1)),))
+
+
+# --- regressions from the cold review -------------------------------------------
+
+
+def test_a_fixed_range_on_any_linked_cell_sets_the_linked_range(ods):
+    window = (0.30, 0.32)
+    for cells in (
+        [FigureCell("plasma_current_time"), FigureCell("equilibrium_time_q95", options={"time_range": window})],
+        [FigureCell("equilibrium_time_q95", options={"time_range": window}), FigureCell("plasma_current_time")],
+    ):
+        _, axes = vaft.omas.compose(FigureComposition.stack(cells), ods)
+        assert [a.get_xlim() for a in axes] == [pytest.approx(window)] * 2, "order must not matter"
+        figure = vaft.omas.compose(FigureComposition.stack(cells), ods, backend="plotly")
+        ranges = [figure.layout.xaxis.range, figure.layout.xaxis2.range]
+        anchored = next(r for r in ranges if r is not None)
+        assert tuple(anchored) == pytest.approx(window)
+        assert {figure.layout.xaxis.matches, figure.layout.xaxis2.matches} - {None} in ({"x"}, {"x2"})
+
+
+def test_unfixed_links_span_every_linked_panel_s_data(ods):
+    _, alone = vaft.omas.compose(FigureComposition.stack(["plasma_current_time"]), ods)
+    _, axes = vaft.omas.compose(FigureComposition.stack(["equilibrium_time_q95", "plasma_current_time"]), ods)
+    low, high = axes[0].get_xlim()
+    assert low <= alone[0].get_xlim()[0] + 1e-9 and high >= alone[0].get_xlim()[1] - 1e-9, \
+        "q95 first still shows the whole plasma current"
+
+
+def test_a_colorbar_in_a_stack_keeps_the_time_axes_aligned():
+    ods = vaft.omas.sample_ods(40600)
+    _, axes = vaft.omas.compose(
+        FigureComposition.stack(["plasma_current_time", "camera_visible_spectrogram", "flux_loop_time_voltage"]), ods,
+    )
+    boxes = [axis.get_position() for axis in axes]
+    assert max(b.x1 for b in boxes) - min(b.x1 for b in boxes) < 1e-6
+    assert max(b.x0 for b in boxes) - min(b.x0 for b in boxes) < 1e-6
+
+
+def test_share_x_and_tick_labels_follow_every_column_a_cell_covers(ods):
+    composition = FigureComposition(
+        shape=(2, 2), share_x=True,
+        cells=(
+            FigureCell("plasma_current_time", 0, 0, colspan=2),
+            FigureCell("equilibrium_time_q95", 1, 0),
+            FigureCell("flux_loop_time_voltage", 1, 1),
+        ),
+    )
+    assert composition.resolved_links() == (("x", (0, 1, 2)),)
+    _, axes = vaft.omas.compose(composition, ods)
+    assert axes[0].get_xlabel() == "" and axes[1].get_xlabel() and axes[2].get_xlabel()
+    figure = vaft.omas.compose(composition, ods, backend="plotly")
+    assert figure.layout.xaxis.showticklabels is False
+
+
+def test_y_links_tie_the_rows(ods):
+    composition = FigureComposition.side_by_side(["equilibrium_profile_q", "equilibrium_profile_pressure"],
+                                                 links=(AxisLink("y", ("equilibrium_profile_q", "equilibrium_profile_pressure")),))
+    _, axes = vaft.omas.compose(composition, ods)
+    assert axes[0].get_shared_y_axes().joined(axes[0], axes[1])
+
+
+def test_figure_options_belong_to_compose_not_to_a_cell():
+    for option in ("format", "figsize", "save_path", "row_heights"):
+        with pytest.raises(ValueError, match="set them on compose"):
+            FigureCell("plasma_current_time", options={option: "x"})
+
+
+def test_the_dict_form_is_plain_json_and_equal_after_a_round_trip():
+    import numpy as np
+
+    composition = FigureComposition(
+        shape=(1, 2),
+        cells=(
+            {"plot": "plasma_current_time", "row": 0, "col": 0, "options": {"time_range": (0.30, np.float64(0.32))}},
+            FigureCell("equilibrium_time_q95", 0, 1, options={"time_range": np.array([0.30, 0.32])}),
+        ),
+    )
+    data = composition.to_dict()
+    assert json.loads(json.dumps(data)) == data
+    assert FigureComposition.from_dict(data) == composition
+    assert dict(composition.cells[0].options) == {"time_range": [0.30, 0.32]}
+    with pytest.raises(TypeError):
+        hash(composition)
+
+
+def test_the_rcparams_stay_untouched_with_a_theme_and_format(ods):
+    before = dict(plt.rcParams)
+    vaft.omas.compose(FigureComposition.stack(STACK[:2]), ods, theme="technical", format="single_column")
+    assert dict(plt.rcParams) == before
