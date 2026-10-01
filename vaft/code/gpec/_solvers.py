@@ -582,6 +582,13 @@ def _stage_equilibrium_inputs(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]
                 "its own working directory, so the name has to resolve in both cells"
             )
         destination = run_dir / named
+        # The relative name is resolved against *both* cells, and it can land on
+        # the same file: `../../g039915.00325` from a GPEC cell beside a DCON cell
+        # names the DCON cell's own g-file. Unlinking the destination would then
+        # delete the equilibrium and the link that followed would fail with it
+        # already gone -- a staging step destroying the thing it stages.
+        if destination.exists() and destination.samefile(equilibrium):
+            return tuple(staged)
         destination.parent.mkdir(parents=True, exist_ok=True)
         if destination.exists() or destination.is_symlink():
             destination.unlink()

@@ -413,3 +413,30 @@ def test_strict_raises_for_a_dcon_cell_without_equil_in(case, monkeypatch, tmp_p
     )
     with pytest.raises(FileNotFoundError, match="equil.in"):
         gpec.run_gpec_suite_case(case, config)
+
+
+def test_a_relative_name_that_resolves_onto_the_source_stages_nothing(case, tmp_path):
+    """And above all does not delete the equilibrium.
+
+    ``equil.in`` names the g-file relative to whichever cell reads it, and a
+    relative name can resolve to the same file from both: ``../../<g-file>`` in a
+    GPEC cell beside the DCON cell is the DCON cell's own. Unlinking the
+    destination first then deleted the equilibrium, and the link that followed
+    failed with its source already gone -- a staging step destroying what it
+    stages.
+    """
+    dcon = _complete_dcon(case)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    # One level above both cells, which is what makes the same relative name
+    # resolve onto one file from either -- the per-module layout's own shape.
+    shared = dcon.parents[1] / "shared.geqdsk"
+    shared.write_text(GFILE_TEXT, encoding="utf-8")
+    relative = os.path.relpath(shared, dcon)
+    assert relative == os.path.relpath(shared, run_dir)
+    (dcon / "equil.in").write_text(EQUIL_IN_TEXT.format(name=relative), encoding="utf-8")
+
+    staged = stage_dcon_products(dcon, run_dir)
+
+    assert shared.read_text(encoding="utf-8") == GFILE_TEXT
+    assert [p.name for p in staged] == ["euler.bin", "psi_in.bin", "equil.in"]

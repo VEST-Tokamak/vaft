@@ -122,6 +122,7 @@ __all__ = [
     "SurfaceMember",
     "toroidal_phase_audit",
     "ToroidalPhaseAudit",
+    "ZERO_MEANS_NOT_COMPUTED",
 ]
 
 #: The statistics a resonant column may be reduced with. ``rms`` is the
@@ -152,6 +153,28 @@ RESONANT_RESPONSE_COLUMNS: tuple[str, ...] = (
     "Delta", "B_pen", "I_res",
     "w_isl", "w_isl_v", "w_isl_v_crit", "w_isl_sat", "w_isl_min",
     "K_isl", "K_isl_v",
+)
+
+#: Response columns a run writes as **exactly zero** when it did not compute them.
+#:
+#: GPEC zeroes its threshold quantities outright when neither the Callen nor the
+#: SLAYER model is switched on (``gpec/gpout.f:1744-1746``, the ``ELSE`` branch),
+#: and zeroes the two Callen cubic-root widths whenever the cubic has no valid
+#: solution.  Zero is not a small threshold and not a property of the equilibrium:
+#: it is the run saying it never worked one out.
+#:
+#: So :func:`resonant_metrics` leaves such a column out of its **default**
+#: selection when every entry is zero, rather than reducing it to ``0.0`` -- which
+#: is a number, sits in a metrics table beside real ones, and reads as "the
+#: threshold is zero here".  Naming the column explicitly still reduces it: an
+#: explicit request is a decision, and a caller comparing two runs may want the
+#: zeros.
+ZERO_MEANS_NOT_COMPUTED: tuple[str, ...] = (
+    "Phi_res_crit",
+    "Phi_res_crit_callen",
+    "w_isl_v_crit",
+    "w_isl_sat",
+    "w_isl_min",
 )
 
 #: The windows the legacy metrics hard-coded, kept so that an old number can
@@ -475,7 +498,11 @@ def resonant_metrics(
         )
     psi_norm = np.asarray(table["psi_n_rational"], dtype=float)
     if columns is None:
-        columns = [name for name in RESONANT_RESPONSE_COLUMNS if name in table]
+        columns = [
+            name
+            for name in RESONANT_RESPONSE_COLUMNS
+            if name in table and not _is_not_computed(name, table[name])
+        ]
         if not columns:
             raise KeyError(
                 "the table carries none of the resonant response columns "
@@ -494,6 +521,14 @@ def resonant_metrics(
         for name in columns
         for window_name, window in windows.items()
     }
+
+
+def _is_not_computed(name: str, values) -> bool:
+    """Whether *name* is a threshold column this run left at exactly zero."""
+    if name not in ZERO_MEANS_NOT_COMPUTED:
+        return False
+    array = np.asarray(values)
+    return bool(array.size) and not np.any(array)
 
 
 def amplification_ratio(
