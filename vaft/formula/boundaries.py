@@ -1370,13 +1370,13 @@ _register(Boundary(
 #   stability boundary for rotating MHD modes during the current rise, with the
 #   kink and double-tearing region below it; the upper boundary is where
 #   density-limit disruptions occur. l_i = 2/(mu0^2 R I^2) int B_theta^2 dtau
-#   over the plasma volume (p. 644), and the x axis is q_psi, "the actual value
+#   over the plasma volume (p. 645), and the x axis is q_psi, "the actual value
 #   of q at the plasma edge" (p. 642).
 # * Cheng, Furth and Boozer 1987, Fig. 4 (p. 357): the *theoretical* domain of
 #   MHD-stable current profiles of a pressureless straight cylinder without a
-#   conducting wall, for q(0) = 1.01, computed for m, n <= 20 (p. 353). The
+#   conducting wall, for q(0) = 1.01, computed for m, n <= 20 (p. 352). The
 #   lower (jig-saw) bound is mainly ideal external kinks, the upper bound
-#   low-order resistive kinks, mainly m/n = 2/1 and 3/2 (p. 356). The figure
+#   low-order resistive kinks, mainly m/n = 2/1 and 3/2 (p. 354). The figure
 #   plots l_i/2; the tables below are l_i.
 #
 # The vertices were digitized for #1422 from 600-dpi renders of the published
@@ -1389,8 +1389,10 @@ _register(Boundary(
 
 _LI3 = BoundaryQuantity(
     "internal_inductance_li3", "l_i(3)", "-",
-    "2 int B_p^2 dV / (mu0^2 I_p^2 R): the IMAS DD global_quantities.li_3 form. Wesson 1989 (p. 644) uses "
-    "this form with R the plasma major radius; the DD uses the reference major radius R_0.",
+    "2 int B_p^2 dV / (mu0^2 I_p^2 R): the IMAS DD global_quantities.li_3 form. Wesson 1989 (p. 645) uses "
+    "this form with R the plasma major radius; the DD uses the reference major radius R_0. l_i(3) scales as "
+    "1/R, so the two differ by R_geo/R_0 where those differ (a few percent on VEST, r0 = 0.4 m); carry the "
+    "radius used alongside the value.",
 )
 _LI_CYLINDER = BoundaryQuantity(
     "internal_inductance_cylinder", "l_i", "-",
@@ -1416,7 +1418,7 @@ _WESSON_1989_TEETH = (
     (7.0, 0.674, 0.294),
     (8.0, 0.678, 0.298),
     (9.0, 0.674, 0.294),
-    (10.0, 0.678, None),
+    (10.0, 0.678, 0.295),
 )
 #: Wesson 1989 Fig. 6 upper boundary (density-limit disruptions), l_i(3) against q_psi.
 _WESSON_1989_UPPER = (
@@ -1453,9 +1455,9 @@ def _sawtooth(q, teeth, tail=None):
     for (q0, _, bottom), (q1, top, _) in zip(teeth[:-1], teeth[1:]):
         inside = (q >= q0) & (q < q1)
         out[inside] = bottom + (top - bottom) * (q[inside] - q0) / (q1 - q0)
-    q_last, top_last, _ = teeth[-1]
-    if tail is None:
-        out[q == q_last] = top_last
+    q_last, top_last, bottom_last = teeth[-1]
+    if tail is None:  # the last vertical edge, like every other one, takes its bottom value at q itself
+        out[q == q_last] = bottom_last if bottom_last is not None else top_last
     else:
         tq, tv = np.array(tail).T
         inside = (q >= tq[0]) & (q <= tq[-1])
@@ -1470,7 +1472,7 @@ def _tabulated(q, table):
 
 
 _WESSON_SOURCE = BoundarySource(
-    "J. A. Wesson et al., Nucl. Fusion 29 (1989) 641", equation="Fig. 6, p. 645; l_i definition p. 644",
+    "J. A. Wesson et al., Nucl. Fusion 29 (1989) 641", equation="Fig. 6 and l_i definition, p. 645",
     doi="10.1088/0029-5515/29/4/009",
     note="digitized from the published figure (#1422); axes q_psi and l_i = 2 int B_theta^2 dtau/(mu0^2 R I^2)",
 )
@@ -1523,7 +1525,7 @@ _register(Boundary(
 
 _CHENG_SOURCE = BoundarySource(
     "C. Z. Cheng, H. P. Furth and A. H. Boozer, Plasma Phys. Control. Fusion 29 (1987) 351",
-    equation="Fig. 4, p. 357 (plots l_i/2); bound origins p. 356",
+    equation="Fig. 4, p. 357 (plots l_i/2); bound origins p. 354; m, n <= 20 p. 352",
     doi="10.1088/0741-3335/29/3/006",
     note="digitized from the published figure (#1422); stored as l_i = 2 x the plotted l_i/2",
 )
@@ -1584,7 +1586,7 @@ _register(Boundary(
     allowed_side="above",
     hardness="hard",
     origin="published",
-    basis="resistive_mhd_numerical",
+    basis="theoretical",
     event="external_kink",
     applicability=Applicability(**{**_CHENG_APPLICABILITY, "ranges": {}}),
     sources=(BoundarySource(

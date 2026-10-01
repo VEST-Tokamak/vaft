@@ -120,3 +120,24 @@ def test_a_q95_table_gets_no_wesson_line():
     assert plan.curves == () and all("edge_safety_factor" in reason for _, reason in plan.omitted)
     t = t.rename(columns={"edge_safety_factor_95": "edge_safety_factor"})
     assert population_overlay(t, "li_qa_wesson").keys == WESSON + ("low_q",)
+
+
+# A second, independent reading of the figures (cold review of #1473, 600 dpi, tick-calibrated) pins every
+# branch, so a digitizing slip in one table cannot hide behind a self-consistent test.
+SECOND_READING = {
+    "wesson_1989_jet_li_qpsi_upper": {3.0: 1.11, 4.0: 1.26, 6.0: 1.52, 8.0: 1.72, 9.95: 1.86},
+    "cheng_1987_li_qa_upper": {3.0: 2 * 0.699, 4.0: 2 * 0.814, 5.0: 2 * 0.914, 6.0: 2 * 1.001, 7.0: 2 * 1.072},
+    # bottoms of the Cheng jig-saw at q = 2..6 (value at integer q), in l_i
+    "cheng_1987_li_qa_lower": {2.0: 2 * 0.345, 3.0: 2 * 0.355, 4.0: 2 * 0.355, 5.0: 2 * 0.412, 6.0: 2 * 0.442},
+}
+
+
+@pytest.mark.parametrize("key", sorted(SECOND_READING))
+def test_every_branch_matches_an_independent_reading_of_its_figure(key):
+    points = SECOND_READING[key]
+    np.testing.assert_allclose(_value(key, list(points)), list(points.values()), atol=0.025)
+
+
+def test_the_last_wesson_tooth_drops_like_the_others():
+    assert _value(WESSON[0], [10.0])[0] == pytest.approx(0.295)
+    assert _value(WESSON[0], [10.0 - 1e-9])[0] == pytest.approx(0.678, abs=1e-6)

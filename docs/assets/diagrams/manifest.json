@@ -392,8 +392,8 @@
     },
     "li_qa_wesson_1989.svg": {
       "call": "vaft.diagram.li_qa(reference='wesson_1989')",
-      "source_sha256": "71a046a75b23879fed75a3dd817d25835af1bdaf2a98141068fbd419367907fe",
-      "svg_sha256": "a98aff7853d343f6ace12c67804412799c8b8a554891f6b2c1c01fbe9fa81fff"
+      "source_sha256": "2c2f3714c6cf902ca53fdfaab41067b7bae51defc2c294949d28749ddab7442d",
+      "svg_sha256": "1f748bc02a0f52e8c89df7846ad5c006bfccc70c35fd58a90eff1fab589a9016"
     },
     "limiter_and_diverted_topologies.svg": {
       "call": "vaft.diagram.limiter_and_diverted_topologies()",

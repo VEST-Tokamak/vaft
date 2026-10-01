@@ -35,10 +35,10 @@ _REFERENCES = {
         projection="li_qa_wesson",
         x_range=(0.0, 15.0), y_range=(0.0, 2.0),
         x_label="$q_\\psi$", y_label="$l_i$",
-        labels={"operating": (6.8, 1.12), "upper": (4.3, 1.75), "lower": (12.6, 0.35)},
+        labels={"operating": (6.8, 1.12), "upper": (3.2, 1.75), "lower": (6.5, 0.1)},
         text={"operating": "Operating space",
               "upper": "\\begin{tabular}{c}Density-limit\\\\disruptions\\end{tabular}",
-              "lower": "\\begin{tabular}{c}Kink and\\\\double tearing\\end{tabular}"},
+              "lower": "Kink and double tearing"},
         note="Wesson et al., Nucl. Fusion 29 (1989) 641, Fig. 6: JET empirical boundaries",
     ),
     "cheng_1987": dict(
