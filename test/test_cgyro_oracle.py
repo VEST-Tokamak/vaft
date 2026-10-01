@@ -59,11 +59,21 @@ def test_every_local_parameter_matches_cgyros_own_projection(profile, rho):
     assert not failures, failures
 
 
-def test_the_oracle_records_the_ion_direction_the_sign_rule_predicts():
-    """IPCCW = BTCCW = +1 on 48224: q*rho < 0, so CGYRO's ion direction is omega > 0."""
-    run = collect_cgyro_outputs(ORACLE / "r0.7")
-    assert run.ion_direction == 1
-    assert run.equilibrium["q"] > 0 and run.equilibrium["b_unit"] < 0
+@requires_sample
+@pytest.mark.parametrize("rho", RADII)
+def test_the_field_orientation_matches_cgyros_own_signs(profile, rho):
+    """CGYRO signs q by IPCCW*BTCCW and B_unit by -BTCCW (cgyro_make_profiles), so
+    the oracle's signed q and b_unit pin both orientation flags of the translation --
+    a swap of SIGN_IT and SIGN_BT, invisible to |q|, fails here."""
+    import numpy as np
+
+    local = cgyro.prepare_cgyro_input(profile, rho)
+    run = collect_cgyro_outputs(ORACLE / f"r{rho}")
+    assert np.sign(run.equilibrium["q"]) == local.ipccw * local.btccw
+    assert np.sign(run.equilibrium["b_unit"]) == -local.btccw
+    # and the ion direction CGYRO printed is the one the sign rule gives: omega > 0
+    # exactly when q*rho < 0, i.e. when IPCCW = +1
+    assert run.ion_direction == (1 if local.ipccw > 0 else -1)
 
 
 def test_test_mode_writes_an_exit_line_but_is_not_a_solved_run():

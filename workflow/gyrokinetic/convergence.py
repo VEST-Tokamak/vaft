@@ -19,19 +19,35 @@ from pathlib import Path
 from typing import Optional
 
 
-def _tree(root: Path) -> tuple[dict, dict[tuple, dict]]:
-    manifest = json.loads((root / "run_manifest.json").read_text(encoding="utf-8"))
+_NUMERICS = ("n_energy", "n_xi", "n_theta", "n_radial", "box_size", "delta_t",
+             "delta_t_method", "max_time", "freq_tol")
+
+
+def _resolution(record: dict) -> dict:
+    """The numerics a record was *run* with (its own provenance), ky excluded."""
+    resolution = (record.get("provenance") or {}).get("resolution") or {}
+    return {k: resolution.get(k) for k in _NUMERICS}
+
+
+def _tree(root: Path) -> dict[tuple, dict]:
+    """Solved CGYRO records keyed by (state, surface, field, ky).
+
+    Each record is described by its own ``provenance.resolution``, not by the tree's
+    manifest: a tree resumed with other flags holds records of several resolutions,
+    and the manifest only names the last invocation.
+    """
     records: dict[tuple, dict] = {}
     for path in root.rglob("record.json"):
-        record = json.loads(path.read_text(encoding="utf-8"))
-        if record.get("code") != "cgyro":
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if record.get("code") != "cgyro" or "provenance" not in record:
             continue
         key = (record["shot"], round(record["time_efit_s"], 4), record["efit_lineage"],
                round(record["r_over_a"], 3), record["field_model"], round(record["ky"], 4))
         records[key] = record
-    resolution = dict(manifest.get("resolution") or {})
-    resolution["n_mpi"] = manifest.get("n_mpi")
-    return resolution, records
+    return records
 
 
 def _relative(value: Optional[float], reference: Optional[float]) -> Optional[float]:
@@ -48,16 +64,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--tolerance", type=float, default=0.05)
     args = parser.parse_args(argv)
 
-    base_resolution, base = _tree(args.base)
+    base = _tree(args.base)
     rows = []
     for variant in args.variant:
-        resolution, records = _tree(variant)
-        varied = {k: v for k, v in resolution.items()
-                  if k != "n_mpi" and base_resolution.get(k) != v}
+        records = _tree(variant)
         for key, record in sorted(records.items()):
             reference = base.get(key)
             if reference is None:
                 continue
+            base_resolution = _resolution(reference)
+            varied = {k: v for k, v in _resolution(record).items()
+                      if base_resolution.get(k) != v}
             d_gamma = _relative(record.get("gamma"), reference.get("gamma"))
             d_omega = _relative(record.get("omega_ion_negative"),
                                 reference.get("omega_ion_negative"))
@@ -83,8 +100,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         writer.writeheader()
         writer.writerows(rows)
     (args.out / "convergence_base.json").write_text(
-        json.dumps({"base": str(args.base), "resolution": base_resolution,
-                    "tolerance": args.tolerance}, indent=1), encoding="utf-8")
+        json.dumps({"base": str(args.base), "tolerance": args.tolerance,
+                    "resolutions": sorted({json.dumps(_resolution(r), sort_keys=True)
+                                           for r in base.values()})},
+                   indent=1), encoding="utf-8")
     print(json.dumps({"rows": len(rows)}))
     return 0
 

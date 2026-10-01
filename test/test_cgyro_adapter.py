@@ -348,13 +348,41 @@ def test_a_stale_restart_file_is_removed_unless_restarting(fake_launcher, tmp_pa
     assert not (tmp_path / "case" / "bin.cgyro.restart").exists()
 
 
-def test_a_restart_keeps_the_restart_file(fake_launcher, tmp_path):
+def test_a_restart_keeps_the_restart_file_and_the_history_cgyro_appends_to(monkeypatch, tmp_path):
+    from vaft.code.gacode import _runtime
+    from vaft.code.gacode.cgyro import runner
+
+    seen = {}
+
+    def launcher(executable, arguments, *, cwd, log_path, config=None, code="neo"):
+        workdir = Path(cwd) / arguments[1]
+        seen["restart"] = (workdir / "bin.cgyro.restart").exists()
+        seen["time"] = (workdir / "out.cgyro.time").read_text()
+        Path(log_path).write_text("ran\n")
+        return _runtime.GACODERun(0, Path(log_path), "completed", 1.0)
+
+    monkeypatch.setattr(runner, "run_gacode", launcher)
+    monkeypatch.setattr(runner, "require_gacode_executable", lambda c, code: Path("/x/cgyro"))
+    monkeypatch.setattr(runner, "gacode_platform", lambda c: "TEST")
+    monkeypatch.setattr(runner, "gacode_revision", lambda c: None)
     local = cgyro.cgyro_input_from_tglf(tglf_local())
     config = CGYROConfig(restart=True)
     staged = cgyro.stage_cgyro_case(local, tmp_path / "case", config)
+    write_run(tmp_path / "case")
     (tmp_path / "case" / "bin.cgyro.restart").write_bytes(b"old")
-    cgyro.run_cgyro(staged, config)
-    assert (tmp_path / "case" / "bin.cgyro.restart").exists()
+    cgyro.run_cgyro(staged, config, check=False)
+    assert seen["restart"] and seen["time"].count("\n") == 4  # 5 pre-restart samples kept
+
+
+def test_a_fourth_flux_moment_is_detected_from_the_file_not_assumed(tmp_path):
+    directory = write_run(tmp_path / "run", n_n=2, n_field=1, steps=5, exit_message="Normal")
+    data = np.ones((3, 4, 1, 2, 5))
+    data[:, 1] = 2.0
+    data[:, 3] = 9.0  # an exchange moment some builds write
+    data.astype(np.float32).flatten(order="F").tofile(directory / "bin.cgyro.ky_flux")
+    run = collect_cgyro_outputs(directory)
+    assert run.flux.shape == (3, 3, 1, 2, 5)
+    assert np.all(run.flux[:, 1] == 2.0) and not np.any(run.flux == 9.0)
 
 
 def test_an_input_error_with_exit_zero_raises_and_says_why(fake_launcher, tmp_path):

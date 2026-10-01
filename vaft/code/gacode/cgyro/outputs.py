@@ -481,10 +481,34 @@ def collect_cgyro_outputs(workdir: str | Path) -> Optional[CgyroOutputs]:
             )
 
     flux = _binary(directory, "ky_flux", real)
-    per_step = grid["n_species"] * len(FLUX_MOMENTS) * grid["n_field"] * n_n
-    if flux is not None and flux.size >= per_step:
-        steps = flux.size // per_step
-        outputs.flux = flux[: per_step * steps].reshape(
-            (grid["n_species"], len(FLUX_MOMENTS), grid["n_field"], n_n, steps), order="F"
-        ).astype(float)
+    if flux is not None:
+        outputs.flux = _ky_flux(flux, grid, None if outputs.time is None else outputs.time.size)
     return outputs
+
+
+def _ky_flux(data: np.ndarray, grid: Mapping[str, Any], n_time: Optional[int]) -> Optional[np.ndarray]:
+    """Reshape ``bin.cgyro.ky_flux``; the moment count is taken from the file, as
+    pygacode does (``m = size // (ns*nf*nn*nt)``), not assumed.
+
+    With the time count known, a build that writes a fourth moment (exchange) is read
+    correctly and the first three kept; without it, three moments are assumed and the
+    step count follows from the size. A size that fits neither is refused (``None``)
+    rather than reshaped into scrambled species/moment/time.
+    """
+    base = grid["n_species"] * grid["n_field"] * grid["n_n"]
+    moments = len(FLUX_MOMENTS)
+    if n_time:
+        if data.size % (base * n_time) == 0 and data.size // (base * n_time) >= moments:
+            m, steps = data.size // (base * n_time), n_time
+        elif data.size >= base * moments and (data.size // (base * moments)) <= n_time:
+            # a run cut short mid-record: whole steps only, three moments
+            m, steps = moments, data.size // (base * moments)
+        else:
+            return None
+    else:
+        if data.size < base * moments:
+            return None
+        m, steps = moments, data.size // (base * moments)
+    cube = data[: base * m * steps].reshape(
+        (grid["n_species"], m, grid["n_field"], grid["n_n"], steps), order="F")
+    return cube[:, :moments].astype(float)

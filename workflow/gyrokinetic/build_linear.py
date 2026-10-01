@@ -96,7 +96,8 @@ def build_rows(root: Path) -> list[dict]:
     for key in sorted(set(cgyro) | set(tglf)):
         c = cgyro.get(key, {})
         t = tglf.get(key, {})
-        tglf_omega, tglf_gamma = (t.get("eigenvalues") or [[None, None]])[0]
+        eigenvalues = t.get("eigenvalues") if t.get("status") == "solved" else None
+        tglf_omega, tglf_gamma = (eigenvalues or [[None, None]])[0]
         c_gamma, c_omega = c.get("gamma"), c.get("omega_ion_negative")
         ratio = (c_gamma / tglf_gamma) if (c_gamma is not None and tglf_gamma) else None
         rows.append({

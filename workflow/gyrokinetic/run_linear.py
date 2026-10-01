@@ -126,26 +126,32 @@ def _record(path: Path) -> Optional[dict]:
 
 
 def run_cgyro_job(job: dict) -> dict:
-    from vaft.code.gacode.cgyro import run_cgyro, stage_cgyro_case
+    """One CGYRO run; any failure becomes this run's record, never the scan's end."""
+    workdir = Path(job["workdir"])
+    try:
+        return _run_cgyro_job(job, workdir)
+    except Exception as error:  # noqa: BLE001 - one failed run must not stop the scan
+        record = {**job["meta"], "code": "cgyro", "status": "failed",
+                  "runtime_status": "error", "errors": [f"{type(error).__name__}: {error}"]}
+        workdir.mkdir(parents=True, exist_ok=True)
+        (workdir / "record.json").write_text(json.dumps(record, indent=1, default=str),
+                                             encoding="utf-8")
+        return record
+
+
+def _run_cgyro_job(job: dict, workdir: Path) -> dict:
     from omas import ODS
 
+    from vaft.code.gacode.cgyro import run_cgyro, stage_cgyro_case
     from vaft.machine_mapping.gyrokinetics import gyrokinetics_local_from_cgyro
     from vaft.omas import save as save_ods
 
-    workdir = Path(job["workdir"])
     staged = stage_cgyro_case(job["local"], workdir, job["config"], state_key=job["state_key"])
     previous = _record(workdir / "record.json")
     if (previous and previous.get("status") == "solved"
             and previous.get("input_sha256") == staged.provenance["input_sha256"]):
         return {**previous, "cached": True}
-    try:
-        result = run_cgyro(staged, job["config"], check=False)
-    except Exception as error:  # noqa: BLE001 - one failed launch must not stop the scan
-        record = {**job["meta"], "code": "cgyro", "status": "failed",
-                  "runtime_status": "error", "errors": [f"{type(error).__name__}: {error}"],
-                  "input_sha256": staged.provenance["input_sha256"]}
-        (workdir / "record.json").write_text(json.dumps(record, indent=1), encoding="utf-8")
-        return record
+    result = run_cgyro(staged, job["config"], check=False)
     native = result.outputs_native
     omega = None if native is None else native.frequency_ion_negative
     record = {
@@ -166,6 +172,10 @@ def run_cgyro_job(job: dict) -> dict:
                        ("gacode_commit", "version", "resolution", "formalism", "state_key")},
         "cached": False,
     }
+    # The record is written before the optional products, so a mapping failure cannot
+    # leave the previous run's record standing for this run.
+    (workdir / "record.json").write_text(json.dumps(record, indent=1, default=float),
+                                         encoding="utf-8")
     if native is not None:
         native.write_json(workdir / "cgyro_outputs.json")
         if result.ok:
@@ -176,8 +186,8 @@ def run_cgyro_job(job: dict) -> dict:
             if report["written"]:
                 save_ods(ods, workdir / "gyrokinetics_local.json")
             record["imas_skipped"] = report["skipped"]
-    (workdir / "record.json").write_text(json.dumps(record, indent=1, default=float),
-                                         encoding="utf-8")
+            (workdir / "record.json").write_text(json.dumps(record, indent=1, default=float),
+                                                 encoding="utf-8")
     return record
 
 
@@ -187,6 +197,7 @@ def run_tglf_job(job: dict) -> dict:
 
     workdir = Path(job["workdir"])
     workdir.mkdir(parents=True, exist_ok=True)
+    (workdir / "record.json").unlink(missing_ok=True)  # never leave a previous verdict
     parameters = tglf_parameters(job["local"].tglf, job["config"])
     written = write_input_tglf(parameters, workdir / "input.tglf")
     staged = TGLFInputs(workdir=workdir, files=(written,), local=job["local"].tglf,
@@ -195,8 +206,10 @@ def run_tglf_job(job: dict) -> dict:
     try:
         result = run_tglf(staged, job["config"], check=False)
     except Exception as error:  # noqa: BLE001
-        return {**job["meta"], "code": "tglf", "status": "failed",
-                "errors": [f"{type(error).__name__}: {error}"]}
+        record = {**job["meta"], "code": "tglf", "status": "failed",
+                  "errors": [f"{type(error).__name__}: {error}"]}
+        (workdir / "record.json").write_text(json.dumps(record, indent=1), encoding="utf-8")
+        return record
     eigenvalues = tglf_single_mode_eigenvalues(workdir)
     native = result.outputs_native
     errors = [] if native is None else list(native.errors)
@@ -328,6 +341,12 @@ def main(argv: Optional[list[str]] = None) -> int:
             except ValueError as error:
                 print(f"{key} r/a={r_over_a}: {error}", file=sys.stderr)
                 continue
+            absent = local.tglf.check_tglf_requirements()
+            if absent:
+                # Refused here, as prepare_cgyro_case would: a NaN must not reach input.cgyro.
+                print(f"{key} r/a={r_over_a}: local input lacks {', '.join(absent)}",
+                      file=sys.stderr)
+                continue
             surface_dir = args.out / key.slug() / f"r{r_over_a:.2f}"
             surface_dir.mkdir(parents=True, exist_ok=True)
             (surface_dir / "local.json").write_text(json.dumps({
@@ -371,7 +390,8 @@ def main(argv: Optional[list[str]] = None) -> int:
                 print(f"[{done}/{len(cgyro_jobs)}] {futures[future]['workdir']} "
                       f"{record.get('status')} {record.get('exit_message')} "
                       f"gamma={record.get('gamma')} {record.get('elapsed_s')}", flush=True)
-        with open(args.out / "runs.jsonl", "a", encoding="utf-8") as index:
+        # Rewritten, not appended: a resume returns every record (cached or new).
+        with open(args.out / "runs.jsonl", "w", encoding="utf-8") as index:
             for record in records:
                 index.write(json.dumps({k: v for k, v in record.items() if k != "provenance"},
                                        default=float) + "\n")

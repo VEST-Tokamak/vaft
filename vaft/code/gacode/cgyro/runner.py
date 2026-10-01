@@ -63,13 +63,16 @@ def gacode_revision(config: Optional[CGYROConfig] = None) -> Optional[str]:
 
 
 def _clear(workdir: Path, *, keep_restart: bool) -> None:
+    """Remove the previous run's products, or nothing at all when restarting.
+
+    CGYRO *appends* to its time records on a restart, so a restart keeps every file:
+    deleting ``out.cgyro.time`` or ``bin.cgyro.ky_flux`` would leave only the
+    post-restart samples and silently shorten the flux trace a saturation window reads.
+    """
+    if keep_restart:
+        return
     for pattern in ("out.cgyro.*", "bin.cgyro.*"):
         for stale in workdir.glob(pattern):
-            if keep_restart and (
-                stale.name.startswith("bin.cgyro.restart")
-                or stale.name in ("out.cgyro.version", "out.cgyro.tag")
-            ):
-                continue
             if stale.is_file():
                 stale.unlink()
 

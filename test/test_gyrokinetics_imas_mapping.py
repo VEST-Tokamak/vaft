@@ -172,3 +172,37 @@ def test_core_transport_gets_its_own_model_entry_beside_tglf(tmp_path):
 def test_every_audited_class_is_one_of_the_declared_kinds():
     kinds = {"exact", "unit", "coordinate", "derived", "convention", "unsupported"}
     assert {kind for kind, _ in gk.MAPPING_AUDIT.values()} <= kinds
+
+
+def test_nonlinear_time_is_converted_with_the_inverse_of_the_rate_factor(tmp_path):
+    local = cgyro.cgyro_input_from_tglf(tglf_local())
+    outputs = collect_cgyro_outputs(write_run(tmp_path / "run", n_n=4, n_field=1, flux=True,
+                                              exit_message="Normal"))
+    ods = ODS()
+    gk.gyrokinetics_local_from_cgyro(ods, local, outputs, flux_window=(2.0, 5.0),
+                                     provenance={"parameters": {"N_FIELD": 1, "NONLINEAR_FLAG": 1}})
+    factor = np.sqrt(2.0) / 1.49  # t_ref = t (a/c_s)(v_thref/R0)
+    assert ods["gyrokinetics_local.non_linear.time_norm"][-1] == pytest.approx(5.0 * factor)
+    assert ods["gyrokinetics_local.non_linear.time_interval_norm"] == pytest.approx(
+        [2.0 * factor, 5.0 * factor])
+
+
+def test_without_parameters_a_nonlinear_run_is_not_mapped_as_linear(tmp_path):
+    local = cgyro.cgyro_input_from_tglf(tglf_local())
+    outputs = collect_cgyro_outputs(write_run(tmp_path / "run", n_n=4, flux=True,
+                                              exit_message="Normal"))
+    ods = ODS()
+    gk.gyrokinetics_local_from_cgyro(ods, local, outputs, flux_window=(2.0, 5.0))
+    assert "linear" not in ods["gyrokinetics_local"]
+    assert "fluxes_1d" in ods["gyrokinetics_local.non_linear"]
+
+
+def test_a_tolerance_is_claimed_only_for_a_converged_eigenvalue(tmp_path):
+    local, outputs, provenance = linear_case(tmp_path, exit_message="Linear terminated at max time")
+    ods = ODS()
+    gk.gyrokinetics_local_from_cgyro(ods, local, outputs, provenance=provenance)
+    assert "growth_rate_tolerance" not in ods["gyrokinetics_local.linear.wavevector.0.eigenmode.0"]
+    local, outputs, provenance = linear_case(tmp_path / "b")
+    ods = ODS()
+    gk.gyrokinetics_local_from_cgyro(ods, local, outputs, provenance=provenance)
+    assert ods["gyrokinetics_local.linear.wavevector.0.eigenmode.0.growth_rate_tolerance"] == 1e-3

@@ -24,6 +24,7 @@ axis. One ODS per (state, surface, field model) is the shape, which is why
 ``out.cgyro.equilibrium`` -- every conversion is one of::
 
     rate:       x_ref  = x_cgyro * RMAJ / sqrt(2)                 (gamma, omega)
+    time:       t_ref  = t_cgyro * sqrt(2) / RMAJ
     wavenumber: k rho_ref = k rho_s * sqrt(2) / b_gs2             (ky)
     beta:       beta_ref = BETAE_UNIT / b_gs2**2
     gradient:   R0/L = a/L * RMAJ
@@ -164,6 +165,8 @@ def conversion_factors(local: Any, outputs: Any) -> Optional[dict[str, float]]:
         "rmaj": rmaj,
         "b_gs2": b,
         "rate": rmaj / np.sqrt(2.0),
+        # a time is the inverse of a rate: t_ref = t * (a/c_s) * (v_thref/R0)
+        "time": np.sqrt(2.0) / rmaj,
         "wavenumber": np.sqrt(2.0) / b,
         "beta": 1.0 / b**2,
         "debye": b / np.sqrt(2.0),
@@ -346,7 +349,11 @@ def gyrokinetics_local_from_cgyro(
         skipped.append("normalizing_quantities: the local input carries no SI scales")
 
     # -- linear -------------------------------------------------------------------
-    nonlinear = int(parameters.get("NONLINEAR_FLAG", 0)) == 1
+    if "NONLINEAR_FLAG" in parameters:
+        nonlinear = int(parameters["NONLINEAR_FLAG"]) == 1
+    else:
+        # No staged parameters: judge from the run itself rather than defaulting to linear.
+        nonlinear = bool(getattr(outputs, "nonlinear", False))
     if not nonlinear:
         _write_linear(ods, base, local, outputs, factors, parameters, put, skipped)
     else:
@@ -373,7 +380,9 @@ def _write_linear(ods, base, local, outputs, factors, parameters, put, skipped) 
         if omega is not None:
             put(f"{mode}.frequency_norm", float(omega[k]) * factors["rate"])
         put(f"{mode}.initial_value_run", 1)
-        if "FREQ_TOL" in parameters:
+        # The DD field is the tolerance the eigenvalue *reached*; a run stopped at
+        # MAX_TIME reached none, so it is written only for a converged run.
+        if "FREQ_TOL" in parameters and outputs.converged:
             put(f"{mode}.growth_rate_tolerance", float(parameters["FREQ_TOL"]))
         ods[f"{base}.{mode}.code.parameters"] = _xml_parameters(
             {
@@ -425,8 +434,8 @@ def _write_nonlinear(ods, base, outputs, factors, n_field, window, put, skipped)
             average[:, 0, f] * factors["flux"])
         put(f"non_linear.fluxes_1d.energy_{_FIELD_DD[f]}",
             average[:, 1, f] * factors["flux"])
-    put("non_linear.time_norm", t * factors["rate"])
-    put("non_linear.time_interval_norm", np.asarray(window, dtype=float) * factors["rate"])
+    put("non_linear.time_norm", t * factors["time"])
+    put("non_linear.time_interval_norm", np.asarray(window, dtype=float) * factors["time"])
     if outputs.ky is not None:
         put("non_linear.binormal_wavevector_norm", np.asarray(outputs.ky) * factors["wavenumber"])
     put("non_linear.quasi_linear", 0)
