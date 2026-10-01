@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2c95bd9</code>. What is described
+  <code>8bd0ebc</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -363,10 +363,10 @@ margin lies on the boundary.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boundary_curve"><code>boundary_curve</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="boundary_curve" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/boundaries.py#L546-L601" title="vaft/formula/boundaries.py, lines 546–601 at 2c95bd9">source</a>
+<a class="ref-source" data-source="boundary_curve" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/boundaries.py#L555-L610" title="vaft/formula/boundaries.py, lines 555–610 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>boundary_curve(boundary, sweep, values, swap_axes=False, **fixed)</code></pre>
-    <details class="ref-code" data-source-code="boundary_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 546–601</span></summary>
+    <details class="ref-code" data-source-code="boundary_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 555–610</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">boundary_curve</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="n">sweep</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">swap_axes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">fixed</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoundaryCurve</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.
@@ -476,7 +476,7 @@ With <code class="language-plaintext highlighter-rouge">swap_axes</code> the tar
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boundary_value"><code>boundary_value</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="boundary_value" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/boundaries.py#L373-L411" title="vaft/formula/boundaries.py, lines 373–411 at 2c95bd9">source</a>
+<a class="ref-source" data-source="boundary_value" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/boundaries.py#L373-L411" title="vaft/formula/boundaries.py, lines 373–411 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>boundary_value(boundary, **inputs)</code></pre>
     <details class="ref-code" data-source-code="boundary_value"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 373–411</span></summary>
@@ -572,88 +572,9 @@ boundary declared in MA converts first.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_boundary"><code>evaluate_boundary</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="evaluate_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/boundaries.py#L425-L499" title="vaft/formula/boundaries.py, lines 425–499 at 2c95bd9">source</a>
+<a class="ref-source" data-source="evaluate_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/boundaries.py#L425-L508" title="vaft/formula/boundaries.py, lines 425–508 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_boundary(boundary, operating_value, **inputs)</code></pre>
-    <details class="ref-code" data-source-code="evaluate_boundary"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 425–499</span></summary>
-
-<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">evaluate_boundary</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="n">operating_value</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoundaryEvaluation</span><span class="p">:</span>
-    <span class="sa">r</span><span class="sh">"""</span><span class="s">Distance and side of an operating value relative to a boundary.
-
-    $$\mathrm{margin} = \frac{b - x}{b}\ \ (\text{permitted below}),\qquad \mathrm{margin} = \frac{x - b}{b}\ \ (\text{permitted above})$$
-
-    Parameters
-    ----------
-    boundary : Boundary
-        The boundary to compare against [-].
-    operating_value : float or np.ndarray
-        Operating value $x$ of the boundary</span><span class="sh">'</span><span class="s">s target quantity, in the
-        target</span><span class="sh">'</span><span class="s">s unit [varies].
-
-    Returns
-    -------
-    BoundaryEvaluation
-        Boundary value $b$, ratio $x/b$, difference $x - b$, signed margin
-        (positive on the permitted side), permitted flag, the inputs that lie
-        outside the source</span><span class="sh">'</span><span class="s">s stated ranges, and warnings [-].
-
-    Raises
-    ------
-    TypeError
-        An input is missing or not one of the boundary</span><span class="sh">'</span><span class="s">s inputs.
-
-    Convention
-    ----------
-    The margin is normalised by the boundary value. A positive margin is
-    always the permitted side, whichever way the boundary points, so margins
-    of different boundaries share one sign convention. ``allowed`` is strict:
-    a state exactly on the boundary is not counted as permitted. A boundary
-    value that is zero, negative or not finite gives NaN margin and ratio, is
-    never permitted, and adds a warning. Pass magnitudes where a sign
-    convention could make the boundary negative.
-
-    Notes
-    -----
-    Crossing a ``soft`` boundary is not a prediction of failure. For example,
-    $f_G &gt; 1$ is routinely reached. The evaluation reports the geometry, and
-    interpreting it is left to the caller.
-    </span><span class="sh">"""</span>
-    <span class="n">b</span> <span class="o">=</span> <span class="nf">boundary_value</span><span class="p">(</span><span class="n">boundary</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span>
-    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">operating_value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-    <span class="n">b_arr</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-    <span class="n">difference</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">b_arr</span>
-    <span class="n">signed</span> <span class="o">=</span> <span class="o">-</span><span class="n">difference</span> <span class="k">if</span> <span class="n">boundary</span><span class="p">.</span><span class="n">allowed_side</span> <span class="o">==</span> <span class="sh">"</span><span class="s">below</span><span class="sh">"</span> <span class="k">else</span> <span class="n">difference</span>
-    <span class="n">valid</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">b_arr</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">b_arr</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
-        <span class="n">margin</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">valid</span><span class="p">,</span> <span class="n">signed</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">valid</span><span class="p">,</span> <span class="n">b_arr</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
-        <span class="n">ratio</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">valid</span><span class="p">,</span> <span class="n">x</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">valid</span><span class="p">,</span> <span class="n">b_arr</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
-    <span class="n">allowed</span> <span class="o">=</span> <span class="n">valid</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">signed</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-    <span class="n">extrapolated</span> <span class="o">=</span> <span class="nf">_extrapolated</span><span class="p">(</span><span class="n">boundary</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
-    <span class="n">warnings</span> <span class="o">=</span> <span class="nf">tuple</span><span class="p">(</span>
-        <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s"> lies outside the range </span><span class="si">{</span><span class="n">boundary</span><span class="p">.</span><span class="n">applicability</span><span class="p">.</span><span class="n">ranges</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="si">}</span><span class="s"> </span><span class="sh">"</span>
-        <span class="sa">f</span><span class="sh">"</span><span class="s">[</span><span class="si">{</span><span class="n">boundary</span><span class="p">.</span><span class="nf">input</span><span class="p">(</span><span class="n">name</span><span class="p">).</span><span class="n">unit</span><span class="si">}</span><span class="s">] covered by </span><span class="si">{</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="si">!r}</span><span class="s">, or is not finite</span><span class="sh">"</span>
-        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">extrapolated</span>
-    <span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">valid</span><span class="p">):</span>
-        <span class="n">warnings</span> <span class="o">+=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="si">!r}</span><span class="s"> is non-positive or not finite at some inputs; margin and ratio are NaN </span><span class="sh">"</span>
-            <span class="sh">"</span><span class="s">and the state is not counted as permitted there</span><span class="sh">"</span><span class="p">,</span>
-        <span class="p">)</span>
-    <span class="k">return</span> <span class="nc">BoundaryEvaluation</span><span class="p">(</span>
-        <span class="n">key</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="p">,</span>
-        <span class="n">target</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">,</span>
-        <span class="n">boundary_value</span><span class="o">=</span><span class="n">b</span><span class="p">,</span>
-        <span class="n">operating_value</span><span class="o">=</span><span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">x</span><span class="p">),</span>
-        <span class="n">ratio</span><span class="o">=</span><span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">ratio</span><span class="p">),</span>
-        <span class="n">difference</span><span class="o">=</span><span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">difference</span><span class="p">),</span>
-        <span class="n">margin</span><span class="o">=</span><span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">margin</span><span class="p">),</span>
-        <span class="n">allowed</span><span class="o">=</span><span class="nf">bool</span><span class="p">(</span><span class="n">allowed</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">allowed</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">allowed</span><span class="p">,</span>
-        <span class="n">allowed_side</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">allowed_side</span><span class="p">,</span>
-        <span class="n">extrapolated</span><span class="o">=</span><span class="n">extrapolated</span><span class="p">,</span>
-        <span class="n">warnings</span><span class="o">=</span><span class="n">warnings</span><span class="p">,</span>
-    <span class="p">)</span></code></pre></figure>
-
-</details>
 
     <p>Distance and side of an operating value relative to a boundary.</p>
 
@@ -682,8 +603,11 @@ always the permitted side, whichever way the boundary points, so margins
 of different boundaries share one sign convention. <code class="language-plaintext highlighter-rouge">allowed</code> is strict:
 a state exactly on the boundary is not counted as permitted. A boundary
 value that is zero, negative or not finite gives NaN margin and ratio, is
-never permitted, and adds a warning. Pass magnitudes where a sign
-convention could make the boundary negative.</p>
+never permitted, and adds a warning. An operating value that is not
+finite (a NaN gap in a trace) is likewise reported as not permitted, with
+NaN margin and ratio and a warning: <code class="language-plaintext highlighter-rouge">allowed</code> is False there, not
+unknown, so count violations from <code class="language-plaintext highlighter-rouge">margin</code> when a trace has gaps. Pass
+magnitudes where a sign convention could make the boundary negative.</p>
 
     </div>
 
@@ -712,10 +636,10 @@ interpreting it is left to the caller.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_window"><code>evaluate_window</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="evaluate_window" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/boundaries.py#L502-L543" title="vaft/formula/boundaries.py, lines 502–543 at 2c95bd9">source</a>
+<a class="ref-source" data-source="evaluate_window" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/boundaries.py#L511-L552" title="vaft/formula/boundaries.py, lines 511–552 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_window(window, operating_value, **inputs)</code></pre>
-    <details class="ref-code" data-source-code="evaluate_window"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 502–543</span></summary>
+    <details class="ref-code" data-source-code="evaluate_window"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 511–552</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">evaluate_window</span><span class="p">(</span><span class="n">window</span><span class="p">:</span> <span class="n">BoundaryWindow</span><span class="p">,</span> <span class="n">operating_value</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowEvaluation</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Position of an operating value relative to an access window.
@@ -803,10 +727,10 @@ the inputs it declares.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#get_boundary"><code>get_boundary</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="get_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/boundaries.py#L680-L701" title="vaft/formula/boundaries.py, lines 680–701 at 2c95bd9">source</a>
+<a class="ref-source" data-source="get_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/boundaries.py#L689-L710" title="vaft/formula/boundaries.py, lines 689–710 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>get_boundary(key)</code></pre>
-    <details class="ref-code" data-source-code="get_boundary"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 680–701</span></summary>
+    <details class="ref-code" data-source-code="get_boundary"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 689–710</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">get_boundary</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
     <span class="sh">"""</span><span class="s">A registered boundary or window by key.
@@ -862,10 +786,10 @@ the inputs it declares.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#hugill_coordinates"><code>hugill_coordinates</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="hugill_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/boundaries.py#L604-L663" title="vaft/formula/boundaries.py, lines 604–663 at 2c95bd9">source</a>
+<a class="ref-source" data-source="hugill_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/boundaries.py#L613-L672" title="vaft/formula/boundaries.py, lines 613–672 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p)</code></pre>
-    <details class="ref-code" data-source-code="hugill_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 604–663</span></summary>
+    <details class="ref-code" data-source-code="hugill_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 613–672</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hugill_coordinates</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">R_geo</span><span class="p">,</span> <span class="n">B_t</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">kappa_a</span><span class="p">,</span> <span class="n">I_p</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
@@ -995,10 +919,10 @@ without cropping.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#list_boundaries"><code>list_boundaries</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="list_boundaries" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/boundaries.py#L704-L720" title="vaft/formula/boundaries.py, lines 704–720 at 2c95bd9">source</a>
+<a class="ref-source" data-source="list_boundaries" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/boundaries.py#L713-L729" title="vaft/formula/boundaries.py, lines 713–729 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>list_boundaries(family=None)</code></pre>
-    <details class="ref-code" data-source-code="list_boundaries"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 704–720</span></summary>
+    <details class="ref-code" data-source-code="list_boundaries"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 713–729</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">list_boundaries</span><span class="p">(</span><span class="n">family</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Keys of the registered boundaries, optionally restricted to one family.
@@ -1257,7 +1181,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-01 02:47:22 +0000"
+        "time": "2026-10-01 03:02:36 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

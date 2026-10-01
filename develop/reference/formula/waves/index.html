@@ -264,7 +264,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2c95bd9</code>. What is described
+  <code>8bd0ebc</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -361,10 +361,10 @@ along axis 0; frequencies and field broadcast against the rest.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cma_coordinates"><code>cma_coordinates</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cma_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/waves.py#L379-L425" title="vaft/formula/waves.py, lines 379–425 at 2c95bd9">source</a>
+<a class="ref-source" data-source="cma_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/waves.py#L386-L432" title="vaft/formula/waves.py, lines 386–432 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>cma_coordinates(omega, n_e, B)</code></pre>
-    <details class="ref-code" data-source-code="cma_coordinates"><summary>Show source <span class="ref-note">vaft/formula/waves.py, lines 379–425</span></summary>
+    <details class="ref-code" data-source-code="cma_coordinates"><summary>Show source <span class="ref-note">vaft/formula/waves.py, lines 386–432</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cma_coordinates</span><span class="p">(</span><span class="n">omega</span><span class="p">,</span> <span class="n">n_e</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">CMA-diagram coordinates of a cold electron plasma.
@@ -479,88 +479,9 @@ boundary it crosses is a cutoff or resonance of some mode.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cold_plasma_refractive_index_squared"><code>cold_plasma_refractive_index_squared</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cold_plasma_refractive_index_squared" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/waves.py#L258-L332" title="vaft/formula/waves.py, lines 258–332 at 2c95bd9">source</a>
+<a class="ref-source" data-source="cold_plasma_refractive_index_squared" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/waves.py#L258-L339" title="vaft/formula/waves.py, lines 258–339 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>cold_plasma_refractive_index_squared(R, L, P, theta)</code></pre>
-    <details class="ref-code" data-source-code="cold_plasma_refractive_index_squared"><summary>Show source <span class="ref-note">vaft/formula/waves.py, lines 258–332</span></summary>
-
-<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cold_plasma_refractive_index_squared</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
-    <span class="sa">r</span><span class="sh">"""</span><span class="s">The two roots $n^2$ of the cold-plasma dispersion relation at angle $\theta$ to $\mathbf B_0$.
-
-    $$An^4 - Bn^2 + C = 0,\qquad n^2_\pm = \frac{B \pm F}{2A}$$
-    $$A = S\sin^2\theta + P\cos^2\theta,\quad B = RL\sin^2\theta + PS(1 + \cos^2\theta),\quad C = PRL,$$
-    $$F^2 = (RL - PS)^2\sin^4\theta + 4P^2D^2\cos^2\theta$$
-
-    Parameters
-    ----------
-    R : float or np.ndarray
-        Stix $R$ [-].
-    L : float or np.ndarray
-        Stix $L$ [-].
-    P : float or np.ndarray
-        Stix $P$ [-].
-    theta : float or np.ndarray
-        Angle between $\mathbf k$ and $\mathbf B_0$ [rad].
-
-    Returns
-    -------
-    tuple of float or np.ndarray
-        ``(n2_plus, n2_minus)`` $= ((B + F)/2A,\ (B - F)/2A)$; where $A = 0$
-        (a resonance cone) one root is infinite and the other finite,
-        $C/B$ [-].
-
-    Raises
-    ------
-    ValueError
-        A non-finite ``theta``.
-
-    Convention
-    ----------
-    $F$ is written in Stix</span><span class="sh">'</span><span class="s">s non-negative form, so $F^2 = B^2 - 4AC \ge 0$
-    and both roots are real for real Stix parameters. The roots are
-    evaluated as $q/A$ and $C/q$ with $q = (B + \mathrm{sign}(B)F)/2$, so the
-    finite root stays accurate as $A \to 0$; in the degenerate parallel case
-    $P = 0$ ($A = B = C = 0$) they are $R$ and $L$. The $\pm$ labels are
-    the algebraic branches, not O/X or R/L: which physical mode a branch is
-    changes across $A = 0$ and $\theta$, so name modes from a tracked root
-    (``perpendicular_refractive_index_squared`` at $\theta = \pi/2$; $R$
-    and $L$ at $\theta = 0$).
-
-    Physical interpretation
-    -----------------------
-    $n^2 &gt; 0$ propagates, $n^2 &lt; 0$ is evanescent, $n^2 = 0$ is a cutoff
-    (reflection) and $n^2 \to \infty$ a resonance (absorption, or mode
-    conversion) -- ``propagation_regime``.
-
-    References
-    ----------
-    .. [1] T. H. Stix, *Waves in Plasmas*, AIP (1992), Sec. 1-3.
-    </span><span class="sh">"""</span>
-    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">theta</span><span class="p">)):</span>
-        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">theta must be finite</span><span class="sh">"</span><span class="p">)</span>
-    <span class="n">R</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">P</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">P</span><span class="p">))</span>
-    <span class="n">S</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="p">(</span><span class="n">R</span> <span class="o">+</span> <span class="n">L</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span> <span class="p">(</span><span class="n">R</span> <span class="o">-</span> <span class="n">L</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
-    <span class="n">s2</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
-    <span class="n">A</span> <span class="o">=</span> <span class="n">S</span> <span class="o">*</span> <span class="n">s2</span> <span class="o">+</span> <span class="n">P</span> <span class="o">*</span> <span class="n">c2</span>
-    <span class="n">Bq</span> <span class="o">=</span> <span class="n">R</span> <span class="o">*</span> <span class="n">L</span> <span class="o">*</span> <span class="n">s2</span> <span class="o">+</span> <span class="n">P</span> <span class="o">*</span> <span class="n">S</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">c2</span><span class="p">)</span>
-    <span class="n">C</span> <span class="o">=</span> <span class="n">P</span> <span class="o">*</span> <span class="n">R</span> <span class="o">*</span> <span class="n">L</span>
-    <span class="n">F</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">((</span><span class="n">R</span> <span class="o">*</span> <span class="n">L</span> <span class="o">-</span> <span class="n">P</span> <span class="o">*</span> <span class="n">S</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">s2</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="n">P</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">D</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">c2</span><span class="p">)</span>
-    <span class="c1"># the cancellation-free form: q = (B + sign(B) F)/2, roots q/A and C/q
-</span>    <span class="n">sign</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">Bq</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">)</span>
-    <span class="n">q</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">Bq</span> <span class="o">+</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">F</span><span class="p">)</span>
-    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
-        <span class="n">big</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">A</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">q</span> <span class="o">/</span> <span class="n">A</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">copysign</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">q</span><span class="p">))</span>
-        <span class="n">small</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">q</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">C</span> <span class="o">/</span> <span class="n">q</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
-    <span class="n">plus</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">sign</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">big</span><span class="p">,</span> <span class="n">small</span><span class="p">)</span>
-    <span class="n">minus</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">sign</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">small</span><span class="p">,</span> <span class="n">big</span><span class="p">)</span>
-    <span class="c1"># A = B = C = 0: the parallel case with P = 0, where the roots are R and L themselves
-</span>    <span class="n">degenerate</span> <span class="o">=</span> <span class="n">q</span> <span class="o">==</span> <span class="mf">0.0</span>
-    <span class="n">plus</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">degenerate</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">plus</span><span class="p">)</span>
-    <span class="n">minus</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">degenerate</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">minus</span><span class="p">)</span>
-    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">plus</span><span class="p">),</span> <span class="nf">_out</span><span class="p">(</span><span class="n">minus</span><span class="p">)</span></code></pre></figure>
-
-</details>
 
     <p>The two roots $n^2$ of the cold-plasma dispersion relation at angle $\theta$ to $\mathbf B_0$.</p>
 
@@ -594,7 +515,9 @@ boundary it crosses is a cutoff or resonance of some mode.</p>
 and both roots are real for real Stix parameters. The roots are
 evaluated as $q/A$ and $C/q$ with $q = (B + \mathrm{sign}(B)F)/2$, so the
 finite root stays accurate as $A \to 0$; in the degenerate parallel case
-$P = 0$ ($A = B = C = 0$) they are $R$ and $L$. The $\pm$ labels are
+$P = 0$ ($A = B = C = 0$) they are $R$ and $L$, and where $B = C = 0$
+with $A \ne 0$ (perpendicular propagation with $P = 0$ and $RL = 0$)
+both roots are the double zero of $A n^4 = 0$. The $\pm$ labels are
 the algebraic branches, not O/X or R/L: which physical mode a branch is
 changes across $A = 0$ and $\theta$, so name modes from a tracked root
 (<code class="language-plaintext highlighter-rouge">perpendicular_refractive_index_squared</code> at $\theta = \pi/2$; $R$
@@ -634,7 +557,7 @@ conversion) – <code class="language-plaintext highlighter-rouge">propagation_r
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dielectric_tensor"><code>dielectric_tensor</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="dielectric_tensor" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/waves.py#L213-L255" title="vaft/formula/waves.py, lines 213–255 at 2c95bd9">source</a>
+<a class="ref-source" data-source="dielectric_tensor" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/waves.py#L213-L255" title="vaft/formula/waves.py, lines 213–255 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>dielectric_tensor(R, L, P)</code></pre>
     <details class="ref-code" data-source-code="dielectric_tensor"><summary>Show source <span class="ref-note">vaft/formula/waves.py, lines 213–255</span></summary>
@@ -739,10 +662,10 @@ circular polarisations $R$ and $L$ the eigenmodes along $\mathbf B_0$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#perpendicular_refractive_index_squared"><code>perpendicular_refractive_index_squared</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="perpendicular_refractive_index_squared" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/waves.py#L335-L376" title="vaft/formula/waves.py, lines 335–376 at 2c95bd9">source</a>
+<a class="ref-source" data-source="perpendicular_refractive_index_squared" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/waves.py#L342-L383" title="vaft/formula/waves.py, lines 342–383 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>perpendicular_refractive_index_squared(R, L, P)</code></pre>
-    <details class="ref-code" data-source-code="perpendicular_refractive_index_squared"><summary>Show source <span class="ref-note">vaft/formula/waves.py, lines 335–376</span></summary>
+    <details class="ref-code" data-source-code="perpendicular_refractive_index_squared"><summary>Show source <span class="ref-note">vaft/formula/waves.py, lines 342–383</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">perpendicular_refractive_index_squared</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">P</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Ordinary and extraordinary modes at perpendicular propagation.
@@ -844,7 +767,7 @@ lower) hybrid layer, reached from the high-field side or by tunnelling.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#plasma_frequency"><code>plasma_frequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="plasma_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/waves.py#L70-L117" title="vaft/formula/waves.py, lines 70–117 at 2c95bd9">source</a>
+<a class="ref-source" data-source="plasma_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/waves.py#L70-L117" title="vaft/formula/waves.py, lines 70–117 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>plasma_frequency(n, q, m)</code></pre>
     <details class="ref-code" data-source-code="plasma_frequency"><summary>Show source <span class="ref-note">vaft/formula/waves.py, lines 70–117</span></summary>
@@ -962,10 +885,10 @@ field cannot propagate.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#propagation_regime"><code>propagation_regime</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="propagation_regime" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/waves.py#L428-L472" title="vaft/formula/waves.py, lines 428–472 at 2c95bd9">source</a>
+<a class="ref-source" data-source="propagation_regime" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/waves.py#L435-L479" title="vaft/formula/waves.py, lines 435–479 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>propagation_regime(n2, *, atol=0.0)</code></pre>
-    <details class="ref-code" data-source-code="propagation_regime"><summary>Show source <span class="ref-note">vaft/formula/waves.py, lines 428–472</span></summary>
+    <details class="ref-code" data-source-code="propagation_regime"><summary>Show source <span class="ref-note">vaft/formula/waves.py, lines 435–479</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">propagation_regime</span><span class="p">(</span><span class="n">n2</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Classify a refractive index squared: propagating, evanescent, cutoff or resonance.
@@ -1080,7 +1003,7 @@ sign changes between samples.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#stix_parameters"><code>stix_parameters</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="stix_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/2c95bd9d8b9123d6464096539a0024c1b705a645/vaft/formula/waves.py#L120-L210" title="vaft/formula/waves.py, lines 120–210 at 2c95bd9">source</a>
+<a class="ref-source" data-source="stix_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/8bd0ebcdfca54dcbab47f07c9ab1867c18f0122f/vaft/formula/waves.py#L120-L210" title="vaft/formula/waves.py, lines 120–210 at 8bd0ebc">source</a>
 </header>
     <pre class="ref-signature"><code>stix_parameters(omega, n, q, m, B)</code></pre>
 
@@ -1387,7 +1310,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-01 02:47:22 +0000"
+        "time": "2026-10-01 03:02:36 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
