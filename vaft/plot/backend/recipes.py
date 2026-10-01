@@ -77,6 +77,8 @@ from vaft.validation.validity import VALIDITY_VALID, is_condemned, record_from_m
 
 __all__ = [
     "CallableRecipe",
+    "ChoiceDeclaration",
+    "CoordinateDeclaration",
     "FieldRecipe",
     "GeometryRecipe",
     "LineRecipe",
@@ -884,6 +886,38 @@ OWN_TIME = "own"
 
 
 @dataclass(frozen=True)
+class ChoiceDeclaration:
+    """A choice option a computed view declares: its vocabulary and its default.
+
+    ``options`` is what the builder accepts, in offer order; ``default`` is what
+    it applies when the option is not passed, one of ``options`` (or ``None``
+    when nothing is applied).  :func:`coordinate_options_for`,
+    :func:`choice_options_for`, the option validator, discovery and the
+    controls all read this one declaration, so a computed view's ``coordinate=``
+    is offered exactly as a path-driven profile's is (issue #551).
+    """
+
+    default: Any
+    options: tuple[Any, ...]
+    #: When the option is sent at all: {other option: values}, as a
+    #: control's applies_to -- a profile gradient's reference_length
+    #: applies only while no convention is chosen.
+    applies_to: Mapping[str, tuple[Any, ...]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "options", tuple(self.options))
+        object.__setattr__(self, "applies_to", {k: tuple(v) for k, v in self.applies_to.items()})
+        if not self.options:
+            raise ValueError("a ChoiceDeclaration offers at least one option")
+        if self.default is not None and self.default not in self.options:
+            raise ValueError(f"default {self.default!r} is not one of {self.options}")
+
+
+#: The declaration of a computed view's ``coordinate=``.
+CoordinateDeclaration = ChoiceDeclaration
+
+
+@dataclass(frozen=True)
 class CallableRecipe:
     """A plot whose extraction needs real computation, not just path reads.
 
@@ -925,6 +959,12 @@ class CallableRecipe:
     #: history to it; otherwise the option is refused (:func:`takes_time_range`)
     #: rather than accepted and ignored.
     windowed: bool = False
+    #: The ``coordinate=`` the builder accepts (:class:`CoordinateDeclaration`),
+    #: or ``None`` for a view that takes none.
+    coordinates: "ChoiceDeclaration | None" = None
+    #: Other choice options the builder declares, by option name; each must be
+    #: an option of the schema (:mod:`vaft.plot.backend.options`).
+    choices: Mapping[str, "ChoiceDeclaration"] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.backend not in BACKENDS:
@@ -7323,9 +7363,9 @@ def coordinate_options_for(name: str) -> tuple[str, ...] | None:
     ``coordinates`` (issue #486); the option validator asks here so the
     schema's global vocabulary never refuses a name a recipe accepts.
     """
-    if name in _PROFILE_FIT_DIAGNOSTIC:
-        return PROFILE_FIT_COORDINATES
     recipe = RECIPES.get(name)
+    if isinstance(recipe, CallableRecipe):
+        return recipe.coordinates.options if recipe.coordinates is not None else None
     if isinstance(recipe, ProfileRecipe):
         return _coordinate_options(recipe)
     if isinstance(recipe, ChannelProfileRecipe):
@@ -7337,6 +7377,24 @@ def coordinate_options_for(name: str) -> tuple[str, ...] | None:
                 if option not in options:
                     options.append(option)
         return tuple(options) or None
+    return None
+
+
+def coordinate_default_for(name: str) -> Any:
+    """The ``coordinate=`` plot ``name`` applies when none is passed, or ``None``."""
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, CallableRecipe):
+        return recipe.coordinates.default if recipe.coordinates is not None else None
+    if isinstance(recipe, (ProfileRecipe, ChannelProfileRecipe)):
+        return recipe.default_coordinate
+    return None
+
+
+def choice_options_for(name: str, option: str) -> tuple[Any, ...] | None:
+    """The vocabulary computed view ``name`` declares for choice ``option``, or ``None``."""
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, CallableRecipe) and option in recipe.choices:
+        return recipe.choices[option].options
     return None
 
 
@@ -13127,8 +13185,371 @@ for _name, _diagnostic in _PROFILE_FIT_DIAGNOSTIC.items():
             "the ODS with ':' slices and OMAS item access"
         ),
         multi_entry=True,
+        coordinates=CoordinateDeclaration("psi_norm", PROFILE_FIT_COORDINATES),
     )
 del _name, _diagnostic
+
+
+# ---------------------------------------------------------------------------
+# Normalized profile gradients with every choice stated (issue #551)
+# ---------------------------------------------------------------------------
+
+from vaft.process.profile_gradients import (  # noqa: E402 -- numpy-only, imported with the section
+    CONVENTIONS as _GRADIENT_PRESETS,
+    RADIAL_COORDINATES as _RADIAL_COORDINATES,
+    REFERENCE_LENGTHS as _REFERENCE_LENGTHS,
+)
+
+#: ``coordinate=`` and ``gradient_coordinate=`` of a profile gradient view:
+#: every coordinate of :data:`vaft.process.profile_gradients.RADIAL_COORDINATES`.
+GRADIENT_COORDINATES = tuple(_RADIAL_COORDINATES)
+#: ``reference_length=``: :data:`~vaft.process.profile_gradients.REFERENCE_LENGTHS`,
+#: with ``None`` -- the dimensional gradient -- spelled ``"none"``.
+GRADIENT_REFERENCE_LENGTHS = tuple("none" if name is None else name for name in _REFERENCE_LENGTHS)
+#: ``convention=``: the presets of :data:`vaft.process.profile_gradients.CONVENTIONS`.
+GRADIENT_CONVENTIONS = tuple(_GRADIENT_PRESETS)
+
+#: What each view differentiates: the leaf under ``profiles_1d.{i}``, the
+#: symbol the record and the label use, and the heading.
+_GRADIENT_PROFILES: dict[str, tuple[str, str, str]] = {
+    "electron_temperature_profile_gradient": ("electrons.temperature", "T_e", "Electron temperature gradient"),
+    "electron_density_profile_gradient": ("electrons.density", "n_e", "Electron density gradient"),
+    "ion_temperature_profile_gradient": ("ion.{ion}.temperature", "T_i", "Ion temperature gradient"),
+}
+
+#: The grids a core profile may be stored on, in the order they are taken:
+#: ``grid.psi`` normalized by the matched slice's own axis and boundary flux,
+#: which is the map's own ``psi_norm`` by construction; the stored
+#: ``sqrt(psi_N)``, which maps to it exactly; and last the stored
+#: ``rho_tor_norm``, used only once it is verified (:func:`_verified_rho_tor_grid`).
+_GRADIENT_GRIDS = (
+    ("psi_norm", "grid.psi"),
+    ("rho_pol_norm", "grid.rho_pol_norm"),
+    ("rho_tor_norm", "grid.rho_tor_norm"),
+)
+
+#: How far a stored ``grid.rho_tor_norm`` may sit from the map's own
+#: q-integrated ``rho_tor_norm`` on the same surfaces and still be read as the
+#: toroidal-flux radius.  The map's integral carries the axis-q sensitivity of
+#: issue #317, which puts it 0.037 from the EFIT-stored grid of the packaged
+#: 48224 sample; the sqrt(psi_N) proxy of older files is 0.11 or more away.
+RHO_TOR_GRID_TOLERANCE = 0.05
+
+#: The view's own defaults: drawn against rho_tor_norm, differentiated along
+#: the midplane minor radius and multiplied by a -- a/L, stated, not assumed.
+_GRADIENT_DEFAULTS = {"coordinate": "rho_tor_norm", "gradient_coordinate": "r_minor", "reference_length": "a_minor"}
+
+#: The presets a plot option can carry: those that need no run settings.
+#: ``gs2``, ``gkw`` and ``gene`` depend on the run's namelist and are reached
+#: through :func:`vaft.process.profile_gradients.profile_gradient` with ``metadata=``.
+GRADIENT_VIEW_CONVENTIONS = tuple(name for name in GRADIENT_CONVENTIONS if not _GRADIENT_PRESETS[name].required)
+
+#: Gradient coordinates a reference length may normalize (lengths that grow outward).
+_OUTWARD_GRADIENT_COORDINATES = ("r_minor", "r_outboard")
+
+
+def _gradient_available(name: str):
+    def available(ods: Any) -> str | None:
+        """A stored grid beside the profile, which no single required path says."""
+        for index in range(max(_count(ods, "core_profiles.profiles_1d"), 1)):
+            base = f"core_profiles.profiles_1d.{index}"
+            if any(_array(ods, f"{base}.{leaf}") is not None for _, leaf in _GRADIENT_GRIDS):
+                return None
+        return "core_profiles.profiles_1d.{i}.grid.psi (or grid.rho_pol_norm, grid.rho_tor_norm)"
+
+    return available
+
+
+def _choice(options: Mapping[str, Any], key: str, vocabulary: tuple[str, ...], name: str) -> Any:
+    value = options.get(key)
+    if value is not None and value not in vocabulary:
+        raise ValueError(f"{name}: {key} must be one of {', '.join(vocabulary)}; got {value!r}")
+    return value
+
+
+def _edge_trimmed(
+    values: np.ndarray, grid: np.ndarray, symbol: str, name: str,
+) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+    """Drop the unusable samples at the two ends of the profile, and only there.
+
+    ``ln f`` is undefined where ``f <= 0`` and nothing can be done with a
+    non-finite sample; a profile that reaches zero at the LCFS loses that
+    point.  The ends are named by the grid: the axis side is the end with the
+    smaller radial value.  A gap inside the profile would make the three-point
+    derivative straddle it, so it is refused.  Returns the kept arrays and the
+    record of what was dropped, by side and by cause.
+    """
+    finite = np.isfinite(values) & np.isfinite(grid)
+    good = finite & (values > 0.0)
+    if not good.any():
+        raise ValueError(f"{name}: {symbol} has no positive finite value; ln {symbol} is undefined")
+    first, last = int(np.argmax(good)), int(good.size - 1 - np.argmax(good[::-1]))
+    inside = ~good[first:last + 1]
+    if inside.any():
+        raise ValueError(
+            f"{name}: {inside.sum()} sample(s) inside the profile are unusable "
+            f"({int(np.count_nonzero(~finite[first:last + 1]))} non-finite, "
+            f"{int(np.count_nonzero(finite[first:last + 1] & ~good[first:last + 1]))} with {symbol} <= 0); "
+            f"ln {symbol} is undefined there and no value is filled in")
+
+    def dropped(indices: np.ndarray) -> dict[str, int]:
+        return {"non_positive": int(np.count_nonzero(finite[indices] & ~good[indices])),
+                "non_finite": int(np.count_nonzero(~finite[indices]))}
+
+    start, end = dropped(np.arange(0, first)), dropped(np.arange(last + 1, good.size))
+    kept_grid = grid[first:last + 1]
+    axis_first = kept_grid.size < 2 or kept_grid[-1] > kept_grid[0]
+    record = {
+        "axis_side": start if axis_first else end,
+        "edge_side": end if axis_first else start,
+        "rule": f"samples with {symbol} <= 0 or a non-finite value or grid point, at the ends "
+                "of the profile only, are left out; ln f is undefined there",
+    }
+    return values[first:last + 1], kept_grid, record
+
+
+def _dropped_note(record: Mapping[str, Any], symbol: str) -> str:
+    parts = []
+    for side in ("axis_side", "edge_side"):
+        counts = record[side]
+        for cause, text in (("non_positive", f"with {symbol} <= 0"), ("non_finite", "non-finite")):
+            count = counts[cause]
+            if count:
+                where = "axis-side" if side == "axis_side" else "edge-side"
+                parts.append(f"{count} {where} point{'s' if count != 1 else ''} {text}")
+    return f", left out: {', '.join(parts)}" if parts else ""
+
+
+def _verified_rho_tor_grid(
+    ods: Any, eq_index: int, grid: np.ndarray, cmap: Any, name: str, grid_path: str,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """``psi_norm`` of each sample of a stored ``grid.rho_tor_norm``, once that grid is verified.
+
+    A stored ``rho_tor_norm`` is the sqrt(psi_N) proxy in every file written
+    before #276, and nothing on the profile says which it is.  It is used
+    only when its samples are the equilibrium slice's own surfaces -- equal to
+    the slice's stored ``profiles_1d.rho_tor_norm`` -- so that each sample's
+    ``psi_norm`` is known exactly; it is then refused when it is the proxy,
+    and when it is further than :data:`RHO_TOR_GRID_TOLERANCE` from the map's
+    q-integrated ``rho_tor_norm`` on those surfaces.  The profile is then
+    differentiated on that exact ``psi_norm``.
+    """
+    from vaft.data._derived import is_rho_pol_proxy
+
+    stored = _array(ods, f"equilibrium.time_slice.{eq_index}.profiles_1d.rho_tor_norm")
+    if stored is None or stored.size != grid.size or not np.allclose(stored, grid, rtol=0.0, atol=1e-9):
+        raise ValueError(
+            f"{name}: {grid_path} is the only grid, and it is not the matched equilibrium slice's "
+            f"own profiles_1d.rho_tor_norm, so it cannot be checked -- neither its flux surfaces nor "
+            "whether it is the sqrt(psi_N) proxy; store grid.psi or grid.rho_pol_norm beside it")
+    psi_norm = cmap.values("psi_norm")
+    if psi_norm.size != grid.size:
+        raise ValueError(f"{name}: the map has {psi_norm.size} surfaces and {grid_path} {grid.size} samples")
+    if is_rho_pol_proxy(grid, psi_norm):
+        raise ValueError(
+            f"{name}: {grid_path} is sqrt(psi_N), the rho_pol proxy stored under the toroidal label, "
+            "not a toroidal-flux radius; it is refused rather than placed on the wrong surfaces")
+    map_rho = cmap.values("rho_tor_norm")
+    mismatch = float(np.nanmax(np.abs(map_rho - grid)))
+    if not mismatch <= RHO_TOR_GRID_TOLERANCE:
+        raise ValueError(
+            f"{name}: {grid_path} differs from the map's q-integrated rho_tor_norm by up to "
+            f"{mismatch:.3g} (tolerance {RHO_TOR_GRID_TOLERANCE:g}); the two do not describe the "
+            "same toroidal-flux radius")
+    return psi_norm, {
+        "identified_by": f"equal to equilibrium.time_slice.{eq_index}.profiles_1d.rho_tor_norm, so "
+                         "each sample's psi_norm is that surface's",
+        "proxy": False,
+        "max_abs_difference_from_map_rho_tor_norm": mismatch,
+        "tolerance": RHO_TOR_GRID_TOLERANCE,
+    }
+
+
+def _build_profile_gradient(ods: Any, *, _plot_name: str, **options: Any) -> Profile1D:
+    """``-L d ln f/dx_g`` of one core profile, through the equilibrium slice at its time.
+
+    Every choice is either passed or the view's stated default
+    (:data:`_GRADIENT_DEFAULTS`), and the record of
+    :func:`vaft.process.profile_gradients.profile_gradient` travels on the
+    model's ``metadata``, together with where the profile and its grid were
+    read and what was left out.  A ``convention=`` resolves the gradient
+    coordinate and the reference length itself, so the view's defaults for
+    those two are not applied beside it.  ``reference_length="none"`` is the
+    dimensional gradient; an explicit ``reference_length=None`` is refused,
+    since in :func:`~vaft.process.profile_gradients.profile_gradient` it means
+    that and here it would read as "not passed".  Nothing falls back: an
+    equilibrium that is not at the profile's time, a grid the map cannot place
+    or that cannot be verified, a preset that needs run settings a plot option
+    cannot carry -- each is refused with its reason.
+    """
+    from vaft.process.atomic import find_time_match_index
+    from vaft.process.profile_gradients import UNSET, profile_gradient, radial_coordinate_map
+    from vaft.plot.display import RADIAL_COORDINATE_LABELS, gradient_label
+
+    leaf, symbol, heading = _GRADIENT_PROFILES[_plot_name]
+    if "reference_length" in options and options["reference_length"] is None:
+        raise ValueError(
+            f"{_plot_name}: reference_length=None is ambiguous here; pass reference_length='none' "
+            "for the dimensional gradient -d ln f/dr, or leave it out for the view's a_minor")
+    coordinate = (_choice(options, "coordinate", GRADIENT_COORDINATES, _plot_name)
+                  or coordinate_default_for(_plot_name))
+    gradient = _choice(options, "gradient_coordinate", GRADIENT_COORDINATES, _plot_name)
+    reference = _choice(options, "reference_length", GRADIENT_REFERENCE_LENGTHS, _plot_name)
+    convention = _choice(options, "convention", GRADIENT_CONVENTIONS, _plot_name)
+    if convention is not None and _GRADIENT_PRESETS[convention].required:
+        preset = _GRADIENT_PRESETS[convention]
+        raise ValueError(
+            f"{_plot_name}: convention={convention!r} depends on the run's "
+            f"{', '.join(preset.required)} ({preset.description}), which a plot option cannot "
+            "carry; call vaft.process.profile_gradients.profile_gradient(..., "
+            f"convention={convention!r}, metadata=...) with the run's settings instead")
+    if reference == "L_ref":
+        raise ValueError(
+            f"{_plot_name}: reference_length='L_ref' needs the run's stated length and definition, "
+            "which a plot option cannot carry; call vaft.process.profile_gradients.profile_gradient("
+            "..., reference_length='L_ref', metadata={'reference_length': {...}}) instead")
+    if convention is None:
+        defaulted = reference is None
+        gradient = gradient or _GRADIENT_DEFAULTS["gradient_coordinate"]
+        reference = reference or _GRADIENT_DEFAULTS["reference_length"]
+        if reference != "none" and gradient not in _OUTWARD_GRADIENT_COORDINATES:
+            raise ValueError(
+                f"{_plot_name}: gradient_coordinate={gradient!r} is not an outward length, so "
+                f"reference_length={reference!r}{' (the default)' if defaulted else ''} cannot "
+                "normalize it; pass reference_length='none' for -d ln f/d"
+                f"{gradient}, or gradient_coordinate='r_minor' or 'r_outboard'")
+    gradient_argument = UNSET if gradient is None else gradient
+    reference_argument = UNSET if reference is None else (None if reference == "none" else reference)
+    ion = options.get("ion_index")
+    if ion is not None and "{ion}" not in leaf:
+        raise ValueError(f"{_plot_name} takes no ion_index=; it differentiates an electron profile")
+    leaf = leaf.replace("{ion}", str(int(ion or 0)))
+
+    count = _count(ods, "core_profiles.profiles_1d")
+    index = int(options.get("time_slice") or 0)
+    if not 0 <= index < count:
+        raise ValueError(f"{_plot_name}: time_slice={index} is outside the {count} core_profiles.profiles_1d")
+    base = f"core_profiles.profiles_1d.{index}"
+    when = float(slice_times(ods, "core_profiles.profiles_1d")[index])
+    if not np.isfinite(when):
+        raise ValueError(
+            f"{_plot_name}: {base} stores no time, so no equilibrium slice can be matched to it; "
+            "a profile and an equilibrium are paired by time, never by position")
+    eq_times = slice_times(ods, "equilibrium.time_slice")
+    eq_index = find_time_match_index(eq_times, when) if eq_times.size else None
+    if eq_index is None:
+        raise ValueError(
+            f"{_plot_name}: no equilibrium slice at the profile's t = {when:g} s "
+            f"(slices at {', '.join(f'{t:g}' for t in eq_times[:6])}{' ...' if eq_times.size > 6 else ''} s)")
+    eq_time = float(eq_times[eq_index])
+
+    values = _array(ods, f"{base}.{leaf}")
+    if values is None:
+        raise ValueError(f"{_plot_name}: {base}.{leaf} is not stored")
+    profile_coordinate = grid_path = None
+    for candidate, grid_leaf in _GRADIENT_GRIDS:
+        grid = _array(ods, f"{base}.{grid_leaf}")
+        if grid is not None and grid.size == values.size:
+            profile_coordinate, grid_path = candidate, f"{base}.{grid_leaf}"
+            break
+    if profile_coordinate is None:
+        raise ValueError(
+            f"{_plot_name}: {base} stores no grid.psi, grid.rho_pol_norm or grid.rho_tor_norm of "
+            f"the length of {leaf}")
+    grid = np.asarray(grid, dtype=float).reshape(-1)
+    cmap = radial_coordinate_map(ods, time=eq_time)
+    grid_check: dict[str, Any] | None = None
+    if profile_coordinate == "psi_norm":
+        axis = _get(ods, f"equilibrium.time_slice.{eq_index}.global_quantities.psi_axis")
+        boundary = _get(ods, f"equilibrium.time_slice.{eq_index}.global_quantities.psi_boundary")
+        if axis is None or boundary is None or float(axis) == float(boundary):
+            raise ValueError(
+                f"{_plot_name}: {grid_path} is absolute flux and equilibrium slice {eq_index} has no "
+                "distinct psi_axis/psi_boundary to normalize it by")
+        grid = (grid - float(axis)) / (float(boundary) - float(axis))
+    elif profile_coordinate == "rho_tor_norm":
+        grid, grid_check = _verified_rho_tor_grid(ods, eq_index, grid, cmap, _plot_name, grid_path)
+        profile_coordinate = "psi_norm"
+    values, grid, dropped = _edge_trimmed(np.asarray(values, dtype=float).reshape(-1), grid, symbol, _plot_name)
+
+    result = profile_gradient(
+        values, grid, profile_coordinate, equilibrium=cmap, coordinate=coordinate,
+        gradient_coordinate=gradient_argument, reference_length=reference_argument,
+        convention=convention, quantity=f"{_plot_name.removesuffix('_profile_gradient')}_gradient",
+        source_quantity=symbol,
+    )
+    metadata = {
+        **result.metadata,
+        "profile_path": f"{base}.{leaf}",
+        "profile_grid": grid_path,
+        "profile_grid_check": grid_check,
+        "profile_time": when,
+        "equilibrium_time_slice": int(eq_index),
+        "excluded_points": dropped,
+    }
+    label, unit = gradient_label(metadata)
+    display = resolve_display("" if result.unit == "1" else result.unit,
+                              subject=_plot_name.removesuffix("_profile_gradient"), quantity="gradient")
+    eq_note = f", equilibrium at {eq_time * 1e3:.1f} ms" if abs(eq_time - when) > 5e-4 else ""
+    title = options.get("title") or f"{heading} at {when * 1e3:.1f} ms{eq_note}{_dropped_note(dropped, symbol)}"
+    return Profile1D(
+        series=(Series(x=result.coordinate, y=result.values, label=label),),
+        coordinate_label=RADIAL_COORDINATE_LABELS[coordinate],
+        y_label=label,
+        y_unit=display.unit if unit else "",
+        title=title,
+        display=display,
+        metadata=metadata,
+    )
+
+
+#: Everything the gradient builder and radial_coordinate_map read: the core
+#: profile and its grids, the time pairing, and the equilibrium as
+#: as_equilibrium adapts it.
+_GRADIENT_CORE_READS = (
+    "core_profiles.time", "core_profiles.profiles_1d.{i}.time",
+    "core_profiles.profiles_1d.{i}.grid.psi", "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
+    "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+    # a stored rho_tor_norm grid is identified with the slice's own surfaces
+    "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+)
+_GRADIENT_LEAF_READS = {
+    "electron_temperature_profile_gradient": ("core_profiles.profiles_1d.{i}.electrons.temperature",),
+    "electron_density_profile_gradient": ("core_profiles.profiles_1d.{i}.electrons.density",),
+    "ion_temperature_profile_gradient": ("core_profiles.profiles_1d.{i}.ion.{j}.temperature",),
+}
+
+#: The view defaults for these two apply only while no convention is chosen:
+#: a convention resolves both itself (``"none"`` is the controls' no-convention).
+_WITHOUT_CONVENTION = {"convention": ("none",)}
+
+for _name in _GRADIENT_PROFILES:
+    RECIPES[_name] = CallableRecipe(
+        builder=(lambda plot_name: (
+            lambda ods, **options: _build_profile_gradient(ods, _plot_name=plot_name, **options)
+        ))(_name),
+        description=(
+            "Normalized logarithmic gradient -L d ln f/dx of a core profile through the "
+            "equilibrium slice at its time, with the abscissa, gradient coordinate and "
+            "reference length stated and recorded."
+        ),
+        available=_gradient_available(_name),
+        reads=(*_GRADIENT_CORE_READS, *_GRADIENT_LEAF_READS[_name], *_PROFILE_FIT_EQUILIBRIUM_READS),
+        backend=OMAS_BOUND,
+        reason=(
+            "vaft.process.profile_gradients.radial_coordinate_map selects the slice with "
+            "ODS item access and adapts it through vaft.process.equilibrium.as_equilibrium"
+        ),
+        coordinates=CoordinateDeclaration(_GRADIENT_DEFAULTS["coordinate"], GRADIENT_COORDINATES),
+        choices={
+            "gradient_coordinate": ChoiceDeclaration(
+                _GRADIENT_DEFAULTS["gradient_coordinate"], GRADIENT_COORDINATES, applies_to=_WITHOUT_CONVENTION),
+            "reference_length": ChoiceDeclaration(
+                _GRADIENT_DEFAULTS["reference_length"], GRADIENT_REFERENCE_LENGTHS, applies_to=_WITHOUT_CONVENTION),
+            "convention": ChoiceDeclaration(None, GRADIENT_VIEW_CONVENTIONS),
+        },
+    )
+del _name
 
 
 #: What ``time=`` selects in each computed view that draws one instant
@@ -13156,7 +13577,14 @@ _CALLABLE_TIME_AXES: dict[str, str] = {
         ),
         "mhd_linear.time_slice",
     ),
-    "neoclassical_profile_bootstrap_current": "core_profiles.profiles_1d",
+    **dict.fromkeys(
+        (
+            "neoclassical_profile_bootstrap_current",
+            "electron_temperature_profile_gradient", "electron_density_profile_gradient",
+            "ion_temperature_profile_gradient",
+        ),
+        "core_profiles.profiles_1d",
+    ),
     **dict.fromkeys(
         (
             "equilibrium_overview", "equilibrium_field_psi_vacuum", "vacuum_field",

@@ -196,7 +196,8 @@ Whatever cannot be formed is refused with `ValueError`, never extrapolated:
 * a profile value that is not positive;
 * an unavailable coordinate or reference length.
 
-The plot views are not yet built on this layer.
+The `*_profile_gradient` plot views are built on this layer; see
+[Normalized gradients]({{ '/workflows/equilibrium-kinetic-profiles/' | relative_url }}#normalized-gradients).
 
 ### Solver convention
 
@@ -233,7 +234,7 @@ it.
 | Diagnostic projections | projection | `vaft.omas.camera_projection_for`, `vaft.omas.compute_camera_visible_efit_overlay` | partly met |
 | Compact geometric representations | representation | `vaft.process.fit_miller_surface`, `vaft.process.fit_fourier_surface`, `vaft.process.evaluate_fourier_surface`, `vaft.data.MXHChebyshevRepresentation` | Miller and Fourier met |
 | Analytic hierarchy | representation | `vaft.process.solovev_to_equilibrium`, `vaft.process.solovev_example`, `vaft.process.guazzotto_freidberg_to_equilibrium`, `vaft.process.fit_solovev` | partly met |
-| Kinetic / gradient representations | derived quantity | `vaft.process.profile_gradients.profile_gradient`, `vaft.process.profile_gradients.radial_coordinate_map`, `vaft.formula.normalized_gradient_scale_length`, `vaft.data.SyntheticKineticProfiles`, `vaft.data.GradientProfile` | process layer met; views not met |
+| Kinetic / gradient representations | derived quantity | `vaft.process.profile_gradients.profile_gradient`, `vaft.process.profile_gradients.radial_coordinate_map`, `vaft.formula.normalized_gradient_scale_length`, `vaft.data.SyntheticKineticProfiles`, `vaft.data.GradientProfile` | met: process layer and `*_profile_gradient` views |
 | Boundary / topology | derived quantity | `vaft.process.derive_boundary_representation`, `vaft.data.BoundaryRepresentation`, `vaft.data.Topology`, `vaft.process.contour_shaping_observables` | shape vs topology met |
 | Perturbed / helical | representation | `vaft.process.MagneticIslandSpec`, `vaft.process.magnetic_island_topology`, `GpecCylindricalOutput` in `vaft.code.gpec` | partly met |
 | Conventions (all branches) | solver convention | `vaft.data.EquilibriumConvention`, `vaft.process.convert_cocos`, `vaft.process.make_equilibrium_field_interpolator` | partly met |
@@ -298,12 +299,6 @@ packaged.
 
 These are the items the #1201 audit grades *not met* or *partly met*, with the issue that owns
 each. "Unowned" means no issue other than #1201 tracks it.
-
-**Not met**
-
-* Gradient views. The process contract exists (`vaft.process.profile_gradients`), but no
-  `*_profile_gradient` plot view or extract result consumes it yet (#551; #563 was closed as
-  its duplicate).
 
 **Partly met**
 
