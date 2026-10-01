@@ -385,6 +385,16 @@
       "source_sha256": "2143311783d10841d7e0ce649d2ac9bd7b1e5db6222a93e0ee9d0178c1dbbee0",
       "svg_sha256": "df69aec621b1eada65f5ff846246fda1bb057ab5f6b9dfad3cdfaf5d8623f828"
     },
+    "li_qa_cheng_1987.svg": {
+      "call": "vaft.diagram.li_qa(reference='cheng_1987')",
+      "source_sha256": "2452b5edc48a3443bb8f7a93dd22403eeb9eec9ab0a8dcaf4728a644f330eb8b",
+      "svg_sha256": "d6d019d632163dcf8c5b8f79c4c76712749b33938e3db638ec0eef502f774036"
+    },
+    "li_qa_wesson_1989.svg": {
+      "call": "vaft.diagram.li_qa(reference='wesson_1989')",
+      "source_sha256": "71a046a75b23879fed75a3dd817d25835af1bdaf2a98141068fbd419367907fe",
+      "svg_sha256": "a98aff7853d343f6ace12c67804412799c8b8a554891f6b2c1c01fbe9fa81fff"
+    },
     "limiter_and_diverted_topologies.svg": {
       "call": "vaft.diagram.limiter_and_diverted_topologies()",
       "source_sha256": "d6d28b87806b50d4a0522322e34d02e9181e3d587980d533df7bd598693d1531",

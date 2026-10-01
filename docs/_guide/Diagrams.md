@@ -75,18 +75,22 @@ vaft.diagram.peeling_ballooning()
 vaft.diagram.s_alpha_ballooning(s_max=1.5, alpha_max=3.5)
 vaft.diagram.hugill(elongation=1.0)                       # no size parameter: R, a, B cancel
 vaft.diagram.troyon(aspect_ratio=3.0, elongation=1.7)      # registered Troyon limit, ~2.76
+vaft.diagram.li_qa(reference="wesson_1989")                # JET empirical l_i-q_psi space
+vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-stable l_i-q(a) domain
 ```
 
 | | |
 | --- | --- |
 | ![peeling-ballooning]({{ '/assets/diagrams/peeling_ballooning.svg' | relative_url }}) | ![s-alpha]({{ '/assets/diagrams/s_alpha_ballooning.svg' | relative_url }}) |
 | ![Hugill]({{ '/assets/diagrams/hugill.svg' | relative_url }}) | ![Troyon]({{ '/assets/diagrams/troyon.svg' | relative_url }}) |
+| ![l_i-q Wesson]({{ '/assets/diagrams/li_qa_wesson_1989.svg' | relative_url }}) | ![l_i-q Cheng]({{ '/assets/diagrams/li_qa_cheng_1987.svg' | relative_url }}) |
 
 | Diagram | Question it answers | Axes | Boundaries |
 | --- | --- | --- | --- |
 | Peeling–ballooning | Which edge instability limits the pedestal? | $\alpha_\mathrm{max}$, $J_{B,\mathrm{max}}$ (arbitrary units) | **Schematic.** Two linear margins joined by a smooth maximum. The ★, where the peeling and ballooning limits meet (typical ELM onset), is computed where the two margins are equal |
 | $s$–$\alpha$ | How does shear set the ballooning limit, and where is second stability? | $\alpha$, $s$ | The first and second stability boundaries come from `s_alpha_marginal_alpha`, which applies Newcomb's criterion to the Connor–Hastie–Taylor equation. The dashed line is the $0.6\,s$ approximation of `ballooning_stability_criterion`. Not resolved below $s \approx 0.05$ |
 | Hugill | Where is the density limit? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The registered `greenwald_hugill` line (slope $\pi/50\kappa_a$ in $1/q_\mathrm{cyl}$ against $\bar n_e R/B_T$) and `murakami_hugill` ($\bar n_e R/B_T = 1$). The registered `low_q` is on the equilibrium $q_\psi$, not $q_\mathrm{cyl}$, so it is not drawn; `q_limit=` adds a dashed *reference* $q_\mathrm{cyl}$ line |
+| $l_i$–$q$ | Where do current-profile peaking and edge q allow stable operation? | Wesson: $q_\psi$, $l_i(3)$. Cheng: cylinder $q(a)$, $l_i$ | Two separate references, never mixed. Wesson 1989 Fig. 6: the JET *empirical* boundaries (kink and double tearing below, density-limit disruptions above), with the registered `low_q` closing $q_\psi = 2$. Cheng 1987 Fig. 4: the *theoretical* MHD-stable domain of a cylinder with $q(0) = 1.01$ (ideal kink below, resistive kinks above), plotted as $l_i$ rather than $l_i/2$ |
 | Troyon | How much pressure can the current hold? | $I_p/(aB_T)$, $\beta_T$ | The registered `troyon` limit, $\beta_N \le 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$. `beta_N_max=` draws a what-if value and the note says so; `q_limit=` adds a dashed reference $q_\mathrm{cyl}$ cutoff |
 
 These charts show the *boundaries* of an operating space. Each one reads its lines from
@@ -96,7 +100,8 @@ modelled states goes on the same projection with
 by quantity identity (`murakami_parameter`, `inverse_cylindrical_q`, `normalized_beta`, …) with
 units in `table.attrs["units"]`. A boundary is drawn only when both plotted columns are exactly the
 projection's quantities in its units: a `q95` column never carries a $q_\psi$ or $q_\mathrm{cyl}$
-boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fraction_power`. See
+boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fraction_power`,
+`li_qa_wesson`, `li_qa_cheng`. See
 #944 and #636.
 
 ## Single-particle motion
