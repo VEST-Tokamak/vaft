@@ -19,7 +19,9 @@ related:
 
 This page is the map of the `vaft` package: what each subpackage is for, the entry points you are
 expected to call, and where the detailed guide for each area lives. The signatures shown here are the
-real ones — copy them.
+real ones — copy them. How `vaft.formula`, `vaft.process` and `vaft.code` divide the computation, and
+when an optional Actor contract would group their realizations, is set out on
+[Computational layers]({{ '/reference/computational-layers/' | relative_url }}).
 
 The complete list of what each subpackage publishes -- every object in a module's `__all__`, with its
 signature, summary, deprecation status and source -- is generated from the code on every publish:
@@ -540,11 +542,12 @@ raises. The result says:
 | `status` | `"failed"` (a property: `"completed"` when `ok`, else `"failed"`) |
 | `runtime_status` | `"timeout"`: the program ran past its limit and was stopped. `"queue_timeout"`: a scheduler job cancelled by `max_wait` before it started |
 | `returncode` | `None` |
-| `elapsed_s` | wall time from launch to stop [s] (set on every run, not only a timeout) |
+| `elapsed_s` | wall time from launch to stop [s] (set on every run, not only a timeout); for a Slurm batch job, from submission, queue wait included |
 | `timed_out` | `True` for either timeout kind (a property) |
 
 A stop well short of `timeout` (a scheduler's `max_wait` cancelling a running job) reports the time
-actually run. The reason is the last line of `stderr`, or of the log for codes that write one, worded
+actually run: a batch job's own start and termination stamps (`ExecutionResult.run_s`), so a long
+queue wait is not reported as running time. The reason is the last line of `stderr`, or of the log for codes that write one, worded
 `"<code> timed out after N s of running"` or `"<code> was cancelled after waiting N s in the scheduler
 queue (it never started)"`.
 

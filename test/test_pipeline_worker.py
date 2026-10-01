@@ -873,7 +873,11 @@ def test_a_relative_base_dir_is_harvested_where_snakemake_writes_it(setup):
     pipeline_config = load_pipeline_config(config)
     pipeline_config["base_dir"] = "relative/filedb"
     harvester = PipelineHarvester(pipeline_config, workflow_dir=WORKFLOW, environment={})
-    assert harvester.raw_targets(101)[0].path.startswith(str(WORKFLOW / "relative" / "filedb"))
+    # Target paths are written in Snakemake's slash grammar whatever the host
+    # separator (the 0.6.2 rule), so compare as paths, not as strings: on
+    # Windows str(WORKFLOW / ...) carries backslashes and the prefix test failed.
+    target = Path(harvester.raw_targets(101)[0].path)
+    assert target.is_relative_to(WORKFLOW / "relative" / "filedb"), target
 
 
 @pytest.mark.parametrize(

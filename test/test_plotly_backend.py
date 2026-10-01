@@ -271,7 +271,9 @@ def test_the_cli_writes_a_plotly_figure_as_html(tmp_path, sample):
     module.open_ods = Mock(return_value=sample)
     module.h5pyd = None
     target = tmp_path / "ip.html"
-    with patch.dict("sys.modules", {"vaft.database.lazy_ods": module}):
+    stored = tuple(sample.keys())  # the adapters list the shot's IDS before opening
+    with patch.dict("sys.modules", {"vaft.database.lazy_ods": module}), \
+            patch("vaft.database.plotting.stored_ids", lambda shot, source=None: stored):
         assert plot_cli.main(["plasma_current_time", "--shot", "39915", "--out", str(target),
                               "--option", "backend=plotly"]) == 0
         assert target.exists() and b"plotly" in target.read_bytes()

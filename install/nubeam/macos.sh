@@ -224,7 +224,7 @@ CXX = $CXX
 # links a Fortran main program with \$(CXX) plus \$(F_MAIN) -- and F_MAIN and
 # FORTLIBS are both empty here, so the link fails to find gfortran's main entry
 # and runtime. nubeam_comp_exec/Make2 happens to call \$(FC) unconditionally,
-# which is why it alone linked; update_state, preact and plasma_state_test all
+# which is why it alone linked; update_state, preact and vaft_plasma_state all
 # honour the guard. gfortran built every object in this tree, so it is also the
 # correct driver for the final link.
 USEFC = Y
@@ -415,7 +415,7 @@ install_ntcc_artifacts() {
 # wins outright. Only portlib is actually duplicated, and the copy bundled with
 # the PSPLINE distribution carries 14 members the NUBEAM tree's copy does not
 # (cptimr8, cptimi, cdump, mtrfile, ...). Those simply vanished, and the loss
-# only surfaced when plasma_state_test failed to link against cptimr8_.
+# only surfaced when the Plasma State generator failed to link against cptimr8_.
 #
 # Back-fill rather than reorder: every member the prefix already has keeps the
 # implementation the main tree built, so this cannot change what any previously
@@ -463,38 +463,34 @@ build_aux_executables() {
   [[ -x "$preact_build/test/preact_init" ]] ||
     die "preact_init was not created; see $LOG_FILE"
 
-  # The Plasma State generator. The NTCC archive ships no main program for it;
-  # plasma_state_test.f90 in the vendored 2021 server tree is the complete
-  # source, and is byte-identical to the copy on the NANOLAB server. Its own
-  # Makefile is unusable (absolute /home paths, MDSplus, termcap) and a
-  # top-level directory here would be swept into the main tree's MEXEC list, so
-  # compile and link it directly.
-  src="$ROOT_DIR/vendor/server-ntcc-2021/plasma_state_test"
+  # The Plasma State generator. The public NTCC archive ships the Plasma State
+  # library but no program that creates a state, so VAFT carries its own,
+  # plasma_state/vaft_plasma_state.f90 beside this script. It contains no NTCC
+  # source and is compiled here against the libraries just built.
+  src="$SCRIPT_DIR/plasma_state"
   generator_build="$BUILD_DIR/generator"
-  [[ -f "$src/plasma_state_test.f90" ]] ||
-    die "Plasma State generator source not found: $src/plasma_state_test.f90"
-  note "building plasma_state_test"
+  [[ -f "$src/vaft_plasma_state.f90" ]] ||
+    die "Plasma State generator source not found: $src/vaft_plasma_state.f90"
+  note "building vaft_plasma_state"
   mkdir -p "$generator_build"
   ( cd "$generator_build"
     IFS=' '
-    for source_file in ps_momtest.F90 plasma_state_test.f90; do
-      $FC $GFORTRAN_FFLAGS -I"$PREFIX/mod" -I"$PREFIX/include" \
-        -I"$NETCDF_FORTRAN_HOME/include" \
-        -o "${source_file%.*}.o" "$src/$source_file"
-    done
-    $FC -o plasma_state_test plasma_state_test.o ps_momtest.o \
+    $FC $GFORTRAN_FFLAGS -I"$PREFIX/mod" -I"$PREFIX/include" \
+      -I"$NETCDF_FORTRAN_HOME/include" \
+      -o vaft_plasma_state.o "$src/vaft_plasma_state.f90"
+    $FC -o vaft_plasma_state vaft_plasma_state.o \
       -L"$PREFIX/lib" -lplasma_state -lps_xplasma2 -lplasma_state_kernel \
       -lxplasma2 -lgeqdsk_mds -lmdstransp -lvaxonly -lnscrunch -lfluxav \
       -lr8bloat -lpspline -lezcdf -llsode -llsode_linpack -lsmlib -lcomput \
       -lportlib \
       -L"$NETCDF_FORTRAN_HOME/lib" -lnetcdff -L"$NETCDF_C_HOME/lib" -lnetcdf \
       -L"$OPENBLAS_HOME/lib" -llapack -lopenblas -lstdc++ )
-  [[ -x "$generator_build/plasma_state_test" ]] ||
-    die "plasma_state_test was not created; see $LOG_FILE"
+  [[ -x "$generator_build/vaft_plasma_state" ]] ||
+    die "vaft_plasma_state was not created; see $LOG_FILE"
 
   cp "$BUILD_DIR/nubeam/test/update_state" "$PREFIX/bin/update_state"
   cp "$preact_build/test/preact_init" "$PREFIX/bin/preact_init"
-  cp "$generator_build/plasma_state_test" "$PREFIX/bin/plasma_state_test"
+  cp "$generator_build/vaft_plasma_state" "$PREFIX/bin/vaft_plasma_state"
 }
 
 # nubeam_comp_exec requires both PREACTDIR and ADASDIR and calls bad_exit when

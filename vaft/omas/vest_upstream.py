@@ -2383,7 +2383,18 @@ def build_kinetic_efit_ods(
                 "chi2": result.chi2,
                 "reason": result.reason,
             }
-            record(time_ms, **manifest["reconstruction"])
+            # The attempt log carries the stage's verdict on the attempt, not
+            # the chain's "EFIT ran" status: an attempt that ran and did not
+            # converge is the stage's ``no_output``, and logging the chain's
+            # ``ok`` beside ``converged: False`` overstated it (cold review
+            # 0.8.0 delta-absorb-2 F3).
+            if result.status == "skipped":
+                verdict = "unavailable"
+            elif not result.converged or result.gfile is None:
+                verdict = "no_output"
+            else:
+                verdict = "success"
+            record(time_ms, **{**manifest["reconstruction"], "status": verdict})
             if result.status == "skipped":
                 return unavailable(result.reason or "EFIT executable is not configured")
             if not result.converged or result.gfile is None:

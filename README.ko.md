@@ -26,7 +26,9 @@ implementation) 역할을 합니다.
 
 여기서 "프레임워크"가 뜻하는 네 가지입니다.
 
-### 통합 표준 인터페이스 (Integrated Standardized Interface)
+![VAFT의 네 기둥](docs/assets/diagrams/vaft_four_pillars.svg)
+
+### 표준화된 데이터 인터페이스 (Standardized Data Interface)
 
 표준화된 데이터 표현, 과학적 데이터 처리, 검증, 시각화, 물리 코드를 공통 API
 뒤의 개별 도구로 두지 않고 하나의 일관된 과학 워크플로로 통합합니다. VEST 고유
@@ -34,7 +36,7 @@ implementation) 역할을 합니다.
 VAFT 처리 및 플로팅, 검증(V&V), 그리고 EFIT, CHEASE, GPEC, TokaMaker, VFIT 등
 커뮤니티 물리 코드가 재구현이 아니라 **상호운용**됩니다.
 
-### 버전 관리되는 데이터 파이프라인 (Version-Controlled Data Pipeline)
+### 추적·재현 가능한 파이프라인 (Traceable & Reproducible Pipeline)
 
 장치 설계와 실험 데이터 취득에서 재구성·시뮬레이션된 물리 상태까지, 전체
 워크플로에 걸쳐 추적 가능하고 재현 가능한 데이터 산출물을 만듭니다. 추적
@@ -43,7 +45,7 @@ VAFT 처리 및 플로팅, 검증(V&V), 그리고 EFIT, CHEASE, GPEC, TokaMaker,
 *검증*할 수 있습니다. 버전 관리 대상은 소스 코드에 그치지 않고 장치 기술과 형상,
 진단 매핑, 교정, 관례, 처리 로직, 검증 기준, 모델 설정, 스키마 버전을 포함합니다.
 
-### IMAS-FAIR 데이터베이스 (IMAS-FAIR Database)
+### FAIR 과학 데이터 저장소 (FAIR Scientific Data Repository)
 
 검증된 데이터를 고유 형식과 표준 형식 양쪽으로 보존·탐색·접근·공유하며, FAIR 원칙
 (Findability, Accessibility, Interoperability, Reusability)을 따릅니다.
@@ -52,11 +54,16 @@ IMAS/OMAS, FileDB와 고유 산출물, [HSDS](https://github.com/HDFGroup/hsds) 
 찾는 기반입니다. 표준화된 접근은 고유 과학 산출물을 **대체하는 것이 아니라
 보완**합니다.
 
-### 장치 및 연구 아카이브 (Machine & Research Archive)
+### 장치 지식 아카이브 (Machine Knowledge Archive)
 
-2012년 운전 개시 이후 VEST 토카막과 그 연구 생태계의 살아 있는 아카이브입니다.
-장치 이력, 기술 문서, 실험 관행, 튜토리얼, 예제 노트북, 재현 가능한 연구 지식을
+장치 지식의 살아 있는 아카이브입니다. 2012년 운전 개시 이후 VEST 토카막의 장치 구성과
+이력, 실험 이력, 운영상의 결정, 기술 문서, 튜토리얼, 예제 노트북, 기관의 과학 지식을
 장기적인 검증·비교·연구에 쓸 수 있도록 연구자 세대와 협력 기관에 걸쳐 보존합니다.
+
+네 가지가 함께 연구 학습 순환을 완성합니다. 실험에서 출발해 장치 기술과 원시 데이터, 처리,
+모델링과 해석을 거쳐 비교와 발견에 이르고, 거기서 나온 새 질문이 다음 실험을 이끕니다.
+
+![연구 학습 순환](docs/assets/diagrams/fusion_science_knowledge_lifecycle.svg)
 
 ## VAFT로 무엇을 할 수 있나요?
 
@@ -114,6 +121,14 @@ IMAS/OMAS, FileDB와 고유 산출물, [HSDS](https://github.com/HDFGroup/hsds) 
 
 
 ## 아키텍처
+
+이질적인 장치·실험 원천은 관리되는 파이프라인을 거쳐 품질이 검증된 분석용 데이터가 됩니다.
+진단 처리, 평형 재구성과 분포 피팅, 해석 시뮬레이션은 공통 데이터 모델(IMAS)의 표준화된 과학 상태를 공유하고, 검증·확인과
+품질 평가 결과는 처리 설정으로 되돌아가 파이프라인을 개선합니다.
+
+![관리되는 과학 처리 파이프라인](docs/assets/diagrams/scientific_workflow.svg)
+
+현재 VEST 배포 구성:
 
 ```
 VEST 데이터 분석 플랫폼
