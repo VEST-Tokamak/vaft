@@ -77,6 +77,34 @@ ATLAS_VARIANTS: tuple[Variant, ...] = (
     *(Variant(f"stride_mpsi{m}", "stride", {"equil.in": {"mpsi": m}}) for m in MPSI),
 )
 
+#: Memory per solver job [MiB]: (reservation, resident limit), from measured
+#: peaks on vestserver (#1460): DCON/STRIDE <= 1 GB; RDCON n=1 a few GB; RDCON
+#: n=2 12 GB at mpsi 256 and 24.6 GB at mpsi 512. n>=3 has more rational
+#: surfaces and is extrapolated. A job is admitted only when the host has room
+#: for its reservation next to everything already admitted, and stopped as
+#: ``memory_limit`` if its process tree passes the limit.
+MEMORY_MB: dict[tuple[str, int], tuple[float, float]] = {
+    ("rdcon", 1): (8_000, 20_000),
+    ("rdcon", 2): (26_000, 40_000),
+}
+MEMORY_MB_RDCON_HIGH_N = (40_000, 60_000)
+MEMORY_MB_DEFAULT = (2_000, 8_000)
+
+
+def memory_policy(module: str, n: int) -> tuple[float, float]:
+    """(reservation, limit) in MiB for one solver job."""
+    if module == "rdcon" and n >= 3:
+        return MEMORY_MB_RDCON_HIGH_N
+    return MEMORY_MB.get((module, n), MEMORY_MB_DEFAULT)
+
+
+def job_backend(module: str, n: int, *, admission_wait_s: float):
+    from vaft.code.execution import LocalBackend
+
+    reserve, limit = memory_policy(module, n)
+    return LocalBackend(reserve_mb=reserve, memory_limit_mb=limit, admission_wait_s=admission_wait_s)
+
+
 #: The electron-EFIT manifest records ``equilibrium_tolerance_ms = 0.5``; a
 #: slice further than that from the label time is not the same state.
 KINETIC_TIME_TOLERANCE_S = 0.5e-3
@@ -218,6 +246,15 @@ def main() -> int:
     parser.add_argument("--chease-timeout", type=float, default=600.0)
     parser.add_argument("--only", nargs="*", default=None, help="Variant names (default: all atlas variants).")
     parser.add_argument("--keep-scratch", action="store_true", help="Keep euler.bin and friends.")
+    parser.add_argument(
+        "--admission-wait",
+        type=float,
+        default=6 * 3600.0,
+        help="Seconds a job may wait for memory admission before it is recorded as not started.",
+    )
+    parser.add_argument(
+        "--no-memory-guard", action="store_true", help="Plain LocalBackend: no memory admission or limit (#1460)."
+    )
     args = parser.parse_args()
 
     variants = [v for v in ATLAS_VARIANTS if not args.only or v.name in args.only]
@@ -256,7 +293,17 @@ def main() -> int:
                 jobs.append((eq, variant, n, out / row["efit_lineage"]))
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         futures = {
-            pool.submit(run_job, eq, v, n, templates[v.name], base, args.timeout, prune=not args.keep_scratch): (eq, v, n, base)
+            pool.submit(
+                run_job,
+                eq,
+                v,
+                n,
+                templates[v.name],
+                base,
+                args.timeout,
+                prune=not args.keep_scratch,
+                backend=None if args.no_memory_guard else job_backend(v.module, n, admission_wait_s=args.admission_wait),
+            ): (eq, v, n, base)
             for eq, v, n, base in jobs
         }
         for done, future in enumerate(as_completed(futures), 1):

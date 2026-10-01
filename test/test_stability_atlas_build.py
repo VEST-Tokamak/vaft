@@ -245,3 +245,10 @@ def test_duplicate_kinetic_entries_are_refused(select):
     bad = {"labels": ANALYSIS["labels"], "kinetic": [ANALYSIS["kinetic"][0], ANALYSIS["kinetic"][0]]}
     with pytest.raises(ValueError, match="duplicate electron-kinetic"):
         select.select(bad)
+
+
+def test_rdcon_n2_gets_the_measured_memory_budget(batch):
+    reserve, limit = batch.memory_policy("rdcon", 2)
+    assert reserve >= 24_600 and limit > reserve  # measured peak 24.6 GB at mpsi 512 (#1460)
+    assert batch.memory_policy("dcon", 2) == batch.MEMORY_MB_DEFAULT
+    assert batch.memory_policy("rdcon", 3) == batch.MEMORY_MB_RDCON_HIGH_N

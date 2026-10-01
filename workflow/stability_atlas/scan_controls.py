@@ -187,7 +187,9 @@ def run_job(
     timeout: float,
     *,
     prune: bool = False,
+    backend: Any = None,
 ) -> dict:
+    """Run one (equilibrium, variant, n) job; ``backend`` is the GPEC suite's ExecutionBackend (default local)."""
     jobdir = out / eq.label / variant.name / f"nn{mode}"
     done = jobdir / "result.json"
     if done.exists():
@@ -204,6 +206,7 @@ def run_job(
         verify_outputs=True,
         timeout=timeout,
         dcon=variant.dcon,
+        backend=backend,
     )
     start = time.monotonic()
     result = run_gpec_suite_case(
