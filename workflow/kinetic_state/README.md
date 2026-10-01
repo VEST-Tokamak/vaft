@@ -59,3 +59,27 @@ It writes four things:
 - Grid points the Thomson channels do not bracket are flagged `outside_ts_span`.
 
 **σ(p_EFIT)** is the spread over the shot's other good or admissible magnetics slices within 1 ms, at the same ψ_N. Its floor is 17 % (#874).
+
+## Transport readiness (#1428, handed to lane T)
+
+`build_readiness.py` runs after `build_ti.py`:
+
+```bash
+python3 workflow/kinetic_state/build_readiness.py --filedb ~/runs/campaign/filedb --atlas ~/runs/campaign/atlas/v1
+```
+
+**Outputs**
+- `readiness.csv`: one row per state key, `ti_lineage` and target `rho_tor_norm` (0.3, 0.5 and 0.7).
+- `readiness_state.csv`: one verdict per state and lineage.
+
+**How a state is judged**
+- `ready`, `conditional` or `insufficient` is decided by calling `prepare_gacode_profile` and `prepare_tglf_input`. A refusal from either is quoted.
+- Flux-surface geometry is derived from the 2-D flux map on a private copy, because EFIT g-file products carry none.
+- Targets are given in `rho_tor_norm` and converted to the TGLF r/a of the converted profile. A `rho_max` cut moves `a`, so the target is never a fixed r/a.
+
+**Overlay: what makes a state `conditional`**
+- an assumed Ti/Te (#1414);
+- the Z_eff = 2 / C⁶⁺ composition policy;
+- an inferred T_i outside the Thomson span.
+
+An inferred T_i that is flagged truncates the grid at the last valid point. Targets beyond that point are `insufficient`.
