@@ -49,7 +49,9 @@ def test_a_window_with_too_few_samples_gives_nan_not_a_guess():
     assert np.all(np.isnan(got))
 
 
-@pytest.mark.parametrize("kwargs", [dict(window_s=0.0), dict(at=np.array([0.5]))])
+@pytest.mark.parametrize(
+    "kwargs", [dict(window_s=0.0), dict(at=np.array([0.5])), dict(window_s=2.0, polyorder=0)]
+)
 def test_derivative_rejects_bad_requests(kwargs):
     with pytest.raises(ValueError):
         smoothed_time_derivative(np.arange(5.0), np.arange(5.0), **kwargs)
@@ -211,6 +213,7 @@ def test_builder_matches_slices_by_time_not_position():
     assert build._match(times, 0.3220) == 2
     assert build._match(times, 0.32204) == 2  # inside the 5e-5 s tolerance
     assert build._match(times, 0.3221) is None  # a neighbour never stands in
+    assert build._match(np.array([]), 0.322) is None  # an empty time base is no match
 
 
 def test_builder_extension_columns_do_not_shadow_the_canonical_schema():

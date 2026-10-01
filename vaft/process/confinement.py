@@ -97,7 +97,8 @@ def smoothed_time_derivative(
     ------
     ValueError
         Arrays of different length, fewer than two samples, a non-increasing
-        time axis, a non-positive window, or ``at`` without ``window_s``.
+        time axis, a non-positive window, ``polyorder`` below 1 with a window,
+        or ``at`` without ``window_s``.
 
     Processing steps
     ----------------
@@ -140,6 +141,8 @@ def smoothed_time_derivative(
         if at is not None:
             raise ValueError("evaluating away from the samples needs window_s")
         return np.asarray(time_derivative(t, y), dtype=float)
+    if int(polyorder) < 1:
+        raise ValueError(f"polyorder must be at least 1 to carry a slope, got {polyorder!r}")
     half = 0.5 * float(window_s)
     if not half > 0:
         raise ValueError(f"window_s must be positive, got {window_s!r}")

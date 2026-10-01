@@ -66,7 +66,7 @@ SWEEP = {
 EXTENSION_UNITS = {
     "time_efit_s": "s", "efit_lineage": "", "efit_quality": "", "efit_product_sha256": "",
     "ts_status": "", "paired_electron_kinetic": "", "ip_efit_A": "A", "dip_dt_A_s": "A/s",
-    "v_loop_V": "V", "v_ind_V": "V", "v_res_V": "V", "r_p_ohm": "Ohm", "n_rate_slices": "-", "li_3": "-", "beta_normal": "% m T/MA",
+    "v_loop_V": "V", "v_ind_V": "V", "v_res_V": "V", "r_p_ohm": "Ohm", "n_labelled_slices": "-", "w_kin_status": "", "li_3": "-", "beta_normal": "% m T/MA",
     "w_mhd_J": "J", "w_kin_J": "J", "dwdt_W": "W", "p_ohm_W": "W", "p_net_W": "W",
     "p_rad_W": "W", "p_transport_W": "W", "tau_e_kin_s": "s",
     "p_ohm_efit_flux_W": "W", "v_res_efit_flux_V": "V", "p_ohm_spitzer_W": "W",
@@ -105,6 +105,8 @@ def _git(*args) -> str:
 
 
 def _match(times: np.ndarray, t: float):
+    if np.size(times) == 0:
+        return None
     k = int(np.argmin(np.abs(times - t)))
     return k if abs(times[k] - t) <= TIME_TOLERANCE_S else None
 
@@ -226,7 +228,8 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
     keep = np.array([any(abs(t - lt) <= TIME_TOLERANCE_S for lt in labelled_times) for t in t_all])
     idx = np.flatnonzero(keep)
     t = t_all[idx]
-    descriptors = [_descriptor_rows(efit, args.effective_mass_amu)[i] for i in idx]
+    every_slice = _descriptor_rows(efit, args.effective_mass_amu)
+    descriptors = [every_slice[i] for i in idx]
     w_mhd = np.array([r.get("w_th_J", np.nan) for r in descriptors], dtype=float)
 
     # Measured current and its rate at the EFIT times.
@@ -254,6 +257,9 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
         return smoothed_time_derivative(t, y, window_s=args.dwdt_window_s, polyorder=args.rate_polyorder)
 
     split = resistive_loop_voltage(v_loop, ip_meas, dip_dt, li3, r0, dli3_dt=rate(li3))
+    # A loop voltage and current of opposite orientation make every P_OH negative;
+    # flag it instead of letting the shot fail its rules silently.
+    orientation = float(np.nanmedian(np.sign(ip_meas * v_loop))) if t.size else np.nan
     if t.size >= 2:
         pb = confinement_power_balance(t, ip_meas, split.v_res, w_mhd, dwdt_window_s=args.dwdt_window_s,
                                        dwdt_polyorder=args.rate_polyorder)
@@ -286,18 +292,36 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
         t=t, descriptors=descriptors, w_mhd=w_mhd, ip_meas=ip_meas, dip_dt=dip_dt, v_loop=v_loop,
         v_ind=split.v_ind, v_res=split.v_res, r_p=split.r_p, li3=li3, beta_n=beta_n, r0=r0, pb=pb, ev=ev,
         v_res_efit=v_res_efit, p_spitzer=p_spitzer, loop_name=loop_name, v_source=v_source,
-        efit_sha=_sha256(efit_path),
+        efit_sha=_sha256(efit_path), orientation=orientation,
     )
 
 
-def kinetic_energy(shot: int, filedb: Path, args) -> dict:
-    """W of the electron_kinetic product per slice time."""
+def kinetic_energy(shot: int, filedb: Path, kinetic_states: dict, args) -> dict:
+    """W of the electron_kinetic product at its own state-key times, keyed by rounded time.
+
+    Only slices that are electron_kinetic states of contract v1 are read: the
+    product's other slices are unvetted. A product whose sha256 differs from the
+    state's gives NaN with status ``product_changed``.
+    """
+    if not kinetic_states:
+        return {}
     path = filedb / "omas/electron_efit" / str(shot) / "output/electron_efit.json.gz"
     if not path.exists():
-        return {}
+        return {t: (np.nan, "product_missing") for t in kinetic_states}
+    sha = _sha256(path)
     ods = _load(path)
+    times = np.asarray(ods["equilibrium.time"], dtype=float)
     rows = _descriptor_rows(ods, args.effective_mass_amu)
-    return {float(t): r.get("w_th_J", np.nan) for t, r in zip(ods["equilibrium.time"], rows)}
+    out = {}
+    for t_state, state_sha in kinetic_states.items():
+        k = _match(times, t_state)
+        if sha != state_sha:
+            out[t_state] = (np.nan, "product_changed")
+        elif k is None:
+            out[t_state] = (np.nan, "time_unmatched")
+        else:
+            out[t_state] = (rows[k].get("w_th_J", np.nan), "evaluated")
+    return out
 
 
 def build(args) -> int:
@@ -312,8 +336,11 @@ def build(args) -> int:
     with open(Path(args.state).expanduser(), newline="") as fh:
         states = list(csv.DictReader(fh))
     magnetics = [s for s in states if s["efit_lineage"] == "magnetics"]
-    kinetic_keys = {(int(s["shot"]), round(float(s["time_efit_s"]), 4))
-                    for s in states if s["efit_lineage"] == "electron_kinetic"}
+    kinetic = {}
+    for s in states:
+        if s["efit_lineage"] == "electron_kinetic":
+            kinetic.setdefault(int(s["shot"]), {})[round(float(s["time_efit_s"]), 4)] = s["efit_product_sha256"]
+    kinetic_keys = {(shot, t) for shot, times in kinetic.items() for t in times}
 
     assumptions = {
         "p_ohm": "I_p,meas * (V_loop,meas - (1/I_p) dW_int/dt), W_int = mu0 R0 li_3 I_p^2/4 (Romero 2010 eq. 24)",
@@ -325,6 +352,8 @@ def build(args) -> int:
         "p_rad": "not measured (no bolometer mapping): NaN; P_transport undefined",
         "m_eff_amu": f"{args.effective_mass_amu} (H+ per state key contract v1; not measured)",
         "external_inductance": "flux between the inboard loop and the LCFS is not removed",
+        "tau_e_kin": ("W_kin of the paired electron_kinetic state over the magnetics P_net: its dW/dt is "
+                      "dW_mhd/dt, since a single kinetic slice per shot has no rate of its own"),
         "spitzer": (f"Z_eff={args.z_eff}, ln_Lambda={args.ln_lambda} stated explicitly (#1188)"
                     if args.spitzer else "not evaluated"),
     }
@@ -335,7 +364,7 @@ def build(args) -> int:
         try:
             labelled = [float(s["time_efit_s"]) for s in magnetics if int(s["shot"]) == shot]
             series = shot_series(shot, filedb, labelled, args)
-            w_kin = kinetic_energy(shot, filedb, args)
+            w_kin = kinetic_energy(shot, filedb, kinetic.get(shot, {}), args)
         except Exception as exc:  # noqa: BLE001 - recorded per shot
             failures.append({"shot": shot, "error": f"{type(exc).__name__}: {exc}",
                              "traceback": traceback.format_exc(limit=3)})
@@ -366,13 +395,12 @@ def build(args) -> int:
                 "paired_electron_kinetic": key in kinetic_keys,
                 "assumptions": json.dumps(assumptions, sort_keys=True),
             })
-            k = None if series is None else _match(series["t"], t_state)
             if series is None:
                 row.update(quality_status="shot_failed", quality_reason=failures[-1]["error"])
             elif series["efit_sha"] != state["efit_product_sha256"]:
                 row.update(quality_status="product_changed",
                            quality_reason="EFIT product sha256 differs from the state's")
-            elif k is None:
+            elif (k := _match(series["t"], t_state)) is None:
                 row.update(quality_status="time_unmatched",
                            quality_reason=f"no EFIT slice within {TIME_TOLERANCE_S} s")
             else:
@@ -382,11 +410,12 @@ def build(args) -> int:
                             "kappa_area", "delta", "m_eff_amu"):
                     row[col] = c.get(col, np.nan)
                 row.update(DEFINITIONS)
-                w_k = next((w for tk, w in w_kin.items() if abs(tk - t_state) <= TIME_TOLERANCE_S), np.nan)
+                w_k, w_k_status = w_kin.get(key[1], (np.nan, "no_kinetic_state"))
                 p_net = pb.p_net[k]
                 row.update({
                     "i_p_A": abs(series["ip_meas"][k]), "ip_efit_A": c.get("ip_efit_A", np.nan),
-                    "r_p_ohm": series["r_p"][k], "n_rate_slices": int(series["t"].size),
+                    "r_p_ohm": series["r_p"][k], "n_labelled_slices": int(series["t"].size),
+                    "w_kin_status": w_k_status,
                     "dip_dt_A_s": series["dip_dt"][k], "v_loop_V": series["v_loop"][k],
                     "v_ind_V": series["v_ind"][k], "v_res_V": series["v_res"][k],
                     "li_3": series["li3"][k], "beta_normal": series["beta_n"][k],
@@ -401,11 +430,15 @@ def build(args) -> int:
                     "p_ohm_spitzer_W": series["p_spitzer"][k],
                     "ip_rate_1_s": ev.ip_rate[k], "ip_change_per_tau": ev.ip_change_per_tau[k],
                     "dwdt_fraction": ev.dwdt_fraction[k], "rule_finite": bool(ev.finite[k]),
-                    "quality_status": "evaluated", "quality_reason": "",
+                    "quality_status": "evaluated",
+                    "quality_reason": ("Ip * V_loop is negative on most labelled slices of this shot: "
+                                       "a reversed late-discharge loop voltage or an orientation mismatch"
+                                       if series["orientation"] < 0 else ""),
                     "p_loss_definition": ("P_net = P_OH - dW/dt, P_OH = I_p V_res from the measured inboard "
                                           "loop voltage minus the internal inductive voltage; radiation NOT "
                                           "subtracted (as DB5 PLTH); no auxiliary heating"),
-                    "tau_e_definition": "W_mhd / P_net; W_mhd = 1.5 int p dV of the magnetics EFIT",
+                    "tau_e_definition": ("W_mhd / P_net; W_mhd = 1.5 int p dV of the magnetics EFIT; "
+                                         "tau_e_kin_s = W_kin / P_net with the same (W_mhd) dW/dt"),
                 })
             rows.append(row)
 
