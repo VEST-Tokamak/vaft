@@ -619,12 +619,14 @@ seed_portlib() {
   # that install_ntcc_artifacts then copies over the complete one.
   [[ -f "$obj/lib/libportlib.a" ]] || return 0
   mkdir -p "$obj/obj/portlib"
-  local cflags="-c -O -std=gnu89 -Wno-implicit-int -Wno-implicit-function-declaration"
-  gcc $cflags -I"$COMPAT_DIR" -I"$root" -I"$root/include" \
+  # An array, not a string: this script runs under IFS=$'\n\t', so an unquoted
+  # $cflags would reach gcc as one argument and be rejected whole.
+  local -a cflags=(-c -O -std=gnu89 -Wno-implicit-int -Wno-implicit-function-declaration)
+  gcc "${cflags[@]}" -I"$COMPAT_DIR" -I"$root" -I"$root/include" \
       -o "$obj/obj/portlib/c_execsystem.o" "$COMPAT_DIR/c_execsystem_win32.c"
   gcc -c -O -o "$obj/obj/portlib/vaft_wsa_init.o" "$COMPAT_DIR/vaft_wsa_init.c"
   gcc -c -O -o "$obj/obj/portlib/vaft_get_proc_mem.o" "$COMPAT_DIR/vaft_get_proc_mem.c"
-  gcc $cflags -I"$COMPAT_DIR" -I"$root/portlib" -I"$root/include" \
+  gcc "${cflags[@]}" -I"$COMPAT_DIR" -I"$root/portlib" -I"$root/include" \
       -include "$COMPAT_DIR/vaft_trsocket_win32.h" \
       -o "$obj/obj/portlib/trsocket.o" "$root/portlib/trsocket.c"
   # -U, not the default: binutils writes deterministic archives, which zero
