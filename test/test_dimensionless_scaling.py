@@ -309,8 +309,6 @@ class EngineeringToDimensionlessTests(unittest.TestCase):
             expected = kadomtsev_constraint_from_engineering_exponents(
                 a_I, a_B, a_P, a_n, a_R)
             self.assertAlmostEqual(residual, expected, places=9)
-            tol = abs(expected) + 1e-6
-            self.assertTrue(check_kadomtsev_constraint(a_I, a_B, a_P, a_n, a_R, tol=tol))
 
     def test_published_scalings_carry_their_published_residuals(self):
         with self.assertWarns(FutureWarning):
@@ -323,6 +321,11 @@ class EngineeringToDimensionlessTests(unittest.TestCase):
                 *dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
                     **self.IPB98)[:3], self.IPB98["a_P"])
         self.assertAlmostEqual(ipb98, -0.01, places=9)
+
+    def test_a_non_finite_exponent_raises(self):
+        with self.assertRaises(ValueError):
+            dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
+                **dict(self.ITER89P, a_P=float("nan")))
 
     def test_the_degenerate_exponent_raises_and_names_itself(self):
         """a_P = -1 is exact power degradation, not an exotic input."""

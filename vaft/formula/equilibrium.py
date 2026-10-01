@@ -4947,20 +4947,21 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     Raises
     ------
     ValueError
-        When $1 + \alpha_P$ vanishes, which is the exact-power-degradation case
-        $\alpha_P = -1$: every index divides by it, so the transformation has no
-        value there rather than a special one [-].
+        For a non-finite exponent, or when $1 + \alpha_P$ vanishes, which is
+        the exact-power-degradation case $\alpha_P = -1$: every index divides
+        by it, so the transformation has no value there rather than a special
+        one [-].
 
     Assumptions
     -----------
     Temperature is eliminated through $P = W/\tau_E \propto nTR^3/\tau_E$, and
     $\rho_* \propto T^{1/2}/(BR)$, $\beta \propto nT/B^2$,
     $\nu_* \propto nR/T^2$ at fixed $q \propto RB/I$.  The $n$, $B$ and $R$
-    exponents fix the three indices; the $T$ exponent is the redundant
-    equation whose residual is the Kadomtsev constraint
-    (:func:`kadomtsev_constraint_from_engineering_exponents`), so the indices
-    are those of the dimensionless scaling nearest the engineering one, not a
-    test of it.  The $q$ index, $-\alpha_I/D$, is not returned.
+    exponents fix the three indices exactly and the $T$ exponent is left
+    unmatched: it misses by $\alpha_K / (2D)$, with $\alpha_K$ the residual of
+    :func:`kadomtsev_constraint_from_engineering_exponents`.  The indices are
+    therefore not a test of the constraint.  The $q$ index, $-\alpha_I/D$, is
+    not returned.
 
     Limitations
     -----------
@@ -4978,6 +4979,9 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     .. [3] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2,
            Sec. 6.2: IPB98(y,2) is $\rho_*^{-2.70}\beta^{-0.90}\nu_*^{-0.01}$.
     """
+    exponents = np.asarray([a_I, a_B, a_P, a_n, a_R], dtype=float)
+    if np.any(~np.isfinite(exponents)):
+        raise ValueError(f"engineering exponents must be finite. Got {exponents!r}")
     denom = 1 + a_P
     if abs(denom) < 1e-9:
         # Returning None here made every caller fail on the unpack instead, with
@@ -5111,15 +5115,16 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     :func:`dimensionless_scaling_coeffs_from_engineering_scaling_coeffs`
     return the residual of the engineering scaling they came from: the
     transformation keeps the $n$, $B$, $R$ exponents and drops the $T$ one,
-    and the residual is what the dropped equation misses by.
+    and the residual is $2(1 + \alpha_P)$ times what the dropped equation
+    misses by.
 
     Limitations
     -----------
     Until #351 this returned
     $5 + \mu_\rho(1+\alpha_P) - \tfrac32(\mu_\rho + 2\mu_\beta - 4\mu_\nu - 2)$,
     "5 for a consistent mapping", which no published scaling reached.  It now
-    returns the residual and emits a ``FutureWarning`` saying so; prefer
-    :func:`check_kadomtsev_constraint` on engineering exponents.
+    returns the residual and emits a ``FutureWarning`` saying so, until
+    0.9.0; prefer :func:`check_kadomtsev_constraint` on engineering exponents.
 
     References
     ----------
@@ -5130,7 +5135,8 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     warnings.warn(
         "verify_kadomtsev_constraint now returns the Kadomtsev residual "
         "alpha_K (0 when consistent), the quantity check_kadomtsev_constraint "
-        "tests, instead of the old value that 'should be 5' (#351).",
+        "tests, instead of the old value that 'should be 5' (#351). This "
+        "warning is removed in 0.9.0.",
         FutureWarning,
         stacklevel=2,
     )
