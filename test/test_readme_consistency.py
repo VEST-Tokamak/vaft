@@ -121,8 +121,8 @@ def test_the_overview_says_what_vaft_is_then_enables_then_where_it_runs():
 def test_traceable_and_verifiable_are_not_used_as_synonyms():
     """#529: traceable and reproducible workflows *enable* verifiable results."""
     text = ENGLISH.read_text(encoding="utf-8")
-    pipeline = text[text.index("### Version-Controlled Data Pipeline"):
-                    text.index("### IMAS-FAIR Database")]
+    pipeline = text[text.index("### Traceable & Reproducible Pipeline"):
+                    text.index("### FAIR Scientific Data Repository")]
     assert "traceable" in pipeline.lower() and "reproducible" in pipeline.lower()
     assert "verifiable" in pipeline.lower(), (
         "the pipeline section must say what traceability and reproducibility enable"
@@ -135,10 +135,10 @@ def test_the_four_framework_concepts_are_present_and_ordered(path):
     text = path.read_text(encoding="utf-8")
     positions = []
     for concept in (
-        "Integrated Standardized Interface",
-        "Version-Controlled Data Pipeline",
-        "IMAS-FAIR Database",
-        "Machine & Research Archive",
+        "Standardized Data Interface",
+        "Traceable & Reproducible Pipeline",
+        "FAIR Scientific Data Repository",
+        "Machine Knowledge Archive",
     ):
         assert concept in text, f"{path.name}: missing concept {concept!r}"
         positions.append(text.index(concept))
