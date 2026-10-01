@@ -33,7 +33,8 @@ __all__ = [
 
 #: Top-level functions served lazily from private modules.  They stay out of
 #: ``__all__`` so ``from vaft import *`` cannot shadow the builtin ``help``.
-_LAZY_FUNCTIONS = {"help": "._help"}
+#: ``setup`` only runs when called; importing VAFT never prepares anything.
+_LAZY_FUNCTIONS = {"help": "._help", "setup": "._setup"}
 
 
 def __getattr__(name: str):

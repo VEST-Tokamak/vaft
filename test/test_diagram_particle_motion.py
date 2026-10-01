@@ -242,3 +242,12 @@ def test_the_top_views_point_grad_b_inward():
     d = vaft.diagram.curvature_drift(projection="top")
     (arrow,) = [it for it in d.scene.role("grad_B") if hasattr(it, "end")]
     assert np.linalg.norm(arrow.end) < np.linalg.norm(arrow.start)
+
+
+@pytest.mark.parametrize("fn", [vaft.diagram.exb_drift, vaft.diagram.curvature_drift,
+                                vaft.diagram.magnetization_current, vaft.diagram.toroidal_drift])
+def test_labels_must_be_a_bool_like_every_other_diagram(fn):
+    """The four particle-motion builders drew the labelled figure for ``labels="no"`` while the other modules
+    raise. Cold review 0.8.0 diagram-A F6."""
+    with pytest.raises(ValueError, match="labels must be True or False"):
+        fn(labels="no")

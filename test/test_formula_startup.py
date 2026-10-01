@@ -1240,3 +1240,13 @@ def test_the_critical_fraction_approaches_one_for_a_small_plasma():
 def test_burn_through_kernels_refuse_a_non_physical_input(call):
     with pytest.raises(ValueError):
         call()
+
+
+@pytest.mark.parametrize("bad_li", [float("nan"), float("inf")])
+def test_a_non_finite_li_is_refused_where_it_enters_not_downstream(bad_li):
+    # An unconverged reconstruction's NaN li_3 used to pass through and fail later
+    # in the lumped circuit with a message naming L_p_H.
+    with pytest.raises(ValueError, match="li must be finite"):
+        plasma_inductance_circular_from_R0_a_li(1.0, 0.1, bad_li)
+    with pytest.raises(ValueError, match="li must be finite"):
+        vertical_field_from_I_p_R0_a_beta_p_li(1.0e5, 1.0, 0.1, 0.3, bad_li)

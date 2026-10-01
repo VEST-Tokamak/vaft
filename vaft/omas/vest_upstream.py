@@ -2061,6 +2061,95 @@ def kinetic_efit_parameters(stage: str, efit_preset: str | None) -> str:
     )
 
 
+def usable_equilibrium_times_ms(solution: Any) -> np.ndarray | None:
+    """Times [ms] of the slices the EFIT collection judged ``usable``.
+
+    ``None`` when the product records no per-slice verdict (written before the
+    collection stored one, or not an EFIT product), so a caller can tell "no
+    verdicts" from "no usable slice".
+    """
+    try:
+        payload = json.loads(str(solution["equilibrium.code.parameters"]))
+        statuses = payload["efit_collection"]["slice_statuses"]
+    except Exception:  # noqa: BLE001 - absent or older payloads carry no verdicts
+        return None
+    return np.asarray(
+        [1e3 * float(entry["time"]) for entry in statuses if entry.get("overall_status") == "usable"],
+        dtype=float,
+    )
+
+
+#: How many aligned profile times the kinetic lineages try before giving up.
+KINETIC_MAX_ATTEMPTS = 3
+
+
+def profile_time_candidates(
+    profile_times_ms: np.ndarray,
+    eq_times_ms: np.ndarray,
+    usable_eq_times_ms: np.ndarray | None,
+    *,
+    tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+) -> tuple[list[float], str]:
+    """Profile times to try, best first, and why: :func:`choose_profile_time`'s
+    choice first, then every other aligned, usable one by offset and time."""
+    first, why = choose_profile_time(profile_times_ms, eq_times_ms, usable_eq_times_ms, tolerance_ms=tolerance_ms)
+    profile = np.asarray(profile_times_ms, dtype=float).reshape(-1)
+    eq = np.asarray(eq_times_ms, dtype=float).reshape(-1)
+    distance = np.abs(profile[:, None] - eq[None, :])
+    offsets = distance.min(axis=1)
+    nearest = eq[distance.argmin(axis=1)]
+    aligned = offsets <= tolerance_ms
+    if why == "aligned and usable":
+        usable = np.round(np.asarray(usable_eq_times_ms, dtype=float).reshape(-1), 3)
+        good = np.flatnonzero(aligned & np.isin(np.round(nearest, 3), usable))
+        order = sorted(good, key=lambda i: (offsets[i], profile[i]))
+        return [float(profile[i]) for i in order], why
+    usable = np.asarray(usable_eq_times_ms if usable_eq_times_ms is not None else [], dtype=float).reshape(-1)
+    if why == "aligned (no aligned slice is usable)" and usable.size and aligned.any():
+        # Thomson fired outside the magnetically usable window (the 42xxx
+        # series: profiles at 322-331 ms, usable EFIT from 333 ms). The kinetic
+        # fit is likeliest to converge next to that window, so try the aligned
+        # times closest to it first rather than the earliest.
+        gap = np.min(np.abs(profile[:, None] - usable[None, :]), axis=1)
+        order = sorted(np.flatnonzero(aligned), key=lambda i: (gap[i], offsets[i], profile[i]))
+        return [float(profile[i]) for i in order], "aligned, nearest the usable window"
+    return [first], why
+
+
+def choose_profile_time(
+    profile_times_ms: np.ndarray,
+    eq_times_ms: np.ndarray,
+    usable_eq_times_ms: np.ndarray | None,
+    *,
+    tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+) -> tuple[float, str]:
+    """The profile time to reconstruct at, and why it was chosen.
+
+    The best-aligned slice, not the first one: which profile time comes first
+    says nothing about which has an equilibrium to reconstruct against.  Among
+    the aligned ones, a slice whose magnetic equilibrium the collection judged
+    ``usable`` wins -- when Thomson and EFIT share a millisecond grid every
+    profile time is aligned, and the first of them was 39915 @ 312 ms, a
+    negative-pressure slice the kinetic fit could not converge from (#1331).
+    Falls back to the best-aligned slice when no aligned one is usable or the
+    product records no verdicts; the returned reason says which happened.
+    """
+    profile = np.asarray(profile_times_ms, dtype=float).reshape(-1)
+    eq = np.asarray(eq_times_ms, dtype=float).reshape(-1)
+    distance = np.abs(profile[:, None] - eq[None, :])
+    offsets = distance.min(axis=1)
+    best = float(profile[int(np.argmin(offsets))])
+    if usable_eq_times_ms is None:
+        return best, "aligned (no per-slice verdicts)"
+    usable = np.asarray(usable_eq_times_ms, dtype=float).reshape(-1)
+    nearest = eq[distance.argmin(axis=1)]
+    good = (offsets <= tolerance_ms) & np.isin(np.round(nearest, 3), np.round(usable, 3))
+    if not good.any():
+        return best, "aligned (no aligned slice is usable)"
+    candidates = np.flatnonzero(good)
+    return float(profile[candidates[int(np.argmin(offsets[candidates]))]]), "aligned and usable"
+
+
 def build_kinetic_efit_ods(
     *,
     shot: int,
@@ -2203,38 +2292,16 @@ def build_kinetic_efit_ods(
         profile_times = _time_array_ms(ods, "core_profiles.time")
         if profile_times is None:
             return unavailable("no core_profiles slice to reconstruct at")
-        # The best-aligned slice, not the first one. Which profile time happens
-        # to come first says nothing about which has an equilibrium to be
-        # reconstructed against, and with a sub-millisecond tolerance an
-        # arbitrary choice refuses shots a better-aligned slice would serve.
-        offsets = np.min(np.abs(profile_times[:, None] - eq_times[None, :]), axis=1)
-        time_ms = float(profile_times[int(np.argmin(offsets))])
-
-    time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
-    manifest["configuration"]["time_ms"] = float(time_ms)
-    manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
-    manifest["configuration"]["equilibrium_tolerance_ms"] = float(equilibrium_tolerance_ms)
-    # Reconstructing a 298 ms profile against a 308 ms equilibrium is not a
-    # near miss in a discharge this short -- it is a different plasma. Refuse
-    # rather than produce a number nobody can tell is meaningless.
-    offset = abs(float(eq_times[time_index]) - float(time_ms))
-    if offset > equilibrium_tolerance_ms:
-        return unavailable(
-            f"the nearest reconstructed equilibrium is {offset:.1f} ms from the "
-            f"profile time ({time_ms:.1f} ms), beyond the "
-            f"{equilibrium_tolerance_ms:.1f} ms tolerance"
+        candidates, choice = profile_time_candidates(
+            profile_times, eq_times, usable_equilibrium_times_ms(solution),
+            tolerance_ms=equilibrium_tolerance_ms,
         )
-
-    # The ODS psi is weber (#278/#281); from_equilibrium writes it per radian,
-    # as a g-file stores it (#1292), so SIMAG/SIBRY are the solution's flux over
-    # 2*pi and `geq.to_omas()` gives back the solution's own weber. That matters:
-    # `core_profiles` takes `grid.psi` from `geq.to_omas()`, which before #1292
-    # came out 2*pi too large. psi_N in `_psin_of_r` and the profile mapper is
-    # normalized and was never affected.
-    try:
-        geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))
-    except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
-        return unavailable(f"cannot build a psi map from the equilibrium: {error}")
+        candidates = candidates[:KINETIC_MAX_ATTEMPTS]
+        manifest["configuration"]["time_choice"] = choice
+    else:
+        candidates = [float(time_ms)]
+        manifest["configuration"]["time_choice"] = "caller"
+    manifest["configuration"]["equilibrium_tolerance_ms"] = float(equilibrium_tolerance_ms)
 
     # A caller-supplied workdir is the caller's to keep. One we invent is ours to
     # remove: EFIT leaves a kfile and its outputs per PLASMA scale, and this stage
@@ -2242,54 +2309,102 @@ def build_kinetic_efit_ods(
     # the filesystem the products themselves live on.
     ephemeral = workdir is None
     work = Path(tempfile.mkdtemp(prefix=f"{stage}-")) if ephemeral else Path(workdir)
+    attempts: list[dict[str, Any]] = []
+    retry = len(candidates) > 1
+
+    def record(time_ms: float, **fields: Any) -> None:
+        if retry:
+            attempts.append({"time_ms": float(time_ms), **fields})
+            manifest["attempts"] = attempts
+
     try:
-        config = KineticEFITConfig(
-            executable=executable,
-            workdir=work,
-            shot=shot,
-            time_ms=float(time_ms),
-            encoding=encoding,
-            # 'auto' is the VEST policy ratio, and it only applies when the ODS
-            # has no ion data -- which is exactly the electron_efit case.
-            ti_te_ratio="auto",
-            efit_preset=efit_preset or None,
-        )
-        try:
-            chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
-        except Exception as error:  # noqa: BLE001 - recorded, one shot cannot fail a run
-            manifest["status"] = "failed"
-            manifest["error"] = f"{type(error).__name__}: {error}"
-            manifest["traceback"] = traceback.format_exc()
-            return out, manifest
+        # Candidates in order until one converges (#1331): a slice whose
+        # magnetic fit is usable can still lose its boundary once the pressure
+        # constraint is added (39915 @ 315 ms), while its neighbour converges.
+        for time_ms in candidates:
+            # Nothing from a previous attempt may describe this one.
+            for key in ("reconstruction", "traceback", "error"):
+                manifest.pop(key, None)
+            time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
+            manifest["configuration"]["time_ms"] = float(time_ms)
+            manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
+            # Reconstructing a 298 ms profile against a 308 ms equilibrium is not a
+            # near miss in a discharge this short -- it is a different plasma. Refuse
+            # rather than produce a number nobody can tell is meaningless.
+            offset = abs(float(eq_times[time_index]) - float(time_ms))
+            if offset > equilibrium_tolerance_ms:
+                return unavailable(
+                    f"the nearest reconstructed equilibrium is {offset:.1f} ms from the "
+                    f"profile time ({time_ms:.1f} ms), beyond the "
+                    f"{equilibrium_tolerance_ms:.1f} ms tolerance"
+                )
 
-        result = chain["kinetic_efit"]
-        manifest["reconstruction"] = {
-            "status": result.status,
-            "converged": bool(result.converged),
-            "scale": result.scale,
-            "chi2": result.chi2,
-            "reason": result.reason,
-        }
-        if result.status == "skipped":
-            return unavailable(result.reason or "EFIT executable is not configured")
-        if not result.converged or result.gfile is None:
-            manifest["status"] = "no_output"
-            manifest["error"] = result.reason or "no PLASMA scale converged"
-            return out, manifest
+            # The ODS psi is weber (#278/#281); from_equilibrium writes it per radian,
+            # as a g-file stores it (#1292), so SIMAG/SIBRY are the solution's flux over
+            # 2*pi and `geq.to_omas()` gives back the solution's own weber. That matters:
+            # `core_profiles` takes `grid.psi` from `geq.to_omas()`, which before #1292
+            # came out 2*pi too large. psi_N in `_psin_of_r` and the profile mapper is
+            # normalized and was never affected.
+            try:
+                geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))
+            except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
+                message = f"cannot build a psi map from the equilibrium: {error}"
+                if not retry:
+                    return unavailable(message)
+                manifest["status"], manifest["error"] = "unavailable", message
+                record(time_ms, status="unavailable", reason=message)
+                continue
 
-        # Read the g-file before the workdir goes away.
-        to_omas(read_geqdsk_file(result.gfile), ods=out)
-        # The g-file carries no record of how the constraints were weighted;
-        # the preset (or its absence) does.  Serialized, as `code.parameters`
-        # is a STR_0D that a nested tree does not survive (#380/#642).
-        out["equilibrium.code.parameters"] = kinetic_efit_parameters(stage, efit_preset)
-        manifest["status"] = "success"
-        manifest["quality_summary"]["unavailable"] = []
-        # Recording a path under a directory about to be deleted would name a
-        # file nobody can open; the name is what identifies the reconstruction.
-        manifest["output_gfile"] = (
-            Path(result.gfile).name if ephemeral else str(result.gfile)
-        )
+            config = KineticEFITConfig(
+                executable=executable,
+                workdir=work / f"t{time_ms:.3f}" if retry else work,
+                shot=shot,
+                time_ms=float(time_ms),
+                encoding=encoding,
+                # 'auto' is the VEST policy ratio, and it only applies when the ODS
+                # has no ion data -- which is exactly the electron_efit case.
+                ti_te_ratio="auto",
+                efit_preset=efit_preset or None,
+            )
+            try:
+                chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
+            except Exception as error:  # noqa: BLE001 - recorded, one shot cannot fail a run
+                manifest["status"] = "failed"
+                manifest["error"] = f"{type(error).__name__}: {error}"
+                manifest["traceback"] = traceback.format_exc()
+                record(time_ms, status="failed", reason=manifest["error"])
+                continue  # a failure is the slice's, not the stage's: try the next
+
+            result = chain["kinetic_efit"]
+            manifest["reconstruction"] = {
+                "status": result.status,
+                "converged": bool(result.converged),
+                "scale": result.scale,
+                "chi2": result.chi2,
+                "reason": result.reason,
+            }
+            record(time_ms, **manifest["reconstruction"])
+            if result.status == "skipped":
+                return unavailable(result.reason or "EFIT executable is not configured")
+            if not result.converged or result.gfile is None:
+                manifest["status"] = "no_output"
+                manifest["error"] = result.reason or "no PLASMA scale converged"
+                continue
+
+            # Read the g-file before the workdir goes away.
+            to_omas(read_geqdsk_file(result.gfile), ods=out)
+            # The g-file carries no record of how the constraints were weighted;
+            # the preset (or its absence) does.  Serialized, as `code.parameters`
+            # is a STR_0D that a nested tree does not survive (#380/#642).
+            out["equilibrium.code.parameters"] = kinetic_efit_parameters(stage, efit_preset)
+            manifest["status"] = "success"
+            manifest["quality_summary"]["unavailable"] = []
+            # Recording a path under a directory about to be deleted would name a
+            # file nobody can open; the name is what identifies the reconstruction.
+            manifest["output_gfile"] = (
+                Path(result.gfile).name if ephemeral else str(result.gfile)
+            )
+            return out, manifest
         return out, manifest
     finally:
         if ephemeral:

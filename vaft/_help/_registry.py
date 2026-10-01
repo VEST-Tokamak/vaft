@@ -24,7 +24,8 @@ TOPICS: dict[str, Topic] = {
             "overview",
             "VAFT: VEST analysis toolkit. Pick a topic below with vaft.help('<topic>') or `vaft help <topic>`.",
             provider=f"{_P}:overview",
-            cli=("vaft help <topic>", "vaft --help"),
+            cli=("vaft help <topic>", "vaft setup", "vaft --help"),
+            setup=("vaft.setup()  (auto: live notebook figures when ipympl is installed)",),
         ),
         Topic(
             "formula",
@@ -54,6 +55,7 @@ TOPICS: dict[str, Topic] = {
                 "vaft.plot.available_plots(query=...)",
             ),
             cli=("vaft plot --help",),
+            setup=("vaft.setup('notebook')  (live figures via ipympl)", "vaft.setup('batch')  (headless Agg)"),
             see_also=("vaft.help('plot', '<query>')", "vaft.help('omas')"),
         ),
         Topic(
@@ -67,6 +69,7 @@ TOPICS: dict[str, Topic] = {
                 "vaft.database.sources.known_sources()",
             ),
             cli=("vaft hsds configure", "vaft summary --help", "vaft export --help"),
+            setup=("vaft.setup('database')  (diagnosis only)",),
             see_also=("vaft.help('database', '<source>')", "vaft.help('data')"),
         ),
         Topic(

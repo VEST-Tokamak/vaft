@@ -56,6 +56,19 @@ def _positive_int(value, name: str) -> int:
     return int(value)
 
 
+def _non_negative_epsilon(epsilon):
+    r"""The inverse aspect ratio as a float array, refused when negative or NaN.
+
+    The same rule ``toroidal_ripple_field`` applies: a negative $\epsilon$ is
+    a sign slip, never a geometry, and the 3/2 power of the GWB threshold
+    would turn it into a silent NaN.
+    """
+    epsilon = np.asarray(epsilon, dtype=float)
+    if np.any(~(epsilon >= 0.0)):
+        raise ValueError("epsilon must be non-negative and finite")
+    return epsilon
+
+
 def _scalar_or_array(result):
     return float(result) if np.ndim(result) == 0 else result
 
@@ -205,7 +218,8 @@ def ripple_well_parameter(epsilon, theta, q, delta, n_tf):
     Raises
     ------
     ValueError
-        ``n_tf`` is not a positive integer, or ``q`` or ``delta`` is not positive.
+        ``n_tf`` is not a positive integer, ``q`` or ``delta`` is not positive,
+        or ``epsilon`` is negative or not finite.
 
     Convention
     ----------
@@ -242,7 +256,8 @@ def ripple_well_parameter(epsilon, theta, q, delta, n_tf):
     delta = np.asarray(delta, dtype=float)
     if np.any(q <= 0.0) or np.any(delta <= 0.0):
         raise ValueError("q and delta must be positive")
-    result = np.asarray(epsilon, dtype=float) * np.abs(np.sin(np.asarray(theta, dtype=float))) / (n * q * delta)
+    epsilon = _non_negative_epsilon(epsilon)
+    result = epsilon * np.abs(np.sin(np.asarray(theta, dtype=float))) / (n * q * delta)
     return _scalar_or_array(result)
 
 
@@ -321,7 +336,9 @@ def gwb_stochastic_threshold(epsilon, q, dq_dr, rho, n_tf):
     Raises
     ------
     ValueError
-        ``n_tf`` is not a positive integer, or ``q``, ``dq_dr`` or ``rho`` is not positive.
+        ``n_tf`` is not a positive integer, ``q``, ``dq_dr`` or ``rho`` is not
+        positive, or ``epsilon`` is negative or not finite (a negative
+        $\epsilon$ would silently give a NaN threshold from the 3/2 power).
 
     Convention
     ----------
@@ -366,7 +383,8 @@ def gwb_stochastic_threshold(epsilon, q, dq_dr, rho, n_tf):
     rho = np.asarray(rho, dtype=float)
     if np.any(q <= 0.0) or np.any(dq_dr <= 0.0) or np.any(rho <= 0.0):
         raise ValueError("q, dq_dr and rho must be positive")
-    result = (np.asarray(epsilon, dtype=float) / (np.pi * n * q)) ** 1.5 / (rho * dq_dr)
+    epsilon = _non_negative_epsilon(epsilon)
+    result = (epsilon / (np.pi * n * q)) ** 1.5 / (rho * dq_dr)
     return _scalar_or_array(result)
 
 

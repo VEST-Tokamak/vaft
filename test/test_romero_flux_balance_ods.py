@@ -116,3 +116,26 @@ def test_a_stale_stored_li_3_is_never_used(monkeypatch):
             compute_romero_flux_balance_ods(ods, R_p=0.0, I_ni=0.0, time_range=(0.316, 0.318))
     finally:
         logging.disable(logging.NOTSET)
+
+
+def test_a_missing_equilibrium_time_is_not_materialised_on_an_unchecked_ods():
+    """cold review 0.8.0 process-ml-and-omas-wrappers F3.
+
+    The ODSs VAFT hands out (sample_ods, load_ods, the database) have
+    consistency checks off; there a bare read of a missing leaf attaches an
+    empty node that `in` and flat() hide but keys() and save() show, and a
+    strict reload then rejects the file. The docstring promises the ODS is not
+    modified, and the read is by membership now.
+    """
+    from omas import ODS
+
+    ods = ODS(consistency_check=False)
+    for k, t in enumerate((0.30, 0.31, 0.32, 0.33)):
+        ods[f"equilibrium.time_slice.{k}.time"] = t
+        ods[f"equilibrium.time_slice.{k}.global_quantities.ip"] = 1.0e5
+    with pytest.raises(ValueError):
+        # the per-slice times are found (four slices selected), and the
+        # incomplete slices are then rejected by the balance itself
+        compute_romero_flux_balance_ods(ods, R_p=1e-5, I_ni=0.0, time_range=(0.30, 0.31))
+    assert sorted(ods["equilibrium"].keys()) == ["time_slice"]
+    assert "equilibrium.time" not in ods

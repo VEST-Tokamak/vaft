@@ -228,7 +228,8 @@ def hugill(*, elongation: float = 1.0, q_limit: float = 2.0, labels: bool = True
     The density limit is the Greenwald density written in these
     coordinates: along a current scan, ``greenwald_density`` and
     ``q_cyl_from_B_R_epsilon_kappa_I`` give a straight line through the
-    origin whose slope, $50\kappa_a/\pi$, depends only on the (area)
+    origin, $1/q_\mathrm{cyl} = (\pi/50\kappa_a)\,\bar nR/B$ ($\bar n$ in
+    $10^{19}\,\mathrm{m^{-3}}$), whose slope depends only on the (area)
     elongation -- the minor radius, major radius and field cancel, so there is
     no machine-size parameter. The low-q limit is $q_\mathrm{cyl} = q_\mathrm{limit}$.
     """
