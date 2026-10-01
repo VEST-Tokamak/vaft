@@ -164,6 +164,18 @@ class CgyroOutputs:
         return self.exit_message == "Linear converged"
 
     @property
+    def decayed(self) -> bool:
+        """The field decayed below CGYRO's 1e-12 floor and the run stopped.
+
+        ``cgyro_freq.F90`` raises "Underflow in calculation of frequency error" when
+        ``|omega|`` underflows -- in practice a strongly damped (stable) mode whose
+        amplitude fell out of single precision. It is still an error and not
+        :attr:`solved` (no eigenvalue was measured), but it is evidence of stability,
+        not of a broken run, and callers classify it separately.
+        """
+        return any("Underflow in calculation of frequency error" in line for line in self.errors)
+
+    @property
     def solved(self) -> bool:
         """No error, a finished kernel, and finite physics at the end of the run."""
         if self.errors or self.exit_message is None:

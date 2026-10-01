@@ -44,6 +44,9 @@ SCHEMA = {
         "ky": "k_y rho_s",
         "cgyro_gamma": "c_s/a", "cgyro_omega": "c_s/a, ion negative",
         "cgyro_qualified": "linear frequency converged below FREQ_TOL",
+        "cgyro_status": "converged | max_time (not converged at MAX_TIME, typically "
+                        "marginal) | decayed (field underflowed: strongly damped, stable) "
+                        "| failed",
         "cgyro_exit": "CGYRO EXIT line", "cgyro_sim_time": "a/c_s at the end",
         "tglf_gamma": "c_s/a, most unstable TGLF mode at this ky",
         "tglf_omega": "c_s/a, ion negative",
@@ -78,6 +81,17 @@ def _branch(omega: Optional[float]) -> Optional[str]:
     return "ion" if omega < 0 else "electron"
 
 
+def _cgyro_status(record: dict) -> Optional[str]:
+    """converged | max_time | decayed (stable, amplitude underflow) | failed | None."""
+    if not record:
+        return None
+    if record.get("status") == "decayed":
+        return "decayed"
+    if record.get("status") != "solved":
+        return "failed"
+    return "converged" if record.get("qualified") else "max_time"
+
+
 def _key(record: dict) -> tuple:
     return (int(record["shot"]), round(float(record["time_efit_s"]), 4),
             str(record["efit_lineage"]), round(float(record["r_over_a"]), 3),
@@ -105,6 +119,7 @@ def build_rows(root: Path) -> list[dict]:
             "r_over_a": key[3], "field_model": key[4], "ky": key[5],
             "cgyro_gamma": c_gamma, "cgyro_omega": c_omega,
             "cgyro_qualified": bool(c.get("qualified", False)),
+            "cgyro_status": _cgyro_status(c),
             "cgyro_exit": c.get("exit_message"), "cgyro_sim_time": c.get("sim_time"),
             "tglf_gamma": tglf_gamma, "tglf_omega": tglf_omega,
             "gamma_ratio": ratio,

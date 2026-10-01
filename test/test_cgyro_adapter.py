@@ -426,3 +426,11 @@ def test_importing_the_suite_does_not_need_gacode():
 
     assert "cgyro" in gacode.SUPPORTED_CODES
     assert gacode.cgyro is cgyro
+
+
+def test_an_amplitude_underflow_is_classified_as_decayed_not_solved(tmp_path):
+    run = collect_cgyro_outputs(write_run(
+        tmp_path / "run", error="Underflow in calculation of frequency error", exit_message=None))
+    assert run.decayed and not run.solved
+    other = collect_cgyro_outputs(write_run(tmp_path / "b", error="Only one electron species allowed"))
+    assert not other.decayed

@@ -156,7 +156,8 @@ def _run_cgyro_job(job: dict, workdir: Path) -> dict:
     omega = None if native is None else native.frequency_ion_negative
     record = {
         **job["meta"], "code": "cgyro",
-        "status": "solved" if result.ok else "failed",
+        "status": ("solved" if result.ok
+                   else "decayed" if native is not None and native.decayed else "failed"),
         "qualified": bool(result.qualified),
         "runtime_status": result.runtime_status, "returncode": result.returncode,
         "elapsed_s": result.elapsed_s,
