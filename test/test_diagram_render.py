@@ -164,3 +164,30 @@ def test_the_committed_assets_are_checked_out_with_lf_everywhere():
     if out.returncode != 0:
         pytest.skip("not a git checkout")
     assert out.stdout.count("eol: lf") == 2, out.stdout
+
+
+def test_check_reports_a_raising_builder_and_goes_on(tmp_path, monkeypatch):
+    """One builder raising aborted the whole freshness report with a traceback; it is now one problem line and
+    the other assets are still checked. Cold review 0.8.0 diagram-A F4."""
+    _copy_assets(tmp_path)
+    monkeypatch.setitem(build.CANONICAL, "magnetic_island_top.svg", ("magnetic_island", {"projection": "nope"}))
+    problems = build.check(tmp_path)
+    assert problems == [p for p in problems if "magnetic_island_top.svg" in p and "builder raised ValueError" in p]
+    assert len(problems) == 1
+
+
+def test_the_tex_pipe_is_decoded_as_utf8_with_replacement(monkeypatch, tmp_path):
+    """``text=True`` alone decodes with the locale codec and strict errors, so a stray byte in a TeX message
+    raised UnicodeDecodeError instead of the render's own report. Cold review 0.8.0 diagram-A F5."""
+    seen = {}
+
+    class _Done:
+        returncode, stdout, stderr = 0, "", ""
+
+    def fake_run(cmd, **kwargs):
+        seen.update(kwargs)
+        return _Done()
+
+    monkeypatch.setattr(_render.subprocess, "run", fake_run)
+    _render._run(["latex"], tmp_path, "latex")
+    assert seen["encoding"] == "utf-8" and seen["errors"] == "replace" and seen["text"] is True

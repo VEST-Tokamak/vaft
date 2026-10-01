@@ -748,7 +748,7 @@ def read_flare_boundary(path: str | Path) -> FlareBoundary:
             "equilibrium."
         )
     parser = configparser.ConfigParser()
-    parser.read(source)
+    parser.read(source, encoding="utf-8")
 
     contours: list[np.ndarray] = []
     declared: list[str] = []

@@ -8,8 +8,12 @@ imports only what topic ``x`` needs.
 
 Rules every provider keeps:
 
-- read only: no environment variable, rcParams entry, backend or file is
-  written; nothing is installed, launched or contacted over the network;
+- read only: a provider writes no environment variable, rcParams entry,
+  backend or file, and installs, launches or contacts nothing.  A topic does
+  import the subsystem it describes, and the first import of a subsystem can
+  carry its libraries' own import-time effects (Matplotlib building its font
+  cache, omas compiling its Cython helpers).  ``database``, ``code`` (probe
+  included), ``validation``, ``data`` and ``cli`` avoid those imports entirely;
 - no secret: HSDS configuration is reported through
   :func:`vaft.database.hscfg.configured_keys` (key *names*) and never through
   a function that returns values.
@@ -17,8 +21,9 @@ Rules every provider keeps:
 
 from __future__ import annotations
 
+import ast
+import importlib
 import importlib.util
-import inspect
 import os
 import sys
 from collections import Counter
@@ -215,17 +220,42 @@ def plot_item(query: str):
 _PUBLIC_HS_KEYS = (("endpoint", "hs_endpoint", "HS_ENDPOINT"), ("username", "hs_username", "HS_USERNAME"))
 
 
-def database(topic, *, probe: bool = False) -> dict:
-    import vaft.database as db
-    from vaft.database import hscfg, sources
+def _load_defaults() -> dict[str, object]:
+    """Keyword defaults of :func:`vaft.database.load`, read from its source.
 
-    load = inspect.signature(db.load).parameters
+    Resolving ``vaft.database.load`` imports omas, IMAS and Matplotlib; the
+    signature is all help needs, so it is read with :mod:`ast` instead.
+    """
+    try:
+        origin = importlib.util.find_spec("vaft.database").origin
+        with open(origin, encoding="utf-8") as handle:
+            tree = ast.parse(handle.read(), filename=origin)
+    except (OSError, SyntaxError, TypeError, ValueError):  # e.g. no source shipped
+        return {}
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == "load":
+            return {
+                arg.arg: ast.literal_eval(default)
+                for arg, default in zip(node.args.kwonlyargs, node.args.kw_defaults)
+                if isinstance(default, ast.Constant)
+            }
+    return {}
+
+
+def database(topic, *, probe: bool = False) -> dict:
+    # Imported by full name, never ``from vaft.database import hscfg``: that
+    # form first asks the package's ``__getattr__``, whose fallback imports the
+    # h5pyd/omas I/O modules (``hscfg`` is not in ``vaft.database.__all__``).
+    hscfg = importlib.import_module("vaft.database.hscfg")
+    sources = importlib.import_module("vaft.database.sources")
+
+    load = _load_defaults()
     defaults = (
         Default("source", sources.DEFAULT_SOURCE, "data-access", "source=None in load/open/save"),
         Default("loading", "load: eager, open: lazy", "data-access", "pick the function, not a flag"),
-        Default("representation", str(load["representation"].default), "data-access"),
-        Default("cache", str(load["cache"].default), "data-access"),
-        Default("transport", str(load["transport"].default), "data-access"),
+        Default("representation", str(load.get("representation", "see vaft.database.load")), "data-access"),
+        Default("cache", str(load.get("cache", "see vaft.database.load")), "data-access"),
+        Default("transport", str(load.get("transport", "see vaft.database.load")), "data-access"),
     ) + _SCIENTIFIC[:2]
 
     path = hscfg.active_path()
@@ -267,86 +297,43 @@ def database_item(name: str):
 
 
 # -- code --------------------------------------------------------------------
-def _gpec():
-    from vaft.code.gpec import find_gpec_executable
-
-    return find_gpec_executable("dcon")
-
-
-def _efit():
-    from vaft.code.efit.magnetic import find_efit_executable
-
-    return find_efit_executable()
-
-
-def _chease():
-    from vaft.code.chease import find_chease_executable
-
-    return find_chease_executable()
-
-
-def _gacode():
-    from vaft.code.gacode._runtime import find_gacode_executable
-
-    return find_gacode_executable(code="neo")
-
-
-def _nubeam():
-    from vaft.code.nubeam.runner import find_nubeam_executable
-
-    return find_nubeam_executable()
-
-
-def _genray():
-    from vaft.code.genray.runner import find_genray_executable
-
-    return find_genray_executable()
-
-
-def _flare():
-    from vaft.code.flare import flare_executable
-
-    return flare_executable()
-
-
-#: (display name, installation-root variable, finder or None).
+#: (display name, installation-root variable, executable beneath that root).
+#: The layouts are the adapters' own ``*_HOME_EXECUTABLE`` constants (pinned by
+#: test/test_help.py); they are restated here because importing an adapter
+#: module pulls in omas and the database layer.
 CODES = (
-    ("EFIT", "EFITHOME", _efit),
-    ("CHEASE", "CHEASEHOME", _chease),
-    ("GPEC", "GPECHOME", _gpec),
-    ("GACODE", "GACODEHOME", _gacode),
-    ("NUBEAM", "NUBEAMHOME", _nubeam),
-    ("GENRAY", "GENRAYHOME", _genray),
-    ("FLARE", "FLAREHOME", _flare),
-    ("TES", "TESHOME", None),
+    ("EFIT", "EFITHOME", "bin/efit"),
+    ("CHEASE", "CHEASEHOME", "bin/chease"),
+    ("GPEC", "GPECHOME", "bin/dcon"),
+    ("GACODE", "GACODEHOME", "neo/bin/neo"),
+    ("NUBEAM", "NUBEAMHOME", "bin/nubeam_comp_exec"),
+    ("GENRAY", "GENRAYHOME", "bin/xgenray"),
+    ("FLARE", "FLAREHOME", "bin/flare"),
+    ("TES", "TESHOME", "bin/rtes"),
 )
 
 
-def _probe(finder, home_set: bool) -> str:
-    """Ask an adapter's own finder; never launch anything.
+def _probe(name: str, variable: str, relative: str) -> str:
+    """Look for one executable under its ``$HOME``; run nothing."""
+    from vaft.code._executables import executable_from_home
 
-    Adapters differ in how they say "not configured" -- some return ``None``,
-    some raise -- so an error only means a broken install when the code's
-    installation root is actually set.
-    """
     try:
-        found = finder()
-    except Exception as error:  # noqa: BLE001 - FileNotFoundError, PermissionError, or an import
-        return f"broken install ({type(error).__name__})" if home_set else "unavailable"
+        found = executable_from_home(
+            os.environ.get(variable), home_variable=variable, relative_path=relative, code_name=name
+        )
+    except (FileNotFoundError, PermissionError) as error:
+        return f"broken install ({type(error).__name__})"
     return "available" if found else "unavailable"
 
 
 def code(topic, *, probe: bool = False) -> dict:
     rows = []
-    for name, variable, finder in CODES:
-        home_set = bool(os.environ.get(variable))
-        home = f"${variable} {'set' if home_set else 'unset'}"
-        if probe and finder is not None:
-            rows.append((name, f"{_probe(finder, home_set)}  ({home})"))
-        else:
-            rows.append((name, home))
+    for name, variable, relative in CODES:
+        home = f"${variable} {'set' if os.environ.get(variable) else 'unset'}"
+        rows.append((name, f"{_probe(name, variable, relative)}  ({home})" if probe else home))
     note = (
-        "probed each adapter's executable finder (no process was launched)"
+        "looked for each executable under its $HOME layout; nothing was run "
+        "(adapters may also accept an explicit executable or a legacy variable)"
         if probe
         else "vaft.help('code', probe=True) or `vaft help code --probe` looks for the executables"
     )
@@ -382,7 +369,11 @@ def data(topic, *, probe: bool = False) -> dict:
 def data_item(shot: str):
     from vaft.data import resources
 
-    return resources.sample_manifest(int(shot))
+    try:
+        number = int(shot)
+    except ValueError:
+        raise ValueError(f"sample shot must be an integer, got {shot!r}") from None
+    return resources.sample_manifest(number)
 
 
 # -- omas / imas -------------------------------------------------------------

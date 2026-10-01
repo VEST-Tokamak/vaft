@@ -73,6 +73,24 @@ def test_the_machine_scene_places_only_what_the_data_state(sample):
     assert len(wall) == 6 and sum(bool(layer.label) for layer in wall) == 1
 
 
+def test_the_machine_scene_says_when_it_skips_a_broken_coil_set(sample):
+    """F5: what coil_3d_geometry3d refuses is not dropped from the composed scene silently."""
+    ods = ODS(consistency_check=False)
+    ods.update(sample)
+    elements = "coils_non_axisymmetric.coil.0.conductor.0.elements"
+    ods["coils_non_axisymmetric.coil.0.name"] = "MID sector 1"
+    for end in ("start_points", "end_points"):
+        ods[f"{elements}.{end}.r"] = np.full(5, 0.6)
+        ods[f"{elements}.{end}.phi"] = np.linspace(0.0, 0.1, 7)  # not the r/z length
+        ods[f"{elements}.{end}.z"] = np.zeros(5)
+    with pytest.raises(ValueError, match="broadcast"):
+        vaft.plot.extract("coil_3d_geometry3d", ods)
+    with pytest.warns(UserWarning, match="coils_non_axisymmetric skipped .*broadcast"):
+        scene = vaft.plot.extract("machine_geometry3d", ods)
+    assert not any("coils_non_axisymmetric" in layer.group for layer in scene.layers)
+    assert {layer.group.split("/")[0] for layer in scene.layers} == {"machine", "equilibrium", "diagnostics"}
+
+
 class TestPyVista:
     @pytest.fixture(autouse=True)
     def _pyvista(self):

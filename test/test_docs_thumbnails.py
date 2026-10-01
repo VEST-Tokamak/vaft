@@ -94,11 +94,20 @@ def test_a_manifest_entry_for_an_unknown_plot_is_a_problem(assets):
     assert f"no_such_plot: recorded in {docs_thumbnails.MANIFEST} but no longer a registered plot" in problems
 
 
-def test_a_registered_plot_without_an_entry_is_a_problem(assets):
+def test_a_newly_registered_plot_without_an_entry_only_warns(assets):
+    """A plot registered after the last render must not break the docs build (#1270)."""
+    name = _first_rendered(assets)
+    _rewrite(assets, lambda plots: plots.pop(name))
+    (assets / f"{name}.png").unlink()
+    problems, notes = docs_thumbnails.check(assets)
+    assert problems == []
+    assert any(note.startswith(f"{name}: registered plot has no entry") for note in notes)
+
+
+def test_a_png_without_its_manifest_entry_is_still_a_problem(assets):
     name = _first_rendered(assets)
     _rewrite(assets, lambda plots: plots.pop(name))
     problems, _ = docs_thumbnails.check(assets)
-    assert any(problem.startswith(f"{name}: registered plot has no entry") for problem in problems)
     assert f"{name}.png: committed but {docs_thumbnails.MANIFEST} records it as not rendered" in problems
 
 
@@ -153,6 +162,62 @@ def test_the_view_model_hash_is_stable_and_sensitive(small_sample):
     assert one == two
     other = docs_thumbnails.model_sha256(vaft.plot.extract("equilibrium_time_beta_p", small_sample))
     assert other != one
+
+
+def test_the_view_model_hash_is_blind_to_the_last_bits_of_a_build():
+    """26 of 109 committed hashes disagreed between numpy 2.5.3 and 2.4.3 (cold review 0.8.0 docs F5).
+
+    ``_feed`` hashed exact float bytes, so an FFT or a Green's function that
+    differs in its last bit on another numpy/scipy build read as "the data it
+    draws changed".  The hash now quantises floats: one ulp is nothing, one
+    element moved by a percent, or the whole array by a factor, is a change.
+    """
+    import numpy as np
+
+    x = np.linspace(-3.0, 7.0, 1001) ** 3 * 1e-9
+    model = {"spectrum": x, "limits": [1.2, "label", None, True, 3], "complex": np.array([1 + 2j, 3 - 4j]),
+             "edge": np.array([np.nan, 0.0, -0.0, np.inf])}
+    reference = docs_thumbnails.model_sha256(model)
+    assert docs_thumbnails.model_sha256({
+        **model, "spectrum": np.nextafter(x, np.inf), "edge": np.array([np.nan, -0.0, 0.0, np.inf]),
+        "limits": [1.2 + 1e-12, "label", None, True, 3],
+    }) == reference
+    assert docs_thumbnails.model_sha256({**model, "spectrum": 2.0 * x}) != reference
+    assert docs_thumbnails.model_sha256({**model, "spectrum": x * (1.0 + 1e-4)}) != reference
+    assert docs_thumbnails.model_sha256(
+        {**model, "spectrum": np.where(np.arange(x.size) == 500, 1.01 * x, x)}) != reference
+    assert docs_thumbnails.model_sha256({**model, "limits": [1.3, "label", None, True, 3]}) != reference
+
+
+def test_the_fallback_hash_carries_no_memory_address():
+    class Opaque:
+        pass
+
+    assert docs_thumbnails.model_sha256([Opaque()]) == docs_thumbnails.model_sha256([Opaque()])
+
+
+def test_the_committed_model_hashes_follow_the_current_rule(small_sample):
+    """A hashing-rule change without ``--rehash`` would report every thumbnail stale on ``--check``."""
+    entry = _manifest(ASSETS)["plots"][CHEAP_PLOT]
+    assert entry["status"] == "rendered" and entry["shot"] == SMALL_SHOT
+    assert entry["model_sha256"] == docs_thumbnails.model_sha256(vaft.plot.extract(CHEAP_PLOT, small_sample))
+
+
+def test_rehash_rewrites_only_the_model_hashes(assets, small_sample):
+    _rewrite(assets, lambda plots: plots[CHEAP_PLOT].update(model_sha256="0" * 64))
+    before = _manifest(assets)
+    changed = docs_thumbnails.rehash(assets, only=[CHEAP_PLOT])
+    after = _manifest(assets)
+    assert changed == [CHEAP_PLOT]
+    assert after["plots"][CHEAP_PLOT]["model_sha256"] == docs_thumbnails.model_sha256(
+        vaft.plot.extract(CHEAP_PLOT, small_sample))
+    assert after["toolchain"] == before["toolchain"], "nothing was rendered"
+    for key, value in before["plots"][CHEAP_PLOT].items():
+        if key != "model_sha256":
+            assert after["plots"][CHEAP_PLOT][key] == value, key
+    assert {name: entry for name, entry in after["plots"].items() if name != CHEAP_PLOT} == {
+        name: entry for name, entry in before["plots"].items() if name != CHEAP_PLOT}
+    assert (assets / f"{CHEAP_PLOT}.png").read_bytes() == (ASSETS / f"{CHEAP_PLOT}.png").read_bytes()
 
 
 def test_a_crlf_checkout_hashes_like_an_lf_one(tmp_path):

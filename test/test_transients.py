@@ -82,6 +82,15 @@ class TestCurrentQuench:
         assert smooth.didt_min == pytest.approx(-IP0 / QUENCH_S, rel=0.1)
         assert raw.didt_min < smooth.didt_min  # noise only makes the raw minimum deeper
 
+    def test_a_two_sample_record_is_timed_with_or_without_smoothing(self):
+        """F9: a Savitzky-Golay window needs three samples; a two-sample fall has one slope."""
+        for smoothing in (None, 1e-4):
+            result = current_quench([0.0, 1e-4], [1.0, 0.0], smoothing_s=smoothing)
+            assert result.duration_80_20 == pytest.approx(0.6e-4)
+            assert result.didt_min == pytest.approx(-1e4)
+        result = current_quench([0.0, 1e-4, 2e-4], [1.0, 0.5, 0.0], smoothing_s=1e-4)
+        assert np.isfinite(result.duration_80_20)
+
     def test_an_explicit_reference_moves_the_crossings(self):
         time, ip = _ip()
         result = current_quench(time, ip, reference_current=100_000.0)

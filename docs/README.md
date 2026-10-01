@@ -78,8 +78,10 @@ The pictures on `/reference/plot/` are committed, not drawn by the build.
 `python -m vaft.plot.docs_thumbnails` renders each registered plot from the first
 packaged sample that can draw it into `assets/plots/<name>.png`, and records in
 `assets/plots/manifest.json` the sample, renderer and view-model hashes it was
-drawn from (or why a plot has no picture). A missing, orphaned or hand-edited
-thumbnail fails the build; a stale one -- its renderer or sample changed since --
+drawn from (or why a plot has no picture). An orphaned or hand-edited thumbnail,
+or a recorded one whose PNG is missing, fails the build. A newly registered plot
+with no manifest entry yet only warns: its page says it has no thumbnail until
+the next render. A stale thumbnail (its renderer or sample changed since) also
 only warns and is labelled on the page. Re-render after changing a renderer with
 the same command (a few minutes; `--only NAME` for one plot), and run
 `--check` to also compare the view models, which needs the samples.

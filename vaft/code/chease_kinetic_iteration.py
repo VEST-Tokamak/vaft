@@ -617,15 +617,36 @@ def _per_radian(geqdsk) -> tuple[Any, str | None]:
     return converted, f"converted from the declared COCOS {index} (psi per weber) to COCOS {index - 10} (#1292)"
 
 
+_ACCEPTED_INITIAL = ("a g-file path, a GEQDSK, a g-file mapping, an ODS, a #120 "
+                     "SyntheticEquilibriumResult or a #1378 MultiTargetSynthesisResult")
+
+
 def _coerce_initial(equilibrium):
-    """A per-radian GEQDSK from a path, GEQDSK, mapping, ODS or a #120 ``SyntheticEquilibriumResult``."""
+    """A per-radian GEQDSK from a path, GEQDSK, mapping, ODS, a #120
+    ``SyntheticEquilibriumResult`` or a #1378 ``MultiTargetSynthesisResult``
+    (the g-file of the solve it reports)."""
+    from .chease_synthesis_targets import MultiTargetSynthesisResult
+
+    if isinstance(equilibrium, MultiTargetSynthesisResult):
+        # The #1378 result carries the g-file through the solve it reports; it
+        # used to fall through to _coerce_geqdsk and die with "not subscriptable"
+        # (cold review 0.8.0 plasma-state-and-chease F3).
+        if not equilibrium.ok or equilibrium.result is None:
+            raise ValueError(f"the #1378 multi-target synthesis did not succeed ({equilibrium.status}"
+                             f"{': ' + str(equilibrium.reason) if equilibrium.reason else ''}); "
+                             "nothing to iterate from")
+        equilibrium = equilibrium.result
     refined = getattr(equilibrium, "refined_geqdsk", None)
     if hasattr(equilibrium, "spec") and hasattr(equilibrium, "achieved_profiles"):
         if not equilibrium.ok or refined is None:
             raise ValueError(f"the #120 synthesis did not succeed ({equilibrium.status}); nothing to iterate from")
         geqdsk, label = _coerce_geqdsk(refined), f"#120 synthesized equilibrium ({refined})"
     else:
-        geqdsk = _coerce_geqdsk(equilibrium)
+        try:
+            geqdsk = _coerce_geqdsk(equilibrium)
+        except (TypeError, KeyError, AttributeError) as error:
+            raise ValueError(f"equilibrium must be {_ACCEPTED_INITIAL}; "
+                             f"got {type(equilibrium).__name__}: {error}") from error
         label = str(getattr(equilibrium, "source", "") or type(equilibrium).__name__)
     geqdsk, note = _per_radian(geqdsk)
     return geqdsk, label, note

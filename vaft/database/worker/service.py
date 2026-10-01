@@ -20,7 +20,7 @@ from . import state as S
 from .classify import RAW_ONLY, Classifier, ShotObservation, load_classifier
 from .config import WorkerConfig, load_pipeline_config
 from .poll import ShotSource, SqlShotSource, upload_finished
-from .runner import RunPlan, RunResult, SnakemakeRunner
+from .runner import RunPlan, RunResult, SnakemakeRunner, live_snakemake_in
 from .status import PipelineHarvester
 
 
@@ -136,6 +136,13 @@ class PipelineWorker:
         moved aside (never deleted) into the worker's log directory; the next
         run re-exports it, and Snakemake re-runs everything downstream of the
         now newer dump, replication included.
+
+        Not while another Snakemake works in the workflow directory: a manual
+        run on the same shot would lose its input mid-run (the worker's own
+        batch only starts after this step, so any live process is somebody
+        else's).  The shot is then left as it is and looked at again next
+        cycle; a host that cannot tell (``live_snakemake_in`` is ``None``)
+        defers too, as ``unlock_if_stale`` does.
         """
         if self.config.recheck_seconds <= 0:
             return
@@ -144,6 +151,7 @@ class PipelineWorker:
         if not candidates:
             return
         current = self.source.field_codes_by_shot([row["shot"] for row in candidates])
+        workflow_busy: bool | None = None  # scanned once per cycle, only when a shot needs it
         for row in candidates:
             shot = row["shot"]
             baseline = frozenset(row["field_codes"] or ())
@@ -156,6 +164,13 @@ class PipelineWorker:
                 self.state.event("late_fields_ignored", shot=shot,
                                  detail=f"{late}; max_reprocess={self.config.max_reprocess} reached")
                 self.state.set_field_codes(shot, current[shot])
+                continue
+            if workflow_busy is None:
+                workflow_busy = live_snakemake_in(self.config.workflow_dir) is not False
+            if workflow_busy:
+                detail = f"late fields {late} arrived; another Snakemake works in {self.config.workflow_dir}"
+                self.state.event("recheck_deferred", shot=shot, detail=detail)
+                logger.info("shot %s: reprocessing deferred; %s", shot, detail)
                 continue
             moved = self._supersede_raw(shot)
             reason = f"late fields {late} arrived after processing" + (

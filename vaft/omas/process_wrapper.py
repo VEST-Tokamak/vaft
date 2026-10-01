@@ -3599,9 +3599,13 @@ def compute_diamagnetism(ods, time_index=0):
 
     V_p = None
     if "profiles_1d.volume" in eq_slice:
+        # IMAS profiles_1d.volume is the volume ENCLOSED by each flux surface,
+        # cumulative from 0 on the axis to the plasma volume at the LCFS; the
+        # normaliser is its LCFS value (update_equilibrium_global_quantities_volume
+        # reads the same profile's last point), not its mean.
         vol = np.asarray(eq_slice["profiles_1d.volume"], float)
         if vol.size >= 1 and np.isfinite(vol).any():
-            V_p = float(np.nanmean(vol))
+            V_p = float(np.nanmax(vol))
     if V_p is None or V_p <= 0:
         R_bc = np.append(R_bdry, R_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else R_bdry
         Z_bc = np.append(Z_bdry, Z_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else Z_bdry
@@ -4739,10 +4743,26 @@ def compute_romero_flux_balance_ods(
     )
     from vaft.process.equilibrium import as_equilibrium, romero_flux_balance
 
-    times = np.asarray(ods["equilibrium.time"], dtype=float)
+    # Read by membership: on a consistency_check=False ODS a bare subscript
+    # of a missing leaf attaches an empty node that `in` and flat() then hide
+    # but keys() and save() show. Slices that carry their own `time` are the
+    # fallback; a slice without either is NaN and falls out of the selection.
+    if "equilibrium.time" in ods:
+        times = np.asarray(ods["equilibrium.time"], dtype=float).reshape(-1)
+    elif "equilibrium.time_slice" in ods:
+        slices = ods["equilibrium.time_slice"]
+        times = np.asarray(
+            [
+                float(slices[i]["time"]) if "time" in slices[i] else np.nan
+                for i in range(len(slices))
+            ],
+            dtype=float,
+        )
+    else:
+        times = np.asarray([], dtype=float)
     selected = [
         i for i, t in enumerate(times)
-        if time_range is None or (time_range[0] <= t <= time_range[1])
+        if np.isfinite(t) and (time_range is None or (time_range[0] <= t <= time_range[1]))
     ]
     if len(selected) < 3:
         raise ValueError(

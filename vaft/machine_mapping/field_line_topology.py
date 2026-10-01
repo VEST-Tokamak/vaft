@@ -170,21 +170,43 @@ def _time_base(ods: ODS, ids: str, time: float) -> int:
     the new instant sorted into. An out-of-order write is refused rather than
     reordered: the caller knows its own time order and the IDS cannot.
     """
-    ods[f"{ids}.ids_properties.homogeneous_time"] = 1
+    time = _finite_instant(time)
     existing = _time_index(ods, ids, time)
     if existing is not None:
+        ods[f"{ids}.ids_properties.homogeneous_time"] = 1
         return existing
     times = np.atleast_1d(np.asarray(path_value(ods, f"{ids}.time", []), dtype=float))
     times = times[np.isfinite(times)] if times.size else times
-    if times.size and float(time) < float(times[-1]):
+    if times.size and time < float(times[-1]):
         raise ValueError(
             f"{ids}.time already reaches {float(times[-1])!r} s and this is "
-            f"{float(time)!r} s. Entries are appended in the order they are "
+            f"{time!r} s. Entries are appended in the order they are "
             "written, so a time base stays sorted only if its instants do; "
             "write them in increasing order."
         )
-    ods[f"{ids}.time"] = np.concatenate([times, [float(time)]])
+    # Every refusal is above this line, so a refused write leaves even the
+    # homogeneous_time flag as it found it (cold review 0.8.0
+    # perturbation-topology-sxr F4).
+    ods[f"{ids}.ids_properties.homogeneous_time"] = 1
+    ods[f"{ids}.time"] = np.concatenate([times, [time]])
     return int(times.size)
+
+
+def _finite_instant(time) -> float:
+    """``time`` as a finite float, or a refusal.
+
+    Both time bases are compacted to their finite samples before an instant
+    is matched or appended, so a NaN instant was acknowledged, stored, and
+    then silently dropped -- with its data slot overwritten -- by the next
+    finite write (cold review 0.8.0 perturbation-topology-sxr N1).
+    """
+    try:
+        value = float(time)
+    except (TypeError, ValueError):
+        raise ValueError(f"time must be a finite instant in seconds, not {time!r}") from None
+    if not np.isfinite(value):
+        raise ValueError(f"time must be a finite instant in seconds, not {value!r}")
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +323,7 @@ def write_b_field_lines(
 
     # Every refusal comes before the first write, so a rejected plane leaves
     # the ODS exactly as it found it rather than half updated.
+    time = _finite_instant(time)
     recorded = _plane_times(ods)
     if any(existing == float(time) for existing in recorded):
         raise ValueError(
@@ -618,6 +641,7 @@ def write_divertor_incident_fractions(
         instant sums past one even when it names only targets nobody has
         written yet.
     """
+    time = _finite_instant(time)
     if len(fractions) < 2:
         raise ValueError(
             f"a share needs something to be a share of; {len(fractions)} "

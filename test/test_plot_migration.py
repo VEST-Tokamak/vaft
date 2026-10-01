@@ -323,3 +323,44 @@ def test_renamed_omas_adapters_warn_and_delegate(name):
             adapter(object())
     assert any(item.category is DeprecationWarning for item in caught)
     assert f"plot_{RENAMED[name]}" in str(caught[0].message)
+
+
+def _release_tuple(text):
+    return tuple(int(part) for part in text.split("."))
+
+
+def _documented_removal_releases():
+    """Every release a removal is promised for, from the constants and from
+    literal ``removed in X.Y.Z`` sentences anywhere in the package source."""
+    import pathlib
+    import re
+
+    found = {
+        "vaft.plot._migration.REMOVAL_RELEASE": REMOVAL_RELEASE,
+        "vaft.plot._migration.RENAMED_REMOVAL_RELEASE": RENAMED_REMOVAL_RELEASE,
+    }
+    package = pathlib.Path(vaft.plot.__file__).resolve().parents[1]
+    pattern = re.compile(r"[Rr]emoved in (\d+\.\d+\.\d+)")
+    for path in sorted(package.rglob("*.py")):
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            for match in pattern.finditer(line):
+                found[f"{path.relative_to(package.parent)}:{number}"] = match.group(1)
+    return found
+
+
+def test_no_removal_promise_has_reached_the_current_version():
+    """A name that says "removed in X" must be gone by the time X ships.
+
+    0.7.0 and 0.7.1 both shipped the legacy plot names past their promised
+    removal, and 0.8.0 nearly shipped the renamed ones.  Any documented removal
+    release still in the tree has to lie strictly beyond ``vaft.__version__``;
+    the release that reaches it either deletes the names or re-dates them.
+    """
+    import vaft
+
+    current = _release_tuple(vaft.__version__.split("+")[0].split("rc")[0].split(".dev")[0])
+    promises = _documented_removal_releases()
+    assert promises, "the scan found no removal promise at all; the pattern is broken"
+    overdue = {where: release for where, release in promises.items()
+               if _release_tuple(release) <= current}
+    assert not overdue, f"removal promised for a release already reached ({vaft.__version__}): {overdue}"

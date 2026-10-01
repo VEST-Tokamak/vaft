@@ -12,9 +12,12 @@ no file, no network), and it never prints a secret.
 
 The result is data (:class:`~vaft._help._model.HelpPage`, with
 :meth:`~vaft._help._model.HelpPage.as_dict`) that renders as text when
-printed and as Markdown in a notebook.  A topic imports only the subsystem
-it describes, when it is asked for; ``import vaft`` and ``vaft.help`` itself
-import none.
+printed and as Markdown in a notebook.  ``import vaft``, ``vaft.help`` and
+the overview import no subsystem; a topic imports only the subsystem it
+describes, when it is asked for.  Help itself writes nothing, but the first
+import of a subsystem can carry its libraries' own import-time effects
+(Matplotlib building its font cache for ``plot``, omas compiling helpers for
+``omas``/``imas``/``process``).
 """
 
 from __future__ import annotations
@@ -49,9 +52,9 @@ def help(topic: str | None = None, item: str | None = None, *, probe: bool = Fal
         check, sample shot or command.  It is answered by the topic's own
         describe/catalog function, whose object is returned as is [-].
     probe : bool, optional
-        For ``"code"``: look for each external code's executable through its
-        adapter instead of reporting only whether its ``*HOME`` is set.
-        Nothing is launched either way [-].
+        For ``"code"``: look for each external code's executable under its
+        ``*HOME`` instead of reporting only whether the variable is set.
+        Nothing is launched either way; other topics ignore it [-].
 
     Returns
     -------

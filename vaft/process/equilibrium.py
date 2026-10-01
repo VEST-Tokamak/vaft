@@ -3369,8 +3369,12 @@ def _record_bp_factor(caller, convention):
 
     A declared index settles it.  An open index is settled when every
     remaining candidate (in the record's storage family, if known) gives the
-    same prefactor; candidates that disagree on the orientation cannot be
-    resolved by assuming one, so that is refused (#1313).
+    same prefactor.  Candidates that disagree on the orientation -- the
+    ``(1, 2)`` a g-file without a ``COCOS=`` token leaves, or the ``(11, 12)``
+    its ``to_omas()`` leaves -- cannot be narrowed from the signs alone, so
+    ``None`` hands the record to the same assumed-orientation path, and the
+    same ``UserWarning``, the array form takes on those arrays (#1313; cold
+    review 0.8.0 equilibrium-representation F1).
     """
     from vaft.data.cocos import cocos_spec
 
@@ -3384,13 +3388,6 @@ def _record_bp_factor(caller, convention):
     if not candidates:
         return None
     factors = {cocos_spec(c).bp_factor for c in candidates}
-    if len({np.sign(k) for k in factors}) > 1:
-        raise ValueError(
-            f"{caller}: the equilibrium record leaves COCOS open between {candidates}, "
-            "which disagree on the direction of the poloidal field; declare the index "
-            "(as_equilibrium(source, convention=N), or equilibrium.code.parameters.cocos "
-            "on the ODS)"
-        )
     if len(factors) == 1:
         return factors.pop()
     return None
@@ -3404,7 +3401,8 @@ def _field_inputs(caller, R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, cocos, p
     prefactor follows the record rather than the caller's memory.  The array
     form carries no unit, so what the arguments leave unstated -- the storage
     family, the orientation -- is an assumption, announced rather than taken
-    silently (#1313).  Contradictory or unresolvable conventions raise.
+    silently (#1313).  A contradictory convention raises; an open orientation
+    is assumed and announced, for a record as for arrays.
     """
     from vaft.data.equilibrium import EquilibriumData
     from vaft.formula.equilibrium import poloidal_field_factor
@@ -3557,7 +3555,9 @@ def equilibrium_field_on_grid(
     so (#1313); a weber flux then gives a field ``2*pi`` too large. With the
     storage family but no index, the orientation is assumed (``k < 0``) and
     the warning says that instead; a record's open candidates settle it when
-    they agree and raise when they do not.
+    they agree, and leave it to the same announced assumption when they do
+    not (the packaged g-file, open between COCOS 1 and 2, warns like its
+    arrays do).
     Outside the confined region the poloidal current function clips to its
     nearest edge value, the clip-and-interpolate convention
     :func:`psi_to_rz` uses, so the toroidal field there is that clipped
@@ -3671,7 +3671,9 @@ def make_equilibrium_field_interpolator(
     equilibrium carries, then gives a field ``2*pi`` too large. With the
     storage family but no index, the orientation is assumed (``k < 0``) and
     the warning says that instead; a record's open candidates settle it when
-    they agree and raise when they do not.
+    they agree, and leave it to the same announced assumption when they do
+    not (the packaged g-file, open between COCOS 1 and 2, warns like its
+    arrays do).
     The poloidal current function is defined only from axis to boundary. Points
     outside that range, in the scrape-off layer, clip to the nearest edge value,
     the same clip-and-interpolate convention :func:`psi_to_rz` uses. That is an
@@ -6469,6 +6471,10 @@ def integrate_romero_closure(
     if not (np.isfinite(L_i0) and L_i0 > 0.0):
         raise ValueError(f"L_i0 must be finite and positive; got {L_i0!r}")
 
+    # anti-alias: upsampling only -- the caller's own V_B, R_p and I_ni
+    # histories are read at the integrator's sub-steps between their samples;
+    # no rate is reduced and no sample is dropped (cold review 0.8.0
+    # equilibrium-representation F3).
     def rates(tt, state):
         current, inductance, relative = state
         v_r = np.interp(tt, t, r_p) * (current - np.interp(tt, t, i_ni))

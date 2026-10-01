@@ -68,6 +68,14 @@ REQUIRED_FILES = {
     # ``prune vaft/data`` in MANIFEST.in would drop the subpackage from the sdist.
     "vaft/data/public/__init__.py",
     "vaft/data/shotlog/schemas/common.yaml",
+    # Runtime data outside vaft/data: ``_allowed_data_file`` never looks there,
+    # so only this set notices a distribution that lacks them.
+    # The revision-pinned VEST NICE parameters and the compatibility header
+    # NICE builds are force-included with (vaft.code.nice).
+    "vaft/code/nice/vest_reference_param.xml",
+    "vaft/code/nice/upstream_compat.h",
+    # The TikZ template every vaft.diagram scene renders into.
+    "vaft/diagram/templates/standalone.tex",
 } | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES}
 
 

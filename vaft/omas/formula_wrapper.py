@@ -1,4 +1,6 @@
 from typing import List, Tuple, Dict, Any, Optional
+import hashlib
+import weakref
 import numpy as np
 
 from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
@@ -36,15 +38,41 @@ from vaft.formula.equilibrium import (
 )
 from vaft.formula.constants import _SCALING_COEFS
 
-_POWER_BALANCE_CACHE: Dict[int, Dict[str, ndarray]] = {}
-_POWER_BALANCE_CACHE_SIGNATURE: Dict[int, Tuple[int, int]] = {}
+# One entry per live ODS: id(ods) -> (content signature, power balance).
+# An ODS is unhashable (omas 0.95.2 says so explicitly), so it cannot key a
+# WeakKeyDictionary; the entry is evicted by a weakref.finalize on the ODS
+# instead, so a freed id reused by a later ODS never finds a stale entry.
+_POWER_BALANCE_CACHE: Dict[int, Tuple[bytes, Dict[str, ndarray]]] = {}
+
+_POWER_BALANCE_INPUT_IDS = ("equilibrium", "core_profiles")
 
 
-def _power_balance_signature(ods: ODS) -> Tuple[int, int]:
-    """Create a lightweight signature for per-ODS power-balance caching."""
-    n_eq = len(ods['equilibrium.time_slice']) if 'equilibrium.time_slice' in ods else 0
-    n_cp = len(ods['core_profiles.profiles_1d']) if 'core_profiles.profiles_1d' in ods else 0
-    return int(n_eq), int(n_cp)
+def _power_balance_signature(ods: ODS) -> bytes:
+    """Content signature of the IDS the power balance reads.
+
+    A digest over every leaf of ``equilibrium`` and ``core_profiles`` (path,
+    dtype, shape and bytes), so an in-place edit that keeps the slice count --
+    a profile re-fit, a psi convention change, an updater filling a leaf --
+    changes the signature and invalidates the cached balance.  Roughly 30 ms
+    for a nine-slice VEST ODS against about a second to recompute it.
+    """
+    digest = hashlib.blake2b(digest_size=16)
+    for ids in _POWER_BALANCE_INPUT_IDS:
+        digest.update(ids.encode("utf-8"))
+        if ids not in ods:
+            continue
+        flat = ods[ids].flat()
+        for path in sorted(flat):
+            digest.update(path.encode("utf-8"))
+            value = flat[path]
+            arr = np.asarray(value)
+            if arr.dtype.kind in "OUS":
+                digest.update(repr(value).encode("utf-8"))
+                continue
+            digest.update(arr.dtype.str.encode("ascii"))
+            digest.update(repr(arr.shape).encode("ascii"))
+            digest.update(np.ascontiguousarray(arr).tobytes())
+    return digest.digest()
 
 
 def _get_cached_power_balance(ods: ODS) -> Dict[str, ndarray]:
@@ -53,15 +81,21 @@ def _get_cached_power_balance(ods: ODS) -> Dict[str, ndarray]:
 
     This avoids recomputing the same equilibrium/core-profile time-matching path
     repeatedly within per-slice loops, which also suppresses duplicated warnings.
+    The entry is keyed by the ODS identity and guarded by
+    :func:`_power_balance_signature`, so an ODS edited in place is recomputed
+    and an ODS that has been freed leaves nothing behind.
     """
     key = id(ods)
-    sig = _power_balance_signature(ods)
-    if key in _POWER_BALANCE_CACHE and _POWER_BALANCE_CACHE_SIGNATURE.get(key) == sig:
-        return _POWER_BALANCE_CACHE[key]
+    entry = _POWER_BALANCE_CACHE.get(key)
+    if entry is not None and entry[0] == _power_balance_signature(ods):
+        return entry[1]
 
     pb = compute_power_balance(ods)
-    _POWER_BALANCE_CACHE[key] = pb
-    _POWER_BALANCE_CACHE_SIGNATURE[key] = sig
+    # Sign the state the balance leaves behind (it fills
+    # global_quantities.volume), so the next call on an untouched ODS hits.
+    _POWER_BALANCE_CACHE[key] = (_power_balance_signature(ods), pb)
+    if entry is None:
+        weakref.finalize(ods, _POWER_BALANCE_CACHE.pop, key, None)
     return pb
 
 def compute_magnetic_shear(ods, time_slice: slice) -> ndarray:
@@ -142,19 +176,30 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
     from vaft.omas.update import update_equilibrium_boundary
     update_equilibrium_boundary(ods)
 
+    def _required_scalar(path: str) -> float:
+        # By membership: on a consistency_check=False ODS a bare subscript of
+        # a missing leaf hands back an empty ODS (float() then fails with a
+        # TypeError that names no leaf) and attaches that empty node.
+        if path not in eq_ts:
+            raise KeyError(
+                f"equilibrium.time_slice[{time_slice}].{path} is not in this ODS; "
+                "compute_tau_E_engineering_parameters needs it"
+            )
+        return float(eq_ts[path])
+
     # Get engineering parameters from equilibrium global_quantities
-    I_p = abs(float(eq_ts['global_quantities.ip']))  # [A]
+    I_p = abs(_required_scalar('global_quantities.ip'))  # [A]
 
     # Get toroidal magnetic field at vessel ref position
     R_ref = 0.4 # [m] VEST reference
-    B_t_axis = float(eq_ts['global_quantities.magnetic_axis.b_field_tor'])
-    R_axis = float(eq_ts['global_quantities.magnetic_axis.r'])
+    B_t_axis = _required_scalar('global_quantities.magnetic_axis.b_field_tor')
+    R_axis = _required_scalar('global_quantities.magnetic_axis.r')
     B_t = abs(B_t_axis * R_axis / R_ref) # [T]
 
     
-    R = float(eq_ts['boundary.geometric_axis.r'])  # [m]
-    a = float(eq_ts['boundary.minor_radius'])  # [m]
-    kappa = float(eq_ts['boundary.elongation'])  # [-]
+    R = _required_scalar('boundary.geometric_axis.r')  # [m]
+    a = _required_scalar('boundary.minor_radius')  # [m]
+    kappa = _required_scalar('boundary.elongation')  # [-]
     epsilon = inverse_aspect_ratio_from_a_R(a, R)  # [-]
 
     # Compute P_loss from compute_power_balance
@@ -1242,15 +1287,16 @@ def compute_power_balance(
     # Compute volume-averaged pressure from core_profiles for all time slices
     p_vol_avg = compute_volume_averaged_pressure(ods, time_slice=None, option='core_profiles')
     
-    # Calculate W_th = p_vol_average * 2/3 * volume for each time slice
+    # Calculate W_th = p_vol_average * 3/2 * volume for each time slice, the
+    # same stored energy compute_tau_E_exp divides by P_loss (issue #1282).
     W_th = np.zeros(len(idxs), dtype=float)
     volume_series = np.zeros(len(idxs), dtype=float)
     for k, i in enumerate(idxs):
         eq_ts = ods['equilibrium.time_slice'][i]
         volume = float(eq_ts['global_quantities.volume'])
         volume_series[k] = volume
-        # W_th = p_vol_average * 2/3 * volume
-        W_th[k] = p_vol_avg[k] * (2.0 / 3.0) * volume
+        # W_th = 3/2 * <p>_V * V for an ideal plasma (W = 3/2 integral p dV)
+        W_th[k] = p_vol_avg[k] * (3.0 / 2.0) * volume
     
     # Calculate dW/dt robustly on finite W_th points only.
     # This prevents NaNs at trailing slices from contaminating earlier finite slices.

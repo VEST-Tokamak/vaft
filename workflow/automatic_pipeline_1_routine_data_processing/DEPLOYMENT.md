@@ -708,6 +708,35 @@ HS_ENDPOINT=http://127.0.0.1:1 python replicate_to_hsds.py \
 
 Expect two logged attempts, a `state: "failed"` record, and a non-zero exit.
 
+### Regenerating products after a machine-history change
+
+A release that moves a machine-era boundary changes what the mapper builds for
+the shots on the moved side, and nothing re-runs them on its own. 0.8.0 is such
+a release (#956/#961): the wall-2409 loops now start at shot 43017
+(`WALL_GEOMETRY_2409_FIRST_SHOT`) and the PF-2507 geometry at 45968 rather than
+45958 (`PF_GEOMETRY_2507_FIRST_SHOT`), so every diagnostics, eddy, EFIT and
+downstream product for a shot **>= 43017** built before 0.8.0 differs from what
+the release mapper produces: 43017–45957 gain the 15 wall loops, 45958–45967
+additionally change PF geometry (2507 → 1906), and >= 45968 change the wall.
+Shots below 43017 are unaffected.
+
+Nothing has to be deleted. A shot's static input path is derived from its era
+name, so a shot on the moved side now resolves to a static product that did not
+exist before; Snakemake 7.32 reruns a job whose input set changed (`input` is in
+its rerun triggers) and everything downstream follows, replication included.
+But only for shots that are in a run: the worker processes new shots, so list
+the affected shots explicitly (`shots:` in the config, in batches) after
+deploying.
+
+A stale product is identifiable from its manifest without reading the data: the
+diagnostics and eddy manifests record `machine_version` (the era name the
+product was built under -- the retired names `vest-43017-45957-pf1906`,
+`vest-45958-45966-pf2507` and `vest-45967-plus-pf2507` no longer resolve, and
+`machine_era()` refuses them) and `input.static_sha256` (the hash of the static
+product it was built from). A product whose `machine_version` is not one of
+`VEST_MACHINE_ERAS`, or whose `static_sha256` differs from the current static
+product's, is one the release will rebuild.
+
 ---
 
 ## 7. Enable pipeline replication

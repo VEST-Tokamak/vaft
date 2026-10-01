@@ -1713,7 +1713,11 @@ def solve_solovev_constraints(
     f_sign : int or None, optional
         Sign given to the poloidal current when the square root is taken.
         ``None`` takes ``sign(f_boundary)``; an explicit +1 or -1 must agree
-        with it [-].
+        with it.  Breaking change in 0.8.0: through 0.7.x this defaulted to
+        +1 and overrode the sign of *f_boundary*, so ``f_sign=-1`` with a
+        positive *f_boundary* was accepted (and gave an F(psi) whose sign
+        disagreed with ``bt0``); it is now refused -- pass a signed
+        *f_boundary* instead (#1307) [-].
     basis : str, optional
         ``"classic"`` (five up-down symmetric terms), ``"cerfon_freidberg_even"``
         (seven symmetric terms, enough for a double null) or

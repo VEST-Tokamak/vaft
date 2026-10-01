@@ -412,6 +412,22 @@ def test_explicitly_empty_coil_specs_do_not_fall_back_to_the_template():
     assert gpec.IdealGPECOptions(coil_specs=None).coil_specs is None
 
 
+def test_a_coil_in_without_a_machine_word_is_refused_by_name(tmp_path):
+    """The ``.dat`` files are ``<machine>_<set>.dat``; without the word the
+    reader built ``_MID.dat`` and reported a misleading FileNotFoundError
+    that advised ``coil_data_dir=`` (cold review 0.8.0 perturbation-topology-sxr F6)."""
+    from vaft.code.gpec._coil_input import coil_filaments_from_coil_in
+
+    coil_in = tmp_path / "coil.in"
+    coil_in.write_text(
+        '&COIL_CONTROL\n data_dir=""\n ip_direction="positive"\n bt_direction="positive"\n'
+        ' coil_name(1)="MID"\n coil_cur(1,1)=1000.0\n/\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="names no machine"):
+        coil_filaments_from_coil_in(coil_in)
+
+
 def test_missing_backing_file_is_an_error_not_a_silent_reemit(tmp_path, synthetic_machine):
     from dataclasses import replace
 

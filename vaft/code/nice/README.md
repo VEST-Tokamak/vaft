@@ -70,8 +70,9 @@ observation-operator correction, not a change to the uncertainty or a claim
 that the 93 native rectangles exactly reproduce the winding geometry everywhere.
 Collection checks the actual native coil field at every enabled magnetic
 diagnostic against the ODS response; errors must be below 0.1 sigma. The
-reference's calibrated flux winding polarity is selected explicitly with
-`flux_loop_input_sign=-1`. Generic cases retain the default polarity +1.
+reference's calibrated flux winding polarity is `flux_loop_input_sign=-1`,
+the default (VEST is the only machine VAFT maps); pass `+1` only for loop
+values that already carry NICE's flux sign.
 
 The VEST computational contour encloses the limiter and avoids both active
 and passive conductors. Preparation rejects crossings, reversed orientation,

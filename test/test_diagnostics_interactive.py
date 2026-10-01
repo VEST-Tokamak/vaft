@@ -213,7 +213,7 @@ def test_the_database_twins_exist_and_explore_one_shot(monkeypatch):
     assert callable(vaft.database.plot_diagnostics_time_interactive)
     assert callable(vaft.database.plot_equilibrium_interactive)
     with pytest.raises(ValueError, match="one shot at a time"):
-        db._load_for_interaction([1, 2], None, NAME)
+        db._load_for_interaction([1, 2], None, db._declared_ids(NAME), NAME)
     seen = {}
 
     def fake_load(shot, source=None, paths=None, occurrence=None):
@@ -222,6 +222,7 @@ def test_the_database_twins_exist_and_explore_one_shot(monkeypatch):
 
     monkeypatch.setattr("vaft.database.load", fake_load)
     monkeypatch.setattr(db, "_resolve_source", lambda source: source or "resolved")
+    monkeypatch.setattr(db, "stored_ids", lambda shot, source=None: tuple(sample_ods(39915).keys()))
     result = db.plot_diagnostics_time_interactive(39915, backend="none")
     assert seen["shot"] == 39915 and seen["source"] == "resolved"
     assert set(seen["paths"]) >= {"dataset_description", "magnetics"}

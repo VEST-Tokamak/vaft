@@ -584,7 +584,15 @@ _CHANNEL_UNITS = {"n_e": "m^-3", "T_e": "eV", "T_i": "eV"}
 
 
 def _check_channel(channel: str, spec: "ProfileSpec") -> None:
-    """Refuse a shape built for another channel, or in a unit the channel is not stored in."""
+    """Refuse a shape built for another channel, in a unit the channel is not
+    stored in, or normalized to a target only another channel can carry."""
+    if spec.target is not None and spec.target.kind == "greenwald_fraction" and channel != "n_e":
+        # Refused when the spec is built, not after the geometry is traced
+        # (cold review 0.8.0 plasma-state-and-chease F7).
+        raise SyntheticProfileError(
+            "invalid_normalization",
+            f"a Greenwald fraction normalizes n_e, not {channel}; it is a line-averaged density over "
+            "n_G = I_p/(pi a^2)")
     shape = spec.shape
     if isinstance(shape, AnalyticProfile):
         if shape.quantity != channel or shape.unit != _CHANNEL_UNITS[channel]:
