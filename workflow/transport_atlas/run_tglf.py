@@ -171,8 +171,11 @@ def build_config(args) -> Any:
     if args.backend == "slurm":
         from vaft.code.slurm import SlurmBackend
 
+        # Without --mem this cluster's default is the whole node's memory, so a
+        # one-core TGLF job waits for an empty node (measured on tdst, 2026-10-01).
         backend = SlurmBackend(partition=args.partition, account=args.account,
-                               mode="batch", max_wait=args.max_wait)
+                               mode="batch", max_wait=args.max_wait,
+                               extra_args=(f"--mem={int(args.mem_mb)}M",))
     return TGLFConfig(sat_rule=args.sat_rule, use_bper=args.use_bper,
                       backend=backend, timeout=args.timeout)
 
@@ -319,6 +322,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--backend", choices=("local", "slurm"), default="local")
     parser.add_argument("--partition", default="lowpri-short")
     parser.add_argument("--account")
+    parser.add_argument("--mem-mb", type=int, default=2048, help="Slurm --mem per run [MB]")
     parser.add_argument("--timeout", type=float, default=1800.0)
     parser.add_argument("--max-wait", type=float, default=6 * 3600.0)
     parser.add_argument("--workers", type=int, default=8)
