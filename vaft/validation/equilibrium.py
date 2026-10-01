@@ -68,6 +68,7 @@ __all__ = [
     "EQUILIBRIUM_CATEGORIES",
     "aggregate_status",
     "status_summary",
+    "thomson_pressure_samples",
     "validate_equilibrium",
     "validate_independent",
     "validate_magnetic_fit",
@@ -1084,35 +1085,55 @@ def _kinetic_pressure(ods: Any, index: int, profiles: Any) -> dict[str, Any]:
     return _result(status, time_offset=offset, coordinate=coordinate, **fields)
 
 
-def _thomson_pressure(ods: Any, index: int, diagnostics: Any) -> dict[str, Any]:
+def thomson_pressure_samples(equilibrium: Any, time_slice: int, diagnostics: Any,
+                             *, tolerance: float | None = None) -> dict[str, Any]:
+    """The Thomson channels of one slice, placed on its flux surfaces.
+
+    The sampler behind the ``thomson_pressure`` check, public so a dataset built
+    from the same comparison (#1430) cannot drift from the grade.  The Thomson
+    sample is the one nearest the slice *time*, accepted within ``tolerance``
+    (default: half the equilibrium's median cadence, at least 1 ms); each
+    channel's ``(R, Z)`` is mapped through the slice's 2-D psi to psi_N and the
+    reconstructed pressure is sampled there.
+
+    Returns ``{"available": False, "reason", ...}`` when the slice cannot be
+    compared, else ``{"available": True, "time_offset", "ts_index", "ts_time",
+    "tolerance", "channels": [...]}`` where each channel inside the LCFS carries
+    ``channel, r, z, psi_norm, n_e, t_e, n_e_error, t_e_error, p_e, p_recon``
+    (SI; T_e in eV, pressures in Pa).  Neither input is mutated.
+    """
     from scipy.interpolate import RectBivariateSpline
 
-    key = "independent_validation.thomson_pressure"
+    index = int(time_slice)
+    ods = equilibrium
     channels = path_count(diagnostics, "thomson_scattering.channel")
     if channels == 0:
-        return _unavailable("no thomson_scattering channels to compare against")
+        return {"available": False, "reason": "no thomson_scattering channels to compare against"}
     target = _slice_time(ods, index)
     times = _array(diagnostics, "thomson_scattering.time")
     if times is None:
         times = _array(diagnostics, "thomson_scattering.channel.0.n_e.time")
     if times is None or not math.isfinite(target):
-        return _unavailable("no thomson_scattering time base to match on")
+        return {"available": False, "reason": "no thomson_scattering time base to match on"}
     position, offset = _nearest(times, target)
-    tolerance = _time_tolerance(ods)
+    tolerance = _time_tolerance(ods) if tolerance is None else float(tolerance)
+    timing = {"time_offset": offset, "ts_index": position, "ts_time": float(times[position]),
+              "tolerance": tolerance}
     if offset > tolerance:
-        return _unavailable(f"the nearest Thomson time is {offset:.4g} s away, beyond {tolerance:.4g} s",
-                            time_offset=offset)
+        return {"available": False, **timing,
+                "reason": f"the nearest Thomson time is {offset:.4g} s away, beyond {tolerance:.4g} s"}
     root = f"equilibrium.time_slice.{index}"
     r_grid, z_grid = _array(ods, f"{root}.profiles_2d.0.grid.dim1"), _array(ods, f"{root}.profiles_2d.0.grid.dim2")
     psi_2d = _array(ods, f"{root}.profiles_2d.0.psi")
     axis = _float(path_value(ods, f"{root}.global_quantities.psi_axis"))
     boundary = _float(path_value(ods, f"{root}.global_quantities.psi_boundary"))
     if r_grid is None or z_grid is None or psi_2d is None or not (math.isfinite(axis) and math.isfinite(boundary)) or axis == boundary:
-        return _unavailable("the slice has no 2-D psi grid to map channel positions through", time_offset=offset)
+        return {"available": False, **timing,
+                "reason": "the slice has no 2-D psi grid to map channel positions through"}
     if psi_2d.shape == (z_grid.size, r_grid.size) and r_grid.size != z_grid.size:
         psi_2d = psi_2d.T
     spline = RectBivariateSpline(r_grid, z_grid, psi_2d)
-    points, pressures = [], []
+    samples = []
     for channel in range(channels):
         base = f"thomson_scattering.channel.{channel}"
         r = _float(path_value(diagnostics, f"{base}.position.r"))
@@ -1127,16 +1148,38 @@ def _thomson_pressure(ods: Any, index: int, diagnostics: Any) -> dict[str, Any]:
             continue
         psi_norm = (float(spline(r, z)[0, 0]) - axis) / (boundary - axis)
         if 0.0 <= psi_norm <= 1.0:
-            points.append(psi_norm)
-            pressures.append(density * temperature * _ELEMENTARY_CHARGE)
-    if not points:
-        return _unavailable("no Thomson channel with finite n_e and T_e lies inside the LCFS at this time",
-                            time_offset=offset)
-    reconstructed = _pressure_on(ods, index, np.asarray(points))
+            errors = []
+            for quantity in ("n_e", "t_e"):
+                error = _array(diagnostics, f"{base}.{quantity}.data_error_upper")
+                errors.append(float(error[position]) if error is not None and position < error.size else math.nan)
+            samples.append({
+                "channel": channel, "r": r, "z": z, "psi_norm": psi_norm,
+                "n_e": density, "t_e": temperature, "n_e_error": errors[0], "t_e_error": errors[1],
+                "p_e": density * temperature * _ELEMENTARY_CHARGE,
+            })
+    if not samples:
+        return {"available": False, **timing,
+                "reason": "no Thomson channel with finite n_e and T_e lies inside the LCFS at this time"}
+    reconstructed = _pressure_on(ods, index, np.asarray([sample["psi_norm"] for sample in samples]))
     if reconstructed is None:
-        return _unavailable("the reconstructed pressure cannot be sampled at the channel positions", time_offset=offset)
-    status, fields = _compare_pressure(key, np.asarray(pressures), reconstructed, "electrons")
-    return _result(status, time_offset=offset, channels_inside=len(points), **fields)
+        return {"available": False, **timing,
+                "reason": "the reconstructed pressure cannot be sampled at the channel positions"}
+    for sample, value in zip(samples, reconstructed):
+        sample["p_recon"] = float(value)
+    return {"available": True, **timing, "channels": samples}
+
+
+def _thomson_pressure(ods: Any, index: int, diagnostics: Any) -> dict[str, Any]:
+    key = "independent_validation.thomson_pressure"
+    sampled = thomson_pressure_samples(ods, index, diagnostics)
+    if not sampled["available"]:
+        extra = {"time_offset": sampled["time_offset"]} if "time_offset" in sampled else {}
+        return _unavailable(sampled["reason"], **extra)
+    samples = sampled["channels"]
+    pressures = np.asarray([sample["p_e"] for sample in samples])
+    reconstructed = np.asarray([sample["p_recon"] for sample in samples])
+    status, fields = _compare_pressure(key, pressures, reconstructed, "electrons")
+    return _result(status, time_offset=sampled["time_offset"], channels_inside=len(samples), **fields)
 
 
 def _diamagnetic_energy(ods: Any, index: int, virial: Mapping[str, Any], dia_row: Mapping[str, Any] | None,

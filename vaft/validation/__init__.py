@@ -23,6 +23,7 @@ Layout::
     vacuum_benchmark.py  vacuum-model benchmark against measured magnetics (#190)
     wall_reduction.py the reduced-wall order study: full vs reduced, both vs data (#494)
     stage_evidence.py per-stage preconditions and metrics, composed from domain providers
+    kinetic_state.py  Thomson against EFIT pressure per slice, the atlas state key (#1430, #1454)
 
 The dependency direction runs one way: :mod:`vaft.database.production_qa`
 consumes ``stage_evidence`` to decide which figures a stage owes and how to
