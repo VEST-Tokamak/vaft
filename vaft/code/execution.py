@@ -23,10 +23,16 @@ The contract every backend keeps:
 * A program the operating system will not start raises
   :class:`~vaft.code._executables.ExecutableNotLaunchable`, chained to the
   ``OSError``.
-* ``ResourceRequest`` is a declaration. :class:`LocalBackend` honours only
-  ``threads_per_task``; ``ntasks`` and ``memory_mb`` are for scheduler backends.
-  Codes that start their own MPI ranks (GACODE, FLARE) keep passing ``-n`` on
-  their command line.
+* ``ResourceRequest`` is a declaration. A default :class:`LocalBackend` honours
+  only ``threads_per_task``; ``ntasks`` and ``memory_mb`` are for scheduler
+  backends. Codes that start their own MPI ranks (GACODE, FLARE) keep passing
+  ``-n`` on their command line.
+* A :class:`LocalBackend` built with memory settings (#1460) also admits a
+  launch only when the host has room for its reservation (``memory_mb``, or the
+  backend's ``reserve_mb``), and stops a tree whose resident size passes
+  ``memory_limit_mb``. Both are returned, not raised: a launch never admitted
+  within ``admission_wait_s`` is ``runtime_status="queue_timeout"`` (it never
+  started), and a stopped tree is ``"memory_limit"`` with ``peak_rss_mb``.
 """
 
 from __future__ import annotations
@@ -113,13 +119,20 @@ class ExecutionResult:
     log_path: Optional[Path] = None
     job_id: Optional[str] = None
     #: ``"completed"`` (the program exited; see ``returncode``), ``"timeout"``
-    #: or ``"queue_timeout"``. Left empty, it is derived from ``timed_out``.
+    #: ``"queue_timeout"`` or ``"memory_limit"``. Left empty, it is derived from
+    #: ``timed_out``, which is true for every limit stop.
     runtime_status: str = ""
     #: How long the program itself ran [s], when the backend can tell that
     #: apart from time spent queued: a scheduler batch job's own start and
     #: termination stamps. ``None`` when ``elapsed_s`` is the only measure
     #: (a local launch, or a job that left no termination record).
     run_s: Optional[float] = None
+    #: Largest resident size of the program's process tree that the backend
+    #: sampled [MiB]; only a backend that watches memory sets it.
+    peak_rss_mb: Optional[float] = None
+    #: What a ``queue_timeout`` waited for: ``"memory"`` for local memory
+    #: admission (#1460); empty otherwise, including a scheduler queue.
+    waited_for: str = ""
 
     def __post_init__(self) -> None:
         if not self.runtime_status:
@@ -138,9 +151,17 @@ class ExecutionResult:
 RUNTIME_COMPLETED = "completed"
 #: The program ran past its time limit and was stopped.
 RUNTIME_TIMEOUT = "timeout"
-#: A scheduler job was cancelled while still queued; the program never started.
+#: A scheduler job was cancelled while still queued, or a local launch was never
+#: admitted for memory; either way the program never started.
 RUNTIME_QUEUE_TIMEOUT = "queue_timeout"
-RUNTIME_STATUSES: tuple[str, ...] = (RUNTIME_COMPLETED, RUNTIME_TIMEOUT, RUNTIME_QUEUE_TIMEOUT)
+#: The program's process tree grew past the backend's memory limit and was stopped.
+RUNTIME_MEMORY_LIMIT = "memory_limit"
+RUNTIME_STATUSES: tuple[str, ...] = (
+    RUNTIME_COMPLETED,
+    RUNTIME_TIMEOUT,
+    RUNTIME_QUEUE_TIMEOUT,
+    RUNTIME_MEMORY_LIMIT,
+)
 
 
 def timeout_reason(program: str, execution: ExecutionResult, timeout: Optional[float]) -> str:
@@ -152,11 +173,12 @@ def timeout_reason(program: str, execution: ExecutionResult, timeout: Optional[f
     stamps; ``elapsed_s`` there counts from submission, queue wait included),
     else ``elapsed_s``.
     """
+    if execution.runtime_status == RUNTIME_MEMORY_LIMIT:
+        peak = "" if execution.peak_rss_mb is None else f" at {execution.peak_rss_mb:.0f} MiB resident"
+        return f"{program} was stopped by the memory limit{peak} after {execution.elapsed_s:.3g} s"
     if execution.runtime_status == RUNTIME_QUEUE_TIMEOUT:
-        return (
-            f"{program} was cancelled after waiting {execution.elapsed_s:.0f} s "
-            "in the scheduler queue (it never started)"
-        )
+        where = "for memory to become available" if execution.waited_for == "memory" else "in the scheduler queue"
+        return f"{program} was cancelled after waiting {execution.elapsed_s:.0f} s {where} (it never started)"
     ran = execution.elapsed_s if execution.run_s is None else execution.run_s
     # A stop well short of ``timeout`` (a scheduler's max_wait cancelling a
     # running job) did not run for ``timeout`` seconds; say how long it did.
@@ -200,7 +222,56 @@ def execution_environment(
 
 
 class LocalBackend:
-    """Run the command as a child process of the current Python process."""
+    """Run the command as a child process of the current Python process.
+
+    With no arguments nothing about memory is checked. The memory settings
+    (#1460) are for hosts shared by heavy solvers:
+
+    ``reserve_mb``
+        Default reservation for a launch whose ``resources.memory_mb`` is
+        unset. A launch with a reservation waits until the host-wide
+        :class:`~vaft.code._memory_gate.MemoryLedger` admits it.
+    ``memory_limit_mb``
+        Resident size of the launched tree above which it is stopped.
+    ``admission_wait_s``
+        How long a launch may wait for admission (``None``: forever).
+    ``floor_mb``
+        Memory left free for everything else on the host.
+    ``poll_interval_s``
+        How often a running tree's resident size is sampled.
+    ``ledger_dir``
+        The reservation ledger; default ``$VAFT_MEMORY_LEDGER_DIR`` or a
+        per-user temp directory. Only processes sharing one directory see each
+        other's reservations, so give workers with different ``TMPDIR`` the
+        same ``VAFT_MEMORY_LEDGER_DIR``.
+    """
+
+    def __init__(
+        self,
+        *,
+        reserve_mb: Optional[float] = None,
+        memory_limit_mb: Optional[float] = None,
+        admission_wait_s: Optional[float] = 3600.0,
+        floor_mb: float = 4096.0,
+        poll_interval_s: float = 2.0,
+        ledger_dir: Optional[Path] = None,
+    ) -> None:
+        for name, value in (("reserve_mb", reserve_mb), ("memory_limit_mb", memory_limit_mb)):
+            if value is not None and value <= 0:
+                raise ValueError(f"{name} must be > 0 or None, got {value}")
+        if poll_interval_s <= 0:
+            raise ValueError(f"poll_interval_s must be > 0, got {poll_interval_s}")
+        if floor_mb < 0:
+            raise ValueError(f"floor_mb must be >= 0, got {floor_mb}")
+        self.reserve_mb = reserve_mb
+        self.memory_limit_mb = memory_limit_mb
+        self.admission_wait_s = admission_wait_s
+        self.floor_mb = floor_mb
+        self.poll_interval_s = poll_interval_s
+        self.ledger_dir = ledger_dir
+
+    def _watches_memory(self) -> bool:
+        return self.reserve_mb is not None or self.memory_limit_mb is not None
 
     def run(self, request: ExecutionRequest) -> ExecutionResult:
         command = tuple(str(part) for part in request.command)
@@ -219,22 +290,66 @@ class LocalBackend:
         )
         if request.stdin is not None:
             kwargs["input"] = request.stdin
-        if request.log_path is None:
-            return self._run(command, request, kwargs)
-        # Opened outside the launch so a bad log path stays its own error
-        # rather than being reported as an unlaunchable program.
-        log_path = Path(request.log_path)
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        with log_path.open("w", encoding="utf-8") as log:
-            kwargs.update(stdout=log, stderr=subprocess.STDOUT)
-            return self._run(command, request, kwargs)
+        reserve = request.resources.memory_mb if self._watches_memory() else None
+        if reserve is None:
+            reserve = self.reserve_mb
+        reservation = None
+        try:
+            # Admission sits inside the try, so an interrupt right after it
+            # still releases the record.
+            if reserve is not None:
+                from ._memory_gate import MemoryLedger
 
-    @staticmethod
+                waited = time.monotonic()
+                reservation = MemoryLedger(self.ledger_dir, floor_mb=self.floor_mb).admit(
+                    float(reserve), wait_s=self.admission_wait_s, poll_s=max(self.poll_interval_s, 1.0)
+                )
+                if reservation is None:
+                    return self._not_admitted(command, request, float(reserve), time.monotonic() - waited)
+            if request.log_path is None:
+                return self._run(command, request, kwargs, reservation)
+            # Opened outside the launch so a bad log path stays its own error
+            # rather than being reported as an unlaunchable program.
+            log_path = Path(request.log_path)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("w", encoding="utf-8") as log:
+                kwargs.update(stdout=log, stderr=subprocess.STDOUT)
+                return self._run(command, request, kwargs, reservation)
+        finally:
+            if reservation is not None:
+                reservation.release()
+
+    def _not_admitted(
+        self, command: tuple[str, ...], request: ExecutionRequest, reserve: float, waited: float
+    ) -> ExecutionResult:
+        log_path = None if request.log_path is None else Path(request.log_path)
+        message = (
+            f"[vaft LocalBackend] not started: waited {waited:.0f} s for {reserve:.0f} MiB "
+            f"(+{self.floor_mb:.0f} MiB floor) to become available\n"
+        )
+        if log_path is not None:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text(message, encoding="utf-8")
+        return ExecutionResult(
+            returncode=None,
+            stderr="" if log_path is not None else message,
+            timed_out=True,
+            elapsed_s=waited,
+            launcher=command,
+            log_path=log_path,
+            runtime_status=RUNTIME_QUEUE_TIMEOUT,
+            waited_for="memory",
+        )
+
     def _run(
-        command: tuple[str, ...], request: ExecutionRequest, kwargs: dict[str, Any]
+        self,
+        command: tuple[str, ...],
+        request: ExecutionRequest,
+        kwargs: dict[str, Any],
+        reservation: Any = None,
     ) -> ExecutionResult:
         if subprocess.run is _STDLIB_RUN:
-            return LocalBackend._run_tree(command, request, kwargs)
+            return self._run_tree(command, request, kwargs, reservation)
         # A test replaced ``subprocess.run`` to intercept the launch: honour it,
         # so no real program starts. New tests use real programs or replace
         # ``vaft.code._process_tree.ProcessTree.start`` instead.
@@ -267,9 +382,12 @@ class LocalBackend:
         )
 
 
-    @staticmethod
     def _run_tree(
-        command: tuple[str, ...], request: ExecutionRequest, kwargs: dict[str, Any]
+        self,
+        command: tuple[str, ...],
+        request: ExecutionRequest,
+        kwargs: dict[str, Any],
+        reservation: Any = None,
     ) -> ExecutionResult:
         """Launch as a :class:`~vaft.code._process_tree.ProcessTree` (#1016).
 
@@ -292,6 +410,8 @@ class LocalBackend:
         started = time.monotonic()
         tree: Optional[_process_tree.ProcessTree] = None
         timed_out = False
+        memory_stop = False
+        peak: Optional[float] = None
         try:
             # The guard spans the stop as well, so a second signal during it
             # escalates to SIGKILL instead of ending Python with a frozen tree.
@@ -303,12 +423,17 @@ class LocalBackend:
                         f"cannot launch {command[0]}: {error}"
                     ) from error
                 try:
-                    try:
-                        stdout, stderr = tree.process.communicate(stdin, timeout=timeout)
-                    except subprocess.TimeoutExpired:
-                        timed_out = True
-                        tree.terminate()
-                        stdout, stderr = tree.collect()
+                    if reservation is not None:
+                        reservation.attach(tree.process.pid)
+                    if not self._watches_memory():
+                        try:
+                            stdout, stderr = tree.process.communicate(stdin, timeout=timeout)
+                        except subprocess.TimeoutExpired:
+                            timed_out = True
+                            tree.terminate()
+                            stdout, stderr = tree.collect()
+                    else:
+                        stdout, stderr, timed_out, memory_stop, peak = self._watch(tree, stdin, timeout, started)
                 except BaseException:
                     # KeyboardInterrupt, a forwarded signal, or one landing
                     # during the timeout's own stop. ``terminate`` is idempotent.
@@ -320,15 +445,56 @@ class LocalBackend:
             # Our handler is gone again; the default disposition decides.
             stop.redeliver()
             raise
+        stopped = timed_out or memory_stop
+        if memory_stop and not capture:
+            # GPEC-style adapters report any limit stop as a timeout (#1460
+            # follow-up); the solver's own log keeps the real reason.
+            with open(log_path, "a", encoding="utf-8") as log:
+                log.write(
+                    f"\n[vaft LocalBackend] stopped: resident memory {peak:.0f} MiB passed "
+                    f"memory_limit_mb={self.memory_limit_mb:.0f}\n"
+                )
         return ExecutionResult(
-            returncode=None if timed_out else int(tree.process.returncode),
+            returncode=None if stopped else int(tree.process.returncode),
             stdout=_text(stdout) if capture else "",
             stderr=_text(stderr) if capture else "",
-            timed_out=timed_out,
+            timed_out=stopped,
             elapsed_s=time.monotonic() - started,
             launcher=command,
             log_path=log_path,
+            runtime_status=RUNTIME_MEMORY_LIMIT if memory_stop else "",
+            peak_rss_mb=peak,
         )
+
+    def _watch(
+        self, tree: "_process_tree.ProcessTree", stdin: Optional[str], timeout: Optional[float], started: float
+    ) -> tuple[Any, Any, bool, bool, Optional[float]]:
+        """Wait for the tree while sampling its resident size; stop it at a limit.
+
+        ``communicate`` may be called again after ``TimeoutExpired`` without
+        losing output; input is passed only on the first call.
+        """
+        from ._memory_gate import tree_rss_mb
+
+        peak: Optional[float] = None
+        first = True
+        while True:
+            wait = self.poll_interval_s
+            if timeout is not None:
+                wait = max(0.0, min(wait, timeout - (time.monotonic() - started)))
+            try:
+                stdout, stderr = tree.process.communicate(stdin if first else None, timeout=wait)
+                return stdout, stderr, False, False, peak
+            except subprocess.TimeoutExpired:
+                first = False
+            rss = tree_rss_mb(tree.members())
+            peak = rss if peak is None else max(peak, rss)
+            over_memory = self.memory_limit_mb is not None and rss > self.memory_limit_mb
+            over_time = timeout is not None and time.monotonic() - started >= timeout
+            if over_memory or over_time:
+                tree.terminate()
+                stdout, stderr = tree.collect()
+                return stdout, stderr, not over_memory, over_memory, peak
 
 
 #: Environment variable that picks the backend for configs that name none.
@@ -368,6 +534,7 @@ def resolve_backend(config: Any = None) -> ExecutionBackend:
 __all__ = [
     "BACKEND_ENV",
     "RUNTIME_COMPLETED",
+    "RUNTIME_MEMORY_LIMIT",
     "RUNTIME_QUEUE_TIMEOUT",
     "RUNTIME_STATUSES",
     "RUNTIME_TIMEOUT",

@@ -464,14 +464,17 @@ def boundary_model(tmp_path, *, descriptor=None, contour=None, name="wall.txt"):
     """A FLARE model directory with a ``.boundary`` beside its equilibrium."""
     root = tmp_path / ".boundary"
     root.mkdir(exist_ok=True)
+    # UTF-8 and LF on purpose: the fixture stands in for a descriptor FLARE
+    # wrote elsewhere, and the UTF-8 test below reads it back as UTF-8; the
+    # platform's locale (cp1252 on the Windows leg) must not decide its bytes.
     (root / ".boundary").write_text(descriptor if descriptor is not None else (
         "[axisurf]\nfilename: {}\nunits:    cm\n".format(name)
-    ))
+    ), encoding="utf-8", newline="\n")
     points = contour if contour is not None else [
         (100.0, -50.0), (300.0, -50.0), (300.0, 50.0), (100.0, 50.0)
     ]
     (root / name).write_text(
-        "# a wall\n" + "".join(f"{r}\t{z}\n" for r, z in points)
+        "# a wall\n" + "".join(f"{r}\t{z}\n" for r, z in points), encoding="utf-8", newline="\n"
     )
     return tmp_path
 

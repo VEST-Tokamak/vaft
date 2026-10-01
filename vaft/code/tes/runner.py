@@ -89,3 +89,11 @@ def run_tes(inputs: TESInputs, config: TESConfig) -> TESResult:
     result.stderr = execution.stderr
     result.elapsed_s = execution.elapsed_s
     return result
+
+
+__all__ = [
+    "TES_COMPATIBILITY_ENV",
+    "TES_HOME_ENV",
+    "TES_HOME_EXECUTABLE",
+    "run_tes",
+]

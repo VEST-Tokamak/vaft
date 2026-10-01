@@ -44,7 +44,9 @@ Every canonical renderer has this shape::
 * The return value is ``(Figure, Axes)``, or ``(Figure, ndarray[Axes])`` for
   multi-panel renderers -- with one exception: ``<domain>_animation_<quantity>``
   renderers return ``(Figure, Axes, FuncAnimation)``, since none of the other
-  view kinds models a time animation.
+  view kinds models a time animation.  (A movie of any plot is the adapter's
+  ``animation=True``, which draws the plot over its slice control and returns
+  a lazy result with ``save("x.mp4")``; see :func:`vaft.plot.backend.render.render_entries`.)
 
 Renderers take a typed view model from :mod:`vaft.plot.models` plus styling and
 layout options, and nothing else.  None of them interprets an OMAS
@@ -334,8 +336,11 @@ from .renderers.profiles import (
     charge_exchange_profile_ion_temperature,
     charge_exchange_profile_velocity_tor,
     electron_density_profile,
+    electron_density_profile_gradient,
     electron_temperature_profile,
+    electron_temperature_profile_gradient,
     ion_temperature_profile,
+    ion_temperature_profile_gradient,
     thermal_pressure_profile,
     equilibrium_profile_f,
     equilibrium_profile_ffprime,

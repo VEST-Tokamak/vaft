@@ -29,7 +29,12 @@ toroidicity and ripple: ``trapped_and_passing_orbits``, ``toroidal_field_ripple`
 ``ripple_well_formation`` and ``stochastic_ripple_orbit``; integrated
 modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 ``physical_abstraction``, ``integrated_modeling_space`` and
-``integrated_modeling_process``.
+``integrated_modeling_process``; the VAFT framework (#1090):
+``fusion_science_knowledge_lifecycle``, ``vaft_four_pillars``,
+``scientific_workflow``, ``interoperability_layers``,
+``scientific_provenance_chain``, ``scientific_infrastructure_principles``,
+``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``
+and ``human_ai_interface``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -171,6 +176,15 @@ __all__ = [
     "physical_abstraction",
     "integrated_modeling_space",
     "integrated_modeling_process",
+    "fusion_science_knowledge_lifecycle",
+    "vaft_four_pillars",
+    "scientific_workflow",
+    "interoperability_layers",
+    "scientific_provenance_chain",
+    "scientific_infrastructure_principles",
+    "machine_agnostic_architecture",
+    "experiment_modeling_theory_data_network",
+    "human_ai_interface",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -302,6 +316,15 @@ _LOCATIONS = {
     "physical_abstraction": "._integrated_modeling",
     "integrated_modeling_space": "._integrated_modeling",
     "integrated_modeling_process": "._integrated_modeling",
+    "fusion_science_knowledge_lifecycle": "._vaft_concepts",
+    "vaft_four_pillars": "._vaft_concepts",
+    "scientific_workflow": "._vaft_concepts",
+    "interoperability_layers": "._vaft_concepts",
+    "scientific_provenance_chain": "._vaft_concepts",
+    "scientific_infrastructure_principles": "._vaft_concepts",
+    "machine_agnostic_architecture": "._vaft_concepts",
+    "experiment_modeling_theory_data_network": "._vaft_concepts",
+    "human_ai_interface": "._vaft_concepts",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

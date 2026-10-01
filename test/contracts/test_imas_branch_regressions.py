@@ -1,3 +1,4 @@
+import inspect
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -148,6 +149,34 @@ class ImasBranchRegressionTests(unittest.TestCase):
         self.assertEqual(ids.calls, [("equilibrium", 2), ("summary", 5)])
         self.assertEqual(paths, [["equilibrium", "time"]])
         self.assertEqual(joined, ["equilibrium.time"])
+
+    def test_user_defaults_resolve_at_call_time_not_import_time(self):
+        # An import-time os.environ read baked the builder's username (and
+        # $HOME) into these signatures and so into the rendered API reference.
+        for obj in (omas_imas.load_omas_imas, omas_imas.browse_imas, omas_imas.dynamic_omas_imas):
+            defaults = [
+                p.default
+                for p in inspect.signature(obj).parameters.values()
+                if p.default is not inspect.Parameter.empty
+            ]
+            self.assertIs(inspect.signature(obj).parameters["user"].default, omas_imas._CURRENT_USER)
+            for default in defaults:
+                self.assertNotIn("imasdb", repr(default), obj.__name__)
+
+        with patch.dict(omas_imas.os.environ, {"USER": "someone_else"}):
+            handle = omas_imas.dynamic_omas_imas.__new__(omas_imas.dynamic_omas_imas)
+            omas_imas.dynamic_omas_imas.__init__(handle, machine="vest", pulse=1)
+            self.assertEqual(handle.kw["user"], "someone_else")
+            with patch.object(omas_imas, "recursive_glob", return_value=[]):
+                self.assertEqual(omas_imas.browse_imas(quiet=True), {"someone_else": {}})
+
+    def test_the_default_imasdb_dir_does_not_need_a_home_variable(self):
+        # vaft.compat establishes HOME on Windows at import; the default must
+        # not depend on that ordering (or on a POSIX shell exporting HOME).
+        without_home = {k: v for k, v in omas_imas.os.environ.items() if k != "HOME"}
+        with patch.dict(omas_imas.os.environ, without_home, clear=True):
+            with patch.object(omas_imas, "recursive_glob", return_value=[]):
+                self.assertIsInstance(omas_imas.browse_imas(quiet=True), dict)
 
 
 if __name__ == "__main__":

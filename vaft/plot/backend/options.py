@@ -66,7 +66,9 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("xunit", "str", description="display unit of the x axis"),
         OptionSpec("time_slice", "int", description="stored equilibrium slice index"),
         OptionSpec("time", "float", description="a time in seconds, snapped to a stored slice"),
-        OptionSpec("time_range", "range", description="(start, stop) in seconds"),
+        OptionSpec("time_range", "range",
+                   description="(start, stop) in seconds: the window of a time history, honoured "
+                               "on a time axis or refused -- never accepted and ignored"),
         OptionSpec("smooth", "float", description="rolling-median window in seconds applied to line traces"),
         # A dense time base is indexed, not chosen from a list: the vacuum map
         # runs over the PF samples, thousands of them, where time_slice= names
@@ -176,6 +178,16 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("psi_n", "float", description="normalized poloidal flux of the surface a poloidal spectrum is cut at"),
         OptionSpec("pedestal", description="fitted pedestal whose top is marked on a psi_N abscissa"),
         OptionSpec("phi_deg", "float", description="toroidal angle in degrees of an island cross-section"),
+        # Profile gradient views (issue #551): what the derivative is taken
+        # against, the length that multiplies it, and a code preset resolving
+        # both.  The vocabularies are vaft.process.profile_gradients' own.
+        OptionSpec("gradient_coordinate", "choice", "recipes.GRADIENT_COORDINATES",
+                   "radial coordinate a profile gradient is taken with respect to"),
+        OptionSpec("reference_length", "choice", "recipes.GRADIENT_REFERENCE_LENGTHS",
+                   "length that multiplies a profile gradient; 'none' for the dimensional one "
+                   "(an explicit None is refused: in profile_gradient it means 'none')"),
+        OptionSpec("convention", "choice", "recipes.GRADIENT_CONVENTIONS",
+                   "code preset resolving gradient_coordinate and reference_length"),
     )
 
 
@@ -184,6 +196,10 @@ OPTION_SCHEMA: Mapping[str, OptionSpec] = {spec.name: spec for spec in _specs()}
 
 #: The extraction option names, the split every adapter applies.
 EXTRACTION_OPTIONS: frozenset[str] = frozenset(OPTION_SCHEMA)
+
+#: Options only a computed view that declares them takes (issue #551).  Any
+#: other plot refuses them by name, exactly as it refuses an unknown option.
+DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({"gradient_coordinate", "reference_length", "convention"})
 
 #: Options an adapter passes on internally (besides leading-underscore keys);
 #: never offered, never refused.
@@ -256,6 +272,11 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
         if key.startswith("_") or key in INTERNAL_OPTIONS or key in STYLE_OPTIONS:
             continue
         spec = OPTION_SCHEMA.get(key)
+        if spec is not None and key in DECLARED_ONLY_OPTIONS:
+            from . import recipes
+
+            if recipes.choice_options_for(name, key) is None:
+                spec = None
         if spec is None:
             raise ValueError(
                 f"{name!r} does not take an option named {key!r}; extraction options: "
@@ -269,6 +290,13 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
 
             if name in recipes.RECIPES and not recipes.time_axis_of(name):
                 raise ValueError(recipes.no_time_option_message(name))
+        if key == "time_range" and value is not None:
+            # The same rule for a window (cold review 0.8.0 delta-absorb-2
+            # F2): a profile, a map or a drawing has no time history to limit.
+            from . import recipes
+
+            if name in recipes.RECIPES and not recipes.takes_time_range(name):
+                raise ValueError(recipes.no_time_range_option_message(name))
         if key == "members" and _plot_scoped_choices(name, key) is None:
             raise ValueError(
                 f"{name!r} is not a panel composite and takes no members=; "
@@ -289,9 +317,13 @@ def _plot_scoped_choices(name: str, key: str) -> tuple[Any, ...] | None:
     ``overlay`` (issue #483) are declared per recipe, so the schema's static
     list is only the union: what a given plot accepts is asked of the plot.
     """
+    from . import recipes
+
+    declared = recipes.choice_options_for(name, key)
+    if declared is not None:
+        return declared
     if key not in ("coordinate", "x", "field", "overlay", "members"):
         return None
-    from . import recipes
 
     resolve = {
         "coordinate": recipes.coordinate_options_for,

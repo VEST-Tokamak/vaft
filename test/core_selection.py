@@ -77,6 +77,15 @@ CORE_MODULES: tuple[str, ...] = (
     "test_no_pyplot_outside_plot.py",
     "test_plot_backend_boundaries.py",
     "test_validation_architecture.py",
+    # Flux-coordinate conventions, and where a renderer puts a feature because
+    # of them. Cheap: a Solov'ev equilibrium and a synthetic GPEC run, no
+    # solver. Added after V5P found an island figure drawing its O-points a
+    # quarter period and a whole angle convention away from where a Poincare
+    # trace puts them, with every shipped test passing -- the kind of defect
+    # only an absolute-placement check sees, and which the develop gate has to
+    # be able to see.
+    "test_gpec_island_geometry.py",
+    "test_magnetic_island.py",
     # Registry, taxonomy and display policy: the vocabulary the rest of the
     # package indexes itself by.
     "test_diagnostic_registry.py",
@@ -99,8 +108,11 @@ CORE_MODULES: tuple[str, ...] = (
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
+    # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
+    # limit far below it, and a ledger with a fake MemAvailable.
     "test_code_execution.py",
     "test_code_resources.py",
+    "test_memory_gate.py",
     "test_process_tree.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
@@ -187,15 +199,20 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
     "test_diagram_transport_regimes.py",
+    "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
     "test_pipeline_worker.py",
-    # Stability atlas (lane N): real DCON output (two trimmed netCDF files)
-    # read back through the reader and the edge classifier, and the #141 scan
-    # driver's template patching. No solver runs.
+    # Stability atlas (lane N): real DCON/RDCON output (trimmed netCDF files)
+    # read back through the readers, the edge classifier and the ntms mapping,
+    # and the #141 scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
+    "test_gpec_rdcon_criteria.py",
     "test_stability_atlas_controls.py",
+    # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
+    # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
+    "test_kinetic_state.py",
     # Transport atlas (lane T): the shared transport-state resolver on the packaged
     # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
     # reg05 fixture, and the routine driver with a fake runner. No solver runs.

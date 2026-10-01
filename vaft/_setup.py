@@ -15,7 +15,11 @@ Profiles:
     kernel, change nothing and say why.
 ``batch``
     Keep execution headless: when no backend has been chosen yet and
-    ``MPLBACKEND`` is not set, select ``Agg`` the way ``vaft plot --out`` does.
+    ``MPLBACKEND`` is not set, select ``Agg``.  The caller's environment is
+    left alone -- unless Matplotlib had to fall back to a temporary
+    configuration directory because its default is not writable, in which
+    case ``MPLCONFIGDIR`` is exported so that child processes share this
+    run's font cache instead of each rebuilding one, and ``details`` says so.
 ``database``
     Diagnose HSDS configuration and point to ``vaft hsds configure``.  It never
     prompts, never writes a file and never contacts the server.
@@ -23,7 +27,8 @@ Profiles:
 What is never touched: an explicit ``MPLBACKEND`` (other than the inline one
 Jupyter itself exports), a backend already selected in the process (``Agg``
 included, and ``%matplotlib inline`` where Matplotlib 3.9+ records it as
-``inline``; older releases cannot tell it from Jupyter's default), and every
+``inline``; older releases cannot tell it from Jupyter's default), the
+process environment (``MPLCONFIGDIR`` above excepted, and reported), and every
 scientific choice -- COCOS, coordinates, filtering, fitting, slice selection.
 Switching to ``ipympl`` does what ``%matplotlib widget`` does, including
 interactive mode (``rcParams["interactive"]``).  Calling ``setup`` again with
@@ -34,6 +39,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import tempfile
 from dataclasses import asdict, dataclass
 
 __all__ = ["PROFILES", "VAFTSetup", "setup"]
@@ -176,9 +182,37 @@ def _switch_to_ipympl() -> None:
 
 
 def _use_agg() -> None:
-    from vaft.plot.environment import use_non_interactive_backend
+    """Select ``Agg`` without touching the environment.
 
-    use_non_interactive_backend()
+    Not :func:`vaft.plot.environment.use_non_interactive_backend`: that one
+    also exports ``MPLCONFIGDIR`` to a fresh temporary directory, which is
+    inert for this process (Matplotlib is already imported and its
+    configuration directory resolved) but makes every child process rebuild
+    the font cache there, silently (cold review 0.8.0 delta-absorb-2 F6).
+    """
+    import matplotlib
+
+    matplotlib.use("Agg", force=False)
+
+
+def _fallback_config_dir() -> str | None:
+    """The temporary configuration directory Matplotlib fell back to, or ``None``.
+
+    When its default directory (``~/.matplotlib``, or the XDG one) is not
+    writable, Matplotlib creates ``<tmp>/matplotlib-*`` for the process and
+    says so in a warning.  Nothing set ``MPLCONFIGDIR`` in that case, or
+    Matplotlib would have used it.
+    """
+    if os.environ.get("MPLCONFIGDIR"):
+        return None
+    import matplotlib
+
+    configdir = os.fspath(matplotlib.get_configdir())
+    parent, name = os.path.split(configdir)
+    temp = tempfile.gettempdir()
+    if name.startswith("matplotlib-") and parent in (temp, os.path.realpath(temp)):
+        return configdir
+    return None
 
 
 # -- profiles --------------------------------------------------------------------
@@ -249,10 +283,22 @@ def _batch(profile: str, kind: str) -> VAFTSetup:
     else:
         _use_agg()
         after = _chosen_backend()
+        reasons = ["no backend was chosen yet; Agg keeps the run headless"]
+        details: list[tuple[str, str]] = []
+        fallback = _fallback_config_dir()
+        if fallback is not None:
+            # Export the directory Matplotlib already chose so child
+            # processes share one font cache; a writable default is never
+            # overridden and the environment stays as the caller left it.
+            os.environ["MPLCONFIGDIR"] = fallback
+            details.append(("MPLCONFIGDIR", fallback))
+            reasons.append(
+                "Matplotlib's default configuration directory is not writable; "
+                "MPLCONFIGDIR is exported so child processes share this run's cache"
+            )
         return VAFTSetup(
             profile, kind, backend=after, previous_backend=None, live_figures=False,
-            changed=after is not None,
-            reasons=("no backend was chosen yet; Agg keeps the run headless",),
+            changed=after is not None, reasons=tuple(reasons), details=tuple(details),
         )
     return VAFTSetup(profile, kind, backend=before, previous_backend=before, reasons=(reason,))
 

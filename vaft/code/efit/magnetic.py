@@ -1529,3 +1529,19 @@ def gfile_to_omas(self, ods=None, time_index=0, profile_index=0, allow_derived_d
         profile_index=profile_index,
         allow_derived_data=allow_derived_data,
     )
+
+
+__all__ = [
+    "EFIT_EXEC_ENV",
+    "EFIT_HOME_ENV",
+    "EFIT_HOME_EXECUTABLE",
+    "EFITConfig",
+    "EFITInputs",
+    "EFITResult",
+    "resolved_efit_configuration",
+    "find_efit_executable",
+    "prepare_efit_inputs",
+    "run_efit",
+    "collect_efit_outputs",
+    "gfile_to_omas",
+]

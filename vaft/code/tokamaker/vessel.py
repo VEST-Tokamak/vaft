@@ -462,3 +462,8 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
                         f"segment (exclude_vessel_segments) or adjust vessel_gap."
                     )
     return regions
+
+
+__all__ = [
+    "vessel_segments_from_ods",
+]

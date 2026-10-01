@@ -42,7 +42,7 @@ PROJECT = "NUBEAM"
 
 #: What the adapter drives, in the order a case uses them: the Plasma State
 #: generator, then NUBEAM itself, then the merge of its state changes.
-EXECUTABLES = ("plasma_state_test", "nubeam_comp_exec", "update_state")
+EXECUTABLES = ("vaft_plasma_state", "nubeam_comp_exec", "update_state")
 
 #: A NUBEAM source tree, as install/nubeam/macos.sh identifies one.
 SOURCE_MARKERS = ("Makefile", "nubeam_comp_exec")
