@@ -70,7 +70,9 @@ def test_the_catalog_counts_the_known_public_surface():
         # #782 added the dimensional internal inductance and its li_3
         # conversions: 84 + 3 = 87.
         # +4 psi_N profile kernels and their derivatives (#552): 93 + 4 = 97.
-        "equilibrium": 99,  # +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        # 0.8.0 removed the two deprecated shims promised gone in it (#355, #760):
+        # current_density_from_psi and the Z_eff-first bremsstrahlung spelling, 99 - 2 = 97.
+        "equilibrium": 97,  # +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
         "stability": 37,  # +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,

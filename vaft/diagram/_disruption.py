@@ -68,14 +68,14 @@ def _note(text: str, x: float, y: float) -> Label:
 
 @lru_cache(maxsize=4)
 def reference_model(t_end: float = 20e-3, steps: int = 8000) -> dict:
-    """Integrate the 0-D reference model; arrays over time.
+    r"""Integrate the 0-D reference model; arrays over time.
 
-    Circuit: $L_p\\,d(I_\\Omega + I_\\mathrm{RE})/dt = -R_pI_\\Omega$ with $R_p$ from
+    Circuit: $L_p\,d(I_\Omega + I_\mathrm{RE})/dt = -R_pI_\Omega$ with $R_p$ from
     the Spitzer resistivity of the prescribed $T_e(t)$; field
-    $E = R_pI_\\Omega/(2\\pi R_0)$, which is ``inductive_parallel_electric_field``
+    $E = R_pI_\Omega/(2\pi R_0)$, which is ``inductive_parallel_electric_field``
     of the total current's decay; runaways
-    $dn_\\mathrm{RE}/dt = S_\\mathrm{Dreicer} + \\gamma_\\mathrm{av}n_\\mathrm{RE}$,
-    carrying $I_\\mathrm{RE} = ecn_\\mathrm{RE}A$. Explicit Euler; the step
+    $dn_\mathrm{RE}/dt = S_\mathrm{Dreicer} + \gamma_\mathrm{av}n_\mathrm{RE}$,
+    carrying $I_\mathrm{RE} = ecn_\mathrm{RE}A$. Explicit Euler; the step
     resolves the quench, the L/R time and the avalanche. Once the ohmic
     current is gone $E$ is zero and the plateau is frozen: the model has no
     $E \approx E_c$ self-consistency, no runaway loss.

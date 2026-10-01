@@ -262,7 +262,17 @@ def main() -> int:
     else:
         status_text = f"failed: refined_gfiles=0; failed={len(failed)}"
     _write_outputs(args.output, args.status, tuple(refined), status_text)
-    return 0 if refined else 1
+    # A run in which every slice was a solver verdict -- non-convergence or a
+    # timeout, which run_chease returns as `returncode=None` (#1299) -- is a
+    # recorded result: the outputs stay, `generate_chease_ods` writes a
+    # `no_output` manifest, and the worker reads the shot as partial. A
+    # non-zero exit would make Snakemake remove the outputs, and the worker
+    # would re-run every slice until it gave up on a verdict that does not
+    # change. Only an exception or a g-file the manifest names but the tree
+    # lacks is a run that did not happen and is worth a retry.
+    if refined or all(record.get("status") == "failed" for record in records):
+        return 0
+    return 1
 
 
 if __name__ == "__main__":

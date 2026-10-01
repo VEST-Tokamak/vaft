@@ -100,6 +100,45 @@ def test_time_domain_interpolation_is_classified(path):
     )
 
 
+#: Abscissa names that say an interpolation runs over time, whatever module
+#: it sits in.
+TIME_ABSCISSAE = {"t", "tt", "time", "times", "t_new", "t_out", "t_grid", "time_s"}
+
+
+def _time_abscissa_calls(tree: ast.AST) -> list[tuple[int, str]]:
+    found = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not node.args:
+            continue
+        func = node.func
+        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+        first = node.args[0]
+        if name in INTERPOLATORS and isinstance(first, ast.Name) and first.id in TIME_ABSCISSAE:
+            found.append((node.lineno, f"{name}({first.id}, ...)"))
+    return found
+
+
+@pytest.mark.parametrize("relative", sorted(SPATIAL_ONLY_MODULES))
+def test_a_time_domain_interpolation_in_an_exempt_module_still_carries_the_marker(relative):
+    """The exemption says the module interpolates over space.  A call whose
+    abscissa is named like a time axis contradicts that and must justify
+    itself like any scanned module would (cold review 0.8.0
+    equilibrium-representation F3: `integrate_romero_closure` upsamples its
+    time histories onto RK45 sub-steps behind the exemption)."""
+    path = PACKAGE_ROOT / relative
+    source = path.read_text(encoding="utf-8")
+    lines = source.splitlines()
+    offenders = []
+    for lineno, name in sorted(set(_time_abscissa_calls(ast.parse(source, filename=str(path))))):
+        context = "\n".join(lines[max(0, lineno - 1 - MARKER_LOOKBACK):lineno])
+        if MARKER not in context:
+            offenders.append(f"line {lineno}: {name}")
+    assert not offenders, (
+        f"{relative} is exempt as spatial-only but interpolates over a time axis "
+        f"without a '{MARKER} ...' comment: {offenders}"
+    )
+
+
 def test_spatial_allowlist_entries_still_exist_and_still_interpolate():
     for relative in sorted(SPATIAL_ONLY_MODULES):
         path = PACKAGE_ROOT / relative

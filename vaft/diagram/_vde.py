@@ -25,6 +25,7 @@ to be selected, as #1042 asks.
 
 from __future__ import annotations
 
+import copy
 import math
 from functools import lru_cache
 from typing import List
@@ -161,7 +162,8 @@ def hot_vde_sequence(*, labels: bool = True) -> Diagram:
         items.append(_note("Pink: scraped off (outside the wall); dashed: the unscraped boundary. $q_\\mathrm{edge}$: the "
                            "frozen profile's $q$ on the new edge (edge current lost); at fixed $I_p$ it falls further",
                            1.5 * width, y0 - 0.9))
-    return Diagram("hot_vde_sequence", Scene(tuple(items)), model={"frames": data["frames"]})
+    # a copy: hot_vde_frames is lru_cached, and a caller's edit must not reach the next build
+    return Diagram("hot_vde_sequence", Scene(tuple(items)), model={"frames": copy.deepcopy(data["frames"])})
 
 
 def cold_vde_branches(I, I_crit: float = 1.0, Z_s: float = 1.0):

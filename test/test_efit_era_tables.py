@@ -75,6 +75,34 @@ def test_the_limiter_file_is_the_packaged_one_byte_for_byte(packaged, tmp_path):
     assert written.read_bytes() == (packaged / E.LIMITER_NAME).read_bytes()
 
 
+def test_the_input_files_are_lf_whatever_the_platforms_line_separator(monkeypatch, tmp_path, packaged):
+    """cold review 0.8.0 delta-absorb-1 F1: text mode writes os.linesep, so a
+    Windows lim.dat was CRLF (and mhdin.dat hashed differently from Linux).
+
+    Windows text mode is emulated by giving every text-mode write that leaves
+    ``newline`` unset the ``"\\r\\n"`` translation it would get there; a
+    writer that pins ``newline="\\n"`` is untouched, as on Windows.
+    """
+    from vaft.omas.vest_upstream import build_static_ods
+    from vaft.machine_mapping.efund_geometry import efund_geometry_from_static
+
+    real_open = Path.open
+
+    def windows_text_open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
+        if "b" not in mode and newline is None:
+            newline = "\r\n"
+        return real_open(self, mode, buffering, encoding, errors, newline)
+
+    monkeypatch.setattr(Path, "open", windows_text_open)
+    ods, static_manifest = build_static_ods(LEGACY_ERA)
+    limiter = E.write_limiter_file(ods, tmp_path / E.LIMITER_NAME)
+    assert b"\r" not in limiter.read_bytes()
+    assert limiter.read_bytes() == (packaged / E.LIMITER_NAME).read_bytes()
+    geometry = efund_geometry_from_static(ods, manifest=static_manifest)
+    mhdin = E.write_mhdin(geometry, E.EFUNDConfig(), tmp_path / E.MHDIN_NAME)
+    assert b"\r" not in mhdin.read_bytes()
+
+
 @pytest.mark.parametrize(
     ("value", "text"),
     [
@@ -134,6 +162,14 @@ def test_a_table_is_built_for_the_requested_era_and_renamed_into_place(monkeypat
     for name in (E.MHDIN_NAME, E.LIMITER_NAME, "dprobe.dat", *result.files):
         assert (output / name).is_file(), name
     assert all(Path(path).parent == output for path in result.files.values())
+    # cold review 0.8.0 delta-absorb-1 F2: the limiter is part of the table.
+    assert result.files[E.LIMITER_NAME] == output / E.LIMITER_NAME
+    files = manifest["table"]["files"]
+    assert files[E.LIMITER_NAME]["sha256"] == E._sha256(output / E.LIMITER_NAME)
+    assert files[E.LIMITER_NAME]["expected_size"] is None  # EFUND did not write it
+    without_limiter = {name: record["sha256"] for name, record in files.items() if name != E.LIMITER_NAME}
+    assert E._table_digest(without_limiter) != manifest["table"]["identity"]
+    assert E.table_identity(output)["identity"] == manifest["table"]["identity"]
     assert sorted(p.name for p in output.parent.iterdir() if not p.name.endswith(".lock")) == [output.name]
 
     with pytest.raises(E.TableExistsError, match="already holds a table"):
@@ -148,6 +184,10 @@ def test_a_failed_efund_run_leaves_no_table_behind(monkeypatch, packaged, short_
     assert not output.exists()
     # The ~170 MB staging directory does not outlive a failed run.
     assert not [p for p in output.parent.iterdir() if ".partial-" in p.name]
+    # cold review 0.8.0 delta-absorb-1 F3: the result names the table that was
+    # not built, not the staging directory that is gone.
+    assert result.workdir == output and result.files == {}
+    assert result.expected  # what a complete table would have held
 
 
 def test_an_incomplete_directory_is_replaced_only_by_its_owner(monkeypatch, packaged, short_tmp):
@@ -280,3 +320,21 @@ def test_a_table_another_process_finished_meanwhile_is_success_for_the_rule(monk
         with pytest.raises(SystemExit) as exit_info:
             runpy.run_path(str(WORKFLOW / "generate_efit_table.py"), run_name="__main__")
         assert exit_info.value.code == 0
+
+
+def test_the_pipeline_script_reports_a_refusal_without_a_traceback(monkeypatch, packaged, tmp_path, capsys):
+    """cold review 0.8.0 delta-absorb-1 F4: a ValueError reached Snakemake as a traceback."""
+    import runpy
+    import sys
+
+    calls = _stand_in_efund(monkeypatch)
+    monkeypatch.setattr(sys, "argv", [
+        "generate_efit_table.py", "--era", PF2507_ERA, "--base-table-dir", str(packaged),
+        "--output-dir", "/" + "a" * 100,
+    ])
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_path(str(WORKFLOW / "generate_efit_table.py"), run_name="__main__")
+    assert exit_info.value.code == 2
+    assert calls == []
+    err = capsys.readouterr().err
+    assert "refused:" in err and "100 characters" in err and "Traceback" not in err

@@ -24,6 +24,7 @@ vacuum-field trace, which belong to result plotting.
 
 from __future__ import annotations
 
+import copy
 import math
 from functools import lru_cache
 from typing import List, Sequence, Tuple
@@ -34,7 +35,7 @@ from vaft.formula.stability import island_pendulum_hamiltonian
 
 from ._equations import formula_equation
 from ._chart import CHART_HEIGHT, CHART_WIDTH, Chart, render_chart
-from ._equilibrium_geometry import equilibrium_geometry
+from ._equilibrium_geometry import _cocos, equilibrium_geometry
 from ._mhd_mode import _S
 from ._render import Diagram
 from ._scene import Arrow, Label, Marker, Polyline, Scene
@@ -116,7 +117,8 @@ def stochastic_layer(equilibrium=None, regime: str = "touching", *, resonances=R
     Field lines of the reduced Hamiltonian of this module, for the
     ``resonances`` (default $3/2$ and $2/1$) at $x_k = \psi_N(q = m_k/n_k)$ of
     ``equilibrium`` (default the Solov'ev of ``_equilibrium_geometry``).
-    ``perturbations`` gives the $\epsilon_k$ directly; otherwise both are
+    ``perturbations`` gives the $\epsilon_k$ directly (then ``overlap`` must
+    not be given: it would be ignored); otherwise both are
     equal and set so that the pair overlap parameter
     $\sigma = (w_1 + w_2)/(2|x_2 - x_1|)$ is ``overlap`` -- by ``regime``,
     0.5 (isolated), 1 (touching) or 1.6 (overlapping); $\sigma$ itself is
@@ -134,6 +136,8 @@ def stochastic_layer(equilibrium=None, regime: str = "touching", *, resonances=R
     geom = equilibrium_geometry(equilibrium)
     data = resonance_data(geom, resonances)
     if perturbations is not None:
+        if overlap is not None:
+            raise ValueError("give either overlap or perturbations, not both: the amplitudes fix the overlap")
         eps = np.asarray(perturbations, dtype=float)
         if eps.shape != (2,) or np.any(eps <= 0.0):
             raise ValueError("perturbations must be two positive amplitudes")
@@ -226,6 +230,16 @@ def stochastic_layer(equilibrium=None, regime: str = "touching", *, resonances=R
 _S_ZOOM = 30.0
 
 
+def _per_radian_scale(eq) -> float:
+    """What ``eq.psi`` is divided by to give the per-radian flux the field-line equation needs.
+
+    The unit of ``psi`` is a property of ``eq.convention`` (``EquilibriumData``): full weber for
+    COCOS 11-18, already per radian for COCOS 1-8 -- which is what every g-file loaded through
+    ``read_geqdsk().to_equilibrium()`` carries. ``_cocos`` raises when the record declares neither.
+    """
+    return 2.0 * math.pi if _cocos(eq) >= 11 else 1.0
+
+
 class _FieldLineMap:
     """Field lines of $\\psi_0 + \\delta\\psi$ over one period $2\\pi/n$ of the perturbation.
 
@@ -238,10 +252,11 @@ class _FieldLineMap:
     def __init__(self, eq, m: int, n: int, eps: float, phase: float, steps: int = 32):
         from scipy.interpolate import RectBivariateSpline
 
-        self.sp = RectBivariateSpline(eq.r, eq.z, np.asarray(eq.psi, float) / (2.0 * math.pi))
+        scale = _per_radian_scale(eq)
+        self.sp = RectBivariateSpline(eq.r, eq.z, np.asarray(eq.psi, float) / scale)
         self.F = float(np.asarray(eq.f, float)[-1])
         self.axis = tuple(float(v) for v in eq.magnetic_axis)
-        self.dpsi = float(eq.psi_boundary - eq.psi_axis) / (2.0 * math.pi)
+        self.dpsi = float(eq.psi_boundary - eq.psi_axis) / scale
         self.m, self.n, self.eps, self.phase, self.steps = int(m), int(n), float(eps), float(phase), int(steps)
         self.r_x = 1.0
 
@@ -335,7 +350,7 @@ def lobe_model_for(equilibrium, eps: float = 0.02, m: int = 8, n: int = 4, phase
     x0 = _x_point_of(fmap, guess)
     sp = fmap.sp
     psi_x, psi_ax = float(sp.ev(*x0)), float(sp.ev(*eq.magnetic_axis))
-    psi_b = float(eq.psi_boundary) / (2.0 * math.pi)
+    psi_b = float(eq.psi_boundary) / _per_radian_scale(eq)
     a_minor = 0.5 * float(np.ptp(np.asarray(eq.lcfs.r)))
     grad = math.hypot(float(sp.ev(*x0, dx=1)), float(sp.ev(*x0, dy=1)))
     hessian = float(sp.ev(*x0, dx=2)) * float(sp.ev(*x0, dy=2)) - float(sp.ev(*x0, dx=1, dy=1)) ** 2
@@ -463,7 +478,7 @@ def separatrix_lobes(equilibrium=None, *, perturbation: float = 0.02, m: int = 8
     # the unperturbed separatrix, from the equilibrium flux
     from contourpy import LineType, contour_generator
 
-    gen = contour_generator(x=eq.r, y=eq.z, z=(np.asarray(eq.psi, float) / (2.0 * math.pi)).T,
+    gen = contour_generator(x=eq.r, y=eq.z, z=(np.asarray(eq.psi, float) / _per_radian_scale(eq)).T,
                             line_type=LineType.Separate)
     for line in gen.lines(model["psi_x"] * (1.0 - 1e-6)):
         for run in _runs(np.asarray(line), window):
@@ -534,5 +549,7 @@ def separatrix_lobes(equilibrium=None, *, perturbation: float = 0.02, m: int = 8
         ]
     out = {"classification": "reduced_hamiltonian_model", **{k: model[k] for k in (
         "x_point", "x_point_unperturbed", "multipliers", "lambda", "target_z", "psi_x", "eps")},
-        "strike_points": hits["unstable"], "strike_points_stable": hits["stable"], "manifolds": model["manifolds"]}
+        "strike_points": hits["unstable"], "strike_points_stable": hits["stable"],
+        # a copy: the model is lru_cached, and a caller's edit must not reach the next build
+        "manifolds": copy.deepcopy(model["manifolds"])}
     return Diagram("separatrix_lobes", Scene(tuple(items)), model=out)

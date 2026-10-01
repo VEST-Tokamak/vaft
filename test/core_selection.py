@@ -62,11 +62,13 @@ CORE_MODULES: tuple[str, ...] = (
     # with what the packages actually export.
     "test_cli.py",
     "test_formula_catalog.py",
+    "test_help.py",
     "test_hsds_configure.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
     "test_plot_submodule.py",
     "test_process_catalog.py",
+    "test_setup.py",
     # Layer boundaries. Source-level architecture checks -- no solves, no I/O.
     "contracts/test_machine_mapping_boundaries.py",
     "test_api_layer_boundaries.py",

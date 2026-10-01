@@ -31,7 +31,17 @@ __all__ = [
 ]
 
 
+#: Top-level functions served lazily from private modules.  They stay out of
+#: ``__all__`` so ``from vaft import *`` cannot shadow the builtin ``help``.
+#: ``setup`` only runs when called; importing VAFT never prepares anything.
+_LAZY_FUNCTIONS = {"help": "._help", "setup": "._setup"}
+
+
 def __getattr__(name: str):
+    if name in _LAZY_FUNCTIONS:
+        function = getattr(import_module(_LAZY_FUNCTIONS[name], __name__), name)
+        globals()[name] = function
+        return function
     if name in __all__:
         module = import_module(f".{name}", __name__)
         globals()[name] = module
@@ -40,7 +50,7 @@ def __getattr__(name: str):
 
 
 def __dir__():
-    return sorted(list(globals().keys()) + __all__)
+    return sorted(set(globals()) | set(__all__) | set(_LAZY_FUNCTIONS))
 
 
 # Apply lightweight compatibility shims as early as possible so every

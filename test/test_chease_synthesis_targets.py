@@ -223,6 +223,23 @@ def test_a_single_imposed_target_is_one_solve(fake):
     assert fake.calls[0]["spec"].plasma_current == 8e4
 
 
+def test_beta_p_is_documented_as_the_dimensionless_fraction_the_descriptor_measures():
+    """The docstring said ``beta_p`` was in %; the descriptor behind it is
+    ``2*mu0*<p>/<Bp>_boundary^2`` with unit ``1`` and every working example
+    asks for 0.4-0.6 (cold review 0.8.0 plasma-state-and-chease F4)."""
+    from vaft.code.chease_synthesis_targets import synthesize_equilibrium_to_targets
+
+    from vaft.data.resources import sample_geqdsk
+    from vaft.process.equilibrium import as_equilibrium, derive_global_descriptors
+
+    doc = synthesize_equilibrium_to_targets.__doc__
+    assert "[%, as in the descriptors]" not in doc
+    assert "2*mu0*<p>/<Bp>_boundary^2" in doc and "beta_n" in doc and "% m T / MA" in doc
+    descriptors = derive_global_descriptors(as_equilibrium(sample_geqdsk(), convention=2))
+    beta_p = descriptors["beta_p_boundary_average"]
+    assert beta_p.available and beta_p.unit == "1" and 0.0 < beta_p.value < 5.0
+
+
 def test_statuses_are_declared(fake):
     seen = {synthesize_equilibrium_to_targets(VEST, t).status for t in (
         {"plasma_current": 1e5, "q95": 2.35}, {"plasma_current": 1e5, "q95": 6.0}, {"li": 1.0, "q0": 0.5})}

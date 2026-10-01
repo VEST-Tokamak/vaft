@@ -331,3 +331,59 @@ def test_separatrix_lobes_on_another_single_null_equilibrium():
     assert len(m["strike_points"]) >= 2
     with pytest.raises(ValueError, match="single-null"):
         vaft.diagram.separatrix_lobes(solovev_example("limited", a_parameter=0.0))
+
+
+def test_the_lobe_map_reads_psi_in_the_records_own_unit():
+    """A per-radian record (COCOS 1, what every g-file loads as) traces the same field lines as its full-weber
+    twin; before the map divided by 2 pi regardless, and the multipliers came out (15.9, 0.06) vs (1.55, 0.64)
+    on the same null. Cold review 0.8.0 diagram-B F1."""
+    import dataclasses
+
+    from vaft.process.equilibrium import convert_cocos, solovev_example
+
+    eq11 = solovev_example("single_null", a_parameter=0.0, major_radius=0.8, aspect_ratio=2.5)
+    eq1 = convert_cocos(eq11, 1)
+    assert eq11.convention.psi_per_radian is False and eq1.convention.psi_per_radian is True
+    a, b = mt.lobe_model_for(eq11), mt.lobe_model_for(eq1)
+    np.testing.assert_allclose(b["multipliers"], a["multipliers"], rtol=1e-6)
+    np.testing.assert_allclose(b["x_point"], a["x_point"], atol=1e-9)
+    for name in ("unstable", "stable"):
+        np.testing.assert_allclose(mt.strike_points(b["manifolds"][name], b["target_z"]),
+                                   mt.strike_points(a["manifolds"][name], a["target_z"]), atol=1e-6)
+    # a record that declares neither its COCOS nor its flux unit is refused, as the q adapter refuses it
+    unknown = dataclasses.replace(eq11, convention=dataclasses.replace(eq11.convention, cocos=None,
+                                                                        candidates=(), psi_per_radian=None))
+    with pytest.raises(ValueError, match="2 pi"):
+        mt.lobe_model_for(unknown)
+
+
+def test_the_kink_model_label_prints_the_coefficient_the_drawing_uses():
+    """A negative or complex sideband was printed as its modulus while the displacement used the signed/complex
+    value, so the figure's equation disagreed with its drawing by a phase. Cold review 0.8.0 diagram-B F3."""
+    def model_text(**kw):
+        (label,) = vaft.diagram.kink_mode(m=2, n=1, radial_profile="global", **kw).scene.role("model")
+        return label.text
+
+    assert "(e^{i2\\theta^*})" in model_text()
+    assert "(e^{i\\theta^*} - 0.5\\,e^{i2\\theta^*})" in model_text(harmonics={1: 1.0, 2: -0.5})
+    assert "(-e^{i\\theta^*} + 0.5\\,e^{i2\\theta^*})" in model_text(harmonics={1: -1.0, 2: 0.5})
+    assert "(e^{i\\theta^*} + 0.3\\,e^{i(2\\theta^* +1.57)})" in model_text(harmonics={1: 1.0, 2: 0.3j})
+
+
+def test_editing_a_lobe_diagrams_model_does_not_change_the_next_build():
+    """The manifolds come from an lru_cached model; handing the cached lists out let a caller's edit turn the
+    next build's six unstable-manifold polylines into one. Cold review 0.8.0 diagram-B F6."""
+    before = len(vaft.diagram.separatrix_lobes().scene.role("unstable_manifold"))
+    d = vaft.diagram.separatrix_lobes()
+    d.model["manifolds"]["unstable"][0][:] = 0.0
+    d.model["manifolds"]["stable"].clear()
+    assert len(vaft.diagram.separatrix_lobes().scene.role("unstable_manifold")) == before
+    assert len(vaft.diagram.separatrix_lobes().model["manifolds"]["stable"]) == 2
+
+
+def test_stochastic_layer_refuses_an_overlap_beside_explicit_amplitudes():
+    """``overlap`` was silently ignored when ``perturbations`` was given (sigma 0.275 drawn for an asked 0.3).
+    Cold review 0.8.0 diagram-B F7."""
+    with pytest.raises(ValueError, match="not both"):
+        vaft.diagram.stochastic_layer(regime="isolated", overlap=0.3, perturbations=(1e-4, 2e-4))
+    assert vaft.diagram.stochastic_layer(regime="isolated", overlap=0.3).model["sigma"] == pytest.approx(0.3)

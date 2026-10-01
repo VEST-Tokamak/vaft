@@ -54,7 +54,11 @@ def efit_collection_parameters(
 
     `efit_preset` is the record the k-file stage wrote when a named EFIT
     configuration built the k-files (#891); a routine run has none, and then
-    the payload is exactly what it was before presets existed.
+    the payload is exactly what it was before presets existed.  A record also
+    states the uncertainty model the constraints were fitted under, which is
+    written once more as the top-level `uncertainty_model` --  the key
+    `vaft.omas.efit_quality.constraint_uncertainty_model` reads, and what
+    decides whether a sigma-normalized fit grade means anything.
     """
     collection = {
         "status": status,
@@ -64,9 +68,22 @@ def efit_collection_parameters(
         "artifact_manifest": artifact_manifest,
         "mapping_source_revision": str(mapping_source_revision),
     }
+    payload: dict = {"efit_collection": collection}
     if efit_preset is not None:
         collection["efit_preset"] = efit_preset
-    return json.dumps({"efit_collection": collection}, sort_keys=True)
+        model = preset_uncertainty_model(efit_preset)
+        if model is not None:
+            payload["uncertainty_model"] = model
+    return json.dumps(payload, sort_keys=True)
+
+
+def preset_uncertainty_model(record) -> str | None:
+    """The ``uncertainty_mode`` a preset record's scientific configuration names."""
+    try:
+        model = record["scientific"]["constraints"]["uncertainty_mode"]
+    except (KeyError, TypeError):
+        return None
+    return str(model) if model else None
 
 
 def _preset_record(kfile_manifest: Path):

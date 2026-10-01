@@ -179,8 +179,14 @@ def fit_solovev(
     if rank < columns.shape[1]:
         return SolovevFit(None, {}, "failed", f"the fit is rank deficient ({rank}/{columns.shape[1]})", provenance)
     n = SOLOVEV_BASIS_SIZES[basis]
-    f_edge = float(np.asarray(eq.f)[-1]) if eq.f is not None else 1.0
-    pressure_edge = float(np.asarray(eq.pressure)[-1]) if eq.pressure is not None else 0.0
+    # The boundary sample is the one at psi_boundary, not the last one stored:
+    # a boundary-first record (legal for an ODS) would otherwise hand the
+    # model the axis F and pressure (cold review 0.8.0 equilibrium-representation F2).
+    edge = -1
+    if eq.psi_1d is not None and np.asarray(eq.psi_1d).size:
+        edge = int(np.argmin(np.abs(np.asarray(eq.psi_1d, dtype=float) - float(eq.psi_boundary))))
+    f_edge = float(np.asarray(eq.f)[edge]) if eq.f is not None else 1.0
+    pressure_edge = float(np.asarray(eq.pressure)[edge]) if eq.pressure is not None else 0.0
     model = SolovevEquilibrium(solution[:n], float(solution[n]), float(solution[n+1]), rref,
                                psi_boundary=psi_boundary, pressure_boundary=pressure_edge,
                                f_boundary=f_edge, basis=basis)  # f_sign follows f_edge (#1307)

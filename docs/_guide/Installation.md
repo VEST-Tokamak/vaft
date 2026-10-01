@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines nine extras; none is needed for the first result on this page:
+The project defines nine extras (eight optional-dependency groups plus `dev`); none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |

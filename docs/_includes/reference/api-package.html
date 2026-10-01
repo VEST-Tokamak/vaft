@@ -46,8 +46,8 @@ Signatures and summaries are read from the source; nothing here is written by ha
 {% if undeclared.size > 0 %}## Modules without a declared public surface {#undeclared}
 
 These modules declare no `__all__`, so this reference cannot tell what they publish and lists nothing
-from them (`docs/api_inventory.yml`). Some are reached through a package that re-exports them
-without an `__all__` of its own -- `vaft.omas` star-imports several -- and are described in the
-hand-written guides until they declare one:
+from them (`docs/api_inventory.yml`). Some are reached through a package that re-exports and declares
+them -- `vaft.omas` publishes the functions of the wrapper modules it star-imports, under `vaft.omas`
+above -- and the rest are described in the hand-written guides until they declare one:
 {% for module in undeclared %}`{{ module.name }}`{% unless forloop.last %}, {% endunless %}{% endfor %}.
 {% endif %}
