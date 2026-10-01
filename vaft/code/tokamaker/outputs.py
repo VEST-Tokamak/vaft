@@ -255,3 +255,14 @@ def collect_tokamaker_stability_outputs(
         gfile=gfile,
         scalars=scalars,
     )
+
+
+__all__ = [
+    "EVOLUTION_SIDECAR_NAME",
+    "SIDECAR_NAME",
+    "STABILITY_SIDECAR_NAME",
+    "parse_stats_sidecar",
+    "collect_tokamaker_outputs",
+    "collect_tokamaker_evolution_outputs",
+    "collect_tokamaker_stability_outputs",
+]

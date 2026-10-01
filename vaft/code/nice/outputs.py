@@ -582,3 +582,8 @@ def collect_nice_outputs(
         runtime_status=str(provenance.get("process_runtime_status") or "completed"),
         elapsed_s=provenance.get("process_elapsed_s"),
     )
+
+
+__all__ = [
+    "collect_nice_outputs",
+]

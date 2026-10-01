@@ -258,3 +258,9 @@ def run_tokamaker_vertical_stability(
         error=error,
         scalars=scalars,
     )
+
+
+__all__ = [
+    "run_tokamaker_wall_eigenmodes",
+    "run_tokamaker_vertical_stability",
+]

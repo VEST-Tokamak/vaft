@@ -412,6 +412,11 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "coil_3d_geometry_topview": make_coils_3d,
     "pf_plasma_geometry_poloidal": make_pf_plasma,
     "neoclassical_profile_bootstrap_current": make_neoclassical,
+    # issue #551: 39915 carries no core_profiles; the gradient views read the
+    # synthetic profiles through the equilibrium slice at their time.
+    "electron_temperature_profile_gradient": make_core_profiles,
+    "electron_density_profile_gradient": make_core_profiles,
+    "ion_temperature_profile_gradient": make_core_profiles,
     "electron_temperature_field": make_core_profiles,
     "electron_density_field": make_core_profiles,
     "summary_time_power_balance": make_power_balance,
