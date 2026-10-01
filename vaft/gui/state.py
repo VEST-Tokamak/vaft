@@ -265,18 +265,13 @@ class BrowserSession:
 
         if renderer == "plotly":
             options["backend"] = "plotly"
-        import matplotlib.pyplot as plt
+        from vaft.plot.environment import close_new_figures_on_error
 
-        before = set(plt.get_fignums())
-        try:
+        # render_controls makes its pyplot figure before the first draw; a
+        # refused draw must not leave it registered in a server that runs for
+        # days.
+        with close_new_figures_on_error():
             drawn = render_plot(name, self.ods, interactive=True, interaction_backend="none", **options)
-        except Exception:
-            # render_controls makes its pyplot figure before the first draw;
-            # a refused draw must not leave it registered in a server that
-            # runs for days.
-            for number in set(plt.get_fignums()) - before:
-                plt.close(number)
-            raise
         self._release()
         self.plot, self.renderer, self.interactive = name, renderer, drawn
         return drawn
@@ -324,19 +319,13 @@ class BrowserSession:
             raise ValueError(f"format must be one of {', '.join(EXPORT_FORMATS)}; got {fmt!r}")
         import io
 
-        import matplotlib.pyplot as plt
-
         from vaft.omas import render_plot
+        from vaft.plot.environment import close_figure, close_new_figures_on_error
 
-        before = set(plt.get_fignums())
-        try:
+        # A builder that fails after pyplot made its figure must not leak it
+        # into a server that runs for days.
+        with close_new_figures_on_error():
             drawn = render_plot(self.plot, self.ods, **self.call_options())
-        except Exception:
-            # A builder that fails after pyplot made its figure must not leak
-            # it into a server that runs for days.
-            for number in set(plt.get_fignums()) - before:
-                plt.close(number)
-            raise
         figure = drawn[0] if isinstance(drawn, tuple) else drawn
         try:
             sized = settings is not None and settings.sized
@@ -346,7 +335,7 @@ class BrowserSession:
             # An explicit size is the file's size; otherwise trim the margins.
             figure.savefig(buffer, format=fmt, dpi=dpi, bbox_inches=None if sized else "tight")
         finally:
-            plt.close(figure)
+            close_figure(figure)
         return buffer.getvalue()
 
     @property
@@ -359,11 +348,11 @@ class BrowserSession:
 
     def _release(self) -> None:
         if self.interactive is not None and self.renderer == "matplotlib":
-            import matplotlib.pyplot as plt
+            from vaft.plot.environment import close_figure
 
             # interaction_backend="none" draws on a pyplot figure, which the
             # pyplot registry keeps alive until closed.
-            plt.close(self.interactive.figure)
+            close_figure(self.interactive.figure)
         self.plot, self.renderer, self.interactive = None, None, None
 
     def close(self) -> None:

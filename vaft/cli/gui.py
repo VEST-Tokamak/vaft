@@ -69,5 +69,8 @@ def main(argv: Iterable[str] | None = None) -> int:
     return 0
 
 
+__all__ = ["main"]
+
+
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
