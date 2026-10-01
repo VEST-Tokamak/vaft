@@ -77,10 +77,9 @@ def build_config(args) -> Any:
         from vaft.code.slurm import SlurmBackend
 
         backend = SlurmBackend(partition=args.partition, account=args.account,
-                               mode="batch", max_wait=args.max_wait,
-                               extra_args=(f"--mem={int(args.mem_mb)}M",))
+                               mode="batch", max_wait=args.max_wait)
     return NEOConfig(n_radial=n_radial, rmin_over_a=first, rmin_over_a_2=last,
-                     backend=backend, timeout=args.timeout)
+                     backend=backend, timeout=args.timeout, memory_mb=int(args.mem_mb))
 
 
 def project(native: Any, time: float) -> dict[str, Any]:
@@ -201,7 +200,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--backend", choices=("local", "slurm"), default="local")
     parser.add_argument("--partition", default="lowpri-short")
     parser.add_argument("--account")
-    parser.add_argument("--mem-mb", type=int, default=2048)
+    parser.add_argument("--mem-mb", type=int, default=2048,
+                        help="memory reserved per run [MB], as in run_tglf.py")
     parser.add_argument("--timeout", type=float, default=1800.0)
     parser.add_argument("--max-wait", type=float, default=6 * 3600.0)
     parser.add_argument("--workers", type=int, default=8)

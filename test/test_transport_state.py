@@ -277,6 +277,8 @@ def test_runtime_settings_stay_out_of_identity():
     from vaft.code.gacode.tglf import TGLFConfig
 
     assert physics_parameters(TGLFConfig(timeout=10, n_mpi=4)) == physics_parameters(TGLFConfig())
+    # The memory reservation decides where a run fits, not what it computes (F7).
+    assert physics_parameters(TGLFConfig(memory_mb=2048)) == physics_parameters(TGLFConfig())
 
 
 # --------------------------------------------------------------------------- TGLF spectra
@@ -732,3 +734,18 @@ def test_a_nan_midplane_geometry_is_derived_not_passed_through(sample):
     assert state.resolved, state.reasons
     assert state.provenance["midplane_geometry"]["kind"] == "derived"
     assert np.all(np.isfinite(state.profile.rmin))
+
+
+def test_mem_mb_is_the_configs_memory_reservation_not_a_slurm_only_flag(driver, neo_driver):
+    """F7: --mem-mb lands in config.memory_mb for both drivers and both backends."""
+    import argparse
+
+    base = dict(partition="lowpri-short", account=None, max_wait=1.0, timeout=1.0, mem_mb=1536,
+                sat_rule=2, field_model="es", surfaces=list(DEFAULT_SURFACES))
+    for backend in ("local", "slurm"):
+        args = argparse.Namespace(backend=backend, **base)
+        for config in (driver.build_config(args), neo_driver.build_config(args)):
+            assert config.memory_mb == 1536
+            if backend == "slurm":
+                # One --mem only: the backend's _sizing writes it from memory_mb.
+                assert not any("--mem" in str(a) for a in config.backend.extra_args)

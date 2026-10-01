@@ -923,7 +923,7 @@ def physics_parameters(config: Any, *, exclude: Iterable[str] = ()) -> dict[str,
     from dataclasses import fields as dataclass_fields
 
     runtime = {"backend", "timeout", "env", "home", "executable", "workdir", "args",
-               "platform", "n_mpi", "n_omp", *exclude}
+               "platform", "n_mpi", "n_omp", "memory_mb", *exclude}
     out = {}
     for entry in dataclass_fields(config):
         if entry.name in runtime:
