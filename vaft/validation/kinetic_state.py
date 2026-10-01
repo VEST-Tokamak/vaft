@@ -65,6 +65,7 @@ __all__ = [
     "CONTRACT_VERSION",
     "INDEPENDENT_LINEAGES",
     "TI_FLAGS",
+    "TI_NOTES",
     "default_tolerance",
     "LINEAGES",
     "QUALITIES",
@@ -153,6 +154,9 @@ def slice_at_time(ods: Any, time_s: float, *, ids: str = "equilibrium",
     offsets = times - float(time_s)
     index = int(np.nanargmin(np.abs(offsets)))
     tolerance = default_tolerance(times) if tolerance_s is None else float(tolerance_s)
+    if not math.isfinite(tolerance) or tolerance < 0:
+        # NaN would compare False against every offset and accept any slice
+        raise ValueError(f"tolerance_s must be a finite non-negative number, not {tolerance_s!r}")
     if abs(offsets[index]) > tolerance:
         raise LookupError(
             f"the nearest {ids} slice to {time_s} s is {offsets[index]:+.4g} s away, beyond {tolerance:.4g} s"
@@ -282,16 +286,21 @@ def core_profiles_electron_pressure(profiles: Any, *, time_s: float,
         return {"available": False, "reason": str(missing)}
     root = f"core_profiles.profiles_1d.{index}"
     rho = _array(profiles, f"{root}.grid.rho_tor_norm")
-    density = _array(profiles, f"{root}.electrons.density_thermal")
-    if density is None:
-        density = _array(profiles, f"{root}.electrons.density")
     temperature = _array(profiles, f"{root}.electrons.temperature")
-    if rho is None or density is None or temperature is None:
-        return {"available": False, "reason": "the core_profiles slice lacks rho_tor_norm, n_e or T_e"}
-    if not (rho.size == density.size == temperature.size):
-        return {"available": False, "reason": "core_profiles rho_tor_norm, n_e and T_e differ in length"}
+    if rho is None or temperature is None:
+        return {"available": False, "reason": "the core_profiles slice lacks rho_tor_norm or T_e"}
+    # density_thermal when it is there and on this grid, else density
+    density, leaf = None, None
+    for name in ("density_thermal", "density"):
+        candidate = _array(profiles, f"{root}.electrons.{name}")
+        if candidate is not None and candidate.size == rho.size:
+            density, leaf = candidate, name
+            break
+    if density is None or temperature.size != rho.size:
+        return {"available": False, "reason": "core_profiles rho_tor_norm, n_e and T_e are missing or differ in length"}
     times = _slice_times(profiles, "core_profiles")
-    return {"available": True, "time_s": float(times[index]), "offset_s": offset, "rho_tor_norm": rho,
+    return {"available": True, "time_s": float(times[index]), "index": index, "offset_s": offset,
+            "rho_tor_norm": rho, "n_e": density, "t_e": temperature, "density_leaf": leaf,
             "p_e": _ELEMENTARY_CHARGE * density * temperature}
 
 
@@ -376,8 +385,13 @@ def integrated_pressure_ratio(equilibrium: Any, index: int, rho_tor_norm: np.nda
 #: inverting it returns the assumption (#1426 section 6).
 INDEPENDENT_LINEAGES = ("magnetics",)
 
-#: The flags a pressure-partition point can carry.  A flagged point has no T_i.
+#: The flags that void a pressure-partition point: a flagged point has no T_i.
 TI_FLAGS = ("p_i_nonpositive", "p_i_not_significant", "non_finite_input")
+
+#: Notes a point can carry that leave its T_i in place.  ``sigma_unavailable``:
+#: an input uncertainty is missing, so neither sigma(T_i) nor the significance
+#: test exists for that point.
+TI_NOTES = ("sigma_unavailable",)
 
 
 def ion_composition(z_eff: float = 2.0, impurity: str = "C") -> dict[str, Any]:
@@ -417,16 +431,25 @@ def pressure_sigma(pressure: np.ndarray, neighbours: Sequence[np.ndarray] = (), 
     to 0.17, the KPPCUR model-form uncertainty on the pressure-weighted area
     found in #874.  Returns ``(sigma, basis)`` with ``basis`` either
     ``"ensemble(n=k)"`` when the spread exceeds the floor anywhere, or
-    ``"floor"``.
+    ``"floor"``.  A neighbour value that is not finite is left out of the
+    spread at that point, and a point with fewer than two finite values keeps
+    the floor.
     """
     pressure = np.asarray(pressure, dtype=float)
     floor_sigma = floor * np.abs(pressure)
     if not neighbours:
         return floor_sigma, "floor"
-    stack = np.vstack([pressure, *[np.asarray(n, dtype=float) for n in neighbours]])
-    spread = np.std(stack, axis=0, ddof=1)
+    stack = np.vstack([pressure, *[np.broadcast_to(np.asarray(n, dtype=float), pressure.shape) for n in neighbours]])
+    finite = np.isfinite(stack)
+    counts = finite.sum(axis=0)
+    with np.errstate(invalid="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN columns: handled below
+        spread = np.nanstd(stack, axis=0, ddof=1)
+    # fewer than two finite values at a point: no spread there, the floor stands
+    spread = np.where(counts >= 2, spread, 0.0)
     sigma = np.maximum(spread, floor_sigma)
-    basis = f"ensemble(n={stack.shape[0]})" if np.any(spread > floor_sigma) else "floor"
+    used = int(counts.max()) if counts.size else 0
+    basis = f"ensemble(n={used})" if np.any(spread > floor_sigma) else "floor"
     return sigma, basis
 
 
@@ -448,17 +471,26 @@ def infer_ti_pressure_partition(p_eq: Any, n_e: Any, t_e: Any, *, composition: M
     Points are **flagged, never filled**: ``p_i <= 0`` (``p_i_nonpositive``) and
     ``p_i < sigma(p_i)`` (``p_i_not_significant``) get ``T_i = NaN``.
 
+    An input uncertainty that is missing (NaN) does not void the point: its
+    T_i stands, ``sigma_t_i`` is NaN, the significance test is skipped, and the
+    point carries the note ``sigma_unavailable`` (:data:`TI_NOTES`).
+
     The inference is refused (``eligible = False``) unless the equilibrium
     lineage is in :data:`INDEPENDENT_LINEAGES`: a pressure fitted with an
-    assumed Ti/Te returns the assumption.  The result is an *inferred*
-    quantity, never a measurement.
+    assumed Ti/Te returns the assumption.  **The guard trusts the declared
+    lineage**; the equilibrium products carry no machine-readable record of
+    one, so a caller must derive ``equilibrium_lineage`` from *where the
+    pressure came from* (the FileDB stage it loaded), never from intent.  The
+    result is an *inferred* quantity, never a measurement.
+
+    Scalars broadcast against arrays; every input is brought to one shape.
     """
     if equilibrium_lineage not in INDEPENDENT_LINEAGES:
         return {"eligible": False, "origin": "inferred", "method": "equilibrium_pressure_partition",
                 "reason": (f"circular: the {equilibrium_lineage!r} equilibrium pressure was reconstructed with an "
                            "assumed Ti/Te, so partitioning it returns that assumption")}
-    p_eq, n_e, t_e = (np.asarray(x, dtype=float) for x in (p_eq, n_e, t_e))
-    s_p, s_n, s_t = (np.broadcast_to(np.asarray(x, dtype=float), p_eq.shape) for x in (sigma_p_eq, sigma_n_e, sigma_t_e))
+    p_eq, n_e, t_e, s_p, s_n, s_t = np.broadcast_arrays(
+        *(np.asarray(x, dtype=float) for x in (p_eq, n_e, t_e, sigma_p_eq, sigma_n_e, sigma_t_e)))
     fraction = float(composition["ion_density_per_electron"])
     p_e = _ELEMENTARY_CHARGE * n_e * t_e
     p_i = p_eq - p_e
@@ -474,15 +506,18 @@ def infer_ti_pressure_partition(p_eq: Any, n_e: Any, t_e: Any, *, composition: M
     flags: list[list[str]] = []
     for k in range(p_eq.size):
         point: list[str] = []
-        values = (p_eq.flat[k], n_e.flat[k], t_e.flat[k], s_p.flat[k], s_n.flat[k], s_t.flat[k])
+        values = (p_eq.flat[k], n_e.flat[k], t_e.flat[k])
+        sigmas_known = all(math.isfinite(v) for v in (s_p.flat[k], s_n.flat[k], s_t.flat[k]))
         if not all(math.isfinite(v) for v in values) or n_e.flat[k] <= 0 or t_e.flat[k] <= 0:
             point.append("non_finite_input")
         elif p_i.flat[k] <= 0:
             point.append("p_i_nonpositive")
-        elif p_i.flat[k] < sigma_p_i.flat[k]:
+        elif sigmas_known and p_i.flat[k] < sigma_p_i.flat[k]:
             point.append("p_i_not_significant")
+        if not point and not sigmas_known:
+            point.append("sigma_unavailable")
         flags.append(point)
-    bad = np.array([bool(f) for f in flags]).reshape(p_eq.shape)
+    bad = np.array([any(f in TI_FLAGS for f in point) for point in flags], dtype=bool).reshape(p_eq.shape)
     t_i = np.where(bad, np.nan, t_i)
     sigma_t_i = np.where(bad, np.nan, sigma_t_i)
     ti_te = np.where(bad, np.nan, ti_te)
