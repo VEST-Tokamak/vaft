@@ -7,10 +7,12 @@ drawn by hand.
 
 * ``s_alpha_ballooning``: first and second stability from the ballooning
   equation (``s_alpha_marginal_alpha``).
-* ``hugill``: the Greenwald line from ``greenwald_density`` and
-  ``q_cyl_from_B_R_epsilon_kappa_I``, and the low-q limit.
-* ``troyon``: the beta limit from ``beta_N_from_beta_a_B0_Ip`` and the low-q
-  cutoff from ``q_cyl_from_B_R_epsilon_kappa_I``.
+* ``hugill``: the registered ``greenwald_hugill`` boundary (and, on request,
+  ``murakami_hugill``) on the canonical ``hugill`` projection, and a
+  schematic q_cyl cutoff.
+* ``troyon``: the registered ``troyon`` beta limit on the canonical
+  ``troyon`` projection, and the low-q cutoff from
+  ``q_cyl_from_B_R_epsilon_kappa_I``.
 * ``peeling_ballooning``: a *schematic* -- the edge-stability boundary has no
   closed form -- built from two linear stability margins joined by a smooth
   maximum. The figure says so, and its corner (the star) is computed where
@@ -25,17 +27,18 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 import numpy as np
 
+from vaft.formula.boundaries import boundary_curve, boundary_value, get_boundary
 from vaft.formula.equilibrium import q_cyl_from_B_R_epsilon_kappa_I
 from vaft.formula.stability import (
     beta_N_from_beta_a_B0_Ip,
-    greenwald_density,
     s_alpha_marginal_alpha,
 )
 
+from ._projections import get_projection, placement
 from ._chart import Chart, nice_ticks as _nice_ticks, render_chart as _render_chart
 from ._render import Diagram
 
@@ -196,15 +199,13 @@ def s_alpha_ballooning(*, s_max: float = 1.5, alpha_max: float = 3.5, labels: bo
 # Hugill and Troyon operational space
 # ---------------------------------------------------------------------------
 
-#: nominal machine used to evaluate the formulas; both boundaries depend
-#: only on the elongation (Hugill) or on aspect ratio and elongation (Troyon)
+#: nominal machine used to evaluate the Troyon low-q cutoff, which depends
+#: only on aspect ratio and elongation
 _R0, _B0 = 1.0, 1.0
-#: any aspect ratio gives the same Hugill line; this one only sizes the nominal machine
-_HUGILL_ASPECT_RATIO = 3.0
 
 
-def _validate_shape(aspect_ratio: float, elongation: float, q_limit: float) -> None:
-    if not aspect_ratio > 1.0:
+def _validate_shape(aspect_ratio: Optional[float], elongation: float, q_limit: float) -> None:
+    if aspect_ratio is not None and not aspect_ratio > 1.0:
         raise ValueError(f"aspect_ratio must exceed 1, not {aspect_ratio!r}")
     if not elongation > 0.0:
         raise ValueError(f"elongation must be positive, not {elongation!r}")
@@ -222,40 +223,58 @@ def _current_at_q(elongation: float, aspect_ratio: float, q_limit: float) -> flo
     return float(q_at_1MA) / q_limit
 
 
-def hugill(*, elongation: float = 1.0, q_limit: float = 2.0, labels: bool = True) -> Diagram:
+def hugill(*, elongation: float = 1.0, q_limit: float = 2.0, boundaries: Tuple[str, ...] = ("greenwald_hugill",),
+           labels: bool = True) -> Diagram:
     r"""Hugill diagram: $1/q_\mathrm{cyl}$ against the Murakami parameter $\bar n R/B$.
 
-    The density limit is the Greenwald density written in these
-    coordinates: along a current scan, ``greenwald_density`` and
-    ``q_cyl_from_B_R_epsilon_kappa_I`` give a straight line through the
+    Axes and boundaries come from the canonical ``hugill`` projection
+    (:mod:`vaft.diagram._projections`) and :mod:`vaft.formula.boundaries`.
+    The density limit is the registered ``greenwald_hugill`` boundary, the
+    Greenwald density in these coordinates: a straight line through the
     origin, $1/q_\mathrm{cyl} = (\pi/50\kappa_a)\,\bar nR/B$ ($\bar n$ in
-    $10^{19}\,\mathrm{m^{-3}}$), whose slope depends only on the (area)
-    elongation -- the minor radius, major radius and field cancel, so there is
-    no machine-size parameter. The low-q limit is $q_\mathrm{cyl} = q_\mathrm{limit}$.
+    $10^{19}\,\mathrm{m^{-3}}$), whose slope depends only on the area
+    elongation. ``boundaries`` may add ``murakami_hugill`` (the vertical line
+    $\bar nR/B_T = 1$); a boundary whose quantities are not the projection's
+    axes -- ``low_q`` bounds $q_\psi$, not $q_\mathrm{cyl}$ -- raises
+    :class:`~vaft.diagram._projections.IncompatibleBoundary`.
+
+    The low-q line $q_\mathrm{cyl} = q_\mathrm{limit}$ is a schematic diagram
+    parameter, not a registered boundary: the registered current limit is on
+    the equilibrium edge $q_\psi$, which this axis does not carry.
     """
-    _validate_shape(_HUGILL_ASPECT_RATIO, elongation, q_limit)
-    a = _R0 / _HUGILL_ASPECT_RATIO
+    _validate_shape(None, elongation, q_limit)
+    projection = get_projection("hugill")
+    fixed = {"area_elongation": elongation}
+    placed = {key: placement(projection, get_boundary(key), fixed) for key in boundaries}
+    if "greenwald_hugill" not in placed:
+        raise ValueError("hugill() draws the density limit; boundaries must include 'greenwald_hugill'")
     y_max = 1.4 / q_limit
-    I_q = _current_at_q(elongation, _HUGILL_ASPECT_RATIO, q_limit)
-    I_MA = np.linspace(0.0, 1.4 * I_q, 201)[1:]  # up to 1/q = y_max
-    q = q_cyl_from_B_R_epsilon_kappa_I(_B0, _R0, 1.0 / _HUGILL_ASPECT_RATIO, elongation, I_MA * 1e6)
-    murakami = greenwald_density(I_MA, a) * _R0 / _B0  # [1e19 m^-2 T^-1]
-    x_q = float(greenwald_density(I_q, a) * _R0 / _B0)
+    inverse_q = np.linspace(0.0, y_max, 201)
+    greenwald = boundary_curve(get_boundary("greenwald_hugill"), "inverse_cylindrical_q", inverse_q,
+                               swap_axes=True, **fixed)
+    x_q = float(boundary_value(get_boundary("greenwald_hugill"), inverse_cylindrical_q=1.0 / q_limit, **fixed))
     x_max = 1.45 * x_q
     chart = Chart(x_range=(0.0, x_max), y_range=(0.0, y_max))
-    chart.curves["greenwald"] = np.concatenate([[[0.0, 0.0]], np.stack([murakami, 1.0 / q], axis=-1)])
+    chart.curves["greenwald"] = greenwald.xy
+    styles = {"greenwald": "boundary"}
+    if "murakami_hugill" in placed:
+        x_m = float(boundary_value(get_boundary("murakami_hugill")))
+        chart.curves["murakami"] = np.array([[x_m, 0.0], [x_m, y_max]])
+        styles["murakami"] = "boundary"
     chart.curves["low_q"] = np.array([[0.0, 1.0 / q_limit], [x_max, 1.0 / q_limit]])
+    styles["low_q"] = "boundary"
     chart.labels.update({
         "accessible": (0.3 * x_q, 0.72 / q_limit),
         "density": (1.2 * x_q, 0.45 / q_limit),
         "low_q": (0.33 * x_max, 1.2 / q_limit),
     })
-    chart.parameters.update({"elongation": elongation, "q_limit": q_limit, "murakami_at_q_limit": x_q})
+    chart.parameters.update({"elongation": elongation, "q_limit": q_limit, "murakami_at_q_limit": x_q,
+                             "projection": projection.key, "boundaries": tuple(boundaries)})
     scene = _render_chart(
         chart,
         x_label="$\\bar n_e R/B_T\\ [10^{19}\\,\\mathrm{m^{-2}\\,T^{-1}}]$",
         y_label="$1/q_\\mathrm{cyl}$",
-        curve_styles={"greenwald": "boundary", "low_q": "boundary"},
+        curve_styles=styles,
         region_text={"accessible": "Accessible",
                      "density": "\\begin{tabular}{c}Density limit\\\\($\\bar n_e > n_G$)\\end{tabular}",
                      "low_q": f"Low-$q$ limit ($q_\\mathrm{{cyl}} < {q_limit:g}$)"} if labels else {},
@@ -266,15 +285,21 @@ def hugill(*, elongation: float = 1.0, q_limit: float = 2.0, labels: bool = True
     return Diagram("hugill", scene, model=chart)
 
 
-def troyon(*, beta_N_max: float = 2.8, aspect_ratio: float = 3.0, elongation: float = 1.7,
+def troyon(*, beta_N_max: Optional[float] = None, aspect_ratio: float = 3.0, elongation: float = 1.7,
            q_limit: float = 2.0, labels: bool = True) -> Diagram:
     r"""Troyon diagram: toroidal beta against the normalised current $I_p/(aB_T)$.
 
     The beta limit is the line on which ``beta_N_from_beta_a_B0_Ip`` equals
-    ``beta_N_max``; the low-q cutoff is the current at which
+    ``beta_N_max``, by default the registered ``troyon`` boundary
+    ($2.2\,\mu_0 \times 10^6 \approx 2.76$, Troyon et al. 1984) on the
+    canonical ``troyon`` projection; the low-q cutoff is the current at which
     ``q_cyl_from_B_R_epsilon_kappa_I`` reaches ``q_limit``, at
     $I_p/(aB_T) = 5\varepsilon\kappa_a/q_\mathrm{limit}$.
     """
+    projection = get_projection("troyon")
+    placement(projection, get_boundary("troyon"))
+    if beta_N_max is None:
+        beta_N_max = float(boundary_value(get_boundary("troyon")))
     _validate_shape(aspect_ratio, elongation, q_limit)
     if not beta_N_max > 0.0:
         raise ValueError(f"beta_N_max must be positive, not {beta_N_max!r}")
@@ -294,18 +319,18 @@ def troyon(*, beta_N_max: float = 2.8, aspect_ratio: float = 3.0, elongation: fl
         "low_q": (1.18 * x_q, 0.45 * beta_N_max * x_q),
     })
     chart.parameters.update({"beta_N_max": beta_N_max, "aspect_ratio": aspect_ratio, "elongation": elongation,
-                             "q_limit": q_limit, "current_at_q_limit": x_q})
+                             "q_limit": q_limit, "current_at_q_limit": x_q, "projection": projection.key})
     scene = _render_chart(
         chart,
         x_label="$I_p/(aB_T)\\ [\\mathrm{MA\\,m^{-1}\\,T^{-1}}]$",
         y_label="$\\beta_T\\ [\\%]$",
         curve_styles={"beta_limit": "boundary", "low_q": "boundary"},
         region_text={"stable": "Stable",
-                     "beta": f"$\\beta_N > {beta_N_max:g}$",
+                     "beta": f"$\\beta_N > {beta_N_max:.3g}$",
                      "low_q": "\\begin{tabular}{c}Low-$q$\\\\limit\\end{tabular}"} if labels else {},
         x_ticks=_nice_ticks(float(x[-1])),
         y_ticks=_nice_ticks(float(y_max)),
-        note=(f"Troyon limit $\\beta_N = {beta_N_max:g}$; $q_\\mathrm{{cyl}} = {q_limit:g}$ at "
+        note=(f"Troyon limit $\\beta_N = {beta_N_max:.3g}$; $q_\\mathrm{{cyl}} = {q_limit:g}$ at "
               f"$R_0/a = {aspect_ratio:g}$, $\\kappa_a = {elongation:g}$") if labels else "",
     )
     return Diagram("troyon", scene, model=chart)

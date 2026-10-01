@@ -782,8 +782,8 @@
     },
     "troyon.svg": {
       "call": "vaft.diagram.troyon()",
-      "source_sha256": "c906a9a6e3153f44c4be7ebdde44438a3e49e7072a11694e58e4968014b6b39d",
-      "svg_sha256": "279a677a497f0eb052ed17b9c8148eb6a13359d5f2fb34c66803fc1c46fde83b"
+      "source_sha256": "22d51b0600526e2afad8693e2d349a5e49c5032ac3cf30f4c0e1dd3092c666f9",
+      "svg_sha256": "3fa38a0a5f245753cc2d1be30c344017395deee8f498426f7dd7f282f1f104a1"
     },
     "unwrapped_flux_surface.svg": {
       "call": "vaft.diagram.unwrapped_flux_surface()",

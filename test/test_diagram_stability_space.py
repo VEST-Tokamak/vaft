@@ -113,7 +113,7 @@ def test_the_s_alpha_region_labels_sit_in_their_regions(s_max, alpha_max):
 def test_the_hugill_line_is_the_greenwald_density(elongation):
     chart = vaft.diagram.hugill(elongation=elongation).model
     line = chart.curves["greenwald"][1:]
-    A = ss._HUGILL_ASPECT_RATIO
+    A = 3.0  # any aspect ratio gives the same line
     a = ss._R0 / A
     # recover the current from 1/q through the same formula, then check n = n_G(I)
     I_MA = np.linspace(1e-4, 20.0, 400001)

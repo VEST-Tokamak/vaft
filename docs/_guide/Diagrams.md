@@ -70,11 +70,17 @@ Textbook 2-D charts: two axes, the boundaries that divide the plane, and one lab
 boundary that physics defines is computed by `vaft.formula`. Only the peeling–ballooning boundary,
 which has no closed form, is a schematic, and the figure says so.
 
+Hugill and Troyon are drawn on canonical *projections* (`vaft.diagram._projections`): each names the
+exact quantity on its axes by the same identity the registered operational boundaries use, so a
+boundary is placed only on axes that carry its quantities. $q_\mathrm{cyl}$, $q_{95}$ and the
+equilibrium edge $q_\psi$ are different quantities and are never substituted for one another.
+
 ```python
 vaft.diagram.peeling_ballooning()
 vaft.diagram.s_alpha_ballooning(s_max=1.5, alpha_max=3.5)
 vaft.diagram.hugill(elongation=1.0, q_limit=2.0)          # no size parameter: R, a, B cancel
-vaft.diagram.troyon(beta_N_max=2.8, aspect_ratio=3.0, elongation=1.7)
+vaft.diagram.hugill(boundaries=("greenwald_hugill", "murakami_hugill"))
+vaft.diagram.troyon(aspect_ratio=3.0, elongation=1.7)     # beta_N_max defaults to the registered Troyon value
 ```
 
 | | |
@@ -86,8 +92,8 @@ vaft.diagram.troyon(beta_N_max=2.8, aspect_ratio=3.0, elongation=1.7)
 | --- | --- | --- | --- |
 | Peeling–ballooning | Which edge instability limits the pedestal? | $\alpha_\mathrm{max}$, $J_{B,\mathrm{max}}$ (arbitrary units) | **Schematic.** Two linear margins joined by a smooth maximum. The ★, where the peeling and ballooning limits meet (typical ELM onset), is computed where the two margins are equal |
 | $s$–$\alpha$ | How does shear set the ballooning limit, and where is second stability? | $\alpha$, $s$ | The first and second stability boundaries come from `s_alpha_marginal_alpha`, which applies Newcomb's criterion to the Connor–Hastie–Taylor equation. The dashed line is the $0.6\,s$ approximation of `ballooning_stability_criterion`. Not resolved below $s \approx 0.05$ |
-| Hugill | Where are the density and low-$q$ disruption limits? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The Greenwald line comes from `greenwald_density` and `q_cyl_from_B_R_epsilon_kappa_I`. Its slope depends only on $\kappa_a$: $50\kappa_a/\pi$. The low-$q$ limit is $q_\mathrm{cyl} = q_\mathrm{limit}$ |
-| Troyon | How much pressure can the current hold? | $I_p/(aB_T)$, $\beta_T$ | The beta limit is the line on which `beta_N_from_beta_a_B0_Ip` equals $\beta_{N,\max}$. The low-$q$ cutoff comes from `q_cyl_from_B_R_epsilon_kappa_I` |
+| Hugill | Where are the density and low-$q$ disruption limits? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The Greenwald line is the registered `greenwald_hugill` boundary (`vaft.formula.boundaries`). Its slope depends only on $\kappa_a$: $1/q_\mathrm{cyl} = (\pi/50\kappa_a)\,\bar n_e R/B_T$. `murakami_hugill` ($\bar n_e R/B_T = 1$) is drawn on request. The low-$q$ line $q_\mathrm{cyl} = q_\mathrm{limit}$ is a schematic parameter: the registered `low_q` boundary is on $q_\psi$, which this axis does not carry, so `hugill()` rejects it |
+| Troyon | How much pressure can the current hold? | $I_p/(aB_T)$, $\beta_T$ | The beta limit is the line on which `beta_N_from_beta_a_B0_Ip` equals $\beta_{N,\max}$, by default the registered `troyon` value $2.2\,\mu_0\times10^6 \approx 2.76$. The low-$q$ cutoff comes from `q_cyl_from_B_R_epsilon_kappa_I` |
 
 These charts show the *boundaries* of an operating space. For how measured discharges are projected
 onto the same axes, see #944 (operational-space projections) and #636 (Hugill and Greenwald
