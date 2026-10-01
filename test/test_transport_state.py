@@ -850,3 +850,201 @@ def test_surface_codes_are_the_two_a_local_conversion_can_raise():
         "outside_profile_domain"
     assert _surface_code(LocalConversionError("ne is not positive at grid point 3")) == \
         "local_conversion_failure"
+
+
+# --------------------------------------------------------------------------- atlas (#1427)
+
+
+@pytest.fixture()
+def atlas():
+    path = ROOT / "workflow" / "transport_atlas" / "build_atlas.py"
+    spec = importlib.util.spec_from_file_location("transport_atlas_build", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    sys.modules.pop(spec.name, None)
+
+
+def test_spectral_descriptors_on_the_regression_case(atlas):
+    from vaft.code.gacode.tglf.outputs import collect_tglf_outputs
+
+    native = collect_tglf_outputs(REG05)
+    d = atlas.spectral_descriptors(native)
+    assert d["qe_gb"] == pytest.approx(native.gbflux["energy"][0])
+    assert d["q_tot_gb"] == pytest.approx(native.gbflux["energy"].sum())
+    gamma = native.growth_rate
+    assert d["gamma_max"] == pytest.approx(gamma.max())
+    ion = native.ky_spectrum <= 1.0
+    assert d["gamma_max_ion_scale"] == pytest.approx(gamma[ion].max())
+    assert native.ky_spectrum.min() <= d["ky_q_mean"] <= native.ky_spectrum.max()
+    assert "f_em" not in d  # reg05 is electrostatic: one field, no EM share to report
+    assert d["n_unstable_ky"] == int((gamma.max(axis=1) > 0).sum())
+
+
+def test_axis_labels_are_symbols_with_units(atlas):
+    import matplotlib.mathtext as mathtext
+
+    assert atlas.axis_label("a_over_lne") == "$a/L_{n_e}$"
+    assert atlas.axis_label("gamma_max") == r"$\gamma_{\max}$ [$c_s/a$]"
+    assert atlas.axis_label("qe_tglf_W_m2") == r"$Q_e^{\mathrm{TGLF}}$ [W m$^{-2}$]"
+    parser = mathtext.MathTextParser("path")
+    for column, symbol in atlas.SYMBOLS.items():
+        assert column in atlas.SCHEMA, column
+        parser.parse(atlas.axis_label(column))  # every label renders
+
+
+def test_species_charges_parse_or_refuse(atlas):
+    assert atlas.species_charges(["e", "H+", "C6+"]) == {"H+": 1.0, "C6+": 6.0}
+    assert atlas.species_charges(["e", "ion0"]) is None
+
+
+def test_every_schema_column_has_a_known_category(atlas):
+    known = {"key", "label", "provenance", "measured_input", "assumed_input",
+             "reconstructed_input", "derived_input", "tglf_predicted", "neo_predicted",
+             "classical_predicted", "model_derived"}
+    assert {category for _, category, _ in atlas.SCHEMA.values()} <= known
+    assert not any("itg" in name or "tem" in name.split("_") for name in atlas.SCHEMA)
+
+
+def test_atlas_joins_tglf_neo_and_classical_by_state_identity(atlas, driver, neo_driver, sample,
+                                                               tmp_path, monkeypatch):
+    from omas import ODS
+
+    import vaft.code.gacode.neo as neo
+    import vaft.code.gacode.tglf as tglf
+    from vaft.code.gacode.neo import NEOResult
+    from vaft.code.gacode.neo.outputs import collect_neo_outputs
+    from vaft.code.gacode.tglf import TGLFResult
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    ods = _electron_only(sample)
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps({"labels": [{"shot": 48224, "time_ms": 300, "label": "good"}]}))
+
+    def fake_tglf(profile, rho, workdir, config=None, *, check=True):
+        flux = np.array([1.0, 2.0, 0.1])
+        native = TglfOutputs(directory=str(workdir), version={"revision": "t"},
+                             gbflux={"particle": 0.1 * flux, "energy": flux,
+                                     "momentum": 0 * flux, "exchange": 0 * flux},
+                             grid={"n_species": 3, "n_xgrid": 4})
+        return TGLFResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                          outputs_native=native)
+
+    fixture = ROOT / "test" / "data" / "gacode" / "neo_vest_48224_carbon"
+
+    def fake_neo(profile, workdir, config=None, *, check=True):
+        Path(workdir).mkdir(parents=True, exist_ok=True)
+        return NEOResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                         outputs_native=collect_neo_outputs(fixture))
+
+    monkeypatch.setattr(tglf, "run_tglf_case", fake_tglf)
+    monkeypatch.setattr(neo, "run_neo_case", fake_neo)
+    surfaces = [f"{0.2 + 0.1 * i:.1f}" for i in range(7)]  # the fixture's NEO grid
+    common = ["--filedb", str(filedb), "--labels", str(labels), "--lineages", "magnetics",
+              "--surfaces", *surfaces]
+    driver.main(common + ["--out", str(tmp_path / "tglf"), "--sat-rule", "1", "--field-model", "em-bper"])
+    neo_driver.main(common + ["--out", str(tmp_path / "neo")])
+    assert atlas.main(["--tglf", str(tmp_path / "tglf" / "tglf-sat1-em-bper"), "--neo", str(tmp_path / "neo"),
+                       "--out", str(tmp_path / "atlas")]) == 0
+
+    import csv
+
+    with open(tmp_path / "atlas" / "atlas.csv", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 7
+    assert {r["efit_quality"] for r in rows} == {"good"}
+    assert {(r["tglf_config"], r["tglf_sat_rule"], r["tglf_use_bper"], r["tglf_use_bpar"]) for r in rows} == {
+        ("tglf-sat1-em-bper", "1", "True", "False")}
+    assert {r["neo_status"] for r in rows} == {"solved"}
+    # The NEO fixture was solved on this sample's equilibrium, so its exprhon surfaces
+    # are the ones the TGLF mapping places: every surface must join.
+    assert {r["partition_status"] for r in rows} == {"available"}
+    for row in rows:
+        assert row["qe_classical_W_m2"] != ""
+        if row["partition_status"] == "available":
+            parts = [float(row["qe_neo_W_m2"]), float(row["qe_tglf_W_m2"]), float(row["qe_classical_W_m2"])]
+            assert float(row["qe_model_W_m2"]) == pytest.approx(sum(parts))
+            assert float(row["f_neo_qe"]) == pytest.approx(abs(parts[0]) / sum(map(abs, parts)))
+            ions = [float(row["qi_neo_W_m2"]), float(row["qi_tglf_W_m2"]), float(row["qi_classical_W_m2"])]
+            assert float(row["qi_model_W_m2"]) == pytest.approx(sum(ions))
+            assert float(row["f_classical_qi"]) == pytest.approx(abs(ions[2]) / sum(map(abs, ions)))
+    schema = json.loads((tmp_path / "atlas" / "schema.json").read_text())
+    assert schema["row_key"] == ["shot", "time_efit_s", "efit_lineage", "r_over_a"]
+    assert set(rows[0]) == set(schema["columns"])
+
+
+def test_atlas_rows_keep_failed_surfaces_and_a_missing_model(atlas, driver, sample, tmp_path, monkeypatch):
+    from omas import ODS
+
+    import vaft.code.gacode.tglf as tglf
+    from vaft.code.gacode.tglf import TGLFResult
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    ods = _electron_only(sample)
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps({"labels": [{"shot": 48224, "time_ms": 300, "label": "admissible"}]}))
+
+    def fake(profile, rho, workdir, config=None, *, check=True):
+        if rho > 0.65:
+            return TGLFResult(returncode=None, runtime_status="timeout", workdir=Path(workdir))
+        flux = np.array([1.0, 2.0, 0.1])
+        native = TglfOutputs(directory=str(workdir), gbflux={"particle": flux, "energy": flux,
+                             "momentum": 0 * flux, "exchange": 0 * flux},
+                             grid={"n_species": 3, "n_xgrid": 4})
+        return TGLFResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                          outputs_native=native)
+
+    monkeypatch.setattr(tglf, "run_tglf_case", fake)
+    driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(tmp_path / "tglf"),
+                 "--lineages", "magnetics", "--sat-rule", "0", "--field-model", "es"])
+    rows = atlas.build_rows(tmp_path / "tglf" / "tglf-sat0-es")
+    assert [(r["r_over_a"], r["tglf_status"]) for r in rows] == [
+        (0.3, "solved"), (0.4, "solved"), (0.5, "solved"), (0.6, "solved"),
+        (0.7, "failed"), (0.8, "failed")]
+    assert [r["tglf_reason"] for r in rows[-2:]] == ["timeout", "timeout"]
+    assert {r["partition_status"] for r in rows[:4]} == {"missing_neoclassical_component"}
+    assert {r["neo_status"] for r in rows} == {"missing"}
+    assert all(r.get("qe_classical_W_m2") is not None for r in rows)  # no solver needed
+    radial = atlas.radial_summary(rows)
+    assert len(radial) == 1 and radial[0]["n_tglf_solved"] == 4 and radial[0]["n_surfaces"] == 6
+    discharge = atlas.discharge_summary(radial)
+    assert discharge[0]["n_states"] == 1 and discharge[0]["n_good"] == 0
+
+
+def test_spectral_descriptors_survive_nan_growth_rates(atlas):
+    from vaft.code.gacode.tglf.outputs import collect_tglf_outputs
+
+    native = collect_tglf_outputs(REG05)
+    spectrum = native.eigenvalue_spectrum.copy()
+    spectrum[0, 0] = np.nan
+    native.eigenvalue_spectrum = spectrum
+    d = atlas.spectral_descriptors(native)
+    assert np.isfinite(d["gamma_max"]) and d["gamma_max"] == pytest.approx(np.nanmax(native.growth_rate))
+
+
+def test_mode_branch_splits_by_frequency_direction():
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    path = ROOT / "workflow" / "transport_atlas" / "plot_atlas.py"
+    spec = importlib.util.spec_from_file_location("transport_atlas_plot", path)
+    plot = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(plot)
+    rows = [{"omega_at_gamma_max_ion_scale": w, "a_over_lne": "1", "a_over_lte": "1", "q_tot_gb": "2",
+             "efit_lineage": "magnetics"} for w in ("0.1", "0.2", "-0.3", "", "0")]
+    ax, counts = plot.mode_branch(rows)
+    assert list(counts.values()) == [2, 1]
+    assert ax.get_xlabel() == "$a/L_{n_e}$" and ax.get_ylabel() == "$a/L_{T_e}$"
