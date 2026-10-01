@@ -276,7 +276,37 @@ def test_gif_writes_every_frame_and_the_provenance_sidecar(camera, tmp_path):
     assert sidecar["encoder"]["container"] == "gif"
     assert sidecar["encoder"]["frames"] == sidecar["encoder"]["frames_stored"] == 4
     assert sidecar["encoder"]["frame_delay_ms"] == 200
+    assert sidecar["presentation"]["fps_effective"] == 5
+    assert sidecar["presentation"]["duration_effective"] == pytest.approx(0.8)
     assert sidecar["plot"] == "camera_visible_image" and sidecar["label"] == "40600"
+
+
+def test_a_gif_states_the_frame_rate_it_can_actually_play(camera, tmp_path):
+    """GIF delays are whole centiseconds: fps=30 is written as 30 ms (33.3 fps).
+
+    The file carries the delay the format can represent; the sidecar keeps
+    the request under ``fps``/``duration`` and states the realised rate
+    beside it instead of claiming a duration the file does not play.
+    """
+    from PIL import Image
+
+    animation = vomas.plot_camera_visible_image(camera, frame_index=[2, 4, 6], animation=True, fps=30, dpi=DPI)
+    path = animation.save(tmp_path / "camera.gif")
+    with Image.open(path) as image:
+        delays = []
+        for k in range(image.n_frames):
+            image.seek(k)
+            delays.append(image.info["duration"])
+    assert delays == [30, 30, 30]
+    sidecar = json.loads((tmp_path / "camera.gif.json").read_text())
+    assert sidecar["presentation"]["fps"] == 30
+    assert sidecar["presentation"]["duration"] == pytest.approx(0.1)
+    assert sidecar["encoder"]["frame_delay_ms"] == 30
+    assert sidecar["presentation"]["fps_effective"] == pytest.approx(1000 / 30)
+    assert sidecar["presentation"]["duration_effective"] == pytest.approx(0.09)
+    assert sidecar["presentation"]["duration_effective"] == pytest.approx(
+        sidecar["encoder"]["frames"] * sidecar["encoder"]["frame_delay_ms"] / 1000
+    )
 
 
 def test_sidecar_can_be_skipped_and_a_stale_one_is_removed(camera, tmp_path):
