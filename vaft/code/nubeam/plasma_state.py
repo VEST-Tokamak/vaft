@@ -279,21 +279,60 @@ def render_plasma_state_namelist(spec: PlasmaStateSpec, workdir: str | Path) -> 
 # --------------------------------------------------------------------------- #
 
 
+_ASSIGNMENT = re.compile(r"\b(?P<key>[A-Za-z_]\w*)\s*(?:\((?P<index>\d+)\))?\s*=")
+_VALUE_TOKEN = re.compile(r"'[^']*'|\"[^\"]*\"|[^,\s]+")
+_REPEAT = re.compile(r"^(?P<count>\d+)\*(?P<value>.*)$")
+
+
+def _namelist_assignments(text: str, key: str) -> list[tuple[int, str]]:
+    """``(line number, value)`` for every value assigned to ``key`` / ``key(i)``.
+
+    Reads the forms a Fortran namelist accepts on one record: values
+    separated by commas or blanks, ``r*value`` repeat counts and several
+    ``name = ...`` groups per line.  The list is in array order; an index
+    never assigned reads as ``""``.
+    """
+    values: list[tuple[int, str]] = []
+    for number, raw in enumerate(text.splitlines(), start=1):
+        line = raw.split("!", 1)[0]
+        assignments = list(_ASSIGNMENT.finditer(line))
+        for n, match in enumerate(assignments):
+            if match.group("key").lower() != key.lower():
+                continue
+            stop = assignments[n + 1].start() if n + 1 < len(assignments) else len(line)
+            items: list[str] = []
+            for token in _VALUE_TOKEN.findall(line[match.end():stop]):
+                repeat = _REPEAT.match(token)
+                if repeat and token[0] not in "'\"":
+                    items.extend([repeat.group("value")] * int(repeat.group("count")))
+                else:
+                    items.append(token)
+            start = int(match.group("index") or 1)
+            while len(values) < start - 1 + len(items):
+                values.append((number, ""))
+            for offset, item in enumerate(items):
+                values[start - 1 + offset] = (number, item)
+    return values
+
+
 def _namelist_entries(text: str, key: str) -> list[str]:
     """Values assigned to ``key`` / ``key(i)`` in an NTCC namelist, in order."""
-    values: list[str] = []
-    stripped = "\n".join(line.split("!", 1)[0] for line in text.splitlines())
-    pattern = re.compile(
-        rf"(?im)^\s*{re.escape(key)}\s*(?:\((?P<index>\d+)\))?\s*=\s*(?P<value>[^\n]*)"
-    )
-    for match in pattern.finditer(stripped):
-        start = int(match.group("index") or 1)
-        items = [item.strip() for item in match.group("value").split(",") if item.strip()]
-        while len(values) < start - 1 + len(items):
-            values.append("")
-        for offset, item in enumerate(items):
-            values[start - 1 + offset] = item
-    return values
+    return [value for _, value in _namelist_assignments(text, key)]
+
+
+def _namelist_integers(path: Path, text: str, key: str) -> list[int]:
+    """The integer values of ``key``; an unreadable token names where it is."""
+    integers: list[int] = []
+    for line, value in _namelist_assignments(text, key):
+        if not value:
+            continue
+        try:
+            integers.append(int(float(value)))
+        except ValueError:
+            raise PlasmaStateInputError(
+                f"{path}:{line}: cannot read {key} value {value!r} as an integer"
+            ) from None
+    return integers
 
 
 @dataclass(frozen=True)
@@ -308,8 +347,8 @@ class ShotConfiguration:
 def read_shot_configuration(path: str | Path) -> ShotConfiguration:
     """Thermal ion species and neutral gas sources declared by an sconfig file."""
     text = Path(path).read_text(encoding="utf-8", errors="replace")
-    atoms = [int(float(v)) for v in _namelist_entries(text, "iZatom_S") if v]
-    masses = [int(float(v)) for v in _namelist_entries(text, "iAMU_S") if v]
+    atoms = _namelist_integers(path, text, "iZatom_S")
+    masses = _namelist_integers(path, text, "iAMU_S")
     if not atoms or len(atoms) != len(masses):
         raise PlasmaStateInputError(
             f"{path}: iZatom_S and iAMU_S must declare the same, non-empty species list"
