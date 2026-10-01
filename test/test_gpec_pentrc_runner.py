@@ -25,7 +25,14 @@ import pytest
 from vaft.code import gpec, pentrc
 from vaft.code.gpec import PENTRCOptions
 
-from external_code_stubs import RecordingBackend, write_launchable_stub, write_unlaunchable_file
+import stat
+
+from external_code_stubs import (
+    IS_WINDOWS,
+    RecordingBackend,
+    write_launchable_stub,
+    write_unlaunchable_file,
+)
 
 KIN_TEXT = "psi_n n_i n_e T_i T_e omega_EXB\n0.1 1e19 1e19 500 500 0.0\n1.0 1e18 1e18 50 50 0.0\n"
 
@@ -41,15 +48,28 @@ def _options(**overrides) -> PENTRCOptions:
     return PENTRCOptions(**defaults)
 
 
+def _jac_out_line(jac_out: str) -> str:
+    """The header line byte for byte, including the field width that truncates.
+
+    GPEC writes ``(1/,1x,a13,a8)`` with ``jac_out`` declared ``CHARACTER(16)``
+    (``gpec/gpout.f:5762``, ``gpec/gpglobal.f``), so the word reaches the file as
+    the **leftmost eight characters** of a blank-padded sixteen: ``hamada``
+    arrives as ``'hamada  '`` and ``equal_arc`` as ``'equal_ar'``.  Reproduced
+    here rather than approximated, because the truncation is the thing under
+    test; checked against a real file from a 1.5.5 run.
+    """
+    return " " + "jac_out = ".rjust(13) + jac_out.ljust(16)[:8]
+
+
 def _xclebsch(path: Path, jac_out: str = "hamada") -> Path:
     """A ``gpec_xclebsch_n<n>.out`` header shaped as GPEC writes it."""
     path.write_text(
         " GPEC_XCLEBSCH: Clebsch Components of the displacement.\n"
-        " GPEC version 1.5\n"
+        " v1.5.5-378-gtest\n"
         "\n"
-        f" jac_out = {jac_out}\n"
+        f"{_jac_out_line(jac_out)}\n"
         "\n"
-        "        mstep =    103    mpert = 129    mthsurf= 512\n"
+        "      mstep =   4332      mpert =  48   mthsurf = 512\n"
         "\n"
         "                     psi    m   real(derxi^psi)\n"
         "   1.000000000000000E-02    1     0.00000000E+000\n",
@@ -58,12 +78,20 @@ def _xclebsch(path: Path, jac_out: str = "hamada") -> Path:
     return path
 
 
+#: The one ``gpec.in`` key PENTRC's conventions are read from.
+#:
+#: A completed cell has the whole namelist; what the runner reads out of it is
+#: ``tmag_out``, which is the toroidal angle the displacement was written in.
+GPEC_IN_TEXT = "&GPEC_OUTPUT\n    jsurf_out=0\n    tmag_out=1\n/\n"
+
+
 @pytest.fixture()
 def cell(tmp_path) -> Path:
     """A completed ideal-GPEC cell for n = 1, with its kinetic profiles beside it."""
-    directory = tmp_path / "00530" / "gpec" / "nn=1"
+    directory = tmp_path / "00325" / "gpec" / "nn=1"
     directory.mkdir(parents=True)
     (directory / "euler.bin").write_bytes(b"euler")
+    (directory / "gpec.in").write_text(GPEC_IN_TEXT, encoding="utf-8")
     _xclebsch(directory / "gpec_xclebsch_n1.out")
     (tmp_path / "profiles.kin").write_text(KIN_TEXT, encoding="utf-8")
     return directory
@@ -378,28 +406,164 @@ def test_a_nonzero_exit_is_reported_with_its_code(cell, tmp_path):
     assert "exited 3" in record.reason
 
 
+def _writing_stub(path: Path, *, mode: int = 1, log: str = "") -> Path:
+    """A stand-in for ``pentrc`` that writes the netCDF a real run writes.
+
+    Written by the *program*, because that is the only thing whose output may be
+    reported as the run's: ``run_pentrc`` deletes the expected file before
+    launching, so a file this script does not create is not there afterwards.
+    """
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    body = f"#!/bin/sh\nprintf 'CDF' > pentrc_output_n{int(mode)}.nc\n"
+    if log:
+        body += f"cat <<'EOF'\n{log}\nEOF\n"
+    target.write_text(body + "exit 0\n", encoding="utf-8")
+    target.chmod(target.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return target
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="the stub is a POSIX shell script")
 def test_a_run_that_writes_its_output_completes_and_reports_it(cell, tmp_path):
+    home = tmp_path / "gpec_home"
+    _writing_stub(home / "bin" / "pentrc")
     record = gpec.run_pentrc(
         cell,
         mode=1,
         options=_options(),
         kinetic_file=cell.parents[2] / "profiles.kin",
-        config=_config(tmp_path, backend=RecordingBackend()),
+        config=gpec.GPECSuiteConfig(gpec_home=home),
     )
-    # The recording backend launches nothing, so the output is written here to
-    # stand for what PENTRC would have produced.
-    assert record.status == "failed"
-    (cell / "pentrc_output_n1.nc").write_bytes(b"CDF")
-    record = gpec.run_pentrc(
-        cell,
-        mode=1,
-        options=_options(),
-        kinetic_file=cell.parents[2] / "profiles.kin",
-        config=_config(tmp_path, backend=RecordingBackend()),
-    )
-    assert record.status == "completed"
+    assert record.status == "completed", record.reason
     assert record.outputs == (cell / "pentrc_output_n1.nc",)
     assert record.logs and record.logs[0].name == "pentrc.log"
+    assert record.reason == ""
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="the stub is a POSIX shell script")
+def test_a_stale_output_is_not_reported_as_this_runs_product(cell, tmp_path):
+    """The netCDF is deleted before the launch, so its presence means one thing.
+
+    PENTRC's own failure exit is ``STOP "ERROR: ..."``, which gfortran gives
+    status **0**. With an earlier run's output still in the cell, a run that
+    stopped that way reported ``completed`` with a file it never wrote --
+    the same numbers, one shot or one mode or one ``nl`` out of date.
+    """
+    stale = cell / "pentrc_output_n1.nc"
+    stale.write_bytes(b"CDF-from-an-earlier-run")
+    home = tmp_path / "gpec_home"
+    write_launchable_stub(home / "bin" / "pentrc")  # writes nothing
+
+    record = gpec.run_pentrc(
+        cell,
+        mode=1,
+        options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=gpec.GPECSuiteConfig(gpec_home=home),
+    )
+    assert record.status == "failed"
+    assert "wrote no pentrc_output_n1.nc" in record.reason
+    assert record.outputs == ()
+    assert not stale.exists()
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="the stub is a POSIX shell script")
+def test_a_fortran_error_stop_is_a_failure_despite_exit_zero(cell, tmp_path):
+    """The log is the only place such a run says it stopped.
+
+    ``STOP "ERROR: ..."`` prints the string and exits 0 under gfortran -- only an
+    integer stop-code sets the status -- and PENTRC uses that form for every
+    quadrature it gives up on (``pentrc/energy.f90:225,280``,
+    ``pentrc/pitch.f90:279``). So a run that stopped there, having already
+    written an output in an earlier pass, looked exactly like success.
+    """
+    home = tmp_path / "gpec_home"
+    _writing_stub(
+        home / "bin" / "pentrc",
+        log="ERROR: xintgrl_lsode - too many steps in x required.",
+    )
+    record = gpec.run_pentrc(
+        cell,
+        mode=1,
+        options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=gpec.GPECSuiteConfig(gpec_home=home),
+    )
+    assert record.status == "failed"
+    assert record.returncode == 0
+    assert "xintgrl_lsode" in record.reason
+    assert "exits 0" in record.reason
+    # And the file it did write is not offered as a result.
+    assert record.outputs == ()
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="the stub is a POSIX shell script")
+def test_lsode_non_convergence_is_counted_onto_a_completed_record(cell, tmp_path):
+    """Not a verdict: LSODE can complain and recover.
+
+    PENTRC checks only ``istate == -1`` (``pentrc/energy.f90:224``), so
+    ``istate == -5`` -- a repeated corrector failure -- leaves the run going with
+    a result nothing vouched for. Silence about it is what hid it; calling it a
+    failure would be this function deciding a physics question.
+    """
+    home = tmp_path / "gpec_home"
+    _writing_stub(
+        home / "bin" / "pentrc",
+        log=(
+            " LSODE- Energy-  At T (=R1) and step size H (=R2), the\n"
+            "       corrector convergence failed repeatedly\n"
+            " LSODE- Energy-  At T (=R1) and step size H (=R2), the\n"
+            "       corrector convergence failed repeatedly"
+        ),
+    )
+    record = gpec.run_pentrc(
+        cell,
+        mode=1,
+        options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=gpec.GPECSuiteConfig(gpec_home=home),
+    )
+    assert record.status == "completed"
+    assert record.ok
+    assert "non-convergence on 2 line(s)" in record.reason
+    assert "istate==-1" in record.reason
+
+
+def test_the_log_scan_streams_rather_than_reads(tmp_path):
+    """A diverging run's log is hundreds of megabytes of one repeated line.
+
+    Counting stops at the scan limit and the caller says "at least", so the
+    report stays a sentence whatever the log does.
+    """
+    log = tmp_path / "pentrc.log"
+    limit = gpec._pentrc.PENTRC_NONCONVERGENCE_SCAN_LIMIT
+    log.write_text(
+        "       corrector convergence failed repeatedly\n" * (limit + 500),
+        encoding="utf-8",
+    )
+    fatal, count = gpec._pentrc.scan_pentrc_log(log)
+    assert fatal is None
+    assert count == limit
+
+
+def test_the_log_scan_finds_the_first_fatal_line_only(tmp_path):
+    log = tmp_path / "pentrc.log"
+    log.write_text(
+        " PENTRC START\n"
+        "ERROR: lambdaintgrl_lsode - too many steps in lambda required.\n"
+        "ERROR: a later one\n",
+        encoding="utf-8",
+    )
+    fatal, count = gpec._pentrc.scan_pentrc_log(log)
+    assert fatal == "ERROR: lambdaintgrl_lsode - too many steps in lambda required."
+    # The fatal line says "too many steps" too, and is not also counted as a
+    # non-convergence warning: it is the thing that stopped the run, not a
+    # complaint the run carried on past.
+    assert count == 0
+
+
+def test_a_missing_log_scans_clean(tmp_path):
+    assert gpec._pentrc.scan_pentrc_log(tmp_path / "absent.log") == (None, 0)
 
 
 def test_pentrc_is_not_a_suite_module(cell):
@@ -542,3 +706,120 @@ def test_strict_still_raises_when_pentrc_does_not_finish(cell, tmp_path, monkeyp
             kinetic_file=cell.parents[2] / "profiles.kin",
             config=_config(tmp_path, run_mode="strict", timeout=5.0),
         )
+
+
+# --------------------------------------------------------------------------
+# The three halves of the displacement's convention
+# --------------------------------------------------------------------------
+
+
+def test_a_truncated_jacobian_name_is_resolved_not_passed_on(cell):
+    """``equal_arc`` reaches the file as ``equal_ar``, and PENTRC stops on that.
+
+    The header field is ``a8``, so the one name in ``JACOBIAN_NAMES`` longer than
+    eight characters cannot survive it. PENTRC's own ``SELECT CASE`` has no
+    ``equal_ar`` branch (``pentrc/inputs.f90:404-418``), so writing the word back
+    verbatim would stop the run with a message about a Jacobian nobody asked for.
+    """
+    _xclebsch(cell / "gpec_xclebsch_n1.out", jac_out="equal_arc")
+    assert "equal_ar" in (cell / "gpec_xclebsch_n1.out").read_text(encoding="utf-8")
+    assert gpec.peq_jacobian(cell / "gpec_xclebsch_n1.out") == "equal_arc"
+
+
+@pytest.mark.parametrize("name", ["hamada", "pest", "boozer", "park", "polar", "other"])
+def test_every_other_jacobian_name_survives_the_header_unchanged(cell, name):
+    """Eight characters or fewer, so there is nothing to resolve."""
+    _xclebsch(cell / "gpec_xclebsch_n1.out", jac_out=name)
+    assert gpec.peq_jacobian(cell / "gpec_xclebsch_n1.out") == name
+
+
+def test_a_word_that_is_no_jacobian_is_refused(cell):
+    _xclebsch(cell / "gpec_xclebsch_n1.out", jac_out="chebyshe")
+    with pytest.raises(ValueError, match="not a Jacobian"):
+        gpec.peq_jacobian(cell / "gpec_xclebsch_n1.out")
+
+
+def test_the_toroidal_angle_comes_from_the_runs_own_gpec_in(cell, tmp_path):
+    """``tmag_in`` is ``gpec.in``'s ``tmag_out``, because that is what wrote the file.
+
+    ``gpout_xclebsch`` transforms through ``gpeq_bcoordsout`` with no explicit
+    angle, and that routine takes ``tout = tmag_out`` (``gpec/gpeq.f:826-829``).
+    A ``pentrc.in`` that assumed the common value would transform the harmonics
+    under the wrong angle and say nothing.
+    """
+    assert gpec.peq_toroidal_angle(cell) == 1
+    (cell / "gpec.in").write_text(
+        "&GPEC_OUTPUT\n    jsurf_out=1\n    tmag_out=0\n/\n", encoding="utf-8"
+    )
+    assert gpec.peq_toroidal_angle(cell) == 0
+
+    written = gpec.prepare_pentrc_run(
+        cell, mode=1, options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+    )
+    pent = _pent(written)
+    assert pent["tmag_in"] == "0"
+    # And `jsurf_in` is 0 even though this gpec.in asks for area-weighted
+    # *control* output: the displacement is written with jout hard-coded to 0.
+    assert pent["jsurf_in"] == "0"
+
+
+def test_a_cell_with_no_gpec_in_cannot_say_which_angle_the_file_is_in(cell):
+    (cell / "gpec.in").unlink()
+    with pytest.raises(FileNotFoundError, match="tmag_in cannot be derived"):
+        gpec.peq_toroidal_angle(cell)
+
+
+def test_an_absent_tmag_out_falls_back_to_gpecs_own_code_default(cell):
+    """Absent from the namelist means GPEC's declaration applies, which is 1."""
+    (cell / "gpec.in").write_text("&GPEC_OUTPUT\n    jsurf_out=0\n/\n", encoding="utf-8")
+    assert gpec.peq_toroidal_angle(cell) == gpec._pentrc.PEQ_TMAG_DEFAULT == 1
+
+
+def test_an_unbounded_run_is_refused_rather_than_launched(cell, tmp_path):
+    """``timeout=None`` is not "as long as it takes" for this module.
+
+    PENTRC does not stop when an integration will not converge -- it prints --
+    so an unbounded run reports nothing and grows a log without limit. The suite's
+    other modules exit on their own; this one has no other brake.
+    """
+    home = tmp_path / "gpec_home"
+    write_launchable_stub(home / "bin" / "pentrc")
+    with pytest.raises(ValueError, match="needs a timeout"):
+        gpec.run_pentrc(
+            cell,
+            mode=1,
+            options=_options(),
+            kinetic_file=cell.parents[2] / "profiles.kin",
+            config=gpec.GPECSuiteConfig(gpec_home=home, timeout=None),
+        )
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="the stub is a POSIX shell script")
+def test_an_unbounded_run_is_allowed_when_something_else_bounds_it(cell, tmp_path):
+    """A scheduler with its own walltime is the case the opt-in exists for."""
+    home = tmp_path / "gpec_home"
+    _writing_stub(home / "bin" / "pentrc")
+    record = gpec.run_pentrc(
+        cell,
+        mode=1,
+        options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=gpec.GPECSuiteConfig(gpec_home=home, timeout=None),
+        allow_unbounded_runtime=True,
+    )
+    assert record.status == "completed", record.reason
+
+
+def test_preparing_only_needs_no_timeout(cell, tmp_path):
+    """Nothing is launched, so there is nothing to bound."""
+    record = gpec.run_pentrc(
+        cell,
+        mode=1,
+        options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=gpec.GPECSuiteConfig(
+            gpec_home=tmp_path / "gpec_home", timeout=None, run_mode="prepare_only"
+        ),
+    )
+    assert record.status == "prepared"

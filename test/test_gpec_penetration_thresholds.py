@@ -594,3 +594,133 @@ def test_a_template_shipping_singthresh_flag_on_is_turned_off_when_unasked(case,
     from vaft.code.gpec._runtime import read_namelist_group
 
     assert read_namelist_group(cell / "gpec.in", "gpec_output")["singthresh_flag"] == "f"
+
+
+# --------------------------------------------------------------------------
+# The pentrc.in GPEC's own threshold models read
+# --------------------------------------------------------------------------
+
+
+def _pentrc_options():
+    return gpec.PENTRCOptions(
+        methods=("fgar", "tgar"),
+        main_ion="deuterium",
+        impurity="carbon",
+        collision_operator="harmonic",
+    )
+
+
+def test_the_threshold_input_can_be_written_before_gpec_runs(tmp_path):
+    """Which is the point: no displacement exists yet.
+
+    GPEC reads this file itself when a threshold flag is on, so it has to be
+    there *before* the run -- and ``prepare_pentrc_run`` cannot write it, because
+    it derives ``jac_in`` and ``tmag_in`` from products the run has not made.
+    """
+    cell = tmp_path / "cell"
+    cell.mkdir()
+    kin = tmp_path / "profiles.kin"
+    kin.write_text("psi n_e\n0.1 1e19\n", encoding="utf-8")
+
+    written = gpec.write_threshold_pentrc_input(
+        cell, options=_pentrc_options(), kinetic_file=kin
+    )
+    assert written == cell / "pentrc.in"
+    assert not list(cell.glob("gpec_xclebsch_*"))
+    assert gpec.validate_threshold_inputs(cell, cell) == [
+        reason
+        for reason in gpec.validate_threshold_inputs(cell, cell)
+        if "dcon.in" in reason
+    ], "the profiles half of the check should be satisfied"
+
+
+def test_the_threshold_input_carries_the_species_the_threshold_is_built_from(tmp_path):
+    """Callen's critical width is a gyroradius, so ``mi`` and ``zi`` are in it."""
+    from vaft.code.gpec._runtime import read_namelist_group
+
+    cell = tmp_path / "cell"
+    cell.mkdir()
+    kin = tmp_path / "profiles.kin"
+    kin.write_text("psi n_e\n0.1 1e19\n", encoding="utf-8")
+    gpec.write_threshold_pentrc_input(
+        cell, options=_pentrc_options(), kinetic_file=kin
+    )
+    pent = read_namelist_group(cell / "pentrc.in", "pent_input")
+    assert (pent["mi"], pent["zi"], pent["mimp"], pent["zimp"]) == ("2", "1", "12", "6")
+    assert pent["kinetic_file"] == "profiles.kin"
+    assert (cell / "profiles.kin").is_file()
+
+
+def test_the_threshold_input_claims_no_torque_method(tmp_path):
+    """GPEC's threshold path runs none of them, so none is written on."""
+    from vaft.code.pentrc import TORQUE_METHODS
+    from vaft.code.gpec._runtime import read_namelist_group
+
+    cell = tmp_path / "cell"
+    cell.mkdir()
+    kin = tmp_path / "profiles.kin"
+    kin.write_text("psi n_e\n0.1 1e19\n", encoding="utf-8")
+    gpec.write_threshold_pentrc_input(
+        cell, options=_pentrc_options(), kinetic_file=kin
+    )
+    methods = read_namelist_group(cell / "pentrc.in", "pent_output")
+    assert {methods[f"{method}_flag"] for method in TORQUE_METHODS} == {"f"}
+
+
+def test_the_threshold_input_survives_the_torque_run_that_overwrites_it(tmp_path):
+    """Same file name, different contents, and the first one is the evidence.
+
+    Without the copy, a case that computed a threshold and then a torque has no
+    record of which species or which profiles the *threshold* used.
+    """
+    from vaft.code.gpec._runtime import read_namelist_group
+
+    cell = tmp_path / "00325" / "gpec" / "nn=1"
+    cell.mkdir(parents=True)
+    (cell / "euler.bin").write_bytes(b"euler")
+    (cell / "gpec.in").write_text(
+        "&GPEC_OUTPUT\n    tmag_out=1\n/\n", encoding="utf-8"
+    )
+    (cell / "gpec_xclebsch_n1.out").write_text(
+        " GPEC_XCLEBSCH\n v1\n\n    jac_out = hamada  \n\n", encoding="utf-8"
+    )
+    kin = tmp_path / "profiles.kin"
+    kin.write_text("psi n_e\n0.1 1e19\n", encoding="utf-8")
+
+    gpec.write_threshold_pentrc_input(cell, options=_pentrc_options(), kinetic_file=kin)
+    threshold_copy = (cell / gpec.THRESHOLD_PENTRC_INPUT).read_bytes()
+
+    gpec.prepare_pentrc_run(cell, mode=1, options=_pentrc_options(), kinetic_file=kin)
+    torque = read_namelist_group(cell / "pentrc.in", "pent_output")
+    assert torque["fgar_flag"] == "t", "the torque run asked for fgar"
+    # The threshold input is still there, and so is a copy of what was replaced.
+    assert (cell / gpec.THRESHOLD_PENTRC_INPUT).read_bytes() == threshold_copy
+    assert (cell / gpec.PRIOR_PENTRC_INPUT).read_bytes() == threshold_copy
+    assert read_namelist_group(cell / gpec.THRESHOLD_PENTRC_INPUT, "pent_output")[
+        "fgar_flag"
+    ] == "f"
+
+
+def test_a_second_torque_run_does_not_overwrite_the_first_record(tmp_path):
+    cell = tmp_path / "00325" / "gpec" / "nn=1"
+    cell.mkdir(parents=True)
+    (cell / "euler.bin").write_bytes(b"euler")
+    (cell / "gpec.in").write_text("&GPEC_OUTPUT\n    tmag_out=1\n/\n", encoding="utf-8")
+    (cell / "gpec_xclebsch_n1.out").write_text(
+        " GPEC_XCLEBSCH\n v1\n\n    jac_out = hamada  \n\n", encoding="utf-8"
+    )
+    kin = tmp_path / "profiles.kin"
+    kin.write_text("psi n_e\n0.1 1e19\n", encoding="utf-8")
+
+    gpec.write_threshold_pentrc_input(cell, options=_pentrc_options(), kinetic_file=kin)
+    first = (cell / "pentrc.in").read_bytes()
+    gpec.prepare_pentrc_run(cell, mode=1, options=_pentrc_options(), kinetic_file=kin)
+    gpec.prepare_pentrc_run(
+        cell, mode=1,
+        options=gpec.PENTRCOptions(
+            methods=("tgar",), main_ion="deuterium", impurity="carbon",
+            collision_operator="harmonic",
+        ),
+        kinetic_file=kin,
+    )
+    assert (cell / gpec.PRIOR_PENTRC_INPUT).read_bytes() == first
