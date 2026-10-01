@@ -496,6 +496,11 @@ def resolve_transport_state(
         work = copy.deepcopy(ods)
         ion = f"{prefix}.ion.0"
         if not ions:
+            # An electron-only product stores `ion` as a null leaf (NaN once loaded),
+            # which an array of structures cannot be written into.
+            slice_node = work[prefix]
+            if "ion" in slice_node.keys() and not hasattr(slice_node.getraw("ion"), "keys"):
+                del slice_node["ion"]
             work[f"{ion}.label"] = _HYDROGEN["label"]
             work[f"{ion}.z_ion"] = _HYDROGEN["z"]
             work[f"{ion}.element.0.z_n"] = _HYDROGEN["z"]
