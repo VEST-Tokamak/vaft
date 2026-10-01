@@ -191,6 +191,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_wall_conditioning.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
     "test_pipeline_worker.py",
+    # Stability atlas (lane N): real DCON output (two trimmed netCDF files)
+    # read back through the reader and the edge classifier, and the #141 scan
+    # driver's template patching. No solver runs.
+    "test_gpec_dcon_edge_reference.py",
+    "test_stability_atlas_controls.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
