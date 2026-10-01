@@ -30,6 +30,14 @@ def _parser() -> argparse.ArgumentParser:
         "--option", action="append", default=[], metavar="KEY=VALUE",
         help="plot option, e.g. selection=all, time_slice=4, style=normalized (repeatable)",
     )
+    parser.add_argument(
+        "--format", help="figure format: screen, single_column, double_column, slide, poster, legacy",
+    )
+    parser.add_argument("--theme", help="figure theme: technical, minimal, monochrome")
+    parser.add_argument(
+        "--figure-option", action="append", default=[], metavar="KEY=VALUE", dest="figure_option",
+        help="figure override, e.g. xlim=(0.25, 0.35), yscale=log, legend_ncols=2, dpi=600 (repeatable)",
+    )
     parser.add_argument("--list", action="store_true", help="list the plots (of the shot, when given)")
     parser.add_argument("--query", help="with --list: narrow the catalogue")
     parser.add_argument("--detail", action="store_true", help="with --list: print every capability")
@@ -52,6 +60,16 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser = _parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
     options = dict(_parse_option(item, parser) for item in args.option)
+    for key in ("format", "theme"):
+        if getattr(args, key) is not None:
+            options[key] = getattr(args, key)
+    if args.figure_option:
+        from vaft.plot.figure_options import FigureOptions
+
+        try:
+            options["figure_options"] = FigureOptions.from_cli(args.figure_option)
+        except (TypeError, ValueError) as error:
+            parser.error(f"--figure-option: {error}")
     shot: Any = None if not args.shot else (args.shot[0] if len(args.shot) == 1 else list(args.shot))
 
     from vaft.database import plotting

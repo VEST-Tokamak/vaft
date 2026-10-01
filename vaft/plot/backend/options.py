@@ -239,7 +239,9 @@ def _style_options() -> frozenset[str]:
             names.add(parameter.name)
     # The Plotly renderers take **style and forward what they understand;
     # the composite renderer threads per-member styles through too.
-    names.update({"colorbar_ax"})
+    # ``figure_options`` is taken by the presentation wrapper every base
+    # renderer carries (vaft.plot.presentation.presented), issue #1421.
+    names.update({"colorbar_ax", "figure_options"})
     return frozenset(names)
 
 

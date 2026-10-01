@@ -195,6 +195,7 @@ from .renderers.profiles import render_profile_1d
 from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
 from .presentation import DEFAULT_FORMAT, FORMATS, THEMES, resolve_presentation
+from .figure_options import FigureOptions
 from .style import save_figure
 
 # Canonical renderers are re-exported explicitly rather than bound in a loop, so
@@ -439,6 +440,7 @@ _SUPPORT_EXPORTS = (
     "plot_cross_spectrum",
     "plot_fluctuation_frequency_coverage",
     "THEMES",
+    "FigureOptions",
     "resolve_presentation",
 )
 

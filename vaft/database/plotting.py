@@ -308,10 +308,13 @@ def render_to_file(
     Draws without a display (:func:`vaft.plot.environment.
     use_non_interactive_backend`) and saves with :func:`vaft.plot.save_figure`,
     the format following the file extension.  This is what ``vaft plot --out``
-    runs.
+    runs.  The export fields of ``figure_options=`` (``dpi``, ``transparent``)
+    apply here, and PDF/PostScript text is embedded as TrueType so it stays
+    editable (issue #1421).
     """
     from vaft.plot import save_figure
     from vaft.plot.environment import use_non_interactive_backend
+    from vaft.plot.figure_options import as_figure_options
 
     if options.get("backend") == "plotly":
         # A Plotly figure is a web page; nothing else is a faithful file of it.
@@ -324,6 +327,9 @@ def render_to_file(
     figure, _ = render(
         name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options
     )
+    figure_options = as_figure_options(options.get("figure_options"))
+    if figure_options is not None:
+        return figure_options.save(figure, path)
     return save_figure(figure, path)
 
 

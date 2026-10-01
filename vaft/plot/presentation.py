@@ -17,14 +17,18 @@ go on which axes is the semantic layout's, issue #260):
     the base font and the scales of everything measured in points.  Presets
     ``screen``, ``single_column`` and ``double_column`` generalise the
     recurring physical constraints of scientific journals; no publisher is
-    named.
+    named.  ``slide`` and ``poster`` do the same for a projected 16:9 slide
+    and a printed poster panel, read from across a room (issue #1421).
 
 ``theme``
-    which visual grammar is used: font family, tick direction, grid and
-    spines, the colour cycle and, for a monochrome figure, the linestyle and
-    marker cycles that carry the distinction colour would.  Accessibility is
-    a baseline of every theme, not a theme of its own: both colour cycles
-    are colour-blind safe.
+    which visual grammar is used: text font and the matching math font,
+    tick direction, grid and spines, the colour cycle and, for a monochrome
+    figure, the linestyle and marker cycles that carry the distinction colour
+    would.  Accessibility is a baseline of every theme, not a theme of its
+    own: both colour cycles are colour-blind safe.  A theme names fonts in
+    order of preference; the first one installed is used, and when that is
+    not the first a :class:`FontFallbackWarning` says so once (Helvetica and
+    Arial are absent from a plain Linux host).  No font file ships with VAFT.
 
 ``format=None`` means :data:`DEFAULT_FORMAT` -- ``screen`` -- for a figure
 the renderer creates on its own (issue #712, the presentation contract's
@@ -68,6 +72,7 @@ __all__ = [
     "LEGACY_FORMAT",
     "FORMATS",
     "FigureFormat",
+    "FontFallbackWarning",
     "GEOMETRY",
     "GeometryPolicy",
     "Presentation",
@@ -78,6 +83,7 @@ __all__ = [
     "resolve_color",
     "resolve_presentation",
     "resolve_style",
+    "resolve_font_family",
     "rz_extent",
 ]
 
@@ -131,6 +137,22 @@ FORMATS: Mapping[str, FigureFormat] = {
         label_scale=1.0, tick_scale=0.9, title_scale=1.0, legend_scale=0.85,
         line_scale=0.85, marker_scale=0.85, panel_gap_pt=5.0, outer_pad_pt=2.0,
     ),
+    # A figure that fills most of a 16:9 slide (13.33 x 7.5 in) under its
+    # title, read on a projector: 18 pt type -- the floor slide guidance
+    # gives for text read from the back of a room -- and lines and markers
+    # doubled so a trace survives the projector's contrast.
+    "slide": FigureFormat(
+        "slide", width_in=11.0, max_height_in=5.8, base_font_pt=18.0,
+        label_scale=1.0, tick_scale=0.85, title_scale=1.1, legend_scale=0.8,
+        line_scale=2.0, marker_scale=1.8, panel_gap_pt=14.0, outer_pad_pt=6.0,
+    ),
+    # One panel of a printed A0/A1 poster, about a third of its width (~30 cm),
+    # read from 1-2 m: 24 pt type and heavy lines.
+    "poster": FigureFormat(
+        "poster", width_in=12.0, max_height_in=14.0, base_font_pt=24.0,
+        label_scale=1.0, tick_scale=0.85, title_scale=1.1, legend_scale=0.8,
+        line_scale=2.5, marker_scale=2.2, panel_gap_pt=18.0, outer_pad_pt=8.0,
+    ),
 }
 
 
@@ -143,6 +165,8 @@ class Theme:
     """The visual grammar of a figure: type face, ticks, frame, cycles."""
 
     name: str
+    #: Text fonts in order of preference; the first installed one is used
+    #: (:func:`resolve_font_family`).
     font_family: tuple[str, ...]
     tick_direction: str
     grid: bool
@@ -168,6 +192,10 @@ class Theme:
     #: alone cannot carry the distinction.  Anything not named keeps the
     #: default of :data:`vaft.plot.intent.DEFAULT_COLOURS`.
     intents: Mapping[str, Any] = field(default_factory=dict, hash=False, compare=False)
+    #: Matplotlib's ``mathtext.fontset`` matched to the text font, so ``$I_p$``
+    #: is set in the same face family as "Plasma current"; ``None`` leaves
+    #: Matplotlib's own (issue #1421).
+    math_fontset: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "intents", MappingProxyType(dict(self.intents)))
@@ -235,19 +263,63 @@ THEMES: Mapping[str, Theme] = {
         "technical", font_family=("DejaVu Sans",), tick_direction="in",
         grid=True, grid_alpha=0.3, spines=("left", "right", "top", "bottom"),
         colors=_OKABE_ITO, line_pt=1.2, marker_pt=4.0, intents=_TECHNICAL_INTENTS,
+        math_fontset="dejavusans",
     ),
+    # Helvetica/Arial text pairs with STIX Sans math; Liberation Sans is the
+    # metric-compatible Arial most Linux hosts carry.
     "minimal": Theme(
-        "minimal", font_family=("Helvetica", "Arial", "DejaVu Sans"), tick_direction="out",
-        grid=False, grid_alpha=0.0, spines=("left", "bottom"),
+        "minimal", font_family=("Helvetica", "Arial", "Liberation Sans", "DejaVu Sans"),
+        tick_direction="out", grid=False, grid_alpha=0.0, spines=("left", "bottom"),
         colors=_TOL_BRIGHT, line_pt=1.5, marker_pt=4.0, intents=_MINIMAL_INTENTS,
+        math_fontset="stixsans",
     ),
     "monochrome": Theme(
         "monochrome", font_family=("DejaVu Sans",), tick_direction="in",
         grid=True, grid_alpha=0.2, spines=("left", "right", "top", "bottom"),
         colors=_MONO_GREYS, linestyles=_MONO_LINESTYLES, markers=_MONO_MARKERS,
         markevery=0.1, line_pt=1.2, marker_pt=4.0, intents=_MONOCHROME_INTENTS,
+        math_fontset="dejavusans",
     ),
 }
+
+
+class FontFallbackWarning(UserWarning):
+    """A theme's preferred font is not installed, and a later one stands in."""
+
+
+#: Matplotlib's own font: always installed with it, the last resort of every stack.
+_BUNDLED_FONT = "DejaVu Sans"
+_GENERIC_FAMILIES = frozenset({"serif", "sans-serif", "monospace", "cursive", "fantasy"})
+_WARNED_FALLBACKS: set[tuple[str, ...]] = set()
+
+
+def resolve_font_family(families: Any, *, warn: bool = True) -> list[str]:
+    """The installed part of a preference-ordered font stack, ending in DejaVu Sans.
+
+    Fonts that are not installed are dropped rather than handed to
+    Matplotlib, which would log a "findfont: Font family not found" line for
+    each on every text object.  When the first preference is missing, a
+    :class:`FontFallbackWarning` names the font used instead -- once per
+    stack per process, so a figure loop does not repeat it.
+    """
+    from matplotlib import font_manager
+
+    stack = [families] if isinstance(families, str) else [str(f) for f in families]
+    installed = {entry.name for entry in font_manager.fontManager.ttflist}
+    kept = [name for name in stack if name in installed or name in _GENERIC_FAMILIES]
+    if _BUNDLED_FONT not in kept:
+        kept.append(_BUNDLED_FONT)
+    if warn and stack and kept[0] != stack[0] and tuple(stack) not in _WARNED_FALLBACKS:
+        import warnings
+
+        _WARNED_FALLBACKS.add(tuple(stack))
+        warnings.warn(
+            f"font {stack[0]!r} is not installed; using {kept[0]!r} "
+            f"(preference order {', '.join(stack)})",
+            FontFallbackWarning,
+            stacklevel=3,
+        )
+    return kept
 
 
 # ---------------------------------------------------------------------------
@@ -431,7 +503,7 @@ class Presentation:
         marker_scale = fmt.marker_scale if fmt is not None else 1.0
         if theme is not None:
             rc.update({
-                "font.family": list(theme.font_family),
+                "font.family": resolve_font_family(theme.font_family),
                 "xtick.direction": theme.tick_direction,
                 "ytick.direction": theme.tick_direction,
                 # The grid stays the renderer's decision (a contour map draws
@@ -445,6 +517,8 @@ class Presentation:
                 "lines.linewidth": theme.line_pt * line_scale,
                 "lines.markersize": theme.marker_pt * marker_scale,
             })
+            if theme.math_fontset is not None:
+                rc["mathtext.fontset"] = theme.math_fontset
         elif fmt is not None:
             import matplotlib
 
@@ -795,6 +869,12 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
     with its own constant and lays the figure out with the format's
     padding.  The renderer's signature must declare ``format`` and ``theme``
     (they are what the option schema reads), and may declare ``figsize``.
+
+    ``figure_options=`` (a :class:`vaft.plot.figure_options.FigureOptions`
+    or a mapping of its fields) is taken here too: its typography inside the
+    presentation context, after the format and theme, and its axes, legend
+    and colour-scale overrides on the finished figure, before the layout
+    pass -- on the legacy path as well (issue #1421).
     """
 
     def decorate(render: Callable[..., Any]) -> Callable[..., Any]:
@@ -804,15 +884,32 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
 
         @functools.wraps(render)
         def wrapper(model: Any, *args: Any, ax: Any = None, figsize: Any = None,
-                    format: str | None = None, theme: str | None = None, **kwargs: Any) -> Any:
+                    format: str | None = None, theme: str | None = None,
+                    figure_options: Any = None, **kwargs: Any) -> Any:
+            from .figure_options import as_figure_options
+
+            options = as_figure_options(figure_options)
             if format in (None, "", "none") and ax is None and figsize is None:
                 # The canonical default, for a canvas nobody else decides;
                 # the empty spellings a control or the CLI may pass mean it too.
                 format = DEFAULT_FORMAT
             presentation = resolve_presentation(format, theme, ax=ax, figsize=figsize)
             if presentation is None:
-                return render(model, *args, ax=ax, figsize=figsize, **kwargs)
-            with presentation.context():
+                if options is None:
+                    return render(model, *args, ax=ax, figsize=figsize, **kwargs)
+                # The legacy canvas, with the caller's explicit overrides on it.
+                show = bool(kwargs.pop("show", False)) if takes_show else False
+                if takes_show:
+                    kwargs["show"] = False
+                with options.context():
+                    result = render(model, *args, ax=ax, figsize=figsize, **kwargs)
+                    options.apply(result[0], result[1])
+                if show and kwargs.get("save_path") is None:
+                    import matplotlib.pyplot as plt
+
+                    plt.show()
+                return result
+            with presentation.context(), (options.context() if options else contextlib.nullcontext()):
                 size = presentation.figsize(
                     model, figsize or default_figsize, colorbar=kwargs.get("colorbar"),
                 )
@@ -835,6 +932,9 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
                 if presentation.theme is not None:
                     for axis in _axes_of(axes):
                         _restyle_grid(axis, presentation.theme)
+                if options is not None:
+                    # Before the layout below, so it measures the final labels.
+                    options.apply(figure, axes)
                 if ax is None and presentation.pad is not None:
                     from .style import finalize
 

@@ -195,7 +195,8 @@ def frame_renderers(
 
 
 def _refuse_presentation(
-    options: Mapping[str, Any], because: str, *, keys: tuple[str, ...] = ("format", "theme")
+    options: Mapping[str, Any], because: str, *,
+    keys: tuple[str, ...] = ("format", "theme", "figure_options"),
 ) -> None:
     """Refuse ``format=``/``theme=`` where they would otherwise be dropped.
 

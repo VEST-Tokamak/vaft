@@ -37,7 +37,7 @@ __all__ = ["RENDER_KEYWORDS", "install_facades", "refuse_render_options"]
 #: the interaction switches of :func:`vaft.plot.backend.render.render_entries`.
 RENDER_KEYWORDS = frozenset(
     {"ax", "show", "backend", "interactive", "animation", "controls", "interaction_backend",
-     "format", "theme"}
+     "format", "theme", "figure_options"}
 )
 
 
