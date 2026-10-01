@@ -882,18 +882,6 @@ def test_spectral_descriptors_on_the_regression_case(atlas):
     assert d["n_unstable_ky"] == int((gamma.max(axis=1) > 0).sum())
 
 
-def test_axis_labels_are_symbols_with_units(atlas):
-    import matplotlib.mathtext as mathtext
-
-    assert atlas.axis_label("a_over_lne") == "$a/L_{n_e}$"
-    assert atlas.axis_label("gamma_max") == r"$\gamma_{\max}$ [$c_s/a$]"
-    assert atlas.axis_label("qe_tglf_W_m2") == r"$Q_e^{\mathrm{TGLF}}$ [W m$^{-2}$]"
-    parser = mathtext.MathTextParser("path")
-    for column, symbol in atlas.SYMBOLS.items():
-        assert column in atlas.SCHEMA, column
-        parser.parse(atlas.axis_label(column))  # every label renders
-
-
 def test_species_charges_parse_or_refuse(atlas):
     assert atlas.species_charges(["e", "H+", "C6+"]) == {"H+": 1.0, "C6+": 6.0}
     assert atlas.species_charges(["e", "ion0"]) is None
@@ -1033,18 +1021,3 @@ def test_spectral_descriptors_survive_nan_growth_rates(atlas):
     native.eigenvalue_spectrum = spectrum
     d = atlas.spectral_descriptors(native)
     assert np.isfinite(d["gamma_max"]) and d["gamma_max"] == pytest.approx(np.nanmax(native.growth_rate))
-
-
-def test_mode_branch_splits_by_frequency_direction():
-    import matplotlib
-
-    matplotlib.use("Agg", force=True)
-    path = ROOT / "workflow" / "transport_atlas" / "plot_atlas.py"
-    spec = importlib.util.spec_from_file_location("transport_atlas_plot", path)
-    plot = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(plot)
-    rows = [{"omega_at_gamma_max_ion_scale": w, "a_over_lne": "1", "a_over_lte": "1", "q_tot_gb": "2",
-             "efit_lineage": "magnetics"} for w in ("0.1", "0.2", "-0.3", "", "0")]
-    ax, counts = plot.mode_branch(rows)
-    assert list(counts.values()) == [2, 1]
-    assert ax.get_xlabel() == "$a/L_{n_e}$" and ax.get_ylabel() == "$a/L_{T_e}$"

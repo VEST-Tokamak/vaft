@@ -124,66 +124,11 @@ SCHEMA: dict[str, tuple[str, str, str]] = {
     "qi_model_W_m2": ("W/m^2", "model_derived", "sum Qi_neo + sum Qi_tglf + Qi_cl,main: modelled sum, not a measurement"),
 }
 
-#: Mathematical symbol of each plotted column (matplotlib mathtext), carried into
-#: schema.json so every consumer labels an axis the same way.
-SYMBOLS: dict[str, str] = {
-    "r_over_a": r"$r/a$",
-    "rho_tor_norm": r"$\rho_{\mathrm{tor}}$",
-    "a_m": r"$a$",
-    "b_unit_T": r"$B_{\mathrm{unit}}$",
-    "q": r"$q$",
-    "shear": r"$\hat{s}$",
-    "kappa": r"$\kappa$",
-    "delta": r"$\delta$",
-    "betae": r"$\beta_e$",
-    "xnue": r"$\nu_{ei}\,a/c_s$",
-    "zeff": r"$Z_{\mathrm{eff}}$",
-    "a_over_lne": r"$a/L_{n_e}$",
-    "a_over_lte": r"$a/L_{T_e}$",
-    "a_over_lti": r"$a/L_{T_i}$",
-    "a_over_lni": r"$a/L_{n_i}$",
-    "ti_over_te": r"$T_i/T_e$",
-    "q_gb_W_m2": r"$Q_{\mathrm{GB}}$",
-    "qe_gb": r"$Q_e/Q_{\mathrm{GB}}$",
-    "qi_gb": r"$Q_i/Q_{\mathrm{GB}}$",
-    "gamma_e_gb": r"$\Gamma_e/\Gamma_{\mathrm{GB}}$",
-    "q_tot_gb": r"$(Q_e+Q_i)/Q_{\mathrm{GB}}$",
-    "qe_tglf_W_m2": r"$Q_e^{\mathrm{TGLF}}$",
-    "qi_tglf_W_m2": r"$Q_i^{\mathrm{TGLF}}$",
-    "f_e": r"$f_e = |Q_e|/(|Q_e|+|Q_i|)$",
-    "gamma_max": r"$\gamma_{\max}$",
-    "ky_at_gamma_max": r"$k_y\rho_s$ at $\gamma_{\max}$",
-    "omega_at_gamma_max": r"$\omega_r$ at $\gamma_{\max}$",
-    "gamma_max_ion_scale": r"$\gamma_{\max}\,(k_y\rho_s\leq 1)$",
-    "ky_at_gamma_max_ion_scale": r"$k_y\rho_s$ at $\gamma_{\max}\,(k_y\rho_s\leq 1)$",
-    "omega_at_gamma_max_ion_scale": r"$\omega_r$ at $\gamma_{\max}\,(k_y\rho_s\leq 1)$",
-    "ky_q_mean": r"$\langle k_y\rho_s\rangle_Q$",
-    "f_em": r"$f_{\mathrm{EM}}$",
-    "qe_neo_W_m2": r"$Q_e^{\mathrm{NEO}}$",
-    "qi_neo_W_m2": r"$Q_i^{\mathrm{NEO}}$",
-    "qe_classical_W_m2": r"$Q_e^{\mathrm{cl}}$",
-    "qi_classical_W_m2": r"$Q_i^{\mathrm{cl}}$",
-    "chi_e_classical_m2_s": r"$\chi_e^{\mathrm{cl}}$",
-    "chi_i_classical_m2_s": r"$\chi_i^{\mathrm{cl}}$",
-    "f_neo_qe": r"$f_{\mathrm{neo}}(Q_e)$",
-    "f_neo_qi": r"$f_{\mathrm{neo}}(Q_i)$",
-    "f_classical_qe": r"$f_{\mathrm{cl}}(Q_e)$",
-    "f_classical_qi": r"$f_{\mathrm{cl}}(Q_i)$",
-    "qe_model_W_m2": r"$Q_e^{\mathrm{model}}$",
-    "qi_model_W_m2": r"$Q_i^{\mathrm{model}}$",
-}
+def _labels() -> dict[str, tuple[str, str]]:
+    """Symbols and display units, from the renderer module: one source for every label."""
+    from vaft.plot.transport_atlas import LABELS
 
-
-def axis_label(column: str) -> str:
-    """``<symbol> [<unit>]`` for a column, the unit omitted when dimensionless."""
-    unit = SCHEMA.get(column, ("", "", ""))[0]
-    symbol = SYMBOLS.get(column, column)
-    if unit in ("", "-"):
-        return symbol
-    pretty = {"c_s/a": r"$c_s/a$", "W/m^2": r"W m$^{-2}$", "m^-2 s^-1": r"m$^{-2}$ s$^{-1}$",
-              "m^2/s": r"m$^2$ s$^{-1}$", "Q_GB": "", "Gamma_GB": "", "T": "T", "m": "m",
-              "s": "s"}.get(unit, unit)
-    return f"{symbol} [{pretty}]" if pretty else symbol
+    return LABELS
 
 
 COLUMNS = tuple(SCHEMA)
@@ -474,6 +419,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     radial = radial_summary(rows)
     _write_csv(args.out / "radial_summary.csv", radial)
     _write_csv(args.out / "discharge_summary.csv", discharge_summary(radial))
+    symbols = _labels()
     schema = {
         "description": "VAFT transport atlas (lane T, #1427): TGLF/NEO model predictions on "
                        "#1331 Tier A good/admissible states. Model output under declared "
@@ -482,7 +428,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "state_key": ["shot", "time_efit_s", "efit_lineage"],
         "join_key_across_models": "state_identity",
         "columns": {name: {"unit": u, "category": c, "definition": d,
-                           **({"symbol": SYMBOLS[name]} if name in SYMBOLS else {})}
+                           **({"symbol": symbols[name][0]} if name in symbols else {})}
                     for name, (u, c, d) in SCHEMA.items()},
         "tglf_config": configs[0],
         "sources": {"tglf": str(args.tglf), "neo": None if args.neo is None else str(args.neo)},
