@@ -439,3 +439,122 @@ def test_projection_lines_up_when_the_mapper_drops_a_surface(driver, sample, tmp
     for job in jobs.values():
         job["local_input"] = dataclasses.replace(job["local_input"], normalisation=None)
     assert driver.project_state(state, surfaces, jobs)["surfaces"] == []
+# --------------------------------------------------------------------------- partition (#1431)
+
+
+def _row(r=0.5, rho=0.45, qe=100.0, ge=1e19, ions=None, gions=None):
+    return {"r_over_a": r, "rho_tor_norm": rho, "electron_energy_flux_W_m2": qe,
+            "electron_particle_flux_m2_s": ge, "ion_energy_flux_W_m2": ions or {},
+            "ion_particle_flux_m2_s": gions or {}}
+
+
+def test_partition_keeps_signs_and_splits_by_magnitude():
+    from vaft.process.transport_state import transport_partition
+
+    neo = _row(qe=50.0, ions={"z=1": 300.0, "z=6": -10.0})
+    tglf = _row(qe=-150.0, ions={"H+": 100.0, "C6+": 30.0})
+    part = transport_partition(neo, tglf, turbulent_charges={"H+": 1, "C6+": 6})
+    assert part["status"] == "available"
+    qe = part["channels"]["electron_energy"]
+    assert qe["model"] == pytest.approx(-100.0)  # cancellation survives in the signed sum
+    assert qe["f_neo"] == pytest.approx(0.25)    # but not in the magnitude split
+    assert qe["neo_over_turb"] == pytest.approx(-1 / 3)
+    total = part["channels"]["ion_energy_total"]
+    assert (total["neo"], total["turb"]) == (pytest.approx(290.0), pytest.approx(130.0))
+    assert part["channels"]["ion_energy_z=6"]["model"] == pytest.approx(20.0)
+
+
+def test_partition_refuses_rather_than_mixing_surfaces():
+    from vaft.process.transport_state import transport_partition
+
+    assert transport_partition(None, _row())["reason"] == "missing_neoclassical_component"
+    assert transport_partition(_row(), _row(r=0.6))["reason"] == "surfaces_differ_in_r_over_a"
+    assert transport_partition(_row(), _row(rho=0.47))["reason"] == "surfaces_differ_in_rho_tor_norm"
+    with pytest.raises(ValueError, match="no charge"):
+        transport_partition(_row(ions={"z=1": 1.0}), _row(ions={"H+": 1.0}))
+    with pytest.raises(ValueError, match="share z=1"):
+        transport_partition(_row(ions={"z=1": 1.0}), _row(ions={"H+": 1.0, "D+": 1.0}),
+                            turbulent_charges={"H+": 1, "D+": 1})
+    assert transport_partition(_row(), _row(), classical=_row(r=0.6))["reason"] == "classical_surface_differs"
+
+
+def test_the_ion_total_needs_the_same_species_in_both_models():
+    from vaft.process.transport_state import transport_partition
+
+    part = transport_partition(_row(ions={"z=1": 1.0, "z=6": 1.0}), _row(ions={"H+": 2.0}),
+                               turbulent_charges={"H+": 1})
+    assert "ion_energy_total" not in part["channels"]
+    assert part["channels"]["ion_energy_z=1"]["model"] == pytest.approx(3.0)
+
+
+def test_partition_ratio_is_undefined_below_the_floor_and_classical_joins():
+    from vaft.process.transport_state import transport_partition
+
+    part = transport_partition(_row(qe=10.0), _row(qe=0.0), classical=_row(qe=30.0))
+    qe = part["channels"]["electron_energy"]
+    assert qe["neo_over_turb"] is None
+    assert qe["model"] == pytest.approx(40.0)
+    assert (qe["f_neo"], qe["f_turb"], qe["f_classical"]) == (
+        pytest.approx(0.25), pytest.approx(0.0), pytest.approx(0.75))
+    assert part["components"] == ["neo", "turb", "classical"]
+
+
+# --------------------------------------------------------------------------- routine NEO (#1431)
+
+
+@pytest.fixture()
+def neo_driver():
+    path = ROOT / "workflow" / "transport_atlas" / "run_neo.py"
+    spec = importlib.util.spec_from_file_location("transport_atlas_run_neo", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    sys.modules.pop(spec.name, None)
+    sys.modules.pop("transport_atlas_run_tglf", None)
+
+
+def test_neo_radial_policy_reproduces_the_tglf_surfaces_or_refuses(neo_driver):
+    assert neo_driver.radial_policy(DEFAULT_SURFACES) == (6, 0.3, 0.8)
+    with pytest.raises(ValueError, match="evenly"):
+        neo_driver.radial_policy((0.3, 0.4, 0.6))
+
+
+def test_neo_driver_maps_one_profile_run_and_checks_its_surfaces(neo_driver, sample, tmp_path, monkeypatch):
+    from omas import ODS
+
+    import vaft.code.gacode.neo as neo
+    from vaft.code.gacode.neo import NEOResult
+    from vaft.code.gacode.neo.outputs import collect_neo_outputs
+
+    ods = _electron_only(sample)
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps({"labels": [{"shot": 48224, "time_ms": 300, "label": "admissible"}]}))
+    fixture = ROOT / "test" / "data" / "gacode" / "neo_vest_48224_carbon"  # r/a 0.2 ... 0.8, 7 points
+
+    def fake_run(profile, workdir, config=None, *, check=True):
+        Path(workdir).mkdir(parents=True, exist_ok=True)
+        return NEOResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                         outputs_native=collect_neo_outputs(fixture))
+
+    monkeypatch.setattr(neo, "run_neo_case", fake_run)
+    common = ["--filedb", str(filedb), "--labels", str(labels), "--lineages", "magnetics"]
+    seven = [f"{0.2 + 0.1 * i:.1f}" for i in range(7)]
+    neo_driver.main(common + ["--out", str(tmp_path / "a"), "--surfaces", *seven])
+    state = json.loads((tmp_path / "a" / "48224" / "magnetics" / "00300" / "state.json").read_text())
+    assert state["status"] == "solved"
+    rows = state["core_transport"]["surfaces"]
+    assert [round(r["r_over_a"], 2) for r in rows] == [float(v) for v in seven]
+    assert set(rows[0]["ion_energy_flux_W_m2"]) == {"z=1", "z=6"}
+    assert state["core_transport"]["code"]["name"] == "NEO"
+
+    # The default six-surface request does not match what this run solved: not "solved".
+    neo_driver.main(common + ["--out", str(tmp_path / "b")])
+    state = json.loads((tmp_path / "b" / "48224" / "magnetics" / "00300" / "state.json").read_text())
+    assert state["status"] == "partial"

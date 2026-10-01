@@ -81,6 +81,8 @@ DEFINITIONAL = frozenset({
     "assess_neo_readiness",
     "run_identity",
     "physics_parameters",
+    # Signed sums and magnitude shares of fluxes the models already computed.
+    "transport_partition",
     # Deleting a sum-over-species leaf from a slice that has no ion species is
     # what the leaf means, not a method borrowed from anywhere.
     "strip_electron_only_pressure",
