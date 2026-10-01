@@ -29,7 +29,7 @@ Usage:
   ./run-local-vest.sh --input-dir PATH --gfile PATH [--run-name NAME]
                       [--repeat COUNTxSTEP] [--nptcls N]
 
-Creates a Plasma State from the supplied G-EQDSK with plasma_state_test, then
+Creates a Plasma State from the supplied G-EQDSK with vaft_plasma_state, then
 runs NUBEAM INIT and STEP against it. Everything runs locally; no server.
 
   --nubeam-root PATH  the NUBEAM installation root (or set NUBEAM_SOURCE_DIR
@@ -51,7 +51,9 @@ CASE_EDIT="$SCRIPT_DIR/_case_edit.py"
 # Text edits go through Python, never sed/awk: `sed -i ''` is correct on BSD
 # and broken on GNU, and the two spell a whole-line replacement differently.
 # See install/nubeam/_case_edit.py.
-case_edit() { python3 "$CASE_EDIT" "$@"; }
+# The Python that has vaft installed; it writes the generator namelist.
+PYTHON="${PYTHON:-python3}"
+case_edit() { "$PYTHON" "$CASE_EDIT" "$@"; }
 
 while (($#)); do
   case "$1" in
@@ -85,7 +87,7 @@ fi
 PREFIX="${NUBEAMHOME:-$NUBEAM_ROOT/local}"
 BUILD_DIR="${NUBEAM_WORK_ROOT:-$PREFIX/run}"
 
-GENERATOR="$PREFIX/bin/plasma_state_test"
+GENERATOR="$PREFIX/bin/vaft_plasma_state"
 NUBEAM_EXEC="$PREFIX/bin/nubeam_comp_exec"
 [[ -x "$GENERATOR" ]] || die "not built: $GENERATOR (run ./install.sh first)"
 [[ -x "$NUBEAM_EXEC" ]] || die "not built: $NUBEAM_EXEC (run ./install.sh first)"
@@ -135,7 +137,7 @@ for file in "${required[@]}"; do cp "$INPUT_DIR/$file" "$WORK_DIR/"; done
 for file in "${descriptors[@]}"; do cp "$file" "$WORK_DIR/"; done
 cp "$GFILE" "$WORK_DIR/equilibrium.gfile"
 
-# plasma_state_test reads the equilibrium filename from line 2 of inputf.
+# The case reads the equilibrium filename from line 2 of inputf.
 case_edit set-equilibrium "$WORK_DIR/inputf" equilibrium.gfile
 
 if [[ -n "$NPTCLS" ]]; then
@@ -144,16 +146,29 @@ if [[ -n "$NPTCLS" ]]; then
 fi
 
 note "creating the Plasma State from $(basename "$GFILE")"
-( cd "$WORK_DIR" && "$GENERATOR" ) \
-  > "$WORK_DIR/plasma_state_test.log" 2>&1 || {
-  tail -n 40 "$WORK_DIR/plasma_state_test.log" >&2 || true
-  die "plasma_state_test failed; see $WORK_DIR/plasma_state_test.log"
-}
-# The generator reports its own errors on stdout and still exits 0, so the
-# output file is the only reliable success signal.
+# inputf + profiles become the generator's namelist through vaft itself, so
+# this script and vaft.code.nubeam read a legacy case identically.
+"$PYTHON" - "$WORK_DIR" <<'EOF_PY' || die "could not write the Plasma State namelist (is vaft importable by $PYTHON?)"
+import sys
+from pathlib import Path
+from vaft.code.nubeam.plasma_state import (
+    PLASMA_STATE_NAMELIST, check_spec_against_namelists, legacy_case_spec,
+    render_plasma_state_namelist,
+)
+workdir = Path(sys.argv[1])
+spec = legacy_case_spec(workdir, gfile=workdir / "equilibrium.gfile")
+check_spec_against_namelists(spec)
+(workdir / PLASMA_STATE_NAMELIST).write_text(render_plasma_state_namelist(spec, workdir))
+EOF_PY
 STATE_FILE="$(case_edit read-field "$WORK_DIR/inputf" state)"
+rm -f "$WORK_DIR/$STATE_FILE"
+( cd "$WORK_DIR" && "$GENERATOR" ) \
+  > "$WORK_DIR/vaft_plasma_state.log" 2>&1 || {
+  tail -n 40 "$WORK_DIR/vaft_plasma_state.log" >&2 || true
+  die "vaft_plasma_state failed; see $WORK_DIR/vaft_plasma_state.log"
+}
 [[ -s "$WORK_DIR/$STATE_FILE" ]] ||
-  die "the generator did not create $STATE_FILE; see $WORK_DIR/plasma_state_test.log"
+  die "the generator did not create $STATE_FILE; see $WORK_DIR/vaft_plasma_state.log"
 note "generated $STATE_FILE ($(wc -c < "$WORK_DIR/$STATE_FILE" | tr -d ' ') bytes)"
 
 export NUBEAM_WORKPATH="$WORK_DIR"

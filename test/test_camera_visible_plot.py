@@ -145,14 +145,16 @@ def test_plot_camera_visible_image_frame_out_of_range_index_raises():
 
 def test_plot_camera_visible_animation_frames_returns_animation_over_all_frames():
     ods = _build_ods(n_frames=4)
-    fig, ax, anim = vomas.plot_camera_visible_animation_frames(ods, show=False)
+    with pytest.warns(DeprecationWarning, match="animation=True"):
+        fig, ax, anim = vomas.plot_camera_visible_animation_frames(ods, show=False)
     assert list(anim.new_frame_seq()) == list(range(4))
     plt.close(fig)
 
 
 def test_plot_camera_visible_animation_frames_subset_of_frames():
     ods = _build_ods(n_frames=6)
-    fig, ax, anim = vomas.plot_camera_visible_animation_frames(ods, frame_indices=[1, 3, 5], show=False)
+    with pytest.warns(DeprecationWarning):
+        fig, ax, anim = vomas.plot_camera_visible_animation_frames(ods, frame_indices=[1, 3, 5], show=False)
     assert list(anim.new_frame_seq()) == list(range(3))
     plt.close(fig)
 
@@ -160,7 +162,8 @@ def test_plot_camera_visible_animation_frames_subset_of_frames():
 def test_plot_camera_visible_animation_frames_saves_to_gif(tmp_path):
     ods = _build_ods(n_frames=3, shape=(4, 4))
     output = tmp_path / "camera.gif"
-    fig, ax, anim = vomas.plot_camera_visible_animation_frames(ods, save_path=output, show=False)
+    with pytest.warns(DeprecationWarning):
+        fig, ax, anim = vomas.plot_camera_visible_animation_frames(ods, save_path=output, show=False)
     assert output.exists()
     plt.close(fig)
 

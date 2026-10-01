@@ -14,6 +14,16 @@ from typing import Any
 
 import yaml
 
+__all__ = [
+    "FIELD_KEYS",
+    "REGISTRY_VERSION",
+    "SCHEMA_KEYS",
+    "SchemaError",
+    "build_registry",
+    "packaged_registry",
+    "schema_versions",
+]
+
 REGISTRY_VERSION = 2
 SCHEMA_KEYS = ("schema_id", "version", "status", "detection", "fields")
 FIELD_KEYS = ("path", "type", "required", "meaning_ko", "aliases", "parsing", "validation")
