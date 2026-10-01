@@ -842,7 +842,7 @@ def test_typed_settings_reach_their_namelist_fields(tmp_path):
     )
     text = _kfile_text(
         tmp_path,
-        routine_scientific_config(profile, initialization, numerics, constraints),
+        EFITScientificConfig(profile, initialization, numerics, constraints),
     )
 
     for field, value in {
