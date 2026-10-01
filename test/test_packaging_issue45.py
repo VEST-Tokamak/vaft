@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
 import yaml
 
 try:
@@ -204,3 +205,35 @@ def test_wheel_sample_carries_the_same_conventions_as_the_checkout_sample():
     assert toroidal <= {round(float(IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE), 9)}
     # and no poloidal probe carries a toroidal_angle at all (#725)
     assert not any("toroidal_angle" in probe for probe in magnetics["b_field_pol_probe"])
+
+
+def test_verify_dist_requires_the_runtime_data_outside_vaft_data(tmp_path):
+    """cold review 0.8.0 execution-backend F3: ``_allowed_data_file`` only
+    inspects ``vaft/data/``, so a wheel lacking the NICE parameters, the NICE
+    compatibility header or the diagram template passed every other check."""
+    import zipfile
+
+    import verify_dist
+
+    outside = {
+        "vaft/code/nice/vest_reference_param.xml",
+        "vaft/code/nice/upstream_compat.h",
+        "vaft/diagram/templates/standalone.tex",
+    }
+    assert outside <= verify_dist.REQUIRED_FILES
+    for name in sorted(outside):
+        assert (ROOT / name).is_file(), name
+    package_data = _pyproject()["tool"]["setuptools"]["package-data"]["vaft"]
+    assert {"code/nice/*.xml", "code/nice/*.h", "diagram/templates/*.tex"} <= set(package_data)
+
+    def wheel(without: str) -> Path:
+        path = tmp_path / f"vaft-0.0-{abs(hash(without))}-py3-none-any.whl"
+        with zipfile.ZipFile(path, "w") as archive:
+            for name in sorted(verify_dist.REQUIRED_FILES - {without}):
+                archive.writestr(name, "x")
+        return path
+
+    verify_dist._verify_distribution(wheel(without=""))
+    for name in sorted(outside):
+        with pytest.raises(ValueError, match=name):
+            verify_dist._verify_distribution(wheel(without=name))
