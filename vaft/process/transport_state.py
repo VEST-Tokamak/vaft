@@ -256,12 +256,9 @@ def _digest(payload: Any) -> str:
 
 def _get(ods: Any, path: str) -> Any:
     """Read a leaf without creating it (omas materializes a missing path on read)."""
-    try:
-        if path not in ods:
-            return None
-    except (KeyError, ValueError, TypeError, IndexError):
-        return None
-    return ods[path]
+    from vaft.ods_access import path_value
+
+    return path_value(ods, path, None)
 
 
 def _times(ods: Any, path: str) -> Optional[np.ndarray]:
