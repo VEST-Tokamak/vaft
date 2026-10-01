@@ -196,6 +196,10 @@ CORE_MODULES: tuple[str, ...] = (
     # driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
     "test_stability_atlas_controls.py",
+    # Transport atlas (lane T): the shared transport-state resolver on the packaged
+    # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
+    # reg05 fixture, and the routine driver with a fake runner. No solver runs.
+    "test_transport_state.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
