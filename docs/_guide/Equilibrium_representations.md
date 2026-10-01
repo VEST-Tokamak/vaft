@@ -122,12 +122,77 @@ quantity.
 * Shaping observables from `vaft.process.contour_shaping_observables`, and the boundary topology
   record from `vaft.process.derive_boundary_representation` (`Topology`, X-points, strike points,
   gaps).
-* Normalized gradients: `vaft.formula.normalized_gradient_scale_length(x, y, a)` and
-  `SyntheticKineticProfiles.a_over_L(channel, coordinate)`.
+* Normalized gradients: `vaft.process.profile_gradient.profile_gradient`, which keeps the plot
+  coordinate, the gradient coordinate and the reference length apart and records all three
+  (see [Profile gradients](#profile-gradients) below). The older kernels
+  `vaft.formula.normalized_gradient_scale_length(x, y, a)` and
+  `SyntheticKineticProfiles.a_over_L(channel, coordinate)` take no equilibrium map.
 
 **Is not:** $a/L_T$ is not a radial coordinate. On one $T_e$ profile at $\rho_{tor,N}=0.6$, the
 reference notebook gets 3.0, 2.95, 2.07 and 2.95 from four gradient conventions. A gradient is
 defined only once its derivative coordinate and its reference length are stated.
+
+### Profile gradients
+
+`vaft.process.profile_gradient` (#551) computes $-L\,d\ln f/dx_g$ with four separate roles:
+
+| argument | role | values |
+| --- | --- | --- |
+| `coordinate` | the abscissa the result is placed on | any `RADIAL_COORDINATES` name |
+| `gradient_coordinate` | what the derivative is taken with respect to | any `RADIAL_COORDINATES` name; `r_minor` or `r_outboard` for a normalized result |
+| `reference_length` | the length that multiplies the derivative | `None`, `a_minor`, `R_major_axis`, `R_major_surface`, `L_ref` |
+| `convention` | a code preset resolving the two above | `tglf`, `cgyro`, `gs2`, `gkw`, `gene` |
+
+`radial_coordinate_map(eq, time)` gives every coordinate of the registry on one slice's
+$\psi$ grid, each as a `DerivedValue`: $\psi_N$, $\rho_{pol,N}$, $\rho_{tor,N}$ (from $q$, never the
+$\sqrt{\psi_N}$ proxy), the midplane crossings `r_inboard`/`r_outboard` at the axis height,
+`r_center`, `r_minor` $=(R_{out}-R_{in})/2$ and `r_minor_norm` $= r_{minor}/a$. Here $a$ is
+`r_minor` on the LCFS. That is not the contour half-width `minor_radius` of
+`derive_global_descriptors`, and `r_minor` is never $R_{out}-R_{axis}$.
+`radial_coordinate_map_from_arrays` builds the same map from stored radii, such as an
+`input.gacode`.
+
+The profile is differentiated on its own grid. The chain rule $d/dx_g = (dx_p/dx_g)\,d/dx_p$
+then carries it through the map, and only then is it interpolated, which is GACODE's order.
+
+```python
+from vaft.process.profile_gradient import profile_gradient, radial_coordinate_map
+
+cmap = radial_coordinate_map(eq, time=eq.time)
+a_lt = profile_gradient(te, psi_norm, "psi_norm", equilibrium=cmap,
+                        coordinate="rho_tor_norm", convention="tglf")
+r_lt = profile_gradient(te, psi_norm, "psi_norm", equilibrium=cmap, coordinate="rho_tor_norm",
+                        gradient_coordinate="r_minor", reference_length="R_major_axis")
+a_lt.metadata["mathematical_definition"]     # '-a * d(log(f)) / d(r_minor)'
+```
+
+Each result carries `quantity`, `source_quantity`, `plot_coordinate`, `gradient_coordinate`,
+`reference_length` (definition, symbol, value, unit, provenance), `requested_convention`, the
+resolved convention and `mathematical_definition`.
+
+**Presets**
+
+* `tglf` and `cgyro` resolve to `r_minor` and `a_minor`, the GACODE definition. On the
+  locpargen 48224 fixture, `tglf` reproduces `RLTS_*`/`RLNS_*`.
+* `gs2` needs the run's `irho` and `local_eq`:
+  * `irho = 2` with a numerical equilibrium resolves to `a_minor`;
+  * `irho = 2` with Miller (`local_eq`) resolves to the run's own `L_ref`;
+  * other `irho` values are refused.
+* `gkw` needs `geom_type`:
+  * `circ` resolves to `R_major_axis`;
+  * `s-alpha` resolves to the run's `L_ref`;
+  * shaped geometries are refused, because their $\psi$ uses the surface's global $R$
+    extremes.
+* `gene` takes the run's own gradient coordinate and `L_ref` and is never a fixed major radius.
+
+Whatever cannot be formed is refused with `ValueError`, never extrapolated:
+
+* a non-monotonic map;
+* a point outside the radial support;
+* a profile value that is not positive;
+* an unavailable coordinate or reference length.
+
+The plot views are not yet built on this layer.
 
 ### Solver convention
 
@@ -164,7 +229,7 @@ it.
 | Diagnostic projections | projection | `vaft.omas.camera_projection_for`, `vaft.omas.compute_camera_visible_efit_overlay` | partly met |
 | Compact geometric representations | representation | `vaft.process.fit_miller_surface`, `vaft.process.fit_fourier_surface`, `vaft.process.evaluate_fourier_surface`, `vaft.data.MXHChebyshevRepresentation` | Miller and Fourier met |
 | Analytic hierarchy | representation | `vaft.process.solovev_to_equilibrium`, `vaft.process.solovev_example`, `vaft.process.guazzotto_freidberg_to_equilibrium`, `vaft.process.fit_solovev` | partly met |
-| Kinetic / gradient representations | derived quantity | `vaft.formula.normalized_gradient_scale_length`, `vaft.data.SyntheticKineticProfiles`, `vaft.data.GradientProfile` | not met |
+| Kinetic / gradient representations | derived quantity | `vaft.process.profile_gradient.profile_gradient`, `vaft.process.profile_gradient.radial_coordinate_map`, `vaft.formula.normalized_gradient_scale_length`, `vaft.data.SyntheticKineticProfiles`, `vaft.data.GradientProfile` | process layer met; views not met |
 | Boundary / topology | derived quantity | `vaft.process.derive_boundary_representation`, `vaft.data.BoundaryRepresentation`, `vaft.data.Topology`, `vaft.process.contour_shaping_observables` | shape vs topology met |
 | Perturbed / helical | representation | `vaft.process.MagneticIslandSpec`, `vaft.process.magnetic_island_topology`, `GpecCylindricalOutput` in `vaft.code.gpec` | partly met |
 | Conventions (all branches) | solver convention | `vaft.data.EquilibriumConvention`, `vaft.process.convert_cocos`, `vaft.process.make_equilibrium_field_interpolator` | partly met |
@@ -232,8 +297,9 @@ each. "Unowned" means no issue other than #1201 tracks it.
 
 **Not met**
 
-* Gradient semantics. No `gradient_coordinate` / `reference_length` contract, and no $1/L$,
-  $a/L$, $R/L$ quantity family (#551; #563 was closed as its duplicate).
+* Gradient views. The process contract exists (`vaft.process.profile_gradient`), but no
+  `*_profile_gradient` plot view or extract result consumes it yet (#551; #563 was closed as
+  its duplicate).
 
 **Partly met**
 
@@ -243,9 +309,11 @@ each. "Unowned" means no issue other than #1201 tracks it.
   * The packaged 39915 ODS stores $\sqrt{\psi_N}$ under `profiles_1d.rho_tor_norm`. The plot
     recipe detects this with `vaft.data._derived.is_rho_pol_proxy`, but a direct reader of the
     leaf does not (unowned).
-* Geometric radii. `r_minor` exists only in `vaft.plot` as $(R_{out}-R_{in})/2$, and
-  `vaft/plot/onedim.py` uses $r - r_{axis}$. `r_minor_norm` and `r_center` have no definition
-  (#479).
+* Geometric radii.
+  * `r_minor`, `r_minor_norm` and `r_center` are defined in
+    `vaft.process.profile_gradient.RADIAL_COORDINATES` (#551).
+  * The older tuples in `vaft.plot` and `vaft.process.profile` are not unified with it.
+  * `vaft/plot/onedim.py` still uses $r - r_{axis}$ (#479).
 * Flux coordinates. The native map is PEST only. There is no direct inverse
   $(\psi,\theta^*)\to(R,Z)$, no Jacobian output, no native Boozer or Hamada map (only the
   per-surface formulas), and no closure or Jacobian residual on the map (#472).
@@ -265,7 +333,8 @@ each. "Unowned" means no issue other than #1201 tracks it.
     their angle convention (#942).
 * Flow equilibria. `EquilibriumData` has no governing-equation field. A Guazzotto–Freidberg flow
   case is kept distinct only because exporting it raises (#1149).
-* Code presets. Only TGLF resolves its normalization. CGYRO, GS2, GENE and GKW are absent (#551).
+* Code presets. TGLF and CGYRO resolve fixed. GS2 and GKW resolve only the configurations their
+  manuals fix, and GENE resolves only from the run's own metadata (#551).
 * Advanced divertors. Snowflake, X-divertor and Super-X exist only as a TES input (#950).
 * Islands and perturbations (unowned; #886 covers the prescribed island):
   * The solver-derived island separatrix is reconstructed only inside the plot backend.

@@ -58,6 +58,7 @@ _SUBMODULES = {
     "coils_non_axisymmetric": ".coils_non_axisymmetric",
     "ml": ".ml",
     "nbi": ".nbi",
+    "profile_gradient": ".profile_gradient",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -100,6 +101,9 @@ _IMPORT_ORDER = (
     "transients",
     # The reduced NBI reference layer (#1136); nothing it exports collides.
     "nbi",
+    # Coordinate, gradient coordinate and reference length kept apart (#551);
+    # nothing it exports collides.
+    "profile_gradient",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
