@@ -239,7 +239,7 @@ def _style_options() -> frozenset[str]:
             names.add(parameter.name)
     # The Plotly renderers take **style and forward what they understand;
     # the composite renderer threads per-member styles through too.
-    names.update({"colorbar_ax"})
+    names.update({"colorbar_ax", "figure_options"})
     return frozenset(names)
 
 

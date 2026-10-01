@@ -36,7 +36,7 @@ def test_the_schema_names_every_extraction_option_once():
 
 def test_the_style_set_is_read_off_the_renderers():
     assert STYLE_OPTIONS == frozenset({
-        "cmap", "colorbar", "colorbar_ax", "figsize", "format", "fps", "grid", "interval_ms",
+        "cmap", "colorbar", "colorbar_ax", "figsize", "figure_options", "format", "fps", "grid", "interval_ms",
         "label_contours", "legend", "row_heights", "save_path", "theme", "uncertainty", "validity",
     })
     assert not (STYLE_OPTIONS & EXTRACTION_OPTIONS)
