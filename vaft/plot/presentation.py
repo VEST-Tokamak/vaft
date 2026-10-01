@@ -821,13 +821,13 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
                 # the empty spellings a control or the CLI may pass mean it too.
                 format = DEFAULT_FORMAT
             presentation = resolve_presentation(format, theme, ax=ax, figsize=figsize)
-            from .figure_options import active_figure_options
+            from .figure_options import figure_options_rc
 
             # Explicit figure options (#1421) layer over the format and theme:
             # their type sizes and faces are entered inside the presentation
-            # context, so they win over it while the figure is drawn.
-            options = active_figure_options()
-            overrides = options.context() if options is not None else contextlib.nullcontext()
+            # context, so they win over it while the figure is drawn -- once,
+            # at the outermost renderer.
+            overrides = figure_options_rc()
             if presentation is None:
                 with overrides:
                     return render(model, *args, ax=ax, figsize=figsize, **kwargs)

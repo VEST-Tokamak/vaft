@@ -80,8 +80,10 @@ def render_entries(
         return render_animation(spec, entries, options, backend=backend, show=show, ax=ax)
     validate_options(name, options)
     refuse_when_unsupported(name, entries, namespace=namespace, subject=subject)
-    figure_options = options.pop("figure_options", None)
-    if figure_options is not None and (interactive or animation):
+    from vaft.plot.figure_options import as_figure_options
+
+    figure_options = as_figure_options(options.pop("figure_options", None))
+    if figure_options and (interactive or animation):
         raise TypeError(
             "figure_options= applies to a drawn figure; interactive=True and animation=True "
             "redraw their own and do not take it yet"
@@ -97,9 +99,8 @@ def render_entries(
     # shape follows the layout (issue #260) and no renderer knows about layouts.
     renderer = renderer_for(spec, model, backend)
     _, style = split_options(options)
-    from vaft.plot.figure_options import as_figure_options, figure_options_scope
+    from vaft.plot.figure_options import figure_options_scope
 
-    figure_options = as_figure_options(figure_options)
     if backend == "plotly":
         if ax is not None:
             raise TypeError(
@@ -117,7 +118,8 @@ def render_entries(
         return renderer(model, ax=ax, show=show, **style)
     with figure_options_scope(figure_options):
         result = renderer(model, ax=ax, show=False, **style)
-    figure_options.apply(result[0])
+    # A caller's own canvas keeps its other axes: edit only what was drawn.
+    figure_options.apply(result[0], None if ax is None else result[1])
     if show:
         import matplotlib.pyplot as plt
 

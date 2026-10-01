@@ -234,27 +234,36 @@ class FigureOptions:
             yield
 
     # -- the finished figure -----------------------------------------------------
-    def apply(self, figure: Any) -> Any:
-        """Edit a finished Matplotlib ``figure`` in place; returns it."""
-        data_axes = [axis for axis in figure.axes if axis.get_label() != _COLORBAR and axis.get_visible()]
+    def apply(self, figure: Any, axes: Any = None) -> Any:
+        """Edit a finished Matplotlib ``figure`` in place; returns it.
+
+        ``axes`` limits the edits to the axes a plot drew -- a caller's own
+        figure keeps its other axes as they were; ``None`` edits every data
+        axes of a figure the plot made.  Axis settings apply to each of them,
+        so on a multi-panel figure a ``ylim`` is every panel's ylim (per-cell
+        settings belong to a composition's cells).
+        """
+        owned = axes is None
+        candidates = figure.axes if owned else _flat_axes(axes)
+        data_axes = [axis for axis in candidates if axis.get_label() != _COLORBAR and axis.get_visible()]
         # Text replaced after drawing keeps the size it was drawn at: the
         # format's rcParams are no longer in force here.
         if self.title is not None:
-            if len(data_axes) == 1:
+            current = figure._suptitle
+            if len(data_axes) == 1 and (current is None or not owned):
                 axis = data_axes[0]
                 axis.set_title(self.title, fontsize=axis.title.get_fontsize())
-            else:
-                current = figure._suptitle
-                size = current.get_fontsize() if current is not None else (
-                    data_axes[0].title.get_fontsize() if data_axes else None
-                )
-                figure.suptitle(self.title, fontsize=size)
+            elif owned:
+                if current is not None:
+                    current.set_text(self.title)  # keeps the place the renderer chose
+                else:
+                    size = data_axes[0].title.get_fontsize() if data_axes else None
+                    figure.suptitle(self.title, fontsize=size)
         for axis in data_axes:
             self._edit_axes(axis)
         if self.colorbar_label is not None:
-            for axis in figure.axes:
-                if axis.get_label() == _COLORBAR:
-                    axis.set_ylabel(self.colorbar_label, fontsize=axis.yaxis.label.get_fontsize())
+            for colorbar in _colorbars(data_axes):
+                colorbar.set_label(self.colorbar_label, fontsize=colorbar.ax.yaxis.label.get_fontsize())
         return figure
 
     def _edit_axes(self, axis: Any) -> None:
@@ -282,9 +291,9 @@ class FigureOptions:
             axis.tick_params(direction=self.tick_direction, which="both")
         self._edit_legend(axis)
         if self.cmap is not None or self.clim is not None:
-            for mappable in [*axis.collections, *axis.images]:
-                if not hasattr(mappable, "set_cmap") or mappable.get_array() is None:
-                    continue
+            # Only the scalar field a colorbar explains: overlays drawn in a
+            # fixed colour (a grey flux contour set) keep their own map.
+            for mappable in _scalar_fields(axis):
                 if self.cmap is not None:
                     mappable.set_cmap(self.cmap)
                 if self.clim is not None:
@@ -301,10 +310,17 @@ class FigureOptions:
             return
         if legend is not None and not placed and self.legend is not True:
             return
-        handles, labels = axis.get_legend_handles_labels()
+        if legend is not None:
+            # Rebuilt from what the legend shows, proxy handles included.
+            handles = list(legend.legend_handles)
+            labels = [text.get_text() for text in legend.get_texts()]
+        else:
+            handles, labels = axis.get_legend_handles_labels()
         if not handles:
             return
         keywords: dict[str, Any] = {}
+        if legend is not None and legend.get_title().get_text():
+            keywords["title"] = legend.get_title().get_text()
         if self.legend_loc is not None:
             keywords["loc"] = self.legend_loc
         elif legend is not None:
@@ -338,6 +354,19 @@ class FigureOptions:
             layout["showlegend"] = self.legend
         if layout:
             figure.update_layout(**layout)
+        ignored = [name for name in ("legend_loc", "legend_ncols", "legend_frame", "label_size", "tick_size",
+                                     "title_size", "legend_size", "math_fontset", "marker_scale")
+                   if getattr(self, name) is not None]
+        if "symlog" in (self.xscale, self.yscale):
+            ignored.append("symlog scale")
+        if ignored:
+            import warnings
+
+            warnings.warn(
+                f"backend='plotly' does not apply {', '.join(ignored)}; they take effect with Matplotlib",
+                UserWarning, stacklevel=3,
+            )
+        axis_names = list(figure.layout.to_plotly_json())
         for axis_name, label, limits, scale in (
             ("x", self.xlabel, self.xlim, self.xscale), ("y", self.ylabel, self.ylim, self.yscale),
         ):
@@ -346,8 +375,14 @@ class FigureOptions:
             if scale is not None:
                 changes["type"] = {"symlog": "linear"}.get(scale, scale)
             if limits is not None:
-                log = scale == "log"
-                changes["range"] = [None if v is None else (math.log10(v) if log else v) for v in limits]
+                # A log axis takes its range in decades, whether the options
+                # or the plot made it log; set per axis.
+                for name in [key for key in axis_names if key.startswith(f"{axis_name}axis")]:
+                    log = (scale or figure.layout[name].type) == "log"
+                    figure.layout[name].range = [None if v is None else (math.log10(v) if log else v) for v in limits]
+                if not any(key.startswith(f"{axis_name}axis") for key in axis_names):
+                    log = scale == "log"
+                    changes["range"] = [None if v is None else (math.log10(v) if log else v) for v in limits]
             if self.grid is not None:
                 changes["showgrid"] = self.grid
             if self.tick_direction is not None:
@@ -362,13 +397,15 @@ class FigureOptions:
                     if figure.layout[name].title.text:
                         figure.layout[name].title.text = label
         if self.cmap is not None or self.clim is not None or self.colorbar_label is not None:
+            from vaft.plot.plotly.fields import colorscale
+
             for trace in figure.data:
-                if not hasattr(trace, "colorscale"):
+                if not hasattr(trace, "colorscale") or trace.colorscale is None or getattr(trace, "showscale", None) is False:
                     continue
                 if self.cmap is not None:
-                    from vaft.plot.plotly._style import colorscale
-
-                    trace.colorscale = colorscale(self.cmap)
+                    scale, reverse = colorscale(self.cmap)
+                    trace.colorscale = scale
+                    trace.reversescale = reverse
                 if self.clim is not None:
                     if hasattr(trace, "zmin"):
                         trace.zmin, trace.zmax = self.clim
@@ -379,9 +416,37 @@ class FigureOptions:
         if self.line_scale is not None:
             for trace in figure.data:
                 line = getattr(trace, "line", None)
-                if line is not None and line.width is not None:
-                    line.width = line.width * self.line_scale
+                if line is not None and hasattr(line, "width"):
+                    # Plotly's default trace width is 2 px.
+                    line.width = (line.width if line.width is not None else 2.0) * self.line_scale
         return figure
+
+
+def _flat_axes(axes: Any) -> list[Any]:
+    from matplotlib.axes import Axes
+
+    if isinstance(axes, Axes):
+        return [axes]
+    import numpy as np
+
+    return [axis for axis in np.asarray(axes, dtype=object).ravel() if isinstance(axis, Axes)]
+
+
+def _scalar_fields(axis: Any) -> list[Any]:
+    """The mappables on ``axis`` a colorbar explains."""
+    return [
+        mappable for mappable in [*axis.collections, *axis.images]
+        if getattr(mappable, "colorbar", None) is not None
+    ]
+
+
+def _colorbars(axes: Any) -> list[Any]:
+    seen: list[Any] = []
+    for axis in axes:
+        for mappable in _scalar_fields(axis):
+            if mappable.colorbar not in seen:
+                seen.append(mappable.colorbar)
+    return seen
 
 
 def as_figure_options(value: Any) -> FigureOptions:
@@ -413,3 +478,23 @@ def figure_options_scope(options: FigureOptions) -> Iterator[None]:
 def active_figure_options() -> FigureOptions | None:
     """The options :func:`figure_options_scope` set, if any."""
     return _ACTIVE.get()
+
+
+@contextlib.contextmanager
+def figure_options_rc() -> Iterator[None]:
+    """The active options' rcParams for one render, entered once.
+
+    A renderer that draws others (the panels renderer and its members) would
+    otherwise scale line widths twice; inside the block the options are no
+    longer active, so a nested render inherits them instead of reapplying.
+    """
+    options = _ACTIVE.get()
+    if options is None:
+        yield
+        return
+    token = _ACTIVE.set(None)
+    try:
+        with options.context():
+            yield
+    finally:
+        _ACTIVE.reset(token)
