@@ -64,6 +64,16 @@ from vaft.ods_access import path_count
 #: ``ntms.mode[]`` entry (#143 solver attribution, #939 local criteria).
 NTMS_FRAGMENT_VERSION = 2
 
+__all__ = [
+    "MAX_RADIAL_POINTS",
+    "NTMS_FRAGMENT_VERSION",
+    "claim_ids",
+    "ensure_toroidal_mode_grid",
+    "initialize_output_flags",
+    "mhd_linear",
+    "ntms_solver_surfaces",
+]
+
 _MODULE_PATTERNS = {
     "dcon": re.compile(r"dcon_output_n(\d+)\.nc"),
     "rdcon": re.compile(r"rdcon_output_n(\d+)\.nc"),

@@ -12,6 +12,16 @@ import operator
 import re
 from typing import Any
 
+__all__ = [
+    "is_range",
+    "normalize_status",
+    "number",
+    "parse_position",
+    "parse_time_window",
+    "parse_valve",
+    "parse_value",
+]
+
 #: ``a-b``, ``a~b``, ``a – b`` with an optional ``ms`` on either end.
 RANGE_RE = re.compile(
     r"^\s*(-?\d+(?:\.\d+)?)\s*(?:ms)?\s*[-~–]\s*(-?\d+(?:\.\d+)?)\s*(?:ms)?\s*$",

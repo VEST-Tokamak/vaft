@@ -36,7 +36,8 @@ __all__ = ["RENDER_KEYWORDS", "install_facades", "refuse_render_options"]
 #: own style names: the canvas, the backend, the presentation presets and
 #: the interaction switches of :func:`vaft.plot.backend.render.render_entries`.
 RENDER_KEYWORDS = frozenset(
-    {"ax", "show", "backend", "interactive", "controls", "interaction_backend", "format", "theme"}
+    {"ax", "show", "backend", "interactive", "animation", "controls", "interaction_backend",
+     "format", "theme"}
 )
 
 

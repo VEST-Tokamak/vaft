@@ -528,7 +528,12 @@ def _select_slice(source, time, as_equilibrium):
     index = find_time_match_index(times, float(time))
     if index is None:
         raise ValueError(f"no equilibrium slice at t = {time} s (slices span {times.min()} to {times.max()} s)")
-    return as_equilibrium(source, time_index=index)
+    eq = as_equilibrium(source, time_index=index)
+    # equilibrium.time chose the index; the slice's own time must agree, or
+    # the record was rewritten out of step (the positional-pairing defect) and
+    # the EquilibriumData branch above would have refused the same request.
+    _check_time(eq.time, time, f"equilibrium slice {index}")
+    return eq
 
 
 def _check_time(have, want, what):

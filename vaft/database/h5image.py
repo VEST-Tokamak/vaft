@@ -19,6 +19,18 @@ except ImportError:  # pragma: no cover - guarded by database public APIs
 
 from .utils import _require_h5pyd
 
+__all__ = [
+    "H5IMAGE_CHUNK_BYTES",
+    "H5IMAGE_SCHEMA_VERSION",
+    "H5ImageUnavailableError",
+    "canonical_info",
+    "derived_filename",
+    "is_derived_filename",
+    "materialize_image",
+    "publish_image",
+    "read_manifest",
+]
+
 
 H5IMAGE_SCHEMA_VERSION = 1
 H5IMAGE_CHUNK_BYTES = 4 * 1024 * 1024

@@ -459,3 +459,45 @@ def test_the_tglf_preset_reproduces_locpargen(gacode, rho):
     # the same T_i given on rho_tor goes through the chain rule and lands close by
     via_rho = at(np.atleast_2d(profile.ti)[0], grid=np.asarray(profile.rho), coordinate="rho_tor_norm")
     assert via_rho == pytest.approx(oracle["RLTS_2"], rel=5e-3, abs=2e-3)
+
+
+def test_an_ods_slice_whose_own_time_disagrees_with_the_vector_is_refused():
+    """``equilibrium.time`` chooses the slice index; the slice's own ``time``
+    leaf must confirm it. A record whose vector says 0.320 s at index 1 while
+    the slice says 0.330 s was rewritten out of step, and the ODS branch used
+    to return that slice silently where the EquilibriumData branch refuses
+    (cold review 0.8.0 delta-absorb-3 F1)."""
+    import copy
+
+    import numpy as np
+    import pytest
+    from omas import ODS
+
+    from vaft.process.profile_gradients import _select_slice
+    from vaft.process._equilibrium_parametric import as_equilibrium
+
+    import gzip
+    import tempfile
+
+    from omas import load_omas_json
+
+    from vaft.data.resources import data_path
+
+    with tempfile.NamedTemporaryFile("wb", suffix=".json", delete=False) as raw:
+        raw.write(gzip.open(str(data_path("samples/39915/omas.json.gz"))).read())
+    ods = load_omas_json(raw.name, consistency_check=False)
+    src = ODS(consistency_check=False)
+    first = ods["equilibrium.time_slice.0"]
+    src["equilibrium.time_slice.0"] = copy.deepcopy(first)
+    src["equilibrium.time_slice.1"] = copy.deepcopy(first)
+    src["equilibrium.time_slice.0.time"] = 0.300
+    src["equilibrium.time_slice.1.time"] = 0.330
+    src["equilibrium.time"] = np.array([0.300, 0.320])
+    src["equilibrium.vacuum_toroidal_field.r0"] = ods["equilibrium.vacuum_toroidal_field.r0"]
+    b0 = np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"]).reshape(-1)
+    src["equilibrium.vacuum_toroidal_field.b0"] = np.array([b0[0], b0[0]])
+
+    with pytest.raises(ValueError, match="equilibrium slice 1 is at t = 0.33"):
+        _select_slice(src, 0.320, as_equilibrium)
+    assert _select_slice(src, 0.300, as_equilibrium).time == pytest.approx(0.300)
+

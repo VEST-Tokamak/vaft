@@ -39,6 +39,13 @@ import logging
 from contextlib import contextmanager
 from typing import Any, Iterator
 
+__all__ = [
+    "CACHE_OMITTED_KEY",
+    "as_entry_payload",
+    "entry_safe_code_parameters",
+    "promote_in_place",
+]
+
 _logger = logging.getLogger(__name__)
 
 #: Recorded in the entry in place of content that stayed on the local product.

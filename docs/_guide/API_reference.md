@@ -19,7 +19,9 @@ related:
 
 This page is the map of the `vaft` package: what each subpackage is for, the entry points you are
 expected to call, and where the detailed guide for each area lives. The signatures shown here are the
-real ones — copy them.
+real ones — copy them. How `vaft.formula`, `vaft.process` and `vaft.code` divide the computation, and
+when an optional Actor contract would group their realizations, is set out on
+[Computational layers]({{ '/reference/computational-layers/' | relative_url }}).
 
 The complete list of what each subpackage publishes -- every object in a module's `__all__`, with its
 signature, summary, deprecation status and source -- is generated from the code on every publish:

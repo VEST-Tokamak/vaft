@@ -288,7 +288,12 @@ def test_the_stage_moves_past_a_failed_and_a_crashed_slice_to_one_that_converges
     assert manifest["status"] == "success" and manifest["configuration"]["time_ms"] == 317.0
     assert "error" not in manifest and "traceback" not in manifest
     assert manifest["reconstruction"]["converged"] and manifest["reconstruction"]["chi2"] == 100.0
-    assert [(a["time_ms"], a["status"]) for a in manifest["attempts"]] == [(315.0, "ok"), (316.0, "failed"), (317.0, "ok")]
+    # Each attempt is logged with the stage's verdict on it, not the chain's
+    # "EFIT ran" status: the unconverged first attempt is ``no_output``.
+    assert [(a["time_ms"], a["status"]) for a in manifest["attempts"]] == [
+        (315.0, "no_output"), (316.0, "failed"), (317.0, "success")
+    ]
+    assert manifest["attempts"][0]["converged"] is False and manifest["attempts"][2]["converged"] is True
     assert all(workdir.endswith(f"t{t:.3f}") for t, workdir in tried)
 
 
