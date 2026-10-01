@@ -75,7 +75,8 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
                        boundary_inputs: Optional[Mapping[str, float]] = None,
                        units: Optional[Mapping[str, str]] = None,
                        x_range: Optional[Tuple[float, float]] = None,
-                       y_range: Optional[Tuple[float, float]] = None) -> OverlayPlan:
+                       y_range: Optional[Tuple[float, float]] = None,
+                       samples: int = 1601) -> OverlayPlan:
     """The boundaries a table's projection can carry, without drawing anything.
 
     Parameters
@@ -134,7 +135,8 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
                 values = _finite(table, q.name)[plotted]
                 if np.isfinite(values).any():
                     fixed[q.name] = float(np.nanmedian(values))
-    return overlay_plan(proj, requested, x_range=span(x, x_range), y_range=span(y, y_range), fixed=fixed)
+    return overlay_plan(proj, requested, x_range=span(x, x_range), y_range=span(y, y_range), fixed=fixed,
+                        samples=samples)
 
 
 def _label(quantity: _b.BoundaryQuantity, column: str) -> str:
@@ -193,6 +195,9 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                                  boundaries: Union[str, bool, Sequence[str]] = "default",
                                  boundary_inputs: Optional[Mapping[str, float]] = None,
                                  units: Optional[Mapping[str, str]] = None, cmap: str = "viridis",
+                                 color_limits: Optional[Tuple[float, float]] = None,
+                                 x_range: Optional[Tuple[float, float]] = None,
+                                 y_range: Optional[Tuple[float, float]] = None,
                                  title: Optional[str] = None, ax=None, show: bool = False):
     """Scatter a population on a canonical operational-space projection.
 
@@ -221,6 +226,12 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         Column units.
     cmap : str
         Colormap for a numeric ``color`` column.
+    color_limits : (float, float), optional
+        Colour-scale limits for a numeric ``color``; values outside are drawn
+        at the ends (the colour bar says so). Default: the finite data span.
+    x_range, y_range : (float, float), optional
+        Axis limits, for example the span of a reference diagram so its whole
+        boundary is visible. Default: the data span.
     title : str, optional
         Axes title; defaults to the projection's title.
     ax : matplotlib.axes.Axes, optional
@@ -264,8 +275,9 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         cvals = pd.to_numeric(rows[color], errors="coerce").to_numpy(float)
         finite_c = cvals[np.isfinite(cvals)]
         from matplotlib.colors import Normalize
-        norm = Normalize(vmin=float(finite_c.min()) if finite_c.size else 0.0,
-                         vmax=float(finite_c.max()) if finite_c.size else 1.0)
+        lo_c, hi_c = color_limits if color_limits is not None else (
+            (float(finite_c.min()), float(finite_c.max())) if finite_c.size else (0.0, 1.0))
+        norm = Normalize(vmin=lo_c, vmax=hi_c, clip=False)
         colormap = plt.get_cmap(cmap).with_extremes(bad=MISSING_COLOR)  # a missing colour value stays visible
     elif color is not None:
         cats = rows[color].astype(object).where(rows[color].notna(), "unknown").astype(str)
@@ -301,11 +313,19 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         if mappable is not None:
             mappable.set_cmap(colormap)
             mappable.set_norm(norm)
-        fig.colorbar(sm, ax=ax, label=color)
+        extend = "neither"
+        if color_limits is not None and np.isfinite(cvals).any():
+            below, above = np.nanmin(cvals) < color_limits[0], np.nanmax(cvals) > color_limits[1]
+            extend = {(True, True): "both", (True, False): "min", (False, True): "max"}.get((below, above), "neither")
+        fig.colorbar(sm, ax=ax, label=color, extend=extend)
     if color is not None and not numeric_color:
         for name, c in palette.items():
             ax.scatter([], [], color=c, marker="o", s=30, label=f"{color}={name}")
 
+    if x_range is not None:
+        ax.set_xlim(x_range)
+    if y_range is not None:
+        ax.set_ylim(y_range)
     plan = population_overlay(table, proj, x=x, y=y, boundaries=boundaries, boundary_inputs=boundary_inputs,
                               units=units, x_range=ax.get_xlim() if len(xs) else None,
                               y_range=ax.get_ylim() if len(ys) else None)

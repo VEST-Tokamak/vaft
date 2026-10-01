@@ -227,3 +227,13 @@ def test_a_far_threshold_is_warned_not_silently_off_screen():
         _, ax = operational_space_population(t, "beta_n_li")
     assert ax.get_ylim()[1] < 1.0
     assert any("not in view" in str(w.message) for w in caught)
+
+
+def test_axis_ranges_and_colour_limits_are_honoured():
+    t = _hugill_table()
+    t["R_p"] = np.linspace(0.0, 40.0, len(t))
+    fig, ax = operational_space_population(t, "hugill", color="R_p", color_limits=(0.0, 6.0),
+                                           x_range=(0.0, 10.0), y_range=(0.0, 0.6))
+    assert ax.get_xlim() == (0.0, 10.0) and ax.get_ylim() == (0.0, 0.6)
+    bar = fig.axes[1]
+    assert bar.get_ylim()[1] == pytest.approx(6.0)
