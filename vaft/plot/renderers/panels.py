@@ -20,8 +20,10 @@ import matplotlib.pyplot as plt
 from ..models import (
     Field2D,
     GeometryLayers,
+    Image2D,
     LineSeries,
     Panels,
+    PowerSpectrum,
     Profile1D,
     Spectrogram,
     TextPanel,
@@ -90,8 +92,10 @@ def _panel_drawer(model: Any):
     # Imported lazily to keep the renderer modules free of import cycles.
     from .fields import render_field_2d
     from .geometry import render_geometry_layers
+    from .images import render_image_2d
     from .lines import render_line_series
     from .profiles import render_profile_1d
+    from .spectra import render_power_spectrum
     from .spectrograms import render_spectrogram
 
     for model_type, draw in (
@@ -101,6 +105,9 @@ def _panel_drawer(model: Any):
         (GeometryLayers, render_geometry_layers),
         (Spectrogram, render_spectrogram),
         (TextPanel, _draw_text_panel),
+        # Single-axes kinds a composed figure may place in a cell (#1467).
+        (PowerSpectrum, render_power_spectrum),
+        (Image2D, render_image_2d),
     ):
         if isinstance(model, model_type):
             return draw
@@ -237,6 +244,12 @@ def render_panels(
     for axis in flat[len(model.models):]:
         # A grid cell past the last member (five members in a 3 x 2 grid).
         axis.set_visible(False)
+    if ax is None and model.links:
+        # Caller-supplied axes keep whatever sharing the caller set up, as
+        # with share_x; a figure this renderer made links what the model says.
+        _link_axes(flat, model)
+    if model.panel_labels:
+        _label_panels(flat[: len(model.models)])
 
     if ax is None and model.spans is None and model.share_x and model.nrows > 1:
         # Panels sharing a time base share its label: only the lowest drawn
@@ -293,6 +306,57 @@ def render_panels(
     if show:
         plt.show()
     return figure, grid
+
+
+def _slots(model: Panels) -> list[tuple[int, int, int, int]]:
+    """``(row, col, rowspan, colspan)`` of every panel, spans or not."""
+    if model.spans is not None:
+        return [tuple(span) for span in model.spans]
+    return [(slot // model.ncols, slot % model.ncols, 1, 1) for slot in range(len(model.models))]
+
+
+def _link_axes(flat: Any, model: Panels) -> None:
+    """Make each link's panels zoom and pan together (issue #1467).
+
+    The first panel of a link is the anchor; the view is rescaled over every
+    linked panel's data unless one of them fixed its own limits.  On an x
+    link only the lowest linked panel of a column keeps its tick labels --
+    the stacked-time-trace convention ``share_x`` follows.
+    """
+    slots = _slots(model)
+    for axis_name, members in model.links:
+        anchor = flat[members[0]]
+        for slot in members[1:]:
+            getattr(flat[slot], f"share{axis_name}")(anchor)
+        autoscaled = all(
+            getattr(flat[slot], f"get_autoscale{axis_name}_on")() for slot in members
+        )
+        if autoscaled:
+            anchor.autoscale_view(scalex=axis_name == "x", scaley=axis_name == "y")
+        if axis_name != "x":
+            continue
+        lowest: dict[int, int] = {}
+        for slot in members:
+            row, col, rowspan, _ = slots[slot]
+            if col not in lowest or row + rowspan > slots[lowest[col]][0] + slots[lowest[col]][2]:
+                lowest[col] = slot
+        for slot in members:
+            if slot != lowest[slots[slot][1]]:
+                flat[slot].tick_params(labelbottom=False)
+                flat[slot].set_xlabel("")
+
+
+def panel_label(index: int) -> str:
+    """``(a)``, ``(b)``, ... ``(z)``, then ``(27)``, ``(28)``, ...: slot ``index``'s mark."""
+    return f"({chr(ord('a') + index)})" if index < 26 else f"({index + 1})"
+
+
+def _label_panels(axes: Any) -> None:
+    for index, axis in enumerate(axes):
+        axis.annotate(
+            panel_label(index), xy=(0, 1), xycoords="axes fraction", xytext=(-6, 6),
+            textcoords="offset points", ha="right", va="bottom", fontweight="bold",
+        )
 
 
 def visual_rows(model: Panels) -> int:

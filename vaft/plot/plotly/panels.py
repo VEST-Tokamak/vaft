@@ -55,6 +55,9 @@ def render_panels(model: Panels, *, show: bool = False, **style: Any) -> Any:
         horizontal_spacing=0.1 if model.ncols > 1 else 0.02,
     )
     add_panels(figure, model, **style)
+    _link_axes(figure, model, cells)
+    if model.panel_labels:
+        _label_panels(figure, model, cells)
     figure.update_layout(title={"text": plain_text(model.suptitle)} if model.suptitle else None, template="plotly_white",
                          height=max(320, 260 * model.nrows), width=max(480, 420 * model.ncols))
     if show:
@@ -62,16 +65,65 @@ def render_panels(model: Panels, *, show: bool = False, **style: Any) -> Any:
     return figure
 
 
+def _x_linked_above(model: Panels, cells: list[tuple[int, int, int, int]]) -> set[int]:
+    """Slots on an x link that are not the lowest linked panel of their column."""
+    hidden: set[int] = set()
+    for axis_name, members in model.links:
+        if axis_name != "x":
+            continue
+        lowest: dict[int, int] = {}
+        for slot in members:
+            row, col, rowspan, _ = cells[slot]
+            if col not in lowest or row + rowspan > cells[lowest[col]][0] + cells[lowest[col]][2]:
+                lowest[col] = slot
+        hidden |= {slot for slot in members if slot != lowest[cells[slot][1]]}
+    return hidden
+
+
+def _link_axes(figure: Any, model: Panels, cells: list[tuple[int, int, int, int]]) -> None:
+    """Tie each link's panels to its first one with ``matches`` (issue #1467)."""
+    for axis_name, members in model.links:
+        def axis_of(slot: int) -> Any:
+            row, col, _, _ = cells[slot]
+            return getattr(figure.get_subplot(row + 1, col + 1), f"{axis_name}axis")
+
+        anchor = axis_of(members[0]).plotly_name.replace("axis", "")
+        update = figure.update_xaxes if axis_name == "x" else figure.update_yaxes
+        for slot in members[1:]:
+            row, col, _, _ = cells[slot]
+            update(matches=anchor, row=row + 1, col=col + 1)
+    for slot in _x_linked_above(model, cells):
+        row, col, _, _ = cells[slot]
+        figure.update_xaxes(showticklabels=False, row=row + 1, col=col + 1)
+
+
+def _label_panels(figure: Any, model: Panels, cells: list[tuple[int, int, int, int]]) -> None:
+    from ..renderers.panels import panel_label
+
+    for index, ((row, col, _, _), member) in enumerate(zip(cells, model.models)):
+        subplot = figure.get_subplot(row + 1, col + 1)
+        if isinstance(member, Geometry3DLayers):
+            x0, y1 = subplot.domain.x[0], subplot.domain.y[1]
+        else:
+            x0, y1 = subplot.xaxis.domain[0], subplot.yaxis.domain[1]
+        figure.add_annotation(
+            text=f"<b>{panel_label(index)}</b>", xref="paper", yref="paper", x=x0, y=y1,
+            xanchor="right", yanchor="bottom", showarrow=False,
+        )
+
+
 def add_panels(figure: Any, model: Panels, **style: Any) -> None:
     cells = _cells(model)
     # With a shared time base the time label sits on the lowest panel of each
-    # column only, as in the Matplotlib renderer.
+    # column only, as in the Matplotlib renderer; an x link does the same for
+    # the panels it ties.
     lowest = {}
     for (row, col, rowspan, _), member in zip(cells, model.models):
         if row + rowspan > lowest.get(col, (-1, None))[0]:
             lowest[col] = (row + rowspan, member)
+    linked_above = _x_linked_above(model, cells)
     for index, ((row, col, _, _), member) in enumerate(zip(cells, model.models)):
         member_style = dict(model.member_styles[index]) if model.member_styles else {}
-        x_title = not model.share_x or lowest[col][1] is member
+        x_title = (not model.share_x or lowest[col][1] is member) and index not in linked_above
         PLOTLY_MODELS[type(member)].add(figure, member, row=row + 1, col=col + 1, x_title=x_title,
                                         **{**member_style, **style})

@@ -182,6 +182,7 @@ from .models import (
     TextPanel,
     ViewModel,
 )
+from .composition import AxisLink, FigureCell, FigureComposition
 from .discovery import PlotCapability, PlotCatalog
 from .display import PSI_STYLES
 from .navigation import SliceNavigator
@@ -392,6 +393,9 @@ _SUPPORT_EXPORTS = (
     "DEFAULT_FORMAT",
     "FORMATS",
     "PSI_STYLES",
+    "AxisLink",
+    "FigureCell",
+    "FigureComposition",
     "Geometry3DLayer",
     "Geometry3DLayers",
     "GeometryLayer",
