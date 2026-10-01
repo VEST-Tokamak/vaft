@@ -115,7 +115,7 @@ def _apply(scientific, axis: str, value: Any):
 
 
 def _routine_config():
-    from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
+    from vaft.code.efit.config import routine_scientific_config
 
     scientific = routine_scientific_config()
     for axis, value in ROUTINE.items():

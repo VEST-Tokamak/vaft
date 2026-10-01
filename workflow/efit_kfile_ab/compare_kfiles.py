@@ -83,7 +83,7 @@ def emit(output: Path, *, shots: Sequence[int] | None = None, tstep: float, aver
     count, which is a different experiment from the one being compared.
     """
     from vaft.code.efit import generate_constraints_ods, generate_kfile
-    from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
+    from vaft.code.efit.config import routine_scientific_config
     from vaft.data.resources import data_path
     from vaft.omas.vacuum_magnetics import quality_gate
     from vaft.validation.efit_channels import decide_efit_channels, efit_probe_count

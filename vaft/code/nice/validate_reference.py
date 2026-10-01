@@ -224,7 +224,6 @@ def main():
     if args.efit_executable:
         from vaft.code.efit import (
             EFITConfig,
-            EFITConstraintConfig,
             prepare_efit_inputs,
             run_efit,
         )

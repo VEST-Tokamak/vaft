@@ -62,7 +62,6 @@ def _portable(value: Any) -> Any:
 
 
 def run_case(ods, workdir: Path, inner_iterations: int | None):
-    from vaft.code.efit.config import EFITNumericsConfig
     from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, run_efit
 
     shutil.rmtree(workdir, ignore_errors=True)

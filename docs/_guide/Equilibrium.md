@@ -343,9 +343,7 @@ config = EFITConfig(
     workdir='/tmp/efit-run',
     shot=39915,
     times=[0.315, 0.320, 0.325],
-    npprime=2,
-    nffprime=2,
-)
+)  # the k-file follows the default configuration (statistical_891)
 
 inputs = prepare_efit_inputs(ods, config)
 result = run_efit(inputs, config)
@@ -359,28 +357,31 @@ result = collect_efit_outputs('/tmp/efit-run', config)
 
 #### Named configurations (presets)
 
-`vaft.code.efit.PRESETS` names complete EFIT configurations: the scientific configuration written into the k-file, plus the sigma floor applied to the constraints first.
+`vaft.code.efit.PRESETS` names complete EFIT configurations: the scientific configuration written into the k-file, sigma floor included.
+Since 2026-10-01 the defaults of `EFITScientificConfig` *are* the #891 working setting, so a call that names no configuration writes it (`DEFAULT_PRESET = "statistical_891"`).
 
 | preset | what it is |
 | --- | --- |
-| `routine` | The production configuration: legacy weights, a (2,2) basis, EFIT's own termination. Selecting it is the same as selecting nothing. |
-| `statistical_891` | The #891 working setting. Statistical σ with a 2 % floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1). |
+| `statistical_891` (default) | The #891 working setting. Statistical σ with a 2 % probe/loop floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1, MXITER 514). |
+| `routine` | The legacy configuration, the default before 2026-10-01: legacy weights, a (2,2) basis, EFIT's own termination, 100 iterations, no floor. It gave βp ≈ 0 on the reference slices; keep it for reproducing old results. |
 
 ```python
 from vaft.code.efit import efit_preset, generate_kfile
 
-preset = efit_preset("statistical_891")
-constraints, floor_changes = preset.prepare_constraints(constraints_ods)  # a floored copy
-generate_kfile(constraints, 39915, save_dir="/tmp/efit-run", config=preset.scientific)
+generate_kfile(constraints_ods, 39915, save_dir="/tmp/efit-run")            # statistical_891
+generate_kfile(constraints_ods, 39915, save_dir="/tmp/efit-legacy",
+               config=efit_preset("routine").scientific)                     # the legacy k-file
 ```
 
+The writer applies the configured floor to a copy of the constraints; the product itself is never changed. `routine_profile_config()`, `routine_numerics_config()`, `routine_constraint_config()` and `routine_scientific_config()` in `vaft.code.efit.config` build the legacy pieces one at a time. Passing `npprime`/`nffprime` to `generate_kfile` also selects the legacy configuration with that basis.
+
 **Selecting a preset in the pipelines.**
-- **Pipeline 1:** `efit.preset` selects it. The k-file stage then writes `efit_preset.json` beside its manifest, and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`).
-- **Pipeline 2:** `kinetic.efit_preset` builds the kinetic lineages' base magnetic k-file with the same preset.
+- **Pipeline 1:** `efit.preset` is empty for the default and `routine` for the legacy configuration. The k-file stage always writes `efit_preset.json` beside its manifest, and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`). `vaft.database.summary` reports it as `efit_configuration` (`name@sha`, or `unrecorded` for products written before the record existed).
+- **Pipeline 2:** `kinetic.efit_preset` builds the kinetic lineages' base magnetic k-file the same way.
 
-A preset run writes the same product paths as a routine one, so give it its own `base_dir`.
+A `routine` run writes the same product paths as a default one, so give it its own `base_dir`.
 
-`statistical_891` allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot's slices in one EFIT call. So raise `efit.timeout`: 3600 s held for the #1331 Tier A campaign, while 600 s timed out 26 of 33 shots.
+The default allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot's slices in one EFIT call, so `efit.timeout` is 3600 s: 600 s timed out 26 of 33 shots in the #1331 Tier A campaign.
 
 `statistical_891` was calibrated on 39915's flat-top. The weight-study README (`workflow/efit_uncertainty_calibration`) records how.
 

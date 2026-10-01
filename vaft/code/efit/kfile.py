@@ -39,7 +39,7 @@ from vaft.validation.magnetics import unusable_channels_at
 from .efund import table_machine_era
 from .slice_name import encode_time_suffix, time_to_microseconds
 from .magnetic import EFITConfig
-from .config import EFITScientificConfig, EFITProfileConfig
+from .config import EFITScientificConfig
 
 
 #: How a magnetics channel family is named in the EFIT constraint tree. The

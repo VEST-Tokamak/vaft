@@ -92,7 +92,7 @@ def run_shot(
     from omas import load_omas_json
 
     from vaft.code.efit import generate_constraints_ods
-    from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
+    from vaft.code.efit.config import routine_scientific_config
     from vaft.code.efit.magnetic import (
         EFITConfig,
         prepare_efit_inputs,
@@ -426,7 +426,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.efit_home:
         os.environ["EFITHOME"] = str(Path(args.efit_home).expanduser())
 
-    from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
+    from vaft.code.efit.config import routine_scientific_config
     from vaft.code.efit.toolchain import resolve_toolchain, toolchain_identities
     from vaft.data.resources import data_path
 

@@ -18,10 +18,7 @@ from vaft.code.efit.config import (
 )
 from vaft.code.efit import (
     EFITConfig,
-    EFITConstraintConfig,
     EFITInitializationConfig,
-    EFITNumericsConfig,
-    EFITProfileConfig,
     EFITScientificConfig,
     efit_parameter_grid,
     generate_kfile,
@@ -372,8 +369,6 @@ def test_the_coil_constraint_matrix_is_derived_from_the_machine():
 
 
 def test_a_config_without_a_matrix_lets_the_machine_supply_one():
-    from vaft.code.efit.config import EFITConstraintConfig
-
     assert routine_constraint_config().coil_constraint_matrix is None
     assert routine_constraint_config().coil_constraint_targets is None
 

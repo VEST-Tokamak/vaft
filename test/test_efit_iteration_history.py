@@ -25,7 +25,6 @@ from vaft.code.efit import (
     resolved_efit_configuration,
     run_efit,
 )
-from vaft.code.efit.config import EFITNumericsConfig
 from vaft.code.efit.iteration_history import SIDECAR_NAME
 from vaft.data.resources import data_path
 

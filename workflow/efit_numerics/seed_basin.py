@@ -358,7 +358,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.efit_home:
         os.environ["EFITHOME"] = str(Path(args.efit_home).expanduser())
 
-    from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config, efit_parameter_grid
+    from vaft.code.efit.config import routine_scientific_config, efit_parameter_grid
     from vaft.code.efit.toolchain import resolve_toolchain, toolchain_identities
     from vaft.data.resources import data_path
 

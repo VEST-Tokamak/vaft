@@ -806,7 +806,7 @@ def _scientific(
     ``uncertainty_scales`` overrides the named families' scales (each divides
     the family's submitted sigma); families not named keep the default.
     """
-    from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
+    from vaft.code.efit.config import routine_scientific_config
 
     scientific = routine_scientific_config()
     constraints = replace(scientific.constraints, uncertainty_mode=uncertainty_mode)

@@ -173,10 +173,8 @@ def fixed_scientific_config():
     defaults.  This makes the study reproducible against a future EFIT build.
     """
     from vaft.code.efit.config import (
-        EFITConstraintConfig,
         EFITInitializationConfig,
         EFITNumericsConfig,
-        EFITProfileConfig,
         EFITScientificConfig,
     )
 

@@ -260,7 +260,7 @@ def run_case(
     baseline,
 ) -> dict[str, Any]:
     """One case, one whole discharge."""
-    from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
+    from vaft.code.efit.config import routine_scientific_config
     from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, run_efit
 
     shutil.rmtree(workdir, ignore_errors=True)

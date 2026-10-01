@@ -981,7 +981,6 @@ def fixed_scientific_config() -> Any:
     """Reconstruct the frozen #579/#663 scientific baseline locally."""
     from vaft.code.efit.config import routine_constraint_config
     from vaft.code.efit import (
-        EFITConstraintConfig,
         EFITInitializationConfig,
         EFITNumericsConfig,
         EFITProfileConfig,
