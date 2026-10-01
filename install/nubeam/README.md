@@ -8,6 +8,13 @@ licence before downloading NUBEAM, so VAFT owns the build recipe and the adapter
 contract while the source stays external. Every script takes `--nubeam-root`
 naming a tree you already hold, and writes nothing into the VAFT checkout.
 
+**Public sources only.** The tree is the public `nubeam.zip` (or `.tar.gz`) from
+<https://w3.pppl.gov/NTCC/NUBEAM/>, unpacked. With the NTCC terms accepted
+(`--accept-ntcc-terms` / `-AcceptNtccTerms`) the installers fetch the PSPLINE,
+PREACT and XPLASMA modules from the same site. Nothing else is needed: the
+Plasma State generator is VAFT's own program, and the one source incompatibility
+(Linux `nubeam.cpp` against current PSPLINE) is adapted in the build directory.
+
 **Linux, macOS / Apple Silicon and native Windows.** None of this runs in CI;
 the VAFT test suite passes with NUBEAM absent.
 
@@ -21,6 +28,7 @@ the VAFT test suite passes with NUBEAM absent.
 | `run-local-validation.sh` | Runs a shipped reference case (D3D or TFTR) and compares it to the reference output that ships with it. |
 | `run-local-vest.sh` | G-EQDSK → Plasma State → NUBEAM, the full VEST chain, locally. |
 | `compare-plasma-state.py` | Profile-by-profile comparison of two Plasma State files. |
+| `plasma_state/vaft_plasma_state.f90` | VAFT's Plasma State generator: G-EQDSK + kinetic profiles + mdescr/sconfig → NUBEAM input state, through the public Plasma State API. Compiled by every installer; driven by `vaft.code.nubeam.plasma_state`. |
 | `_case_edit.py` | The text edits the shell would otherwise need `sed`/`awk` for. |
 | `VALIDATION.md` | What the reference cases actually showed, and how to read it. |
 
@@ -75,10 +83,10 @@ the NTCC source:
 | `mkdir` takes no mode, and `SO_REUSEPORT`, `sys/un.h`, `termios.h` and `endian.h` are absent | A small set of force-included compatibility headers. |
 | MSYS2's netCDF links the AWS C++ S3 SDK, whose `atexit` handler deadlocks after the program has finished | Requires a netCDF built without S3 and NCZarr. `install/install_gpec_windows.ps1 -BuildDependencies` produces one, and `windows.ps1` finds it by default. This is the same defect that hung DCON. |
 
-`plasma_state_test` is built only when the 2021 server tree that carries its
-source is present under `vendor/server-ntcc-2021`; the NTCC dependency archives
-ship no main program for it. Cases that read an existing Plasma State do not
-need it, and the build says plainly when it is skipped.
+The Plasma State generator, `vaft_plasma_state`, is VAFT's own program
+(`plasma_state/vaft_plasma_state.f90`): the public NTCC archives ship the Plasma
+State library but no program that creates a state. It is built on every
+platform from the public sources alone.
 
 ## Two portability constraints worth knowing
 
