@@ -17,7 +17,7 @@
 pages:
   - slug: core
     title: Top level and utilities
-    modules: [vaft, vaft.compat, vaft.ods_access, vaft.spectroscopy]
+    modules: [vaft, vaft.compat, vaft.ods_access, vaft.spectroscopy, vaft.version]
   - slug: database
     title: vaft.database
     modules: [vaft.database]
@@ -58,14 +58,6 @@ pages:
 # Public-looking modules that declare no `__all__`, so publish nothing yet.
 # Declaring `__all__` in one of them publishes it: remove it from this list.
 undeclared:
-  - vaft.cli
-  - vaft.cli.compare_ods
-  - vaft.cli.export
-  - vaft.cli.filedb
-  - vaft.cli.plot
-  - vaft.cli.raw_redump
-  - vaft.cli.raw_upgrade
-  - vaft.cli.sxr_pack
   - vaft.code.base
   - vaft.code.efit.kfile
   - vaft.code.efit.legacy
@@ -106,22 +98,7 @@ undeclared:
   - vaft.code.tokamaker.stability
   - vaft.code.tokamaker.topology
   - vaft.code.tokamaker.vessel
-  - vaft.data.eqdsk
-  - vaft.data.resources
-  - vaft.database.h5image
-  - vaft.database.ids
-  - vaft.database.lazy_common
-  - vaft.database.ods
-  - vaft.database.product_migration
-  - vaft.database.raw
-  - vaft.database.staging
-  - vaft.database.transport
-  - vaft.database.utils
   - vaft.diagram.build
-  - vaft.omas.formula_wrapper
-  - vaft.omas.general
-  - vaft.omas.process_wrapper
-  - vaft.omas.update
   - vaft.plot.analysis
   - vaft.plot.backend
   - vaft.plot.backend.convention
@@ -131,4 +108,3 @@ undeclared:
   - vaft.plot.profile
   - vaft.plot.time
   - vaft.plot.twodim
-  - vaft.version
