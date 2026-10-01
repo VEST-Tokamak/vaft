@@ -11,12 +11,17 @@ things are needed for that, and both live here:
   ``outstanding`` is what already-admitted jobs have reserved but not yet
   touched (reservation minus their tree's current RSS). Counting only
   ``MemAvailable`` would admit every waiting job at once, because a job that
-  was just started has not grown yet.
+  was just started has not grown yet. ``available`` is the smaller of the
+  host's ``MemAvailable`` and the headroom under the process's effective
+  budget (:func:`~vaft.code.resources.memory_budget`: a cgroup, Slurm or
+  ``VAFT_MEMORY_BUDGET_MB`` limit), the same source the in-process guard
+  uses, since a launched tree lands in the same cgroup as its launcher.
 
 The ledger is a directory of one JSON file per admitted job plus a lock file
 (``flock``), so it works across unrelated processes of the same user. A
 record whose owner process is gone is dropped on the next admission. On a
-host without ``fcntl`` (Windows) admission is not enforced.
+host without ``fcntl`` (Windows) admission is still enforced, but without
+the lock: two workers admitting at the same instant may both be admitted.
 
 The ledger is shared only by processes that use the same directory. The
 default is per user under the temp directory, so workers with different
@@ -38,7 +43,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Iterator, Optional
 
 from . import _process_tree
-from .resources import _DEFAULT_MEMINFO, _available_mib
+from .resources import MemoryBudgetInfo, _DEFAULT_MEMINFO, _available_mib, cgroup_usage_mb, memory_budget, rss_mb
 
 try:  # POSIX only
     import fcntl
@@ -66,7 +71,7 @@ def available_mb() -> Optional[float]:
 def total_mb() -> Optional[float]:
     """Physical memory of the host in MiB; ``None`` if unknown."""
     try:
-        for line in _DEFAULT_MEMINFO.read_text().splitlines():
+        for line in _DEFAULT_MEMINFO.read_text(encoding="utf-8").splitlines():
             if line.startswith("MemTotal:"):
                 return float(line.split()[1]) / 1024.0
     except (OSError, ValueError, IndexError):
@@ -79,6 +84,23 @@ def total_mb() -> Optional[float]:
         return float(psutil.virtual_memory().total) / (1024.0 * 1024.0)
     except Exception:  # pragma: no cover - psutil platform failure
         return None
+
+
+def budget_headroom_mb(info: MemoryBudgetInfo) -> Optional[float]:
+    """Room left under the effective budget ``info`` in MiB; ``None`` if it sets none.
+
+    Usage follows the budget's source as :class:`~vaft.code.resources.MemoryBudget`
+    does: the cgroup's non-reclaimable memory for a cgroup limit, this
+    process's RSS otherwise. A budget set by ``MemAvailable`` itself is the
+    host reading already and is reported as ``None``.
+    """
+    if info.limit_mb is None or info.source == "mem_available":
+        return None
+    if info.usage_cgroup is not None:
+        used = cgroup_usage_mb(info.usage_cgroup, info.usage_kind or "v2")
+    else:
+        used = rss_mb()
+    return float(info.limit_mb) - (used or 0.0)
 
 
 def rss_by_pid(pids: Iterable[int]) -> dict[int, float]:
@@ -125,19 +147,52 @@ def _alive(pid: int) -> bool:
     The ledger directory is private to one user, so an owner pid that now
     belongs to someone else (``PermissionError``) was reused: the record is
     stale.
+
+    ``os.kill(pid, 0)`` is a probe only on POSIX. On Windows every signal
+    number other than the two console events is ``TerminateProcess``, so the
+    probe would kill the owner (another VAFT worker, or this process), and a
+    dead pid raises a plain ``OSError`` from ``OpenProcess``. The Windows
+    branch therefore asks psutil (a dependency of snakemake and ipykernel, so
+    always installed) or ``OpenProcess`` itself, and never sends a signal.
     """
     if pid <= 0:
         return False
+    if os.name == "nt":
+        return _alive_windows(pid)
     try:
         os.kill(pid, 0)
-    except (ProcessLookupError, PermissionError):
+    except OSError:  # ProcessLookupError, PermissionError
         return False
     return True
 
 
+def _alive_windows(pid: int) -> bool:
+    try:
+        import psutil
+    except ImportError:  # pragma: no cover - psutil is a transitive dependency
+        psutil = None
+    if psutil is not None:
+        try:
+            return bool(psutil.pid_exists(pid))
+        except Exception:  # pragma: no cover - psutil platform failure
+            pass
+    try:  # pragma: no cover - Windows without psutil
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        process_query_limited_information = 0x1000
+        handle = kernel32.OpenProcess(process_query_limited_information, False, int(pid))
+        if not handle:
+            return False
+        kernel32.CloseHandle(handle)
+        return True
+    except (AttributeError, OSError):
+        return False
+
+
 def _write_json_atomic(path: Path, record: dict) -> None:
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temporary.write_text(json.dumps(record))
+    temporary.write_text(json.dumps(record), encoding="utf-8")
     os.replace(temporary, path)
 
 
@@ -179,8 +234,9 @@ class MemoryLedger:
     """Host-wide admission control for memory reservations (see module docstring).
 
     A recorded root pid counts together with its descendants, found from one
-    process table per admission. ``available`` and ``total`` are injectable
-    for tests.
+    process table per admission. ``available`` and ``total`` are the host
+    readings; ``budget`` is the process's effective limit, which caps both.
+    All three are injectable for tests.
     """
 
     def __init__(
@@ -190,6 +246,7 @@ class MemoryLedger:
         floor_mb: float = 4096.0,
         available: Callable[[], Optional[float]] = available_mb,
         total: Callable[[], Optional[float]] = total_mb,
+        budget: Callable[[], MemoryBudgetInfo] = memory_budget,
     ) -> None:
         if floor_mb < 0:
             raise ValueError(f"floor_mb must be >= 0, got {floor_mb}")
@@ -197,11 +254,20 @@ class MemoryLedger:
         self.floor_mb = float(floor_mb)
         self._available = available
         self._total = total
+        self._budget = budget
+
+    def available_mb(self) -> Optional[float]:
+        """Host ``MemAvailable`` capped by the budget's headroom; ``None`` if neither is known."""
+        return _least(self._available(), budget_headroom_mb(self._budget()))
+
+    def total_mb(self) -> Optional[float]:
+        """Host memory capped by the budget's limit; ``None`` if neither is known."""
+        return _least(self._total(), self._budget().limit_mb)
 
     @contextlib.contextmanager
     def _locked(self) -> Iterator[None]:
         _private_directory(self.directory)
-        with open(self.directory / ".lock", "a+") as lock:
+        with open(self.directory / ".lock", "ab+") as lock:
             if fcntl is not None:
                 fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
             try:
@@ -219,7 +285,7 @@ class MemoryLedger:
         records = []
         for path in self.directory.glob("*.json"):
             try:
-                record = json.loads(path.read_text())
+                record = json.loads(path.read_text(encoding="utf-8"))
                 owner = int(record["owner"])
                 reserve = float(record["reserve_mb"])
                 root = None if record.get("root") is None else int(record["root"])
@@ -241,15 +307,15 @@ class MemoryLedger:
         return total
 
     def fits(self, reserve_mb: float) -> bool:
-        """Whether ``reserve_mb`` + floor could ever be admitted on this host."""
-        total = self._total()
+        """Whether ``reserve_mb`` + floor could ever be admitted under this budget."""
+        total = self.total_mb()
         return total is None or reserve_mb + self.floor_mb <= total
 
     def try_admit(self, reserve_mb: float) -> Optional[Reservation]:
-        """Admit now if the host has room, else ``None``. Unknown availability admits."""
+        """Admit now if the budget has room, else ``None``. Unknown availability admits."""
         global _UNKNOWN_AVAILABILITY_WARNED
         with self._locked():
-            available = self._available()
+            available = self.available_mb()
             if available is None and not _UNKNOWN_AVAILABILITY_WARNED:
                 _UNKNOWN_AVAILABILITY_WARNED = True
                 warnings.warn(
@@ -280,11 +346,17 @@ class MemoryLedger:
             time.sleep(poll_s)
 
 
+def _least(*values: Optional[float]) -> Optional[float]:
+    known = [float(value) for value in values if value is not None]
+    return min(known) if known else None
+
+
 __all__ = [
     "LEDGER_ENV",
     "MemoryLedger",
     "Reservation",
     "available_mb",
+    "budget_headroom_mb",
     "default_ledger_dir",
     "rss_by_pid",
     "total_mb",
