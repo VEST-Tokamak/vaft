@@ -2262,9 +2262,9 @@ def test_windows_nubeam_link_restores_a_space_separated_ifs():
     only the bare one needs the IFS restored.
     """
     text = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
-    # The bare expansion is the plasma_state_test link; the three earlier ones
+    # The bare expansion is the vaft_plasma_state link; the three earlier ones
     # sit inside quoted "VAR=..." strings, so index() would find those first.
-    bare = text.index("gfortran -o plasma_state_test.exe")
+    bare = text.index("gfortran -o vaft_plasma_state.exe")
     preceding = text[:bare]
     assert "IFS=' '" in preceding[-600:], (
         "the bare $(link_libraries) expansion needs a space-separated IFS set "
