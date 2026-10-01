@@ -307,6 +307,12 @@ def _complete_dcon(case, mode: int = 1) -> Path:
     cell.mkdir(parents=True, exist_ok=True)
     (cell / "euler.bin").write_bytes(b"euler")
     (cell / "psi_in.bin").write_bytes(b"psi")
+    # Staged into the GPEC cell with the binaries, because GPEC opens `equil.in`
+    # in its own working directory; see test_gpec_dcon_staging.py.
+    (cell / "equil.in").write_text(
+        f"&EQUIL_CONTROL\n    eq_filename=\"{case.geqdsk.name}\"\n/\n", encoding="utf-8"
+    )
+    (cell / case.geqdsk.name).write_text(GFILE_TEXT, encoding="utf-8")
     return cell
 
 

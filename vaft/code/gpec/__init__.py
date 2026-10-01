@@ -459,7 +459,21 @@ def _run_module(
         # that is also where it writes the vacuum handshake files it reads back
         # from `dcon_dir`. Staged here rather than at prepare time for the
         # obvious reason: DCON has only just produced them.
-        stage_dcon_products(dcon_dir, run_dir)
+        #
+        # `equil.in` and the equilibrium it names are staged with them, and those
+        # are *inputs* rather than products -- so `validate_dcon_result` above,
+        # which judges whether DCON finished, does not check them and a cell
+        # prepared by something other than this suite may not have them. Reported
+        # the same way as an invalid DCON result rather than raised, because under
+        # `run_mode="auto"` every other missing prerequisite here is a skip.
+        try:
+            stage_dcon_products(dcon_dir, run_dir)
+        except FileNotFoundError as missing:
+            if policy == "strict":
+                raise
+            return GPECModuleRun(
+                module, mode, run_dir, status="skipped", reason=str(missing)
+            )
         # The threshold prerequisites are checked here rather than at prepare
         # time because the `.kin` and `pentrc.in` are staged into an already
         # prepared cell -- a machine layer adds them after `prepare` has written

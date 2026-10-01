@@ -533,6 +533,51 @@ DCON_PRODUCTS_FOR_GPEC: tuple[tuple[str, bool], ...] = (
 )
 
 
+#: The equilibrium namelist ideal GPEC reads in its own working directory.
+#:
+#: GPEC calls the same ``equil`` module DCON does, and that module opens
+#: ``equil.in`` before anything else and stops the program without it:
+#: ``PROGRAM STOP => Can't open input file equil.in``, four minutes into a run
+#: whose DCON had already succeeded.  It is staged from the DCON cell rather than
+#: written from the template a second time, which is what makes the two codes
+#: provably read the *same* equilibrium description rather than two renderings of
+#: it.
+EQUIL_NAMELIST = "equil.in"
+
+#: Where that namelist names the equilibrium.  Staged with it when the name is
+#: relative -- the DCON cell holds the g-file under a bare filename, and a bare
+#: filename in another directory resolves to nothing.
+EQUIL_NAMELIST_GROUP = "equil_control"
+EQUIL_FILENAME_KEY = "eq_filename"
+
+
+def _stage_equilibrium_inputs(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
+    """Bring ``equil.in`` and the equilibrium it names into *run_dir*."""
+    source = dcon_dir / EQUIL_NAMELIST
+    target = run_dir / EQUIL_NAMELIST
+    shutil.copy2(source, target)
+    staged = [target]
+    named = rt.read_namelist_group(source, EQUIL_NAMELIST_GROUP).get(EQUIL_FILENAME_KEY)
+    if named and not Path(named).is_absolute():
+        equilibrium = dcon_dir / named
+        if not equilibrium.is_file():
+            raise FileNotFoundError(
+                f"cannot stage the equilibrium for {run_dir}: {EQUIL_NAMELIST} names "
+                f"{named!r} and {equilibrium} is not there. GPEC reads it relative to "
+                "its own working directory, so the name has to resolve in both cells"
+            )
+        destination = run_dir / named
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists() or destination.is_symlink():
+            destination.unlink()
+        try:
+            os.link(equilibrium, destination)
+        except OSError:
+            shutil.copy2(equilibrium, destination)
+        staged.append(destination)
+    return tuple(staged)
+
+
 def stage_dcon_products(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
     """Put DCON's products where ideal GPEC will look for them, and say which.
 
@@ -579,6 +624,8 @@ def stage_dcon_products(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
         name for name, required in DCON_PRODUCTS_FOR_GPEC
         if required and not (dcon_dir / name).is_file()
     ]
+    if not (dcon_dir / EQUIL_NAMELIST).is_file():
+        missing.append(EQUIL_NAMELIST)
     if missing:
         raise FileNotFoundError(
             f"cannot stage DCON products from {dcon_dir}: {', '.join(missing)} "
@@ -602,6 +649,7 @@ def stage_dcon_products(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
         except OSError:
             shutil.copy2(source, target)
         staged.append(target)
+    staged.extend(_stage_equilibrium_inputs(dcon_dir, run_dir))
     return tuple(staged)
 
 
