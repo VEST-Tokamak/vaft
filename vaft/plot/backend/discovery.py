@@ -56,6 +56,7 @@ from .recipes import (
     SPECTROGRAM_METHODS,
     SPECTROGRAM_PARAMETERS,
     _coordinate_options,
+    coordinate_default_for,
     abscissa_options,
     field_options_for,
     overlay_options_for,
@@ -289,11 +290,12 @@ def _declare(record: PlotCapability) -> PlotCapability:
         if recipe.coordinates is not None:
             options = tuple(recipe.coordinates.options)
             updates["coordinates"] = {
-                "default": recipe.coordinates.default, "options": options, "declared": options,
+                "default": coordinate_default_for(record.name), "options": options, "declared": options,
             }
         if recipe.choices:
             updates["choices"] = {
-                option: {"default": choice.default, "options": tuple(choice.options)}
+                option: {"default": choice.default, "options": tuple(choice.options),
+                         **({"applies_to": dict(choice.applies_to)} if choice.applies_to else {})}
                 for option, choice in recipe.choices.items()
             }
     unit = getattr(recipe, "y_unit", None)

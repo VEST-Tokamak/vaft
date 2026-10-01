@@ -106,8 +106,10 @@ def test_the_view_is_the_process_result_on_the_profiles_own_grid(ods):
     np.testing.assert_allclose(model.series[0].y, expected.values)
     np.testing.assert_allclose(model.series[0].x, expected.coordinate)
     # the LCFS sample where T_e = 0 is left out, and said to be
-    assert model.metadata["excluded_edge_points"] == int(np.count_nonzero(~keep)) == 1
-    assert "left out" in model.title
+    assert int(np.count_nonzero(~keep)) == 1
+    assert model.metadata["excluded_points"]["edge_side"] == {"non_positive": 1, "non_finite": 0}
+    assert model.metadata["excluded_points"]["axis_side"] == {"non_positive": 0, "non_finite": 0}
+    assert model.title.endswith("left out: 1 edge-side point with T_e <= 0")
     assert model.metadata["profile_grid"] == f"{base}.grid.psi"
     assert model.metadata["profile_coordinate"] == "psi_norm"
 
@@ -194,7 +196,9 @@ def test_discovery_lists_the_four_options(ods):
     assert record.choices["reference_length"]["default"] == "a_minor"
     assert record.choices["reference_length"]["options"] == tuple(
         "none" if name is None else name for name in gradients.REFERENCE_LENGTHS)
-    assert record.choices["convention"] == {"default": None, "options": tuple(gradients.CONVENTIONS)}
+    # only the presets a plot option can carry are offered
+    assert record.choices["convention"] == {"default": None, "options": ("tglf", "cgyro")}
+    assert record.choices["reference_length"]["applies_to"] == {"convention": ("none",)}
     assert record.computation["backend"] == "omas"
     controls = {control.name: control for control in controls_for(record, include_style=False)}
     assert {"coordinate", "gradient_coordinate", "reference_length", "convention"} <= set(controls)
@@ -248,10 +252,11 @@ def test_a_choice_declaration_refuses_a_default_outside_its_options():
 
 
 @pytest.mark.parametrize("options, reason", [
-    ({"convention": "gs2"}, "irho, local_eq"),
-    ({"convention": "gene"}, "a plot option cannot carry"),
+    ({"convention": "gs2"}, "convention must be one of tglf, cgyro"),
     ({"reference_length": "L_ref"}, "stated length and definition"),
-    ({"gradient_coordinate": "psi_norm"}, "not one"),
+    ({"reference_length": None}, "reference_length='none'"),
+    ({"gradient_coordinate": "psi_norm"}, r"not an outward length, so reference_length='a_minor' \(the default\)"),
+    ({"gradient_coordinate": "rho_tor_norm", "reference_length": "R_major_axis"}, "not an outward length"),
     ({"convention": "tglf", "reference_length": "R_major_axis"}, "contradicts"),
     ({"time_slice": 3}, "outside the 1 core_profiles.profiles_1d"),
 ])
@@ -324,3 +329,182 @@ def test_omas_and_native_imas_give_equal_models(ods, tmp_path):
                 native = getattr(vaft.imas, f"extract_{name}")(entry, coordinate="r_minor")
             assert isinstance(native, Profile1D)
             assert_models_equal(native, _extract(name, ods, coordinate="r_minor"), where=name)
+
+
+@pytest.mark.parametrize("convention, reason", [("gs2", "irho, local_eq"), ("gkw", "geom_type"),
+                                                ("gene", "a plot option cannot carry")])
+def test_a_run_dependent_preset_is_refused_by_the_builder_with_its_reason(ods, convention, reason):
+    with warnings.catch_warnings(), pytest.raises(ValueError, match=reason):
+        warnings.simplefilter("ignore")
+        R.build_model("ion_temperature_profile_gradient", normalize_entries(ods), convention=convention)
+
+
+def test_a_flux_label_gradient_is_drawn_dimensionless_with_none(ods):
+    model = _extract("ion_temperature_profile_gradient", ods, gradient_coordinate="rho_tor_norm",
+                     reference_length="none")
+    assert model.metadata["unit"] == "1" and model.y_unit == ""
+    assert model.y_label == r"$-\partial \ln T_i/\partial \rho_{tor,N}$"
+
+
+def test_a_given_title_keeps_the_record(ods):
+    model = _extract("electron_temperature_profile_gradient", ods, title="mine")
+    assert model.title == "mine"
+    assert model.metadata["excluded_points"]["edge_side"]["non_positive"] == 1
+    assert json.loads(model.to_xarray().attrs["metadata"])["excluded_points"] == model.metadata["excluded_points"]
+
+
+def test_non_finite_and_axis_side_samples_are_counted_apart(ods):
+    def ends(o):
+        values = np.asarray(o["core_profiles.profiles_1d.0.ion.0.temperature"], dtype=float).copy()
+        values[0] = np.nan
+        values[1] = -1.0
+        values[-1] = np.nan
+        o["core_profiles.profiles_1d.0.ion.0.temperature"] = values
+
+    model = _extract("ion_temperature_profile_gradient", _variant(ods, ends))
+    assert model.metadata["excluded_points"]["axis_side"] == {"non_positive": 1, "non_finite": 1}
+    assert model.metadata["excluded_points"]["edge_side"] == {"non_positive": 0, "non_finite": 1}
+    assert ("left out: 1 axis-side point with T_i <= 0, 1 axis-side point non-finite, "
+            "1 edge-side point non-finite") in model.title
+
+
+# ---------------------------------------------------------------------------
+# the profile's grid
+# ---------------------------------------------------------------------------
+
+
+def _psi_norm(o):
+    slice_ = o["equilibrium.time_slice.0"]
+    psi = np.asarray(o["core_profiles.profiles_1d.0.grid.psi"], dtype=float)
+    return (psi - slice_["global_quantities.psi_axis"]) / (
+        slice_["global_quantities.psi_boundary"] - slice_["global_quantities.psi_axis"])
+
+
+def test_the_rho_pol_norm_grid_maps_exactly_to_psi_norm(ods):
+    def to_rho_pol(o):
+        o["core_profiles.profiles_1d.0.grid.rho_pol_norm"] = np.sqrt(np.clip(_psi_norm(o), 0.0, None))
+        del o["core_profiles.profiles_1d.0.grid.psi"]
+
+    model = _extract("ion_temperature_profile_gradient", _variant(ods, to_rho_pol))
+    reference = _extract("ion_temperature_profile_gradient", ods)
+    assert model.metadata["profile_grid"].endswith("grid.rho_pol_norm")
+    assert model.metadata["profile_coordinate"] == "rho_pol_norm"
+    np.testing.assert_allclose(model.series[0].y, reference.series[0].y, rtol=1e-6, atol=1e-9)
+
+
+def test_a_stored_rho_tor_norm_grid_is_used_once_verified(ods):
+    def drop_psi(o):
+        del o["core_profiles.profiles_1d.0.grid.psi"]
+
+    model = _extract("ion_temperature_profile_gradient", _variant(ods, drop_psi))
+    reference = _extract("ion_temperature_profile_gradient", ods)
+    check = model.metadata["profile_grid_check"]
+    assert model.metadata["profile_grid"].endswith("grid.rho_tor_norm")
+    assert check["proxy"] is False and check["tolerance"] == R.RHO_TOR_GRID_TOLERANCE
+    assert 0.0 < check["max_abs_difference_from_map_rho_tor_norm"] < R.RHO_TOR_GRID_TOLERANCE
+    np.testing.assert_allclose(model.series[0].y, reference.series[0].y, rtol=1e-9, atol=1e-12)
+
+
+def test_a_rho_tor_norm_grid_that_is_the_sqrt_psi_proxy_is_refused(ods):
+    def proxy(o):
+        rho = np.sqrt(np.clip(_psi_norm(o), 0.0, None))
+        o["core_profiles.profiles_1d.0.grid.rho_tor_norm"] = rho
+        o["equilibrium.time_slice.0.profiles_1d.rho_tor_norm"] = rho
+        del o["core_profiles.profiles_1d.0.grid.psi"]
+
+    with pytest.raises(ValueError, match="sqrt\\(psi_N\\), the rho_pol proxy"):
+        _extract("ion_temperature_profile_gradient", _variant(ods, proxy))
+
+
+def test_a_rho_tor_norm_grid_far_from_the_map_is_refused_with_the_mismatch(ods):
+    def shifted(o):
+        rho = np.asarray(o["core_profiles.profiles_1d.0.grid.rho_tor_norm"], dtype=float)
+        bent = rho ** 1.5
+        o["core_profiles.profiles_1d.0.grid.rho_tor_norm"] = bent
+        o["equilibrium.time_slice.0.profiles_1d.rho_tor_norm"] = bent
+        del o["core_profiles.profiles_1d.0.grid.psi"]
+
+    with pytest.raises(ValueError, match=r"differs from the map's q-integrated rho_tor_norm by up to 0\.\d+ \(tolerance 0\.05\)"):
+        _extract("ion_temperature_profile_gradient", _variant(ods, shifted))
+
+
+def test_a_rho_tor_norm_grid_that_cannot_be_checked_is_refused(ods):
+    def unpaired(o):
+        rho = np.asarray(o["core_profiles.profiles_1d.0.grid.rho_tor_norm"], dtype=float)
+        o["core_profiles.profiles_1d.0.grid.rho_tor_norm"] = rho * 0.999
+        del o["core_profiles.profiles_1d.0.grid.psi"]
+
+    with pytest.raises(ValueError, match="cannot be checked"):
+        _extract("ion_temperature_profile_gradient", _variant(ods, unpaired))
+
+
+# ---------------------------------------------------------------------------
+# pairing by time
+# ---------------------------------------------------------------------------
+
+
+def test_the_equilibrium_is_paired_by_time_in_a_multi_slice_shot(ods):
+    """Slice 0 is a 10%-larger copy at 0.25 s; the profile at 0.30 s must use slice 1."""
+
+    def two_slices(o):
+        original = copy.deepcopy(o["equilibrium.time_slice.0"])
+        o["equilibrium.time_slice.1"] = original
+        first = "equilibrium.time_slice.0"
+        o[f"{first}.time"] = 0.25
+        for path in ("profiles_2d.0.grid.dim1", "global_quantities.magnetic_axis.r", "boundary.outline.r"):
+            o[f"{first}.{path}"] = np.asarray(o[f"{first}.{path}"], dtype=float) * 1.1
+        o["equilibrium.time"] = np.array([0.25, 0.30])
+        b0 = np.asarray(o["equilibrium.vacuum_toroidal_field.b0"], dtype=float).reshape(-1)
+        o["equilibrium.vacuum_toroidal_field.b0"] = np.array([b0[0], b0[0]])
+
+    shot = _variant(ods, two_slices)
+    paired = _extract("ion_temperature_profile_gradient", shot, reference_length="none")
+    single = _extract("ion_temperature_profile_gradient", ods, reference_length="none")
+    assert paired.metadata["equilibrium_time_slice"] == 1
+    assert paired.metadata["time"] == pytest.approx(0.30)
+    np.testing.assert_allclose(paired.series[0].y, single.series[0].y)
+
+    shot["core_profiles.profiles_1d.0.time"] = 0.25
+    shot["core_profiles.time"] = np.array([0.25])
+    early = _extract("ion_temperature_profile_gradient", shot, reference_length="none")
+    assert early.metadata["equilibrium_time_slice"] == 0
+    # every length is 10% larger, so -d ln T/dr is 10% smaller
+    np.testing.assert_allclose(early.series[0].y, single.series[0].y / 1.1, rtol=1e-3, atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# controls
+# ---------------------------------------------------------------------------
+
+
+def test_choosing_a_convention_drops_the_view_defaults(ods):
+    from vaft.plot.backend.discovery import describe_one
+    from vaft.plot.controls import controls_for
+    from vaft.plot.navigation import ControlState
+
+    record = describe_one("ion_temperature_profile_gradient", normalize_entries(ods))
+    assert record.choices["convention"]["options"] == ("tglf", "cgyro")
+    controls = tuple(c for c in controls_for(record, include_style=False)
+                     if c.name in ("gradient_coordinate", "reference_length", "convention"))
+    state = ControlState(controls)
+    assert state.as_options() == {"gradient_coordinate": "r_minor", "reference_length": "a_minor"}
+    state.set("convention", "cgyro")
+    assert state.as_options() == {"convention": "cgyro"}
+    model = _extract("ion_temperature_profile_gradient", ods, **state.as_options())
+    assert model.metadata["requested_convention"] == "cgyro"
+
+
+def test_the_profile_fits_now_offer_their_coordinates_in_discovery_and_controls():
+    """Additive since #551: the fits' coordinate= is declared, so discovery and controls see it."""
+    import omas
+    from vaft.data import data_path
+    from vaft.plot.backend.discovery import describe_one
+    from vaft.plot.controls import controls_for
+
+    kinetic = omas.load_omas_json(str(data_path("kineticEfit/ods_48224_300ms.json")), consistency_check=False)
+    for name in ("thomson_scattering_profile_fit", "charge_exchange_profile_fit"):
+        record = describe_one(name, normalize_entries(kinetic))
+        assert record.coordinates == {"default": "psi_norm", "options": R.PROFILE_FIT_COORDINATES,
+                                      "declared": R.PROFILE_FIT_COORDINATES}
+        control = next(c for c in controls_for(record, include_style=False) if c.name == "coordinate")
+        assert control.default == "psi_norm" and control.options == R.PROFILE_FIT_COORDINATES

@@ -182,7 +182,8 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("gradient_coordinate", "choice", "recipes.GRADIENT_COORDINATES",
                    "radial coordinate a profile gradient is taken with respect to"),
         OptionSpec("reference_length", "choice", "recipes.GRADIENT_REFERENCE_LENGTHS",
-                   "length that multiplies a profile gradient; 'none' for the dimensional one"),
+                   "length that multiplies a profile gradient; 'none' for the dimensional one "
+                   "(an explicit None is refused: in profile_gradient it means 'none')"),
         OptionSpec("convention", "choice", "recipes.GRADIENT_CONVENTIONS",
                    "code preset resolving gradient_coordinate and reference_length"),
     )

@@ -247,8 +247,8 @@
     },
     "electron_density_profile_gradient": {
       "call": "vaft.omas.plot_electron_density_profile_gradient(vaft.omas.load(vaft.data.sample(48224)))",
-      "model_sha256": "77355f674d8a508a92d94202eb8946d13671b24fd4e80066a6680b2b7bb5179a",
-      "png_sha256": "b96564c0355589d8475f7d4425dde74b44bc678f3385188e1c7e495b31e507be",
+      "model_sha256": "b4beef3d6f2904f5c6f98986145833c67e7b93a33e3dd4676f6675c8e699e50a",
+      "png_sha256": "2ec74ff124bb6361baf8f44e74ce4113c227296044f13f5c2db0654dcb5d2e0a",
       "renderer_sha256": "b090a77113c1ec6788ecd41703018c2b7e3cb4337cfa732c1cfd341589784831",
       "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
       "shot": 48224,
@@ -283,8 +283,8 @@
     },
     "electron_temperature_profile_gradient": {
       "call": "vaft.omas.plot_electron_temperature_profile_gradient(vaft.omas.load(vaft.data.sample(48224)))",
-      "model_sha256": "e13ed7e4f6896dd70589703f3edd95d5f41d668dc7742f6905d0062d5c8a0c25",
-      "png_sha256": "1703036fc4496ba5559d32ae3f77ae6c9eff7b784012216c62f2e66e5e7f76db",
+      "model_sha256": "e447f27c3ee4ee27f95930425be1643a1322c1bd5644e6f3304bfc6cc99eebaa",
+      "png_sha256": "4f4064d21a4b3cea5684b32a28204cdc990559a41f27486f0bbf300dcae305d6",
       "renderer_sha256": "b090a77113c1ec6788ecd41703018c2b7e3cb4337cfa732c1cfd341589784831",
       "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
       "shot": 48224,
@@ -710,7 +710,7 @@
     },
     "ion_temperature_profile_gradient": {
       "call": "vaft.omas.plot_ion_temperature_profile_gradient(vaft.omas.load(vaft.data.sample(48224)))",
-      "model_sha256": "d575a74af5ae21b191f5f278f7d08773f3cac59b26b131b0cc43fd3c00549aa0",
+      "model_sha256": "24cdc3b51c8e40342198fb777c00a91ac82e27d489c6b2399c680005015d71ca",
       "png_sha256": "421eab393adea964d2ab8888870cfc559a04eed90fb49f3591300319f1e53e8e",
       "renderer_sha256": "b090a77113c1ec6788ecd41703018c2b7e3cb4337cfa732c1cfd341589784831",
       "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",

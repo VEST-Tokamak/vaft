@@ -288,13 +288,15 @@ def _model_controls(record: Any) -> list[ControlSpec]:
         choices = tuple(block.get("options") or ())
         if len(choices) < 2 and block.get("default") is not None:
             continue
+        applies_to = dict(block.get("applies_to") or {})
         if block.get("default") is None:
             # no default: "none" leaves the option out, as the builder's own default does
             controls.append(ControlSpec(option, "choice", option.replace("_", " ").capitalize(),
-                                        NONE, (NONE, *choices)))
+                                        NONE, (NONE, *choices), applies_to=applies_to))
         else:
             controls.append(ControlSpec(option, "choice", option.replace("_", " ").capitalize(),
-                                        block["default"], choices, keeps_none=NONE in choices))
+                                        block["default"], choices, keeps_none=NONE in choices,
+                                        applies_to=applies_to))
     fields: Mapping[str, Any] = getattr(record, "fields", None) or {}
     options = tuple(fields.get("options") or ())
     flux_only: Mapping[str, tuple[Any, ...]] = {}
