@@ -163,6 +163,18 @@ def test_bdy_crat_outside_what_ntcc_accepts_is_refused(vest_case):
 
 
 @pytest.mark.parametrize(
+    "field, value",
+    [("nth_eq", 16), ("nth_eq", 2002), ("nrho", 2), ("nrho", 2002), ("nmom", 0), ("nmom", 65)],
+)
+def test_grid_sizes_outside_the_generator_bounds_are_refused(vest_case, field, value):
+    """The generator's check_inputs stops on these after the case is staged;
+    the spec names the bound up front (nth_eq >= 17 from the f90 check)."""
+    with pytest.raises(ps.PlasmaStateInputError, match=field):
+        _spec(vest_case, **{field: value})
+    _spec(vest_case, nth_eq=17, nrho=3, nmom=1)
+
+
+@pytest.mark.parametrize(
     "form, text",
     [
         ("comma", "iZatom_S(1) = 1, 6\niAMU_S(1) = 1, 12\n"),

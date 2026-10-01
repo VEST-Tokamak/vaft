@@ -47,6 +47,8 @@ PROFILE_COORDINATES = ("rho_tor", "sqrt_psi_n")
 
 #: Fixed array bounds compiled into the generator.
 GENERATOR_MAX_POINTS = 2001
+#: Fewest poloidal points the generator's check_inputs accepts for nth_eq.
+GENERATOR_MIN_THETA_POINTS = 17
 GENERATOR_MAX_IONS = 20
 GENERATOR_MAX_BEAMS = 32
 GENERATOR_MAX_GAS_SOURCES = 16
@@ -196,6 +198,12 @@ class PlasmaStateSpec:
             raise PlasmaStateInputError("t1 must not precede t0")
         if not 3 <= self.nrho <= GENERATOR_MAX_POINTS:
             raise PlasmaStateInputError(f"nrho must be in 3..{GENERATOR_MAX_POINTS}")
+        if not GENERATOR_MIN_THETA_POINTS <= self.nth_eq <= GENERATOR_MAX_POINTS:
+            # The generator's check_inputs stops on this only after the case
+            # dir is staged and the G-EQDSK written; refuse it here, by name.
+            raise PlasmaStateInputError(
+                f"nth_eq must be in {GENERATOR_MIN_THETA_POINTS}..{GENERATOR_MAX_POINTS}"
+            )
         if not 1 <= self.nmom <= 64:
             raise PlasmaStateInputError("nmom must be in 1..64")
         if not 0.01 <= self.bdy_crat <= 0.15:
