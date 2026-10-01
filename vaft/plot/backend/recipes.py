@@ -11701,9 +11701,10 @@ def _mhd_linear_flux_surface_mesh(ods: Any, base: str) -> dict[str, Any]:
 #: toroidal angle, and only PEST's is the machine angle ``phi``. So
 #: ``m theta - n phi`` is the helical phase in the PEST angle alone, and a
 #: mesh in any other angle has to be converted before it can carry one.
-#: Measured on the DIII-D GPEC example, whose mesh is Hamada: its poloidal
-#: angle departs from the equilibrium's PEST angle by up to 0.94 rad
-#: peak-to-peak at ``q = 2`` and 1.29 rad at ``q = 5``, so pairing it with the
+#: Measured on the DIII-D GPEC example, whose mesh is Hamada (provenance in
+#: :func:`_build_mhd_linear_geometry_island`): its poloidal angle departs from
+#: the equilibrium's PEST angle by up to 0.9447 rad
+#: peak-to-peak at ``q = 2`` and 1.2923 rad at ``q = 5``, so pairing it with the
 #: machine ``phi`` spreads an ``m``-lobed island's lobes over up to ``m`` times
 #: that in helical phase -- more than a whole period by ``m = 5`` -- where
 #: every lobe of one island is at one phase by definition.
@@ -11776,12 +11777,21 @@ _C44_MEASURED_HELICITY = -1.0
 
 
 def _gpec_helicity(ods: Any, n_tor: int, time_slice: int | None) -> float:
-    """The helicity one GPEC (slice, mode) recorded, or NaN if it recorded none."""
+    """The helicity one GPEC (slice, mode) recorded, or NaN if it recorded none.
+
+    Zero is "none" rather than a value: GPEC's helicity is ``ipd * btd`` with
+    both factors in ``{-1, +1}``, so it is never zero, and
+    ``vaft.code.gpec``'s reader defaults a missing ``helicity`` attribute to
+    the integer 0 (``_gpec_output._read_control``). A run whose control file
+    carries no helicity therefore arrives here as 0, and reporting that back as
+    a recorded value would be reporting the reader's default as the run's.
+    """
     recorded = _gpec_solver_tag(ods, "helicity", n_tor, time_slice)
     try:
-        return float(recorded)
+        value = float(recorded)
     except (TypeError, ValueError):
         return float("nan")
+    return float("nan") if value == 0.0 else value
 
 
 def _surface_at(
@@ -11872,14 +11882,21 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
     ``1/i`` is a quarter period nothing in ``w_isl`` carries.  Measured, not
     derived: a FLARE Poincare trace of the DIII-D GPEC example's vacuum
     ``n = 1`` field at ``q = 2`` puts the O-point 2.1 degrees from where this
-    law places it, against 128 degrees for ``-arg(Phi_res)``.  The relation is
-    a statement about ``Phi_res`` as a quantity -- a normal field rather than a
-    flux function -- so it holds for the vacuum and the total harmonic alike;
-    only the vacuum one has a traced island to check it against, because an
-    ideal response shields the resonant field it is derived from.
-    ``arg(I_res)``, which C-20 names and which the resonant table also carries,
-    is the same number -- ``gpec/gpout.f`` builds both from one jump through
-    real scale factors of one sign.
+    law places it, against 128 degrees for the law this figure used.  The two
+    laws are compared on the harmonic of the field that was traced; the
+    relation is a statement about ``Phi_res`` as a quantity -- a normal field
+    rather than a flux function -- so it holds for the total harmonic this
+    figure draws from too, but only the vacuum one has a traced island to
+    check against, because an ideal response shields the resonant field it is
+    derived from.  ``arg(I_res)``, which C-20 names and which the resonant
+    table also carries, is the same number -- ``gpec/gpout.f`` builds both from
+    one jump through real scale factors of one sign.
+
+    Equivalently in C-44's own terms: the helical potential's phase is
+    ``delta = pi/2 - arg(Phi_res)``, and ``V = -(w/4)**2 cos(xi + delta)`` has
+    its O-point where ``xi = -delta``.  Potential phase and O-point location
+    are the same statement with opposite sign, which is worth saying because
+    quoting one as the other inverts the law.
 
     **The phase reference is measured at one helicity.** Whether the relation
     conjugates follows the orientation of the code's angles against the
@@ -11899,10 +11916,23 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
     angle by ``|B|`` or ``B_p``, which no ``coordinate_system`` mesh carries,
     and are refused.  Drawing a Hamada angle as though it were the helical
     one is not a small error: on the DIII-D example that angle departs from
-    the equilibrium's PEST angle by up to 0.94 rad peak-to-peak at ``q = 2``
-    and 1.29 rad at ``q = 5``, which scatters an ``m``-lobed island's lobes
-    over up to ``m`` times that in helical phase, where one island's lobes are
-    at one phase by definition.
+    the equilibrium's PEST angle by up to 0.9447 rad peak-to-peak at
+    ``q = 2`` and 1.2923 rad at ``q = 5``, which scatters an ``m``-lobed
+    island's lobes over up to ``m`` times that in helical phase, where one
+    island's lobes are at one phase by definition.
+
+    **Provenance of the R-01 numbers above** (D-13, 2026-09-28, which admits
+    GPEC's own example into public VAFT on the strength of this record): DIII-D
+    147131 @ 2300 ms, GPEC ``v1.5.5-378-gf06e6ab``, ``jac_type = "hamada"``,
+    equilibrium ``g147131.02300_DIIID_KEFIT`` (SHA-256
+    ``35bf902f...bfe579``) with ``gpec_profile_output_n1.nc`` (SHA-256
+    ``8c17f967...2a16b5``) for the angles and ``gpec_cbrzphi_n1.out`` (SHA-256
+    ``718da784...05a8fa``) for the trace, which was produced by
+    ``tools/flare_r01_poincare.py OUTDIR --c1 1 --c3 0 --field coil --q 2
+    --span 0.06 --surfaces 45 --punctures 300 --run`` (repository
+    ``HongSik-Yun-Fusion/vaft-mastu``) against FLARE ``7ad6d2dc``.  The full
+    hashes, unabbreviated, are in
+    ``test/test_gpec_island_geometry.py::R01_PROVENANCE``.
 
     ``phi_deg`` selects the toroidal slice (default 0).  Its sign is
     :func:`vaft.formula.stability.helical_phase`'s: the helical phase is
@@ -11931,9 +11961,10 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
         )
     helicity = _gpec_helicity(ods, n_tor, cell["time_slice"])
     if not np.isclose(helicity, _C44_MEASURED_HELICITY, atol=1e-9):
-        # NaN is "the run recorded none", which reads as nothing at all when
-        # printed as a number.
-        recorded = ("no usable helicity" if not np.isfinite(helicity)
+        # "Recorded none" reaches here as NaN, and printing that as a number
+        # reads as nothing at all.
+        recorded = ("no helicity (a missing attribute, or the 0 GPEC's reader "
+                    "defaults one to)" if not np.isfinite(helicity)
                     else f"helicity {helicity:g}")
         raise ValueError(
             f"this run recorded {recorded}, and the island phase "

@@ -9,6 +9,8 @@ one.
 from __future__ import annotations
 
 import re
+from types import MappingProxyType
+from typing import Mapping
 
 import numpy as np
 import pytest
@@ -479,13 +481,82 @@ _FIXTURE_AXIS_R = 1.7
 _SEPARATING_PHASE = 0.25 * np.pi + 0.5 * np.pi
 
 
+def _circular_pest_angle(psi_r, theta_norm):
+    r"""The PEST angle of the fixture's circular surface, in closed form [rad].
+
+    Independent of the code under test, which is the point: the fixture's mesh
+    is a circle ``R = R0 + a cos(theta)`` about ``(1.7, 0)`` with the mesh angle
+    as the geometric angle, and on it the Hamada-to-PEST weight ``1/R**2`` has
+    an antiderivative,
+
+    ``int_0^t dx / (R0 + a cos x)**2
+      = a sin t / ((a**2 - R0**2)(R0 + a cos t))
+        + R0/(R0**2 - a**2) * 2/b * atan2(k sin(t/2), cos(t/2))``
+
+    with ``b = sqrt(R0**2 - a**2)`` and ``k = sqrt((R0 - a)/(R0 + a))``; the
+    ``atan2`` form is the branch that stays continuous across ``t = pi``.
+    Checked against quadrature to 2.1e-13 over a full circuit.
+
+    So the truth these tests compare the renderer against is an integral, not
+    a second call to :func:`pest_angle_from_jacobian_angle`. The *relation*
+    ``1/R**2`` itself is validated elsewhere and against something else again:
+    ``test_magnetic_island.py`` builds both angles out of a Solov'ev
+    equilibrium's own surface weights, and the slice measured the function
+    against ``straight_field_line_map`` on the DIII-D GPEC example
+    (7.5e-06 rad at ``psi_N = 0.594``).
+    """
+    radius, axis = float(psi_r), _FIXTURE_AXIS_R
+    b = np.sqrt(axis ** 2 - radius ** 2)
+    k = np.sqrt((axis - radius) / (axis + radius))
+
+    def integral(angle):
+        half = 0.5 * angle
+        return (radius * np.sin(angle)
+                / ((radius ** 2 - axis ** 2) * (axis + radius * np.cos(angle)))
+                + axis / (axis ** 2 - radius ** 2) * (2.0 / b)
+                * np.arctan2(k * np.sin(half), np.cos(half)))
+
+    geometric = 2.0 * np.pi * np.asarray(theta_norm, dtype=float)
+    return 2.0 * np.pi * integral(geometric) / integral(2.0 * np.pi)
+
+
 def _fixture_surface_angles(psi_r, theta_norm, jacobian):
-    """``(theta_mesh, theta_pest)`` of one fixture flux surface, in radians."""
+    """``(theta_mesh, theta_pest)`` of one fixture flux surface, in radians.
+
+    ``jacobian`` says what the mesh's angle is *declared* to be, so that a test
+    reads the drawn curve in the labelling the recipe was told to use: under
+    ``"pest"`` the two angles are the same, and under ``"hamada"`` the second is
+    :func:`_circular_pest_angle`.
+    """
+    mesh = 2.0 * np.pi * np.asarray(theta_norm, dtype=float)
+    if jacobian == "pest":
+        return mesh, mesh
+    if jacobian != "hamada":
+        raise AssertionError(f"the fixture has no closed-form angle for {jacobian!r}")
+    return mesh, _circular_pest_angle(psi_r, theta_norm)
+
+
+def test_the_conversion_converges_to_the_circles_closed_form_angle():
+    """The quadrature, against the antiderivative, on the fixture's geometry.
+
+    Second order in the step, as the trapezoid rule is, so this also says the
+    129-sample circuit the other tests use is good to about 1e-04 rad -- well
+    inside the 5e-03 those tests assert.
+    """
     from vaft.process.equilibrium import pest_angle_from_jacobian_angle
 
-    radius = _FIXTURE_AXIS_R + psi_r * np.cos(2.0 * np.pi * theta_norm)
-    return (2.0 * np.pi * theta_norm,
-            pest_angle_from_jacobian_angle(theta_norm, radius, jacobian))
+    errors = []
+    for count in (65, 129, 511, 2049):
+        theta_norm = np.linspace(0.0, 1.0, count)
+        radius = _FIXTURE_AXIS_R + 0.4 * np.cos(2.0 * np.pi * theta_norm)
+        errors.append(float(np.max(np.abs(
+            pest_angle_from_jacobian_angle(theta_norm, radius, "hamada")
+            - _circular_pest_angle(0.4, theta_norm)
+        ))))
+    assert errors[0] < 1e-3
+    assert errors[-1] < 1e-6
+    for coarse, fine in zip(errors, errors[1:]):
+        assert fine < 0.35 * coarse, errors
 
 
 def _drawn_angles(layer, psi_r, theta_norm, jacobian):
@@ -651,12 +722,17 @@ def test_a_jacobian_that_cannot_be_relabelled_from_the_mesh_is_refused(mapped):
         RECIPES["mhd_linear_geometry_island"].builder(ods)
 
 
-@pytest.mark.parametrize("recorded", ["1.0", "None"])
+@pytest.mark.parametrize("recorded", ["1.0", "None", "0", "0.0"])
 def test_a_helicity_the_phase_law_was_not_measured_at_is_refused(mapped, recorded):
     """C-44 ties the conjugation's sense to the orientation of the code's
     angles against the machine helicity, and the Poincare traces that settled
     it ran at helicity -1. The other sign, and a run that recorded none, are
     refused rather than drawn from a law nobody measured there.
+
+    ``"0"`` is the case a run with no ``helicity`` attribute actually produces:
+    ``vaft.code.gpec``'s reader defaults the attribute to the integer 0, and
+    ``ipd * btd`` is never 0, so 0 means "absent" and must be reported that way
+    rather than as a recorded helicity of zero.
     """
     ods, _ = mapped
     _recorded_as(ods, helicity=recorded)
@@ -665,45 +741,99 @@ def test_a_helicity_the_phase_law_was_not_measured_at_is_refused(mapped, recorde
         RECIPES["mhd_linear_geometry_island"].builder(ods)
 
 
-# --- the R-01 reference value (D-13: GPEC's own DIII-D example) ----------------
+def test_a_missing_helicity_is_not_reported_as_a_recorded_zero(mapped):
+    ods, _ = mapped
+    _recorded_as(ods, helicity="0")
 
-#: ``arg(Phi_res_v)`` at ``q = 2`` of GPEC's shipped DIII-D example, ideal
-#: ``n = 1``, read from ``gpec_profile_output_n1.nc`` [rad].
+    with pytest.raises(ValueError, match="recorded no helicity"):
+        RECIPES["mhd_linear_geometry_island"].builder(ods)
+
+
+# --- the R-01 reference value (D-13: GPEC's own DIII-D example) ----------------
+#
+# D-13 (2026-09-28) lets data shipped inside an open-source code's own
+# repository, and outputs derived from it with that code, into public VAFT
+# provided the provenance records the code version, the input SHA-256 and the
+# generating command. :data:`R01_PROVENANCE` is that record, and it is the one
+# every number below -- and every R-01 number quoted in
+# ``vaft.process.equilibrium.pest_angle_from_jacobian_angle``,
+# ``vaft.formula.stability.helical_phase`` and the island recipe -- rests on.
+
+#: What produced every R-01 number in this file, verbatim, as D-13 requires.
 #:
-#: Provenance: DIII-D 147131 @ 2300 ms, the kinetic EFIT equilibrium
-#: ``g147131.02300_DIIID_KEFIT`` shipped with GPEC ``docs/examples``, run with
-#: GPEC ``v1.5.5-378-gf06e6ab``, ``jac_type = "hamada"``, the six C-coils on a
-#: pure ``cos(n = 1)`` pattern, ``helicity = -1``. Publishable under D-13
-#: (2026-09-28): data shipped inside an open-source code's own repository, and
-#: outputs derived from it with that code.
+#: The case is DIII-D 147131 @ 2300 ms: GPEC's own kinetic-EFIT example
+#: equilibrium, with the six C-coils on a pure ``cos(n = 1)`` pattern,
+#: ``jac_type = "hamada"``, ``jac_out = "boozer"``, ``tmag_out = 1``,
+#: ``helicity = -1``. Nothing here is a DIII-D physics result: the run is a
+#: machinery reference.
+R01_PROVENANCE: Mapping[str, str] = MappingProxyType({
+    # Code versions.
+    "gpec_version": "v1.5.5-378-gf06e6ab",
+    "flare_commit": "7ad6d2dc",
+    # Inputs, SHA-256.
+    "equilibrium": "g147131.02300_DIIID_KEFIT",
+    "equilibrium_sha256":
+        "35bf902f1d02759ad655f7b5315e3e2b4bc96d88ffc9753f261d48e86dbfe579",
+    "profile_output": "gpec_profile_output_n1.nc",
+    "profile_output_sha256":
+        "8c17f9675c7046331130d0e6315b38c9e6642c832d3598129c087939072a16b5",
+    "vacuum_field": "gpec_cbrzphi_n1.out",
+    "vacuum_field_sha256":
+        "718da784ff534a4acd2fbc85958d3e60438370222a1c9babd6b1f195c305a8fa",
+    # The command that produced the traced O-point.
+    "command": (
+        "tools/flare_r01_poincare.py OUTDIR --c1 1 --c3 0 --field coil --q 2 "
+        "--span 0.06 --surfaces 45 --punctures 300 --run"
+    ),
+    "command_repository": "HongSik-Yun-Fusion/vaft-mastu",
+    "decision": "D-13 (2026-09-28)",
+})
+
+#: ``arg(Phi_res_v)`` at ``q = 2``, read from the ``Phi_res_v`` variable of
+#: ``gpec_profile_output_n1.nc`` [rad].
+#:
+#: The *vacuum* resonant flux, because the vacuum field is the one with a
+#: traced island: an ideal response shields the resonant field the total
+#: harmonic is derived from. The phase relation is a statement about
+#: ``Phi_res`` as a quantity -- a normal field rather than a flux function --
+#: so it holds for the total harmonic too, which is what the figure uses.
+#: Provenance: :data:`R01_PROVENANCE`.
 R01_Q2_RESONANT_FLUX_PHASE = 2.826799
 
 #: Where FLARE traces that island's O-point, as ``xi = m theta*`` at
 #: ``phi = 0`` in the PEST angle [rad].
 #:
-#: Measured by ``vaft-mastu`` ``tools/flare_r01_poincare.py`` on the same run's
-#: vacuum ``n = 1`` real-space field (``gpec_cbrzphi_n1.out``, the only field
-#: with a traceable island: an ideal response shields the resonant field the
-#: total harmonic is derived from): 45 field lines x 300 punctures over
-#: ``psi_N`` in [0.534, 0.654], 19 of them interior, the island width per
-#: poloidal bin fitted against the ``|cos(xi/2)|`` profile a pendulum island
-#: has, in the PEST angle of the run's own equilibrium. The fit moves by
-#: 0.008 rad across binnings from 72 to 180 bins
-#: (``vaft-mastu docs/migration/status/V5P.md``, convention C-44).
+#: 45 field lines x 300 punctures over ``psi_N`` in [0.534, 0.654], 19 of them
+#: interior, the island width per poloidal bin fitted against the
+#: ``|cos(xi/2)|`` profile a pendulum island has, in the PEST angle of the
+#: run's own equilibrium. Provenance, including the generating command:
+#: :data:`R01_PROVENANCE`.
 R01_Q2_TRACED_O_POINT = 1.219653
 
-#: How far that fit moves across the four binnings [rad]: the resolution any
-#: comparison with it is entitled to.
+#: How far that fit moves across binnings from 72 to 180 bins [rad]: the
+#: resolution any comparison with it is entitled to.
 R01_Q2_TRACED_O_POINT_SPREAD = 0.0075
+
+
+def test_the_provenance_record_is_complete_for_d13():
+    """D-13 admits this data on the strength of the record, so the record is
+    under test: code versions, every input's SHA-256, and the command."""
+    for key in ("gpec_version", "flare_commit", "command", "decision"):
+        assert R01_PROVENANCE[key]
+    for name in ("equilibrium", "profile_output", "vacuum_field"):
+        assert R01_PROVENANCE[name]
+        digest = R01_PROVENANCE[f"{name}_sha256"]
+        assert len(digest) == 64 and set(digest) <= set("0123456789abcdef"), name
 
 
 def test_the_phase_law_reproduces_the_flare_traced_o_point_on_the_gpec_example():
     """The measurement the law rests on, pinned as a number.
 
-    Not a figure test: it is the convention itself. ``arg(Phi_res) - pi/2``
-    lands 2.1 degrees from the traced O-point -- five times the trace's own
-    spread -- and the negated argument this figure used to draw lands
-    128 degrees away, nearly 300 spreads.
+    Not a figure test: it is the convention itself. The law the figure used
+    placed the O-point at ``-arg(Phi_res)``; applied to the harmonic of the
+    field FLARE traced, that is 128 degrees from the traced O-point, where
+    ``arg(Phi_res) - pi/2`` is 2.1 degrees -- five times the trace's own
+    spread against nearly 300.
     """
     law = R01_Q2_RESONANT_FLUX_PHASE - 0.5 * np.pi
     superseded = -R01_Q2_RESONANT_FLUX_PHASE

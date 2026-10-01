@@ -5941,15 +5941,27 @@ def straight_field_line_map(
 
 
 #: The poloidal-angle weight each DCON jacobian carries, as the powers
-#: ``(power_r, power_b, power_bp)`` of ``R``, ``|B|`` and ``B_p`` in
-#: ``J = R jacfac * B_p**power_bp * |B|**power_b / R**power_r``.
+#: ``(power_r, power_b, power_bp)`` of ``R``, ``|B|`` and ``B_p``.
 #:
-#: Read off ``equil/equil.f`` (the ``SELECT CASE(jac_type)`` block that sets
-#: the three powers) and ``equil/inverse.f`` (the integrand whose normalized
-#: cumulative integral *is* DCON's poloidal angle).  A DCON angle is therefore
-#: fixed by its jacobian, and two of them on one surface are related by the
-#: ratio of their weights -- which is what
-#: :func:`pest_angle_from_jacobian_angle` integrates.
+#: The powers appear in the *reciprocal* of the Jacobian, which is the easy
+#: thing to get backwards: DCON builds its poloidal angle as the normalized
+#: cumulative integral of
+#: ``w = R jacfac * B_p**power_bp * |B|**power_b / R**power_r``
+#: (``equil/inverse.f:207``, ``spl%fs(:,5)``, normalized at ``:215``), and two
+#: angles on one surface satisfy ``J_1 dtheta_1 = J_2 dtheta_2`` because the
+#: volume element between two surfaces does not depend on the parametrisation.
+#: So ``J`` is proportional to ``1 / w``, i.e.
+#: ``J ~ R**power_r / (B_p**power_bp * |B|**power_b)``: Hamada ``(0, 0, 0)``
+#: gives the constant ``J`` Hamada coordinates are defined by, PEST
+#: ``(2, 0, 0)`` gives ``J ~ R**2``, and Boozer ``(0, 2, 0)`` gives
+#: ``J ~ 1 / |B|**2``, each the textbook form.
+#:
+#: The triples are read off ``equil/equil.f:70-94``, the
+#: ``SELECT CASE(jac_type)`` block that sets them. ``"other"`` is a DCON
+#: jacobian too, and deliberately absent: its powers come from the run's own
+#: ``power_r`` / ``power_b`` / ``power_bp`` namelist entries rather than from
+#: its name, so no triple belongs to it here.
+#:
 #: Read-only: a caller that mutated it would silently change which angle every
 #: figure built on this conversion is drawn in.
 DCON_JACOBIAN_ANGLE_WEIGHTS: Mapping[str, tuple[int, int, int]] = MappingProxyType({
@@ -5959,6 +5971,12 @@ DCON_JACOBIAN_ANGLE_WEIGHTS: Mapping[str, tuple[int, int, int]] = MappingProxyTy
     "boozer": (0, 2, 0),
     "park": (0, 1, 0),
 })
+
+#: ``jac_type`` values whose powers the namelist sets individually, so that the
+#: name alone does not fix the weight.  Named rather than lumped in with a
+#: misspelling, because a run really can be in one of these and the refusal has
+#: to say something different about it.
+_NAMELIST_POWER_JACOBIANS = ("other",)
 
 #: Which of :data:`DCON_JACOBIAN_ANGLE_WEIGHTS` a caller holding only ``R`` on
 #: the mesh can convert.  ``|B|`` and ``B_p`` are not part of the
@@ -5994,9 +6012,10 @@ def pest_angle_from_jacobian_angle(theta_norm, r, jacobian: str) -> np.ndarray:
     ValueError
         ``theta_norm`` and ``r`` disagree in shape, ``theta_norm`` does not
         span one circuit normalized to 1, ``theta_norm`` is not strictly
-        increasing, ``r`` is not positive and finite, or *jacobian* is a
-        DCON jacobian whose weight needs a field this signature does not
-        take (``boozer``, ``park``, ``equal_arc``) or is not one at all.
+        increasing, ``r`` is not positive and finite, or *jacobian* is a DCON
+        jacobian whose weight needs a field this signature does not take
+        (``boozer``, ``park``, ``equal_arc``), one whose powers only the
+        namelist knows (``other``), or not a DCON jacobian at all.
 
     Convention
     ----------
@@ -6024,13 +6043,17 @@ def pest_angle_from_jacobian_angle(theta_norm, r, jacobian: str) -> np.ndarray:
     ----------------
     1. Two angles on one surface satisfy ``J_1 d theta_1 = J_2 d theta_2``,
        because the volume element between two surfaces does not depend on how
-       the surface is parametrised. With DCON's
-       ``J ~ R * B_p**power_bp * |B|**power_b / R**power_r`` that gives
-       ``d theta_pest / d theta_in = R**(power_r - 2) |B|**-power_b
-       B_p**-power_bp``.
-    2. For ``hamada`` (``0, 0, 0``) the weight is ``R**-2`` and no field is
+       the surface is parametrised. DCON's angle advances as
+       ``w = R jacfac * B_p**power_bp * |B|**power_b / R**power_r``, which is
+       proportional to ``1 / J`` (see
+       :data:`DCON_JACOBIAN_ANGLE_WEIGHTS` -- the powers sit in the
+       reciprocal, so ``J ~ R**power_r / (B_p**power_bp |B|**power_b)``). The
+       ratio of the two weights is therefore
+       ``d theta_pest / d theta_in = J_in / J_pest
+       = R**(power_r - 2) |B|**-power_b B_p**-power_bp``.
+    2. For ``hamada`` (``0, 0, 0``) that weight is ``R**-2`` and no field is
        needed; for ``pest`` it is 1 and the angle passes through unchanged.
-    3. Integrate that weight over the input angle by the trapezoid rule and
+    3. Integrate the weight over the input angle by the trapezoid rule and
        normalize the circuit to ``2 pi``.
 
     Limitations
@@ -6038,10 +6061,12 @@ def pest_angle_from_jacobian_angle(theta_norm, r, jacobian: str) -> np.ndarray:
     Exact to the quadrature only: the weight is integrated on the samples
     given, so a coarse circuit converts coarsely. Measured against
     :func:`straight_field_line_map` on the DIII-D GPEC example's 513-point
-    Hamada circuits, the agreement is 8e-06 rad at ``psi_N = 0.594`` and
-    9e-06 rad at 0.819, degrading to 1.9e-03 at 0.928 and 0.25 at 0.988 --
+    Hamada circuits, the agreement is 7.5e-06 rad at ``psi_N = 0.594`` and
+    9.2e-06 rad at 0.819, degrading to 1.9e-03 at 0.928 and 0.25 at 0.988 --
     where the comparison, not this conversion, is the weaker side, because a
-    ray-traced angle map loses accuracy against the separatrix.
+    ray-traced angle map loses accuracy against the separatrix. Taking the
+    Hamada angle *as* the PEST angle, the control for those four numbers, is
+    off by 0.49 to 0.65 rad on the same surfaces.
 
     It is a *relabelling*, not a check: it cannot tell that the mesh really
     is in the jacobian it was told, and a mesh labelled ``hamada`` that is
@@ -6056,9 +6081,19 @@ def pest_angle_from_jacobian_angle(theta_norm, r, jacobian: str) -> np.ndarray:
        integral of ``r*jacfac * bp**power_bp * b**power_b / r**power_r``.
     .. [3] Grimm, Dewar and Manickam, J. Comput. Phys. 49, 94 (1983), the
        PEST coordinate system.
-    .. [4] vaft-mastu ``docs/migration/conventions_register.md`` C-44 and
-       ``docs/migration/status/V5P.md``, where the 8e-06 rad agreement above
-       is measured.
+    .. [4] The agreement quoted under Limitations, measured on GPEC's own
+       DIII-D example (publishable under D-13, 2026-09-28, which requires this
+       record): DIII-D 147131 @ 2300 ms, equilibrium
+       ``g147131.02300_DIIID_KEFIT``
+       (SHA-256 ``35bf902f1d02759ad655f7b5315e3e2b4bc96d88ffc9753f261d48e86dbfe579``)
+       and ``gpec_profile_output_n1.nc``
+       (SHA-256 ``8c17f9675c7046331130d0e6315b38c9e6642c832d3598129c087939072a16b5``)
+       from GPEC ``v1.5.5-378-gf06e6ab`` with ``jac_type = "hamada"``. The
+       comparison is this function applied to the file's ``theta_dcon`` and
+       ``R``, against ``straight_field_line_map`` built from the equilibrium's
+       own ``PSIRZ``, on each of the four rational surfaces the run reports;
+       no solver runs. Same record as
+       ``test/test_gpec_island_geometry.py::R01_PROVENANCE``.
     """
     theta_norm = np.asarray(theta_norm, dtype=float).reshape(-1)
     radius = np.asarray(r, dtype=float).reshape(-1)
@@ -6072,10 +6107,18 @@ def pest_angle_from_jacobian_angle(theta_norm, r, jacobian: str) -> np.ndarray:
             f"a poloidal circuit needs at least three samples, not {theta_norm.size}"
         )
     key = str(jacobian).strip().lower()
+    if key in _NAMELIST_POWER_JACOBIANS:
+        raise ValueError(
+            f"{jacobian!r} is a DCON jacobian, but its powers come from the "
+            "run's own power_r / power_b / power_bp namelist entries rather "
+            "than from its name, so the name does not say what weight to "
+            "convert by; a run in it has to be converted from those powers, "
+            f"not from this table ({sorted(DCON_JACOBIAN_ANGLE_WEIGHTS)})"
+        )
     if key not in DCON_JACOBIAN_ANGLE_WEIGHTS:
         raise ValueError(
             f"{jacobian!r} is not a DCON jacobian; expected one of "
-            f"{sorted(DCON_JACOBIAN_ANGLE_WEIGHTS)}"
+            f"{sorted(DCON_JACOBIAN_ANGLE_WEIGHTS) + sorted(_NAMELIST_POWER_JACOBIANS)}"
         )
     if key not in _R_ONLY_JACOBIANS:
         power_r, power_b, power_bp = DCON_JACOBIAN_ANGLE_WEIGHTS[key]
