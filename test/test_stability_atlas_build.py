@@ -68,6 +68,25 @@ def test_a_kinetic_slice_inherits_the_label_at_exactly_its_own_time(select):
     assert reasons[(39915, 319)] == "no magnetics-only label at this time"
 
 
+def test_efit_setting_is_the_preset_the_label_belongs_to(select):
+    # A good slice is good under one preset but admissible under two: the
+    # setting column names the preset its label comes from, on both lineages.
+    analysis = {
+        "labels": [
+            {"shot": 39915, "time_ms": 317, "label": "good", "good": ["statistical_891"], "admissible": ["statistical_891", "routine_like"]},
+            {"shot": 39915, "time_ms": 316, "label": "admissible", "good": [], "admissible": ["routine_like", "statistical_891"]},
+        ],
+        "kinetic": [{"shot": 39915, "time_ms": 317, "chi2": 1.0}],
+    }
+    rows, _ = select.select(analysis)
+    settings = {(r["time_ms"], r["efit_lineage"]): r["efit_setting"] for r in rows}
+    assert settings == {
+        (316, select.MAGNETICS_ONLY): "routine_like;statistical_891",
+        (317, select.MAGNETICS_ONLY): "statistical_891",
+        (317, select.ELECTRON_KINETIC): "statistical_891",
+    }
+
+
 def test_duplicate_labels_are_refused(select):
     bad = {"labels": [_label(39915, 316, "good"), _label(39915, 316, "admissible")], "kinetic": []}
     with pytest.raises(ValueError, match="duplicate label"):
@@ -169,12 +188,76 @@ def test_zero_crossings_are_read_from_dcon_out(build, tmp_path):
     assert build.zero_crossings(tmp_path / "missing") == []
 
 
-def test_ggj_is_interpolated_at_the_surface(build):
-    grid = np.linspace(0.0, 1.0, 11)
-    ggj = {"psi_n": grid, "di": -grid, "dr": -grid + 0.25, "h": 0.5 + 0 * grid, "ca1": 2 * grid}
-    at = build.ggj_at(ggj, 0.45)
-    assert at == pytest.approx({"D_I": -0.45, "D_R": -0.2, "H": 0.5, "C_A": 0.9})
-    assert build.ggj_at(None, 0.45) == {"D_I": None, "D_R": None, "H": None, "C_A": None}
+RDCON_RUN = Path(__file__).resolve().parent / "data" / "gpec" / "rdcon_39915_319_n1"
+
+
+def _rdcon_run_with_unevaluated_band(tmp_path, lo, hi):
+    """A copy of the RDCON fixture whose ``ca1`` is the raw zero on lo < psi_n < hi.
+
+    That is what ``bal.f`` leaves on a Mercier-unstable (D_I > 0) band: the
+    ballooning integral is never evaluated there and the profile keeps its
+    initial 0 (cold review 0.8.0 delta-absorb-6 F1).
+    """
+    import xarray as xr
+
+    with xr.open_dataset(RDCON_RUN / "rdcon_output_n1.nc") as ds:
+        ds = ds.load()
+    ca1 = ds["ca1"].values.copy()
+    ca1[(ds["psi_n"].values > lo) & (ds["psi_n"].values < hi)] = 0.0
+    ds["ca1"].values[:] = ca1
+    ds.to_netcdf(tmp_path / "rdcon_output_n1.nc")
+    return tmp_path
+
+
+def test_ggj_at_a_surface_follows_the_library_reader(build, tmp_path):
+    from vaft.code.gpec import read_pest3_matching_output
+
+    run_dir = _rdcon_run_with_unevaluated_band(tmp_path, 0.6, 0.75)  # contains the m=4 surface at 0.698
+    rows = build.matching_surfaces({"status": "stable", "run_dir": str(run_dir), "n": 1}, "rdcon")
+    by_m = {row["m"]: row for row in rows}
+    assert len(rows) == 9 and {3, 4, 5} <= set(by_m)
+    # Inside the band the ballooning criterion was never evaluated: no value, not 0.
+    assert by_m[4]["C_A"] is None
+    assert by_m[4]["D_I"] == pytest.approx(-0.35825, abs=1e-4) and by_m[4]["D_R"] is not None and by_m[4]["H"] is not None
+    # At the band edge no blend with the placeholder zero leaks out either.
+    library = {r["m"]: r for r in read_pest3_matching_output(run_dir, solver="rdcon", mode=1).rational_surface_stability()}
+    for m, row in by_m.items():
+        assert row["C_A"] == library[m]["ca1"]
+        assert row["D_I"] == library[m]["di"] and row["D_R"] == library[m]["dr"] and row["H"] == library[m]["h"]
+    assert by_m[3]["C_A"] == pytest.approx(49.6923, abs=1e-3) and by_m[5]["C_A"] == pytest.approx(184.314, abs=1e-2)
+    assert build.matching_surfaces({"status": "failed", "run_dir": str(run_dir), "n": 1}, "rdcon") == []
+
+
+def test_atlas_text_io_does_not_depend_on_the_locale(tmp_path):
+    # Under an ASCII locale (no UTF-8 mode, no C-locale coercion) a non-ASCII
+    # reason or setting must still round-trip: the scripts name their encoding.
+    import os
+    import subprocess
+
+    script = """
+import csv, importlib.util, sys
+from pathlib import Path
+def load(name):
+    spec = importlib.util.spec_from_file_location(name, Path(sys.argv[1]) / f"{name}.py")
+    module = importlib.util.module_from_spec(spec); sys.modules[name] = module; spec.loader.exec_module(module); return module
+select, build = load("select_slices"), load("build_atlas")
+out = Path(sys.argv[2])
+reason = "Δ′ unresolved — café"
+build.write_csv([{"shot": 39915, "reason": reason}], out / "atlas_n.csv")
+with (out / "atlas_n.csv").open(newline="", encoding="utf-8") as handle:
+    assert next(csv.DictReader(handle))["reason"] == reason
+row = {"shot": 39915, "time_ms": 316, "time_efit_s": 0.316, "efit_lineage": "magnetics-only", "efit_label": "good", "efit_setting": "statistical_891;σ×3.62", "kinetic_chi2": None}
+assert select.read(select.write([row], out / "slices.csv"))[0]["efit_setting"] == row["efit_setting"]
+print("ok")
+"""
+    env = {**os.environ, "LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0", "PYTHONIOENCODING": "utf-8"}
+    # The script goes through a file, not `-c`: under a C locale on Linux the
+    # interpreter cannot decode non-ASCII argv at all ("Unable to decode the
+    # command from the command line"), while a source file is UTF-8 by default.
+    probe = tmp_path / "probe.py"
+    probe.write_text(script, encoding="utf-8")
+    result = subprocess.run([sys.executable, str(probe), str(ROOT), str(tmp_path)], env=env, capture_output=True, text=True)
+    assert result.returncode == 0 and result.stdout.strip() == "ok", result.stderr
 
 
 REFERENCE = Path(__file__).resolve().parent / "data" / "gpec" / "dcon_edge_792"
@@ -225,6 +308,20 @@ def test_one_failing_slice_does_not_stop_preparation(batch):
             "reason": "KeyError('equilibrium.time_slice')",
         }
     ]
+
+
+def test_a_resumed_batch_takes_the_current_slice_list(batch, tmp_path):
+    out = tmp_path / "batch"
+    out.mkdir()
+    first = tmp_path / "first.csv"
+    first.write_text("shot,time_ms\n39915,316\n", encoding="utf-8")
+    second = tmp_path / "second.csv"
+    second.write_text("shot,time_ms\n39915,316\n39915,317\n", encoding="utf-8")
+    assert batch.stage_slices(first, out).read_text(encoding="utf-8") == first.read_text(encoding="utf-8")
+    # The re-labelled list replaces the stale copy; build_atlas.py reads only the copy.
+    assert batch.stage_slices(second, out).read_text(encoding="utf-8") == second.read_text(encoding="utf-8")
+    # Pointing --slices at the batch copy itself is a no-op, not an error.
+    assert batch.stage_slices(out / "slices.csv", out).read_text(encoding="utf-8") == second.read_text(encoding="utf-8")
 
 
 def test_config_hash_is_matched_by_time_in_seconds(batch, tmp_path):

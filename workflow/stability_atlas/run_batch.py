@@ -14,7 +14,10 @@ For every row of ``slices.csv`` (from ``select_slices.py``):
    ``bal_flag=t``, and both DCON edge treatments.
 
 Every stage is resumable: a slice whose refined g-file exists, or a job whose
-``result.json`` exists, is skipped. A failure (missing input, CHEASE failure,
+``result.json`` exists, is skipped. The batch's ``slices.csv`` is not cached:
+it always mirrors ``--slices``, so a resumed batch with a re-labelled list
+builds its atlas from the new list (``build_atlas.py`` reads only the batch
+copy). A failure (missing input, CHEASE failure,
 solver failure or timeout) is recorded, never raised, so one bad slice cannot
 stop the batch. Layout::
 
@@ -27,6 +30,7 @@ stop the batch. Layout::
 from __future__ import annotations
 
 import argparse
+import filecmp
 import gzip
 import json
 import os
@@ -130,11 +134,28 @@ def magnetic_config_sha(filedb: Path, row: dict) -> str | None:
     manifest = filedb / "omas" / "efit" / "magnetic" / str(row["shot"]) / "metadata" / "manifest.json"
     if not manifest.exists():
         return None
-    for status in json.loads(manifest.read_text()).get("slice_statuses", []):
+    for status in json.loads(manifest.read_text(encoding="utf-8")).get("slice_statuses", []):
         # slice_statuses[].time is in seconds; labels are integer ms.
         if status.get("time") is not None and round(float(status["time"]) * 1000) == row["time_ms"]:
             return status.get("provenance", {}).get("configuration", {}).get("scientific_sha256")
     return None
+
+
+def stage_slices(source: Path, out: Path) -> Path:
+    """Mirror the slice list into the batch directory, overwriting a stale copy.
+
+    ``build_atlas.py`` reads ``OUT/slices.csv`` and has no override, so the
+    copy must be the list this invocation ran, not the one a previous
+    invocation was started with (cold review 0.8.0 delta-absorb-6 F7). The
+    copy is rewritten whenever its content differs from ``source``; an
+    identical copy (including ``source`` being the batch copy itself) is
+    left alone.
+    """
+    target = out / "slices.csv"
+    if target.exists() and filecmp.cmp(source, target, shallow=False):
+        return target
+    _write_atomic(target, lambda path: shutil.copyfile(source, path))
+    return target
 
 
 def _write_atomic(path: Path, write) -> None:
@@ -171,7 +192,7 @@ def write_source(row: dict, filedb: Path, slice_dir: Path) -> dict:
         product = filedb / "omas" / "electron_efit" / str(row["shot"]) / "output" / "electron_efit.json.gz"
         if not product.exists():
             return {**record, "status": "missing", "reason": f"no electron-EFIT product {product}"}
-        with gzip.open(product, "rt") as handle:
+        with gzip.open(product, "rt", encoding="utf-8") as handle:
             ods = omas.load_omas_json(handle)
         # from_omas reads equilibrium.time_slice[index], so the time must come
         # from the same slice, not from the separate equilibrium.time vector.
@@ -194,7 +215,7 @@ def refine(row: dict, slice_dir: Path, chease: str, timeout: float) -> dict:
     if refined.exists():
         return {**record, "status": "ok", "path": str(refined), "cached": True}
     workdir.mkdir(parents=True, exist_ok=True)
-    (workdir / "gfiles.txt").write_text(str((slice_dir / "source" / gfile_name(row)).resolve()) + "\n")
+    (workdir / "gfiles.txt").write_text(str((slice_dir / "source" / gfile_name(row)).resolve()) + "\n", encoding="utf-8")
     command = [
         sys.executable,
         str(PIPELINE / "run_chease_refinement.py"),
@@ -206,9 +227,9 @@ def refine(row: dict, slice_dir: Path, chease: str, timeout: float) -> dict:
         "--timeout", str(timeout),
         "--create-plot", "false",
     ]  # fmt: skip
-    with (workdir / "chease.log").open("w") as log:
+    with (workdir / "chease.log").open("w", encoding="utf-8") as log:
         returncode = subprocess.run(command, cwd=workdir, stdout=log, stderr=subprocess.STDOUT).returncode
-    status = (workdir / "status.txt").read_text().strip() if (workdir / "status.txt").exists() else ""
+    status = (workdir / "status.txt").read_text(encoding="utf-8").strip() if (workdir / "status.txt").exists() else ""
     if returncode == 0 and refined.exists():
         return {**record, "status": "ok", "path": str(refined), "chease_status": status}
     return {**record, "status": "failed", "returncode": returncode, "chease_status": status}
@@ -262,14 +283,12 @@ def main() -> int:
     out = args.out.expanduser().resolve()
     out.mkdir(parents=True, exist_ok=True)
     rows = read(args.slices)
-    # build_atlas.py reads the slice list from the batch directory.
-    if not (out / "slices.csv").exists():
-        shutil.copy(args.slices, out / "slices.csv")
+    stage_slices(args.slices, out)
     # Good slices first: they carry the headline results.
     rows.sort(key=lambda r: (r["efit_label"] != "good", r["shot"], r["time_ms"], r["efit_lineage"]))
 
     stages: list[dict] = []
-    with ProcessPoolExecutor(max_workers=args.workers) as pool, (out / "stages.jsonl").open("a") as log:
+    with ProcessPoolExecutor(max_workers=args.workers) as pool, (out / "stages.jsonl").open("a", encoding="utf-8") as log:
         futures = {pool.submit(prepare, row, args.filedb, out, args.chease, args.chease_timeout): row for row in rows}
         for future in as_completed(futures):
             records = prepared(future, futures[future])

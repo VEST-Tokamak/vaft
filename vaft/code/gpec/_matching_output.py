@@ -77,7 +77,10 @@ class Pest3MatchingOutput:
     #: ``di`` the ideal Mercier criterion D_I, ``dr`` the resistive
     #: interchange criterion D_R, ``ca1`` the high-n ballooning criterion C_A.
     #: ``dr`` is computed as ``di + (h - 1/2)**2`` (``rdcon/mercier.f:157``),
-    #: so it is exactly D_R of Glasser, Greene & Johnson. ``h`` (Glasser's H)
+    #: the identity ``D_R = E + F + H**2 = D_I + (H - 1/2)**2`` of Glasser,
+    #: Wang & Park, Phys. Plasmas 23, 112506 (2016), Appendix eqs. (A9)-(A10),
+    #: whose parameters are the Glasser, Greene & Johnson (1975) ones in
+    #: current notation (other texts swap the H/H**2 labelling). ``h`` (Glasser's H)
     #: is written by RDCON only; it is ``None`` for STRIDE. ``ca1`` is NaN where
     #: the ballooning scan left the zero it was initialised with, the same rule
     #: as :attr:`DconOutput.ca1`: RDCON's own ``bal.f:53`` integrates only where
