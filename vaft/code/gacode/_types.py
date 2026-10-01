@@ -29,13 +29,12 @@ GACODE_PLATFORM_ENV = "GACODE_PLATFORM"
 
 GACODE_COMPATIBILITY_ENVS: tuple[str, ...] = (GACODE_ROOT_ENV,)
 
-#: Suite members that build from this tree.  Only ``neo`` has a VAFT adapter
-#: today; the rest are listed because the runtime resolves any of them and
-#: because issue #553 adds TGLF next.
+#: Suite members that build from this tree.  Each has a VAFT adapter: NEO
+#: (#550), TGLF (#553) and CGYRO (#1354).
 SUITE_CODES: tuple[str, ...] = ("neo", "tglf", "cgyro")
 
 #: Backends VAFT can actually prepare, run and parse.
-SUPPORTED_CODES = frozenset({"neo", "tglf"})
+SUPPORTED_CODES = frozenset({"neo", "tglf", "cgyro"})
 
 
 @dataclass(frozen=True)
