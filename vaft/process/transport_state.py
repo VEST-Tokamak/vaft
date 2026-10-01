@@ -48,7 +48,7 @@ __all__ = [
     "DEFAULT_RHO_MAX",
     "DEFAULT_SURFACES",
     "DEFAULT_TIME_TOLERANCE_S",
-    "EFIT_LABELS",
+    "EFIT_QUALITIES",
     "EFIT_LINEAGES",
     "RESOLVER_VERSION",
     "ReadinessReport",
@@ -65,11 +65,11 @@ __all__ = [
 #: Bumped whenever a change here can alter a resolved state; part of every identity.
 RESOLVER_VERSION = 1
 
-#: The two EFIT lineages a Tier A state can come from (lane N uses the same words).
-EFIT_LINEAGES = ("magnetics-only", "electron-kinetic")
+#: The two EFIT lineages of lane K's State key contract v1 (#1454).
+EFIT_LINEAGES = ("magnetics", "electron_kinetic")
 
 #: Only these #1331 slice labels are resolved; an unreconstructible slice is refused.
-EFIT_LABELS = ("good", "admissible")
+EFIT_QUALITIES = ("good", "admissible")
 
 #: The routine radial scan, as r/a.  Inside the Thomson span, clear of the axis where
 #: VEST's hollow Te makes gradients ill-conditioned, at or below 0.8 so it sits well
@@ -92,8 +92,8 @@ _HYDROGEN = {"label": "H+", "z": 1.0, "a": 1.00794}
 class TransportStateKey:
     """Which plasma state: ``(shot, time_efit_s, efit_lineage)``.
 
-    The provisional state key of the conference lanes until lane K's contract
-    replaces it.  ``time_efit_s`` is the equilibrium slice time in seconds.
+    Lane K's State key contract v1 (#1454): ``time_efit_s`` is the EFIT slice time
+    rounded to 1e-4 s, and ``efit_lineage`` is ``magnetics`` or ``electron_kinetic``.
     """
 
     shot: int
@@ -101,6 +101,7 @@ class TransportStateKey:
     efit_lineage: str
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "time_efit_s", round(float(self.time_efit_s), 4))
         if self.efit_lineage not in EFIT_LINEAGES:
             raise ValueError(
                 f"efit_lineage must be one of {EFIT_LINEAGES}; got {self.efit_lineage!r}"
@@ -133,7 +134,7 @@ class ResolvedTransportState:
     """
 
     key: TransportStateKey
-    efit_label: str
+    efit_quality: str
     quality_source: str
     status: str
     reasons: tuple[str, ...] = ()
@@ -186,7 +187,7 @@ class ResolvedTransportState:
         """A JSON-ready record of the state without the profile arrays."""
         return {
             **self.key.as_dict(),
-            "efit_label": self.efit_label,
+            "efit_quality": self.efit_quality,
             "quality_source": self.quality_source,
             "status": self.status,
             "reasons": list(self.reasons),
@@ -420,7 +421,7 @@ def resolve_transport_state(
     ods: Any,
     key: TransportStateKey,
     *,
-    efit_label: str,
+    efit_quality: str,
     quality_source: str = "criteria",
     tolerance: float = DEFAULT_TIME_TOLERANCE_S,
     ti_te_ratio: Any = "policy",
@@ -440,11 +441,11 @@ def resolve_transport_state(
     key : TransportStateKey
         ``(shot, time_efit_s, efit_lineage)``; ``time_efit_s`` must be an equilibrium
         slice time within ``tolerance`` [s].
-    efit_label : str
+    efit_quality : str
         The #1331 slice label, ``"good"`` or ``"admissible"``; anything else is
         refused with :class:`ValueError`, an unreconstructible slice not being a state [-].
     quality_source : str
-        Where ``efit_label`` came from, e.g. ``"criteria"`` or
+        Where ``efit_quality`` came from, e.g. ``"criteria"`` or
         ``"magnetic_slice_at_same_time"`` [-].
     tolerance : float
         Largest allowed |t_core_profiles - t_equilibrium| and |t_equilibrium -
@@ -505,9 +506,9 @@ def resolve_transport_state(
        centre at the axis height (https://gacode.io/input_gacode.html), derived here
        with :func:`vaft.omas.update_equilibrium_profiles_1d_radial_coordinates`.
     """
-    if efit_label not in EFIT_LABELS:
+    if efit_quality not in EFIT_QUALITIES:
         raise ValueError(
-            f"efit_label must be one of {EFIT_LABELS}; got {efit_label!r}. "
+            f"efit_quality must be one of {EFIT_QUALITIES}; got {efit_quality!r}. "
             "Unreconstructible slices are not resolved into transport states."
         )
     if not np.isfinite(tolerance) or tolerance < 0.0:
@@ -521,7 +522,7 @@ def resolve_transport_state(
     }
     base: dict[str, Any] = {
         "key": key,
-        "efit_label": efit_label,
+        "efit_quality": efit_quality,
         "quality_source": quality_source,
         "inputs": dict(inputs or {}),
         "settings": settings,
@@ -598,7 +599,7 @@ def resolve_transport_state(
                 return _insufficient(base, "inferred_ti_time_mismatch")
             if not _usable(temperature):
                 return _insufficient(base, "inferred_ti_not_positive")
-            ti = {"lineage": f"inferred_{inferred_ti.get('method', 'pressure_partition')}",
+            ti = {"lineage": "pressure_partition_inferred",
                   "method": str(inferred_ti.get("method", "equilibrium_pressure_partition")),
                   "ratio": None, "sigma": None, "kind": "inferred",
                   "temperature_sha256": hashlib.sha256(
@@ -633,7 +634,10 @@ def resolve_transport_state(
                 return _insufficient(base, "non_positive_ti_te_ratio")
             hierarchy.append({"step": "policy_ratio", "status": "used"})
             temperature = ratio * te
-            ti = {"lineage": f"{status}_ti_te_{ratio:g}", "method": "ti_te_ratio",
+            # Contract v1 spells the #1414 Ti = Te policy ``ti_eq_te_assumed``; any
+            # other ratio keeps its value in the name so two ratios never share one.
+            lineage = "ti_eq_te_assumed" if ratio == 1.0 else f"ti_te_{ratio:g}_{status}"
+            ti = {"lineage": lineage, "method": "ti_te_ratio",
                   "ratio": ratio, "sigma": sigma, "kind": status, "source": source}
         work = copy.deepcopy(ods) if work is ods else work
         ion = f"{prefix}.ion.0"
@@ -698,7 +702,7 @@ def resolve_transport_state(
                         **({"ratio": ti["ratio"], "sigma": ti["sigma"]}
                            if ti.get("ratio") is not None else {})}
     provenance["equilibrium"] = {"kind": "reconstructed", "lineage": key.efit_lineage,
-                                 "label": efit_label, "quality_source": quality_source}
+                                 "label": efit_quality, "quality_source": quality_source}
     provenance["q"] = {"kind": "reconstructed", "source": "equilibrium"}
     provenance["midplane_geometry"] = geometry
     provenance["shape"] = shape
@@ -729,7 +733,7 @@ def _state_conditions(state: ResolvedTransportState) -> tuple[str, ...]:
     if vtor.get("kind") == "unavailable":
         conditions.append("no_rotation")
     if state.quality_source != "criteria":
-        conditions.append(f"efit_label_from_{state.quality_source}")
+        conditions.append(f"efit_quality_from_{state.quality_source}")
     return tuple(conditions)
 
 

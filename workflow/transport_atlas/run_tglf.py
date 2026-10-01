@@ -43,7 +43,7 @@ from vaft.process.transport_state import (
     DEFAULT_RHO_MAX,
     DEFAULT_SURFACES,
     DEFAULT_TIME_TOLERANCE_S,
-    EFIT_LABELS,
+    EFIT_QUALITIES,
     TransportStateKey,
     assess_tglf_readiness,
     physics_parameters,
@@ -53,8 +53,8 @@ from vaft.process.transport_state import (
 
 STAGES = {
     "core_profiles": ("omas/core_profiles", "core_profiles.json.gz"),
-    "magnetics-only": ("omas/efit/magnetic", "efit.json.gz"),
-    "electron-kinetic": ("omas/electron_efit", "electron_efit.json.gz"),
+    "magnetics": ("omas/efit/magnetic", "efit.json.gz"),
+    "electron_kinetic": ("omas/electron_efit", "electron_efit.json.gz"),
 }
 
 
@@ -108,7 +108,7 @@ def compose(equilibrium_ods: Any, profiles_ods: Any) -> Any:
 
 
 def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages: Iterable[str]):
-    """Yield ``(key, efit_label, quality_source)`` for every good/admissible state.
+    """Yield ``(key, efit_quality, quality_source)`` for every good/admissible state.
 
     Returns the generator's bookkeeping through the ``counts`` dict it fills.
     """
@@ -129,7 +129,7 @@ def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages:
                 continue
             eq = _load(eq_path)
             times = np.atleast_1d(np.asarray(eq["equilibrium.time"], dtype=float))
-            if lineage == "magnetics-only":
+            if lineage == "magnetics":
                 # A magnetics state exists where a core_profiles slice sits on the slice.
                 cp_times = np.atleast_1d(np.asarray(_load(cp_path)["core_profiles.time"], dtype=float))
                 candidates = [t for t in times
@@ -144,7 +144,7 @@ def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages:
                 if label is None:
                     counts["excluded_unlabelled"] += 1
                     continue
-                if label not in EFIT_LABELS:
+                if label not in EFIT_QUALITIES:
                     counts["excluded_unreconstructible"] += 1
                     continue
                 states.append((key, label, source, cp_path, eq_path))
@@ -360,7 +360,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                         help="#1331 analysis JSON (its 'labels' list)")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--shots", type=int, nargs="*")
-    parser.add_argument("--lineages", nargs="*", default=["magnetics-only", "electron-kinetic"])
+    parser.add_argument("--lineages", nargs="*", default=["magnetics", "electron_kinetic"])
     parser.add_argument("--times-ms", type=int, nargs="*", help="restrict to these slice times")
     parser.add_argument("--max-states", type=int)
     parser.add_argument("--surfaces", type=float, nargs="*", default=list(DEFAULT_SURFACES))
@@ -414,11 +414,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     for key, label, source, cp_path, eq_path in states:
         ods = compose(cached(eq_path), cached(cp_path))
         state = resolve_transport_state(
-            ods, key, efit_label=label, quality_source=source, ti_te_ratio=ratio,
+            ods, key, efit_quality=label, quality_source=source, ti_te_ratio=ratio,
             rho_max=args.rho_max,
             inputs={"core_profiles": {"path": str(cp_path), "sha256": _sha256(cp_path)},
                     "equilibrium": {"path": str(eq_path), "sha256": _sha256(eq_path)},
-                    "profile_mapped_on": "magnetics-only"},
+                    "profile_mapped_on": "magnetics"},
         )
         readiness = assess_tglf_readiness(state, args.surfaces, config=config)
         state_dir = out / key.slug()
@@ -478,7 +478,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             (state_dir / "state.json").write_text(json.dumps(payload, indent=1, default=float),
                                                   encoding="utf-8")
             index.write(json.dumps({k: payload[k] for k in (
-                "shot", "time_efit_s", "efit_lineage", "efit_label", "quality_source",
+                "shot", "time_efit_s", "efit_lineage", "efit_quality", "quality_source",
                 "ti_lineage", "status", "reasons", "state_identity")}, default=float) + "\n")
 
     manifest = {

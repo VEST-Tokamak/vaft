@@ -80,7 +80,7 @@ def _electron_only(ods):
     return out
 
 
-def _key(t=0.302, lineage="magnetics-only"):
+def _key(t=0.302, lineage="magnetics"):
     return TransportStateKey(48224, t, lineage)
 
 
@@ -89,7 +89,7 @@ def _key(t=0.302, lineage="magnetics-only"):
 
 def test_states_pair_by_time_not_index(sample):
     ods = _multi_slice(sample)
-    state = resolve_transport_state(ods, _key(0.302), efit_label="good")
+    state = resolve_transport_state(ods, _key(0.302), efit_quality="good")
     assert state.resolved, state.reasons
     assert state.times["equilibrium_index"] == 1
     # Index pairing would take core_profiles slice 1 (0.3002 s); time takes slice 2.
@@ -101,20 +101,25 @@ def test_states_pair_by_time_not_index(sample):
 
 def test_a_profile_beyond_the_tolerance_is_not_paired(sample):
     ods = _multi_slice(sample, cp_times=(0.2990, 0.3002, 0.3030))
-    state = resolve_transport_state(ods, _key(0.302), efit_label="good")
+    state = resolve_transport_state(ods, _key(0.302), efit_quality="good")
     assert state.status == "insufficient"
     assert state.reasons == ("no_core_profiles_within_tolerance",)
     assert state.times["dt_s"] == pytest.approx(1e-3, abs=1e-9)
 
 
 def test_a_state_time_off_every_slice_is_refused(sample):
-    state = resolve_transport_state(_multi_slice(sample), _key(0.3010), efit_label="good")
+    state = resolve_transport_state(_multi_slice(sample), _key(0.3010), efit_quality="good")
     assert state.reasons == ("no_equilibrium_within_tolerance",)
 
 
 def test_unreconstructible_slices_are_refused(sample):
     with pytest.raises(ValueError, match="Unreconstructible"):
-        resolve_transport_state(sample, _key(0.3), efit_label="unreconstructible")
+        resolve_transport_state(sample, _key(0.3), efit_quality="unreconstructible")
+
+
+def test_the_key_follows_contract_v1():
+    key = TransportStateKey(48224, 0.30000004, "electron_kinetic")
+    assert key.time_efit_s == 0.3 and key.as_dict()["efit_lineage"] == "electron_kinetic"
 
 
 def test_the_lineage_vocabulary_is_closed():
@@ -126,17 +131,17 @@ def test_the_lineage_vocabulary_is_closed():
 
 
 def test_measured_ion_temperature_is_preferred(sample):
-    state = resolve_transport_state(sample, _key(0.3), efit_label="good")
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
     assert state.ti_lineage == "measured"
     assert state.provenance["ti"]["kind"] == "measured"
 
 
 def test_policy_ratio_fills_an_electron_only_state_without_touching_the_source(sample):
     ods = _electron_only(_multi_slice(sample))
-    state = resolve_transport_state(ods, _key(0.302), efit_label="admissible")
+    state = resolve_transport_state(ods, _key(0.302), efit_quality="admissible")
     assert state.resolved, state.reasons
     assert state.ti["kind"] == "assumed"
-    assert state.ti_lineage == f"assumed_ti_te_{state.ti['ratio']:g}"
+    assert state.ti_lineage == "ti_eq_te_assumed"
     assert "vest.yaml" in state.ti["source"]
     np.testing.assert_allclose(state.profile.ti[0], state.ti["ratio"] * state.profile.te, rtol=1e-9)
     assert list(state.profile.name) == ["H+", "C6+"]
@@ -144,25 +149,26 @@ def test_policy_ratio_fills_an_electron_only_state_without_touching_the_source(s
 
 
 def test_a_caller_ratio_is_recorded_as_such(sample):
-    state = resolve_transport_state(_electron_only(sample), _key(0.3), efit_label="good",
+    state = resolve_transport_state(_electron_only(sample), _key(0.3), efit_quality="good",
                                     ti_te_ratio=0.17, ti_te_ratio_sigma=0.08)
     assert state.ti["source"] == "caller argument"
-    assert state.ti_lineage == "assumed_ti_te_0.17"
+    assert state.ti_lineage == "ti_te_0.17_assumed"
 
 
 def test_an_inferred_profile_outranks_the_policy(sample):
     ods = _electron_only(sample)
     te = np.asarray(sample["core_profiles.profiles_1d.0.electrons.temperature"], dtype=float)
-    state = resolve_transport_state(ods, _key(0.3), efit_label="good",
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good",
                                     inferred_ti={"temperature": 0.5 * te, "method": "pressure_partition",
                                                  "time": 0.3})
     assert state.ti["kind"] == "inferred"
+    assert state.ti_lineage == "pressure_partition_inferred"  # contract v1 spelling
     np.testing.assert_allclose(state.profile.ti[0], 0.5 * state.profile.te, rtol=1e-9)
 
 
 def test_an_inferred_profile_for_another_time_is_refused(sample):
     te = np.asarray(sample["core_profiles.profiles_1d.0.electrons.temperature"], dtype=float)
-    state = resolve_transport_state(_electron_only(sample), _key(0.3), efit_label="good",
+    state = resolve_transport_state(_electron_only(sample), _key(0.3), efit_quality="good",
                                     inferred_ti={"temperature": 0.5 * te, "time": 0.31})
     assert state.reasons == ("inferred_ti_time_mismatch",)
 
@@ -171,13 +177,13 @@ def test_a_nan_placeholder_ion_temperature_is_not_a_measurement(sample):
     ods = copy.deepcopy(sample)
     te = np.asarray(ods["core_profiles.profiles_1d.0.ion.0.temperature"], dtype=float)
     ods["core_profiles.profiles_1d.0.ion.0.temperature"] = np.full_like(te, np.nan)
-    state = resolve_transport_state(ods, _key(0.3), efit_label="good")
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good")
     assert state.ti["kind"] == "assumed"
     assert np.all(np.isfinite(state.profile.ti))
 
 
 def test_no_fallback_means_insufficient(sample):
-    state = resolve_transport_state(_electron_only(sample), _key(0.3), efit_label="good",
+    state = resolve_transport_state(_electron_only(sample), _key(0.3), efit_quality="good",
                                     ti_te_ratio=None)
     assert state.reasons == ("no_defensible_ion_temperature",)
     assert assess_tglf_readiness(state).status == "insufficient"
@@ -187,7 +193,7 @@ def test_no_fallback_means_insufficient(sample):
 
 
 def test_readiness_lists_every_surface_and_the_declared_assumptions(sample):
-    state = resolve_transport_state(_electron_only(sample), _key(0.3), efit_label="good")
+    state = resolve_transport_state(_electron_only(sample), _key(0.3), efit_quality="good")
     report = assess_tglf_readiness(state)
     assert report.status == "conditional"
     assert {"ti_assumed", "composition_policy", "no_exb_shear"} <= set(report.conditions)
@@ -196,14 +202,14 @@ def test_readiness_lists_every_surface_and_the_declared_assumptions(sample):
 
 
 def test_a_surface_outside_the_profile_is_reported_not_dropped(sample):
-    state = resolve_transport_state(sample, _key(0.3), efit_label="good")
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
     report = assess_tglf_readiness(state, (0.5, 1.0))
     assert [s.status for s in report.surfaces] == ["ready", "outside_profile_domain"]
     assert report.runnable
 
 
 def test_neo_readiness_is_separate(sample):
-    state = resolve_transport_state(sample, _key(0.3), efit_label="good")
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
     assert assess_neo_readiness(state).status == "conditional"
 
 
@@ -211,10 +217,10 @@ def test_missing_shape_profiles_are_derived_and_marked(sample):
     ods = copy.deepcopy(sample)
     for name in ("elongation", "triangularity_upper", "triangularity_lower"):
         del ods[f"equilibrium.time_slice.0.profiles_1d.{name}"]
-    state = resolve_transport_state(ods, _key(0.3), efit_label="good")
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good")
     assert state.resolved, state.reasons
     assert state.provenance["shape"]["kind"] == "derived"
-    reference = resolve_transport_state(sample, _key(0.3), efit_label="good")
+    reference = resolve_transport_state(sample, _key(0.3), efit_quality="good")
     assert reference.provenance["shape"]["kind"] == "reconstructed"
     inner = slice(len(state.profile.kappa) // 10, int(0.9 * len(state.profile.kappa)))
     np.testing.assert_allclose(state.profile.kappa[inner], reference.profile.kappa[inner], rtol=0.02)
@@ -227,15 +233,15 @@ def test_identity_is_deterministic_and_tracks_every_upstream_choice(sample):
     from vaft.code.gacode.tglf import TGLFConfig
 
     ods = _electron_only(sample)
-    base = resolve_transport_state(ods, _key(0.3), efit_label="good")
+    base = resolve_transport_state(ods, _key(0.3), efit_quality="good")
     params = physics_parameters(TGLFConfig(sat_rule=3, use_bper=True))
     ident = run_identity(base, solver="tglf", parameters=params, surface=0.5)
-    again = resolve_transport_state(ods, _key(0.3), efit_label="good")
+    again = resolve_transport_state(ods, _key(0.3), efit_quality="good")
     assert ident == run_identity(again, solver="tglf", parameters=params, surface=0.5)
     variants = [
-        run_identity(resolve_transport_state(ods, _key(0.3), efit_label="good", ti_te_ratio=0.5),
+        run_identity(resolve_transport_state(ods, _key(0.3), efit_quality="good", ti_te_ratio=0.5),
                      solver="tglf", parameters=params, surface=0.5),
-        run_identity(resolve_transport_state(ods, _key(0.3), efit_label="good", z_eff=1.5),
+        run_identity(resolve_transport_state(ods, _key(0.3), efit_quality="good", z_eff=1.5),
                      solver="tglf", parameters=params, surface=0.5),
         run_identity(base, solver="tglf", parameters=physics_parameters(TGLFConfig(sat_rule=2)),
                      surface=0.5),
@@ -253,7 +259,7 @@ def test_identity_follows_content_not_names(sample):
     te = np.asarray(sample["core_profiles.profiles_1d.0.electrons.temperature"], dtype=float)
 
     def ident(o, **kw):
-        return run_identity(resolve_transport_state(o, _key(0.3), efit_label="good", **kw),
+        return run_identity(resolve_transport_state(o, _key(0.3), efit_quality="good", **kw),
                             solver="tglf", parameters=params, surface=0.5)
 
     hotter = copy.deepcopy(ods)
@@ -350,15 +356,15 @@ def test_driver_runs_good_and_admissible_states_only(driver, sample, tmp_path, m
 
     monkeypatch.setattr(tglf, "run_tglf_case", fake_run)
     assert driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(tmp_path / "out"),
-                        "--lineages", "magnetics-only", "--workers", "2",
+                        "--lineages", "magnetics", "--workers", "2",
                         "--sat-rule", "2", "--field-model", "es"]) == 0
     out = tmp_path / "out" / "tglf-sat2-es"
 
     rows = [json.loads(line) for line in (out / "states.jsonl").read_text().splitlines()]
-    assert [(r["time_efit_s"], r["efit_label"], r["status"]) for r in rows] == [(0.3, "good", "partial")]
+    assert [(r["time_efit_s"], r["efit_quality"], r["status"]) for r in rows] == [(0.3, "good", "partial")]
     manifest = json.loads((out / "run_manifest.json").read_text())
     assert manifest["enumeration"]["excluded_unreconstructible"] == 1
-    state = json.loads((out / "48224" / "magnetics-only" / "00300" / "state.json").read_text())
+    state = json.loads((out / "48224" / "magnetics" / "00300" / "state.json").read_text())
     failed = [s for s in state["surfaces"] if s["status"] == "failed"]
     assert [s["runtime_status"] for s in failed] == ["timeout"]
     mapped = state["core_transport"]["surfaces"]
@@ -372,7 +378,7 @@ def test_driver_runs_good_and_admissible_states_only(driver, sample, tmp_path, m
     calls = []
     monkeypatch.setattr(tglf, "run_tglf_case", lambda *a, **k: calls.append(a[1]) or fake_run(*a, **k))
     driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(tmp_path / "out"),
-                 "--lineages", "magnetics-only", "--workers", "1", "--sat-rule", "2", "--field-model", "es"])
+                 "--lineages", "magnetics", "--workers", "1", "--sat-rule", "2", "--field-model", "es"])
     assert calls == [0.8]
     assert state["tglf_config"] == "tglf-sat2-es"
     assert (state["tglf_parameters"]["sat_rule"], state["tglf_parameters"]["use_bper"],
@@ -390,7 +396,7 @@ def test_the_tglf_configuration_has_no_default(driver, tmp_path):
 def test_an_infrastructure_error_is_recorded_per_surface(driver, sample, tmp_path, monkeypatch):
     import vaft.code.gacode.tglf as tglf
 
-    state = resolve_transport_state(sample, _key(0.3), efit_label="good")
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
     surface = assess_tglf_readiness(state, (0.5,)).surfaces[0]
 
     def boom(*args, **kwargs):
@@ -409,7 +415,7 @@ def test_projection_lines_up_when_the_mapper_drops_a_surface(driver, sample, tmp
 
     from vaft.code.gacode.tglf.outputs import TglfOutputs
 
-    state = resolve_transport_state(sample, _key(0.3), efit_label="good")
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
     report = assess_tglf_readiness(state, (0.3, 0.5, 0.7))
     jobs, surfaces = {}, []
     for index, surface in enumerate(report.surfaces):
