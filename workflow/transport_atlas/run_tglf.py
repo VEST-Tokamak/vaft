@@ -254,7 +254,9 @@ def _run_surface(job: dict, config: Any) -> dict:
 
     workdir = Path(job["workdir"])
     record_path = workdir / "record.json"
-    if record_path.is_file():
+    # A solved record is only reusable with the outputs.json it was written from;
+    # a pruned native directory that kept record.json is re-run, not projected.
+    if record_path.is_file() and (workdir / "outputs.json").is_file():
         previous = json.loads(record_path.read_text(encoding="utf-8"))
         if previous.get("run_identity") == job["identity"] and previous.get("status") == "solved":
             previous["cached"] = True
@@ -470,7 +472,15 @@ def main(argv: Optional[list[str]] = None) -> int:
                 surfaces.append(entry)
             status = state_status(readiness, surfaces, state.resolved) if not args.dry_run else "dry_run"
             reasons = list(state.reasons)
-            mapping = project_state(state, surfaces, state_jobs) if status in ("solved", "partial") else None
+            mapping = None
+            if status in ("solved", "partial"):
+                try:
+                    mapping = project_state(state, surfaces, state_jobs)
+                except Exception as error:  # noqa: BLE001 - one state's row, not the batch
+                    # A missing or unreadable outputs.json fails this state; raising
+                    # here would truncate states.jsonl and lose every finished state.
+                    status = "failed"
+                    reasons.append(f"projection_error: {type(error).__name__}: {error}")
             if mapping is not None and not mapping["surfaces"]:
                 # The run records say solved, but the mapper refused every surface
                 # (a NaN or non-monotone rmin, a species-count disagreement): no flux

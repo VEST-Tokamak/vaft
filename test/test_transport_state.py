@@ -641,3 +641,82 @@ def test_a_neo_run_that_maps_nothing_is_not_solved(neo_driver, sample, tmp_path,
     assert len(row["reasons"]) == 1 and "exprhon" in row["reasons"][0]
     state = json.loads((tmp_path / "out" / "48224" / "magnetics" / "00300" / "state.json").read_text())
     assert state["run"]["status"] == "solved" and state["core_transport"]["surfaces"] == []
+
+
+def test_a_tglf_record_without_its_outputs_is_rerun_and_a_bad_one_fails_only_its_state(
+        driver, sample, tmp_path, monkeypatch):
+    """F5: resume after external cleanup must neither trust nor crash on a stale run."""
+    import vaft.code.gacode.tglf as tglf
+
+    calls = []
+    monkeypatch.setattr(tglf, "run_tglf_case",
+                        lambda *a, **k: calls.append(a[1]) or _solved_tglf_run(*a, **k))
+    common = _one_state_filedb(sample, tmp_path)
+    argv = common + ["--out", str(tmp_path / "out"), "--workers", "1",
+                     "--sat-rule", "2", "--field-model", "es"]
+    assert driver.main(argv) == 0
+    out = tmp_path / "out" / "tglf-sat2-es"
+    state_dir = out / "48224" / "magnetics" / "00300"
+    assert sorted(calls) == [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+
+    # record.json kept, outputs.json pruned: not a cache hit.
+    (state_dir / "r0.50" / "outputs.json").unlink()
+    calls.clear()
+    assert driver.main(argv) == 0
+    assert calls == [0.5]
+    (row,) = [json.loads(line) for line in (out / "states.jsonl").read_text().splitlines()]
+    assert row["status"] == "solved"
+
+    # An unreadable outputs.json fails that state; the batch still writes its manifest.
+    (state_dir / "r0.50" / "outputs.json").write_text("not json", encoding="utf-8")
+    (out / "run_manifest.json").unlink()
+    calls.clear()
+    assert driver.main(argv) == 0
+    assert calls == []
+    (row,) = [json.loads(line) for line in (out / "states.jsonl").read_text().splitlines()]
+    assert row["status"] == "failed"
+    assert row["reasons"][0].startswith("projection_error: JSONDecodeError")
+    assert json.loads((out / "run_manifest.json").read_text())["status_counts"] == {"failed": 1}
+
+
+def test_a_neo_record_without_its_outputs_is_rerun_and_a_bad_one_fails_only_its_state(
+        neo_driver, sample, tmp_path, monkeypatch):
+    """F5, NEO twin."""
+    import vaft.code.gacode.neo as neo
+    from vaft.code.gacode.neo import NEOResult
+    from vaft.code.gacode.neo.outputs import collect_neo_outputs
+
+    fixture = ROOT / "test" / "data" / "gacode" / "neo_vest_48224_carbon"
+    calls = []
+
+    def fake_run(profile, workdir, config=None, *, check=True):
+        calls.append(Path(workdir).name)
+        Path(workdir).mkdir(parents=True, exist_ok=True)
+        return NEOResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                         outputs_native=collect_neo_outputs(fixture))
+
+    monkeypatch.setattr(neo, "run_neo_case", fake_run)
+    common = _one_state_filedb(sample, tmp_path, label="admissible")
+    seven = [f"{0.2 + 0.1 * i:.1f}" for i in range(7)]
+    argv = common + ["--out", str(tmp_path / "out"), "--surfaces", *seven]
+    assert neo_driver.main(argv) == 0
+    out = tmp_path / "out"
+    workdir = out / "48224" / "magnetics" / "00300" / "neo"
+    assert calls == ["neo"]
+
+    (workdir / "outputs.json").unlink()
+    calls.clear()
+    assert neo_driver.main(argv) == 0
+    assert calls == ["neo"]
+    (row,) = [json.loads(line) for line in (out / "states.jsonl").read_text().splitlines()]
+    assert row["status"] == "solved"
+
+    (workdir / "outputs.json").write_text("not json", encoding="utf-8")
+    (out / "run_manifest.json").unlink()
+    calls.clear()
+    assert neo_driver.main(argv) == 0
+    assert calls == []
+    (row,) = [json.loads(line) for line in (out / "states.jsonl").read_text().splitlines()]
+    assert row["status"] == "failed"
+    assert row["reasons"][0].startswith("projection_error: JSONDecodeError")
+    assert json.loads((out / "run_manifest.json").read_text())["status_counts"] == {"failed": 1}
