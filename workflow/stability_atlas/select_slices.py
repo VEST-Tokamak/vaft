@@ -88,7 +88,15 @@ def select(analysis: dict[str, Any], *, shots: Iterable[int] | None = None) -> t
 
 
 def _setting(row: dict) -> str:
-    settings = row.get("admissible") or []
+    """The EFIT preset(s) the slice's label belongs to, ``;``-joined when several.
+
+    A ``good`` slice is good under its ``good`` presets (a subset of the
+    ``admissible`` ones, ``criteria.py``); an ``admissible`` slice has only
+    the admissible list. Joining ``admissible`` for both labelled a good
+    slice with presets it is merely admissible under (cold review 0.8.0
+    delta-absorb-6 F5).
+    """
+    settings = (row.get("good") if row.get("label") == "good" else None) or row.get("admissible") or []
     return settings[0] if len(settings) == 1 else ";".join(settings)
 
 

@@ -68,6 +68,25 @@ def test_a_kinetic_slice_inherits_the_label_at_exactly_its_own_time(select):
     assert reasons[(39915, 319)] == "no magnetics-only label at this time"
 
 
+def test_efit_setting_is_the_preset_the_label_belongs_to(select):
+    # A good slice is good under one preset but admissible under two: the
+    # setting column names the preset its label comes from, on both lineages.
+    analysis = {
+        "labels": [
+            {"shot": 39915, "time_ms": 317, "label": "good", "good": ["statistical_891"], "admissible": ["statistical_891", "routine_like"]},
+            {"shot": 39915, "time_ms": 316, "label": "admissible", "good": [], "admissible": ["routine_like", "statistical_891"]},
+        ],
+        "kinetic": [{"shot": 39915, "time_ms": 317, "chi2": 1.0}],
+    }
+    rows, _ = select.select(analysis)
+    settings = {(r["time_ms"], r["efit_lineage"]): r["efit_setting"] for r in rows}
+    assert settings == {
+        (316, select.MAGNETICS_ONLY): "routine_like;statistical_891",
+        (317, select.MAGNETICS_ONLY): "statistical_891",
+        (317, select.ELECTRON_KINETIC): "statistical_891",
+    }
+
+
 def test_duplicate_labels_are_refused(select):
     bad = {"labels": [_label(39915, 316, "good"), _label(39915, 316, "admissible")], "kinetic": []}
     with pytest.raises(ValueError, match="duplicate label"):
