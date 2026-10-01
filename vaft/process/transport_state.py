@@ -60,6 +60,7 @@ __all__ = [
     "physics_parameters",
     "resolve_transport_state",
     "run_identity",
+    "transport_partition",
 ]
 
 #: Bumped whenever a change here can alter a resolved state; part of every identity.
@@ -927,3 +928,123 @@ def physics_parameters(config: Any, *, exclude: Iterable[str] = ()) -> dict[str,
             continue
         out[entry.name] = _jsonable(getattr(config, entry.name))
     return out
+
+
+# --------------------------------------------------------------------------- partition
+
+#: Magnitudes below this many W/m^2 (or m^-2 s^-1) make a ratio undefined, not huge.
+_RATIO_FLOOR = {"energy": 1e-6, "particle": 1e6}
+
+
+def _channels(row: Mapping[str, Any], charges: Optional[Mapping[str, float]] = None) -> dict[str, float]:
+    """Flatten one mapped surface row into ``{channel: SI flux}``.
+
+    Ion species are keyed by charge (``z=1``), because NEO writes no labels and the
+    charge is what the two models demonstrably share; ``charges`` maps a labelled
+    row's species names onto it.
+    """
+    out: dict[str, float] = {}
+    for kind, key in (("energy", "electron_energy_flux_W_m2"), ("particle", "electron_particle_flux_m2_s")):
+        if row.get(key) is not None:
+            out[f"electron_{kind}"] = float(row[key])
+    for kind, key in (("energy", "ion_energy_flux_W_m2"), ("particle", "ion_particle_flux_m2_s")):
+        for name, value in (row.get(key) or {}).items():
+            if value is None:
+                continue
+            label = name if name.startswith("z=") else (
+                f"z={float(charges[name]):g}" if charges and name in charges else None)
+            if label is None:
+                raise ValueError(f"no charge for species {name!r}; pass charges=")
+            if f"ion_{kind}_{label}" in out:
+                # Two ions with one charge (H+ and D+) cannot be told apart by charge,
+                # and summing or overwriting them would both be a silent choice.
+                raise ValueError(f"two ion species share {label}; charge does not identify them")
+            out[f"ion_{kind}_{label}"] = float(value)
+    return out
+
+
+def _ion_total(channels: dict[str, float], kind: str) -> Optional[float]:
+    ions = [v for k, v in channels.items() if k.startswith(f"ion_{kind}_z=")]
+    return float(sum(ions)) if ions else None
+
+
+def transport_partition(
+    neoclassical: Mapping[str, Any],
+    turbulent: Mapping[str, Any],
+    *,
+    turbulent_charges: Optional[Mapping[str, float]] = None,
+    classical: Optional[Mapping[str, Any]] = None,
+    rho_tolerance: float = 1e-3,
+) -> dict[str, Any]:
+    """Signed model fluxes and their magnitude partition at one surface of one state.
+
+    Parameters
+    ----------
+    neoclassical : mapping
+        One mapped NEO surface: ``r_over_a``, ``rho_tor_norm`` and electron/ion energy
+        and particle fluxes in SI, ions keyed ``z=<charge>`` [W/m^2].
+    turbulent : mapping
+        One mapped TGLF surface in the same shape, ions keyed by label [W/m^2].
+    turbulent_charges : mapping, optional
+        Species label -> charge for the TGLF row (``{"H+": 1, "C6+": 6}``) [e].
+    classical : mapping, optional
+        A classical row in the same shape, added as a third component when given [-].
+    rho_tolerance : float
+        Largest allowed rho_tor_norm disagreement between the two rows [-].
+
+    Returns
+    -------
+    dict
+        ``status`` ``"available"`` with per-channel ``neo``, ``turb``, (``classical``),
+        ``model`` (the modelled sum, not a measurement), ``f_neo`` =
+        |neo| / (|neo| + |turb| [+ |classical|]) and ``neo_over_turb`` (``None`` below a
+        floor), or ``"unavailable"`` with a reason [-].
+
+    Applicability
+    -------------
+    Machine-independent. Callers join only rows with one ``state_identity``.
+    """
+    if neoclassical is None or turbulent is None:
+        missing = "neoclassical" if neoclassical is None else "turbulent"
+        return {"status": "unavailable", "reason": f"missing_{missing}_component"}
+    if abs(float(neoclassical["r_over_a"]) - float(turbulent["r_over_a"])) > 1e-4:
+        return {"status": "unavailable", "reason": "surfaces_differ_in_r_over_a"}
+    if abs(float(neoclassical["rho_tor_norm"]) - float(turbulent["rho_tor_norm"])) > rho_tolerance:
+        # Same r/a but a different flux surface means two different profiles.
+        return {"status": "unavailable", "reason": "surfaces_differ_in_rho_tor_norm"}
+    if classical is not None and abs(float(classical["r_over_a"]) - float(turbulent["r_over_a"])) > 1e-4:
+        return {"status": "unavailable", "reason": "classical_surface_differs"}
+    neo = _channels(neoclassical)
+    turb = _channels(turbulent, turbulent_charges)
+    cl = _channels(classical) if classical is not None else {}
+    # The ion total is a channel only when both models carry the same ion species;
+    # a classical row (main ion only) does not take part in it.
+    for kind in ("energy", "particle"):
+        ion_n = {k for k in neo if k.startswith(f"ion_{kind}_z=")}
+        ion_t = {k for k in turb if k.startswith(f"ion_{kind}_z=")}
+        if ion_n and ion_n == ion_t:
+            neo[f"ion_{kind}_total"] = _ion_total(neo, kind)
+            turb[f"ion_{kind}_total"] = _ion_total(turb, kind)
+    channels = {}
+    for name in sorted(set(neo) & set(turb)):
+        kind = "energy" if "_energy" in name else "particle"
+        n, t = neo[name], turb[name]
+        parts = [abs(n), abs(t)] + ([abs(cl[name])] if name in cl else [])
+        denominator = sum(parts)
+        entry = {
+            "neo": n, "turb": t,
+            "model": n + t + (cl[name] if name in cl else 0.0),
+            "f_neo": None if denominator == 0.0 else abs(n) / denominator,
+            "f_turb": None if denominator == 0.0 else abs(t) / denominator,
+            "neo_over_turb": None if abs(t) < _RATIO_FLOOR[kind] else n / t,
+        }
+        if name in cl:
+            entry["classical"] = cl[name]
+            entry["f_classical"] = None if denominator == 0.0 else abs(cl[name]) / denominator
+        channels[name] = entry
+    if not channels:
+        return {"status": "unavailable", "reason": "no_common_channel"}
+    return {"status": "available", "r_over_a": float(turbulent["r_over_a"]),
+            "rho_tor_norm": float(turbulent["rho_tor_norm"]),
+            "components": ["neo", "turb"] + (["classical"] if classical is not None else []),
+            "channels": channels}
