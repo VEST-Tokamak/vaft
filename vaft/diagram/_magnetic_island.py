@@ -455,8 +455,9 @@ def _top_locus(model: IslandModel, kind: str) -> np.ndarray:
     return model.cartesian(model.r_s, theta, phi)[:, :2]
 
 
-def _top(model: IslandModel, *, labels=True, show_rational_surface=True, show_o_points=True,
-         show_x_points=True, **_ignored) -> Scene:
+def _top(model: IslandModel, *, labels=True, show_rational_surface=True, show_separatrix=True, show_o_points=True,
+         show_x_points=True) -> Scene:
+    # show_separatrix is accepted for the shared call signature; the public builder refuses False here
     R0, S = model.major_radius, TOP_SCALE
     items: List = [
         Polyline.of(_circle(R0 + 1.0), "machine fill", role="plasma_fill", closed=True),
@@ -683,7 +684,9 @@ def magnetic_island(
         circle towards the axis. ``width`` is a physical distance only on the
         outboard midplane.
     show_rational_surface, show_separatrix, show_o_points, show_x_points : bool
-        Toggle the corresponding elements.
+        Toggle the corresponding elements. The separatrix is drawn only in the
+        poloidal section (the top and 3-D views draw the O- and X-point
+        helices), so ``show_separatrix=False`` is refused for the other two.
     labels : bool
         Title, leaders and explanatory notes.
 
@@ -694,6 +697,9 @@ def magnetic_island(
         requested, which needs ``latex`` and ``dvisvgm``.
     """
     model = _validate(m, n, width, phase, projection, r_s, aspect_ratio, elongation, triangularity)
+    if projection != "poloidal" and not show_separatrix:
+        raise ValueError(f"show_separatrix applies to the poloidal section only; the {projection!r} view draws "
+                         "the O- and X-point helices, not the separatrix")
     scene = _BUILDERS[projection](
         model,
         labels=labels,
