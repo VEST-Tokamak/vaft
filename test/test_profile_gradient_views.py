@@ -227,6 +227,16 @@ def test_the_option_vocabularies_are_validated():
             validate_options("ion_temperature_profile_gradient", {key: value})
 
 
+@pytest.mark.parametrize("key, value", [
+    ("gradient_coordinate", "r_minor"), ("reference_length", "a_minor"), ("convention", "tglf"),
+])
+def test_a_plot_without_gradients_refuses_the_gradient_options_by_name(key, value):
+    # Only a view declaring the choice takes it; elsewhere it is an unknown option,
+    # not a value checked against the gradient vocabulary.
+    with pytest.raises(ValueError, match=f"does not take an option named '{key}'"):
+        validate_options("equilibrium_field_psi", {key: value})
+
+
 def test_the_profile_fits_keep_their_coordinate_vocabulary():
     for name in ("thomson_scattering_profile_fit", "charge_exchange_profile_fit"):
         assert R.coordinate_options_for(name) == R.PROFILE_FIT_COORDINATES == (

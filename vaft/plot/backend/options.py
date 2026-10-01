@@ -195,6 +195,10 @@ OPTION_SCHEMA: Mapping[str, OptionSpec] = {spec.name: spec for spec in _specs()}
 #: The extraction option names, the split every adapter applies.
 EXTRACTION_OPTIONS: frozenset[str] = frozenset(OPTION_SCHEMA)
 
+#: Options only a computed view that declares them takes (issue #551).  Any
+#: other plot refuses them by name, exactly as it refuses an unknown option.
+DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({"gradient_coordinate", "reference_length", "convention"})
+
 #: Options an adapter passes on internally (besides leading-underscore keys);
 #: never offered, never refused.
 INTERNAL_OPTIONS: frozenset[str] = frozenset()
@@ -266,6 +270,11 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
         if key.startswith("_") or key in INTERNAL_OPTIONS or key in STYLE_OPTIONS:
             continue
         spec = OPTION_SCHEMA.get(key)
+        if spec is not None and key in DECLARED_ONLY_OPTIONS:
+            from . import recipes
+
+            if recipes.choice_options_for(name, key) is None:
+                spec = None
         if spec is None:
             raise ValueError(
                 f"{name!r} does not take an option named {key!r}; extraction options: "
