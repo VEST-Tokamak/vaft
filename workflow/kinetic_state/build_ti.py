@@ -48,6 +48,12 @@ from build_state import SLICE_TOLERANCE_S, _cell, _git, _load  # noqa: E402
 
 KEY = ("contract_version", "shot", "time_efit_s", "efit_lineage", "efit_quality")
 
+#: The equilibrium lineage of a FileDB stage.  The pressure-partition guard
+#: trusts the lineage it is given, so it is read off the stage the pressure was
+#: loaded from, never asserted.
+STAGE_LINEAGE = {"efit/magnetic": "magnetics", "electron_efit": "electron_kinetic"}
+SOURCE_STAGE = "efit/magnetic"
+
 POINT_COLUMNS: dict[str, tuple[str, str]] = {
     **{k: ("string" if k in ("contract_version", "efit_lineage", "efit_quality") else
            "integer" if k == "shot" else "number", "state key (#1454)") for k in KEY},
@@ -68,7 +74,9 @@ POINT_COLUMNS: dict[str, tuple[str, str]] = {
     "t_i_ev": ("number", "inferred T_i [eV]; empty where flagged"),
     "sigma_t_i_ev": ("number", "its uncertainty [eV]"),
     "ti_te": ("number", "T_i / T_e"),
-    "flags": ("string", "';'-joined: p_i_nonpositive, p_i_not_significant, non_finite_input, outside_ts_span"),
+    "flags": ("string", "';'-joined. Voiding (no T_i): p_i_nonpositive, p_i_not_significant, non_finite_input. "
+                        "Notes (T_i kept): sigma_unavailable, outside_ts_span (grid: n_e/T_e are the fit "
+                        "extrapolated past the channels; the transferred sigma understates the error there)"),
     "origin": ("string", "inferred"),
     "method": ("string", "equilibrium_pressure_partition"),
     "composition_source": ("string", "ion composition closure used"),
@@ -135,7 +143,6 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
     for row in profiles:
         channels_by_key[tuple(row[k] for k in KEY)].append(row)
     composition = ks.ion_composition()
-    fraction = composition["ion_density_per_electron"]
     magnetics_times: dict[int, list[float]] = defaultdict(list)
     for row in state:
         if row["efit_lineage"] == "magnetics" and row["efit_status"] == "valid":
@@ -167,7 +174,10 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
             states.append({**out, "eligible": "true", "reason": f"no Thomson match ({row['ts_status']})"})
             continue
         shot, time_s = int(row["shot"]), float(row["time_efit_s"])
-        eq = product("efit/magnetic", shot)
+        lineage = STAGE_LINEAGE[SOURCE_STAGE]
+        if lineage != row["efit_lineage"]:
+            raise RuntimeError(f"state {shot}@{time_s} is {row['efit_lineage']} but its pressure comes from {SOURCE_STAGE}")
+        eq = product(SOURCE_STAGE, shot)
         index, _ = ks.slice_at_time(eq, time_s, tolerance_s=SLICE_TOLERANCE_S)
         neighbour_times = [t for t in magnetics_times[shot] if t != time_s and abs(t - time_s) <= window_s + 1e-9]
         neighbour_index = [ks.slice_at_time(eq, t, tolerance_s=SLICE_TOLERANCE_S)[0] for t in neighbour_times]
@@ -184,7 +194,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
         sn_c, st_c = np.array([_f(c["n_e_error_m3"]) for c in chans]), np.array([_f(c["t_e_error_ev"]) for c in chans])
         sp_c, basis_c = sigma_at(psi_c, p_eq_c)
         res_c = ks.infer_ti_pressure_partition(p_eq_c, n_c, t_c, composition=composition, sigma_p_eq=sp_c,
-                                               sigma_n_e=sn_c, sigma_t_e=st_c, equilibrium_lineage="magnetics")
+                                               sigma_n_e=sn_c, sigma_t_e=st_c, equilibrium_lineage=lineage)
         for k, (c, flags) in enumerate(zip(chans, _flags(res_c))):
             points.append({**key, "kind": "channel", "channel": int(c["channel"]), "rho_tor_norm": _f(c["rho_tor_norm"]),
                            "psi_norm": psi_c[k], "p_eq_pa": p_eq_c[k], "sigma_p_eq_pa": sp_c[k],
@@ -202,29 +212,40 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
         # -- grid: the core_profiles fit at the Thomson time, inside the LCFS
         cp = product("core_profiles", shot)
         coordinate = ks.rho_tor_norm_of(eq, index)
-        electron = (ks.core_profiles_electron_pressure(cp, time_s=_f(row["time_ts_s"]),
-                                                       tolerance_s=_f(row["ts_tolerance_s"]))
-                    if cp is not None else {"available": False, "reason": "no core_profiles product"})
+        ts_tolerance = _f(row["ts_tolerance_s"])
+        if cp is None:
+            electron = {"available": False, "reason": "no core_profiles product"}
+        elif not math.isfinite(ts_tolerance):
+            electron = {"available": False, "reason": "the state carries no Thomson tolerance"}
+        else:
+            electron = ks.core_profiles_electron_pressure(cp, time_s=_f(row["time_ts_s"]), tolerance_s=ts_tolerance)
         if not electron["available"] or coordinate["coordinate"] != "rho_tor_norm":
             summary["reason"] = electron.get("reason") or coordinate.get("reason")
             states.append(summary)
             continue
-        j, _ = ks.slice_at_time(cp, electron["time_s"], ids="core_profiles", tolerance_s=1e-6)
-        root = cp["core_profiles"]["profiles_1d"][j]
-        rho = np.asarray(root["grid"]["rho_tor_norm"], dtype=float)
-        n_g = np.asarray(root["electrons"].get("density_thermal", root["electrons"].get("density")), dtype=float)
-        t_g = np.asarray(root["electrons"]["temperature"], dtype=float)
+        rho, n_g, t_g = electron["rho_tor_norm"], electron["n_e"], electron["t_e"]
         order = np.argsort(coordinate["rho_tor_norm"])
         inside = rho <= 1.0
         rho, n_g, t_g = rho[inside], n_g[inside], t_g[inside]
         psi_g = np.interp(rho, coordinate["rho_tor_norm"][order], coordinate["psi_norm"][order])
         p_eq_g = _pressure_on(eq, index, psi_g)
-        rel_n = float(np.nanmedian(sn_c / n_c)) if np.isfinite(sn_c / n_c).any() else math.nan
-        rel_t = float(np.nanmedian(st_c / t_c)) if np.isfinite(st_c / t_c).any() else math.nan
+        if p_eq_g is None:
+            summary["reason"] = "the slice pressure cannot be sampled on the core_profiles grid"
+            states.append(summary)
+            continue
+
+        def relative(sigma, value):
+            usable = np.isfinite(sigma) & np.isfinite(value) & (value > 0)
+            return float(np.median(sigma[usable] / value[usable])) if usable.any() else math.nan
+
+        # The fit carries no uncertainty of its own: transfer the channels'
+        # median relative error.  Outside the Thomson span this understates it
+        # (the fit is extrapolated there), which the outside_ts_span flag marks.
+        rel_n, rel_t = relative(sn_c, n_c), relative(st_c, t_c)
         sp_g, basis_g = sigma_at(psi_g, p_eq_g)
         res_g = ks.infer_ti_pressure_partition(p_eq_g, n_g, t_g, composition=composition, sigma_p_eq=sp_g,
                                                sigma_n_e=rel_n * n_g, sigma_t_e=rel_t * t_g,
-                                               equilibrium_lineage="magnetics")
+                                               equilibrium_lineage=lineage)
         rho_c = np.array([_f(c["rho_tor_norm"]) for c in chans])
         lo, hi = (np.nanmin(rho_c), np.nanmax(rho_c)) if np.isfinite(rho_c).any() else (math.nan, math.nan)
         span = (rho >= lo) & (rho <= hi)
@@ -275,8 +296,17 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
             ods[f"{root}.grid.rho_tor_norm"] = s["rho"]
             ods[f"{root}.electrons.density_thermal"] = s["n_e"]
             ods[f"{root}.electrons.temperature"] = s["t_e"]
+            lo, hi = s["span"]
+            marker = (f"origin=inferred; method=equilibrium_pressure_partition; not measured; "
+                      f"n_e and T_e outside rho_tor_norm [{lo:.4g}, {hi:.4g}] are the core_profiles fit "
+                      f"extrapolated beyond the Thomson channels; NaN where p_i <= 0 or not significant")
             for k, species in enumerate(composition["species"]):
                 ion = f"{root}.ion.{k}"
+                # Machine-readable next to the value: a reader keyed on the presence
+                # of ion.temperature (vaft.process.profile.strip_electron_only_pressure
+                # reads it as measured) has this to check, not only the comment.
+                ods[f"{ion}.temperature_fit.parameters"] = marker
+                ods[f"{ion}.temperature_fit.source"] = ["vaft.validation.kinetic_state.infer_ti_pressure_partition"]
                 ods[f"{ion}.label"] = species["label"]
                 ods[f"{ion}.z_ion"] = species["z_ion"]
                 ods[f"{ion}.element.0.z_n"] = species["z_ion"]
@@ -297,7 +327,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
         "channels": sum(s["channels"] for s in eligible),
         "channels_with_ti": sum(s["channels_with_ti"] for s in eligible),
         "channel_flags": {f: sum(1 for p in points if p["kind"] == "channel" and f in p["flags"].split(";"))
-                          for f in ks.TI_FLAGS},
+                          for f in (*ks.TI_FLAGS, *ks.TI_NOTES)},
         "ti_te_channel": {"n": len(ratios), "median": float(np.median(ratios)) if ratios else None,
                           "q1": float(np.percentile(ratios, 25)) if ratios else None,
                           "q3": float(np.percentile(ratios, 75)) if ratios else None},

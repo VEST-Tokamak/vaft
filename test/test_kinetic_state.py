@@ -577,3 +577,50 @@ def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
     assert stored["time"] == [0.313, 0.314]
     assert [ion["label"] for ion in stored["profiles_1d"][0]["ion"]] == ["H+", "C6+"]
     assert json.loads(stored["code"]["parameters"])["origin"] == "inferred"
+    ion = stored["profiles_1d"][0]["ion"][0]
+    assert ion["temperature_fit"]["parameters"].startswith("origin=inferred")
+
+
+
+def test_a_missing_sigma_keeps_the_ti_and_says_so():
+    comp = ks.ion_composition()
+    got = ks.infer_ti_pressure_partition([2 * E * 1e19 * 20], [1e19], [20.0], composition=comp,
+                                         sigma_p_eq=[np.nan], sigma_n_e=0.0, sigma_t_e=0.0,
+                                         equilibrium_lineage="magnetics")
+    assert got["flags"] == [["sigma_unavailable"]]
+    assert np.isfinite(got["t_i"][0]) and np.isnan(got["sigma_t_i"][0])
+    assert "sigma_unavailable" in ks.TI_NOTES and "sigma_unavailable" not in ks.TI_FLAGS
+
+
+def test_scalar_inputs_broadcast():
+    comp = ks.ion_composition()
+    got = ks.infer_ti_pressure_partition(E * 1e19 * 20 * np.array([2.0, 3.0]), 1e19, 20.0, composition=comp,
+                                         sigma_p_eq=0.0, sigma_n_e=0.0, sigma_t_e=0.0,
+                                         equilibrium_lineage="magnetics")
+    np.testing.assert_allclose(got["ti_te"], [1.2, 2.4])
+
+
+def test_a_nan_neighbour_falls_back_to_the_floor_there():
+    sigma, basis = ks.pressure_sigma(np.array([100.0, 100.0]), [np.array([np.nan, 160.0])])
+    assert sigma[0] == pytest.approx(17.0)
+    assert sigma[1] == pytest.approx(np.std([100.0, 160.0], ddof=1))
+    assert basis == "ensemble(n=2)"
+
+
+def test_a_non_finite_tolerance_is_refused():
+    with pytest.raises(ValueError, match="finite"):
+        ks.slice_at_time(_equilibrium(), 0.314, tolerance_s=float("nan"))
+
+
+def test_an_empty_density_thermal_falls_back_to_density():
+    cp = ODS(consistency_check=False)
+    cp["core_profiles.time"] = np.array([0.314])
+    root = "core_profiles.profiles_1d.0"
+    cp[f"{root}.time"] = 0.314
+    cp[f"{root}.grid.rho_tor_norm"] = np.linspace(0, 1, 5)
+    cp[f"{root}.electrons.density_thermal"] = np.array([1e18, 1e18])  # wrong length
+    cp[f"{root}.electrons.density"] = np.full(5, 3e18)
+    cp[f"{root}.electrons.temperature"] = np.full(5, 10.0)
+    got = ks.core_profiles_electron_pressure(cp, time_s=0.314)
+    assert got["available"] and got["density_leaf"] == "density"
+    np.testing.assert_allclose(got["n_e"], 3e18)
