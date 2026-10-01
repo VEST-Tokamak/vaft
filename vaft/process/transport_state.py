@@ -1188,6 +1188,8 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
     # Z = 1, i.e. 12 here against 6 sqrt(2) above (NRL: 2.09e7 vs 3.44e5).
     tau_i = (12.0 * np.pi ** 1.5 * c.epsilon_0 ** 2 * np.sqrt(m_i) * ti ** 1.5
              / (lnl_i * c.e ** 4 * z_i ** 2 * field_density))
+    # anti-alias: not a time series and not a downsample; a lookup in Braginskii's
+    # gamma_1'(Z) table at one effective charge.
     gamma1 = float(np.interp(zeff, *zip(*_GAMMA1_PERP)))
     omega_e = c.e * b / c.m_e
     omega_i = z_i * c.e * b / m_i
