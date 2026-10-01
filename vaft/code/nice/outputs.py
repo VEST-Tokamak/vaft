@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 from typing import Any, Optional
+import xml.etree.ElementTree as ET
 
 import numpy as np
 
@@ -193,6 +194,17 @@ def _native_ods(output: Path, cocos: int, sign_ip: float = 1, sign_b0: float = 1
     # The declaration ods_cocos() and ods_psi_to_wb_per_radian_factor() read.
     set_ods_cocos(ods, cocos, source="nice")
     return ods, errors
+
+
+def _eps_stop_recon(parameter_file: Path) -> Optional[float]:
+    """``epsStopRecon`` from the parameter file NICE ran with, if readable."""
+    if not parameter_file.is_file():
+        return None
+    try:
+        text = ET.parse(parameter_file).getroot().findtext("epsStopRecon")
+        return None if text is None else float(text)
+    except Exception:
+        return None
 
 
 def collect_nice_outputs(
@@ -448,9 +460,13 @@ def collect_nice_outputs(
     if mesh_invalid:
         reason = "invalid computational mesh: boundary contour mismatch"
     if converged:
-        tolerance = float(
-            provenance.get("solver_tolerances", {}).get("epsStopRecon", 1e-8)
-        )
+        # The criterion NICE ran with is the one in input/param.xml; the
+        # manifest mirrors it (cold review 0.8.0), and 1e-8 is the last resort.
+        tolerance = _eps_stop_recon(base / "input" / "param.xml")
+        if tolerance is None:
+            tolerance = float(
+                provenance.get("solver_tolerances", {}).get("epsStopRecon", 1e-8)
+            )
         if objective.get("relative_residual", float("inf")) > tolerance:
             converged = False
             reason = "reconstruction tolerance not reached"

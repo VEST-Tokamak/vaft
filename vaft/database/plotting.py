@@ -10,9 +10,10 @@ ODS, so ``.to_xarray()`` works on it.  A rendering keyword is refused by
 
 A database adapter names *which shot in which source* to draw; it does not
 interpret data.  Each adapter asks the registry which IDS the plot needs
-(:func:`vaft.plot.backend.recipes.required_ids`), opens exactly those over
-HSDS -- lazily by default, so only the leaves the plot touches travel -- and
-hands the resulting ODS to the OMAS adapter (issue #63).  Nothing here
+(:func:`vaft.plot.backend.recipes.required_ids`), opens those the shot stores
+over HSDS -- lazily by default, so only the leaves the plot touches travel;
+an optional IDS the shot lacks (an overlay's wall) is skipped, a required
+one is refused by name -- and hands the resulting ODS to the OMAS adapter (issue #63).  Nothing here
 imports Matplotlib, and nothing here reaches into ``vaft.machine_mapping``.
 
 Every adapter shares one signature::
@@ -50,6 +51,7 @@ __all__ = [
     "plot_equilibrium_interactive",
     "render",
     "render_to_file",
+    "stored_ids",
 ]
 
 
@@ -86,20 +88,45 @@ def _labels(shots: Sequence[int], label: Any) -> Any:
     return [str(shot) for shot in shots]
 
 
+def _stored_subset(
+    shot: int, source: str, ids: Sequence[str], name: str
+) -> list[str]:
+    """``ids`` narrowed to what ``shot`` stores; refuses when plot ``name`` cannot be drawn.
+
+    A plot declares every IDS it may read, the optional ones too -- the
+    wall an equilibrium map overlays -- and asking a store for a domain the
+    shot lacks fails: the eager path with ``FileNotFoundError``, the lazy
+    one with a 404 on first read.  So the shot's domains are listed (no data
+    read) and only the declared IDS it stores are opened.  An IDS the plot
+    needs stays an error, judged by the rule :func:`available_plots` uses.
+    """
+    from vaft.plot.backend.discovery import missing_required_ids
+
+    stored = set(stored_ids(shot, source))
+    missing = missing_required_ids(stored, name)
+    if missing is not None:
+        raise FileNotFoundError(
+            f"plot {name!r} needs IDS {missing}, which shot {shot} does not store in "
+            f"{source!r}. Stored IDS: {', '.join(sorted(stored)) or '(none)'}."
+        )
+    return [root for root in ids if root in stored]
+
+
 def _open_all(
     stack: contextlib.ExitStack, shots: Sequence[int], source: str, ids: Sequence[str],
-    *, lazy: bool, occurrence: Any,
+    *, lazy: bool, occurrence: Any, name: str,
 ) -> list[Any]:
     from . import load, open
 
     objects = []
     for shot in shots:
+        present = _stored_subset(shot, source, ids, name)
         if lazy:
-            ods = open(shot, source=source, paths=list(ids))
+            ods = open(shot, source=source, paths=present)
             if hasattr(ods, "close"):
                 stack.callback(ods.close)
         else:
-            ods = load(shot, source=source, paths=list(ids), occurrence=occurrence)
+            ods = load(shot, source=source, paths=present, occurrence=occurrence)
         objects.append(ods)
     return objects
 
@@ -142,7 +169,7 @@ def render(
     from vaft.omas.plotting import render as render_ods
 
     with contextlib.ExitStack() as stack:
-        objects = _open_all(stack, shots, resolved, ids, lazy=lazy, occurrence=occurrence)
+        objects = _open_all(stack, shots, resolved, ids, lazy=lazy, occurrence=occurrence, name=name)
         source_object = objects[0] if len(objects) == 1 else objects
         # Models copy what they read into their own arrays and renderers never
         # keep the data object, so the lazy stores may close on the way out.
@@ -190,7 +217,7 @@ def extract(
     shots = _shots(shot)
     ids = _declared_ids(name)
     with contextlib.ExitStack() as stack:
-        objects = _open_all(stack, shots, resolved, ids, lazy=lazy, occurrence=occurrence)
+        objects = _open_all(stack, shots, resolved, ids, lazy=lazy, occurrence=occurrence, name=name)
         source_object = objects[0] if len(objects) == 1 else objects
         entries = normalize_entries(source_object, label=_labels(shots, label))
         # The pointer names a discovery that sees the leaves: available_plots(shot)
@@ -209,21 +236,24 @@ def dd(name: str) -> tuple:
 
 
 def _load_for_interaction(
-    shot: Any, source: str | None, ids: Sequence[str], *, occurrence: Any = None
+    shot: Any, source: str | None, ids: Sequence[str], name: str, *, occurrence: Any = None
 ) -> Any:
     """``ids`` of one shot, loaded into memory for an explorer.
 
     An explorer rebuilds its figure on every widget event, long after this
     call returns, so the lazy store the static path opens -- and closes on
     the way out -- would be gone by then.  The IDS the entry point reads are
-    loaded once instead; every later frame is served from memory.
+    loaded once instead; every later frame is served from memory.  Plot
+    ``name`` decides which of them the shot must store (:func:`_stored_subset`).
     """
     from . import load
 
     shots = _shots(shot)
     if len(shots) != 1:
         raise ValueError(f"an interactive entry point explores one shot at a time; got {len(shots)}")
-    return load(shots[0], source=_resolve_source(source), paths=list(ids), occurrence=occurrence)
+    resolved = _resolve_source(source)
+    present = _stored_subset(shots[0], resolved, ids, name)
+    return load(shots[0], source=resolved, paths=present, occurrence=occurrence)
 
 
 def plot_diagnostics_time_interactive(
@@ -237,7 +267,9 @@ def plot_diagnostics_time_interactive(
     """
     from vaft.omas.interactive import plot_diagnostics_time_interactive as explore
 
-    ods = _load_for_interaction(shot, source, _declared_ids("diagnostics_overview"), occurrence=occurrence)
+    ods = _load_for_interaction(
+        shot, source, _declared_ids("diagnostics_overview"), "diagnostics_overview", occurrence=occurrence
+    )
     return explore(ods, **options)
 
 
@@ -254,7 +286,9 @@ def plot_equilibrium_interactive(
     from vaft.omas.interactive import equilibrium_explorer_ids
     from vaft.omas.interactive import plot_equilibrium_interactive as explore
 
-    ods = _load_for_interaction(shot, source, equilibrium_explorer_ids(), occurrence=occurrence)
+    ods = _load_for_interaction(
+        shot, source, equilibrium_explorer_ids(), "equilibrium_overview", occurrence=occurrence
+    )
     return explore(ods, **options)
 
 
@@ -321,14 +355,24 @@ def available_plots(
             shot, query=query, detail=detail, available_only=available_only, **filters
         )
     resolved = _resolve_source(source)
-    from .lazy_common import discover_hsds_ids
-    from . import utils
-
-    present = discover_hsds_ids(_h5pyd(utils), resolved, int(shot))
+    present = stored_ids(shot, resolved)
     return describe_by_ids(
         present, source=f"#{shot} ({resolved})", query=query, detail=detail,
         available_only=available_only, **filters,
     )
+
+
+def stored_ids(shot: Any, source: str | None = None) -> tuple[str, ...]:
+    """The IDS ``shot`` stores in ``source``, listed without reading any data.
+
+    What :func:`available_plots` judges a shot by.  A plot's declared IDS
+    include optional ones (an overlay's wall); a caller that fetches IDS for
+    a plot asks for the declared IDS the shot actually stores.
+    """
+    from .lazy_common import discover_hsds_ids
+    from . import utils
+
+    return tuple(discover_hsds_ids(_h5pyd(utils), _resolve_source(source), int(shot)))
 
 
 def _h5pyd(utils_module: Any) -> Any:

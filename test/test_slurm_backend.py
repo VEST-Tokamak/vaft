@@ -9,7 +9,8 @@ the real ones do where the backend depends on it:
   ``squeue`` sees it ``RUNNING`` first. ``FAKE_SLURM_OUTCOME`` changes what
   happens: ``TERM_AFTER=<s>`` sends the script ``TERM`` after that many seconds
   (a walltime kill); a terminal state such as ``NODE_FAIL`` or ``PENDING``
-  never runs it.
+  never runs it; ``QUEUE_FOR=<s>`` holds it ``PENDING`` that long first.
+* ``scancel`` records ``CANCELLED`` and sends a running job script ``TERM``.
 * ``squeue -j`` keeps listing a finished job with its final state, as a real
   controller does until ``MinJobAge``; ``FAKE_SQUEUE_FLAKY=<n>`` makes the first
   ``n`` polls fail with a socket timeout.
@@ -68,7 +69,8 @@ _FAKES = {
         elif outcome == "PENDING":
             record(job, "PENDING|0:0")
         else:
-            record(job, "RUNNING|0:0")
+            # QUEUE_FOR=<s>: run_job.py holds the job PENDING that long first.
+            record(job, "PENDING|0:0" if outcome.startswith("QUEUE_FOR=") else "RUNNING|0:0")
             # Run the job asynchronously, as a controller does.
             subprocess.Popen([sys.executable, str(state / "run_job.py"), str(job), json.dumps(options),
                               sys.argv[-1], outcome], start_new_session=True,
@@ -108,7 +110,14 @@ _FAKES = {
         print((state / f"{job}.state").read_text())
     """,
     "scancel": """
-        record(sys.argv[-1], "CANCELLED by 501|0:15")
+        job = sys.argv[-1]
+        record(job, "CANCELLED by 501|0:15")
+        pid = state / f"{job}.pid"
+        if pid.exists():  # a running job script gets TERM, as from slurmstepd
+            try:
+                os.killpg(int(pid.read_text()), signal.SIGTERM)
+            except ProcessLookupError:
+                pass
     """,
     "srun": """
         (state / "srun_env.json").write_text(json.dumps(dict(os.environ)))
@@ -129,9 +138,13 @@ def where(key):
 env = dict(os.environ)
 if os.environ.get("FAKE_JOB_END_NOW"):
     env["SLURM_JOB_END_TIME"] = str(int(time.time()))
+if outcome.startswith("QUEUE_FOR="):
+    time.sleep(float(outcome.split("=")[1]))
+    (state / f"{job}.state").write_text("RUNNING|0:0")
 out = open(where("--output"), "w")
 err = open(where("--error"), "w") if "--error" in options else subprocess.STDOUT
 child = subprocess.Popen(["bash", script], cwd=chdir, stdout=out, stderr=err, env=env, start_new_session=True)
+(state / f"{job}.pid").write_text(str(child.pid))
 if outcome.startswith("TERM_AFTER="):
     time.sleep(float(outcome.split("=")[1]))
     os.killpg(child.pid, signal.SIGTERM)
@@ -140,7 +153,8 @@ if outcome.startswith("TERM_AFTER="):
 else:
     rc = child.wait()
     final = ("COMPLETED" if rc == 0 else "FAILED") + f"|{rc}:0"
-(state / f"{job}.state").write_text(final)
+if not (state / f"{job}.state").read_text().startswith("CANCELLED"):
+    (state / f"{job}.state").write_text(final)
 """
 
 
@@ -359,6 +373,36 @@ def test_max_wait_on_a_job_that_had_started_is_a_run_timeout(tmp_path, slurm):
     assert result.timed_out and result.returncode is None
     assert result.runtime_status == "timeout"
     assert "max_wait" in result.stderr and "never started" not in result.stderr
+
+
+def test_a_queued_jobs_running_time_leaves_out_the_queue_wait(tmp_path, slurm, monkeypatch):
+    """cold review 0.8.0 execution-backend F2: elapsed_s counts from submission;
+    the reason line reports the program's own run time from the job's stamps."""
+    from vaft.code.execution import timeout_reason
+
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "QUEUE_FOR=2.0")
+    result = _batch(max_wait=3.0).run(
+        _python(_workdir(tmp_path), "import time; time.sleep(30)", timeout=600)
+    )
+    assert result.runtime_status == "timeout"
+    assert result.elapsed_s >= 3.0
+    assert result.run_s is not None and 0.0 <= result.run_s <= 2.0
+    reason = timeout_reason("X", result, 600.0)
+    assert reason == f"X timed out after {result.run_s:.3g} s of running"
+
+
+def test_a_queue_cancel_does_not_wait_the_status_grace(tmp_path, slurm, monkeypatch):
+    """cold review 0.8.0 execution-backend F5: a job that never started has no
+    exit record to wait for."""
+    import time
+
+    monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
+    backend = _batch(max_wait=0.05)
+    backend.status_grace = 5.0
+    before = time.monotonic()
+    result = backend.run(_python(_workdir(tmp_path), "pass"))
+    assert result.runtime_status == "queue_timeout"
+    assert time.monotonic() - before < 3.0
 
 
 def test_an_interrupt_while_waiting_cancels_the_job(tmp_path, slurm, monkeypatch):

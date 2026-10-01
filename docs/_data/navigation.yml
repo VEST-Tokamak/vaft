@@ -32,6 +32,9 @@ sections:
       - id: api
         title: VAFT API
         url: /reference/api/
+      - id: computational-layers
+        title: Computational layers
+        url: /reference/computational-layers/
       - id: formula-reference
         title: Formula reference
         url: /reference/formula/
