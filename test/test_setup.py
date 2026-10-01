@@ -59,7 +59,7 @@ def test_the_database_profile_imports_no_plotting_stack():
 _SNAPSHOT = (
     "import os, matplotlib, vaft; r = matplotlib.rcParams; "
     "snap = lambda: ({k: repr(v) for k, v in dict.items(r) if k not in ('backend', 'backend_fallback')}, "
-    "r._get_backend_or_none(), {k: v for k, v in os.environ.items() if k != 'MPLCONFIGDIR'}); "
+    "r._get_backend_or_none(), dict(os.environ)); "
 )
 
 
@@ -80,9 +80,50 @@ def test_batch_selects_agg_only_when_nothing_was_chosen():
         _SNAPSHOT + "before = snap(); result = vaft.setup('batch'); after = snap(); "
         "assert result.changed and result.backend == 'agg', result; "
         "assert after[0] == before[0], 'rcParams other than backend changed'; "
+        "assert after[2] == before[2], 'the environment changed'; "
         "again = vaft.setup('batch'); assert not again.changed and again.backend == 'agg', again",
         env=_clean_env(),
     )
+
+
+def test_batch_leaves_the_callers_environment_alone():
+    """Cold review 0.8.0 delta-absorb-2 F6: no ``MPLCONFIGDIR`` exported behind the caller's back.
+
+    It was inert for the calling process but made every child process rebuild
+    the font cache in a fresh temporary directory, unreported.
+    """
+    _run(
+        "import os, vaft; "
+        "assert 'MPLCONFIGDIR' not in os.environ; "
+        "result = vaft.setup('batch'); "
+        "assert result.changed and result.backend == 'agg', result; "
+        "assert 'MPLCONFIGDIR' not in os.environ, os.environ['MPLCONFIGDIR']; "
+        "assert result.details == (), result",
+        env={k: v for k, v in _clean_env().items() if k != "MPLCONFIGDIR"},
+    )
+
+
+def test_batch_reports_the_config_dir_it_exports_when_the_default_is_unwritable(monkeypatch, tmp_path):
+    import matplotlib
+    import tempfile
+
+    fallback = os.path.join(tempfile.gettempdir(), "matplotlib-vaft-test")
+    monkeypatch.delenv("MPLBACKEND", raising=False)
+    monkeypatch.delenv("MPLCONFIGDIR", raising=False)
+    monkeypatch.setattr(_setup, "_kernel_kind", lambda: "terminal")
+    monkeypatch.setattr(_setup, "_chosen_backend", lambda: None)
+    monkeypatch.setattr(_setup, "_use_agg", lambda: None)
+    monkeypatch.setattr(matplotlib, "get_configdir", lambda: fallback)
+    result = setup("batch")
+    assert os.environ["MPLCONFIGDIR"] == fallback
+    assert dict(result.details)["MPLCONFIGDIR"] == fallback
+    assert any("not writable" in reason for reason in result.reasons)
+    assert "MPLCONFIGDIR" in str(result)
+    # A writable default is never overridden: nothing is exported or reported.
+    monkeypatch.delenv("MPLCONFIGDIR")
+    monkeypatch.setattr(matplotlib, "get_configdir", lambda: str(tmp_path / ".matplotlib"))
+    result = setup("batch")
+    assert "MPLCONFIGDIR" not in os.environ and result.details == ()
 
 
 def test_batch_and_notebook_keep_an_explicit_mplbackend():
