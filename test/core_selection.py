@@ -209,6 +209,9 @@ CORE_MODULES: tuple[str, ...] = (
     # driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
     "test_stability_atlas_controls.py",
+    # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
+    # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
+    "test_kinetic_state.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
