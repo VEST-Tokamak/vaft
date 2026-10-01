@@ -48,6 +48,7 @@ Typical use, after :func:`~vaft.code.gpec.run_gpec_suite_case` has completed::
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 from ...compat import is_executable
@@ -355,9 +356,29 @@ def run_pentrc(
         record.reason = reason
         return record
 
-    returncode, log_path = rt.run_subprocess(
-        executable, run_dir, run_dir / "pentrc.log", config=config
-    )
+    log_path = run_dir / "pentrc.log"
+    try:
+        returncode, log_path = rt.run_subprocess(
+            executable, run_dir, log_path, config=config
+        )
+    except subprocess.TimeoutExpired as expired:
+        # A timeout is a `failed` record, not an exception. PENTRC does not stop
+        # when its integration will not converge -- it prints: LSODE's energy
+        # corrector failing repeatedly wrote 223 MB of one repeated message in
+        # the 300 s it was given, on a real case. The caller needs that in the run's
+        # record beside the runs that worked, and there is no partial output to
+        # salvage: the netCDF is written at the end.
+        record.status = "failed"
+        record.returncode = None
+        record.commands = (str(executable),)
+        record.logs = (log_path,) if log_path.is_file() else ()
+        record.reason = (
+            f"pentrc did not finish within {expired.timeout:g} s; its log is "
+            f"{log_path.stat().st_size if log_path.is_file() else 0} bytes"
+        )
+        if policy == "strict":
+            raise
+        return record
     output = run_dir / pentrc_output_name(mode)
     record.returncode = returncode
     record.commands = (str(executable),)

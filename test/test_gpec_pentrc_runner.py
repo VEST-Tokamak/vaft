@@ -475,3 +475,70 @@ def test_the_packaged_template_ships_every_method_off():
     values = _pent(package_vest_dir() / "pentrc.in", "pent_output")
     for method in pentrc.TORQUE_METHODS:
         assert values[f"{method}_flag"] == "f", method
+
+
+# --------------------------------------------------------------------------
+# A run that will not converge
+# --------------------------------------------------------------------------
+
+
+def _timing_out(seconds: float):
+    """Stand in for ``rt.run_subprocess``, writing a log and then timing out.
+
+    The log matters: the record reports its size, and the reason a timeout is
+    worth reporting at all is that PENTRC's failure mode is *volume* -- LSODE's
+    energy corrector failing repeatedly wrote 223 MB of one repeated message in
+    the 300 s it was given, on a real case.
+    """
+    import subprocess
+
+    def run(executable_path, cwd, log_path, *, config):
+        Path(log_path).write_text(
+            " LSODE- Energy-  At T (=R1) and step size H (=R2), the\n"
+            "       corrector convergence failed repeatedly\n" * 64,
+            encoding="utf-8",
+        )
+        raise subprocess.TimeoutExpired([str(executable_path)], seconds)
+
+    return run
+
+
+def test_a_pentrc_that_does_not_finish_is_a_failed_record_not_an_exception(
+    cell, tmp_path, monkeypatch
+):
+    from vaft.code.gpec import _pentrc, _runtime
+
+    monkeypatch.setattr(_runtime, "run_subprocess", _timing_out(300.0))
+    record = _pentrc.run_pentrc(
+        cell,
+        mode=1,
+        options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=_config(tmp_path, timeout=300.0),
+    )
+    assert record.status == "failed"
+    assert record.returncode is None
+    assert "300 s" in record.reason
+    # The log is named and its size reported, because that is the evidence.
+    assert record.logs and record.logs[0].name == "pentrc.log"
+    assert str(record.logs[0].stat().st_size) in record.reason
+    # No output claimed: PENTRC writes its netCDF at the end, so a timed-out run
+    # has nothing to salvage.
+    assert record.outputs == ()
+
+
+def test_strict_still_raises_when_pentrc_does_not_finish(cell, tmp_path, monkeypatch):
+    """Because a scheduler-driven scan wants the walltime failure to stop it."""
+    import subprocess
+
+    from vaft.code.gpec import _pentrc, _runtime
+
+    monkeypatch.setattr(_runtime, "run_subprocess", _timing_out(5.0))
+    with pytest.raises(subprocess.TimeoutExpired):
+        _pentrc.run_pentrc(
+            cell,
+            mode=1,
+            options=_options(),
+            kinetic_file=cell.parents[2] / "profiles.kin",
+            config=_config(tmp_path, run_mode="strict", timeout=5.0),
+        )
