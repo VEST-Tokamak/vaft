@@ -291,11 +291,15 @@ def _finite_profile(values: Any) -> bool:
 
 
 def _usable(values: Any) -> bool:
-    """A profile that can stand for a measured quantity: non-empty, finite, positive."""
+    """A profile that can stand for a measured temperature: finite, not identically <= 0.
+
+    Positivity is enforced where it matters -- inside ``rho_max`` -- by the GACODE
+    converter; a fitted profile that reaches zero at the separatrix is still a profile.
+    """
     if values is None:
         return False
     array = np.atleast_1d(np.asarray(values, dtype=float))
-    return bool(array.size > 1 and np.all(np.isfinite(array)) and np.all(array > 0.0))
+    return bool(array.size > 1 and np.all(np.isfinite(array)) and np.max(array) > 0.0)
 
 
 def _digest(payload: Any) -> str:
