@@ -157,3 +157,10 @@ class TESResult(RunOutcome):
     @property
     def ok(self) -> bool:
         return self.returncode == 0
+
+
+__all__ = [
+    "TESConfig",
+    "TESInputs",
+    "TESResult",
+]

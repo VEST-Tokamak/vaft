@@ -156,3 +156,10 @@ def collect_tes_outputs(workdir: str | Path, config: Optional[TESConfig] = None)
         ods=ods,
         scalars=scalars,
     )
+
+
+__all__ = [
+    "parse_result_scalars",
+    "parse_result_coils",
+    "collect_tes_outputs",
+]

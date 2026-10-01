@@ -968,3 +968,13 @@ def prepare_gacode_inputs(
         input_gacode=written,
         provenance=dict(profile.provenance),
     )
+
+
+__all__ = [
+    "IMPURITIES",
+    "ProfileConversionError",
+    "GACODEInputs",
+    "impurity_fractions",
+    "prepare_gacode_profile",
+    "prepare_gacode_inputs",
+]
