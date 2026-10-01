@@ -246,8 +246,12 @@ def constraint_uncertainty_model(ods: Any) -> str:
 
     Read from an explicit ``uncertainty_model`` record on
     ``equilibrium.code.parameters`` -- either the nested tree or, as on a
-    pipeline product, the serialized JSON string.  Nothing is inferred from the
-    numbers: a product that does not say is ``"unknown"``.
+    pipeline product, the serialized JSON string.  A pipeline-1 product
+    written before that key existed carries the k-file stage's preset record
+    instead (``efit_collection.efit_preset.scientific.constraints.
+    uncertainty_mode``), which is the same statement, so it is read too.
+    Nothing is inferred from the numbers: a product that does not say is
+    ``"unknown"``.
     """
     value = _get(ods, "equilibrium.code.parameters.uncertainty_model")
     if isinstance(value, str) and value:
@@ -262,7 +266,24 @@ def constraint_uncertainty_model(ods: Any) -> str:
             recorded = decoded.get("uncertainty_model")
             if isinstance(recorded, str) and recorded:
                 return recorded
+            recorded = _preset_uncertainty_mode(decoded)
+            if recorded is not None:
+                return recorded
     return "unknown"
+
+
+def _preset_uncertainty_mode(decoded: dict[str, Any]) -> str | None:
+    """``uncertainty_mode`` of the preset record a pipeline-1 payload carries, if any."""
+    node: Any = decoded.get("efit_collection")
+    for key in ("efit_preset", "scientific", "constraints"):
+        if not isinstance(node, dict):
+            return None
+        node = node.get(key)
+    if isinstance(node, dict):
+        mode = node.get("uncertainty_mode")
+        if isinstance(mode, str) and mode:
+            return mode
+    return None
 
 
 def slice_times(ods: Any) -> np.ndarray:

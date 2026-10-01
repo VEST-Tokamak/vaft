@@ -533,12 +533,12 @@ def test_the_reduced_models_follow_breakdown_in_order(book):
 
 def test_every_reduced_model_states_what_it_supports_and_what_it_does_not(book):
     """#783: assumptions, the supported conclusion and the unsupported one, for each toy."""
-    notes = {"s02-toy4-intro": "s02-toy3", "s02-toy5-intro": "s02-toy4", "s02-toy6-intro": "s02-toy5",
+    notes = {"s02-breakdown-note": "s02-toy2", "s02-toy4-intro": "s02-toy3", "s02-toy5-intro": "s02-toy4", "s02-toy6-intro": "s02-toy5",
              "s02-toy7-intro": "s02-toy6", "s02-toy8-intro": "s02-toy7", "s02-toy8-note": "s02-toy8"}
     for note, toy in notes.items():
         text = _source(_cell(book, note))
         assert "Not supported" in text or "not the moment" in text, (toy, note)
-    for note in ("s02-toy4-intro", "s02-toy5-intro", "s02-toy6-intro", "s02-toy7-intro", "s02-toy8-intro"):
+    for note in ("s02-breakdown-note", "s02-toy4-intro", "s02-toy5-intro", "s02-toy6-intro", "s02-toy7-intro", "s02-toy8-intro"):
         assert "Assumptions" in _source(_cell(book, note)), note
 
 
@@ -590,3 +590,27 @@ def test_the_flux_closure_current_is_the_analytic_crossing(executed):
 def test_the_penetration_crossing_is_inside_the_scan(executed):
     printed = "".join(output.get("text", "") for output in _cell(executed, "s02-toy6").outputs)
     assert "tau_R passes this shot's ramp time" in printed
+
+
+# ---------------------------------------------------------------------------
+# #254: an analysis task, stated first and accepted on its semantics
+# ---------------------------------------------------------------------------
+
+
+def test_the_analysis_task_is_stated_before_its_implementation(book):
+    ids = [cell.id for cell in book.cells]
+    intro = _source(_cell(book, "s02-task-intro"))
+    assert "**Analysis task.**" in intro and "**Acceptance.**" in intro
+    assert ids.index("s02-task-intro") < ids.index("s02-task") < ids.index("s02-task-check")
+
+
+def test_the_analysis_task_passes_its_acceptance_criteria(executed):
+    """Checked against the figure and the data, not against the preset's intent."""
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-task-check").outputs)
+    assert re.search(r"the onset found by h_alpha\w*: True; H-alpha: True", printed), printed
+    assert "only inboard: True" in printed
+    low, high, unit = re.search(r"window drawn: ([-0-9.e]+) to ([-0-9.e]+) on an axis labelled 'Time \[(\w+)\]'",
+                                printed).groups()
+    scale = {"s": 1.0, "ms": 1e3}[unit]
+    assert (float(low), float(high)) == pytest.approx((-5e-3 * scale, 30e-3 * scale))
+    assert re.search(r"flux unit on the axis: '.*\[m?Wb\]'", printed)

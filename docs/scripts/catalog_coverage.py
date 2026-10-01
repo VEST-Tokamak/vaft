@@ -38,10 +38,10 @@ plot
     helpers -- is support API for #162.  Every registered spec, whatever its
     status, is a ``plots`` entry.
 plot thumbnails
-    ``vaft.plot.docs_thumbnails.check`` without the samples: every registered
-    plot has a manifest entry, every rendered one its PNG, no PNG or entry is
-    orphaned, and no PNG differs from its recorded hash.  A stale thumbnail is
-    printed as a warning and does not fail.
+    ``vaft.plot.docs_thumbnails.check`` without the samples: every rendered
+    entry has its PNG, no PNG or entry is orphaned, and no PNG differs from its
+    recorded hash.  A stale thumbnail, and a newly registered plot with no
+    manifest entry yet, are printed as warnings and do not fail.
 diagram
     every public function **defined in a vaft.diagram module on disk** that is
     annotated to return a ``Diagram`` is a builder entry and is in
@@ -245,7 +245,7 @@ def check_plot(snapshot: dict) -> list[str]:
 
 
 def check_plot_thumbnails(snapshot: dict, root: Path) -> list[str]:
-    """Missing, orphaned or hand-edited thumbnails fail; stale ones are only reported.
+    """Orphaned or hand-edited thumbnails fail; stale ones and new plots without one are only reported.
 
     Structural only (``full=False``): the samples are not loaded here.
     """

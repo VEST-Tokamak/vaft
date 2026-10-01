@@ -58,10 +58,10 @@ def test_fit_ti_te_ratio_validates_input():
 
 
 def test_vest_policy_values_sane():
-    # guard against accidental edits to vest.yaml: ratio in the bootstrap CI, sigma positive
-    assert 0.10 < TI_TE_RATIO_VEST < 0.25
+    # guard against accidental edits to vest.yaml: the assumed Ti = Te (#1331), sigma positive
+    assert TI_TE_RATIO_VEST == 1.0
     assert 0.0 < TI_TE_RATIO_VEST_SIGMA < TI_TE_RATIO_VEST
-    assert _POLICY.ti_te_ratio_status == "inferred"
+    assert _POLICY.ti_te_ratio_status == "assumed"
 
 
 def test_the_ratio_is_not_a_process_layer_constant():

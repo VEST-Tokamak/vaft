@@ -37,9 +37,10 @@ def test_policy_resolves_for_a_two_diagnostic_shot():
     assert isinstance(policy, CoreProfilesPolicy)
     assert policy.shot == 48224
     assert policy.coordinate == "rho_tor_norm"
-    assert policy.ti_te_ratio == pytest.approx(0.17)
-    assert policy.ti_te_ratio_sigma == pytest.approx(0.08)
-    assert policy.ti_te_ratio_status == "inferred"
+    # Ti = Te, assumed until enough CES/IDS shots exist to infer it (#1331).
+    assert policy.ti_te_ratio == pytest.approx(1.0)
+    assert policy.ti_te_ratio_sigma == pytest.approx(0.5)
+    assert policy.ti_te_ratio_status == "assumed"
     assert policy.impurity_species == ("C", "O")
     assert policy.impurity_fractions == {"C": pytest.approx(1e-2), "O": pytest.approx(1e-2)}
     assert policy.impurity_status == {"C": "assumed", "O": "assumed"}
@@ -49,7 +50,10 @@ def test_policy_resolves_for_a_two_diagnostic_shot():
 def test_policy_carries_the_derivation_provenance_verbatim():
     policy = vest_core_profiles_policy(48224)
     notes = policy.provenance["ti_te_ratio"]
+    assert "#1331" in notes["decided"] and "Ti = Te" in notes["rationale"]
+    notes = notes["superseded_inference"]  # the earlier inference, kept as the record
 
+    assert notes["value"] == pytest.approx(0.17)
     assert notes["shots"] == [48224, 48226, 48233]
     assert notes["time_window_ms"] == [299, 301]
     assert "pressure-matching" in notes["estimator"]
@@ -72,7 +76,7 @@ def test_text_records_name_value_status_and_source():
     policy = vest_core_profiles_policy(48224)
 
     assert policy.ti_te_ratio_text() == (
-        "ti_te_ratio=0.17; sigma=0.08; status=inferred; "
+        "ti_te_ratio=1; sigma=0.5; status=assumed; "
         "source=vest.yaml:diagnostics.core_profiles; base"
     )
     unknown = vest_core_profiles_policy(None)
@@ -132,7 +136,7 @@ def test_policy_is_part_of_the_shot_provenance_report():
 
     report = vest_processing_provenance(48224)
     assert report["core_profiles"]["coordinate"] == "rho_tor_norm"
-    assert report["core_profiles"]["ti_te_ratio"]["status"] == "inferred"
+    assert report["core_profiles"]["ti_te_ratio"]["status"] == "assumed"
 
 
 # --- the layering ---------------------------------------------------------------

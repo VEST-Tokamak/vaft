@@ -397,6 +397,32 @@ Sampling intervals are `raw.FAST_DT = 4e-6` s and `raw.SLOW_DT = 4e-5` s, classi
 digitiser origin: 0.24 s for `shot < 41446`, 0.26 s for shots 41446–41451, 0.24 s for 41452–41659, and
 0.26 s from 41660 on.
 
+### Processing new shots automatically
+
+On the VEST server, `vaft pipeline-worker run` polls the SQL `shot` table and runs the routine
+Snakemake pipeline on each new shot as soon as its upload has finished (issue #58). The upload
+counts as finished when either condition holds:
+
+- the shot's field inventory contains every field the previous shot had, and nothing new has
+  arrived for 30 s;
+- no field has been uploaded for `quiet_seconds`.
+
+`raw.shot_upload_status(shot)` gives the inventory and the quiet time. Processed shots are re-checked
+for fields that arrive late (`raw.field_codes_by_shot`) and reprocessed if any do. Its configuration is server-only; the workflow directory holds
+`worker.example.yaml` as a template, and `DEPLOYMENT.md` there describes how to run it as a service.
+
+The worker keeps its state in a SQLite file. Monitoring code reads that file without writing to it:
+
+<!-- docs-snippet: skip needs-database (reads a server's worker state file) -->
+```python
+from vaft.database.worker import read_worker_state
+
+with read_worker_state("/srv/vaft/pipeline/worker/worker.sqlite") as state:
+    state.counts()               # {"completed": 812, "partial": 97, "excluded": 40, ...}
+    state.shot(48950)            # state, classification, reason, attempts, last run
+    state.stage_status(48950)    # each declared product's manifest status / replication state
+```
+
 ## Working offline
 
 `load_raw` can read gzipped-JSON dumps instead of MySQL, which is how the test suite and the

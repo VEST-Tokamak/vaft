@@ -32,6 +32,16 @@ from pathlib import Path
 
 from vaft._docstring import source_span
 
+__all__ = [
+    "ASSET_DIR",
+    "SCHEMA_VERSION",
+    "builder_names",
+    "documentation_snapshot",
+    "export_documentation_snapshot",
+    "formula_references",
+    "main",
+]
+
 SCHEMA_VERSION = 1
 _GENERATOR = "python -m vaft.diagram.docs_catalog --output docs/_data/diagram_catalog.yml"
 _PACKAGE = Path(__file__).resolve().parent

@@ -488,6 +488,30 @@ def test_a_boundary_is_converted_by_the_unit_its_descriptor_declares(tmp_path):
                                [[1.0, -0.5], [3.0, -0.5], [3.0, 0.5], [1.0, 0.5]])
 
 
+def test_the_boundary_descriptor_is_read_as_utf8_whatever_the_locale_says(tmp_path, monkeypatch):
+    """``ConfigParser.read`` without ``encoding=`` opens with the locale
+    encoding, so a non-ASCII comment in a descriptor written elsewhere
+    decodes (or fails) differently on a cp949/cp1252 host (cold review
+    0.8.0 perturbation-topology-sxr F2)."""
+    import configparser
+
+    from vaft.data.flare_products import read_flare_boundary
+
+    model = boundary_model(tmp_path, descriptor="# \u00dcbergang zur Wand\n[axisurf]\nfilename: wall.txt\nunits:    cm\n")
+    (model / ".boundary" / ".boundary").write_bytes(
+        (model / ".boundary" / ".boundary").read_text(encoding="utf-8").encode("utf-8"))
+    seen = []
+    original = configparser.ConfigParser.read
+
+    def recording_read(self, filenames, encoding=None):
+        seen.append(encoding)
+        return original(self, filenames, encoding=encoding)
+
+    monkeypatch.setattr(configparser.ConfigParser, "read", recording_read)
+    assert read_flare_boundary(model).points.shape == (4, 2)
+    assert seen == ["utf-8"]
+
+
 def test_a_boundary_is_found_from_the_model_the_directory_or_the_file(tmp_path):
     from vaft.data.flare_products import read_flare_boundary
 
