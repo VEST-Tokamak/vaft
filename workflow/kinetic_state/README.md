@@ -8,6 +8,7 @@ The state key contract is defined in #1454: rows are keyed by `(shot, time_efit_
 |---|---|---|
 | `build_state.py` | the campaign FileDB and `tierA_analysis.json` (slice grades) | `state.csv`, `profiles.csv`, `schema/*.schema.json`, `MANIFEST.json` |
 | `summarize.py` | `state.csv` and the analysis JSONs | `summary.json`, `figures/pressure_consistency.{png,pdf}` |
+| `build_ti.py` | `state.csv`, `profiles.csv` and the FileDB | `ti_inferred.csv`, `ti_state.csv`, `ti_summary.json`, `core_profiles/<shot>.json.gz` |
 
 On vestserver the outputs go to `~/runs/campaign/atlas/v1/`. Nothing is written to the FileDB.
 
@@ -35,3 +36,30 @@ python3 workflow/kinetic_state/summarize.py --atlas ~/runs/campaign/atlas/v1 \
   - In `state.csv` it is `true`, `false` or empty (no Thomson verdict).
   - The ceiling follows from `p = p_e (1 + f_i T_i/T_e)` with no fast ions, `T_i ≤ T_e` and `f_i = n_i,tot/n_e ≤ 1`.
   - Version 1 used `[1, 3]` and gated `good` rows on it, so atlases built before 2026-10-02 differ.
+
+## Inferred T_i (#1426)
+
+`build_ti.py` runs after `build_state.py` and reads its tables:
+
+```bash
+python3 workflow/kinetic_state/build_ti.py --filedb ~/runs/campaign/filedb --atlas ~/runs/campaign/atlas/v1
+```
+
+It writes four things:
+- `ti_inferred.csv`: per evaluation point, either a Thomson channel or a `core_profiles` grid point;
+- `ti_state.csv`: per state key;
+- `ti_summary.json`;
+- `core_profiles/<shot>.json.gz`: IMAS `core_profiles`, the `pressure_partition_inferred` lineage.
+
+**Method**
+- T_i = (p_EFIT − e n_e T_e) / (e Σn_i).
+- Σn_i comes from the Z_eff = 2 / C⁶⁺ closure, which gives 5/6 n_e.
+- It assumes one common ion temperature.
+
+**What it refuses or flags**
+- It is **inferred** and never measured.
+- Electron-kinetic states are refused, because their pressure was fitted with Ti = Te assumed.
+- Points with p_i ≤ 0, or with p_i below its own σ, are flagged and left empty.
+- Grid points the Thomson channels do not bracket are flagged `outside_ts_span`.
+
+**σ(p_EFIT)** is the spread over the shot's other good or admissible magnetics slices within 1 ms, at the same ψ_N. Its floor is 17 % (#874).
