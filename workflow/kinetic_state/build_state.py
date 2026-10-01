@@ -133,7 +133,7 @@ def _sha256(path: Path) -> str:
 
 def _load(path: Path) -> dict[str, Any]:
     opener = gzip.open if path.suffix == ".gz" else open
-    with opener(path, "rt") as handle:
+    with opener(path, "rt", encoding="utf-8") as handle:
         return json.load(handle)
 
 
@@ -362,7 +362,7 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
     out.mkdir(parents=True, exist_ok=True)
     (out / "schema").mkdir(exist_ok=True)
     for name, columns, rows in (("state", STATE_COLUMNS, state_rows), ("profiles", PROFILE_COLUMNS, profile_rows)):
-        with open(out / f"{name}.csv", "w", newline="") as handle:
+        with open(out / f"{name}.csv", "w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=list(columns), extrasaction="raise")
             writer.writeheader()
             for row in rows:
@@ -376,7 +376,7 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
         }
         schema["properties"]["efit_lineage"]["enum"] = list(ks.LINEAGES)
         schema["properties"]["efit_quality"]["enum"] = list(ks.QUALITIES)
-        (out / "schema" / f"{name}.schema.json").write_text(json.dumps(schema, indent=1) + "\n")
+        (out / "schema" / f"{name}.schema.json").write_text(json.dumps(schema, indent=1) + "\n", encoding="utf-8")
     manifest = {
         "contract_version": ks.CONTRACT_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -389,7 +389,7 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
         "labels": {"derived_with": "criteria.slice_labels", "differ_from_stored": len(relabelled),
                    "differing": [list(k) for k in relabelled]},
     }
-    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1) + "\n")
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
     return {"state": state_rows, "profiles": profile_rows, "manifest": manifest}
 
 

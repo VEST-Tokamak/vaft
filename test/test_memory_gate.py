@@ -227,6 +227,31 @@ def test_the_ledger_directory_is_private(tmp_path):
     assert (tmp_path / "ledger").stat().st_mode & 0o777 == 0o700
 
 
+def test_ledger_records_are_written_and_read_as_utf8_not_at_the_locale():
+    """Repository rule: files are read and written as UTF-8, never at the locale's
+    encoding (vaft/version.py; cold review 0.8.0 delta-absorb-5 F6)."""
+    import ast
+    import inspect
+
+    from vaft.code import _memory_gate
+
+    source = Path(inspect.getsourcefile(_memory_gate))
+    missing = []
+    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        called = function.attr if isinstance(function, ast.Attribute) else getattr(function, "id", "")
+        if called == "open":
+            mode = node.args[1].value if len(node.args) > 1 and isinstance(node.args[1], ast.Constant) else "r"
+            text_mode = "b" not in str(mode)
+        else:
+            text_mode = called in {"read_text", "write_text"}
+        if text_mode and "encoding" not in {keyword.arg for keyword in node.keywords}:
+            missing.append(f"{source.name}:{node.lineno}: {called}()")
+    assert missing == []
+
+
 def test_memory_settings_are_validated():
     with pytest.raises(ValueError):
         LocalBackend(poll_interval_s=0)

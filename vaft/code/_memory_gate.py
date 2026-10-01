@@ -71,7 +71,7 @@ def available_mb() -> Optional[float]:
 def total_mb() -> Optional[float]:
     """Physical memory of the host in MiB; ``None`` if unknown."""
     try:
-        for line in _DEFAULT_MEMINFO.read_text().splitlines():
+        for line in _DEFAULT_MEMINFO.read_text(encoding="utf-8").splitlines():
             if line.startswith("MemTotal:"):
                 return float(line.split()[1]) / 1024.0
     except (OSError, ValueError, IndexError):
@@ -192,7 +192,7 @@ def _alive_windows(pid: int) -> bool:
 
 def _write_json_atomic(path: Path, record: dict) -> None:
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temporary.write_text(json.dumps(record))
+    temporary.write_text(json.dumps(record), encoding="utf-8")
     os.replace(temporary, path)
 
 
@@ -267,7 +267,7 @@ class MemoryLedger:
     @contextlib.contextmanager
     def _locked(self) -> Iterator[None]:
         _private_directory(self.directory)
-        with open(self.directory / ".lock", "a+") as lock:
+        with open(self.directory / ".lock", "ab+") as lock:
             if fcntl is not None:
                 fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
             try:
@@ -285,7 +285,7 @@ class MemoryLedger:
         records = []
         for path in self.directory.glob("*.json"):
             try:
-                record = json.loads(path.read_text())
+                record = json.loads(path.read_text(encoding="utf-8"))
                 owner = int(record["owner"])
                 reserve = float(record["reserve_mb"])
                 root = None if record.get("root") is None else int(record["root"])

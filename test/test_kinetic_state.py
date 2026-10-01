@@ -316,6 +316,35 @@ def _build_state_module():
     return build_state
 
 
+def _text_mode_calls_without_encoding(source: Path) -> list[str]:
+    """``open``/``gzip.open`` in text mode, ``read_text`` and ``write_text`` calls lacking ``encoding=``."""
+    import ast
+
+    missing = []
+    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        called = function.attr if isinstance(function, ast.Attribute) else getattr(function, "id", "")
+        if called in {"open", "opener"}:
+            mode = node.args[1].value if len(node.args) > 1 and isinstance(node.args[1], ast.Constant) else "r"
+            text_mode = "b" not in str(mode)
+        else:
+            text_mode = called in {"read_text", "write_text"}
+        if text_mode and "encoding" not in {keyword.arg for keyword in node.keywords}:
+            missing.append(f"{source.name}:{node.lineno}: {called}()")
+    return missing
+
+
+def test_the_atlas_is_written_and_read_as_utf8_not_at_the_locale():
+    """CSV reason cells may carry non-ASCII; the repository rule is UTF-8 everywhere
+    (vaft/version.py; cold review 0.8.0 delta-absorb-5 F6)."""
+    from pathlib import Path
+
+    source = Path(__file__).resolve().parents[1] / "workflow" / "kinetic_state" / "build_state.py"
+    assert _text_mode_calls_without_encoding(source) == []
+
+
 def test_the_kinetic_veto_grades_the_slice_at_the_row_time_not_slice_zero(tmp_path):
     """The electron-EFIT row is keyed by time; its veto and scalars must come from
     the slice at that time, as its Thomson match does (cold review 0.8.0 delta-absorb-5 F4)."""
