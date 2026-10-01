@@ -305,15 +305,80 @@ def _record(shot, time_ms, *, setting="statistical_891", betap=0.2, converged=Tr
             "gs": {}, "virial": None, "thomson": None}
 
 
-def test_build_gates_on_rederived_labels_and_uses_the_earning_setting(tmp_path):
+def _build_state_module():
     import importlib.util
-    import json
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1] / "workflow" / "kinetic_state" / "build_state.py"
     spec = importlib.util.spec_from_file_location("lane_k_build_state", root)
     build_state = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(build_state)
+    return build_state
+
+
+def _text_mode_calls_without_encoding(source: Path) -> list[str]:
+    """``open``/``gzip.open`` in text mode, ``read_text`` and ``write_text`` calls lacking ``encoding=``."""
+    import ast
+
+    missing = []
+    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        called = function.attr if isinstance(function, ast.Attribute) else getattr(function, "id", "")
+        if called in {"open", "opener"}:
+            mode = node.args[1].value if len(node.args) > 1 and isinstance(node.args[1], ast.Constant) else "r"
+            text_mode = "b" not in str(mode)
+        else:
+            text_mode = called in {"read_text", "write_text"}
+        if text_mode and "encoding" not in {keyword.arg for keyword in node.keywords}:
+            missing.append(f"{source.name}:{node.lineno}: {called}()")
+    return missing
+
+
+def test_the_atlas_is_written_and_read_as_utf8_not_at_the_locale():
+    """CSV reason cells may carry non-ASCII; the repository rule is UTF-8 everywhere
+    (vaft/version.py; cold review 0.8.0 delta-absorb-5 F6)."""
+    from pathlib import Path
+
+    source = Path(__file__).resolve().parents[1] / "workflow" / "kinetic_state" / "build_state.py"
+    assert _text_mode_calls_without_encoding(source) == []
+
+
+def test_the_kinetic_veto_grades_the_slice_at_the_row_time_not_slice_zero(tmp_path):
+    """The electron-EFIT row is keyed by time; its veto and scalars must come from
+    the slice at that time, as its Thomson match does (cold review 0.8.0 delta-absorb-5 F4)."""
+    import json
+    from omas import save_omas_json
+
+    build_state = _build_state_module()
+    times = (0.316, 0.312)  # the row's slice (0.312) stored second, on purpose
+    ods = _equilibrium(times)
+    for i, q95 in enumerate((3.0, 7.0)):
+        ods[f"equilibrium.time_slice.{i}.global_quantities.q_95"] = q95
+        ods[f"equilibrium.time_slice.{i}.global_quantities.ip"] = 1.0e5 * (i + 1)
+    save_omas_json(ods, str(tmp_path / "kin.json"))
+    product = json.loads((tmp_path / "kin.json").read_text(encoding="utf-8"))
+    seen = []
+
+    class Criteria:
+        def admissible(self, record):
+            seen.append(record)
+            return {"status": "admissible", "reasons": []}
+
+    veto, scalars = build_state._kinetic_veto(Criteria(), product, {}, {"ip_measured": 2.0e5}, 0.312)
+    assert veto["status"] == "admissible"
+    assert scalars["q95"] == 7.0 and scalars["ipmhd"] == 2.0e5
+    assert seen[0]["scalars"]["q95"] == 7.0
+    assert math.isclose(seen[0]["pressure_min"], 0.0, abs_tol=0.0)
+    with pytest.raises(LookupError):
+        build_state._kinetic_veto(Criteria(), product, {}, {}, 0.320)
+
+
+def test_build_gates_on_rederived_labels_and_uses_the_earning_setting(tmp_path):
+    import json
+
+    build_state = _build_state_module()
 
     shot = 99001
     filedb = tmp_path / "filedb"
