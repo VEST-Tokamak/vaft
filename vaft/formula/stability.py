@@ -1379,13 +1379,26 @@ def helical_phase(theta, phi, m_pol, n_tor, phase=0.0):
     harmonic in tesla, while the field-line Hamiltonian's potential is the
     flux function, and harmonic $k$ of the two differ by $i\,k\,m$: the
     modulus is already inside the island width, the $1/i$ is this quarter
-    period. Measured rather than derived, on a FLARE Poincare trace of the
-    DIII-D GPEC example at $q = 2$ on the vacuum $n = 1$ field: the traced
-    O-point is 2.1 degrees from where that law puts it and 128 degrees from
-    where $-\arg\Phi_\mathrm{res}$ does. The conjugation's sense follows the
-    orientation of the code's angles against the machine helicity and was
+    period. Equivalently, the potential's own phase is
+    $\delta = \pi/2 - \arg\Phi_\mathrm{res}$ and
+    $V = -(w/4)^{2}\cos(\xi + \delta)$ puts its O-point at $\xi = -\delta$;
+    a potential phase and an O-point location are the same statement with
+    opposite sign, and quoting one as the other inverts the law.
+
+    Measured rather than derived, on a FLARE Poincare trace of the DIII-D GPEC
+    example at $q = 2$ on the vacuum $n = 1$ field: the traced O-point is
+    2.1 degrees from where that law puts it and 128 degrees from where
+    $\phi_0 = -\arg\Phi_\mathrm{res}$ does. The conjugation's sense follows
+    the orientation of the code's angles against the machine helicity and was
     traced at $\mathrm{helicity} = -1$ only, so it is not a law to carry to
-    the other sign without a trace there.
+    the other sign without a trace there. Provenance (D-13, 2026-09-28):
+    DIII-D 147131 @ 2300 ms, GPEC ``v1.5.5-378-gf06e6ab``, equilibrium
+    ``g147131.02300_DIIID_KEFIT`` (SHA-256 ``35bf902f...bfe579``) and vacuum
+    field ``gpec_cbrzphi_n1.out`` (SHA-256 ``718da784...05a8fa``), traced by
+    ``tools/flare_r01_poincare.py OUTDIR --c1 1 --c3 0 --field coil --q 2
+    --span 0.06 --surfaces 45 --punctures 300 --run`` of
+    ``HongSik-Yun-Fusion/vaft-mastu`` against FLARE ``7ad6d2dc``; the full
+    hashes are in ``test/test_gpec_island_geometry.py::R01_PROVENANCE``.
 
     Physical interpretation
     -----------------------

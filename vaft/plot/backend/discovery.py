@@ -56,6 +56,7 @@ from .recipes import (
     SPECTROGRAM_METHODS,
     SPECTROGRAM_PARAMETERS,
     _coordinate_options,
+    coordinate_default_for,
     abscissa_options,
     field_options_for,
     overlay_options_for,
@@ -88,7 +89,15 @@ from .recipes import (
     missing_required_path,
 )
 
-__all__ = ["describe_by_ids", "describe_entries", "INTERACTION", "INTERACTION_ENTRY_POINTS", "OVERVIEW_CONTENTS", "ANALYSIS_METHODS"]
+__all__ = [
+    "describe_by_ids",
+    "describe_entries",
+    "sequence_values",
+    "INTERACTION",
+    "INTERACTION_ENTRY_POINTS",
+    "OVERVIEW_CONTENTS",
+    "ANALYSIS_METHODS",
+]
 
 #: Interaction modes a plot offers (issue #261 sections 14-17).  A static
 #: summary is the baseline; a time-navigable entry point appears beside it.
@@ -286,6 +295,17 @@ def _declare(record: PlotCapability) -> PlotCapability:
         updates["computation"] = {
             "backend": recipe.backend, "reason": recipe.reason, "reads": tuple(recipe.reads),
         }
+        if recipe.coordinates is not None:
+            options = tuple(recipe.coordinates.options)
+            updates["coordinates"] = {
+                "default": coordinate_default_for(record.name), "options": options, "declared": options,
+            }
+        if recipe.choices:
+            updates["choices"] = {
+                option: {"default": choice.default, "options": tuple(choice.options),
+                         **({"applies_to": dict(choice.applies_to)} if choice.applies_to else {})}
+                for option, choice in recipe.choices.items()
+            }
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")

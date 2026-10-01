@@ -447,7 +447,20 @@ def _hamada_circuit(sfl, psi_norm, samples=513):
 
 def test_the_hamada_angle_is_relabelled_into_the_equilibriums_pest_angle(sfl):
     """The conversion is checked against an angle built from the equilibrium's
-    own surface weights, not against the ``1/R**2`` relation it implements."""
+    own surface weights, not against the ``1/R**2`` relation it implements.
+
+    **This is the independent check of the relation itself**, and the only one:
+    ``J_1 dtheta_1 = J_2 dtheta_2`` is applied to a Solov'ev equilibrium whose
+    surfaces are known in closed form, with both angles integrated from
+    ``surface()["weight"]`` -- so nothing here is the ``R**-2`` expression
+    under test. The island-renderer tests in
+    ``test_gpec_island_geometry.py`` ask a different question: given the
+    relation, does the recipe apply it, to the right surface, and does the
+    O-point then land where the law says? Their ground truth is the circle's
+    own antiderivative (``_circular_pest_angle``), which pins the quadrature
+    but takes the ``1/R**2`` weight as given. Both are needed; neither
+    substitutes for the other.
+    """
     for psi_norm in (0.4, 0.6, 0.8):
         circuit = _hamada_circuit(sfl, psi_norm)
         converted = pest_angle_from_jacobian_angle(

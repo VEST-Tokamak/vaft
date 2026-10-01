@@ -113,3 +113,15 @@ class NUBEAMConfig(CodeConfig):
     def workdir_budget(self) -> int:
         """Longest permissible work-directory path for this configuration."""
         return workdir_budget(self.runid, buffer_chars=self.path_buffer_chars)
+
+
+__all__ = [
+    "NUBEAM_GENERATOR_EXECUTABLE",
+    "NUBEAM_HOME_ENV",
+    "NUBEAM_HOME_EXECUTABLE",
+    "NUBEAM_LONGEST_OUTPUT_SUFFIX",
+    "NUBEAM_PATH_BUFFER_CHARS",
+    "NUBEAM_UPDATE_STATE_EXECUTABLE",
+    "workdir_budget",
+    "NUBEAMConfig",
+]

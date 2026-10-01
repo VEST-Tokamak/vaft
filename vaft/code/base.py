@@ -37,8 +37,8 @@ class RunOutcome:
 
     Every subprocess adapter's result has the same three outcome fields
     (#1016): ``returncode`` (``None`` when the program was stopped),
-    ``runtime_status`` (``"completed"``, ``"timeout"`` or ``"queue_timeout"``;
-    see :mod:`vaft.code.execution`) and ``elapsed_s``.
+    ``runtime_status`` (``"completed"``, ``"timeout"``, ``"queue_timeout"`` or
+    ``"memory_limit"``; see :mod:`vaft.code.execution`) and ``elapsed_s``.
     """
 
     runtime_status: str
@@ -51,8 +51,12 @@ class RunOutcome:
 
     @property
     def timed_out(self) -> bool:
-        """The program was stopped by a time limit, running or queued."""
-        return self.runtime_status in ("timeout", "queue_timeout")
+        """The program was stopped by a limit, or never started: time, queue or memory (#1460).
+
+        The name predates the memory limit; it means the same as
+        :attr:`vaft.code.execution.ExecutionResult.timed_out`.
+        """
+        return self.runtime_status in ("timeout", "queue_timeout", "memory_limit")
 
 
 @dataclass
@@ -80,3 +84,12 @@ class CodeRunner(Protocol):
     def run(self, inputs: CodeInputs, config: CodeConfig) -> CodeResult:
         """Run the configured external code."""
         ...
+
+
+__all__ = [
+    "CodeConfig",
+    "CodeInputs",
+    "RunOutcome",
+    "CodeResult",
+    "CodeRunner",
+]

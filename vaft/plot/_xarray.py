@@ -181,6 +181,10 @@ def profile_dataset(model: Any, **extra: Any) -> "xr.Dataset":
     ds.attrs["reference_lines"] = _plain(
         [{"x": line.x, "label": line.label, "style": dict(line.style)} for line in model.reference_lines]
     )
+    metadata = getattr(model, "metadata", None)
+    if metadata:
+        # JSON text: json.loads(ds.attrs["metadata"]) is the model's record
+        ds.attrs["metadata"] = _plain(dict(metadata))
     return ds
 
 
