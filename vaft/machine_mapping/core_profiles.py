@@ -11,9 +11,10 @@ other diagnostic policy (issue #420).
 
 Every value carries a ``status`` -- ``assumed``, ``measured`` or
 ``inferred`` -- so that a stored profile can say whether the number that
-shaped it was known or guessed.  The Ti/Te ratio is ``inferred``: fitted on
-the shots that carry both diagnostics and applied to the shots that do not.
-The carbon and oxygen fractions are ``assumed``.
+shaped it was known or guessed.  The Ti/Te ratio is ``assumed`` (Ti = Te,
+#1331) until enough shots carry both diagnostics to infer it; the earlier
+inference stays in ``vest.yaml`` as its record.  The carbon and oxygen
+fractions are ``assumed``.
 """
 
 from __future__ import annotations
