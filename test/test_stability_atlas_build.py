@@ -278,6 +278,20 @@ def test_one_failing_slice_does_not_stop_preparation(batch):
     ]
 
 
+def test_a_resumed_batch_takes_the_current_slice_list(batch, tmp_path):
+    out = tmp_path / "batch"
+    out.mkdir()
+    first = tmp_path / "first.csv"
+    first.write_text("shot,time_ms\n39915,316\n", encoding="utf-8")
+    second = tmp_path / "second.csv"
+    second.write_text("shot,time_ms\n39915,316\n39915,317\n", encoding="utf-8")
+    assert batch.stage_slices(first, out).read_text(encoding="utf-8") == first.read_text(encoding="utf-8")
+    # The re-labelled list replaces the stale copy; build_atlas.py reads only the copy.
+    assert batch.stage_slices(second, out).read_text(encoding="utf-8") == second.read_text(encoding="utf-8")
+    # Pointing --slices at the batch copy itself is a no-op, not an error.
+    assert batch.stage_slices(out / "slices.csv", out).read_text(encoding="utf-8") == second.read_text(encoding="utf-8")
+
+
 def test_config_hash_is_matched_by_time_in_seconds(batch, tmp_path):
     import json
 

@@ -14,7 +14,10 @@ For every row of ``slices.csv`` (from ``select_slices.py``):
    ``bal_flag=t``, and both DCON edge treatments.
 
 Every stage is resumable: a slice whose refined g-file exists, or a job whose
-``result.json`` exists, is skipped. A failure (missing input, CHEASE failure,
+``result.json`` exists, is skipped. The batch's ``slices.csv`` is not cached:
+it always mirrors ``--slices``, so a resumed batch with a re-labelled list
+builds its atlas from the new list (``build_atlas.py`` reads only the batch
+copy). A failure (missing input, CHEASE failure,
 solver failure or timeout) is recorded, never raised, so one bad slice cannot
 stop the batch. Layout::
 
@@ -27,6 +30,7 @@ stop the batch. Layout::
 from __future__ import annotations
 
 import argparse
+import filecmp
 import gzip
 import json
 import os
@@ -135,6 +139,23 @@ def magnetic_config_sha(filedb: Path, row: dict) -> str | None:
         if status.get("time") is not None and round(float(status["time"]) * 1000) == row["time_ms"]:
             return status.get("provenance", {}).get("configuration", {}).get("scientific_sha256")
     return None
+
+
+def stage_slices(source: Path, out: Path) -> Path:
+    """Mirror the slice list into the batch directory, overwriting a stale copy.
+
+    ``build_atlas.py`` reads ``OUT/slices.csv`` and has no override, so the
+    copy must be the list this invocation ran, not the one a previous
+    invocation was started with (cold review 0.8.0 delta-absorb-6 F7). The
+    copy is rewritten whenever its content differs from ``source``; an
+    identical copy (including ``source`` being the batch copy itself) is
+    left alone.
+    """
+    target = out / "slices.csv"
+    if target.exists() and filecmp.cmp(source, target, shallow=False):
+        return target
+    _write_atomic(target, lambda path: shutil.copyfile(source, path))
+    return target
 
 
 def _write_atomic(path: Path, write) -> None:
@@ -262,9 +283,7 @@ def main() -> int:
     out = args.out.expanduser().resolve()
     out.mkdir(parents=True, exist_ok=True)
     rows = read(args.slices)
-    # build_atlas.py reads the slice list from the batch directory.
-    if not (out / "slices.csv").exists():
-        shutil.copy(args.slices, out / "slices.csv")
+    stage_slices(args.slices, out)
     # Good slices first: they carry the headline results.
     rows.sort(key=lambda r: (r["efit_label"] != "good", r["shot"], r["time_ms"], r["efit_lineage"]))
 
