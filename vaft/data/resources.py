@@ -7,6 +7,16 @@ from pathlib import Path
 
 import yaml
 
+__all__ = [
+    "available_samples",
+    "data_path",
+    "require_repository_sample",
+    "sample",
+    "sample_camera_visible_frame_paths",
+    "sample_geqdsk",
+    "sample_manifest",
+]
+
 
 def data_path(name: str = "") -> Path:
     """Return an absolute path inside the packaged ``vaft/data`` directory."""
