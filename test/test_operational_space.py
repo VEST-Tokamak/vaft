@@ -93,7 +93,8 @@ def test_a_power_law_needs_its_off_axis_inputs():
     plan = ops.overlay_plan("hugill", ["greenwald_hugill"], x_range=(0, 5), y_range=(0, 0.5),
                             fixed={"area_elongation": 1.5})
     curve = plan.curves[0]
-    np.testing.assert_allclose(curve.x / np.where(curve.y > 0, curve.y, np.nan), 50 * 1.5 / np.pi)
+    on = curve.y > 0
+    np.testing.assert_allclose(curve.x[on] / curve.y[on], 50 * 1.5 / np.pi)
 
 
 def test_boundaries_false_and_explicit_lists():
