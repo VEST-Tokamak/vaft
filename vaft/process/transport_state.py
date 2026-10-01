@@ -744,11 +744,15 @@ def _state_conditions(state: ResolvedTransportState) -> tuple[str, ...]:
 
 
 def _surface_code(error: Exception) -> str:
+    """The readiness code of a ``LocalConversionError`` from ``prepare_tglf_input``.
+
+    Only the domain refusal is told apart; a non-positive profile is refused one
+    level up, by ``prepare_gacode_profile`` at state resolution, and never reaches
+    a surface.
+    """
     text = str(error)
     if "outside the converted profile" in text or "strictly inside" in text:
         return "outside_profile_domain"
-    if "not positive" in text:
-        return "non_positive_profile"
     return "local_conversion_failure"
 
 

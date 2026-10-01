@@ -780,3 +780,14 @@ def test_a_product_without_a_time_vector_is_listed_missing_not_silently_empty(dr
     states, counts = driver.enumerate_states(filedb, labels, [48224], ["magnetics"])
     assert states == []
     assert counts["missing_products"] == [{"shot": 48224, "stage": "core_profiles", "status": "no_time"}]
+
+
+def test_surface_codes_are_the_two_a_local_conversion_can_raise():
+    """F10: positivity is refused at state resolution, so no surface code names it."""
+    from vaft.code.gacode.tglf.inputs import LocalConversionError
+    from vaft.process.transport_state import _surface_code
+
+    assert _surface_code(LocalConversionError("r/a = 0.9 is outside the converted profile")) == \
+        "outside_profile_domain"
+    assert _surface_code(LocalConversionError("ne is not positive at grid point 3")) == \
+        "local_conversion_failure"
