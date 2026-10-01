@@ -1144,3 +1144,85 @@ def test_radial_summary_numbers(atlas):
     assert s["median_q_tot_gb"] == pytest.approx(3.0) and s["median_f_neo_qi"] == pytest.approx(0.5)
     (d,) = atlas.discharge_summary([s])
     assert d["n_states"] == 1 and d["n_good"] == 1
+
+
+# --------------------------------------------------------------------------- SAT x field sensitivity (#1482)
+
+
+@pytest.fixture()
+def sensitivity():
+    path = ROOT / "workflow" / "transport_atlas" / "build_sensitivity.py"
+    spec = importlib.util.spec_from_file_location("transport_atlas_sensitivity", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    sys.modules.pop(spec.name, None)
+
+
+def test_delta_is_bounded_and_quiet_near_zero(sensitivity):
+    assert sensitivity.delta(2.0, 1.0) == pytest.approx(0.5)
+    assert sensitivity.delta(-1.0, 1.0) == pytest.approx(-2.0)
+    assert abs(sensitivity.delta(1e-5, -1e-5)) < 0.03  # both below eps: not blown up
+    assert sensitivity.delta(None, 1.0) is None
+
+
+def test_ky_peak_undoes_the_grid_weight(sensitivity):
+    from types import SimpleNamespace
+
+    ky = np.array([0.1, 0.2, 0.4, 0.8, 1.6])
+    density = np.array([1.0, 3.0, 2.0, 1.0, 0.5])  # peak at ky = 0.2
+    weights = np.abs(np.gradient(ky))
+    spectrum = np.zeros((1, 1, ky.size, 5))
+    spectrum[0, 0, :, 1] = density * weights  # what TGLF writes: weight x flux
+    assert sensitivity.ky_peak(SimpleNamespace(ky_spectrum=ky, sum_flux_spectrum=spectrum)) == 0.2
+    # the raw weighted argmax would have said 0.4 or beyond on this log grid
+    assert ky[int(np.argmax(spectrum[0, 0, :, 1]))] > 0.2
+
+
+def test_sensitivity_tables_compare_configurations_on_one_state(sensitivity, driver, sample,
+                                                                 tmp_path, monkeypatch):
+    from omas import ODS
+
+    import vaft.code.gacode.tglf as tglf
+    from vaft.code.gacode.tglf import TGLFResult
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    ods = _electron_only(sample)
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps({"labels": [{"shot": 48224, "time_ms": 300, "label": "good"}]}))
+
+    def fake(profile, rho, workdir, config=None, *, check=True):
+        scale = (1.0 + config.sat_rule) * (2.0 if config.use_bper else 1.0)
+        flux = np.array([1.0, 2.0, 0.1]) * scale
+        native = TglfOutputs(directory=str(workdir), gbflux={"particle": flux, "energy": flux,
+                             "momentum": 0 * flux, "exchange": 0 * flux},
+                             grid={"n_species": 3, "n_xgrid": 4})
+        return TGLFResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                          outputs_native=native)
+
+    monkeypatch.setattr(tglf, "run_tglf_case", fake)
+    for sat in ("0", "3"):
+        for field in ("es", "em-bper"):
+            driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(tmp_path / "runs"),
+                         "--lineages", "magnetics", "--surfaces", "0.5",
+                         "--sat-rule", sat, "--field-model", field])
+    assert sensitivity.main(["--runs", str(tmp_path / "runs"), "--out", str(tmp_path / "s")]) == 0
+    schema = json.loads((tmp_path / "s" / "schema.json").read_text())
+    assert schema["configurations"] == ["tglf-sat0-em-bper", "tglf-sat0-es", "tglf-sat3-em-bper", "tglf-sat3-es"]
+    import csv
+
+    with open(tmp_path / "s" / "sensitivity_pairs.csv", newline="") as handle:
+        (pair,) = list(csv.DictReader(handle))
+    # q_tot scales 1 (sat0 es), 2 (sat0 em), 4 (sat3 es), 8 (sat3 em): spreads 0.75, EM effect 0.5
+    assert float(pair["q_tot_gb_sat_spread_es"]) == pytest.approx(0.75)
+    assert float(pair["q_tot_gb_sat_spread_em-bper"]) == pytest.approx(0.75)
+    assert float(pair["q_tot_gb_em_vs_es_sat0"]) == pytest.approx(0.5)
+    assert float(pair["q_tot_gb_em_vs_es_sat3"]) == pytest.approx(0.5)
+    assert pair["q_tot_gb_em_vs_es_sat1"] == ""  # not run: missing, not zero
