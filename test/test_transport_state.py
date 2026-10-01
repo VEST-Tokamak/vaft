@@ -720,3 +720,15 @@ def test_a_neo_record_without_its_outputs_is_rerun_and_a_bad_one_fails_only_its_
     assert row["status"] == "failed"
     assert row["reasons"][0].startswith("projection_error: JSONDecodeError")
     assert json.loads((out / "run_manifest.json").read_text())["status_counts"] == {"failed": 1}
+
+
+def test_a_nan_midplane_geometry_is_derived_not_passed_through(sample):
+    """F2: r_inboard/r_outboard are judged finite, like the shape profiles."""
+    ods = copy.deepcopy(sample)
+    n = len(ods["equilibrium.time_slice.0.profiles_1d.psi"])
+    ods["equilibrium.time_slice.0.profiles_1d.r_inboard"] = np.full(n, np.nan)
+    ods["equilibrium.time_slice.0.profiles_1d.r_outboard"] = np.full(n, np.nan)
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good")
+    assert state.resolved, state.reasons
+    assert state.provenance["midplane_geometry"]["kind"] == "derived"
+    assert np.all(np.isfinite(state.profile.rmin))

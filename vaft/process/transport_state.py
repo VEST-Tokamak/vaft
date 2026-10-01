@@ -669,7 +669,9 @@ def resolve_transport_state(
     # map on the working copy -- the same routine the NEO comparison path uses.
     eq_base = f"equilibrium.time_slice.{eq_index}.profiles_1d"
     geometry = {"kind": "reconstructed", "source": f"{eq_base}.r_inboard/r_outboard"}
-    if _get(ods, f"{eq_base}.r_inboard") is None or _get(ods, f"{eq_base}.r_outboard") is None:
+    # Finiteness, not presence: a NaN pair would reach GACODE's rmin unchecked and
+    # the TGLF mapper then refuses every surface without naming the cause.
+    if not all(_finite_profile(_get(ods, f"{eq_base}.{name}")) for name in ("r_inboard", "r_outboard")):
         from vaft.omas import update_equilibrium_profiles_1d_radial_coordinates
 
         work = copy.deepcopy(ods) if work is ods else work
