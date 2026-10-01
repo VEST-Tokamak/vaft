@@ -24,6 +24,8 @@ from .widgets import panel_controls
 LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
 
 _SOURCE_LABELS = {"Sample": "sample", "File": "file", "Database shot": "shot"}
+#: What a hosted server opens: nothing from its own disk or the reader's.
+_HOSTED_SOURCE_LABELS = {"Sample": "sample", "Database shot": "shot"}
 _RENDERER_LABELS = {"Interactive": "plotly", "Static": "matplotlib"}
 
 #: The Plotly toolbar: zoom, pan, autoscale and image export are Plotly's own;
@@ -63,9 +65,15 @@ def parse_shots(text: str) -> list[int]:
 class BrowserApp:
     """Source picker, plot selector, controls, figure settings and the figure."""
 
-    def __init__(self, session: BrowserSession | None = None, *, plot: str | None = None) -> None:
+    def __init__(
+        self, session: BrowserSession | None = None, *, plot: str | None = None, hosted: bool = False,
+    ) -> None:
+        """``hosted`` serves readers who are not the server's user: files, the
+        server browser and uploads are left out, and :meth:`load` refuses files.
+        """
         pn = require_panel()
         self.session = session or BrowserSession()
+        self.hosted = hosted
         self.settings = FigureSettings()
         self._preferred_plot = plot
         self._renderer_choice = "plotly"
@@ -74,7 +82,9 @@ class BrowserApp:
 
         # -- source
         samples = list(sample_shots())
-        self.kind = pn.widgets.RadioButtonGroup(options=_SOURCE_LABELS, value="sample")
+        self.kind = pn.widgets.RadioButtonGroup(
+            options=_HOSTED_SOURCE_LABELS if hosted else _SOURCE_LABELS, value="sample",
+        )
         self.sample = pn.widgets.MultiChoice(
             label="Sample shots", options=samples, value=samples[:1],
             placeholder="choose one or more shots",
@@ -143,10 +153,13 @@ class BrowserApp:
         )
 
         self.kind.param.watch(self._on_kind, "value")
-        self.browse.param.watch(self._on_browse, "value")
-        self.use_selected.on_click(lambda _event: self._load_selected())
-        self.close_browser.on_click(lambda _event: setattr(self.browse, "value", False))
-        self.upload.param.watch(self._on_upload, "value")
+        if not hosted:
+            # Hosted, these widgets are never on the page and nothing may
+            # reach the server's disk through them.
+            self.browse.param.watch(self._on_browse, "value")
+            self.use_selected.on_click(lambda _event: self._load_selected())
+            self.close_browser.on_click(lambda _event: setattr(self.browse, "value", False))
+            self.upload.param.watch(self._on_upload, "value")
         self.ids_button.on_click(lambda _event: self._load_chosen_ids())
         self.load_button.on_click(lambda _event: self._load_requested())
         self.plot.param.watch(self._on_plot, "value")
@@ -201,6 +214,11 @@ class BrowserApp:
         chosen = [sources] if isinstance(sources, Source) else list(sources)
         wanted_label = ", ".join(source.label for source in chosen) or "nothing"
         self._clear_error()
+        if self.hosted and any(source.kind == "file" for source in chosen):
+            # The one door every load passes: a hosted reader would otherwise
+            # read the server's files as the account the GUI runs under.
+            self._show_error(PermissionError("this server opens samples and database shots only, not files"))
+            return False
         self.status.object = f"Loading {wanted_label} ..."
         on_screen = self.session.plot
         try:
@@ -616,18 +634,25 @@ def build_app(
     shot: int | Sequence[int] | None = None,
     namespace: str | None = None,
     plot: str | None = None,
+    hosted: bool = False,
 ) -> BrowserApp:
     """A :class:`BrowserApp`, with one kind of source loaded when the page opens.
 
     ``sample`` and ``shot`` take one shot or several to compare; with no
-    source given, the first packaged sample is loaded.
+    source given, the first packaged sample is loaded.  ``hosted`` builds the
+    app without file sources (see :class:`BrowserApp`).
     """
     given = [value for value in (sample, file, shot) if value is not None]
     if len(given) > 1:
         raise ValueError("give at most one of sample=, file= and shot=")
+    if hosted and file is not None:
+        raise ValueError("a hosted server opens no files; give sample= or shot=")
     pn = require_panel()
-    pn.extension()
-    app = BrowserApp(plot=plot)
+    # Plotly's JavaScript goes on the page up front.  Loaded late, when the
+    # first interactive plot arrives, the page may never report the document
+    # idle, and the initial load below -- run on that report -- never starts.
+    pn.extension("plotly")
+    app = BrowserApp(plot=plot, hosted=hosted)
     if sample is not None:
         initial = [Source("sample", value) for value in _as_list(sample)]
     elif file is not None:
@@ -652,7 +677,7 @@ def build_app(
     return app
 
 
-AUTH_MODES = ("auto", "password", "none")
+AUTH_MODES = ("auto", "password", "hsds", "none")
 #: The largest upload one browser message may carry (all files of one upload).
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
@@ -665,6 +690,8 @@ def serve(
     websocket_origin: Sequence[str] | None = None,
     auth: str = "auto",
     password: str | None = None,
+    hosted: bool = False,
+    prefix: str | None = None,
     **app_options: Any,
 ) -> Any:
     """Serve :func:`build_app` until interrupted; one app per browser session.
@@ -679,6 +706,20 @@ def serve(
     whenever the server runs under SSH or binds another address.  The password
     is ``password``, else ``$VAFT_GUI_PASSWORD``, else a random one printed to
     the terminal.
+
+    ``hosted`` serves a team behind a reverse proxy (nginx with HTTPS): the
+    readers are not this server's user, so the app opens samples and database
+    shots only -- no server paths, no file browser, no uploads -- the password
+    is always asked and must be given (a service's restart would otherwise
+    change it unseen), and the proxy's ``X-Forwarded-*`` headers are trusted.
+    ``prefix`` serves the app under a URL path, e.g. ``/gui`` when the proxy
+    passes ``https://host/gui/`` through.  The proxy's public host name goes
+    in ``websocket_origin``.
+
+    ``auth="hsds"`` replaces the shared password with HSDS accounts: the
+    login form's user name and password are checked against the HSDS the
+    GUI reads from (:mod:`vaft.gui.auth`).  Only the sign-in changes; the
+    data is still read with the server's own HSDS credentials.
     """
     pn = require_panel()
     import secrets
@@ -705,7 +746,9 @@ def serve(
     # port wildcard (an entry without a port means :80), so a forward to
     # another local port (ssh -L 8080:localhost:5006, or VS Code picking a
     # free port) is named with websocket_origin / --allow-websocket-origin.
-    origins = list(websocket_origin or ()) + [f"localhost:{port}", f"127.0.0.1:{port}", f"[::1]:{port}"]
+    # Nor does it parse an IPv6 literal ("[::1]:5006" stops the server), so
+    # the page is opened as localhost or 127.0.0.1.
+    origins = list(websocket_origin or ()) + [f"localhost:{port}", f"127.0.0.1:{port}"]
     if address not in LOOPBACK:
         # The page is then opened by this host's name or address.
         import socket
@@ -714,19 +757,35 @@ def serve(
             origins += [f"{socket.gethostname()}:{port}", f"{socket.getfqdn()}:{port}"]
         else:
             origins.append(f"{address}:{port}")
-    protected = auth == "password" or (auth == "auto" and (remote or address not in LOOPBACK))
+    protected = auth == "password" or (auth == "auto" and (hosted or remote or address not in LOOPBACK))
     options: dict[str, Any] = {}
-    if protected:
+    if auth == "hsds":
+        from .auth import hsds_auth_provider, hsds_endpoint
+
+        options.update(
+            auth_provider=hsds_auth_provider(hsds_endpoint()), cookie_secret=secrets.token_urlsafe(32),
+        )
+    elif protected:
         password = password or os.environ.get("VAFT_GUI_PASSWORD") or None
+        if password is None and hosted:
+            raise ValueError("a hosted server needs its password set: export VAFT_GUI_PASSWORD")
         if password is None:
             password = secrets.token_urlsafe(12)
             print(f"vaft gui: password for this server: {password}", flush=True)
         options.update(basic_auth=password, cookie_secret=secrets.token_urlsafe(32))
-    # An upload arrives as one websocket message; Bokeh's default cap is 20 MB.
-    options["websocket_max_message_size"] = MAX_UPLOAD_BYTES
+    if hosted:
+        # Behind the proxy the connection comes from 127.0.0.1; the client's
+        # address and scheme are in the headers the proxy sets.
+        options["use_xheaders"] = True
+    else:
+        # An upload arrives as one websocket message; Bokeh's default cap is
+        # 20 MB.  Hosted there are no uploads and the default stands.
+        options["websocket_max_message_size"] = MAX_UPLOAD_BYTES
+    if prefix:
+        options["prefix"] = "/" + prefix.strip("/")
 
     def page() -> Any:
-        app = build_app(**app_options)
+        app = build_app(hosted=hosted, **app_options)
         pn.state.on_session_destroyed(lambda _context: app.close())
         return app.view()
 

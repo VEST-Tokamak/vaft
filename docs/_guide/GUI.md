@@ -127,8 +127,45 @@ it runs under SSH or binds another address (`--auth auto`, the default). Use `--
 require it locally too, and `--auth none` only on a machine nobody else uses.
 
 Binding another address (`--address 0.0.0.0`) also prints a warning: the connection is not
-encrypted. Multi-user deployment is a separate concern from this page, and belongs with the
-database portal (#960).
+encrypted. To serve a team, put the GUI behind a proxy with HTTPS instead, as below.
+
+## Host it for a team
+
+`vaft gui --hosted` serves people who are not the server's user, behind a reverse proxy that
+terminates HTTPS. What changes against a personal `vaft gui`:
+
+- **Samples and database shots only.** The file source, the server file browser and uploads are
+  left out of the page, and a file source is refused even if one is sent. A reader cannot reach
+  the server's disk through the GUI.
+- **Every reader signs in.** With `--auth hsds`, readers sign in with their own HSDS account:
+  the user name and password are checked against the HSDS the GUI reads from (`GET /about`,
+  which answers 401 to a wrong account) and kept nowhere. Otherwise `--hosted` asks one shared
+  password, which must be set in `VAFT_GUI_PASSWORD` (a random one would change unseen on every
+  restart). `--auth none` is for a proxy that authenticates by itself.
+- **The proxy's headers are trusted** (`X-Forwarded-For`, `X-Forwarded-Proto`), and `--prefix`
+  serves the app under a path, so it can sit next to another service on the same host.
+
+Whoever signs in, everyone reads the database with the credentials the service runs with:
+`--auth hsds` decides who may enter, not what they may read. Give it a **read-only
+HSDS account** through `HS_ENDPOINT`, `HS_USERNAME` and `HS_PASSWORD`, never an admin one.
+
+The files in [`install/gui/`](https://github.com/VEST-Tokamak/vaft/tree/develop/install/gui)
+are a working starting point for Ubuntu with nginx and systemd, serving
+`https://<host>/gui/` next to HSDS on the same host:
+
+| File | Where it goes |
+| --- | --- |
+| `vaft-gui.service` | `/etc/systemd/system/`; runs `vaft gui --hosted --prefix /gui` as an unprivileged `vaft-gui` user with systemd sandboxing and a memory cap |
+| `vaft-gui.env.example` | `/etc/vaft-gui.env` (mode 0600); the page password and the HSDS read account |
+| `nginx-vaft-gui.conf` | the nginx site; keeps HSDS on port 80 as before, serves `/gui/` over HTTPS only, and throttles the login form |
+| `vaft-gui-proxy.conf` | `/etc/nginx/snippets/`; the websocket proxy settings the site includes |
+
+The service's `--allow-websocket-origin` must name the host the browser opens (without a port
+for the default 80/443). The page loads Panel's fonts and assets from public CDNs, so readers
+need internet access; the server does not.
+
+Hosted, one process holds every reader's session, and each session keeps the IDS it has read in
+memory until its tab closes. `MemoryMax` in the unit bounds the whole service.
 
 ## What comes next
 
