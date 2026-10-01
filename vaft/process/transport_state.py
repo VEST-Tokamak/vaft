@@ -296,6 +296,81 @@ def _insufficient(base: dict[str, Any], *reasons: str) -> ResolvedTransportState
     return ResolvedTransportState(status="insufficient", reasons=tuple(reasons), **base)
 
 
+_SHAPE = ("elongation", "triangularity_upper", "triangularity_lower")
+
+
+def _derive_shape_profiles(work: Any, eq_index: int) -> Optional[dict[str, Any]]:
+    """Write elongation and triangularities into slice ``eq_index`` of ``work``.
+
+    Traces each ``profiles_1d.psi`` level of the 2-D map and keeps only contours that
+    lie inside the slice's own boundary outline -- the longest-contour choice of the
+    g-file converter picks open vacuum contours on limited VEST slices, and the
+    product then drops the whole shape set.  The edge level is the outline itself;
+    a level with no closed interior contour is interpolated from its neighbours in
+    psi_N, never extrapolated past the outermost traced one.  Returns a provenance
+    record, or ``None`` when the slice cannot support the trace.
+    """
+    from matplotlib.path import Path as _Polygon
+
+    from vaft.process.equilibrium import contour_shape_parameters, extract_flux_surface_contours
+
+    ts = f"equilibrium.time_slice.{eq_index}"
+    r_grid = _get(work, f"{ts}.profiles_2d.0.grid.dim1")
+    z_grid = _get(work, f"{ts}.profiles_2d.0.grid.dim2")
+    psi_2d = _get(work, f"{ts}.profiles_2d.0.psi")
+    psi_1d = _get(work, f"{ts}.profiles_1d.psi")
+    axis = _get(work, f"{ts}.global_quantities.psi_axis")
+    edge = _get(work, f"{ts}.global_quantities.psi_boundary")
+    br = _get(work, f"{ts}.boundary.outline.r")
+    bz = _get(work, f"{ts}.boundary.outline.z")
+    if any(v is None for v in (r_grid, z_grid, psi_2d, psi_1d, axis, edge, br, bz)):
+        return None
+    axis, edge = float(axis), float(edge)
+    if axis == edge:
+        return None
+    br, bz = np.asarray(br, dtype=float), np.asarray(bz, dtype=float)
+    psin = (np.asarray(psi_1d, dtype=float) - axis) / (edge - axis)
+    polygon = _Polygon(np.column_stack([br, bz]))
+    profiles = {name: np.full(psin.size, np.nan) for name in _SHAPE}
+    try:
+        outline = contour_shape_parameters(br, bz)
+    except ValueError:
+        return None
+    for name in _SHAPE:
+        profiles[name][-1] = outline[name]
+    contours = extract_flux_surface_contours(
+        np.asarray(psi_2d, dtype=float), np.asarray(r_grid, dtype=float),
+        np.asarray(z_grid, dtype=float), axis, edge, psin[1:-1],
+    )
+    traced = 0
+    for index, level in enumerate(psin[1:-1], start=1):
+        inside = [
+            (r, z) for r, z in (contours.get(float(level)) or [])
+            if r.size >= 16 and np.all(polygon.contains_points(np.column_stack([r, z]), radius=1e-6))
+        ]
+        if not inside:
+            continue
+        r_seg, z_seg = max(inside, key=lambda seg: seg[0].size)
+        try:
+            shape = contour_shape_parameters(r_seg, z_seg)
+        except ValueError:
+            continue
+        for name in _SHAPE:
+            profiles[name][index] = shape[name]
+        traced += 1
+    if traced < 3:
+        return None
+    for name, values in profiles.items():
+        good = np.isfinite(values)
+        # The axis level has no contour; it takes the innermost traced value, as the
+        # g-file converter's fill does.  Interior gaps are interpolated in psi_N.
+        values[~good] = np.interp(psin[~good], psin[good], values[good])
+        work[f"{ts}.profiles_1d.{name}"] = values
+    return {"kind": "derived", "levels_traced": traced, "levels": int(psin.size),
+            "source": "closed contours of profiles_2d psi inside boundary.outline",
+            "routine": "vaft.process.equilibrium.contour_shape_parameters"}
+
+
 # --------------------------------------------------------------------------- resolve
 
 
@@ -364,8 +439,9 @@ def resolve_transport_state(
        that equilibrium time, both by time within ``tolerance``.
     2. Resolve the ion temperature: measured, then ``inferred_ti``, then the policy
        ratio, else insufficient; write a main ion into a deep copy when needed.
-    3. Derive ``r_inboard``/``r_outboard`` from the 2-D flux map when the slice does
-       not carry them (on the copy).
+    3. Derive ``r_inboard``/``r_outboard`` and, when absent, the elongation and
+       triangularity profiles from the 2-D flux map (on the copy), recording that
+       they were derived here.
     4. Convert with :func:`vaft.code.gacode.inputs.prepare_gacode_profile`, which
        applies the composition closure and refuses non-positive profiles.
 
@@ -529,6 +605,12 @@ def resolve_transport_state(
         geometry = {"kind": "derived",
                     "source": "midplane crossings of profiles_2d psi at the axis height",
                     "routine": "vaft.omas.update_equilibrium_profiles_1d_radial_coordinates"}
+    shape = {"kind": "reconstructed", "source": f"{eq_base}.elongation/triangularity_*"}
+    if any(np.size(_get(ods, f"{eq_base}.{name}")) in (0, 1) for name in _SHAPE):
+        work = copy.deepcopy(ods) if work is ods else work
+        shape = _derive_shape_profiles(work, eq_index)
+        if shape is None:
+            return _insufficient(base, "equilibrium_shape_underivable")
 
     # 4. composition and conversion -------------------------------------------------
     from vaft.code.gacode.inputs import ProfileConversionError, prepare_gacode_profile
@@ -555,6 +637,7 @@ def resolve_transport_state(
                                  "label": efit_label, "quality_source": quality_source}
     provenance["q"] = {"kind": "reconstructed", "source": "equilibrium"}
     provenance["midplane_geometry"] = geometry
+    provenance["shape"] = shape
     provenance["magnetic_shear"] = {"kind": "derived", "source": "equilibrium q"}
     profile.provenance = provenance
     composition = {
