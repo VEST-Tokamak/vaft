@@ -536,12 +536,12 @@ def test_the_log_scan_streams_rather_than_reads(tmp_path):
     report stays a sentence whatever the log does.
     """
     log = tmp_path / "pentrc.log"
-    limit = gpec._pentrc.PENTRC_NONCONVERGENCE_SCAN_LIMIT
+    limit = gpec._pentrc.PENTRC_NONCONVERGENCE_SCAN_LIMIT  # a tuning knob, not API
     log.write_text(
         "       corrector convergence failed repeatedly\n" * (limit + 500),
         encoding="utf-8",
     )
-    fatal, count = gpec._pentrc.scan_pentrc_log(log)
+    fatal, count = gpec.scan_pentrc_log(log)
     assert fatal is None
     assert count == limit
 
@@ -554,7 +554,7 @@ def test_the_log_scan_finds_the_first_fatal_line_only(tmp_path):
         "ERROR: a later one\n",
         encoding="utf-8",
     )
-    fatal, count = gpec._pentrc.scan_pentrc_log(log)
+    fatal, count = gpec.scan_pentrc_log(log)
     assert fatal == "ERROR: lambdaintgrl_lsode - too many steps in lambda required."
     # The fatal line says "too many steps" too, and is not also counted as a
     # non-convergence warning: it is the thing that stopped the run, not a
@@ -563,7 +563,7 @@ def test_the_log_scan_finds_the_first_fatal_line_only(tmp_path):
 
 
 def test_a_missing_log_scans_clean(tmp_path):
-    assert gpec._pentrc.scan_pentrc_log(tmp_path / "absent.log") == (None, 0)
+    assert gpec.scan_pentrc_log(tmp_path / "absent.log") == (None, 0)
 
 
 def test_pentrc_is_not_a_suite_module(cell):
