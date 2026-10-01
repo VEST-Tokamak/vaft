@@ -18,7 +18,9 @@ related:
 ---
 
 `vaft.formula` is the **physics layer** of VAFT: closed-form expressions, empirical scalings and
-Green's functions, written as pure functions of NumPy arrays and scalars. Nothing in it touches an
+Green's functions, written as pure functions of NumPy arrays and scalars. How it sits beside
+`vaft.process` and `vaft.code` is set out on
+[Computational layers]({{ '/reference/computational-layers/' | relative_url }}). Nothing in it touches an
 ODS, reads a file, or plots. To evaluate the same physics directly on a VEST shot, use the ODS-aware
 wrappers in `vaft.omas.formula_wrapper` (the `vaft.omas.compute_*` functions), which pull the inputs
 out of the IDSs and hand them to these functions.

@@ -169,6 +169,18 @@ class ProcessTree:
         process = subprocess.Popen(list(argv), **popen_kwargs)
         return cls(process, _windows_job_for(process) if _WINDOWS else None, token)
 
+    def members(self) -> set[int]:
+        """The leader and every live process of its tree, as :meth:`terminate` would find them.
+
+        POSIX: descendants by parent pid, plus (Linux) re-parented processes that
+        still carry this tree's environment token. Windows: the leader only.
+        """
+        root = self.process.pid
+        if _WINDOWS:
+            return {root}
+        table = _process_table()
+        return {root} | _descendants(root, table) | _tagged(self._token, table)
+
     def terminate(self, grace: Optional[float] = None) -> None:
         """Stop the whole tree; return once its leader has been reaped.
 

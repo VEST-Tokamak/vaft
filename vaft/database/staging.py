@@ -26,6 +26,15 @@ from .transport import run_hsget
 from .h5image import H5ImageUnavailableError, materialize_image
 from .utils import _require_h5pyd, ensure_imas_hdf5_userblock
 
+__all__ = [
+    "HSDSDomainCache",
+    "create_partial_master",
+    "external_h5_links",
+    "merge_master_links",
+    "requested_ids_from_paths",
+    "stage_imas_shot",
+]
+
 
 def external_h5_links(master_path: Path) -> list[str]:
     """Return filenames referenced by top-level external links in ``master``."""

@@ -106,6 +106,10 @@ def render_image_sequence(
     ``save_path`` is given, the animation is written there instead of shown
     live -- ``.gif`` uses Pillow, any other extension (e.g. ``.mp4``) uses
     ffmpeg.
+
+    For a movie of a camera plot prefer ``plot_camera_visible_image(...,
+    animation=True)`` (issue #1050): it draws each frame as the static plot
+    draws it, overlays included, and records every frame's physical time.
     """
     from matplotlib import animation
 

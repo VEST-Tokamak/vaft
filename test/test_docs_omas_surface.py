@@ -4,10 +4,10 @@ The generated API reference reads ``__all__`` and nothing else, so before
 ``vaft.omas`` declared one, ``compute_magnetic_energy`` and every other
 function of ``vaft.omas.process_wrapper`` / ``formula_wrapper`` / ``update`` /
 ``general`` was absent from ``/reference/api/omas/`` while being the way every
-guide calls them (cold review 0.8.0 docs-and-tutorials F4).  Those submodules
-still declare nothing (they are star-imported), so the package list is the one
-statement of the surface -- and a wrapper function added without a line here
-would vanish from the reference again.  This module makes that a failure.
+guide calls them (cold review 0.8.0 docs-and-tutorials F4).  Each submodule now
+declares its own ``__all__`` and the package list is built from them (#1382),
+so a wrapper function left out of its module's ``__all__`` is no longer bound
+on ``vaft.omas`` at all.  This module makes the gaps that remain a failure.
 """
 
 from __future__ import annotations
@@ -31,7 +31,8 @@ def _defined_in_vaft_omas(name: str, obj) -> bool:
 
 def test_every_wrapper_function_in_the_namespace_is_declared():
     """A function the star imports bind on ``vaft.omas`` is published there."""
-    bound = {name for name, obj in vars(vaft.omas).items() if _defined_in_vaft_omas(name, obj)}
+    # list(): _is_plotting_export caches the plotting names on first use.
+    bound = {name for name, obj in list(vars(vaft.omas).items()) if _defined_in_vaft_omas(name, obj)}
     undeclared = sorted(bound - set(vaft.omas.__all__))
     assert not undeclared, (
         f"vaft.omas binds {undeclared} from its own submodules but vaft/omas/__init__.py "
@@ -66,8 +67,13 @@ def test_the_names_the_guides_call_are_published(name):
 def test_the_generated_reference_lists_the_wrapper_functions():
     from vaft import _api_catalog
 
-    ids = {entry["id"] for entry in _api_catalog.documentation_snapshot()["entries"]}
-    assert "vaft.omas.compute_magnetic_energy" in ids
-    assert "vaft.omas.update_equilibrium_global_quantities_beta_li" in ids
+    # Each entry lives in the submodule that defines it (#1382); the package
+    # name is recorded as an exported alias.
+    published = set()
+    for entry in _api_catalog.documentation_snapshot()["entries"]:
+        published.add(entry["id"])
+        published.update(entry.get("exported_as") or ())
+    assert "vaft.omas.compute_magnetic_energy" in published
+    assert "vaft.omas.update_equilibrium_global_quantities_beta_li" in published
     modules = {row["name"]: row for row in _api_catalog.documentation_snapshot()["modules"]}
     assert modules["vaft.omas"]["declared"] is True

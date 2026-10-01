@@ -17,17 +17,20 @@ from vaft.code.base import CodeInputs
 
 from .config import NUBEAMConfig, workdir_budget
 
-#: ``inputf`` is positional, and ``plasma_state_test.f90`` reads it as::
+#: ``inputf`` is the positional case file of a legacy NUBEAM case directory,
+#: one value per line (a trailing ``! comment`` is ignored)::
 #:
-#:     read(10,*) time0,time1   ! 1
-#:     read(10,*) fgname        ! 2  G-EQDSK
-#:     read(10,*) fmname        ! 3  machine description
-#:     read(10,*) fsname        ! 4  shot configuration
-#:     read(10,*) fpsname       ! 5  Plasma State to write
-#:     read(10,*) runID         ! 6
-#:     read(10,*) fprofil       ! 7  profile mode
+#:     1  time0 time1          state time window [s]
+#:     2  G-EQDSK name
+#:     3  machine description  (mdescr namelist)
+#:     4  shot configuration   (sconfig namelist)
+#:     5  Plasma State to write
+#:     6  run id
+#:     7  profile mode         (1: read the profiles file)
+#:     8  profiles file
 #:
 #: These are 1-based line numbers, matching how the file reads.
+#: :func:`vaft.code.nubeam.plasma_state.legacy_case_spec` reads it.
 INPUTF_EQUILIBRIUM_LINE = 2
 INPUTF_STATE_LINE = 5
 INPUTF_RUNID_LINE = 6
@@ -117,7 +120,7 @@ def _inputf_field(text: str, line_number: int, description: str) -> str:
 
 
 def inputf_state_filename(text: str) -> str:
-    """Name of the Plasma State ``plasma_state_test`` will write."""
+    """Name of the Plasma State the case's ``inputf`` asks for."""
     return _inputf_field(text, INPUTF_STATE_LINE, "the output Plasma State name")
 
 
@@ -254,6 +257,97 @@ def prepare_nubeam_inputs(
         gfile=staged_gfile,
         plasma_state=target / inputf_state_filename(rewritten),
         runid=inputf_runid(rewritten),
+    )
+
+
+#: The four NUBEAM namelists every run directory needs, whatever made its state.
+NUBEAM_NAMELISTS = (
+    "nubeam_init.dat",
+    "nubeam_init_files.dat",
+    "nubeam_step.dat",
+    "nubeam_step_files.dat",
+)
+
+
+def input_plasma_state_name(text: str) -> str:
+    """``input_plasma_state`` from a ``&NUBEAM_FILES`` namelist."""
+    match = re.search(
+        r"(?im)^\s*input_plasma_state\s*=\s*['\"]?(?P<name>[^'\"\s,]+)", text
+    )
+    if match is None:
+        raise NUBEAMInputError("&NUBEAM_FILES does not set input_plasma_state")
+    return match.group("name")
+
+
+@dataclass(frozen=True)
+class StagedNamelists:
+    """A run directory holding NUBEAM's namelists and the machine description."""
+
+    workdir: Path
+    files: tuple[Path, ...]
+    mdescr: Path
+    sconfig: Path
+    #: The state both ``nubeam_*_files.dat`` tell NUBEAM to read.
+    state_name: str
+
+
+def stage_nubeam_namelists(
+    case_dir: str | Path,
+    *,
+    workdir: str | Path,
+    config: Optional[NUBEAMConfig] = None,
+) -> StagedNamelists:
+    """Copy the NUBEAM namelists and one mdescr / sconfig pair into *workdir*.
+
+    For runs whose Plasma State VAFT builds from data rather than from a
+    legacy ``inputf``: *case_dir* needs only :data:`NUBEAM_NAMELISTS` and
+    exactly one ``mdescr_*.dat`` and one ``sconfig_*.dat``. The work directory
+    is budgeted against ``config.runid``, which names the run.
+    """
+    config = config or NUBEAMConfig()
+    source = Path(case_dir).expanduser()
+    target = Path(workdir).expanduser()
+    if not source.is_dir():
+        raise NUBEAMInputError(f"NUBEAM case directory does not exist: {source}")
+    missing = [name for name in NUBEAM_NAMELISTS if not (source / name).is_file()]
+    if missing:
+        raise NUBEAMInputError(
+            f"NUBEAM case directory {source} is missing: {', '.join(missing)}"
+        )
+    descriptors = {}
+    for kind in ("mdescr", "sconfig"):
+        found = sorted(source.glob(f"{kind}_*.dat"))
+        if len(found) != 1:
+            raise NUBEAMInputError(
+                f"{source} must hold exactly one {kind}_*.dat; found {len(found)}"
+            )
+        descriptors[kind] = found[0]
+
+    names = {
+        name: input_plasma_state_name((source / name).read_text(encoding="utf-8"))
+        for name in ("nubeam_init_files.dat", "nubeam_step_files.dat")
+    }
+    if len(set(names.values())) != 1:
+        raise NUBEAMInputError(
+            f"init and step read different Plasma States: {names}"
+        )
+
+    check_workdir_length(target, config)
+    target.mkdir(parents=True, exist_ok=True)
+    staged = []
+    for path in [*(source / name for name in NUBEAM_NAMELISTS), *descriptors.values()]:
+        destination = target / path.name
+        shutil.copy2(path, destination)
+        staged.append(destination)
+    if config.nptcls is not None:
+        _apply_particle_count(target / "nubeam_init.dat", config.nptcls)
+
+    return StagedNamelists(
+        workdir=target,
+        files=tuple(staged),
+        mdescr=target / descriptors["mdescr"].name,
+        sconfig=target / descriptors["sconfig"].name,
+        state_name=next(iter(names.values())),
     )
 
 

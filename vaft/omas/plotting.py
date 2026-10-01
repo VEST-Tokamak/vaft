@@ -455,11 +455,20 @@ def plot_camera_visible_animation_frames(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ):
-    """Animate a sequence of FAST-camera frames on a shared color scale.
+    """Deprecated: use ``plot_camera_visible_image(..., animation=True)`` (issue #1050).
 
-    Returns ``(Figure, Axes, FuncAnimation)``. Renders with
+    That call draws the same frames through the static camera plot, with its
+    overlays, one colour scale over the sequence, the physical time of every
+    frame in its metadata, and ``.save("x.mp4")``/``.gif``.  This one still
+    returns ``(Figure, Axes, FuncAnimation)`` from
     :func:`vaft.plot.camera_visible_animation_frames`.
     """
+    warnings.warn(
+        "plot_camera_visible_animation_frames is deprecated; use "
+        "plot_camera_visible_image(..., animation=True) and .save('x.mp4') (issue #1050)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return render(
         "camera_visible_animation_frames",
         source,

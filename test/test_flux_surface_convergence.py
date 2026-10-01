@@ -370,3 +370,52 @@ def test_a_smooth_q_profile_is_not_flagged():
         _warnings.simplefilter("always")
         rho_tor_profile(np.asarray(profiles["q"], float), np.asarray(profiles["psi"], float))
     assert not [w for w in caught if "q on axis" in str(w.message)]
+
+
+def test_an_open_grid_edge_branch_round_the_axis_is_not_taken_for_the_surface():
+    """Issue #1462: outside a limited plasma psi turns back, so a level inside the
+    boundary also traces an open branch from grid edge to grid edge round the
+    whole plasma. Closed by its end chord it contains the axis, and it is longer
+    than the real surface, so length-wins took it -- a 10 m^3 surface inside a
+    0.35 m^3 plasma on late VEST EFIT slices, and li_3 up to 10x.
+
+    Circular surfaces ``psi = rho^2 exp(-rho^2 / 2 s^2)`` about an axis near the
+    inboard grid edge reproduce it: psi peaks at ``rho = s sqrt(2)`` outside the
+    boundary and falls back through every level, on circles the R-min edge cuts
+    open. Torus volume ``2 pi^2 R_axis rho^2`` is the closed form.
+    """
+    from scipy.optimize import brentq
+
+    r_axis, width, rho_boundary = 0.4, 0.25, 0.3
+    R = np.linspace(0.05, 1.2, 129)
+    Z = np.linspace(-1.5, 1.5, 129)
+    RR, ZZ = np.meshgrid(R, Z, indexing="ij")
+
+    def psi_of(rho):
+        return rho**2 * np.exp(-(rho**2) / (2.0 * width**2))
+
+    psi_boundary = psi_of(rho_boundary)
+    levels = np.linspace(0.0, 1.0, 17)
+    out = flux_surface_quantities(
+        psi_of(np.hypot(RR - r_axis, ZZ)),
+        R,
+        Z,
+        0.0,
+        psi_boundary,
+        levels,
+        axis_rz=(r_axis, 0.0),
+    )
+
+    assert np.all(np.diff(out["volume"]) > 0.0)
+    rho = np.array(
+        [0.0]
+        + [
+            brentq(lambda r, x=x: psi_of(r) - x * psi_boundary, 1e-9, rho_boundary)
+            for x in levels[1:]
+        ]
+    )
+    expected = 2.0 * np.pi**2 * r_axis * rho**2
+    # The innermost level is the trace's least accurate everywhere (see its docstring).
+    np.testing.assert_allclose(out["volume"][2:], expected[2:], rtol=2e-2)
+    # The open branch runs to the grid's R-min edge; the real surfaces stop at r_axis - rho.
+    np.testing.assert_allclose(out["r_inboard"], r_axis - rho, atol=5e-3)

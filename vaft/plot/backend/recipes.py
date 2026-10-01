@@ -921,6 +921,10 @@ class CallableRecipe:
     #: array of structures ``time_slice=`` indexes (``equilibrium.time_slice``),
     #: and :func:`build_model` snaps ``time=`` to the nearest of its elements.
     time_axis: str = ""
+    #: ``True`` for a builder that reads ``time_range=`` and windows its time
+    #: history to it; otherwise the option is refused (:func:`takes_time_range`)
+    #: rather than accepted and ignored.
+    windowed: bool = False
 
     def __post_init__(self) -> None:
         if self.backend not in BACKENDS:
@@ -5353,6 +5357,7 @@ RECIPES["startup_proxies_time"] = CallableRecipe(
     backend=OMAS_BOUND,
     reason='vaft.omas.process_wrapper.compute_startup_proxies_ods solves and stores the vessel currents on a private copy of pf_active/pf_passive/wall/equilibrium/tf (_isolated_copy)',
     multi_entry=True,
+    windowed=True,
 )
 RECIPES["vacuum_field_midplane"] = CallableRecipe(
     builder=_build_vacuum_field_midplane,
@@ -6266,6 +6271,7 @@ RECIPES["camera_visible_spectrogram"] = CallableRecipe(
     description="Time-frequency map of the camera intensity summed over one image region.",
     reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name"),
     backend=NEUTRAL,
+    windowed=True,
 )
 
 
@@ -7124,7 +7130,8 @@ def _smoothed_trace(trace: Series, window: float) -> Series:
 def _build_line_series(
     entries: Sequence[tuple[str, Any]], recipe: LineRecipe, **options: Any
 ) -> LineSeries:
-    spec = get_spec(options.pop("_plot_name")) if "_plot_name" in options else None
+    plot_name = options.pop("_plot_name", None)
+    spec = get_spec(plot_name) if plot_name is not None else None
     subject = spec.subject if spec is not None else None
     # Inside a composite the suptitle carries subject/unit/shot, so a member
     # keeps the short recipe title that identifies it within the figure.
@@ -7194,10 +7201,18 @@ def _build_line_series(
     # ``time_range`` (seconds) is the time window a caller asks for; it was
     # accepted and then ignored by every line plot. On a time axis it sets the
     # limits, converted to the axis's display unit; an explicit ``x_limits``
-    # (already in display units) still wins.
+    # (already in display units) still wins.  On any other abscissa -- asked
+    # for with ``x=``, or the sample index the figure fell back to -- a window
+    # in seconds means nothing, and it is refused rather than dropped (cold
+    # review 0.8.0 delta-absorb-2 F2): the rule ``time=`` follows.
     x_limits = options.get("x_limits")
     window = _range_option(options, "time_range")
-    if x_limits is None and window is not None and drawn.name == "time":
+    if x_limits is None and window is not None:
+        if drawn.name != "time":
+            raise ValueError(
+                f"time_range= windows the time axis; {plot_name or recipe.title!r} draws x={drawn.name!r} "
+                f"({drawn.label}) here, which a window in seconds cannot limit"
+            )
         x_limits = (float(window[0]) * x_display.scale, float(window[1]) * x_display.scale)
     model = LineSeries(
         series=scaled,
@@ -8854,6 +8869,7 @@ def _build_panels(
     member_options, member_style = split_options(recipe.member_defaults)
     members = []
     timed: list[str] = []
+    windowed: list[str] = []
     for name in recipe.members:
         if chosen is not None and name not in chosen:
             continue
@@ -8876,6 +8892,12 @@ def _build_panels(
             merged.pop("time", None)
         elif merged.get("time") is not None:
             timed.append(name)
+        # And for a window: it limits the members that draw a time history
+        # and leaves a profile or a map beside them alone.
+        if not takes_time_range(name):
+            merged.pop("time_range", None)
+        elif merged.get("time_range") is not None:
+            windowed.append(name)
         members.append(build_model(name, entries, _panel_member=True, **merged))
     if members and options.get("time") is not None and not timed:
         # The member that would have taken it has no data here, so what is
@@ -8883,6 +8905,11 @@ def _build_panels(
         raise ValueError(
             "time= selects nothing in this overview: none of the panels this input "
             "supports draws a single instant (takes no time= here)"
+        )
+    if members and options.get("time_range") is not None and not windowed:
+        raise ValueError(
+            "time_range= windows nothing in this overview: none of the panels this "
+            "input supports draws a time history (takes no time_range= here)"
         )
     if not members:
         raise ValueError(
@@ -9479,6 +9506,35 @@ def no_time_option_message(name: str) -> str:
     return (
         f"{name!r} takes no time=: it draws no single instant "
         "(use time_range= to window a time history)"
+    )
+
+
+def takes_time_range(name: str) -> bool:
+    """Whether plot ``name`` windows a time history to ``time_range=``.
+
+    ``time_range=`` is honoured or refused, never accepted and ignored (cold
+    review 0.8.0 delta-absorb-2 F2, the rule ``time=`` follows).  A line plot
+    takes it on its time abscissa (and refuses it when drawn against another,
+    see :func:`_build_line_series`); a spectrogram and a power spectrum trim
+    their signal to it; a computed view declares it (``CallableRecipe.windowed``);
+    a composite takes it when a member does.  A profile, a 2-D map and a
+    machine drawing have no time history to window.
+    """
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, (LineRecipe, SpectrogramRecipe, PowerSpectrumRecipe)):
+        return True
+    if isinstance(recipe, CallableRecipe):
+        return recipe.windowed
+    if isinstance(recipe, PanelRecipe):
+        return any(takes_time_range(member) for member in recipe.members)
+    return False
+
+
+def no_time_range_option_message(name: str) -> str:
+    """The refusal of time_range= by a plot that draws no time history."""
+    return (
+        f"{name!r} takes no time_range=: nothing it draws is windowed to a time "
+        "interval (a plot of one instant takes time= or time_slice= instead)"
     )
 
 
@@ -11709,18 +11765,36 @@ def _mhd_linear_flux_surface_mesh(ods: Any, base: str) -> dict[str, Any]:
     return {"psi_n": psi_n, "theta": theta, "r": r_values, "z": z_values}
 
 
-#: Flux-coordinate systems whose poloidal angle makes field lines straight,
-#: which is what lets ``m theta - n phi`` be the helical phase. GPEC's
-#: ``equal_arc`` is the one ``jac_type`` that does not, and in it a surface of
-#: constant ``m theta - n phi`` is not an island separatrix at all.
-_STRAIGHT_FIELD_LINE_JACOBIANS = frozenset({"hamada", "pest", "boozer"})
+#: The ``jac_type`` whose poloidal angle a ``coordinate_system`` mesh can be
+#: relabelled into the PEST angle from, given only the ``R`` it carries.
+#:
+#: Being a straight-field-line system is *not* the property that matters here,
+#: which is how this figure first went wrong. Hamada, PEST and Boozer are all
+#: straight-field-line systems, but each pairs its poloidal angle with its own
+#: toroidal angle, and only PEST's is the machine angle ``phi``. So
+#: ``m theta - n phi`` is the helical phase in the PEST angle alone, and a
+#: mesh in any other angle has to be converted before it can carry one.
+#: Measured on the DIII-D GPEC example, whose mesh is Hamada (provenance in
+#: :func:`_build_mhd_linear_geometry_island`): its poloidal angle departs from
+#: the equilibrium's PEST angle by up to 0.9447 rad
+#: peak-to-peak at ``q = 2`` and 1.2923 rad at ``q = 5``, so pairing it with the
+#: machine ``phi`` spreads an ``m``-lobed island's lobes over up to ``m`` times
+#: that in helical phase -- more than a whole period by ``m = 5`` -- where
+#: every lobe of one island is at one phase by definition.
+#:
+#: :data:`vaft.process.equilibrium.DCON_JACOBIAN_ANGLE_WEIGHTS` holds the
+#: weight of each named jacobian; ``boozer``, ``park`` and ``equal_arc`` need
+#: ``|B|`` or ``B_p`` on the same mesh, which the IDS does not carry.
+_PEST_CONVERTIBLE_JACOBIANS = frozenset({"hamada", "pest"})
 
 
-def _gpec_jacobian(ods: Any, n_tor: int, time_slice: int | None) -> str:
-    """The flux coordinates one GPEC (slice, mode) was solved in.
+def _gpec_solver_tag(ods: Any, tag: str, n_tor: int, time_slice: int | None) -> str:
+    """One ``<solver>`` child of ``code.parameters``, for a (slice, mode).
 
     Read the two shapes ``code.parameters`` arrives in, as
-    :func:`_mhd_linear_solver_names` does.
+    :func:`_mhd_linear_solver_names` does.  ``""`` means the run recorded
+    nothing under *tag*; no caller may read that as a value, because "the run
+    did not say" and "the run said this" are different statements.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
     if isinstance(parameters, str):
@@ -11731,15 +11805,16 @@ def _gpec_jacobian(ods: Any, n_tor: int, time_slice: int | None) -> str:
                 continue
             if time_slice is not None and named.get("time_slice") not in (None, str(int(time_slice))):
                 continue
-            found = re.search(r"<jacobian>([^<]*)</jacobian>", body)
+            pattern = re.escape(tag)
+            found = re.search(rf"<{pattern}>([^<]*)</{pattern}>", body)
             if found:
                 candidates.append(found.group(1).strip().lower())
         return candidates[-1] if candidates else ""
 
-    def _children(node: Any, tag: str) -> list[Any]:
-        if not isinstance(node, Mapping) or tag not in node:
+    def _children(node: Any, tag_name: str) -> list[Any]:
+        if not isinstance(node, Mapping) or tag_name not in node:
             return []
-        value = node[tag]
+        value = node[tag_name]
         return list(value) if isinstance(value, (list, tuple)) else [value]
 
     for solver in _children(parameters, "solver"):
@@ -11748,9 +11823,48 @@ def _gpec_jacobian(ods: Any, n_tor: int, time_slice: int | None) -> str:
         if time_slice is not None and "@time_slice" in solver:
             if int(_scalar(solver["@time_slice"])) != int(time_slice):
                 continue
-        if "jacobian" in solver:
-            return str(_scalar(solver["jacobian"])).strip().lower()
+        if tag in solver:
+            return str(_scalar(solver[tag])).strip().lower()
     return ""
+
+
+def _gpec_jacobian(ods: Any, n_tor: int, time_slice: int | None) -> str:
+    """The flux coordinates one GPEC (slice, mode) was solved in."""
+    return _gpec_solver_tag(ods, "jacobian", n_tor, time_slice)
+
+
+#: The equilibrium helicity the C-44 island-phase law was measured at.
+#:
+#: GPEC's own ``helicity = ipd * btd``, the product of the signs of the
+#: plasma current and the toroidal field as it reads them off the equilibrium
+#: (``gpec/gpec.f:427``; see ``vaft.machine_mapping.conventions``, which
+#: records that this is the quantity GPEC's toroidal-angle and output
+#: conjugation rules turn on). The relation between
+#: ``arg(Phi_res)`` and the helical potential's phase carries a conjugation
+#: whose sense follows the orientation of the code's angles against the
+#: machine's helicity, and the FLARE traces that settle it were run on a
+#: ``helicity = -1`` equilibrium only (C-44, vaft-mastu#79). It is a measured
+#: convention, not a derived one, so the other sign is refused rather than
+#: guessed.
+_C44_MEASURED_HELICITY = -1.0
+
+
+def _gpec_helicity(ods: Any, n_tor: int, time_slice: int | None) -> float:
+    """The helicity one GPEC (slice, mode) recorded, or NaN if it recorded none.
+
+    Zero is "none" rather than a value: GPEC's helicity is ``ipd * btd`` with
+    both factors in ``{-1, +1}``, so it is never zero, and
+    ``vaft.code.gpec``'s reader defaults a missing ``helicity`` attribute to
+    the integer 0 (``_gpec_output._read_control``). A run whose control file
+    carries no helicity therefore arrives here as 0, and reporting that back as
+    a recorded value would be reporting the reader's default as the run's.
+    """
+    recorded = _gpec_solver_tag(ods, "helicity", n_tor, time_slice)
+    try:
+        value = float(recorded)
+    except (TypeError, ValueError):
+        return float("nan")
+    return float("nan") if value == 0.0 else value
 
 
 def _surface_at(
@@ -11815,11 +11929,12 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
     Each rational surface carries a saturated island of full width ``w_isl``
     in normalized flux, whose separatrix is
     ``psi = psi_r +- (w/2) |cos(xi/2)|`` at helical phase
-    ``xi = m theta - n phi + arg(I_res)`` -- the constant-psi pendulum
-    separatrix, :func:`vaft.formula.stability.island_separatrix_half_width`.
-    These are the islands that would exist if the ideal shielding current
-    GPEC solves for were not there, which is why the figure is read against
-    the vacuum case rather than as a prediction.
+    ``xi = m theta* - n phi - (arg(Phi_res) - pi/2)`` -- the constant-psi
+    pendulum separatrix,
+    :func:`vaft.formula.stability.island_separatrix_half_width`, with
+    ``theta*`` the PEST straight-field-line angle.  These are the islands the
+    resonant flux implies as an equivalent constant-psi width, which is why
+    the figure is read against the vacuum case rather than as a prediction.
 
     The half-angle matters and is the whole shape.  ``(w/2) cos(xi)`` -- what
     the legacy figure drew, and what a reader reconstructing "width times a
@@ -11831,18 +11946,66 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
     ``2 pi``-periodic in ``xi``, so the section closes into ``m`` lobes with
     an X-point between each pair.
 
-    The phase reference is C-20's: GPEC's ``arg(I_res)``, which the derived
-    resonant table carries because ``I_res`` and ``Phi_res`` are real
-    multiples of the same jump.  The legacy figure fell back to zero when
-    ``I_res`` was absent, silently rotating every island; there is no
-    fallback here.
+    **The O-point sits at ``xi = arg(Phi_res) - pi/2``, not at
+    ``-arg(Phi_res)``** (C-44).  ``Phi_res`` is a *normal-field* harmonic --
+    GPEC calls it the pitch resonant flux normalized by the surface area and
+    writes it in tesla -- while the field-line Hamiltonian's potential is the
+    flux function, and harmonic ``k`` of the two differ by a factor
+    ``i k m``.  The ``1/(k m)`` modulus is already inside ``w_isl``; the
+    ``1/i`` is a quarter period nothing in ``w_isl`` carries.  Measured, not
+    derived: a FLARE Poincare trace of the DIII-D GPEC example's vacuum
+    ``n = 1`` field at ``q = 2`` puts the O-point 2.1 degrees from where this
+    law places it, against 128 degrees for the law this figure used.  The two
+    laws are compared on the harmonic of the field that was traced; the
+    relation is a statement about ``Phi_res`` as a quantity -- a normal field
+    rather than a flux function -- so it holds for the total harmonic this
+    figure draws from too, but only the vacuum one has a traced island to
+    check against, because an ideal response shields the resonant field it is
+    derived from.  ``arg(I_res)``, which C-20 names and which the resonant
+    table also carries, is the same number -- ``gpec/gpout.f`` builds both from
+    one jump through real scale factors of one sign.
 
-    The poloidal angle is the mesh's own, which is the angle the run solved
-    in.  That is what makes the expression above legitimate and also what
-    limits it: ``m theta - n phi`` is the helical phase only where the
-    coordinates make field lines straight, which ``hamada``, ``pest`` and
-    ``boozer`` do and GPEC's ``equal_arc`` does not.  The jacobian the mapper
-    recorded is checked rather than assumed.
+    Equivalently in C-44's own terms: the helical potential's phase is
+    ``delta = pi/2 - arg(Phi_res)``, and ``V = -(w/4)**2 cos(xi + delta)`` has
+    its O-point where ``xi = -delta``.  Potential phase and O-point location
+    are the same statement with opposite sign, which is worth saying because
+    quoting one as the other inverts the law.
+
+    **The phase reference is measured at one helicity.** Whether the relation
+    conjugates follows the orientation of the code's angles against the
+    machine's helicity, and the traces that settle it were run at
+    ``helicity = -1`` only.  A run recording the other sign is refused rather
+    than drawn with a law nobody measured there.
+
+    **The poloidal angle is relabelled into the PEST angle.**  Hamada, PEST
+    and Boozer all make field lines straight, but each pairs its poloidal
+    angle with its own toroidal angle, and PEST's is the machine angle
+    ``phi``; so ``m theta - n phi`` is the helical phase in the PEST angle and
+    in no other.  The mesh carries DCON's own angle, set by the run's
+    jacobian, and
+    :func:`vaft.process.equilibrium.pest_angle_from_jacobian_angle` converts
+    it from the mesh's own ``R``.  Only ``hamada`` and ``pest`` can be
+    converted that way; ``boozer``, ``park`` and ``equal_arc`` weight the
+    angle by ``|B|`` or ``B_p``, which no ``coordinate_system`` mesh carries,
+    and are refused.  Drawing a Hamada angle as though it were the helical
+    one is not a small error: on the DIII-D example that angle departs from
+    the equilibrium's PEST angle by up to 0.9447 rad peak-to-peak at
+    ``q = 2`` and 1.2923 rad at ``q = 5``, which scatters an ``m``-lobed
+    island's lobes over up to ``m`` times that in helical phase, where one
+    island's lobes are at one phase by definition.
+
+    **Provenance of the R-01 numbers above** (D-13, 2026-09-28, which admits
+    GPEC's own example into public VAFT on the strength of this record): DIII-D
+    147131 @ 2300 ms, GPEC ``v1.5.5-378-gf06e6ab``, ``jac_type = "hamada"``,
+    equilibrium ``g147131.02300_DIIID_KEFIT`` (SHA-256
+    ``35bf902f...bfe579``) with ``gpec_profile_output_n1.nc`` (SHA-256
+    ``8c17f967...2a16b5``) for the angles and ``gpec_cbrzphi_n1.out`` (SHA-256
+    ``718da784...05a8fa``) for the trace, which was produced by
+    ``tools/flare_r01_poincare.py OUTDIR --c1 1 --c3 0 --field coil --q 2
+    --span 0.06 --surfaces 45 --punctures 300 --run`` (repository
+    ``HongSik-Yun-Fusion/vaft-mastu``) against FLARE ``7ad6d2dc``.  The full
+    hashes, unabbreviated, are in
+    ``test/test_gpec_island_geometry.py::R01_PROVENANCE``.
 
     ``phi_deg`` selects the toroidal slice (default 0).  Its sign is
     :func:`vaft.formula.stability.helical_phase`'s: the helical phase is
@@ -11852,28 +12015,47 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
     it -- and rotates the pattern the other way anywhere else.
     """
     from vaft.formula.stability import helical_phase, island_separatrix_half_width
+    from vaft.process.equilibrium import pest_angle_from_jacobian_angle
 
     table = _gpec_resonant_table(ods, **options)
     cell = table["cell"]
     mesh = _mhd_linear_flux_surface_mesh(ods, cell["base"])
     n_tor = table["n_tor"]
     jacobian = _gpec_jacobian(ods, n_tor, cell["time_slice"])
-    if jacobian not in _STRAIGHT_FIELD_LINE_JACOBIANS:
+    if jacobian not in _PEST_CONVERTIBLE_JACOBIANS:
         raise ValueError(
             f"this run solved in {jacobian or 'unrecorded'} coordinates, whose "
-            "poloidal angle does not make field lines straight, so m*theta - "
-            "n*phi is not the helical phase and a curve of constant phase is "
-            "not an island separatrix; straight-field-line coordinates are "
-            f"{sorted(_STRAIGHT_FIELD_LINE_JACOBIANS)}"
+            "poloidal angle cannot be relabelled into the PEST angle from the "
+            "mesh's R alone -- and the PEST angle is the only one whose "
+            "toroidal partner is the machine phi, so it is the only one in "
+            "which m*theta - n*phi is the helical phase of a fixed-phi "
+            "section; convertible jacobians are "
+            f"{sorted(_PEST_CONVERTIBLE_JACOBIANS)}"
+        )
+    helicity = _gpec_helicity(ods, n_tor, cell["time_slice"])
+    if not np.isclose(helicity, _C44_MEASURED_HELICITY, atol=1e-9):
+        # "Recorded none" reaches here as NaN, and printing that as a number
+        # reads as nothing at all.
+        recorded = ("no helicity (a missing attribute, or the 0 GPEC's reader "
+                    "defaults one to)" if not np.isfinite(helicity)
+                    else f"helicity {helicity:g}")
+        raise ValueError(
+            f"this run recorded {recorded}, and the island phase "
+            f"reference is measured only at helicity {_C44_MEASURED_HELICITY:g} "
+            "(C-44): the relation between arg(Phi_res) and the helical "
+            "potential's phase carries a conjugation whose sense follows the "
+            "code's angles against the machine helicity, and no Poincare trace "
+            "has settled the other sign, so the O-points would be drawn from a "
+            "law nobody measured there"
         )
     phi_deg = float(options.get("phi_deg", 0.0))
     phi_rad = np.deg2rad(phi_deg)
-    # The mesh's poloidal angle is normalized to one circuit; the helical
-    # phase is in radians. The last sample repeats the first -- theta = 0 and
-    # theta = 1 are one point -- and a separatrix is traced twice, out and
-    # back, so the duplicate is dropped here and the circuit closed
-    # explicitly below.
-    theta_rad = 2.0 * np.pi * mesh["theta"][:-1]
+    # The mesh's poloidal angle is normalized to one circuit, with the last
+    # sample repeating the first -- theta = 0 and theta = 1 are one point. The
+    # full circuit is what the PEST conversion integrates over, and a
+    # separatrix is traced twice, out and back, so the duplicate is dropped
+    # after the conversion and the circuit closed explicitly below.
+    theta_norm = mesh["theta"]
 
     boundary_r, boundary_z = _surface_at(mesh, float(np.max(mesh["psi_n"])))
     layers = [
@@ -11886,9 +12068,15 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
     clipped: list[str] = []
     for index, row in enumerate(table["rows"]):
         psi_r = float(row["psi_n"])
-        half = 0.5 * float(row["w_isl"])
         m_pol = int(row["m_pol"])
         surface_r, surface_z = _surface_at(mesh, psi_r)
+        if not np.isfinite(surface_r).all():
+            raise ValueError(
+                f"the m/n = {m_pol}/{n_tor} rational surface at psi_N={psi_r:.4f} "
+                f"is entirely outside the mapped mesh "
+                f"[{float(mesh['psi_n'][0]):.6f}, {float(mesh['psi_n'][-1]):.6f}], "
+                "so neither it nor its island has a poloidal angle to be drawn on"
+            )
         layers.append(
             GeometryLayer(
                 r=surface_r, z=surface_z, kind="polygon",
@@ -11897,7 +12085,12 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
                 role="equilibrium",
             )
         )
-        phase = helical_phase(theta_rad, phi_rad, m_pol, n_tor, phase=-row["phase"])
+        # Per surface, not once for the mesh: the conversion weight is a
+        # function of R along the circuit, so each flux surface reparametrises
+        # differently.
+        theta_rad = pest_angle_from_jacobian_angle(theta_norm, surface_r, jacobian)[:-1]
+        phase = helical_phase(theta_rad, phi_rad, m_pol, n_tor,
+                              phase=row["phase"] - 0.5 * np.pi)
         excursion = island_separatrix_half_width(phase, float(row["w_isl"]))
         # Start the circuit at an X-point, and close it there. The separatrix
         # is traced outward once and back along the inward branch, and the two
@@ -11914,13 +12107,6 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
         inner_r, inner_z = _surface_at(mesh, psi_r - excursion, columns=order)
         if not np.isfinite(outer_r).all() or not np.isfinite(inner_r).all():
             clipped.append(f"{m_pol}/{n_tor}")
-        if not np.isfinite(outer_r).any() and not np.isfinite(inner_r).any():
-            raise ValueError(
-                f"the m/n = {m_pol}/{n_tor} island at psi_N={psi_r:.4f} is "
-                f"{float(row['w_isl']):.4g} wide and lies entirely outside the "
-                f"mapped mesh [{float(mesh['psi_n'][0]):.6f}, "
-                f"{float(mesh['psi_n'][-1]):.6f}]"
-            )
         layers.append(
             GeometryLayer(
                 # One closed curve: the outward branch of the separatrix from
@@ -13200,6 +13386,7 @@ RECIPES["diagnostics_spectrum_coherence"] = CallableRecipe(
         for template in (*signals, *times, name)
     ),
     backend=NEUTRAL,
+    windowed=True,
 )
 
 
