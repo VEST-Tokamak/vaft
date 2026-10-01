@@ -25,6 +25,7 @@ from .utils import (
     _require_h5pyd,
     ensure_imas_hdf5_userblock,
     exist_shot,
+    ensure_shot_folder,
     is_connect,
     require_source_exists,
 )
@@ -284,6 +285,8 @@ def _publish_staged_shot(
     from ._master_lock import shot_master_lock
 
     with shot_master_lock(source, shot):
+        # A new shot's folder is created here, not provisioned in advance.
+        ensure_shot_folder(source, shot)
         return _upload_local_shot(
             shot_dir=shot_dir,
             directory=source,

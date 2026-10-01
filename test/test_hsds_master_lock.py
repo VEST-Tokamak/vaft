@@ -12,6 +12,7 @@ from contextlib import nullcontext
 import json
 from pathlib import Path
 import threading
+from types import SimpleNamespace
 import time
 
 import h5py
@@ -90,6 +91,7 @@ def hsds(monkeypatch, tmp_path):
     monkeypatch.setattr("vaft.database.transport.verify_uploaded_image", lambda *a, **k: None)
     monkeypatch.setattr(ods_module, "_upload_local_image", lambda local, uri: fake.put(local, uri))
     monkeypatch.setattr("vaft.database.utils.require_source_exists", lambda source: None)
+    monkeypatch.setattr(ods_module, "ensure_shot_folder", lambda source, shot: None)
     monkeypatch.setattr(replication, "_round_trip", lambda ods, **kwargs: {"passed": True})
 
     staging_root = tmp_path / "staging"
@@ -365,3 +367,85 @@ def test_the_audit_command_fails_while_data_is_hidden(monkeypatch, status, code,
         lambda shots, source=None, repair=False: [{"shot": 1, "status": status, "missing": ["a.h5"]}],
     )
     assert cli.main(["audit-masters", "--shots", "1"]) == code
+
+
+class _FakeFolders:
+    """h5pyd.Folder's create semantics: x creates only on 404, otherwise opens."""
+
+    def __init__(self, existing=(), domains=(), refuse=None):
+        self.existing = set(existing)
+        self.domains = set(domains)
+        self.refuse = refuse
+        self.created = []
+
+    def __call__(self, path, mode="r"):
+        node = SimpleNamespace(_obj_class="folder")
+        if path in self.domains:
+            node._obj_class = "domain"
+            return node
+        if path in self.existing:
+            return node
+        if mode != "x":
+            raise OSError(404, "Not Found")
+        if self.refuse is not None:
+            status = self.refuse
+            if status == 409:
+                # Another host created it between our GET and PUT.
+                self.existing.add(path)
+            raise OSError(status, "refused")
+        self.existing.add(path)
+        self.created.append(path)
+        return node
+
+
+def test_a_new_shot_folder_is_created_on_first_write(monkeypatch):
+    from vaft.database import utils
+
+    folders = _FakeFolders(existing={"/main/"})
+    monkeypatch.setattr(utils.h5pyd, "Folder", folders)
+    utils.ensure_shot_folder("main", 50001)
+    utils.ensure_shot_folder("main", 50001)
+    assert folders.created == ["/main/50001/"]
+
+
+def test_losing_the_create_race_to_another_host_is_success(monkeypatch):
+    from vaft.database import utils
+
+    folders = _FakeFolders(refuse=409)
+    monkeypatch.setattr(utils.h5pyd, "Folder", folders)
+    utils.ensure_shot_folder("main", 50001)
+
+
+def test_a_forbidden_create_names_the_fix(monkeypatch):
+    from vaft.database import utils
+
+    monkeypatch.setattr(utils.h5pyd, "Folder", _FakeFolders(refuse=403))
+    with pytest.raises(utils.ShotFolderError, match="hstouch -o <owner> /main/50001/"):
+        utils.ensure_shot_folder("main", 50001)
+
+
+def test_a_shot_path_that_is_a_domain_is_refused(monkeypatch):
+    from vaft.database import utils
+
+    monkeypatch.setattr(utils.h5pyd, "Folder", _FakeFolders(domains={"/main/50001/"}))
+    with pytest.raises(utils.ShotFolderError, match="domain, not a folder"):
+        utils.ensure_shot_folder("main", 50001)
+
+
+def test_the_publish_creates_the_folder_under_the_lock_before_uploading(hsds, monkeypatch, tmp_path):
+    order = []
+    held = []
+
+    def ensure(source, shot):
+        held.append(_master_lock._held.get((f"{source}:{shot}", threading.get_ident()), 0))
+        order.append(("folder", source, shot))
+
+    monkeypatch.setattr(ods_module, "ensure_shot_folder", ensure)
+    monkeypatch.setattr(
+        ods_module, "_upload_local_shot", lambda **kwargs: order.append(("upload",)) or []
+    )
+    staged = tmp_path / "new"
+    _write_staged_shot(staged, ["magnetics"])
+    ods_module._publish_staged_shot(staged, "main", 50001)
+    assert order == [("folder", "main", 50001), ("upload",)]
+    assert held == [1]

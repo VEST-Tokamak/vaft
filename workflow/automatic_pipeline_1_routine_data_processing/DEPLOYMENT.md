@@ -633,21 +633,26 @@ PY
 | Provenance | `"source": "main"`, `"remote_uri": "hdf5://main/39915/"`, a `product_sha256` |
 | Manifest | unchanged — it describes production, not replication |
 
-> **Per-shot folders must be provisioned. This is settled, not open.** HSDS does
-> not auto-create them: `hsload` fails with
-> `Domain: hdf5://main/39915/dataset_description.h5 not found` until the folder
-> exists. Provision one shot with `hstouch -o "$OWNER" /main/39915/`, or a whole
-> range with the script below. It is idempotent — `hstouch` opens with `mode='x'`
-> and refuses an existing folder, which the script counts rather than treats as
-> an error.
+> **Per-shot folders are created by the writer.** `hsload` does not create a
+> missing folder -- it fails with
+> `Domain: hdf5://main/39915/dataset_description.h5 not found` -- so every
+> write path (`save_ods`, the native IDS writer, replication) now creates
+> `/<source>/<shot>/` itself under the shot's master lock, right before its
+> first upload (`vaft.database.utils.ensure_shot_folder`). An existing folder
+> costs one GET and is never touched; a second host losing the create race
+> (409) counts as success. Checked against this deployment on 2026-10-01 as
+> `admin` with h5pyd 0.24.0: the folder is created, a repeat is a no-op, and
+> `hsload` into it succeeds.
+>
+> The folder is owned by the writing account, so that account needs create
+> permission in the source folder -- `admin`, the production writer, has it.
+> A writer without it gets an error naming the `hstouch` that provisions the
+> shot. `provision_hsds_shots.sh` still does that for a range, and is now only
+> needed for a writer without create permission:
 >
 > ```bash
 > ./provision_hsds_shots.sh main 39000 45000
-> ./provision_hsds_shots.sh chease-mhd-stability 39000 45000
 > ```
->
-> A shot needs a folder in **every** source it replicates into, so a full
-> backfill is one call per source.
 
 ### Then prove the merge preserves what was already there
 
@@ -819,7 +824,7 @@ the corrective updaters' one-time bootstrap of their shot registry, which opens
 - [ ] Every canonical product is under its declared container — `migrate-products` reports `pending: 0` and `--verify-shape` reports no failures
 - [ ] A second stage did not hide the first — `external_h5_links` lists both
 - [ ] A rerun reused the record — no upload
-- [ ] Per-shot folder behaviour recorded — auto-created, or `hstouch` needed
+- [ ] A new shot's folder was created by its first write — no `hstouch`
 - [ ] `/public/` unchanged throughout — entry count and modified timestamp
 
 ---

@@ -20,6 +20,7 @@ from ..compat import temporary_directory
 from .utils import (
     _require_h5pyd,
     ensure_imas_hdf5_userblock,
+    ensure_shot_folder,
     is_connect,
     require_source_exists,
 )
@@ -126,6 +127,7 @@ def save(
         from .ods import _merge_current_master
 
         with shot_master_lock(source, int(shot)):
+            ensure_shot_folder(source, int(shot))
             ids_remote_uri = f"hdf5://{source}/{shot}/{filename}"
             run_hsload(_staging_dir / filename, ids_remote_uri)
             verify_uploaded_image(_staging_dir / filename, ids_remote_uri)
