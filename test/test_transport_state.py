@@ -562,6 +562,131 @@ def test_neo_driver_maps_one_profile_run_and_checks_its_surfaces(neo_driver, sam
     assert state["status"] == "partial"
 
 
+# --------------------------------------------------------------------------- classical (#1435)
+
+
+def test_classical_collision_times_match_the_nrl_forms(sample):
+    from vaft.process.transport_state import classical_heat_fluxes, surface_toroidal_field
+
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    local = assess_tglf_readiness(state, (0.5,)).surfaces[0].local_input
+    d = classical_heat_fluxes(local, surface_toroidal_field(state.profile, local))
+    norm = local.normalisation
+    ne_cm3 = norm.electron_density * 1e-6
+    te_ev = norm.electron_temperature / 1.602176634e-19
+    # NRL: tau_e = 3.44e5 Te^1.5 / (n lnL) for Z = 1; Braginskii's n_i Z^2 is n_e Z_eff.
+    assert d["tau_e_s"] * float(local.zeff) == pytest.approx(
+        3.44e5 * te_ev ** 1.5 / (ne_cm3 * d["coulomb_logarithm"]), rel=0.01)
+    # NRL tau_i for the main ion alone, then scaled by the extra field-ion collisions.
+    ti_ev = te_ev * float(local.taus[1])
+    zs, fr = np.asarray(local.zs)[1:], np.asarray(local.as_)[1:]
+    ni_cm3 = ne_cm3 * fr[0]
+    mu = float(local.mass[1]) * 3.34358e-27 / 1.67262192e-27
+    self_only = 2.09e7 * ti_ev ** 1.5 * mu ** 0.5 / (ni_cm3 * d["coulomb_logarithm_ion"] * zs[0] ** 4)
+    boost = np.sum(fr * zs ** 2) / (fr[0] * zs[0] ** 2)
+    assert boost > 2.0  # H + C6+ at Z_eff = 2: carbon raises the ion collisionality ~2.5x
+    assert d["tau_i_s"] == pytest.approx(self_only / boost, rel=0.01)
+    assert d["gamma1_perp"] == pytest.approx(4.0, rel=0.01)  # Braginskii at Z = 2
+
+
+def test_classical_uses_the_physical_field_not_b_unit(sample):
+    from vaft.process.transport_state import surface_toroidal_field
+
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    local = assess_tglf_readiness(state, (0.5,)).surfaces[0].local_input
+    b = surface_toroidal_field(state.profile, local)
+    r = float(local.rmaj_loc) * local.normalisation.minor_radius
+    assert b == pytest.approx(abs(state.profile.bcentr) * state.profile.rcentr / r)
+    assert b < abs(local.normalisation.b_unit)  # B_unit is a flux-coordinate field, larger on VEST
+
+
+def test_classical_flux_runs_down_the_gradient_and_scales_as_one_over_b_squared(sample):
+    from vaft.process.transport_state import classical_heat_fluxes
+
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    local = assess_tglf_readiness(state, (0.6,)).surfaces[0].local_input
+    d = classical_heat_fluxes(local, 0.3)
+    assert np.sign(d["electron_energy_flux_W_m2"]) == np.sign(local.rlts[0])
+    assert np.sign(d["ion_energy_flux_W_m2"]["z=1"]) == np.sign(local.rlts[1])
+    assert classical_heat_fluxes(local, 0.6)["chi_e_m2_s"] == pytest.approx(d["chi_e_m2_s"] / 4.0)
+    assert d["electron_particle_flux_m2_s"] is None  # not modelled: missing, not zero
+
+
+def test_a_classical_failure_is_recorded_not_raised(driver, sample):
+    import dataclasses
+
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    local = assess_tglf_readiness(state, (0.5,)).surfaces[0].local_input
+    record, error = driver.classical_record(state.profile, dataclasses.replace(local, normalisation=None))
+    assert record is None and "normalisation" in error
+
+
+# --------------------------------------------------------------------------- cold review 0.8.0 delta-absorb-9
+
+
+def _classical_state(sample, r=0.5):
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    return state, assess_tglf_readiness(state, (r,)).surfaces[0].local_input
+
+
+def test_a_classical_failure_of_any_kind_is_recorded_not_raised(driver, sample):
+    """F1: a missing field or an electron-only species list is a reason, not a raise."""
+    import dataclasses
+
+    state, local = _classical_state(sample)
+    # GACODEProfile's default: no bcentr/rcentr on the profile.
+    record, error = driver.classical_record(dataclasses.replace(state.profile, bcentr=None), local)
+    assert record is None and "TypeError" in error
+    # TGLF local input carrying electrons only: there is no main ion to evaluate.
+    electrons_only = dataclasses.replace(
+        local, zs=np.array([-1.0]), as_=np.array([1.0]), mass=np.array([local.mass[0]]),
+        taus=np.array([1.0]), rlts=np.array([local.rlts[0]]))
+    record, error = driver.classical_record(state.profile, electrons_only)
+    assert record is None and "IndexError" in error
+
+
+def test_classical_refuses_a_non_positive_field_and_the_row_stays_standard_json(driver, sample):
+    """F2: b = 0 must not become an ``Infinity`` token in state.json."""
+    import dataclasses
+
+    from vaft.process.transport_state import classical_heat_fluxes
+
+    state, local = _classical_state(sample)
+    for b in (0.0, -0.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="b_tesla"):
+            classical_heat_fluxes(local, b)
+    record, error = driver.classical_record(dataclasses.replace(state.profile, bcentr=0.0), local)
+    assert record is None and "b_tesla" in error
+
+    def refuse(token):
+        raise AssertionError(f"non-standard JSON token {token!r}")
+
+    payload = json.dumps({"classical": record, "classical_error": error}, default=float)
+    assert json.loads(payload, parse_constant=refuse)["classical"] is None
+
+
+def test_classical_gamma1_table_is_braginskii_table_2(sample):
+    """F3: the Z -> inf knot is Braginskii's 3.25; above Z = 4 the coefficient is held at 3.6."""
+    from vaft.process.transport_state import _GAMMA1_PERP, classical_heat_fluxes
+
+    table = dict(_GAMMA1_PERP)
+    assert table[1.0] == 4.66 and table[2.0] == 4.0 and table[4.0] == 3.6
+    assert max(table) > 4.0 and table[max(table)] == 3.25
+    gamma = np.interp([4.0, 10.0, max(table)], *zip(*_GAMMA1_PERP))
+    assert gamma[0] == 3.6 and gamma[1] == pytest.approx(3.6, abs=1e-6) and gamma[2] == 3.25
+    _, local = _classical_state(sample)
+    assert classical_heat_fluxes(local, 0.3)["model"]["coefficients"]["electron"].count("3.25") == 1
+
+
+def test_surface_toroidal_field_docstring_tags_rcentr_as_a_length():
+    """F4: rcentr is a major radius [m], not a field [T]."""
+    from vaft.process.transport_state import surface_toroidal_field
+
+    doc = surface_toroidal_field.__doc__
+    assert "``bcentr`` [T] and ``rcentr`` [m]." in doc
+    assert "``rcentr`` [T]" not in doc
+
+
 # --------------------------------------------------------------------------- cold review 0.8.0 delta-absorb-7
 
 
@@ -791,3 +916,231 @@ def test_surface_codes_are_the_two_a_local_conversion_can_raise():
         "outside_profile_domain"
     assert _surface_code(LocalConversionError("ne is not positive at grid point 3")) == \
         "local_conversion_failure"
+
+
+# --------------------------------------------------------------------------- atlas (#1427)
+
+
+@pytest.fixture()
+def atlas():
+    path = ROOT / "workflow" / "transport_atlas" / "build_atlas.py"
+    spec = importlib.util.spec_from_file_location("transport_atlas_build", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    sys.modules.pop(spec.name, None)
+
+
+def test_spectral_descriptors_on_the_regression_case(atlas):
+    from vaft.code.gacode.tglf.outputs import collect_tglf_outputs
+
+    native = collect_tglf_outputs(REG05)
+    d = atlas.spectral_descriptors(native)
+    assert d["qe_gb"] == pytest.approx(native.gbflux["energy"][0])
+    assert d["q_tot_gb"] == pytest.approx(native.gbflux["energy"].sum())
+    gamma = native.growth_rate
+    assert d["gamma_max"] == pytest.approx(gamma.max())
+    ion = native.ky_spectrum <= 1.0
+    assert d["gamma_max_ion_scale"] == pytest.approx(gamma[ion].max())
+    assert native.ky_spectrum.min() <= d["ky_q_mean"] <= native.ky_spectrum.max()
+    assert "f_em" not in d  # reg05 is electrostatic: one field, no EM share to report
+    assert d["n_unstable_ky"] == int((gamma.max(axis=1) > 0).sum())
+
+
+def test_species_charges_parse_or_refuse(atlas):
+    assert atlas.species_charges(["e", "H+", "C6+"]) == {"H+": 1.0, "C6+": 6.0}
+    assert atlas.species_charges(["e", "ion0"]) is None
+
+
+def test_every_schema_column_has_a_known_category(atlas):
+    known = {"key", "label", "provenance", "measured_input", "assumed_input",
+             "reconstructed_input", "derived_input", "tglf_predicted", "neo_predicted",
+             "classical_predicted", "model_derived"}
+    assert {category for _, category, _ in atlas.SCHEMA.values()} <= known
+    assert not any("itg" in name or "tem" in name.split("_") for name in atlas.SCHEMA)
+
+
+def test_atlas_joins_tglf_neo_and_classical_by_state_identity(atlas, driver, neo_driver, sample,
+                                                               tmp_path, monkeypatch):
+    from omas import ODS
+
+    import vaft.code.gacode.neo as neo
+    import vaft.code.gacode.tglf as tglf
+    from vaft.code.gacode.neo import NEOResult
+    from vaft.code.gacode.neo.outputs import collect_neo_outputs
+    from vaft.code.gacode.tglf import TGLFResult
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    ods = _electron_only(sample)
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps({"labels": [{"shot": 48224, "time_ms": 300, "label": "good"}]}))
+
+    def fake_tglf(profile, rho, workdir, config=None, *, check=True):
+        flux = np.array([1.0, 2.0, 0.1])
+        native = TglfOutputs(directory=str(workdir), version={"revision": "t"},
+                             gbflux={"particle": 0.1 * flux, "energy": flux,
+                                     "momentum": 0 * flux, "exchange": 0 * flux},
+                             grid={"n_species": 3, "n_xgrid": 4})
+        return TGLFResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                          outputs_native=native)
+
+    fixture = ROOT / "test" / "data" / "gacode" / "neo_vest_48224_carbon"
+
+    def fake_neo(profile, workdir, config=None, *, check=True):
+        Path(workdir).mkdir(parents=True, exist_ok=True)
+        return NEOResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                         outputs_native=collect_neo_outputs(fixture))
+
+    monkeypatch.setattr(tglf, "run_tglf_case", fake_tglf)
+    monkeypatch.setattr(neo, "run_neo_case", fake_neo)
+    surfaces = [f"{0.2 + 0.1 * i:.1f}" for i in range(7)]  # the fixture's NEO grid
+    common = ["--filedb", str(filedb), "--labels", str(labels), "--lineages", "magnetics",
+              "--surfaces", *surfaces]
+    driver.main(common + ["--out", str(tmp_path / "tglf"), "--sat-rule", "1", "--field-model", "em-bper"])
+    neo_driver.main(common + ["--out", str(tmp_path / "neo")])
+    assert atlas.main(["--tglf", str(tmp_path / "tglf" / "tglf-sat1-em-bper"), "--neo", str(tmp_path / "neo"),
+                       "--out", str(tmp_path / "atlas")]) == 0
+
+    import csv
+
+    with open(tmp_path / "atlas" / "atlas.csv", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 7
+    assert {r["efit_quality"] for r in rows} == {"good"}
+    assert {(r["tglf_config"], r["tglf_sat_rule"], r["tglf_use_bper"], r["tglf_use_bpar"]) for r in rows} == {
+        ("tglf-sat1-em-bper", "1", "True", "False")}
+    assert {r["neo_status"] for r in rows} == {"solved"}
+    # The NEO fixture was solved on this sample's equilibrium, so its exprhon surfaces
+    # are the ones the TGLF mapping places: every surface must join.
+    assert {r["partition_status"] for r in rows} == {"available"}
+    for row in rows:
+        assert row["qe_classical_W_m2"] != ""
+        if row["partition_status"] == "available":
+            parts = [float(row["qe_neo_W_m2"]), float(row["qe_tglf_W_m2"]), float(row["qe_classical_W_m2"])]
+            assert float(row["qe_model_W_m2"]) == pytest.approx(sum(parts))
+            assert float(row["f_neo_qe"]) == pytest.approx(abs(parts[0]) / sum(map(abs, parts)))
+            ions = [float(row["qi_neo_W_m2"]), float(row["qi_tglf_W_m2"]), float(row["qi_classical_W_m2"])]
+            assert float(row["qi_model_W_m2"]) == pytest.approx(sum(ions))
+            assert float(row["f_classical_qi"]) == pytest.approx(abs(ions[2]) / sum(map(abs, ions)))
+    schema = json.loads((tmp_path / "atlas" / "schema.json").read_text())
+    assert schema["row_key"] == ["shot", "time_efit_s", "efit_lineage", "r_over_a"]
+    assert set(rows[0]) == set(schema["columns"])
+
+
+def test_atlas_rows_keep_failed_surfaces_and_a_missing_model(atlas, driver, sample, tmp_path, monkeypatch):
+    from omas import ODS
+
+    import vaft.code.gacode.tglf as tglf
+    from vaft.code.gacode.tglf import TGLFResult
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    ods = _electron_only(sample)
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps({"labels": [{"shot": 48224, "time_ms": 300, "label": "admissible"}]}))
+
+    def fake(profile, rho, workdir, config=None, *, check=True):
+        if rho > 0.65:
+            return TGLFResult(returncode=None, runtime_status="timeout", workdir=Path(workdir))
+        flux = np.array([1.0, 2.0, 0.1])
+        native = TglfOutputs(directory=str(workdir), gbflux={"particle": flux, "energy": flux,
+                             "momentum": 0 * flux, "exchange": 0 * flux},
+                             grid={"n_species": 3, "n_xgrid": 4})
+        return TGLFResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                          outputs_native=native)
+
+    monkeypatch.setattr(tglf, "run_tglf_case", fake)
+    driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(tmp_path / "tglf"),
+                 "--lineages", "magnetics", "--sat-rule", "0", "--field-model", "es"])
+    rows = atlas.build_rows(tmp_path / "tglf" / "tglf-sat0-es")
+    assert [(r["r_over_a"], r["tglf_status"]) for r in rows] == [
+        (0.3, "solved"), (0.4, "solved"), (0.5, "solved"), (0.6, "solved"),
+        (0.7, "failed"), (0.8, "failed")]
+    assert [r["tglf_reason"] for r in rows[-2:]] == ["timeout", "timeout"]
+    assert {r["partition_status"] for r in rows[:4]} == {"missing_neoclassical_component"}
+    assert {r["neo_status"] for r in rows} == {"missing"}
+    assert all(r.get("qe_classical_W_m2") is not None for r in rows)  # no solver needed
+    radial = atlas.radial_summary(rows)
+    assert len(radial) == 1 and radial[0]["n_tglf_solved"] == 4 and radial[0]["n_surfaces"] == 6
+    discharge = atlas.discharge_summary(radial)
+    assert discharge[0]["n_states"] == 1 and discharge[0]["n_good"] == 0
+
+
+def test_spectral_descriptors_survive_nan_growth_rates(atlas):
+    from vaft.code.gacode.tglf.outputs import collect_tglf_outputs
+
+    native = collect_tglf_outputs(REG05)
+    spectrum = native.eigenvalue_spectrum.copy()
+    spectrum[0, 0] = np.nan
+    native.eigenvalue_spectrum = spectrum
+    d = atlas.spectral_descriptors(native)
+    assert np.isfinite(d["gamma_max"]) and d["gamma_max"] == pytest.approx(np.nanmax(native.growth_rate))
+
+
+
+def test_f_em_and_ky_q_mean_follow_their_documented_signed_definitions(atlas):
+    from types import SimpleNamespace
+
+    ky = np.array([0.5, 1.0])
+    spectrum = np.zeros((2, 2, 2, 5))          # (species, field, ky, quantity)
+    spectrum[0, 0, :, 1] = [3.0, 1.0]          # electrons, phi
+    spectrum[1, 0, :, 1] = [-1.0, 1.0]         # an inward ion flux cancels at ky = 0.5
+    spectrum[0, 1, :, 1] = [0.5, -1.5]         # A_par: net -1.0
+    native = SimpleNamespace(gbflux={"energy": np.array([1.0, 1.0]), "particle": np.zeros(2)},
+                             ky_spectrum=ky, growth_rate=None, frequency=None, sum_flux_spectrum=spectrum)
+    d = atlas.spectral_descriptors(native)
+    # per-ky signed totals: 3 - 1 + 0.5 = 2.5 and 1 + 1 - 1.5 = 0.5
+    assert d["ky_q_mean"] == pytest.approx((0.5 * 2.5 + 1.0 * 0.5) / 3.0)
+    # Q_phi = 4, Q_mag = -1: f_em = 1 / (4 + 1)
+    assert d["f_em"] == pytest.approx(0.2)
+
+
+def test_the_atlas_refuses_a_mixed_or_unnamed_configuration_and_a_wide_dt(atlas, tmp_path, monkeypatch):
+    rows = [{"tglf_config": "tglf-sat3-em-bper", "tglf_sat_rule": 3, "tglf_use_bper": True,
+             "tglf_use_bpar": False, "dt_s": 0.0, "tolerance_s": 5e-4, "shot": 1, "time_efit_s": 0.3}]
+    def run(rows_):
+        monkeypatch.setattr(atlas, "build_rows", lambda *a, **k: [dict(r) for r in rows_])
+        return atlas.main(["--tglf", str(tmp_path), "--out", str(tmp_path / "o")])
+    with pytest.raises(ValueError, match="no TGLF"):
+        run([])
+    with pytest.raises(ValueError, match="not one named TGLF configuration"):
+        run(rows + [dict(rows[0], tglf_sat_rule=2)])
+    with pytest.raises(ValueError, match="not one named TGLF configuration"):
+        run([dict(rows[0], tglf_config=None)])
+    with pytest.raises(ValueError, match="tolerance"):
+        run([dict(rows[0], dt_s=1e-3)])
+
+
+def test_duplicate_neo_records_are_refused(atlas, tmp_path):
+    for name in ("a", "b"):
+        path = tmp_path / name / "magnetics" / "00300"
+        path.mkdir(parents=True)
+        (path / "state.json").write_text(json.dumps({"state_identity": "same"}))
+    with pytest.raises(ValueError, match="share state_identity"):
+        atlas._neo_index(tmp_path)
+
+
+def test_radial_summary_numbers(atlas):
+    rows = [{"shot": 1, "time_efit_s": 0.3, "efit_lineage": "magnetics", "efit_quality": "good",
+             "ti_lineage": "ti_eq_te_assumed", "neo_status": "solved", "tglf_status": "solved",
+             "r_over_a": r, "f_e": fe, "gamma_max_ion_scale": g, "q_tot_gb": q, "f_neo_qi": fn}
+            for r, fe, g, q, fn in ((0.3, 0.2, 0.1, 1.0, 0.9), (0.5, 0.7, 0.4, 3.0, 0.5), (0.7, 0.9, 0.2, 5.0, 0.1))]
+    (s,) = atlas.radial_summary(rows)
+    assert s["n_tglf_solved"] == 3
+    assert s["fraction_electron_dominated"] == pytest.approx(2 / 3)
+    assert (s["gamma_max_ion_scale"], s["r_over_a_at_gamma_max_ion_scale"]) == (0.4, 0.5)
+    assert s["median_q_tot_gb"] == pytest.approx(3.0) and s["median_f_neo_qi"] == pytest.approx(0.5)
+    (d,) = atlas.discharge_summary([s])
+    assert d["n_states"] == 1 and d["n_good"] == 1

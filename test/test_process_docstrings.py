@@ -269,6 +269,8 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # transport_state (#1435): a positive flux runs down the gradient, as the TGLF/NEO mappers
+    "classical_heat_fluxes",
     # profile_gradient (#551): midplane r_minor (not the contour half-width), the
     # reference length's definition, and each code's gradient normalization
     "radial_coordinate_map",
