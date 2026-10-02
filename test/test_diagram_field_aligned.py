@@ -99,3 +99,60 @@ def test_flux_tube_steps_and_labels_off():
                   vaft.diagram.magnetic_shear_field_aligned, vaft.diagram.ballooning_eigenfunction):
         assert not [i for i in build(labels=False).scene.items
                     if isinstance(i, Label) and i.role not in ("axes", "ticks")]
+
+
+# --- #1075 remainder: transits, boundary conditions, X-point limit ---------------------------------
+
+
+def test_each_transit_revisits_the_outboard_point_with_less_of_the_mode():
+    d = vaft.diagram.ballooning_transit_map(transits=2)
+    a = d.model["amplitude"]
+    assert a[0] == pytest.approx(1.0)
+    for k in (1, 2):
+        assert a[k] == pytest.approx(a[-k], rel=1e-6)  # symmetric mode
+        assert abs(a[k]) < abs(a[k - 1])
+    _, th, F = s_alpha_ballooning_eigenmode(*fa.UNSTABLE)
+    assert a[1] == pytest.approx(np.interp(2 * math.pi, th, F / np.max(np.abs(F))), rel=1e-9)
+    assert len([it for it in d.scene.role("cross_section")]) == 5
+    with pytest.raises(ValueError):
+        vaft.diagram.ballooning_transit_map(transits=0)
+
+
+def test_the_flux_tube_end_rejoins_with_the_sheared_kx():
+    d = vaft.diagram.ballooning_boundary_conditions(shear=1.0)
+    assert d.model["kx_after_one_turn"] == pytest.approx(float(ballooning_radial_wavenumber(1.0, 1.0, 2 * math.pi)))
+    assert d.scene.role("twist_and_shift") and d.scene.role("decay")
+
+
+def test_theta_star_crowds_into_the_x_point_and_q_diverges():
+    m = vaft.diagram.field_aligned_xpoint_limitation().model
+    q = np.array(m["q_relative"])
+    assert np.all(np.diff(q) > 0) and q[-1] > 4.0
+    assert 0.3 < m["fraction_near_x_point"] < 0.9
+    # the core surface is not crowded
+    from vaft.diagram._gs_equilibrium import flux_model
+
+    model = flux_model("diverted")
+    core, _ = fa._straight_field_line_points(model, 0.3, 24)
+    assert np.mean(np.hypot(*(core - np.array(model["x_point"])).T) < 0.15) == 0.0
+    with pytest.raises(ValueError):
+        vaft.diagram.field_aligned_xpoint_limitation(n_theta=4)
+
+
+def test_theta_star_steps_are_equal_in_the_line_integral():
+    from vaft.diagram._gs_equilibrium import flux_model
+
+    model = flux_model("diverted")
+    a, loop_a = fa._straight_field_line_points(model, 0.5, 12)
+    b, loop_b = fa._straight_field_line_points(model, 0.5, 24)
+    assert loop_a == pytest.approx(loop_b)
+    assert np.allclose(a, b[::2], atol=1e-9)  # every other point of the finer set
+
+
+@pytest.mark.parametrize("name", ["ballooning_transit_map", "ballooning_boundary_conditions",
+                                  "field_aligned_xpoint_limitation"])
+def test_the_remainder_figures_are_deterministic_and_exposed(name):
+    fn = getattr(vaft.diagram, name)
+    assert name in vaft.diagram.__all__
+    assert fn().tikz == fn().tikz
+    assert fn(labels=False).tikz != fn().tikz
