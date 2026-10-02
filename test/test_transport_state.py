@@ -645,6 +645,26 @@ def test_a_classical_failure_of_any_kind_is_recorded_not_raised(driver, sample):
     assert record is None and "IndexError" in error
 
 
+def test_classical_refuses_a_non_positive_field_and_the_row_stays_standard_json(driver, sample):
+    """F2: b = 0 must not become an ``Infinity`` token in state.json."""
+    import dataclasses
+
+    from vaft.process.transport_state import classical_heat_fluxes
+
+    state, local = _classical_state(sample)
+    for b in (0.0, -0.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="b_tesla"):
+            classical_heat_fluxes(local, b)
+    record, error = driver.classical_record(dataclasses.replace(state.profile, bcentr=0.0), local)
+    assert record is None and "b_tesla" in error
+
+    def refuse(token):
+        raise AssertionError(f"non-standard JSON token {token!r}")
+
+    payload = json.dumps({"classical": record, "classical_error": error}, default=float)
+    assert json.loads(payload, parse_constant=refuse)["classical"] is None
+
+
 # --------------------------------------------------------------------------- cold review 0.8.0 delta-absorb-7
 
 

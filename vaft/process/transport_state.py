@@ -1124,7 +1124,8 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
         From :func:`assess_tglf_readiness`, supplying n_e, T_e, Ti/Te, every ion's
         n/n_e and charge, a/L_T, the main ion's mass and a at the surface [-].
     b_tesla : float
-        Magnetic-field magnitude at the surface, e.g. :func:`surface_toroidal_field` [T].
+        Magnetic-field magnitude at the surface, e.g. :func:`surface_toroidal_field`;
+        must be non-zero and finite, else ``ValueError`` [T].
 
     Returns
     -------
@@ -1173,6 +1174,10 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
     te_ev = te / c.e
     a = float(norm.minor_radius)
     b = abs(float(b_tesla))
+    if not (b > 0.0 and np.isfinite(b)):
+        # Omega -> 0 makes chi infinite, which json.dumps would write as the
+        # non-standard token ``Infinity``; a surface without a field has no baseline.
+        raise ValueError(f"b_tesla must be positive and finite, got {b_tesla!r}")
     zeff = float(local.zeff)
     charges = np.asarray(local.zs, dtype=float)[1:]
     fractions = np.asarray(local.as_, dtype=float)[1:]
