@@ -97,3 +97,26 @@ def test_campaign_diagnostics_reports_per_block_ratios():
     assert out.loc["w_mhd_over_w_e_ts", "399xx-403xx"] == pytest.approx(2.0)
     assert out.loc["w_mhd_over_w_e_ts", "429xx-430xx"] == pytest.approx(4.0)  # NaN W_e row skipped
     assert list(ext.block_indicator(f)) == [1.0, 1.0, np.e, np.e]
+
+
+def test_block_offset_by_thomson_consistency_splits_and_counts():
+    """Synthetic: W ~ I_p n_e, the 429xx block offset sits only in the inconsistent rows."""
+    ext = _ext()
+    rng = np.random.default_rng(1521)
+    rows = []
+    for shot in list(range(39900, 39910)) + list(range(42900, 42910)):
+        for k in range(4):
+            ip, v, n = rng.uniform(5e4, 1.2e5), rng.uniform(1, 3), rng.uniform(4e18, 1.5e19)
+            consistent = bool(rng.random() < 0.5)
+            bias = 1.5 if (shot >= 42000 and not consistent) else 1.0
+            w = 1e-3 * ip * (n / 1e19) ** 0.4 * bias * np.exp(rng.normal(0, 0.02))
+            rows.append({"shot": shot, "i_p_A": ip, "v_loop_V": v, "n_e_line_avg_m3": n, "w_th_J": w,
+                         "w_e_ts_J": w / 2.0, "thomson_consistent": consistent,
+                         "efit_quality": "good" if consistent else "admissible"})
+    offsets, census = ext.block_offset_by_thomson_consistency(pd.DataFrame(rows))
+    get = lambda subset: offsets[(offsets.subset == subset) & (offsets.energy == "W_mhd")  # noqa: E731
+                                 & offsets.with_density].iloc[0]
+    assert abs(get("Thomson-consistent").block_offset_log) < 0.05
+    assert get("Thomson-inconsistent").block_offset_log == pytest.approx(np.log(1.5), abs=0.05)
+    assert set(census["block"]) == {"399xx-403xx", "429xx-430xx"}
+    assert int(census["consistent"].sum() + census["inconsistent"].sum()) == len(rows)

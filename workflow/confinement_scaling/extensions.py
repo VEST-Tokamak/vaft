@@ -48,7 +48,11 @@ Three analyses on the primary selection of ``fit.py``:
    I_p V_loop uses the EFIT, so a block offset present in W_mhd and absent from W_e
    locates the offset in the magnetics reconstruction. Medians are per slice, so
    shots with many slices weigh more.
-6. **Ohmic regime** (``neo_alcator_regime``). In the linear ohmic confinement
+6. **Criteria v2** (``block_offset_by_thomson_consistency``, #1521). The same block
+   offset split by the Thomson verdict (p within [1, 2] p_e), with and without the
+   Thomson density. On the consistent slices, with density in, the offset vanishes;
+   it survives on the inconsistent ones, which are 84 % of the 429xx block.
+7. **Ohmic regime** (``neo_alcator_regime``). In the linear ohmic confinement
    (LOC) regime, tau_E rises with density (neo-Alcator tau ~ n); in the
    saturated regime (SOC) it does not, so H_NA = tau / tau_NA falls as n^-1.
    - It fits tau against n_e at fixed I_p, with the block offset as a nuisance
@@ -200,6 +204,53 @@ def campaign_diagnostics(frame: pd.DataFrame, state: pd.DataFrame | None = None,
     return out.reset_index(drop=True)
 
 
+def block_offset_by_thomson_consistency(frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The 429xx block offset of W_mhd and W_e split by the criteria-v2 Thomson verdict (#1521).
+
+    Energies are regressed on I_p and the raw ohmic power I_p V_loop (no EFIT), with
+    and without the Thomson line density, on the Thomson-matched rows: all, the
+    Thomson-consistent ones (p within [1, 2] p_e) and the inconsistent ones. Returns
+    the offset table and a per-block census (rows, good fits, Thomson verdicts).
+    """
+    from vaft.process.confinement import fit_confinement_scaling as conf_fit
+
+    f = frame.copy()
+    f["block"] = np.where(f["shot"] >= CAMPAIGN_SPLIT_SHOT, "429xx-430xx", "399xx-403xx")
+    verdict = f["thomson_consistent"].map(
+        {True: "consistent", False: "inconsistent", "True": "consistent", "False": "inconsistent",
+         "true": "consistent", "false": "inconsistent"}) if "thomson_consistent" in f else pd.Series(np.nan, f.index)
+    f["thomson_verdict"] = verdict.fillna("no Thomson")
+    census = f.groupby("block").agg(
+        rows=("shot", "size"), shots=("shot", "nunique"),
+        good=("efit_quality", lambda s: int((s == "good").sum())),
+        consistent=("thomson_verdict", lambda s: int((s == "consistent").sum())),
+        inconsistent=("thomson_verdict", lambda s: int((s == "inconsistent").sum())),
+        n_e_median=("n_e_line_avg_m3", "median")).reset_index()
+    ts = f[np.isfinite(f["w_e_ts_J"]) & (f["w_e_ts_J"] > 0)].copy()
+    ts["p_loop_raw_W"] = ts["i_p_A"] * ts["v_loop_V"]
+    ts = ts[(ts["p_loop_raw_W"] > 0) & np.isfinite(ts["n_e_line_avg_m3"]) & (ts["n_e_line_avg_m3"] > 0)]
+    rows = []
+    for subset, sub in (("all Thomson rows", ts), ("Thomson-consistent", ts[ts["thomson_verdict"] == "consistent"]),
+                        ("Thomson-inconsistent", ts[ts["thomson_verdict"] == "inconsistent"])):
+        for energy, column in (("W_mhd", "w_th_J"), ("W_e,TS", "w_e_ts_J")):
+            for with_density in (False, True):
+                x = {"i_p": sub["i_p_A"].to_numpy(float), "p_loop": sub["p_loop_raw_W"].to_numpy(float)}
+                if with_density:
+                    x["n_e"] = sub["n_e_line_avg_m3"].to_numpy(float)
+                x["campaign2"] = block_indicator(sub)
+                row = {"subset": subset, "energy": energy, "with_density": with_density}
+                try:
+                    fit = conf_fit(sub[column].to_numpy(float), x, sub["shot"].to_numpy())
+                    j = fit.names.index("campaign2")
+                    row.update(rows_used=fit.n, shots=fit.n_groups, block_offset_log=fit.coef[j],
+                               block_offset_se=fit.stderr[j],
+                               n_e_exponent=fit.coef[fit.names.index("n_e")] if with_density else np.nan)
+                except ValueError as error:
+                    row["error"] = str(error)[:80]
+                rows.append(row)
+    return pd.DataFrame(rows), census
+
+
 def neo_alcator_regime(frame: pd.DataFrame) -> list:
     """tau and H_NA against n_e, with W_mhd and with the Thomson-only W_e; the block offset is a nuisance."""
     import extra_scalings
@@ -319,6 +370,17 @@ def main(argv=None) -> int:
                     "campaign2 = log offset of 429xx-430xx vs 399xx-403xx; W_e,TS and I_p V_loop use no EFIT; "
                     "W_mhd is the magnetics EFIT")
     rows += neo_alcator_regime(frame)
+    # W bias is a property of the reconstruction, not of stationarity: diagnose it on
+    # every evaluated state key as well as on the primary selection, side by side.
+    every = pd.read_csv(table_path)
+    every = every[every["quality_status"] == "evaluated"]
+    offsets, census = [], []
+    for population, data in (("all state keys", every), ("primary selection", frame)):
+        o, c = block_offset_by_thomson_consistency(data)
+        offsets.append(o.assign(population=population))
+        census.append(c.assign(population=population))
+    pd.concat(offsets).to_csv(out / "block_offset_criteria_v2.csv", index=False)
+    pd.concat(census).to_csv(out / "block_census_criteria_v2.csv", index=False)
 
     result = pd.DataFrame(rows)
     result.to_csv(out / "coefficients.csv", index=False)
