@@ -81,8 +81,8 @@ SCHEMA: dict[str, tuple[str, str, str]] = {
     "a_over_lni": ("-", "derived_input", "a/L_ni of the main ion"),
     "ti_over_te": ("-", "assumed_input", "main-ion Ti/Te at the surface (TGLF TAUS_2)"),
     "q_gb_W_m2": ("W/m^2", "derived_input", "gyro-Bohm energy-flux unit ne Te c_s (rho_s/a)^2"),
-    "tglf_status": ("-", "provenance", "solved | failed | not_ready (per surface)"),
-    "tglf_reason": ("-", "provenance", "readiness reason or runtime status when not solved"),
+    "tglf_status": ("-", "provenance", "solved | failed | not_ready | not_run (per surface; not_run: ready, but the batch recorded no result for it)"),
+    "tglf_reason": ("-", "provenance", "readiness reason, runtime status, or not_run when not solved"),
     "tglf_run_identity": ("-", "provenance", "sha256 of state + TGLF physics settings + surface + revision"),
     "qe_gb": ("Q_GB", "tglf_predicted", "electron energy flux, gyro-Bohm units"),
     "qi_gb": ("Q_GB", "tglf_predicted", "ion energy flux summed over ion species, gyro-Bohm units"),
@@ -310,8 +310,16 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
             row = dict(base, r_over_a=r, **_local_columns(surface.get("local")))
             status = surface.get("status")
             row["tglf_status"] = status
-            row["tglf_reason"] = None if status == "solved" else (
-                surface.get("runtime_status") if status == "failed" else surface.get("readiness"))
+            if status == "solved":
+                row["tglf_reason"] = None
+            elif status == "failed":
+                row["tglf_reason"] = surface.get("runtime_status")
+            elif status == "not_run":
+                # A ready surface whose job has no result (an interrupted batch,
+                # run_tglf.py): its readiness says "ready", which is not why it is empty.
+                row["tglf_reason"] = "not_run"
+            else:
+                row["tglf_reason"] = surface.get("readiness")
             row["tglf_run_identity"] = surface.get("run_identity")
             si = _nearest_surface(mapped, r)
             if status == "solved":

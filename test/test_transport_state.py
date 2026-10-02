@@ -1225,3 +1225,11 @@ def test_a_partition_refusal_fails_its_row_not_the_build(atlas, tmp_path):
     assert all(r["partition_status"].startswith("partition_refused: ") for r in rows)
     assert all("share z=1" in r["partition_status"] for r in rows)
     assert all("f_neo_qe" not in r and r["qe_neo_W_m2"] == 10.0 for r in rows)
+
+
+def test_a_not_run_surface_names_its_status_and_the_schema_lists_it(atlas, tmp_path):
+    tglf_root, _ = _stored_records(tmp_path, tglf_surfaces=[0.3], tglf_mapped=[])
+    (row,) = atlas.build_rows(tglf_root)
+    assert row["tglf_status"] == "not_run"
+    assert row["tglf_reason"] == "not_run"  # not "ready": the surface was ready and never ran
+    assert "not_run" in atlas.SCHEMA["tglf_status"][2]
