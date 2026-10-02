@@ -79,3 +79,15 @@ def test_incomplete_rows_do_not_enter_any_shot_mean():
     np.testing.assert_allclose(np.log(y), np.log(x["p"]))
     y, x, g = ext.between_shot(f, cols)
     np.testing.assert_allclose(np.log(y), np.log(x["p"]))  # shot 1 mean from its one complete row
+
+
+def test_campaign_diagnostics_reports_per_block_ratios():
+    ext = _ext()
+    f = pd.DataFrame({"shot": [40000, 40000, 42900, 42900], "time_s": [0.32] * 4,
+                      "w_th_J": [200.0, 220.0, 600.0, 660.0], "w_e_ts_J": [100.0, 110.0, 150.0, np.nan],
+                      "p_ohm_W": [1e5] * 4, "p_ohm_efit_flux_W": [1e5] * 4, "i_p_A": [8e4] * 4,
+                      "n_e_line_avg_m3": [5e18] * 4, "b0r0_Tm": [0.06] * 4})
+    out = ext.campaign_diagnostics(f).set_index("quantity")
+    assert out.loc["w_mhd_over_w_e_ts", "399xx-403xx"] == pytest.approx(2.0)
+    assert out.loc["w_mhd_over_w_e_ts", "429xx-430xx"] == pytest.approx(4.0)  # NaN W_e row skipped
+    assert list(ext.block_indicator(f)) == [1.0, 1.0, np.e, np.e]

@@ -37,6 +37,22 @@ Three analyses on the primary selection of ``fit.py``:
    field dependence or a campaign label. A campaign offset can be physics (wall,
    fuelling) or diagnostics (EFIT and magnetics era); it does not say which.
 
+5. **Where the campaign offset lives** (``campaign_diagnostics``). Per block:
+   - W_mhd / W_e,TS;
+   - the two P_OH paths;
+   - the diamagnetic flux over its paramagnetic scale I_p^2 / B0R0;
+   - with ``--state``, Lane K's p_EFIT/p_e and the EFIT probe reduced chi^2.
+
+   It also fits the block offset of tau computed from the Thomson-only W_e, which
+   is independent of the magnetics EFIT.
+6. **Ohmic regime** (``neo_alcator_regime``). In the linear ohmic confinement
+   (LOC) regime, tau_E rises with density (neo-Alcator tau ~ n); in the
+   saturated regime (SOC) it does not, so H_NA = tau / tau_NA falls as n^-1.
+   - It fits tau against n_e at fixed I_p, with the block offset as a nuisance
+     term.
+   - It fits H_NA against n_e.
+   - Both are done with W_mhd and with the Thomson-only W_e.
+
 Usage::
 
     python extensions.py --table ~/runs/campaign/atlas/confinement/table.csv \\
@@ -56,6 +72,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import extra_scalings  # noqa: E402,F401
 from fit import SELECTIONS, _git, select  # noqa: E402
 
 QE = 1.602176634e-19
@@ -130,6 +147,69 @@ def dimensionless_columns(frame: pd.DataFrame) -> pd.DataFrame:
     return f
 
 
+def block_indicator(frame: pd.DataFrame) -> np.ndarray:
+    """exp(1) on the 429xx-430xx block, 1 elsewhere: its log is the block dummy."""
+    return np.where((frame["shot"] >= CAMPAIGN_SPLIT_SHOT).to_numpy(), np.e, 1.0)
+
+
+def campaign_diagnostics(frame: pd.DataFrame, state: pd.DataFrame | None = None,
+                         filedb: Path | None = None) -> pd.DataFrame:
+    """Per-block medians of the quantities that locate the campaign offset."""
+    import gzip
+
+    f = frame.copy()
+    f["block"] = np.where(f["shot"] >= CAMPAIGN_SPLIT_SHOT, "429xx-430xx", "399xx-403xx")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        f["w_mhd_over_w_e_ts"] = f["w_th_J"] / f["w_e_ts_J"].where(f["w_e_ts_J"] > 0)
+        f["p_ohm_flux_loop_over_efit"] = f["p_ohm_W"] / f["p_ohm_efit_flux_W"]
+    columns = ["w_mhd_over_w_e_ts", "p_ohm_flux_loop_over_efit", "w_th_J", "w_e_ts_J", "i_p_A",
+               "p_ohm_W", "n_e_line_avg_m3", "b0r0_Tm"]
+    if filedb is not None:
+        phi = []
+        for _, r in f.iterrows():
+            path = filedb / "omas/diagnostics" / str(int(r["shot"])) / "output/diagnostics.json.gz"
+            try:
+                mag = json.load(gzip.open(path))["magnetics"]
+                d = mag["diamagnetic_flux"][0]
+                t = np.asarray(d.get("time", mag.get("time")), dtype=float)
+                phi.append(float(np.interp(r["time_s"], t, np.asarray(d["data"], dtype=float))))
+            except (OSError, KeyError, IndexError, ValueError):
+                phi.append(np.nan)
+        f["phi_dia_over_ip2_per_b0r0"] = np.asarray(phi) / (f["i_p_A"] ** 2 / f["b0r0_Tm"])
+        columns.append("phi_dia_over_ip2_per_b0r0")
+    out = f.groupby("block")[columns].median().T
+    out.insert(0, "quantity", out.index)
+    if state is not None:
+        st = state.loc[state["efit_lineage"] == "magnetics"].copy()
+        st["block"] = np.where(st["shot"] >= CAMPAIGN_SPLIT_SHOT, "429xx-430xx", "399xx-403xx")
+        extra = st.groupby("block")[["r_sum", "probe_reduced_chi2", "loop_reduced_chi2", "betap"]].median().T
+        extra.insert(0, "quantity", ["lane_k_r_sum_p_efit_over_p_e", "efit_probe_reduced_chi2",
+                                     "efit_loop_reduced_chi2", "efit_betap"])
+        out = pd.concat([out, extra])
+    return out.reset_index(drop=True)
+
+
+def neo_alcator_regime(frame: pd.DataFrame) -> list:
+    """tau and H_NA against n_e, with W_mhd and with the Thomson-only W_e; the block offset is a nuisance."""
+    import extra_scalings
+
+    f = frame.loc[np.isfinite(frame["n_e_line_avg_m3"]) & (frame["n_e_line_avg_m3"] > 0)].copy()
+    f["tau_e_ts_s"] = f["w_e_ts_J"] / f["p_loss_W"]
+    tau_na = extra_scalings.neo_alcator(f)
+    rows = []
+    for energy, tau_col in (("W_mhd", "tau_e_th_s"), ("W_e,TS", "tau_e_ts_s")):
+        tau = f[tau_col].to_numpy(float)
+        g = f["shot"].to_numpy()
+        base = {"n_e": f["n_e_line_avg_m3"].to_numpy(float), "i_p": f["i_p_A"].to_numpy(float),
+                "campaign2": block_indicator(f)}
+        rows += run(f"ohmic:{energy}: tau ~ n, I_p, block", tau, base, g,
+                    "LOC: a_n ~ 1 (neo-Alcator); SOC: a_n ~ 0")
+        rows += run(f"ohmic:{energy}: H_NA ~ n, block", tau / tau_na,
+                    {"n_e": base["n_e"], "campaign2": base["campaign2"]}, g,
+                    "LOC: flat; SOC: a_n ~ -1")
+    return rows
+
+
 def run(name, y, x, groups, note=""):
     from vaft.process.confinement import assess_predictor_identifiability, fit_confinement_scaling
 
@@ -151,6 +231,8 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--table", required=True)
     p.add_argument("--out", required=True)
+    p.add_argument("--state", help="Lane K state.csv, for its p_EFIT/p_e and EFIT chi^2 by block")
+    p.add_argument("--filedb", help="campaign FileDB, for the diamagnetic flux by block")
     args = p.parse_args(argv)
     table_path = Path(args.table).expanduser()
     out = Path(args.out).expanduser()
@@ -209,6 +291,19 @@ def main(argv=None) -> int:
     ):
         rows += run(label, dim["omega_tau"].to_numpy(float),
                     {k: dim[k].to_numpy(float) for k in keys}, gd, note)
+
+    campaign_table = campaign_diagnostics(
+        frame, pd.read_csv(Path(args.state).expanduser()) if args.state else None,
+        Path(args.filedb).expanduser() if args.filedb else None)
+    campaign_table.to_csv(out / "campaign_diagnostics.csv", index=False)
+    ts = frame.loc[np.isfinite(frame["w_e_ts_J"]) & (frame["w_e_ts_J"] > 0)].copy()
+    ts["tau_e_ts_s"] = ts["w_e_ts_J"] / ts["p_loss_W"]
+    for energy, col in (("W_mhd", "tau_e_th_s"), ("W_e,TS", "tau_e_ts_s")):
+        rows += run(f"campaign offset, tau from {energy} (TS rows)", ts[col].to_numpy(float),
+                    {"i_p": ts["i_p_A"].to_numpy(float), "p_net": ts["p_loss_W"].to_numpy(float),
+                     "campaign2": block_indicator(ts)}, ts["shot"].to_numpy(),
+                    "campaign2 = log offset of 429xx-430xx; W_e,TS is independent of the magnetics EFIT")
+    rows += neo_alcator_regime(frame)
 
     result = pd.DataFrame(rows)
     result.to_csv(out / "coefficients.csv", index=False)
