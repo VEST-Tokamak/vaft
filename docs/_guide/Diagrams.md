@@ -1259,6 +1259,56 @@ The vocabulary and the example placements are data in `vaft.diagram._modeling_sc
 `ModelDescriptor`, `ModelCoupling` and the coupling types. They are kept apart from the drawing so that
 documentation and provenance tooling can reuse them. They are not a stable public API yet.
 
+## Spatial vocabulary: coordinates, geometry, meshes, mappings and topology
+
+Concept-oriented schematics of the spatial ideas VAFT works with, organised by the concept rather than
+by a code: a structured grid or a logical mapping is drawn as the numerical idea several equilibrium,
+transport and MHD codes share. They need no shot data; `vaft.plot` draws a particular equilibrium,
+mesh or field. `vaft.diagram._spatial.SPATIAL_FAMILIES` files every builder below by family.
+
+```python
+vaft.diagram.tokamak_top_view(cocos=11)
+vaft.diagram.cocos_orientation(11)                 # one panel
+vaft.diagram.cocos_orientation(range(1, 9))        # one panel per index, one scale
+vaft.diagram.machine_and_equilibrium_geometry()
+vaft.diagram.structured_rz_grid(n_r=13, n_z=21)
+vaft.diagram.geometry_to_mesh()
+vaft.diagram.logical_to_physical_mapping()
+vaft.diagram.physical_to_flux_mapping()
+```
+
+| Family | Concept | Builder |
+| --- | --- | --- |
+| coordinate | cylindrical $(R, \phi, Z)$ and toroidal $(r, \theta, \phi)$ | `tokamak_torus`, `tokamak_top_view` |
+| coordinate | COCOS orientation, generic: $\phi$, $B_\phi$ and $I_p$ (on the magnetic axis) in or out of the page, the sense of $\theta$, the direction $\psi$ increases and its unit; titled by the index and $(\sigma_{B_p}, \sigma_{R\phi Z}, \sigma_{\rho\theta\phi}, \psi)$ | `cocos_orientation` (signs from `vaft.data.cocos.cocos_spec`); coordinate choice against COCOS: `coordinates_vs_cocos` |
+| coordinate | flux coordinates $(\psi, \theta, \phi)$ and poloidal angles | `flux_coordinates`, `poloidal_angle_comparison` |
+| geometry | machine geometry (wall, limiter, coils, passive structure) against equilibrium geometry (axis, surfaces, separatrix, X-point) | `machine_and_equilibrium_geometry` |
+| geometry | limited and diverted equilibria; shaping | `limiter_and_diverted_topologies`, `shaping_family` |
+| mesh | structured $(R, Z)$ grid with the plasma boundary between nodes | `structured_rz_grid` |
+| mesh | unstructured mesh with region-dependent resolution | `geometry_to_mesh` |
+| mesh | flux-aligned grid; logical $(\xi, \eta) \mapsto (R, Z)$ | `logical_to_physical_mapping`, `sfl_coordinate_grids` |
+| mapping | measurement at $(R, Z)$ → $\psi$ → $\psi_N$ → $\rho_{\mathrm{tor},N}$ → profile coordinate | `physical_to_flux_mapping` |
+| mapping | geometry → regions → mesh | `geometry_to_mesh` |
+| topology | nested flux surfaces | `flux_surfaces` |
+| topology | X-point and separatrix | `x_point`, `separatrix_lobes` |
+| topology | magnetic island, stochastic layer | `magnetic_island`, `stochastic_layer` |
+
+Conventions shared by every figure: $R$ to the right and $Z$ up in the poloidal plane; $\odot$ out of and
+$\otimes$ into the page; the magnetic axis is a filled blue dot, an X-point a cross; the LCFS a black
+line, the separatrix blue; the computational boundary dashed; the machine (vessel, limiter, coils) in
+black outline, faint where it is shown only for reference; regions shaded plasma blue, vacuum green,
+conductor grey; measurements red (outboard) and orange (inboard). The machine and the flux are the toy
+free-boundary model of the Grad–Shafranov diagrams, not any device.
+
+![Top view]({{ '/assets/diagrams/tokamak_top_view.svg' | relative_url }})
+![COCOS orientation]({{ '/assets/diagrams/cocos_orientation.svg' | relative_url }})
+![COCOS 1 to 8]({{ '/assets/diagrams/cocos_orientation_1_to_8.svg' | relative_url }})
+![Machine and equilibrium geometry]({{ '/assets/diagrams/machine_and_equilibrium_geometry.svg' | relative_url }})
+![Structured R-Z grid]({{ '/assets/diagrams/structured_rz_grid.svg' | relative_url }})
+![Geometry to mesh]({{ '/assets/diagrams/geometry_to_mesh.svg' | relative_url }})
+![Logical to physical mapping]({{ '/assets/diagrams/logical_to_physical_mapping.svg' | relative_url }})
+![Physical to flux mapping]({{ '/assets/diagrams/physical_to_flux_mapping.svg' | relative_url }})
+
 ## Using the committed assets
 
 The reference SVGs live in `docs/assets/diagrams/` and are the artifacts to embed anywhere:
