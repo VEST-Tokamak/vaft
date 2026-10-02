@@ -232,6 +232,19 @@ def test_a_stage_scope_narrows_rule_all(tmp_path):
         assert rule not in result.stdout, rule
 
 
+def test_a_stability_scope_runs_only_its_own_gpec_cells(tmp_path):
+    """`mhd_linear` without `gpec_ideal` must not run the ideal-GPEC solver (cold review)."""
+    _preflight_done(tmp_path)
+
+    result = _dry_run(tmp_path, extra=["-p", "--config",
+                                       "stages=[raw,diagnostics,eddy,efit,chease,mhd_linear]"])
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "plot_mhd_linear" in result.stdout
+    assert "build_gpec_ideal" not in result.stdout
+    assert "product=ideal-gpec" not in result.stdout
+
+
 @pytest.mark.parametrize(
     ("stages", "message"),
     [("[raw,diagnostic]", "Unknown stage"), ("[raw,diagnostics,efit]", "but not 'eddy'")],

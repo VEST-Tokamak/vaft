@@ -349,6 +349,21 @@ def impa_pipeline_outputs(wildcards):
     return outputs
 
 
+def scoped_gpec_codes():
+    """The GPEC-suite cells `rule all` asks for: per stage, not all-or-nothing.
+
+    `mhd_linear` owns the DCON/RDCON/STRIDE cells and `gpec_ideal` the
+    ideal-GPEC one; the DCON cell ideal GPEC reads arrives through its own
+    rule's input. Unscoped, every configured cell, exactly as before.
+    """
+    if STAGE_SCOPE is None:
+        return GPEC_PATH_CODES
+    codes = [stability_product(module) for module in GPEC_STABILITY_MODULES] if in_scope("mhd_linear") else []
+    if "gpec" in GPEC_MODULES and in_scope("gpec_ideal"):
+        codes.append(stability_product("gpec"))
+    return codes
+
+
 def eligible_pipeline_outputs(wildcards):
     shots = eligible_shots(wildcards)
     products = {
@@ -391,9 +406,8 @@ def eligible_pipeline_outputs(wildcards):
     outputs += [
         PATHS.gpec_module_status(shot, code, mode)
         for shot in shots
-        for code in GPEC_PATH_CODES
+        for code in scoped_gpec_codes()
         for mode in GPEC_MODES
-        if in_scope("mhd_linear") or in_scope("gpec_ideal")
     ]
     outputs += validation_plot_products(shots)
     # Replication is a separate state from local completion: the record is its

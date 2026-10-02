@@ -460,7 +460,7 @@ def test_the_worker_scope_reaches_every_run_config(tmp_path):
     assert load_pipeline_config(scoped)["stages"] == ["raw", "diagnostics", "eddy"]
 
 
-@pytest.mark.parametrize("stages", ["diagnostics", [], [1, 2]])
+@pytest.mark.parametrize("stages", ["diagnostics", [], [1, 2], 5])
 def test_a_malformed_stage_scope_is_refused(tmp_path, stages):
     from vaft.database.worker.config import WorkerConfigError
 

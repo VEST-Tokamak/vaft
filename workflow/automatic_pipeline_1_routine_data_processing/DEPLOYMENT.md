@@ -861,6 +861,12 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   a stage whose upstream is left out is refused at start-up. The worker writes the list into each
   run's config as `stages`, so a manual run can use the same key. This is a decision made before the
   run; a stage that runs and declines a shot is #205's skip semantics.
+  - Optional branches outside the stage chain (IMPA with `impa.enable: true`) are not scoped; they
+    depend only on raw and are never part of the shot's verdict.
+  - Set the scope only here, not as `--config stages=...` in `extra_args`: Snakemake would see it
+    and the harvester would not.
+  - Widening `stages` later does not revisit shots already concluded under the narrower scope;
+    `vaft pipeline-worker retry --shot N` (or a batch run) brings them up to the new scope.
 - **`first_shot` is where the worker's responsibility starts.** Shots below it belong to batch
   regeneration and the worker never looks at them.
 

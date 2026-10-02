@@ -113,7 +113,9 @@ def _command(value: Any, key: str) -> tuple[str, ...]:
 def _stages(value: Any) -> tuple[str, ...] | None:
     if value is None:
         return None
-    if isinstance(value, str) or not all(isinstance(item, str) for item in value):
+    if isinstance(value, str) or not isinstance(value, (list, tuple)) or not all(
+        isinstance(item, str) for item in value
+    ):
         raise WorkerConfigError(f"stages must be a list of stage names (got {value!r})")
     if not value:
         raise WorkerConfigError("stages is empty; omit it to run the whole pipeline")
