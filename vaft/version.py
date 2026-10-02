@@ -35,7 +35,16 @@ __all__ = ["__version__"]
 #   against, the magnetic-sigma scan and the (2,1) working setting, named
 #   presets in pipelines 1 and 2, Ip chi-square with the prescribed vessel
 #   current, the Green table built per machine era (#891, #918, #924,
-#   #1038, #1379)
+#   #1038, #1379); BREAKING: the #891 working setting statistical_891 is
+#   the library default for every EFIT run that names no configuration
+#   (statistical sigma with a 2 % floor, probes x3.62, loops x2.15, Ip x4,
+#   diamagnetic flux x16, KPPCUR 2 / KFFCUR 1, psi-only exit, up to 514
+#   iterations, pipeline-1 efit.timeout 3600 s); the previous production
+#   configuration is kept byte-for-byte as the routine preset; every new
+#   product names its configuration in code.parameters and the summary's
+#   efit_configuration column, and products written before 0.8.0 read
+#   unrecorded -- routine and statistical products coexist on the server
+#   until regeneration and must not be compared as one population (#1440)
 # - magnetics and machine history: probe wiring, the +0.06 probe, wall 2409
 #   and the PF boundary versioned from raw signals (#956); probe C4-04 and
 #   array-contradicted probes excluded (#977); the diamagnetic channel's
