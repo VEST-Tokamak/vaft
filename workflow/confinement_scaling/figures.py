@@ -8,8 +8,12 @@ call them directly. They draw only from Lane D's files and Lane M's public data:
   with the spherical tokamaks (NSTX, MAST, START) apart from the conventional
   ones. It reuses ``vaft.plot.population.confinement_population``.
 - ``predicted_vs_measured_figure`` and ``h_factor_figure``: tau_E against
-  IPB98(y,2) and NSTX2006L, from Lane M's ``predict_confinement_time`` and plot
-  functions. VEST is ohmic L-mode, so its IPB98 H factor is a location, not a
+  IPB98(y,2) and NSTX2006L by default, or any of ``ALL_SCALINGS``. That covers the
+  five of ``vaft.formula`` (via Lane M's ``predict_confinement_time``) and the
+  ohmic/L-mode ones of ``extra_scalings.py`` (neo-Alcator, Goldston 1984, ITER97-L).
+  The plot functions are Lane M's.
+- Variants: by machine (the seven largest, the rest as "Other"), and every DB5 row
+  instead of the standard set. VEST is ohmic L-mode, so its IPB98 H factor is a location, not a
   performance claim.
 - ``exponent_figure``: fitted engineering exponents (VEST free and closure fits)
   against NSTX and IPB98(y,2), plus the Kadomtsev-completed mu_rho, drawn as
@@ -37,11 +41,36 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import extra_scalings  # noqa: E402
 from fit import SELECTIONS, _git, select  # noqa: E402
 
 SPHERICAL = ("NSTX", "MAST", "START")
 LABELS = {"H98y2": "IPB98(y,2)", "NSTX2006L": "NSTX 2006 L-mode", "NSTX2006H": "NSTX 2006 H-mode",
-          "ITER89P": "ITER89-P"}
+          "ITER89P": "ITER89-P (L-mode)", "Kurskiev2022": "Kurskiev 2022 (ST H-mode)"}
+LABELS.update(extra_scalings.LABELS)
+#: Every scaling vaft.formula carries (_SCALING_COEFS), plus the workflow-local ohmic
+#: and L-mode ones of extra_scalings.py: ohmic, then L-mode, then H-mode.
+ALL_SCALINGS = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L", "ITER89P", "ITER97L", "NSTX2006L",
+                "H98y2", "NSTX2006H", "Kurskiev2022")
+
+
+def predict_tau(table: pd.DataFrame, scaling: str) -> pd.Series:
+    """Predicted tau_E of any scaling, from vaft.data.public or extra_scalings [s]."""
+    from vaft.data.public import predict_confinement_time
+
+    if scaling in extra_scalings.NAMES:
+        return extra_scalings.predict(table, scaling)
+    return predict_confinement_time(table, scaling)
+
+
+def h_factor_of(table: pd.DataFrame, scaling: str) -> pd.Series:
+    """tau_e_th_s over the scaling's prediction [-]."""
+    tau = pd.to_numeric(table["tau_e_th_s"], errors="coerce")
+    return (tau / predict_tau(table, scaling)).rename(f"h_{scaling}")
+#: Machines coloured individually when grouping by machine (the largest by row count);
+#: the rest fold into "Other". vaft.plot.population has seven colours, and more groups
+#: would repeat them.
+MACHINE_GROUPS = 7
 VEST_LABEL = "VEST (ohmic, this work)"
 #: Distinct open markers for the reference scalings, so each can be told apart.
 REFERENCE_MARKERS = ("s", "D", "^", "v", "P")
@@ -50,22 +79,33 @@ IPB98 = {"i_p": 0.93, "b_t": 0.15, "p_net": -0.69, "n_e": 0.41}
 UNDETERMINED_SIGMA = 2.0
 
 
-def population_table(db5: pd.DataFrame, confinement: pd.DataFrame, selection: str = "primary") -> pd.DataFrame:
-    """DB5 standard set plus the selected VEST rows, with a ``population`` label column."""
+def population_table(db5: pd.DataFrame, confinement: pd.DataFrame, selection: str = "primary",
+                     *, scope: str = "standard", grouping: str = "spherical") -> pd.DataFrame:
+    """DB5 rows plus the selected VEST rows, with a ``population`` label column.
+
+    ``scope``: ``"standard"`` keeps the DB5 standard set (SELDB5), ``"all"`` every
+    DB5 row. ``grouping``: ``"spherical"`` labels NSTX, MAST and START apart from
+    one conventional-tokamak group; ``"machine"`` labels every machine.
+    """
     from vaft.data.public.schema import CONFINEMENT_COLUMNS
 
+    if scope not in ("standard", "all") or grouping not in ("spherical", "machine"):
+        raise ValueError(f"scope must be standard/all and grouping spherical/machine; got {scope}, {grouping}")
     vest = confinement.loc[select(confinement, SELECTIONS[selection])]
     vest = vest.loc[np.isfinite(vest["tau_e_th_s"]) & (vest["tau_e_th_s"] > 0), list(CONFINEMENT_COLUMNS)]
-    std = db5.loc[db5["selected"].astype(bool), list(CONFINEMENT_COLUMNS)]
-    table = pd.concat([std, vest], ignore_index=True)
+    rows = db5 if scope == "all" else db5.loc[db5["selected"].astype(bool)]
+    table = pd.concat([rows[list(CONFINEMENT_COLUMNS)], vest], ignore_index=True)
     machine = table["machine"].astype(str)
-    table["population"] = np.where(
-        machine == "VEST", "VEST (ohmic, this work)",
-        np.where(machine.isin(SPHERICAL), machine + " (DB5)", "conventional tokamaks (DB5)"))
+    if grouping == "machine":
+        table["population"] = machine
+    else:
+        table["population"] = np.where(machine.isin(SPHERICAL), machine + " (DB5)",
+                                       "conventional tokamaks (DB5)")
+    table.loc[machine == "VEST", "population"] = VEST_LABEL
     return table
 
 
-def population_figure(table: pd.DataFrame, *, figsize=(11.0, 4.6)):
+def population_figure(table: pd.DataFrame, *, max_groups: int = 4, figsize=(11.0, 4.6)):
     """tau_E against I_p and against P_loss: VEST among the DB5 population."""
     import matplotlib.pyplot as plt
 
@@ -74,24 +114,36 @@ def population_figure(table: pd.DataFrame, *, figsize=(11.0, 4.6)):
     fig, axes = plt.subplots(1, 2, figsize=figsize, constrained_layout=True)
     for ax, x in zip(axes, ("i_p_A", "p_loss_W")):
         confinement_population(table, x=x, y="tau_e_th_s", by="population",
-                               highlight=VEST_LABEL, max_groups=4, ax=ax)
+                               highlight=VEST_LABEL, max_groups=max_groups, ax=ax)
     axes[0].set_title("Thermal confinement time against plasma current")
     axes[1].set_title("... against loss power (VEST: P_OH - dW/dt)")
     return fig, axes
 
 
-def predicted_vs_measured_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L"), *, figsize=(11.0, 5.2)):
-    """Measured against scaling-predicted tau_E, one panel per scaling."""
+def _grid(n: int, panel=(5.4, 5.0)):
+    """A figure with n panels, at most three per row; unused panels hidden."""
     import matplotlib.pyplot as plt
 
-    from vaft.data.public import predict_confinement_time
+    ncols = min(3, n)
+    nrows = int(np.ceil(n / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(panel[0] * ncols, panel[1] * nrows),
+                             constrained_layout=True, squeeze=False)
+    flat = axes.ravel()
+    for ax in flat[n:]:
+        ax.set_visible(False)
+    return fig, flat[:n]
+
+
+def predicted_vs_measured_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L"), *, max_groups: int = 4):
+    """Measured against scaling-predicted tau_E, one panel per scaling."""
+
     from vaft.plot.population import confinement_predicted_vs_measured
 
-    fig, axes = plt.subplots(1, len(scalings), figsize=figsize, constrained_layout=True)
-    for ax, scaling in zip(np.atleast_1d(axes), scalings):
-        predicted = predict_confinement_time(table, scaling)
+    fig, axes = _grid(len(scalings))
+    for ax, scaling in zip(axes, scalings):
+        predicted = predict_tau(table, scaling)
         confinement_predicted_vs_measured(table, predicted, scaling_label=LABELS.get(scaling, scaling),
-                                          by="population", highlight=VEST_LABEL, max_groups=4, ax=ax)
+                                          by="population", highlight=VEST_LABEL, max_groups=max_groups, ax=ax)
         ax.set_title(f"{LABELS.get(scaling, scaling)}: {_vest_coverage(table, predicted)}", fontsize=9)
     return fig, axes
 
@@ -100,20 +152,18 @@ def _vest_coverage(table, predicted) -> str:
     """'VEST n/N rows': a scaling with a density term drops rows without Thomson n_e."""
     vest = (table["machine"] == "VEST").to_numpy()
     shown = int(np.sum(vest & np.isfinite(predicted.to_numpy(float))))
-    note = " (rows with Thomson n_e)" if shown < vest.sum() else ""
+    note = " (Thomson n_e)" if shown < vest.sum() else ""
     return f"VEST {shown}/{int(vest.sum())} rows{note}"
 
 
-def h_factor_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L"), *, figsize=(11.0, 4.6)):
+def h_factor_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L")):
     """H-factor distributions per population, one panel per scaling."""
-    import matplotlib.pyplot as plt
-
-    from vaft.data.public import h_factor
     from vaft.plot.population import confinement_h_factor_distribution
 
-    fig, axes = plt.subplots(1, len(scalings), figsize=figsize, constrained_layout=True)
-    for ax, scaling in zip(np.atleast_1d(axes), scalings):
-        h = h_factor(table, scaling)
+    n_groups = int(table["population"].nunique())
+    fig, axes = _grid(len(scalings), panel=(5.6, max(4.6, 0.33 * n_groups + 1.5)))
+    for ax, scaling in zip(axes, scalings):
+        h = h_factor_of(table, scaling)
         confinement_h_factor_distribution(table, h, scaling_label=LABELS.get(scaling, scaling),
                                           by="population", highlight=VEST_LABEL, ax=ax)
         ax.set_title(f"{LABELS.get(scaling, scaling)}: {_vest_coverage(table, h)}", fontsize=9)
@@ -220,7 +270,10 @@ def main(argv=None) -> int:
     confinement = pd.read_csv(atlas / "table.csv")
     closures = pd.read_csv(atlas / "closures" / "closures.csv")
     nstx = pd.read_csv(atlas / "closures" / "nstx_comparison.csv")
-    table = population_table(normalize_db5(read_db5()), confinement)
+    db5 = normalize_db5(read_db5())
+    table = population_table(db5, confinement)
+    by_machine = population_table(db5, confinement, grouping="machine")
+    all_rows = population_table(db5, confinement, scope="all", grouping="machine")
     exponents = exponent_table(closures, nstx)
 
     figures = {
@@ -228,6 +281,13 @@ def main(argv=None) -> int:
         "confinement_predicted_vs_measured": predicted_vs_measured_figure(table)[0],
         "confinement_h_factor": h_factor_figure(table)[0],
         "confinement_exponents": exponent_figure(exponents)[0],
+        # Every machine coloured, standard set and every DB5 row.
+        "confinement_population_by_machine": population_figure(by_machine, max_groups=MACHINE_GROUPS)[0],
+        "confinement_population_all_db5": population_figure(all_rows, max_groups=MACHINE_GROUPS)[0],
+        # Every scaling vaft.formula carries.
+        "confinement_predicted_vs_measured_all_scalings":
+            predicted_vs_measured_figure(by_machine, ALL_SCALINGS, max_groups=MACHINE_GROUPS)[0],
+        "confinement_h_factor_all_scalings": h_factor_figure(by_machine, ALL_SCALINGS)[0],
     }
     written = []
     for name, fig in figures.items():
@@ -242,7 +302,9 @@ def main(argv=None) -> int:
         "command": " ".join(sys.argv), "vaft_git": _git("rev-parse", "HEAD"),
         "vaft_dirty": bool(_git("status", "--porcelain")),
         "inputs": {str(f): hashlib.sha256(f.read_bytes()).hexdigest() for f in inputs},
-        "db5": "ITPA DB5.2.3 standard set (SELDB5), vaft.data.public.read_db5",
+        "db5": ("ITPA DB5.2.3 via vaft.data.public.read_db5: the standard set (SELDB5), except "
+                "confinement_population_all_db5, which shows every row"),
+        "scalings_all": list(ALL_SCALINGS),
         "vest_rows": int((table["machine"] == "VEST").sum()), "files": written,
         "notes": ("VEST: primary selection, W_mhd, P_net = P_OH - dW/dt (radiation not subtracted, as DB5 "
                   "PLTH), ohmic L-mode; IPB98 H factors locate VEST, they are not a performance claim. mu_rho "

@@ -73,3 +73,58 @@ def test_population_table_labels_vest_and_spherical_tokamaks():
                           "ip_change_per_tau": 0.5, "dwdt_fraction": 0.1, "rule_finite": True}])
     table = figures.population_table(db5, vest)
     assert list(table["population"]) == ["NSTX (DB5)", "conventional tokamaks (DB5)", figures.VEST_LABEL]
+
+
+def _extra():
+    sys.path.insert(0, str(HERE))
+    try:
+        spec = importlib.util.spec_from_file_location("lane_d_extra", HERE / "extra_scalings.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(HERE))
+    return module
+
+
+ROW = pd.DataFrame([{"i_p_A": 1.0e5, "b_t_T": 0.2, "r_geo_m": 0.4, "a_m": 0.25, "epsilon": 0.625,
+                     "kappa": 1.6, "kappa_area": 1.5, "n_e_line_avg_m3": 1.0e19, "p_loss_W": 2.0e5,
+                     "m_eff_amu": 1.0}])
+
+
+def test_extra_scalings_match_their_si_forms():
+    """The CGS forms of the papers against hand-converted SI coefficients."""
+    x = _extra()
+    q = 5e6 * 0.2 * 0.4 * 0.625**2 * 1.5 / 1.0e5
+    assert x.q_cyl(ROW)[0] == pytest.approx(q)
+    # eq. (3): 7.1e-22 * 1e-6 * 100^(1.04 + 2.04) = 1.0263e-21 in SI.
+    assert x.neo_alcator(ROW)[0] == pytest.approx(1.0263e-21 * 1e19 * 0.25**1.04 * 0.4**2.04 * q**0.5, rel=1e-3)
+    # eq. (6): 6.4e-8 * 1e6 * 1e-3 * 100^1.38 = 0.03683 with I_p in MA and P in MW.
+    gl = 0.03683 * 0.1 * 0.2**-0.5 * 0.4**1.75 * 0.25**-0.37 * 1.6**0.5
+    assert x.goldston_l(ROW)[0] == pytest.approx(gl, rel=1e-3)
+    combined = (x.neo_alcator(ROW)[0] ** -2 + gl**-2) ** -0.5
+    assert x.goldston_ohmic_l(ROW)[0] == pytest.approx(combined, rel=1e-3)
+    assert combined < min(x.neo_alcator(ROW)[0], gl)
+    it97 = 0.023 * 0.1**0.96 * 0.2**0.03 * 0.4**1.83 * 0.625**-0.06 * 1.6**0.64 * 1.0**0.4 * 1.0**0.2 * 0.2**-0.73
+    assert x.iter97_l(ROW)[0] == pytest.approx(it97)
+
+
+def test_extra_scalings_return_nan_for_missing_inputs():
+    x = _extra()
+    row = ROW.assign(n_e_line_avg_m3=np.nan)
+    assert np.isnan(x.predict(row, "NeoAlcator")[0]) and np.isnan(x.predict(row, "ITER97L")[0])
+    assert np.isfinite(x.predict(row, "Goldston84L")[0])  # no density term
+    with pytest.raises(KeyError):
+        x.predict(ROW, "nope")
+
+
+def test_population_table_by_machine_still_highlights_vest():
+    from vaft.data.public.schema import CONFINEMENT_COLUMNS
+
+    figures = _figures()
+    base = {c: np.nan for c in CONFINEMENT_COLUMNS}
+    db5 = pd.DataFrame([{**base, "machine": "JET", "selected": True, "tau_e_th_s": 0.05}])
+    vest = pd.DataFrame([{**base, "machine": "VEST", "shot": 1, "time_s": 0.32, "tau_e_th_s": 1e-3,
+                          "i_p_A": 8e4, "quality_status": "evaluated", "ip_rate_1_s": 1.0,
+                          "ip_change_per_tau": 0.01, "dwdt_fraction": 0.1, "rule_finite": True}])
+    table = figures.population_table(db5, vest, grouping="machine", scope="all")
+    assert list(table["population"]) == ["JET", figures.VEST_LABEL]
