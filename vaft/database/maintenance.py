@@ -33,6 +33,7 @@ __all__ = [
     "MASTER_COMPLETE",
     "MASTER_LINKS_MISSING",
     "MASTER_STUBS_UNLINKED",
+    "MASTER_NAN_ONLY_UNLINKED",
     "MASTER_MISSING",
     "MASTER_REPAIRED",
     "MASTER_UNREADABLE",
@@ -242,6 +243,7 @@ def strip_impa_from_shots(
 MASTER_COMPLETE = "complete"
 MASTER_LINKS_MISSING = "links_missing"
 MASTER_STUBS_UNLINKED = "stubs_unlinked"
+MASTER_NAN_ONLY_UNLINKED = "nan_only_unlinked"
 MASTER_REPAIRED = "repaired"
 MASTER_ABSENT = "absent"
 MASTER_MISSING = "no_master"
@@ -258,9 +260,13 @@ def audit_master_link(shot: int, *, source: str | None = None, repair: bool = Fa
     master lock) and the verdict is ``repaired``.
 
     An unlinked file that holds no value at all is a stub, not hidden data
-    (:func:`vaft.database.replication.ids_file_holds_data`). It is listed under
+    (:func:`vaft.database.replication.ids_file_content`). It is listed under
     ``stubs``, never relinked, and alone it makes the verdict
-    ``stubs_unlinked``: the master is right not to name it.
+    ``stubs_unlinked``: the master is right not to name it. One whose arrays
+    are shaped but hold only NaN is listed under ``nan_only``, is not relinked
+    either, and makes the verdict ``nan_only_unlinked`` when nothing is
+    hidden: it is not an empty file, and an operator should look at what
+    wrote it.
     """
     from .replication import (
         _remote_canonical_files,
@@ -271,7 +277,7 @@ def audit_master_link(shot: int, *, source: str | None = None, repair: bool = Fa
     name = _sources.resolve(source, writable=repair)
     shot = int(shot)
     report: dict[str, Any] = {
-        "shot": shot, "source": name, "missing": [], "stubs": [], "status": None
+        "shot": shot, "source": name, "missing": [], "stubs": [], "nan_only": [], "status": None
     }
     try:
         entries = _remote_entries(name, shot)
@@ -291,8 +297,11 @@ def audit_master_link(shot: int, *, source: str | None = None, repair: bool = Fa
             unlinked = classify_unlinked_remote_files(name, shot, repair=repair)
             report["missing"] = list(unlinked.hidden)
             report["stubs"] = list(unlinked.stubs)
+            report["nan_only"] = list(unlinked.nan_only)
             if unlinked.hidden:
                 report["status"] = MASTER_REPAIRED if repair else MASTER_LINKS_MISSING
+            elif unlinked.nan_only:
+                report["status"] = MASTER_NAN_ONLY_UNLINKED
             elif unlinked.stubs:
                 report["status"] = MASTER_STUBS_UNLINKED
             else:
