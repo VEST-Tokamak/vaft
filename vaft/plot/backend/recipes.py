@@ -5736,8 +5736,13 @@ def _build_resistive_zeff(ods: Any, **options: Any) -> Panels:
     zeff_panel = LineSeries(series=tuple(z_traces), x_label="Time", x_unit="s",
                             y_label="Z_eff (resistive)", y_unit="",
                             y_limits=(_ZEFF_BOUNDS[0] - 0.2, top),
+                            # Every stated assumption of the estimate, the
+                            # smoothing included: it moves dL_i/dt and V_R,
+                            # so a reader comparing with build_zeff.py or a
+                            # smoothed re-analysis must see it.
                             title=(f"I_ni = 0, no bootstrap, bounds "
-                                   f"{_ZEFF_BOUNDS[0]:g}-{_ZEFF_BOUNDS[1]:g}"))
+                                   f"{_ZEFF_BOUNDS[0]:g}-{_ZEFF_BOUNDS[1]:g}, "
+                                   f"smoothing {obs.provenance['smoothing']}"))
     return Panels(
         models=(voltages, resistance, zeff_panel), ncols=1, share_x=True,
         suptitle=f"Resistive Z_eff, model-inferred ({model})",
