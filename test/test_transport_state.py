@@ -1303,3 +1303,28 @@ def test_a_core_profiles_directory_replaces_the_stage_product(driver, tmp_path):
     path, manifest = driver.core_profiles_product(tmp_path / "filedb", 39916, tmp_path)
     assert path == tmp_path / "39916.json.gz" and manifest == {}
     assert driver.core_profiles_product(tmp_path / "filedb", 1, tmp_path)[0] is None
+
+
+def test_a_product_with_its_own_inferred_species_list_is_converted_as_given(sample):
+    ods = _with_inferred_ti(sample)
+    prefix = "core_profiles.profiles_1d.0"
+    ne = np.asarray(ods[f"{prefix}.electrons.density_thermal"], dtype=float)
+    ti = np.asarray(ods[f"{prefix}.ion.0.temperature"], dtype=float)
+    ods[f"{prefix}.ion.0.density_thermal"] = 0.8 * ne
+    ods[f"{prefix}.ion.1.label"] = "C6+"
+    ods[f"{prefix}.ion.1.z_ion"] = 6.0
+    ods[f"{prefix}.ion.1.element.0.z_n"] = 6.0
+    ods[f"{prefix}.ion.1.element.0.a"] = 12.011
+    ods[f"{prefix}.ion.1.density_thermal"] = ne / 30.0
+    ods[f"{prefix}.ion.1.temperature"] = ti
+    ods[f"{prefix}.ion.1.temperature_fit.parameters"] = "origin=inferred; method=equilibrium_pressure_partition"
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good")
+    assert state.resolved, state.reasons
+    assert state.ti_lineage == "pressure_partition_inferred"
+    assert list(state.profile.name) == ["H+", "C6+"]
+    assert state.composition["source"].startswith("the core_profiles product")
+    assert state.composition["z_eff"] == pytest.approx(2.0, rel=1e-3)
+    # Two ions with different inferred temperatures are not one inferred state.
+    ods[f"{prefix}.ion.1.temperature"] = 0.5 * ti
+    assert resolve_transport_state(ods, _key(0.3), efit_quality="good").reasons == (
+        "inferred_ti_species_disagree",)

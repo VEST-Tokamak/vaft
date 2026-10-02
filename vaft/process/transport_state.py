@@ -422,21 +422,29 @@ def _derive_shape_profiles(work: Any, eq_index: int) -> Optional[dict[str, Any]]
 
 
 def _stored_inferred_ti(ods: Any, prefix: str, ions: list, time: float) -> Optional[dict]:
-    """An ion temperature the product itself labels as inferred, as an ``inferred_ti`` record."""
-    if len(ions) != 1:
+    """An ion temperature the product itself labels as inferred, as an ``inferred_ti`` record.
+
+    Every ion must carry the inferred label and one common temperature (lane K writes
+    H+ and C6+ with the same partitioned T_i); otherwise ``None``. ``species`` is the
+    number of ions the product supplied, so the caller keeps its composition.
+    """
+    if not ions:
         return None
-    note = _get(ods, f"{prefix}.ion.{ions[0]}.temperature_fit.parameters")
-    if note is None or "origin=inferred" not in str(note):
+    notes = [_get(ods, f"{prefix}.ion.{i}.temperature_fit.parameters") for i in ions]
+    if any(note is None or "origin=inferred" not in str(note) for note in notes):
         return None
-    values = _get(ods, f"{prefix}.ion.{ions[0]}.temperature")
-    if values is None:
+    arrays = [_get(ods, f"{prefix}.ion.{i}.temperature") for i in ions]
+    if any(a is None for a in arrays):
+        return None
+    arrays = [np.asarray(a, dtype=float) for a in arrays]
+    if any(a.shape != arrays[0].shape or not np.allclose(a, arrays[0], equal_nan=True) for a in arrays[1:]):
         return None
     method = "equilibrium_pressure_partition"
-    for part in str(note).split(";"):
+    for part in str(notes[0]).split(";"):
         if part.strip().startswith("method="):
             method = part.strip().split("=", 1)[1]
-    return {"temperature": np.asarray(values, dtype=float), "method": method,
-            "time": float(time), "source": str(note)}
+    return {"temperature": arrays[0], "method": method, "time": float(time),
+            "source": str(notes[0]), "species": len(ions)}
 
 
 def _segments(rho: np.ndarray, valid: np.ndarray) -> list[list[float]]:
@@ -632,10 +640,16 @@ def resolve_transport_state(
     # #1426 pressure partition writes ``temperature_fit.parameters = "origin=inferred;
     # method=..."``). It is taken as an inferred profile here, never as a measurement.
     stored = _stored_inferred_ti(ods, prefix, ions, cp_times[cp_index])
+    labelled = [i for i in ions if "origin=inferred" in str(
+        _get(ods, f"{prefix}.ion.{i}.temperature_fit.parameters") or "")]
+    if labelled and stored is None and inferred_ti is None:
+        # Some ion says its T_i was inferred but the set is not one common inferred
+        # profile: it is neither a measurement nor a usable inference.
+        return _insufficient(base, "inferred_ti_species_disagree")
     if stored is not None and inferred_ti is None:
         inferred_ti = stored
     measured = [i for i in ions
-                if _usable(_get(ods, f"{prefix}.ion.{i}.temperature")) and stored is None]
+                if _usable(_get(ods, f"{prefix}.ion.{i}.temperature")) and i not in labelled]
     hierarchy: list[dict[str, Any]] = []
     work = ods
     if ions and len(measured) == len(ions):
@@ -644,7 +658,7 @@ def resolve_transport_state(
         hierarchy.append({"step": "measured", "status": "used"})
     else:
         hierarchy.append({"step": "measured", "status": "unavailable"})
-        if len(ions) > 1:
+        if len(ions) > 1 and not (stored is not None and stored["species"] == len(ions)):
             return _insufficient(
                 {**base, "ti": {"lineage": "unresolved", "hierarchy": hierarchy}},
                 "ion_temperature_unresolved_multiple_species",
@@ -739,7 +753,8 @@ def resolve_transport_state(
             # densities from n_e, and without a closure a lone H+ at n_e is
             # quasi-neutrality, which is what is recorded.
             work[f"{ion}.density_thermal"] = ne
-        work[f"{ion}.temperature"] = temperature
+        for position in (ions or [0]):
+            work[f"{prefix}.ion.{position}.temperature"] = temperature
     ti["hierarchy"] = hierarchy
     base["ti"] = ti
 
@@ -770,13 +785,16 @@ def resolve_transport_state(
     from vaft.code.gacode.inputs import ProfileConversionError, prepare_gacode_profile
 
     try:
+        # A product that already carries its ion species (lane K's H+/C6+ closure) is
+        # converted as given: re-applying the closure would assume a single main ion.
+        product_species = stored is not None and stored["species"] > 1
         profile = prepare_gacode_profile(
             work,
             time=eq_time,
             tolerance=max(float(tolerance), 1e-9),
             rho_max=rho_max,
-            z_eff=z_eff if impurity is not None else None,
-            impurity=impurity,
+            z_eff=None if product_species else (z_eff if impurity is not None else None),
+            impurity=None if product_species else impurity,
             shot=int(key.shot),
         )
     except ProfileConversionError as error:
@@ -794,12 +812,24 @@ def resolve_transport_state(
     provenance["shape"] = shape
     provenance["magnetic_shear"] = {"kind": "derived", "source": "equilibrium q"}
     profile.provenance = provenance
-    composition = {
-        "species": list(getattr(profile, "name", []) or []),
-        "z_eff": settings["z_eff"],
-        "impurity": impurity,
-        "origin": "policy_assumption" if impurity is not None else "measured_or_single_ion",
-    }
+    if product_species:
+        settings["z_eff"], settings["impurity"] = None, None
+        realized = np.asarray(getattr(profile, "z_eff", np.nan), dtype=float)
+        composition = {
+            "species": list(getattr(profile, "name", []) or []),
+            "z_eff": float(np.nanmedian(realized)) if realized.size else None,
+            "impurity": None,
+            # The product's species list is itself a modelling closure, not a measurement.
+            "origin": "policy_assumption",
+            "source": "the core_profiles product's own ion list",
+        }
+    else:
+        composition = {
+            "species": list(getattr(profile, "name", []) or []),
+            "z_eff": settings["z_eff"],
+            "impurity": impurity,
+            "origin": "policy_assumption" if impurity is not None else "measured_or_single_ion",
+        }
     return ResolvedTransportState(
         status="resolved", profile=profile, composition=composition,
         provenance=provenance, **base,
