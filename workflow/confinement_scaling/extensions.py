@@ -13,15 +13,16 @@ Three analyses on the primary selection of ``fit.py``:
    - The TF field is nearly constant within a shot (sd of log B0R0 about 0.1 %).
      So only the R_geo part of B_T is informative there; a B0R0 term within
      shots is reported, but it is unidentified.
-   - Errors are clustered by shot. No degrees-of-freedom correction is made for
-     the absorbed means, so they are slightly optimistic.
+   - Errors are clustered by shot (CR1), with no degrees-of-freedom correction
+     for the absorbed means: the standard choice for fixed effects nested in the
+     clusters (Cameron and Miller 2015).
    - Compare with the between-shot fit on shot means to see which variation
      drives the pooled exponents.
 3. **Direct dimensionless regression** on the Thomson subset. It fits
    Omega_i tau_E = C rho*^a beta^b nu*^c q^d directly, with no elimination of T
    through P = W/tau, so it avoids the 1 + alpha_P singularity of the completed
    indices.
-   - <T> = W_mhd / (3 n V e), assuming T_i = T_e and n_i = n_e. n is the Thomson
+   - <T> = W_mhd / (3 n V e), with W_mhd the ``w_th_J`` column, assuming T_i = T_e and n_i = n_e. n is the Thomson
      line average and V = 2 pi^2 a^2 R kappa_area.
    - rho*, beta, nu*: the ``vaft.formula.equilibrium`` kernels.
    - q: q_cyl.
@@ -69,15 +70,22 @@ def usable(table: pd.DataFrame, selection: str = "primary") -> pd.DataFrame:
     return frame.reset_index(drop=True)
 
 
+def _complete(frame: pd.DataFrame, columns: dict) -> pd.DataFrame:
+    """Rows where every used column is finite and positive, so all shot means use the same slices."""
+    values = frame[list(columns.values())]
+    return frame.loc[(np.isfinite(values) & (values > 0)).all(axis=1)]
+
+
 def within_shot(frame: pd.DataFrame, columns: dict) -> tuple[np.ndarray, dict, np.ndarray]:
     """Shot-demeaned logs, returned as exponentials so the power-law fitter can take them.
 
     A demeaned log is exp()-ed back; the fitter takes its log again, so it sees the
     demeaned values. Its intercept is then ~0 and carries no meaning.
     """
+    frame = _complete(frame, columns)
     counts = frame.groupby("shot")["shot"].transform("size")
     f = frame.loc[counts >= 2]
-    logs = np.log(f[list(columns.values())].where(f[list(columns.values())] > 0))
+    logs = np.log(f[list(columns.values())])
     demeaned = logs - logs.groupby(f["shot"]).transform("mean")
     names = list(columns)
     y = np.exp(demeaned[columns[names[0]]].to_numpy(float))
@@ -87,7 +95,8 @@ def within_shot(frame: pd.DataFrame, columns: dict) -> tuple[np.ndarray, dict, n
 
 def between_shot(frame: pd.DataFrame, columns: dict) -> tuple[np.ndarray, dict, np.ndarray]:
     """Shot means of the logs, one row per shot; groups are the shots themselves."""
-    logs = np.log(frame[list(columns.values())].where(frame[list(columns.values())] > 0))
+    frame = _complete(frame, columns)
+    logs = np.log(frame[list(columns.values())])
     means = logs.groupby(frame["shot"]).mean()
     names = list(columns)
     y = np.exp(means[columns[names[0]]].to_numpy(float))
@@ -105,7 +114,9 @@ def dimensionless_columns(frame: pd.DataFrame) -> pd.DataFrame:
         rho_star_from_M_T_B_R_epsilon,
     )
 
-    f = frame.loc[np.isfinite(frame["n_e_line_avg_m3"]) & (frame["n_e_line_avg_m3"] > 0)].copy()
+    needed = ["n_e_line_avg_m3", "w_th_J", "a_m", "r_geo_m", "kappa_area", "epsilon", "m_eff_amu",
+              "b_t_T", "i_p_A", "tau_e_th_s"]
+    f = _complete(frame, {c: c for c in needed}).copy()
     volume = 2.0 * np.pi**2 * f["a_m"] ** 2 * f["r_geo_m"] * f["kappa_area"]
     f["t_avg_eV"] = f["w_th_J"] / (3.0 * f["n_e_line_avg_m3"] * volume * QE)
     a = {k: f[k].to_numpy(float) for k in ("m_eff_amu", "t_avg_eV", "b_t_T", "r_geo_m", "epsilon",
@@ -180,7 +191,8 @@ def main(argv=None) -> int:
     # exp(1) on the second block: its log coefficient is the block's log offset.
     rows += run("pooled:I,B0R0,P+campaign", frame["tau_e_th_s"].to_numpy(float),
                 {**xc, "campaign2": np.where(second, np.e, 1.0)}, g,
-                "log offset of the 429xx-430xx block; physics or diagnostics era")
+                "campaign2 = log offset of the 429xx-430xx block relative to 399xx-403xx; "
+                "physics or diagnostics era")
     for block, mask in (("399xx-403xx", ~second), ("429xx-430xx", second)):
         sub = frame.loc[mask]
         rows += run(f"block {block}:I,B0R0,P", sub["tau_e_th_s"].to_numpy(float),
@@ -219,7 +231,7 @@ def main(argv=None) -> int:
         "vaft_git": _git("rev-parse", "HEAD"), "vaft_dirty": bool(_git("status", "--porcelain")),
         "table": {"path": str(table_path), "sha256": hashlib.sha256(table_path.read_bytes()).hexdigest()},
         "selection": SELECTIONS["primary"], "spread": spread,
-        "notes": ("within: shot fixed effects, cluster errors without the absorbed-mean dof correction; "
+        "notes": ("within: shot fixed effects, CR1 cluster errors (standard for FE nested in clusters); "
                   "between: shot means; dimensionless: <T> = W_mhd/(3 n V e), Ti=Te, n = Thomson line average, "
                   "errors of tau, rho*, beta, nu* share W"),
     }

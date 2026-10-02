@@ -66,3 +66,16 @@ def test_dimensionless_columns_recover_the_average_temperature():
     out = ext.dimensionless_columns(pd.DataFrame([row, {**row, "n_e_line_avg_m3": np.nan}]))
     assert len(out) == 1 and out["t_avg_eV"].iloc[0] == pytest.approx(t_ev)
     assert np.isfinite(out[["rho_star", "beta_t", "nu_star", "q_cyl", "omega_tau"]].to_numpy()).all()
+
+
+def test_incomplete_rows_do_not_enter_any_shot_mean():
+    """A NaN in one column must remove the whole row, not just that column's mean."""
+    ext = _ext()
+    f = pd.DataFrame({"shot": [1, 1, 2, 2, 2], "tau_e_th_s": [1.0, 2.0, 1.0, 2.0, 4.0],
+                      "p_loss_W": [1.0, np.nan, 1.0, 2.0, 4.0]})
+    cols = {"tau": "tau_e_th_s", "p": "p_loss_W"}
+    y, x, g = ext.within_shot(f, cols)
+    assert list(g) == [2, 2, 2]  # shot 1 has one complete row left: no within information
+    np.testing.assert_allclose(np.log(y), np.log(x["p"]))
+    y, x, g = ext.between_shot(f, cols)
+    np.testing.assert_allclose(np.log(y), np.log(x["p"]))  # shot 1 mean from its one complete row
