@@ -678,6 +678,15 @@ def test_classical_gamma1_table_is_braginskii_table_2(sample):
     assert classical_heat_fluxes(local, 0.3)["model"]["coefficients"]["electron"].count("3.25") == 1
 
 
+def test_surface_toroidal_field_docstring_tags_rcentr_as_a_length():
+    """F4: rcentr is a major radius [m], not a field [T]."""
+    from vaft.process.transport_state import surface_toroidal_field
+
+    doc = surface_toroidal_field.__doc__
+    assert "``bcentr`` [T] and ``rcentr`` [m]." in doc
+    assert "``rcentr`` [T]" not in doc
+
+
 # --------------------------------------------------------------------------- cold review 0.8.0 delta-absorb-7
 
 

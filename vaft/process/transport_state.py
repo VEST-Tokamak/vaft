@@ -1096,7 +1096,7 @@ def surface_toroidal_field(profile: Any, local: Any) -> float:
     Parameters
     ----------
     profile : GACODEProfile
-        Supplies ``bcentr`` and ``rcentr`` [T].
+        Supplies ``bcentr`` [T] and ``rcentr`` [m].
     local : TGLFInput
         Supplies ``rmaj_loc`` and the minor radius of the surface [-].
 
