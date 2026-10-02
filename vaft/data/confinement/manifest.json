@@ -61,5 +61,5 @@
     "vest_tier_a_confinement.csv": "939785019dbe5f14d5e9361794f052573f36e2d7ed70d7e7eec6007bda75d51f"
   },
   "series": "per-shot power balance on the labelled EFIT slices (atlas series/<shot>.csv) for 39915 (block 399xx-403xx) and 42894 (block 429xx-430xx)",
-  "caveat": "W_mhd of the 429xx-430xx block is about 2x the Thomson-based expectation (EFIT probe chi^2 6.9 vs 1.4); see #1490."
+  "caveat": "429xx-430xx block: at fixed I_p and I_p V_loop its W_mhd is x1.6 the 399xx-403xx block's (log offset +0.46 +- 0.10), while the Thomson-only W_e shows none (-0.09 +- 0.49); W_mhd/W_e medians are 4.5 against 2.1, EFIT probe reduced chi^2 6.8 against 1.1. See #1490."
 }
