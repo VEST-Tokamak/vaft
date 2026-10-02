@@ -12359,6 +12359,12 @@ RECIPES["mhd_linear_geometry_island"] = CallableRecipe(
                 "the mapped spectral field and drawn on the run's own flux-surface mesh.",
     reads=_mhd_linear_profile_reads("b_field_perturbed.coordinate1") + _MHD_LINEAR_MESH_PATHS,
     backend=NEUTRAL,
+    # Its own field= vocabulary, declared here rather than as a second "field"
+    # entry in the option schema: required, with no default -- the total and
+    # vacuum resonant pairs are different physical objects on the same axes
+    # (20 % apart in width and up to 3.1 rad apart in phase on the DIII-D
+    # reference), so the caller says which (see the builder's docstring).
+    choices={"field": ChoiceDeclaration(None, tuple(ISLAND_FIELD_SOURCES))},
 )
 
 

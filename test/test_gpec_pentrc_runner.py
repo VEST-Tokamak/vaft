@@ -201,6 +201,71 @@ def test_every_method_vaft_can_read_has_a_namelist_flag_to_ask_for_it(cell):
     assert all(values[f"{method}_flag"] == "t" for method in pentrc.TORQUE_METHODS)
 
 
+def _template_without(tmp_path, *methods: str) -> Path:
+    """A ``templates_dir`` whose ``pentrc.in`` lacks the named ``<method>_flag`` lines."""
+    templates = tmp_path / "templates"
+    templates.mkdir(exist_ok=True)
+    packaged = gpec._runtime.package_vest_dir() / "pentrc.in"
+    kept = "\n".join(
+        line for line in packaged.read_text(encoding="utf-8").splitlines()
+        if not any(line.strip().startswith(f"{m}_flag") for m in methods)
+    )
+    (templates / "pentrc.in").write_text(kept + "\n", encoding="utf-8")
+    return templates
+
+
+#: The nine flags GPEC's own ``input/pentrc.in`` does not declare.
+GPEC_OMITS = ("twmm", "pwmm", "ttmm", "ptmm", "tkmm", "pkmm", "frmm", "trmm", "prmm")
+
+
+def test_an_unselected_method_the_template_does_not_declare_is_left_out(cell, tmp_path):
+    """GPEC's own ``input/pentrc.in`` declares 9 of the 18 flags.
+
+    The missing nine default to ``.false.`` inside PENTRC
+    (``pentrc/pentrc_interface.f90:63-80``), so a torque run that does not
+    select them loses nothing by not writing them; it used to die on a bare
+    ``KeyError`` (cold review 0.8.0 delta-squash F2).
+    """
+    path = gpec.prepare_pentrc_run(
+        cell, mode=1, options=_options(methods=("fgar", "tgar")),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=gpec.GPECSuiteConfig(templates_dir=_template_without(tmp_path, *GPEC_OMITS)),
+    )
+    values = _pent(path, "pent_output")
+    assert values["fgar_flag"] == "t" and values["tgar_flag"] == "t"
+    assert values["pgar_flag"] == "f"
+    assert not any(f"{m}_flag" in values for m in GPEC_OMITS)
+
+
+def test_a_selected_method_the_template_does_not_declare_is_refused_by_name(cell, tmp_path):
+    """Asked for, it has to land: a ``ValueError`` naming the template and the key."""
+    templates = _template_without(tmp_path, *GPEC_OMITS)
+    with pytest.raises(ValueError, match="twmm_flag") as refused:
+        gpec.prepare_pentrc_run(
+            cell, mode=1, options=_options(methods=("twmm",)),
+            kinetic_file=cell.parents[2] / "profiles.kin",
+            config=gpec.GPECSuiteConfig(templates_dir=templates),
+        )
+    assert isinstance(refused.value, KeyError)
+    assert str(templates / "pentrc.in") in str(refused.value)
+    assert not (cell / "pentrc.in").exists()
+
+
+def test_the_flag_pentrc_turns_on_by_itself_is_required_even_when_unselected(cell, tmp_path):
+    """``fgar_flag=.true.`` is PENTRC's code default, so an absent line runs FGAR.
+
+    A template that cannot say ``fgar_flag=f`` cannot express a run without it,
+    and leaving the key out would be the silent extra calculation this module
+    writes every flag to prevent.
+    """
+    with pytest.raises(ValueError, match="fgar_flag"):
+        gpec.prepare_pentrc_run(
+            cell, mode=1, options=_options(methods=("tgar",)),
+            kinetic_file=cell.parents[2] / "profiles.kin",
+            config=gpec.GPECSuiteConfig(templates_dir=_template_without(tmp_path, "fgar")),
+        )
+
+
 def test_the_species_are_integers_because_the_namelist_keys_are(cell):
     """``mi``/``zi``/``mimp``/``zimp`` are Fortran integers.
 
@@ -335,6 +400,39 @@ def test_prepare_only_writes_the_namelist_and_launches_nothing(cell, tmp_path):
     assert record.status == "prepared"
     assert record.commands == ()
     assert (cell / "pentrc.in").is_file()
+
+
+@pytest.mark.parametrize("installed, run_mode", [(False, "prepare_only"), (True, "run_if_available")])
+def test_a_missing_displacement_is_skipped_not_raised_under_the_lenient_modes(
+    cell, tmp_path, installed, run_mode
+):
+    """``skipped`` when an input is missing, as the docstring says -- in every mode but strict.
+
+    ``prepare_pentrc_run`` needs the displacement for ``jac_in`` and raised
+    ``FileNotFoundError`` before the ``prepare_only`` return and before the
+    input check, after staging the kin file into the cell (cold review 0.8.0
+    delta-squash F4).
+    """
+    (cell / "gpec_xclebsch_n1.out").unlink()
+    record = gpec.run_pentrc(
+        cell, mode=1, options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=_config(tmp_path, installed=installed, run_mode=run_mode),
+    )
+    assert record.status == "skipped"
+    assert "gpec_xclebsch_n1.out" in record.reason
+    assert not (cell / "pentrc.in").exists()
+    assert not (cell / "profiles.kin").exists(), "nothing is staged into a cell that cannot run"
+
+
+def test_strict_still_raises_for_a_missing_displacement(cell, tmp_path):
+    (cell / "gpec_xclebsch_n1.out").unlink()
+    with pytest.raises(FileNotFoundError, match="xclebsch_flag and ascii_flag"):
+        gpec.run_pentrc(
+            cell, mode=1, options=_options(),
+            kinetic_file=cell.parents[2] / "profiles.kin",
+            config=_config(tmp_path, run_mode="strict"),
+        )
 
 
 def test_an_uninstalled_pentrc_is_skipped_with_the_reason(cell, tmp_path):
@@ -774,6 +872,29 @@ def test_an_absent_tmag_out_falls_back_to_gpecs_own_code_default(cell):
     """Absent from the namelist means GPEC's declaration applies, which is 1."""
     (cell / "gpec.in").write_text("&GPEC_OUTPUT\n    jsurf_out=0\n/\n", encoding="utf-8")
     assert gpec.peq_toroidal_angle(cell) == gpec._pentrc.PEQ_TMAG_DEFAULT == 1
+
+
+def test_a_namelist_without_the_requested_group_is_refused_not_read_from_the_top(tmp_path):
+    """``read_namelist_group`` used to return the *first* group when the asked one was absent.
+
+    Reached through hand-edited namelists read with the exported reader: a
+    ``tmag_out`` placed in ``&GPEC_INPUT`` came back as ``&GPEC_OUTPUT``'s
+    (cold review 0.8.0 delta-squash F5).
+    """
+    from vaft.code.gpec._runtime import read_namelist_group
+
+    path = tmp_path / "gpec.in"
+    path.write_text("&GPEC_INPUT\n  tmag_in=0\n/\n&GPEC_OUTPUT\n  tmag_out=0\n/\n", encoding="utf-8")
+    assert read_namelist_group(path, "gpec_output") == {"tmag_out": "0"}
+    with pytest.raises(ValueError, match=r"no &xyz namelist group") as refused:
+        read_namelist_group(path, "xyz")
+    assert "gpec_input" in str(refused.value) and "gpec_output" in str(refused.value)
+
+
+def test_a_tmag_out_in_the_wrong_group_does_not_pass_for_the_output_angle(cell):
+    (cell / "gpec.in").write_text("&GPEC_INPUT\n    tmag_out=0\n/\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="GPEC_OUTPUT|gpec_output"):
+        gpec.peq_toroidal_angle(cell)
 
 
 def test_an_unbounded_run_is_refused_rather_than_launched(cell, tmp_path):

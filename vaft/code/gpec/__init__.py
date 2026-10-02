@@ -369,7 +369,7 @@ def validate_threshold_inputs(
         return problems
     try:
         pent_input = rt.read_namelist_group(pentrc_in, "pent_input")
-    except OSError as error:
+    except (OSError, ValueError) as error:
         problems.append(f"could not read {pentrc_in}: {error}")
         return problems
     kinetic_file = pent_input.get("kinetic_file", "").strip()
@@ -399,7 +399,7 @@ def _threshold_blockers_in_dcon(dcon_dir: Path) -> list[str]:
         ]
     try:
         control = rt.read_namelist_group(namelist, "dcon_control")
-    except OSError as error:  # pragma: no cover - unreadable namelist
+    except (OSError, ValueError) as error:  # unreadable, or no &DCON_CONTROL
         return [f"could not read {namelist}: {error}"]
     problems = []
     for key in _THRESHOLD_BLOCKING_DCON_KEYS:

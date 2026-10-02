@@ -709,21 +709,28 @@ class IdealGPECSolver:
             # Asked for, so it has to land: a template without the key is a
             # template that cannot express this run.
             replacements["singthresh_flag"] = optional.pop("singthresh_flag")
-            # Written only when asked for, because GPEC leaves these three out
-            # of every namelist it ships -- they exist as code defaults
+            # Written only when asked for, because GPEC leaves the two sub-flags
+            # out of every namelist it ships -- they exist as code defaults
             # (`gpec/gpec.f:159-162`) -- so a caller's own `templates_dir` may
-            # legitimately not carry them. Patching unconditionally would make
-            # this release refuse a template that worked in the last one.
+            # legitimately not carry them: GPEC's own `input/gpec.in` does not.
             # The *effective* values, not the fields: `singthresh_flag=t` forces
             # both true inside GPEC (`gpec/gpec.f:274-279`), so writing the raw
             # `False` beside it would be a namelist that contradicts the run it
             # describes -- and the namelist is what a reader has later.
-            replacements.update(
-                {
-                    "singthresh_callen_flag": options.wants_callen_threshold,
-                    "singthresh_slayer_flag": options.wants_slayer_threshold,
-                }
-            )
+            # Required only where the request *depends* on the key landing: a
+            # sub-flag asked for on its own, without the shorthand. Under the
+            # shorthand both are implied, and a sub-flag that is off is GPEC's
+            # own default, so either is restated where the template has the
+            # line and left alone where it does not (cold review 0.8.0
+            # delta-squash F2).
+            for key, wanted in (
+                ("singthresh_callen_flag", options.wants_callen_threshold),
+                ("singthresh_slayer_flag", options.wants_slayer_threshold),
+            ):
+                if wanted and not options.singthresh_flag:
+                    replacements[key] = True
+                else:
+                    optional[key] = wanted
             if options.singthresh_slayer_inpr is not None:
                 replacements["singthresh_slayer_inpr"] = float(options.singthresh_slayer_inpr)
             if options.singthresh_slayer_inpr_prof is not None:
