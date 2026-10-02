@@ -12,7 +12,15 @@
     successive $z$: shear rotates them, $k_x = k_y\\hat s z$;
 ``ballooning_eigenfunction``
     the most unstable localised eigenmode of the $s$-$\\alpha$ equation on the
-    extended angle, against the non-localised top mode of a stable surface.
+    extended angle, against the non-localised top mode of a stable surface;
+``ballooning_transit_map``
+    the extended angle tied to the cross-section, one poloidal circle per
+    transit;
+``ballooning_boundary_conditions``
+    decay on the covering space against a flux tube's sheared parallel join;
+``field_aligned_xpoint_limitation``
+    straight-field-line angle lines crowding into the X-point of the diverted
+    toy equilibrium, where $q$ diverges.
 
 The physics is :mod:`vaft.formula.stability` (``field_line_label``,
 ``ballooning_radial_wavenumber``, ``s_alpha_ballooning_eigenmode``) on the
@@ -35,6 +43,19 @@ from ._scene import Arrow, Label, Marker, Polyline, Scene
 
 #: unstable and stable (s, alpha) of the eigenfunction figure: first-stability boundary at s = 1 lies near 0.6
 UNSTABLE, STABLE = (1.0, 1.2), (1.0, 0.3)
+
+
+def _count(value, name: str, low: int, high: int) -> int:
+    """``value`` as an int in ``[low, high]``; numpy integers pass, bool does not."""
+    import operator
+
+    try:
+        n = operator.index(value) if not isinstance(value, bool) else None
+    except TypeError:
+        n = None
+    if n is None or not low <= n <= high:
+        raise ValueError(f"{name} must be an integer from {low} to {high}, not {value!r}")
+    return n
 
 
 def _check_labels(labels) -> bool:
@@ -317,9 +338,9 @@ def ballooning_transit_map(*, transits: int = 2, labels: bool = True) -> Diagram
     outboard side of one transit.
     """
     labels = _check_labels(labels)
-    if not (isinstance(transits, int) and not isinstance(transits, bool) and 1 <= transits <= 3):
-        raise ValueError(f"transits must be 1, 2 or 3, not {transits!r}")
-    _, th, F = s_alpha_ballooning_eigenmode(*UNSTABLE)
+    transits = _count(transits, "transits", 1, 3)
+    # the box must reach past the drawn range: its Dirichlet ends are a numerical condition, not the mode
+    _, th, F = s_alpha_ballooning_eigenmode(*UNSTABLE, theta_max=max(6.0, 2.0 * transits + 2.0) * math.pi)
     F = F / np.max(np.abs(F))
     half = (2 * transits + 1)
     keep = np.abs(th) <= half * math.pi
@@ -374,6 +395,10 @@ def ballooning_boundary_conditions(*, shear: float = 1.0, labels: bool = True) -
     condition, named here and not derived.
     """
     labels = _check_labels(labels)
+    if isinstance(shear, bool) or not isinstance(shear, (int, float, np.floating, np.integer)) \
+            or not 0.1 <= float(shear) <= 3.0:
+        raise ValueError(f"shear must be a number from 0.1 to 3, not {shear!r}")
+    shear = float(shear)
     _, th, F = s_alpha_ballooning_eigenmode(*UNSTABLE)
     F = F / np.max(np.abs(F))
     chart = Chart(x_range=(-6.0, 6.0), y_range=(-0.1, 1.15))
@@ -419,11 +444,12 @@ def ballooning_boundary_conditions(*, shear: float = 1.0, labels: bool = True) -
                    model={"shear": shear, "kx_after_one_turn": k_x, "unstable": UNSTABLE})
 
 
-def _straight_field_line_points(model: dict, psi_n: float, n_theta: int):
+def _straight_field_line_points(model: dict, psi_n: float, n_theta: int, near=None):
     """Points of equal straight-field-line angle on the closed surface $\\psi_N$, and $\\oint dl/(R|\\nabla\\psi|)$.
 
     With $F$ constant (toy), $d\\theta^*/dl \\propto 1/(R^2B_p) = 1/(R|\\nabla\\psi|)$; the loop
     integral is proportional to $q$. Starts at the outboard midplane, runs counter-clockwise.
+    ``near = (point, radius)`` also returns the fraction of $\\theta^*$ spent within ``radius`` of ``point``.
     """
     from scipy.interpolate import RectBivariateSpline
 
@@ -448,6 +474,10 @@ def _straight_field_line_points(model: dict, psi_n: float, n_theta: int):
     cum = np.r_[0.0, np.cumsum(w)]
     targets = np.linspace(0.0, cum[-1], n_theta, endpoint=False)
     pts = np.stack([np.interp(targets, cum, closed[:, 0]), np.interp(targets, cum, closed[:, 1])], -1)
+    if near is not None:
+        point, radius = near
+        close = np.hypot(mid[:, 0] - point[0], mid[:, 1] - point[1]) < radius
+        return pts, float(cum[-1]), float(np.sum(w[close]) / cum[-1])
     return pts, float(cum[-1])
 
 
@@ -471,8 +501,7 @@ def field_aligned_xpoint_limitation(*, n_theta: int = 24, labels: bool = True) -
     diverging logarithmically as $\psi_N \to 1$ (cf. ``sfl_coordinate_validity``).
     """
     labels = _check_labels(labels)
-    if not (isinstance(n_theta, int) and not isinstance(n_theta, bool) and 8 <= n_theta <= 64):
-        raise ValueError(f"n_theta must be an integer from 8 to 64, not {n_theta!r}")
+    n_theta = _count(n_theta, "n_theta", 8, 64)
     from ._gs_equilibrium import _cm, _surfaces, flux_model, lcfs
 
     model = flux_model("diverted")
@@ -500,8 +529,8 @@ def field_aligned_xpoint_limitation(*, n_theta: int = 24, labels: bool = True) -
                            y_ticks=[float(v) for v in range(0, int(chart.y_range[1]) + 1)])
     offset, scale = (7.6, 0.2), 0.55
     items += list(q_scene.transformed(scale=scale, offset=offset).items)
-    # the fraction of theta* steps within 0.15 m of the X-point on the outermost surface
-    near = float(np.mean(np.hypot(*(points[-1] - np.array(model["x_point"])).T) < 0.15))
+    # the fraction of the theta* range spent within 0.15 m of the X-point on the outermost surface
+    *_, near = _straight_field_line_points(model, _XPOINT_SURFACES[-1], n_theta, near=(model["x_point"], 0.15))
     if labels:
         xl = 5.6
         items += [Label((3.3, 4.6), "closed surfaces: $\\theta^*$ lines", "label", anchor="south", role="title"),

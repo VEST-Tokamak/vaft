@@ -237,8 +237,8 @@
     },
     "field_aligned_xpoint_limitation.svg": {
       "call": "vaft.diagram.field_aligned_xpoint_limitation()",
-      "source_sha256": "7bf6caa4ffb4d414dff1538fe3f7090190beaca2dfec3377f60931a0d4cdf6b4",
-      "svg_sha256": "8dc9ba89c2a4f50f471c1c2c93c14a5729508347321207dac62ce9e9fecdc976"
+      "source_sha256": "ece0b542ae53741c55f6e3e67fd2fbdd26e6cce3b2d44521c2e47dc6e1a6878d",
+      "svg_sha256": "b93412fbe861397691771d7f0efee794cc5f3e74d0da8809bb68c27cdbf76db3"
     },
     "field_line_action_angle.svg": {
       "call": "vaft.diagram.field_line_action_angle()",

@@ -129,12 +129,15 @@ def test_theta_star_crowds_into_the_x_point_and_q_diverges():
     q = np.array(m["q_relative"])
     assert np.all(np.diff(q) > 0) and q[-1] > 4.0
     assert 0.3 < m["fraction_near_x_point"] < 0.9
-    # the core surface is not crowded
+    # a property of the surface, not of how many lines are drawn
+    assert vaft.diagram.field_aligned_xpoint_limitation(n_theta=8).model["fraction_near_x_point"] == \
+        pytest.approx(m["fraction_near_x_point"])
+    # the core surface spends none of its angle near the X-point
     from vaft.diagram._gs_equilibrium import flux_model
 
     model = flux_model("diverted")
-    core, _ = fa._straight_field_line_points(model, 0.3, 24)
-    assert np.mean(np.hypot(*(core - np.array(model["x_point"])).T) < 0.15) == 0.0
+    *_, core = fa._straight_field_line_points(model, 0.3, 24, near=(model["x_point"], 0.15))
+    assert core == 0.0
     with pytest.raises(ValueError):
         vaft.diagram.field_aligned_xpoint_limitation(n_theta=4)
 
@@ -156,3 +159,22 @@ def test_the_remainder_figures_are_deterministic_and_exposed(name):
     assert name in vaft.diagram.__all__
     assert fn().tikz == fn().tikz
     assert fn(labels=False).tikz != fn().tikz
+
+
+def test_the_transit_map_box_reaches_past_the_drawn_range():
+    d = vaft.diagram.ballooning_transit_map(transits=3)
+    a = d.model["amplitude"]
+    assert a[3] != 0.0 and abs(a[3]) < abs(a[2])  # not the Dirichlet end of the box
+    assert d.model["amplitude"][1] == pytest.approx(vaft.diagram.ballooning_transit_map().model["amplitude"][1],
+                                                    rel=1e-3)
+
+
+@pytest.mark.parametrize("bad", [0.0, -1.0, 10.0, "1", True])
+def test_the_boundary_condition_shear_is_validated(bad):
+    with pytest.raises(ValueError):
+        vaft.diagram.ballooning_boundary_conditions(shear=bad)
+
+
+def test_numpy_integers_are_accepted_as_counts():
+    assert vaft.diagram.ballooning_transit_map(transits=np.int64(1)).model["transits"] == (-1, 0, 1)
+    assert vaft.diagram.field_aligned_xpoint_limitation(n_theta=np.int64(16)).model["n_theta"] == 16
