@@ -441,6 +441,9 @@ OPTIONS: dict[str, dict] = {
     "charge_exchange_profile_fit": {"order": 2},
     "camera_visible_image_field_line": {"field_line_start": (0.4, 0.0)},
     "camera_visible_image_vacuum_field_line": {"shot": 39915, "max_turns": 0.25, "resolution": 21},
+    # #1446: the island separatrices take no default field -- the total and
+    # vacuum resonant pairs are different objects drawn on the same axes.
+    "mhd_linear_geometry_island": {"field": "total"},
 }
 
 #: Names no factory could make build, with the exact error.
