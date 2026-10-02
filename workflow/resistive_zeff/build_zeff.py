@@ -10,13 +10,22 @@ Windows
 A window is the longest run of consecutive EFIT slices of one shot whose
 ``magnetics`` rows are graded ``good`` or ``admissible``; Romero's balance
 differentiates in time, so a window needs three slices.  It is classified by
-the median ``dln I_p/dt`` and ``|dln L_i/dt|`` separately (#1214 Sec. 6): a
-small ``|V_I|/|V_B|`` is not a flat top, because ``L_i dI_p/dt`` and
-``(I_p/2) dL_i/dt`` cancel in the current decay (#1514):
+the median ``dln I_p/dt`` (#1214 Sec. 6, relaxed in #1514): a small
+``|V_I|/|V_B|`` is not a flat top, because ``L_i dI_p/dt`` and
+``(I_p/2) dL_i/dt`` cancel in the current decay.
 
-* ``flattop`` -- both rates below ``--stationary-rate``;
-* ``ip_stationary_li_evolving`` -- ``I_p`` steady, ``L_i`` still moving;
+* ``flattop`` -- ``|dln I_p/dt|`` below ``--stationary-rate``.  ``L_i`` may
+  still evolve: no Thomson-equipped VEST window has a steady ``L_i``
+  (#1514), and Romero's balance carries ``(I_p/2) dL_i/dt`` explicitly
+  rather than assuming it away.  ``li_evolving`` says whether it did.
 * ``ramp_up`` / ``decay`` -- by the sign of ``dI_p/dt``.
+
+Each shot gives up to two windows (``window_kind``): the longest run of
+graded slices, and -- found automatically -- the longest run of at least
+three graded slices inside which ``|dln I_p/dt|`` stays below the rate at
+every slice (``ip_stationary_subwindow``), when it differs from the first.
+The rates come from the Rogowski ``I_p`` (magnetics, smoothed over 1 ms),
+falling back to the EFIT ``I_p`` when the shot has no diagnostics product.
 
 A window that cannot be inferred is still a row, with
 ``status = not_identifiable`` and the reason (#1214 Sec. 10):
@@ -74,7 +83,10 @@ WINDOW_COLUMNS: dict[str, tuple[str, str]] = {
     "t_end_s": ("number", "last EFIT slice time of the window"),
     "n_slices": ("integer", "EFIT slices in the window"),
     "n_states": ("integer", "slices with electron profiles at their own time (fitted)"),
-    "window_class": ("string", "flattop | ip_stationary_li_evolving | ramp_up | decay | unknown"),
+    "window_kind": ("string", "longest_graded_run | ip_stationary_subwindow"),
+    "window_class": ("string", "flattop (|dln I_p/dt| < rate; L_i may evolve) | ramp_up | decay | unknown"),
+    "li_evolving": ("boolean", "median |dln L_i/dt| at or above the stationary rate"),
+    "ip_rate_source": ("string", "rogowski (magnetics, 1 ms smoothing) | efit"),
     "median_dln_ip_dt": ("number", "median dI_p/dt / I_p over the window [1/s]"),
     "median_abs_dln_li_dt": ("number", "median |dL_i/dt| / L_i over the window [1/s]"),
     "median_inductive_fraction": ("number", "median |V_I|/|V_B| over the window"),
@@ -117,6 +129,7 @@ SLICE_COLUMNS: dict[str, tuple[str, str]] = {
     "efit_lineage": ("string", "magnetics"),
     "efit_quality": ("string", "good | admissible (Lane K)"),
     "window_t_start_s": ("number", "the window this slice belongs to"),
+    "window_kind": ("string", "longest_graded_run | ip_stationary_subwindow"),
     "ip_a": ("number", "plasma current [A]"),
     "li_3": ("number", "li_3 recomputed from int B_p^2 dV"),
     "v_b_v": ("number", "boundary loop voltage, Romero -dpsi_B/dt [V]"),
@@ -135,6 +148,7 @@ SENSITIVITY_COLUMNS: dict[str, tuple[str, str]] = {
     "contract_version": ("string", "resistive Z_eff atlas contract (zeff-1)"),
     "shot": ("integer", "VEST shot number"),
     "t_start_s": ("number", "window start"),
+    "window_kind": ("string", "longest_graded_run | ip_stationary_subwindow"),
     "input": ("string", "perturbed input"),
     "setting": ("string", "the perturbation"),
     "zeff": ("number", "re-inferred Z_eff"),
@@ -260,6 +274,54 @@ def _flux_loop_variant(flux, loop):
                                       "sign aligned to psi_B")
 
 
+def _ip_trace(filedb: Path, shot: int):
+    """``(time, |I_p|, d|I_p|/dt)`` of the Rogowski current, smoothed over 1 ms, or ``None``."""
+    from scipy.signal import savgol_filter
+
+    path = filedb / "omas" / "diagnostics" / str(shot) / "output" / "diagnostics.json.gz"
+    if not path.exists():
+        return None
+    with gzip.open(path, "rt") as handle:
+        ip = json.load(handle).get("magnetics", {}).get("ip", [])
+    if not ip:
+        return None
+    t = np.asarray(ip[0]["time"], dtype=float)
+    data = np.abs(np.asarray(ip[0]["data"], dtype=float))
+    dt = float(np.median(np.diff(t)))
+    width = max(5, int(round(1e-3 / dt)) | 1)
+    return (t, savgol_filter(data, width, 2),
+            savgol_filter(data, width, 2, deriv=1, delta=dt))
+
+
+def _ip_rates(times, ip_trace, efit_times=None, efit_ip=None):
+    """``dln I_p/dt`` at ``times`` [1/s] and its source."""
+    times = np.asarray(times, dtype=float)
+    if ip_trace is not None:
+        t, ip, dip = ip_trace
+        if t[0] <= times.min() and times.max() <= t[-1]:
+            return np.interp(times, t, dip) / np.interp(times, t, ip), "rogowski"
+    ip = np.abs(np.interp(times, efit_times, efit_ip))
+    return np.gradient(ip, times) / ip, "efit"
+
+
+def _stationary_subwindow(runs, ip_trace, efit_times, efit_ip, rate):
+    """Longest run (>= 3 slices) of graded slices all with |dln I_p/dt| < rate."""
+    best: list[float] = []
+    for run in runs:
+        if len(run) < 3:
+            continue
+        rates, _ = _ip_rates(run, ip_trace, efit_times, efit_ip)
+        current: list[float] = []
+        for t, r in zip(run, rates):
+            if abs(r) < rate:
+                current.append(t)
+                continue
+            best = max(best, current, key=len)
+            current = []
+        best = max(best, current, key=len)
+    return best if len(best) >= 3 else []
+
+
 def _states_for(ods, window: list[float]):
     from vaft.omas.resistive_zeff import flux_surface_state_ods
 
@@ -279,7 +341,7 @@ def _states_for(ods, window: list[float]):
     return states, notes
 
 
-def infer_window(shot: int, window: list[float], ods, args, loop=None
+def infer_window(shot: int, window: list[float], ods, args, loop=None, ip_trace=None
                  ) -> tuple[dict, list[dict], list[dict]]:
     from vaft.omas.resistive_zeff import romero_boundary_flux_ods
     from vaft.process.resistive_zeff import (
@@ -308,16 +370,17 @@ def infer_window(shot: int, window: list[float], ods, args, loop=None
                                     source={"shot": shot})
     observed = observed_resistance(flux, I_ni=0.0, smoothing=smoothing)
     median_fraction = float(np.nanmedian(observed.inductive_fraction))
-    ip_rate = float(np.nanmedian(observed.dI_p_dt / observed.I_p))
+    rates, rate_source = _ip_rates(observed.time, ip_trace, observed.time, observed.I_p)
+    ip_rate = float(np.nanmedian(rates))
     li_rate = float(np.nanmedian(np.abs(observed.dL_i_dt) / observed.L_i))
     if abs(ip_rate) < args.stationary_rate:
-        window_class = ("flattop" if li_rate < args.stationary_rate
-                        else "ip_stationary_li_evolving")
+        window_class = "flattop"
     else:
         window_class = "ramp_up" if ip_rate > 0 else "decay"
     row.update(
         median_inductive_fraction=median_fraction,
         median_dln_ip_dt=ip_rate, median_abs_dln_li_dt=li_rate,
+        li_evolving=bool(li_rate >= args.stationary_rate), ip_rate_source=rate_source,
         window_class=window_class,
         current_source_assumption=observed.provenance["current_source_assumption"],
         smoothing=smoothing.describe(), flux_normalization=flux.flux_normalization,
@@ -432,25 +495,35 @@ def build(filedb: Path, atlas: Path, out: Path, args) -> dict:
             windows.append({**base, "status": "not_identifiable",
                             "reason": f"could not read inputs: {type(error).__name__}: {error}"})
             continue
+        loop, ip_trace = _flux_loop(filedb, shot), _ip_trace(filedb, shot)
         window = max(runs, key=len) if runs else []
-        try:
-            row, srows, sens = infer_window(shot, window, ods, args,
-                                            loop=_flux_loop(filedb, shot))
-        except Exception as error:  # noqa: BLE001
-            row, srows, sens = ({"t_start_s": window[0] if window else None,
-                                 "n_slices": len(window), "status": "not_identifiable",
-                                 "reason": f"{type(error).__name__}: {error}"}, [], [])
-        windows.append({**base, **row})
-        for s in srows:
-            key = (shot, round(s["time_efit_s"], 4))
-            s.update(contract_version=CONTRACT_VERSION, state_contract_version=first[3],
-                     shot=shot, efit_lineage="magnetics",
-                     efit_quality=quality.get(key, ("",))[0])
-            slices.append(s)
-        for s in sens:
-            sensitivity.append({"contract_version": CONTRACT_VERSION, "shot": shot, **s})
-        print(f"{shot}: {windows[-1].get('status')} zeff={windows[-1].get('zeff')} "
-              f"{windows[-1].get('reason', '')}", flush=True)
+        efit_ip = np.asarray([float(ods["equilibrium.time_slice"][i]["global_quantities.ip"])
+                              for i in range(len(product_times))])
+        sub = _stationary_subwindow(runs, ip_trace, product_times, efit_ip,
+                                    args.stationary_rate)
+        candidates = [("longest_graded_run", window)]
+        if sub and sub != window:
+            candidates.append(("ip_stationary_subwindow", sub))
+        for kind, span in candidates:
+            try:
+                row, srows, sens = infer_window(shot, span, ods, args, loop=loop,
+                                                ip_trace=ip_trace)
+            except Exception as error:  # noqa: BLE001
+                row, srows, sens = ({"t_start_s": span[0] if span else None,
+                                     "n_slices": len(span), "status": "not_identifiable",
+                                     "reason": f"{type(error).__name__}: {error}"}, [], [])
+            windows.append({**base, "window_kind": kind, **row})
+            for s in srows:
+                key = (shot, round(s["time_efit_s"], 4))
+                s.update(contract_version=CONTRACT_VERSION, state_contract_version=first[3],
+                         shot=shot, efit_lineage="magnetics", window_kind=kind,
+                         efit_quality=quality.get(key, ("",))[0])
+                slices.append(s)
+            for s in sens:
+                sensitivity.append({"contract_version": CONTRACT_VERSION, "shot": shot,
+                                    "window_kind": kind, **s})
+            print(f"{shot} {kind}: {windows[-1].get('window_class')} {windows[-1].get('status')} "
+                  f"zeff={windows[-1].get('zeff')} {windows[-1].get('reason', '')}", flush=True)
 
     out.mkdir(parents=True, exist_ok=True)
     (out / "schema").mkdir(exist_ok=True)
@@ -491,8 +564,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ln-lambda", default="sauter")
     parser.add_argument("--bounds", type=float, nargs=2, default=(1.0, 8.0))
     parser.add_argument("--stationary-rate", type=float, default=20.0,
-                        help="|dln I_p/dt| and |dln L_i/dt| [1/s] below which a quantity is "
-                             "steady (20/s: a 50 ms e-folding, longer than a VEST pulse)")
+                        help="|dln I_p/dt| [1/s] below which I_p counts as steady, the relaxed "
+                             "flat top (20/s: a 50 ms e-folding, longer than a VEST pulse); "
+                             "also the li_evolving threshold")
     parser.add_argument("--inductive-max", type=float, default=1.0,
                         help="slices with |V_I|/|V_B| at or above this are not fitted")
     parser.add_argument("--max-excluded-current", type=float, default=0.05,
