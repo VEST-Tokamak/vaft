@@ -234,24 +234,9 @@ def read_coil_control(path: str | Path) -> dict[str, str]:
     comments stripped; nothing is defaulted, so a key the file omits is absent
     from the mapping rather than guessed.
     """
-    text = Path(path).read_text(encoding="utf-8")
-    # Fortran namelist group names are case-insensitive and hand-written
-    # coil.in files use both spellings.
-    match = re.search(r"&coil_control", text, re.IGNORECASE)
-    body = text[match.end():] if match else text
-    control: dict[str, str] = {}
-    for raw in body.splitlines():
-        # Comments first: ``data_dir="/a/b" ! ...`` puts a slash in the value,
-        # so the namelist terminator has to be recognised as its own line and
-        # not as the first "/" in the text.
-        line = raw.split("!", 1)[0].strip()
-        if line.startswith("/"):
-            break
-        if "=" not in line or "(" in line.split("=", 1)[0]:
-            continue
-        key, value = (part.strip() for part in line.split("=", 1))
-        control[key] = value.strip().strip("\"'")
-    return control
+    from ._runtime import read_namelist_group
+
+    return read_namelist_group(path, "coil_control")
 
 
 @dataclass(frozen=True)

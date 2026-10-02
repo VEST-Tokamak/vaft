@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Provision per-shot HSDS folders. hsload does not create them, so a shot's
-# first replication fails with "Domain ... not found" until this has run.
+# Provision per-shot HSDS folders in advance. hsload does not create them, but
+# every VAFT write path now does (vaft.database.utils.ensure_shot_folder), so
+# this is only needed for a writer that may not create folders in the source.
 # Idempotent: hstouch opens with mode='x' and refuses an existing folder.
 set -uo pipefail
 export PATH="$HOME/.local/bin:$PATH"

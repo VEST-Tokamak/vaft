@@ -649,3 +649,14 @@ def collect_neo_outputs(workdir: str | Path) -> Optional[NeoOutputs]:
         errors=_parse_errors(directory),
         files=tuple(produced),
     )
+
+
+__all__ = [
+    "SCHEMA",
+    "SCHEMA_VERSION",
+    "THEORY_SCALARS",
+    "NeoGrid",
+    "NeoNormalisation",
+    "NeoOutputs",
+    "collect_neo_outputs",
+]

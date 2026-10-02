@@ -32,6 +32,8 @@ DEFINITIONAL = frozenset({
     "evaluate_boundary",
     "evaluate_window",
     "boundary_curve",
+    "threshold_curve",
+    "same_quantity",
     "get_boundary",
     "list_boundaries",
     # A change of coordinates onto the Hugill plane (#1068); q_cyl carries its own source.

@@ -569,9 +569,9 @@ def identify_flux_exponent_from_q(
 
     Provenance
     ----------
-    .. [legacy] hsyun_GPEC ``library/geqdsk_cocos.py::flux_normalization_diagnostic``
-       on branch ``codex/gpec-flare-cocos-handshake``, which is the method and
-       the levels.  Its acceptance rule was *relative only* -- the winner had to
+    .. [legacy] The legacy implementation's
+       ``geqdsk_cocos.py::flux_normalization_diagnostic``, which is the method
+       and the levels.  Its acceptance rule was *relative only* -- the winner had to
        beat the loser threefold, with no bar on the winner's own agreement --
        and that accepts a decisive-looking wrong answer: measured on a real
        g-file with psi scaled by one half, the winning hypothesis is off by a
@@ -790,8 +790,8 @@ def identify_convention(
        relations the identification rests on.
     .. [2] ``omas.identify_cocos`` supplies the sign family; its flux-exponent
        argument is deliberately not used, see :func:`identify_flux_exponent`.
-    .. [3] The contour-q fallback is hsyun_GPEC
-       ``library/geqdsk_cocos.py::flux_normalization_diagnostic``, ported in
+    .. [3] The contour-q fallback is the legacy implementation's
+       ``geqdsk_cocos.py::flux_normalization_diagnostic``, ported in
        :func:`identify_flux_exponent_from_q`.
     """
     eq = equilibrium

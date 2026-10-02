@@ -29,8 +29,12 @@ from .config import (
     EFITProfileConfig,
     EFITScientificConfig,
     efit_parameter_grid,
+    routine_constraint_config,
+    routine_numerics_config,
+    routine_profile_config,
+    routine_scientific_config,
 )
-from .presets import PRESETS, EFITPreset, apply_sigma_floor, efit_preset
+from .presets import DEFAULT_PRESET, PRESETS, EFITPreset, apply_sigma_floor, efit_preset, preset_of
 from .termination import EFIT_LOG_PATTERNS, parse_slices
 from .iteration_history import (
     ITERATION_HISTORY_LEVELS,
@@ -72,6 +76,8 @@ from .magnetic import (
     EFITResult,
     _efit_unconfigured_reason,
     resolved_efit_configuration,
+    unrecorded_efit_configuration,
+    UNRECORDED_SCIENTIFIC_SHA256,
     find_efit_executable,
     prepare_efit_inputs,
     run_efit,
@@ -133,10 +139,16 @@ __all__ = [
     "EFITProfileConfig",
     "EFITScientificConfig",
     "efit_parameter_grid",
+    "routine_constraint_config",
+    "routine_numerics_config",
+    "routine_profile_config",
+    "routine_scientific_config",
+    "DEFAULT_PRESET",
     "EFITPreset",
     "PRESETS",
     "apply_sigma_floor",
     "efit_preset",
+    "preset_of",
     "EFIT_FAILURE_CODES",
     "EFITSliceStatus",
     "EFITValidationConfig",
@@ -160,6 +172,8 @@ __all__ = [
     "analyze_efit_identifiability",
     "read_efit_linearization",
     "resolved_efit_configuration",
+    "unrecorded_efit_configuration",
+    "UNRECORDED_SCIENTIFIC_SHA256",
     "find_efit_executable",
     "prepare_efit_inputs",
     "run_efit",

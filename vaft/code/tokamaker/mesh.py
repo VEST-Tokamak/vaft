@@ -90,3 +90,8 @@ def build_tokamaker_mesh(
         mesh_file, len(mesh_pts), len(mesh_lc), len(coil_dict) + len(cond_dict) + 1,
     )
     return mesh_file
+
+
+__all__ = [
+    "build_tokamaker_mesh",
+]

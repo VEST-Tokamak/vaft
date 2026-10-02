@@ -135,3 +135,10 @@ def run_nice(inputs: NiceInputs, config: NiceConfig) -> NiceResult:
             reason = result.termination_reason
             result.stderr = f"{stderr}\n{reason}" if stderr else reason
     return result
+
+
+__all__ = [
+    "NICE_HOME_ENV",
+    "resolve_nice_executable",
+    "run_nice",
+]

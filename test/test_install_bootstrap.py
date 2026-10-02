@@ -156,7 +156,7 @@ checker = _load_checker()
 #: own README, reference cases and validation notes. This is not the axis
 #: #225's flatness rule is about -- that one forbids splitting the *bootstrap*
 #: by platform or by role, which is what a student would have to navigate.
-EXTERNAL_CODE_DIRECTORIES = ("gacode", "genray", "nubeam")
+EXTERNAL_CODE_DIRECTORIES = ("gacode", "genray", "nubeam", "tes")
 
 
 def test_install_directory_is_flat_and_complete():
