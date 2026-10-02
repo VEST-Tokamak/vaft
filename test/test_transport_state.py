@@ -1146,6 +1146,105 @@ def test_radial_summary_numbers(atlas):
     assert d["n_states"] == 1 and d["n_good"] == 1
 
 
+# ------------------------------------------------- atlas rows from stored records (0.8.0 review)
+
+
+def _mapped_surface(r, rho=0.45, qe=100.0, ge=1e19, ions=None, *, neo=False):
+    # run_tglf.project_state labels ions by species name; run_neo.project by charge.
+    names = ("z=1", "z=6") if neo else ("H+", "C6+")
+    return {"r_over_a": r, "rho_tor_norm": rho, "electron_energy_flux_W_m2": qe,
+            "electron_particle_flux_m2_s": ge,
+            "ion_energy_flux_W_m2": dict(zip(names, (50.0, 5.0))) if ions is None else ions,
+            "ion_particle_flux_m2_s": dict(zip(names, (1e19, 1e17)))}
+
+
+def _stored_records(tmp_path, *, tglf_surfaces, tglf_mapped, neo_mapped=None,
+                    species=("e", "H+", "C6+"), status="not_run"):
+    """A TGLF (and optionally NEO) record tree as run_tglf.py / run_neo.py write it.
+
+    The surfaces are ``not_run`` (an interrupted batch, run_tglf.py:517) so no
+    outputs.json is needed: the mapped core_transport rows and the NEO join are
+    independent of the surface status, which is what these tests exercise.
+    """
+    identity = "a" * 64
+    base = {"shot": 48224, "time_efit_s": 0.3, "efit_lineage": "magnetics", "efit_quality": "good",
+            "quality_source": "labels", "state_identity": identity}
+    tglf = tmp_path / "tglf" / "48224" / "magnetics" / "00300"
+    tglf.mkdir(parents=True)
+    (tglf / "state.json").write_text(json.dumps({
+        **base, "tglf_config": "tglf-sat1-es",
+        "surfaces": [{"r_over_a": r, "status": status, "readiness": "ready",
+                      "local": {"species": list(species)}} for r in tglf_surfaces],
+        "core_transport": {"surfaces": tglf_mapped},
+    }), encoding="utf-8")
+    neo = None
+    if neo_mapped is not None:
+        neo = tmp_path / "neo" / "48224" / "magnetics" / "00300"
+        neo.mkdir(parents=True)
+        (neo / "state.json").write_text(json.dumps({
+            **base, "status": "solved", "core_transport": {"surfaces": neo_mapped}}), encoding="utf-8")
+    return tmp_path / "tglf", (tmp_path / "neo" if neo is not None else None)
+
+
+def test_an_all_none_ion_flux_is_absent_not_zero(atlas, tmp_path):
+    # The mapper writes None per ion species when it did not project the ion
+    # energy (run_tglf.column(), run_neo.project); summing nothing is not 0 W/m^2.
+    none_ions = {"H+": None, "C6+": None}
+    tglf_root, neo_root = _stored_records(
+        tmp_path, tglf_surfaces=[0.3], tglf_mapped=[_mapped_surface(0.3, ions=none_ions)],
+        neo_mapped=[_mapped_surface(0.3, qe=10.0, ions={"z=1": None, "z=6": None}, neo=True)])
+    (row,) = atlas.build_rows(tglf_root, neo_root)
+    assert row.get("qi_tglf_W_m2") is None and row.get("qi_neo_W_m2") is None
+    assert "f_e" not in row  # not 1.0: the electrons are not known to carry everything
+    assert row["qe_tglf_W_m2"] == 100.0
+
+
+def test_the_neo_join_uses_the_drivers_tolerance_not_a_rounding(atlas, tmp_path):
+    # run_neo.py accepts a NEO surface within 1e-4 of the request (np.allclose) and
+    # transport_partition joins within 1e-4; 0.30008 rounds to 0.3001, not to 0.3.
+    tglf_root, neo_root = _stored_records(
+        tmp_path, tglf_surfaces=[0.3, 0.5], tglf_mapped=[_mapped_surface(0.3), _mapped_surface(0.5)],
+        neo_mapped=[_mapped_surface(0.30008, qe=10.0, neo=True), _mapped_surface(0.5012, qe=10.0, neo=True)])
+    near, far = atlas.build_rows(tglf_root, neo_root)
+    assert near["partition_status"] == "available"
+    assert near["qe_neo_W_m2"] == 10.0
+    assert far["partition_status"] == "missing_neoclassical_component"  # 1.2e-3 is another surface
+    assert "qe_neo_W_m2" not in far
+
+
+def test_a_partition_refusal_fails_its_row_not_the_build(atlas, tmp_path):
+    # H+ and D+ share z=1: transport_partition refuses the species by ValueError
+    # (transport_state._channels). That is one row's partition, not the atlas.
+    ions = {"H+": 50.0, "D+": 20.0}
+    tglf_root, neo_root = _stored_records(
+        tmp_path, tglf_surfaces=[0.3, 0.5], species=("e", "H+", "D+"),
+        tglf_mapped=[_mapped_surface(0.3, ions=ions), _mapped_surface(0.5, ions=ions)],
+        neo_mapped=[_mapped_surface(0.3, qe=10.0, neo=True), _mapped_surface(0.5, qe=10.0, neo=True)])
+    rows = atlas.build_rows(tglf_root, neo_root)
+    assert len(rows) == 2
+    assert all(r["partition_status"].startswith("partition_refused: ") for r in rows)
+    assert all("share z=1" in r["partition_status"] for r in rows)
+    assert all("f_neo_qe" not in r and r["qe_neo_W_m2"] == 10.0 for r in rows)
+
+
+def test_a_not_run_surface_names_its_status_and_the_schema_lists_it(atlas, tmp_path):
+    tglf_root, _ = _stored_records(tmp_path, tglf_surfaces=[0.3], tglf_mapped=[])
+    (row,) = atlas.build_rows(tglf_root)
+    assert row["tglf_status"] == "not_run"
+    assert row["tglf_reason"] == "not_run"  # not "ready": the surface was ready and never ran
+    assert "not_run" in atlas.SCHEMA["tglf_status"][2]
+
+
+def test_the_native_directory_uses_the_slash_grammar_on_every_host(atlas):
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    posix = atlas._native_dir(PurePosixPath("/runs/tglf-sat1-es/48224/magnetics/00300/state.json"),
+                              PurePosixPath("/runs/tglf-sat1-es"), 0.3)
+    windows = atlas._native_dir(PureWindowsPath(r"C:\runs\tglf-sat1-es\48224\magnetics\00300\state.json"),
+                                PureWindowsPath(r"C:\runs\tglf-sat1-es"), 0.3)
+    assert posix == windows == "48224/magnetics/00300/r0.30"
+
+
 # --------------------------------------------------------------------------- SAT x field sensitivity (#1482)
 
 
