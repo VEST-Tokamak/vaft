@@ -73,7 +73,7 @@ SCHEMA: dict[str, tuple[str, str, str]] = {
     "kappa": ("-", "reconstructed_input", "elongation"),
     "delta": ("-", "reconstructed_input", "triangularity"),
     "betae": ("-", "derived_input", "TGLF BETAE (electron beta on B_unit)"),
-    "xnue": ("c_s/a", "derived_input", "TGLF XNUE electron-ion collision frequency"),
+    "xnue": ("-", "derived_input", "TGLF XNUE: electron-ion collision frequency normalised, nu_ei a/c_s"),
     "zeff": ("-", "derived_input", "TGLF ZEFF at the surface"),
     "a_over_lne": ("-", "measured_input", "a/L_ne = -a dln(ne)/dr (Thomson fit)"),
     "a_over_lte": ("-", "measured_input", "a/L_Te (Thomson fit)"),
