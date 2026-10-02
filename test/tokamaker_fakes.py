@@ -26,6 +26,8 @@ class FakeSettings:
         self.maxits = 40
         self.urf = 0.2
         self.nl_tol = 1e-6
+        self.lim_zmax = 1.0e99
+        self.limiter_file = "none"
 
 
 class FakeFieldInterpolator:
@@ -84,7 +86,12 @@ def make_fake_oft(
             calls.append(("init", env))
             self.settings = FakeSettings()
             self.o_point = np.array([0.4, 0.0])
+            self.lim_point = np.array([0.105, 0.0])
             self.diverted = False
+            self._oft_env = types.SimpleNamespace(path2c=lambda path: path)
+            # a 0.1 m circle about (0.35, 0): inside any VEST-like wall
+            theta = np.linspace(0.0, 2.0 * np.pi, 64, endpoint=False)
+            self.lcfs = np.column_stack([0.35 + 0.1 * np.cos(theta), 0.1 * np.sin(theta)])
             self.np = FAKE_NP
             self.r = np.zeros((FAKE_NP, 3))
             self.lc = np.zeros((6, 3), dtype=int)
@@ -103,6 +110,8 @@ def make_fake_oft(
 
         def setup(self, order=2, F0=0.0):
             calls.append(("setup", order, F0))
+            # the settings OFT pushes to Fortran inside setup()
+            type(self).settings_at_setup = dict(vars(self.settings))
 
         def update_settings(self):
             calls.append(("update_settings", self.settings.nl_tol))
@@ -195,6 +204,9 @@ def make_fake_oft(
         def get_field_eval(self, field_type):
             calls.append(("get_field_eval", field_type))
             return FakeFieldInterpolator(field_type)
+
+        def trace_surf(self, psi):
+            return self.lcfs
 
         def save_eqdsk(self, filename, **kwargs):
             calls.append(("save_eqdsk", filename, kwargs))

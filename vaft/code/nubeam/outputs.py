@@ -629,3 +629,18 @@ def collect_nubeam_outputs(
         outputs={"state_changes": (state_changes,) if state_changes.is_file() else ()},
         outputs_native=native,
     )
+
+
+__all__ = [
+    "LOST_PARTICLE_FIELDS",
+    "PROFILE_DESCRIPTIONS",
+    "NUBEAMBirthMarkers",
+    "NUBEAMPowerBalance",
+    "parse_power_balance",
+    "NUBEAMLostParticles",
+    "NUBEAMRadialGrid",
+    "NUBEAMFluxSurfaceAverages",
+    "NUBEAMOutputs",
+    "NUBEAMResult",
+    "collect_nubeam_outputs",
+]

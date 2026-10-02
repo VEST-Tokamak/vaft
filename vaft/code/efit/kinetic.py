@@ -223,7 +223,8 @@ class KineticEFITConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     timeout: Optional[float] = None
     # Named EFIT configuration (vaft.code.efit.PRESETS) for the base magnetic
-    # kfile when it is built from the ODS; None is the routine (2,2) kfile.
+    # kfile when it is built from the ODS; None is the default configuration
+    # (statistical_891 since 2026-10-01).
     efit_preset: Optional[str] = None
 
 
@@ -974,11 +975,9 @@ def prepare_kinetic_efit_inputs(
         if config.efit_preset:
             from .presets import efit_preset
 
-            preset = efit_preset(config.efit_preset)
-            floored, _ = preset.prepare_constraints(ods)
-            generate_kfile(floored, shot, save_dir=str(workdir), config=preset.scientific)
+            generate_kfile(ods, shot, save_dir=str(workdir), config=efit_preset(config.efit_preset).scientific)
         else:
-            generate_kfile(ods, shot, 2, 2, save_dir=str(workdir))
+            generate_kfile(ods, shot, save_dir=str(workdir))
         kfiles = _find_outputs(workdir, "k", shot)
         base_kfile = _select_kfile(kfiles, config.time_ms)
         base_text = Path(base_kfile).read_text(encoding="utf-8") if base_kfile is not None else ""

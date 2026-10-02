@@ -41,6 +41,7 @@ from .filedb import (
     OMASStage,
     stage_lineage,
 )
+from ._master_lock import shot_master_lock
 from .sources import MissingSourceError
 
 
@@ -347,7 +348,7 @@ def merge_remote_master(source: str, shot: int, previous_master: Path | None) ->
     from .staging import merge_master_links
     from .transport import run_hsload, verify_uploaded_image
 
-    with tempfile.TemporaryDirectory(prefix="vaft-master-merge-") as workdir:
+    with shot_master_lock(source, shot), tempfile.TemporaryDirectory(prefix="vaft-master-merge-") as workdir:
         current = Path(workdir) / "master.h5"
         if _fetch_remote_master(source, shot, current) is None:
             # The write we just made must have left one.
@@ -408,7 +409,7 @@ def unlinked_remote_files(
     from .staging import external_h5_links
     from .transport import run_hsload, verify_uploaded_image
 
-    with tempfile.TemporaryDirectory(prefix="vaft-master-repair-") as workdir:
+    with shot_master_lock(source, shot), tempfile.TemporaryDirectory(prefix="vaft-master-repair-") as workdir:
         current = _fetch_remote_master(source, shot, Path(workdir) / "master.h5")
         if current is None:
             return ()
@@ -670,34 +671,39 @@ def replicate_stage(
                 # a server too busy to answer the probe is retried like any
                 # other transient remote failure.
                 require_source_exists(source)
-                if not captured:
-                    # Captured once, before any write: a write leaves behind a
-                    # master describing only this stage, so a retry that
-                    # re-read it would merge against its own first attempt and
-                    # lose the other stages for good. Behind the probe so an
-                    # unprovisioned namespace costs no remote fetch; a fetch
-                    # that fails is retried, having written nothing.
-                    previous_master = _fetch_remote_master(
-                        source, shot, Path(workdir) / "master.previous.h5"
+                # One writer of this shot's master at a time on this host
+                # (#913), from the capture below through the safety-net merge.
+                # The write path takes the same lock again (it is re-entrant)
+                # and re-reads the stored master right before replacing it.
+                with shot_master_lock(source, shot):
+                    if not captured:
+                        # Captured once, before any write: a write leaves behind a
+                        # master describing only this stage, so a retry that
+                        # re-read it would merge against its own first attempt and
+                        # lose the other stages for good. Behind the probe so an
+                        # unprovisioned namespace costs no remote fetch; a fetch
+                        # that fails is retried, having written nothing.
+                        previous_master = _fetch_remote_master(
+                            source, shot, Path(workdir) / "master.previous.h5"
+                        )
+                        captured = True
+                    # The merge happens locally, on the master about to be
+                    # uploaded, rather than afterwards on the one already there.
+                    # Doing it afterwards leaves the remote master describing only
+                    # this stage for the length of a fetch-merge-upload round trip,
+                    # and a crash inside that window hides every other stage's IDS
+                    # exactly as an out-of-order payload upload would.
+                    save_remote(
+                        projected,
+                        shot,
+                        source=source,
+                        occurrence=occurrence or None,
+                        finalize_master=_master_finalizer(source, shot, previous_master),
                     )
-                    captured = True
-                # The merge happens locally, on the master about to be
-                # uploaded, rather than afterwards on the one already there.
-                # Doing it afterwards leaves the remote master describing only
-                # this stage for the length of a fetch-merge-upload round trip,
-                # and a crash inside that window hides every other stage's IDS
-                # exactly as an out-of-order payload upload would.
-                save_remote(
-                    projected,
-                    shot,
-                    source=source,
-                    occurrence=occurrence or None,
-                    finalize_master=_master_finalizer(source, shot, previous_master),
-                )
-                # Kept as a safety net: after a local merge it finds nothing to
-                # add and returns without writing. It still repairs a master
-                # left stage-only by an older client or an interrupted write.
-                merge_remote_master(source, shot, previous_master)
+                    # Kept as a safety net: after a local merge it finds nothing to
+                    # add and returns without writing. It still repairs a master
+                    # left stage-only by an older client or an interrupted write.
+                    merge_remote_master(source, shot, previous_master)
                 last_error = None
                 break
             except MissingSourceError:

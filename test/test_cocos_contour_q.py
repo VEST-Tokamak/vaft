@@ -7,8 +7,7 @@ on interior contours, so it needs neither.  What is tested here is that the two
 agree where both can speak, that the second one speaks where the first cannot,
 and that neither of them answers when the equilibrium contradicts itself.
 
-Ported from hsyun_GPEC ``library/geqdsk_cocos.py`` on branch
-``codex/gpec-flare-cocos-handshake`` (issue #11).
+Ported from the legacy implementation's ``geqdsk_cocos.py``.
 """
 
 from __future__ import annotations

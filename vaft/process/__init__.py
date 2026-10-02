@@ -59,6 +59,7 @@ _SUBMODULES = {
     "ml": ".ml",
     "nbi": ".nbi",
     "profile_gradients": ".profile_gradients",
+    "transport_state": ".transport_state",
     "confinement": ".confinement",
 }
 
@@ -105,6 +106,9 @@ _IMPORT_ORDER = (
     # Coordinate, gradient coordinate and reference length kept apart (#551);
     # nothing it exports collides.
     "profile_gradients",
+    # One resolved plasma state shared by TGLF, NEO and classical (#1428);
+    # nothing it exports collides.
+    "transport_state",
     # Confinement power balance and slice qualification (#548); nothing it
     # exports collides.
     "confinement",

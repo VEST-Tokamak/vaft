@@ -275,7 +275,10 @@ def run_gacode(
             log_path=Path(log_path),
             # The launcher starts its own ranks from -n; this declares them for
             # a scheduler. Threads stay with -nomp, which the launcher applies.
-            resources=ResourceRequest(ntasks=1 if config is None else int(config.n_mpi)),
+            resources=ResourceRequest(
+                ntasks=1 if config is None else int(config.n_mpi),
+                memory_mb=None if config is None or config.memory_mb is None else int(config.memory_mb),
+            ),
             label=code,
         )
     )
