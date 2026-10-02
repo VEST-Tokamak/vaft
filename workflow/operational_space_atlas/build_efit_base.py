@@ -16,7 +16,8 @@ population renderer can check identity and unit:
     area_elongation           cross-section area / (pi a^2)
     elongation                boundary elongation kappa (derive_global_descriptors)
     plasma_surface_area       LCFS surface area S (derive_global_descriptors), for L-H thresholds
-    inverse_cylindrical_q     |I_p| R_geo / (5 a^2 kappa_a B_T(R_geo)), B_T(R_geo) = |b0| r0 / R_geo
+    inverse_cylindrical_q     |I_p| R_geo / (5 a^2 kappa_a B_T(R_geo)), B_T(R_geo) = |b0| R_0 / R_geo,
+                              R_0 = resolve_reference_major_radius (the r0 leaf can be corrupt, #325)
 
 Before #1477 that routine returned li_3 up to 10x and beta_normal up to 4x on many
 Tier A slices (#1462: open grid-edge branches posed as flux surfaces). Every row is
@@ -77,6 +78,7 @@ UNITS = {
     "li3_grid_integral": "-",
     "beta_normal_descriptors": "% m T/MA",
     "update_routine_status": "",
+    "li_beta_source": "",
     "li_beta_crosscheck": "",
 }
 CARRIED = ("shot", "time_efit_s", "efit_lineage", "efit_quality", "efit_setting", "efit_product",
@@ -150,6 +152,14 @@ def _routine_diagnostic(ods, k: int):
     return (float(li3) if li3 is not None else math.nan, float(bn) if bn is not None else math.nan, "wrote")
 
 
+def _crosscheck(li3_routine, li3_grid, bn_routine, bn_desc, routine_status) -> str:
+    """'agree' / 'disagree' within CROSSCHECK_RTOL, or 'unavailable' when either side is missing or zero."""
+    pairs = [(li3_routine, li3_grid), (bn_routine, bn_desc)]
+    if routine_status != "wrote" or any(not (np.isfinite(a) and np.isfinite(b) and b != 0.0) for a, b in pairs):
+        return "unavailable"
+    return "agree" if all(abs(a / b - 1.0) <= CROSSCHECK_RTOL for a, b in pairs) else "disagree"
+
+
 def _row(ods, t_s: float) -> dict:
     from vaft.formula.equilibrium import li_3_from_Bp2_volume_integral
     from vaft.omas import resolve_reference_major_radius
@@ -169,21 +179,25 @@ def _row(ods, t_s: float) -> dict:
     ip_ma = abs(pick("ip")) * 1e-6
     a, r_geo = pick("minor_radius"), pick("major_radius")
     area = pick("cross_section_area")
-    b0 = abs(float(np.atleast_1d(ods["equilibrium.vacuum_toroidal_field.b0"])[k]))
+    b0_all = np.atleast_1d(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], dtype=float))
+    b0 = abs(float(b0_all[min(k, b0_all.size - 1)]))   # a constant field is stored once
     r0 = float(ods["equilibrium.vacuum_toroidal_field.r0"])
     kappa_a = area / (math.pi * a * a)
     b_geo = b0 * r_ref / r_geo  # vacuum field at R_geo, from the field at the resolved reference radius
+    bn_desc = pick("beta_n")
+    crosscheck = _crosscheck(li3_routine, float(li3), bn_routine, bn_desc, routine_status)
+    # primary: the DD routine (post-#1477); where it wrote nothing, the independent path stands in, and says so
+    use_routine = np.isfinite(li3_routine) and np.isfinite(bn_routine)
     return {
         "base_status": "valid",
         "base_reason": "",
         "dt_slice_s": dt,
-        "internal_inductance_li3": li3_routine,
-        "normalized_beta": bn_routine,
+        "internal_inductance_li3": li3_routine if use_routine else float(li3),
+        "normalized_beta": bn_routine if use_routine else bn_desc,
+        "li_beta_source": "dd_update_routine" if use_routine else "grid_integral_and_descriptors",
         "li3_grid_integral": float(li3),
-        "beta_normal_descriptors": pick("beta_n"),
-        "li_beta_crosscheck": ("agree" if routine_status == "wrote"
-                               and abs(li3_routine / float(li3) - 1) <= CROSSCHECK_RTOL
-                               and abs(bn_routine / pick("beta_n") - 1) <= CROSSCHECK_RTOL else "disagree"),
+        "beta_normal_descriptors": bn_desc,
+        "li_beta_crosscheck": crosscheck,
         "toroidal_beta": 100.0 * pick("beta_t"),
         "update_routine_status": routine_status,
         "r_reference_m": r_ref,
@@ -223,6 +237,7 @@ def main(argv=None) -> int:
         if s.get("efit_product_sha256") and s["efit_product_sha256"] != sha:
             base.update({"base_status": "product_changed",
                          "base_reason": f"product sha256 {sha[:12]} != state {s['efit_product_sha256'][:12]}"})
+            print(s["shot"], s["time_efit_s"], s["efit_lineage"], "product_changed", flush=True)
             rows.append(base)
             continue
         try:
@@ -251,7 +266,10 @@ def main(argv=None) -> int:
         "units": UNITS,
         "rows": len(rows),
         "status_counts": {k: sum(r["base_status"] == k for r in rows) for k in {r["base_status"] for r in rows}},
-        "li_beta_crosscheck": {k: sum(r.get("li_beta_crosscheck") == k for r in rows) for k in ("agree", "disagree")},
+        "li_beta_crosscheck": {k: sum(r.get("li_beta_crosscheck") == k for r in rows)
+                               for k in ("agree", "disagree", "unavailable")},
+        "li_beta_source": {k: sum(r.get("li_beta_source") == k for r in rows)
+                           for k in ("dd_update_routine", "grid_integral_and_descriptors")},
     }
     (args.out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1))
     print(json.dumps(manifest["status_counts"]))

@@ -1642,7 +1642,7 @@ def kink_coordinates(a, R0, B0, kappa, I_p):
     R0 : float or np.ndarray
         Major radius [m].
     B0 : float or np.ndarray
-        Vacuum toroidal field at ``R0``, magnitude [T].
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
     kappa : float or np.ndarray
         Elongation [-].
     I_p : float or np.ndarray
@@ -1651,12 +1651,13 @@ def kink_coordinates(a, R0, B0, kappa, I_p):
     Returns
     -------
     float or np.ndarray
-        Kink safety factor $q_*$ of Eq. (13.160) [-].
+        Kink safety factor $q_*$ of Eq. (13.160), NaN where an input is NaN [-].
 
     Raises
     ------
     ValueError
-        A non-positive minor radius, major radius, field or elongation.
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation.
 
     Convention
     ----------
@@ -1672,8 +1673,9 @@ def kink_coordinates(a, R0, B0, kappa, I_p):
     """
     a_arr, R, B_abs, k = (np.asarray(v, dtype=float) for v in (a, R0, np.abs(np.asarray(B0, dtype=float)), kappa))
     for name, value in (("a", a_arr), ("R0", R), ("B0", B_abs), ("kappa", k)):
-        if np.any(~(value > 0)):
-            raise ValueError(f"{name} must be positive and finite")
+        # NaN propagates (a population table has gaps); a finite non-positive value or an infinity is an error
+        if np.any(np.isinf(value)) or np.any(np.isfinite(value) & ~(value > 0)):
+            raise ValueError(f"{name} must be positive and finite where it is given")
     current = np.abs(np.asarray(I_p, dtype=float)) * 1e6
     with np.errstate(divide="ignore"):
         q = 2.0 * np.pi * a_arr**2 * k * B_abs / (MU0 * R * current)

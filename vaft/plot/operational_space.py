@@ -42,6 +42,8 @@ __all__ = ["operational_space_population", "population_overlay"]
 CATEGORICAL = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7")
 MARKERS = ("o", "s", "^", "D", "v", "P", "X")
 MISSING_COLOR = "#b8b7ae"
+#: categorical values that mean "no data", drawn in MISSING_COLOR
+MISSING_LABELS = frozenset({"unknown", "not available"})
 BOUNDARY_COLORS = ("#1a1a19", "#a3442b", "#2f6f4f", "#5b4a9e")
 
 
@@ -292,12 +294,18 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         cats = rows[color].astype(object).where(rows[color].notna(), "unknown").astype(str)
         # a fixed order, so one category keeps its colour across figures: a pandas Categorical's own
         # categories, otherwise sorted; categories absent from these rows still hold their slot
+        # the order comes from the whole table, not the rows this panel can plot, so a category keeps its
+        # slot in every panel of a figure
+        whole = table[color].astype(object).where(table[color].notna(), "unknown").astype(str)
         order = ([str(c) for c in table[color].cat.categories] if isinstance(table[color].dtype, pd.CategoricalDtype)
-                 else sorted(pd.unique(cats)))
+                 else sorted(pd.unique(whole)))
         order += [c for c in sorted(pd.unique(cats)) if c not in order]
         palette = {name: CATEGORICAL[i % len(CATEGORICAL)] for i, name in enumerate(order) if name in set(cats)}
         slots = {name: i for i, name in enumerate(order)}
         palette = {name: CATEGORICAL[slots[name] % len(CATEGORICAL)] for name in palette}
+        for name in palette:   # missing data is grey in every figure, never a palette colour
+            if name in MISSING_LABELS:
+                palette[name] = MISSING_COLOR
 
     mappable = None
     for gi, (name, mask) in enumerate(groups):

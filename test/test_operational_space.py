@@ -287,3 +287,36 @@ def test_the_lh_plane_draws_martin_and_refuses_ryter_on_unit():
                             y_range=(0, 2), fixed=fixed)
     assert plan.keys == ("martin_2008_lh",)
     assert "1e19" in plan.omitted[0][1]
+
+
+# --- cold review of #1478 ------------------------------------------------------------------
+
+
+def test_kink_coordinates_propagate_nan_and_reject_bad_finite_values():
+    q = B.kink_coordinates(np.array([0.25, np.nan]), 0.4, 0.17, np.array([1.5, 1.5]), 0.1)
+    assert np.isfinite(q[0]) and np.isnan(q[1])
+    assert B.kink_coordinates(0.25, 0.4, -0.17, 1.5, 0.1) == pytest.approx(B.kink_coordinates(0.25, 0.4, 0.17, 1.5, 0.1))
+    with pytest.raises(ValueError):
+        B.kink_coordinates(0.0, 0.4, 0.17, 1.5, 0.1)
+    with pytest.raises(ValueError):
+        B.kink_coordinates(np.inf, 0.4, 0.17, 1.5, 0.1)
+
+
+def _legend_colour(ax, label):
+    handle = next(h for h, text in zip(*ax.get_legend_handles_labels()) if text == label)
+    return tuple(np.round(handle.get_facecolor()[0][:3], 3))
+
+
+def test_missing_categories_are_grey_and_plain_strings_keep_slots_across_subsets():
+    from matplotlib.colors import to_rgb
+    from vaft.plot.operational_space import MISSING_COLOR
+
+    t = _hugill_table()
+    t["verdict"] = ["stable", "not available", "unstable"] * 10
+    _, ax = operational_space_population(t, "hugill", color="verdict")
+    assert _legend_colour(ax, "verdict=not available") == tuple(np.round(to_rgb(MISSING_COLOR), 3))
+    # rows of one category that cannot be plotted do not shift the other categories' colours
+    sub = t.copy()
+    sub.loc[sub["verdict"] == "stable", "murakami_parameter"] = np.nan
+    _, ax2 = operational_space_population(sub, "hugill", color="verdict")
+    assert _legend_colour(ax, "verdict=unstable") == _legend_colour(ax2, "verdict=unstable")

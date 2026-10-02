@@ -388,7 +388,9 @@ def placement(projection: Union[str, OperationalProjection], boundary: Union[str
         return Placement(b.key, "curve", sweep=sweep, swap_axes=swap, needs=needs)
     if proj.ratio is not None and _b.same_quantity(b.target, proj.ratio):
         missing = [n for n in off_axis if n not in fixed]
-        return refuse(f"needs fixed input(s) {missing}")
+        if missing:
+            return refuse(f"needs fixed input(s) {missing}")
+        return refuse("a limit on the ratio must not depend on either axis, and this one does")
     axes = ", ".join(q.name for q in (proj.x, proj.y))
     return refuse(f"targets {b.target.name} [{b.target.unit}], which is neither axis ({axes})")
 
