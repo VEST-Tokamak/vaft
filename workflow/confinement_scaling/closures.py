@@ -309,7 +309,7 @@ def main(argv=None) -> int:
         "command": " ".join(sys.argv), "vaft_git": _git("rev-parse", "HEAD"),
         "vaft_dirty": bool(_git("status", "--porcelain")),
         "table": {"path": str(table_path), "sha256": hashlib.sha256(table_path.read_bytes()).hexdigest()},
-        "selections": SELECTIONS, "closures": CLOSURES, "n_boot": args.n_boot,
+        "selections": {k: dict(v) for k, v in SELECTIONS.items()}, "closures": CLOSURES, "n_boot": args.n_boot,
         "odr": {"sigma_log_w_scan": SIGMA_LOG_W_SCAN, "sigma_log_i_b": SIGMA_LOG_IB,
                 "sigma_log_p_scan": SIGMA_LOG_P_SCAN, "bootstrap_at_sigma_p_w": SIGMA_REF,
                 "power_predictors": ODR_POWER, "p_ohm_path_scatter": p_scatter,

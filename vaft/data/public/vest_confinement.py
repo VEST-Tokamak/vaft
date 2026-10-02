@@ -22,6 +22,8 @@ measurement.
 
 from __future__ import annotations
 
+from types import MappingProxyType
+
 import numpy as np
 import pandas as pd
 
@@ -307,14 +309,15 @@ def vest_ods_to_confinement_rows(
 #: #1490): the largest fractional current change within one confinement time, the
 #: largest |dW/dt| / P_OH, and the smallest |I_p|.  ``primary`` is the analysis set;
 #: ``sensitivity`` the strict one that cannot identify three exponents on its own.
-VEST_TIER_A_SELECTIONS: dict[str, dict[str, float]] = {
-    "primary": {"ip_min": 30e3, "max_dwdt_fraction": 1.0, "max_ip_change_per_tau": 0.20},
-    "sensitivity": {"ip_min": 30e3, "max_dwdt_fraction": 0.5, "max_ip_change_per_tau": 0.05},
-}
+VEST_TIER_A_SELECTIONS = MappingProxyType({
+    "primary": MappingProxyType({"ip_min": 30e3, "max_dwdt_fraction": 1.0, "max_ip_change_per_tau": 0.20}),
+    "sensitivity": MappingProxyType({"ip_min": 30e3, "max_dwdt_fraction": 0.5, "max_ip_change_per_tau": 0.05}),
+})
 
-#: First shot of the second Tier A block.  The 429xx-430xx block's magnetics-EFIT
-#: stored energy is biased high relative to Thomson (#1490), so callers that pool
-#: the blocks should carry ``tier_a_block``.
+#: First shot of the second Tier A block (429xx-430xx).  That block is 2.7x denser
+#: and 84 % of its Thomson-matched slices are Thomson-inconsistent (p_EFIT > 2 p_e,
+#: criteria v2, #1521), where the magnetics-EFIT stored energy runs high; callers
+#: that pool the blocks should carry ``tier_a_block`` (#1490).
 VEST_TIER_A_BLOCK_SPLIT_SHOT = 42000
 
 _TIER_A_SAMPLE = "confinement/vest_tier_a_confinement.csv"
@@ -381,9 +384,15 @@ def load_vest_tier_a_confinement(
     * The definition strings the packaged sample keeps once, in its
       ``manifest.json``, are restored on every row; a table without them (and
       without a manifest beside it) gets NaN there, as the schema's missing value.
-    * The magnetics-EFIT stored energy of the 429xx-430xx block is about 1.6x what
-      Thomson supports at the same current and ohmic power (#1490); keep
-      ``tier_a_block`` when pooling.
+    * ``attrs`` carries units and descriptions for the canonical columns only;
+      the extension columns are described in
+      ``workflow/confinement_scaling/README.md``.
+    * The 429xx-430xx block is 2.7x denser, and most of its Thomson-matched
+      slices are Thomson-inconsistent (criteria v2, #1521), where the
+      magnetics-EFIT stored energy runs high. Whether a block-wide bias remains
+      once density is accounted for is not decided by Tier A: only 5 of its
+      429xx slices are Thomson-consistent (#1490). Keep ``tier_a_block`` when
+      pooling.
     """
     import json
     from pathlib import Path
@@ -406,7 +415,7 @@ def load_vest_tier_a_confinement(
     if manifest_path.is_file():
         definitions = json.loads(manifest_path.read_text()).get("dropped_columns", {}).get("definitions", {})
         for column, values in definitions.items():
-            if column not in table.columns and len(values) == 1:
+            if column not in table.columns and isinstance(values, list) and len(values) == 1:
                 table[column] = values[0]
     for column in CONFINEMENT_COLUMNS:       # missing stays missing (NaN), per the schema
         if column not in table.columns:
@@ -425,8 +434,9 @@ def load_vest_tier_a_confinement(
     canonical = validate_confinement_table(table)
     extension = table[[c for c in table.columns if c not in CONFINEMENT_COLUMNS and c != "assumptions"]]
     out = pd.concat([canonical, extension], axis=1)
-    out["tier_a_block"] = np.where(pd.to_numeric(out["shot"]) >= VEST_TIER_A_BLOCK_SPLIT_SHOT,
-                                   "429xx-430xx", "399xx-403xx")
+    shot = pd.to_numeric(out["shot"], errors="coerce").astype(float)
+    out["tier_a_block"] = pd.Series(np.where(shot >= VEST_TIER_A_BLOCK_SPLIT_SHOT, "429xx-430xx",
+                                             "399xx-403xx"), index=out.index).where(shot.notna())
     out.attrs = dict(canonical.attrs)
     out.attrs["source"] = str(source)
     out.attrs["selection"] = selection

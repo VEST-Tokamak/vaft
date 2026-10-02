@@ -22,6 +22,7 @@ __all__ = [
     "fetch_pr08",
     "fetch_source",
     "h_factor",
+    "load_vest_tier_a_confinement",
     "normalize_db5",
     "normalize_tc26",
     "normalize_tcv_lh",
@@ -35,7 +36,6 @@ __all__ = [
     "transition_margin",
     "validate_confinement_table",
     "validate_transition_table",
-    "load_vest_tier_a_confinement",
     "vest_ods_to_confinement_rows",
     "vest_summary_to_confinement_table",
 ]

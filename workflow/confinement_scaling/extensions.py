@@ -340,7 +340,7 @@ def main(argv=None) -> int:
         "generated_at": _dt.datetime.now(_dt.timezone.utc).isoformat(), "command": " ".join(sys.argv),
         "vaft_git": _git("rev-parse", "HEAD"), "vaft_dirty": bool(_git("status", "--porcelain")),
         "table": {"path": str(table_path), "sha256": hashlib.sha256(table_path.read_bytes()).hexdigest()},
-        "selection": SELECTIONS["primary"], "spread": spread,
+        "selection": dict(SELECTIONS["primary"]), "spread": spread,
         "notes": ("within: shot fixed effects, CR1 cluster errors (standard for FE nested in clusters); "
                   "between: shot means; dimensionless: <T> = W_mhd/(3 n V e), Ti=Te, n = Thomson line average, "
                   "errors of tau, rho*, beta, nu* share W"),
