@@ -18,4 +18,6 @@ Decisions the atlas encodes:
 - A surface's Δ′ is resolved when mpsi 256 and 512 agree in sign and within 20 %. Per-n Δ′ summaries use resolved interior surfaces only.
 - RDCON and STRIDE are never combined, and nothing is combined across n.
 
-Memory: RDCON at n=2 peaks at about 25 GB RSS per process. Size `--workers` for RDCON phases from that number, not from the core count.
+Memory: RDCON at n=2 peaks at about 25 GB RSS per process; DCON's `match` companion grows faster than linearly with the number of harmonics (n=6, mpsi 512: 9.4 GB at mpert 99, over 21.7 GB at mpert 132), so DCON reserves 0.7 GB·n². Size `--workers` for RDCON phases from that number, not from the core count.
+
+Mode coverage (#1429): RDCON and STRIDE are run for n = 1, 2 only; the DCON family (full and truncated edge, mpsi 256/512) for n = 1..6. `build_atlas.py --modes 1 2 3 4 5 6` reports RDCON/STRIDE as NOT_APPLICABLE for n >= 3.
