@@ -81,7 +81,10 @@ class FakeRunner:
     target with success, ``"fail"`` writes raw and diagnostics only,
     ``"skipped"`` marks EFIT skipped, ``"chease_no_output"`` marks the CHEASE
     stage's manifest ``no_output`` (every slice a solver verdict),
-    ``"preflight"`` writes raw and a preflight exclusion.
+    ``"preflight"`` writes raw and a preflight exclusion, ``"efit_no_output"``
+    marks EFIT and CHEASE ``no_output`` with ``skipped`` replication records,
+    ``"efit_fault"`` marks them ``no_output`` for a reason replication refuses
+    (no replication record, the run fails).
     """
 
     def __init__(self, harvester: PipelineHarvester, source: FakeSource | None = None):
@@ -124,13 +127,24 @@ class FakeRunner:
                 targets, failed = [], True
             elif behaviour == "blocked":  # raw done, preflight never ran
                 targets, failed = targets[:1], True
+            elif behaviour == "efit_fault":
+                # replicate_stage raised on the `no_output` reason, so the
+                # replicate rule failed and left no record behind.
+                targets = [t for t in targets
+                           if not (t.stage in ("efit", "chease") and t.kind == "replication")]
+                failed = True
             for target in targets:
                 status = "success"
                 if behaviour == "skipped" and target.stage == "efit":
                     status = "skipped"
                 elif behaviour == "chease_no_output" and target.stage == "chease" and target.kind == "manifest":
                     status = "no_output"
-                payload = {"status": status}
+                elif behaviour == "efit_no_output" and target.stage in ("efit", "chease"):
+                    # What replicate_stage records for a stage that produced nothing.
+                    status = "skipped" if target.kind == "replication" else "no_output"
+                elif behaviour == "efit_fault" and target.stage in ("efit", "chease"):
+                    status = "no_output"
+                payload = {"state": status} if target.kind == "replication" else {"status": status}
                 if target.stage == "raw" and target.kind == "manifest" and self.source is not None:
                     # What the dump holds: SQL's inventory at run time.
                     payload["inventory"] = {"field_codes": sorted(
@@ -359,6 +373,56 @@ def test_an_intentionally_empty_stage_is_partial_not_failed(setup):
     statuses = {(s["stage"], s["product"]): s["status"] for s in worker.state.stage_status(101)}
     assert statuses[("efit", "")] == "skipped"
     assert statuses[("diagnostics", "")] == "success"
+
+
+def test_a_shot_whose_efit_produced_nothing_is_partial_and_not_retried(setup, tmp_path):
+    """48940 (2026-10-02): EFIT ``no_output``, diagnostics and eddy published.
+
+    The EFIT and CHEASE replications record ``skipped``; the shot is partial,
+    costs no attempt, and the next cycle does not run it again.
+    """
+    _, make_worker, _ = setup
+    pipeline_path = tmp_path / "pipeline.yaml"
+    pipeline = yaml.safe_load(pipeline_path.read_text(encoding="utf-8"))
+    pipeline["hsds"] = {"replicate": True}
+    pipeline_path.write_text(yaml.safe_dump(pipeline), encoding="utf-8")
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    runner.script[101] = ["efit_no_output"]
+
+    settle_cycles(worker)
+    row = worker.state.shot(101)
+    assert row["state"] == S.PARTIAL and row["attempts"] == 0
+    statuses = {(s["stage"], s["product"], s["kind"]): s["status"] for s in worker.state.stage_status(101)}
+    assert statuses[("efit", "", "replication")] == "skipped"
+    assert statuses[("diagnostics", "", "replication")] == "success"
+    worker.run_cycle()
+    assert len(runner.plans) == 1
+
+
+def test_an_efit_no_output_that_replication_refuses_is_failed_and_retried(setup, tmp_path):
+    """cold review 0.8.0 delta-absorb-14 infra F1: an EFIT that wrote g-files
+    and still ended ``no_output`` is a fault; ``replicate_stage`` raises, no
+    replication record exists, and the worker counts the attempt and retries
+    instead of parking the shot as partial."""
+    _, make_worker, _ = setup
+    pipeline_path = tmp_path / "pipeline.yaml"
+    pipeline = yaml.safe_load(pipeline_path.read_text(encoding="utf-8"))
+    pipeline["hsds"] = {"replicate": True}
+    pipeline_path.write_text(yaml.safe_dump(pipeline), encoding="utf-8")
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    runner.script[101] = ["efit_fault", "ok"]
+
+    settle_cycles(worker)
+    row = worker.state.shot(101)
+    assert row["state"] == S.FAILED and row["attempts"] == 1
+    assert "efit (replication)=missing" in row["reason"]
+    worker.run_cycle()
+    assert worker.state.shot(101)["state"] == S.COMPLETED
+    assert [plan.full_shots for plan in runner.plans] == [(101,), (101,)]
 
 
 def test_a_chease_run_of_solver_verdicts_is_partial_not_retried(setup):

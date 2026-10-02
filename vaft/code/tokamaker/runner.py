@@ -102,18 +102,27 @@ LIMITER_POINTS_NAME = "limiter_points.dat"
 
 
 def neck_limiter_points(limiter: Any, config: TokaMakerConfig) -> np.ndarray:
-    """Limiter points on the wall between ``lim_zmax`` and ``neck_limiter_zmax``.
+    """Limiter points on the wall from one cell below ``lim_zmax`` up to
+    ``neck_limiter_zmax``.
 
-    ``lim_zmax`` removes every mesh limiter node in a cell reaching above it.
-    The faces between the main chamber and that height are still wall, so they
-    are sampled along the limiter polygon every ``dx_plasma`` and returned as
-    an ``(n, 2)`` array of (R, Z) for OFT's explicit limiter points.
+    OFT keeps a mesh limiter node only through a cell that lies entirely at
+    or below ``lim_zmax`` (``grad_shaf.F90``: a cell with ANY node above it
+    is skipped), so the cut is per cell, not per node: wall nodes within one
+    cell height below ``lim_zmax`` can lose every cell they belong to and
+    drop out of the candidate set. The band from ``lim_zmax`` minus the
+    largest cell edge that can touch the wall (``dx_plasma`` on the plasma
+    side, ``dx_conductor`` when the vessel is meshed) up to
+    ``neck_limiter_zmax`` is therefore sampled along the limiter polygon
+    every ``dx_plasma`` and returned as an ``(n, 2)`` array of (R, Z) for
+    OFT's explicit limiter points. Points that duplicate a surviving mesh
+    node are harmless.
     """
     if config.lim_zmax is None or config.neck_limiter_zmax is None:
         return np.zeros((0, 2))
-    lo, hi = float(config.lim_zmax), float(config.neck_limiter_zmax)
-    if hi <= lo:
+    hi = float(config.neck_limiter_zmax)
+    if hi <= float(config.lim_zmax):
         return np.zeros((0, 2))
+    lo = float(config.lim_zmax) - max(float(config.dx_plasma), float(config.dx_conductor))
     poly = np.asarray(limiter, dtype=float)
     if len(poly) > 1 and np.allclose(poly[0], poly[-1]):
         poly = poly[:-1]
