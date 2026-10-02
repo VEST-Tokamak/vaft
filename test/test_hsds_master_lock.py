@@ -371,6 +371,23 @@ def test_the_reentrancy_key_is_the_sanitised_source(monkeypatch, tmp_path):
             pass
 
 
+def test_without_fcntl_the_no_op_is_said_once(monkeypatch, tmp_path):
+    """Cold review 0.8.0 delta-absorb-13-infra F4: Windows has no lock, and says so."""
+    import sys
+
+    monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(tmp_path))
+    monkeypatch.setitem(sys.modules, "fcntl", None)  # what ``import fcntl`` meets on Windows
+    monkeypatch.setattr(_master_lock, "_no_lock_warned", False)
+    with pytest.warns(RuntimeWarning, match="not enforced"):
+        with _master_lock.shot_master_lock("main", 1):
+            pass
+    assert not list(tmp_path.iterdir())  # no lock file was made
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with _master_lock.shot_master_lock("main", 1):
+            pass
+
+
 # --------------------------------------------------------------------------- #
 # audit and repair
 # --------------------------------------------------------------------------- #

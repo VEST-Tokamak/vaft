@@ -24,7 +24,9 @@ from the master read to the master replace. What it covers, and what not:
 * **Not writers on another host**, nor tools that bypass VAFT (``hsload`` by
   hand). The write path also re-reads the remote master immediately before
   replacing it, which narrows that window but cannot close it.
-* **Not Windows**, where ``fcntl`` is absent; the lock is a no-op there.
+* **Not Windows**, where ``fcntl`` is absent; the lock is a no-op there, and
+  the first hold of a process says so with a ``RuntimeWarning``: two writers
+  of one shot on a Windows host are serialized by nothing.
 
 Different shots never wait for each other. The lock is re-entrant within a
 thread, so a caller that holds it -- replication, around its whole attempt --
@@ -57,6 +59,8 @@ _held: dict[tuple[str, int], int] = {}
 _registry = threading.Lock()
 #: Lock directories already reported as unwritable; the fallback is said once.
 _fallback_warned: set[str] = set()
+#: Whether this process has said that it cannot lock at all (no ``fcntl``).
+_no_lock_warned = False
 
 
 class MasterLockTimeout(TimeoutError):
@@ -148,9 +152,19 @@ def is_held(source: str, shot: int) -> bool:
 @contextmanager
 def shot_master_lock(source: str, shot: int, *, timeout: float | None = DEFAULT_TIMEOUT) -> Iterator[None]:
     """Hold the exclusive master lock of ``(source, shot)``; see the module docstring."""
+    global _no_lock_warned
     try:
         import fcntl
-    except ImportError:  # pragma: no cover - Windows
+    except ImportError:  # Windows
+        if not _no_lock_warned:
+            _no_lock_warned = True
+            warnings.warn(
+                "the HSDS master lock is not enforced on this platform (no fcntl): "
+                f"concurrent writes of one shot can drop each other's master links "
+                f"(issue #913). Run one writer per shot at a time on {os.name!r}.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
         yield
         return
 

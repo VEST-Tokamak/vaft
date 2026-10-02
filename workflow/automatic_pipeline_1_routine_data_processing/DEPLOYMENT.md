@@ -991,7 +991,7 @@ What it does **not** cover:
 
 - writers on another host;
 - `hsload` run by hand;
-- Windows, where the lock is a no-op.
+- Windows, where the lock is a no-op; the first write of a process warns (`RuntimeWarning`) that it is not enforced there.
 
 The re-read narrows those windows; it cannot close them.
 
