@@ -146,6 +146,25 @@ def _f(value: Any) -> Optional[float]:
     return number if math.isfinite(number) else None
 
 
+SURFACE_TOLERANCE = 1e-4
+"""How far apart two r/a values may be and still name one surface.
+
+The tolerance run_neo.py accepts a NEO surface with (np.allclose atol=1e-4 against
+the request) and transport_partition joins by; a join keyed on a rounded value would
+split 0.30008 from 0.3 across the rounding boundary although both models solved it.
+"""
+
+
+def _nearest_surface(surfaces: Iterable[dict], r: float) -> Optional[dict]:
+    """The mapped surface closest in r/a to ``r`` within SURFACE_TOLERANCE, else None."""
+    best: Optional[tuple[float, dict]] = None
+    for surface in surfaces:
+        distance = abs(float(surface["r_over_a"]) - r)
+        if distance <= SURFACE_TOLERANCE and (best is None or distance < best[0]):
+            best = (distance, surface)
+    return None if best is None else best[1]
+
+
 def _ion_sum(fluxes: Optional[dict]) -> Optional[float]:
     """Sum of the per-species ion fluxes that were written; ``None`` when none was.
 
@@ -280,11 +299,11 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
             "tglf_config": state.get("tglf_config"),
             "gacode_revision": state.get("gacode_revision"),
         }
-        mapped = {round(s["r_over_a"], 4): s for s in ((state.get("core_transport") or {}).get("surfaces") or [])}
+        mapped = (state.get("core_transport") or {}).get("surfaces") or []
         neo = neo_states.get(state["state_identity"])
-        neo_rows = {}
+        neo_rows: list[dict] = []
         if neo is not None and neo.get("status") in ("solved", "partial"):
-            neo_rows = {round(s["r_over_a"], 4): s for s in (neo.get("core_transport") or {}).get("surfaces") or []}
+            neo_rows = (neo.get("core_transport") or {}).get("surfaces") or []
         charges = None
         for surface in state["surfaces"]:
             r = float(surface["r_over_a"])
@@ -294,7 +313,7 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
             row["tglf_reason"] = None if status == "solved" else (
                 surface.get("runtime_status") if status == "failed" else surface.get("readiness"))
             row["tglf_run_identity"] = surface.get("run_identity")
-            si = mapped.get(round(r, 4))
+            si = _nearest_surface(mapped, r)
             if status == "solved":
                 rel = path.parent.relative_to(tglf_root) / f"r{r:.2f}"
                 row["tglf_native_dir"] = str(rel)
@@ -310,9 +329,9 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
                     row["f_e"] = abs(qe) / (abs(qe) + abs(qi))
                 if charges is None:
                     charges = species_charges((surface.get("local") or {}).get("species") or [])
-            # NEO join: same state identity, same surface
+            # NEO join: same state identity, same surface (within the driver's tolerance)
             row["neo_status"] = "missing" if neo is None else neo.get("status")
-            ns = neo_rows.get(round(r, 4))
+            ns = _nearest_surface(neo_rows, r)
             if ns is not None:
                 row["qe_neo_W_m2"] = ns["electron_energy_flux_W_m2"]
                 row["qi_neo_W_m2"] = _ion_sum(ns["ion_energy_flux_W_m2"])

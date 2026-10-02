@@ -1197,3 +1197,16 @@ def test_an_all_none_ion_flux_is_absent_not_zero(atlas, tmp_path):
     assert row.get("qi_tglf_W_m2") is None and row.get("qi_neo_W_m2") is None
     assert "f_e" not in row  # not 1.0: the electrons are not known to carry everything
     assert row["qe_tglf_W_m2"] == 100.0
+
+
+def test_the_neo_join_uses_the_drivers_tolerance_not_a_rounding(atlas, tmp_path):
+    # run_neo.py accepts a NEO surface within 1e-4 of the request (np.allclose) and
+    # transport_partition joins within 1e-4; 0.30008 rounds to 0.3001, not to 0.3.
+    tglf_root, neo_root = _stored_records(
+        tmp_path, tglf_surfaces=[0.3, 0.5], tglf_mapped=[_mapped_surface(0.3), _mapped_surface(0.5)],
+        neo_mapped=[_mapped_surface(0.30008, qe=10.0, neo=True), _mapped_surface(0.5012, qe=10.0, neo=True)])
+    near, far = atlas.build_rows(tglf_root, neo_root)
+    assert near["partition_status"] == "available"
+    assert near["qe_neo_W_m2"] == 10.0
+    assert far["partition_status"] == "missing_neoclassical_component"  # 1.2e-3 is another surface
+    assert "qe_neo_W_m2" not in far
