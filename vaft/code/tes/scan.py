@@ -79,3 +79,8 @@ def scan_tes(
             on_result(value, result)
 
     return out
+
+
+__all__ = [
+    "scan_tes",
+]

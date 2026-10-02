@@ -1002,6 +1002,48 @@ one you point at a binary you brought. There is no `install_tes_*.sh` and no
 `check_tes.py`, and adding either would imply an obtainable source that is not
 there.
 
+If you build `rtes` from source, apply `install/tes/tes_limiter_and_powell.patch`
+first. It adds or changes about twenty lines, with one line of TES source
+around each change as an anchor, and fixes three upstream problems
+(issue #1469):
+
+- **Limiting-point check.** `TES/find_psiab.cpp` writes `if(j=max_index)`, an
+  assignment, in the check that walks inward from a limiting-point candidate.
+  A candidate is therefore accepted after one step instead of the full walk.
+  If no candidate passes the full walk, the most interior limiter flux is
+  used, as before, rather than leaving the boundary flux undefined.
+- **Unbounded refinement.** The same file refines every X-point and
+  magnetic-axis candidate with `powell` on a bicubic patch of one grid cell,
+  and the search is unbounded. Next to a strong in-grid current (vessel eddy
+  filaments) it runs off to R ~ 1e105, and post-processing then aborts with
+  "(r,z) is out of range". A refinement that ends more than one cell away
+  from where it started, or does not converge, is now dropped.
+- **Fatal iteration cap.** `nr/powell.cpp` ends the whole process when it hits
+  its iteration cap. It now returns, and the caller checks the count.
+
+From the directory that holds `TES/` and `nr/`:
+
+```bash
+patch -p1 --dry-run < /path/to/vaft/install/tes/tes_limiter_and_powell.patch
+```
+
+If the dry run reports no rejected hunks, apply it for real:
+
+```bash
+patch -p1 < /path/to/vaft/install/tes/tes_limiter_and_powell.patch
+```
+
+The `nr` Makefile has no dependencies, so rebuild `powell` by hand before
+relinking:
+
+```bash
+cd nr && g++ -c powell.cpp && ar -rv libnr.a powell.o && cd ../TES && make rtes
+```
+
+On 39915 the forward equilibria the solver already reached are unchanged. With
+vessel eddy currents, slices that crashed in post-processing (323 and 325 ms)
+now complete.
+
 ### GENRAY
 
 **Open source (https://github.com/compxco/genray); clone it yourself.**

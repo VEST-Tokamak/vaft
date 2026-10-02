@@ -675,6 +675,22 @@ def test_run_gacode_hands_the_launch_to_the_configured_backend(installation, tmp
     assert request.resources.threads_per_task is None
 
 
+def test_the_memory_reservation_reaches_the_backend(installation, tmp_path):
+    """cold review 0.8.0 delta-absorb-7 F7: config.memory_mb is the request's memory_mb."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    backend = RecordingBackend(ExecutionResult(returncode=0))
+    config = GACODEConfig(home=str(installation), platform="CI_CPU", memory_mb=2048,
+                          backend=backend)
+    run_gacode(installation / launcher_relative_path("neo"), ["-e", "case"], cwd=tmp_path,
+               log_path=tmp_path / "neo.log", config=config)
+    (request,) = backend.requests
+    assert request.resources.memory_mb == 2048
+    with pytest.raises(ValueError, match="memory_mb"):
+        GACODEConfig(memory_mb=0)
+
+
 def test_run_gacode_returns_its_timeout(installation, tmp_path):
     """#1016: a stop is returned (returncode None), with the reason in the log."""
     from external_code_stubs import RecordingBackend

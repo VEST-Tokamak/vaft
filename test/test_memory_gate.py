@@ -57,6 +57,15 @@ def test_a_program_under_the_limit_completes_with_its_peak(tmp_path):
     assert result.peak_rss_mb is not None and 0 < result.peak_rss_mb < 4096
 
 
+def test_a_watched_run_that_ends_before_the_first_poll_still_reports_a_peak(tmp_path):
+    # Otherwise it is indistinguishable from an unwatched run (cold review 0.8.0 delta-absorb-5 F7).
+    backend = LocalBackend(memory_limit_mb=4096, poll_interval_s=5.0, ledger_dir=tmp_path / "ledger")
+    result = _run(backend, tmp_path, "print('done')", timeout=30)
+    assert result.runtime_status == "completed" and result.stdout.strip() == "done"
+    assert result.peak_rss_mb is not None and result.peak_rss_mb >= 0
+    assert result.elapsed_s < 5
+
+
 def test_the_time_limit_still_applies_while_memory_is_watched(tmp_path):
     backend = LocalBackend(memory_limit_mb=1e6, poll_interval_s=0.2, ledger_dir=tmp_path / "ledger")
     result = _run(backend, tmp_path, "import time; time.sleep(30)", timeout=0.6)
@@ -75,12 +84,48 @@ def test_the_ledger_counts_what_admitted_jobs_have_not_yet_used(tmp_path):
     assert ledger.try_admit(500) is not None
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="admission needs fcntl")
 def test_a_record_left_by_a_dead_owner_is_dropped(tmp_path):
+    # The lock is a no-op without fcntl; the probe itself must work everywhere.
     ledger = MemoryLedger(tmp_path, floor_mb=0, available=lambda: 1000.0)
     (tmp_path / "stale.json").write_text(json.dumps({"owner": 2**22 + 12345, "reserve_mb": 900, "root": None}))
     assert ledger.try_admit(500) is not None
     assert not (tmp_path / "stale.json").exists()
+
+
+def test_the_owner_probe_never_signals_on_windows(monkeypatch):
+    """``os.kill(pid, 0)`` is TerminateProcess on Windows: the ledger must not use it there.
+
+    Runs on every platform by simulating ``os.name == "nt"`` with a psutil stub,
+    so the POSIX CI legs guard the Windows branch (cold review 0.8.0 delta-absorb-5 F1).
+    """
+    import types
+
+    from vaft.code import _memory_gate as mg
+
+    dead = 2**22 + 12345
+    kills: list[tuple[int, int]] = []
+    real_kill = os.kill
+
+    def recording_kill(pid, sig):
+        kills.append((int(pid), int(sig)))
+        return real_kill(pid, sig)
+
+    monkeypatch.setattr(os, "kill", recording_kill)
+
+    # POSIX branch: a probe, and a dead owner is "gone", not an exception.
+    if os.name != "nt":
+        assert mg._alive(os.getpid()) is True
+        assert mg._alive(dead) is False
+        assert (os.getpid(), 0) in kills and (dead, 0) in kills
+
+    # Simulated Windows: psutil answers, os.kill is never reached.
+    kills.clear()
+    monkeypatch.setattr(os, "name", "nt")
+    monkeypatch.setitem(sys.modules, "psutil", types.SimpleNamespace(pid_exists=lambda pid: pid == os.getpid()))
+    assert mg._alive(os.getpid()) is True
+    assert mg._alive(dead) is False
+    assert mg._alive(0) is False
+    assert kills == []
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="admission needs fcntl")
@@ -139,11 +184,72 @@ def test_a_reservation_larger_than_the_host_is_refused_at_once(tmp_path):
     assert time.monotonic() - started < 5
 
 
+def test_admission_is_measured_against_the_process_budget_not_only_the_host(tmp_path):
+    """A cgroup/Slurm/env limit (memory_budget, #1433) caps the ledger's room too.
+
+    The host reports 10 GB free, the budget allows 1000 MiB; the launched
+    tree lands in the same cgroup as its launcher, so the budget is what
+    binds (cold review 0.8.0 delta-absorb-5 F2).
+    """
+    from vaft.code.resources import MemoryBudgetInfo
+
+    # A cgroup budget: usage is the cgroup's non-reclaimable memory, read from memory.stat.
+    cgroup = tmp_path / "cgroup"
+    cgroup.mkdir()
+    (cgroup / "memory.stat").write_text(f"anon {100 * 1024 * 1024}\nshmem 0\nfile {5 * 1024 * 1024}\n")
+    info = MemoryBudgetInfo(limit_mb=1000.0, source="cgroup_v2", candidates={"cgroup_v2": 1000.0},
+                            usage_cgroup=str(cgroup), usage_kind="v2")
+    ledger = MemoryLedger(tmp_path / "ledger", floor_mb=100, available=lambda: 10000.0,
+                          total=lambda: 10000.0, budget=lambda: info)
+    assert ledger.available_mb() == 900.0 and ledger.total_mb() == 1000.0
+    first = ledger.try_admit(450)
+    assert first is not None
+    assert ledger.try_admit(450) is None  # 900 - 450 outstanding < 450 + 100
+    first.release()
+    assert ledger.admit(950, wait_s=60, poll_s=1) is None  # never fits under the budget
+
+    # An env/Slurm budget: usage is this process's RSS; a huge budget keeps the host reading.
+    loose = MemoryBudgetInfo(limit_mb=10**7, source="env", candidates={"env": 10**7})
+    host = MemoryLedger(tmp_path / "ledger", floor_mb=100, available=lambda: 10000.0,
+                        total=lambda: 10000.0, budget=lambda: loose)
+    assert host.available_mb() == 10000.0 and host.total_mb() == 10000.0
+    # No budget at all: the host readings alone.
+    none = MemoryBudgetInfo(limit_mb=None, source=None, candidates={})
+    bare = MemoryLedger(tmp_path / "ledger", floor_mb=0, available=lambda: None, total=lambda: None,
+                        budget=lambda: none)
+    assert bare.available_mb() is None and bare.total_mb() is None
+
+
 @pytest.mark.skipif(not hasattr(os, "getuid"), reason="POSIX ownership")
 def test_the_ledger_directory_is_private(tmp_path):
     ledger = MemoryLedger(tmp_path / "ledger", floor_mb=0, available=lambda: 1000.0)
     assert ledger.try_admit(1) is not None
     assert (tmp_path / "ledger").stat().st_mode & 0o777 == 0o700
+
+
+def test_ledger_records_are_written_and_read_as_utf8_not_at_the_locale():
+    """Repository rule: files are read and written as UTF-8, never at the locale's
+    encoding (vaft/version.py; cold review 0.8.0 delta-absorb-5 F6)."""
+    import ast
+    import inspect
+
+    from vaft.code import _memory_gate
+
+    source = Path(inspect.getsourcefile(_memory_gate))
+    missing = []
+    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        called = function.attr if isinstance(function, ast.Attribute) else getattr(function, "id", "")
+        if called == "open":
+            mode = node.args[1].value if len(node.args) > 1 and isinstance(node.args[1], ast.Constant) else "r"
+            text_mode = "b" not in str(mode)
+        else:
+            text_mode = called in {"read_text", "write_text"}
+        if text_mode and "encoding" not in {keyword.arg for keyword in node.keywords}:
+            missing.append(f"{source.name}:{node.lineno}: {called}()")
+    assert missing == []
 
 
 def test_memory_settings_are_validated():

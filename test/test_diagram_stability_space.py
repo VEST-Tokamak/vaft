@@ -8,6 +8,7 @@ import pytest
 
 import vaft.diagram
 from vaft.diagram import _stability_space as ss
+from vaft.formula import boundaries as B
 from vaft.formula.equilibrium import q_cyl_from_B_R_epsilon_kappa_I
 from vaft.formula.stability import (
     ballooning_stability_criterion,
@@ -125,7 +126,7 @@ def test_the_hugill_line_is_the_greenwald_density(elongation):
 
 
 def test_the_hugill_regions_are_on_the_right_sides():
-    chart = vaft.diagram.hugill().model
+    chart = vaft.diagram.hugill(q_limit=2.0).model
     slope = chart.parameters["murakami_at_q_limit"] * chart.parameters["q_limit"]  # M per unit 1/q
     x, y = chart.labels["accessible"]
     assert y < 1 / chart.parameters["q_limit"] and x < slope * y
@@ -133,6 +134,29 @@ def test_the_hugill_regions_are_on_the_right_sides():
     assert x > slope * y
     x, y = chart.labels["low_q"]
     assert y > 1 / chart.parameters["q_limit"]
+
+
+def test_hugill_draws_the_registered_boundaries_and_no_q_psi_limit_by_default():
+    """#1425: the lines are the hugill projection's registered boundaries; low_q (q_psi) is not on 1/q_cyl."""
+    chart = vaft.diagram.hugill(elongation=1.6).model
+    assert chart.parameters["boundaries"] == ("greenwald_hugill", "murakami_hugill")
+    assert "low_q" not in chart.curves and "low_q" not in chart.labels
+    assert np.allclose(chart.curves["murakami"][:, 0], B.boundary_value(B.get_boundary("murakami_hugill")))
+    g = chart.curves["greenwald"]
+    assert np.allclose(B.boundary_value(B.get_boundary("greenwald_hugill"), inverse_cylindrical_q=g[:, 1],
+                                        area_elongation=1.6), g[:, 0])
+    # the opt-in q_cyl line is a dashed reference, not the registered q_psi limit
+    d = vaft.diagram.hugill(q_limit=2.0)
+    assert "low_q" in d.model.curves and "not $q_\\psi$" in d.tikz
+
+
+def test_the_troyon_default_is_the_registered_limit():
+    chart = vaft.diagram.troyon().model
+    registered = B.boundary_value(B.get_boundary("troyon"))
+    assert chart.parameters["beta_N_max"] == pytest.approx(registered)
+    x, beta = chart.curves["beta_limit"][1:].T
+    assert np.allclose(beta / x, registered)
+    assert "low_q" not in chart.curves
 
 
 def test_the_troyon_line_has_the_limiting_beta_n_everywhere():
@@ -151,7 +175,7 @@ def test_the_troyon_low_q_cutoff_is_where_q_cyl_reaches_the_limit():
 
 
 def test_the_troyon_regions_are_on_the_right_sides():
-    chart = vaft.diagram.troyon().model
+    chart = vaft.diagram.troyon(q_limit=2.0).model
     beta_N_max, x_q = chart.parameters["beta_N_max"], chart.parameters["current_at_q_limit"]
     x, y = chart.labels["stable"]
     assert y < beta_N_max * x and x < x_q

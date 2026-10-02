@@ -70,12 +70,24 @@ _RATIONAL_REAL = (
     "w_isl_v",
     "w_isl_v_crit",
     "Phi_res_crit",
+    "Phi_res_crit_callen",
     "K_isl",
     "K_isl_v",
 )
 
 #: Complex rational-surface quantities.
 _RATIONAL_COMPLEX = ("Phi_res", "Phi_res_v", "Delta", "B_pen", "I_res")
+
+#: GPEC variables whose *name* changed between revisions VAFT reads, mapped onto
+#: the spelling this dataclass exposes.
+#:
+#: ``B_pen`` became ``b_pen`` in GPEC ``2c9f4c1f`` with the same units, the same
+#: ``long_name`` ("Penetrated resonant field") and the same dimensions.  A reader
+#: that knows one spelling returns ``None`` for the other, which is indistinguishable
+#: from a run that did not compute the field -- so the two names are normalised here
+#: and every caller downstream sees one.  Measured on two files from one machine:
+#: ``B_pen`` in output from ``f06e6abd``, ``b_pen`` from ``e68d7ac2``.
+_RENAMED_VARIABLES = {"b_pen": "B_pen"}
 
 #: Radial (``psi_n``) profiles kept as named fields.
 _RADIAL_REAL = ("q", "rmean_n", "dvdpsi_n")
@@ -115,7 +127,13 @@ class GpecProfileOutput:
     area_rational: Optional[np.ndarray] = None  # [m^2]
     Phi_res: Optional[np.ndarray] = None  # complex, area-normalized flux [T]
     Phi_res_v: Optional[np.ndarray] = None  # complex, vacuum [T]
+    # SLAYER's critical resonant field: the file says so itself, in the
+    # long_name "Critical resonant field for island growth from SLAYER".
     Phi_res_crit: Optional[np.ndarray] = None  # [T]
+    # Callen's, which is a second column rather than the same one under another
+    # model -- a run with both threshold flags on fills both, and a run with
+    # neither leaves both at exactly zero.
+    Phi_res_crit_callen: Optional[np.ndarray] = None  # [T]
     Delta: Optional[np.ndarray] = None  # complex, resonance parameter [-]
     B_pen: Optional[np.ndarray] = None  # complex, penetrated field [T]
     I_res: Optional[np.ndarray] = None  # complex, resonant current [A]
@@ -143,6 +161,14 @@ class GpecProfileOutput:
     extras: dict[str, np.ndarray] = field(default_factory=dict)
     #: Native ``units`` attribute, for the variables that carry one.
     units: dict[str, str] = field(default_factory=dict)
+    #: Native ``jacobian`` attribute, for the variables that carry one: the
+    #: flux coordinates GPEC *wrote* that variable in, which is ``jac_out`` and
+    #: not necessarily the ``jac_type`` the run solved in. On the DIII-D
+    #: example every spectral variable carries ``"boozer"`` while the run
+    #: solved in ``"hamada"``, and ``Jbgradpsi_pest`` carries ``"pest"``, so a
+    #: consumer that labels a harmonic basis from the working jacobian names
+    #: the wrong angle.
+    jacobians: dict[str, str] = field(default_factory=dict)
     #: Native dimensions per variable, with the complex ``i`` axis removed.
     dims: dict[str, tuple[str, ...]] = field(default_factory=dict)
     attrs: dict[str, Any] = field(default_factory=dict)
@@ -195,23 +221,31 @@ def _read_profile(path: Path) -> GpecProfileOutput:
         n_tor = _attr_n_tor(ds, path)
         attrs = _plain_attrs(ds)
         units = {
-            name: str(ds[name].attrs["units"])
+            _RENAMED_VARIABLES.get(str(name), str(name)): str(ds[name].attrs["units"])
             for name in ds.variables
             if "units" in ds[name].attrs
+        }
+        # Keyed the way `units` and `dims` are, so one spelling serves all three.
+        jacobians = {
+            _RENAMED_VARIABLES.get(str(name), str(name)): str(ds[name].attrs["jacobian"]).strip().lower()
+            for name in ds.variables
+            if "jacobian" in ds[name].attrs
         }
         named: dict[str, Any] = {}
         extras: dict[str, Any] = {}
         dims: dict[str, tuple[str, ...]] = {}
-        for name in ds.variables:
-            if name == "i":
+        for raw_name in ds.variables:
+            if raw_name == "i":
                 continue
-            variable = ds[name]
+            # One spelling downstream, whichever the writing revision used.
+            name = _RENAMED_VARIABLES.get(str(raw_name), str(raw_name))
+            variable = ds[raw_name]
             dims[name] = tuple(dim for dim in variable.dims if dim != "i")
             # The file decides: complex when it carries the i axis, native
             # dtype otherwise. A static list would drop a variable written in
             # an unexpected shape, or keep its (2, N) layout undecoded.
             if "i" in variable.dims:
-                value: Any = complex_var(ds, name)
+                value: Any = complex_var(ds, raw_name)
             else:
                 value = np.asarray(variable.values)
                 if value.dtype.kind in ("S", "U"):
@@ -229,6 +263,7 @@ def _read_profile(path: Path) -> GpecProfileOutput:
             helicity=float_attr(attrs.get("helicity")),
             extras=extras,
             units=units,
+            jacobians=jacobians,
             dims=dims,
             attrs=attrs,
             **named,
@@ -299,7 +334,9 @@ def read_resonant_table(path: str | Path) -> dict[str, np.ndarray]:
             variable = ds[name]
             if tuple(dim for dim in variable.dims if dim != "i") != ("psi_n_rational",):
                 continue
-            table[name] = (
+            # The same normalization the full reader applies, so the two paths
+            # cannot hand a caller the same quantity under two names.
+            table[_RENAMED_VARIABLES.get(str(name), str(name))] = (
                 complex_var(ds, name) if "i" in variable.dims else np.asarray(variable.values)
             )
         if "q_rational" in table:

@@ -76,6 +76,8 @@ __all__ = [
     "evaluate_boundary",
     "evaluate_window",
     "boundary_curve",
+    "threshold_curve",
+    "same_quantity",
     "get_boundary",
     "list_boundaries",
     "hugill_coordinates",
@@ -608,6 +610,85 @@ def boundary_curve(boundary: Boundary, sweep: str, values, swap_axes: bool = Fal
                              allowed_side=side, fixed=fixed)
     return BoundaryCurve(key=boundary.key, x=x, y=y, x_quantity=x_quantity, y_quantity=boundary.target,
                          allowed_side=boundary.allowed_side, fixed=fixed)
+
+
+def same_quantity(a: BoundaryQuantity, b: BoundaryQuantity) -> bool:
+    r"""Whether two quantities are the same physical quantity in the same unit.
+
+    Parameters
+    ----------
+    a, b : BoundaryQuantity
+        The quantities to compare [-].
+
+    Returns
+    -------
+    bool
+        ``True`` when both ``name`` (the identity) and ``unit`` match. The
+        symbol and the free-text definition are not compared [-].
+
+    Convention
+    ----------
+    Identity is the ``name``: ``edge_safety_factor`` ($q_\psi$),
+    ``edge_safety_factor_95`` ($q_{95}$) and ``inverse_cylindrical_q`` are
+    different quantities even where their values are close. A boundary may be
+    drawn on an axis only when this returns ``True`` for that axis (#1425).
+    """
+    return a.name == b.name and a.unit == b.unit
+
+
+def threshold_curve(boundary: Boundary, axis: BoundaryQuantity, values, target_axis: str = "y") -> BoundaryCurve:
+    r"""A threshold boundary drawn as a straight line across a 2-D projection.
+
+    $$\text{target} = C \quad\text{for every value of the other axis}$$
+
+    Parameters
+    ----------
+    boundary : Boundary
+        A ``"threshold"`` boundary, for example ``"murakami_hugill"`` [-].
+    axis : BoundaryQuantity
+        The quantity on the other axis, which the threshold does not depend on [-].
+    values : array_like
+        Sample points along that axis, in its declared unit [varies].
+    target_axis : str
+        ``"y"`` draws a horizontal line (target on y); ``"x"`` a vertical one [-].
+
+    Returns
+    -------
+    BoundaryCurve
+        The line, carrying both quantities and the permitted side: ``"below"``
+        / ``"above"`` for a horizontal line, ``"left"`` / ``"right"`` for a
+        vertical one [-].
+
+    Raises
+    ------
+    TypeError
+        ``boundary`` is not a threshold, or ``values`` is not 1-D.
+    ValueError
+        ``target_axis`` is neither ``"x"`` nor ``"y"``, or ``axis`` is the
+        boundary's own target.
+
+    Convention
+    ----------
+    :func:`boundary_curve` sweeps one of a boundary's inputs, and a threshold
+    has none, so this is its counterpart. The value is the registered
+    coefficient; nothing is restated.
+    """
+    if boundary.form != "threshold":
+        raise TypeError(f"boundary {boundary.key!r} is a {boundary.form!r}, not a threshold; use boundary_curve")
+    if target_axis not in ("x", "y"):
+        raise ValueError(f"target_axis must be 'x' or 'y', not {target_axis!r}")
+    if same_quantity(axis, boundary.target):
+        raise ValueError(f"the other axis cannot be the threshold's own target {boundary.target.name!r}")
+    v = np.atleast_1d(np.asarray(values, dtype=float))
+    if v.ndim != 1:
+        raise TypeError("values must be a 1-D sequence")
+    level = np.full(v.shape, float(boundary_value(boundary)))
+    if target_axis == "x":
+        side = {"below": "left", "above": "right"}[boundary.allowed_side]
+        return BoundaryCurve(key=boundary.key, x=level, y=v, x_quantity=boundary.target, y_quantity=axis,
+                             allowed_side=side)
+    return BoundaryCurve(key=boundary.key, x=v, y=level, x_quantity=axis, y_quantity=boundary.target,
+                         allowed_side=boundary.allowed_side)
 
 
 def hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p):

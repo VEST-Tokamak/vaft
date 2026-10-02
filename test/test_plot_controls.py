@@ -34,6 +34,36 @@ def test_the_schema_names_every_extraction_option_once():
         OptionSpec("x", "weird")
 
 
+def test_no_option_is_specified_twice():
+    """The schema is a dict comprehension over ``_specs()``: a repeated name keeps the last.
+
+    ``field`` was declared twice -- the 2-D equilibrium map's and the island
+    separatrix's -- so which spec survived depended on source order and the
+    other plot validated only through the recipe fallback (cold review 0.8.0
+    delta-squash F3).  A plot with its own vocabulary declares it on its recipe.
+    """
+    from vaft.plot.backend.options import _specs
+
+    names = [spec.name for spec in _specs()]
+    assert len(names) == len(set(names)), sorted(n for n in names if names.count(n) > 1)
+
+
+@pytest.mark.parametrize("plot, accepted, refused", [
+    ("mhd_linear_geometry_island", ("total", "vacuum"), ("psi",)),
+    ("equilibrium_field_2d", ("psi",), ("vacuum", "total")),
+])
+def test_field_is_scoped_to_the_plot_that_takes_it(plot, accepted, refused):
+    """Both ``field=`` vocabularies validate, each on its own plot, whatever the schema order."""
+    from vaft.plot.backend import recipes
+
+    assert recipes.choice_options_for("mhd_linear_geometry_island", "field") == ("total", "vacuum")
+    for value in accepted:
+        validate_options(plot, {"field": value})
+    for value in refused:
+        with pytest.raises(ValueError, match="field must be one of"):
+            validate_options(plot, {"field": value})
+
+
 def test_the_style_set_is_read_off_the_renderers():
     assert STYLE_OPTIONS == frozenset({
         "cmap", "colorbar", "colorbar_ax", "figsize", "format", "fps", "grid", "interval_ms",

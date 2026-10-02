@@ -1394,11 +1394,13 @@ def helical_phase(theta, phi, m_pol, n_tor, phase=0.0):
     the other sign without a trace there. Provenance (D-13, 2026-09-28):
     DIII-D 147131 @ 2300 ms, GPEC ``v1.5.5-378-gf06e6ab``, equilibrium
     ``g147131.02300_DIIID_KEFIT`` (SHA-256 ``35bf902f...bfe579``) and vacuum
-    field ``gpec_cbrzphi_n1.out`` (SHA-256 ``718da784...05a8fa``), traced by
-    ``tools/flare_r01_poincare.py OUTDIR --c1 1 --c3 0 --field coil --q 2
-    --span 0.06 --surfaces 45 --punctures 300 --run`` of
-    ``HongSik-Yun-Fusion/vaft-mastu`` against FLARE ``7ad6d2dc``; the full
-    hashes are in ``test/test_gpec_island_geometry.py::R01_PROVENANCE``.
+    field ``gpec_cbrzphi_n1.out`` (SHA-256 ``718da784...05a8fa``), traced with
+    FLARE ``7ad6d2dc``'s ``poincare_map_psiN`` over $\psi_N$ in
+    [0.533644, 0.653644] -- the $q = 2$ surface plus and minus a 0.06 span --
+    45 field lines $\times$ 300 punctures, ``nsym = 1``, on a single ``Gpec``
+    element carrying that vacuum field at $|c_1| = 1$ with no $n = 3$ element.
+    The full hashes and the fit that reads $\xi_O$ off the punctures are in
+    ``test/test_gpec_island_geometry.py::R01_PROVENANCE``.
 
     Physical interpretation
     -----------------------

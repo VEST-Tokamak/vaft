@@ -149,6 +149,11 @@ class PlotCapability:
     #: ``default``, ``options`` (what this input can resolve) and ``declared``
     #: (what the recipe offers regardless of input).
     coordinates: Mapping[str, Any] = field(default_factory=dict)
+    #: Other choice options a computed view declares (issue #551), by option
+    #: name: ``{"default": ..., "options": (...)}``, e.g. the
+    #: ``gradient_coordinate``, ``reference_length`` and ``convention`` of a
+    #: profile gradient view.
+    choices: Mapping[str, Any] = field(default_factory=dict)
     #: The controls ``plot_*(..., interactive=True)`` offers for this input
     #: (instance level, issue #480), in offer order.
     controls: tuple[str, ...] = ()
@@ -578,6 +583,11 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         notes.append("coordinates: " + " | ".join(
             f"{name} (default)" if name == default else name for name in record.coordinates["options"]
         ))
+    for option, block in (record.choices or {}).items():
+        default = block.get("default")
+        notes.append(f"{option}: " + " | ".join(
+            f"{name} (default)" if name == default else str(name) for name in block.get("options") or ()
+        ))
     if record.controls:
         notes.append("controls: " + ", ".join(record.controls))
     flags = []
@@ -650,6 +660,10 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             lines.append(
                 f"{what}: {block.get('default')} by default; " + " | ".join(block["options"])
             )
+    for option, block in (record.choices or {}).items():
+        lines.append(
+            f"{option}: {block.get('default') or 'none'} by default; " + " | ".join(map(str, block.get("options") or ()))
+        )
     if record.computation:
         backend = record.computation.get("backend")
         lines.append(

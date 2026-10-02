@@ -1,6 +1,8 @@
 {%- comment -%}
 One builder of the generated diagram gallery (diagram_catalog.yml): its
-committed SVGs first, then how to draw them and what physics they call.
+committed SVGs first, then how to draw them, the formats Diagram.save writes
+(a collapsed recipe built from the catalog's formats list), and what physics
+they call.
 
   include.b     the builder row
   include.ref   git ref the source link points at
@@ -27,6 +29,13 @@ validate_docs.rb counts the data-catalog elements: one per builder
 
 <pre class="ref-signature"><code>vaft.diagram.{{ b.name }}{{ b.signature | escape }}</code></pre>
 {% include reference/source-code.html src=b.source ref=include.ref key=b.name %}
+{% assign lead = site.data.diagram_catalog.assets | where: "asset", b.assets.first | first %}{% if lead %}<details class="ref-code" data-formats="{{ b.name }}" markdown="0"><summary>Formats{% for f in site.data.diagram_catalog.formats %} <code>{{ f.suffix }}</code>{% endfor %} <span class="ref-note">the SVG above is committed; build the others locally</span></summary>
+{% capture recipe %}import vaft.diagram
+
+d = {{ lead.call }}
+d.tikz  # the TikZ document as text{% for f in site.data.diagram_catalog.formats %}
+d.save("{{ lead.id }}{{ f.suffix }}")  # {{ f.description }}{% if f.requires.size > 0 %}; needs {{ f.requires | join: ", " }}{% endif %}{% endfor %}{% endcapture %}{% highlight python %}{{ recipe }}{% endhighlight %}
+</details>{% endif %}
 
 {% if b.formula.size > 0 %}<p class="ref-note">Formula functions referenced:
 {% for f in b.formula %}{% assign entry = formula.formulas | where: "category", f.category | where: "name", f.name | first %}{% if f.category != "" %}{% assign label = f.category | append: "." | append: f.name %}{% else %}{% assign label = f.name %}{% endif %}{% if entry %}<a href="{{ site.baseurl }}/reference/formula/{{ f.category }}/#{{ f.name }}"><code>{{ label }}</code></a>{% else %}<code>{{ label }}</code>{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}</p>

@@ -12,6 +12,7 @@ import copy
 import hashlib
 import importlib.util
 import inspect
+import re
 import shutil
 import subprocess
 import sys
@@ -138,6 +139,30 @@ def test_the_diagram_catalog_holds_every_canonical_asset(snapshots):
         assert row["svg_sha256"] == recorded[row["asset"]]["svg_sha256"]
         assert (DOCS / row["svg"]).is_file()
         assert row["asset"] in next(b for b in snapshot["builders"] if b["name"] == row["builder"])["assets"]
+
+
+def test_the_diagram_catalog_lists_the_formats_diagram_save_writes(snapshots, tmp_path):
+    from vaft.diagram import _render
+
+    import vaft
+    import vaft.diagram
+
+    formats = snapshots["diagram"]["formats"]
+    assert [f["suffix"] for f in formats] == list(_render.SAVE_FORMATS)
+    assert formats[0]["suffix"] == ".svg"  # the canonical artifact leads
+    assert {f["suffix"]: f["requires"] for f in formats}[".tex"] == []  # no TeX needed for the source
+    # the recipe the page prints is `d = <call>`: every call must evaluate to that very diagram
+    for row in snapshots["diagram"]["assets"]:
+        assert row["call"].startswith("vaft.diagram.")
+    row = next(r for r in snapshots["diagram"]["assets"] if r["builder"] == "rational_surface")
+    diagram = eval(row["call"], {"vaft": vaft})
+    assert isinstance(diagram, vaft.diagram.Diagram)
+    assert diagram.source_sha256 == row["source_sha256"]
+    # each suffix the page lists is one Diagram.save accepts; .tex needs no toolchain
+    saved = diagram.save(tmp_path / "x.tex")
+    assert saved.read_text(encoding="utf-8") == diagram.tikz
+    with pytest.raises(ValueError, match=re.escape(".svg, .tex or .pdf")):
+        diagram.save(tmp_path / "x.png")
 
 
 def test_the_diagram_catalog_records_the_formula_functions_a_builder_calls(snapshots):
