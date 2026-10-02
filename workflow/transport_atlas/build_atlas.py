@@ -344,7 +344,12 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
                 row["chi_e_classical_m2_s"] = classical.get("chi_e_m2_s")
                 row["chi_i_classical_m2_s"] = classical.get("chi_i_m2_s")
             if si is not None and ns is not None and charges is not None:
-                part = transport_partition(ns, si, turbulent_charges=charges, classical=classical)
+                try:
+                    part = transport_partition(ns, si, turbulent_charges=charges, classical=classical)
+                except ValueError as error:
+                    # Two ions sharing one charge, or a species without one: the
+                    # partition of this row is refused, not the atlas (#1501).
+                    part = {"status": "unavailable", "reason": f"partition_refused: {error}"}
                 row["partition_status"] = part["status"] if part["status"] == "available" else part["reason"]
                 if part["status"] == "available":
                     ch = part["channels"]

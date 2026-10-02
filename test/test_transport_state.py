@@ -1210,3 +1210,18 @@ def test_the_neo_join_uses_the_drivers_tolerance_not_a_rounding(atlas, tmp_path)
     assert near["qe_neo_W_m2"] == 10.0
     assert far["partition_status"] == "missing_neoclassical_component"  # 1.2e-3 is another surface
     assert "qe_neo_W_m2" not in far
+
+
+def test_a_partition_refusal_fails_its_row_not_the_build(atlas, tmp_path):
+    # H+ and D+ share z=1: transport_partition refuses the species by ValueError
+    # (transport_state._channels). That is one row's partition, not the atlas.
+    ions = {"H+": 50.0, "D+": 20.0}
+    tglf_root, neo_root = _stored_records(
+        tmp_path, tglf_surfaces=[0.3, 0.5], species=("e", "H+", "D+"),
+        tglf_mapped=[_mapped_surface(0.3, ions=ions), _mapped_surface(0.5, ions=ions)],
+        neo_mapped=[_mapped_surface(0.3, qe=10.0, neo=True), _mapped_surface(0.5, qe=10.0, neo=True)])
+    rows = atlas.build_rows(tglf_root, neo_root)
+    assert len(rows) == 2
+    assert all(r["partition_status"].startswith("partition_refused: ") for r in rows)
+    assert all("share z=1" in r["partition_status"] for r in rows)
+    assert all("f_neo_qe" not in r and r["qe_neo_W_m2"] == 10.0 for r in rows)
