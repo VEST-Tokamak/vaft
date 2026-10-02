@@ -139,6 +139,12 @@ def _open_shared(path: Path) -> int:
         return _open_in(fallback / path.name)
 
 
+def is_held(source: str, shot: int) -> bool:
+    """Whether this thread holds the master lock of ``(source, shot)``."""
+    with _registry:
+        return _held.get((lock_path(source, shot).name, threading.get_ident()), 0) > 0
+
+
 @contextmanager
 def shot_master_lock(source: str, shot: int, *, timeout: float | None = DEFAULT_TIMEOUT) -> Iterator[None]:
     """Hold the exclusive master lock of ``(source, shot)``; see the module docstring."""
@@ -148,7 +154,11 @@ def shot_master_lock(source: str, shot: int, *, timeout: float | None = DEFAULT_
         yield
         return
 
-    key = (f"{source}:{int(shot)}", threading.get_ident())
+    path = lock_path(source, shot)
+    # Keyed on the lock file's name, not the raw source: "main/" and "main"
+    # share one file, and a nested hold under the other spelling would take a
+    # second fd on it and wait on itself until the timeout.
+    key = (path.name, threading.get_ident())
     with _registry:
         depth = _held.get(key, 0)
         if depth:
@@ -161,7 +171,6 @@ def shot_master_lock(source: str, shot: int, *, timeout: float | None = DEFAULT_
                 _held[key] -= 1
         return
 
-    path = lock_path(source, shot)
     fd = _open_shared(path)
     try:
         try:
@@ -197,6 +206,7 @@ __all__ = [
     "LOCK_DIR_ENV",
     "MasterLockTimeout",
     "fallback_lock_directory",
+    "is_held",
     "lock_path",
     "shot_master_lock",
 ]

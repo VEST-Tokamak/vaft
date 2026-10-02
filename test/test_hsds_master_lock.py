@@ -358,6 +358,19 @@ def test_an_unwritable_lock_directory_falls_back_to_a_per_user_one(monkeypatch, 
         locked.chmod(0o755)
 
 
+def test_the_reentrancy_key_is_the_sanitised_source(monkeypatch, tmp_path):
+    """Cold review 0.8.0 delta-absorb-13-infra F3.
+
+    Two spellings of one source map to one lock file; keyed on the raw string
+    the nested hold took a second fd on the same file and waited on itself.
+    """
+    monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(tmp_path))
+    assert _master_lock.lock_path("main/", 7) == _master_lock.lock_path("main", 7)
+    with _master_lock.shot_master_lock("main/", 7):
+        with _master_lock.shot_master_lock("main", 7, timeout=0.5):
+            pass
+
+
 # --------------------------------------------------------------------------- #
 # audit and repair
 # --------------------------------------------------------------------------- #
@@ -577,7 +590,7 @@ def test_the_publish_creates_the_folder_under_the_lock_before_uploading(hsds, mo
     held = []
 
     def ensure(source, shot):
-        held.append(_master_lock._held.get((f"{source}:{shot}", threading.get_ident()), 0))
+        held.append(int(_master_lock.is_held(source, shot)))
         order.append(("folder", source, shot))
 
     monkeypatch.setattr(ods_module, "ensure_shot_folder", ensure)
