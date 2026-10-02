@@ -1064,8 +1064,29 @@ def test_a_missing_namespace_is_not_retried(staged, monkeypatch):
     assert fetches == []
 
 
-@pytest.mark.parametrize("stage", ["efit", "chease"])
-def test_a_stage_that_produced_nothing_is_recorded_skipped_not_raised(tmp_path, monkeypatch, stage):
+#: What the solver stages write as `<stage>_status` when they finish `no_output`.
+_NOTHING_BY_DESIGN = [
+    ("efit", "completed_no_gfiles: returncode=0; gfiles=0"),
+    ("efit", "skipped: efit.run=false; kfiles=6"),
+    ("chease", "skipped: no EFIT gfiles; input_gfiles=0"),
+    ("chease", "skipped: chease.run=false; input_gfiles=3"),
+    ("chease", "failed: refined_gfiles=0; failed=3"),
+]
+_FAULTS = [
+    ("efit", "skipped: EFIT executable unavailable: /opt/efit; kfiles=6"),
+    ("chease", "skipped: CHEASE executable unavailable: ; input_gfiles=3"),
+    ("chease", "missing_input"),
+    ("efit", ""),
+]
+
+
+def _no_output(db, stage, reason, shot=48940):
+    extra = {f"{stage}_status": reason} if reason else {}
+    _stage_product(db, stage, shot, ODS(consistency_check=False), status="no_output", manifest_extra=extra)
+
+
+@pytest.mark.parametrize(("stage", "reason"), _NOTHING_BY_DESIGN)
+def test_a_stage_that_produced_nothing_is_recorded_skipped_not_raised(tmp_path, monkeypatch, stage, reason):
     """EFIT whose every slice failed is ``no_output``, and so is the CHEASE after it.
 
     Raising left the replication record missing, so a new-shot worker counted
@@ -1073,27 +1094,53 @@ def test_a_stage_that_produced_nothing_is_recorded_skipped_not_raised(tmp_path, 
     the shot's diagnostics and eddy were already published (48940, 2026-10-02).
     """
     db = FileDB(tmp_path)
-    ods = ODS(consistency_check=False)
-    ods["equilibrium.ids_properties.comment"] = "EFIT output unavailable"
-    _stage_product(db, stage, 48940, ods, status="no_output")
+    _no_output(db, stage, reason)
     sent = []
     _patch_remote(monkeypatch, sent=sent)
+    monkeypatch.setattr(replication, "_remote_entries", lambda source, shot: ("magnetics.h5", "master.h5"))
 
     record = replicate_stage(stage, 48940, filedb=db)
 
     assert record.state == "skipped"
     assert not record.replicated and not record.validated
-    assert "no_output" in record.error
+    assert "no_output" in record.error and reason.split(";")[0] in record.error
     assert sent == []
     stored = replication.read_record(db.omas_replication_record(stage, shot=48940, **_lineage(stage)))
     assert stored.state == "skipped"
 
 
+@pytest.mark.parametrize(("stage", "reason"), _FAULTS)
+def test_a_stage_that_could_not_run_still_fails(tmp_path, monkeypatch, stage, reason):
+    """A missing executable also ends ``no_output``; that is a fault, not a result.
+
+    Recording it skipped would leave every shot of a misconfigured host
+    ``partial``, never retried and never given up -- invisible.
+    """
+    db = FileDB(tmp_path)
+    _no_output(db, stage, reason)
+    _patch_remote(monkeypatch, sent=[])
+    monkeypatch.setattr(replication, "_remote_entries", lambda source, shot: ())
+    with pytest.raises(ProductNotEligibleError, match="fault, not a result"):
+        replicate_stage(stage, 48940, filedb=db)
+    assert not db.omas_replication_record(stage, shot=48940, **_lineage(stage)).exists()
+
+
+def test_nothing_to_publish_over_an_earlier_publication_fails(tmp_path, monkeypatch):
+    """A rerun that converges nothing must not hide the equilibrium already on main."""
+    db = FileDB(tmp_path)
+    _no_output(db, "efit", "completed_no_gfiles: returncode=0; gfiles=0")
+    _patch_remote(monkeypatch, sent=[])
+    monkeypatch.setattr(replication, "_remote_entries", lambda source, shot: ("equilibrium.h5", "master.h5"))
+    with pytest.raises(ProductNotEligibleError, match="still holds equilibrium.h5"):
+        replicate_stage("efit", 48940, filedb=db)
+
+
 def test_a_stage_that_later_succeeds_is_replicated_over_its_skipped_record(tmp_path, monkeypatch):
     db = FileDB(tmp_path)
-    _stage_product(db, "efit", 48940, ODS(consistency_check=False), status="no_output")
+    _no_output(db, "efit", "completed_no_gfiles: returncode=0; gfiles=0")
     sent = []
     _patch_remote(monkeypatch, sent=sent)
+    monkeypatch.setattr(replication, "_remote_entries", lambda source, shot: ())
     assert replicate_stage("efit", 48940, filedb=db).state == "skipped"
 
     ods = ODS(consistency_check=False)
@@ -1109,7 +1156,8 @@ def test_a_stage_that_later_succeeds_is_replicated_over_its_skipped_record(tmp_p
 def test_only_no_output_is_recorded_for_a_required_stage(tmp_path, monkeypatch, status):
     """A failed or blocked stage is still an error a person should see."""
     db = FileDB(tmp_path)
-    _stage_product(db, "efit", 48940, ODS(consistency_check=False), status=status)
+    _stage_product(db, "efit", 48940, ODS(consistency_check=False), status=status,
+                   manifest_extra={"efit_status": "completed_no_gfiles: returncode=0; gfiles=0"})
     _patch_remote(monkeypatch, sent=[])
     with pytest.raises(ProductNotEligibleError, match="nothing to replicate"):
         replicate_stage("efit", 48940, filedb=db)
