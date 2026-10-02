@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -20,8 +20,10 @@ import matplotlib.pyplot as plt
 from ..models import (
     Field2D,
     GeometryLayers,
+    Image2D,
     LineSeries,
     Panels,
+    PowerSpectrum,
     Profile1D,
     Spectrogram,
     TextPanel,
@@ -64,6 +66,7 @@ __all__ = [
     "spectrometer_uv_time_impurity",
     "summary_time_energy",
     "summary_time_power_balance",
+    "summary_time_resistive_zeff",
     "summary_time_voltage_consumption",
 ]
 
@@ -90,8 +93,10 @@ def _panel_drawer(model: Any):
     # Imported lazily to keep the renderer modules free of import cycles.
     from .fields import render_field_2d
     from .geometry import render_geometry_layers
+    from .images import render_image_2d
     from .lines import render_line_series
     from .profiles import render_profile_1d
+    from .spectra import render_power_spectrum
     from .spectrograms import render_spectrogram
 
     for model_type, draw in (
@@ -101,6 +106,9 @@ def _panel_drawer(model: Any):
         (GeometryLayers, render_geometry_layers),
         (Spectrogram, render_spectrogram),
         (TextPanel, _draw_text_panel),
+        # Single-axes kinds a composed figure may place in a cell (#1467).
+        (PowerSpectrum, render_power_spectrum),
+        (Image2D, render_image_2d),
     ):
         if isinstance(model, model_type):
             return draw
@@ -194,13 +202,21 @@ def render_panels(
         # arrangement the slice navigator uses: a colorbar taken out of an
         # equal-aspect axes shrinks the map instead, and the taller the row
         # the smaller the map came out (issue #711).
-        field_slot = next(
-            (i for i, m in enumerate(model.models) if isinstance(m, Field2D) and m.colorbar), None,
-        )
-        flat, colorbar_axes = slice_grid_axes(figure, gridspec, model, top=0, colorbar_slot=field_slot)
-        if colorbar_axes is not None:
+        if model.links:
+            # A composed figure (#1467): every colorbar gets a cell of its own,
+            # and a panel x-linked with one keeps the same width, so the time
+            # axes of a stack line up.
+            flat, colorbar_cells = _aligned_grid_axes(figure, gridspec, model)
+        else:
+            field_slot = next(
+                (i for i, m in enumerate(model.models) if isinstance(m, Field2D) and m.colorbar), None,
+            )
+            flat, colorbar_axes = slice_grid_axes(figure, gridspec, model, top=0, colorbar_slot=field_slot)
+            colorbar_cells = {} if colorbar_axes is None else {field_slot: colorbar_axes}
+        if colorbar_cells:
             styles = [dict(s) for s in (model.member_styles or ({},) * len(model.models))]
-            styles[field_slot]["colorbar_ax"] = colorbar_axes
+            for slot, colorbar_axes in colorbar_cells.items():
+                styles[slot]["colorbar_ax"] = colorbar_axes
             model = replace(model, member_styles=tuple(styles))
         grid = flat
     else:
@@ -237,6 +253,12 @@ def render_panels(
     for axis in flat[len(model.models):]:
         # A grid cell past the last member (five members in a 3 x 2 grid).
         axis.set_visible(False)
+    if ax is None and model.links:
+        # Caller-supplied axes keep whatever sharing the caller set up, as
+        # with share_x; a figure this renderer made links what the model says.
+        _link_axes(flat, model)
+    if model.panel_labels:
+        _label_panels(flat[: len(model.models)])
 
     if ax is None and model.spans is None and model.share_x and model.nrows > 1:
         # Panels sharing a time base share its label: only the lowest drawn
@@ -293,6 +315,85 @@ def render_panels(
     if show:
         plt.show()
     return figure, grid
+
+
+def _link_anchor(flat: Any, members: Sequence[int], axis_name: str) -> int:
+    """The panel a link follows: the first that fixed its own limits, else the first."""
+    for slot in members:
+        if not getattr(flat[slot], f"get_autoscale{axis_name}_on")():
+            return slot
+    return members[0]
+
+
+def _link_axes(flat: Any, model: Panels) -> None:
+    """Make each link's panels zoom and pan together (issue #1467).
+
+    A panel that fixed its own limits (``time_range=``, ``x_limits=``) sets
+    the linked range, whatever its place in the link; otherwise the view is
+    rescaled over every linked panel's data.
+    """
+    for axis_name, members in model.links:
+        anchor_slot = _link_anchor(flat, members, axis_name)
+        anchor = flat[anchor_slot]
+        fixed = not getattr(anchor, f"get_autoscale{axis_name}_on")()
+        for slot in members:
+            if slot != anchor_slot:
+                getattr(flat[slot], f"share{axis_name}")(anchor)
+        if not fixed:
+            anchor.autoscale_view(scalex=axis_name == "x", scaley=axis_name == "y")
+    from .._panel_grid import linked_above
+
+    for slot in linked_above(model):
+        flat[slot].tick_params(labelbottom=False)
+        flat[slot].set_xlabel("")
+
+
+def _has_colorbar(model: Any, style: Mapping[str, Any]) -> bool:
+    if style.get("colorbar", True) is False:
+        return False
+    return (isinstance(model, Field2D) and model.colorbar) or isinstance(model, (Spectrogram, Image2D))
+
+
+def _aligned_grid_axes(figure: Any, grid: Any, model: Panels) -> tuple[np.ndarray, dict[int, Any]]:
+    """Axes for a linked grid: a colorbar cell for every colorbar, and the same
+    reserved width for the panels x-linked with one, so linked axes align."""
+    from .._panel_grid import columns, panel_slots
+
+    slots = panel_slots(model)
+    styles = model.member_styles or ({},) * len(model.models)
+    bars = {i for i, member in enumerate(model.models) if _has_colorbar(member, styles[i])}
+    padded = set()
+    for axis_name, members in model.links:
+        if axis_name != "x":
+            continue
+        for slot in members:
+            if slot not in bars and any(
+                other in bars and columns(slots[other]) & columns(slots[slot])
+                for other in members
+            ):
+                padded.add(slot)
+    axes = []
+    colorbar_cells: dict[int, Any] = {}
+    for slot, (row, col, rowspan, colspan) in enumerate(slots):
+        cell = grid[row:row + rowspan, col:col + colspan]
+        if slot in bars or slot in padded:
+            sub = cell.subgridspec(1, 2, width_ratios=[1.0, 0.05], wspace=0.06)
+            axes.append(figure.add_subplot(sub[0, 0]))
+            if slot in bars:
+                colorbar_cells[slot] = figure.add_subplot(sub[0, 1])
+        else:
+            axes.append(figure.add_subplot(cell))
+    return np.array(axes, dtype=object), colorbar_cells
+
+
+def _label_panels(axes: Any) -> None:
+    from .._panel_grid import panel_label
+
+    for index, axis in enumerate(axes):
+        axis.annotate(
+            panel_label(index), xy=(0, 1), xycoords="axes fraction", xytext=(-6, 6),
+            textcoords="offset points", ha="right", va="bottom", fontweight="bold",
+        )
 
 
 def visual_rows(model: Panels) -> int:
@@ -525,6 +626,26 @@ def summary_time_power_balance(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Ohmic input, radiated and conducted power balance panels."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="summary",
+    subject="summary",
+    view="time",
+    quantity="resistive_zeff",
+    description="Resistive Z_eff history: Romero voltages, observed vs model R_p, window estimate.",
+    ids=("equilibrium", "core_profiles"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.global_quantities.ip",
+        "equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+    ),
+)
+def summary_time_resistive_zeff(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Resistive Z_eff history: Romero voltages, observed vs model R_p, window estimate."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

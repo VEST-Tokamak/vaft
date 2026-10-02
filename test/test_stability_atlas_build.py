@@ -135,7 +135,7 @@ def test_summary_uses_resolved_interior_surfaces_only(build):
     assert summary["rdcon_n_summary_surfaces"] == 2
     assert summary["rdcon_delta_prime_max"] == 40.0 and summary["rdcon_m_at_delta_prime_max"] == 4
     # Δ′ never gets a stable/unstable label (#939).
-    assert summary["rdcon_status"] == "RESOLVED"
+    assert summary["rdcon_status"] == "RESOLVED" and summary["rdcon_qa_status"] == "RESOLVED"
 
 
 def test_summary_status_without_usable_surfaces(build):
@@ -347,5 +347,129 @@ def test_duplicate_kinetic_entries_are_refused(select):
 def test_rdcon_n2_gets_the_measured_memory_budget(batch):
     reserve, limit = batch.memory_policy("rdcon", 2)
     assert reserve >= 24_600 and limit > reserve  # measured peak 24.6 GB at mpsi 512 (#1460)
-    assert batch.memory_policy("dcon", 2) == batch.MEMORY_MB_DEFAULT
+    assert batch.memory_policy("dcon", 2) == (2_800, 8_000)
+    # DCON n=6, mpsi 512: 9.4 GB at mpert 99 (39915@319 ms); 39906@319 ms
+    # (mpert 132) passed 21.7 GB. The budget must clear the larger one.
+    reserve6, limit6 = batch.memory_policy("dcon", 6)
+    assert reserve6 > 21_700 and limit6 > 1.5 * 21_700
+    assert batch.memory_policy("dcon", 3)[0] < reserve6 / 3
+    assert batch.memory_policy("stride", 2) == batch.MEMORY_MB_DEFAULT
     assert batch.memory_policy("rdcon", 3) == batch.MEMORY_MB_RDCON_HIGH_N
+
+
+# --- atlas v2 (#1429 comment 2026-10-02): raw, QA and physical layers -------------------
+
+
+def _paired(build, values, check_factor=1.0):
+    surfaces = [_surface(3 + i, 0.3 + 0.15 * i, v) for i, v in enumerate(values)]
+    check = [_surface(s["m"], s["psi_n"], s["delta_prime_real"] * check_factor) for s in surfaces]
+    return build.pair_surfaces(surfaces, check)
+
+
+def test_a_positive_last_surface_stays_in_the_raw_maximum(build):
+    # Δ′ = [-5, -2, -1, +80], +80 on the last surface, all two-resolution consistent.
+    summary = build.matching_summary(_paired(build, [-5.0, -2.0, -1.0, 80.0]), "stable", "rdcon")
+    assert summary["rdcon_delta_prime_max_raw"] == 80.0
+    assert summary["rdcon_delta_prime_max_raw_position"] == "last"
+    assert summary["rdcon_delta_prime_max_qa"] == 80.0  # consistent, any position
+    assert summary["rdcon_delta_prime_max_qa_interior"] == -1.0
+    assert summary["rdcon_delta_prime_max"] == -1.0  # deprecated v1 alias of qa_interior
+    assert summary["rdcon_classical_tearing_drive"] is True
+    assert summary["rdcon_classical_tearing_drive_qa"] is True
+
+
+def test_first_and_last_surfaces_appear_in_raw_and_qa_all_with_their_position(build):
+    first = build.matching_summary(_paired(build, [900.0, -2.0, -3.0]), "stable", "stride")
+    assert first["stride_delta_prime_max_raw_position"] == "first"
+    assert first["stride_delta_prime_max_qa_position"] == "first"
+    assert first["stride_delta_prime_first_surface"] == 900.0
+    last = build.matching_summary(_paired(build, [-1.0, -2.0, 50.0]), "stable", "stride")
+    assert last["stride_delta_prime_max_qa_position"] == "last"
+
+
+def test_an_inconsistent_positive_surface_drives_raw_but_not_qa(build):
+    # +40 changes by 3x between resolutions: raw drive yes, QA drive no.
+    surfaces = [_surface(3, 0.4, -5.0), _surface(4, 0.6, 40.0), _surface(5, 0.8, -7.0)]
+    check = [_surface(3, 0.4, -5.1), _surface(4, 0.6, 120.0), _surface(5, 0.8, -7.1)]
+    summary = build.matching_summary(build.pair_surfaces(surfaces, check), "stable", "rdcon")
+    assert summary["rdcon_classical_tearing_drive"] is True
+    assert summary["rdcon_classical_tearing_drive_qa"] is False
+    assert summary["rdcon_n_positive_delta_prime_raw"] == 1 and summary["rdcon_n_positive_delta_prime_qa"] == 0
+
+
+def test_every_qa_summary_has_a_raw_counterpart(build):
+    keys = set(build.matching_summary(_paired(build, [-1.0, 2.0, -3.0]), "stable", "rdcon"))
+    for key in (k for k in keys if "_qa" in k):
+        if key.endswith("_qa_status"):
+            assert key.replace("_qa_status", "_status") in keys
+            continue
+        raw = key.replace("_qa_interior", "_raw").replace("_qa", "_raw")
+        # The drive's raw form is unsuffixed: Δ′ > 0 at any surface.
+        assert raw in keys or key.replace("_qa", "") in keys and "drive" in key, key
+    documented = set(build.COLUMNS)
+    for key in (k for k in documented if "_qa" in k):
+        assert {key.replace("_qa_interior", "_raw"), key.replace("_qa", "_raw"), key.replace("_qa", "")} & documented, key
+
+
+@pytest.mark.parametrize(
+    ("w256", "w512", "expected"),
+    [
+        (-0.002, -0.006, "robust_unstable"),  # small and negative is unstable, never "marginal"
+        (2.7, 2.71, "robust_stable"),
+        (0.006, -0.02, "numerically_unresolved"),
+        (-0.002, None, "not_checked"),
+        (None, -0.1, "unavailable"),
+    ],
+)
+def test_dcon_sign_class_has_no_magnitude_band(build, w256, w512, expected):
+    assert build.dcon_sign_class(w256, w512) == expected
+
+
+def test_surface_geometry_locates_q_min_and_the_edge(build):
+    psi = np.linspace(0.01, 0.994, 200)
+    q = 2.0 + 8.0 * (psi - 0.36) ** 2  # reversed shear, q_min = 2 at psi_N = 0.36
+    near = build.surface_geometry(psi, q, 0.37)
+    far = build.surface_geometry(psi, q, 0.9)
+    assert abs(near["psi_n_from_qmin"] - 0.01) < 0.01 and near["q_minus_qmin"] < 1e-2
+    assert abs(near["shear_psi"]) < abs(far["shear_psi"])
+    assert far["psi_n_to_edge"] == pytest.approx(0.994 - 0.9)
+    assert build.surface_geometry(psi, q, 0.999)["shear_psi"] is None
+    assert build.surface_geometry(None, q, 0.5)["shear_psi"] is None
+
+
+def test_the_atlas_version_is_2_and_dcon_covers_n_1_to_6(build):
+    assert build.ATLAS_VERSION == 2
+    assert "n = 1..6" in build.SCHEMA_NOTES["coverage"]
+    assert "No magnitude band" in build.SCHEMA_NOTES["status_semantics"]
+
+
+def test_status_keeps_its_v1_meaning_and_qa_status_carries_v2(build):
+    # Only the first surface is consistent: v1 status unresolved, v2 qa_status resolved.
+    surfaces = [_surface(3, 0.4, 900.0), _surface(4, 0.6, -5.0), _surface(5, 0.8, -7.0)]
+    check = [_surface(3, 0.4, 905.0), _surface(4, 0.6, -50.0), _surface(5, 0.8, -70.0)]
+    summary = build.matching_summary(build.pair_surfaces(surfaces, check), "stable", "rdcon")
+    assert summary["rdcon_status"] == "NUMERICALLY_UNRESOLVED" and summary["rdcon_delta_prime_max"] is None
+    assert summary["rdcon_qa_status"] == "RESOLVED" and summary["rdcon_delta_prime_max_qa"] == 900.0
+
+
+def test_drive_is_false_without_surfaces_and_none_without_a_run(build):
+    assert build.matching_summary([], "stable", "rdcon")["rdcon_classical_tearing_drive"] is False
+    assert build.matching_summary([], "failed", "rdcon")["rdcon_classical_tearing_drive"] is None
+    assert build.matching_summary([], None, "rdcon")["rdcon_classical_tearing_drive_qa"] is None
+
+
+def test_non_finite_or_zero_energy_gives_no_verdict(build):
+    assert build.dcon_sign_class(float("nan"), -1.0) == "unavailable"
+    assert build.dcon_sign_class(-1.0, float("nan")) == "not_checked"
+    assert build.dcon_sign_class(0.0, 0.0) == "numerically_unresolved"
+
+
+def test_surface_geometry_survives_nan_and_descending_grids(build):
+    psi = np.linspace(0.01, 0.994, 50)
+    q = 2.0 + 8.0 * (psi - 0.36) ** 2
+    assert build.surface_geometry(psi, np.full_like(q, np.nan), 0.5)["shear_psi"] is None
+    forward = build.surface_geometry(psi, q, 0.6)
+    backward = build.surface_geometry(psi[::-1], q[::-1], 0.6)
+    assert forward == pytest.approx(backward)
+    holey = q.copy(); holey[10] = np.nan
+    assert np.isfinite(build.surface_geometry(psi, holey, 0.6)["shear_psi"])

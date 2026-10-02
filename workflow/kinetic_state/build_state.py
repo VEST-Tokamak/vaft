@@ -99,7 +99,9 @@ STATE_COLUMNS: dict[str, tuple[str, str]] = {
     "loop_reduced_chi2": ("number", "magnetics rows: flux-loop reduced chi-square"),
     "virial_status": ("string", "magnetics rows: criteria virial verdict"),
     "gs_status": ("string", "magnetics rows: criteria Grad-Shafranov verdict"),
-    "thomson_criterion_status": ("string", "magnetics rows: criteria Thomson verdict (good rows are gated on it)"),
+    "thomson_criterion_status": ("string", "magnetics rows: criteria Thomson verdict, band [1, 2] p_e (criteria v2)"),
+    "thomson_consistent": ("boolean", "magnetics rows: this row's setting is consistent with Thomson, criteria v2 "
+                                       "band [1, 2] p_e on criteria_log_ratio; never a gate"),
 }
 
 PROFILE_COLUMNS: dict[str, tuple[str, str]] = {
@@ -160,8 +162,9 @@ def _f(value: Any) -> float:
     return number
 
 
-def _status(record: Mapping[str, Any], name: str) -> str | None:
-    return ((record.get("evaluation") or {}).get("verdicts") or {}).get(name, {}).get("status")
+def _status(evaluation: Mapping[str, Any], name: str) -> str | None:
+    """One verdict's status from a ``criteria.evaluate`` result."""
+    return (evaluation.get("verdicts") or {}).get(name, {}).get("status")
 
 
 def _kinetic_veto(criteria, equilibrium: Mapping[str, Any], manifest: Mapping[str, Any],
@@ -309,6 +312,9 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
             if label_shot != shot:
                 continue
             record = records[(shot, time_ms)]
+            # Graded with this checkout's criteria (records[] above), never the
+            # verdicts stored in the analysis JSON, which may predate criteria v2.
+            evaluation = record["evaluation"]
             scalars = record.get("scalars") or {}
             fit = record.get("fit") or {}
             row = {**key_fields(shot, time_ms * 1e-3, "magnetics", quality),
@@ -318,9 +324,10 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
                    "ip_measured_a": record.get("ip_measured"), "ip_reconstructed_a": scalars.get("ipmhd"),
                    "betap": scalars.get("betap"), "li": scalars.get("li"), "q95": scalars.get("q95"),
                    "wmhd_j": scalars.get("wmhd"), "probe_reduced_chi2": fit.get("probe_reduced_chi2"),
-                   "loop_reduced_chi2": fit.get("loop_reduced_chi2"), "virial_status": _status(record, "virial"),
-                   "gs_status": _status(record, "grad_shafranov"),
-                   "thomson_criterion_status": _status(record, "thomson")}
+                   "loop_reduced_chi2": fit.get("loop_reduced_chi2"), "virial_status": _status(evaluation, "virial"),
+                   "gs_status": _status(evaluation, "grad_shafranov"),
+                   "thomson_criterion_status": _status(evaluation, "thomson"),
+                   "thomson_consistent": evaluation["physically_consistent"]}
             if kin_time_ms == time_ms:
                 status = kin_manifest.get("status")
                 row["paired_kin_status"] = {"success": "valid", "no_output": "failed"}.get(status, "unavailable")
@@ -396,6 +403,8 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
 def _cell(value: Any) -> Any:
     if value is None:
         return ""
+    if isinstance(value, (bool, np.bool_)):
+        return "true" if value else "false"  # JSON spelling, as the schema declares
     if isinstance(value, float) and not math.isfinite(value):
         return ""
     if isinstance(value, (np.floating,)):

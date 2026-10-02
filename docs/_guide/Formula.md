@@ -400,7 +400,7 @@ Everything on this page that will silently give you a wrong number if you feed i
 | --- | --- |
 | `radial_magnetic_field_from_psi`, `vertical_magnetic_field_from_psi` | Differentiate along a single axis with `np.gradient` — pass **1-D slices**, not a 2-D $(R,Z)$ map. |
 | `volume_from_RZ_boundary` | Shoelace area $\times\ 2\pi\bar{R}$ with $\bar{R}$ the arithmetic mean of the boundary points — an approximation, not the exact Pappus centroid. |
-| `spitzer_resistivity_from_T_e_Z_eff_ln_Lambda` | $T_e$ in **eV**, not keV; $\ln\Lambda$ defaults to 17.0. Use `coulomb_logarithm_from_n_T` for a self-consistent value. |
+| `spitzer_resistivity_from_T_e_Z_eff_ln_Lambda` | $T_e$ in **eV**, not keV; NRL **parallel** coefficient. Pass $Z_{\mathrm{eff}}$ and $\ln\Lambda$ explicitly: the old fallbacks 2 and 17 are deprecated (#1188). Use `coulomb_logarithm_from_n_T` for a self-consistent $\ln\Lambda$. |
 | `beta_N_from_beta_a_B0_Ip` | Takes $\beta$ in **percent** and $I_p$ in **MA** and returns %·m·T/MA; a fraction and amperes give $10^{-8}$ times the Troyon number. |
 | `normalized_plasma_current` | `Ip` in [A] on the way in, MA/(m·T) on the way out. |
 | `greenwald_density` / `greenwald_fraction` | $I_p$ in **MA**, and $n_G$ comes back in $10^{19}\ \mathrm{m^{-3}}$. Compare against the **line-averaged** density in the same units. |

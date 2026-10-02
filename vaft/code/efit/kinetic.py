@@ -122,6 +122,14 @@ def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None, *, ods=None, shot=
     is the estimator the earlier, superseded value was derived with).  A float
     is used as-is.  ``ti_te_ratio_sigma=None`` falls back to the policy sigma.
 
+    Known limitation: the total pressure built from it is
+    ``n_e T_e (1 + Ti/Te)``, i.e. ``n_i = n_e`` (no impurity dilution).  The
+    physical form is ``p_e (1 + f_i Ti/Te)`` with ``f_i = n_i,tot/n_e <= 1``;
+    at Z_eff ~ 1.7-2 (resistive estimates, C6+) ``f_i`` is ~0.83-0.9, so
+    every ion-pressure uncertainty is currently folded into this ratio.
+    Treat 1.0 +/- 0.5 and alternatives as sensitivity variants until a
+    dilution-aware prior exists.
+
     The policy is read through :mod:`vaft.machine_mapping`; the processing
     layer holds no VEST number (issue #420).
     """

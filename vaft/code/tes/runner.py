@@ -13,25 +13,48 @@ from .outputs import collect_tes_outputs, snapshot_outputs
 
 TES_HOME_ENV = "TESHOME"
 TES_HOME_EXECUTABLE = Path("bin/rtes")
+# TES's own Makefile builds rtes inside its source tree, at TES/rtes, so a
+# $TESHOME pointing at an unmodified build has no bin/ directory.
+TES_SOURCE_TREE_EXECUTABLE = Path("TES/rtes")
 TES_COMPATIBILITY_ENV = "RTES"
 
 
+def _executable_under_tes_home() -> Path | None:
+    """rtes under $TESHOME: bin/rtes, else the source-tree build TES/rtes.
+
+    Returns None when $TESHOME is unset or holds neither, so an explicit $RTES
+    can still apply; a file present but not executable raises.
+    """
+    home = os.environ.get(TES_HOME_ENV)
+    if not home or not home.strip():
+        return None
+    root = Path(home).expanduser()
+    for relative in (TES_HOME_EXECUTABLE, TES_SOURCE_TREE_EXECUTABLE):
+        if resolve_executable(root / relative) is not None:
+            return executable_from_home(
+                root, home_variable=TES_HOME_ENV, relative_path=relative, code_name="TES/RTES"
+            )
+    return None
+
+
 def _resolve_executable(config: TESConfig) -> str:
+    """The rtes to launch: config.executable, $TESHOME (bin/rtes or TES/rtes), then $RTES."""
     if config.executable:
         requested = Path(config.executable).expanduser()
         exe = resolve_executable(requested) or requested
     else:
-        home_executable = executable_from_home(
-            os.environ.get(TES_HOME_ENV),
-            home_variable=TES_HOME_ENV,
-            relative_path=TES_HOME_EXECUTABLE,
-            code_name="TES/RTES",
-        )
-        exe = home_executable or (
-            Path(os.environ[TES_COMPATIBILITY_ENV]).expanduser()
-            if os.environ.get(TES_COMPATIBILITY_ENV)
-            else None
-        )
+        exe = _executable_under_tes_home()
+        if exe is None and os.environ.get(TES_COMPATIBILITY_ENV):
+            exe = Path(os.environ[TES_COMPATIBILITY_ENV]).expanduser()
+        home = os.environ.get(TES_HOME_ENV)
+        if exe is None and home and home.strip():
+            root = Path(home).expanduser()
+            raise FileNotFoundError(
+                f"TES/RTES executable is missing for ${TES_HOME_ENV}={root}: expected "
+                f"{root / TES_HOME_EXECUTABLE} or {root / TES_SOURCE_TREE_EXECUTABLE}. "
+                "Compile or install TES/RTES so that the executable exists at one of "
+                f"these locations, or point ${TES_COMPATIBILITY_ENV} at it."
+            )
     if not exe:
         raise ValueError(
             missing_home_message(

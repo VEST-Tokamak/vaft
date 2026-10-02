@@ -2848,9 +2848,9 @@ def peaking_factor(central: float,
 # ------------------------------------------------------------------
 
 def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
-                                                 Z_eff: float = 2.0,
-                                                 ln_Lambda: float = 17.0) -> float:
-    r"""Spitzer parallel resistivity $\eta_\parallel$.
+                                                 Z_eff: Optional[float] = None,
+                                                 ln_Lambda: Optional[float] = None) -> float:
+    r"""Spitzer parallel resistivity $\eta_\parallel$ (NRL, parallel coefficient).
 
     $$\eta = 5.2\times10^{-5}\,\frac{Z_{\mathrm{eff}}\,\ln\Lambda}{T_e^{3/2}}
       \quad[\Omega\,\mathrm{m}],\ T_e\ \text{in eV}$$
@@ -2859,10 +2859,12 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     ----------
     T_e : float
         Electron temperature [eV].
-    Z_eff : float, optional
-        Effective ion charge; default 2 [-].
-    ln_Lambda : float, optional
-        Coulomb logarithm; default 17 [-].
+    Z_eff : float
+        Effective ion charge. Omitting it is deprecated (#1188): it still
+        falls back to 2 with a ``FutureWarning`` and will raise in 0.9 [-].
+    ln_Lambda : float
+        Coulomb logarithm. Omitting it is deprecated (#1188): it still falls
+        back to 17 with a ``FutureWarning`` and will raise in 0.9 [-].
 
     Returns
     -------
@@ -2874,7 +2876,9 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     The NRL Formulary value $\eta_\parallel = 1.65\times10^{-9}\,Z\ln\Lambda\,
     T_{\mathrm{keV}}^{-3/2}\ \Omega$ m rewritten for $T_e$ in eV; the
     $Z_{\mathrm{eff}}$ factor is applied linearly (the Spitzer-Harm
-    $Z$-dependence is weaker than linear for $Z>1$).
+    $Z$-dependence is weaker than linear for $Z>1$). This is the **parallel**
+    coefficient; the NRL perpendicular value ($1.03\times10^{-4}$) is 1.98x
+    larger and is not what a parallel Ohm's law needs (#1188).
 
     Assumptions
     -----------
@@ -2882,9 +2886,11 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
 
     Validity
     --------
-    Core tokamak plasmas well above the ionisation stage; the defaults
-    $Z_{\mathrm{eff}}=2$ and $\ln\Lambda=17$ are typical rather than derived,
-    use :func:`coulomb_logarithm_from_n_T` for a self-consistent value.
+    Core tokamak plasmas well above the ionisation stage.  $Z_{\mathrm{eff}}$
+    and $\ln\Lambda$ are physics inputs, not defaults: the former fallbacks
+    $Z_{\mathrm{eff}}=2$, $\ln\Lambda=17$ were typical rather than derived and
+    are deprecated (#1188); use :func:`coulomb_logarithm_from_n_T` for a
+    self-consistent $\ln\Lambda$.
 
     Limitations
     -----------
@@ -2898,6 +2904,20 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     .. [3] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 2.16 (resistivity).
     """
+    if Z_eff is None or ln_Lambda is None:
+        import warnings
+
+        missing = [name for name, value in (("Z_eff", Z_eff), ("ln_Lambda", ln_Lambda))
+                   if value is None]
+        warnings.warn(
+            f"spitzer_resistivity_from_T_e_Z_eff_ln_Lambda called without {', '.join(missing)}; "
+            "the hidden fallbacks Z_eff=2, ln_Lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        Z_eff = 2.0 if Z_eff is None else Z_eff
+        ln_Lambda = 17.0 if ln_Lambda is None else ln_Lambda
     return SPITZER_RESISTIVITY_COEF * Z_eff * ln_Lambda / T_e**1.5
 
 
@@ -4585,8 +4605,8 @@ def check_kadomtsev_constraint(
     -----------
     The default tolerance is far tighter than any published fit satisfies
     (ITER89P misses by 0.15); pass a physically motivated ``tol``.
-    :func:`verify_kadomtsev_constraint` evaluates a different expression from
-    the dimensionless indices; the two are tracked in #351.
+    :func:`verify_kadomtsev_constraint` returns the same residual from the
+    dimensionless indices (#351).
 
     References
     ----------
@@ -4904,12 +4924,12 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
 
     $$\Omega_i\tau_E \propto \rho_*^{\mu_\rho}\,\beta^{\mu_\beta}\,\nu_*^{\mu_\nu}$$
 
-    with, for $\alpha_L = \alpha_R + \alpha_I$, $\alpha_B^* = \alpha_B + \alpha_I$
-    and $D = 1 + \alpha_P$,
+    for $\tau_E \propto I^{\alpha_I}B^{\alpha_B}P^{\alpha_P}n^{\alpha_n}R^{\alpha_R}$
+    at fixed $q$, $\epsilon$, $\kappa$ and $M$.  With $D = 1 + \alpha_P$,
 
-    $$\mu_\rho = \frac{3\alpha_L + \alpha_B^* + \alpha_n - 2\alpha_P - 5}{D}, \quad
-      \mu_\beta = \frac{-\alpha_L - 2\alpha_n - \alpha_B^* + 3\alpha_P + 3}{D}, \quad
-      \mu_\nu = \frac{\alpha_L + 3\alpha_n + \alpha_B^* - 2\alpha_P - 4}{2D}$$
+    $$\mu_\rho = \frac{\alpha_B - \alpha_I - 2\alpha_R + 2\alpha_n - 3\alpha_P + 1}{D}, \quad
+      \mu_\nu = \mu_\rho + \frac{\alpha_I + \alpha_R + 3\alpha_P}{D}, \quad
+      \mu_\beta = \frac{\alpha_n + \alpha_P}{D} - \mu_\nu$$
 
     Parameters
     ----------
@@ -4924,7 +4944,8 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     a_M : float
         Exponent of the ion mass, passed through [-].
     a_R : float
-        Exponent of the major radius [-].
+        Exponent of the size at fixed aspect ratio: the major-radius exponent,
+        plus the minor-radius one when the scaling also carries $a^{\alpha_a}$ [-].
     a_eps : float
         Exponent of the inverse aspect ratio, unused [-].
     a_kappa : float
@@ -4946,19 +4967,28 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     Raises
     ------
     ValueError
-        When $1 + \alpha_P$ vanishes, which is the exact-power-degradation case
-        $\alpha_P = -1$: every index divides by it, so the transformation has no
-        value there rather than a special one [-].
+        For a non-finite exponent, or when $1 + \alpha_P$ vanishes, which is
+        the exact-power-degradation case $\alpha_P = -1$: every index divides
+        by it, so the transformation has no value there rather than a special
+        one [-].
 
     Assumptions
     -----------
-    Constant safety factor, $I_p \propto a^2B/R$, so current is absorbed into
-    the size and field indices; temperature eliminated through $P = W/\tau_E$.
+    Temperature is eliminated through $P = W/\tau_E \propto nTR^3/\tau_E$, and
+    $\rho_* \propto T^{1/2}/(BR)$, $\beta \propto nT/B^2$,
+    $\nu_* \propto nR/T^2$ at fixed $q \propto RB/I$.  The $n$, $B$ and $R$
+    exponents fix the three indices exactly and the $T$ exponent is left
+    unmatched: it misses by $\alpha_K / (2D)$, with $\alpha_K$ the residual of
+    :func:`kadomtsev_constraint_from_engineering_exponents`.  The indices are
+    therefore not a test of the constraint.  The $q$ index, $-\alpha_I/D$, is
+    not returned.
 
     Limitations
     -----------
     ``a_eps`` is accepted and unused; ``a_M`` and ``a_kappa`` are returned
-    unchanged, so the transformation is a no-op for those two axes.
+    unchanged, so the transformation is a no-op for those two axes.  Before
+    #351 the indices came from a different, wrong closed form (IPB98(y,2)
+    gave $\mu_\rho = 21.2$).
 
     References
     ----------
@@ -4966,18 +4996,12 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
            Fusion 50 (2008) 043001, Sec. 3 (engineering to dimensionless
            exponent transformation).
     .. [2] B. B. Kadomtsev, Sov. J. Plasma Phys. 1 (1975) 295.
+    .. [3] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2,
+           Sec. 6.2: IPB98(y,2) is $\rho_*^{-2.70}\beta^{-0.90}\nu_*^{-0.01}$.
     """
-    
-    # 1. Basis Transformation (Consolidating to fundamental dimensions: L and B)
-    # Using the relation I_p ∝ R * eps^2 * B (since a = R * eps)
-    a_L = a_R + a_I        # Combined length (L) scaling index
-    a_B_star = a_B + a_I   # Combined magnetic field (B) scaling index
-    # Note: a_n (density) and a_P (power) remain as primary engineering inputs.
-
-    # 2. Derive Dimensionless Indices (mu) via Power Balance
-    # Normalized confinement time follows: Ω_c * τ_E ∝ (ρ*)^μ_ρ * β^μ_β * (ν*)^μ_ν
-    # The derivation eliminates Temperature (T) using P = W / τ_E.
-    
+    exponents = np.asarray([a_I, a_B, a_P, a_n, a_R], dtype=float)
+    if np.any(~np.isfinite(exponents)):
+        raise ValueError(f"engineering exponents must be finite. Got {exponents!r}")
     denom = 1 + a_P
     if abs(denom) < 1e-9:
         # Returning None here made every caller fail on the unpack instead, with
@@ -4987,28 +5011,107 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
             f"by it; the transformation is undefined there. Got a_P={a_P!r}."
         )
 
-    # Mapping based on Gyro-kinetic transport theory and Kadomtsev's similarity principles
-    # mu_rho: Characterizes size scaling (e.g., -3 for Gyro-Bohm, -2 for Bohm)
-    mu_rho = (3 * a_L + a_B_star + a_n - 2 * a_P - 5) / denom
-    
-    # mu_beta: Characterizes plasma pressure scaling
-    mu_beta = (-a_L - 2 * a_n - a_B_star + 3 * a_P + 3) / denom
-    
-    # mu_nu: Characterizes collisionality scaling
-    mu_nu = (a_L + 3 * a_n + a_B_star - 2 * a_P - 4) / (2 * denom)
+    # tau_E exponents after eliminating P = W/tau_E ~ n T R^3 / tau_E, with the
+    # current absorbed through I ~ R B at fixed q.
+    e_n = (a_n + a_P) / denom
+    e_L = (a_I + a_R + 3 * a_P) / denom
+
+    # Solve B tau ~ rho*^x beta^y nu*^z on the n, B and R exponents (#351).
+    mu_rho = (a_B - a_I - 2 * a_R + 2 * a_n - 3 * a_P + 1) / denom
+    mu_nu = mu_rho + e_L
+    mu_beta = e_n - mu_nu
 
     # Deliberately unrounded: three decimals is a presentation choice, and a
     # kernel that bakes one in cannot be used for anything needing more.
     return mu_rho, mu_beta, mu_nu, a_M, a_kappa
 
+
+def engineering_exponents_from_dimensionless_coeffs(
+    mu_rho: float,
+    mu_beta: float,
+    mu_nu: float,
+    a_P: float,
+    mu_q: float = 0.0,
+) -> Tuple[float, float, float, float, float]:
+    r"""Engineering exponents $(\alpha_I, \alpha_B, \alpha_P, \alpha_n, \alpha_R)$ from dimensionless indices.
+
+    $$\alpha_I = -D\mu_q, \quad
+      \alpha_B = D(\mu_q - \mu_\rho - 2\mu_\beta - 1), \quad
+      \alpha_n = D(\mu_\beta + \mu_\nu) - \alpha_P, \quad
+      \alpha_R = D(\mu_q + \mu_\nu - \mu_\rho) - 3\alpha_P$$
+
+    with $D = 1 + \alpha_P$, for
+    $\Omega_i\tau_E \propto \rho_*^{\mu_\rho}\beta^{\mu_\beta}\nu_*^{\mu_\nu}q^{\mu_q}$.
+
+    Parameters
+    ----------
+    mu_rho : float
+        Gyroradius index [-].
+    mu_beta : float
+        Beta index [-].
+    mu_nu : float
+        Collisionality index [-].
+    a_P : float
+        Engineering exponent of the heating power [-].
+    mu_q : float, optional
+        Safety-factor index; the default 0 returns the fixed-$q$ form, in which
+        the current exponent is folded into ``alpha_B`` and ``alpha_R`` [-].
+
+    Returns
+    -------
+    alpha_I : float
+        Exponent of the plasma current [-].
+    alpha_B : float
+        Exponent of the toroidal field [-].
+    alpha_P : float
+        Exponent of the heating power, equal to ``a_P`` [-].
+    alpha_n : float
+        Exponent of the density [-].
+    alpha_R : float
+        Exponent of the size at fixed aspect ratio [-].
+
+    Raises
+    ------
+    ValueError
+        For non-finite input, or when $1 + \alpha_P$ vanishes [-].
+
+    Assumptions
+    -----------
+    The same closure as
+    :func:`dimensionless_scaling_coeffs_from_engineering_scaling_coeffs`, run
+    backwards on the $n$, $B$, $R$ and $I$ exponents.  A ``a_P`` that does not
+    match the indices' own temperature exponent gives exponents that violate
+    the Kadomtsev constraint by exactly that mismatch.
+
+    References
+    ----------
+    .. [1] T. C. Luce, C. C. Petty and J. G. Cordey, Plasma Phys. Control.
+           Fusion 50 (2008) 043001, Sec. 3.
+    """
+    values = np.asarray([mu_rho, mu_beta, mu_nu, a_P, mu_q], dtype=float)
+    if np.any(~np.isfinite(values)):
+        raise ValueError(f"indices and a_P must be finite. Got {values!r}")
+    denom = 1.0 + float(a_P)
+    if abs(denom) < 1e-9:
+        raise ValueError(
+            "a_P = -1 leaves 1 + a_P = 0, so the indices fix no finite "
+            f"engineering exponent. Got a_P={a_P!r}."
+        )
+    alpha_i = -denom * mu_q
+    alpha_b = denom * (mu_q - mu_rho - 2.0 * mu_beta - 1.0)
+    alpha_n = denom * (mu_beta + mu_nu) - a_P
+    alpha_r = denom * (mu_q + mu_nu - mu_rho) - 3.0 * a_P
+    return alpha_i, alpha_b, float(a_P), alpha_n, alpha_r
+
+
 def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
-    r"""Reconstruct the Kadomtsev constraint value from dimensionless indices.
+    r"""Kadomtsev constraint residual of the engineering scaling behind dimensionless indices.
 
-    $$x = 5 + \mu_\rho(1 + \alpha_P) - \frac{3}{2}\left(\mu_\rho + 2\mu_\beta - 4\mu_\nu - 2\right)$$
+    $$\alpha_K = (1 + \alpha_P)(\mu_\rho + 2\mu_\beta - 4\mu_\nu) - 2\alpha_P$$
 
-    which should return 5 when the dimensionless mapping of
-    :func:`dimensionless_scaling_coeffs_from_engineering_scaling_coeffs`
-    preserves the identity $\alpha_L + 2\alpha_n + \alpha_B^* - 3\alpha_P = 5$.
+    which is :func:`kadomtsev_constraint_from_engineering_exponents` evaluated
+    on :func:`engineering_exponents_from_dimensionless_coeffs`, and so equals
+    the residual :func:`check_kadomtsev_constraint` tests.
 
     Parameters
     ----------
@@ -5024,13 +5127,24 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     Returns
     -------
     float
-        Reconstructed constraint value, 5 for a consistent mapping [-].
+        Constraint residual, 0 when ``a_P`` is consistent with the indices [-].
+
+    Physical interpretation
+    -----------------------
+    Indices produced by
+    :func:`dimensionless_scaling_coeffs_from_engineering_scaling_coeffs`
+    return the residual of the engineering scaling they came from: the
+    transformation keeps the $n$, $B$, $R$ exponents and drops the $T$ one,
+    and the residual is $2(1 + \alpha_P)$ times what the dropped equation
+    misses by.
 
     Limitations
     -----------
-    Evaluates a different expression from
-    :func:`check_kadomtsev_constraint` (which uses the engineering exponents
-    directly) and the two need not agree; tracked in #351.
+    Until #351 this returned
+    $5 + \mu_\rho(1+\alpha_P) - \tfrac32(\mu_\rho + 2\mu_\beta - 4\mu_\nu - 2)$,
+    "5 for a consistent mapping", which no published scaling reached.  It now
+    returns the residual and emits a ``FutureWarning`` saying so, until
+    0.9.0; prefer :func:`check_kadomtsev_constraint` on engineering exponents.
 
     References
     ----------
@@ -5038,12 +5152,24 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     .. [2] T. C. Luce, C. C. Petty and J. G. Cordey, Plasma Phys. Control.
            Fusion 50 (2008) 043001.
     """
-     
-    # Reconstructing the constraint value x from the dimensionless indices
-    # For a purely physical model, calculated_x should converge to 5.0.
-    x_val = 5.0 + (mu_rho * (1 + a_P) - (3 * (mu_rho + 2 * mu_beta - 4 * mu_nu - 2) / 2))
-    
-    return x_val
+    warnings.warn(
+        "verify_kadomtsev_constraint now returns the Kadomtsev residual "
+        "alpha_K (0 when consistent), the quantity check_kadomtsev_constraint "
+        "tests, instead of the old value that 'should be 5' (#351). This "
+        "warning is removed in 0.9.0.",
+        FutureWarning,
+        stacklevel=2,
+    )
+    alpha_i, alpha_b, alpha_p, alpha_n, alpha_r = (
+        engineering_exponents_from_dimensionless_coeffs(mu_rho, mu_beta, mu_nu, a_P)
+    )
+    return kadomtsev_constraint_from_engineering_exponents(
+        alpha_I=alpha_i,
+        alpha_B=alpha_b,
+        alpha_P=alpha_p,
+        alpha_n=alpha_n,
+        alpha_R=alpha_r,
+    )
 
 
 # --- Analytic 1-D profile kernels in normalized poloidal flux (#552) ----------

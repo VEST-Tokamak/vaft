@@ -31,7 +31,7 @@ import tempfile
 import time
 from collections.abc import Iterable
 from collections.abc import Callable
-from typing import Any
+from typing import Any, NamedTuple
 
 from . import sources as _sources
 from .filedb import (
@@ -391,9 +391,74 @@ def _link_template(master) -> tuple[str, str] | None:
     return None
 
 
-def unlinked_remote_files(
+#: The IMAS "no value" fills: EMPTY_FLOAT is -9e40, EMPTY_INT -999999999.
+_EMPTY_FLOAT_BELOW = -8.9e40
+_EMPTY_INT = -999999999
+
+
+def _leaf_holds_data(name: str, value) -> bool:
+    """Whether one dataset of an IMAS HDF5 file carries a value.
+
+    ``ids_properties`` and the ``*SHAPE`` bookkeeping are written for every
+    IDS, data or not, so they never count.
+    """
+    import numpy as np
+
+    leaf = name.rsplit("/", 1)[-1]
+    if leaf.startswith("ids_properties") or leaf.endswith("SHAPE"):
+        return False
+    array = np.asarray(value)
+    if array.size == 0:
+        return False
+    if array.dtype.kind == "f":
+        return bool(np.any(array > _EMPTY_FLOAT_BELOW))
+    if array.dtype.kind in "iu":
+        return bool(np.any(array != _EMPTY_INT))
+    if array.dtype.kind in "SOU":
+        return any(
+            (item.decode("utf-8", "replace") if isinstance(item, bytes) else str(item)) != ""
+            for item in array.ravel()
+        )
+    return True
+
+
+def ids_file_holds_data(path: Path) -> bool:
+    """Whether a local IMAS HDF5 IDS file carries any value.
+
+    A file can be stored in a shot folder and hold nothing: every leaf is an
+    IMAS fill value and every array of structures has zero entries. Five
+    ``equilibrium.h5`` files on ``main`` (39240, 43245, 44148, 44453, 44604)
+    are like that -- ``time_slice`` empty, ``time`` -9e40 -- and a master that
+    does not link them hides nothing; linking them makes the shot read as
+    having an equilibrium with no data in it.
+    """
+    import h5py
+
+    found = False
+
+    def visit(name, node):
+        nonlocal found
+        if not found and isinstance(node, h5py.Dataset) and _leaf_holds_data(name, node[()]):
+            found = True
+
+    with h5py.File(path, "r") as handle:
+        handle.visititems(visit)
+    return found
+
+
+class UnlinkedFiles(NamedTuple):
+    """IDS files in a shot folder that its master does not link."""
+
+    #: Files carrying data: a reader resolving the shot cannot see them.
+    hidden: tuple[str, ...]
+    #: Files carrying no value at all (:func:`ids_file_holds_data`). Leaving
+    #: them unlinked hides nothing, so a repair never links them.
+    stubs: tuple[str, ...]
+
+
+def classify_unlinked_remote_files(
     source: str, shot: int, *, repair: bool = False
-) -> tuple[str, ...]:
+) -> UnlinkedFiles:
     """Report, and optionally relink, IDS files the shot's master does not name.
 
     A master left stage-only -- by a client older than the merge-before-upload
@@ -401,33 +466,43 @@ def unlinked_remote_files(
     -- hides every other stage's IDS although their files are still in the
     folder. No previous master survives to carry the links from, so they are
     rebuilt from the folder listing, in the shape of a link the master still
-    holds. Returns the files that were (or, without ``repair``, would be)
-    relinked; empty when the master is whole or the shot has none.
+    holds.
+
+    Each unlinked file is downloaded and read first: one holding no value is a
+    stub, not hidden data, and is reported apart and never linked. With
+    ``repair`` only the ``hidden`` files are relinked.
     """
     import h5py
 
     from .staging import external_h5_links
-    from .transport import run_hsload, verify_uploaded_image
+    from .transport import run_hsget, run_hsload, verify_uploaded_image
 
     with shot_master_lock(source, shot), tempfile.TemporaryDirectory(prefix="vaft-master-repair-") as workdir:
         current = _fetch_remote_master(source, shot, Path(workdir) / "master.h5")
         if current is None:
-            return ()
+            return UnlinkedFiles((), ())
         present = _remote_canonical_files(_require_remote_entries(source, shot))
         linked = set(external_h5_links(current))
-        missing = tuple(name for name in present if name not in linked)
-        if not missing or not repair:
-            return missing
+        hidden: list[str] = []
+        stubs: list[str] = []
+        for name in present:
+            if name in linked:
+                continue
+            local = run_hsget(f"hdf5://{source}/{shot}/{name}", Path(workdir) / name)
+            (hidden if ids_file_holds_data(local) else stubs).append(name)
+        result = UnlinkedFiles(tuple(hidden), tuple(stubs))
+        if not hidden or not repair:
+            return result
         with h5py.File(current, "r+") as master:
             template = _link_template(master)
             if template is None:
                 raise ReplicationError(
-                    f"hdf5://{source}/{shot}/master.h5 does not link {', '.join(missing)} "
+                    f"hdf5://{source}/{shot}/master.h5 does not link {', '.join(hidden)} "
                     "and carries no link to copy the shape of; it cannot be "
                     "rebuilt from the folder listing."
                 )
             file_prefix, path_prefix = template
-            for filename in missing:
+            for filename in hidden:
                 stem = filename[: -len(".h5")]
                 master[stem] = h5py.ExternalLink(
                     f"{file_prefix}{filename}", f"{path_prefix}{stem}"
@@ -435,7 +510,14 @@ def unlinked_remote_files(
         remote_uri = f"hdf5://{source}/{shot}/master.h5"
         run_hsload(current, remote_uri)
         verify_uploaded_image(current, remote_uri)
-    return missing
+    return result
+
+
+def unlinked_remote_files(
+    source: str, shot: int, *, repair: bool = False
+) -> tuple[str, ...]:
+    """The data-carrying files of :func:`classify_unlinked_remote_files`."""
+    return classify_unlinked_remote_files(source, shot, repair=repair).hidden
 
 
 #: Leaves the IMAS Access Layer stamps into an IDS as it writes it. They record

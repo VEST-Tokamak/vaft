@@ -720,6 +720,11 @@ def fake_conda(tmp_path, monkeypatch):
     log.touch()
     monkeypatch.setenv("PATH", f"{binary}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("FAKE_CONDA_LOG", str(log))
+    # The suite is normally run from inside `conda activate vaft`, which is
+    # exactly what the uninstaller's active-environment guard refuses. Start
+    # from no activation; a test that exercises the guard sets it explicitly.
+    for name in ("CONDA_DEFAULT_ENV", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
     return log
 
 

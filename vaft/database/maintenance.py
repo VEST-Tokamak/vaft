@@ -32,6 +32,7 @@ __all__ = [
     "MASTER_ABSENT",
     "MASTER_COMPLETE",
     "MASTER_LINKS_MISSING",
+    "MASTER_STUBS_UNLINKED",
     "MASTER_MISSING",
     "MASTER_REPAIRED",
     "MASTER_UNREADABLE",
@@ -240,6 +241,7 @@ def strip_impa_from_shots(
 #: Per-shot verdicts of :func:`audit_master_links`.
 MASTER_COMPLETE = "complete"
 MASTER_LINKS_MISSING = "links_missing"
+MASTER_STUBS_UNLINKED = "stubs_unlinked"
 MASTER_REPAIRED = "repaired"
 MASTER_ABSENT = "absent"
 MASTER_MISSING = "no_master"
@@ -254,12 +256,23 @@ def audit_master_link(shot: int, *, source: str | None = None, repair: bool = Fa
     master cannot see them. With ``repair`` they are relinked
     (:func:`vaft.database.replication.unlinked_remote_files`, under the shot's
     master lock) and the verdict is ``repaired``.
+
+    An unlinked file that holds no value at all is a stub, not hidden data
+    (:func:`vaft.database.replication.ids_file_holds_data`). It is listed under
+    ``stubs``, never relinked, and alone it makes the verdict
+    ``stubs_unlinked``: the master is right not to name it.
     """
-    from .replication import _remote_canonical_files, _remote_entries, unlinked_remote_files
+    from .replication import (
+        _remote_canonical_files,
+        _remote_entries,
+        classify_unlinked_remote_files,
+    )
 
     name = _sources.resolve(source, writable=repair)
     shot = int(shot)
-    report: dict[str, Any] = {"shot": shot, "source": name, "missing": [], "status": None}
+    report: dict[str, Any] = {
+        "shot": shot, "source": name, "missing": [], "stubs": [], "status": None
+    }
     try:
         entries = _remote_entries(name, shot)
         files = _remote_canonical_files(entries)
@@ -275,12 +288,15 @@ def audit_master_link(shot: int, *, source: str | None = None, repair: bool = Fa
             report["status"] = MASTER_MISSING
             report["missing"] = list(files)
         else:
-            missing = list(unlinked_remote_files(name, shot, repair=repair))
-            report["missing"] = missing
-            if not missing:
-                report["status"] = MASTER_COMPLETE
-            else:
+            unlinked = classify_unlinked_remote_files(name, shot, repair=repair)
+            report["missing"] = list(unlinked.hidden)
+            report["stubs"] = list(unlinked.stubs)
+            if unlinked.hidden:
                 report["status"] = MASTER_REPAIRED if repair else MASTER_LINKS_MISSING
+            elif unlinked.stubs:
+                report["status"] = MASTER_STUBS_UNLINKED
+            else:
+                report["status"] = MASTER_COMPLETE
     except Exception as error:  # noqa: BLE001 - one bad shot must not stop the audit
         report["status"] = MASTER_UNREADABLE
         report["error"] = f"{type(error).__name__}: {error}"

@@ -710,6 +710,12 @@
       # 3 ms; applied to the #1331 Tier A shots it held the kinetic pressure at
       # 1.1 p_e while the magnetics-only fits needed ~2.4 p_e (kinetic chi2
       # ~345). It is kept below as the record, not as the value.
+      # Known limitation: the kinetic pressure built from this ratio assumes
+      # n_i = n_e, p = p_e (1 + Ti/Te). With impurities p = p_e (1 + f_i Ti/Te),
+      # f_i = n_i,tot/n_e ~0.83-0.9 at Z_eff ~1.7-2, so the ion-dilution
+      # uncertainty is folded into this ratio. 1.0 +/- 0.5 is the canonical value
+      # for now; 0.5 +/- 0.25 and others are sensitivity variants, not chosen to
+      # fit a pressure band (2026-10-02).
       ti_te_ratio:
         value: 1.0
         sigma: 0.5                        # Ti between 0.5 and 1.5 Te at one sigma

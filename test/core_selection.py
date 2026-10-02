@@ -103,6 +103,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plot_taxonomy.py",
     "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",
+    "test_selection_validity.py",
     "test_spectrogram_methods.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
@@ -166,6 +167,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
     "test_formula_boundaries.py",
+    # Operational-space projections (#1425): a boundary is drawn only on its
+    # own quantities; the population renderer reads tables, never ODS.
+    "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
