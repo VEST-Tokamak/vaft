@@ -1016,10 +1016,21 @@ def _constraint_snapshot(ods: Any, index: int) -> dict[str, Any]:
         "diamagnetic_flux",
     ):
         root = f"equilibrium.time_slice.{index}.constraints.{family}"
+        # Reading a missing OMAS path creates it: an absent family (a shot with
+        # no PF-current constraint) would gain an empty array of structures,
+        # which the IMAS writer then refuses ("Trying to set struct array field
+        # pf_current with non-struct-array"), so the product never replicates.
+        if root not in ods:
+            continue
         try:
             node = ods[root]
         except Exception:
             continue
+        # An array of structures (probes, loops, PF) is read across its
+        # elements; a structure (Ip, diamagnetic flux) by its own leaves.  Only
+        # leaves that exist are read, for the same reason as above.
+        keys = list(node.keys())
+        is_array = bool(keys) and all(isinstance(key, int) for key in keys)
         for path in (
             "measured",
             "measured_error_upper",
@@ -1028,14 +1039,17 @@ def _constraint_snapshot(ods: Any, index: int) -> dict[str, Any]:
             "chi_squared",
         ):
             try:
-                value = node[path]
+                if is_array:
+                    if path not in node[keys[0]]:
+                        continue
+                    value = node[f":.{path}"]
+                else:
+                    if path not in node:
+                        continue
+                    value = node[path]
                 result[f"{family}.{path}"] = np.asarray(value).tolist()
             except Exception:
-                try:
-                    value = node[f":.{path}"]
-                    result[f"{family}.{path}"] = np.asarray(value).tolist()
-                except Exception:
-                    pass
+                pass
     return result
 
 
