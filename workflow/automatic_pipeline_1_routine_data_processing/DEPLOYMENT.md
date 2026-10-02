@@ -1000,15 +1000,16 @@ vaft maintenance audit-masters --shots 39000-48916 --report audit.json          
 vaft maintenance audit-masters --shots 39241 39620 43245 44148 --apply          # relink
 ```
 
-Each shot is reported as one of:
+Each unlinked file is downloaded and read before it is judged. Each shot is reported as one of:
 
 | Status | Meaning |
 | --- | --- |
 | `complete` | The master links every stored IDS file. |
 | `links_missing` | Files are stored that the master does not link. `--apply` relinks them, under the shot's lock. |
+| `stubs_unlinked` | The only files the master does not link hold no value at all -- every leaf an IMAS fill, every array of structures empty. Nothing is hidden, and `--apply` leaves them unlinked. 39240, 43245, 44148, 44453 and 44604 are like this: an empty `equilibrium.h5`. |
 | `no_master` | Files are stored but there is no master. Nothing can be copied from it, so re-replicate the shot. |
 | `absent` | No such shot folder, or one holding only derived images. |
 | `unreadable` | Listing or reading failed. The error is in the report. |
 
-The command exits non-zero while any shot is `links_missing`, `no_master` or `unreadable`.
+The command exits non-zero while any shot is `links_missing`, `no_master` or `unreadable`; `stubs_unlinked` is not a failure. A `links_missing` shot can carry stubs too -- the report lists them under `stubs`, and `--apply` links only the files under `missing`.
 
