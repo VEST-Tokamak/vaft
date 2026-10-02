@@ -155,6 +155,14 @@ def test_no_output_carries_a_secret_or_the_home_directory(monkeypatch, tmp_path)
     assert scrubbed["note"] == "~/x and <redacted>"
 
 
+def test_redaction_respects_path_components_and_keeps_colliding_keys(monkeypatch, tmp_path):
+    home = tmp_path / "yun"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    result = tools._redacted({"a": f"set ({home}/.hscfg)", "b": f"{home}ho/x", f"k{home}": 1, "k~": 2})
+    assert result == {"a": "set (~/.hscfg)", "b": f"{home}ho/x", "k~": 1, "k~#2": 2}
+
+
 # -- formulas, processes, validation -----------------------------------------------
 
 
@@ -282,6 +290,17 @@ def test_the_largest_views_stay_bounded_at_the_defaults(name):
     assert len(result["truncated"]["paths"]) <= REPORTED_PATHS
     biggest = _json(tools.extract_plot_data(name, max_points=tools.MAX_POINTS))
     assert len(json.dumps(biggest)) <= tools.MAX_EXTRACT_BYTES + 5_000
+
+
+def test_extraction_refuses_file_options_and_oversized_computations():
+    with pytest.raises(tools.ToolInputError, match="local files"):
+        tools.extract_plot_data("camera_visible_image", options={"pose_path": "~/.hscfg"})
+    with pytest.raises(tools.ToolInputError, match="grid_shape"):
+        tools.extract_plot_data("vacuum_field", options={"grid_shape": [20000, 20000]})
+    with pytest.raises(tools.ToolInputError, match="ceiling"):
+        tools.extract_plot_data("vacuum_field", options={"resolution": 10**6})
+    with pytest.raises(tools.ToolInputError, match="limit is"):
+        tools.extract_plot_data("vacuum_field", options={"seeds": [[0.3, 0.0]] * 1000})
 
 
 def test_extraction_refuses_unknown_input():
@@ -431,6 +450,13 @@ def test_bounded_conversion_is_strict_json_and_records_what_it_cut():
     assert _json(Bounded()({1: "one", "1": "uno"})) == {"1": "one", "1#2": "uno"}
     assert preview_strides((129, 129), 25) == (26, 26)
     assert math.prod(math.ceil(n / s) for n, s in zip((129, 129), preview_strides((129, 129), 25))) <= 25
+
+
+def test_the_byte_cap_holds_for_long_strings_and_says_when_nothing_fits():
+    data, converter = bounded_json({f"k{i}": "x" * 19_000 for i in range(10)}, budget=10, max_bytes=50_000)
+    assert len(json.dumps(data)) <= 50_000 and converter.truncated
+    data, converter = bounded_json({"k" * 5000 + str(i): 1 for i in range(400)}, budget=10, max_bytes=1_000)
+    assert len(json.dumps(data)) <= 1_000 and converter.truncated
 
 
 def test_the_point_budget_is_shared_and_the_byte_cap_holds():

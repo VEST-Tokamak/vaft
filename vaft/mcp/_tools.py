@@ -4,7 +4,8 @@ Each function answers one MCP tool call by delegating to an existing public
 VAFT API -- ``vaft.help``, the formula and process catalogs, the validation
 registry, the plot registry and its declared DD paths, the packaged samples,
 the boundary registry and ``vaft.plot.extract`` -- and converting the answer
-to bounded JSON.  No scientific computation happens here, and nothing here
+to bounded JSON.  No scientific computation is added here (an extraction runs
+VAFT's own, with size-like options capped), and nothing here
 writes a file, contacts a server, runs a solver or executes caller-supplied
 code.  The functions are importable and testable without the ``mcp`` SDK;
 :mod:`vaft.mcp.server` registers them as tools.
@@ -20,7 +21,9 @@ what to call instead; the server turns them into MCP tool errors.
 
 from __future__ import annotations
 
+import math
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -93,16 +96,23 @@ def _finish(payload: Any, *, converter: Bounded | None = None, notes=(), convert
 SECRET_ENV = ("HS_PASSWORD", "HS_API_KEY")
 
 
-def _redactions() -> list[tuple[str, str]]:
-    """(text, replacement) pairs: secret values first, then the home directory as ``~``."""
-    pairs = [(value, "<redacted>") for name in SECRET_ENV if len(value := os.environ.get(name, "")) >= 4]
-    home = str(Path.home())
+def _redactions() -> list[tuple[re.Pattern, str]]:
+    """(pattern, replacement) pairs: secret values first, then the home directory as ``~``.
+
+    A secret is replaced wherever it appears, so a very short one would also
+    rewrite unrelated text; values under four characters are left alone (they
+    are not credentials worth the damage).  The home directory is replaced
+    only as a whole path component, so ``/Users/yun`` never eats ``/Users/yunho``.
+    """
+    pairs = [(re.compile(re.escape(value)), "<redacted>")
+             for name in SECRET_ENV if len(value := os.environ.get(name, "")) >= 4]
+    home = str(Path.home()).rstrip("/\\")
     if len(home) > 1:
-        pairs.append((home, "~"))
+        pairs.append((re.compile(re.escape(home) + r"(?![^/\\\s)\]'\",;:])"), "~"))
     return pairs
 
 
-def _redacted(data: Any, pairs: list[tuple[str, str]] | None = None) -> Any:
+def _redacted(data: Any, pairs: list | None = None) -> Any:
     """``data`` (already plain JSON) with secrets and the home directory scrubbed from every string.
 
     Help pages report where a configuration file lives and which variables are
@@ -110,11 +120,19 @@ def _redacted(data: Any, pairs: list[tuple[str, str]] | None = None) -> Any:
     """
     pairs = _redactions() if pairs is None else pairs
     if isinstance(data, str):
-        for text, replacement in pairs:
-            data = data.replace(text, replacement)
+        for pattern, replacement in pairs:
+            data = pattern.sub(replacement, data)
         return data
     if isinstance(data, dict):
-        return {_redacted(key, pairs): _redacted(value, pairs) for key, value in data.items()}
+        out: dict[str, Any] = {}
+        for key, value in data.items():
+            name = new = _redacted(key, pairs)
+            suffix = 1
+            while new in out:  # two keys that redact to one name both survive
+                suffix += 1
+                new = f"{name}#{suffix}"
+            out[new] = _redacted(value, pairs)
+        return out
     if isinstance(data, list):
         return [_redacted(value, pairs) for value in data]
     return data
@@ -401,7 +419,45 @@ def _checked_options(options: Any) -> dict[str, Any]:
         raise ToolInputError(
             f"options {refused} are not extraction options; allowed: {', '.join(sorted(allowed))}"
         )
+    files = sorted(k for k in options if k.endswith("_path"))
+    if files:
+        raise ToolInputError(f"options {files} name local files, which this server does not open")
+    for name, value in options.items():
+        _check_option_size(name, value)
     return dict(options)
+
+
+#: Ceilings on the options that size a computation, so one call cannot claim the
+#: machine (a grid_shape of 20000 x 20000 is a 4e8-row Green's matrix).
+OPTION_CEILINGS = {
+    "resolution": 512, "max_turns": 1000, "n_frequencies": 512, "nperseg": 1 << 16, "noverlap": 1 << 16,
+    "num_modes": 32, "max_modes": 32, "max_harmonics": 64, "window_frames": 4096, "background_frames": 4096,
+    "normalisation_frames": 4096, "ncols": 16, "frame_index": 1 << 20, "max_length_m": 1000.0,
+}
+#: Product of a grid_shape, and length of any list-valued option.
+MAX_GRID_CELLS = 256 * 256
+MAX_OPTION_ITEMS = 256
+
+
+def _check_option_size(name: str, value: Any) -> None:
+    import numpy as np
+
+    if isinstance(value, (list, tuple)):
+        flat = np.asarray(value, dtype=object).ravel() if value else ()
+        if len(flat) > MAX_OPTION_ITEMS:
+            raise ToolInputError(f"option {name!r} has {len(flat)} values; the limit is {MAX_OPTION_ITEMS}")
+        if name == "grid_shape":
+            try:
+                cells = int(np.prod([int(v) for v in value]))
+            except (TypeError, ValueError):
+                raise ToolInputError("option 'grid_shape' is a list of integers") from None
+            if cells > MAX_GRID_CELLS or min(int(v) for v in value) < 1:
+                raise ToolInputError(f"option 'grid_shape' covers {cells} cells; the limit is {MAX_GRID_CELLS}")
+        return
+    ceiling = OPTION_CEILINGS.get(name)
+    if ceiling is not None and isinstance(value, (int, float)) and not isinstance(value, bool):
+        if not math.isfinite(value) or abs(value) > ceiling:
+            raise ToolInputError(f"option {name!r} = {value!r} exceeds its ceiling {ceiling}")
 
 
 def extract_plot_data(
@@ -709,8 +765,9 @@ def get_atlas_summary(
                  for record in head.to_dict(orient="records")],
         "head_truncated": int(rows) > len(head),
     }
-    converter = Bounded(max_items=MAX_LIMIT, max_string=MAX_ATLAS_CELL)
-    return _finish(payload, converter=converter, notes=notes)
+    data, converter = bounded_json(payload, budget=MAX_POINTS, max_bytes=MAX_EXTRACT_BYTES,
+                                   max_items=MAX_LIMIT, max_string=MAX_ATLAS_CELL)
+    return _finish(data, converter=converter, notes=notes, converted=True)
 
 
 #: Every tool the server exposes, in listing order.  Each is read-only.

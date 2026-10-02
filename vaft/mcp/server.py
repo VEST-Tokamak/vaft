@@ -19,6 +19,7 @@ import io
 import os
 import sys
 import threading
+import traceback
 import typing
 from typing import Any
 
@@ -73,7 +74,12 @@ def _threaded(function, tool_error):
             try:
                 return function(**kwargs)
             except (LookupError, ValueError, TypeError, FileNotFoundError) as error:
-                raise tool_error(_redacted(_message(error))) from error
+                raise tool_error(_redacted(_message(error))) from None
+            except Exception as error:  # noqa: BLE001 - FastMCP would format it unredacted
+                # An unexpected failure (OSError, RuntimeError, a VAFT bug): the class and
+                # the redacted message reach the client, the traceback stays on stderr.
+                traceback.print_exc(file=sys.stderr)
+                raise tool_error(_redacted(f"{type(error).__name__}: {_message(error)}")) from None
 
     @functools.wraps(function)
     async def call(**kwargs: Any):

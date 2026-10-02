@@ -29,6 +29,9 @@ from collections.abc import Mapping
 from pathlib import PurePath
 from typing import Any
 
+#: Longest mapping key kept; a longer one is cut (keys are names, not data).
+MAX_KEY = 200
+
 __all__ = ["Bounded", "array_summary", "bounded_json", "count_arrays", "preview_strides"]
 
 #: How many truncation paths a result lists before it only counts them.
@@ -179,7 +182,7 @@ class Bounded:
         return text
 
     def _pairs(self, pairs, path: str) -> dict[str, Any]:
-        pairs = [(str(k), v) for k, v in pairs if str(k) not in self.drop_keys and not _is_code(v)]
+        pairs = [(str(k)[:MAX_KEY], v) for k, v in pairs if str(k) not in self.drop_keys and not _is_code(v)]
         if len(pairs) > self.max_keys:
             self.truncated.append(f"{path} ({len(pairs)} keys, kept {self.max_keys})")
             pairs = pairs[: self.max_keys]
@@ -251,10 +254,18 @@ def bounded_json(value: Any, *, budget: int, max_bytes: int, max_items: int = 50
     if _size(data) <= max_bytes:
         return data, converter
     items = max_items
+    strings = min(int(kwargs.pop("max_string", 20_000)), max(200, max_bytes // 20))
     while True:
-        converter = Bounded(max_points=0, max_items=items, **{"max_keys": max(10, items), **kwargs})
+        converter = Bounded(max_points=0, max_items=items, max_string=strings,
+                            **{"max_keys": max(10, items), **kwargs})
         data = converter(value)
-        if _size(data) <= max_bytes or items == 1:
+        size = _size(data)
+        if size <= max_bytes:
             converter.truncated.insert(0, f"$ (over {max_bytes} bytes: arrays reduced to statistics)")
             return data, converter
+        if items == 1:
+            # Even one item per list is too big: say so rather than break the cap.
+            converter = Bounded()
+            converter.truncated.append(f"$ ({size} bytes even reduced; omitted, the limit is {max_bytes})")
+            return {"omitted": f"result over {max_bytes} bytes even reduced to statistics"}, converter
         items = max(1, items // 2)
