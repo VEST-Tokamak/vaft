@@ -201,6 +201,47 @@ def test_the_full_target_set_resolves_once_preflight_has_run(tmp_path):
     assert "plot_mhd_linear" in result.stdout
 
 
+def _preflight_done(tmp_path):
+    paths = _paths(tmp_path)
+    raw_dump = Path(paths.raw_dump(SHOT))
+    raw_dump.parent.mkdir(parents=True, exist_ok=True)
+    raw_dump.write_bytes(b"")
+    Path(paths.raw_manifest(SHOT)).write_text("{}", encoding="utf-8")
+    eligible = Path(paths.preflight_eligible())
+    eligible.parent.mkdir(parents=True, exist_ok=True)
+    eligible.write_text(json.dumps({"eligible_shots": [SHOT]}), encoding="utf-8")
+    Path(paths.preflight_excluded()).write_text(json.dumps({"excluded_shots": []}), encoding="utf-8")
+
+
+def test_a_stage_scope_narrows_rule_all(tmp_path):
+    """`stages: [raw, diagnostics, eddy]` asks for nothing of EFIT and after (#58).
+
+    Not even the constraint step, which refuses a vacuum shot by failing: a
+    scope that left it in would still fail every vacuum shot.
+    """
+    _preflight_done(tmp_path)
+
+    result = _dry_run(tmp_path, extra=["--config", "stages=[raw,diagnostics,eddy]"])
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    for rule in ("generate_diagnostics_ods", "generate_eddy_ods",
+                 "replicate_diagnostics_to_hsds", "replicate_eddy_to_hsds", "plot_eddy"):
+        assert rule in result.stdout, rule
+    for rule in ("generate_constraints_ods", "generate_kfile", "run_efit_reconstruction",
+                 "replicate_efit_to_hsds", "run_chease", "plot_mhd_linear", "build_gpec_ideal"):
+        assert rule not in result.stdout, rule
+
+
+@pytest.mark.parametrize(
+    ("stages", "message"),
+    [("[raw,diagnostic]", "Unknown stage"), ("[raw,diagnostics,efit]", "but not 'eddy'")],
+)
+def test_a_stage_scope_that_cannot_be_run_fails_before_any_job(tmp_path, stages, message):
+    result = _dry_run(tmp_path, extra=["--config", f"stages={stages}"])
+    assert result.returncode != 0
+    assert message in result.stdout + result.stderr
+
+
 # --------------------------------------------------------------------------- #
 # layout: shot_first (cold review data F4)
 # --------------------------------------------------------------------------- #

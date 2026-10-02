@@ -853,6 +853,14 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   stops the worker instead of silently creating a new state file under a literal `${...}` directory.
 - **The worker reproduces Snakemake's config merge.** Snakemake merges `pipeline_config` over the
   workflow's own `config.yaml`, and the worker checks and harvests against that same merged result.
+- **`stages` narrows what the worker runs and judges.** Omitted, every run requests `rule all`, the
+  whole pipeline. `stages: [raw, diagnostics, eddy]` requests only those stages' products, plots and
+  replication records, and the shot's verdict is taken from those alone: the constraint and k-file
+  steps, EFIT, CHEASE and stability are never scheduled. A vacuum shot (below the constraint stage's
+  15 kA) then ends `completed` instead of failing every run until `gave_up`. `raw` is always in;
+  a stage whose upstream is left out is refused at start-up. The worker writes the list into each
+  run's config as `stages`, so a manual run can use the same key. This is a decision made before the
+  run; a stage that runs and declines a shot is #205's skip semantics.
 - **`first_shot` is where the worker's responsibility starts.** Shots below it belong to batch
   regeneration and the worker never looks at them.
 
