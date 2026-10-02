@@ -270,7 +270,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a0df15b</code>. What is described
+  <code>1b274b6</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -301,7 +301,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.transport_state</code>:
-<strong>6</strong> public functions. Each entry is what
+<strong>8</strong> public functions. Each entry is what
 <code>vaft.process.describe("transport_state.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -336,18 +336,22 @@ modified: the ion-temperature policy writes into a deep copy.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 6 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="assess_neo_readiness"><td><a href="#assess_neo_readiness"><code>assess_neo_readiness</code></a></td><td>Decide whether a resolved state can go to NEO.
 </td></tr>
   <tr data-ref-row="assess_tglf_readiness"><td><a href="#assess_tglf_readiness"><code>assess_tglf_readiness</code></a></td><td>Decide whether a resolved state, and each requested surface, can go to TGLF.
 </td></tr>
+  <tr data-ref-row="classical_heat_fluxes"><td><a href="#classical_heat_fluxes"><code>classical_heat_fluxes</code></a></td><td>Classical perpendicular heat fluxes at one surface, from a TGLF local input.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="physics_parameters"><td><a href="#physics_parameters"><code>physics_parameters</code></a></td><td>The physics half of a GACODE config, with runtime-only fields dropped.
 </td></tr>
   <tr data-ref-row="resolve_transport_state"><td><a href="#resolve_transport_state"><code>resolve_transport_state</code></a></td><td>Resolve one plasma state into a shared GACODE profile with per-quantity provenance.
 </td></tr>
   <tr data-ref-row="run_identity"><td><a href="#run_identity"><code>run_identity</code></a></td><td>Deterministic identity of one solver calculation on one resolved state.
+</td></tr>
+  <tr data-ref-row="surface_toroidal_field"><td><a href="#surface_toroidal_field"><code>surface_toroidal_field</code></a></td><td>The toroidal field at a surface’s centre, <code class="language-plaintext highlighter-rouge">|B_centr| R_centr / R</code>.
 </td></tr>
   <tr data-ref-row="transport_partition"><td><a href="#transport_partition"><code>transport_partition</code></a></td><td>Signed model fluxes and their magnitude partition at one surface of one state.
 </td></tr>
@@ -362,10 +366,10 @@ modified: the ion-temperature policy writes into a deep copy.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assess_neo_readiness"><code>assess_neo_readiness</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="assess_neo_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/a0df15b42d3845f9c9edc1f938b61bdd90c7b2d3/vaft/process/transport_state.py#L823-L856" title="vaft/process/transport_state.py, lines 823–856 at a0df15b">source</a>
+<a class="ref-source" data-source="assess_neo_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/1b274b667a0670afa2a559e5baf58c7acf3b1da1/vaft/process/transport_state.py#L826-L859" title="vaft/process/transport_state.py, lines 826–859 at 1b274b6">source</a>
 </header>
     <pre class="ref-signature"><code>assess_neo_readiness(state)</code></pre>
-    <details class="ref-code" data-source-code="assess_neo_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 823–856</span></summary>
+    <details class="ref-code" data-source-code="assess_neo_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 826–859</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assess_neo_readiness</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReadinessReport</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Decide whether a resolved state can go to NEO.
@@ -443,10 +447,10 @@ report nothing missing.</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assess_tglf_readiness"><code>assess_tglf_readiness</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="assess_tglf_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/a0df15b42d3845f9c9edc1f938b61bdd90c7b2d3/vaft/process/transport_state.py#L759-L820" title="vaft/process/transport_state.py, lines 759–820 at a0df15b">source</a>
+<a class="ref-source" data-source="assess_tglf_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/1b274b667a0670afa2a559e5baf58c7acf3b1da1/vaft/process/transport_state.py#L762-L823" title="vaft/process/transport_state.py, lines 762–823 at 1b274b6">source</a>
 </header>
     <pre class="ref-signature"><code>assess_tglf_readiness(state, surfaces=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8), *, config=None)</code></pre>
-    <details class="ref-code" data-source-code="assess_tglf_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 759–820</span></summary>
+    <details class="ref-code" data-source-code="assess_tglf_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 762–823</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assess_tglf_readiness</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span>
@@ -553,14 +557,78 @@ are required.</li>
 
   </section>
 
+  <section class="ref-entry" id="classical_heat_fluxes" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#classical_heat_fluxes"><code>classical_heat_fluxes</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="classical_heat_fluxes" href="https://github.com/VEST-Tokamak/vaft/blob/1b274b667a0670afa2a559e5baf58c7acf3b1da1/vaft/process/transport_state.py#L1118-L1218" title="vaft/process/transport_state.py, lines 1118–1218 at 1b274b6">source</a>
+</header>
+    <pre class="ref-signature"><code>classical_heat_fluxes(local, b_tesla)</code></pre>
+
+    <p>Classical perpendicular heat fluxes at one surface, from a TGLF local input.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>local</code></td><td class="ref-type">TGLFInput</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">assess_tglf_readiness</code>, supplying n_e, T_e, Ti/Te, every ion’s n/n_e and charge, a/L_T, the main ion’s mass and a at the surface.</p>
+</td></tr>
+  <tr><td><code>b_tesla</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Magnetic-field magnitude at the surface, e.g. <code class="language-plaintext highlighter-rouge">surface_toroidal_field</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">W/m^2</td><td><p><code class="language-plaintext highlighter-rouge">r_over_a</code>; <code class="language-plaintext highlighter-rouge">electron_energy_flux_W_m2</code>; <code class="language-plaintext highlighter-rouge">ion_energy_flux_W_m2</code> keyed <code class="language-plaintext highlighter-rouge">z=&lt;charge&gt;</code> for the main ion; <code class="language-plaintext highlighter-rouge">chi_e_m2_s</code>, <code class="language-plaintext highlighter-rouge">chi_i_m2_s</code>; the collision times, Coulomb logarithms, <code class="language-plaintext highlighter-rouge">coulomb_log_valid</code> and <code class="language-plaintext highlighter-rouge">model</code> (<code class="language-plaintext highlighter-rouge">CLASSICAL_MODEL</code>).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">kappa_perp,e = gamma_1'(Z_eff) n_e T_e / (m_e Omega_e^2 tau_e)</code> and
+<code class="language-plaintext highlighter-rouge">kappa_perp,i = 2 n_i T_i / (m_i Omega_i^2 tau_i)</code>; <code class="language-plaintext highlighter-rouge">q = kappa T (a/L_T) / a</code>,
+so a positive flux runs down the temperature gradient, the sign the TGLF and NEO
+mappers use.  This is a physical flux of a stated reduced model, not the
+order-of-magnitude <code class="language-plaintext highlighter-rouge">nu rho^2</code> reference scale (#780/#1112), and nothing here is
+projected into <code class="language-plaintext highlighter-rouge">core_transport</code>.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Electrons and one main ion only; no particle flux or thermal-force terms; unlike
+field ions enter tau_i in the like-particle form; slab geometry and B_pol neglected.
+<code class="language-plaintext highlighter-rouge">coulomb_log_valid</code> is False below 10 eV, where the electron form is not
+defined.  The rest is listed in #1453.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, “Transport processes in a plasma”, Rev. Plasma Phys. 1 (1965) 205: kappa_perp,e coefficient gamma_1’(Z) (4.66, 4.0, 3.7, 3.6, 3.2 for Z = 1, 2, 3, 4, inf) and kappa_perp,i coefficient 2.
+</li>
+  <li>NRL Plasma Formulary: tau_e = 3.44e5 T_e^1.5 / (n lnLambda), tau_i = 2.09e7 T_i^1.5 mu^0.5 / (n lnLambda Z^4) and the ion-ion lnLambda (cgs, eV), which the SI forms here reproduce (test_transport_state.py).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="physics_parameters" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#physics_parameters"><code>physics_parameters</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="physics_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/a0df15b42d3845f9c9edc1f938b61bdd90c7b2d3/vaft/process/transport_state.py#L904-L936" title="vaft/process/transport_state.py, lines 904–936 at a0df15b">source</a>
+<a class="ref-source" data-source="physics_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/1b274b667a0670afa2a559e5baf58c7acf3b1da1/vaft/process/transport_state.py#L907-L939" title="vaft/process/transport_state.py, lines 907–939 at 1b274b6">source</a>
 </header>
     <pre class="ref-signature"><code>physics_parameters(config, *, exclude=())</code></pre>
-    <details class="ref-code" data-source-code="physics_parameters"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 904–936</span></summary>
+    <details class="ref-code" data-source-code="physics_parameters"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 907–939</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">physics_parameters</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">exclude</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">())</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">The physics half of a GACODE config, with runtime-only fields dropped.
@@ -634,7 +702,7 @@ out of identity.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_transport_state"><code>resolve_transport_state</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span></span>
-<a class="ref-source" data-source="resolve_transport_state" href="https://github.com/VEST-Tokamak/vaft/blob/a0df15b42d3845f9c9edc1f938b61bdd90c7b2d3/vaft/process/transport_state.py#L424-L726" title="vaft/process/transport_state.py, lines 424–726 at a0df15b">source</a>
+<a class="ref-source" data-source="resolve_transport_state" href="https://github.com/VEST-Tokamak/vaft/blob/1b274b667a0670afa2a559e5baf58c7acf3b1da1/vaft/process/transport_state.py#L427-L729" title="vaft/process/transport_state.py, lines 427–729 at 1b274b6">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_transport_state(ods, key, *, efit_quality, quality_source=&#39;criteria&#39;, tolerance=0.0005, ti_te_ratio=&#39;policy&#39;, ti_te_ratio_sigma=None, inferred_ti=None, z_eff=2.0, impurity=&#39;C&#39;, rho_max=0.95, inputs=None)</code></pre>
 
@@ -728,10 +796,10 @@ stage products are the data it was built against.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#run_identity"><code>run_identity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="run_identity" href="https://github.com/VEST-Tokamak/vaft/blob/a0df15b42d3845f9c9edc1f938b61bdd90c7b2d3/vaft/process/transport_state.py#L862-L901" title="vaft/process/transport_state.py, lines 862–901 at a0df15b">source</a>
+<a class="ref-source" data-source="run_identity" href="https://github.com/VEST-Tokamak/vaft/blob/1b274b667a0670afa2a559e5baf58c7acf3b1da1/vaft/process/transport_state.py#L865-L904" title="vaft/process/transport_state.py, lines 865–904 at 1b274b6">source</a>
 </header>
     <pre class="ref-signature"><code>run_identity(state, *, solver, parameters, surface=None, solver_revision=None)</code></pre>
-    <details class="ref-code" data-source-code="run_identity"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 862–901</span></summary>
+    <details class="ref-code" data-source-code="run_identity"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 865–904</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">run_identity</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span>
@@ -810,14 +878,93 @@ stage products are the data it was built against.</p>
 
   </section>
 
+  <section class="ref-entry" id="surface_toroidal_field" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#surface_toroidal_field"><code>surface_toroidal_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="surface_toroidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/1b274b667a0670afa2a559e5baf58c7acf3b1da1/vaft/process/transport_state.py#L1087-L1115" title="vaft/process/transport_state.py, lines 1087–1115 at 1b274b6">source</a>
+</header>
+    <pre class="ref-signature"><code>surface_toroidal_field(profile, local)</code></pre>
+    <details class="ref-code" data-source-code="surface_toroidal_field"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1087–1115</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">surface_toroidal_field</span><span class="p">(</span><span class="n">profile</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">local</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">The toroidal field at a surface</span><span class="sh">'</span><span class="s">s centre, ``|B_centr| R_centr / R``.
+
+    GACODE</span><span class="sh">'</span><span class="s">s ``B_unit`` is a flux-coordinate field (about twice B0 on VEST), not the
+    field a gyro-orbit sees, so the classical baseline does not use it.
+
+    Parameters
+    ----------
+    profile : GACODEProfile
+        Supplies ``bcentr`` and ``rcentr`` [T].
+    local : TGLFInput
+        Supplies ``rmaj_loc`` and the minor radius of the surface [-].
+
+    Returns
+    -------
+    float
+        ``|B_T|`` at ``R = rmaj_loc * a``; the poloidal field is neglected [T].
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Vacuum toroidal field ``B_T = B_0 R_0 / R``; GACODE ``input.gacode``
+       ``bcentr``/``rcentr`` (https://gacode.io/input_gacode.html).
+    </span><span class="sh">"""</span>
+    <span class="n">r_surface</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">local</span><span class="p">.</span><span class="n">rmaj_loc</span><span class="p">)</span> <span class="o">*</span> <span class="nf">float</span><span class="p">(</span><span class="n">local</span><span class="p">.</span><span class="n">normalisation</span><span class="p">.</span><span class="n">minor_radius</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">abs</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">profile</span><span class="p">.</span><span class="n">bcentr</span><span class="p">))</span> <span class="o">*</span> <span class="nf">float</span><span class="p">(</span><span class="n">profile</span><span class="p">.</span><span class="n">rcentr</span><span class="p">)</span> <span class="o">/</span> <span class="n">r_surface</span></code></pre></figure>
+
+</details>
+
+    <p>The toroidal field at a surface’s centre, <code class="language-plaintext highlighter-rouge">|B_centr| R_centr / R</code>.</p>
+
+    <p>GACODE’s <code class="language-plaintext highlighter-rouge">B_unit</code> is a flux-coordinate field (about twice B0 on VEST), not the
+field a gyro-orbit sees, so the classical baseline does not use it.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>profile</code></td><td class="ref-type">GACODEProfile</td><td class="ref-unit">T</td><td><p>Supplies <code class="language-plaintext highlighter-rouge">bcentr</code> and <code class="language-plaintext highlighter-rouge">rcentr</code>.</p>
+</td></tr>
+  <tr><td><code>local</code></td><td class="ref-type">TGLFInput</td><td class="ref-unit">-</td><td><p>Supplies <code class="language-plaintext highlighter-rouge">rmaj_loc</code> and the minor radius of the surface.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p><code class="language-plaintext highlighter-rouge">|B_T|</code> at <code class="language-plaintext highlighter-rouge">R = rmaj_loc * a</code>; the poloidal field is neglected.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Vacuum toroidal field <code class="language-plaintext highlighter-rouge">B_T = B_0 R_0 / R</code>; GACODE <code class="language-plaintext highlighter-rouge">input.gacode</code> <code class="language-plaintext highlighter-rouge">bcentr</code>/<code class="language-plaintext highlighter-rouge">rcentr</code> (https://gacode.io/input_gacode.html).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="transport_partition" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#transport_partition"><code>transport_partition</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="transport_partition" href="https://github.com/VEST-Tokamak/vaft/blob/a0df15b42d3845f9c9edc1f938b61bdd90c7b2d3/vaft/process/transport_state.py#L977-L1056" title="vaft/process/transport_state.py, lines 977–1056 at a0df15b">source</a>
+<a class="ref-source" data-source="transport_partition" href="https://github.com/VEST-Tokamak/vaft/blob/1b274b667a0670afa2a559e5baf58c7acf3b1da1/vaft/process/transport_state.py#L980-L1059" title="vaft/process/transport_state.py, lines 980–1059 at 1b274b6">source</a>
 </header>
     <pre class="ref-signature"><code>transport_partition(neoclassical, turbulent, *, turbulent_charges=None, classical=None, rho_tolerance=0.001)</code></pre>
-    <details class="ref-code" data-source-code="transport_partition"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 977–1056</span></summary>
+    <details class="ref-code" data-source-code="transport_partition"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 980–1059</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">transport_partition</span><span class="p">(</span>
     <span class="n">neoclassical</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
@@ -1170,7 +1317,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-01 23:22:06 +0000"
+        "time": "2026-10-02 01:05:10 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
