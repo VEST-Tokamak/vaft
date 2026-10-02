@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 
 if TYPE_CHECKING:
@@ -33,6 +34,24 @@ class DCONOptions:
     ``bal_flag`` defaults to the packaged namelist's ``f``. That is deliberately
     unchanged here, but note it makes DCON the odd one out: ``rdcon.in`` and
     ``stride.in`` both ship ``bal_flag=t``.
+
+    ``con_flag`` decides whether ideal GPEC can compute a penetration threshold at
+    all.  GPEC computes every resonant-field quantity inside ``IF (singfld_flag)``
+    and turns that flag **off** when ``con_flag`` is true (``gpec/gpec.f:560-565``),
+    warning ``singfld_flag not supported with con_flag`` and writing no
+    rational-surface block -- so a case that asks for ``singthresh_*`` against a
+    template shipping ``con_flag=t`` gets zeros, which is also what an unattainable
+    threshold looks like.  The packaged ``dcon.in`` ships ``t``, and so does GPEC's
+    own ``input/dcon.in``.
+
+    ``None`` leaves whatever the template holds, which is why it is the default:
+    ``con_flag`` is not a reporting switch -- it continues the integration through
+    the singular layers instead of applying the ideal jump condition at each one --
+    and a machine layer with its own ``templates_dir`` may deliberately ship ``f``.
+    Writing a default over that would change its eigenvalues silently.  Set it
+    explicitly (``con_flag=False``) for a threshold run, and
+    :func:`~vaft.code.gpec.validate_threshold_inputs` reads the *prepared file*
+    either way, so the check holds whichever template supplied the value.
     """
 
     sas_flag: bool = False
@@ -41,6 +60,7 @@ class DCONOptions:
     mer_flag: bool = True
     bal_flag: bool = False
     thmax0: float = 1.0
+    con_flag: Optional[bool] = None
 
 
 @dataclass(frozen=True)
@@ -138,14 +158,108 @@ class IdealGPECOptions:
     ``__post_init__`` validates them as one group: DCON, RDCON and STRIDE
     never see a coil.  Move them up only if a stability module starts needing
     the machine word.
+
+    ``ascii_flag`` and ``xclebsch_flag`` are what decide whether PENTRC has an
+    input at all, and both default to ``None`` -- "whatever the template holds".
+    A machine layer with its own ``templates_dir`` may already ship
+    ``ascii_flag=t`` precisely so that its torque runs have something to read, and
+    writing a default over that would silently take it away.  PENTRC reads the **ASCII** displacement,
+    ``gpec_xclebsch_n<n>.out`` (``pentrc/inputs.f90`` opens ``peq_file`` as a
+    text table), and GPEC writes that file only when both flags are on
+    (``gpec/gpout.f:5755``).  The packaged template ships ``xclebsch_flag=t``
+    and ``ascii_flag=f``, so the default run writes everything in netCDF and
+    nothing PENTRC can read -- which made the torque unreachable through this
+    API until these two were exposed.
+
+    ``ascii_flag`` is all-or-nothing in GPEC: it writes *every* output in ASCII,
+    including the ``*_fun`` (psi, theta) reconstructions when ``fun_flag`` is on,
+    which is hundreds of megabytes per run.  Turn it on for a run whose torque
+    you want, not as a habit.
     """
 
     coil_flag: bool = True
+    #: Write every output in ASCII as well as netCDF.  ``None`` leaves the
+    #: template's value, which is ``f`` in the packaged one; PENTRC's input exists
+    #: only with ``t``.
+    ascii_flag: Optional[bool] = None
+    #: Compute the Clebsch-coordinate displacement PENTRC integrates.  ``None``
+    #: leaves the template's value, ``t`` in the packaged one -- on its own it only
+    #: reaches the netCDF.
+    xclebsch_flag: Optional[bool] = None
     coil_specs: Optional[Sequence["CoilInputSpec"]] = None
     machine: str = "vest"
     coil_config: Optional[Mapping[str, "CoilSet3D"]] = None
     ip_direction: Optional[str] = None
     bt_direction: Optional[str] = None
+
+    #: Both penetration thresholds at once.  GPEC reads this as a shorthand and
+    #: forces the two below true (``gpec/gpec.f:274-279``), so it is not a
+    #: third, independent switch: ``singthresh_flag=True`` *is* Callen and
+    #: SLAYER.  Use the sub-flags to ask for one without the other.
+    singthresh_flag: bool = False
+
+    #: Callen's critical island width for island growth, written to
+    #: ``gpec_profile_output_n<n>.nc`` as ``w_isl_v_crit``
+    #: (``gpec/gpout.f:1757-1776``).  It needs the coil vacuum field, so
+    #: ``coil_flag`` must be on; GPEC itself only warns and leaves the column
+    #: zero (``gpec/gpec.f:280-291``).
+    singthresh_callen_flag: bool = False
+
+    #: SLAYER's critical resonant field, written as ``Phi_res_crit``
+    #: (``gpec/gpout.f:1779-1786``).  A different model from Callen's and a
+    #: different column, which is why the two flags are separate: a run with
+    #: only one of them on leaves the *other* column exactly zero, and zero is
+    #: also what an unattainable threshold would look like.
+    singthresh_slayer_flag: bool = False
+
+    #: The inverse magnetic Prandtl number SLAYER is run at [-].
+    #:
+    #: Required whenever a SLAYER threshold is requested, and refused
+    #: otherwise.  It is a physics model coefficient -- a critical field scales
+    #: with it -- so it is never defaulted here, even though GPEC defaults it
+    #: to 5.0 (``gpec/gpec.f:161``).
+    #:
+    #: Refused when no threshold is requested because GPEC stamps it into
+    #: ``gpec_profile_output_n<n>.nc`` as the global attribute ``Pr``
+    #: *unconditionally* (``gpec/gpout.f:1851-1852``), flags or no flags.  A
+    #: value set on a run that computed no threshold would therefore sit in the
+    #: output looking like the Prandtl number one was computed at.
+    singthresh_slayer_inpr: Optional[float] = None
+    #: Per-rational-surface inverse Prandtl numbers, ascending in ``q``, at most
+    #: 20 entries.  GPEC falls back to the scalar for any entry ``<= 0``
+    #: (``input/gpec.in:62``), so the scalar is required alongside it.
+    singthresh_slayer_inpr_prof: Optional[Sequence[float]] = None
+
+    @property
+    def writes_pentrc_input(self) -> Optional[bool]:
+        """Whether this run will leave the ASCII displacement PENTRC reads.
+
+        Both flags, because either alone writes nothing PENTRC can open: the
+        netCDF carries the same displacement and PENTRC does not read it.
+
+        ``None`` when either is ``None``: the answer is then the template's, and
+        this object does not know which template it will be prepared against.
+        :func:`~vaft.code.gpec.validate_pentrc_inputs` reads the prepared cell,
+        which does.
+        """
+        if self.ascii_flag is None or self.xclebsch_flag is None:
+            return None
+        return bool(self.ascii_flag and self.xclebsch_flag)
+
+    @property
+    def wants_callen_threshold(self) -> bool:
+        """Whether this run will compute Callen's critical width [-]."""
+        return bool(self.singthresh_flag or self.singthresh_callen_flag)
+
+    @property
+    def wants_slayer_threshold(self) -> bool:
+        """Whether this run will compute SLAYER's critical resonant field [-]."""
+        return bool(self.singthresh_flag or self.singthresh_slayer_flag)
+
+    @property
+    def wants_any_threshold(self) -> bool:
+        """Whether either threshold is requested, and so kinetic profiles are needed [-]."""
+        return self.wants_callen_threshold or self.wants_slayer_threshold
 
     def __post_init__(self) -> None:
         # A config error is knowable here; refusing at construction keeps it
@@ -171,6 +285,280 @@ class IdealGPECOptions:
                 "coil_specs is empty: at least one coil set name is required; pass "
                 "None to use the packaged coil.in template"
             )
+        # Callen's threshold is built from the *coil* vacuum field
+        # (`gpec/gpout.f:1770-1772` divides by `singflx_mn`, and
+        # `gpec/gpec.f:285-291` forces `singfld_flag` on under `coil_flag` and
+        # otherwise only warns). Without a coil the column comes back zero,
+        # which is indistinguishable from a threshold that was computed and is
+        # unattainable -- so the request is refused instead.
+        if self.wants_callen_threshold and not self.coil_flag:
+            raise ValueError(
+                "Callen's penetration threshold needs the coil vacuum field, so "
+                "coil_flag must be True; GPEC only warns and leaves w_isl_v_crit zero, "
+                "which reads the same as a computed threshold of zero "
+                "(gpec/gpec.f:280-291)"
+            )
+        if self.wants_slayer_threshold and self.singthresh_slayer_inpr is None:
+            raise ValueError(
+                "a SLAYER penetration threshold needs singthresh_slayer_inpr, the "
+                "inverse magnetic Prandtl number it is computed at; it scales the "
+                "critical field, so it is stated rather than inherited (GPEC's own "
+                "default is 5.0, gpec/gpec.f:161)"
+            )
+        if not self.wants_slayer_threshold and self.singthresh_slayer_inpr is not None:
+            raise ValueError(
+                "singthresh_slayer_inpr is set but no SLAYER threshold is requested; "
+                "GPEC writes it into gpec_profile_output_n<n>.nc as the global "
+                "attribute Pr whatever the flags say (gpec/gpout.f:1851-1852), so it "
+                "would sit in the output as the Prandtl number a threshold was "
+                "computed at. Set singthresh_slayer_flag (or singthresh_flag) too, or "
+                "leave it None"
+            )
+        if self.singthresh_slayer_inpr_prof is not None:
+            profile = tuple(self.singthresh_slayer_inpr_prof)
+            if not self.wants_slayer_threshold:
+                raise ValueError(
+                    "singthresh_slayer_inpr_prof is set but no SLAYER threshold is "
+                    "requested; set singthresh_slayer_flag (or singthresh_flag) too, "
+                    "or leave it None"
+                )
+            if not 1 <= len(profile) <= 20:
+                raise ValueError(
+                    "singthresh_slayer_inpr_prof takes 1 to 20 entries, one per "
+                    f"rational surface in ascending q; got {len(profile)} "
+                    "(gpec/gpec.f reads a fixed 20-element array)"
+                )
+            if self.singthresh_slayer_inpr is None:
+                raise ValueError(
+                    "singthresh_slayer_inpr_prof needs singthresh_slayer_inpr beside "
+                    "it: GPEC falls back to the scalar for any profile entry <= 0 "
+                    "(input/gpec.in:62), and a run with no scalar would fall back to "
+                    "whatever the template happened to hold"
+                )
+
+
+#: Main-ion species PENTRC may be run for, as ``(mass number [u], charge [e])``.
+#:
+#: A named vocabulary rather than two numbers, so a run records *which plasma*
+#: its torque belongs to. The NTV torque scales with the ion mass through the
+#: bounce and transit frequencies, so "deuterium" is a physics statement about
+#: the discharge and is required rather than inherited from a template --
+#: GPEC's own ``pentrc.in`` ships ``mi=2 zi=1``, which is right for a great many
+#: discharges and is evidence for none of them.
+#:
+#: Integers, because ``pentrc.in``'s ``mi``/``zi``/``mimp``/``zimp`` are Fortran
+#: integers (``pentrc/pentrc_interface.f90:99-103``): a namelist read of ``2.0``
+#: into one of them is an error, not a rounding. So these are mass *numbers* --
+#: one isotope each -- and a natural-abundance average cannot be expressed here
+#: at all.
+PENTRC_ION_SPECIES: Mapping[str, tuple[int, int]] = MappingProxyType({
+    "hydrogen": (1, 1),
+    "deuterium": (2, 1),
+    "tritium": (3, 1),
+    "helium": (4, 2),
+})
+
+#: Impurity species, same form.  PENTRC always carries one (``read_kin`` takes
+#: ``zimp``/``mimp`` for the quasineutrality correction), so there is no "none"
+#: entry.  Each is one isotope, for the reason above: ``tungsten`` is W-184, the
+#: most abundant one, and not tungsten's 183.84 natural-abundance mass.
+PENTRC_IMPURITY_SPECIES: Mapping[str, tuple[int, int]] = MappingProxyType({
+    "carbon": (12, 6),
+    "boron": (11, 5),
+    "nitrogen": (14, 7),
+    "neon": (20, 10),
+    "tungsten": (184, 74),
+})
+
+#: PENTRC's collision operators (``pentrc.in``'s ``nutype``), with what each is.
+PENTRC_COLLISION_OPERATORS: Mapping[str, str] = MappingProxyType({
+    "zero": "collisionless",
+    "krook": "a single Krook relaxation rate",
+    "harmonic": "an energy-dependent rate, harmonic in the bounce frequency",
+})
+
+
+@dataclass(frozen=True)
+class PENTRCOptions:
+    """What one PENTRC run computes, and for which plasma.
+
+    PENTRC turns a perturbed field and a kinetic profile into the neoclassical
+    toroidal viscous torque.  Which *calculation* it uses is not a detail: its
+    eighteen methods are different physics models of the same quantity and
+    disagree by design (see :data:`vaft.code.pentrc.TORQUE_METHODS`), so
+    ``methods``, ``main_ion``, ``impurity`` and ``collision_operator`` are all
+    required.  Nothing here has a physics default, and the packaged
+    ``pentrc.in`` ships every method flag off so that a namelist this writes
+    states the whole selection rather than inheriting part of it.  (GPEC's own
+    template ships ``fgar_flag=.true.``, and its code default is the same, so a
+    caller who says nothing would silently get the full calculation.)
+
+    Attributes
+    ----------
+    methods : sequence of str
+        Keys of :data:`vaft.code.pentrc.TORQUE_METHODS`; each becomes
+        ``<method>_flag=t`` [-].
+    main_ion : str
+        A key of :data:`PENTRC_ION_SPECIES` [-].
+    impurity : str
+        A key of :data:`PENTRC_IMPURITY_SPECIES` [-].
+    collision_operator : str
+        A key of :data:`PENTRC_COLLISION_OPERATORS`; ``pentrc.in``'s
+        ``nutype`` [-].
+    bounce_harmonics : int
+        ``nl``: the calculation sums bounce harmonics ``-nl..nl``.  A numerical
+        truncation rather than a model choice, so it keeps GPEC's own shipped
+        value of 6.  The runs this adapter was ported from used 4 [-].
+    moment : str
+        ``"pressure"`` for torque and particle transport, ``"heat"`` for heat
+        transport.  Both write the same variable names and units and differ only
+        in ``long_name``, which is what
+        :data:`vaft.code.pentrc.TORQUE_LONG_NAME` exists to check [-].
+    electron : bool
+        Run for electrons instead of ions.  PENTRC does one species per run [-].
+    psi_limits : tuple of float, optional
+        ``psilims``, the radial range.  ``None`` keeps the template's 0 to 1 [-].
+    grids : sequence of str
+        Which radial grids each method is written on: ``"dynamic"`` (the
+        solver's own adaptive steps, read back as
+        :data:`vaft.code.pentrc.TORQUE_GRIDS`' ``lsode``), ``"equil"``,
+        ``"input"`` [-].
+    artificial_factors : Mapping, optional
+        ``wefac``/``wdfac``/``wpfac``/``nufac``/``divxfac``, PENTRC's scans of a
+        frequency or rate away from its physical value.  ``None`` leaves every
+        one of them at the template's 1, which is the physical case; a value
+        other than 1 makes the run a sensitivity study rather than a prediction,
+        which is why it is spelled out rather than tucked into a float field [-].
+    data_dir : str
+        Where the pre-formed ``fnml`` matrices the ``rlar`` and ``clar`` methods
+        need live.  ``"default"`` is ``$GPECHOME/pentrc``.  The runs this adapter
+        was ported from carried ``"../../../pentrc"``, which is a claim about how
+        deep the run tree is rather than about the installation [-].
+    threads : int
+        ``pentrc_threads``; ``0`` defers to ``$OMP_NUM_THREADS`` [-].
+    output_ascii, output_netcdf : bool
+        Which of the two output forms PENTRC writes.
+        :func:`vaft.code.pentrc.read_pentrc_output` reads the netCDF one [-].
+    """
+
+    methods: Sequence[str]
+    main_ion: str
+    impurity: str
+    collision_operator: str
+    bounce_harmonics: int = 6
+    moment: str = "pressure"
+    electron: bool = False
+    psi_limits: Optional[tuple[float, float]] = None
+    grids: Sequence[str] = ("dynamic",)
+    artificial_factors: Optional[Mapping[str, float]] = None
+    data_dir: str = "default"
+    threads: int = 0
+    output_ascii: bool = False
+    output_netcdf: bool = True
+
+    #: The three ``pentrc.in`` grid switches, and the ``TORQUE_GRIDS`` key each
+    #: produces in the output.
+    #:
+    #: ``dynamic`` is the one whose names differ on the two sides: the switch is
+    #: ``dynamic_grid`` and the output calls the grid ``lsode``, because one names
+    #: the method and the other the solver that produced it.
+    GRID_FLAGS = MappingProxyType({
+        "dynamic": "dynamic_grid",
+        "equil": "equil_grid",
+        "input": "input_grid",
+    })
+
+    #: The five ``&PENT_CONTROL`` scan factors, all 1 in the physical case.
+    #:
+    #: ``&PENT_CONTROL`` declares two more -- ``nfac`` and ``tfac``, on the density
+    #: and the temperature (``pentrc/pentrc_interface.f90:150``) -- which GPEC
+    #: ships in no ``pentrc.in`` and the packaged template therefore does not
+    #: carry.  They are left out rather than accepted and dropped: the writer
+    #: patches keys a template already has, so accepting one would raise at write
+    #: time with a message about a template rather than about the request.
+    ARTIFICIAL_FACTORS = ("wefac", "wdfac", "wpfac", "nufac", "divxfac")
+
+    def __post_init__(self) -> None:
+        from ..pentrc import TORQUE_METHODS
+
+        if not self.methods:
+            raise ValueError(
+                "PENTRCOptions.methods is empty: PENTRC would run and write no torque. "
+                f"Choose from {sorted(TORQUE_METHODS)}"
+            )
+        unknown = [name for name in self.methods if name not in TORQUE_METHODS]
+        if unknown:
+            raise ValueError(
+                f"unknown PENTRC method(s) {unknown}; the calculations are "
+                f"{sorted(TORQUE_METHODS)} (vaft.code.pentrc.TORQUE_METHODS)"
+            )
+        if self.main_ion not in PENTRC_ION_SPECIES:
+            raise ValueError(
+                f"main_ion must be one of {sorted(PENTRC_ION_SPECIES)}, got "
+                f"{self.main_ion!r}"
+            )
+        if self.impurity not in PENTRC_IMPURITY_SPECIES:
+            raise ValueError(
+                f"impurity must be one of {sorted(PENTRC_IMPURITY_SPECIES)}, got "
+                f"{self.impurity!r}"
+            )
+        if self.collision_operator not in PENTRC_COLLISION_OPERATORS:
+            raise ValueError(
+                f"collision_operator must be one of "
+                f"{sorted(PENTRC_COLLISION_OPERATORS)}, got {self.collision_operator!r}"
+            )
+        if self.moment not in ("pressure", "heat"):
+            raise ValueError(f"moment must be 'pressure' or 'heat', got {self.moment!r}")
+        if int(self.bounce_harmonics) < 0:
+            raise ValueError(
+                f"bounce_harmonics is the half-range of a symmetric sum -nl..nl and "
+                f"cannot be negative; got {self.bounce_harmonics!r}"
+            )
+        if not self.grids:
+            raise ValueError(
+                "PENTRCOptions.grids is empty: every radial grid switched off leaves "
+                f"nothing to integrate on. Choose from {sorted(self.GRID_FLAGS)}"
+            )
+        bad_grids = [name for name in self.grids if name not in self.GRID_FLAGS]
+        if bad_grids:
+            raise ValueError(
+                f"unknown PENTRC grid(s) {bad_grids}; choose from "
+                f"{sorted(self.GRID_FLAGS)}"
+            )
+        if self.artificial_factors is not None:
+            bad = sorted(set(self.artificial_factors) - set(self.ARTIFICIAL_FACTORS))
+            if bad:
+                raise ValueError(
+                    f"pentrc.in has no scan factor(s) {bad}; the five are "
+                    f"{list(self.ARTIFICIAL_FACTORS)}"
+                )
+        if self.psi_limits is not None:
+            low, high = (float(value) for value in self.psi_limits)
+            if not high > low:
+                raise ValueError(
+                    f"psi_limits must be increasing, got {self.psi_limits!r}"
+                )
+        if not (self.output_ascii or self.output_netcdf):
+            raise ValueError(
+                "both output_ascii and output_netcdf are off, so PENTRC would compute "
+                "the torque and write nothing"
+            )
+
+    @property
+    def species_namelist(self) -> dict[str, int]:
+        """The four ``pentrc.in`` species keys this selection resolves to [u, e].
+
+        Integers, because the namelist keys are (see
+        :data:`PENTRC_ION_SPECIES`).
+        """
+        main_mass, main_charge = PENTRC_ION_SPECIES[self.main_ion]
+        imp_mass, imp_charge = PENTRC_IMPURITY_SPECIES[self.impurity]
+        return {
+            "mi": int(main_mass),
+            "zi": int(main_charge),
+            "mimp": int(imp_mass),
+            "zimp": int(imp_charge),
+        }
 
 
 @dataclass(frozen=True)

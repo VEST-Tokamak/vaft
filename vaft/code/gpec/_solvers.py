@@ -264,18 +264,24 @@ class DCONSolver:
     name = "dcon"
 
     def prepare(self, ctx: SolverContext) -> None:
+        replacements: dict[str, object] = {
+            "nn": ctx.mode,
+            "sas_flag": ctx.config.dcon.sas_flag,
+            "qhigh": ctx.config.dcon.qhigh,
+            "psiedge": ctx.config.dcon.psiedge,
+            "mer_flag": ctx.config.dcon.mer_flag,
+            "bal_flag": ctx.config.dcon.bal_flag,
+            "thmax0": ctx.config.dcon.thmax0,
+        }
+        # `None` means "whatever the template holds": `con_flag` changes DCON's
+        # integration rather than its reporting, and a caller's own
+        # `templates_dir` may deliberately ship the opposite of the packaged one.
+        # Asked for explicitly it has to land, so it joins the required set and a
+        # template that cannot express it is an error rather than a silent pass.
+        if ctx.config.dcon.con_flag is not None:
+            replacements["con_flag"] = ctx.config.dcon.con_flag
         rt.write_template(
-            ctx.template_dir / "dcon.in",
-            ctx.run_dir / "dcon.in",
-            {
-                "nn": ctx.mode,
-                "sas_flag": ctx.config.dcon.sas_flag,
-                "qhigh": ctx.config.dcon.qhigh,
-                "psiedge": ctx.config.dcon.psiedge,
-                "mer_flag": ctx.config.dcon.mer_flag,
-                "bal_flag": ctx.config.dcon.bal_flag,
-                "thmax0": ctx.config.dcon.thmax0,
-            },
+            ctx.template_dir / "dcon.in", ctx.run_dir / "dcon.in", replacements
         )
         shutil.copy2(ctx.template_dir / "match.in", ctx.run_dir / "match.in")
 
@@ -303,6 +309,15 @@ class DCONSolver:
 
     def stability_output(self, mode: int) -> str | None:
         return f"dcon_output_n{mode}.nc"
+
+
+def _names_key(namelist: Path, key: str) -> bool:
+    """Whether *namelist* assigns *key* at all, in any group."""
+    try:
+        text = Path(namelist).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return re.search(rf"(?im)^\s*{re.escape(key)}\s*=", text) is not None
 
 
 def _namelist_array(name: str, values, *, note: str = "") -> str:
@@ -533,6 +548,58 @@ DCON_PRODUCTS_FOR_GPEC: tuple[tuple[str, bool], ...] = (
 )
 
 
+#: The equilibrium namelist ideal GPEC reads in its own working directory.
+#:
+#: GPEC calls the same ``equil`` module DCON does, and that module opens
+#: ``equil.in`` before anything else and stops the program without it:
+#: ``PROGRAM STOP => Can't open input file equil.in``, four minutes into a run
+#: whose DCON had already succeeded.  It is staged from the DCON cell rather than
+#: written from the template a second time, which is what makes the two codes
+#: provably read the *same* equilibrium description rather than two renderings of
+#: it.
+EQUIL_NAMELIST = "equil.in"
+
+#: Where that namelist names the equilibrium.  Staged with it when the name is
+#: relative -- the DCON cell holds the g-file under a bare filename, and a bare
+#: filename in another directory resolves to nothing.
+EQUIL_NAMELIST_GROUP = "equil_control"
+EQUIL_FILENAME_KEY = "eq_filename"
+
+
+def _stage_equilibrium_inputs(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
+    """Bring ``equil.in`` and the equilibrium it names into *run_dir*."""
+    source = dcon_dir / EQUIL_NAMELIST
+    target = run_dir / EQUIL_NAMELIST
+    shutil.copy2(source, target)
+    staged = [target]
+    named = rt.read_namelist_group(source, EQUIL_NAMELIST_GROUP).get(EQUIL_FILENAME_KEY)
+    if named and not Path(named).is_absolute():
+        equilibrium = dcon_dir / named
+        if not equilibrium.is_file():
+            raise FileNotFoundError(
+                f"cannot stage the equilibrium for {run_dir}: {EQUIL_NAMELIST} names "
+                f"{named!r} and {equilibrium} is not there. GPEC reads it relative to "
+                "its own working directory, so the name has to resolve in both cells"
+            )
+        destination = run_dir / named
+        # The relative name is resolved against *both* cells, and it can land on
+        # the same file: `../../g039915.00325` from a GPEC cell beside a DCON cell
+        # names the DCON cell's own g-file. Unlinking the destination would then
+        # delete the equilibrium and the link that followed would fail with it
+        # already gone -- a staging step destroying the thing it stages.
+        if destination.exists() and destination.samefile(equilibrium):
+            return tuple(staged)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists() or destination.is_symlink():
+            destination.unlink()
+        try:
+            os.link(equilibrium, destination)
+        except OSError:
+            shutil.copy2(equilibrium, destination)
+        staged.append(destination)
+    return tuple(staged)
+
+
 def stage_dcon_products(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
     """Put DCON's products where ideal GPEC will look for them, and say which.
 
@@ -579,6 +646,8 @@ def stage_dcon_products(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
         name for name, required in DCON_PRODUCTS_FOR_GPEC
         if required and not (dcon_dir / name).is_file()
     ]
+    if not (dcon_dir / EQUIL_NAMELIST).is_file():
+        missing.append(EQUIL_NAMELIST)
     if missing:
         raise FileNotFoundError(
             f"cannot stage DCON products from {dcon_dir}: {', '.join(missing)} "
@@ -602,6 +671,7 @@ def stage_dcon_products(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
         except OSError:
             shutil.copy2(source, target)
         staged.append(target)
+    staged.extend(_stage_equilibrium_inputs(dcon_dir, run_dir))
     return tuple(staged)
 
 
@@ -615,20 +685,82 @@ class IdealGPECSolver:
         # are brought here by `stage_dcon_products` once DCON has produced
         # them, which is after this runs. See that function for the failure
         # this avoids.
+        options = ctx.config.gpec
+        replacements: dict[str, object] = {
+            "dcon_dir": str(ctx.run_dir.resolve()),
+            "coil_flag": options.coil_flag,
+        }
+        # PENTRC reads the ASCII displacement and GPEC writes it only with both of
+        # these on, so they are part of what a run *is* rather than a formatting
+        # preference -- but `None` means "whatever the template holds", because a
+        # machine layer may already ship `ascii_flag=t` so that its torque runs
+        # have something to read.
+        for name in ("ascii_flag", "xclebsch_flag"):
+            value = getattr(options, name)
+            if value is not None:
+                replacements[name] = value
+        # Restated rather than requested when no threshold was asked for: a
+        # custom `templates_dir` need not carry the key, and `f` is what GPEC
+        # defaults to anyway -- but a template shipping `t` must not turn a
+        # threshold on behind a caller who did not ask for one, which is why
+        # this is written rather than left alone.
+        optional: dict[str, object] = {"singthresh_flag": options.singthresh_flag}
+        if options.wants_any_threshold:
+            # Asked for, so it has to land: a template without the key is a
+            # template that cannot express this run.
+            replacements["singthresh_flag"] = optional.pop("singthresh_flag")
+            # Written only when asked for, because GPEC leaves these three out
+            # of every namelist it ships -- they exist as code defaults
+            # (`gpec/gpec.f:159-162`) -- so a caller's own `templates_dir` may
+            # legitimately not carry them. Patching unconditionally would make
+            # this release refuse a template that worked in the last one.
+            # The *effective* values, not the fields: `singthresh_flag=t` forces
+            # both true inside GPEC (`gpec/gpec.f:274-279`), so writing the raw
+            # `False` beside it would be a namelist that contradicts the run it
+            # describes -- and the namelist is what a reader has later.
+            replacements.update(
+                {
+                    "singthresh_callen_flag": options.wants_callen_threshold,
+                    "singthresh_slayer_flag": options.wants_slayer_threshold,
+                }
+            )
+            if options.singthresh_slayer_inpr is not None:
+                replacements["singthresh_slayer_inpr"] = float(options.singthresh_slayer_inpr)
+            if options.singthresh_slayer_inpr_prof is not None:
+                # Deliberately *not* in the packaged template: only GPEC from
+                # `28f6df64` onwards declares this key, and a namelist READ stops
+                # the program on a name it does not declare -- whatever the flags
+                # say -- so shipping it would break every run on an older build,
+                # which is the trap `out_ahg2msc` already cost this suite once.
+                # A caller with a per-surface profile therefore brings a
+                # `templates_dir` whose `gpec.in` carries it, and gets told so.
+                if not _names_key(ctx.template_dir / "gpec.in", "singthresh_slayer_inpr_prof"):
+                    raise ValueError(
+                        f"{ctx.template_dir / 'gpec.in'} does not declare "
+                        "singthresh_slayer_inpr_prof, so a per-surface Prandtl "
+                        "profile cannot be written into it. The packaged template "
+                        "omits the key on purpose: a GPEC that predates it stops at "
+                        "the namelist read. Point templates_dir at a gpec.in from "
+                        "the GPEC you are running, or use the scalar "
+                        "singthresh_slayer_inpr"
+                    )
+                replacements["singthresh_slayer_inpr_prof"] = tuple(
+                    float(value) for value in options.singthresh_slayer_inpr_prof
+                )
         rt.write_template(
             ctx.template_dir / "gpec.in",
             ctx.run_dir / "gpec.in",
-            {"dcon_dir": str(ctx.run_dir.resolve()), "coil_flag": ctx.config.gpec.coil_flag},
+            replacements,
+            optional=optional,
         )
         shutil.copy2(ctx.template_dir / "vac.in", ctx.run_dir / "vac.in")
         # Precedence: an explicit coil.in wins over canonical coil_specs,
         # which wins over the packaged template copied verbatim.
         if ctx.inputs.coil_in:
             shutil.copy2(Path(ctx.inputs.coil_in).expanduser(), ctx.run_dir / "coil.in")
-        elif ctx.config.gpec.coil_specs is not None:
+        elif options.coil_specs is not None:
             from ._coil_input import resolve_coil_inputs, stage_coil_data, write_coil_in
 
-            options = ctx.config.gpec
             specs = tuple(options.coil_specs)
             coil_config, ip_direction, bt_direction = resolve_coil_inputs(
                 options.machine,
@@ -660,7 +792,7 @@ class IdealGPECSolver:
 
             from ._coil_input import DEFAULT_MACHINE
 
-            assert ctx.config.gpec.machine == DEFAULT_MACHINE
+            assert options.machine == DEFAULT_MACHINE
             rt.write_template(
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",
