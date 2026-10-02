@@ -251,6 +251,10 @@ def test_the_plot_draws_the_window_estimate_and_labels_slices_a_diagnostic(profi
     labels = [s.label for s in panels.models[2].series]
     assert "per slice (diagnostic)" in labels
     assert any(label.startswith("window estimate") for label in labels)
+    # the panel states every assumption the estimate was made under, the
+    # smoothing included (cold review 0.8.0 delta-absorb-13-physics F5)
+    assert "I_ni = 0" in panels.models[2].title
+    assert "smoothing none" in panels.models[2].title
 
 
 def test_the_plot_is_not_offered_without_electron_profiles():

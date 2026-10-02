@@ -192,6 +192,23 @@ def test_a_solution_beyond_the_bounds_is_reported_not_clipped():
     assert result.zeff == pytest.approx(3.0, rel=2e-3)
 
 
+@pytest.mark.parametrize("z_true", [1.02, 7.9])
+def test_a_minimum_inside_an_end_scan_interval_is_not_a_bound_hit(z_true):
+    """Default bounds (1, 8) and 41 log-spaced points put the first interval at
+    1.0-1.053 and the last at 7.6-8.0; a clean hydrogen plasma minimises in the
+    first one. The scan's end point being the lowest J is a bracketing fact,
+    not a bound hit (cold review 0.8.0 delta-absorb-13-physics F1)."""
+    states = [_state(time=0.005)]
+    r_true = model_resistance(states[0], z_true, model="spitzer_nrl", ln_lambda=17.0).R_p
+    observed = observed_resistance(_flat_top(r_true), I_ni=0.0, smoothing=Smoothing("none"))
+    result = infer_resistive_zeff(observed, states, model="spitzer_nrl", ln_lambda=17.0,
+                                  bounds=(1.0, 8.0), weights="uniform")
+    assert result.zeff == pytest.approx(z_true, rel=1e-6)
+    assert result.status == "ok"
+    assert not result.quality["bound_hit"]
+    assert result.reason is None
+
+
 def test_a_window_with_no_positive_resistance_is_not_identifiable():
     states = [_state(time=0.005)]
     observed = observed_resistance(_flat_top(-1e-6), I_ni=0.0, smoothing=Smoothing("none"))
