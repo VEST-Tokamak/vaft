@@ -270,7 +270,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>6745095</code>. What is described
+  <code>f138ecf</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1122,7 +1122,8 @@ flux map it returns.</p>
 
 <h3 id="named-configurations-presets">Named configurations (presets)</h3>
 
-<p><code class="language-plaintext highlighter-rouge">vaft.code.efit.PRESETS</code> names complete EFIT configurations: the scientific configuration written into the k-file, plus the sigma floor applied to the constraints first.</p>
+<p><code class="language-plaintext highlighter-rouge">vaft.code.efit.PRESETS</code> names complete EFIT configurations: the scientific configuration written into the k-file, sigma floor included.
+Since 2026-10-01 the defaults of <code class="language-plaintext highlighter-rouge">EFITScientificConfig</code> <em>are</em> the #891 working setting, so a run that names no configuration writes it (<code class="language-plaintext highlighter-rouge">DEFAULT_PRESET = "statistical_891"</code>).</p>
 
 <table>
   <thead>
@@ -1133,18 +1134,18 @@ flux map it returns.</p>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">routine</code></td>
-      <td>The production configuration: legacy weights, a (2,2) basis, EFIT’s own termination. Selecting it is the same as selecting nothing.</td>
+      <td><code class="language-plaintext highlighter-rouge">statistical_891</code> (default)</td>
+      <td>The #891 working setting. Statistical σ with a 2 % probe/loop floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1, MXITER 514).</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">statistical_891</code></td>
-      <td>The #891 working setting. Statistical σ with a 2 % floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1).</td>
+      <td><code class="language-plaintext highlighter-rouge">routine</code></td>
+      <td>The legacy configuration, the default before 2026-10-01: legacy weights, a (2,2) basis, EFIT’s own termination, 100 iterations, no floor. It gave βp ≈ 0 on the reference slices; keep it for reproducing old results.</td>
     </tr>
   </tbody>
 </table>
 
-<p>A preset floors the constraints before the k-file is written; <code class="language-plaintext highlighter-rouge">prepare_constraints</code> returns the
-floored copy and what it changed, per slice and family:</p>
+<p><code class="language-plaintext highlighter-rouge">generate_kfile</code> applies the configured floor to a copy of the constraints, so the product itself is
+never changed. <code class="language-plaintext highlighter-rouge">prepare_constraints</code> shows what the floor does, per slice and family:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code.efit</span> <span class="kn">import</span> <span class="n">efit_preset</span>
 
@@ -1154,23 +1155,31 @@ floored copy and what it changed, per slice and family:</p>
 </span><span class="n">floor_changes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>   <span class="c1"># {'slice': 0, 'family': 'bpol_probe', 'floor': ..., 'raised': ..., 'fitted': ...}
 </span></code></pre></div></div>
 
-<p>The k-file is then written from the floored copy with the preset’s scientific configuration:</p>
+<p>Writing the k-files needs no configuration for the default; the legacy one is named:</p>
 
 <!-- docs-snippet: skip needs-data (generate_kfile reads the k-file inputs generate_constraints_ods records under equilibrium.code.parameters, which the packaged sample lacks) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code.efit</span> <span class="kn">import</span> <span class="n">generate_kfile</span>
 
-<span class="nf">generate_kfile</span><span class="p">(</span><span class="n">constraints</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="sh">"</span><span class="s">efit-run</span><span class="sh">"</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">preset</span><span class="p">.</span><span class="n">scientific</span><span class="p">)</span>
+<span class="nf">generate_kfile</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="sh">"</span><span class="s">efit-run</span><span class="sh">"</span><span class="p">)</span>                                       <span class="c1"># statistical_891
+</span><span class="nf">generate_kfile</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">39915</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="sh">"</span><span class="s">efit-legacy</span><span class="sh">"</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="nf">efit_preset</span><span class="p">(</span><span class="sh">"</span><span class="s">routine</span><span class="sh">"</span><span class="p">).</span><span class="n">scientific</span><span class="p">)</span>
 </code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">routine_profile_config()</code>, <code class="language-plaintext highlighter-rouge">routine_numerics_config()</code>, <code class="language-plaintext highlighter-rouge">routine_constraint_config()</code> and
+<code class="language-plaintext highlighter-rouge">routine_scientific_config()</code> in <code class="language-plaintext highlighter-rouge">vaft.code.efit.config</code> build the legacy pieces one at a time.
+Passing <code class="language-plaintext highlighter-rouge">npprime</code>/<code class="language-plaintext highlighter-rouge">nffprime</code> to <code class="language-plaintext highlighter-rouge">generate_kfile</code> without a <code class="language-plaintext highlighter-rouge">config</code> also selects the legacy
+configuration with that basis. <code class="language-plaintext highlighter-rouge">EFITConfig.npprime</code>/<code class="language-plaintext highlighter-rouge">nffprime</code> only override the basis of the
+configuration the <code class="language-plaintext highlighter-rouge">EFITConfig</code> carries; to run the legacy configuration through
+<code class="language-plaintext highlighter-rouge">prepare_efit_inputs</code>, pass its <code class="language-plaintext highlighter-rouge">profile</code>, <code class="language-plaintext highlighter-rouge">initialization</code>, <code class="language-plaintext highlighter-rouge">numerics</code> and <code class="language-plaintext highlighter-rouge">constraints</code>.</p>
 
 <p><strong>Selecting a preset in the pipelines.</strong></p>
 <ul>
-  <li><strong>Pipeline 1:</strong> <code class="language-plaintext highlighter-rouge">efit.preset</code> in <code class="language-plaintext highlighter-rouge">config.yaml</code> selects it. The k-file stage then writes <code class="language-plaintext highlighter-rouge">efit_preset.json</code> beside its manifest, and the EFIT product carries that record under <code class="language-plaintext highlighter-rouge">code.parameters</code> (<code class="language-plaintext highlighter-rouge">efit_collection.efit_preset</code>).</li>
-  <li><strong>Pipeline 2:</strong> <code class="language-plaintext highlighter-rouge">kinetic.efit_preset</code> builds the kinetic lineages’ base magnetic k-file with the same preset (<code class="language-plaintext highlighter-rouge">KineticEFITConfig.efit_preset</code>).</li>
+  <li><strong>Pipeline 1:</strong> <code class="language-plaintext highlighter-rouge">efit.preset</code> in <code class="language-plaintext highlighter-rouge">config.yaml</code> is empty for the default and <code class="language-plaintext highlighter-rouge">routine</code> for the legacy configuration. The k-file stage always writes <code class="language-plaintext highlighter-rouge">efit_preset.json</code> beside its manifest, and the EFIT product carries that record under <code class="language-plaintext highlighter-rouge">code.parameters</code> (<code class="language-plaintext highlighter-rouge">efit_collection.efit_preset</code>). <code class="language-plaintext highlighter-rouge">vaft.database.summary</code> reports it as <code class="language-plaintext highlighter-rouge">efit_configuration</code> (<code class="language-plaintext highlighter-rouge">name@sha12</code>, or <code class="language-plaintext highlighter-rouge">unrecorded</code> for products written before the record existed).</li>
+  <li><strong>Pipeline 2:</strong> <code class="language-plaintext highlighter-rouge">kinetic.efit_preset</code> builds the kinetic lineages’ base magnetic k-file the same way (<code class="language-plaintext highlighter-rouge">KineticEFITConfig.efit_preset</code>).</li>
 </ul>
 
-<p>A preset run writes the same product paths as a routine one, so give it its own <code class="language-plaintext highlighter-rouge">base_dir</code>.</p>
+<p>A <code class="language-plaintext highlighter-rouge">routine</code> run writes the same product paths as a default one, so give it its own <code class="language-plaintext highlighter-rouge">base_dir</code>.</p>
 
-<p><code class="language-plaintext highlighter-rouge">statistical_891</code> allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot’s slices in one EFIT call. So raise <code class="language-plaintext highlighter-rouge">efit.timeout</code>: 3600 s held for the #1331 Tier A campaign, while 600 s timed out 26 of 33 shots.</p>
+<p>The default allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot’s slices in one EFIT call, so <code class="language-plaintext highlighter-rouge">efit.timeout</code> is 3600 s: 600 s timed out 26 of 33 shots in the #1331 Tier A campaign.</p>
 
 <p><code class="language-plaintext highlighter-rouge">statistical_891</code> was calibrated on 39915’s flat-top. The weight-study README (<code class="language-plaintext highlighter-rouge">workflow/efit_uncertainty_calibration</code>) records how.</p>
 
@@ -1547,7 +1556,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 04:39:33 +0000"
+        "time": "2026-10-02 07:38:01 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

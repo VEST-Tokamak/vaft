@@ -270,7 +270,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>6745095</code>. What is described
+  <code>f138ecf</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -534,7 +534,7 @@ explicitly with <code class="language-plaintext highlighter-rouge">vaft.database
 <span class="c1"># EFIT: run, then collect whatever landed in the workdir
 </span><span class="n">result</span> <span class="o">=</span> <span class="nf">run_efit</span><span class="p">(</span><span class="nc">EFITInputs</span><span class="p">(</span><span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span> <span class="n">kfiles</span><span class="o">=</span><span class="n">kfiles</span><span class="p">),</span>
                   <span class="nc">EFITConfig</span><span class="p">(</span><span class="n">executable</span><span class="o">=</span><span class="n">exe</span><span class="p">,</span> <span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="n">shot</span><span class="p">,</span>
-                             <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">129</span><span class="sh">"</span><span class="p">,),</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">600</span><span class="p">))</span>
+                             <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">129</span><span class="sh">"</span><span class="p">,),</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">3600</span><span class="p">))</span>
 <span class="n">result</span> <span class="o">=</span> <span class="nf">collect_efit_outputs</span><span class="p">(</span><span class="n">workdir</span><span class="p">,</span> <span class="nc">EFITConfig</span><span class="p">(</span><span class="n">workdir</span><span class="o">=</span><span class="n">workdir</span><span class="p">,</span> <span class="n">shot</span><span class="o">=</span><span class="n">shot</span><span class="p">))</span>
 
 <span class="c1"># CHEASE: resolve the binary ($CHEASEHOME/bin/chease, then $CHEASE,
@@ -587,11 +587,12 @@ diagnostics stage (with <code class="language-plaintext highlighter-rouge">false
 family’s Gaussian profile, <code class="language-plaintext highlighter-rouge">2</code> every probe); a recovered value never re-enables a channel the quality
 layer rejected. The decisions are recorded in the product under
 <code class="language-plaintext highlighter-rouge">equilibrium.code.parameters.channel_decisions</code>.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">efit.preset</code> selects a named EFIT configuration</strong> from <code class="language-plaintext highlighter-rouge">vaft.code.efit.PRESETS</code> (<code class="language-plaintext highlighter-rouge">routine</code>, which is
-the same as leaving it empty, or <code class="language-plaintext highlighter-rouge">statistical_891</code>). The k-file stage then writes <code class="language-plaintext highlighter-rouge">efit_preset.json</code> beside
-its manifest and the EFIT product carries that record under <code class="language-plaintext highlighter-rouge">code.parameters</code> (<code class="language-plaintext highlighter-rouge">efit_collection.efit_preset</code>);
-pipeline 2’s <code class="language-plaintext highlighter-rouge">kinetic.efit_preset</code> builds the kinetic lineages’ base magnetic k-file with the same preset. A
-preset run writes the same product paths as a routine one, so give it its own <code class="language-plaintext highlighter-rouge">base_dir</code>. What each preset
+  <li><strong><code class="language-plaintext highlighter-rouge">efit.preset</code> selects a named EFIT configuration</strong> from <code class="language-plaintext highlighter-rouge">vaft.code.efit.PRESETS</code>: empty is the library
+default (<code class="language-plaintext highlighter-rouge">statistical_891</code>, since 2026-10-01) and <code class="language-plaintext highlighter-rouge">routine</code> the legacy one. The k-file stage always writes
+<code class="language-plaintext highlighter-rouge">efit_preset.json</code> beside its manifest and the EFIT product carries that record under <code class="language-plaintext highlighter-rouge">code.parameters</code>
+(<code class="language-plaintext highlighter-rouge">efit_collection.efit_preset</code>); pipeline 2’s <code class="language-plaintext highlighter-rouge">kinetic.efit_preset</code> builds the kinetic lineages’ base magnetic
+k-file the same way. A <code class="language-plaintext highlighter-rouge">routine</code> run writes the same product paths as a default one, so give it its own
+<code class="language-plaintext highlighter-rouge">base_dir</code>. What each preset
 sets is tabulated under <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/#named-configurations-presets">Named configurations</a>.</li>
 </ul>
 
@@ -1250,7 +1251,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 04:39:33 +0000"
+        "time": "2026-10-02 07:38:01 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
