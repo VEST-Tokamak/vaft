@@ -472,13 +472,37 @@ def test_an_ids_file_of_fill_values_holds_no_data(tmp_path):
         assert replication.ids_file_holds_data(one)
 
 
-def _shot_with_unlinked(hsds, tmp_path, shot, *, real, stubs):
+def _write_nan_only(path: Path, name: str = "core_profiles") -> None:
+    """A fit that failed, stored as it was computed: shaped arrays holding NaN."""
+    _write_stub(path, name)
+    with h5py.File(path, "r+") as handle:
+        handle[name]["profiles_1d[]&electrons&temperature"] = np.full((1, 5), np.nan)
+        handle[name]["profiles_1d[]&electrons&temperature_SHAPE"] = np.array([[5]], dtype=np.int32)
+
+
+def test_a_nan_only_ids_file_is_neither_data_nor_a_stub(tmp_path):
+    """Cold review 0.8.0 delta-absorb-13-infra F5: NaN is not the IMAS fill."""
+    path = tmp_path / "core_profiles.h5"
+    _write_nan_only(path)
+    assert replication.ids_file_content(path) == replication.NAN_ONLY
+    assert not replication.ids_file_holds_data(path)
+    stub = tmp_path / "equilibrium.h5"
+    _write_stub(stub)
+    assert replication.ids_file_content(stub) == replication.STUB
+    _write_staged_shot(tmp_path / "real", ["magnetics"])
+    assert replication.ids_file_content(tmp_path / "real" / "magnetics.h5") == replication.DATA
+
+
+def _shot_with_unlinked(hsds, tmp_path, shot, *, real, stubs, nan_only=()):
     folder = tmp_path / str(shot)
     _write_staged_shot(folder, ["dataset_description", *real])
     for name in ("dataset_description", *real):
         hsds.put(folder / f"{name}.h5", f"hdf5://main/{shot}/{name}.h5")
     for name in stubs:
         _write_stub(folder / f"{name}.h5", name)
+        hsds.put(folder / f"{name}.h5", f"hdf5://main/{shot}/{name}.h5")
+    for name in nan_only:
+        _write_nan_only(folder / f"{name}.h5", name)
         hsds.put(folder / f"{name}.h5", f"hdf5://main/{shot}/{name}.h5")
     with h5py.File(folder / "master.h5", "w") as master:
         master["dataset_description"] = h5py.ExternalLink("dataset_description.h5", "/dataset_description")
@@ -509,6 +533,45 @@ def test_a_repair_links_the_hidden_files_and_leaves_the_stubs(hsds, monkeypatch,
     assert maintenance.audit_master_link(5)["status"] == maintenance.MASTER_STUBS_UNLINKED
 
 
+def test_an_unlinked_nan_only_file_is_reported_apart_from_the_stubs(hsds, monkeypatch, tmp_path):
+    """Cold review 0.8.0 delta-absorb-13-infra F5.
+
+    An unlinked IDS whose arrays are shaped but all NaN used to be reported
+    as a stub, indistinguishable from an empty file. It is its own verdict,
+    listed under ``nan_only``, and a repair still leaves it unlinked.
+    """
+    monkeypatch.setattr("vaft.database.sources.resolve", lambda source, writable=False, **k: source or "main")
+    _shot_with_unlinked(hsds, tmp_path, 6, real=[], stubs=["equilibrium"], nan_only=["core_profiles"])
+
+    report = maintenance.audit_master_link(6, repair=True)
+    assert report["status"] == maintenance.MASTER_NAN_ONLY_UNLINKED
+    assert report["missing"] == [] and report["stubs"] == ["equilibrium.h5"]
+    assert report["nan_only"] == ["core_profiles.h5"]
+    assert set(hsds.master_links("main", 6, tmp_path)) == {"dataset_description.h5"}
+
+    # Hidden data still wins the verdict, and the repair links only that.
+    _shot_with_unlinked(hsds, tmp_path, 8, real=["magnetics"], stubs=[], nan_only=["core_profiles"])
+    report = maintenance.audit_master_link(8)
+    assert report["status"] == maintenance.MASTER_LINKS_MISSING
+    assert report["missing"] == ["magnetics.h5"] and report["nan_only"] == ["core_profiles.h5"]
+    assert maintenance.audit_master_link(8, repair=True)["status"] == maintenance.MASTER_REPAIRED
+    assert set(hsds.master_links("main", 8, tmp_path)) == {"dataset_description.h5", "magnetics.h5"}
+    assert maintenance.audit_master_link(8)["status"] == maintenance.MASTER_NAN_ONLY_UNLINKED
+
+
+def test_the_audit_command_names_the_nan_only_files(monkeypatch, capsys):
+    from vaft.cli import maintenance as cli
+
+    monkeypatch.setattr(
+        "vaft.database.maintenance.audit_master_links",
+        lambda shots, source=None, repair=False: [
+            {"shot": 1, "status": "nan_only_unlinked", "missing": [], "stubs": [], "nan_only": ["core_profiles.h5"]}
+        ],
+    )
+    assert cli.main(["audit-masters", "--shots", "1"]) == 0
+    assert "NaN-only, left unlinked: core_profiles.h5" in capsys.readouterr().out
+
+
 def test_the_audit_command_names_the_stubs(monkeypatch, capsys):
     from vaft.cli import maintenance as cli
 
@@ -525,7 +588,7 @@ def test_the_audit_command_names_the_stubs(monkeypatch, capsys):
 @pytest.mark.parametrize(
     ("status", "code"),
     [
-        ("complete", 0), ("absent", 0), ("repaired", 0), ("stubs_unlinked", 0),
+        ("complete", 0), ("absent", 0), ("repaired", 0), ("stubs_unlinked", 0), ("nan_only_unlinked", 0),
         ("links_missing", 1), ("no_master", 1), ("unreadable", 1),
     ],
 )

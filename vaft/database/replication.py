@@ -422,28 +422,58 @@ def _leaf_holds_data(name: str, value) -> bool:
     return True
 
 
-def ids_file_holds_data(path: Path) -> bool:
-    """Whether a local IMAS HDF5 IDS file carries any value.
+def _leaf_is_nan(name: str, value) -> bool:
+    """Whether one float dataset carries NaN: shaped, computed, undefined -- not a fill."""
+    import numpy as np
 
-    A file can be stored in a shot folder and hold nothing: every leaf is an
-    IMAS fill value and every array of structures has zero entries. Five
+    leaf = name.rsplit("/", 1)[-1]
+    if leaf.startswith("ids_properties") or leaf.endswith("SHAPE"):
+        return False
+    array = np.asarray(value)
+    return array.size > 0 and array.dtype.kind == "f" and bool(np.any(np.isnan(array)))
+
+
+#: What :func:`ids_file_content` can say about a stored IDS file.
+DATA = "data"
+NAN_ONLY = "nan_only"
+STUB = "stub"
+
+
+def ids_file_content(path: Path) -> str:
+    """Classify a local IMAS HDF5 IDS file by what its leaves carry.
+
+    ``data`` when any leaf holds a value. ``stub`` when every leaf is an IMAS
+    fill value and every array of structures has zero entries: five
     ``equilibrium.h5`` files on ``main`` (39240, 43245, 44148, 44453, 44604)
     are like that -- ``time_slice`` empty, ``time`` -9e40 -- and a master that
     does not link them hides nothing; linking them makes the shot read as
-    having an equilibrium with no data in it.
+    having an equilibrium with no data in it. ``nan_only`` when no leaf holds
+    a value but some float array holds NaN: a fit that failed and was stored
+    as computed is shaped data with no number in it, which is neither a
+    value to show nor the empty file a stub is, so it is reported apart.
     """
     import h5py
 
-    found = False
+    found = STUB
 
     def visit(name, node):
         nonlocal found
-        if not found and isinstance(node, h5py.Dataset) and _leaf_holds_data(name, node[()]):
-            found = True
+        if found == DATA or not isinstance(node, h5py.Dataset):
+            return
+        value = node[()]
+        if _leaf_holds_data(name, value):
+            found = DATA
+        elif found == STUB and _leaf_is_nan(name, value):
+            found = NAN_ONLY
 
     with h5py.File(path, "r") as handle:
         handle.visititems(visit)
     return found
+
+
+def ids_file_holds_data(path: Path) -> bool:
+    """Whether a local IMAS HDF5 IDS file carries any value (:func:`ids_file_content`)."""
+    return ids_file_content(path) == DATA
 
 
 class UnlinkedFiles(NamedTuple):
@@ -451,9 +481,13 @@ class UnlinkedFiles(NamedTuple):
 
     #: Files carrying data: a reader resolving the shot cannot see them.
     hidden: tuple[str, ...]
-    #: Files carrying no value at all (:func:`ids_file_holds_data`). Leaving
+    #: Files carrying no value at all (:func:`ids_file_content`). Leaving
     #: them unlinked hides nothing, so a repair never links them.
     stubs: tuple[str, ...]
+    #: Files whose arrays are shaped but hold only NaN: no value to show, yet
+    #: not empty. Reported apart from the stubs; a repair does not link them
+    #: either, a shot must not read as having a profile made of NaN.
+    nan_only: tuple[str, ...] = ()
 
 
 def classify_unlinked_remote_files(
@@ -469,7 +503,8 @@ def classify_unlinked_remote_files(
     holds.
 
     Each unlinked file is downloaded and read first: one holding no value is a
-    stub, not hidden data, and is reported apart and never linked. With
+    stub, not hidden data, and is reported apart and never linked; one whose
+    arrays hold only NaN is reported under ``nan_only``, apart from both. With
     ``repair`` only the ``hidden`` files are relinked.
     """
     import h5py
@@ -485,12 +520,14 @@ def classify_unlinked_remote_files(
         linked = set(external_h5_links(current))
         hidden: list[str] = []
         stubs: list[str] = []
+        nan_only: list[str] = []
+        by_content = {DATA: hidden, STUB: stubs, NAN_ONLY: nan_only}
         for name in present:
             if name in linked:
                 continue
             local = run_hsget(f"hdf5://{source}/{shot}/{name}", Path(workdir) / name)
-            (hidden if ids_file_holds_data(local) else stubs).append(name)
-        result = UnlinkedFiles(tuple(hidden), tuple(stubs))
+            by_content[ids_file_content(local)].append(name)
+        result = UnlinkedFiles(tuple(hidden), tuple(stubs), tuple(nan_only))
         if not hidden or not repair:
             return result
         with h5py.File(current, "r+") as master:

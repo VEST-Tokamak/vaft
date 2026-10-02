@@ -1012,9 +1012,10 @@ Each unlinked file is downloaded and read before it is judged. Each shot is repo
 | `complete` | The master links every stored IDS file. |
 | `links_missing` | Files are stored that the master does not link. `--apply` relinks them, under the shot's lock. |
 | `stubs_unlinked` | The only files the master does not link hold no value at all -- every leaf an IMAS fill, every array of structures empty. Nothing is hidden, and `--apply` leaves them unlinked. 39240, 43245, 44148, 44453 and 44604 are like this: an empty `equilibrium.h5`. |
+| `nan_only_unlinked` | The only files the master does not link carry no value but are not empty: their arrays are shaped and hold NaN throughout (a fit that failed, stored as computed). They are listed under `nan_only`; `--apply` leaves them unlinked, so look at the stage that wrote them. |
 | `no_master` | Files are stored but there is no master. Nothing can be copied from it, so re-replicate the shot. |
 | `absent` | No such shot folder, or one holding only derived images. |
 | `unreadable` | Listing or reading failed. The error is in the report. |
 
-The command exits non-zero while any shot is `links_missing`, `no_master` or `unreadable`; `stubs_unlinked` is not a failure. A `links_missing` shot can carry stubs too -- the report lists them under `stubs`, and `--apply` links only the files under `missing`.
+The command exits non-zero while any shot is `links_missing`, `no_master` or `unreadable`; `stubs_unlinked` and `nan_only_unlinked` are not failures (`--apply` has nothing to do for them). A `links_missing` shot can carry stubs too -- the report lists them under `stubs`, and `--apply` links only the files under `missing`.
 
