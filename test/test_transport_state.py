@@ -621,6 +621,30 @@ def test_a_classical_failure_is_recorded_not_raised(driver, sample):
     assert record is None and "normalisation" in error
 
 
+# --------------------------------------------------------------------------- cold review 0.8.0 delta-absorb-9
+
+
+def _classical_state(sample, r=0.5):
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    return state, assess_tglf_readiness(state, (r,)).surfaces[0].local_input
+
+
+def test_a_classical_failure_of_any_kind_is_recorded_not_raised(driver, sample):
+    """F1: a missing field or an electron-only species list is a reason, not a raise."""
+    import dataclasses
+
+    state, local = _classical_state(sample)
+    # GACODEProfile's default: no bcentr/rcentr on the profile.
+    record, error = driver.classical_record(dataclasses.replace(state.profile, bcentr=None), local)
+    assert record is None and "TypeError" in error
+    # TGLF local input carrying electrons only: there is no main ion to evaluate.
+    electrons_only = dataclasses.replace(
+        local, zs=np.array([-1.0]), as_=np.array([1.0]), mass=np.array([local.mass[0]]),
+        taus=np.array([1.0]), rlts=np.array([local.rlts[0]]))
+    record, error = driver.classical_record(state.profile, electrons_only)
+    assert record is None and "IndexError" in error
+
+
 # --------------------------------------------------------------------------- cold review 0.8.0 delta-absorb-7
 
 
