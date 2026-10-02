@@ -50,7 +50,7 @@ __all__ = [
 
 #: Header fields of a GPEC coil ``.dat`` file, in file order: number of
 #: coils (toroidal sectors), sections per coil, points per coil, winding
-#: turns.  The legacy hsyun_GPEC writer emitted fields 2 and 3 swapped; this
+#: turns.  The legacy writer emitted fields 2 and 3 swapped; this
 #: tuple is the contract every VAFT reader and writer follows.
 GPEC_COIL_DAT_HEADER = ("ncoil", "nsec", "npts", "nw")
 

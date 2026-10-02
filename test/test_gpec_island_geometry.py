@@ -578,9 +578,9 @@ def _drawn_o_point_phase(layer, m_pol, psi_r, theta_norm, jacobian):
     Fitted, not argmax-ed: ``excursion**2`` is
     ``(w/2)**2 (1 + cos(m theta* - xi_O)) / 2``, one cosine at ``m`` whose
     phase is the O-point's, so the whole outward branch votes and the answer
-    is not limited to the nearest mesh sample. It is the same fit
-    ``vaft-mastu``'s ``tools/flare_r01_poincare.py`` applies to FLARE
-    punctures, which is what makes the two numbers comparable at all.
+    is not limited to the nearest mesh sample. It is the same fit applied to
+    the FLARE punctures (:data:`R01_PROVENANCE`'s ``measurement``), which is
+    what makes the two numbers comparable at all.
     """
     _, pest_angle, excursion = _drawn_angles(layer, psi_r, theta_norm, jacobian)
     design = np.column_stack([np.ones(excursion.size),
@@ -754,7 +754,11 @@ def test_a_missing_helicity_is_not_reported_as_a_recorded_zero(mapped):
 # D-13 (2026-09-28) lets data shipped inside an open-source code's own
 # repository, and outputs derived from it with that code, into public VAFT
 # provided the provenance records the code version, the input SHA-256 and the
-# generating command. :data:`R01_PROVENANCE` is that record, and it is the one
+# generating command. :data:`R01_PROVENANCE` is that record. It states the
+# command as the task, its arguments and the measurement method rather than as
+# a script path, so that it stands on its own: a reader reproduces the number
+# from this record and the two open-source codes, with nothing else to obtain.
+# It is the record that
 # every number below -- and every R-01 number quoted in
 # ``vaft.process.equilibrium.pest_angle_from_jacobian_angle``,
 # ``vaft.formula.stability.helical_phase`` and the island recipe -- rests on.
@@ -780,12 +784,32 @@ R01_PROVENANCE: Mapping[str, str] = MappingProxyType({
     "vacuum_field": "gpec_cbrzphi_n1.out",
     "vacuum_field_sha256":
         "718da784ff534a4acd2fbc85958d3e60438370222a1c9babd6b1f195c305a8fa",
-    # The command that produced the traced O-point.
-    "command": (
-        "tools/flare_r01_poincare.py OUTDIR --c1 1 --c3 0 --field coil --q 2 "
-        "--span 0.06 --surfaces 45 --punctures 300 --run"
+    # What produced the traced O-point, stated so that it can be reproduced
+    # from this record alone: a reader needs the FLARE task and its arguments,
+    # not the name of a driver script.
+    "trace_task": (
+        "FLARE poincare_map_psiN over psi_N in [0.533644, 0.653644] -- the "
+        "q = 2 surface at psi_N = 0.593644 plus and minus a 0.06 span -- with "
+        "45 field lines x 300 punctures per line and nsym = 1, launched from "
+        "the equilibrium below with the geqdsk's own limiter contour as the "
+        "FLARE Axisurf boundary"
     ),
-    "command_repository": "HongSik-Yun-Fusion/vaft-mastu",
+    "trace_field": (
+        "one FLARE Gpec perturbation element on gpec_cbrzphi_n1.out, GPEC's "
+        "vacuum (coil) real-space field, at amplitude |c_1| = 1 and phase 0; "
+        "the n = 3 element is absent (|c_3| = 0), so exactly one toroidal "
+        "harmonic is live and no relative phase is imposed"
+    ),
+    "measurement": (
+        "the punctures are relabelled to the PEST straight-field-line angle of "
+        "the same equilibrium; the lines whose psi_N interval contains the "
+        "rational surface are binned in that angle; the island's full width per "
+        "bin is fitted to width**2 = a + b cos(m theta*) + c sin(m theta*), "
+        "whose phase atan2(c, b) is the O-point's helical angle xi_O directly, "
+        "because width = (w/2)|cos((m theta* - xi_O) / 2)| for a pendulum "
+        "island. Repeated at 72, 108, 144 and 180 bins; the spread across "
+        "those four is R01_Q2_TRACED_O_POINT_SPREAD"
+    ),
     "decision": "D-13 (2026-09-28)",
 })
 
@@ -806,8 +830,8 @@ R01_Q2_RESONANT_FLUX_PHASE = 2.826799
 #: 45 field lines x 300 punctures over ``psi_N`` in [0.534, 0.654], 19 of them
 #: interior, the island width per poloidal bin fitted against the
 #: ``|cos(xi/2)|`` profile a pendulum island has, in the PEST angle of the
-#: run's own equilibrium. Provenance, including the generating command:
-#: :data:`R01_PROVENANCE`.
+#: run's own equilibrium. Provenance, including the trace parameters and the
+#: fit: :data:`R01_PROVENANCE`.
 R01_Q2_TRACED_O_POINT = 1.219653
 
 #: How far that fit moves across binnings from 72 to 180 bins [rad]: the
@@ -818,8 +842,14 @@ R01_Q2_TRACED_O_POINT_SPREAD = 0.0075
 def test_the_provenance_record_is_complete_for_d13():
     """D-13 admits this data on the strength of the record, so the record is
     under test: code versions, every input's SHA-256, and the command."""
-    for key in ("gpec_version", "flare_commit", "command", "decision"):
+    for key in ("gpec_version", "flare_commit", "trace_task", "trace_field",
+                "measurement", "decision"):
         assert R01_PROVENANCE[key]
+    # Self-contained: the record names codes, inputs, parameters and method,
+    # never a repository a reader of public VAFT cannot open.
+    joined = " ".join(R01_PROVENANCE.values()).lower()
+    for private in ("hsyun", "vaft-mastu", "vaft_mastu", "hongsik"):
+        assert private not in joined, private
     for name in ("equilibrium", "profile_output", "vacuum_field"):
         assert R01_PROVENANCE[name]
         digest = R01_PROVENANCE[f"{name}_sha256"]
