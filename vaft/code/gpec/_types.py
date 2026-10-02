@@ -212,7 +212,15 @@ class IdealGPECOptions:
     #: also what an unattainable threshold would look like.
     singthresh_slayer_flag: bool = False
 
-    #: The inverse magnetic Prandtl number SLAYER is run at [-].
+    #: The magnetic Prandtl number ``Pm = nu / eta = tau_R / tau_V`` SLAYER is
+    #: run at [-], passed through unchanged: ``Pm = 5`` is written as ``5.0``.
+    #:
+    #: Not an inverse, despite the ``in`` in GPEC's key: SLAYER builds the
+    #: viscous time from it as ``tau_v = tau_r / inpr`` (``slayer/gslayer.f:86``,
+    #: ``slayer/params.f:34,40``), so ``inpr`` *is* ``tau_r / tau_v``, the
+    #: magnetic Prandtl number, and GPEC's own ``input/gpec.in`` calls it the
+    #: "Scalar Prandtl number".  Writing ``1 / Pm`` here runs SLAYER at the wrong
+    #: viscosity and moves the critical field by roughly a factor ``Pm``.
     #:
     #: Required whenever a SLAYER threshold is requested, and refused
     #: otherwise.  It is a physics model coefficient -- a critical field scales
@@ -221,12 +229,14 @@ class IdealGPECOptions:
     #:
     #: Refused when no threshold is requested because GPEC stamps it into
     #: ``gpec_profile_output_n<n>.nc`` as the global attribute ``Pr``
-    #: *unconditionally* (``gpec/gpout.f:1851-1852``), flags or no flags.  A
-    #: value set on a run that computed no threshold would therefore sit in the
-    #: output looking like the Prandtl number one was computed at.
+    #: *unconditionally* (``gpec/gpout.f:1851-1852``), flags or no flags; that
+    #: attribute records this value, ``Pm`` itself.  A value set on a run that
+    #: computed no threshold would therefore sit in the output looking like the
+    #: Prandtl number one was computed at.
     singthresh_slayer_inpr: Optional[float] = None
-    #: Per-rational-surface inverse Prandtl numbers, ascending in ``q``, at most
-    #: 20 entries.  GPEC falls back to the scalar for any entry ``<= 0``
+    #: Per-rational-surface magnetic Prandtl numbers ``Pm`` (the same quantity
+    #: as the scalar, not its inverse), ascending in ``q``, at most 20 entries.
+    #: GPEC falls back to the scalar for any entry ``<= 0``
     #: (``input/gpec.in:62``), so the scalar is required alongside it.
     singthresh_slayer_inpr_prof: Optional[Sequence[float]] = None
 
@@ -301,9 +311,11 @@ class IdealGPECOptions:
         if self.wants_slayer_threshold and self.singthresh_slayer_inpr is None:
             raise ValueError(
                 "a SLAYER penetration threshold needs singthresh_slayer_inpr, the "
-                "inverse magnetic Prandtl number it is computed at; it scales the "
-                "critical field, so it is stated rather than inherited (GPEC's own "
-                "default is 5.0, gpec/gpec.f:161)"
+                "magnetic Prandtl number Pm = nu/eta (tau_R/tau_V) it is computed "
+                "at -- not its inverse, whatever the key's name suggests "
+                "(slayer/gslayer.f:86); it scales the critical field, so it is "
+                "stated rather than inherited (GPEC's own default is 5.0, "
+                "gpec/gpec.f:161)"
             )
         if not self.wants_slayer_threshold and self.singthresh_slayer_inpr is not None:
             raise ValueError(

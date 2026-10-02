@@ -29,7 +29,7 @@ from vaft.code.gpec import IdealGPECOptions
 
 from external_code_stubs import write_launchable_stub
 
-#: An inverse Prandtl number with enough digits to catch a reformat.
+#: A magnetic Prandtl number Pm with enough digits to catch a reformat.
 #:
 #: Arbitrary, and deliberately so: a value carried over from a real discharge
 #: would make this fixture a measurement of that discharge.
@@ -185,6 +185,40 @@ def test_an_options_change_alone_moves_the_prandtl_number(case):
     assert float(_namelist(cell / "gpec.in")["singthresh_slayer_inpr"]) == pytest.approx(
         AWKWARD_INPR, abs=0.0
     )
+
+
+def test_inpr_is_the_magnetic_prandtl_number_itself_not_its_inverse(case):
+    """``Pm = 5`` is written as ``5.0``, and every word around the key says so.
+
+    SLAYER takes ``tau_v = tau_r / inpr`` (``slayer/gslayer.f:86``), so ``inpr``
+    is ``tau_r / tau_v = nu / eta``: the magnetic Prandtl number, which GPEC's
+    own ``input/gpec.in`` calls the "Scalar Prandtl number".  This module once
+    documented it as the *inverse*; a caller following that text would have
+    passed ``0.2`` for ``Pm = 5`` and run SLAYER at ``Pm = 0.2`` (cold review
+    0.8.0 delta-squash F1).  The value passes through unchanged, so the pin is
+    on the words a caller reads: the refusal text, the packaged template.
+    """
+    import re
+
+    prandtl_number = 5.0
+    cell = _prepared_gpec_cell(
+        case, IdealGPECOptions(singthresh_slayer_flag=True, singthresh_slayer_inpr=prandtl_number)
+    )
+    assert float(_namelist(cell / "gpec.in")["singthresh_slayer_inpr"]) == prandtl_number
+    assert float(_namelist(cell / "gpec.in")["singthresh_slayer_inpr"]) != 1 / prandtl_number
+
+    with pytest.raises(ValueError, match="magnetic Prandtl number Pm") as refused:
+        IdealGPECOptions(singthresh_slayer_flag=True)
+    assert "not its inverse" in str(refused.value)
+    assert not re.search(r"\bthe inverse", str(refused.value))
+
+    template_line = next(
+        line for line in gpec._runtime.package_vest_dir().joinpath("gpec.in")
+        .read_text(encoding="utf-8").splitlines()
+        if line.strip().startswith("singthresh_slayer_inpr=")
+    )
+    assert "Magnetic Prandtl number" in template_line
+    assert "Inverse magnetic" not in template_line
 
 
 # --------------------------------------------------------------------------
