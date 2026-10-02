@@ -182,3 +182,21 @@ def test_a_measured_diamagnetic_row_with_zero_weight_keeps_its_measurement(tmp_p
     ods = read_meqdsk(path).to_omas()
 
     assert ods["equilibrium.time_slice.0.constraints.diamagnetic_flux.measured"] == np.float32(0.007)
+
+
+def test_the_constraint_snapshot_never_creates_an_absent_family():
+    """A shot with no PF-current constraint must not gain an empty pf_current
+    array of structures: the IMAS writer refuses it and the EFIT product never
+    replicates (regeneration 2026-10-02, 21 shots of 500)."""
+    from omas import ODS
+    from vaft.code.efit.magnetic import _constraint_snapshot
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time_slice.0.constraints.ip.measured"] = 1.0e5
+    for j, value in enumerate((0.1, 0.2)):
+        ods[f"equilibrium.time_slice.0.constraints.bpol_probe.{j}.measured"] = value
+        ods[f"equilibrium.time_slice.0.constraints.bpol_probe.{j}.weight"] = 1.0
+    snapshot = _constraint_snapshot(ods, 0)
+    assert snapshot == {"ip.measured": 1.0e5, "bpol_probe.measured": [0.1, 0.2], "bpol_probe.weight": [1.0, 1.0]}
+    assert set(ods["equilibrium.time_slice.0.constraints"].keys()) == {"ip", "bpol_probe"}
+    assert set(ods["equilibrium.time_slice.0.constraints.ip"].keys()) == {"measured"}

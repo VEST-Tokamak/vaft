@@ -995,7 +995,8 @@ the same way.
 obtain it; that is between you and its authors.
 
 What VAFT does with it, if you already hold a build: `vaft.code.tes` writes the
-namelist and `cinput` (`prepare_tes_inputs`), launches `$TESHOME/bin/rtes`
+namelist and `cinput` (`prepare_tes_inputs`), launches `$TESHOME/bin/rtes` or,
+for an unmodified source-tree build, `$TESHOME/TES/rtes`, else `$RTES`
 (`run_tes`, `scan_tes`), and parses the result scalars and coil currents
 (`collect_tes_outputs`). So `TESHOME` is a real, used variable — it is simply
 one you point at a binary you brought. There is no `install_tes_*.sh` and no

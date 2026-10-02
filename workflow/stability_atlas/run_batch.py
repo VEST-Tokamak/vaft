@@ -93,12 +93,24 @@ MEMORY_MB: dict[tuple[str, int], tuple[float, float]] = {
 }
 MEMORY_MB_RDCON_HIGH_N = (40_000, 60_000)
 MEMORY_MB_DEFAULT = (2_000, 8_000)
+#: DCON per n [MiB]: its companion ``match`` builds the eigenfunction and
+#: dominates the peak, which grows faster than linearly with the number of
+#: harmonics (mpert ~ n * q range). Measured at n=6, mpsi 512:
+#: 39915@319 ms (mpert 99) 9.4 GB; 39906@319 ms (mpert 132) passed 21.7 GB
+#: and was stopped. The reservation is 0.7 GB * n**2 (25 GB at n=6), so
+#: admission lets only a few high-n jobs share the host; the limit is 1.5x
+#: the reservation (38 GB at n=6). Small n keeps the default floor.
+DCON_MB_PER_N2 = 700
+DCON_LIMIT_FACTOR = 1.5
 
 
 def memory_policy(module: str, n: int) -> tuple[float, float]:
     """(reservation, limit) in MiB for one solver job."""
     if module == "rdcon" and n >= 3:
         return MEMORY_MB_RDCON_HIGH_N
+    if module == "dcon":
+        reserve = max(MEMORY_MB_DEFAULT[0], DCON_MB_PER_N2 * n * n)
+        return reserve, max(MEMORY_MB_DEFAULT[1], DCON_LIMIT_FACTOR * reserve)
     return MEMORY_MB.get((module, n), MEMORY_MB_DEFAULT)
 
 
