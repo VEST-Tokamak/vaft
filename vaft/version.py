@@ -93,7 +93,20 @@ __all__ = ["__version__"]
 #   configure` (#969), the VEST ShotLog as a FileDB archive and
 #   pulse_schedule (#995), SXR digitizer CSVs packed into lossless HDF5
 #   (#1186), a hard_x_rays prototype (#1160), bulk prefetch for the lazy
-#   HSDS store (#1331)
+#   HSDS store (#1331); concurrent replications of one shot no longer lose
+#   master.h5 links: one per-(source, shot) lock covers the upload, the
+#   re-read merge and the master replace (#913), and the master audit tells
+#   stubs, NaN-only and data files apart
+# - confinement and operational space: the VEST confinement-time table,
+#   regression against the ITER scalings, Kadomtsev closures, extensions
+#   and figures (#548, #351), the operational-space view through
+#   vaft.formula.boundaries (#1425), a resistive Z_eff inferred from the
+#   Spitzer loop voltage (#1214), a Thomson consistency band, the
+#   inboard side-limited state in TokaMaker, DCON at high n in the
+#   stability atlas (#1429)
+# - plotting: plot composition (#1467), selection against validity and the
+#   dense time_index navigation of the spatial magnetics views (#1380),
+#   canonical visuals (#497), diagram formats (#1097)
 # - execution: one ExecutionBackend for TES, GACODE, GPEC, NUBEAM, CHEASE,
 #   FLARE, EFUND, EFIT and NICE, a Slurm backend, an in-process memory
 #   guard (#671, #1017, #1146); a timeout is a failed result, not an
