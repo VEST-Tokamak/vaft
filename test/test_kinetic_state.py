@@ -559,6 +559,9 @@ def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
     with open(atlas / "state.csv", newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     rows.append({**rows[0], "efit_lineage": "electron_kinetic"})
+    # a row declaring magnetics whose product is under the electron_efit stage: the
+    # lineage the kernel is told is read off the product path, so this is refused
+    rows.append({**rows[0], "efit_product": f"omas/electron_efit/{shot}/output/electron_efit.json.gz"})
     with open(atlas / "state.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
@@ -566,6 +569,12 @@ def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
 
     summary = modules["build_ti"].build(filedb, atlas, floor=0.17, window_s=1e-3)
     assert summary["refused_circular"] == 1 and summary["eligible_with_channels"] == 2
+    assert summary["refused_product_lineage"] == 1
+    with open(atlas / "ti_state.csv", newline="", encoding="utf-8") as handle:
+        ti_states = list(csv.DictReader(handle))
+    misdeclared = [s for s in ti_states if "electron_efit" in s["reason"]]
+    assert len(misdeclared) == 1 and misdeclared[0]["eligible"] == "false"
+    assert "declares magnetics" in misdeclared[0]["reason"]
     # each slice has the other within 1 ms: the ensemble is used
     assert set(summary["sigma_p_eq_basis"]) <= {"ensemble(n=2)", "floor"}
     with open(atlas / "ti_inferred.csv", newline="", encoding="utf-8") as handle:

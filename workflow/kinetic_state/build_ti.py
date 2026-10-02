@@ -49,11 +49,21 @@ from build_state import SLICE_TOLERANCE_S, _cell, _git, _load  # noqa: E402
 
 KEY = ("contract_version", "shot", "time_efit_s", "efit_lineage", "efit_quality")
 
-#: The equilibrium lineage of a FileDB stage.  The pressure-partition guard
-#: trusts the lineage it is given, so it is read off the stage the pressure was
-#: loaded from, never asserted.
+#: The equilibrium lineage of a FileDB stage (``omas/<stage>/<shot>/output``).
+#: The pressure-partition guard trusts the lineage it is given, so it is read
+#: off the stage the row's ``efit_product`` lives under, never asserted.
 STAGE_LINEAGE = {"efit/magnetic": "magnetics", "electron_efit": "electron_kinetic"}
 SOURCE_STAGE = "efit/magnetic"
+
+
+def _product_lineage(efit_product: str) -> str | None:
+    """The lineage of the FileDB stage a row's ``efit_product`` path is under, or ``None``."""
+    parts = Path(str(efit_product or "")).parts
+    for stage, lineage in STAGE_LINEAGE.items():
+        stage_parts = ("omas", *Path(stage).parts)
+        if parts[:len(stage_parts)] == stage_parts:
+            return lineage
+    return None
 
 POINT_COLUMNS: dict[str, tuple[str, str]] = {
     **{k: ("string" if k in ("contract_version", "efit_lineage", "efit_quality") else
@@ -189,9 +199,17 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
             states.append({**out, "eligible": "true", "reason": f"no Thomson match ({row['ts_status']})"})
             continue
         shot, time_s = int(row["shot"]), float(row["time_efit_s"])
-        lineage = STAGE_LINEAGE[SOURCE_STAGE]
-        if lineage != row["efit_lineage"]:
-            raise RuntimeError(f"state {shot}@{time_s} is {row['efit_lineage']} but its pressure comes from {SOURCE_STAGE}")
+        # The lineage the kernel is told comes from where the row's pressure was
+        # reconstructed (the stage its efit_product lives under), not from the
+        # row's own efit_lineage column: a row declaring magnetics over a
+        # kinetic product would otherwise partition the assumption back out.
+        lineage = _product_lineage(row.get("efit_product", ""))
+        if lineage != STAGE_LINEAGE[SOURCE_STAGE]:
+            states.append({**out, "eligible": "false", "reason": (
+                f"the state declares {row['efit_lineage']} but its efit_product "
+                f"{row.get('efit_product') or '(none)'!r} is not under the {SOURCE_STAGE} stage "
+                f"(lineage {lineage or 'unknown'})")})
+            continue
         eq = product(SOURCE_STAGE, shot)
         index, _ = ks.slice_at_time(eq, time_s, tolerance_s=SLICE_TOLERANCE_S)
         neighbour_times = [t for t in magnetics_times[shot] if t != time_s and abs(t - time_s) <= window_s + 1e-9]
@@ -332,7 +350,9 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
     ratios = [float(p["ti_te"]) for p in points if p["kind"] == "channel" and math.isfinite(_f(p["ti_te"]))]
     summary = {
         "states": len(states), "eligible_with_channels": len(eligible),
-        "refused_circular": sum(1 for s in states if s["eligible"] == "false"),
+        "refused_circular": sum(1 for s in states if s["eligible"] == "false" and s["reason"].startswith("circular")),
+        "refused_product_lineage": sum(1 for s in states if s["eligible"] == "false"
+                                       and not s["reason"].startswith("circular")),
         "channels": sum(s["channels"] for s in eligible),
         "channels_with_ti": sum(s["channels_with_ti"] for s in eligible),
         "channel_flags": {f: sum(1 for p in points if p["kind"] == "channel" and f in p["flags"].split(";"))
