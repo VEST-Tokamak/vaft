@@ -52,6 +52,8 @@ SCHEMA = {
         "tglf_omega": "c_s/a, ion negative",
         "gamma_ratio": "cgyro_gamma / tglf_gamma",
         "branch_agree": "both codes' leading mode in the same diamagnetic direction",
+        "competition_candidate": "max_time with 0 < last gamma < 1: probable mode "
+                                 "competition, follow-up target (not a growth rate)",
     },
     "linear_summary.csv": {
         "ky_max_cgyro": "ky of max qualified CGYRO gamma",
@@ -120,6 +122,12 @@ def build_rows(root: Path) -> list[dict]:
             "cgyro_gamma": c_gamma, "cgyro_omega": c_omega,
             "cgyro_qualified": bool(c.get("qualified", False)),
             "cgyro_status": _cgyro_status(c),
+            # Not converged with a small positive last gamma: most likely two unstable
+            # branches competing (near the ion/electron crossover). Worth a targeted
+            # longer run or an eigenvalue solver; never used as a growth rate here.
+            "competition_candidate": bool(
+                _cgyro_status(c) == "max_time" and c_gamma is not None
+                and 0.0 < c_gamma < 1.0),
             "cgyro_exit": c.get("exit_message"), "cgyro_sim_time": c.get("sim_time"),
             "tglf_gamma": tglf_gamma, "tglf_omega": tglf_omega,
             "gamma_ratio": ratio,

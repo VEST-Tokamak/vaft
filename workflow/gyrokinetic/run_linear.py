@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import datetime as _dt
+import hashlib
 import importlib.util
 import json
 import sys
@@ -139,6 +140,44 @@ def run_cgyro_job(job: dict) -> dict:
         return record
 
 
+def _without_max_time(text: Optional[str]) -> Optional[list[str]]:
+    if text is None:
+        return None
+    return [line for line in text.splitlines() if not line.startswith("MAX_TIME=")]
+
+
+def _reusable(previous: Optional[dict], old_text: Optional[str], staged, config) -> Optional[dict]:
+    """The previous record, when it answers this run's question; else None.
+
+    Reused when the input is identical, or identical except for ``MAX_TIME`` and the
+    previous outcome does not depend on it: a run that converged or decayed before the
+    new limit gives the same answer, and a run that reached a *longer* limit without
+    converging would not converge under a shorter one either.
+    """
+    if not previous:
+        return None
+    decayed = previous.get("status") == "decayed" or any(
+        "Underflow in calculation of frequency error" in str(e)
+        for e in previous.get("errors") or ())
+    if previous.get("status") != "solved" and not decayed:
+        return None
+    status = "decayed" if decayed else "solved"
+    if previous.get("input_sha256") == staged.provenance["input_sha256"]:
+        return {**previous, "status": status, "cached": True}
+    if _without_max_time(old_text) != _without_max_time(staged.input_cgyro.read_text(encoding="utf-8")):
+        return None
+    if previous.get("input_sha256") != (
+            hashlib.sha256(old_text.encode("utf-8")).hexdigest() if old_text else None):
+        return None
+    sim_time = previous.get("sim_time") or 0.0
+    old_limit = ((previous.get("provenance") or {}).get("resolution") or {}).get("max_time")
+    if decayed or previous.get("qualified"):
+        ok = sim_time <= float(config.max_time) + 1e-9
+    else:
+        ok = old_limit is not None and float(old_limit) >= float(config.max_time)
+    return {**previous, "status": status, "cached": True} if ok else None
+
+
 def _run_cgyro_job(job: dict, workdir: Path) -> dict:
     from omas import ODS
 
@@ -146,15 +185,16 @@ def _run_cgyro_job(job: dict, workdir: Path) -> dict:
     from vaft.machine_mapping.gyrokinetics import gyrokinetics_local_from_cgyro
     from vaft.omas import save as save_ods
 
+    existing = workdir / "input.cgyro"
+    old_text = existing.read_text(encoding="utf-8") if existing.is_file() else None
     staged = stage_cgyro_case(job["local"], workdir, job["config"], state_key=job["state_key"])
     previous = _record(workdir / "record.json")
-    if previous and previous.get("input_sha256") == staged.provenance["input_sha256"]:
-        decayed = previous.get("status") == "decayed" or any(
-            "Underflow in calculation of frequency error" in str(e)
-            for e in previous.get("errors") or ())
-        # A decayed (stable) mode is a result too: rerunning it reproduces the underflow.
-        if previous.get("status") == "solved" or decayed:
-            return {**previous, "status": "decayed" if decayed else "solved", "cached": True}
+    reused = _reusable(previous, old_text, staged, job["config"])
+    if reused is not None:
+        if old_text is not None:
+            # keep the input the reused result was produced from, so its hash still matches
+            existing.write_text(old_text, encoding="utf-8")
+        return reused
     result = run_cgyro(staged, job["config"], check=False)
     native = result.outputs_native
     omega = None if native is None else native.frequency_ion_negative
@@ -270,7 +310,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--n-xi", type=int, default=24)
     parser.add_argument("--n-theta", type=int, default=32)
     parser.add_argument("--n-radial", type=int, default=8)
-    parser.add_argument("--max-time", type=float, default=200.0)
+    # 80 a/c_s: converged VEST runs settle by t ~ 17-50; what has not converged by then
+    # is stable/marginal or mode competition, which a longer run does not resolve.
+    parser.add_argument("--max-time", type=float, default=80.0)
     parser.add_argument("--delta-t", type=float, default=0.01)
     parser.add_argument("--delta-t-method", type=int, default=1)
     parser.add_argument("--freq-tol", type=float, default=1e-3)
