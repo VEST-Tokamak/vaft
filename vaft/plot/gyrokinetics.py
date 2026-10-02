@@ -79,7 +79,8 @@ def plot_linear_spectrum(
     ----------
     cgyro
         ``{"ky", "gamma", "omega"}`` and optionally ``"converged"`` (from
-        :func:`cgyro_linear_spectrum`). Unconverged points are drawn hollow.
+        :func:`cgyro_linear_spectrum`). The line joins converged points only;
+        unconverged ones are drawn hollow and never set the axis range.
     references
         ``{label: {"ky", "gamma", "omega"}}`` -- TGLF linear at the same ky, TGLF's
         SAT0-3 spectra, a second resolution. ``gamma``/``omega`` may be 2-D
@@ -92,22 +93,45 @@ def plot_linear_spectrum(
     gamma = np.asarray(cgyro["gamma"], dtype=float)
     omega = np.asarray(cgyro["omega"], dtype=float)
     converged = np.asarray(cgyro.get("converged", np.ones_like(ky, dtype=bool)), dtype=bool)
-    for panel, values in ((top, gamma), (bottom, omega)):
-        line, = panel.plot(ky, values, "-", color="black", linewidth=1.6, label="CGYRO")
-        panel.plot(ky[converged], values[converged], "o", color=line.get_color())
+    shown: dict[int, list[np.ndarray]] = {0: [], 1: []}
+    for index, (panel, values) in enumerate(((top, gamma), (bottom, omega))):
+        # The line joins converged eigenvalues only: an unconverged initial-value run's
+        # last sample is not an eigenvalue and must not shape the spectrum.
+        good = converged & np.isfinite(values)
+        line, = panel.plot(ky[good], values[good], "o-", color="black", linewidth=1.6,
+                           label="CGYRO")
+        shown[index].append(values[good])
         if np.any(~converged):
             panel.plot(ky[~converged], values[~converged], "o", mfc="none",
                        color=line.get_color(), label="CGYRO (not converged)")
 
     for label, reference in (references or {}).items():
         ref_ky = np.asarray(reference["ky"], dtype=float)
-        for panel, key in ((top, "gamma"), (bottom, "omega")):
+        for index, (panel, key) in enumerate(((top, "gamma"), (bottom, "omega"))):
             values = np.asarray(reference[key], dtype=float)
             if values.ndim == 1:
                 values = values[:, None]
             line, = panel.plot(ref_ky, values[:, 0], "-", linewidth=1.0, label=label)
+            shown[index].append(values[:, 0])
             for mode in range(1, values.shape[1]):
                 panel.plot(ref_ky, values[:, mode], ":", linewidth=0.8, color=line.get_color())
+
+    # Scale each panel to the converged CGYRO points and the references, so a stray
+    # unconverged sample (|gamma| ~ 10-40 at high collisionality) cannot flatten the
+    # spectrum; the points left outside are counted on the panel instead.
+    for index, (panel, values) in enumerate(((top, gamma), (bottom, omega))):
+        finite = np.concatenate([v[np.isfinite(v)] for v in shown[index]] or [np.zeros(1)])
+        if finite.size == 0:
+            continue
+        low, high = float(min(finite.min(), 0.0)), float(max(finite.max(), 0.0))
+        pad = 0.08 * (high - low or 1.0)
+        panel.set_ylim(low - pad, high + pad)
+        outside = int(np.count_nonzero(
+            ~converged & np.isfinite(values) & ((values < low - pad) | (values > high + pad))))
+        if outside:
+            panel.text(0.99, 0.02, f"{outside} unconverged point(s) off scale",
+                       transform=panel.transAxes, ha="right", va="bottom",
+                       fontsize="small", alpha=0.7)
 
     bottom.axhline(0.0, color="0.6", linewidth=0.8)
     top.set_ylabel(_GAMMA)

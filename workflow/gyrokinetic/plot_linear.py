@@ -52,11 +52,20 @@ def sat_spectra(root: Optional[Path], key: tuple) -> dict[str, dict]:
         growth = None if outputs is None else getattr(outputs, "growth_rate", None)
         if growth is None or outputs.ky_spectrum is None:
             continue
-        spectra[f"TGLF SAT{sat}"] = {
+        entry = {
             "ky": np.asarray(outputs.ky_spectrum, dtype=float),
             "gamma": np.asarray(growth, dtype=float),
             "omega": np.asarray(outputs.frequency, dtype=float),
         }
+        # The linear eigenvalues do not depend on the saturation rule within a rule
+        # family, so identical spectra are merged under one label instead of being
+        # drawn on top of each other (SAT0/1 and SAT2/3 coincide on #1482's runs).
+        for label, other in spectra.items():
+            if all(np.array_equal(entry[k], other[k], equal_nan=True) for k in entry):
+                spectra[label + f"/{sat}"] = spectra.pop(label)
+                break
+        else:
+            spectra[f"TGLF SAT{sat}"] = entry
     return spectra
 
 
