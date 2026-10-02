@@ -248,16 +248,27 @@ def build_rows(runs: Path) -> list[dict[str, Any]]:
 
 
 def build_pairs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    groups: dict[tuple, list[dict]] = {}
-    for row in rows:
-        if row["status"] == "solved":
-            key = (row["shot"], row["time_efit_s"], row["efit_lineage"], round(row["r_over_a"], 4))
-            groups.setdefault(key, []).append(row)
+    tolerance = _atlas_module().SURFACE_TOLERANCE
+    # Surfaces are joined like the atlas does: nearest within SURFACE_TOLERANCE, and the
+    # pair row carries the rows' own r_over_a so the two tables join on the key text.
+    groups: list[tuple[tuple, float, list[dict]]] = []   # ((shot, t, lineage), r, rows)
+    for row in sorted((r for r in rows if r["status"] == "solved"),
+                      key=lambda r: (r["shot"], r["time_efit_s"], r["efit_lineage"], r["r_over_a"])):
+        state = (row["shot"], row["time_efit_s"], row["efit_lineage"])
+        if groups and groups[-1][0] == state and abs(row["r_over_a"] - groups[-1][1]) <= tolerance:
+            groups[-1][2].append(row)
+        else:
+            groups.append((state, row["r_over_a"], [row]))
     out = []
-    for (shot, t, lineage, r), group in sorted(groups.items()):
+    for (shot, t, lineage), r, group in groups:
         identities = {g["state_identity"] for g in group}
         if len(identities) != 1:
             raise ValueError(f"{shot} {t} {lineage}: configurations were run on different states")
+        qualities = {g["efit_quality"] for g in group}
+        if len(qualities) != 1:
+            # Equal state identities with different labels: the slice was re-labelled
+            # between two configuration runs, and the pair cannot name one label.
+            raise ValueError(f"{shot} {t} {lineage}: one state carries efit_quality {sorted(qualities)}")
         by: dict[tuple, dict] = {}
         for g in group:
             config = (g["sat_rule"], g["field_model"])

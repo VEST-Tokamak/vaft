@@ -1482,3 +1482,32 @@ def test_a_failed_surface_keeps_why_it_failed(sensitivity, tmp_path):
     with open(tmp_path / "s" / "sensitivity.csv", newline="", encoding="utf-8") as handle:
         table = {float(r["r_over_a"]): r for r in csv.DictReader(handle)}
     assert table[0.3]["tglf_reason"] == "timeout" and table[0.6]["tglf_reason"] == "not_run"
+
+
+def test_sensitivity_refuses_other_states_and_other_configurations(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F5: the two refusals the PR claimed but never ran."""
+    _sens_state(tmp_path / "a", 0, "es", identity="s1")
+    _sens_state(tmp_path / "a", 1, "es", identity="s2")
+    with pytest.raises(ValueError, match="different states"):
+        sensitivity.build_pairs(sensitivity.build_rows(tmp_path / "a"))
+    _sens_state(tmp_path / "b", 4, "es")
+    with pytest.raises(ValueError, match="not in the sensitivity space"):
+        sensitivity.build_rows(tmp_path / "b")
+
+
+def test_pair_rows_carry_one_label_and_the_rows_surface_value(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F4/F6: efit_quality is checked, r_over_a is not re-rounded."""
+    for sat in (0, 1):
+        tree = _sens_state(tmp_path, sat, "es")
+        state = json.loads((tree / "state.json").read_text(encoding="utf-8"))
+        state["surfaces"][0]["r_over_a"] = 0.33333
+        (tree / "state.json").write_text(json.dumps(state), encoding="utf-8")
+        (tree / "r0.50").rename(tree / "r0.33")
+    rows = sensitivity.build_rows(tmp_path)
+    (pair,) = sensitivity.build_pairs(rows)
+    assert pair["r_over_a"] == rows[0]["r_over_a"] == 0.33333   # joins on the key text
+    assert pair["n_configs"] == 2
+    # A re-labelled slice between two configuration runs is not silently one state.
+    rows[1]["efit_quality"] = "admissible"
+    with pytest.raises(ValueError, match="efit_quality"):
+        sensitivity.build_pairs(rows)
