@@ -74,6 +74,7 @@ __all__ = [
     "parallel_conductivity",
     "model_resistance",
     "infer_resistive_zeff",
+    "per_slice_resistive_zeff",
     "resistive_zeff_sensitivity",
 ]
 
@@ -1067,6 +1068,79 @@ def infer_resistive_zeff(
         reason="minimum on a bound: poorly constrained" if on_bound else None,
     )
 
+
+
+def per_slice_resistive_zeff(
+    observed: ObservedResistance,
+    states: Sequence[FluxSurfaceState],
+    *,
+    model: Union[str, Callable],
+    ln_lambda: Union[float, str],
+    bounds: tuple,
+    time_tolerance_s: float = 5e-5,
+) -> dict:
+    """Z_eff solved at each state on its own: a diagnostic of the window estimate.
+
+    Parameters
+    ----------
+    observed : ObservedResistance
+        Observed ``V_R`` history from :func:`observed_resistance` [any].
+    states : sequence of FluxSurfaceState
+        Flux-surface states inside ``observed.time`` [any].
+    model : str or callable
+        Conductivity model, as in :func:`parallel_conductivity` [any].
+    ln_lambda : float or str
+        Coulomb logarithm, as in :func:`parallel_conductivity` [-].
+    bounds : tuple of float
+        ``(Z_min, Z_max)`` [-].
+    time_tolerance_s : float, optional
+        Largest gap between a state and its observed sample [s].
+
+    Returns
+    -------
+    dict
+        ``time`` [s], ``zeff`` (NaN where a slice has no estimate) [-] and
+        ``status`` per state, ordered in time [any].
+
+    Raises
+    ------
+    ValueError
+        Propagated from :func:`infer_resistive_zeff` [-].
+
+    Processing steps
+    ----------------
+    1. Order the states in time.
+    2. Run :func:`infer_resistive_zeff` on each state alone.
+    3. Keep the value only for ``ok`` and ``bound_hit``; ``bound_hit`` keeps
+       its bound value so the reader sees where it stuck.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Not the estimate: #1214 Sec. 9 fits one scalar over a window, because one
+    sample carries the full noise of a differentiated ``V_R`` and no residual
+    to judge it by.  These values show whether that scalar hides a trend, and
+    are labelled as a diagnostic wherever they are drawn.
+
+    Provenance
+    ----------
+    .. [issue] #1214 Secs. 9-10.
+    """
+    ordered = sorted(states, key=lambda s: s.time)
+    times, values, statuses = [], [], []
+    for state in ordered:
+        result = infer_resistive_zeff(
+            observed, [state], model=model, ln_lambda=ln_lambda, bounds=bounds,
+            weights="uniform", time_tolerance_s=time_tolerance_s,
+        )
+        times.append(float(state.time))
+        statuses.append(result.status)
+        values.append(result.zeff if result.zeff is not None else np.nan)
+    return {"time": np.asarray(times), "zeff": np.asarray(values, dtype=float),
+            "status": tuple(statuses)}
 
 def resistive_zeff_sensitivity(
     flux: RomeroBoundaryFlux,

@@ -5545,6 +5545,175 @@ RECIPES["summary_time_power_balance"] = CallableRecipe(
 )
 
 
+#: Conductivity models the resistive Z_eff view offers (#1214).
+ZEFF_CONDUCTIVITY_MODELS = ("redl", "sauter", "spitzer_nrl")
+
+#: Read because the Romero helper and the geometry trace copy whole IDSs
+#: (equilibrium, tf, wall) onto a scratch ODS before deriving li_3 and <B^2>.
+_RESISTIVE_ZEFF_COPY_READS = (
+    "equilibrium.time_slice.{i}.boundary.minor_radius",
+    "equilibrium.time_slice.{i}.constraints.b_field_tor_vacuum_r.measured",
+    "equilibrium.time_slice.{i}.constraints.b_field_tor_vacuum_r.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.chi_squared",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.measured",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.reconstructed",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.source",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.weight",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.chi_squared",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.measured",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.reconstructed",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.weight",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.chi_squared",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.measured",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.reconstructed",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.source",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.weight",
+    "equilibrium.time_slice.{i}.constraints.ip.chi_squared",
+    "equilibrium.time_slice.{i}.constraints.ip.measured",
+    "equilibrium.time_slice.{i}.constraints.ip.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.ip.reconstructed",
+    "equilibrium.time_slice.{i}.constraints.ip.weight",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.chi_squared",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.measured",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.reconstructed",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.source",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.weight",
+    "equilibrium.time_slice.{i}.profiles_1d.b_field_max",
+    "equilibrium.time_slice.{i}.profiles_1d.b_field_min",
+    "equilibrium.time_slice.{i}.profiles_1d.darea_dpsi",
+    "equilibrium.time_slice.{i}.profiles_1d.dvolume_dpsi",
+    "equilibrium.time_slice.{i}.profiles_1d.elongation",
+    "equilibrium.time_slice.{i}.profiles_1d.gm8",
+    "equilibrium.time_slice.{i}.profiles_1d.gm9",
+    "equilibrium.time_slice.{i}.profiles_1d.surface",
+    "equilibrium.time_slice.{i}.profiles_1d.triangularity_lower",
+    "equilibrium.time_slice.{i}.profiles_1d.triangularity_upper",
+    "tf.b_field_tor_vacuum_r.data",
+    "tf.b_field_tor_vacuum_r.time",
+    "tf.coil.{i}.current.data",
+    "tf.coil.{i}.current.time",
+    "tf.ids_properties.comment",
+    "tf.ids_properties.homogeneous_time",
+    "tf.time",
+    "wall.description_2d.{i}.limiter.type.description",
+    "wall.description_2d.{i}.limiter.type.index",
+    "wall.description_2d.{i}.limiter.type.name",
+    "wall.description_2d.{i}.limiter.unit.{j}.closed",
+    "wall.description_2d.{i}.limiter.unit.{j}.name",
+    "wall.description_2d.{i}.type.description",
+    "wall.description_2d.{i}.type.index",
+    "wall.description_2d.{i}.type.name",
+    "wall.ids_properties.comment",
+    "wall.ids_properties.homogeneous_time",
+)
+
+#: The stated assumptions of the resistive Z_eff view; shown in its title.
+_ZEFF_BOUNDS = (1.0, 8.0)
+
+
+def _build_resistive_zeff(ods: Any, **options: Any) -> Panels:
+    """Romero voltages, observed vs model R_p, and the resistive Z_eff history.
+
+    The Z_eff panel draws the window estimate (one scalar, #1214 Sec. 9) as a
+    line across its window with dashed +/- 1 sigma, and the per-slice
+    solutions as markers labelled a diagnostic -- never as the result.
+    """
+    from vaft.omas.resistive_zeff import compute_resistive_zeff_ods
+    from vaft.process.resistive_zeff import Smoothing, model_resistance
+
+    model = options.get("conductivity_model") or "redl"
+    if model not in ZEFF_CONDUCTIVITY_MODELS:
+        raise ValueError(f"conductivity_model must be one of {ZEFF_CONDUCTIVITY_MODELS}; got {model!r}")
+    window = _range_option(options, "time_range")
+    try:
+        result = compute_resistive_zeff_ods(
+            ods, time_range=window, model=model, ln_lambda="sauter", bounds=_ZEFF_BOUNDS,
+            I_ni=0.0, smoothing=Smoothing("none"),
+        )
+    except (KeyError, IndexError) as exc:
+        raise ValueError(f"resistive Z_eff needs a multi-slice equilibrium: {exc}") from exc
+    inference = result["inference"]
+    if inference is None:
+        reasons = "; ".join(reason for _, reason in result["skipped"]) or "no core_profiles slice"
+        raise ValueError(f"no electron profiles at an equilibrium time in the window ({reasons})")
+
+    obs = result["observed"]
+    t = obs.time
+    micro = 1e6
+    voltages = LineSeries(
+        series=(Series(x=t, y=obs.V_B, label="V_B (boundary)"),
+                Series(x=t, y=obs.V_I, label="V_I (inductive)"),
+                Series(x=t, y=obs.V_R, label="V_R = V_B - V_I")),
+        x_label="Time", x_unit="s", y_label="Voltage", y_unit="V",
+    )
+    estimate = inference.estimate
+    state_t = np.asarray([s.time for s in result["states"]], dtype=float)
+    traces = [Series(x=t, y=obs.R_p * micro, label="R_p observed",
+                     style={"color": "role:measured"})]
+    if estimate["zeff"] is not None:
+        r_model = np.asarray([model_resistance(s, estimate["zeff"], model=model,
+                                               ln_lambda="sauter").R_p for s in result["states"]])
+        order = np.argsort(state_t)
+        traces.append(Series(x=state_t[order], y=r_model[order] * micro,
+                             label=f"R_p model ({model}, Z = {estimate['zeff']:.2f})",
+                             style={"marker": "s", "linestyle": "none",
+                                    "color": "role:reconstructed"}))
+    resistance = LineSeries(series=tuple(traces), x_label="Time", x_unit="s",
+                            y_label="Plasma resistance", y_unit="uOhm")
+
+    per = result["per_slice"]
+    z_traces = [Series(x=per["time"], y=per["zeff"], label="per slice (diagnostic)",
+                       style={"marker": "o", "linestyle": "none", "color": "emphasis:medium"})]
+    if estimate["zeff"] is not None:
+        span = np.asarray(inference.time_window, dtype=float)
+        z = float(estimate["zeff"])
+        z_traces.insert(0, Series(x=span, y=np.full(2, z),
+                                  label=f"window estimate ({inference.status})",
+                                  style={"color": "role:reconstructed"}))
+        sigma = estimate.get("uncertainty")
+        if sigma:
+            for sign in (1.0, -1.0):
+                z_traces.insert(1, Series(x=span, y=np.full(2, z + sign * float(sigma)),
+                                          label="+/- 1 sigma" if sign > 0 else "",
+                                          style={"linestyle": "--",
+                                                 "color": "role:reconstructed"}))
+    shown = [float(v) for series in z_traces for v in np.asarray(series.y) if np.isfinite(v)]
+    top = min(_ZEFF_BOUNDS[1], max([3.0, *shown]) * 1.15) + 0.2
+    zeff_panel = LineSeries(series=tuple(z_traces), x_label="Time", x_unit="s",
+                            y_label="Z_eff (resistive)", y_unit="",
+                            y_limits=(_ZEFF_BOUNDS[0] - 0.2, top),
+                            title=(f"I_ni = 0, no bootstrap, bounds "
+                                   f"{_ZEFF_BOUNDS[0]:g}-{_ZEFF_BOUNDS[1]:g}"))
+    return Panels(
+        models=(voltages, resistance, zeff_panel), ncols=1, share_x=True,
+        suptitle=f"Resistive Z_eff, model-inferred ({model})",
+    )
+
+
+RECIPES["summary_time_resistive_zeff"] = CallableRecipe(
+    builder=_build_resistive_zeff,
+    description="Resistive Z_eff from Romero's transformer balance and a parallel conductivity model (#1214).",
+    reads=(*_EQUILIBRIUM_SLICE_READS,
+           "equilibrium.time_slice.{i}.global_quantities.li_3",
+           "equilibrium.time_slice.{i}.profiles_1d.gm1", "equilibrium.time_slice.{i}.profiles_1d.gm5",
+           "equilibrium.time_slice.{i}.profiles_1d.trapped_fraction",
+           "core_profiles.time", "core_profiles.profiles_1d.{i}.time",
+           "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+           "core_profiles.profiles_1d.{i}.electrons.temperature",
+           "core_profiles.profiles_1d.{i}.electrons.density",
+           "core_profiles.profiles_1d.{i}.electrons.density_thermal",
+           "tf.r0", *_WALL_LIMITER_READS, *_RESISTIVE_ZEFF_COPY_READS),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.resistive_zeff.compute_resistive_zeff_ods subscripts the ODS and traces geometry on a scratch ODS",
+    windowed=True,
+)
+
+
+
 # ---------------------------------------------------------------------------
 # camera_visible: raster frames and their pinhole-projected EFIT/field-line
 # overlays. This needs real computation (frame resolution, projection), not a

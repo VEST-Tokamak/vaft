@@ -29,7 +29,13 @@ from vaft.process.resistive_zeff import FluxSurfaceState, RomeroBoundaryFlux
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["romero_boundary_flux_ods", "flux_surface_state_ods", "detected_psi_per_radian"]
+__all__ = [
+    "romero_boundary_flux_ods",
+    "flux_surface_state_ods",
+    "detected_psi_per_radian",
+    "current_carrying_window",
+    "compute_resistive_zeff_ods",
+]
 
 
 def detected_psi_per_radian(ods: Any, time_index: int) -> Optional[bool]:
@@ -279,3 +285,106 @@ def flux_surface_state_ods(
         bootstrap_model=label,
         source=provenance,
     )
+
+
+def current_carrying_window(ods: Any, *, min_current_fraction: float = 0.05) -> Tuple[float, float]:
+    """The longest run of consecutive slices carrying current, as ``(t0, t1)``.
+
+    A slice carries current when ``|ip|`` exceeds ``min_current_fraction`` of
+    the largest ``|ip|``: the flux-closure phase Romero's balance needs, with
+    the vacuum slices at either end cut off.
+
+    Raises:
+        ValueError: Fewer than three consecutive current-carrying slices.
+    """
+    slices = ods["equilibrium.time_slice"]
+    times, currents = [], []
+    for i in range(len(slices)):
+        ts = slices[i]
+        t = float(ts["time"]) if "time" in ts else float(ods["equilibrium.time"][i])
+        ip = float(ts["global_quantities.ip"]) if "global_quantities.ip" in ts else np.nan
+        times.append(t)
+        currents.append(ip)
+    current = np.abs(np.asarray(currents, dtype=float))
+    if not np.any(np.isfinite(current)):
+        raise ValueError("no equilibrium slice carries a plasma current")
+    carrying = np.isfinite(current) & (current > min_current_fraction * np.nanmax(current))
+    best, start = (0, -1), None
+    for k, flag in enumerate(list(carrying) + [False]):
+        if flag and start is None:
+            start = k
+        elif not flag and start is not None:
+            if k - start > best[1] - best[0] + 1:
+                best = (start, k - 1)
+            start = None
+    if best[1] - best[0] + 1 < 3:
+        raise ValueError("fewer than three consecutive current-carrying equilibrium slices")
+    return float(times[best[0]]), float(times[best[1]])
+
+
+def compute_resistive_zeff_ods(
+    ods: Any,
+    *,
+    time_range: Optional[Tuple[float, float]],
+    model: str,
+    ln_lambda,
+    bounds: Tuple[float, float],
+    I_ni,
+    smoothing,
+    time_tolerance_s: float = 5e-5,
+) -> dict:
+    """Observed resistance, window Z_eff and its per-slice diagnostic for one ODS.
+
+    Args:
+        ods: ODS with a multi-slice ``equilibrium`` and a ``core_profiles``
+            slice at some of its times; not modified.
+        time_range: ``(t0, t1)`` [s]; ``None`` takes
+            :func:`current_carrying_window`.
+        model, ln_lambda, bounds: As :func:`vaft.process.resistive_zeff.infer_resistive_zeff`.
+        I_ni: Non-inductive current, as
+            :func:`vaft.process.resistive_zeff.observed_resistance`; required.
+        smoothing: A :class:`vaft.process.resistive_zeff.Smoothing`; required.
+        time_tolerance_s: core_profiles/equilibrium time matching tolerance [s].
+
+    Returns:
+        ``{"observed", "inference", "per_slice", "states", "skipped"}``. ``skipped``
+        lists the core_profiles slices in the window that could not become a
+        state, with the reason. ``inference`` is ``None`` when no state was built.
+    """
+    from vaft.process.resistive_zeff import (
+        infer_resistive_zeff,
+        observed_resistance,
+        per_slice_resistive_zeff,
+    )
+
+    window = current_carrying_window(ods) if time_range is None else tuple(time_range)
+    flux = romero_boundary_flux_ods(
+        ods, time_range=(window[0] - time_tolerance_s, window[1] + time_tolerance_s))
+    observed = observed_resistance(flux, I_ni=I_ni, smoothing=smoothing)
+
+    states, skipped = [], []
+    if "core_profiles.profiles_1d" in ods:
+        profiles = ods["core_profiles.profiles_1d"]
+        for i in range(len(profiles)):
+            if "time" in profiles[i]:
+                t = float(profiles[i]["time"])
+            elif "core_profiles.time" in ods:
+                t = float(np.asarray(ods["core_profiles.time"], dtype=float)[i])
+            else:
+                continue
+            if not np.any(np.abs(observed.time - t) <= time_tolerance_s):
+                continue
+            try:
+                states.append(flux_surface_state_ods(ods, time_slice=i,
+                                                     time_tolerance_s=time_tolerance_s))
+            except ValueError as error:
+                skipped.append((t, str(error)))
+
+    inference = per_slice = None
+    if states:
+        kwargs = dict(model=model, ln_lambda=ln_lambda, bounds=bounds,
+                      time_tolerance_s=time_tolerance_s)
+        inference = infer_resistive_zeff(observed, states, weights="uniform", **kwargs)
+        per_slice = per_slice_resistive_zeff(observed, states, **kwargs)
+    return {"observed": observed, "inference": inference, "per_slice": per_slice,
+            "states": states, "skipped": skipped, "window": window}

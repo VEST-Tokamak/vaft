@@ -415,6 +415,8 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "electron_temperature_field": make_core_profiles,
     "electron_density_field": make_core_profiles,
     "summary_time_power_balance": make_power_balance,
+    # Same shape: every current-carrying 39915 slice gets electron profiles.
+    "summary_time_resistive_zeff": make_power_balance,
     "camera_visible_image": make_camera,
     "camera_visible_image_frame": make_camera,
     "camera_visible_image_efit_overlay": make_camera,

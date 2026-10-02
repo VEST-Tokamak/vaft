@@ -4785,7 +4785,14 @@ def _romero_boundary_histories(
             f"{len(selected)} equilibrium slices in {time_range}; the balance needs three"
         )
 
-    work = copy.deepcopy(ods)
+    # Copy only what the inductance and R0 derivations read: a whole-ODS copy
+    # would touch every IDS the caller carries (the plot read declarations).
+    from omas import ODS as _ODS
+
+    work = _ODS(consistency_check=False)
+    for ids in ("equilibrium", "tf", "wall"):
+        if ids in ods:
+            work[ids] = copy.deepcopy(ods[ids])
     for idx in selected:
         # A stored li_3 has an unrecorded normalising radius; if the updater
         # skips a slice it must show up as missing, not as that stale leaf.

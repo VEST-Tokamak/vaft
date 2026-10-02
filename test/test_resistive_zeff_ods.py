@@ -194,3 +194,68 @@ def test_derivatives_in_the_wrong_unit_fail_the_grad_shafranov_check():
 
 def test_the_state_records_its_grad_shafranov_current(state48224):
     assert abs(state48224.source["gs_current_ratio"] - 1.0) < 0.05
+
+
+# --- the ODS composer and the time-history plot -------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def profiled39915():
+    """39915 with electron profiles on every current-carrying slice (synthetic Te, ne)."""
+    from _synthetic_inputs import make_power_balance
+
+    logging.disable(logging.WARNING)
+    try:
+        return make_power_balance(sample_ods(39915))
+    finally:
+        logging.disable(logging.NOTSET)
+
+
+def test_the_window_is_the_longest_current_carrying_run(profiled39915):
+    from vaft.omas.resistive_zeff import current_carrying_window
+
+    t0, t1 = current_carrying_window(profiled39915)
+    times = np.asarray(profiled39915["equilibrium.time"], float)
+    assert t0 == times[0] and t1 > t0
+
+
+def test_the_composer_returns_a_window_estimate_and_a_per_slice_diagnostic(profiled39915):
+    from vaft.omas.resistive_zeff import compute_resistive_zeff_ods
+
+    logging.disable(logging.WARNING)
+    try:
+        out = compute_resistive_zeff_ods(
+            profiled39915, time_range=WINDOWS[39915], model="redl", ln_lambda="sauter",
+            bounds=(1.0, 8.0), I_ni=0.0, smoothing=Smoothing("none"))
+    finally:
+        logging.disable(logging.NOTSET)
+    assert out["inference"] is not None and out["states"]
+    per = out["per_slice"]
+    assert per["time"].size == len(out["states"])
+    assert np.all(np.diff(per["time"]) > 0)
+    assert set(per["status"]) <= {"ok", "bound_hit", "not_identifiable", "non_monotonic"}
+
+
+def test_the_plot_draws_the_window_estimate_and_labels_slices_a_diagnostic(profiled39915):
+    pytest.importorskip("matplotlib")
+    from vaft.plot.backend.recipes import RECIPES
+
+    logging.disable(logging.WARNING)
+    try:
+        panels = RECIPES["summary_time_resistive_zeff"].builder(
+            profiled39915, time_range=WINDOWS[39915])
+    finally:
+        logging.disable(logging.NOTSET)
+    assert len(panels.models) == 3
+    assert "model-inferred" in panels.suptitle
+    labels = [s.label for s in panels.models[2].series]
+    assert "per slice (diagnostic)" in labels
+    assert any(label.startswith("window estimate") for label in labels)
+
+
+def test_the_plot_is_not_offered_without_electron_profiles():
+    from vaft.plot.backend.recipes import RECIPES
+
+    with pytest.raises(ValueError, match="electron profiles"):
+        RECIPES["summary_time_resistive_zeff"].builder(sample_ods(39915),
+                                                       time_range=WINDOWS[39915])

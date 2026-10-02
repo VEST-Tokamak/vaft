@@ -107,6 +107,7 @@ PIPELINE = frozenset({
     "observed_resistance",
     "model_resistance",
     "infer_resistive_zeff",
+    "per_slice_resistive_zeff",
     "resistive_zeff_sensitivity",
     # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
     "radial_coordinate_map",

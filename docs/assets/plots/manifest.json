@@ -1041,6 +1041,10 @@
       "reason": "no packaged sample carries the data this plot needs",
       "status": "no_sample"
     },
+    "summary_time_resistive_zeff": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
     "summary_time_voltage_consumption": {
       "call": "vaft.omas.plot_summary_time_voltage_consumption(vaft.omas.load(vaft.data.sample(39915)))",
       "model_sha256": "c9b33312abd5afce7860ec000220dc3ce6b701c080c30547abe97dfdd16da811",

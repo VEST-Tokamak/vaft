@@ -69,6 +69,8 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("time_range", "range",
                    description="(start, stop) in seconds: the window of a time history, honoured "
                                "on a time axis or refused -- never accepted and ignored"),
+        OptionSpec("conductivity_model", "choice", "recipes.ZEFF_CONDUCTIVITY_MODELS",
+                   "parallel conductivity model of the resistive Z_eff view (#1214)"),
         OptionSpec("smooth", "float", description="rolling-median window in seconds applied to line traces"),
         # A dense time base is indexed, not chosen from a list: the vacuum map
         # runs over the PF samples, thousands of them, where time_slice= names
