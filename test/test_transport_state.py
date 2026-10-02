@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from vaft.machine_mapping.core_profiles import inferred_ti_text, policy_for_ods
 from vaft.process.transport_state import (
     DEFAULT_SURFACES,
     TransportStateKey,
@@ -1517,7 +1518,7 @@ def test_pair_rows_carry_one_label_and_the_rows_surface_value(sensitivity, tmp_p
 # --------------------------------------------------------------------------- lane K inferred Ti (#1426)
 
 
-def _with_inferred_ti(sample, outer_nan_from=None, note="origin=inferred; method=equilibrium_pressure_partition; not measured"):
+def _with_inferred_ti(sample, outer_nan_from=None, note=inferred_ti_text("equilibrium_pressure_partition")):
     ods = copy.deepcopy(sample)
     prefix = "core_profiles.profiles_1d.0"
     te = np.asarray(ods[f"{prefix}.electrons.temperature"], dtype=float)
@@ -1714,3 +1715,92 @@ def test_a_stored_inferred_ti_is_refused_unless_the_caller_opts_in(sample):
     opted = resolve_transport_state(_with_inferred_ti(sample), _key(0.3), efit_quality="good",
                                     use_stored_inferred_ti=True)
     assert opted.ti["lineage"] == "pressure_partition_inferred"
+
+
+# --------------------------------------------------------------------------- Ti record grammar (cold review 0.8.0)
+
+
+_RATIO_RECORDS = [
+    "ti_te_ratio=1; status=assumed; source=legacy Ti=Te fallback",  # profile.py legacy fallback
+    "ti_te_ratio=1; sigma=0.3; status=assumed; source=caller argument",  # kinetic.py caller record
+    "ti_te_ratio=1; status=unspecified",  # profile.py ratio_fallback without a record
+]
+_INFERRED_RECORDS = [
+    inferred_ti_text("equilibrium_pressure_partition"),
+    "origin: inferred; method: equilibrium_pressure_partition",  # issue #1426 section 4 spelling
+    "origin=pressure_inferred; method=x",
+]
+
+
+def _with_record(sample, record):
+    ods = copy.deepcopy(sample)
+    ods["core_profiles.profiles_1d.0.ion.0.temperature_fit.parameters"] = record
+    return ods
+
+
+@pytest.mark.parametrize("record", _RATIO_RECORDS + ["policy"])
+def test_a_ratio_record_resolves_as_assumed_at_the_records_ratio_never_measured(sample, record):
+    """Every #1414 spelling -- legacy, caller, policy -- is an assumed Ti, with its ti_* condition."""
+    if record == "policy":
+        record = policy_for_ods(sample, 48224).ti_te_ratio_text()  # build_kinetic_core_profiles(ti_te_ratio="auto")
+    state = resolve_transport_state(_with_record(sample, record), _key(0.3), efit_quality="good")
+    assert state.resolved, state.reasons
+    assert state.ti_lineage != "measured"
+    assert state.ti_lineage == "ti_eq_te_assumed"
+    assert state.ti["kind"] == "assumed" and state.ti["ratio"] == 1.0
+    assert state.ti["source"] == record
+    assert state.ti["hierarchy"][0] == {"step": "measured", "status": "unavailable",
+                                        "reason": f"product record: {record}"}
+    assert state.ti["hierarchy"][-1]["source"] == "product record"
+    np.testing.assert_allclose(state.profile.ti[0], state.profile.te, rtol=1e-9)
+    assert "ti_assumed" in assess_tglf_readiness(state).conditions
+
+
+def test_a_ratio_record_keeps_its_own_ratio_and_sigma(sample):
+    state = resolve_transport_state(_with_record(sample, "ti_te_ratio=0.8; sigma=0.2; status=assumed; source=x"),
+                                    _key(0.3), efit_quality="good", ti_te_ratio=0.5)
+    assert state.ti_lineage == "ti_te_0.8_assumed"
+    assert state.ti["ratio"] == 0.8 and state.ti["sigma"] == 0.2
+    np.testing.assert_allclose(state.profile.ti[0], 0.8 * state.profile.te, rtol=1e-9)
+    # A caller-supplied inference still outranks the product's ratio record.
+    te = np.asarray(sample["core_profiles.profiles_1d.0.electrons.temperature"], dtype=float)
+    inferred = resolve_transport_state(_with_record(sample, _RATIO_RECORDS[0]), _key(0.3), efit_quality="good",
+                                       inferred_ti={"temperature": 0.9 * te, "time": 0.3})
+    assert inferred.ti_lineage == "pressure_partition_inferred"
+
+
+@pytest.mark.parametrize("record", _INFERRED_RECORDS)
+def test_every_inferred_spelling_is_refused_by_default_and_used_on_opt_in(sample, record):
+    state = resolve_transport_state(_with_record(sample, record), _key(0.3), efit_quality="good")
+    assert state.ti_lineage != "measured"
+    assert state.reasons == ("inferred_ti_not_enabled",)
+    opted = resolve_transport_state(_with_record(sample, record), _key(0.3), efit_quality="good",
+                                    use_stored_inferred_ti=True)
+    assert opted.resolved, opted.reasons
+    assert opted.ti_lineage == "pressure_partition_inferred" and opted.ti["kind"] == "inferred"
+
+
+@pytest.mark.parametrize("record", [None,
+                                    "coordinate=rho_tor_norm; method=polynomial; order=2; measured_span=0.0500:0.9500",
+                                    "coordinate=rho_tor_norm; method=external",
+                                    "origin=measured; source=CES"])
+def test_a_measured_fit_record_or_none_stays_measured(sample, record):
+    ods = sample if record is None else _with_record(sample, record)
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good")
+    assert state.resolved and state.ti_lineage == "measured"
+    assert "ti_measured" not in assess_tglf_readiness(state).conditions
+
+
+def test_the_packaged_sample_ion_temperature_is_a_measurement(sample):
+    """48224 carries charge_exchange and a fit without a record: measured is the right lineage."""
+    assert "charge_exchange" in sample
+    fit = sample["core_profiles.profiles_1d.0.ion.0.temperature_fit"]
+    assert "parameters" not in fit and "measured" in fit
+    assert resolve_transport_state(sample, _key(0.3), efit_quality="good").ti_lineage == "measured"
+
+
+@pytest.mark.parametrize("record", ["origin=synthetic", "free text about this profile"])
+def test_a_record_in_no_known_grammar_is_refused_by_name(sample, record):
+    state = resolve_transport_state(_with_record(sample, record), _key(0.3), efit_quality="good")
+    assert state.reasons == ("ti_record_unrecognised",)
+    assert state.ti.get("lineage") != "measured"

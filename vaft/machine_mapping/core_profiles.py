@@ -20,16 +20,38 @@ fractions are ``assumed``.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Mapping, Optional
 
 from .utils import VestConfigurationError, resolve_vest_diagnostic
 
-__all__ = ["CoreProfilesPolicy", "POLICY_STATUSES", "policy_for_ods", "vest_core_profiles_policy"]
+__all__ = [
+    "CoreProfilesPolicy",
+    "INFERRED_TI_ORIGIN",
+    "POLICY_STATUSES",
+    "TI_RECORD_KINDS",
+    "classify_ti_record",
+    "inferred_ti_text",
+    "policy_for_ods",
+    "ti_record_fields",
+    "vest_core_profiles_policy",
+]
 
 #: How a configured value relates to the truth it stands in for.
 POLICY_STATUSES = ("assumed", "measured", "inferred")
+
+#: What an ion ``temperature_fit.parameters`` record says about the temperature
+#: beside it, as :func:`classify_ti_record` reads it: a measured fit, a Ti/Te
+#: ratio the writer assumed, an inference (lane K's #1426 pressure partition),
+#: or a record in no grammar this module knows (a reader refuses it by name).
+TI_RECORD_KINDS = ("measured", "assumed", "inferred", "unknown")
+
+#: The ``origin`` field value that labels an inferred ion temperature.
+INFERRED_TI_ORIGIN = "inferred"
+
+_RECORD_FIELD = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*([^;]*)")
 
 #: The radial coordinates :mod:`vaft.process.profile` can fit in; mirrored
 #: here so the policy is validated without importing the process layer.
@@ -81,6 +103,63 @@ class CoreProfilesPolicy:
             for species in self.impurity_species
         ]
         return f"impurity_fractions={','.join(parts)}; source={self.source}"
+
+
+def inferred_ti_text(method: str = "equilibrium_pressure_partition") -> str:
+    """The record a writer stores beside an ion temperature it inferred, not measured.
+
+    One spelling for producer and consumer: ``origin=inferred; method=<method>``
+    is what :func:`classify_ti_record` reads back as ``"inferred"``, so a
+    transport reader never takes the temperature as a measurement (#1426).
+    """
+    return f"origin={INFERRED_TI_ORIGIN}; method={method}"
+
+
+def ti_record_fields(record: Any) -> dict[str, str]:
+    """The ``key=value`` (or ``key: value``) fields of a provenance record, lower-cased keys.
+
+    Fields are ``;``-separated; a bare word such as the policy's ``base`` carries
+    no key and is skipped.  ``None`` or blank gives an empty mapping.
+    """
+    fields: dict[str, str] = {}
+    if record is None:
+        return fields
+    for part in str(record).replace("\n", ";").split(";"):
+        match = _RECORD_FIELD.fullmatch(part)
+        if match:
+            fields[match.group(1).lower()] = match.group(2).strip()
+    return fields
+
+
+def classify_ti_record(record: Any) -> str:
+    """Which of :data:`TI_RECORD_KINDS` an ion ``temperature_fit.parameters`` record is.
+
+    Decided positively from the grammars the repository writes, never from a
+    substring: a reader that matched one literal spelling took every other
+    assumed or inferred record for a measurement (cold review 0.8.0).
+
+    * no record, or a fit record (``coordinate=<c>; method=<m>[; order=n]
+      [; measured_span=a:b]``, :meth:`vaft.process.profile.FittedProfile.parameters_text`)
+      -> ``"measured"``;
+    * ``origin=<x>`` in any spelling -> ``"inferred"`` when ``x`` names an
+      inference, ``"measured"`` when ``x`` is ``measured``, else ``"unknown"``;
+    * a ratio record (``ti_te_ratio=<r>; ...`` from :meth:`CoreProfilesPolicy.ti_te_ratio_text`,
+      the caller-argument record or the legacy Ti = Te fallback), or a
+      ``status`` of ``assumed``/``unspecified`` -> ``"assumed"``;
+    * anything else, including free text with no ``key=value`` field -> ``"unknown"``.
+    """
+    if record is None or not str(record).strip():
+        return "measured"
+    fields = ti_record_fields(record)
+    origin = fields.get("origin")
+    if origin is not None:
+        origin = origin.lower()
+        if origin == "measured":
+            return "measured"
+        return "inferred" if INFERRED_TI_ORIGIN in origin else "unknown"
+    if "ti_te_ratio" in fields or fields.get("status", "").lower() in ("assumed", "unspecified"):
+        return "assumed"
+    return "measured" if "coordinate" in fields else "unknown"
 
 
 def _status(block: Mapping[str, Any], context: str) -> str:

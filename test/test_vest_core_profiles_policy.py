@@ -220,3 +220,42 @@ def test_the_retired_atomic_defaults_are_gone():
         assert not hasattr(atomic, name)
         with pytest.raises(AttributeError):
             getattr(atomic, name)
+
+
+# --- the ion temperature record grammar (cold review 0.8.0) -----------------------
+
+
+@pytest.mark.parametrize("record, kind", [
+    (None, "measured"),
+    ("", "measured"),
+    ("coordinate=rho_tor_norm; method=polynomial; order=2; measured_span=0.0500:0.9500", "measured"),
+    ("coordinate=rho_tor_norm; method=external", "measured"),
+    ("origin=measured; source=CES", "measured"),
+    ("ti_te_ratio=1; status=assumed; source=legacy Ti=Te fallback", "assumed"),
+    ("ti_te_ratio=1; sigma=0.3; status=assumed; source=caller argument", "assumed"),
+    ("ti_te_ratio=0.8; status=unspecified", "assumed"),
+    ("origin=inferred; method=equilibrium_pressure_partition; not measured", "inferred"),
+    ("origin: inferred; method: equilibrium_pressure_partition", "inferred"),
+    ("origin=pressure_inferred; method=x", "inferred"),
+    ("origin=synthetic", "unknown"),
+    ("free text", "unknown"),
+])
+def test_the_ti_record_classifier_reads_every_spelling_the_tree_writes(record, kind):
+    from vaft.machine_mapping.core_profiles import TI_RECORD_KINDS, classify_ti_record
+
+    assert kind in TI_RECORD_KINDS
+    assert classify_ti_record(record) == kind
+
+
+def test_the_writers_records_classify_as_what_they_are():
+    """Producer and consumer share one grammar: what each writer stores reads back as itself."""
+    from vaft.machine_mapping.core_profiles import classify_ti_record, inferred_ti_text, ti_record_fields
+    from vaft.process.profile import FittedProfile
+
+    policy = vest_core_profiles_policy(48224)
+    assert classify_ti_record(policy.ti_te_ratio_text()) == "assumed"
+    assert ti_record_fields(policy.ti_te_ratio_text())["ti_te_ratio"] == f"{policy.ti_te_ratio:g}"
+    assert classify_ti_record(inferred_ti_text("equilibrium_pressure_partition")) == "inferred"
+    assert ti_record_fields(inferred_ti_text("x"))["method"] == "x"
+    fit = FittedProfile(function=lambda x: x, coordinate="rho_tor_norm", method="polynomial", order=2)
+    assert classify_ti_record(fit.parameters_text()) == "measured"

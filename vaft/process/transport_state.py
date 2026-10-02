@@ -432,10 +432,12 @@ def _stored_inferred_ti(ods: Any, prefix: str, ions: list, time: float) -> Optio
     H+ and C6+ with the same partitioned T_i); otherwise ``None``. ``species`` is the
     number of ions the product supplied, so the caller keeps its composition.
     """
+    from vaft.machine_mapping.core_profiles import classify_ti_record
+
     if not ions:
         return None
     notes = [_get(ods, f"{prefix}.ion.{i}.temperature_fit.parameters") for i in ions]
-    if any(note is None or "origin=inferred" not in str(note) for note in notes):
+    if any(classify_ti_record(note) != "inferred" for note in notes):
         return None
     arrays = [_get(ods, f"{prefix}.ion.{i}.temperature") for i in ions]
     if any(a is None for a in arrays):
@@ -592,7 +594,9 @@ def resolve_transport_state(
         Ion-temperature fallback when no ion temperature is measured: ``"policy"``
         reads ``vest.yaml`` through
         :func:`vaft.machine_mapping.core_profiles.policy_for_ods`; a number is used
-        as given and recorded as caller-supplied; ``None`` disables the fallback [-].
+        as given and recorded as caller-supplied; ``None`` disables the fallback.  A product whose
+        ion temperature is itself a ratio record (``ti_te_ratio=...; status=assumed``,
+        #1414) is resolved at the record's own ratio, as ``assumed`` [-].
     ti_te_ratio_sigma : float, optional
         Its 1-sigma, for provenance; the policy's when ``None`` [-].
     inferred_ti : mapping, optional
@@ -601,10 +605,13 @@ def resolve_transport_state(
         fallback; its ``time`` must match the paired slice within ``tolerance`` [eV].
     use_stored_inferred_ti : bool
         Whether an ion temperature the product itself labels as inferred
-        (``temperature_fit.parameters`` containing ``origin=inferred``, lane K's #1426
+        (``temperature_fit.parameters`` reading ``origin=inferred; ...`` by
+        :func:`vaft.machine_mapping.core_profiles.classify_ti_record`, lane K's #1426
         partition) is used as the ``inferred_ti`` step. Off by default: the routine atlas
         keeps Ti = Te (#1414), and such a state is refused as
-        ``inferred_ti_not_enabled``. A labelled temperature is never taken as measured [-].
+        ``inferred_ti_not_enabled``. A temperature is taken as measured only when its
+        record is a measured fit's (or absent); a record in no known grammar is refused
+        as ``ti_record_unrecognised`` [-].
     z_eff : float, optional
         Effective charge the composition closure realizes [-].
     impurity : str, optional
@@ -624,8 +631,10 @@ def resolve_transport_state(
     ----------------
     1. Match the equilibrium slice to ``time_efit_s`` and the core_profiles slice to
        that equilibrium time, both by time within ``tolerance``.
-    2. Resolve the ion temperature: measured, then ``inferred_ti``, then the policy
-       ratio, else insufficient; write a main ion into a deep copy when needed.
+    2. Classify each ion's ``temperature_fit.parameters`` record, then resolve the ion
+       temperature: measured, then ``inferred_ti``, then the product's own ratio
+       record, then the policy ratio, else insufficient; write a main ion into a deep
+       copy when needed.
     3. Derive ``r_inboard``/``r_outboard`` and, when absent, the elongation and
        triangularity profiles from the 2-D flux map (on the copy), recording that
        they were derived here.
@@ -716,14 +725,22 @@ def resolve_transport_state(
     ) is not None:
         ions.append(position)
         position += 1
-    # A product may carry an ion temperature that was inferred, not measured (lane K's
-    # #1426 pressure partition writes ``temperature_fit.parameters = "origin=inferred;
-    # method=..."``). It is never taken as a measurement; it is used as the inferred
-    # step only when the caller opts in (``use_stored_inferred_ti``), else refused.
+    # Each ion's ``temperature_fit.parameters`` record says what its temperature is
+    # (shared grammar: vaft.machine_mapping.core_profiles.classify_ti_record). A product
+    # may carry one that was inferred, not measured (lane K's #1426 pressure partition,
+    # ``origin=inferred; method=...``): it is never taken as a measurement; it is used
+    # as the inferred step only when the caller opts in (``use_stored_inferred_ti``),
+    # else refused. A ratio record (#1414, ``ti_te_ratio=...; status=assumed``) is the
+    # product's own Ti = ratio * Te and resolves as assumed, at that ratio.
+    from vaft.machine_mapping.core_profiles import classify_ti_record, ti_record_fields
+
+    records = {i: _get(ods, f"{prefix}.ion.{i}.temperature_fit.parameters") for i in ions}
+    kinds = {i: classify_ti_record(record) for i, record in records.items()}
+    if any(kind == "unknown" for kind in kinds.values()):
+        return _insufficient(base, "ti_record_unrecognised")
     fill = None
     stored = _stored_inferred_ti(ods, prefix, ions, cp_times[cp_index])
-    labelled = [i for i in ions if "origin=inferred" in str(
-        _get(ods, f"{prefix}.ion.{i}.temperature_fit.parameters") or "")]
+    labelled = [i for i in ions if kinds[i] == "inferred"]
     if labelled and not use_stored_inferred_ti and inferred_ti is None:
         # The product's T_i is an inference and the caller did not opt in: refusing is
         # the only honest choice, since the measured step would mislabel it.
@@ -735,7 +752,8 @@ def resolve_transport_state(
     if use_stored_inferred_ti and stored is not None and inferred_ti is None:
         inferred_ti = stored
     measured = [i for i in ions
-                if _usable(_get(ods, f"{prefix}.ion.{i}.temperature")) and i not in labelled]
+                if kinds[i] == "measured" and _usable(_get(ods, f"{prefix}.ion.{i}.temperature"))]
+    assumed = [i for i in ions if kinds[i] == "assumed"]
     hierarchy: list[dict[str, Any]] = []
     work = ods
     if ions and len(measured) == len(ions):
@@ -743,7 +761,10 @@ def resolve_transport_state(
               "ratio": None, "sigma": None, "kind": "measured"}
         hierarchy.append({"step": "measured", "status": "used"})
     else:
-        hierarchy.append({"step": "measured", "status": "unavailable"})
+        unavailable: dict[str, Any] = {"step": "measured", "status": "unavailable"}
+        if assumed:
+            unavailable["reason"] = f"product record: {records[assumed[0]]}"
+        hierarchy.append(unavailable)
         if len(ions) > 1 and not (stored is not None and stored["species"] == len(ions)):
             return _insufficient(
                 {**base, "ti": {"lineage": "unresolved", "hierarchy": hierarchy}},
@@ -805,7 +826,19 @@ def resolve_transport_state(
                     {**base, "ti": {"lineage": "unresolved", "hierarchy": hierarchy}},
                     "no_defensible_ion_temperature",
                 )
-            if isinstance(ti_te_ratio, str):
+            if assumed:
+                # The product already applied a ratio to its Te (#1414) and says so:
+                # that ratio, not the caller's, is what shaped the stored temperature.
+                fields = ti_record_fields(records[assumed[0]])
+                try:
+                    ratio = float(fields["ti_te_ratio"])
+                    sigma = float(fields["sigma"]) if "sigma" in fields else None
+                except (KeyError, ValueError):
+                    return _insufficient(base, "ti_record_unrecognised")
+                status = "assumed"
+                source = str(records[assumed[0]])
+                step = {"step": "policy_ratio", "status": "used", "source": "product record"}
+            elif isinstance(ti_te_ratio, str):
                 if ti_te_ratio != "policy":
                     raise ValueError(
                         f"ti_te_ratio must be 'policy', a number or None; got {ti_te_ratio!r}"
@@ -818,14 +851,16 @@ def resolve_transport_state(
                               else ti_te_ratio_sigma)
                 status = str(policy.ti_te_ratio_status)
                 source = policy.ti_te_ratio_text()
+                step = {"step": "policy_ratio", "status": "used"}
             else:
                 ratio = float(ti_te_ratio)
                 sigma = None if ti_te_ratio_sigma is None else float(ti_te_ratio_sigma)
                 status = "assumed"
                 source = "caller argument"
+                step = {"step": "policy_ratio", "status": "used"}
             if not np.isfinite(ratio) or ratio <= 0.0:
                 return _insufficient(base, "non_positive_ti_te_ratio")
-            hierarchy.append({"step": "policy_ratio", "status": "used"})
+            hierarchy.append(step)
             temperature = ratio * te
             # Contract v1 spells the #1414 Ti = Te policy ``ti_eq_te_assumed``; any
             # other ratio keeps its value in the name so two ratios never share one.
