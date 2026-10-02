@@ -544,10 +544,14 @@ def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
     _plain(_thomson(), filedb / "omas/thomson" / str(shot) / "output/thomson.json.gz")
     cp = ODS(consistency_check=False)
     cp["core_profiles.time"] = np.array([0.313, 0.314])
-    for j, t in enumerate((0.313, 0.314)):
+    level = np.linspace(0, 1, 11)
+    # 0.313: the grid is the equilibrium's own (rho_tor = psi_N**0.65 from its phi);
+    # 0.314: the sqrt(psi_N) proxy under rho_tor_norm, which must not be mapped
+    for j, (t, rho) in enumerate(((0.313, level ** 0.65), (0.314, np.sqrt(level)))):
         root = f"core_profiles.profiles_1d.{j}"
         cp[f"{root}.time"] = t
-        cp[f"{root}.grid.rho_tor_norm"] = np.linspace(0, 1, 11)
+        cp[f"{root}.grid.rho_tor_norm"] = rho
+        cp[f"{root}.grid.rho_pol_norm"] = np.sqrt(level)
         cp[f"{root}.electrons.density_thermal"] = np.full(11, 2e18)
         cp[f"{root}.electrons.temperature"] = np.full(11, 50.0)
     _plain(cp, filedb / "omas/core_profiles" / str(shot) / "output/core_profiles.json.gz")
@@ -589,9 +593,23 @@ def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
             assert p["flags"]
     grid = [p for p in points if p["kind"] == "grid"]
     assert any("outside_ts_span" in p["flags"] for p in grid)
+    # grid rows are placed by the grid's own flux label, on the slice at the row time
+    assert {p["time_efit_s"] for p in grid} == {"0.313"}
+    for p in grid:
+        psi_n = float(p["psi_norm"])
+        assert float(p["rho_tor_norm"]) == pytest.approx(psi_n ** 0.65, abs=1e-6)
+        assert float(p["p_eq_pa"]) == pytest.approx(_p0(0.313) * (1 - psi_n), rel=1e-6)
+    with open(atlas / "ti_state.csv", newline="", encoding="utf-8") as handle:
+        by_time: dict = {}
+        for state_row in csv.DictReader(handle):  # the appended refused rows share 0.313's key
+            by_time.setdefault((state_row["time_efit_s"], state_row["efit_lineage"]), state_row)
+    assert by_time[("0.313", "magnetics")]["grid_points_in_ts_span"]
+    proxied = by_time[("0.314", "magnetics")]
+    assert proxied["eligible"] == "true" and proxied["channels"] == "4"
+    assert "proxy or another equilibrium" in proxied["reason"] and not proxied["grid_points_in_ts_span"]
     with gzip.open(atlas / "core_profiles" / f"{shot}.json.gz", "rt") as handle:
         stored = json.load(handle)["core_profiles"]
-    assert stored["time"] == [0.313, 0.314]
+    assert stored["time"] == [0.313]  # the proxied 0.314 grid produced no inferred slice
     assert [ion["label"] for ion in stored["profiles_1d"][0]["ion"]] == ["H+", "C6+"]
     assert json.loads(stored["code"]["parameters"])["origin"] == "inferred"
     ion = stored["profiles_1d"][0]["ion"][0]
@@ -643,6 +661,64 @@ def test_a_nan_neighbour_falls_back_to_the_floor_there():
 def test_a_non_finite_tolerance_is_refused():
     with pytest.raises(ValueError, match="finite"):
         ks.slice_at_time(_equilibrium(), 0.314, tolerance_s=float("nan"))
+
+
+def _profiles_grid(rho, *, rho_pol=None, psi=None, time=0.314) -> ODS:
+    cp = ODS(consistency_check=False)
+    cp["core_profiles.time"] = np.array([time])
+    root = "core_profiles.profiles_1d.0"
+    cp[f"{root}.time"] = time
+    cp[f"{root}.grid.rho_tor_norm"] = rho
+    if rho_pol is not None:
+        cp[f"{root}.grid.rho_pol_norm"] = rho_pol
+    if psi is not None:
+        cp[f"{root}.grid.psi"] = psi
+    cp[f"{root}.electrons.density_thermal"] = np.full(rho.size, 2e18)
+    cp[f"{root}.electrons.temperature"] = np.full(rho.size, 50.0)
+    return cp
+
+
+def test_a_core_profiles_grid_is_placed_by_its_flux_label_and_refused_off_slice():
+    """The grid's rho_tor_norm is a label, not a coordinate of this slice until
+    checked: a sqrt(psi_N) proxy or another equilibrium's rho_tor mapped through
+    the slice's rho_tor(psi_N) samples p_eq 20 % off (cold review 0.8.0
+    delta-absorb-14 physics F2)."""
+    from vaft.validation.equilibrium import _pressure_on
+
+    eq = _equilibrium()
+    index = TIMES.index(0.314)
+    coordinate = ks.rho_tor_norm_of(eq, index)
+    level = np.linspace(0.0, 1.0, 41)
+    own = level ** 0.65  # the slice's own rho_tor (phi ~ psi_N**1.3)
+
+    def electron(cp):
+        return ks.core_profiles_electron_pressure(cp, time_s=0.314)
+
+    # the slice's own grid, labelled by rho_pol_norm: placed at its own psi_N
+    placed = ks.core_profiles_grid_on_slice(coordinate, electron(_profiles_grid(own, rho_pol=np.sqrt(level))))
+    assert placed["available"] and placed["max_rho_mismatch"] < 1e-9
+    np.testing.assert_allclose(placed["psi_norm"], level, atol=1e-12)
+    np.testing.assert_allclose(_pressure_on(eq, index, placed["psi_norm"]), _p0(0.314) * (1 - level))
+    # ... or by grid.psi, normalised with the grid's own ends
+    by_psi = electron(_profiles_grid(own, psi=-0.02 + 0.05 * level))
+    assert by_psi["psi_norm_source"] == "psi"
+    assert ks.core_profiles_grid_on_slice(coordinate, by_psi)["available"]
+
+    # the sqrt(psi_N) proxy under rho_tor_norm: refused, never mapped
+    proxy = ks.core_profiles_grid_on_slice(coordinate, electron(_profiles_grid(np.sqrt(level), rho_pol=np.sqrt(level))))
+    assert not proxy["available"] and "proxy or another equilibrium" in proxy["reason"]
+    assert proxy["max_rho_mismatch"] > 0.05
+    # another equilibrium's real rho_tor (phi ~ psi_N**1.6): refused
+    foreign = ks.core_profiles_grid_on_slice(coordinate, electron(_profiles_grid(level ** 0.8, rho_pol=np.sqrt(level))))
+    assert not foreign["available"] and foreign["max_rho_mismatch"] > 0.05
+    # a grid with no flux label cannot be tied to the slice at all
+    unlabelled = electron(_profiles_grid(own))
+    assert unlabelled["available"] and unlabelled["psi_norm"] is None
+    bare = ks.core_profiles_grid_on_slice(coordinate, unlabelled)
+    assert not bare["available"] and "no flux label" in bare["reason"]
+    # and a slice without rho_tor_norm refuses with the coordinate's reason
+    proxied_slice = ks.rho_tor_norm_of(_equilibrium(phi=False, proxy=True), 0)
+    assert not ks.core_profiles_grid_on_slice(proxied_slice, by_psi)["available"]
 
 
 def test_an_empty_density_thermal_falls_back_to_density():

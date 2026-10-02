@@ -61,5 +61,6 @@ It writes four things:
 - Electron-kinetic states are refused, because their pressure was fitted with Ti = Te assumed.
 - Points with p_i ≤ 0, or with p_i below its own σ, are flagged and left empty.
 - Grid points the Thomson channels do not bracket are flagged `outside_ts_span`.
+- Grid rows are written only when the `core_profiles` grid is the state's own equilibrium slice: the grid is placed by its own flux label (`grid.rho_pol_norm` or `grid.psi`) and its `rho_tor_norm` must agree with the slice's `rho_tor(psi_N)` within `GRID_RHO_TOLERANCE` (0.02). A `sqrt(psi_N)` proxy under `rho_tor_norm`, another equilibrium's coordinate, or a grid with no flux label is refused and `ti_state.csv` carries the reason; the channel rows are unaffected.
 
 **σ(p_EFIT)** is the spread over the shot's other good or admissible magnetics slices within 1 ms, at the same ψ_N. Its floor is 17 % (#874).

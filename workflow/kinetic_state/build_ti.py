@@ -6,7 +6,11 @@ campaign FileDB; writes, into the same atlas directory:
 * ``ti_inferred.csv``: one row per evaluation point, either a Thomson channel
   (``kind = channel``, measured n_e and T_e, the primary product) or a
   ``core_profiles`` grid point (``kind = grid``, the fitted n_e and T_e;
-  ``outside_ts_span`` flags the points the channels do not bracket);
+  ``outside_ts_span`` flags the points the channels do not bracket).  Grid
+  rows exist only when the ``core_profiles`` grid is the state's own
+  equilibrium slice (its flux label and ``rho_tor_norm`` agree with the
+  slice, :func:`vaft.validation.kinetic_state.core_profiles_grid_on_slice`);
+  otherwise ``ti_state.csv`` says why there are none;
 * ``ti_state.csv``: per state key, whether the inference was eligible and how
   much of it survived;
 * ``core_profiles/<shot>.json.gz``: an IMAS ``core_profiles`` ODS per shot with
@@ -252,15 +256,17 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
             electron = {"available": False, "reason": "the state carries no Thomson tolerance"}
         else:
             electron = ks.core_profiles_electron_pressure(cp, time_s=_f(row["time_ts_s"]), tolerance_s=ts_tolerance)
-        if not electron["available"] or coordinate["coordinate"] != "rho_tor_norm":
-            summary["reason"] = electron.get("reason") or coordinate.get("reason")
+        # The grid is placed by its own flux label and its rho_tor_norm label
+        # must be this slice's coordinate; a proxy or another equilibrium's
+        # rho_tor would otherwise sample p_eq at the wrong psi_N.
+        placed = ks.core_profiles_grid_on_slice(coordinate, electron)
+        if not placed["available"]:
+            summary["reason"] = placed["reason"]
             states.append(summary)
             continue
-        rho, n_g, t_g = electron["rho_tor_norm"], electron["n_e"], electron["t_e"]
-        order = np.argsort(coordinate["rho_tor_norm"])
-        inside = rho <= 1.0
-        rho, n_g, t_g = rho[inside], n_g[inside], t_g[inside]
-        psi_g = np.interp(rho, coordinate["rho_tor_norm"][order], coordinate["psi_norm"][order])
+        rho, psi_g, n_g, t_g = placed["rho_tor_norm"], placed["psi_norm"], electron["n_e"], electron["t_e"]
+        inside = psi_g <= 1.0
+        rho, psi_g, n_g, t_g = rho[inside], psi_g[inside], n_g[inside], t_g[inside]
         p_eq_g = _pressure_on(eq, index, psi_g)
         if p_eq_g is None:
             summary["reason"] = "the slice pressure cannot be sampled on the core_profiles grid"
