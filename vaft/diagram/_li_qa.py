@@ -94,7 +94,10 @@ def li_qa(*, reference: str = "wesson_1989", labels: bool = True) -> Diagram:
             continue
         lo, hi = boundary.applicability.ranges[boundary.input_names[0]]
         curve = _b.boundary_curve(boundary, boundary.input_names[0], _samples(lo, hi))
-        chart.curves[boundary.branch] = curve.xy[np.isfinite(curve.xy).all(axis=1)]
+        xy = curve.xy[np.isfinite(curve.xy).all(axis=1)]
+        # 9 decimals: the TikZ source (and the committed SVG's hash) must not depend on the platform's
+        # last-bit floating-point differences, which flipped one printed coordinate (5.029 vs 5.0291)
+        chart.curves[boundary.branch] = np.round(xy, 9)
     for boundary in edges:
         q_edge = float(_b.boundary_value(boundary))
         span = sorted(float(np.interp(q_edge, *chart.curves[b].T)) for b in ("lower", "upper"))
