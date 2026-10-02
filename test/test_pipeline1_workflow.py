@@ -112,9 +112,14 @@ def _paths(tmp_path: Path, layout: str = "filedb"):
 
 
 def _kfile_command(stdout: str) -> str:
-    """The k-file stage's printed shell command, up to its log redirect."""
+    """The k-file stage's printed shell command, up to its log redirect.
+
+    Whitespace is collapsed: Snakemake 7 prints a ``{param}`` substitution
+    with the template's indentation around it (``--preset  statistical_891``),
+    Snakemake 9 does not, and the assertions are about the words.
+    """
     start = stdout.index("generate_kfile.py")
-    return stdout[start:stdout.index(">", start)]
+    return " ".join(stdout[start:stdout.index(">", start)].split())
 
 
 def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
