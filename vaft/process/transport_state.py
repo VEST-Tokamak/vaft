@@ -669,7 +669,9 @@ def resolve_transport_state(
     # map on the working copy -- the same routine the NEO comparison path uses.
     eq_base = f"equilibrium.time_slice.{eq_index}.profiles_1d"
     geometry = {"kind": "reconstructed", "source": f"{eq_base}.r_inboard/r_outboard"}
-    if _get(ods, f"{eq_base}.r_inboard") is None or _get(ods, f"{eq_base}.r_outboard") is None:
+    # Finiteness, not presence: a NaN pair would reach GACODE's rmin unchecked and
+    # the TGLF mapper then refuses every surface without naming the cause.
+    if not all(_finite_profile(_get(ods, f"{eq_base}.{name}")) for name in ("r_inboard", "r_outboard")):
         from vaft.omas import update_equilibrium_profiles_1d_radial_coordinates
 
         work = copy.deepcopy(ods) if work is ods else work
@@ -742,11 +744,15 @@ def _state_conditions(state: ResolvedTransportState) -> tuple[str, ...]:
 
 
 def _surface_code(error: Exception) -> str:
+    """The readiness code of a ``LocalConversionError`` from ``prepare_tglf_input``.
+
+    Only the domain refusal is told apart; a non-positive profile is refused one
+    level up, by ``prepare_gacode_profile`` at state resolution, and never reaches
+    a surface.
+    """
     text = str(error)
     if "outside the converted profile" in text or "strictly inside" in text:
         return "outside_profile_domain"
-    if "not positive" in text:
-        return "non_positive_profile"
     return "local_conversion_failure"
 
 
@@ -921,7 +927,7 @@ def physics_parameters(config: Any, *, exclude: Iterable[str] = ()) -> dict[str,
     from dataclasses import fields as dataclass_fields
 
     runtime = {"backend", "timeout", "env", "home", "executable", "workdir", "args",
-               "platform", "n_mpi", "n_omp", *exclude}
+               "platform", "n_mpi", "n_omp", "memory_mb", *exclude}
     out = {}
     for entry in dataclass_fields(config):
         if entry.name in runtime:
