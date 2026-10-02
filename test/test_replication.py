@@ -1077,6 +1077,11 @@ _FAULTS = [
     ("chease", "skipped: CHEASE executable unavailable: ; input_gfiles=3"),
     ("chease", "missing_input"),
     ("efit", ""),
+    # EFIT wrote g-files; `no_output` then means every one was unreadable or
+    # the conversion raised -- a VAFT fault, not a solver verdict (cold review
+    # 0.8.0 delta-absorb-14 infra F1).
+    ("efit", "completed: returncode=0; gfiles=3; parse_errors=3"),
+    ("efit", "completed: returncode=0; gfiles=3"),
 ]
 
 
@@ -1133,6 +1138,46 @@ def test_nothing_to_publish_over_an_earlier_publication_fails(tmp_path, monkeypa
     monkeypatch.setattr(replication, "_remote_entries", lambda source, shot: ("equilibrium.h5", "master.h5"))
     with pytest.raises(ProductNotEligibleError, match="still holds equilibrium.h5"):
         replicate_stage("efit", 48940, filedb=db)
+
+
+def test_a_listing_that_keeps_failing_on_the_skipped_path_is_recorded_failed(tmp_path, monkeypatch):
+    """cold review 0.8.0 delta-absorb-14 infra F4: the stale check lists the
+    shot folder before any retry loop, so a 503 escaped as a raw OSError with
+    no record written. It is a transient remote failure like any other: retried
+    `attempts` times, then recorded ``failed`` and raised as ReplicationError."""
+    db = FileDB(tmp_path)
+    _no_output(db, "efit", "completed_no_gfiles: returncode=0; gfiles=0")
+    _patch_remote(monkeypatch, sent=[])
+    listings = []
+
+    def busy(path):
+        listings.append(path)
+        raise OSError(503, "Service Unavailable")
+
+    _fake_folder(monkeypatch, busy)
+    with pytest.raises(replication.ReplicationError, match="503"):
+        replicate_stage("efit", 48940, filedb=db, attempts=3, retry_delay=0)
+    assert listings == ["/main/48940/"] * 3
+    stored = replication.read_record(db.omas_replication_record("efit", shot=48940, **_lineage("efit")))
+    assert stored.state == "failed" and stored.attempts == 3
+    assert "503" in stored.error
+
+
+def test_a_listing_that_recovers_on_the_skipped_path_records_skipped(tmp_path, monkeypatch):
+    db = FileDB(tmp_path)
+    _no_output(db, "efit", "completed_no_gfiles: returncode=0; gfiles=0")
+    _patch_remote(monkeypatch, sent=[])
+    answers = [OSError(503, "Service Unavailable"), OSError(503, "Service Unavailable"), ("magnetics.h5", "master.h5")]
+
+    def flaky(path):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    _fake_folder(monkeypatch, flaky)
+    record = replicate_stage("efit", 48940, filedb=db, attempts=3, retry_delay=0)
+    assert record.state == "skipped" and answers == []
 
 
 def test_a_stage_that_later_succeeds_is_replicated_over_its_skipped_record(tmp_path, monkeypatch):
