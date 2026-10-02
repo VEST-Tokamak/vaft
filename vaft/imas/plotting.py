@@ -113,7 +113,7 @@ def plot_neoclassical_profile_bootstrap_current(
     """
     return render("neoclassical_profile_bootstrap_current", source, ax=ax, show=show, label=label, **options)
 
-__all__ = ["available_plots", "normalize_entries", "render"]
+__all__ = ["available_plots", "compose", "normalize_entries", "render"]
 
 
 from .interactive import (  # noqa: E402  public entry points, issues #261 and #482
@@ -142,6 +142,42 @@ def render(
     return render_entries(
         name, normalize_entries(source, label=label), ax=ax, show=show,
         namespace="vaft.imas", subject="ids", **options,
+    )
+
+
+def compose(
+    composition: Any,
+    source: Any,
+    *,
+    backend: str | None = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **presentation: Any,
+) -> Any:
+    """Draw several canonical plots of ``source`` as one figure (issue #1467).
+
+    ``composition`` is a :class:`vaft.plot.FigureComposition` -- which plots,
+    in which grid cells, which axes move together -- or its ``to_dict()``
+    form.  Every cell is built by its plot's own recipe, so a cell looks like
+    ``plot_<name>`` drawn on its own.  Matplotlib returns ``(Figure,
+    ndarray[Axes])``, one axes per cell in cell order, and takes ``format=``,
+    ``theme=`` and ``figsize=``; ``backend="plotly"`` returns one
+    :class:`plotly.graph_objects.Figure`.  See :mod:`vaft.plot.composition`.
+
+    Example::
+
+        vaft.imas.compose(
+            vaft.plot.FigureComposition.stack(
+                ["plasma_current_time", "flux_loop_time_voltage", "equilibrium_time_q95"]
+            ),
+            entry,
+        )
+    """
+    from vaft.plot.composition import render_composition
+
+    return render_composition(
+        composition, normalize_entries(source, label=label), backend=backend, show=show,
+        namespace="vaft.imas", subject="ids", **presentation,
     )
 
 

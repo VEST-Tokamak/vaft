@@ -297,12 +297,12 @@ def _plain(ods: ODS, path) -> None:
     raw.unlink()
 
 
-def _record(shot, time_ms, *, setting="statistical_891", betap=0.2, converged=True):
+def _record(shot, time_ms, *, setting="statistical_891", betap=0.2, converged=True, thomson=None):
     return {"setting": setting, "shot": shot, "time_ms": time_ms, "converged": converged,
             "scalars": {"betap": betap, "wmhd": 100.0, "q95": 5.0, "ipmhd": 9.5e4, "li": 0.8},
             "pressure_min": 0.0, "ip_measured": 1e5, "fit": {"probe_reduced_chi2": 1.0, "loop_reduced_chi2": 1.0,
                                                               "ip_sigma_median": 1e4},
-            "gs": {}, "virial": None, "thomson": None}
+            "gs": {}, "virial": None, "thomson": thomson}
 
 
 def _build_state_module():
@@ -385,7 +385,7 @@ def test_build_gates_on_rederived_labels_and_uses_the_earning_setting(tmp_path):
     _plain(_equilibrium(), filedb / "omas/efit/magnetic" / str(shot) / "output/efit.json.gz")
     _plain(_thomson(), filedb / "omas/thomson" / str(shot) / "output/thomson.json.gz")
     records = [
-        _record(shot, 312),                                         # admissible
+        _record(shot, 312, thomson={"log_ratio": math.log(1 / 2.7)}),  # admissible, p = 2.7 p_e
         _record(shot, 313, betap=-1.0),                             # vetoed: never a row
         _record(shot, 314, setting="routine"),                      # routine only: never counts
         _record(shot, 315, setting="a_scan", betap=-1.0),           # a setting that failed...
@@ -403,5 +403,29 @@ def test_build_gates_on_rederived_labels_and_uses_the_earning_setting(tmp_path):
     assert rows[0.315]["efit_setting"] == "b_scan"
     assert all(r["efit_lineage"] == "magnetics" and r["efit_status"] == "valid" for r in rows.values())
     assert rows[0.312]["ts_status"] == "matched"
+    # criteria v2: Thomson is a column beside efit_quality, not a gate on it
+    assert rows[0.312]["thomson_consistent"] is False and rows[0.312]["thomson_criterion_status"] == "fail"
+    assert rows[0.315]["thomson_consistent"] is None
     assert result["manifest"]["labels"]["differ_from_stored"] == 1
     assert (out / "state.csv").is_file() and (out / "schema/state.schema.json").is_file()
+    import csv
+    with (out / "state.csv").open(encoding="utf-8", newline="") as handle:
+        cells = {row["time_efit_s"]: row["thomson_consistent"] for row in csv.DictReader(handle)
+                 if row["efit_lineage"] == "magnetics"}
+    assert sorted(cells.values()) == ["", "false"]
+
+
+def test_status_reads_the_criteria_v2_evaluation_not_a_stale_stored_verdict():
+    """criteria v2: Thomson is a column beside efit_quality, re-graded with this
+    checkout's criteria rather than read from the analysis JSON's stored verdicts."""
+    import math
+
+    build_state = _build_state_module()
+    criteria = build_state._criteria()
+    assert build_state.STATE_COLUMNS["thomson_consistent"][0] == "boolean"
+    # A record whose stored evaluation is stale (graded under the old [1, 3] band).
+    record = {"thomson": {"log_ratio": math.log(1.0 / 2.7)},
+              "evaluation": {"verdicts": {"thomson": {"status": "pass"}}}}
+    evaluation = criteria.evaluate(record)
+    assert build_state._status(evaluation, "thomson") == "fail"
+    assert evaluation["physically_consistent"] is False
