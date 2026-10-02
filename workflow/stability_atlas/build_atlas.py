@@ -20,7 +20,9 @@ how far a result can be trusted. QA never redefines a quantity or removes a
 solver result. Four layers, never overwriting each other:
 
 1. **Raw** solver output: W_t per n, edge treatment and resolution; Δ′ per
-   surface at mpsi 256 and 512; ``*_delta_prime_max_raw`` over every surface.
+   surface at mpsi 256 and 512; ``*_delta_prime_max_raw`` over every surface
+   of the mpsi 256 run. Two cases are not in layer 1: a surface the reader
+   reports without ψ_N, and a surface that only the mpsi 512 run found.
 2. **QA annotation**: ``dcon_*_sign_class``; per surface ``sign_agreement``,
    ``relative_change``, ``absolute_change``, ``two_resolution_consistent``,
    ``ordinal_position``, local shear, distance to q_min and to the edge; and
@@ -208,11 +210,11 @@ def dcon_status(
 
 def dcon_sign_class(w_256: Optional[float], w_512: Optional[float]) -> str:
     """Layer-2 QA of the sign of W_t across mpsi 256 and 512; no magnitude band (#142)."""
-    if w_256 is None:
+    if w_256 is None or not np.isfinite(w_256):
         return "unavailable"
-    if w_512 is None:
+    if w_512 is None or not np.isfinite(w_512):
         return "not_checked"
-    if np.sign(w_256) != np.sign(w_512):
+    if w_256 == 0 or np.sign(w_256) != np.sign(w_512):
         return "numerically_unresolved"
     return "robust_stable" if w_256 > 0 else "robust_unstable"
 
@@ -232,13 +234,20 @@ def surface_geometry(
         return empty
     psi = np.asarray(psi_grid, dtype=float)
     q = np.asarray(q_profile, dtype=float)
-    if psi.shape != q.shape or psi.size < 3 or not (psi[0] <= psi_s <= psi[-1]):
+    if psi.shape != q.shape:
+        return empty
+    keep = np.isfinite(psi) & np.isfinite(q)
+    psi, q = psi[keep], q[keep]
+    order = np.argsort(psi)
+    psi, q = psi[order], q[order]
+    if psi.size < 3 or not (psi[0] <= psi_s <= psi[-1]):
         return empty
     dq = np.gradient(q, psi)
     q_s = float(np.interp(psi_s, psi, q))
-    imin = int(np.nanargmin(q))
+    imin = int(np.argmin(q))
+    shear = psi_s * float(np.interp(psi_s, psi, dq)) / q_s if q_s else float("nan")
     return {
-        "shear_psi": float(psi_s * np.interp(psi_s, psi, dq) / q_s) if q_s else None,
+        "shear_psi": shear if np.isfinite(shear) else None,
         "psi_n_from_qmin": float(psi_s - psi[imin]),
         "q_minus_qmin": float(q_s - q[imin]),
         "psi_n_to_edge": float(psi[-1] - psi_s),
@@ -344,21 +353,25 @@ def matching_summary(
     """
     consistent = [s for s in surfaces if s["two_resolution_consistent"]]
     interior = [s for s in consistent if s["position"] == "interior"]
-    if status_raw is None:
-        status = "NOT_APPLICABLE"
-    elif status_raw not in ("completed", "stable"):
-        status = "SOLVER_FAILURE"
-    elif not surfaces:
-        status = "NOT_APPLICABLE"  # the run completed but found no rational surface in range
-    elif not checked:
-        status = "NOT_CHECKED"
-    elif not consistent:
-        status = "NUMERICALLY_UNRESOLVED"
-    else:
-        status = "RESOLVED"
+    ran = status_raw in ("completed", "stable")
+
+    def _status(pool: list[dict]) -> str:
+        if status_raw is None:
+            return "NOT_APPLICABLE"
+        if not ran:
+            return "SOLVER_FAILURE"
+        if not surfaces:
+            return "NOT_APPLICABLE"  # the run completed but found no rational surface in range
+        if not checked:
+            return "NOT_CHECKED"
+        return "RESOLVED" if pool else "NUMERICALLY_UNRESOLVED"
+
     first = surfaces[0] if surfaces else None
     summary: dict[str, Any] = {
-        f"{prefix}_status": status,
+        # v1 meaning kept under the v1 name: RESOLVED needs a consistent *interior* surface.
+        f"{prefix}_status": _status(interior),
+        # v2: RESOLVED when any surface, at any position, is two-resolution consistent.
+        f"{prefix}_qa_status": _status(consistent),
         f"{prefix}_n_rational_surfaces": len(surfaces),
         f"{prefix}_n_two_resolution_consistent": len(consistent),
         f"{prefix}_n_resolved_surfaces": len(consistent),  # deprecated v1 name
@@ -368,9 +381,11 @@ def matching_summary(
         f"{prefix}_n_positive_delta_prime_summary": sum(s["delta_prime_real"] > 0 for s in interior),  # deprecated
         f"{prefix}_delta_prime_first_surface": None if first is None else first["delta_prime_real"],
         f"{prefix}_first_surface_m": None if first is None else first["m"],
-        f"{prefix}_classical_tearing_drive": None if not surfaces else any(s["delta_prime_real"] > 0 for s in surfaces),
+        # Layer 3. A completed run with no rational surface has no drive (False);
+        # a failed or absent run has no answer (None).
+        f"{prefix}_classical_tearing_drive": None if not ran else any(s["delta_prime_real"] > 0 for s in surfaces),
         f"{prefix}_classical_tearing_drive_qa": None
-        if not checked or not surfaces
+        if not ran or (surfaces and not checked)
         else any(s["delta_prime_real"] > 0 for s in consistent),
     }
     summary.update(_extreme(surfaces, prefix, "_raw"))
@@ -448,7 +463,7 @@ def slice_rows(
             )
             # Layer 3: the ideal criterion is the sign of W_t at the reported resolution.
             w = record.get(f"dcon_{treatment}_256_W_t")
-            record[f"ideal_unstable_{treatment}_edge"] = None if w is None else bool(w < 0)
+            record[f"ideal_unstable_{treatment}_edge"] = None if w is None or not np.isfinite(w) else bool(w < 0)
         status = {"full": record["dcon_full_status"], "trunc": record["dcon_trunc_status"]}
         # v1 columns: a stability flag only where its status is a VALID_* verdict.
         record["ideal_stable_full_edge"] = {"VALID_STABLE": True, "VALID_UNSTABLE": False}.get(status["full"])
@@ -496,8 +511,17 @@ def slice_rows(
                     }
                 )
         if equilibrium != "ok":
-            for name in ("dcon_full_status", "dcon_trunc_status", "rdcon_status", "stride_status"):
+            # Nothing judged on an equilibrium that did not reach the solvers.
+            for name in ("dcon_full_status", "dcon_trunc_status", "rdcon_status", "stride_status", "rdcon_qa_status", "stride_qa_status"):
                 record[name] = "INVALID_EQUILIBRIUM"
+            for treatment in ("full", "trunc"):
+                record[f"dcon_{treatment}_sign_class"] = "unavailable"
+                record[f"ideal_unstable_{treatment}_edge"] = None
+            for name in ("ideal_stable_full_edge", "ideal_stable_truncated_edge"):
+                record[name] = None
+            for solver in ("rdcon", "stride"):
+                record[f"{solver}_classical_tearing_drive"] = None
+                record[f"{solver}_classical_tearing_drive_qa"] = None
         record.update(provenance)
         record["slice_dir"] = str(slice_dir)
         atlas.append(record)
@@ -549,20 +573,29 @@ COLUMNS: dict[str, tuple[str, str, str]] = {
     "dcon_{t}_sign_class": ("str", "", "layer 2: robust_stable | robust_unstable | numerically_unresolved | not_checked | unavailable"),
     "ideal_unstable_{t}_edge": ("bool", "", "layer 3: W_t < 0 at mpsi 256 (sign only; robustness in dcon_{t}_sign_class)"),
     "derived_ideal_unstable_any_n": ("str", "", "derived per slice: the n:edge pairs with ideal_unstable_*_edge true; same on every n row of the slice"),
-    "{s}_status": ("str", "", "RESOLVED (>=1 two-resolution-consistent surface) | NUMERICALLY_UNRESOLVED | NOT_CHECKED | SOLVER_FAILURE | NOT_APPLICABLE | INVALID_EQUILIBRIUM; not a tearing verdict"),
+    "{s}_status": ("str", "", "v1 meaning: RESOLVED (a consistent interior surface) | NUMERICALLY_UNRESOLVED | NOT_CHECKED | SOLVER_FAILURE | NOT_APPLICABLE | INVALID_EQUILIBRIUM; not a tearing verdict"),
+    "{s}_qa_status": ("str", "", "v2: as {s}_status, but RESOLVED when any surface at any position is two-resolution consistent"),
+    "{s}_n_rational_surfaces": ("int", "", "rational surfaces in the mpsi 256 run"),
+    "{s}_n_positive_delta_prime_raw": ("int", "", "surfaces with Δ′ > 0 (every surface)"),
+    "{s}_n_positive_delta_prime_qa": ("int", "", "two-resolution-consistent surfaces with Δ′ > 0"),
+    "{s}_n_positive_delta_prime_summary": ("int", "", "DEPRECATED v1: consistent interior surfaces with Δ′ > 0"),
+    "{s}_n_resolved_surfaces": ("int", "", "DEPRECATED v1 name of {s}_n_two_resolution_consistent"),
+    "{s}_first_surface_m": ("int", "", "m of the innermost rational surface"),
+    "{s}_delta_prime_max_{raw,qa,qa_interior}_{m,psi_n,q,position}": ("int|float|str", "", "where the corresponding maximum sits"),
     "{s}_delta_prime_max_raw": ("float", "1 (PEST3 normalization)", "layer 1: max diagonal Δ′ over every surface; _m/_psi_n/_q/_position locate it"),
     "{s}_delta_prime_max_qa": ("float", "1 (PEST3 normalization)", "layer 2: max over two-resolution-consistent surfaces, any position"),
     "{s}_delta_prime_max_qa_interior": ("float", "1 (PEST3 normalization)", "layer 2: max over consistent interior surfaces"),
     "{s}_delta_prime_first_surface": ("float", "1 (PEST3 normalization)", "Δ′ of the innermost rational surface"),
-    "{s}_classical_tearing_drive": ("bool", "", "layer 3: Δ′ > 0 at any rational surface (classical drive, not a tearing verdict; #939)"),
+    "{s}_classical_tearing_drive": ("bool", "", "layer 3: Δ′ > 0 at any rational surface (classical drive, not a tearing verdict; #939). False when the run completed with no rational surface; empty when the run failed or was not done"),
     "{s}_classical_tearing_drive_qa": ("bool", "", "layer 3 restricted to two-resolution-consistent surfaces"),
     "{s}_n_two_resolution_consistent": ("int", "", "surfaces passing the mpsi 256/512 heuristic"),
     "{s}_delta_prime_max": ("float", "1 (PEST3 normalization)", "DEPRECATED v1 alias of {s}_delta_prime_max_qa_interior; removed in v3"),
-    "{s}_n_summary_surfaces": ("int", "", "resolved interior surfaces used in the summary"),
+    "{s}_n_summary_surfaces": ("int", "", "DEPRECATED v1: consistent interior surfaces"),
     "{s}_gpec_build": ("str", "", "GPEC build(s) that ran this solver for the row"),
     "delta_prime": ("float", "1 (PEST3 normalization)", "surface table: diagonal Δ′ at mpsi 256"),
     "two_resolution_consistent": ("bool", "", "surface table: same sign and <= 20 % relative change between mpsi 256 and 512 (heuristic); 'resolved' is its deprecated name"),
     "sign_agreement": ("bool", "", "surface table: mpsi 256 and 512 agree in sign"),
+    "delta_prime_absolute_change": ("float", "1 (PEST3 normalization)", "surface table: |Δ′(256) - Δ′(512)|"),
     "ordinal_position": ("str", "", "surface table: first | interior | last (QA annotation, never an exclusion)"),
     "shear_psi": ("float", "", "surface table: d ln q / d ln psi_N at the surface (weak near q_min)"),
     "psi_n_from_qmin": ("float", "", "surface table: psi_N(surface) - psi_N(q_min)"),
@@ -598,7 +631,7 @@ SCHEMA_NOTES = {
     "resolution": "{r} = 256 is the reported value; 512 is the convergence check (#141).",
     "delta_prime": f"Diagonal classical Δ′ (RDCON/STRIDE PEST3 matching matrix). two_resolution_consistent = same sign and within {DELTA_PRIME_RTOL:.0%} between mpsi 256 and 512 (heuristic: the median change of #141 mid-radius surfaces). Raw extrema use every surface; *_qa use consistent surfaces at any position; *_qa_interior also require an interior surface; *_delta_prime_max is the deprecated v1 alias of *_qa_interior. Position, shear and q_min distance are annotations, never exclusions. RDCON and STRIDE are never combined. RDCON Δ′ also moves ~3% between compiler builds (#1448).",
     "status": list(STATUS_VALUES) + list(EXTENSION_VALUES),
-    "status_semantics": "dcon_*_status: VALID_* when mpsi 256 and 512 agree in the sign of W_t, NUMERICALLY_UNRESOLVED when they disagree, NOT_CHECKED when the 512 run is missing/failed. No magnitude band: a small negative W_t with a robust sign is ideal-unstable (#142). {s}_status never carries a stability verdict (#939; RMATCH out of scope, #797). INVALID_EQUILIBRIUM: the source g-file or its CHEASE refinement is missing. MARGINAL is reserved, not produced.",
+    "status_semantics": "dcon_*_status: VALID_* when mpsi 256 and 512 agree in the sign of W_t, NUMERICALLY_UNRESOLVED when they disagree (or W_t = 0), NOT_CHECKED when the 512 run is missing/failed. No magnitude band: a small negative W_t with a robust sign is ideal-unstable (#142). {s}_status keeps its v1 meaning (RESOLVED = a two-resolution-consistent interior surface exists); {s}_qa_status is the v2 form (any position). Neither is a stability verdict (#939; RMATCH out of scope, #797). INVALID_EQUILIBRIUM: the source g-file or its CHEASE refinement is missing; layer 2-3 columns are then empty. MARGINAL is reserved, not produced.",
     "layers": "1 raw solver output; 2 numerical QA annotations (sign_class, two_resolution_consistent, position, shear, q_min distance, *_qa summaries); 3 universal physical criteria (ideal_unstable_*_edge = sign of W_t, *_classical_tearing_drive = Δ′ > 0 at any surface, D_I > 0, D_R > 0, C_A < 0); 4 interpretation (#939) is not produced here and never overwrites 1-3.",
     "coverage": "DCON (full and truncated edge, mpsi 256/512) n = 1..6; RDCON and STRIDE n = 1, 2 only (NOT_APPLICABLE for n >= 3).",
     "local_criteria": "max_D_I > 0 ideal interchange, max_D_R > 0 resistive interchange, min_C_A < 0 ballooning (evaluated surfaces only); from DCON at mpsi 256 with mer_flag/bal_flag recorded.",
