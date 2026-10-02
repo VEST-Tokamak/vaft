@@ -1,0 +1,236 @@
+"""Lane D extensions: what the B_T exponent measures, and where the exponents come from (#548, #1490).
+
+Three analyses on the primary selection of ``fit.py``:
+
+1. **B_T decomposition.** ``b_t_T`` is the vacuum field at R_geo, |B0 R0| / R_geo.
+   In Tier A, B0R0 (the TF current) varies by +-7 %, while R_geo moves from 0.32 to
+   0.44 m. Fitting B0R0 and R_geo as separate predictors shows how much of
+   alpha_B is a field dependence and how much is plasma position.
+2. **Shot fixed effects (within estimator).** Logs are demeaned within each shot,
+   so every between-shot difference is absorbed: wall state, Z_eff, fuelling, and
+   the TF setting. Only the time evolution inside a shot fits the exponents.
+   - Shots with one slice carry no within information and are dropped.
+   - The TF field is nearly constant within a shot (sd of log B0R0 about 0.1 %).
+     So only the R_geo part of B_T is informative there; a B0R0 term within
+     shots is reported, but it is unidentified.
+   - Errors are clustered by shot. No degrees-of-freedom correction is made for
+     the absorbed means, so they are slightly optimistic.
+   - Compare with the between-shot fit on shot means to see which variation
+     drives the pooled exponents.
+3. **Direct dimensionless regression** on the Thomson subset. It fits
+   Omega_i tau_E = C rho*^a beta^b nu*^c q^d directly, with no elimination of T
+   through P = W/tau, so it avoids the 1 + alpha_P singularity of the completed
+   indices.
+   - <T> = W_mhd / (3 n V e), assuming T_i = T_e and n_i = n_e. n is the Thomson
+     line average and V = 2 pi^2 a^2 R kappa_area.
+   - rho*, beta, nu*: the ``vaft.formula.equilibrium`` kernels.
+   - q: q_cyl.
+   - Caution: W enters tau_E and T, and through T it enters rho* (^1/2),
+     beta (^1) and nu* (^-2). Their errors are therefore correlated by
+     construction, and the indices carry that coupling. They are a consistency
+     check on the completed indices, not a replacement for them.
+
+4. **Campaign offset.** The Tier A shots come in two blocks, 399xx-403xx and
+   429xx-430xx, and the second block sits at a single TF setting. A pooled fit with
+   a campaign indicator, plus one fit per block, shows whether a B0R0 exponent is a
+   field dependence or a campaign label. A campaign offset can be physics (wall,
+   fuelling) or diagnostics (EFIT and magnetics era); it does not say which.
+
+Usage::
+
+    python extensions.py --table ~/runs/campaign/atlas/confinement/table.csv \\
+        --out ~/runs/campaign/atlas/confinement/extensions
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as _dt
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from fit import SELECTIONS, _git, select  # noqa: E402
+
+QE = 1.602176634e-19
+#: First shot of the second Tier A block (#1331): 399xx-403xx against 429xx-430xx.
+CAMPAIGN_SPLIT_SHOT = 42000
+
+
+def usable(table: pd.DataFrame, selection: str = "primary") -> pd.DataFrame:
+    frame = table.loc[select(table, SELECTIONS[selection])].copy()
+    frame = frame.loc[np.isfinite(frame["tau_e_th_s"]) & (frame["tau_e_th_s"] > 0)]
+    frame["b0r0_Tm"] = frame["b_t_T"] * frame["r_geo_m"]
+    return frame.reset_index(drop=True)
+
+
+def within_shot(frame: pd.DataFrame, columns: dict) -> tuple[np.ndarray, dict, np.ndarray]:
+    """Shot-demeaned logs, returned as exponentials so the power-law fitter can take them.
+
+    A demeaned log is exp()-ed back; the fitter takes its log again, so it sees the
+    demeaned values. Its intercept is then ~0 and carries no meaning.
+    """
+    counts = frame.groupby("shot")["shot"].transform("size")
+    f = frame.loc[counts >= 2]
+    logs = np.log(f[list(columns.values())].where(f[list(columns.values())] > 0))
+    demeaned = logs - logs.groupby(f["shot"]).transform("mean")
+    names = list(columns)
+    y = np.exp(demeaned[columns[names[0]]].to_numpy(float))
+    x = {k: np.exp(demeaned[columns[k]].to_numpy(float)) for k in names[1:]}
+    return y, x, f["shot"].to_numpy()
+
+
+def between_shot(frame: pd.DataFrame, columns: dict) -> tuple[np.ndarray, dict, np.ndarray]:
+    """Shot means of the logs, one row per shot; groups are the shots themselves."""
+    logs = np.log(frame[list(columns.values())].where(frame[list(columns.values())] > 0))
+    means = logs.groupby(frame["shot"]).mean()
+    names = list(columns)
+    y = np.exp(means[columns[names[0]]].to_numpy(float))
+    x = {k: np.exp(means[columns[k]].to_numpy(float)) for k in names[1:]}
+    return y, x, means.index.to_numpy()
+
+
+def dimensionless_columns(frame: pd.DataFrame) -> pd.DataFrame:
+    """<T>, rho*, beta_t, nu*, q_cyl and Omega_i tau_E per row (Thomson n_e required)."""
+    from vaft.formula.equilibrium import (
+        beta_t_from_n_T_B,
+        nu_star_from_n_T_B_R_epsilon_kappa_I,
+        omega_i_tau_E_from_B_tau_E_M,
+        q_cyl_from_B_R_epsilon_kappa_I,
+        rho_star_from_M_T_B_R_epsilon,
+    )
+
+    f = frame.loc[np.isfinite(frame["n_e_line_avg_m3"]) & (frame["n_e_line_avg_m3"] > 0)].copy()
+    volume = 2.0 * np.pi**2 * f["a_m"] ** 2 * f["r_geo_m"] * f["kappa_area"]
+    f["t_avg_eV"] = f["w_th_J"] / (3.0 * f["n_e_line_avg_m3"] * volume * QE)
+    a = {k: f[k].to_numpy(float) for k in ("m_eff_amu", "t_avg_eV", "b_t_T", "r_geo_m", "epsilon",
+                                          "kappa_area", "i_p_A", "n_e_line_avg_m3", "tau_e_th_s")}
+    f["rho_star"] = rho_star_from_M_T_B_R_epsilon(a["m_eff_amu"], a["t_avg_eV"], a["b_t_T"], a["r_geo_m"], a["epsilon"])
+    f["beta_t"] = beta_t_from_n_T_B(a["n_e_line_avg_m3"], a["t_avg_eV"], a["b_t_T"], output="fraction")
+    f["nu_star"] = nu_star_from_n_T_B_R_epsilon_kappa_I(a["n_e_line_avg_m3"], a["t_avg_eV"], a["b_t_T"],
+                                                        a["r_geo_m"], a["epsilon"], a["kappa_area"], a["i_p_A"])
+    f["q_cyl"] = q_cyl_from_B_R_epsilon_kappa_I(a["b_t_T"], a["r_geo_m"], a["epsilon"], a["kappa_area"], a["i_p_A"])
+    f["omega_tau"] = omega_i_tau_E_from_B_tau_E_M(a["b_t_T"], a["tau_e_th_s"], a["m_eff_amu"])
+    return f
+
+
+def run(name, y, x, groups, note=""):
+    from vaft.process.confinement import assess_predictor_identifiability, fit_confinement_scaling
+
+    try:
+        fit = fit_confinement_scaling(y, x, groups)
+    except ValueError as exc:
+        return [{"fit": name, "term": "", "error": str(exc), "note": note}]
+    ident = assess_predictor_identifiability(x)
+    rows = []
+    for j, term in enumerate(fit.names):
+        rows.append({"fit": name, "term": term, "coef": fit.coef[j], "se_cluster": fit.stderr[j],
+                     "ci95_lo": fit.ci95[j, 0], "ci95_hi": fit.ci95[j, 1], "n": fit.n, "shots": fit.n_groups,
+                     "r2": fit.r2, "rmse_log": fit.rmse_log, "condition_number": ident["condition_number"],
+                     "max_vif": max(ident["vif"].values()), "note": note})
+    return rows
+
+
+def main(argv=None) -> int:
+    p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    p.add_argument("--table", required=True)
+    p.add_argument("--out", required=True)
+    args = p.parse_args(argv)
+    table_path = Path(args.table).expanduser()
+    out = Path(args.out).expanduser()
+    out.mkdir(parents=True, exist_ok=True)
+    frame = usable(pd.read_csv(table_path))
+
+    rows = []
+    pooled = {"tau": "tau_e_th_s", "i_p": "i_p_A", "b_t": "b_t_T", "p_net": "p_loss_W"}
+    split = {"tau": "tau_e_th_s", "i_p": "i_p_A", "b0r0": "b0r0_Tm", "r_geo": "r_geo_m", "p_net": "p_loss_W"}
+    g = frame["shot"].to_numpy()
+    for label, cols, note in (
+        ("pooled:I,B,P", pooled, "reference: fit A of fit.py"),
+        ("pooled:I,B0R0,R,P", split, "B_T split into TF current and plasma position"),
+        ("pooled:I,B0R0,P", {k: v for k, v in split.items() if k != "r_geo"},
+         "TF current only (R_geo left out)"),
+    ):
+        rows += run(label, frame[cols["tau"]].to_numpy(float),
+                    {k: frame[c].to_numpy(float) for k, c in cols.items() if k != "tau"}, g, note)
+
+    for label, cols, note in (
+        ("within:I,R,P", {k: v for k, v in split.items() if k != "b0r0"},
+         "shot fixed effects; B0R0 is constant within a shot"),
+        ("within:I,P", {k: v for k, v in pooled.items() if k != "b_t"}, "shot fixed effects"),
+        ("within:I,B0R0,R,P", split, "B0R0 nearly constant within a shot: expect it unidentified"),
+    ):
+        y, x, gw = within_shot(frame, cols)
+        rows += run(label, y, x, gw, note)
+
+    for label, cols, note in (
+        ("between:I,B,P", pooled, "one row per shot (shot means of the logs)"),
+        ("between:I,B0R0,R,P", split, "one row per shot"),
+    ):
+        y, x, gb = between_shot(frame, cols)
+        rows += run(label, y, x, gb, note)
+
+    second = (frame["shot"] >= CAMPAIGN_SPLIT_SHOT).to_numpy()
+    xc = {k: frame[c].to_numpy(float) for k, c in split.items() if k not in ("tau", "r_geo")}
+    # exp(1) on the second block: its log coefficient is the block's log offset.
+    rows += run("pooled:I,B0R0,P+campaign", frame["tau_e_th_s"].to_numpy(float),
+                {**xc, "campaign2": np.where(second, np.e, 1.0)}, g,
+                "log offset of the 429xx-430xx block; physics or diagnostics era")
+    for block, mask in (("399xx-403xx", ~second), ("429xx-430xx", second)):
+        sub = frame.loc[mask]
+        rows += run(f"block {block}:I,B0R0,P", sub["tau_e_th_s"].to_numpy(float),
+                    {k: sub[c].to_numpy(float) for k, c in split.items() if k not in ("tau", "r_geo")},
+                    sub["shot"].to_numpy(), "one campaign block")
+
+    dim = dimensionless_columns(frame)
+    gd = dim["shot"].to_numpy()
+    for label, keys, note in (
+        ("dimensionless:rho,beta,nu,q", ("rho_star", "beta_t", "nu_star", "q_cyl"),
+         "direct; W shared by tau, rho*, beta, nu*"),
+        ("dimensionless:rho,beta,nu", ("rho_star", "beta_t", "nu_star"), "direct, q left out"),
+        ("dimensionless:rho,q", ("rho_star", "q_cyl"), "direct, rho* and q only"),
+    ):
+        rows += run(label, dim["omega_tau"].to_numpy(float),
+                    {k: dim[k].to_numpy(float) for k in keys}, gd, note)
+
+    result = pd.DataFrame(rows)
+    result.to_csv(out / "coefficients.csv", index=False)
+    dim[["shot", "time_s", "t_avg_eV", "rho_star", "beta_t", "nu_star", "q_cyl", "omega_tau"]].to_csv(
+        out / "dimensionless_rows.csv", index=False)
+    spread = {
+        "b0r0_Tm": [float(frame["b0r0_Tm"].min()), float(frame["b0r0_Tm"].max())],
+        "r_geo_m": [float(frame["r_geo_m"].min()), float(frame["r_geo_m"].max())],
+        "sd_log": {c: float(np.log(frame[c]).std()) for c in ("b_t_T", "b0r0_Tm", "r_geo_m")},
+        "corr_log_bt_r": float(np.corrcoef(np.log(frame["b_t_T"]), np.log(frame["r_geo_m"]))[0, 1]),
+        "within_shot_sd_log_b0r0": float((np.log(frame["b0r0_Tm"])
+                                          - np.log(frame["b0r0_Tm"]).groupby(frame["shot"]).transform("mean")).std()),
+        "b0r0_by_block": {b: [float(v.min()), float(v.max())] for b, v in
+                          frame.groupby(np.where(second, "429xx-430xx", "399xx-403xx"))["b0r0_Tm"]},
+        "dimensionless_ranges": {c: [float(dim[c].min()), float(dim[c].max())]
+                                 for c in ("t_avg_eV", "rho_star", "beta_t", "nu_star", "q_cyl")},
+    }
+    manifest = {
+        "generated_at": _dt.datetime.now(_dt.timezone.utc).isoformat(), "command": " ".join(sys.argv),
+        "vaft_git": _git("rev-parse", "HEAD"), "vaft_dirty": bool(_git("status", "--porcelain")),
+        "table": {"path": str(table_path), "sha256": hashlib.sha256(table_path.read_bytes()).hexdigest()},
+        "selection": SELECTIONS["primary"], "spread": spread,
+        "notes": ("within: shot fixed effects, cluster errors without the absorbed-mean dof correction; "
+                  "between: shot means; dimensionless: <T> = W_mhd/(3 n V e), Ti=Te, n = Thomson line average, "
+                  "errors of tau, rho*, beta, nu* share W"),
+    }
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2))
+    show = result.loc[result["term"] != "log_C"]
+    cols = [c for c in ("fit", "term", "coef", "se_cluster", "n", "shots", "rmse_log", "condition_number", "error")
+            if c in show]
+    print(show[cols].round(3).to_string(index=False))
+    print(json.dumps(spread, indent=1))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
