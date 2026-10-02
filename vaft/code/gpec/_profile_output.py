@@ -161,6 +161,14 @@ class GpecProfileOutput:
     extras: dict[str, np.ndarray] = field(default_factory=dict)
     #: Native ``units`` attribute, for the variables that carry one.
     units: dict[str, str] = field(default_factory=dict)
+    #: Native ``jacobian`` attribute, for the variables that carry one: the
+    #: flux coordinates GPEC *wrote* that variable in, which is ``jac_out`` and
+    #: not necessarily the ``jac_type`` the run solved in. On the DIII-D
+    #: example every spectral variable carries ``"boozer"`` while the run
+    #: solved in ``"hamada"``, and ``Jbgradpsi_pest`` carries ``"pest"``, so a
+    #: consumer that labels a harmonic basis from the working jacobian names
+    #: the wrong angle.
+    jacobians: dict[str, str] = field(default_factory=dict)
     #: Native dimensions per variable, with the complex ``i`` axis removed.
     dims: dict[str, tuple[str, ...]] = field(default_factory=dict)
     attrs: dict[str, Any] = field(default_factory=dict)
@@ -217,6 +225,11 @@ def _read_profile(path: Path) -> GpecProfileOutput:
             for name in ds.variables
             if "units" in ds[name].attrs
         }
+        jacobians = {
+            name: str(ds[name].attrs["jacobian"]).strip().lower()
+            for name in ds.variables
+            if "jacobian" in ds[name].attrs
+        }
         named: dict[str, Any] = {}
         extras: dict[str, Any] = {}
         dims: dict[str, tuple[str, ...]] = {}
@@ -249,6 +262,7 @@ def _read_profile(path: Path) -> GpecProfileOutput:
             helicity=float_attr(attrs.get("helicity")),
             extras=extras,
             units=units,
+            jacobians=jacobians,
             dims=dims,
             attrs=attrs,
             **named,

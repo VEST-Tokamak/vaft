@@ -30,6 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 import json
 import re
+from types import MappingProxyType
 import warnings
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -11322,8 +11323,15 @@ def _build_mhd_linear_profile_b_field_perturbed(ods: Any, **options: Any) -> Pro
     )
 
 
-#: Attributes the mapper writes on each ``<surface>`` of a GPEC run's
-#: ``code.parameters``. Ordered as the derivation consumes them.
+#: Attributes every ``<surface>`` of a GPEC run's ``code.parameters`` carries,
+#: in every version of the mapper. Ordered as the derivation consumes them, and
+#: *required*: a row missing one of these is not a usable surface.
+#:
+#: A row may carry more -- the vacuum resonant pair arrived later -- so neither
+#: reader below filters on this list beyond requiring these five. The string
+#: shape reads every attribute it finds; the decoded shape has to be told to,
+#: which is the asymmetry `test_the_decoded_and_the_string_shapes_of_code_parameters_agree`
+#: exists to catch, and did.
 _SURFACE_FIELDS = ("psi_n", "q", "dq_dpsi_n", "area", "geometric_factor")
 
 
@@ -11403,10 +11411,18 @@ def _gpec_rational_surfaces(
             if int(_scalar(solver["@time_slice"])) != int(time_slice):
                 continue
         for block in _children(solver, "rational_surfaces"):
+            # Every attribute, not a fixed list: the string shape above reads
+            # whatever the row carries, and a reader that handles one shape
+            # differently works by accident on some shots.
             surfaces = [
-                {name: float(_scalar(row[f"@{name}"])) for name in _SURFACE_FIELDS}
+                {
+                    name[1:]: float(_scalar(value))
+                    for name, value in row.items()
+                    if isinstance(name, str) and name.startswith("@")
+                }
                 for row in _children(block, "surface")
-                if all(f"@{name}" in row for name in _SURFACE_FIELDS)
+                if isinstance(row, Mapping)
+                and all(f"@{name}" in row for name in _SURFACE_FIELDS)
             ]
             chi1 = block.get("@chi1")
             return (float(_scalar(chi1)) if chi1 is not None else float("nan")), surfaces
@@ -11500,6 +11516,94 @@ def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
             "resonates at a harmonic the mapped band covers"
         )
     return {"cell": cell, "n_tor": n_tor, "chi1": chi1, "rows": rows}
+
+
+#: What ``field=`` selects on the island separatrix figure, and where each one's
+#: numbers come from.
+#:
+#: Required, with no default, because the two are different physical objects
+#: drawn on the same axes and nothing in the figure would say which: on GPEC's
+#: DIII-D example they differ by 20 % in width at ``q = 2``, a factor 2.1 at
+#: ``q = 4``, and up to 3.1 rad in phase. A default would make a reader's answer
+#: depend on a keyword they never typed.
+ISLAND_FIELD_SOURCES: Mapping[str, str] = MappingProxyType({
+    "total": (
+        "the ideal response's own resonant flux, derived from the mapped "
+        "spectral field (Jbgradpsi) through vaft.process.perturbation."
+        "resonant_delta and the closed forms in vaft.formula.stability"
+    ),
+    "vacuum": (
+        "GPEC's w_isl_v and Phi_res_v, read from the rational-surface block the "
+        "mapper records: the applied coil field alone, which is the field a "
+        "Poincare trace can follow, because an ideal response shields the "
+        "resonant field the total harmonic is derived from"
+    ),
+})
+
+
+def _gpec_vacuum_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
+    """The vacuum resonant table GPEC itself reported, per rational surface.
+
+    The counterpart of :func:`_gpec_resonant_table`, and deliberately *not* a
+    branch inside it: that one derives the total-field table from the mapped
+    spectral array, and there is no vacuum spectral array to derive from -- the
+    IDS carries one field per mode. So these numbers are read, not derived, and
+    a product mapped before the mapper recorded them has none.
+
+    Two differences from the derived table a reader of the figure should know
+    about. There is no harmonic band to fall outside of, because nothing here
+    reads the spectral field, so every rational surface the run reported is
+    drawn -- the vacuum figure can show resonances the total one does not. And
+    the numbers carry GPEC's accuracy rather than the derivation's, which is the
+    better of the two: the derived phase reproduces GPEC's own to 0.026 degrees
+    on the reference, but it does reproduce it rather than being it.
+    """
+    cell = _mhd_linear_eigenfunction_cell(ods, **options)
+    n_tor = int(cell["n_tor"])
+    _, surfaces = _gpec_rational_surfaces(ods, n_tor, int(cell["time_slice"]))
+    if not surfaces:
+        raise ValueError(
+            f"mhd_linear ODS carries no rational-surface geometry for n={n_tor}. "
+            "Only an ideal-GPEC mapping writes it, and only when the run's chi1 "
+            "was available; a DCON-only product has none"
+        )
+    rows: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for surface in surfaces:
+        m_pol = int(round(n_tor * surface["q"]))
+        width = surface.get("w_isl_v")
+        real = surface.get("phi_res_v_real")
+        imaginary = surface.get("phi_res_v_imag")
+        if width is None or real is None or imaginary is None:
+            missing.append(f"{m_pol}/{n_tor}")
+            continue
+        if not (np.isfinite(width) and np.isfinite(real) and np.isfinite(imaginary)):
+            # The run wrote no vacuum pair for this surface; the mapper records
+            # NaN rather than dropping the row, so the gap is visible here.
+            missing.append(f"{m_pol}/{n_tor}")
+            continue
+        if not width > 0.0:
+            missing.append(f"{m_pol}/{n_tor}")
+            continue
+        flux = complex(real, imaginary)
+        rows.append({
+            "psi_n": float(surface["psi_n"]),
+            "q": float(surface["q"]),
+            "m_pol": m_pol,
+            "Phi_res": flux,
+            "phase": float(np.angle(flux)),
+            "w_isl": float(width),
+        })
+    if not rows:
+        raise ValueError(
+            f"this mhd_linear product records no usable vacuum resonant pair for "
+            f"n={n_tor} on any of its {len(surfaces)} rational surfaces, so "
+            "field='vacuum' has nothing to draw. GPEC's w_isl_v and Phi_res_v "
+            "are read rather than derived -- the IDS carries the total spectral "
+            "field only -- so a product mapped before the mapper recorded them "
+            "has to be mapped again, or drawn with field='total'"
+        )
+    return {"cell": cell, "n_tor": n_tor, "rows": rows, "missing": missing}
 
 
 def _build_gpec_resonant_profile(
@@ -12065,6 +12169,19 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
     hashes, unabbreviated, are in
     ``test/test_gpec_island_geometry.py::R01_PROVENANCE``.
 
+    **``field`` is required and has no default** -- ``"total"`` or
+    ``"vacuum"``, see :data:`ISLAND_FIELD_SOURCES`.  They are different
+    physical objects on the same axes: ``"total"`` is the ideal response's own
+    resonant flux, derived from the mapped spectral field, and ``"vacuum"`` is
+    GPEC's ``w_isl_v`` / ``Phi_res_v``, read from the rational-surface block.
+    On the DIII-D example they differ by 20 % in width at ``q = 2``, a factor
+    2.1 at ``q = 4`` and up to 3.1 rad in phase, so a default would make a
+    reader's answer depend on a keyword nobody typed.  The vacuum pair is the
+    one with a traced island -- an ideal response shields the resonant field
+    the total harmonic is derived from -- and the total pair is the one the
+    ideal solve is about; which to read is the question, not a convenience.
+    The title names the choice.
+
     ``phi_deg`` selects the toroidal slice (default 0).  Its sign is
     :func:`vaft.formula.stability.helical_phase`'s: the helical phase is
     ``m theta - n phi``, so the pattern advances in ``theta`` as ``phi``
@@ -12075,7 +12192,19 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
     from vaft.formula.stability import helical_phase, island_separatrix_half_width
     from vaft.process.equilibrium import pest_angle_from_jacobian_angle
 
-    table = _gpec_resonant_table(ods, **options)
+    requested = options.get("field")
+    if requested not in ISLAND_FIELD_SOURCES:
+        raise ValueError(
+            f"field={requested!r} is not one of {sorted(ISLAND_FIELD_SOURCES)}; "
+            "it is required and has no default, because the total and vacuum "
+            "resonant pairs are different physical objects drawn on the same "
+            "axes (20 % apart in width and up to 3.1 rad apart in phase on the "
+            "DIII-D reference) and the figure would not say which it drew. "
+            + "; ".join(f"{name!r} is {text}"
+                        for name, text in ISLAND_FIELD_SOURCES.items())
+        )
+    table = (_gpec_resonant_table(ods, **options) if requested == "total"
+             else _gpec_vacuum_resonant_table(ods, **options))
     cell = table["cell"]
     mesh = _mhd_linear_flux_surface_mesh(ods, cell["base"])
     n_tor = table["n_tor"]
@@ -12181,11 +12310,22 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
                 role="equilibrium",
             )
         )
+    provenance = ("derived from the mapped spectral field" if requested == "total"
+                  else "read from the run's own vacuum resonant table")
     title = (
-        f"Saturated island separatrices — n={n_tor}, {len(table['rows'])} "
-        f"rational surfaces, $\\phi$={phi_deg:g}° "
-        "(derived from the mapped flux, not read from the IDS)"
+        f"Saturated island separatrices — {requested} field, n={n_tor}, "
+        f"{len(table['rows'])} rational surfaces, $\\phi$={phi_deg:g}° "
+        f"({provenance})"
     )
+    if table.get("missing"):
+        # Only the vacuum branch can have these: the mapper writes NaN for a
+        # surface the run reported no vacuum pair for, rather than dropping the
+        # row, so a figure that is short of resonances says so instead of
+        # looking complete.
+        absent = table["missing"]
+        named = (f"m/n = {', '.join(absent)}" if len(absent) <= 3
+                 else f"{len(absent)} resonances")
+        title += (f"; {named} recorded no vacuum pair and are not drawn")
     if clipped:
         # Said on the figure rather than left to be read off a broken curve:
         # an island whose separatrix leaves the mapped mesh is drawn only as
