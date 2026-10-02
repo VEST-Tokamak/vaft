@@ -597,7 +597,8 @@ def resolve_transport_state(
         Ion-temperature fallback when no ion temperature is measured: ``"policy"``
         reads ``vest.yaml`` through
         :func:`vaft.machine_mapping.core_profiles.policy_for_ods`; a number is used
-        as given and recorded as caller-supplied; ``None`` disables the fallback.  A product whose
+        as given and recorded as caller-supplied; ``None`` disables the fallback.
+        Any other string is refused with :class:`ValueError` at entry.  A product whose
         ion temperature is itself a ratio record (``ti_te_ratio=...; status=assumed``,
         #1414) is resolved at the record's own ratio, as ``assumed`` [-].
     ti_te_ratio_sigma : float, optional
@@ -669,6 +670,10 @@ def resolve_transport_state(
         )
     if not np.isfinite(tolerance) or tolerance < 0.0:
         raise ValueError(f"tolerance must be finite and non-negative; got {tolerance!r}")
+    if isinstance(ti_te_ratio, str) and ti_te_ratio != "policy":
+        # Checked once here: a stored profile that happens to be complete would
+        # otherwise never reach the fallback branch and the typo would pass unseen.
+        raise ValueError(f"ti_te_ratio must be 'policy', a number or None; got {ti_te_ratio!r}")
 
     settings = {
         "tolerance_s": float(tolerance),
@@ -805,9 +810,6 @@ def resolve_transport_state(
                 if ti_te_ratio is None:
                     return _insufficient(base, "inferred_ti_incomplete")
                 if isinstance(ti_te_ratio, str):
-                    if ti_te_ratio != "policy":
-                        raise ValueError(
-                            f"ti_te_ratio must be 'policy', a number or None; got {ti_te_ratio!r}")
                     from vaft.machine_mapping.core_profiles import policy_for_ods
 
                     fill_ratio, fill_source = float(policy_for_ods(ods, key.shot).ti_te_ratio), "policy"
@@ -844,10 +846,6 @@ def resolve_transport_state(
                 source = str(records[assumed[0]])
                 step = {"step": "policy_ratio", "status": "used", "source": "product record"}
             elif isinstance(ti_te_ratio, str):
-                if ti_te_ratio != "policy":
-                    raise ValueError(
-                        f"ti_te_ratio must be 'policy', a number or None; got {ti_te_ratio!r}"
-                    )
                 from vaft.machine_mapping.core_profiles import policy_for_ods
 
                 policy = policy_for_ods(ods, key.shot)

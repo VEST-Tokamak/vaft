@@ -1823,3 +1823,15 @@ def test_an_incomplete_inferred_label_set_names_what_is_missing(sample):
     ods[f"{prefix}.ion.1.temperature"] = 0.5 * np.asarray(ods[f"{prefix}.ion.1.temperature"], dtype=float)
     state = resolve_transport_state(ods, _key(0.3), efit_quality="good", use_stored_inferred_ti=True)
     assert state.reasons == ("inferred_ti_species_disagree",)
+
+
+def test_a_bad_ti_te_ratio_string_is_refused_at_entry(sample):
+    """F6: validated once, not only when a fill is needed."""
+    complete = _with_inferred_ti(sample)
+    complete["core_profiles.profiles_1d.0.ion.0.temperature"] = np.maximum(
+        np.asarray(complete["core_profiles.profiles_1d.0.ion.0.temperature"], dtype=float), 1.0)
+    with pytest.raises(ValueError, match="ti_te_ratio must be"):
+        resolve_transport_state(complete, _key(0.3), efit_quality="good", use_stored_inferred_ti=True,
+                                ti_te_ratio="bogus")
+    with pytest.raises(ValueError, match="ti_te_ratio must be"):
+        resolve_transport_state(sample, _key(0.3), efit_quality="good", ti_te_ratio="auto")
