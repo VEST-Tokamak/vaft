@@ -1701,7 +1701,15 @@ def test_the_atlas_never_partitions_a_neo_surface_the_fill_reaches(atlas, driver
     rows = atlas.build_rows(tmp_path / "tglf" / "tglf-sat3-em-bper", tmp_path / "neo")
     by_r = {round(r["r_over_a"], 1): r for r in rows}
     assert by_r[0.8]["tglf_status"] == "not_ready"
-    assert by_r[0.8]["partition_status"] in ("ti_not_inferred_here", "missing_turbulent_component")
+    # The fixture's fill (rho >= 0.6) reaches NEO's r/a = 0.8 surface: the driver writes
+    # ``ti_supported: false`` there and the atlas names that, not the absent TGLF row
+    # (``missing_turbulent_component``, which it would fall to if the flag were lost).
+    neo_states = [json.loads(path.read_text(encoding="utf-8"))
+                  for path in (tmp_path / "neo").rglob("state.json")]
+    assert len(neo_states) == 1
+    neo_surfaces = {round(float(row["r_over_a"]), 1): row for row in neo_states[0]["core_transport"]["surfaces"]}
+    assert neo_surfaces[0.8]["ti_supported"] is False and neo_surfaces[0.3]["ti_supported"] is True
+    assert by_r[0.8]["partition_status"] == "ti_not_inferred_here"
     assert by_r[0.3]["partition_status"] == "available"
     assert {r["ti_lineage"] for r in rows} == {"pressure_partition_inferred"}
 
