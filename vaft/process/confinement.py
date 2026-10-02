@@ -55,6 +55,11 @@ __all__ = [
     "assess_predictor_identifiability",
     "bootstrap_confinement_scaling",
     "leave_one_group_out_scaling",
+    "fit_confinement_scaling_odr",
+    "infer_kadomtsev_size_exponent",
+    "dimensionless_confinement_indices",
+    "closure_constraint",
+    "fit_constrained_confinement_scaling",
 ]
 
 def _series(name: str, value, size: Optional[int] = None) -> np.ndarray:
@@ -1003,3 +1008,409 @@ def leave_one_group_out_scaling(
         "names": ("log_C", *names), "groups": labels, "coef": coef, "log_error": error,
         "rmse_log": float(np.sqrt(np.mean(error[finite] ** 2))) if finite.any() else np.nan,
     }
+
+
+# --- Errors in variables, Kadomtsev completion and closures (#548 Sec. 6-8) ------
+
+
+def fit_confinement_scaling_odr(
+    response: np.ndarray,
+    predictors: Mapping[str, np.ndarray],
+    *,
+    sigma_log_response: float,
+    sigma_log_predictors: Mapping[str, float],
+) -> dict:
+    """Errors-in-variables (orthogonal distance) power-law fit in log space.
+
+    Parameters
+    ----------
+    response : numpy.ndarray
+        The fitted quantity. For the $\\tau_E = W/P$ coupling, fit $W$, not
+        $\\tau_E$, so its error is independent of the power's [any].
+    predictors : Mapping
+        Predictor arrays keyed by name [any].
+    sigma_log_response : float
+        Standard deviation of $\\ln y$, i.e. the relative error of the
+        response [-].
+    sigma_log_predictors : Mapping
+        Standard deviation of $\\ln x_j$ per predictor; zero marks a predictor
+        as exact [-].
+
+    Returns
+    -------
+    dict
+        ``names`` (``log_C`` first) [-]; ``coef``, the errors-in-variables
+        coefficients [-]; ``n`` rows used [-]; ``mask`` of the rows used
+        [bool]; ``ols_coef``, the least-squares coefficients of the same data
+        [-] [any].
+
+    Raises
+    ------
+    ValueError
+        No predictor, mismatched lengths, a non-positive response error, a
+        negative or non-finite or missing predictor error, no noisy
+        predictor, or fewer rows than coefficients plus one.
+
+    Processing steps
+    ----------------
+    1. Keep rows where everything is finite and positive; take logs.
+    2. Partial the exact predictors (zero error) and the intercept out of the
+       response and the noisy predictors by least squares.
+    3. Scale each residual column by its error and take the right singular
+       vector $v$ of the smallest singular value (total least squares); the
+       noisy slopes are $b_j = -(v_j/\\sigma_j)/(v_y/\\sigma_y)$.
+    4. The exact predictors' slopes and the intercept by least squares of
+       $y - \\sum_{j\\in\\mathrm{noisy}} b_j x_j$ on them.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The answer depends on the assumed error *ratios*, so report it as a
+    function of them. Errors are assumed independent between variables.
+    Fitting $\\tau_E = W/P$ against $P$ violates that, which is why the
+    response should be $W$ (its $P$ exponent is $1 + \\alpha_P$). No standard
+    error is returned: rows of one shot are not independent, so use a shot
+    bootstrap around this function.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 6: errors-in-variables regression, and the
+       coupling from $\\tau_E = W/P$ with $P$ a predictor.
+    .. [VHV] S. Van Huffel and J. Vandewalle, *The Total Least Squares
+       Problem*, SIAM (1991), Ch. 3: mixed exact/noisy columns (partial TLS);
+       for a linear model with known error ratios it is the orthogonal
+       distance (maximum-likelihood) solution.
+    """
+    names, log_y, x, _, keep = _log_design(response, predictors, np.zeros(np.size(response)))
+    n, k = x.shape
+    if n <= k:
+        raise ValueError(f"{n} usable rows cannot fit {k} coefficients")
+    sy = float(sigma_log_response)
+    if not (np.isfinite(sy) and sy > 0):
+        raise ValueError(f"sigma_log_response must be finite and > 0, got {sigma_log_response!r}")
+    missing = [name for name in names if name not in sigma_log_predictors]
+    if missing:
+        raise ValueError(f"no log error given for predictor(s) {missing}")
+    sx = np.array([float(sigma_log_predictors[name]) for name in names])
+    if np.any(~np.isfinite(sx)) or np.any(sx < 0):
+        raise ValueError(f"predictor log errors must be finite and >= 0, got {sx!r}")
+    noisy = np.flatnonzero(sx > 0)
+    exact = np.flatnonzero(sx == 0)
+    if noisy.size == 0:
+        raise ValueError("no predictor has an error: use fit_confinement_scaling")
+    ols, *_ = np.linalg.lstsq(x, log_y, rcond=None)
+
+    base = np.column_stack([np.ones(n)] + [x[:, 1 + j] for j in exact])
+    proj = base @ np.linalg.pinv(base)
+    resid = lambda v: v - proj @ v  # noqa: E731
+    z = np.column_stack([resid(x[:, 1 + j]) / sx[j] for j in noisy] + [resid(log_y) / sy])
+    v = np.linalg.svd(z, full_matrices=False)[2][-1]
+    if abs(v[-1]) < 1e-12:
+        raise ValueError("the errors-in-variables solution is vertical: no finite slope")
+    b_noisy = -(v[:-1] / sx[noisy]) / (v[-1] / sy)
+    rest = log_y - x[:, 1 + noisy] @ b_noisy
+    b_base, *_ = np.linalg.lstsq(base, rest, rcond=None)
+    coef = np.zeros(k)
+    coef[0] = b_base[0]
+    coef[1 + exact] = b_base[1:]
+    coef[1 + noisy] = b_noisy
+    return {"names": ("log_C", *names), "coef": coef, "n": n, "mask": keep, "ols_coef": ols}
+
+
+def infer_kadomtsev_size_exponent(
+    alpha: Mapping[str, float],
+    cov: np.ndarray,
+) -> tuple[float, float]:
+    """Size exponent the Kadomtsev constraint implies for fitted I, B, P (and n) exponents.
+
+    Parameters
+    ----------
+    alpha : Mapping
+        Fitted exponents keyed ``i_p``, ``b_t``, ``p_net`` and, optionally,
+        ``n_e`` (absent means zero by model definition, not measured) [-].
+    cov : numpy.ndarray
+        Their covariance, rows and columns in the order of ``alpha`` [-].
+
+    Returns
+    -------
+    alpha_R : float
+        $\\alpha_R^{\\mathrm{KCT}} = \\tfrac14\\alpha_I + \\tfrac54\\alpha_B
+        + \\tfrac34\\alpha_P + 2\\alpha_n + \\tfrac54$ [-].
+    stderr : float
+        Its standard error, $\\sqrt{g^\\top C g}$ with $g$ the coefficients
+        above [-].
+
+    Raises
+    ------
+    ValueError
+        A missing or unknown exponent name, or a covariance of the wrong
+        shape.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    An *assumed* size exponent, not a measured one: one machine's shot-to-shot
+    radius changes are not a size scan, and a Kadomtsev-completed scaling
+    satisfies the constraint by construction, so a zero residual is no
+    evidence for it. Label every use accordingly (#548 Sec. 7).
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 7: the Connor-Taylor/Kadomtsev completion and its
+       covariance propagation.
+    .. [Kadomtsev] B. B. Kadomtsev, *Sov. J. Plasma Phys.* **1** (1975) 295.
+    """
+    weights = {"i_p": 0.25, "b_t": 1.25, "p_net": 0.75, "n_e": 2.0}
+    names = list(alpha)
+    unknown = [name for name in names if name not in weights]
+    if unknown or not {"i_p", "b_t", "p_net"} <= set(names):
+        raise ValueError(f"exponents must be i_p, b_t, p_net and optionally n_e; got {names}")
+    c = np.atleast_2d(np.asarray(cov, dtype=float))
+    if c.shape != (len(names), len(names)):
+        raise ValueError(f"cov must be {len(names)}x{len(names)}, got {c.shape}")
+    g = np.array([weights[name] for name in names])
+    value = float(g @ np.array([float(alpha[name]) for name in names]) + 1.25)
+    return value, float(np.sqrt(max(g @ c @ g, 0.0)))
+
+
+def dimensionless_confinement_indices(
+    alpha: Mapping[str, float],
+    cov: np.ndarray,
+) -> dict:
+    """Kadomtsev-completed dimensionless indices $(\\mu_\\rho, \\mu_\\beta, \\mu_\\nu, \\mu_q)$ with their covariance.
+
+    Parameters
+    ----------
+    alpha : Mapping
+        Fitted exponents keyed ``i_p``, ``b_t``, ``p_net`` and optionally
+        ``n_e`` [-].
+    cov : numpy.ndarray
+        Their covariance in the order of ``alpha`` [-].
+
+    Returns
+    -------
+    dict
+        ``alpha_R`` and ``alpha_R_stderr``, the completed size exponent [-];
+        ``names`` (``mu_rho``, ``mu_beta``, ``mu_nu``, ``mu_q``) [-];
+        ``value`` and ``cov`` of the indices [-]; ``stderr`` [-] [any].
+
+    Raises
+    ------
+    ValueError
+        As :func:`infer_kadomtsev_size_exponent`, or $\\alpha_P = -1$.
+
+    Processing steps
+    ----------------
+    1. Complete the size exponent with :func:`infer_kadomtsev_size_exponent`.
+    2. Map the completed engineering exponents to dimensionless indices with
+       :func:`vaft.formula.equilibrium.dimensionless_scaling_coeffs_from_engineering_scaling_coeffs`
+       (exact here: a completed scaling satisfies the constraint), and
+       $\\mu_q = -\\alpha_I/(1+\\alpha_P)$.
+    3. Propagate ``cov`` through the map's Jacobian (central differences,
+       the size exponent completed at every evaluation).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Inherits the *assumed* size exponent: the indices are those of the
+    Kadomtsev-completed scaling, not measured dimensionless dependences. The
+    linear propagation is poor when $1 + \\alpha_P$ is within a few standard
+    errors of zero, where every index diverges.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 7 (layer E): dimensionless conversion with
+       uncertainties and covariances.
+    .. [Luce] T. C. Luce, C. C. Petty and J. G. Cordey, *Plasma Phys. Control.
+       Fusion* **50** (2008) 043001.
+    """
+    from vaft.formula.equilibrium import (
+        dimensionless_scaling_coeffs_from_engineering_scaling_coeffs as _to_dimensionless,
+    )
+
+    names = list(alpha)
+    a0 = np.array([float(alpha[name]) for name in names])
+    alpha_r, alpha_r_se = infer_kadomtsev_size_exponent(alpha, cov)
+
+    def indices(vec):
+        a = dict(zip(names, vec))
+        a_r, _ = infer_kadomtsev_size_exponent(a, np.zeros((len(names), len(names))))
+        mu = _to_dimensionless(a["i_p"], a["b_t"], a["p_net"], a.get("n_e", 0.0), 0.0, a_r, 0.0, 0.0)
+        return np.array([mu[0], mu[1], mu[2], -a["i_p"] / (1.0 + a["p_net"])])
+
+    value = indices(a0)
+    jac = np.zeros((4, len(names)))
+    for j in range(len(names)):
+        h = 1e-6 * max(1.0, abs(a0[j]))
+        up, down = a0.copy(), a0.copy()
+        up[j] += h
+        down[j] -= h
+        jac[:, j] = (indices(up) - indices(down)) / (2 * h)
+    c = jac @ np.atleast_2d(np.asarray(cov, dtype=float)) @ jac.T
+    return {"alpha_R": alpha_r, "alpha_R_stderr": alpha_r_se,
+            "names": ("mu_rho", "mu_beta", "mu_nu", "mu_q"), "value": value, "cov": c,
+            "stderr": np.sqrt(np.clip(np.diag(c), 0.0, None))}
+
+
+def closure_constraint(mu_rho: float, names) -> tuple[dict, float]:
+    """Linear constraint on I, B, P (and n) exponents fixing the Kadomtsev-completed $\\mu_\\rho$.
+
+    Parameters
+    ----------
+    mu_rho : float
+        Gyroradius index of the closure: $-2$ Bohm, $-3$ gyro-Bohm, or any
+        value between [-].
+    names : sequence of str
+        The fit's predictor names: ``i_p``, ``b_t``, ``p_net`` and optionally
+        ``n_e`` [-].
+
+    Returns
+    -------
+    coef : dict
+        Constraint coefficient per predictor name [-].
+    rhs : float
+        Right-hand side, so that ``sum(coef[k] * alpha[k]) == rhs`` [-].
+
+    Raises
+    ------
+    ValueError
+        Unknown or missing predictor names.
+
+    Processing steps
+    ----------------
+    1. Complete the size exponent with the Kadomtsev constraint,
+       $\\alpha_R = (\\alpha_I + 5\\alpha_B + 3\\alpha_P + 8\\alpha_n + 5)/4$.
+    2. Substitute into
+       $\\mu_\\rho(1+\\alpha_P) = \\alpha_B - \\alpha_I - 2\\alpha_R + 2\\alpha_n
+       - 3\\alpha_P + 1$, which leaves
+       $\\tfrac32\\alpha_I + \\tfrac32\\alpha_B + (\\mu_\\rho + \\tfrac92)\\alpha_P
+       + 2\\alpha_n = -(\\mu_\\rho + \\tfrac32)$.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The closures are alternative hypotheses, not simultaneous constraints;
+    the intermediate $\\mu_\\rho = -2.5$ is a single index, not an additive
+    Bohm plus gyro-Bohm model (#548 Sec. 8). A density-free fit has
+    $\\alpha_n = 0$ by definition, which is part of the hypothesis tested.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 8: Bohm, intermediate and gyro-Bohm closures as
+       one parameterized constraint.
+    """
+    allowed = {"i_p": 1.5, "b_t": 1.5, "p_net": float(mu_rho) + 4.5, "n_e": 2.0}
+    names = list(names)
+    unknown = [name for name in names if name not in allowed]
+    if unknown or not {"i_p", "b_t", "p_net"} <= set(names):
+        raise ValueError(f"predictors must be i_p, b_t, p_net and optionally n_e; got {names}")
+    return {name: allowed[name] for name in names}, -(float(mu_rho) + 1.5)
+
+
+def fit_constrained_confinement_scaling(
+    response: np.ndarray,
+    predictors: Mapping[str, np.ndarray],
+    groups: np.ndarray,
+    constraint: Mapping[str, float],
+    rhs: float,
+) -> ConfinementScalingFit:
+    """Log-linear power-law fit under one linear equality constraint on the exponents.
+
+    Parameters
+    ----------
+    response : numpy.ndarray
+        The fitted quantity, usually $\\tau_E$ [any].
+    predictors : Mapping
+        Predictor arrays keyed by name [any].
+    groups : numpy.ndarray
+        Group label per row (the shot) [-].
+    constraint : Mapping
+        Coefficient per predictor name; omitted predictors (and the
+        intercept) enter with zero [-].
+    rhs : float
+        Right-hand side of ``sum(constraint[k] * alpha[k]) == rhs`` [-].
+
+    Returns
+    -------
+    ConfinementScalingFit
+        As :func:`fit_confinement_scaling`, with the constrained coefficients,
+        the cluster covariance projected onto the constraint (singular along
+        it) and Student-t intervals with $G - 1$ degrees of freedom [any].
+
+    Raises
+    ------
+    ValueError
+        As :func:`fit_confinement_scaling`, or a constraint naming an unknown
+        predictor or with all-zero coefficients.
+
+    Processing steps
+    ----------------
+    1. The unconstrained least-squares fit and its clustered covariance $V$
+       (:func:`fit_confinement_scaling`).
+    2. Restricted least squares,
+       $\\beta_c = \\beta - (X^\\top X)^{-1}c^\\top(c(X^\\top X)^{-1}c^\\top)^{-1}(c\\beta - r)$.
+    3. Covariance $MVM^\\top$ with
+       $M = I - (X^\\top X)^{-1}c^\\top(c(X^\\top X)^{-1}c^\\top)^{-1}c$.
+    4. Residuals, $R^2$, leverage and Cook's distance of the constrained fit's
+       residuals on the same design.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Least squares only (no robust option). ``stderr_iid`` is the projected
+    iid error.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 8: closures fitted as constraints and compared.
+    .. [Greene] W. H. Greene, *Econometric Analysis*, 7th ed., Pearson (2012),
+       Sec. 5.5: restricted least squares.
+    """
+    from scipy import stats
+
+    base = fit_confinement_scaling(response, predictors, groups)
+    names = list(base.names)
+    unknown = [name for name in constraint if name not in names[1:]]
+    if unknown:
+        raise ValueError(f"constraint names unknown predictor(s) {unknown}")
+    c = np.array([0.0] + [float(constraint.get(name, 0.0)) for name in names[1:]])
+    if not np.any(c):
+        raise ValueError("the constraint has no non-zero coefficient")
+    _, log_y, x, g, keep = _log_design(response, predictors, groups)
+    xtx_inv = np.linalg.inv(x.T @ x)
+    gain = xtx_inv @ c / float(c @ xtx_inv @ c)
+    coef = base.coef - gain * (float(c @ base.coef) - float(rhs))
+    m = np.eye(c.size) - np.outer(gain, c)
+    cov = m @ base.cov @ m.T
+    stderr = np.sqrt(np.clip(np.diag(cov), 0.0, None))
+    iid = m @ np.diag(base.stderr_iid**2) @ m.T
+    t = stats.t.ppf(0.975, base.n_groups - 1)
+    residuals = log_y - x @ coef
+    ss_tot = float(np.sum((log_y - log_y.mean()) ** 2))
+    k_free = c.size - 1
+    s2 = float(np.sum(residuals**2)) / max(base.n - k_free, 1)
+    lev = base.leverage
+    cooks = residuals**2 / (k_free * s2) * lev / (1.0 - lev) ** 2
+    return ConfinementScalingFit(
+        names=base.names, coef=coef, stderr=stderr, cov=cov,
+        ci95=np.column_stack([coef - t * stderr, coef + t * stderr]),
+        stderr_iid=np.sqrt(np.clip(np.diag(iid), 0.0, None)), n=base.n, n_groups=base.n_groups,
+        r2=1.0 - float(np.sum(residuals**2)) / ss_tot if ss_tot > 0 else np.nan,
+        rmse_log=float(np.sqrt(np.mean(residuals**2))), residuals=residuals,
+        leverage=lev, cooks_distance=cooks, mask=keep, robust=False,
+    )
