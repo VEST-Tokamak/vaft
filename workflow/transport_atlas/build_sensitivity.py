@@ -22,6 +22,13 @@ by its interval width gives the interval's mean spectral density, so the peak is
 reported at the midpoint of the interval with the largest
 ``|sum over species and fields of entry_k| / (ky_k - ky_{k-1})``; the signed sum is
 taken first, as for ``ky_q_mean``. The result does not depend on how the grid is spaced.
+That weighting is only formed when ``KYGRID_MODEL != 0``. For ``KYGRID_MODEL = 0`` (the
+linear grid ``ky_k = k * ky_1``, tglf_kygrid.f90) TGLF leaves ``dky0 = 0, dky1 = ky_1``,
+so entry k is ``ky_1 * Q_k``: a right-endpoint rectangle that samples the flux AT
+``ky_k``. The peak is then ``ky_k`` of the largest ``|entry_k| / ky_1``. Every other
+value of ``KYGRID_MODEL`` takes the ``.ne.0`` branch, so the trapezoid rule applies. The
+grid model is read from the run's recorded ``tglf_parameters`` (``extra_parameters``,
+default 1); a value that is not an integer leaves ``ky_q_peak`` empty.
 
     python build_sensitivity.py --runs ~/runs/transport/sensitivity --out <dir>
 """
@@ -121,14 +128,38 @@ def delta(a: Optional[float], b: Optional[float], eps: float = EPS) -> Optional[
     return (a - b) / max(abs(a), abs(b), eps)
 
 
-def ky_peak(native: Any) -> Optional[float]:
-    """Midpoint of the ky interval with the largest mean |Q| density (module docstring)."""
+def ky_grid_model(parameters: dict) -> Optional[int]:
+    """TGLF ``KYGRID_MODEL`` of a run from its recorded ``tglf_parameters`` (default 1).
+
+    ``extra_parameters`` is recorded verbatim and upper-cased only when the input file
+    is written, so the key is matched without regard to case.
+    """
+    extra = parameters.get("extra_parameters") or {}
+    for key, value in extra.items():
+        if str(key).upper() == "KYGRID_MODEL":
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+    return 1
+
+
+def ky_peak(native: Any, parameters: Optional[dict] = None) -> Optional[float]:
+    """ky rho_s of the largest |Q| spectral density, by the run's grid model (module docstring)."""
     ky = getattr(native, "ky_spectrum", None)
     spectrum = getattr(native, "sum_flux_spectrum", None)
     if ky is None or spectrum is None or ky.size < 2 or spectrum.shape[2] != ky.size:
         return None
+    model = ky_grid_model(parameters or {})
+    if model is None:
+        return None
     ky = np.asarray(ky, dtype=float)
     entries = np.abs(np.nan_to_num(spectrum[..., 1]).sum(axis=(0, 1)))
+    if model == 0:
+        # dky0 = 0, dky1 = ky_1 for every k: entry_k = ky_1 * Q_k, sampled at the node.
+        if not ky[0] > 0 or not np.any(entries > 0):
+            return None
+        return float(ky[int(np.argmax(entries))])
     lower = np.concatenate(([0.0], ky[:-1]))
     width = ky - lower
     density = np.divide(entries, width, out=np.zeros_like(entries), where=width > 0)
@@ -194,7 +225,7 @@ def build_rows(runs: Path) -> list[dict[str, Any]]:
                 qe, qi = descriptors.get("qe_gb"), descriptors.get("qi_gb")
                 if qe is not None and qi is not None and abs(qi) >= EPS:
                     row["qe_over_qi"] = qe / qi
-                row["ky_q_peak"] = ky_peak(native)
+                row["ky_q_peak"] = ky_peak(native, parameters)
             rows.append(row)
     return rows
 

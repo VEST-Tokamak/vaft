@@ -1389,3 +1389,62 @@ def test_a_nan_flux_does_not_make_the_spread_order_dependent(sensitivity, tmp_pa
     assert pair["qi_gb_sat_spread_es"] == pytest.approx(0.5)   # all three finite
     assert pair["qe_gb_sat_spread_es"] == pytest.approx(0.5)   # NaN (sat0) left out
     assert sensitivity.delta(float("nan"), 1.0) is None
+
+
+def test_ky_peak_reads_the_ky_grid_model_of_the_run(sensitivity):
+    """cold review 0.8.0 delta-absorb-11 F1.
+
+    ``write_tglf_sum_flux_spectrum`` only forms the log-trapezoid weights when
+    KYGRID_MODEL != 0. For KYGRID_MODEL = 0 (linear grid ky_k = k * ky_1) every entry is
+    ``ky_1 * Q_k``: a right-endpoint rectangle, so the flux is sampled AT ky_k, not
+    averaged over the interval, and the peak is the node, not the interval midpoint.
+    """
+    from types import SimpleNamespace
+
+    ky = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+    flux = np.array([0.1, 0.2, 0.5, 3.0, 0.4, 0.2])  # sampled flux peaks at ky = 0.4
+    spectrum = np.zeros((1, 1, ky.size, 5))
+    spectrum[0, 0, :, 1] = ky[0] * flux                 # KYGRID_MODEL = 0 weighting
+    native = SimpleNamespace(ky_spectrum=ky, sum_flux_spectrum=spectrum)
+    # The default grid model (1) is log-trapezoid: midpoint of the peak interval.
+    assert sensitivity.ky_peak(native, {}) == pytest.approx(0.35)
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": 1}}) == pytest.approx(0.35)
+    # Model 0: the entry is the sample at the node, so the peak is the node itself,
+    # whichever case the user spelled the key in.
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": 0}}) == pytest.approx(0.4)
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"kygrid_model": 0}}) == pytest.approx(0.4)
+    # Model 0 inverts the actual weight ky_1, not the interval width, so a corrupt
+    # non-uniform grid cannot bias the density towards its narrow intervals.
+    ky2 = np.array([0.1, 0.2, 0.4, 0.8])
+    flux2 = np.array([1.0, 1.0, 1.0, 1.5])
+    spectrum2 = np.zeros((1, 1, ky2.size, 5))
+    spectrum2[0, 0, :, 1] = ky2[0] * flux2
+    peak = sensitivity.ky_peak(SimpleNamespace(ky_spectrum=ky2, sum_flux_spectrum=spectrum2),
+                               {"extra_parameters": {"KYGRID_MODEL": 0}})
+    assert peak == pytest.approx(0.8)
+    # Every non-zero model takes the Fortran ``.ne.0`` branch (log-trapezoid); only a
+    # value that is not an integer leaves the descriptor empty.
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": 4}}) == pytest.approx(0.35)
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": "auto"}}) is None
+
+
+def test_ky_peak_in_the_table_uses_the_grid_model_of_the_run(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F1: build_rows passes the run's parameters."""
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    ky = np.array([0.1, 0.2, 0.3, 0.4])
+    flux = np.array([0.1, 0.2, 3.0, 0.4])
+    for sat, model in ((0, 0), (1, 1)):
+        tree = _sens_state(tmp_path, sat, "es")
+        state = json.loads((tree / "state.json").read_text(encoding="utf-8"))
+        state["tglf_parameters"]["extra_parameters"] = {"KYGRID_MODEL": model}
+        (tree / "state.json").write_text(json.dumps(state), encoding="utf-8")
+        spectrum = np.zeros((1, 1, ky.size, 5))
+        spectrum[0, 0, :, 1] = ky[0] * flux if model == 0 else _tglf_weighted(ky, flux)
+        TglfOutputs(directory=str(tree), gbflux={"particle": flux[:1], "energy": flux[:1],
+                    "momentum": 0 * flux[:1], "exchange": 0 * flux[:1]},
+                    grid={"n_species": 1, "n_xgrid": 4}, ky_spectrum=ky,
+                    sum_flux_spectrum=spectrum).write_json(tree / "r0.50" / "outputs.json")
+    rows = {r["sat_rule"]: r for r in sensitivity.build_rows(tmp_path)}
+    assert rows[0]["ky_q_peak"] == pytest.approx(0.3)    # model 0: the node
+    assert rows[1]["ky_q_peak"] == pytest.approx(0.25)   # model 1: the interval midpoint
