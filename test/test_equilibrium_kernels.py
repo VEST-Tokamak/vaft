@@ -872,24 +872,23 @@ def test_collisionality_from_nu_ii_is_linear_in_the_collision_frequency():
 
 
 def test_kadomtsev_constraint_matches_its_closed_form():
+    # alpha_K = (1 + a_P)(mu_rho + 2 mu_beta - 4 mu_nu) - 2 a_P (#351).
     mu_rho, mu_beta, mu_nu, a_P = 0.4, 0.2, 0.1, 0.5
-    expected = 5.0 + (
-        mu_rho * (1 + a_P) - (3 * (mu_rho + 2 * mu_beta - 4 * mu_nu - 2) / 2)
-    )
-    assert verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P) == pytest.approx(
-        expected, rel=1e-12, abs=0.0
-    )
+    expected = (1 + a_P) * (mu_rho + 2 * mu_beta - 4 * mu_nu) - 2 * a_P
+    with pytest.warns(FutureWarning, match="351"):
+        got = verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P)
+    assert got == pytest.approx(expected, rel=1e-12, abs=1e-12)
 
 
-def test_kadomtsev_constraint_returns_five_when_the_bracket_vanishes():
-    # The offset from 5 is mu_rho*(1 + a_P) - (3/2)(mu_rho + 2 mu_beta
-    # - 4 mu_nu - 2).  With mu_rho = mu_nu = 0 the bracket closes at
-    # mu_beta = 1, which pins the factor on mu_beta and the -2 together.
-    assert verify_kadomtsev_constraint(0.0, 1.0, 0.0, 0.0) == pytest.approx(
-        5.0, rel=1e-12, abs=0.0
-    )
-    # mu_nu enters the bracket with a factor -4, so -0.5 closes it too and
-    # the two cases together fix both coefficients and their signs.
-    assert verify_kadomtsev_constraint(0.0, 0.0, -0.5, 0.0) == pytest.approx(
-        5.0, rel=1e-12, abs=0.0
-    )
+def test_kadomtsev_constraint_vanishes_for_a_pure_dimensionless_scaling():
+    # Bohm, beta- and nu-free: B tau ~ rho*^-2.  Its T exponent is -1, which
+    # a_P = -1/2 reproduces (a_P / (1 + a_P) = -1), so the residual is 0 ...
+    with pytest.warns(FutureWarning):
+        assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, -0.5) == pytest.approx(
+            0.0, abs=1e-12
+        )
+    # ... and a mismatched a_P shows up as a non-zero residual.
+    with pytest.warns(FutureWarning):
+        assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, 0.0) != pytest.approx(
+            0.0, abs=1e-6
+        )
