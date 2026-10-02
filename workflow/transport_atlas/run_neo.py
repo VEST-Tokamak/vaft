@@ -34,6 +34,7 @@ from typing import Any, Optional
 import numpy as np
 
 from vaft.process.transport_state import (
+    inferred_ti_supported,
     DEFAULT_RHO_MAX,
     DEFAULT_SURFACES,
     assess_neo_readiness,
@@ -188,6 +189,11 @@ def _json(value: Any) -> Any:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--filedb", type=Path, required=True)
+    parser.add_argument("--core-profiles-dir", type=Path,
+                        help="per-shot <shot>.json.gz core_profiles instead of the FileDB stage")
+    parser.add_argument("--use-inferred-ti", action="store_true",
+                        help="use a core_profiles product's own inferred T_i (lane K #1426). Off: "
+                             "such a state is refused and the atlas keeps Ti = Te (#1414)")
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--shots", type=int, nargs="*")
@@ -215,7 +221,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     labels = tglf.load_labels(args.labels)
     shots = args.shots or sorted({shot for shot, _ in labels})
-    states, counts = tglf.enumerate_states(args.filedb, labels, shots, args.lineages)
+    states, counts = tglf.enumerate_states(args.filedb, labels, shots, args.lineages,
+                                           args.core_profiles_dir)
     if args.times_ms:
         states = [s for s in states if s[0].time_ms in set(args.times_ms)]
     if args.max_states:
@@ -237,12 +244,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         ods = tglf.compose(cached(eq_path), cached(cp_path))
         state = resolve_transport_state(
             ods, key, efit_quality=label, quality_source=source, ti_te_ratio=ratio,
-            rho_max=args.rho_max,
+            use_stored_inferred_ti=args.use_inferred_ti, rho_max=args.rho_max,
             inputs={"core_profiles": {"path": str(cp_path), "sha256": tglf._sha256(cp_path)},
                     "equilibrium": {"path": str(eq_path), "sha256": tglf._sha256(eq_path)},
                     "profile_mapped_on": "magnetics"},
         )
-        readiness = assess_neo_readiness(state)
+        readiness = assess_neo_readiness(state, args.surfaces)
         state_dir = out / key.slug()
         job = None
         if readiness.runnable:
@@ -281,6 +288,14 @@ def main(argv: Optional[list[str]] = None) -> int:
                 try:
                     native = NeoOutputs.read_json(Path(job["workdir"]) / "outputs.json")
                     mapping = project(native, state.key.time_efit_s)
+                    # NEO solves every surface of the profile; mark the ones whose input
+                    # depends on an inferred-Ti gap fill so the atlas never partitions them.
+                    for row in mapping["surfaces"]:
+                        try:
+                            row["ti_supported"] = bool(
+                                inferred_ti_supported(state, row["r_over_a"], solver="neo"))
+                        except Exception:  # noqa: BLE001 - an unjudgeable surface is unsupported
+                            row["ti_supported"] = False
                 except Exception as error:  # noqa: BLE001 - one state's row, not the batch
                     # A missing or unreadable outputs.json fails this state; raising
                     # here would truncate states.jsonl and lose every finished state.
