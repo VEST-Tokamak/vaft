@@ -3671,8 +3671,9 @@ def compute_diamagnetism(ods, time_index=0):
     )
 
 
-def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optional[int] = None, 
-                                                    Z_eff: float = 2.0, ln_Lambda: float = 17.0) -> float:
+def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optional[int] = None,
+                                                    Z_eff: Optional[float] = None,
+                                                    ln_Lambda: Optional[float] = None) -> float:
     """
     Compute ohmic heating power from core profiles.
     
@@ -3684,8 +3685,10 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     Args:
         ods: OMAS data structure
         time_slice: Time slice index for core profile (None = use first available)
-        Z_eff: Effective charge (default: 2.0)
-        ln_Lambda: Coulomb logarithm (default: 17.0)
+        Z_eff: Effective charge for the NRL parallel Spitzer resistivity.
+            Required in substance: omitting it is deprecated (#1188) and falls
+            back to 2.0 with a FutureWarning until 0.9.
+        ln_Lambda: Coulomb logarithm; as Z_eff (former fallback 17.0).
     
     Returns:
         P_ohm: Ohmic heating power [W]
@@ -3695,7 +3698,22 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
         ValueError: If plasma volume is zero
     """
     from vaft.omas.update import update_equilibrium_profiles_1d_normalized_psi, update_equilibrium_profiles_2d_j_tor
-    
+
+    if Z_eff is None or ln_Lambda is None:
+        import warnings
+
+        missing = [name for name, value in (("Z_eff", Z_eff), ("ln_Lambda", ln_Lambda))
+                   if value is None]
+        warnings.warn(
+            f"compute_ohmic_heating_power_from_core_profiles called without {', '.join(missing)}; "
+            "the hidden fallbacks Z_eff=2, ln_Lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        Z_eff = 2.0 if Z_eff is None else Z_eff
+        ln_Lambda = 17.0 if ln_Lambda is None else ln_Lambda
+
     # Find matching time indices between core_profiles and equilibrium
     cp_idx, equil_idx, time = find_matching_time_indices(ods, time_slice)
     
@@ -4722,6 +4740,110 @@ def compute_grad_shafranov_residual(
     )
 
 
+def _romero_boundary_histories(
+    ods: ODS, time_range: Optional[Tuple[float, float]]
+) -> Dict[str, Any]:
+    """Plasma current, Romero boundary flux and ``li_3`` of the selected slices.
+
+    The slice reading shared by :func:`compute_romero_flux_balance_ods` and
+    :func:`vaft.omas.resistive_zeff.romero_boundary_flux_ods`: the flux comes
+    back in full webers and Romero's sign, ``L_i = mu0 R0 li_3 / 2`` with
+    ``li_3`` recomputed from ``int B_p^2 dV`` on a copy of ``ods``.
+    """
+    import copy
+
+    from vaft.formula.constants import MU0
+    from vaft.omas.update import (
+        resolve_reference_major_radius,
+        update_equilibrium_global_quantities_beta_li,
+    )
+    from vaft.process.equilibrium import as_equilibrium
+
+    # Read by membership: on a consistency_check=False ODS a bare subscript
+    # of a missing leaf attaches an empty node that `in` and flat() then hide
+    # but keys() and save() show. Slices that carry their own `time` are the
+    # fallback; a slice without either is NaN and falls out of the selection.
+    if "equilibrium.time" in ods:
+        times = np.asarray(ods["equilibrium.time"], dtype=float).reshape(-1)
+    elif "equilibrium.time_slice" in ods:
+        slices = ods["equilibrium.time_slice"]
+        times = np.asarray(
+            [
+                float(slices[i]["time"]) if "time" in slices[i] else np.nan
+                for i in range(len(slices))
+            ],
+            dtype=float,
+        )
+    else:
+        times = np.asarray([], dtype=float)
+    selected = [
+        i for i, t in enumerate(times)
+        if np.isfinite(t) and (time_range is None or (time_range[0] <= t <= time_range[1]))
+    ]
+    if len(selected) < 3:
+        raise ValueError(
+            f"{len(selected)} equilibrium slices in {time_range}; the balance needs three"
+        )
+
+    # Copy only what the inductance and R0 derivations read: a whole-ODS copy
+    # would touch every IDS the caller carries (the plot read declarations).
+    from omas import ODS as _ODS
+
+    work = _ODS(consistency_check=False)
+    for ids in ("equilibrium", "tf", "wall"):
+        if ids in ods:
+            work[ids] = copy.deepcopy(ods[ids])
+    for idx in selected:
+        # A stored li_3 has an unrecorded normalising radius; if the updater
+        # skips a slice it must show up as missing, not as that stale leaf.
+        slice_gq = work["equilibrium.time_slice"][idx]
+        if "global_quantities.li_3" in slice_gq:
+            del slice_gq["global_quantities.li_3"]
+    update_equilibrium_global_quantities_beta_li(work, time_slice=selected)
+    r0 = float(resolve_reference_major_radius(work))
+
+    ip, psi_b, li_3, signs, per_radian = [], [], [], [], []
+    for idx in selected:
+        ts = work["equilibrium.time_slice"][idx]
+        current = float(ts["global_quantities.ip"]) if "global_quantities.ip" in ts else np.nan
+        if not np.isfinite(current) or current == 0.0:
+            raise ValueError(
+                f"equilibrium slice {idx} (t = {times[idx]:.4f} s) has no plasma current; "
+                "restrict time_range to the flux-closure window"
+            )
+        if "global_quantities.li_3" not in ts:
+            raise ValueError(f"li_3 could not be derived for equilibrium slice {idx}")
+        axis = float(ts["global_quantities.psi_axis"])
+        boundary = float(ts["global_quantities.psi_boundary"])
+        stored_per_radian = bool(as_equilibrium(work, time_index=idx).convention.psi_per_radian)
+        ip.append(current)
+        psi_b.append(boundary * (2.0 * np.pi if stored_per_radian else 1.0))
+        li_3.append(float(ts["global_quantities.li_3"]))
+        signs.append(np.sign((axis - boundary) * current))
+        per_radian.append(stored_per_radian)
+
+    if len(set(signs)) != 1 or signs[0] == 0.0 or len(set(per_radian)) != 1:
+        raise ValueError(
+            "the equilibrium slices disagree on the flux convention "
+            f"(sign {sorted(set(signs))}, per-radian {sorted(set(per_radian))})"
+        )
+    flux_sign = float(signs[0])
+    ip_arr, li_arr = np.asarray(ip), np.asarray(li_3)
+    psi_b_romero = flux_sign * np.asarray(psi_b)
+    return {
+        "time": times[selected],
+        "time_index": np.asarray(selected),
+        "I_p": ip_arr,
+        "psi_boundary": psi_b_romero,
+        "li_3": li_arr,
+        "L_i": 0.5 * MU0 * r0 * li_arr,
+        "R0": r0,
+        "flux_sign": flux_sign,
+        "psi_per_radian": per_radian[0],
+    }
+
+
+
 def compute_romero_flux_balance_ods(
     ods: ODS,
     *,
@@ -4782,94 +4904,25 @@ def compute_romero_flux_balance_ods(
         ``Phi_B_direct`` differ by a few percent at 1 ms sampling with gaps,
         which is the differencing and not the physics.
     """
-    import copy
+    from vaft.process.equilibrium import romero_flux_balance
 
-    from vaft.formula.constants import MU0
-    from vaft.omas.update import (
-        resolve_reference_major_radius,
-        update_equilibrium_global_quantities_beta_li,
-    )
-    from vaft.process.equilibrium import as_equilibrium, romero_flux_balance
-
-    # Read by membership: on a consistency_check=False ODS a bare subscript
-    # of a missing leaf attaches an empty node that `in` and flat() then hide
-    # but keys() and save() show. Slices that carry their own `time` are the
-    # fallback; a slice without either is NaN and falls out of the selection.
-    if "equilibrium.time" in ods:
-        times = np.asarray(ods["equilibrium.time"], dtype=float).reshape(-1)
-    elif "equilibrium.time_slice" in ods:
-        slices = ods["equilibrium.time_slice"]
-        times = np.asarray(
-            [
-                float(slices[i]["time"]) if "time" in slices[i] else np.nan
-                for i in range(len(slices))
-            ],
-            dtype=float,
-        )
-    else:
-        times = np.asarray([], dtype=float)
-    selected = [
-        i for i, t in enumerate(times)
-        if np.isfinite(t) and (time_range is None or (time_range[0] <= t <= time_range[1]))
-    ]
-    if len(selected) < 3:
-        raise ValueError(
-            f"{len(selected)} equilibrium slices in {time_range}; the balance needs three"
-        )
-
-    work = copy.deepcopy(ods)
-    for idx in selected:
-        # A stored li_3 has an unrecorded normalising radius; if the updater
-        # skips a slice it must show up as missing, not as that stale leaf.
-        slice_gq = work["equilibrium.time_slice"][idx]
-        if "global_quantities.li_3" in slice_gq:
-            del slice_gq["global_quantities.li_3"]
-    update_equilibrium_global_quantities_beta_li(work, time_slice=selected)
-    r0 = float(resolve_reference_major_radius(work))
-
-    ip, psi_b, li_3, signs, per_radian = [], [], [], [], []
-    for idx in selected:
-        ts = work["equilibrium.time_slice"][idx]
-        current = float(ts["global_quantities.ip"]) if "global_quantities.ip" in ts else np.nan
-        if not np.isfinite(current) or current == 0.0:
-            raise ValueError(
-                f"equilibrium slice {idx} (t = {times[idx]:.4f} s) has no plasma current; "
-                "restrict time_range to the flux-closure window"
-            )
-        if "global_quantities.li_3" not in ts:
-            raise ValueError(f"li_3 could not be derived for equilibrium slice {idx}")
-        axis = float(ts["global_quantities.psi_axis"])
-        boundary = float(ts["global_quantities.psi_boundary"])
-        stored_per_radian = bool(as_equilibrium(work, time_index=idx).convention.psi_per_radian)
-        ip.append(current)
-        psi_b.append(boundary * (2.0 * np.pi if stored_per_radian else 1.0))
-        li_3.append(float(ts["global_quantities.li_3"]))
-        signs.append(np.sign((axis - boundary) * current))
-        per_radian.append(stored_per_radian)
-
-    if len(set(signs)) != 1 or signs[0] == 0.0 or len(set(per_radian)) != 1:
-        raise ValueError(
-            "the equilibrium slices disagree on the flux convention "
-            f"(sign {sorted(set(signs))}, per-radian {sorted(set(per_radian))})"
-        )
-    flux_sign = float(signs[0])
-    ip_arr, li_arr = np.asarray(ip), np.asarray(li_3)
-    psi_b_romero = flux_sign * np.asarray(psi_b)
-    l_i = 0.5 * MU0 * r0 * li_arr
+    hist = _romero_boundary_histories(ods, time_range)
+    ip_arr, l_i = hist["I_p"], hist["L_i"]
+    psi_b_romero = hist["psi_boundary"]
     psi_c_romero = psi_b_romero + l_i * ip_arr
 
     out = romero_flux_balance(
-        times[selected], ip_arr, psi_b_romero, psi_c_romero, R_p, I_ni
+        hist["time"], ip_arr, psi_b_romero, psi_c_romero, R_p, I_ni
     )
     driven = np.broadcast_to(np.asarray(I_ni, dtype=float), ip_arr.shape)
     with np.errstate(divide="ignore", invalid="ignore"):
         closing = (out["V_B"] - out["V_I"]) / (ip_arr - driven)
     out.update(
-        time_index=np.asarray(selected),
-        psi_per_radian=per_radian[0],
-        flux_sign=flux_sign,
-        R0=r0,
-        li_3=li_arr,
+        time_index=hist["time_index"],
+        psi_per_radian=hist["psi_per_radian"],
+        flux_sign=hist["flux_sign"],
+        R0=hist["R0"],
+        li_3=hist["li_3"],
         R_closing=closing,
     )
     return out

@@ -182,6 +182,7 @@ from .models import (
     TextPanel,
     ViewModel,
 )
+from .composition import AxisLink, FigureCell, FigureComposition
 from .discovery import PlotCapability, PlotCatalog
 from .display import PSI_STYLES
 from .navigation import SliceNavigator
@@ -321,6 +322,7 @@ from .renderers.panels import (
     equilibrium_time_shape,
     summary_time_energy,
     summary_time_power_balance,
+    summary_time_resistive_zeff,
     summary_time_voltage_consumption,
     passive_structure_overview_wall_time,
     passive_structure_overview_wall_reduction,
@@ -395,6 +397,9 @@ _SUPPORT_EXPORTS = (
     "DEFAULT_FORMAT",
     "FORMATS",
     "PSI_STYLES",
+    "AxisLink",
+    "FigureCell",
+    "FigureComposition",
     "Geometry3DLayer",
     "Geometry3DLayers",
     "GeometryLayer",

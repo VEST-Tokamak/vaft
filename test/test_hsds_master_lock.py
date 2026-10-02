@@ -16,6 +16,7 @@ from types import SimpleNamespace
 import time
 
 import h5py
+import numpy as np
 import pytest
 from omas import ODS
 
@@ -74,7 +75,9 @@ def _write_staged_shot(directory: Path, ids_names) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     for name in ids_names:
         with h5py.File(directory / f"{name}.h5", "w") as handle:
-            handle.create_group(name)
+            group = handle.create_group(name)
+            group["ids_properties&homogeneous_time"] = 1
+            group["time"] = [0.1, 0.2]
     with h5py.File(directory / "master.h5", "w") as master:
         for name in ids_names:
             master[name] = h5py.ExternalLink(f"{name}.h5", f"/{name}")
@@ -355,9 +358,93 @@ def test_a_folder_of_derived_images_only_is_absent_not_masterless(hsds, monkeypa
     assert report["status"] == maintenance.MASTER_ABSENT and "derived" in report["note"]
 
 
+def _write_stub(path: Path, name: str = "equilibrium") -> None:
+    """What 39240's equilibrium.h5 holds: IMAS fills and an empty time_slice."""
+    with h5py.File(path, "w") as handle:
+        group = handle.create_group(name)
+        group["ids_properties&homogeneous_time"] = 0
+        group["ids_properties&comment"] = b"written by nobody"
+        group["time"] = [-9.0e40]
+        group["time_slice[]&AOS_SHAPE"] = [0]
+        group["time_slice[]&boundary&outline&r_SHAPE"] = np.zeros((0, 1), dtype=np.int32)
+        group["time_slice[]&boundary&outline&r"] = np.zeros((0, 0))
+        group["code&name"] = b""
+        group["vacuum_toroidal_field&b0_SHAPE"] = [0]
+        group["code&output_flag"] = [-999999999]
+
+
+def test_an_ids_file_of_fill_values_holds_no_data(tmp_path):
+    stub = tmp_path / "equilibrium.h5"
+    _write_stub(stub)
+    assert not replication.ids_file_holds_data(stub)
+
+    _write_staged_shot(tmp_path / "real", ["magnetics"])
+    assert replication.ids_file_holds_data(tmp_path / "real" / "magnetics.h5")
+
+    for value in (np.array([3], dtype=np.int32), np.array([b"VEST"], dtype="S4")):
+        one = tmp_path / f"one-{value.dtype.kind}.h5"
+        _write_stub(one)
+        with h5py.File(one, "r+") as handle:
+            handle["equilibrium/global_leaf"] = value
+        assert replication.ids_file_holds_data(one)
+
+
+def _shot_with_unlinked(hsds, tmp_path, shot, *, real, stubs):
+    folder = tmp_path / str(shot)
+    _write_staged_shot(folder, ["dataset_description", *real])
+    for name in ("dataset_description", *real):
+        hsds.put(folder / f"{name}.h5", f"hdf5://main/{shot}/{name}.h5")
+    for name in stubs:
+        _write_stub(folder / f"{name}.h5", name)
+        hsds.put(folder / f"{name}.h5", f"hdf5://main/{shot}/{name}.h5")
+    with h5py.File(folder / "master.h5", "w") as master:
+        master["dataset_description"] = h5py.ExternalLink("dataset_description.h5", "/dataset_description")
+    hsds.put(folder / "master.h5", f"hdf5://main/{shot}/master.h5")
+
+
+def test_an_unlinked_stub_is_reported_apart_and_never_linked(hsds, monkeypatch, tmp_path):
+    """The 2026-10-01 state of 39240: an empty equilibrium.h5 the master leaves out."""
+    monkeypatch.setattr("vaft.database.sources.resolve", lambda source, writable=False, **k: source or "main")
+    _shot_with_unlinked(hsds, tmp_path, 39240, real=[], stubs=["equilibrium"])
+
+    report = maintenance.audit_master_link(39240, repair=True)
+    assert report["status"] == maintenance.MASTER_STUBS_UNLINKED
+    assert report["missing"] == [] and report["stubs"] == ["equilibrium.h5"]
+    assert set(hsds.master_links("main", 39240, tmp_path)) == {"dataset_description.h5"}
+
+
+def test_a_repair_links_the_hidden_files_and_leaves_the_stubs(hsds, monkeypatch, tmp_path):
+    monkeypatch.setattr("vaft.database.sources.resolve", lambda source, writable=False, **k: source or "main")
+    _shot_with_unlinked(hsds, tmp_path, 5, real=["magnetics"], stubs=["equilibrium"])
+
+    report = maintenance.audit_master_link(5)
+    assert report["status"] == maintenance.MASTER_LINKS_MISSING
+    assert report["missing"] == ["magnetics.h5"] and report["stubs"] == ["equilibrium.h5"]
+
+    assert maintenance.audit_master_link(5, repair=True)["status"] == maintenance.MASTER_REPAIRED
+    assert set(hsds.master_links("main", 5, tmp_path)) == {"dataset_description.h5", "magnetics.h5"}
+    assert maintenance.audit_master_link(5)["status"] == maintenance.MASTER_STUBS_UNLINKED
+
+
+def test_the_audit_command_names_the_stubs(monkeypatch, capsys):
+    from vaft.cli import maintenance as cli
+
+    monkeypatch.setattr(
+        "vaft.database.maintenance.audit_master_links",
+        lambda shots, source=None, repair=False: [
+            {"shot": 1, "status": "stubs_unlinked", "missing": [], "stubs": ["equilibrium.h5"]}
+        ],
+    )
+    assert cli.main(["audit-masters", "--shots", "1"]) == 0
+    assert "empty stubs, left unlinked: equilibrium.h5" in capsys.readouterr().out
+
+
 @pytest.mark.parametrize(
     ("status", "code"),
-    [("complete", 0), ("absent", 0), ("repaired", 0), ("links_missing", 1), ("no_master", 1), ("unreadable", 1)],
+    [
+        ("complete", 0), ("absent", 0), ("repaired", 0), ("stubs_unlinked", 0),
+        ("links_missing", 1), ("no_master", 1), ("unreadable", 1),
+    ],
 )
 def test_the_audit_command_fails_while_data_is_hidden(monkeypatch, status, code, capsys):
     from vaft.cli import maintenance as cli

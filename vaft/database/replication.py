@@ -25,13 +25,14 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 import hashlib
 import json
+import re
 import logging
 from pathlib import Path
 import tempfile
 import time
 from collections.abc import Iterable
 from collections.abc import Callable
-from typing import Any
+from typing import Any, NamedTuple
 
 from . import sources as _sources
 from .filedb import (
@@ -53,6 +54,40 @@ REPLICATION_SCHEMA_VERSION = 1
 #: was skipped or blocked (#205) has no product to send, and a failed one must
 #: not have its partial output mistaken for a result.
 REPLICABLE_STATUSES = frozenset({"success", "partial", "completed"})
+#: The stage status a solver stage records when it finished and produced
+#: nothing -- an EFIT run whose slices all failed is ``no_output``, and the
+#: CHEASE stage that follows it is ``no_output`` too. Replication records
+#: ``skipped`` for it instead of failing: a failure leaves the record missing,
+#: and a new-shot worker would retry the same replication until it gave up
+#: while the shot's other stages were already published (48940, 2026-10-02).
+NOTHING_TO_REPLICATE_STATUSES = frozenset({"no_output"})
+
+#: ``no_output`` alone does not say *why*. The solver stage's own
+#: ``<stage>_status`` does, and only these reasons are "nothing to publish":
+#: the solver ran and no slice survived, there was no upstream equilibrium to
+#: refine, or the stage is switched off in the configuration. Anything else --
+#: an executable that is not there, a missing input, an error -- is a fault a
+#: person has to see, and still fails the replication.
+_NOTHING_BY_DESIGN = re.compile(
+    r"^(completed"                  # EFIT ran: completed_no_gfiles / completed: ...
+    r"|failed: refined_gfiles=0\b"  # CHEASE ran: every slice a solver verdict
+    r"|skipped: no EFIT gfiles\b"   # CHEASE: nothing upstream to refine
+    r"|skipped: \w+\.run=false\b)"   # switched off on purpose
+)
+
+
+def _nothing_to_replicate(manifest: dict[str, Any], stage: str) -> str | None:
+    """Why a finished stage has nothing to publish, or ``None`` if it may."""
+    status = str(manifest.get("status", "")).strip().lower()
+    if status not in NOTHING_TO_REPLICATE_STATUSES:
+        return None
+    reason = str(manifest.get(f"{stage}_status", "")).strip()
+    if not _NOTHING_BY_DESIGN.match(reason):
+        raise ProductNotEligibleError(
+            f"The {stage} stage is {status!r} for a reason that is a fault, not a result "
+            f"({reason or f'no {stage}_status recorded'}); there is nothing to replicate."
+        )
+    return f"The {stage} stage finished as {status!r} ({reason.splitlines()[0]}): nothing to publish."
 
 
 class ReplicationError(RuntimeError):
@@ -82,9 +117,9 @@ class ReplicationRecord:
     ids: tuple[str, ...]
     occurrence: int
     product_sha256: str
-    #: ``replicated``, ``validated``, ``failed``, or -- for an optional stage
-    #: only -- ``skipped``: nothing was published, and the record says why, so an
-    #: absent shot in a sparse source is still explicable locally (issue #305).
+    #: ``replicated``, ``validated``, ``failed``, or ``skipped``: nothing was
+    #: published, and the record says why -- an optional stage with nothing
+    #: accepted (issue #305), or a solver stage that finished ``no_output``.
     state: str
     attempts: int
     started_at: str
@@ -250,6 +285,12 @@ def _remote_entries(source: str, shot: int) -> tuple[str, ...]:
         raise
 
 
+def _published_ids(source: str, shot: int, ids: Iterable[str]) -> tuple[str, ...]:
+    """The files of ``ids`` already stored in the shot's folder."""
+    entries = set(_remote_entries(source, shot))
+    return tuple(f"{name}.h5" for name in ids if f"{name}.h5" in entries)
+
+
 def _remote_canonical_files(entries: Iterable[str]) -> tuple[str, ...]:
     from .h5image import is_derived_filename
 
@@ -391,9 +432,74 @@ def _link_template(master) -> tuple[str, str] | None:
     return None
 
 
-def unlinked_remote_files(
+#: The IMAS "no value" fills: EMPTY_FLOAT is -9e40, EMPTY_INT -999999999.
+_EMPTY_FLOAT_BELOW = -8.9e40
+_EMPTY_INT = -999999999
+
+
+def _leaf_holds_data(name: str, value) -> bool:
+    """Whether one dataset of an IMAS HDF5 file carries a value.
+
+    ``ids_properties`` and the ``*SHAPE`` bookkeeping are written for every
+    IDS, data or not, so they never count.
+    """
+    import numpy as np
+
+    leaf = name.rsplit("/", 1)[-1]
+    if leaf.startswith("ids_properties") or leaf.endswith("SHAPE"):
+        return False
+    array = np.asarray(value)
+    if array.size == 0:
+        return False
+    if array.dtype.kind == "f":
+        return bool(np.any(array > _EMPTY_FLOAT_BELOW))
+    if array.dtype.kind in "iu":
+        return bool(np.any(array != _EMPTY_INT))
+    if array.dtype.kind in "SOU":
+        return any(
+            (item.decode("utf-8", "replace") if isinstance(item, bytes) else str(item)) != ""
+            for item in array.ravel()
+        )
+    return True
+
+
+def ids_file_holds_data(path: Path) -> bool:
+    """Whether a local IMAS HDF5 IDS file carries any value.
+
+    A file can be stored in a shot folder and hold nothing: every leaf is an
+    IMAS fill value and every array of structures has zero entries. Five
+    ``equilibrium.h5`` files on ``main`` (39240, 43245, 44148, 44453, 44604)
+    are like that -- ``time_slice`` empty, ``time`` -9e40 -- and a master that
+    does not link them hides nothing; linking them makes the shot read as
+    having an equilibrium with no data in it.
+    """
+    import h5py
+
+    found = False
+
+    def visit(name, node):
+        nonlocal found
+        if not found and isinstance(node, h5py.Dataset) and _leaf_holds_data(name, node[()]):
+            found = True
+
+    with h5py.File(path, "r") as handle:
+        handle.visititems(visit)
+    return found
+
+
+class UnlinkedFiles(NamedTuple):
+    """IDS files in a shot folder that its master does not link."""
+
+    #: Files carrying data: a reader resolving the shot cannot see them.
+    hidden: tuple[str, ...]
+    #: Files carrying no value at all (:func:`ids_file_holds_data`). Leaving
+    #: them unlinked hides nothing, so a repair never links them.
+    stubs: tuple[str, ...]
+
+
+def classify_unlinked_remote_files(
     source: str, shot: int, *, repair: bool = False
-) -> tuple[str, ...]:
+) -> UnlinkedFiles:
     """Report, and optionally relink, IDS files the shot's master does not name.
 
     A master left stage-only -- by a client older than the merge-before-upload
@@ -401,33 +507,43 @@ def unlinked_remote_files(
     -- hides every other stage's IDS although their files are still in the
     folder. No previous master survives to carry the links from, so they are
     rebuilt from the folder listing, in the shape of a link the master still
-    holds. Returns the files that were (or, without ``repair``, would be)
-    relinked; empty when the master is whole or the shot has none.
+    holds.
+
+    Each unlinked file is downloaded and read first: one holding no value is a
+    stub, not hidden data, and is reported apart and never linked. With
+    ``repair`` only the ``hidden`` files are relinked.
     """
     import h5py
 
     from .staging import external_h5_links
-    from .transport import run_hsload, verify_uploaded_image
+    from .transport import run_hsget, run_hsload, verify_uploaded_image
 
     with shot_master_lock(source, shot), tempfile.TemporaryDirectory(prefix="vaft-master-repair-") as workdir:
         current = _fetch_remote_master(source, shot, Path(workdir) / "master.h5")
         if current is None:
-            return ()
+            return UnlinkedFiles((), ())
         present = _remote_canonical_files(_require_remote_entries(source, shot))
         linked = set(external_h5_links(current))
-        missing = tuple(name for name in present if name not in linked)
-        if not missing or not repair:
-            return missing
+        hidden: list[str] = []
+        stubs: list[str] = []
+        for name in present:
+            if name in linked:
+                continue
+            local = run_hsget(f"hdf5://{source}/{shot}/{name}", Path(workdir) / name)
+            (hidden if ids_file_holds_data(local) else stubs).append(name)
+        result = UnlinkedFiles(tuple(hidden), tuple(stubs))
+        if not hidden or not repair:
+            return result
         with h5py.File(current, "r+") as master:
             template = _link_template(master)
             if template is None:
                 raise ReplicationError(
-                    f"hdf5://{source}/{shot}/master.h5 does not link {', '.join(missing)} "
+                    f"hdf5://{source}/{shot}/master.h5 does not link {', '.join(hidden)} "
                     "and carries no link to copy the shape of; it cannot be "
                     "rebuilt from the folder listing."
                 )
             file_prefix, path_prefix = template
-            for filename in missing:
+            for filename in hidden:
                 stem = filename[: -len(".h5")]
                 master[stem] = h5py.ExternalLink(
                     f"{file_prefix}{filename}", f"{path_prefix}{stem}"
@@ -435,7 +551,14 @@ def unlinked_remote_files(
         remote_uri = f"hdf5://{source}/{shot}/master.h5"
         run_hsload(current, remote_uri)
         verify_uploaded_image(current, remote_uri)
-    return missing
+    return result
+
+
+def unlinked_remote_files(
+    source: str, shot: int, *, repair: bool = False
+) -> tuple[str, ...]:
+    """The data-carrying files of :func:`classify_unlinked_remote_files`."""
+    return classify_unlinked_remote_files(source, shot, repair=repair).hidden
 
 
 #: Leaves the IMAS Access Layer stamps into an IDS as it writes it. They record
@@ -605,7 +728,7 @@ def replicate_stage(
     record_path = filedb.omas_replication_record(name, shot=shot, **lineage)
 
     def skipped(reason: str) -> ReplicationRecord:
-        """Record why an optional stage published nothing, and carry on."""
+        """Record why the stage published nothing, and carry on."""
         record = ReplicationRecord(
             stage=name, shot=shot, source=source,
             remote_uri=f"hdf5://{source}/{shot}/", ids=entry.ids,
@@ -619,7 +742,21 @@ def replicate_stage(
         return record
 
     try:
-        _check_eligible(_read_manifest(manifest_path), name, product_path)
+        manifest = _read_manifest(manifest_path)
+        nothing = _nothing_to_replicate(manifest, name)
+        if nothing is not None:
+            stale = _published_ids(source, shot, entry.ids)
+            if stale:
+                # Skipping would leave an earlier run's IDS on the shot,
+                # linked and read as current, under a record saying nothing
+                # was published. Fail instead, so it is seen and retired.
+                raise ProductNotEligibleError(
+                    f"{nothing[:-1]}, but hdf5://{source}/{shot}/ still holds "
+                    f"{', '.join(stale)} from an earlier run; retire it before "
+                    "recording this stage as skipped."
+                )
+            return skipped(nothing)
+        _check_eligible(manifest, name, product_path)
     except ProductNotEligibleError as error:
         if not entry.optional:
             raise
@@ -763,6 +900,7 @@ def replicate_stage(
 __all__ = [
     "REPLICABLE_STATUSES",
     "REPLICATION_SCHEMA_VERSION",
+    "NOTHING_TO_REPLICATE_STATUSES",
     "ProductNotEligibleError",
     "ReplicationError",
     "ReplicationRecord",
