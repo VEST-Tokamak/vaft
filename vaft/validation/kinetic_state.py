@@ -42,6 +42,14 @@ Ratios
     The same over the whole plasma, which extrapolates the ``core_profiles`` fit
     beyond the channels; reported, and flagged as extrapolated.
 
+A ``core_profiles`` grid is placed on an equilibrium slice by its own flux
+label (``grid.rho_pol_norm`` or ``grid.psi``), and its ``rho_tor_norm`` label
+must agree with the slice's own ``rho_tor(psi_N)``
+(:func:`core_profiles_grid_on_slice`).  A ``rho_tor_norm`` array trusted by
+name may be the ``sqrt(psi_N)`` proxy or another equilibrium's coordinate, and
+mapping it through this slice puts the fit at the wrong pressure (cold review
+0.8.0 delta-absorb-14 physics F2).
+
 Inferred ion temperature
 ------------------------
 :func:`infer_ti_pressure_partition` is #1426's closure,
@@ -69,7 +77,9 @@ __all__ = [
     "default_tolerance",
     "LINEAGES",
     "QUALITIES",
+    "GRID_RHO_TOLERANCE",
     "core_profiles_electron_pressure",
+    "core_profiles_grid_on_slice",
     "infer_ti_pressure_partition",
     "integrated_pressure_ratio",
     "ion_composition",
@@ -94,6 +104,13 @@ QUALITIES = ("good", "admissible")
 
 _ELEMENTARY_CHARGE = 1.602176634e-19
 _TIME_DIGITS = 4
+
+#: How far a ``core_profiles`` grid's ``rho_tor_norm`` label may sit from the
+#: slice's own ``rho_tor(psi_N)`` at the grid's flux positions and still be
+#: taken as the same equilibrium's coordinate.  A grid written on the same
+#: slice agrees to interpolation error; the ``sqrt(psi_N)`` proxy and another
+#: equilibrium's coordinate differ by ~0.1 at mid-radius.
+GRID_RHO_TOLERANCE = 0.02
 
 
 def state_time(time_s: float) -> float:
@@ -273,12 +290,29 @@ def match_thomson_pressure(equilibrium: Any, thomson: Any, *, time_s: float,
     return out
 
 
+def _grid_psi_norm(profiles: Any, root: str, size: int) -> tuple[np.ndarray | None, str | None]:
+    """The grid's own flux label as psi_N: ``grid.rho_pol_norm**2``, else ``grid.psi``
+    normalised by its own ends (the equilibrium grid a fit is stored on runs
+    axis to boundary), else ``None``."""
+    rho_pol = _array(profiles, f"{root}.grid.rho_pol_norm")
+    if rho_pol is not None and rho_pol.size == size and np.all(np.isfinite(rho_pol)):
+        return rho_pol ** 2, "rho_pol_norm"
+    psi = _array(profiles, f"{root}.grid.psi")
+    if psi is not None and psi.size == size and np.all(np.isfinite(psi)) and psi[0] != psi[-1]:
+        return (psi - psi[0]) / (psi[-1] - psi[0]), "psi"
+    return None, None
+
+
 def core_profiles_electron_pressure(profiles: Any, *, time_s: float,
                                     tolerance_s: float | None = None) -> dict[str, Any]:
     """``p_e = e n_e T_e`` of the ``core_profiles`` slice at ``time_s``, on its ``rho_tor_norm``.
 
     Returns ``{"available": False, "reason"}`` when there is no slice within
-    tolerance or it lacks a positive density and temperature.
+    tolerance or it lacks a positive density and temperature.  ``psi_norm`` is
+    the grid's own flux label (from ``grid.rho_pol_norm`` or ``grid.psi``,
+    named in ``psi_norm_source``) or ``None`` when the grid carries none; the
+    ``rho_tor_norm`` label is returned as stored, unverified -- see
+    :func:`core_profiles_grid_on_slice`.
     """
     try:
         index, offset = slice_at_time(profiles, time_s, ids="core_profiles", tolerance_s=tolerance_s)
@@ -299,9 +333,51 @@ def core_profiles_electron_pressure(profiles: Any, *, time_s: float,
     if density is None or temperature.size != rho.size:
         return {"available": False, "reason": "core_profiles rho_tor_norm, n_e and T_e are missing or differ in length"}
     times = _slice_times(profiles, "core_profiles")
+    psi_norm, psi_source = _grid_psi_norm(profiles, root, rho.size)
     return {"available": True, "time_s": float(times[index]), "index": index, "offset_s": offset,
-            "rho_tor_norm": rho, "n_e": density, "t_e": temperature, "density_leaf": leaf,
+            "rho_tor_norm": rho, "psi_norm": psi_norm, "psi_norm_source": psi_source,
+            "n_e": density, "t_e": temperature, "density_leaf": leaf,
             "p_e": _ELEMENTARY_CHARGE * density * temperature}
+
+
+def core_profiles_grid_on_slice(coordinate: Mapping[str, Any], profile: Mapping[str, Any], *,
+                                tolerance: float = GRID_RHO_TOLERANCE) -> dict[str, Any]:
+    """Place a ``core_profiles`` grid on the equilibrium slice it was written on.
+
+    ``coordinate`` is :func:`rho_tor_norm_of` of the slice and ``profile`` is
+    :func:`core_profiles_electron_pressure`.  The grid points are positioned
+    by the grid's own flux label (``profile["psi_norm"]``), and the grid's
+    ``rho_tor_norm`` label is checked against the slice's ``rho_tor(psi_N)`` at
+    those positions: the two agree only when the grid is this slice's own
+    coordinate.  A ``sqrt(psi_N)`` proxy stored under ``rho_tor_norm``, or the
+    coordinate of another equilibrium, disagrees by far more than
+    ``tolerance`` and is refused -- as is a grid with no flux label at all,
+    since nothing then ties it to the slice.
+
+    Returns ``{"available": True, "psi_norm", "rho_tor_norm", "max_rho_mismatch"}``
+    (``rho_tor_norm`` as the grid stores it) or ``{"available": False, "reason"}``.
+    """
+    if not profile.get("available"):
+        return {"available": False, "reason": profile.get("reason", "no core_profiles slice")}
+    if coordinate.get("coordinate") != "rho_tor_norm":
+        return {"available": False, "reason": coordinate.get("reason", "the slice has no rho_tor_norm")}
+    psi_norm = profile.get("psi_norm")
+    if psi_norm is None:
+        return {"available": False,
+                "reason": "the core_profiles grid carries no flux label (grid.rho_pol_norm or grid.psi), "
+                          "so it cannot be placed on the slice"}
+    rho = np.asarray(profile["rho_tor_norm"], dtype=float)
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    order = np.argsort(coordinate["psi_norm"])
+    on_slice = np.interp(psi_norm, coordinate["psi_norm"][order], coordinate["rho_tor_norm"][order])
+    inside = psi_norm <= 1.0
+    mismatch = float(np.max(np.abs(rho[inside] - on_slice[inside]))) if inside.any() else math.nan
+    if not math.isfinite(mismatch) or mismatch > tolerance:
+        return {"available": False, "max_rho_mismatch": mismatch,
+                "reason": (f"the core_profiles grid's rho_tor_norm disagrees with the slice's own "
+                           f"rho_tor(psi_N) by up to {mismatch:.3g} (tolerance {tolerance:g}): the grid is "
+                           "the sqrt(psi_N) proxy or another equilibrium's coordinate, not this slice's")}
+    return {"available": True, "psi_norm": psi_norm, "rho_tor_norm": rho, "max_rho_mismatch": mismatch}
 
 
 def integrated_pressure_ratio(equilibrium: Any, index: int, rho_tor_norm: np.ndarray, p_e: np.ndarray,

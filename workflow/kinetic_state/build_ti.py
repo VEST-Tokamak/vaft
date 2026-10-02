@@ -6,7 +6,11 @@ campaign FileDB; writes, into the same atlas directory:
 * ``ti_inferred.csv``: one row per evaluation point, either a Thomson channel
   (``kind = channel``, measured n_e and T_e, the primary product) or a
   ``core_profiles`` grid point (``kind = grid``, the fitted n_e and T_e;
-  ``outside_ts_span`` flags the points the channels do not bracket);
+  ``outside_ts_span`` flags the points the channels do not bracket).  Grid
+  rows exist only when the ``core_profiles`` grid is the state's own
+  equilibrium slice (its flux label and ``rho_tor_norm`` agree with the
+  slice, :func:`vaft.validation.kinetic_state.core_profiles_grid_on_slice`);
+  otherwise ``ti_state.csv`` says why there are none;
 * ``ti_state.csv``: per state key, whether the inference was eligible and how
   much of it survived;
 * ``core_profiles/<shot>.json.gz``: an IMAS ``core_profiles`` ODS per shot with
@@ -42,16 +46,28 @@ from typing import Any
 
 import numpy as np
 
+from vaft.machine_mapping.core_profiles import inferred_ti_text
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_state import SLICE_TOLERANCE_S, _cell, _git, _load  # noqa: E402
 
 KEY = ("contract_version", "shot", "time_efit_s", "efit_lineage", "efit_quality")
 
-#: The equilibrium lineage of a FileDB stage.  The pressure-partition guard
-#: trusts the lineage it is given, so it is read off the stage the pressure was
-#: loaded from, never asserted.
+#: The equilibrium lineage of a FileDB stage (``omas/<stage>/<shot>/output``).
+#: The pressure-partition guard trusts the lineage it is given, so it is read
+#: off the stage the row's ``efit_product`` lives under, never asserted.
 STAGE_LINEAGE = {"efit/magnetic": "magnetics", "electron_efit": "electron_kinetic"}
 SOURCE_STAGE = "efit/magnetic"
+
+
+def _product_lineage(efit_product: str) -> str | None:
+    """The lineage of the FileDB stage a row's ``efit_product`` path is under, or ``None``."""
+    parts = Path(str(efit_product or "")).parts
+    for stage, lineage in STAGE_LINEAGE.items():
+        stage_parts = ("omas", *Path(stage).parts)
+        if parts[:len(stage_parts)] == stage_parts:
+            return lineage
+    return None
 
 POINT_COLUMNS: dict[str, tuple[str, str]] = {
     **{k: ("string" if k in ("contract_version", "efit_lineage", "efit_quality") else
@@ -98,7 +114,7 @@ STATE_COLUMNS: dict[str, tuple[str, str]] = {
 
 
 def _read(path: Path) -> list[dict[str, str]]:
-    with open(path, newline="") as handle:
+    with open(path, newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
 
 
@@ -110,7 +126,7 @@ def _f(value: Any) -> float:
 
 
 def _write(path: Path, columns: dict[str, tuple[str, str]], rows: list[dict[str, Any]], title: str) -> None:
-    with open(path, "w", newline="") as handle:
+    with open(path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(columns), extrasaction="raise")
         writer.writeheader()
         for row in rows:
@@ -119,7 +135,19 @@ def _write(path: Path, columns: dict[str, tuple[str, str]], rows: list[dict[str,
               "required": list(KEY),
               "properties": {k: {"type": [t, "null"], "description": d} for k, (t, d) in columns.items()}}
     (path.parent / "schema").mkdir(exist_ok=True)
-    (path.parent / "schema" / f"{path.stem}.schema.json").write_text(json.dumps(schema, indent=1) + "\n")
+    (path.parent / "schema" / f"{path.stem}.schema.json").write_text(json.dumps(schema, indent=1) + "\n", encoding="utf-8")
+
+
+def _ti_marker(lo: float, hi: float) -> str:
+    """The ``ion.*.temperature_fit.parameters`` record of an inferred T_i slice.
+
+    The machine-readable part is :func:`vaft.machine_mapping.core_profiles.inferred_ti_text`,
+    the one spelling ``classify_ti_record`` reads back as ``inferred``; the
+    rest is free text for a human reader.
+    """
+    return (f"{inferred_ti_text('equilibrium_pressure_partition')}; not measured; "
+            f"n_e and T_e outside rho_tor_norm [{lo:.4g}, {hi:.4g}] are the core_profiles fit "
+            f"extrapolated beyond the Thomson channels; NaN where p_i <= 0 or not significant")
 
 
 def _flags(result: dict[str, Any], extra: list[list[str]] | None = None) -> list[str]:
@@ -175,9 +203,17 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
             states.append({**out, "eligible": "true", "reason": f"no Thomson match ({row['ts_status']})"})
             continue
         shot, time_s = int(row["shot"]), float(row["time_efit_s"])
-        lineage = STAGE_LINEAGE[SOURCE_STAGE]
-        if lineage != row["efit_lineage"]:
-            raise RuntimeError(f"state {shot}@{time_s} is {row['efit_lineage']} but its pressure comes from {SOURCE_STAGE}")
+        # The lineage the kernel is told comes from where the row's pressure was
+        # reconstructed (the stage its efit_product lives under), not from the
+        # row's own efit_lineage column: a row declaring magnetics over a
+        # kinetic product would otherwise partition the assumption back out.
+        lineage = _product_lineage(row.get("efit_product", ""))
+        if lineage != STAGE_LINEAGE[SOURCE_STAGE]:
+            states.append({**out, "eligible": "false", "reason": (
+                f"the state declares {row['efit_lineage']} but its efit_product "
+                f"{row.get('efit_product') or '(none)'!r} is not under the {SOURCE_STAGE} stage "
+                f"(lineage {lineage or 'unknown'})")})
+            continue
         eq = product(SOURCE_STAGE, shot)
         index, _ = ks.slice_at_time(eq, time_s, tolerance_s=SLICE_TOLERANCE_S)
         neighbour_times = [t for t in magnetics_times[shot] if t != time_s and abs(t - time_s) <= window_s + 1e-9]
@@ -220,15 +256,17 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
             electron = {"available": False, "reason": "the state carries no Thomson tolerance"}
         else:
             electron = ks.core_profiles_electron_pressure(cp, time_s=_f(row["time_ts_s"]), tolerance_s=ts_tolerance)
-        if not electron["available"] or coordinate["coordinate"] != "rho_tor_norm":
-            summary["reason"] = electron.get("reason") or coordinate.get("reason")
+        # The grid is placed by its own flux label and its rho_tor_norm label
+        # must be this slice's coordinate; a proxy or another equilibrium's
+        # rho_tor would otherwise sample p_eq at the wrong psi_N.
+        placed = ks.core_profiles_grid_on_slice(coordinate, electron)
+        if not placed["available"]:
+            summary["reason"] = placed["reason"]
             states.append(summary)
             continue
-        rho, n_g, t_g = electron["rho_tor_norm"], electron["n_e"], electron["t_e"]
-        order = np.argsort(coordinate["rho_tor_norm"])
-        inside = rho <= 1.0
-        rho, n_g, t_g = rho[inside], n_g[inside], t_g[inside]
-        psi_g = np.interp(rho, coordinate["rho_tor_norm"][order], coordinate["psi_norm"][order])
+        rho, psi_g, n_g, t_g = placed["rho_tor_norm"], placed["psi_norm"], electron["n_e"], electron["t_e"]
+        inside = psi_g <= 1.0
+        rho, psi_g, n_g, t_g = rho[inside], psi_g[inside], n_g[inside], t_g[inside]
         p_eq_g = _pressure_on(eq, index, psi_g)
         if p_eq_g is None:
             summary["reason"] = "the slice pressure cannot be sampled on the core_profiles grid"
@@ -297,10 +335,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
             ods[f"{root}.grid.rho_tor_norm"] = s["rho"]
             ods[f"{root}.electrons.density_thermal"] = s["n_e"]
             ods[f"{root}.electrons.temperature"] = s["t_e"]
-            lo, hi = s["span"]
-            marker = (f"origin=inferred; method=equilibrium_pressure_partition; not measured; "
-                      f"n_e and T_e outside rho_tor_norm [{lo:.4g}, {hi:.4g}] are the core_profiles fit "
-                      f"extrapolated beyond the Thomson channels; NaN where p_i <= 0 or not significant")
+            marker = _ti_marker(*s["span"])
             for k, species in enumerate(composition["species"]):
                 ion = f"{root}.ion.{k}"
                 # Machine-readable next to the value: a reader keyed on the presence
@@ -321,7 +356,9 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
     ratios = [float(p["ti_te"]) for p in points if p["kind"] == "channel" and math.isfinite(_f(p["ti_te"]))]
     summary = {
         "states": len(states), "eligible_with_channels": len(eligible),
-        "refused_circular": sum(1 for s in states if s["eligible"] == "false"),
+        "refused_circular": sum(1 for s in states if s["eligible"] == "false" and s["reason"].startswith("circular")),
+        "refused_product_lineage": sum(1 for s in states if s["eligible"] == "false"
+                                       and not s["reason"].startswith("circular")),
         "channels": sum(s["channels"] for s in eligible),
         "channels_with_ti": sum(s["channels_with_ti"] for s in eligible),
         "channel_flags": {f: sum(1 for p in points if p["kind"] == "channel" and f in p["flags"].split(";"))
@@ -334,7 +371,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
         "core_profiles_shots": sorted(slices_by_shot),
         "floor": floor, "window_s": window_s,
     }
-    (atlas / "ti_summary.json").write_text(json.dumps(summary, indent=1) + "\n")
+    (atlas / "ti_summary.json").write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8")
     return summary
 
 
