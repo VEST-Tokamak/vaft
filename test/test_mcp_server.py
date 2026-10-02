@@ -50,6 +50,21 @@ def test_the_server_lists_exactly_the_curated_tools_all_read_only():
     assert "Allowed options keys" in extract.description and "coordinate" in extract.description
 
 
+def test_an_unexpected_failure_is_a_redacted_tool_error(monkeypatch):
+    """FastMCP formats an uncaught exception itself, unredacted; the server never lets one through."""
+    from mcp.server.fastmcp.exceptions import ToolError
+
+    def broken():
+        raise PermissionError(13, "Permission denied", str(Path.home() / "secret" / "t.csv"))
+
+    broken.__doc__ = "a tool that fails"
+    monkeypatch.setattr(_tools, "TOOLS", (broken,))
+    server = build_server()
+    with pytest.raises(ToolError) as caught:
+        asyncio.run(server.call_tool("broken", {}))
+    assert "PermissionError" in str(caught.value) and str(Path.home()) not in str(caught.value)
+
+
 def test_the_sdk_internals_the_stdio_guard_relies_on_still_exist():
     """``_serve`` re-implements ``FastMCP.run_stdio_async`` through ``_mcp_server``.
 
