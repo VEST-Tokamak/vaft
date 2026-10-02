@@ -46,10 +46,10 @@ class PhaseAuditCriteria:
     """The preset this came from, carried into the verdict's reason."""
 
 
-#: The criteria the hsyun_GPEC ``codex/gpec-flare-cocos-handshake`` branch
-#: applied to a GPEC coil field audited against Biot-Savart on its own coils
-#: (``library/gpec_phase.py``: ``ratio >= 3.0 and min(...) <= 0.10``), and the
-#: criteria decision D-06 adopts.  Measured on that branch's own reference
+#: The criteria the legacy implementation applied to a GPEC coil field audited
+#: against Biot-Savart on its own coils (``gpec_phase.py``:
+#: ``ratio >= 3.0 and min(...) <= 0.10``), and the criteria decision D-06
+#: adopts.  Measured on the legacy reference
 #: cases, a settled audit clears both by orders of magnitude -- relative norms
 #: of 1e-8 to 1e-4 against separations of 1e4 to 1e8 -- so these are a floor
 #: below which the measurement stops meaning anything, not a tuned boundary.

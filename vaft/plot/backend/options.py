@@ -188,6 +188,14 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "(an explicit None is refused: in profile_gradient it means 'none')"),
         OptionSpec("convention", "choice", "recipes.GRADIENT_CONVENTIONS",
                    "code preset resolving gradient_coordinate and reference_length"),
+        # Required by the island separatrix figure, with no default: the total
+        # and vacuum resonant pairs are different physical objects on the same
+        # axes (20 % apart in width and up to 3.1 rad apart in phase on the
+        # DIII-D reference), so the caller says which.
+        OptionSpec("field", "choice", "recipes.ISLAND_FIELD_SOURCES",
+                   description="which resonant pair an island separatrix is drawn from: "
+                               "total (the ideal response, derived from the mapped "
+                               "spectral field) or vacuum (GPEC's own w_isl_v / Phi_res_v)"),
     )
 
 

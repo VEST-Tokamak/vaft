@@ -283,3 +283,69 @@ def test_the_cheap_reader_refuses_a_file_without_its_mode_number(tmp_path):
         read_resonant_table(path)
     with pytest.raises(ValueError, match="no 'n' global attribute"):
         read_gpec_profile_output(path)
+
+
+# --- one quantity, two spellings ---------------------------------------------
+
+
+def _add_rational_variable(path, name: str, values, *, units: str | None = None) -> None:
+    """Append one ``(i, psi_n_rational)`` complex variable to a written file."""
+    with netCDF4.Dataset(path, "a") as ds:
+        variable = ds.createVariable(name, "f8", ("i", "psi_n_rational"))
+        variable[:] = np.stack([np.real(values), np.imag(values)])
+        variable.long_name = "Penetrated resonant field"
+        if units:
+            variable.units = units
+
+
+@pytest.mark.parametrize("written_as", ["B_pen", "b_pen"])
+def test_the_penetrated_field_reads_under_either_spelling(tmp_path, written_as):
+    """GPEC renamed it, and the two names are the same quantity.
+
+    ``B_pen`` became ``b_pen`` in GPEC ``2c9f4c1f`` -- same units, same
+    ``long_name``, same dimensions. A reader that knows one spelling returns
+    ``None`` for the other, which is indistinguishable from a run that never
+    computed the field, so both normalise onto the name the dataclass exposes.
+    """
+    write_profile_nc(tmp_path)
+    path = tmp_path / "gpec_profile_output_n1.nc"
+    expected = np.asarray([1e-4 + 2e-5j, 3e-4 - 1e-5j])
+    _add_rational_variable(path, written_as, expected, units="T")
+
+    output = read_gpec_profile_output(path)
+    assert output.B_pen is not None, f"{written_as} did not reach the B_pen field"
+    np.testing.assert_allclose(output.B_pen, expected)
+    assert output.units["B_pen"] == "T"
+    # And under one name on both paths, so a caller cannot get the same
+    # quantity twice under two keys depending on which reader it used.
+    assert "B_pen" in output.resonant_table()
+    assert "b_pen" not in output.resonant_table()
+    table = read_resonant_table(path)
+    assert "B_pen" in table and "b_pen" not in table
+    np.testing.assert_allclose(table["B_pen"], expected)
+
+
+def test_callens_critical_field_is_its_own_column(tmp_path):
+    """``Phi_res_crit`` is SLAYER's; Callen's is ``Phi_res_crit_callen``.
+
+    Both are written by a run with both threshold flags on, and the file says
+    which is which in its own ``long_name``s. Kept as separate named fields
+    because a reader that folded them together would report one model's
+    threshold under the other model's name.
+    """
+    write_profile_nc(tmp_path)
+    path = tmp_path / "gpec_profile_output_n1.nc"
+    with netCDF4.Dataset(path, "a") as ds:
+        for name, values in (
+            ("Phi_res_crit", [5.1e-4, 1.3e-4]),
+            ("Phi_res_crit_callen", [1.5e-3, 2.6e-3]),
+        ):
+            variable = ds.createVariable(name, "f8", ("psi_n_rational",))
+            variable[:] = np.asarray(values)
+            variable.units = "T"
+
+    output = read_gpec_profile_output(path)
+    np.testing.assert_allclose(output.Phi_res_crit, [5.1e-4, 1.3e-4])
+    np.testing.assert_allclose(output.Phi_res_crit_callen, [1.5e-3, 2.6e-3])
+    table = output.resonant_table()
+    assert table["Phi_res_crit"] is not table["Phi_res_crit_callen"]

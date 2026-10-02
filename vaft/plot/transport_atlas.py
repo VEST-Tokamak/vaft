@@ -233,15 +233,17 @@ def transport_atlas_mode_branch(
     # A direction is a property of a growing mode: a stable surface has none.
     base = (np.isfinite(omega) & (omega != 0) & (gamma > 0)
             & np.isfinite(xs) & np.isfinite(ys))
-    counts = {}
+    counts = {"electron": 0, "ion": 0}
     for direction, sign, text in (("electron", 1, r"$\omega_r > 0$"), ("ion", -1, r"$\omega_r < 0$")):
         sel_dir = base & (np.sign(omega) == sign)
-        counts[direction] = int(sel_dir.sum())
         colour = DIRECTION_COLORS[direction]
         for name, marker in MARKERS.items():
             for label in QUALITIES:
                 sel = sel_dir & (lineage == name) & (quality == label)
                 if sel.any():
+                    # Count what is drawn: a row of unknown lineage or quality has
+                    # no marker set and must not inflate the legend or a title.
+                    counts[direction] += int(sel.sum())
                     ax.scatter(xs[sel], ys[sel], s=size[sel], marker=marker,
                                facecolors=colour if label == "good" else "none",
                                edgecolors=colour, linewidths=0.8,
