@@ -98,7 +98,17 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("coordinate", "choice", "display.PROFILE_COORDINATES", "radial coordinate of a 1-D profile"),
         OptionSpec("x", "choice", "recipes.ABSCISSA_NAMES", "quantity on the abscissa of a line plot"),
         OptionSpec("method", "choice", "recipes.SPECTROGRAM_METHODS", "how a time-frequency map is computed"),
-        OptionSpec("field", "choice", "recipes.EQUILIBRIUM_FIELD_NAMES", "quantity a 2-D equilibrium map draws"),
+        # One spec, scoped per plot: the schema's vocabulary is the 2-D
+        # equilibrium map's, and a recipe that takes a different field=
+        # (the island separatrix figure's total|vacuum resonant pair, the
+        # vacuum maps, the profile fits) declares its own, which
+        # _plot_scoped_choices resolves ahead of this one.  Naming "field"
+        # twice here left the last entry winning the schema and the other
+        # plot validating only by fallback (cold review 0.8.0 delta-squash F3).
+        OptionSpec("field", "choice", "recipes.EQUILIBRIUM_FIELD_NAMES",
+                   "quantity a 2-D equilibrium map draws; a plot that takes another "
+                   "field= vocabulary (an island separatrix's total|vacuum resonant "
+                   "pair, a vacuum map, a profile fit) declares its own"),
         # A composite's panels, by member name (issue #482).  The vocabulary
         # is the composite's own member list, so it is scoped per plot.
         OptionSpec("members", "multi", description="which panels of an overview to draw"),
@@ -188,14 +198,6 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "(an explicit None is refused: in profile_gradient it means 'none')"),
         OptionSpec("convention", "choice", "recipes.GRADIENT_CONVENTIONS",
                    "code preset resolving gradient_coordinate and reference_length"),
-        # Required by the island separatrix figure, with no default: the total
-        # and vacuum resonant pairs are different physical objects on the same
-        # axes (20 % apart in width and up to 3.1 rad apart in phase on the
-        # DIII-D reference), so the caller says which.
-        OptionSpec("field", "choice", "recipes.ISLAND_FIELD_SOURCES",
-                   description="which resonant pair an island separatrix is drawn from: "
-                               "total (the ideal response, derived from the mapped "
-                               "spectral field) or vacuum (GPEC's own w_isl_v / Phi_res_v)"),
     )
 
 
