@@ -460,6 +460,8 @@ def _ti_supported(state: "ResolvedTransportState", r_over_a: float) -> bool:
     profile = state.profile
     rmin = np.asarray(profile.rmin, dtype=float)
     grid = np.asarray(profile.rho, dtype=float)
+    # anti-alias: not a time series and not a downsample; the profile's own monotone
+    # r/a -> rho_tor_norm map evaluated at one surface.
     rho = float(np.interp(r_over_a, rmin / rmin[-1], grid))
     # The local grid step: GACODE differentiates on three neighbouring points, so a
     # surface must sit a full step inside the inferred support on both sides.
