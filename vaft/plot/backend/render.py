@@ -174,6 +174,15 @@ def _render_interactive(
     fixed_style = {k: v for k, v in style.items() if k not in names}
     state = ControlState(offered, initial)
     build, draw = frame_renderers(spec, entries, fixed, fixed_style, backend)
+    if style.get("validity") is not None and "validity" not in fixed_style:
+        # The caller stated a validity mode and it became the control's start:
+        # the channels it brings in stay in, whatever the control is set to,
+        # so opening the controls draws what the static call draws.
+        stated = style["validity"]
+        plain_build = build
+
+        def build(chosen: Mapping[str, Any]) -> Any:
+            return plain_build({"validity": stated, **chosen})
     return render_controls(
         build, state, draw=draw, backend=interaction_backend, render_backend=backend, show=show,
     )
@@ -196,8 +205,13 @@ def frame_renderers(
     fixes the scale, limits and resolution across its frames).
     """
 
+    # validity= is drawn by the renderer, but a mode the caller states also
+    # tells the signal presets to keep condemned channels for that mode to
+    # handle (issue #1380), so the builder sees it as the static call does.
+    hints = {"validity": fixed_style["validity"]} if fixed_style.get("validity") is not None else {}
+
     def build(chosen: Mapping[str, Any]) -> Any:
-        return build_model(spec.name, entries, **{**fixed, **chosen})
+        return build_model(spec.name, entries, **{**fixed, **hints, **chosen})
 
     def draw(model: Any, **kwargs: Any) -> Any:
         return renderer_for(spec, model, backend)(model, **{**fixed_style, **kwargs})
