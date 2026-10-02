@@ -57,6 +57,7 @@ __all__ = [
     "TransportStateKey",
     "assess_neo_readiness",
     "assess_tglf_readiness",
+    "inferred_ti_supported",
     "CLASSICAL_MODEL",
     "classical_heat_fluxes",
     "surface_toroidal_field",
@@ -67,7 +68,7 @@ __all__ = [
 ]
 
 #: Bumped whenever a change here can alter a resolved state; part of every identity.
-RESOLVER_VERSION = 1
+RESOLVER_VERSION = 2
 
 #: The two EFIT lineages of lane K's State key contract v1 (#1454).
 EFIT_LINEAGES = ("magnetics", "electron_kinetic")
@@ -149,6 +150,9 @@ class ResolvedTransportState:
     provenance: Mapping[str, Any] = field(default_factory=dict)
     inputs: Mapping[str, Any] = field(default_factory=dict)
     settings: Mapping[str, Any] = field(default_factory=dict)
+    #: The same state with the inferred-Ti gaps filled at a different ratio: a surface
+    #: whose solver input changes between the two depends on the fill (not identity).
+    fill_probe: Any = field(default=None, repr=False, compare=False)
 
     @property
     def resolved(self) -> bool:
@@ -460,22 +464,49 @@ def _segments(rho: np.ndarray, valid: np.ndarray) -> list[list[float]]:
     return out
 
 
-def _ti_supported(state: "ResolvedTransportState", r_over_a: float) -> bool:
-    """Whether an inferred Ti covers this surface, one grid step clear of any gap."""
-    segments = state.ti.get("support_rho")
-    if state.ti.get("kind") != "inferred" or segments is None:
+def inferred_ti_supported(state: "ResolvedTransportState", r_over_a: float) -> bool:
+    """Whether a surface's solver input is independent of the inferred-Ti gap fill.
+
+    Parameters
+    ----------
+    state : ResolvedTransportState
+        From :func:`resolve_transport_state` [-].
+    r_over_a : float
+        The surface [-].
+
+    Returns
+    -------
+    bool
+        True when no gap was filled, or when the TGLF local ion inputs (T_i/T_e, a/L_Ti,
+        P_PRIME) agree to 1e-4 between the profile and its ``fill_probe`` [-].
+
+    Convention
+    ----------
+    GACODE differentiates on three grid points and then evaluates values and gradients
+    with a global cubic spline, so a filled node can reach a surface several grid
+    steps away. Rather than guess a margin, the gate compares the actual local inputs
+    of the same surface built with the gaps filled at two different ratios: what does
+    not move cannot depend on the fill. NEO takes its local profile values the same
+    way, so its surfaces use the same gate.
+
+    Applicability
+    -------------
+    Machine-independent.
+    """
+    probe = getattr(state, "fill_probe", None)
+    if probe is None:
         return True
-    profile = state.profile
-    rmin = np.asarray(profile.rmin, dtype=float)
-    grid = np.asarray(profile.rho, dtype=float)
-    # anti-alias: not a time series and not a downsample; the profile's own monotone
-    # r/a -> rho_tor_norm map evaluated at one surface.
-    rho = float(np.interp(r_over_a, rmin / rmin[-1], grid))
-    # The local grid step: GACODE differentiates on three neighbouring points, so a
-    # surface must sit a full step inside the inferred support on both sides.
-    j = int(np.clip(np.searchsorted(grid, rho), 1, grid.size - 1))
-    step = float(max(grid[j] - grid[j - 1], grid[min(j + 1, grid.size - 1)] - grid[j]))
-    return any(lo + step <= rho <= hi - step for lo, hi in segments)
+    from vaft.code.gacode.tglf.inputs import LocalConversionError, prepare_tglf_input
+
+    try:
+        a = prepare_tglf_input(state.profile, float(r_over_a))
+        b = prepare_tglf_input(probe, float(r_over_a))
+    except LocalConversionError:
+        return False
+    pairs = [(np.asarray(a.taus, dtype=float)[1:], np.asarray(b.taus, dtype=float)[1:]),
+             (np.asarray(a.rlts, dtype=float)[1:], np.asarray(b.rlts, dtype=float)[1:]),
+             (np.atleast_1d(float(a.p_prime_loc)), np.atleast_1d(float(b.p_prime_loc)))]
+    return all(np.allclose(x, y, rtol=1e-4, atol=1e-6) for x, y in pairs)
 
 
 # --------------------------------------------------------------------------- resolve
@@ -639,6 +670,7 @@ def resolve_transport_state(
     # A product may carry an ion temperature that was inferred, not measured (lane K's
     # #1426 pressure partition writes ``temperature_fit.parameters = "origin=inferred;
     # method=..."``). It is taken as an inferred profile here, never as a measurement.
+    fill = None
     stored = _stored_inferred_ti(ods, prefix, ions, cp_times[cp_index])
     labelled = [i for i in ions if "origin=inferred" in str(
         _get(ods, f"{prefix}.ion.{i}.temperature_fit.parameters") or "")]
@@ -692,13 +724,22 @@ def resolve_transport_state(
                 # purely inferred.
                 if ti_te_ratio is None:
                     return _insufficient(base, "inferred_ti_incomplete")
-                from vaft.machine_mapping.core_profiles import policy_for_ods
+                if isinstance(ti_te_ratio, str):
+                    if ti_te_ratio != "policy":
+                        raise ValueError(
+                            f"ti_te_ratio must be 'policy', a number or None; got {ti_te_ratio!r}")
+                    from vaft.machine_mapping.core_profiles import policy_for_ods
 
-                fill_ratio = (float(policy_for_ods(ods, key.shot).ti_te_ratio)
-                              if isinstance(ti_te_ratio, str) else float(ti_te_ratio))
+                    fill_ratio, fill_source = float(policy_for_ods(ods, key.shot).ti_te_ratio), "policy"
+                else:
+                    fill_ratio, fill_source = float(ti_te_ratio), "caller"
+                if not np.isfinite(fill_ratio) or fill_ratio <= 0.0:
+                    return _insufficient(base, "non_positive_ti_te_ratio")
+                fill = (valid, np.asarray(temperature, dtype=float), fill_ratio)
                 temperature = np.where(valid, temperature, fill_ratio * te)
                 ti["fill"] = {"points": int((~valid).sum()), "of": int(valid.size),
-                              "value": f"ti_te_ratio {fill_ratio:g} (policy), never at a run surface"}
+                              "value": f"ti_te_ratio {fill_ratio:g} ({fill_source}); a surface whose "
+                                       "solver input depends on it is not run"}
             grid = _get(ods, f"{prefix}.grid.rho_tor_norm")
             if grid is not None and np.size(grid) == valid.size:
                 ti["support_rho"] = _segments(np.asarray(grid, dtype=float), valid)
@@ -787,9 +828,10 @@ def resolve_transport_state(
     try:
         # A product that already carries its ion species (lane K's H+/C6+ closure) is
         # converted as given: re-applying the closure would assume a single main ion.
-        product_species = stored is not None and stored["species"] > 1
-        profile = prepare_gacode_profile(
-            work,
+        # Only when the product's own inferred Ti is the one used: a caller-supplied Ti
+        # keeps the caller's closure.
+        product_species = (stored is not None and inferred_ti is stored and stored["species"] > 1)
+        convert = dict(
             time=eq_time,
             tolerance=max(float(tolerance), 1e-9),
             rho_max=rho_max,
@@ -797,6 +839,17 @@ def resolve_transport_state(
             impurity=None if product_species else impurity,
             shot=int(key.shot),
         )
+        profile = prepare_gacode_profile(work, **convert)
+        fill_probe = None
+        if fill is not None:
+            # The same profile with the gaps filled three times hotter: the readiness
+            # gate compares every surface's solver input across the two.
+            valid_mask, raw, ratio_used = fill
+            probe = copy.deepcopy(work)
+            alternative = np.where(valid_mask, raw, 3.0 * ratio_used * te)
+            for position in (ions or [0]):
+                probe[f"{prefix}.ion.{position}.temperature"] = alternative
+            fill_probe = prepare_gacode_profile(probe, **convert)
     except ProfileConversionError as error:
         return _insufficient(base, f"profile_conversion: {error}")
 
@@ -814,10 +867,16 @@ def resolve_transport_state(
     profile.provenance = provenance
     if product_species:
         settings["z_eff"], settings["impurity"] = None, None
-        realized = np.asarray(getattr(profile, "z_eff", np.nan), dtype=float)
+        # From the species the solvers read, not from any z_eff column (#803).
+        ni = np.atleast_2d(np.asarray(profile.ni, dtype=float))
+        charge = np.asarray(profile.z, dtype=float)[:, None]
+        ne_profile = np.asarray(profile.ne, dtype=float)
+        realized = (ni * charge ** 2).sum(axis=0) / ne_profile
+        neutrality = float(np.max(np.abs((ni * charge).sum(axis=0) / ne_profile - 1.0)))
         composition = {
             "species": list(getattr(profile, "name", []) or []),
-            "z_eff": float(np.nanmedian(realized)) if realized.size else None,
+            "z_eff": float(np.median(realized)),
+            "quasineutrality_error": neutrality,
             "impurity": None,
             # The product's species list is itself a modelling closure, not a measurement.
             "origin": "policy_assumption",
@@ -832,7 +891,7 @@ def resolve_transport_state(
         }
     return ResolvedTransportState(
         status="resolved", profile=profile, composition=composition,
-        provenance=provenance, **base,
+        provenance=provenance, fill_probe=fill_probe, **base,
     )
 
 
@@ -912,9 +971,9 @@ def assess_tglf_readiness(
         except LocalConversionError as error:
             results.append(SurfaceReadiness(float(radius), _surface_code(error), str(error)))
             continue
-        if not _ti_supported(state, float(radius)):
+        if not inferred_ti_supported(state, float(radius)):
             results.append(SurfaceReadiness(float(radius), "ti_not_inferred_here",
-                                             "the inferred Ti is undefined within one grid step"))
+                                             "this surface's solver input depends on the inferred-Ti gap fill"))
             continue
         absent = local.check_tglf_requirements()
         if absent:

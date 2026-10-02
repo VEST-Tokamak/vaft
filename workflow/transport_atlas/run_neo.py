@@ -34,6 +34,7 @@ from typing import Any, Optional
 import numpy as np
 
 from vaft.process.transport_state import (
+    inferred_ti_supported,
     DEFAULT_RHO_MAX,
     DEFAULT_SURFACES,
     assess_neo_readiness,
@@ -284,12 +285,10 @@ def main(argv: Optional[list[str]] = None) -> int:
                 try:
                     native = NeoOutputs.read_json(Path(job["workdir"]) / "outputs.json")
                     mapping = project(native, state.key.time_efit_s)
-                    # NEO solves every surface of the profile; mark the ones an inferred
-                    # Ti does not cover so the atlas never partitions them.
-                    from vaft.process.transport_state import _ti_supported
-
+                    # NEO solves every surface of the profile; mark the ones whose input
+                    # depends on an inferred-Ti gap fill so the atlas never partitions them.
                     for row in mapping["surfaces"]:
-                        row["ti_supported"] = bool(_ti_supported(state, row["r_over_a"]))
+                        row["ti_supported"] = bool(inferred_ti_supported(state, row["r_over_a"]))
                 except Exception as error:  # noqa: BLE001 - one state's row, not the batch
                     # A missing or unreadable outputs.json fails this state; raising
                     # here would truncate states.jsonl and lose every finished state.

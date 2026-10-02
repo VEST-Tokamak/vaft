@@ -1274,23 +1274,41 @@ def test_a_stored_inferred_ti_is_not_taken_as_measured(sample):
     assert all(s.ready for s in report.surfaces)
 
 
-def test_inferred_ti_gaps_are_filled_declared_and_never_run(sample):
+def test_inferred_ti_gaps_are_filled_declared_and_never_reach_a_run_surface(sample):
+    from vaft.code.gacode.tglf.inputs import prepare_tglf_input
+
     ods = _with_inferred_ti(sample, outer_nan_from=0.6)
+    surfaces = tuple(np.round(np.arange(0.30, 0.86, 0.01), 2))
     state = resolve_transport_state(ods, _key(0.3), efit_quality="good")
     assert state.resolved, state.reasons
-    assert state.ti["fill"]["points"] > 0 and "policy" in state.ti["fill"]["value"]
-    (lo, hi), = state.ti["support_rho"]
-    assert hi < 0.6 <= 1.0
-    statuses = {s.r_over_a: s.status for s in assess_tglf_readiness(state).surfaces}
-    rho_at = lambda r: float(np.interp(r, state.profile.rmin / state.profile.rmin[-1], state.profile.rho))
-    for r, status in statuses.items():
-        expected = "ready" if rho_at(r) < hi - 0.02 else "ti_not_inferred_here"
-        if abs(rho_at(r) - hi) > 0.03:  # clear of the one-step margin
-            assert status == expected, (r, rho_at(r), status)
-    assert "ti_not_inferred_here" in statuses.values() and "ready" in statuses.values()
+    assert state.ti["fill"]["points"] > 0 and "(policy)" in state.ti["fill"]["value"]
+    assert state.fill_probe is not None
+    report = assess_tglf_readiness(state, surfaces)
+    ready = [s.r_over_a for s in report.surfaces if s.ready]
+    assert ready and len(ready) < len(surfaces)
+    assert {s.status for s in report.surfaces if not s.ready} == {"ti_not_inferred_here"}
+    # The real precondition: a run surface's ion inputs do not move when only the fill does.
+    hot = resolve_transport_state(ods, _key(0.3), efit_quality="good", ti_te_ratio=5.0)
+    for r in ready:
+        a, b = prepare_tglf_input(state.profile, r), prepare_tglf_input(hot.profile, r)
+        np.testing.assert_allclose(a.taus[1:], b.taus[1:], rtol=1e-3)
+        np.testing.assert_allclose(a.rlts[1:], b.rlts[1:], rtol=1e-3, atol=1e-5)
     # The source ODS still carries its NaNs: the fill happened on a copy.
     assert np.isnan(np.asarray(ods["core_profiles.profiles_1d.0.ion.0.temperature"], dtype=float)).any()
 
+
+def test_a_caller_ti_keeps_the_caller_closure_over_a_labelled_product(sample):
+    ods = _with_inferred_ti(sample)
+    te = np.asarray(sample["core_profiles.profiles_1d.0.electrons.temperature"], dtype=float)
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good",
+                                    inferred_ti={"temperature": 0.9 * te, "time": 0.3})
+    assert "source" not in state.composition and state.composition["impurity"] == "C"
+
+
+def test_a_non_positive_fill_ratio_is_refused(sample):
+    state = resolve_transport_state(_with_inferred_ti(sample, outer_nan_from=0.6), _key(0.3),
+                                    efit_quality="good", ti_te_ratio=-1.0)
+    assert state.reasons == ("non_positive_ti_te_ratio",)
 
 def test_an_incomplete_inferred_ti_without_a_fallback_is_insufficient(sample):
     state = resolve_transport_state(_with_inferred_ti(sample, outer_nan_from=0.6), _key(0.3),
@@ -1323,7 +1341,8 @@ def test_a_product_with_its_own_inferred_species_list_is_converted_as_given(samp
     assert state.ti_lineage == "pressure_partition_inferred"
     assert list(state.profile.name) == ["H+", "C6+"]
     assert state.composition["source"].startswith("the core_profiles product")
-    assert state.composition["z_eff"] == pytest.approx(2.0, rel=1e-3)
+    assert state.composition["z_eff"] == pytest.approx(2.0, rel=1e-3)  # from the species list
+    assert state.composition["quasineutrality_error"] < 1e-6
     # Two ions with different inferred temperatures are not one inferred state.
     ods[f"{prefix}.ion.1.temperature"] = 0.5 * ti
     assert resolve_transport_state(ods, _key(0.3), efit_quality="good").reasons == (
