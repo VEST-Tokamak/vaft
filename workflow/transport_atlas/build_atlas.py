@@ -171,7 +171,11 @@ def _native_dir(state_path: PurePath, tglf_root: PurePath, r: float) -> str:
     A CSV cell is data read on any host: ``str(Path)`` would write the host's
     separator, and a backslashed cell built on Windows is one file name on POSIX.
     """
-    return (PurePath(state_path).parent.relative_to(tglf_root) / f"r{r:.2f}").as_posix()
+    # The arithmetic stays in the path's own flavour (a PureWindowsPath keeps
+    # its backslashes against a PureWindowsPath root; re-wrapping in PurePath
+    # would turn it into the host's flavour and break relative_to); only the
+    # result is spelled in slash grammar.
+    return (state_path.parent.relative_to(tglf_root) / f"r{r:.2f}").as_posix()
 
 
 def _ion_sum(fluxes: Optional[dict]) -> Optional[float]:
