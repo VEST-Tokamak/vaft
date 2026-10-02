@@ -15,10 +15,13 @@ is reported as a number, never as a regime label. ``Delta(A, B) = (A - B) /
 max(|A|, |B|, eps)`` with ``eps = 1e-3`` gyro-Bohm units, so the measure lies in
 [-2, 2], and a pair that both sit below eps reads as about 0, not as noise blown up.
 
-The k_y peak of the flux spectrum is ``argmax_k |Q_k| / w_k``, where ``w_k`` is the
-k_y width each point represents (``np.gradient`` of the grid). Each ``Q_k`` in
-``out.tglf.sum_flux_spectrum`` is already weight × flux, so dividing by the width
-recovers a spectral density, and its argmax does not depend on how the grid is spaced.
+The k_y peak: ``write_tglf_sum_flux_spectrum`` (tglf_inout.f90) writes entry k as the
+log-trapezoid integral of the flux over the interval [ky_{k-1}, ky_k] (with ky_0 = 0),
+``dky0*Q_{k-1} + dky1*Q_k`` where ``dky0 + dky1 = ky_k - ky_{k-1}``. Dividing an entry
+by its interval width gives the interval's mean spectral density, so the peak is
+reported at the midpoint of the interval with the largest
+``|sum over species and fields of entry_k| / (ky_k - ky_{k-1})``; the signed sum is
+taken first, as for ``ky_q_mean``. The result does not depend on how the grid is spaced.
 
     python build_sensitivity.py --runs ~/runs/transport/sensitivity --out <dir>
 """
@@ -55,7 +58,7 @@ SCHEMA = {
     "state_identity": ("-", "provenance", "sha256 of the resolved upstream state (equal across configurations)"),
     "tglf_run_identity": ("-", "provenance", "sha256 of state + settings + surface + revision"),
     "gacode_revision": ("-", "provenance", "GACODE tree used"),
-    "status": ("-", "provenance", "solved | failed | not_ready"),
+    "status": ("-", "provenance", "solved | failed | not_ready | missing_outputs (native tree pruned)"),
     "qe_gb": ("Q_GB", "tglf_predicted", "electron energy flux"),
     "qi_gb": ("Q_GB", "tglf_predicted", "ion energy flux summed over ions"),
     "gamma_e_gb": ("Gamma_GB", "tglf_predicted", "electron particle flux"),
@@ -69,7 +72,7 @@ SCHEMA = {
     "omega_at_gamma_max_ion_scale": ("c_s/a", "tglf_predicted", "real frequency at gamma_max_ion_scale"),
     "n_unstable_ky": ("-", "tglf_predicted", "ky points with a growing mode"),
     "ky_q_mean": ("-", "tglf_predicted", "energy-flux-weighted mean ky rho_s"),
-    "ky_q_peak": ("-", "tglf_predicted", "argmax_k |Q_k| / w_k (module docstring)"),
+    "ky_q_peak": ("-", "tglf_predicted", "midpoint of the ky interval with the largest mean |Q| density (module docstring)"),
     "f_em": ("-", "tglf_predicted", "share of sum|Q| in magnetic fields; empty for es"),
 }
 
@@ -79,7 +82,7 @@ PAIR_SCHEMA = {
     "efit_lineage": ("-", "key", "magnetics | electron_kinetic"),
     "r_over_a": ("-", "key", "surface"),
     "efit_quality": ("-", "label", "#1331 slice label"),
-    "n_configs": ("-", "provenance", "solved configurations available at this surface"),
+    "n_configs": ("-", "provenance", "distinct solved configurations at this surface"),
 }
 for _q in QUANTITIES:
     for _field in FIELD_MODELS:
@@ -102,24 +105,37 @@ def _atlas_module():
     return module
 
 
+def _finite(value: Any) -> Optional[float]:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if np.isfinite(number) else None
+
+
 def delta(a: Optional[float], b: Optional[float], eps: float = EPS) -> Optional[float]:
-    """``(a - b) / max(|a|, |b|, eps)``, or ``None`` when either side is missing."""
+    """``(a - b) / max(|a|, |b|, eps)``, or ``None`` when either side is missing or not finite."""
+    a, b = _finite(a), _finite(b)
     if a is None or b is None:
         return None
     return (a - b) / max(abs(a), abs(b), eps)
 
 
 def ky_peak(native: Any) -> Optional[float]:
+    """Midpoint of the ky interval with the largest mean |Q| density (module docstring)."""
     ky = getattr(native, "ky_spectrum", None)
     spectrum = getattr(native, "sum_flux_spectrum", None)
     if ky is None or spectrum is None or ky.size < 2 or spectrum.shape[2] != ky.size:
         return None
-    contribution = np.nan_to_num(np.abs(spectrum[..., 1])).sum(axis=(0, 1))
-    width = np.abs(np.gradient(np.asarray(ky, dtype=float)))
-    density = np.divide(contribution, width, out=np.zeros_like(contribution), where=width > 0)
+    ky = np.asarray(ky, dtype=float)
+    entries = np.abs(np.nan_to_num(spectrum[..., 1]).sum(axis=(0, 1)))
+    lower = np.concatenate(([0.0], ky[:-1]))
+    width = ky - lower
+    density = np.divide(entries, width, out=np.zeros_like(entries), where=width > 0)
     if not np.any(density > 0):
         return None
-    return float(ky[int(np.argmax(density))])
+    k = int(np.argmax(density))
+    return float(0.5 * (lower[k] + ky[k]))
 
 
 def field_model(parameters: dict) -> str:
@@ -130,11 +146,29 @@ def field_model(parameters: dict) -> str:
 def build_rows(runs: Path) -> list[dict[str, Any]]:
     from vaft.code.gacode.tglf.outputs import TglfOutputs
 
+    from vaft.process.transport_state import EFIT_QUALITIES
+
     atlas = _atlas_module()
     rows = []
+    seen: dict[tuple, Path] = {}
     for path in sorted(Path(runs).glob("**/tglf-sat*/*/*/*/state.json")):
         state = json.loads(path.read_text(encoding="utf-8"))
         parameters = state.get("tglf_parameters") or {}
+        label = state.get("tglf_config")
+        expected = f"tglf-sat{parameters.get('sat_rule')}-{field_model(parameters)}"
+        if parameters.get("sat_rule") not in (0, 1, 2, 3) or field_model(parameters) not in FIELD_MODELS:
+            raise ValueError(f"{path}: (SAT_RULE, field model) = ({parameters.get('sat_rule')}, "
+                             f"{field_model(parameters)}) is not in the sensitivity space")
+        if label != expected:
+            raise ValueError(f"{path}: tglf_config {label!r} does not name its settings ({expected})")
+        if state["efit_quality"] not in EFIT_QUALITIES:
+            raise ValueError(f"{path}: efit_quality {state['efit_quality']!r} is not good/admissible")
+        key = (label, state["state_identity"])
+        if key in seen:
+            # Two copies of one configuration on one state (a re-run beside an old tree)
+            # would otherwise be merged silently, last copy winning.
+            raise ValueError(f"{label} on one state appears twice: {seen[key]} and {path}")
+        seen[key] = path
         for surface in state["surfaces"]:
             r = float(surface["r_over_a"])
             row = {
@@ -150,8 +184,11 @@ def build_rows(runs: Path) -> list[dict[str, Any]]:
                 "gacode_revision": state.get("gacode_revision"),
                 "status": surface.get("status"),
             }
-            if surface.get("status") == "solved":
-                native = TglfOutputs.read_json(path.parent / f"r{r:.2f}" / "outputs.json")
+            outputs = path.parent / f"r{r:.2f}" / "outputs.json"
+            if surface.get("status") == "solved" and not outputs.is_file():
+                row["status"] = "missing_outputs"  # pruned native tree: reported, not fatal
+            if row["status"] == "solved":
+                native = TglfOutputs.read_json(outputs)
                 descriptors = atlas.spectral_descriptors(native)
                 row.update({k: v for k, v in descriptors.items() if k in SCHEMA})
                 qe, qi = descriptors.get("qe_gb"), descriptors.get("qi_gb")
@@ -173,19 +210,26 @@ def build_pairs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         identities = {g["state_identity"] for g in group}
         if len(identities) != 1:
             raise ValueError(f"{shot} {t} {lineage}: configurations were run on different states")
-        by = {(g["sat_rule"], g["field_model"]): g for g in group}
+        by: dict[tuple, dict] = {}
+        for g in group:
+            config = (g["sat_rule"], g["field_model"])
+            if config in by:
+                raise ValueError(f"{shot} {t} {lineage} r/a {r}: configuration {config} appears twice")
+            by[config] = g
         pair = {"shot": shot, "time_efit_s": t, "efit_lineage": lineage, "r_over_a": r,
-                "efit_quality": group[0]["efit_quality"], "n_configs": len(group)}
+                "efit_quality": group[0]["efit_quality"], "n_configs": len(by)}
+
+        def value(config, q):
+            return _finite(by[config].get(q)) if config in by else None
+
         for q in QUANTITIES:
             for field in FIELD_MODELS:
-                values = [by[(s, field)].get(q) for s in range(4) if (s, field) in by]
+                values = [v for s in range(4) if (v := value((s, field), q)) is not None]
                 deltas = [abs(d) for a, b in itertools.combinations(values, 2)
                           if (d := delta(a, b)) is not None]
                 pair[f"{q}_sat_spread_{field}"] = max(deltas) if deltas else None
             for sat in range(4):
-                if (sat, "em-bper") in by and (sat, "es") in by:
-                    pair[f"{q}_em_vs_es_sat{sat}"] = delta(by[(sat, "em-bper")].get(q),
-                                                           by[(sat, "es")].get(q))
+                pair[f"{q}_em_vs_es_sat{sat}"] = delta(value((sat, "em-bper"), q), value((sat, "es"), q))
         out.append(pair)
     return out
 

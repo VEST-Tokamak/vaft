@@ -1167,17 +1167,32 @@ def test_delta_is_bounded_and_quiet_near_zero(sensitivity):
     assert sensitivity.delta(None, 1.0) is None
 
 
-def test_ky_peak_undoes_the_grid_weight(sensitivity):
+def _tglf_weighted(ky, flux):
+    """``sum_flux_spectrum`` entries exactly as write_tglf_sum_flux_spectrum forms them."""
+    entries = [ky[0] * flux[0]]
+    for k in range(1, len(ky)):
+        k0, k1 = ky[k - 1], ky[k]
+        d = np.log(k1 / k0) / (k1 - k0)
+        entries.append(k0 * (k1 * d - 1.0) * flux[k - 1] + k1 * (1.0 - k0 * d) * flux[k])
+    return np.asarray(entries)
+
+
+def test_ky_peak_follows_tglf_interval_weighting(sensitivity):
     from types import SimpleNamespace
 
-    ky = np.array([0.1, 0.2, 0.4, 0.8, 1.6])
-    density = np.array([1.0, 3.0, 2.0, 1.0, 0.5])  # peak at ky = 0.2
-    weights = np.abs(np.gradient(ky))
-    spectrum = np.zeros((1, 1, ky.size, 5))
-    spectrum[0, 0, :, 1] = density * weights  # what TGLF writes: weight x flux
-    assert sensitivity.ky_peak(SimpleNamespace(ky_spectrum=ky, sum_flux_spectrum=spectrum)) == 0.2
-    # the raw weighted argmax would have said 0.4 or beyond on this log grid
-    assert ky[int(np.argmax(spectrum[0, 0, :, 1]))] > 0.2
+    ky = np.array([0.1, 0.2, 0.3, 0.4, 0.8, 1.6, 3.2])
+    flux = np.array([0.1, 0.2, 0.5, 3.0, 0.4, 0.2, 0.1])   # density peaked at ky = 0.4
+    spectrum = np.zeros((2, 1, ky.size, 5))
+    spectrum[0, 0, :, 1] = _tglf_weighted(ky, 0.7 * flux)
+    spectrum[1, 0, :, 1] = _tglf_weighted(ky, 0.3 * flux)
+    peak = sensitivity.ky_peak(SimpleNamespace(ky_spectrum=ky, sum_flux_spectrum=spectrum))
+    # Interval means straddle the peak point: (0.3, 0.4] -> midpoint 0.35, (0.4, 0.8] -> 0.6.
+    assert peak == pytest.approx(0.35)
+    # Each entry's width-mean lies between its two endpoint densities (dky0 + dky1 = width).
+    widths = ky - np.concatenate(([0.0], ky[:-1]))
+    mean = _tglf_weighted(ky, flux)[1:] / widths[1:]
+    assert np.all(mean >= np.minimum(flux[:-1], flux[1:]) - 1e-12)
+    assert np.all(mean <= np.maximum(flux[:-1], flux[1:]) + 1e-12)
 
 
 def test_sensitivity_tables_compare_configurations_on_one_state(sensitivity, driver, sample,
@@ -1226,3 +1241,52 @@ def test_sensitivity_tables_compare_configurations_on_one_state(sensitivity, dri
     assert float(pair["q_tot_gb_em_vs_es_sat0"]) == pytest.approx(0.5)
     assert float(pair["q_tot_gb_em_vs_es_sat3"]) == pytest.approx(0.5)
     assert pair["q_tot_gb_em_vs_es_sat1"] == ""  # not run: missing, not zero
+
+
+
+def _sens_state(root, sat, field, *, identity="s1", quality="good", label=None, energy=(1.0, 2.0)):
+    params = {"sat_rule": sat, "use_bper": field != "es", "use_bpar": field == "em-bper-bpar"}
+    tree = root / (label or f"tglf-sat{sat}-{field}") / "48224" / "magnetics" / "00300"
+    (tree / "r0.50").mkdir(parents=True)
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    flux = np.array([energy[0], energy[1], 0.0])
+    TglfOutputs(directory=str(tree), gbflux={"particle": flux, "energy": flux, "momentum": 0 * flux,
+                "exchange": 0 * flux}, grid={"n_species": 3, "n_xgrid": 4}).write_json(tree / "r0.50" / "outputs.json")
+    (tree / "state.json").write_text(json.dumps({
+        "shot": 48224, "time_efit_s": 0.3, "efit_lineage": "magnetics", "efit_quality": quality,
+        "ti_lineage": "ti_eq_te_assumed", "state_identity": identity,
+        "tglf_config": label or f"tglf-sat{sat}-{field}", "tglf_parameters": params,
+        "surfaces": [{"r_over_a": 0.5, "status": "solved", "run_identity": f"r{sat}{field}"}]}))
+    return tree
+
+
+def test_sensitivity_refuses_what_it_cannot_compare_honestly(sensitivity, tmp_path):
+    _sens_state(tmp_path / "a", 0, "es")
+    _sens_state(tmp_path / "b", 0, "es")           # the same configuration on the same state twice
+    with pytest.raises(ValueError, match="appears twice"):
+        sensitivity.build_rows(tmp_path)
+    with pytest.raises(ValueError, match="does not name its settings"):
+        _sens_state(tmp_path / "c", 1, "es", label="tglf-sat3-es")
+        sensitivity.build_rows(tmp_path / "c")
+    with pytest.raises(ValueError, match="not good/admissible"):
+        _sens_state(tmp_path / "d", 1, "es", quality="unreconstructible")
+        sensitivity.build_rows(tmp_path / "d")
+
+
+def test_a_pruned_native_tree_is_reported_not_fatal(sensitivity, tmp_path):
+    tree = _sens_state(tmp_path, 0, "es")
+    (tree / "r0.50" / "outputs.json").unlink()
+    (row,) = sensitivity.build_rows(tmp_path)
+    assert row["status"] == "missing_outputs" and "qe_gb" not in row
+
+
+def test_a_nan_flux_does_not_make_the_spread_order_dependent(sensitivity, tmp_path):
+    _sens_state(tmp_path, 0, "es", energy=(float("nan"), 1.0))
+    _sens_state(tmp_path, 1, "es", energy=(1.0, 1.0))
+    _sens_state(tmp_path, 2, "es", energy=(2.0, 2.0))
+    (pair,) = sensitivity.build_pairs(sensitivity.build_rows(tmp_path))
+    assert pair["n_configs"] == 3
+    assert pair["qi_gb_sat_spread_es"] == pytest.approx(0.5)   # all three finite
+    assert pair["qe_gb_sat_spread_es"] == pytest.approx(0.5)   # NaN (sat0) left out
+    assert sensitivity.delta(float("nan"), 1.0) is None
