@@ -146,6 +146,17 @@ def _f(value: Any) -> Optional[float]:
     return number if math.isfinite(number) else None
 
 
+def _ion_sum(fluxes: Optional[dict]) -> Optional[float]:
+    """Sum of the per-species ion fluxes that were written; ``None`` when none was.
+
+    A mapper that did not project the ion channel writes ``None`` per species
+    (``run_tglf.project_state``, ``run_neo.project``); summing nothing is not 0 W/m^2,
+    and reporting it so would make ``f_e`` exactly 1.
+    """
+    present = [v for v in (fluxes or {}).values() if v is not None]
+    return _f(sum(present)) if present else None
+
+
 def spectral_descriptors(native: Any) -> dict[str, Any]:
     """Continuous TGLF descriptors from one native container (see module docstring)."""
     out: dict[str, Any] = {}
@@ -292,7 +303,7 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
             if si is not None:
                 row["rho_tor_norm"] = si["rho_tor_norm"]
                 row["qe_tglf_W_m2"] = si["electron_energy_flux_W_m2"]
-                row["qi_tglf_W_m2"] = _f(sum(v for v in si["ion_energy_flux_W_m2"].values() if v is not None))
+                row["qi_tglf_W_m2"] = _ion_sum(si["ion_energy_flux_W_m2"])
                 row["gamma_e_tglf_m2_s"] = si["electron_particle_flux_m2_s"]
                 qe, qi = _f(row["qe_tglf_W_m2"]), _f(row["qi_tglf_W_m2"])
                 if qe is not None and qi is not None and abs(qe) + abs(qi) > 0:
@@ -304,7 +315,7 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
             ns = neo_rows.get(round(r, 4))
             if ns is not None:
                 row["qe_neo_W_m2"] = ns["electron_energy_flux_W_m2"]
-                row["qi_neo_W_m2"] = _f(sum(v for v in ns["ion_energy_flux_W_m2"].values() if v is not None))
+                row["qi_neo_W_m2"] = _ion_sum(ns["ion_energy_flux_W_m2"])
                 row["gamma_e_neo_m2_s"] = ns["electron_particle_flux_m2_s"]
             classical = surface.get("classical")
             row["classical_reason"] = surface.get("classical_error")
