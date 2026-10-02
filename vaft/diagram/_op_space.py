@@ -59,10 +59,9 @@ AXIS_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
         _registered("low_q"),
         _registered("giacomin_edge", "edge_safety_factor_95"),
         _registered("martin_2008_lh"),
-        _b.BoundaryQuantity(
-            "internal_inductance_li3", "l_i(3)", "-",
-            "IMAS DD global_quantities.li_3: 2 int B_p^2 dV / (mu0^2 I_p^2 R_0), R_0 the reference major radius.",
-        ),
+        _registered("wesson_1989_jet_li_qpsi_lower"),
+        _registered("cheng_1987_li_qa_lower"),
+        _registered("cheng_1987_li_qa_lower", "cylinder_edge_safety_factor"),
         _b.BoundaryQuantity(
             "greenwald_fraction", "f_G", "-",
             "Line-averaged electron density over the Greenwald density I_p/(pi a^2).",
@@ -210,6 +209,37 @@ _register(OperationalProjection(
     y=_q("greenwald_fraction"),
     default_boundaries=(),
     assumptions=("f_G = 1 is a reference level, not a registered boundary on this plane",),
+))
+
+
+_register(OperationalProjection(
+    key="li_qa_wesson",
+    title="JET empirical l_i-q_psi operating space",
+    x=_q("edge_safety_factor"),
+    y=_q("internal_inductance_li3"),
+    default_boundaries=("wesson_1989_jet_li_qpsi_lower", "wesson_1989_jet_li_qpsi_upper", "low_q"),
+    references=("J. A. Wesson et al., Nucl. Fusion 29 (1989) 641, Fig. 6",),
+    assumptions=(
+        "x is q_psi at the plasma edge; a q95 column is not accepted in its place",
+        "low_q (q_psi > 2, Greenwald 1988) is the same quantity as this x axis and closes the q = 2 edge",
+        "y is the l_i(3) form 2 int B_p^2 dV/(mu0^2 I_p^2 R); Wesson's R is the plasma major radius, the DD's R_0",
+        "empirical JET boundaries; their transfer to spherical tokamaks is untested",
+    ),
+    diagram="li_qa",
+))
+
+_register(OperationalProjection(
+    key="li_qa_cheng",
+    title="Cheng-Furth-Boozer MHD-stable l_i-q(a) domain",
+    x=_q("cylinder_edge_safety_factor"),
+    y=_q("internal_inductance_cylinder"),
+    default_boundaries=("cheng_1987_li_qa_lower", "cheng_1987_li_qa_upper", "cheng_1987_qa_min"),
+    references=("C. Z. Cheng, H. P. Furth and A. H. Boozer, Plasma Phys. Control. Fusion 29 (1987) 351, Fig. 4",),
+    assumptions=(
+        "pressureless straight cylinder, no wall, q(0) = 1.01: a theoretical domain, not a fit to data",
+        "axes are the cylinder's q(a) and l_i; toroidal q_psi, q95 and l_i(3) are other quantities",
+    ),
+    diagram="li_qa",
 ))
 
 

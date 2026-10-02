@@ -281,8 +281,10 @@ coefficients (2.8 versus 0.028) — the same Troyon-type relation written in two
 (%·m·T/MA versus the dimensionless fraction). `plasma_stability_margins` is built on
 `beta_stability_boundary`, so it lives in the 0.028 convention; its `q_margin` is simply $q_{95} - 2$.
 
-Empirical $(q_a, l_i)$ operational boundary from the JET disruption survey
-(Wesson *et al.*, Nucl. Fusion **29**, 1989):
+Legacy vertices of the JET empirical $l_i$–$q_\psi$ stability boundary (Wesson *et al.*, Nucl.
+Fusion **29**, 1989, Fig. 6, lower boundary). The audited boundaries, with provenance and quantity
+identity, are the registered `wesson_1989_jet_li_qpsi_*` entries of `vaft.formula.boundaries`
+(see Stability, "Internal inductance against edge q"):
 
 <!-- docs-snippet: skip fragment (placeholder name qa is never defined on the page) -->
 ```python
