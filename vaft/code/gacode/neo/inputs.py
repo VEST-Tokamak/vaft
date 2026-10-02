@@ -210,3 +210,13 @@ def prepare_neo_conductivity_case(
             "species": tuple(profile.name),
         },
     )
+
+
+__all__ = [
+    "NEOInputs",
+    "neo_parameters",
+    "write_input_neo",
+    "prepare_neo_case",
+    "conductivity_parameters",
+    "prepare_neo_conductivity_case",
+]

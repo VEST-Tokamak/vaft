@@ -19,7 +19,7 @@ Every case records BOTH the commanded coil currents (baseline measured
 currents with the control applied) and the materialized ones reported by the
 solver, the held targets and the achieved global quantities, the scan-grade
 topology classification of the solved equilibrium (limited / near-null /
-single-null / double-null, X-points, dRsep, limiter contact), and
+single-null / double-null / ambiguous, X-points, dRsep, limiter contact), and
 discontinuity flags relative to the previous converged case. Failed and
 non-converged cases stay visible in the manifests; nothing is bridged.
 
@@ -50,7 +50,14 @@ from ._oft import get_oft_env, import_oft
 from .config import TokaMakerConfig, TokaMakerInputs
 from .inputs import prepare_tokamaker_inputs
 from .mesh import build_tokamaker_mesh
-from .runner import _apply_profiles, _apply_vsc, _configure_tokamaker, _json_safe
+from .runner import (
+    _apply_profiles,
+    _apply_vsc,
+    _configure_tokamaker,
+    _json_safe,
+    _save_eqdsk,
+    _wall_check,
+)
 from .topology import ScanTopology, TopologyReport, classify_boundary
 
 _log = logging.getLogger(__name__)
@@ -561,12 +568,20 @@ class FreeBoundaryScan:
         """
         changed = False
         stored = dict(reloaded.topology or {})
+        contact_tolerance = self.classify_kwargs.get("contact_tolerance")
         if (
             stored.get("active_tolerance"),
             stored.get("near_null_band"),
         ) != (
             self.classify_kwargs.get("active_tolerance"),
             self.classify_kwargs.get("near_null_band"),
+        ) or (
+            # reports written before #1469 called a contact-free boundary
+            # LIMITED and carry no contact tolerance
+            stored and "contact_tolerance" not in stored
+        ) or (
+            contact_tolerance is not None
+            and stored.get("contact_tolerance") != contact_tolerance
         ):
             report = classify_boundary(reloaded.gfile, **self.classify_kwargs)
             if (
@@ -664,6 +679,7 @@ class FreeBoundaryScan:
             # chain continues (its manifest below stays visible either way)
             try:
                 stats = dict(mygs.get_stats())
+                stats.update(_wall_check(mygs, self.base_inputs.geometry["limiter"]))
                 materialized = dict(mygs.get_coil_currents()[0])
                 try:
                     xp_array, diverted = mygs.get_xpoints()
@@ -673,14 +689,7 @@ class FreeBoundaryScan:
                 except Exception:
                     solver_xp, diverted = (), None
                 gfile = case.workdir / f"g{shot:06d}.{ctime:05d}"
-                mygs.save_eqdsk(
-                    str(gfile),
-                    nr=self.config.eqdsk_nr,
-                    nz=self.config.eqdsk_nz,
-                    lcfs_pad=self.config.eqdsk_lcfs_pad,
-                    run_info=f"# {shot} {ctime}ms",
-                    cocos=self.config.eqdsk_cocos,
-                )
+                _save_eqdsk(mygs, gfile, self.config, f"# {shot} {ctime}ms")
                 report = classify_boundary(gfile, **self.classify_kwargs)
                 result.achieved = stats
                 result.materialized_currents = materialized
@@ -806,6 +815,7 @@ def scan(
     workdir: Optional[Path | str] = None,
     active_tolerance: float = 2.0e-3,
     near_null_band: float = 5.0e-2,
+    contact_tolerance: Optional[float] = None,
 ) -> FreeBoundaryScan:
     """Materialize a TokaMaker free-boundary PF-coil-current scan.
 
@@ -835,6 +845,7 @@ def scan(
         classify_kwargs={
             "active_tolerance": active_tolerance,
             "near_null_band": near_null_band,
+            "contact_tolerance": contact_tolerance,
         },
     )
 
@@ -842,3 +853,15 @@ def scan(
 # Exported alias: `scan` stays the natural name inside this module, but the
 # package-level export needs an unambiguous name.
 free_boundary_scan = scan
+
+
+__all__ = [
+    "CaseStatus",
+    "CoilControl",
+    "ScanCase",
+    "FreeBoundaryCaseResult",
+    "FreeBoundaryScanResult",
+    "FreeBoundaryScan",
+    "scan",
+    "free_boundary_scan",
+]

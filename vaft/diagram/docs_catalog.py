@@ -32,6 +32,8 @@ from pathlib import Path
 
 from vaft._docstring import source_span
 
+from ._render import SAVE_FORMATS
+
 __all__ = [
     "ASSET_DIR",
     "SCHEMA_VERSION",
@@ -257,6 +259,11 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
         "families": list(families.values()),
         "builders": builders,
         "assets": assets,
+        # what Diagram.save can write, so every entry can say how to get each format
+        "formats": [
+            {"suffix": suffix, "description": description, "requires": list(tools)}
+            for suffix, (description, tools) in SAVE_FORMATS.items()
+        ],
     }
     if provenance:
         snapshot["provenance"] = {key: provenance[key] for key in sorted(provenance)}

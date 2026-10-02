@@ -18,7 +18,11 @@ from omas import ODS
 
 from gpec_nc_fixtures import write_control_nc, write_cylindrical_nc, write_profile_nc
 from vaft.machine_mapping.gpec_ideal import gpec_ideal
-from vaft.plot.backend.recipes import RECIPES, _gpec_resonant_table
+from vaft.plot.backend.recipes import (
+    RECIPES,
+    _gpec_resonant_table,
+    _gpec_vacuum_resonant_table,
+)
 
 MESH = "mhd_linear.time_slice.0.toroidal_mode.0.plasma.coordinate_system"
 
@@ -113,7 +117,7 @@ def test_the_mesh_can_still_be_asked_for_without_the_spectral_field(tmp_path):
 def test_one_island_and_one_rational_surface_are_drawn_per_resonance(mapped):
     ods, _ = mapped
     table = _gpec_resonant_table(ods)
-    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
     # the outermost surface, then a (surface, island) pair per resonance
     assert len(model.layers) == 1 + 2 * len(table["rows"])
@@ -123,7 +127,7 @@ def test_one_island_and_one_rational_surface_are_drawn_per_resonance(mapped):
 
 def test_each_separatrix_is_a_closed_curve_on_the_runs_own_mesh(mapped):
     ods, native = mapped
-    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
     island = model.layers[2]
     assert island.kind == "polygon"
@@ -137,7 +141,7 @@ def test_the_island_half_width_is_the_derived_one(mapped):
     table's, so the figure and the island-width profile cannot disagree."""
     ods, _ = mapped
     table = _gpec_resonant_table(ods)
-    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
     for index, row in enumerate(table["rows"]):
         assert f"{float(row['w_isl']):.4g}" in model.layers[2 + 2 * index].label
@@ -145,8 +149,8 @@ def test_the_island_half_width_is_the_derived_one(mapped):
 
 def test_the_slice_the_figure_drew_is_on_the_title(mapped):
     ods, _ = mapped
-    assert "0°" in RECIPES["mhd_linear_geometry_island"].builder(ods).title
-    assert "47°" in RECIPES["mhd_linear_geometry_island"].builder(ods, phi_deg=47).title
+    assert "0°" in RECIPES["mhd_linear_geometry_island"].builder(ods, field="total").title
+    assert "47°" in RECIPES["mhd_linear_geometry_island"].builder(ods, field="total", phi_deg=47).title
 
 
 def test_a_result_with_no_mesh_says_how_to_get_one(tmp_path):
@@ -159,7 +163,7 @@ def test_a_result_with_no_mesh_says_how_to_get_one(tmp_path):
     gpec_ideal(ods, str(tmp_path), {"modes": [1], "include_geometry": False})
 
     with pytest.raises(ValueError, match="include_geometry=True"):
-        RECIPES["mhd_linear_geometry_island"].builder(ods)
+        RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
 
 def test_the_island_phase_is_derived_and_never_assumed_to_be_zero(mapped):
@@ -191,7 +195,7 @@ def test_a_run_in_non_straight_field_line_coordinates_is_refused(tmp_path):
     )
 
     with pytest.raises(ValueError, match="equal_arc"):
-        RECIPES["mhd_linear_geometry_island"].builder(ods)
+        RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
 
 def test_a_poloidal_angle_in_radians_is_refused(mapped):
@@ -201,7 +205,7 @@ def test_a_poloidal_angle_in_radians_is_refused(mapped):
     ods[f"{MESH}.grid.dim2"] = ods[f"{MESH}.grid.dim2"] * (2.0 * np.pi)
 
     with pytest.raises(ValueError, match="normalized to 1"):
-        RECIPES["mhd_linear_geometry_island"].builder(ods)
+        RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
 
 def test_a_separatrix_that_leaves_the_mesh_breaks_rather_than_flattening(mapped):
@@ -231,7 +235,7 @@ def test_a_separatrix_that_leaves_the_mesh_breaks_rather_than_flattening(mapped)
 
     recipes._gpec_resonant_table = widened
     try:
-        model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+        model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
     finally:
         recipes._gpec_resonant_table = original
 
@@ -261,7 +265,7 @@ def test_an_island_entirely_off_the_mesh_is_refused(mapped):
     recipes._gpec_resonant_table = off_mesh
     try:
         with pytest.raises(ValueError, match="entirely outside the mapped mesh"):
-            RECIPES["mhd_linear_geometry_island"].builder(ods)
+            RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
     finally:
         recipes._gpec_resonant_table = original
 
@@ -316,7 +320,7 @@ def test_each_island_closes_into_m_lobes(mapped):
     """
     ods, _ = mapped
     table = _gpec_resonant_table(ods)
-    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
     for index, row in enumerate(table["rows"]):
         separation = _separation(model.layers[2 + 2 * index])
@@ -335,7 +339,7 @@ def test_the_branches_meet_at_the_x_points_and_open_to_w_at_the_o_points(mapped)
     ods, _ = mapped
     table = _gpec_resonant_table(ods)
     mesh_psi = ods[f"{MESH}.grid.dim1"]
-    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
     for index, row in enumerate(table["rows"]):
         separation = _separation(model.layers[2 + 2 * index])
@@ -372,10 +376,10 @@ def test_shifting_the_island_phase_by_pi_moves_the_lobes(mapped):
             entry["phase"] = entry["phase"] + np.pi
         return result
 
-    plain = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    plain = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
     recipes._gpec_resonant_table = rotated
     try:
-        shifted = RECIPES["mhd_linear_geometry_island"].builder(ods)
+        shifted = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
     finally:
         recipes._gpec_resonant_table = original
 
@@ -396,8 +400,8 @@ def test_the_toroidal_angle_moves_the_pattern_without_changing_it(mapped):
     """
     ods, _ = mapped
 
-    plain = RECIPES["mhd_linear_geometry_island"].builder(ods).layers[2]
-    moved = RECIPES["mhd_linear_geometry_island"].builder(ods, phi_deg=47.0).layers[2]
+    plain = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total").layers[2]
+    moved = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total", phi_deg=47.0).layers[2]
 
     assert _branch_extrema(_separation(plain)[:-1]) == _branch_extrema(
         _separation(moved)[:-1]
@@ -427,9 +431,9 @@ def test_the_slice_is_periodic_in_one_full_turn_of_the_pattern(mapped):
     ods, _ = mapped
     table = _gpec_resonant_table(ods)
 
-    plain = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    plain = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
     turned = RECIPES["mhd_linear_geometry_island"].builder(
-        ods, phi_deg=360.0 / table["n_tor"]
+        ods, field="total", phi_deg=360.0 / table["n_tor"]
     )
 
     np.testing.assert_allclose(plain.layers[2].r, turned.layers[2].r, atol=1e-9)
@@ -578,9 +582,9 @@ def _drawn_o_point_phase(layer, m_pol, psi_r, theta_norm, jacobian):
     Fitted, not argmax-ed: ``excursion**2`` is
     ``(w/2)**2 (1 + cos(m theta* - xi_O)) / 2``, one cosine at ``m`` whose
     phase is the O-point's, so the whole outward branch votes and the answer
-    is not limited to the nearest mesh sample. It is the same fit
-    ``vaft-mastu``'s ``tools/flare_r01_poincare.py`` applies to FLARE
-    punctures, which is what makes the two numbers comparable at all.
+    is not limited to the nearest mesh sample. It is the same fit applied to
+    the FLARE punctures (:data:`R01_PROVENANCE`'s ``measurement``), which is
+    what makes the two numbers comparable at all.
     """
     _, pest_angle, excursion = _drawn_angles(layer, psi_r, theta_norm, jacobian)
     design = np.column_stack([np.ones(excursion.size),
@@ -635,7 +639,7 @@ def test_the_o_point_sits_a_quarter_period_below_the_resonant_flux_phase(
     _recorded_as(ods, jacobian=jacobian)
     _fix_phase(monkeypatch, phase)
     table = _gpec_resonant_table(ods)
-    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
     law = float(np.mod(phase - 0.5 * np.pi, 2.0 * np.pi))
 
     for index, row in enumerate(table["rows"]):
@@ -657,7 +661,7 @@ def test_the_phase_is_not_the_negated_argument_the_figure_used_to_draw(
     _recorded_as(ods, jacobian="pest")
     _fix_phase(monkeypatch, _SEPARATING_PHASE)
     table = _gpec_resonant_table(ods)
-    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
     row = table["rows"][0]
     measured = _drawn_o_point_phase(
@@ -684,7 +688,7 @@ def test_the_drawn_lobes_are_equally_spaced_in_the_pest_angle_and_not_in_the_mes
     gpec_ideal(ods, str(tmp_path), {"modes": [1], "include_geometry": True})
     _fix_phase(monkeypatch, _SEPARATING_PHASE)
     table = _gpec_resonant_table(ods)
-    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
     spacing = 2.0 * np.pi / (native["theta"].size - 1)
 
     for index, row in enumerate(table["rows"]):
@@ -719,7 +723,7 @@ def test_a_jacobian_that_cannot_be_relabelled_from_the_mesh_is_refused(mapped):
     _recorded_as(ods, jacobian="boozer")
 
     with pytest.raises(ValueError, match="boozer"):
-        RECIPES["mhd_linear_geometry_island"].builder(ods)
+        RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
 
 @pytest.mark.parametrize("recorded", ["1.0", "None", "0", "0.0"])
@@ -738,7 +742,7 @@ def test_a_helicity_the_phase_law_was_not_measured_at_is_refused(mapped, recorde
     _recorded_as(ods, helicity=recorded)
 
     with pytest.raises(ValueError, match="helicity"):
-        RECIPES["mhd_linear_geometry_island"].builder(ods)
+        RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
 
 def test_a_missing_helicity_is_not_reported_as_a_recorded_zero(mapped):
@@ -746,7 +750,124 @@ def test_a_missing_helicity_is_not_reported_as_a_recorded_zero(mapped):
     _recorded_as(ods, helicity="0")
 
     with pytest.raises(ValueError, match="recorded no helicity"):
+        RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
+
+
+# --- which field the islands are drawn from (owner decision, 2026-10-01) -------
+
+
+def test_the_field_is_required_and_has_no_default(mapped):
+    """The total and vacuum pairs are different physical objects on the same
+    axes -- 20 % apart in width at q=2 and up to 3.1 rad apart in phase on the
+    DIII-D reference -- so a default would make a reader's answer depend on a
+    keyword nobody typed.
+    """
+    ods, _ = mapped
+
+    with pytest.raises(ValueError, match="required and has no default"):
         RECIPES["mhd_linear_geometry_island"].builder(ods)
+
+
+def test_a_field_that_is_not_one_of_the_two_names_both(mapped):
+    ods, _ = mapped
+
+    with pytest.raises(ValueError, match="'total', 'vacuum'"):
+        RECIPES["mhd_linear_geometry_island"].builder(ods, field="plasma")
+
+
+def test_the_title_says_which_field_and_where_its_numbers_came_from(mapped):
+    ods, _ = mapped
+
+    total = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total").title
+    vacuum = RECIPES["mhd_linear_geometry_island"].builder(ods, field="vacuum").title
+    assert "total field" in total and "derived from the mapped spectral field" in total
+    assert "vacuum field" in vacuum and "read from the run's own" in vacuum
+
+
+def test_the_vacuum_branch_reads_gpecs_own_pair_rather_than_deriving_one(mapped):
+    """``w_isl_v`` and ``Phi_res_v`` cannot be rebuilt from the IDS: it carries
+    one spectral field, the total one. So the vacuum numbers are read, and the
+    fixture makes them differ from the total pair in both width (half) and phase
+    (0.9 rad) so that reading the wrong column cannot pass.
+    """
+    ods, native = mapped
+    total = _gpec_resonant_table(ods)
+    vacuum = _gpec_vacuum_resonant_table(ods)
+
+    assert [row["m_pol"] for row in vacuum["rows"]] == [row["m_pol"] for row in total["rows"]]
+    for row, expected_w, expected_flux in zip(
+        vacuum["rows"], native["w_isl_v"], native["Phi_res_v"]
+    ):
+        assert row["w_isl"] == pytest.approx(float(expected_w))
+        assert row["phase"] == pytest.approx(float(np.angle(expected_flux)))
+    # Against the file's own columns: the fixture rotates Phi_res_v by 0.9 rad
+    # off Phi_res and halves the width, so reading the total column where the
+    # vacuum one was asked for shows up in both.
+    for row, total_flux, total_width in zip(
+        vacuum["rows"], native["Phi_res"], native["w_isl"]
+    ):
+        assert _phase_miss(row["phase"], float(np.angle(total_flux))) == pytest.approx(0.9)
+        assert row["w_isl"] == pytest.approx(0.5 * float(total_width))
+    # ... and against the derived total table the figure's other branch uses,
+    # which is a third number again: it is fitted from the spectral field, not
+    # read from either column.
+    for vacuum_row, total_row in zip(vacuum["rows"], total["rows"]):
+        assert vacuum_row["w_isl"] != pytest.approx(total_row["w_isl"])
+        assert _phase_miss(vacuum_row["phase"], total_row["phase"]) > 0.05
+
+
+def test_the_vacuum_islands_obey_the_same_phase_law_as_the_total_ones(mapped):
+    """The phase relation is a statement about ``Phi_res`` as a quantity, so it
+    does not care which field's harmonic it is applied to."""
+    ods, native = mapped
+    _recorded_as(ods, jacobian="pest")
+    vacuum = _gpec_vacuum_resonant_table(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="vacuum")
+
+    for index, row in enumerate(vacuum["rows"]):
+        measured = _drawn_o_point_phase(
+            model.layers[2 + 2 * index], int(row["m_pol"]), float(row["psi_n"]),
+            native["theta"], "pest",
+        )
+        law = float(np.mod(row["phase"] - 0.5 * np.pi, 2.0 * np.pi))
+        assert _phase_miss(measured, law) < 5e-3, row["m_pol"]
+
+
+def test_the_vacuum_half_width_drawn_is_w_isl_v(mapped):
+    ods, native = mapped
+    vacuum = _gpec_vacuum_resonant_table(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="vacuum")
+
+    for index, row in enumerate(vacuum["rows"]):
+        assert f"{float(row['w_isl']):.4g}" in model.layers[2 + 2 * index].label
+
+
+def test_a_product_mapped_before_the_vacuum_pair_was_recorded_says_so(mapped):
+    """The read is the point of failure a reader meets, so it has to name the
+    remedy: the attributes are simply absent from an older `code.parameters`."""
+    ods, _ = mapped
+    ods["mhd_linear.code.parameters"] = re.sub(
+        r' w_isl_v="[^"]*" phi_res_v_real="[^"]*" phi_res_v_imag="[^"]*"', "",
+        ods["mhd_linear.code.parameters"],
+    )
+
+    with pytest.raises(ValueError, match="mapped again"):
+        RECIPES["mhd_linear_geometry_island"].builder(ods, field="vacuum")
+    # ... and the total figure, which needs none of it, still draws.
+    assert RECIPES["mhd_linear_geometry_island"].builder(ods, field="total").layers
+
+
+def test_a_surface_with_no_vacuum_pair_is_named_on_the_title_not_dropped_silently(mapped):
+    ods, _ = mapped
+    parameters = ods["mhd_linear.code.parameters"]
+    first = re.search(r'<surface\b[^/]*/>', parameters).group(0)
+    ods["mhd_linear.code.parameters"] = parameters.replace(
+        first, re.sub(r'w_isl_v="[^"]*"', 'w_isl_v="nan"', first), 1
+    )
+
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="vacuum")
+    assert "recorded no vacuum pair" in model.title
+    assert len(model.layers) == 1 + 2 * (len(_gpec_resonant_table(ods)["rows"]) - 1)
 
 
 # --- the R-01 reference value (D-13: GPEC's own DIII-D example) ----------------
@@ -754,7 +875,11 @@ def test_a_missing_helicity_is_not_reported_as_a_recorded_zero(mapped):
 # D-13 (2026-09-28) lets data shipped inside an open-source code's own
 # repository, and outputs derived from it with that code, into public VAFT
 # provided the provenance records the code version, the input SHA-256 and the
-# generating command. :data:`R01_PROVENANCE` is that record, and it is the one
+# generating command. :data:`R01_PROVENANCE` is that record. It states the
+# command as the task, its arguments and the measurement method rather than as
+# a script path, so that it stands on its own: a reader reproduces the number
+# from this record and the two open-source codes, with nothing else to obtain.
+# It is the record that
 # every number below -- and every R-01 number quoted in
 # ``vaft.process.equilibrium.pest_angle_from_jacobian_angle``,
 # ``vaft.formula.stability.helical_phase`` and the island recipe -- rests on.
@@ -780,12 +905,32 @@ R01_PROVENANCE: Mapping[str, str] = MappingProxyType({
     "vacuum_field": "gpec_cbrzphi_n1.out",
     "vacuum_field_sha256":
         "718da784ff534a4acd2fbc85958d3e60438370222a1c9babd6b1f195c305a8fa",
-    # The command that produced the traced O-point.
-    "command": (
-        "tools/flare_r01_poincare.py OUTDIR --c1 1 --c3 0 --field coil --q 2 "
-        "--span 0.06 --surfaces 45 --punctures 300 --run"
+    # What produced the traced O-point, stated so that it can be reproduced
+    # from this record alone: a reader needs the FLARE task and its arguments,
+    # not the name of a driver script.
+    "trace_task": (
+        "FLARE poincare_map_psiN over psi_N in [0.533644, 0.653644] -- the "
+        "q = 2 surface at psi_N = 0.593644 plus and minus a 0.06 span -- with "
+        "45 field lines x 300 punctures per line and nsym = 1, launched from "
+        "the equilibrium below with the geqdsk's own limiter contour as the "
+        "FLARE Axisurf boundary"
     ),
-    "command_repository": "HongSik-Yun-Fusion/vaft-mastu",
+    "trace_field": (
+        "one FLARE Gpec perturbation element on gpec_cbrzphi_n1.out, GPEC's "
+        "vacuum (coil) real-space field, at amplitude |c_1| = 1 and phase 0; "
+        "the n = 3 element is absent (|c_3| = 0), so exactly one toroidal "
+        "harmonic is live and no relative phase is imposed"
+    ),
+    "measurement": (
+        "the punctures are relabelled to the PEST straight-field-line angle of "
+        "the same equilibrium; the lines whose psi_N interval contains the "
+        "rational surface are binned in that angle; the island's full width per "
+        "bin is fitted to width**2 = a + b cos(m theta*) + c sin(m theta*), "
+        "whose phase atan2(c, b) is the O-point's helical angle xi_O directly, "
+        "because width = (w/2)|cos((m theta* - xi_O) / 2)| for a pendulum "
+        "island. Repeated at 72, 108, 144 and 180 bins; the spread across "
+        "those four is R01_Q2_TRACED_O_POINT_SPREAD"
+    ),
     "decision": "D-13 (2026-09-28)",
 })
 
@@ -806,8 +951,8 @@ R01_Q2_RESONANT_FLUX_PHASE = 2.826799
 #: 45 field lines x 300 punctures over ``psi_N`` in [0.534, 0.654], 19 of them
 #: interior, the island width per poloidal bin fitted against the
 #: ``|cos(xi/2)|`` profile a pendulum island has, in the PEST angle of the
-#: run's own equilibrium. Provenance, including the generating command:
-#: :data:`R01_PROVENANCE`.
+#: run's own equilibrium. Provenance, including the trace parameters and the
+#: fit: :data:`R01_PROVENANCE`.
 R01_Q2_TRACED_O_POINT = 1.219653
 
 #: How far that fit moves across binnings from 72 to 180 bins [rad]: the
@@ -818,8 +963,14 @@ R01_Q2_TRACED_O_POINT_SPREAD = 0.0075
 def test_the_provenance_record_is_complete_for_d13():
     """D-13 admits this data on the strength of the record, so the record is
     under test: code versions, every input's SHA-256, and the command."""
-    for key in ("gpec_version", "flare_commit", "command", "decision"):
+    for key in ("gpec_version", "flare_commit", "trace_task", "trace_field",
+                "measurement", "decision"):
         assert R01_PROVENANCE[key]
+    # Self-contained: the record names codes, inputs, parameters and method,
+    # never a repository a reader of public VAFT cannot open.
+    joined = " ".join(R01_PROVENANCE.values()).lower()
+    for private in ("hsyun", "vaft-mastu", "vaft_mastu", "hongsik"):
+        assert private not in joined, private
     for name in ("equilibrium", "profile_output", "vacuum_field"):
         assert R01_PROVENANCE[name]
         digest = R01_PROVENANCE[f"{name}_sha256"]
@@ -851,7 +1002,7 @@ def test_the_recipe_and_the_pinned_r01_law_are_the_same_expression(mapped, monke
     _recorded_as(ods, jacobian="pest")
     _fix_phase(monkeypatch, R01_Q2_RESONANT_FLUX_PHASE)
     table = _gpec_resonant_table(ods)
-    model = RECIPES["mhd_linear_geometry_island"].builder(ods)
+    model = RECIPES["mhd_linear_geometry_island"].builder(ods, field="total")
 
     row = next(row for row in table["rows"] if int(row["m_pol"]) == 2)
     index = table["rows"].index(row)

@@ -89,3 +89,8 @@ def scan_tokamaker(
             on_result(value, result)
 
     return out
+
+
+__all__ = [
+    "scan_tokamaker",
+]

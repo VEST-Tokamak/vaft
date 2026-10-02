@@ -18,7 +18,7 @@ def test_the_registry_lists_the_expected_builders():
     assert set(BUILDERS) == {
         "fusion_science_knowledge_lifecycle", "vaft_four_pillars", "scientific_workflow", "interoperability_layers",
         "scientific_provenance_chain", "scientific_infrastructure_principles", "machine_agnostic_architecture",
-        "experiment_modeling_theory_data_network", "human_ai_interface"}
+        "experiment_modeling_theory_data_network", "human_ai_interface", "machine_research_archive"}
 
 
 def _all_variants():
@@ -234,6 +234,25 @@ def test_styles_are_defined_and_labels_off_drops_only_notes():
         assert full.scene.role("note") and not bare.scene.role("note")
         annotation = ("note", "complement")
         assert [i for i in full.scene.items if i.role not in annotation] == list(bare.scene.items)
+
+
+def test_the_archive_is_an_input_to_new_research_not_an_end():
+    d = vaft.diagram.machine_research_archive()
+    kinds = {(a, b): k for a, b, k in d.model["edges"]}
+    assert d.model["tracks"] == ("machine", "studies", "research")
+    # the research actually done on VEST follows the README's list of it
+    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8").lower()
+    for topic in ("diagnostic development", "disruptions", "equilibrium reconstruction", "current drive"):
+        assert any(topic in entry for entry in d.model["entries"]["studies"]) and topic in readme
+    assert all((f"track:{t}", "archive") in kinds for t in d.model["tracks"])
+    assert ("archive", "next") in kinds
+    assert kinds[("archive", "next")] == "forward"
+    loop_back = {(a, b) for (a, b), k in kinds.items() if a == "next" and k == "feedback"}
+    assert loop_back == {("next", f"track:{t}") for t in d.model["tracks"]}  # new work extends every track
+    for track, entries in d.model["entries"].items():  # each listed entry is drawn
+        assert len({i.role for i in d.scene.items if i.role.startswith(f"entry:{track}:")}) == len(entries)
+    text = " ".join(i.text for i in d.scene.items if isinstance(i, Label))
+    assert "2012" in text and not re.search(r"\b(19|20)\d\d\b", text.replace("2012", ""))  # no other dates
 
 
 def test_registered_and_canonical():

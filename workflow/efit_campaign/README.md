@@ -1,6 +1,6 @@
 # EFIT campaign shot selection (#1331)
 
-The #891 working setting (`efit.preset: statistical_891`) is run over shots chosen for three reasons:
+The #891 working setting (`statistical_891`, the EFIT default since 2026-10-01) is run over shots chosen for three reasons:
 - **importance**: record-class Ip or a long pulse;
 - **magnetics quality**: like 39915's;
 - **Thomson coverage**: needed for the kinetic lineage.

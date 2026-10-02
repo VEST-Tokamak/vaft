@@ -495,3 +495,8 @@ def prepare_nice_inputs(ods: Any, config: NiceConfig) -> NiceInputs:
         tuple(files),
         ods,
     )
+
+
+__all__ = [
+    "prepare_nice_inputs",
+]

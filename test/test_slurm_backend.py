@@ -629,7 +629,8 @@ def test_an_adapter_runs_unchanged_through_slurm(tmp_path, slurm):
     cinput = work / "rtes.in"
     cinput.write_text("DUMMY")
     program = work / "rtes"
-    program.write_text("#!/bin/sh\necho solved $1\n", encoding="utf-8")
+    # a converged rtes leaves a g-file behind; run_tes fails a run without one
+    program.write_text("#!/bin/sh\necho solved $1\necho stub > g039915.00325\n", encoding="utf-8")
     program.chmod(0o755)
     result = run_tes(
         TESInputs(workdir=work, cinput=cinput),

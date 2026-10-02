@@ -265,6 +265,7 @@ def test_save_ods_records_the_written_source_and_restores_the_callers_ods(monkey
     monkeypatch.setattr(ods_module, "save_omas_imas", fake_save_omas_imas)
     monkeypatch.setattr(ods_module, "is_connect", lambda: True)
     monkeypatch.setattr(ods_module, "require_source_exists", lambda source: None)
+    monkeypatch.setattr(ods_module, "ensure_shot_folder", lambda source, shot: None)
     monkeypatch.setattr(ods_module, "_upload_local_shot", lambda **kwargs: [])
 
     uri = ods_module.save_ods(ods, 39915, derived_cache="none")
@@ -283,6 +284,7 @@ def test_save_ods_leaves_no_provenance_behind_when_the_ods_carried_none(monkeypa
     monkeypatch.setattr(ods_module, "save_omas_imas", lambda data, **kwargs: None)
     monkeypatch.setattr(ods_module, "is_connect", lambda: True)
     monkeypatch.setattr(ods_module, "require_source_exists", lambda source: None)
+    monkeypatch.setattr(ods_module, "ensure_shot_folder", lambda source, shot: None)
     monkeypatch.setattr(ods_module, "_upload_local_shot", lambda **kwargs: [])
 
     ods_module.save_ods(ods, 39915, source="vfit-gse", derived_cache="none")
@@ -348,6 +350,7 @@ def test_save_ods_accepts_a_user_that_agrees_with_the_destination(monkeypatch):
     monkeypatch.setattr(ods_module, "save_omas_imas", lambda data, **kwargs: None)
     monkeypatch.setattr(ods_module, "is_connect", lambda: True)
     monkeypatch.setattr(ods_module, "require_source_exists", lambda source: None)
+    monkeypatch.setattr(ods_module, "ensure_shot_folder", lambda source, shot: None)
     monkeypatch.setattr(ods_module, "_upload_local_shot", lambda **kwargs: [])
 
     uri = ods_module.save_ods(
