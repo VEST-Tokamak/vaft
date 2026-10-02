@@ -977,7 +977,12 @@ The write path now does two things:
   covered: the routine pipeline, the corrective updaters, the new-shot worker and the maintenance
   repairs. Different shots never wait for each other. The lock files live in `$VAFT_HSDS_LOCK_DIR`,
   default `/tmp/vaft-hsds-locks`. The location is deliberately fixed rather than `$TMPDIR`, so that
-  two writers always meet at the same lock.
+  two writers always meet at the same lock. If that directory exists but this account cannot create
+  files in it (made by another account without `chmod 1777`), the writer locks in a per-user
+  directory under the temp root instead and warns once, naming both directories: its writes are then
+  serialized only against this account's. Fix the mode, or point `$VAFT_HSDS_LOCK_DIR` at a shared
+  directory for every writer. Do not give the worker's service unit `PrivateTmp=yes` without doing
+  the same: a private `/tmp` is a lock no manual updater on the host shares.
 - **Re-reads the stored master immediately before replacing it**, so a link added in the meantime is
   kept. This also applies to a plain `vaft.database.save`, which used to replace the master with one
   naming only its own IDS.

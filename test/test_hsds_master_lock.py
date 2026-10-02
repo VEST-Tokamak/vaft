@@ -10,10 +10,12 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 import json
+import os
 from pathlib import Path
 import threading
 from types import SimpleNamespace
 import time
+import warnings
 
 import h5py
 import numpy as np
@@ -303,6 +305,57 @@ def test_the_lock_directory_is_fixed_not_tmpdir(monkeypatch, tmp_path):
     assert _master_lock.lock_path("main/chease/dcon-peeling", 48916) == Path(
         "/tmp/vaft-hsds-locks/main__chease__dcon-peeling.48916.lock"
     )
+
+
+_not_root = pytest.mark.skipif(
+    os.name != "posix" or os.geteuid() == 0, reason="root ignores directory modes"
+)
+
+
+@_not_root
+@pytest.mark.parametrize("missing_parent", [False, True], ids=["unwritable", "uncreatable"])
+def test_an_unwritable_lock_directory_falls_back_to_a_per_user_one(monkeypatch, tmp_path, missing_parent):
+    """Cold review 0.8.0 delta-absorb-13-infra F1.
+
+    ``/tmp/vaft-hsds-locks`` made by another account without the sticky
+    world-writable mode: the lock file of a shot this account has never
+    written cannot be created there, and the read-only fallback found no file
+    (``FileNotFoundError``), aborting the replication before any upload. The
+    lock now moves to a per-user temp directory, once, with a warning that
+    names both directories -- a weaker lock beats no write at all.
+    """
+    import tempfile
+
+    home = tmp_path / "tmpdir"
+    home.mkdir()
+    monkeypatch.setenv("TMPDIR", str(home))
+    monkeypatch.setattr(tempfile, "tempdir", None)
+    locked = tmp_path / "locks"
+    if missing_parent:
+        locked.mkdir()
+        locked.chmod(0o555)
+        directory = locked / "vaft-hsds-locks"
+    else:
+        directory = locked
+        directory.mkdir()
+        directory.chmod(0o555)
+    monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(directory))
+    monkeypatch.setattr(_master_lock, "_fallback_warned", set())
+    try:
+        with pytest.warns(RuntimeWarning, match=str(directory)) as record:
+            with _master_lock.shot_master_lock("main", 31):
+                pass
+        fallback = _master_lock.fallback_lock_directory()
+        assert str(home) in str(fallback) and fallback.is_dir()
+        assert (fallback / _master_lock.lock_path("main", 31).name).exists()
+        assert any(str(fallback) in str(w.message) for w in record)
+        # Said once per process, not once per shot.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with _master_lock.shot_master_lock("main", 32):
+                pass
+    finally:
+        locked.chmod(0o755)
 
 
 # --------------------------------------------------------------------------- #
