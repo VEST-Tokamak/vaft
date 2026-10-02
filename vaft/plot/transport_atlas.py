@@ -157,7 +157,8 @@ def transport_atlas_scatter(
     import matplotlib as mpl
 
     fig, ax = _figure(ax)
-    mask = np.ones(len(table), bool) if where is None else np.asarray(where(table), bool)
+    # A copy: under pandas copy-on-write np.asarray(Series) is a read-only view.
+    mask = np.ones(len(table), bool) if where is None else np.array(where(table), dtype=bool)
     xs, ys = _numeric(table, x), _numeric(table, y)
     mask &= np.isfinite(xs) & np.isfinite(ys)
     cs = _numeric(table, color) if color else None
