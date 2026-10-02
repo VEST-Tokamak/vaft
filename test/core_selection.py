@@ -64,6 +64,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_catalog.py",
     "test_help.py",
     "test_hsds_configure.py",
+    "test_mcp_server.py",
+    "test_mcp_tools.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
     "test_plot_submodule.py",
