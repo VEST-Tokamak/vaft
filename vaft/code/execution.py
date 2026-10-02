@@ -476,7 +476,10 @@ class LocalBackend:
         """
         from ._memory_gate import tree_rss_mb
 
-        peak: Optional[float] = None
+        # One sample right away, so a program that exits before the first
+        # poll still reports a peak (what it had resident at launch) rather
+        # than the ``None`` an unwatched run carries.
+        peak: Optional[float] = tree_rss_mb(tree.members())
         first = True
         while True:
             wait = self.poll_interval_s

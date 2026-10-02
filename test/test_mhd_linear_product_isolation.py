@@ -55,6 +55,9 @@ class _Resistive:
         self.n_tor = 1
         self.mlow, self.mhigh, self.mpert, self.mband, self.msing = -2, 2, 5, 0, 1
 
+    def rational_surface_stability(self) -> list:
+        return []
+
 
 def _ods() -> ODS:
     ods = ODS(consistency_check=False)

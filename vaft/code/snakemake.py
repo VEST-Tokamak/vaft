@@ -52,3 +52,8 @@ def init_snakemake_logger(snakemake, *,
         sys.stderr = _StreamToLogger(logger, logging.ERROR)
 
     return logger
+
+
+__all__ = [
+    "init_snakemake_logger",
+]

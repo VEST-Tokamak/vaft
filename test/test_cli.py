@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pandas as pd
+import pytest
 
 from vaft.cli._main import main as cli_main
 from vaft.cli.filedb import main as filedb_main
@@ -142,7 +143,8 @@ def test_export_cli_imports_nothing_heavy_before_parsing():
     subprocess.run([sys.executable, "-c", code], check=True, timeout=300)
 
 
-def test_the_plot_listing_survives_a_locale_console(tmp_path):
+@pytest.mark.parametrize("handler", ["strict", "surrogateescape"])
+def test_the_plot_listing_survives_a_locale_console(tmp_path, handler):
     """A cp1252 console (the Windows leg, or a ``text=True`` pipe there) cannot
     encode the listing's box-drawing glyphs; the command must still exit 0 with
     the listing, glyphs replaced, rather than die in ``print`` (0.8.0 release
@@ -152,7 +154,9 @@ def test_the_plot_listing_survives_a_locale_console(tmp_path):
     import subprocess
     import sys
 
-    environment = dict(os.environ, PYTHONIOENCODING="cp1252:strict", PYTHONUTF8="0")
+    # "surrogateescape" is what a Windows pipe carries: it round-trips bytes
+    # but still raises on a glyph cp1252 lacks (the release's Windows leg).
+    environment = dict(os.environ, PYTHONIOENCODING=f"cp1252:{handler}", PYTHONUTF8="0")
     environment.pop("PYTHONLEGACYWINDOWSSTDIO", None)
     completed = subprocess.run(
         [sys.executable, "-m", "vaft.cli", "plot", "--list", "--query", "mirnov"],

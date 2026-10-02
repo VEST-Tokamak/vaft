@@ -1182,8 +1182,9 @@ def plot_flux_loop_spatial_flux(
 ) -> Any:
     """Flux-loop flux against sensor position at one time (issue #486).
 
-    ``time=`` snaps to the nearest stored sample (``time_slice=`` maps
-    through a stored equilibrium slice); ``coordinate="z"`` (default) draws
+    ``time=`` snaps to the nearest stored sample, ``time_slice=`` maps
+    through a stored equilibrium slice and ``time_index=`` names a sample of
+    the shared magnetics grid (one of the three, issue #1380); ``coordinate="z"`` (default) draws
     the inboard and outboard loops as two panels, ``"theta"`` one panel
     against the poloidal angle about the layout centre (``centre=``).
     Renders with :func:`vaft.plot.flux_loop_spatial_flux` from native IMAS input.

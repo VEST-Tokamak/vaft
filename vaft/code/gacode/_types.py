@@ -62,15 +62,23 @@ class GACODEConfig(CodeConfig):
         MPI tasks passed to the launcher's ``-n``.
     n_omp : int
         OpenMP threads passed to the launcher's ``-nomp``.
+    memory_mb : int, optional
+        Memory one run reserves [MB], handed to the execution backend as
+        ``ResourceRequest.memory_mb``: Slurm's ``--mem``, and the admission
+        reservation of a memory-watching :class:`~vaft.code.execution.LocalBackend`.
+        ``None`` leaves the backend's own default in place.
     """
 
     home: Optional[str] = None
     platform: Optional[str] = None
     n_mpi: int = 1
     n_omp: int = 1
+    memory_mb: Optional[int] = None
 
     def __post_init__(self) -> None:
         if int(self.n_mpi) < 1:
             raise ValueError(f"n_mpi must be at least 1; got {self.n_mpi!r}")
         if int(self.n_omp) < 1:
             raise ValueError(f"n_omp must be at least 1; got {self.n_omp!r}")
+        if self.memory_mb is not None and int(self.memory_mb) < 1:
+            raise ValueError(f"memory_mb must be at least 1 or None; got {self.memory_mb!r}")

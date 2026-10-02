@@ -61,7 +61,9 @@ def test_maps_the_spectral_field_onto_a_declared_psi_m_grid(run_dir):
     np.testing.assert_allclose(entry["plasma.grid.dim1"], profile["psi_n"])
     np.testing.assert_allclose(entry["plasma.grid.dim2"], profile["m_out"])
     assert entry["plasma.grid_type.index"] == -1
-    assert entry["plasma.grid_type.name"] == "inverse_psi_hamada_fourier"
+    # jac_out, which the fixture writes on `Jbgradpsi` the way a real file does,
+    # and not the jac_type the run solved in.
+    assert entry["plasma.grid_type.name"] == "inverse_psi_boozer_fourier"
 
     field = (
         entry["plasma.b_field_perturbed.coordinate1.real"]
@@ -187,14 +189,20 @@ def test_the_same_writer_may_add_more_modes(run_dir):
 def test_the_geometry_the_derivation_needs_is_recorded(run_dir):
     """psi, q, dq/dpsi_N and the area are equilibrium quantities, and the
     geometric factor absorbs a vacuum surface inductance that nothing
-    downstream can rebuild -- so it is measured here or not at all."""
+    downstream can rebuild -- so it is measured here or not at all.
+
+    ``w_isl_v`` and ``phi_res_v_*`` are here for the same reason: the IDS
+    carries the total spectral field only, so the vacuum resonant pair cannot be
+    rebuilt downstream either, and it is the pair with a traceable island.
+    """
     ods = ODS(consistency_check=False)
     write_profile_nc(run_dir)
     gpec_ideal(ods, str(run_dir))
     surfaces = re.findall(r"<surface ([^/]*)/>", ods["mhd_linear.code.parameters"])
     assert surfaces
     fields = dict(re.findall(r'(\w+)="([^"]+)"', surfaces[0]))
-    assert set(fields) == {"psi_n", "q", "dq_dpsi_n", "area", "geometric_factor"}
+    assert set(fields) == {"psi_n", "q", "dq_dpsi_n", "area", "geometric_factor",
+                           "w_isl_v", "phi_res_v_real", "phi_res_v_imag"}
     # Plain floats, not numpy reprs: this XML is read back by a parser.
     for value in fields.values():
         assert not value.startswith("np."), fields

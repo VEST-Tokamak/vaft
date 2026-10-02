@@ -10,8 +10,8 @@ from pathlib import Path
 
 from omas import load_omas_json
 
-from vaft.code.efit import EFITScientificConfig, efit_preset, generate_kfile
-from vaft.code.efit.presets import PRESET_RECORD
+from vaft.code.efit import EFITScientificConfig, efit_preset, generate_kfile, preset_of
+from vaft.code.efit.presets import DEFAULT_PRESET, PRESET_RECORD
 
 
 LOGGER = logging.getLogger("vaft.generate_kfile")
@@ -32,12 +32,12 @@ def main() -> int:
     parser.add_argument(
         "--npprime",
         type=int,
-        help="EFIT KPPCUR override; defaults to 2 without --config.",
+        help="KPPCUR override on the default configuration (deprecated; --preset routine selects the legacy set).",
     )
     parser.add_argument(
         "--nffprime",
         type=int,
-        help="EFIT KFFCUR override; defaults to 2 without --config.",
+        help="KFFCUR override on the default configuration (deprecated; --preset routine selects the legacy set).",
     )
     parser.add_argument(
         "--config",
@@ -46,8 +46,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--preset",
-        help="Named EFIT configuration (vaft.code.efit.PRESETS), e.g. statistical_891; "
-        "exclusive with --config, --npprime and --nffprime.",
+        help="Named EFIT configuration (vaft.code.efit.PRESETS); without it, --config or a "
+        f"legacy basis, the default ({DEFAULT_PRESET}). Exclusive with --config, --npprime and --nffprime.",
     )
     args = parser.parse_args()
     if args.preset and (args.config is not None or args.npprime is not None or args.nffprime is not None):
@@ -77,8 +77,15 @@ def main() -> int:
     # preset run must not describe a run that used none.
     record_path = args.output.parent / PRESET_RECORD
     record_path.unlink(missing_ok=True)
-    if args.preset:
-        preset = efit_preset(args.preset)
+    legacy_basis = args.npprime is not None or args.nffprime is not None
+    preset_name = args.preset or (None if (args.config is not None or legacy_basis) else DEFAULT_PRESET)
+    if preset_name is None and scientific_config is not None and not legacy_basis:
+        # A --config payload that resolves (by sha) to a named preset is that
+        # preset: record it, so the product does not read `unrecorded` and a
+        # replay carries the same floor and provenance as a --preset run.
+        preset_name = preset_of(scientific_config)
+    if preset_name:
+        preset = efit_preset(preset_name)
         ods, floor_changes = preset.prepare_constraints(ods)
         scientific_config = preset.scientific
         LOGGER.info("EFIT preset %s (scientific sha256 %s); sigma floor raised %d channel(s)",
