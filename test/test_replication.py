@@ -1064,6 +1064,57 @@ def test_a_missing_namespace_is_not_retried(staged, monkeypatch):
     assert fetches == []
 
 
+@pytest.mark.parametrize("stage", ["efit", "chease"])
+def test_a_stage_that_produced_nothing_is_recorded_skipped_not_raised(tmp_path, monkeypatch, stage):
+    """EFIT whose every slice failed is ``no_output``, and so is the CHEASE after it.
+
+    Raising left the replication record missing, so a new-shot worker counted
+    the shot failed and retried the same replication until it gave up, while
+    the shot's diagnostics and eddy were already published (48940, 2026-10-02).
+    """
+    db = FileDB(tmp_path)
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.ids_properties.comment"] = "EFIT output unavailable"
+    _stage_product(db, stage, 48940, ods, status="no_output")
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+
+    record = replicate_stage(stage, 48940, filedb=db)
+
+    assert record.state == "skipped"
+    assert not record.replicated and not record.validated
+    assert "no_output" in record.error
+    assert sent == []
+    stored = replication.read_record(db.omas_replication_record(stage, shot=48940, **_lineage(stage)))
+    assert stored.state == "skipped"
+
+
+def test_a_stage_that_later_succeeds_is_replicated_over_its_skipped_record(tmp_path, monkeypatch):
+    db = FileDB(tmp_path)
+    _stage_product(db, "efit", 48940, ODS(consistency_check=False), status="no_output")
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    assert replicate_stage("efit", 48940, filedb=db).state == "skipped"
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = [0.3]
+    _stage_product(db, "efit", 48940, ods, status="success")
+    record = replicate_stage("efit", 48940, filedb=db, validate=False)
+
+    assert record.state != "skipped"
+    assert [ids for call in sent for ids in call["ids"]] == ["equilibrium"]
+
+
+@pytest.mark.parametrize("status", ["failed", "blocked", "skipped"])
+def test_only_no_output_is_recorded_for_a_required_stage(tmp_path, monkeypatch, status):
+    """A failed or blocked stage is still an error a person should see."""
+    db = FileDB(tmp_path)
+    _stage_product(db, "efit", 48940, ODS(consistency_check=False), status=status)
+    _patch_remote(monkeypatch, sent=[])
+    with pytest.raises(ProductNotEligibleError, match="nothing to replicate"):
+        replicate_stage("efit", 48940, filedb=db)
+
+
 # --------------------------------------------------------------------------- #
 # optional stages (issue #305)
 # --------------------------------------------------------------------------- #

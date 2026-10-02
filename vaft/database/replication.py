@@ -53,6 +53,14 @@ REPLICATION_SCHEMA_VERSION = 1
 #: was skipped or blocked (#205) has no product to send, and a failed one must
 #: not have its partial output mistaken for a result.
 REPLICABLE_STATUSES = frozenset({"success", "partial", "completed"})
+#: Statuses a stage records when it finished and deliberately produced
+#: nothing -- an EFIT run whose slices all failed is ``no_output``, and the
+#: CHEASE stage that follows it is ``no_output`` too. There is nothing to
+#: publish and nothing a rerun would change, so replication records
+#: ``skipped`` instead of failing: a failure would leave the record missing,
+#: and a new-shot worker would retry the same replication until it gave up
+#: while the shot's other stages were already published.
+NOTHING_TO_REPLICATE_STATUSES = frozenset({"no_output"})
 
 
 class ReplicationError(RuntimeError):
@@ -619,7 +627,13 @@ def replicate_stage(
         return record
 
     try:
-        _check_eligible(_read_manifest(manifest_path), name, product_path)
+        manifest = _read_manifest(manifest_path)
+        status = str(manifest.get("status", "")).strip().lower()
+        if status in NOTHING_TO_REPLICATE_STATUSES:
+            return skipped(
+                f"The {name} stage finished as {status!r}: it produced nothing to publish."
+            )
+        _check_eligible(manifest, name, product_path)
     except ProductNotEligibleError as error:
         if not entry.optional:
             raise
@@ -763,6 +777,7 @@ def replicate_stage(
 __all__ = [
     "REPLICABLE_STATUSES",
     "REPLICATION_SCHEMA_VERSION",
+    "NOTHING_TO_REPLICATE_STATUSES",
     "ProductNotEligibleError",
     "ReplicationError",
     "ReplicationRecord",
