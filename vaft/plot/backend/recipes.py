@@ -10003,7 +10003,9 @@ def resolve_time_sample(times: Any, time: float | None) -> tuple[int, float, str
 
 
 #: Global quantities a slice summary states, in order: label, IMAS leaf,
-#: canonical unit ("" for dimensionless), display subject.
+#: canonical unit ("" for dimensionless), display subject.  A dimensionless
+#: row whose label is a beta names its taxonomy quantity in
+#: :data:`_SLICE_DIMENSIONLESS`, so it is shown as its time plot shows it.
 _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
     ("Ip", "ip", "A"),
     ("beta_p", "beta_pol", ""),
@@ -10021,6 +10023,10 @@ _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
     ("area", "area", "m^2"),
     ("W_mhd", "energy_mhd", "J"),
 )
+
+#: Slice-summary labels that are a beta, and the taxonomy quantity whose
+#: display convention they follow (issue #947).
+_SLICE_DIMENSIONLESS: dict[str, str] = {"beta_p": "beta_p", "beta_N": "beta_n"}
 
 
 def _global_scalar(ods: Any, index: int, leaf: str) -> float:
@@ -10049,6 +10055,7 @@ def _slice_global_lines(
     width = max(len(label) for label, _, _ in _SLICE_GLOBAL_QUANTITIES)
     for label, leaf, unit in _SLICE_GLOBAL_QUANTITIES:
         value = _global_scalar(ods, index, leaf)
+        dimensionless = _SLICE_DIMENSIONLESS.get(label)
         if not np.isfinite(value) and derived is not None:
             value = _global_scalar(derived, index, leaf)
         if not np.isfinite(value):
@@ -10059,9 +10066,9 @@ def _slice_global_lines(
             if flux_display is None:
                 flux_display = _flux_display(ods, index)
             value, shown_unit = value * flux_display.scale, flux_display.unit
-        elif unit:
+        elif unit or dimensionless:
             try:
-                display = resolve_display(unit, subject="equilibrium")
+                display = resolve_display(unit, subject="equilibrium", quantity=dimensionless)
                 value, shown_unit = value * display.scale, display.unit
             except ValueError:
                 pass
