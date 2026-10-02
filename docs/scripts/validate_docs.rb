@@ -235,9 +235,11 @@ end
 diagram_snapshot = nil
 if (ROOT / "_data" / "diagram_catalog.yml").file?
   diagram_snapshot = data("diagram_catalog.yml")
-  %w[schema_version generator source families builders assets].each do |field|
+  %w[schema_version generator source families builders assets formats].each do |field|
     errors << "diagram snapshot missing #{field}" unless diagram_snapshot.key?(field)
   end
+  suffixes = Array(diagram_snapshot["formats"]).map { |f| f["suffix"] }
+  errors << "diagram snapshot formats must include the canonical .svg" unless suffixes.include?(".svg")
   check_snapshot_sources(errors, "diagram", diagram_snapshot, registry_source)
   builders = diagram_snapshot.fetch("builders", [])
   assets = diagram_snapshot.fetch("assets", [])
@@ -338,7 +340,8 @@ def check_sources(errors, label, url, snapshot, spans)
 
   document = Nokogiri::HTML(built.read)
   links = document.css("a.ref-source").group_by { |node| node["data-source"].to_s }
-  shown = document.css("details.ref-code").group_by { |node| node["data-source-code"].to_s }
+  # only inline-source views; other collapsed blocks (the diagram formats recipe) share the class for styling
+  shown = document.css("details.ref-code[data-source-code]").group_by { |node| node["data-source-code"].to_s }
   located = spans.select { |_key, src| src.is_a?(Hash) && src["line"].to_i.positive? }
   located.each do |key, src|
     href = "https://github.com/VEST-Tokamak/vaft/blob/#{commit}/#{src['path']}#L#{src['line']}-L#{src['end_line']}"
@@ -424,6 +427,7 @@ if diagram_snapshot
   url = "#{BASEURL}/reference/diagram/"
   compare_rendered(errors, "diagram", url, diagram_snapshot.fetch("builders", []).map { |item| item["name"] }, '[data-catalog="diagram"]')
   compare_rendered(errors, "diagram asset", url, diagram_snapshot.fetch("assets", []).map { |item| item["asset"] }, '[data-catalog="diagram-asset"]', "data-asset")
+  compare_rendered(errors, "diagram formats", url, diagram_snapshot.fetch("builders", []).map { |item| item["name"] }, "[data-formats]", "data-formats")
   check_sources(errors, "diagram", url, diagram_snapshot, diagram_snapshot.fetch("builders", []).to_h { |item| [item["name"], item["source"]] })
   if (built = output_path(url))
     Nokogiri::HTML(built.read).css('[data-catalog="diagram-asset"] img').each do |image|
