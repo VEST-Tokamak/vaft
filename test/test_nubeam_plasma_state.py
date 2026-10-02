@@ -16,7 +16,7 @@ import pytest
 
 from vaft.code import nubeam
 from vaft.code.nubeam import plasma_state as ps
-from vaft.compat import short_temporary_directory
+from vaft.compat import resolve_executable, short_temporary_directory
 
 INSTALLED_NUBEAM_HOME = os.environ.get("NUBEAMHOME")
 
@@ -337,7 +337,9 @@ def test_init_and_step_must_read_the_same_state(vest_case, tmp_path):
 
 @pytest.mark.skipif(
     not INSTALLED_NUBEAM_HOME
-    or not (Path(INSTALLED_NUBEAM_HOME) / "bin" / "vaft_plasma_state").exists(),
+    # resolve_executable, as the runner does: on Windows the file is
+    # vaft_plasma_state.exe, and a bare .exists() skipped this test there.
+    or resolve_executable(Path(INSTALLED_NUBEAM_HOME) / "bin" / "vaft_plasma_state") is None,
     reason="needs $NUBEAMHOME with bin/vaft_plasma_state",
 )
 def test_the_packaged_case_builds_a_state(vest_case, monkeypatch):
