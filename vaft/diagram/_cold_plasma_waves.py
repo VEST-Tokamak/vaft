@@ -303,7 +303,11 @@ def profile_propagation(*, theta=None, labels: bool = True) -> Diagram:
         layers["A"] = _resonance_cone(R, lambda r: profile_quantities(np.atleast_1d(r), p)[2], theta)
     limit = 3.0
     chart = Chart(x_range=(R[0], R[-1]), y_range=(-limit, 2.0))
-    chart.curves["n2_O"] = np.stack([R, n2_O], axis=-1)[n2_O >= -limit]
+    if oblique:  # an oblique root has gaps (the cyclotron pole): split it into runs, never chord across them
+        for i, run in enumerate(_clip_runs(R, n2_O, limit)):
+            chart.curves[f"n2_O {i}"] = run
+    else:
+        chart.curves["n2_O"] = np.stack([R, n2_O], axis=-1)[n2_O >= -limit]
     for i, run in enumerate(_clip_runs(R, n2_X, limit)):
         chart.curves[f"n2_X {i}"] = run
     chart.curves["zero"] = np.array([[R[0], 0.0], [R[-1], 0.0]])
@@ -325,7 +329,8 @@ def profile_propagation(*, theta=None, labels: bool = True) -> Diagram:
         for i, run in enumerate(_clip_runs(R, np.where(regime == "propagating", y, np.nan), 10.0)):
             chart.curves[f"{mode} propagates {i}"] = run
         chart.parameters[f"{mode}_propagating_fraction"] = float(np.mean(regime == "propagating"))
-    styles: Dict[str, str] = {"zero": "approx", "n2_O": "boundary"}
+    styles: Dict[str, str] = {"zero": "approx"}
+    styles.update({name: "boundary" for name in chart.curves if name.split(" ")[0] == "n2_O"})
     styles.update({name: "boundary" if oblique else "inner solution" for name in chart.curves
                    if name.startswith(("n2_X", "X propagates"))})
     styles.update({name: "boundary" for name in chart.curves if name.startswith(("O propagates", "any propagates"))})
@@ -370,11 +375,22 @@ def profile_propagation(*, theta=None, labels: bool = True) -> Diagram:
 # ---------------------------------------------------------------------------
 
 
+#: smallest angle the oblique views accept [rad]: below it the resonance cone sits within a grid cell of the
+#: cyclotron pole and parallel propagation (R and L, no cone) is the better picture
+THETA_MIN = np.radians(5.0)
+
+
+def _number(value, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, np.integer, np.floating)):
+        raise ValueError(f"{name} must be a number, not {value!r}")
+    return float(value)
+
+
 def _check_theta(theta) -> float:
-    if isinstance(theta, bool) or not isinstance(theta, (int, float, np.integer, np.floating)) \
-            or not 0.0 <= float(theta) <= 0.5 * np.pi:
-        raise ValueError(f"theta must be an angle from 0 to pi/2, not {theta!r}")
-    return float(theta)
+    theta = _number(theta, "theta")
+    if not THETA_MIN <= theta <= 0.5 * np.pi:
+        raise ValueError(f"theta must be an angle from 5 degrees to pi/2, not {theta!r}")
+    return theta
 
 
 def _modes(s, theta: float):
@@ -410,7 +426,8 @@ def wave_dispersion_omega_k(*, omega_pe_over_omega_ce: float = 1.2, theta: float
 
     For each frequency the refractive index from the Stix parameters gives
     $k = n\omega/c$ wherever $n^2 > 0$; the branches start at $k = 0$ on their
-    cutoffs ($P$, $R$ or $L = 0$) and run to $k \to \infty$ at a resonance
+    cutoffs ($P$, $R$ or $L = 0$) -- except the oblique whistler, which leaves
+    the origin -- and run to $k \to \infty$ at a resonance
     ($S = 0$, the upper hybrid, at $\theta = \pi/2$), approaching the light
     line $\omega = ck$ from above at high frequency. ``theta = pi/2`` names
     the branches O and X (``perpendicular_refractive_index_squared``);
@@ -421,8 +438,10 @@ def wave_dispersion_omega_k(*, omega_pe_over_omega_ce: float = 1.2, theta: float
     """
     labels = _check_labels(labels)
     theta = _check_theta(theta)
-    if not omega_pe_over_omega_ce > 0.0:
-        raise ValueError("omega_pe_over_omega_ce must be positive")
+    omega_pe_over_omega_ce = _number(omega_pe_over_omega_ce, "omega_pe_over_omega_ce")
+    if not 0.0 < omega_pe_over_omega_ce <= 3.0:
+        raise ValueError(f"omega_pe_over_omega_ce must be in (0, 3] to keep the cutoffs on the chart, "
+                         f"not {omega_pe_over_omega_ce!r}")
     n_e = _N_REF * omega_pe_over_omega_ce**2
     B = _field_for_Y(1.0, _W_REF)
     w = np.linspace(0.02, 4.0, 3000)
@@ -445,7 +464,8 @@ def wave_dispersion_omega_k(*, omega_pe_over_omega_ce: float = 1.2, theta: float
     else:
         layers.update({("A" if i == 0 else f"A{i + 1}"): r for i, r in enumerate(_resonance_cone(np.linspace(0.02, 4.0, 801), stix, theta))})
     for name, value in layers.items():
-        chart.curves[f"layer {name}"] = np.array([[0.0, value], [k_max, value]])
+        if chart.y_range[0] < value < chart.y_range[1]:
+            chart.curves[f"layer {name}"] = np.array([[0.0, value], [k_max, value]])
     chart.parameters.update({"omega_pe_over_omega_ce": omega_pe_over_omega_ce, "theta": theta,
                              **{f"omega_{k}": v for k, v in layers.items()}})
     styles = {n: _BRANCH_STYLE[n.split(" ")[0]] for n in chart.curves if n.split(" ")[0] in _BRANCH_STYLE}
@@ -463,6 +483,8 @@ def wave_dispersion_omega_k(*, omega_pe_over_omega_ce: float = 1.2, theta: float
                 "A2": "$A = 0$ (resonance)"}
         x = float(chart.to_cm(np.array([k_max, 0.0]))[0]) + 0.15
         for name, value in sorted(layers.items(), key=lambda kv: kv[1]):
+            if not chart.y_range[0] < value < chart.y_range[1]:
+                continue
             y = float(chart.to_cm(np.array([0.0, value]))[1])
             items.append(Label((x, y), text[name], "small label", anchor="west", role=f"layer {name}"))
     return Diagram("wave_dispersion_omega_k", Scene(tuple(items)), model=chart)
@@ -525,6 +547,7 @@ def refractive_index_vs_X(*, Y: float = 0.5, theta: float = 0.5 * np.pi, labels:
     """
     labels = _check_labels(labels)
     theta = _check_theta(theta)
+    Y = _number(Y, "Y")
     if not 0.0 < Y < 1.0:
         raise ValueError(f"Y must be between 0 and 1 (below the cyclotron resonance), not {Y!r}")
     X = np.linspace(0.0, 2.5, 2000)
@@ -550,7 +573,7 @@ def refractive_index_vs_X(*, Y: float = 0.5, theta: float = 0.5 * np.pi, labels:
 def refractive_index_vs_Y(*, X: float = 0.5, theta: float = 0.5 * np.pi, labels: bool = True) -> Diagram:
     r"""$n^2$ against $Y = |\Omega_e|/\omega$ at fixed $X$: rising field at one frequency and density.
 
-    The O branch ($n^2 = P = 1 - X$) does not depend on $Y$; the other
+    At $\theta = \pi/2$ the O branch ($n^2 = P = 1 - X$) does not depend on $Y$; the other
     branch has the $R = 0$ cutoff at $Y = 1 - X$ and, at $\theta = \pi/2$,
     the upper-hybrid resonance $S = 0$ at $Y = \sqrt{1 - X}$; $Y = 1$ is the
     electron cyclotron resonance, where $R$ has its pole. Located by
@@ -558,6 +581,7 @@ def refractive_index_vs_Y(*, X: float = 0.5, theta: float = 0.5 * np.pi, labels:
     """
     labels = _check_labels(labels)
     theta = _check_theta(theta)
+    X = _number(X, "X")
     if not 0.0 < X < 1.0:
         raise ValueError(f"X must be between 0 and 1 (above the O cutoff), not {X!r}")
     Yv = np.linspace(0.0, 2.0, 2001)[1:]

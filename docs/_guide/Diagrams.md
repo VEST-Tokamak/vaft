@@ -1015,7 +1015,7 @@ vaft.diagram.refractive_index_vs_X(Y=0.5)                     # rising density a
 vaft.diagram.refractive_index_vs_Y(X=0.5)                     # rising field at fixed density
 ```
 
-Every view takes `theta`. At $\theta = \pi/2$ the branches are named O (blue) and X (red). At any other
+Every view takes `theta`, from $5^\circ$ to $\pi/2$ (below that, parallel propagation is the picture). At $\theta = \pi/2$ the branches are named O (blue) and X (red). At any other
 angle both roots of `cold_plasma_refractive_index_squared` are drawn in one colour, because the algebraic
 $\pm$ branches swap at the cyclotron layer, and the resonance moves from $S = 0$ to the cone
 $A = S\sin^2\theta + P\cos^2\theta = 0$, which is marked.
@@ -1065,7 +1065,8 @@ vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
 | ![CMA]({{ '/assets/diagrams/cma_diagram.svg' | relative_url }}) | ![profile]({{ '/assets/diagrams/profile_propagation.svg' | relative_url }}) |
 | ![omega-k]({{ '/assets/diagrams/wave_dispersion_omega_k.svg' | relative_url }}) | ![omega-k oblique]({{ '/assets/diagrams/wave_dispersion_omega_k_oblique.svg' | relative_url }}) |
 | ![n2-X]({{ '/assets/diagrams/refractive_index_vs_X.svg' | relative_url }}) | ![n2-Y]({{ '/assets/diagrams/refractive_index_vs_Y.svg' | relative_url }}) |
-| ![n2-X oblique]({{ '/assets/diagrams/refractive_index_vs_X_oblique.svg' | relative_url }}) | ![profile oblique]({{ '/assets/diagrams/profile_propagation_oblique.svg' | relative_url }}) |
+| ![n2-X oblique]({{ '/assets/diagrams/refractive_index_vs_X_oblique.svg' | relative_url }}) | ![n2-Y oblique]({{ '/assets/diagrams/refractive_index_vs_Y_oblique.svg' | relative_url }}) |
+| ![profile oblique]({{ '/assets/diagrams/profile_propagation_oblique.svg' | relative_url }}) | |
 
 | Diagram | Concept |
 | --- | --- |
@@ -1073,9 +1074,9 @@ vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
 | `x_mode_dispersion` | Evanescent below $\omega_L$, propagating to the upper-hybrid pole, evanescent to $\omega_R$, then propagating. Poles are masked |
 | `cma_diagram` | Cutoffs (solid) and resonances (dashed) of a cold electron plasma in the CMA plane |
 | `profile_propagation` | $n_O^2$ and $n_X^2$ along $R$, with strips where each mode propagates (`propagation_regime`), for an example tokamak (not a device) at the on-axis electron cyclotron frequency: O cutoffs, L and R cutoffs, the upper-hybrid layer behind the R cutoff, and the ECR. With `theta`, both oblique roots and the $A = 0$ layers |
-| `wave_dispersion_omega_k` | Each branch in the $\omega$-$k$ plane ($k = n\omega/c$ where $n^2 > 0$): it starts at $k = 0$ on its cutoff ($P$, $R$ or $L = 0$), runs to $k \to \infty$ at a resonance, and approaches the light line at high frequency |
+| `wave_dispersion_omega_k` | Each branch in the $\omega$-$k$ plane ($k = n\omega/c$ where $n^2 > 0$): it starts at $k = 0$ on its cutoff ($P$, $R$ or $L = 0$) -- the oblique whistler leaves the origin instead -- runs to $k \to \infty$ at a resonance, and approaches the light line at high frequency |
 | `refractive_index_vs_X` | $n^2$ against $X$ at fixed $Y$: cutoffs at $X = 1 - Y$ ($R$), $1$ ($P$), $1 + Y$ ($L$), the upper hybrid at $X = 1 - Y^2$, all located by bracketing |
-| `refractive_index_vs_Y` | $n^2$ against $Y$ at fixed $X$: the O branch does not depend on $Y$; the other has the $R$ cutoff at $Y = 1 - X$, the upper hybrid at $\sqrt{1 - X}$, and $Y = 1$ is the cyclotron layer |
+| `refractive_index_vs_Y` | $n^2$ against $Y$ at fixed $X$: at $\theta = \pi/2$ the O branch does not depend on $Y$; the other has the $R$ cutoff at $Y = 1 - X$, the upper hybrid at $\sqrt{1 - X}$, and $Y = 1$ is the cyclotron layer |
 
 | ![neoclassical]({{ '/assets/diagrams/neoclassical_collisionality.svg' | relative_url }}) | ![ntv]({{ '/assets/diagrams/ntv_collisionality.svg' | relative_url }}) |
 | ![precession]({{ '/assets/diagrams/ntv_precession_regimes.svg' | relative_url }}) | |

@@ -160,7 +160,7 @@ def test_profile_theta_default_and_perpendicular_are_the_committed_figure():
 
 @pytest.mark.parametrize("build", ["wave_dispersion_omega_k", "refractive_index_vs_X", "refractive_index_vs_Y",
                                    "profile_propagation"])
-@pytest.mark.parametrize("bad", [-0.1, 2.0, "1", True])
+@pytest.mark.parametrize("bad", [-0.1, 0.0, 0.05, 2.0, "1", True])
 def test_theta_is_validated(build, bad):
     with pytest.raises(ValueError):
         getattr(vaft.diagram, build)(theta=bad)
@@ -176,3 +176,34 @@ def test_new_views_are_deterministic_with_labels_off():
         vaft.diagram.refractive_index_vs_X(Y=1.5)
     with pytest.raises(ValueError):
         vaft.diagram.refractive_index_vs_Y(X=0.0)
+
+
+@pytest.mark.parametrize("deg", [5.0, 30.0, 60.0])
+def test_oblique_profile_curves_never_chord_across_a_gap(deg):
+    m = vaft.diagram.profile_propagation(theta=np.radians(deg)).model
+    R = np.linspace(m.parameters["R0"] - m.parameters["a"], m.parameters["R0"] + m.parameters["a"], 1201)
+    step = R[1] - R[0]
+    for name, curve in m.curves.items():
+        if name.startswith(("n2_O", "n2_X")):
+            assert np.all(np.diff(curve[:, 0]) < 1.5 * step), name
+
+
+@pytest.mark.parametrize("deg", [5.0, 20.0, 60.0])
+def test_both_oblique_resonances_are_found_down_to_the_smallest_angle(deg):
+    p = vaft.diagram.wave_dispersion_omega_k(theta=np.radians(deg)).model.parameters
+    assert p["omega_A"] < 1.0 < p["omega_A2"]
+    q = vaft.diagram.refractive_index_vs_Y(X=0.5, theta=np.radians(deg)).model.parameters
+    assert "Y_A" in q
+
+
+def test_omega_k_labels_only_layers_on_the_chart_and_numbers_are_validated():
+    d = vaft.diagram.wave_dispersion_omega_k(omega_pe_over_omega_ce=3.0)
+    for item in d.scene.items:
+        if getattr(item, "role", "").startswith("layer") and hasattr(item, "text"):
+            name = item.role.split(" ")[1]
+            assert d.model.parameters[f"omega_{name}"] < 4.0
+    for bad in (True, "1.2", 0.0, 3.5):
+        with pytest.raises(ValueError):
+            vaft.diagram.wave_dispersion_omega_k(omega_pe_over_omega_ce=bad)
+    with pytest.raises(ValueError):
+        vaft.diagram.refractive_index_vs_X(Y="0.5")

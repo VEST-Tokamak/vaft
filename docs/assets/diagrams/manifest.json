@@ -557,8 +557,8 @@
     },
     "profile_propagation_oblique.svg": {
       "call": "vaft.diagram.profile_propagation(theta=1.0471975511965976)",
-      "source_sha256": "f9bcfff127b635caac85f655277c815f8966966c96bc830c92b5bf15e414c54f",
-      "svg_sha256": "4bb23ae82d1e1ec44e88189f01553ee67dd70aa57d3b387fc6c129f06da5e370"
+      "source_sha256": "55274217cae7a21e887662f34af02334544f630c0daea1b3fe67fab09ec8a42f",
+      "svg_sha256": "773afc467906c073b8efa611e2b7e0f548033a77a91db7d2c401abc67ce644d1"
     },
     "rational_surface.svg": {
       "call": "vaft.diagram.rational_surface()",
