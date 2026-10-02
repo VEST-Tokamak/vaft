@@ -705,14 +705,17 @@ def serve(
     # port wildcard (an entry without a port means :80), so a forward to
     # another local port (ssh -L 8080:localhost:5006, or VS Code picking a
     # free port) is named with websocket_origin / --allow-websocket-origin.
-    origins = list(websocket_origin or ()) + [f"localhost:{port}", f"127.0.0.1:{port}", f"[::1]:{port}"]
+    # Bokeh's allow-list takes host:port only -- an IPv6 literal such as
+    # [::1]:5006 makes the server refuse to start -- so IPv6 addresses are not
+    # listed; a browser on ::1 is named with --allow-websocket-origin.
+    origins = list(websocket_origin or ()) + [f"localhost:{port}", f"127.0.0.1:{port}"]
     if address not in LOOPBACK:
         # The page is then opened by this host's name or address.
         import socket
 
         if address in ("0.0.0.0", "::"):
             origins += [f"{socket.gethostname()}:{port}", f"{socket.getfqdn()}:{port}"]
-        else:
+        elif ":" not in address:
             origins.append(f"{address}:{port}")
     protected = auth == "password" or (auth == "auto" and (remote or address not in LOOPBACK))
     options: dict[str, Any] = {}

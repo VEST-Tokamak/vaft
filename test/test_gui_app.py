@@ -557,3 +557,20 @@ def test_serve_admits_the_page_on_the_address_it_binds(monkeypatch):
     with pytest.warns(UserWarning):
         gui_app.serve(address="10.0.0.5", port=5123)
     assert "10.0.0.5:5123" in calls[-1]["websocket_origin"]
+
+
+
+def test_every_origin_serve_lists_is_one_bokeh_accepts(monkeypatch):
+    """The server must start: an origin Bokeh cannot parse stops it (``[::1]:5006`` did)."""
+    from bokeh.server.util import create_hosts_allowlist
+
+    calls = []
+    monkeypatch.setattr(pn, "serve", lambda panels, **kwargs: calls.append(kwargs))
+    monkeypatch.setenv("VAFT_GUI_PASSWORD", "x")
+    gui_app.serve(port=5123)
+    with pytest.warns(UserWarning):
+        gui_app.serve(address="0.0.0.0", port=5123)
+    with pytest.warns(UserWarning):
+        gui_app.serve(address="fe80::1", port=5123)
+    for kwargs in calls:
+        create_hosts_allowlist(kwargs["websocket_origin"], 5123)
