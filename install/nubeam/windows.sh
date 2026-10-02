@@ -429,6 +429,46 @@ static void __attribute__((constructor)) vaft_winsock_startup_ctor(void)
 void vaft_winsock_startup(void) { vaft_winsock_startup_ctor(); }
 EOF
 
+  cat > "$COMPAT_DIR/cmkdir_win32.c" <<'EOF'
+/*
+  cmkdir for Windows.
+
+  portlib's gmkdir treats a path as absolute only when it starts with '/'.
+  Anything else is taken as relative and appended to the current directory,
+  so the absolute Windows path NUBEAM hands it -- mpi_share_env calls
+  mpi_mkdir on getcwd(), which is "C:\work\run" -- arrives here as
+  "C:\work\run/C:\work\run". _mkdir rejects the embedded colon with EINVAL and
+  nubeam_comp_exec stops at INIT with "mpi_mkdir(cwd=...)".
+
+  A drive specifier can only begin a Windows path, so one that follows a
+  separator marks where the real absolute path starts; everything before it is
+  gmkdir's misplaced prefix. Paths without one are passed through unchanged,
+  and an existing directory is success, as in portlib's own cmkdir.
+*/
+#include <ctype.h>
+#include <direct.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+
+int cmkdir_(const char *path)
+{
+  const char *start = path;
+  const char *s;
+
+  for (s = path + 1; s[0] && s[1]; ++s) {
+    if (s[1] == ':' && isalpha((unsigned char) s[0]) && (s[-1] == '/' || s[-1] == '\\'))
+      start = s;
+  }
+  errno = 0;
+  _mkdir(start);
+  if (errno == EEXIST) errno = 0;
+  if (errno != 0)
+    fprintf(stderr, " cmkdir %s: strerror(%d): %s\n", start, errno, strerror(errno));
+  return errno;
+}
+EOF
+
   cat > "$COMPAT_DIR/c_execsystem_win32.c" <<'EOF'
 /*
   c_execsystem for Windows.
@@ -626,6 +666,7 @@ seed_portlib() {
       -o "$obj/obj/portlib/c_execsystem.o" "$COMPAT_DIR/c_execsystem_win32.c"
   gcc -c -O -o "$obj/obj/portlib/vaft_wsa_init.o" "$COMPAT_DIR/vaft_wsa_init.c"
   gcc -c -O -o "$obj/obj/portlib/vaft_get_proc_mem.o" "$COMPAT_DIR/vaft_get_proc_mem.c"
+  gcc -c -O -o "$obj/obj/portlib/cmkdir.o" "$COMPAT_DIR/cmkdir_win32.c"
   gcc "${cflags[@]}" -I"$COMPAT_DIR" -I"$root/portlib" -I"$root/include" \
       -include "$COMPAT_DIR/vaft_trsocket_win32.h" \
       -o "$obj/obj/portlib/trsocket.o" "$root/portlib/trsocket.c"
@@ -636,6 +677,7 @@ seed_portlib() {
      "$obj/obj/portlib/c_execsystem.o" \
      "$obj/obj/portlib/vaft_wsa_init.o" \
      "$obj/obj/portlib/vaft_get_proc_mem.o" \
+     "$obj/obj/portlib/cmkdir.o" \
      "$obj/obj/portlib/trsocket.o"
   ranlib "$obj/lib/libportlib.a"
 }
