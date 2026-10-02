@@ -320,3 +320,18 @@ def test_missing_categories_are_grey_and_plain_strings_keep_slots_across_subsets
     sub.loc[sub["verdict"] == "stable", "murakami_parameter"] = np.nan
     _, ax2 = operational_space_population(sub, "hugill", color="verdict")
     assert _legend_colour(ax, "verdict=unstable") == _legend_colour(ax2, "verdict=unstable")
+
+
+def test_placement_says_where_a_boundary_lands_or_why_not():
+    hugill = ops.placement("hugill", "murakami_hugill")
+    assert hugill.drawable and hugill.kind == "vertical"
+    troyon = ops.placement("troyon", "troyon")
+    assert troyon.drawable and troyon.kind == "ratio"
+    beta_li = ops.placement("beta_n_li", "troyon")
+    assert beta_li.drawable and beta_li.kind == "horizontal"
+    wesson = ops.placement("li_qa_wesson", "wesson_1989_jet_li_qpsi_lower")
+    assert wesson.drawable and wesson.kind == "curve" and not wesson.swap_axes
+    refused = ops.placement("q95_li", "wesson_1989_jet_li_qpsi_lower")
+    assert not refused.drawable and refused.reason
+    with pytest.raises(ops.IncompatibleBoundary):
+        ops.placement("q95_li", "wesson_1989_jet_li_qpsi_lower", strict=True)
