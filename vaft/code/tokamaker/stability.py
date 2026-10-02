@@ -32,7 +32,14 @@ from ._oft import get_oft_env, import_oft
 from .config import TokaMakerConfig, TokaMakerInputs, TokaMakerStabilityResult
 from .mesh import build_tokamaker_mesh
 from .outputs import STABILITY_SIDECAR_NAME
-from .runner import _apply_profiles, _apply_vsc, _configure_tokamaker, _json_safe
+from .runner import (
+    _apply_profiles,
+    _apply_vsc,
+    _configure_tokamaker,
+    _json_safe,
+    _save_eqdsk,
+    _wall_check,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -197,14 +204,8 @@ def run_tokamaker_vertical_stability(
         )
         mygs.solve()
         stats = dict(mygs.get_stats())
-        mygs.save_eqdsk(
-            str(gpath),
-            nr=config.eqdsk_nr,
-            nz=config.eqdsk_nz,
-            lcfs_pad=config.eqdsk_lcfs_pad,
-            run_info=f"# {shot} {ctime}ms",
-            cocos=config.eqdsk_cocos,
-        )
+        stats.update(_wall_check(mygs, inputs.geometry["limiter"]))
+        _save_eqdsk(mygs, gpath, config, f"# {shot} {ctime}ms")
         gfile = gpath
 
         eig_vals, eig_vecs = mygs.eig_td(
