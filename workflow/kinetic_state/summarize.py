@@ -104,7 +104,8 @@ def figure(rows: Sequence[dict[str, str]], out: Path) -> list[Path]:
         axes.axhspan(1.0, 2.0, color="0.92", zorder=0, label="physical band: 1 \u2264 p/p$_e$ \u2264 2")
         axes.axhline(1.0, color="0.3", lw=0.8, ls="--", label="$p=p_e$")
         for quality in ("admissible", "good"):
-            group = [r for r in matched if r["efit_lineage"] == lineage and r["efit_quality"] == quality]
+            group = [r for r in matched if r["efit_lineage"] == lineage and r["efit_quality"] == quality
+                     and math.isfinite(_f(r["r_sum"])) and _f(r["r_sum"]) > 0]  # what a log axis can draw
             if group:
                 axes.scatter([_f(r["ip_measured_a"]) / 1e3 for r in group], [_f(r["r_sum"]) for r in group],
                              s=22, marker=marker, color=colours[quality], label=f"{quality} ({len(group)})")
@@ -141,14 +142,15 @@ def figure(rows: Sequence[dict[str, str]], out: Path) -> list[Path]:
     right.legend(fontsize=7, loc="upper left")
     from matplotlib.ticker import FixedLocator, NullLocator, ScalarFormatter
 
-    ticks = [0.5, 0.7, 1, 1.5, 2, 3, 5, 7, 10]
+    ticks = [0.1, 0.2, 0.3, 0.5, 0.7, 1, 1.5, 2, 3, 5, 7, 10, 20, 30, 50, 100]
     for axis in (left.yaxis, middle.yaxis, right.xaxis, right.yaxis):
         axis.set_major_locator(FixedLocator(ticks))
         axis.set_minor_locator(NullLocator())
         axis.set_major_formatter(ScalarFormatter())
-    fig.text(0.01, -0.12, "#1331 Tier A, statistical_891. Quality is fit quality only (criteria v2); "
-             "the shaded band is the physical-consistency check, not a selection. Kinetic markers: "
-             "square = own admissibility passes, x = fails.", fontsize=7)
+    fig.text(0.01, -0.12, "#1331 Tier A, statistical_891. Colour is the criteria-v2 fit quality of the magnetics slice "
+             "at that (shot, t); electron-kinetic rows inherit it. The shaded band is the physical-consistency "
+             "check, not a selection. Right panel only: square = the kinetic fit's own admissibility passes, "
+             "x = fails.", fontsize=7)
     out.mkdir(parents=True, exist_ok=True)
     paths = [out / "pressure_consistency.png", out / "pressure_consistency.pdf"]
     for path in paths:
