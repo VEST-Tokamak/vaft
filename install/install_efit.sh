@@ -464,7 +464,15 @@ if ((!SKIP_TESTS)); then
   while IFS= read -r script; do chmod +x "$script"; done \
     < <(find "$BUILD_DIR/test" -name '*.sh' -type f ! -perm -u+x 2>/dev/null)
   note "running EFIT's own ctest suite as the build's acceptance"
-  if (cd "$BUILD_DIR" && ctest --output-on-failure >>"$LOG" 2>&1); then
+  # EFIT's large automatic arrays overflow the usual 8 MB default stack: on
+  # Ubuntu 24.04 34 of 46 tests segfault at 8 MB and all 46 pass at 64 MB. The
+  # adapter and check_efit.py raise the limit per run for the same reason, and
+  # to the same 65536 KB; raise it here in the subshell only.
+  if (cd "$BUILD_DIR" &&
+      { [[ "$(ulimit -s)" == unlimited ]] || (( $(ulimit -s) >= 65536 )) ||
+        ulimit -s 65536 2>/dev/null ||
+        note "could not raise the stack limit to 65536 KB; ctest may segfault"; } &&
+      ctest --output-on-failure >>"$LOG" 2>&1); then
     CTEST_STATUS="passed"
   else
     CTEST_STATUS="failed"
