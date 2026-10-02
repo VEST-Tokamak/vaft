@@ -46,6 +46,7 @@ from .runner import (
     _configure_tokamaker,
     _json_safe,
     _save_eqdsk,
+    _wall_check,
 )
 
 _log = logging.getLogger(__name__)
@@ -147,6 +148,7 @@ def run_tokamaker_evolution(
                     psi0, t_ref = mygs.get_psi(False), time
                     converged = True
                     stats = dict(mygs.get_stats())
+                    stats.update(_wall_check(mygs, base.geometry["limiter"]))
                     gfile = base.workdir / f"g{shot:06d}.{ms:05d}"
                     _save_eqdsk(mygs, gfile, config, f"# {shot} {ms}ms")
             except Exception as exc:

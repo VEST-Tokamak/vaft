@@ -8,8 +8,10 @@ error mapping, and the g-file/sidecar outputs.
 
 import json
 import sys
+import types
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from tokamaker_fakes import make_fake_oft, make_inputs
@@ -173,3 +175,103 @@ def test_limiter_search_excludes_the_vest_chambers_by_default(tmp_path, monkeypa
         TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path, lim_zmax=None),
     )
     assert fake.settings_at_setup["lim_zmax"] == pytest.approx(1.0e99)
+
+
+VEST_LIMITER = [
+    [0.105, 0.575], [0.1337, 0.7279], [0.1337, 1.185], [0.6, 1.185], [0.6, 0.6],
+    [0.7, 0.6], [0.7, 0.585], [0.761, 0.585], [0.761, -0.585], [0.7, -0.585],
+    [0.7, -0.6], [0.6, -0.6], [0.6, -1.185], [0.1337, -1.185], [0.1337, -0.7279],
+    [0.105, -0.575], [0.105, 0.575],
+]
+
+
+def test_neck_faces_above_lim_zmax_stay_limiter_points():
+    from vaft.code.tokamaker.runner import neck_limiter_points
+
+    config = TokaMakerConfig()
+    points = neck_limiter_points(VEST_LIMITER, config)
+
+    z = np.abs(points[:, 1])
+    assert np.all((z > config.lim_zmax) & (z <= config.neck_limiter_zmax))
+    # the inboard slant (0.105, 0.575) -> (0.1337, 0.7279), both halves
+    slant = points[(points[:, 0] > 0.105) & (points[:, 0] < 0.1337)]
+    assert slant[:, 1].max() > 0.7 and slant[:, 1].min() < -0.7
+    # nothing from the chamber interior far above the neck
+    assert z.max() <= 0.73
+    assert len(neck_limiter_points(VEST_LIMITER, TokaMakerConfig(neck_limiter_zmax=None))) == 0
+
+
+def test_neck_points_reach_tokamaker_as_a_limiter_file(tmp_path, monkeypatch):
+    make_fake_oft(monkeypatch)
+    fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
+
+    run_tokamaker(
+        make_inputs(tmp_path, {"limiter": VEST_LIMITER}),
+        TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path),
+    )
+
+    path = Path(fake.settings_at_setup["limiter_file"])
+    lines = path.read_text().split("\n")
+    assert path.parent == tmp_path
+    assert int(lines[0]) == len([ln for ln in lines[1:] if ln.strip()]) > 0
+
+
+def test_lcfs_leaving_the_wall_is_flagged(tmp_path, monkeypatch):
+    make_fake_oft(monkeypatch)
+    fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
+    config = TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path)
+
+    inside = run_tokamaker(make_inputs(tmp_path, {"limiter": VEST_LIMITER}), config)
+    assert inside.scalars["lcfs_inside_wall"] is True
+
+    # an LCFS pushed 2 cm through the center stack
+    original = fake.trace_surf
+    monkeypatch.setattr(fake, "trace_surf", lambda self, psi: original(self, psi) - [0.165, 0.0])
+    crossed = run_tokamaker(make_inputs(tmp_path, {"limiter": VEST_LIMITER}), config)
+    assert crossed.scalars["lcfs_inside_wall"] is False
+    assert crossed.scalars["lcfs_wall_excursion_m"] == pytest.approx(0.02, abs=2e-3)
+
+
+def test_failed_lcfs_trace_reports_the_wall_check_as_unknown(tmp_path, monkeypatch):
+    make_fake_oft(monkeypatch)
+    fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
+    monkeypatch.setattr(fake, "trace_surf", lambda self, psi: None)
+
+    result = run_tokamaker(
+        make_inputs(tmp_path, {"limiter": VEST_LIMITER}),
+        TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path),
+    )
+
+    assert "lcfs_inside_wall" in result.scalars
+    assert result.scalars["lcfs_inside_wall"] is None
+
+
+def test_long_workdir_falls_back_to_a_short_limiter_file(tmp_path, monkeypatch):
+    make_fake_oft(monkeypatch)
+    fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
+    original_init = fake.__init__
+
+    def init(self, env):
+        original_init(self, env)
+
+        def path2c(path):
+            if len(path) > 200:   # OFT_PATH_SLEN
+                raise ValueError("path too long")
+            return path
+
+        self._oft_env = types.SimpleNamespace(path2c=path2c)
+
+    monkeypatch.setattr(fake, "__init__", init)
+    deep = tmp_path / ("d" * 120) / ("e" * 120)
+    deep.mkdir(parents=True)
+    mesh = deep / "mesh.h5"
+    mesh.write_bytes(b"")
+
+    run_tokamaker(
+        make_inputs(deep, {"limiter": VEST_LIMITER}, mesh_file=mesh),
+        TokaMakerConfig(shot=39915, time=0.325, workdir=deep),
+    )
+
+    limiter_file = fake.settings_at_setup["limiter_file"]
+    assert len(limiter_file) <= 200
+    assert Path(limiter_file).read_text().split("\n")[0].isdigit()

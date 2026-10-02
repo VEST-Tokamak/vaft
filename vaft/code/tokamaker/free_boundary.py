@@ -56,6 +56,7 @@ from .runner import (
     _configure_tokamaker,
     _json_safe,
     _save_eqdsk,
+    _wall_check,
 )
 from .topology import ScanTopology, TopologyReport, classify_boundary
 
@@ -678,6 +679,7 @@ class FreeBoundaryScan:
             # chain continues (its manifest below stays visible either way)
             try:
                 stats = dict(mygs.get_stats())
+                stats.update(_wall_check(mygs, self.base_inputs.geometry["limiter"]))
                 materialized = dict(mygs.get_coil_currents()[0])
                 try:
                     xp_array, diverted = mygs.get_xpoints()

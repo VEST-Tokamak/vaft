@@ -38,6 +38,7 @@ from .runner import (
     _configure_tokamaker,
     _json_safe,
     _save_eqdsk,
+    _wall_check,
 )
 
 _log = logging.getLogger(__name__)
@@ -203,6 +204,7 @@ def run_tokamaker_vertical_stability(
         )
         mygs.solve()
         stats = dict(mygs.get_stats())
+        stats.update(_wall_check(mygs, inputs.geometry["limiter"]))
         _save_eqdsk(mygs, gpath, config, f"# {shot} {ctime}ms")
         gfile = gpath
 

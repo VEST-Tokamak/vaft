@@ -101,13 +101,20 @@ class TokaMakerConfig:
     # magnetically connected to the core: on 39915 @ 325 ms the "LCFS" stands
     # 6 cm clear of every wall point instead of resting on the inboard limiter
     # (issue #1469). X-point detection, hence diverted states, is unaffected.
-    # The cut is by height: nodes in cells reaching above 0.6 m are excluded
-    # too, which removes the upper part of the neck (the inboard slant from
-    # Z = 0.575 m, the (0.6, 0.6) corner). A plasma pushed that high (a
-    # vertical displacement, an upward-shifted scan point) is not stopped by
-    # those faces; raise or clear lim_zmax for such studies.
+    # The cut is by height, so it also removes the upper part of the neck
+    # (the inboard slant from Z = 0.575 m, the (0.6, 0.6) corner);
+    # ``neck_limiter_zmax`` puts those faces back as explicit points.
     # None -> every limiter node is a candidate (OFT default).
     lim_zmax: Optional[float] = 0.6
+    # Wall faces between lim_zmax and this height [m] are handed to TokaMaker
+    # as explicit limiter points (OFT ``settings.limiter_file``), sampled every
+    # dx_plasma along the limiter polygon. On VEST that is the inboard slant up
+    # to (0.1337, +-0.728) and the R = 0.6 m chamber wall up to |Z| = 0.73; the
+    # outboard step at |Z| = 0.585-0.6 lies below lim_zmax and stays a mesh
+    # limiter. A plasma pushed upward then rests on the neck instead of
+    # passing it.
+    # None (or <= lim_zmax) adds no points.
+    neck_limiter_zmax: Optional[float] = 0.73
     # None -> interpolate pf_active coil currents [A] at ``time``.
     # Otherwise an explicit {coil_name: amps} mapping (names as in the geometry).
     coil_currents: Optional[Mapping[str, float]] = None

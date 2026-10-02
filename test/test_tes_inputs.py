@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from vaft.code.tes import TESConfig, prepare_tes_inputs
+from vaft.code.tes import TESConfig, limited_iso_points, prepare_tes_inputs
 from vaft.code.tes.inputs import (
     _clip_limiter_to_grid,
     _coils_from_ods,
@@ -121,9 +121,47 @@ def test_element_coil_model_keeps_every_winding_as_a_filament(ods, tmp_path):
     assert pf1[:, 5].sum() * 1000.0 == pytest.approx(632.0 * pf1_current, rel=1e-6)
 
 
-def test_shape_control_requires_the_legacy_coil_model(ods, tmp_path):
-    with pytest.raises(ValueError, match="coil_model='legacy'"):
+def test_shape_control_needs_coil_groups_to_refit(ods, tmp_path):
+    with pytest.raises(ValueError, match="shape_coils"):
         _deck(ods, tmp_path, fix_shape=1)
+
+
+def test_limited_shape_control_deck(ods, tmp_path):
+    isor, isoz = limited_iso_points(ods, 0.325)
+    config = TESConfig.limited_shape_control(
+        isor, isoz, workdir=tmp_path, shot=39915, time=0.325, bt0=0.15,
+        constraint_source="magnetics", betap=0.05,
+    )
+    _, lines = _deck(ods, tmp_path, config=config)
+    rows = _coil_rows(lines)
+
+    assert _value(lines, "FIX_SHAPE") == ["1"]
+    assert _value(lines, "NXPT") == ["0"]
+    assert _value(lines, "NISO") == ["4"]
+    # PF5, PF6, PF9, PF10 lead the table, one row per half, two rows a group
+    assert _value(lines, "GRPID") == ["1", "2", "3", "4"]
+    assert list(rows[:8, 6].astype(int)) == [1, 1, 2, 2, 3, 3, 4, 4]
+    assert np.all(rows[:8, 0] > 0.7)                    # outer PF coils only
+    assert np.all(rows[8:, 6] > 4)                      # everything else is not re-fitted
+    # each lumped half keeps the coil's per-turn current and its turns
+    pf = ods["pf_active"]
+    pf6 = np.interp(0.325, pf["time"], pf["coil.5.current.data"])
+    assert rows[2, 5] * 1000.0 == pytest.approx(pf6, abs=0.01)   # the deck keeps 1e-5 kA
+    assert rows[2, 4] == pytest.approx(12)
+
+
+def test_limited_iso_points_put_the_target_point_on_the_inboard_face(ods):
+    isor, isoz = limited_iso_points(ods, 0.325)
+
+    assert isor[0] == pytest.approx(0.105)              # the target limiting point
+    assert abs(isoz[0]) < 1e-3
+    assert isor[1] > 0.35                               # outboard midplane
+    assert isoz[2] > 0.15 and isoz[3] < -0.15           # top and bottom hold Z
+
+
+def test_shape_groups_must_exist_in_the_coil_table(ods, tmp_path):
+    with pytest.raises(ValueError, match="1..10 rows"):
+        _deck(ods, tmp_path, fix_shape=1, grpid=(99999,))
 
 
 def test_legacy_preset_restores_the_double_null_deck(ods, tmp_path):
@@ -235,3 +273,18 @@ def test_passive_currents_are_written_in_kA(ods):
 def test_missing_reference_betap_is_a_clear_error(ods, tmp_path):
     with pytest.raises(ValueError, match="TESConfig.betap"):
         _deck(ods, tmp_path, constraint_source="equilibrium", betap=None)
+
+
+def test_limited_iso_points_use_the_wall_crossing_at_the_axis_height(ods):
+    # an outboard vertex at the midplane must not be taken for the inboard face
+    data = ods.copy()
+    r = list(data["wall.description_2d.0.limiter.unit.0.outline.r"])
+    z = list(data["wall.description_2d.0.limiter.unit.0.outline.z"])
+    i = int(np.argmax(r))
+    r.insert(i + 1, max(r)); z.insert(i + 1, 0.0)
+    data["wall.description_2d.0.limiter.unit.0.outline.r"] = np.array(r)
+    data["wall.description_2d.0.limiter.unit.0.outline.z"] = np.array(z)
+
+    isor, _ = limited_iso_points(data, 0.325)
+
+    assert isor[0] == pytest.approx(0.105)

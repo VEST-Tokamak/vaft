@@ -142,11 +142,51 @@ class TESConfig:
     #             Shape control (fix_shape=1) needs these 18 groups: TES caps a
     #             group at 10 rows.
     coil_model: str = "elements"
+    # pf_active coils TES's shape control may re-fit (fix_shape=1 with
+    # coil_model="elements"). Each is written as one row per up/down half in
+    # its own group, ids 1..k in this order; ``grpid`` defaults to them. The
+    # lumping applies whenever this is set, so leave it empty without
+    # fix_shape.
+    shape_coils: tuple[str, ...] = ()
     # Include the passive structure (pf_passive eddy loops) as external coils.
     eddy: bool = False
 
     # --- execution ---
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
+
+    @classmethod
+    def limited_shape_control(
+        cls,
+        isor: Sequence[float],
+        isoz: Sequence[float],
+        shape_coils: Sequence[str] = ("PF5", "PF6", "PF9", "PF10"),
+        **overrides: Any,
+    ) -> "TESConfig":
+        """Hold a limited boundary by re-fitting the outer PF coils.
+
+        With the measured coil currents fixed, a forward solve reaches only the
+        plasma currents those coils hold in radial balance (40-60 kA at 39915 @
+        325 ms). Here TES re-fits ``shape_coils`` every iteration so that the
+        boundary flux passes through the iso-flux points ``(isor, isoz)``. There
+        are no X-points (NXPT 0), so TES takes the target flux at the iso-flux
+        point nearest the limiter: put one on the wall where the plasma should
+        rest, e.g. from ``vaft.code.tes.inputs.limited_iso_points``. FIX_SHAPE
+        replaces TES's vertical stabilizer, so include points above and below
+        the axis. The measured currents are the starting point; ``.RESULT``
+        reports each coil's change (``result.scalars["coils"]``).
+        """
+        if len(isor) != len(isoz) or len(isor) < 2:
+            raise ValueError("limited_shape_control needs >= 2 iso-flux points with matching R and Z")
+        settings = dict(
+            fix_shape=1,
+            nxpt=0,
+            isor=tuple(float(v) for v in isor),
+            isoz=tuple(float(v) for v in isoz),
+            shape_coils=tuple(str(c).upper() for c in shape_coils),
+            coil_model="elements",
+        )
+        settings.update(overrides)
+        return cls(**settings)
 
     @classmethod
     def legacy_double_null(cls, **overrides: Any) -> "TESConfig":
