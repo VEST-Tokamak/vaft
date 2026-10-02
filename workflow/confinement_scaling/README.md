@@ -8,6 +8,7 @@ This directory builds the VEST Tier A confinement table on a validated ohmic pow
 | `closures.py` | Runs four analyses: an errors-in-variables fit of W against P_OH (independent of W) and P_net (for comparison; it carries W noise through dW/dt), over a grid of the assumed equation error of W and measurement error of P; the Kadomtsev-completed size exponent and dimensionless indices, with the cluster covariance propagated and the size exponent labelled `assumed_not_measured`; closures μ_ρ = −2, −2.5 and −3 as linear constraints, compared by RMS, AIC/BIC, a cluster Wald test, leave-one-shot-out error and bootstrap spread; and NSTX (Buxton 2019, Kaye 2006) as a comparison, never a prior. |
 | `figures.py` | Figure functions for Lane V's conference notebook (`vaft.plot` is frozen). Each returns `(fig, axes)`: VEST over the ITPA DB5.2.3 standard set with the spherical tokamaks broken out; τ_E measured against IPB98(y,2) and NSTX2006L; the H-factor distributions; and the exponent comparison with the Kadomtsev-completed μ_ρ, marked as assumed and as undetermined where (1+α_P)/σ < 2. The CLI renders PNG and PDF. |
 | `extra_scalings.py` | The ohmic and L-mode scalings `vaft.formula` lacks, transcribed from the papers and evaluated in their own units: neo-Alcator (Goldston 1984 eq. 3), Goldston 1984 L-mode (eq. 6), their eq. (11) quadrature, and ITER97-L (Kaye 1997). They belong in `vaft.formula` under #670. |
+| `extensions.py` | Tests what the exponents measure: B_T split into TF current (B0R0) and plasma position (R_geo); shot fixed effects (within-shot) against shot means (between-shot); a campaign offset for the two Tier A shot blocks; and a direct dimensionless regression on the Thomson subset (no T elimination through P). |
 | `fit.py` | Fits τ_E = C I_p^aI B_T^aB P_net^aP, density-free (A, primary) and with the Thomson line density (B) on the same subset. It reports errors clustered by shot, a shot bootstrap, leave-one-shot-out refits, influence, a Huber fit and identifiability (VIF, condition number, correlations, log spread). Each fit runs on the primary and the sensitivity selection. |
 
 ## Inputs (read only)
@@ -79,6 +80,12 @@ python closures.py --table ~/runs/campaign/atlas/confinement/table.csv --out ~/r
 ```
 
 This writes `closures.csv`, `odr_scan.csv`, `nstx_comparison.csv` and `MANIFEST.json`. Every dimensionless index divides by 1 + α_P, so read `one_plus_aP_over_se` before any μ: within about 2σ of zero, the completed indices are undetermined.
+
+Then the extensions:
+
+```bash
+python extensions.py --table ~/runs/campaign/atlas/confinement/table.csv --out ~/runs/campaign/atlas/confinement/extensions
+```
 
 Then the figures:
 
