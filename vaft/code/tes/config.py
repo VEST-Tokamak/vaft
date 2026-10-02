@@ -94,31 +94,132 @@ class TESConfig:
     errtol_shape: float = 1.0e-5
 
     # --- shape control ---
-    fix_shape: int = 1
+    # Default: no shape control. FIX_SHAPE 0 makes TES keep the prescribed coil
+    # currents (only its vertical stabilizer acts), so the boundary is whatever
+    # the measured PF state produces: on VEST that is usually a plasma limited
+    # on the inboard (center-stack) face. The legacy deck instead re-fitted all
+    # 18 coil groups each iteration toward a double null at (0.30, +-0.55) with
+    # an iso-flux point 5 mm off the inboard wall, which forbids a limited
+    # state (issue #1469). It remains available as ``legacy_double_null()``.
+    fix_shape: int = 0
     flux_linkage: tuple[int, float] = (0, 0.0)
-    nxpt: int = 2
-    xpr: Sequence[float] = (0.30, 0.30)
-    xpz: Sequence[float] = (-0.55, 0.55)
-    active: Sequence[int] = (1, 1)
-    snowflake: Sequence[int] = (0, 0)
+    nxpt: int = 0
+    xpr: Sequence[float] = ()
+    xpz: Sequence[float] = ()
+    active: Sequence[int] = ()
+    snowflake: Sequence[int] = ()
     drsep: tuple[int, float] = (0, 0.0)
     dsep: tuple[int, float] = (0, 0.0)
-    isor: Sequence[float] = (0.640, 0.110, 0.300, 0.300)
-    isoz: Sequence[float] = (0.000, 0.000, 0.550, -0.550)
-    grpid: Sequence[int] = tuple(range(1, 19))
+    isor: Sequence[float] = ()
+    isoz: Sequence[float] = ()
+    grpid: Sequence[int] = ()
 
     # --- limiter ---
     # None -> read from ods['wall'] limiter outline and clip to the grid.
-    # Otherwise an explicit (r_array, z_array) polygon (already inside the grid).
+    # Otherwise an explicit (r_array, z_array) polygon, used verbatim (already
+    # inside the grid, no resampling).
     limiter: Optional[tuple[Sequence[float], Sequence[float]]] = None
     limiter_grid_margin: float = 1.5          # grid cells of margin when clipping limiter to grid
+    # TES tests the boundary flux only AT the listed limiter points, never along
+    # the edges between them. The canonical VEST center-stack face is a single
+    # edge from Z = -0.575 to +0.575 m, so without resampling an inboard
+    # midplane contact is invisible to TES. Edges of the ODS limiter are split
+    # to at most this length [m]; None keeps the polygon vertices only. Edges
+    # the grid clip creates (across the chamber necks) are not wall and stay
+    # whole.
+    limiter_spacing: Optional[float] = 0.01
 
     # --- coils ---
+    # How pf_active becomes TES coil rows. TES treats every row outside its
+    # grid as ONE filament at (R, Z), so the row layout is the field model.
+    # "elements": one filament per pf_active element (ampere-turns, one coil
+    #             group each). This follows the real winding; PF1 alone has 158.
+    # "legacy"  : the ported VEST_tes layout, PF1/PF2 lumped into 5+5 blocks
+    #             and the other coils into one row per half (18 groups). The
+    #             PF1 blocks are 0.24 m apart only ~0.08 m from the inboard
+    #             wall, and their ripple puts a spurious field null at
+    #             R ~ 0.13 m on the midplane of 39915 @ 325 ms (issue #1469).
+    #             Shape control (fix_shape=1) needs these 18 groups: TES caps a
+    #             group at 10 rows.
+    coil_model: str = "elements"
+    # pf_active coils TES's shape control may re-fit (fix_shape=1 with
+    # coil_model="elements"). Each is written as one row per up/down half in
+    # its own group, ids 1..k in this order; ``grpid`` defaults to them. The
+    # lumping applies whenever this is set, so leave it empty without
+    # fix_shape.
+    shape_coils: tuple[str, ...] = ()
     # Include the passive structure (pf_passive eddy loops) as external coils.
     eddy: bool = False
 
     # --- execution ---
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
+
+    @classmethod
+    def limited_shape_control(
+        cls,
+        isor: Sequence[float],
+        isoz: Sequence[float],
+        shape_coils: Sequence[str] = ("PF5", "PF6", "PF9", "PF10"),
+        **overrides: Any,
+    ) -> "TESConfig":
+        """Hold a limited boundary by re-fitting the outer PF coils.
+
+        With the measured coil currents fixed, a forward solve reaches only the
+        plasma currents those coils hold in radial balance (40-60 kA at 39915 @
+        325 ms). Here TES re-fits ``shape_coils`` every iteration so that the
+        boundary flux passes through the iso-flux points ``(isor, isoz)``. There
+        are no X-points (NXPT 0), so TES takes the target flux at the iso-flux
+        point nearest the limiter: put one on the wall where the plasma should
+        rest, e.g. from ``vaft.code.tes.inputs.limited_iso_points``. FIX_SHAPE
+        replaces TES's vertical stabilizer, so include points above and below
+        the axis. The measured currents are the starting point; ``.RESULT``
+        reports each coil's change (``result.scalars["coils"]``).
+        """
+        if len(isor) != len(isoz) or len(isor) < 2:
+            raise ValueError("limited_shape_control needs >= 2 iso-flux points with matching R and Z")
+        settings = dict(
+            fix_shape=1,
+            nxpt=0,
+            isor=tuple(float(v) for v in isor),
+            isoz=tuple(float(v) for v in isoz),
+            shape_coils=tuple(str(c).upper() for c in shape_coils),
+            coil_model="elements",
+        )
+        settings.update(overrides)
+        return cls(**settings)
+
+    @classmethod
+    def legacy_double_null(cls, **overrides: Any) -> "TESConfig":
+        """Approximately the pre-#1469 deck: double-null shape control, legacy coils.
+
+        ``fix_shape=1`` re-fits the 18 legacy coil groups every iteration so the
+        field vanishes at (0.30, +-0.55) and the boundary flux passes through
+        the iso-flux points, one of them (0.110, 0). The limiter is passed as
+        its clipped vertices only. Values copied from the legacy
+        ``_39915_tes.in``. It is not a byte-for-byte reproduction: the limiter
+        is now clipped at the grid box instead of losing its outside vertices,
+        and in-grid rows are folded per grid node.
+
+        Before #1469 the deck wrote pf_passive currents 1000x too small, so
+        ``eddy=True`` had no effect. They are physical now, and on 39915 @
+        325 ms this shape-control fit then diverges; the preset is meant for
+        comparisons with ``eddy=False``.
+        """
+        legacy = dict(
+            fix_shape=1,
+            nxpt=2,
+            xpr=(0.30, 0.30),
+            xpz=(-0.55, 0.55),
+            active=(1, 1),
+            snowflake=(0, 0),
+            isor=(0.640, 0.110, 0.300, 0.300),
+            isoz=(0.000, 0.000, 0.550, -0.550),
+            grpid=tuple(range(1, 19)),
+            coil_model="legacy",
+            limiter_spacing=None,
+        )
+        legacy.update(overrides)
+        return cls(**legacy)
 
 
 @dataclass
@@ -157,3 +258,10 @@ class TESResult(RunOutcome):
     @property
     def ok(self) -> bool:
         return self.returncode == 0
+
+
+__all__ = [
+    "TESConfig",
+    "TESInputs",
+    "TESResult",
+]

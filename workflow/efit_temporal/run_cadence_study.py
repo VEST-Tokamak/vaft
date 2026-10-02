@@ -53,7 +53,7 @@ import vaft
 import vaft.omas
 from vaft.database.composition import compose_stage_products
 from vaft.code.efit import generate_constraints_ods, parse_iteration_history
-from vaft.code.efit.config import EFITScientificConfig
+from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
 from vaft.code.efit.slice_name import split_slice_file_name
 from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, resolved_efit_configuration, run_efit
 from vaft.data import read_aeqdsk
@@ -186,7 +186,8 @@ def run_case(
     constraints_seconds = _clock.perf_counter() - started
     config = EFITConfig(
         executable=efit, workdir=workdir, shot=shot, times=times.tolist(), args=("129",),
-        npprime=scientific.profile.kppcur, nffprime=scientific.profile.kffcur,
+        profile=scientific.profile, initialization=scientific.initialization,
+        numerics=scientific.numerics, constraints=scientific.constraints,
     )
     inputs = prepare_efit_inputs(ods, config)
     started = _clock.perf_counter()
@@ -303,7 +304,7 @@ def main(argv: list[str] | None = None) -> int:
         start, end, record = plasma_window(source)
     else:
         start, end, record = float(args.tstart), float(args.tend), {"source": "argument"}
-    scientific = EFITScientificConfig()
+    scientific = routine_scientific_config()
     cadences = [float(v) for v in args.cadences.split(",") if v.strip()]
     windows = [float(v) for v in args.windows.split(",") if v.strip()]
     scan = [float(v) for v in args.window_scan.split(",") if v.strip()]

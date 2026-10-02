@@ -59,6 +59,8 @@ _SUBMODULES = {
     "ml": ".ml",
     "nbi": ".nbi",
     "profile_gradients": ".profile_gradients",
+    "transport_state": ".transport_state",
+    "confinement": ".confinement",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -104,6 +106,12 @@ _IMPORT_ORDER = (
     # Coordinate, gradient coordinate and reference length kept apart (#551);
     # nothing it exports collides.
     "profile_gradients",
+    # One resolved plasma state shared by TGLF, NEO and classical (#1428);
+    # nothing it exports collides.
+    "transport_state",
+    # Confinement power balance and slice qualification (#548); nothing it
+    # exports collides.
+    "confinement",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

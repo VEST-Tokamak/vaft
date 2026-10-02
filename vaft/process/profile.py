@@ -3343,8 +3343,8 @@ def pedestal_top(
        available, fallback 0.85 otherwise, and every reduction records which
        method produced it.
     .. [EPED] The seven-parameter model and its parameter box are ported from
-       the pedestal-fitting study in ``hsyun_GPEC``
-       (``sample/transp_example/pedestal_fitting.ipynb``).  The older
+       the legacy implementation's pedestal-fitting study
+       (``transp_example/pedestal_fitting.ipynb``).  The older
        ``kinetic_analysis.ped_fitting`` modified tanh is deliberately not
        carried over.  Its slope term multiplies the tanh across the whole
        domain, so the curve runs away in both directions -- with that

@@ -187,11 +187,13 @@ def run_job(
     timeout: float,
     *,
     prune: bool = False,
+    backend: Any = None,
 ) -> dict:
+    """Run one (equilibrium, variant, n) job; ``backend`` is the GPEC suite's ExecutionBackend (default local)."""
     jobdir = out / eq.label / variant.name / f"nn{mode}"
     done = jobdir / "result.json"
     if done.exists():
-        cached = json.loads(done.read_text())
+        cached = json.loads(done.read_text(encoding="utf-8"))
         if cached["status"] != "failed":
             return cached
     jobdir.mkdir(parents=True, exist_ok=True)
@@ -204,6 +206,7 @@ def run_job(
         verify_outputs=True,
         timeout=timeout,
         dcon=variant.dcon,
+        backend=backend,
     )
     start = time.monotonic()
     result = run_gpec_suite_case(
@@ -224,6 +227,9 @@ def run_job(
         "wall_s": round(elapsed, 1),
         "run_dir": str(record.workdir),
         "controls": json.dumps(controls(variant), sort_keys=True),
+        # Which GPEC build ran: a locally patched build is used only where the
+        # stock one cannot run, and the row must say so.
+        "gpec_home": os.environ.get("GPECHOME"),
     }
     if record.ok:
         row.update(metrics(variant.module, Path(record.workdir), mode))
@@ -237,7 +243,7 @@ def run_job(
 def _write_atomic(path: Path, text: str) -> None:
     """A killed job must not leave a truncated ``result.json`` behind."""
     handle, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    with os.fdopen(handle, "w") as stream:
+    with os.fdopen(handle, "w", encoding="utf-8") as stream:
         stream.write(text)
     os.replace(temporary, path)
 
@@ -294,12 +300,12 @@ def collect(future: Any, eq: Equilibrium, variant: Variant, mode: int) -> dict:
 
 
 def summarize(out: Path) -> Path:
-    rows = [json.loads(p.read_text()) for p in sorted(out.glob("*/*/nn*/result.json"))]
+    rows = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(out.glob("*/*/nn*/result.json"))]
     columns: list[str] = []
     for row in rows:
         columns.extend(k for k in row if k not in columns)
     table = out / "scan_controls.csv"
-    with table.open("w", newline="") as handle:
+    with table.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
         writer.writerows(rows)

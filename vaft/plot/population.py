@@ -80,7 +80,7 @@ def _groups(table: pd.DataFrame, by: str, highlight: str | None, max_groups: int
     ]
     rest = background.to_numpy() & ~labels.isin(head).to_numpy()
     if rest.any():
-        groups.insert(0, (f"Other ({len(order) - len(head)})", rest, OTHER_COLOR, "."))
+        groups.insert(0, (f"Other: {len(order) - len(head)} groups", rest, OTHER_COLOR, "."))
     return groups
 
 

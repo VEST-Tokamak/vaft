@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from .config import TESConfig, TESResult
 
@@ -38,9 +38,25 @@ _SCALAR_ALIASES = {
 }
 
 
-def _find_one(workdir: Path, patterns: list[str]) -> Optional[Path]:
+FileSnapshot = Mapping[Path, tuple[float, int]]
+
+
+def snapshot_outputs(workdir: str | Path) -> dict[Path, tuple[float, int]]:
+    """(mtime, size) of every file in ``workdir``, taken before a run."""
+    base = Path(workdir).expanduser()
+    if not base.is_dir():
+        return {}
+    return {p: (p.stat().st_mtime, p.stat().st_size) for p in base.iterdir() if p.is_file()}
+
+
+def _find_one(workdir: Path, patterns: list[str], before: Optional[FileSnapshot] = None) -> Optional[Path]:
     for pat in patterns:
         hits = sorted(workdir.glob(pat))
+        if before is not None:
+            # a file the run did not write (absent from the snapshot, or with a
+            # new mtime or size) belongs to an earlier run
+            hits = [h for h in hits
+                    if before.get(h) != (h.stat().st_mtime, h.stat().st_size)]
         if hits:
             return hits[0]
     return None
@@ -96,7 +112,12 @@ def parse_result_coils(result_file: Path) -> list[dict[str, float | int]]:
     return coils
 
 
-def collect_tes_outputs(workdir: str | Path, config: Optional[TESConfig] = None) -> TESResult:
+def collect_tes_outputs(
+    workdir: str | Path,
+    config: Optional[TESConfig] = None,
+    *,
+    before: Optional[FileSnapshot] = None,
+) -> TESResult:
     """Collect TES output files from a working directory and parse them.
 
     The g-file is converted to an ODS equilibrium subtree via
@@ -106,16 +127,20 @@ def collect_tes_outputs(workdir: str | Path, config: Optional[TESConfig] = None)
     Parsing is best-effort: a malformed g-file or ``.RESULT`` leaves the other
     outputs intact and records the failure under the ``_geqdsk_error`` /
     ``_parse_error`` keys of ``TESResult.scalars`` instead of raising.
+
+    ``before`` is a ``snapshot_outputs`` of the directory taken before the run:
+    files it lists unchanged are left out, so a reused directory cannot hand an
+    earlier run's equilibrium to this one.
     """
     base = Path(workdir).expanduser()
 
     # EFIT names these ``g<shot>.<time>`` / ``a<shot>.<time>``. Requiring a digit
     # after the leading letter keeps unrelated files (e.g. ``gpec_*`` outputs in a
     # reused workdir) from being mistaken for a g-file or a-file.
-    gfile = _find_one(base, ["g[0-9]*.[0-9]*", "g[0-9]*"])
-    afile = _find_one(base, ["a[0-9]*.[0-9]*", "a[0-9]*"])
-    result_file = _find_one(base, ["*.RESULT"])
-    bndry = _find_one(base, ["*.BNDRY"])
+    gfile = _find_one(base, ["g[0-9]*.[0-9]*", "g[0-9]*"], before)
+    afile = _find_one(base, ["a[0-9]*.[0-9]*", "a[0-9]*"], before)
+    result_file = _find_one(base, ["*.RESULT"], before)
+    bndry = _find_one(base, ["*.BNDRY"], before)
     logs = tuple(sorted(p for p in base.glob("*.log") if p.is_file()))
 
     geqdsk: tuple[Any, ...] = ()
@@ -156,3 +181,10 @@ def collect_tes_outputs(workdir: str | Path, config: Optional[TESConfig] = None)
         ods=ods,
         scalars=scalars,
     )
+
+
+__all__ = [
+    "parse_result_scalars",
+    "parse_result_coils",
+    "collect_tes_outputs",
+]
