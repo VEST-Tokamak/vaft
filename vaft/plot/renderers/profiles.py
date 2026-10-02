@@ -26,8 +26,11 @@ __all__ = [
     "charge_exchange_profile_ion_temperature",
     "charge_exchange_profile_velocity_tor",
     "electron_density_profile",
+    "electron_density_profile_gradient",
     "electron_temperature_profile",
+    "electron_temperature_profile_gradient",
     "ion_temperature_profile",
+    "ion_temperature_profile_gradient",
     "thermal_pressure_profile",
     "equilibrium_profile_f",
     "equilibrium_profile_ffprime",
@@ -360,6 +363,84 @@ def ion_temperature_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Core ion temperature profile."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+#: What a profile gradient view needs from the equilibrium it is mapped
+#: through (issue #551): the flux map and the axis the midplane radii come from.
+_GRADIENT_EQUILIBRIUM_PATHS = (
+    "equilibrium.time_slice.{i}.profiles_1d.psi",
+    "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+)
+#: The grids a profile may be stored on; the recipe takes the first it finds.
+_GRADIENT_GRID_PATHS = (
+    "core_profiles.profiles_1d.{i}.grid.psi",
+    "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
+    "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+)
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="gradient",
+    subject="electron_temperature",
+    description=(
+        "Normalized logarithmic gradient of the core electron temperature, -L d ln f/dx, with its "
+        "abscissa, gradient coordinate and reference length stated (a/L by default)."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        *_GRADIENT_EQUILIBRIUM_PATHS,
+    ),
+    optional_paths=_GRADIENT_GRID_PATHS,
+)
+def electron_temperature_profile_gradient(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Core electron temperature gradient; the model carries the values, the label and the record."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="gradient",
+    subject="electron_density",
+    description=(
+        "Normalized logarithmic gradient of the core electron density, -L d ln f/dx, with its "
+        "abscissa, gradient coordinate and reference length stated (a/L by default)."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.density",
+        *_GRADIENT_EQUILIBRIUM_PATHS,
+    ),
+    optional_paths=_GRADIENT_GRID_PATHS,
+)
+def electron_density_profile_gradient(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Core electron density gradient; the model carries the values, the label and the record."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="gradient",
+    subject="ion_temperature",
+    description=(
+        "Normalized logarithmic gradient of the core ion temperature, -L d ln f/dx, with its "
+        "abscissa, gradient coordinate and reference length stated (a/L by default)."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.ion.{j}.temperature",
+        *_GRADIENT_EQUILIBRIUM_PATHS,
+    ),
+    optional_paths=_GRADIENT_GRID_PATHS,
+)
+def ion_temperature_profile_gradient(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Core ion temperature gradient; the model carries the values, the label and the record."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 

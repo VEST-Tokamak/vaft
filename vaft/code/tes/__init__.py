@@ -15,10 +15,16 @@ Typical use::
     inputs = tes.prepare_tes_inputs(ods, cfg)
     result = tes.run_tes(inputs, cfg)
     eq_ods = result.ods           # equilibrium populated from the TES g-file
+
+Upstream TES needs ``install/tes/tes_limiter_and_powell.patch``: an
+assignment-for-comparison in the limiting-point check, and an unbounded
+``powell`` refinement that aborts post-processing next to in-grid eddy
+currents. See the TES section of ``install/README.md``.
 """
 
 from .config import TESConfig, TESInputs, TESResult
 from .inputs import (
+    limited_iso_points,
     prepare_tes_inputs,
     write_tes_cinput,
     write_tes_namelist,
@@ -35,6 +41,7 @@ __all__ = [
     "TESConfig",
     "TESInputs",
     "TESResult",
+    "limited_iso_points",
     "prepare_tes_inputs",
     "write_tes_cinput",
     "write_tes_namelist",

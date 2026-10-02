@@ -7,7 +7,7 @@
 #171 asks for VEST's EFIT solver configuration to be characterized and then
 stated explicitly instead of inherited. This is the characterization half, and
 it deliberately changes nothing: it runs the routine configuration
-(``EFITScientificConfig()``) over each shot's full constraint window at the
+(``routine_scientific_config()``) over each shot's full constraint window at the
 routine cadence and records *why* every slice stopped where it did.
 
 The unit is a discharge, not a slice. A slice that fails in the boundary
@@ -92,7 +92,7 @@ def run_shot(
     from omas import load_omas_json
 
     from vaft.code.efit import generate_constraints_ods
-    from vaft.code.efit.config import EFITScientificConfig
+    from vaft.code.efit.config import routine_scientific_config
     from vaft.code.efit.magnetic import (
         EFITConfig,
         prepare_efit_inputs,
@@ -154,15 +154,17 @@ def run_shot(
     )
     constraints_seconds = _clock.perf_counter() - started
 
-    scientific = EFITScientificConfig()
+    scientific = routine_scientific_config()
     config = EFITConfig(
         executable=efit,
         workdir=workdir,
         shot=shot,
         times=times.tolist(),
         args=("129",),
-        npprime=scientific.profile.kppcur,
-        nffprime=scientific.profile.kffcur,
+        profile=scientific.profile,
+        initialization=scientific.initialization,
+        numerics=scientific.numerics,
+        constraints=scientific.constraints,
     )
     inputs = prepare_efit_inputs(source, config)
     started = _clock.perf_counter()
@@ -426,7 +428,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.efit_home:
         os.environ["EFITHOME"] = str(Path(args.efit_home).expanduser())
 
-    from vaft.code.efit.config import EFITScientificConfig
+    from vaft.code.efit.config import routine_scientific_config
     from vaft.code.efit.toolchain import resolve_toolchain, toolchain_identities
     from vaft.data.resources import data_path
 
@@ -476,9 +478,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "run_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "toolchain": toolchain_identities(resolved),
         "tables": tables,
-        "scientific": EFITScientificConfig().to_dict(),
-        "scientific_sha256": EFITScientificConfig().sha256,
-        "requested_error_tolerance": EFITScientificConfig().numerics.error_tolerance,
+        "scientific": routine_scientific_config().to_dict(),
+        "scientific_sha256": routine_scientific_config().sha256,
+        "requested_error_tolerance": routine_scientific_config().numerics.error_tolerance,
         "shots": records,
     }
     (output / "baseline.json").write_text(

@@ -255,6 +255,15 @@ to `main`; the legacy `public` source is read-only, so `save(..., source="public
 `ReadOnlySourceError`. `target=` and `directory=` are deprecated aliases for `source=` and warn. VAFT infers OMAS versus native IMAS
 from the supplied object and rejects a conflicting explicit `representation`.
 
+A write **adds** to the shot rather than replacing it. A shot's `master.h5` links every IDS file stored
+beside it, and a reader resolves the shot through those links. Each write therefore replaces the
+master with the stored one plus its own IDS. It re-reads the stored master immediately before
+replacing it, and holds a per-shot lock while it does (issue #913). Two writes of one shot on the same
+host can no longer drop each other's links, and different shots never wait for each other. The lock
+lives in `$VAFT_HSDS_LOCK_DIR` (default `/tmp/vaft-hsds-locks`). It does not reach writers on other
+hosts or tools that bypass VAFT. `vaft maintenance audit-masters --shots FIRST-LAST [--apply]` finds,
+and relinks, files a master does not name.
+
 ## Native IMAS IDS objects
 
 When you want an `IDSToplevel` from `imas` rather than an OMAS ODS, use the IDS pair. These live on the

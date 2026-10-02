@@ -335,6 +335,12 @@ def test_timeout_with_truncated_outputs_is_not_reported_as_success(monkeypatch, 
     dcon_dir.mkdir(parents=True, exist_ok=True)
     (dcon_dir / "euler.bin").write_bytes(b"")
     (dcon_dir / "psi_in.bin").write_bytes(b"")
+    # Staged into the GPEC cell with them: GPEC opens `equil.in` in its own
+    # working directory (see test_gpec_dcon_staging.py).
+    (dcon_dir / "equil.in").write_text(
+        f'&EQUIL_CONTROL\n    eq_filename="{case.geqdsk.name}"\n/\n', encoding="utf-8"
+    )
+    (dcon_dir / case.geqdsk.name).write_text(GFILE_TEXT, encoding="utf-8")
     _write_valid_dcon_netcdf(dcon_dir, n=1)
 
     # The three core outputs exist but hold no readable physics content.
