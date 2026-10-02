@@ -692,6 +692,32 @@
               probes:
                 - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition saturated at the DAQ rail (field 170)"}
                 - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            # Flux-loop acquisition faults (issue #1543), from a per-shot scan of
+            # every loop's integrated amplitude against its siblings. A dead loop
+            # reads 1e-5..2e-3 Wb/rad where the others read ~1e-2; the waveform
+            # check does not condemn it (a small, live-looking signal), so it
+            # would reach EFIT at full weight without this record. `index`
+            # counts within flux_loop; r/z pin it.
+            - from_shot: 44394
+              to_shot: 44922
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loop #12 (field 243) dead: ~1e-3 of its siblings' amplitude from 44394 (44393 is the last good shot) to 44922 (44923 good again)"}
+            - from_shot: 44928
+              to_shot: 45027
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {index: 8, r: 0.106, z: 0.62, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+            - from_shot: 47986
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
 
     # Kinetic-profile construction policy (issue #420): the VEST decisions a
     # pipeline hands to the machine-independent vaft.process.profile and

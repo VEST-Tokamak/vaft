@@ -226,9 +226,12 @@ CORE_MODULES: tuple[str, ...] = (
     # The atlas renderers draw synthetic tables only.
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
-    # Class-shot diagnostics checklist (lane U, #1543): synthetic ODS only,
-    # and a product is read without a path being created on it.
+    # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
+    # the recorded flux-loop fault boundaries (vest.yaml reads only), and the
+    # plasma-current Rogowski verdict on synthetic records.
     "test_class_shot_checklist.py",
+    "test_flux_loop_known_faults.py",
+    "test_plasma_current_quality.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
