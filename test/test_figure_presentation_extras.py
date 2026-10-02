@@ -133,8 +133,7 @@ def test_a_contour_map_is_drawn_under_the_norm_with_levels_to_match():
         figure, axes = renderers.render_field_2d(_signed_field())
     contour = next(m for m in axes.collections if getattr(m, "colorbar", None) is not None)
     assert isinstance(contour.norm, matplotlib.colors.CenteredNorm) and contour.norm.vcenter == 0.0
-    levels = np.asarray(contour.levels)
-    assert levels[0] == pytest.approx(-levels[-1])  # levels span the centred range
+    assert contour.norm.halfrange == pytest.approx(np.nanmax(np.abs(_signed_field().values)))
 
 
 def test_norm_through_an_adapter_and_a_centred_clim(ods):
@@ -163,8 +162,10 @@ def test_a_log_norm_refuses_what_it_cannot_draw():
     negative = Field2D(r=r, z=r, values=-np.ones((5, 5)) - r[None, :])
     from vaft.plot.figure_options import figure_options_scope
 
-    with figure_options_scope(FigureOptions(norm="log")), pytest.raises(ValueError, match="positive values"):
-        renderers.render_field_2d(negative)
+    with figure_options_scope(FigureOptions(norm="log")), pytest.warns(UserWarning, match="positive values"):
+        figure, axes = renderers.render_field_2d(negative)
+    contour = next(m for m in axes.collections if getattr(m, "colorbar", None) is not None)
+    assert not isinstance(contour.norm, matplotlib.colors.LogNorm)
 
 
 def test_no_norm_keeps_the_canonical_colours(ods):
@@ -251,3 +252,35 @@ def test_plotly_names_what_it_does_not_apply_and_takes_a_transparent_page(ods):
             ods, backend="plotly", figure_options={"norm": "linear", "panel_labels": True, "dpi": 300, "transparent": True},
         )
     assert figure.layout.paper_bgcolor == "rgba(0,0,0,0)"
+
+
+def test_a_narrow_clim_under_a_norm_saturates_instead_of_leaving_holes():
+    from vaft.plot.figure_options import figure_options_scope
+
+    r = np.linspace(0.1, 0.9, 30)
+    z = np.linspace(-0.8, 0.8, 40)
+    wide = Field2D(r=r, z=z, values=np.linspace(1, 1000, 1200).reshape(40, 30), value_label="x")
+    with figure_options_scope(FigureOptions(norm="log", clim=(10, 100))):
+        figure, axes = renderers.render_field_2d(wide)
+    contour = next(m for m in axes.collections if getattr(m, "colorbar", None) is not None)
+    assert contour.extend == "both"
+    with figure_options_scope(FigureOptions(norm="linear", clim=(-2, 2))):
+        figure, axes = renderers.render_field_2d(_signed_field())
+    contour = next(m for m in axes.collections if getattr(m, "colorbar", None) is not None)
+    # Matplotlib's own levels over the data; the norm only spaces the colours.
+    assert min(contour.levels) <= np.nanmin(_signed_field().values) + 0.2
+
+
+def test_a_field_without_a_colorbar_keeps_its_colours():
+    from vaft.plot.figure_options import figure_options_scope
+
+    with figure_options_scope(FigureOptions(norm="centered")):
+        figure, axes = renderers.render_field_2d(_signed_field(), colorbar=False)
+    assert all(not isinstance(m.norm, matplotlib.colors.CenteredNorm) for m in axes.collections)
+
+
+def test_a_centred_norm_takes_a_single_bound_as_its_half_range():
+    from vaft.plot.figure_options import _make_norm
+
+    norm = _make_norm("centered", np.array([-1.0, 3.0]), (None, 5.0))
+    assert norm.vcenter == 0.0 and norm.halfrange == 5.0

@@ -494,7 +494,9 @@ def _make_norm(kind: str, values: Any, clim: tuple[float | None, float | None] |
         if clim is not None and clim[0] is not None and clim[1] is not None:
             centre = 0.5 * (clim[0] + clim[1])
             return colors.CenteredNorm(vcenter=centre, halfrange=0.5 * (clim[1] - clim[0]))
-        half = max(abs(low or 0.0), abs(high or 0.0)) or 1.0
+        # Zero-centred; a single given bound sets the half range.
+        given = [abs(end) for end in (clim or ()) if end is not None]
+        half = max(given) if given else (max(abs(low or 0.0), abs(high or 0.0)) or 1.0)
         return colors.CenteredNorm(vcenter=0.0, halfrange=half)
     if kind == "symlog":
         span = max(abs(low or 0.0), abs(high or 0.0)) or 1.0
@@ -512,7 +514,15 @@ def draw_norm(values: Any) -> Any:
     options = _DRAWING.get()
     if options is None or options.norm is None:
         return None
-    return _make_norm(options.norm, values, options.clim)
+    try:
+        return _make_norm(options.norm, values, options.clim)
+    except ValueError as error:
+        # One field of a composite that cannot take the norm (a signed psi
+        # map under norm="log") keeps its own colours; the rest still do.
+        import warnings
+
+        warnings.warn(f"{error}; this field is drawn without it", UserWarning, stacklevel=3)
+        return None
 
 
 def _flat_axes(axes: Any) -> list[Any]:
