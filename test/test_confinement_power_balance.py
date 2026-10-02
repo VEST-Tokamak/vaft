@@ -307,3 +307,24 @@ def test_builder_decision_columns_use_the_primary_selection():
     np.testing.assert_array_equal(table["selected"].to_numpy(bool), primary)
     np.testing.assert_array_equal(table["accepted"].to_numpy(bool), primary)
     assert int(primary.sum()) == 59 and table.loc[primary, "shot"].nunique() == 19  # the quoted primary set
+
+
+def test_lane_d_text_io_never_uses_the_locale_encoding():
+    """Repository files are read and written as UTF-8 (cold review 0.8.0 delta-absorb-13 F5)."""
+    import json
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    sources = {p: p.read_text(encoding="utf-8") for p in (root / "workflow/confinement_scaling").glob("*.py")}
+    for name in ("confinement_time_scaling", "multi_machine_database_comparison", "tokamak_power_balance"):
+        nb = json.loads((root / "notebooks" / f"{name}.ipynb").read_text(encoding="utf-8"))
+        sources[root / "notebooks" / f"{name}.ipynb"] = "\n".join(
+            "".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code")
+    text_io = re.compile(r"(?<![\w.])open\(|\.read_text\(|\.write_text\(")
+    offenders = []
+    for path, text in sources.items():
+        for number, line in enumerate(text.splitlines(), 1):
+            if text_io.search(line) and "encoding=" not in line and '"rb"' not in line and "gzip" not in line:
+                offenders.append(f"{path.name}:{number}: {line.strip()}")
+    assert not offenders, "\n".join(offenders)

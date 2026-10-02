@@ -403,7 +403,7 @@ def build(args) -> int:
     (out / "schema").mkdir(parents=True, exist_ok=True)
     (out / "series").mkdir(exist_ok=True)
 
-    with open(Path(args.state).expanduser(), newline="") as fh:
+    with open(Path(args.state).expanduser(), newline="", encoding="utf-8") as fh:
         states = list(csv.DictReader(fh))
     magnetics = [s for s in states if s["efit_lineage"] == "magnetics"]
     kinetic = {}
@@ -569,7 +569,7 @@ def build(args) -> int:
                        for c in table.columns},
         "required": ["record_id", "shot", "time_efit_s", "efit_lineage", "efit_quality"],
     }
-    (out / "schema" / "table.schema.json").write_text(json.dumps(schema, indent=2))
+    (out / "schema" / "table.schema.json").write_text(json.dumps(schema, indent=2), encoding="utf-8")
 
     manifest = {
         "contract_version": CONTRACT_VERSION,
@@ -592,7 +592,7 @@ def build(args) -> int:
         "shots": int(table["shot"].nunique()),
         "shot_failures": len(failures),
     }
-    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2, default=str))
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     print(json.dumps({k: manifest[k] for k in ("rows", "quality_status", "accepted", "shots",
                                                 "shot_failures")}, default=str))
     return 0
