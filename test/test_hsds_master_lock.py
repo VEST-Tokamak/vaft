@@ -226,6 +226,12 @@ def test_a_plain_save_merges_instead_of_replacing_the_master(hsds, tmp_path):
 # --------------------------------------------------------------------------- #
 # the lock itself
 # --------------------------------------------------------------------------- #
+_needs_fcntl = pytest.mark.skipif(
+    os.name == "nt", reason="the master lock is enforced through fcntl; on Windows it is a documented no-op"
+)
+
+
+@_needs_fcntl
 def test_one_shot_is_serialized_and_different_shots_are_not(monkeypatch, tmp_path):
     monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(tmp_path))
     holding, release = threading.Event(), threading.Event()
@@ -251,6 +257,7 @@ def test_one_shot_is_serialized_and_different_shots_are_not(monkeypatch, tmp_pat
         pass  # free again once released
 
 
+@_needs_fcntl
 def test_lock_files_are_shareable_and_a_read_only_one_still_locks(monkeypatch, tmp_path):
     """Another account's lock file must not lock this one out (flock needs no write access)."""
     import os
@@ -276,6 +283,7 @@ def test_the_lock_is_reentrant_within_a_thread(monkeypatch, tmp_path):
             pass
 
 
+@_needs_fcntl
 def test_a_held_lock_times_out_with_a_named_error(monkeypatch, tmp_path):
     monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(tmp_path))
     holding = threading.Event()
@@ -665,6 +673,7 @@ def test_a_shot_path_that_is_a_domain_is_refused(monkeypatch):
         utils.ensure_shot_folder("main", 50001)
 
 
+@_needs_fcntl
 def test_the_publish_creates_the_folder_under_the_lock_before_uploading(hsds, monkeypatch, tmp_path):
     order = []
     held = []
