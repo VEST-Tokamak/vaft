@@ -201,6 +201,71 @@ def test_every_method_vaft_can_read_has_a_namelist_flag_to_ask_for_it(cell):
     assert all(values[f"{method}_flag"] == "t" for method in pentrc.TORQUE_METHODS)
 
 
+def _template_without(tmp_path, *methods: str) -> Path:
+    """A ``templates_dir`` whose ``pentrc.in`` lacks the named ``<method>_flag`` lines."""
+    templates = tmp_path / "templates"
+    templates.mkdir(exist_ok=True)
+    packaged = gpec._runtime.package_vest_dir() / "pentrc.in"
+    kept = "\n".join(
+        line for line in packaged.read_text(encoding="utf-8").splitlines()
+        if not any(line.strip().startswith(f"{m}_flag") for m in methods)
+    )
+    (templates / "pentrc.in").write_text(kept + "\n", encoding="utf-8")
+    return templates
+
+
+#: The nine flags GPEC's own ``input/pentrc.in`` does not declare.
+GPEC_OMITS = ("twmm", "pwmm", "ttmm", "ptmm", "tkmm", "pkmm", "frmm", "trmm", "prmm")
+
+
+def test_an_unselected_method_the_template_does_not_declare_is_left_out(cell, tmp_path):
+    """GPEC's own ``input/pentrc.in`` declares 9 of the 18 flags.
+
+    The missing nine default to ``.false.`` inside PENTRC
+    (``pentrc/pentrc_interface.f90:63-80``), so a torque run that does not
+    select them loses nothing by not writing them; it used to die on a bare
+    ``KeyError`` (cold review 0.8.0 delta-squash F2).
+    """
+    path = gpec.prepare_pentrc_run(
+        cell, mode=1, options=_options(methods=("fgar", "tgar")),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=gpec.GPECSuiteConfig(templates_dir=_template_without(tmp_path, *GPEC_OMITS)),
+    )
+    values = _pent(path, "pent_output")
+    assert values["fgar_flag"] == "t" and values["tgar_flag"] == "t"
+    assert values["pgar_flag"] == "f"
+    assert not any(f"{m}_flag" in values for m in GPEC_OMITS)
+
+
+def test_a_selected_method_the_template_does_not_declare_is_refused_by_name(cell, tmp_path):
+    """Asked for, it has to land: a ``ValueError`` naming the template and the key."""
+    templates = _template_without(tmp_path, *GPEC_OMITS)
+    with pytest.raises(ValueError, match="twmm_flag") as refused:
+        gpec.prepare_pentrc_run(
+            cell, mode=1, options=_options(methods=("twmm",)),
+            kinetic_file=cell.parents[2] / "profiles.kin",
+            config=gpec.GPECSuiteConfig(templates_dir=templates),
+        )
+    assert isinstance(refused.value, KeyError)
+    assert str(templates / "pentrc.in") in str(refused.value)
+    assert not (cell / "pentrc.in").exists()
+
+
+def test_the_flag_pentrc_turns_on_by_itself_is_required_even_when_unselected(cell, tmp_path):
+    """``fgar_flag=.true.`` is PENTRC's code default, so an absent line runs FGAR.
+
+    A template that cannot say ``fgar_flag=f`` cannot express a run without it,
+    and leaving the key out would be the silent extra calculation this module
+    writes every flag to prevent.
+    """
+    with pytest.raises(ValueError, match="fgar_flag"):
+        gpec.prepare_pentrc_run(
+            cell, mode=1, options=_options(methods=("tgar",)),
+            kinetic_file=cell.parents[2] / "profiles.kin",
+            config=gpec.GPECSuiteConfig(templates_dir=_template_without(tmp_path, "fgar")),
+        )
+
+
 def test_the_species_are_integers_because_the_namelist_keys_are(cell):
     """``mi``/``zi``/``mimp``/``zimp`` are Fortran integers.
 

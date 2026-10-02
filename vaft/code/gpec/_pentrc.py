@@ -208,16 +208,53 @@ def peq_toroidal_angle(run_dir: Path | str) -> int:
     return int(str(written).strip())
 
 
+#: Torque methods PENTRC runs unless the namelist turns them off.
+#:
+#: ``fgar_flag=.true.`` is PENTRC's own code default
+#: (``pentrc/pentrc_interface.f90:62``); every other ``<method>_flag`` defaults
+#: to ``.false.`` (``:63-80``).  So a template that lacks ``fgar_flag`` cannot
+#: express a run *without* FGAR, and the key is required even when the method
+#: is not selected, while a method that is off by default is simply not written
+#: into a template that does not declare it.
+PENTRC_METHODS_ON_BY_DEFAULT: tuple[str, ...] = ("fgar",)
+
+
+def _method_flags(selected: set[str]) -> tuple[dict[str, bool], dict[str, bool]]:
+    """The ``<method>_flag`` assignments, split into required and optional.
+
+    Every method is written where the template declares it, so the namelist
+    beside a result states the whole selection.  Required are the selected
+    ones -- a method asked for that the template cannot name is a run that
+    does not do what it says -- and the ones PENTRC runs by default, because
+    leaving those undeclared is a silent extra calculation.  The rest are
+    GPEC's own defaults restated: GPEC's ``input/pentrc.in`` declares 9 of the
+    18, and a template is entitled to leave the others out (cold review 0.8.0
+    delta-squash F2).
+    """
+    from ..pentrc import TORQUE_METHODS
+
+    required: dict[str, bool] = {}
+    optional: dict[str, bool] = {}
+    for method in TORQUE_METHODS:
+        wanted = method in selected
+        target = required if wanted or method in PENTRC_METHODS_ON_BY_DEFAULT else optional
+        target[f"{method}_flag"] = wanted
+    return required, optional
+
+
 def _namelist_replacements(
     options: PENTRCOptions,
     *,
     kinetic_file: str,
     jac_in: str,
     tmag_in: int,
-) -> dict[str, object]:
-    """Every ``pentrc.in`` key this run sets, and what it sets it to."""
-    from ..pentrc import TORQUE_METHODS
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Every ``pentrc.in`` key this run sets, as ``(required, optional)``.
 
+    *required* must be in the template; *optional* is written where the
+    template declares the key and skipped where it does not -- see
+    :func:`_method_flags`.
+    """
     selected = {str(name) for name in options.methods}
     replacements: dict[str, object] = {
         "kinetic_file": kinetic_file,
@@ -245,8 +282,8 @@ def _namelist_replacements(
     # Every method, not only the requested ones: the packaged template ships
     # them all off, and writing the whole set means the namelist beside a result
     # states the entire selection.
-    for method in TORQUE_METHODS:
-        replacements[f"{method}_flag"] = method in selected
+    method_flags, optional = _method_flags(selected)
+    replacements.update(method_flags)
     for name, flag in PENTRCOptions.GRID_FLAGS.items():
         replacements[flag] = name in set(options.grids)
     if options.psi_limits is not None:
@@ -255,7 +292,7 @@ def _namelist_replacements(
         replacements.update(
             {name: float(value) for name, value in options.artificial_factors.items()}
         )
-    return replacements
+    return replacements, optional
 
 
 def validate_pentrc_inputs(run_dir: Path | str, mode: int) -> list[str]:
@@ -365,16 +402,13 @@ def prepare_pentrc_run(
     prior = run_dir / PRIOR_PENTRC_INPUT
     if existing.is_file() and not prior.is_file():
         prior.write_bytes(existing.read_bytes())
-    return rt.write_template(
-        template,
-        existing,
-        _namelist_replacements(
-            options,
-            kinetic_file=staged.name,
-            jac_in=peq_jacobian(displacement),
-            tmag_in=peq_toroidal_angle(run_dir),
-        ),
+    replacements, optional = _namelist_replacements(
+        options,
+        kinetic_file=staged.name,
+        jac_in=peq_jacobian(displacement),
+        tmag_in=peq_toroidal_angle(run_dir),
     )
+    return rt.write_template(template, existing, replacements, optional=optional)
 
 
 #: Log lines that mean PENTRC stopped without finishing, with exit status 0.
@@ -498,8 +532,6 @@ def write_threshold_pentrc_input(
     FileNotFoundError
         *run_dir* or *kinetic_file* is not there, or no ``pentrc.in`` template.
     """
-    from ..pentrc import TORQUE_METHODS
-
     run_dir = Path(run_dir)
     if not run_dir.is_dir():
         raise FileNotFoundError(f"ideal-GPEC cell not found: {run_dir}")
@@ -516,9 +548,11 @@ def write_threshold_pentrc_input(
         "nl": int(options.bounce_harmonics),
     }
     replacements.update(options.species_namelist)
-    for method in TORQUE_METHODS:
-        replacements[f"{method}_flag"] = False
-    written = rt.write_template(template, run_dir / "pentrc.in", replacements)
+    # None selected: only the flag PENTRC turns on by itself has to be in the
+    # template; the others are restated where declared.
+    method_flags, optional = _method_flags(set())
+    replacements.update(method_flags)
+    written = rt.write_template(template, run_dir / "pentrc.in", replacements, optional=optional)
     (run_dir / THRESHOLD_PENTRC_INPUT).write_bytes(written.read_bytes())
     return written
 
