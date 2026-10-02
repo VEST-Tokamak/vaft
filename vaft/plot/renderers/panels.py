@@ -66,6 +66,7 @@ __all__ = [
     "spectrometer_uv_time_impurity",
     "summary_time_energy",
     "summary_time_power_balance",
+    "summary_time_resistive_zeff",
     "summary_time_voltage_consumption",
 ]
 
@@ -625,6 +626,26 @@ def summary_time_power_balance(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Ohmic input, radiated and conducted power balance panels."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="summary",
+    subject="summary",
+    view="time",
+    quantity="resistive_zeff",
+    description="Resistive Z_eff history: Romero voltages, observed vs model R_p, window estimate.",
+    ids=("equilibrium", "core_profiles"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.global_quantities.ip",
+        "equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+    ),
+)
+def summary_time_resistive_zeff(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Resistive Z_eff history: Romero voltages, observed vs model R_p, window estimate."""
     return render_panels(model, ax=ax, show=show, **style)
 
 
