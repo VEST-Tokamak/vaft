@@ -34,7 +34,7 @@ written to `core_profiles.zeff`.
 | smoothing | none | EFIT slices are 1 ms apart, so even a first-order local fit has no redundancy |
 | `--inductive-max` | 1.0 | slices where |V_I| ≥ |V_B| are not fitted |
 | `--max-excluded-current` | 0.05 | states with more than 5 % of the current outside the profiles' support are not fitted: the model omits the cold edge, so Z_eff would be biased high |
-| `--flattop-max` | 0.3 | a window whose median |V_I|/|V_B| is below this is classed `flattop` |
+| `--stationary-rate` | 20 /s | `flattop` needs median \|dln I_p/dt\| and \|dln L_i/dt\| both below it; otherwise `ip_stationary_li_evolving`, `ramp_up` or `decay`. A small \|V_I\|/\|V_B\| is not used: the two V_I terms cancel in the decay (#1514) |
 
 **Boundary voltage cross-check (Lane D, #548).** The observed path uses
 Romero's EFIT ψ_B (#1214 Sec. 4). Every fitted window is also re-fitted with

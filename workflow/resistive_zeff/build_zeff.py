@@ -9,9 +9,16 @@ Windows
 -------
 A window is the longest run of consecutive EFIT slices of one shot whose
 ``magnetics`` rows are graded ``good`` or ``admissible``; Romero's balance
-differentiates in time, so a window needs three slices.  It is classified
-``flattop`` when the median ``|V_I|/|V_B|`` is below ``--flattop-max`` and
-``ramp`` otherwise.  A window that cannot be inferred is still a row, with
+differentiates in time, so a window needs three slices.  It is classified by
+the median ``dln I_p/dt`` and ``|dln L_i/dt|`` separately (#1214 Sec. 6): a
+small ``|V_I|/|V_B|`` is not a flat top, because ``L_i dI_p/dt`` and
+``(I_p/2) dL_i/dt`` cancel in the current decay (#1514):
+
+* ``flattop`` -- both rates below ``--stationary-rate``;
+* ``ip_stationary_li_evolving`` -- ``I_p`` steady, ``L_i`` still moving;
+* ``ramp_up`` / ``decay`` -- by the sign of ``dI_p/dt``.
+
+A window that cannot be inferred is still a row, with
 ``status = not_identifiable`` and the reason (#1214 Sec. 10):
 
 * fewer than three graded slices in a row;
@@ -67,7 +74,9 @@ WINDOW_COLUMNS: dict[str, tuple[str, str]] = {
     "t_end_s": ("number", "last EFIT slice time of the window"),
     "n_slices": ("integer", "EFIT slices in the window"),
     "n_states": ("integer", "slices with electron profiles at their own time (fitted)"),
-    "window_class": ("string", "flattop | ramp | unknown"),
+    "window_class": ("string", "flattop | ip_stationary_li_evolving | ramp_up | decay | unknown"),
+    "median_dln_ip_dt": ("number", "median dI_p/dt / I_p over the window [1/s]"),
+    "median_abs_dln_li_dt": ("number", "median |dL_i/dt| / L_i over the window [1/s]"),
     "median_inductive_fraction": ("number", "median |V_I|/|V_B| over the window"),
     "status": ("string", "ok | bound_hit | non_monotonic | not_identifiable"),
     "reason": ("string", "why there is no estimate, or why it is poorly constrained"),
@@ -299,9 +308,17 @@ def infer_window(shot: int, window: list[float], ods, args, loop=None
                                     source={"shot": shot})
     observed = observed_resistance(flux, I_ni=0.0, smoothing=smoothing)
     median_fraction = float(np.nanmedian(observed.inductive_fraction))
+    ip_rate = float(np.nanmedian(observed.dI_p_dt / observed.I_p))
+    li_rate = float(np.nanmedian(np.abs(observed.dL_i_dt) / observed.L_i))
+    if abs(ip_rate) < args.stationary_rate:
+        window_class = ("flattop" if li_rate < args.stationary_rate
+                        else "ip_stationary_li_evolving")
+    else:
+        window_class = "ramp_up" if ip_rate > 0 else "decay"
     row.update(
         median_inductive_fraction=median_fraction,
-        window_class="flattop" if median_fraction < args.flattop_max else "ramp",
+        median_dln_ip_dt=ip_rate, median_abs_dln_li_dt=li_rate,
+        window_class=window_class,
         current_source_assumption=observed.provenance["current_source_assumption"],
         smoothing=smoothing.describe(), flux_normalization=flux.flux_normalization,
     )
@@ -454,7 +471,7 @@ def build(filedb: Path, atlas: Path, out: Path, args) -> dict:
         "inputs": {"filedb": str(filedb), "atlas": str(atlas),
                    "state_sha256": _sha256(atlas / "state.csv")},
         "settings": {"model": args.model, "ln_lambda": args.ln_lambda, "bounds": args.bounds,
-                     "flattop_max": args.flattop_max, "inductive_max": args.inductive_max,
+                     "stationary_rate": args.stationary_rate, "inductive_max": args.inductive_max,
                      "max_excluded_current": args.max_excluded_current,
                      "perturbation": args.perturbation, "bootstrap": "none",
                      "I_ni": 0.0, "smoothing": "none"},
@@ -473,8 +490,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default="redl", choices=("spitzer_nrl", "sauter", "redl"))
     parser.add_argument("--ln-lambda", default="sauter")
     parser.add_argument("--bounds", type=float, nargs=2, default=(1.0, 8.0))
-    parser.add_argument("--flattop-max", type=float, default=0.3,
-                        help="median |V_I|/|V_B| below which a window is a flat top")
+    parser.add_argument("--stationary-rate", type=float, default=20.0,
+                        help="|dln I_p/dt| and |dln L_i/dt| [1/s] below which a quantity is "
+                             "steady (20/s: a 50 ms e-folding, longer than a VEST pulse)")
     parser.add_argument("--inductive-max", type=float, default=1.0,
                         help="slices with |V_I|/|V_B| at or above this are not fitted")
     parser.add_argument("--max-excluded-current", type=float, default=0.05,
