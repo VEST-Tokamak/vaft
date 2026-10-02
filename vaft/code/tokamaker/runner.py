@@ -170,6 +170,66 @@ def _wall_check(mygs, limiter: Any, tolerance: float = 1.0e-3) -> dict[str, Any]
     return {"lcfs_inside_wall": inside, "lcfs_wall_excursion_m": float(excursion)}
 
 
+def _apply_vessel_currents(mygs, inputs) -> dict[str, float]:
+    """Impose the eddy-stage wall currents on the vessel coil regions (#1534).
+
+    Each vessel region is a one-turn coil driven at 1 A. OFT spreads a coil's
+    current as ``I * dist / area`` over the region, so the distribution is set
+    to ``J * area``. Each cell takes the current density of its nearest
+    pf_passive loop (the loop current over the mesh area that loop owns), and
+    each node the area-weighted density of the cells around it. The region
+    then carries the sum of its loop currents, distributed along the wall loop
+    by loop, and mixed-sign loops need no normalisation. Returns the total
+    current imposed per region [A].
+    """
+    if not inputs.vessel_loop_currents:
+        return {}
+    oft = import_oft()
+    coil_dict = oft.meshing.load_gs_mesh(str(inputs.mesh_file))[3]
+    r = np.asarray(mygs.r, dtype=float)[:, :2]
+    lc = np.asarray(mygs.lc, dtype=int)
+    reg = np.asarray(mygs.reg, dtype=int)
+    tri = r[lc]                                                    # (nc, 3, 2)
+    area = 0.5 * np.abs(
+        (tri[:, 1, 0] - tri[:, 0, 0]) * (tri[:, 2, 1] - tri[:, 0, 1])
+        - (tri[:, 2, 0] - tri[:, 0, 0]) * (tri[:, 1, 1] - tri[:, 0, 1])
+    )
+    centroid = tri.mean(axis=1)
+    totals: dict[str, float] = {}
+    for region, loop_currents in inputs.vessel_loop_currents.items():
+        cells = np.flatnonzero(reg == int(coil_dict[region]["reg_id"]))
+        loops = inputs.geometry["vessel"][region]["loops"]
+        centres = np.array([[loop["r"], loop["z"]] for loop in loops], dtype=float)
+        current = np.array([loop_currents[int(loop["index"])] for loop in loops], dtype=float)
+
+        def nearest(points: np.ndarray) -> np.ndarray:
+            d2 = ((points[:, None, :] - centres[None, :, :]) ** 2).sum(axis=2)
+            return np.argmin(d2, axis=1)
+
+        owner = nearest(centroid[cells])
+        owned_area = np.bincount(owner, weights=area[cells], minlength=len(loops))
+        density = np.divide(current, owned_area, out=np.zeros_like(current), where=owned_area > 0)
+        # a loop owning no cell (thinner than the mesh) hands its current to
+        # the nearest loop that does
+        has = np.flatnonzero(owned_area > 0)
+        for k in np.flatnonzero(owned_area <= 0):
+            j = has[np.argmin(((centres[has] - centres[k]) ** 2).sum(axis=1))]
+            density[j] += current[k] / owned_area[j]
+        region_area = float(area[cells].sum())
+        # a node takes the area-weighted density of the cells around it, so a
+        # node on the border of two loops does not hand one of them both sides
+        weight = np.zeros(r.shape[0])
+        value = np.zeros(r.shape[0])
+        cell_density = density[owner] * area[cells]
+        for corner in range(lc.shape[1]):
+            np.add.at(weight, lc[cells, corner], area[cells])
+            np.add.at(value, lc[cells, corner], cell_density)
+        dist = np.divide(value, weight, out=np.zeros_like(value), where=weight > 0) * region_area
+        mygs.set_coil_current_dist(region, dist)
+        totals[region] = float(current.sum())
+    return totals
+
+
 def _apply_vsc(mygs, config: TokaMakerConfig) -> None:
     """Wire the Vertical Stability Coil pair when ``config.vsc_coil`` is set.
 
@@ -270,6 +330,10 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
         _apply_vsc(mygs, config)
 
         mygs.set_coil_currents(dict(inputs.coil_currents))
+        vessel_totals = _apply_vessel_currents(mygs, inputs)
+        if vessel_totals:
+            sidecar["vessel_currents_A"] = vessel_totals
+            sidecar["vessel_current_total_A"] = float(sum(vessel_totals.values()))
         mygs.set_targets(**inputs.targets)
         _apply_profiles(oft, mygs, config)
 
@@ -281,7 +345,11 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
 
         sidecar["converged"] = True
         sidecar["stats"] = mygs.get_stats()
-        sidecar["coil_currents_A"] = dict(mygs.get_coil_currents()[0])
+        # vessel regions run as 1 A coils; their real currents are vessel_currents_A
+        sidecar["coil_currents_A"] = {
+            name: value for name, value in dict(mygs.get_coil_currents()[0]).items()
+            if name not in inputs.vessel_loop_currents
+        }
         sidecar["o_point"] = mygs.o_point
         sidecar.update(_boundary_state(mygs))
         sidecar.update(_wall_check(mygs, inputs.geometry["limiter"]))
