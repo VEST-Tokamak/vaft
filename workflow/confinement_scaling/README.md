@@ -1,10 +1,11 @@
 # Confinement scaling (lane D, #548)
 
-This directory builds the VEST Tier A confinement table on a validated ohmic power balance (layer A of the #548 hierarchy) and fits it (layers B and C). Kadomtsev completion and the Bohm/gyro-Bohm comparison come in a follow-up PR. Progress and decisions are recorded in the Lane D log on GitHub.
+This directory builds the VEST Tier A confinement table on a validated ohmic power balance (layer A of the #548 hierarchy) and fits it (layers B and C). It also runs errors in variables, Kadomtsev completion, the dimensionless form and the Bohm / −2.5 / gyro-Bohm comparison (layers D–F), with NSTX as an explicit comparison. Progress and decisions are recorded in the Lane D log on GitHub.
 
 | script | what it does |
 |---|---|
 | `build_table.py` | One row per magnetics state key of Lane K's state key contract v1 (#1454). It writes Lane M's `CONFINEMENT_COLUMNS` (`vaft.data.public.schema`) followed by Lane D extension columns: three stored energies, every power-balance term, slice-quality evidence and rule flags. |
+| `closures.py` | Runs four analyses: an errors-in-variables fit of W against P_OH (independent of W) and P_net (for comparison; it carries W noise through dW/dt), over a grid of the assumed equation error of W and measurement error of P; the Kadomtsev-completed size exponent and dimensionless indices, with the cluster covariance propagated and the size exponent labelled `assumed_not_measured`; closures μ_ρ = −2, −2.5 and −3 as linear constraints, compared by RMS, AIC/BIC, a cluster Wald test, leave-one-shot-out error and bootstrap spread; and NSTX (Buxton 2019, Kaye 2006) as a comparison, never a prior. |
 | `fit.py` | Fits τ_E = C I_p^aI B_T^aB P_net^aP, density-free (A, primary) and with the Thomson line density (B) on the same subset. It reports errors clustered by shot, a shot bootstrap, leave-one-shot-out refits, influence, a Huber fit and identifiability (VIF, condition number, correlations, log spread). Each fit runs on the primary and the sensitivity selection. |
 
 ## Inputs (read only)
@@ -69,6 +70,12 @@ Then fit:
 python fit.py --table ~/runs/campaign/atlas/confinement/table.csv --out ~/runs/campaign/atlas/confinement/fits
 ```
 
-This writes `coefficients.csv`, `summary.csv`, `influence.csv`, `identifiability.json` and `MANIFEST.json`.
+This writes `coefficients.csv`, `summary.csv`, `influence.csv`, `identifiability.json` and `MANIFEST.json`. Then run the closures:
+
+```bash
+python closures.py --table ~/runs/campaign/atlas/confinement/table.csv --out ~/runs/campaign/atlas/confinement/closures
+```
+
+This writes `closures.csv`, `odr_scan.csv`, `nstx_comparison.csv` and `MANIFEST.json`. Every dimensionless index divides by 1 + α_P, so read `one_plus_aP_over_se` before any μ: within about 2σ of zero, the completed indices are undetermined.
 
 Nothing is written to the FileDB.
