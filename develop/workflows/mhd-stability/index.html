@@ -145,6 +145,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
                     
                         <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
@@ -270,7 +276,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>0322ad0</code>. What is described
+  <code>7a2b045</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -450,13 +456,73 @@ needs no formula call:</p>
 $H_\alpha$, $B_z$ and $R_{\rm major}$ into one 3×2 figure — the fastest way to see whether a beta
 excursion coincides with a disruption.</p>
 
-<p>The empirical $(q_a, l_i)$ disruption boundary from the JET survey (Wesson <em>et al.</em>, Nucl. Fusion
-<strong>29</strong>, 1989) is available for overlaying on that space:</p>
+<h2 id="internal-inductance-against-edge-q">Internal inductance against edge q</h2>
 
-<!-- docs-snippet: skip fragment (placeholder name qa is never defined on the page) -->
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">qa_ref</span><span class="p">,</span> <span class="n">li_ref</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">empirical_li_qa</span><span class="p">()</span>          <span class="c1"># 18 surveyed points
-</span><span class="n">li</span>             <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">li_from_qa_empirical</span><span class="p">(</span><span class="n">qa</span><span class="p">)</span>   <span class="c1"># piecewise-linear interpolation
+<p>Two literature pictures look alike on this plane and are different objects (#1422):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Wesson <em>et al.</em> 1989, Fig. 6</th>
+      <th>Cheng, Furth &amp; Boozer 1987, Fig. 4</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Kind</td>
+      <td><strong>empirical</strong> JET operating space (1985–88)</td>
+      <td><strong>theoretical</strong> domain of MHD-stable current profiles</td>
+    </tr>
+    <tr>
+      <td>x</td>
+      <td>$q_\psi$, the equilibrium q at the edge</td>
+      <td>$q(a)$ of a straight cylinder</td>
+    </tr>
+    <tr>
+      <td>y</td>
+      <td>$l_i = 2\int B_\theta^2\,d\tau/(\mu_0^2 R I^2)$, the $l_i(3)$ form</td>
+      <td>cylinder $l_i$ (the paper plots $l_i/2$)</td>
+    </tr>
+    <tr>
+      <td>Lower boundary</td>
+      <td>rotating MHD modes during the current rise; kink and double tearing below</td>
+      <td>ideal external kink (jig-saw), $q(0) = 1.01$, no wall</td>
+    </tr>
+    <tr>
+      <td>Upper boundary</td>
+      <td>density-limit disruptions</td>
+      <td>low-order resistive kinks (2/1, 3/2)</td>
+    </tr>
+    <tr>
+      <td>Registered keys</td>
+      <td><code class="language-plaintext highlighter-rouge">wesson_1989_jet_li_qpsi_lower</code>, <code class="language-plaintext highlighter-rouge">wesson_1989_jet_li_qpsi_upper</code> (+ <code class="language-plaintext highlighter-rouge">low_q</code> at $q_\psi = 2$)</td>
+      <td><code class="language-plaintext highlighter-rouge">cheng_1987_li_qa_lower</code>, <code class="language-plaintext highlighter-rouge">cheng_1987_li_qa_upper</code>, <code class="language-plaintext highlighter-rouge">cheng_1987_qa_min</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>What $l_i$ measures: the peaking of the current profile, through the poloidal-field energy inside
+the plasma normalised to the edge field. It does not fix the profile shape; many $j(r)$ give one
+$l_i$. Edge $q$ and $l_i$ together bound where the current gradient sits relative to the low-order
+rational surfaces, which is why both limits are drawn on this plane. Both papers are for
+conventional aspect ratio. At VEST aspect ratio, $q_\psi$, $q_{95}$ and the cylinder $q(a)$ differ
+substantially, and so do the $l_i$ conventions. A Wesson line is drawn only on a $q_\psi$ axis
+with $l_i(3)$, and a Cheng line only on the cylinder quantities. Neither is drawn on $q_{95}$.</p>
+
+<!-- docs-snippet: skip fragment (table is a placeholder for a canonical state table) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">li_qa</span><span class="p">(</span><span class="n">reference</span><span class="o">=</span><span class="sh">"</span><span class="s">wesson_1989</span><span class="sh">"</span><span class="p">)</span>      <span class="c1"># empirical JET boundaries
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">li_qa</span><span class="p">(</span><span class="n">reference</span><span class="o">=</span><span class="sh">"</span><span class="s">cheng_1987</span><span class="sh">"</span><span class="p">)</span>       <span class="c1"># theoretical stable domain
+</span><span class="kn">from</span> <span class="n">vaft.plot.operational_space</span> <span class="kn">import</span> <span class="n">operational_space_population</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="nf">operational_space_population</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="sh">"</span><span class="s">li_qa_wesson</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># columns edge_safety_factor, internal_inductance_li3
 </span></code></pre></div></div>
+
+<p>Both curves were digitized at 600 dpi from the published figures, with the axes calibrated on the
+printed ticks. For Cheng, the printed closed form $\max(l_i/2) = [1 + 2\ln(q(a)/q(0))]/4$ is
+recovered to 0.01. The older <code class="language-plaintext highlighter-rouge">vaft.formula.empirical_li_qa()</code> arrays are the Wesson <strong>lower</strong>
+boundary of Fig. 6 (not Fig. 5, which is the Hugill diagram) and agree with the audit to about
+0.03. Prefer the registered entries.</p>
 
 <hr />
 
@@ -950,7 +1016,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-deprecated-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper (deprecated), and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#3-d-coil-input-for-any-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D coil input for any machine</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-deprecated-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper (deprecated), and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#internal-inductance-against-edge-q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Internal inductance against edge q</a></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#3-d-coil-input-for-any-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D coil input for any machine</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
     </nav>
 </aside>
 
@@ -1068,7 +1134,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 13:03:06 +0000"
+        "time": "2026-10-02 15:29:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

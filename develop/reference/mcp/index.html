@@ -1,0 +1,678 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>MCP server for agents · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/api/mcp/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/process/profile_gradients/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >MCP server for agents</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>7a2b045</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/MCP">MCP server for agents</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>A thin, local, read-only Model Context Protocol adapter (vaft.mcp) over VAFT's existing discovery and extraction APIs (issue 1423).</dd>
+    <dt>Prerequisites / inputs</dt><dd>pip install 'vaft[mcp]' and an MCP client such as Claude Code or Codex.</dd>
+    <dt>Expected result</dt><dd>An agent that can discover VAFT's formulas, processes, checks, plots and samples, and read bounded numbers from the packaged reference shot.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.mcp</code> lets an MCP client (Claude Code, Codex or any other) ask VAFT what it can do and read
+small numerical views of the packaged reference data. You bring the agent; VAFT runs locally, in
+your own environment, over the stdio transport.</p>
+
+<p>The server is an adapter, not a second API. Each tool calls an existing VAFT function, such as
+<code class="language-plaintext highlighter-rouge">vaft.help()</code>, the formula and process catalogs, the validation registry, <code class="language-plaintext highlighter-rouge">vaft.plot.available_plots</code>,
+<code class="language-plaintext highlighter-rouge">vaft.plot.dd</code>, <code class="language-plaintext highlighter-rouge">vaft.plot.extract</code> or <code class="language-plaintext highlighter-rouge">vaft.data.sample_manifest</code>, and returns the answer as
+bounded JSON.</p>
+
+<h2 id="install-and-register">Install and register</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pip <span class="nb">install</span> <span class="s1">'vaft[mcp]'</span>
+claude mcp add vaft <span class="nt">--</span> python <span class="nt">-m</span> vaft.mcp     <span class="c"># Claude Code; `vaft mcp` is the same server</span>
+</code></pre></div></div>
+
+<p>Any client that launches a stdio server can run <code class="language-plaintext highlighter-rouge">python -m vaft.mcp</code> the same way. Use the Python
+interpreter of the environment where VAFT is installed. <code class="language-plaintext highlighter-rouge">import vaft</code> never needs the extra: only
+<code class="language-plaintext highlighter-rouge">vaft.mcp.server.build_server()</code> imports the MCP SDK.</p>
+
+<p>Do not start the server with the <code class="language-plaintext highlighter-rouge">vaft/</code> package directory as the working directory. Python puts the
+working directory first on <code class="language-plaintext highlighter-rouge">sys.path</code>, so <code class="language-plaintext highlighter-rouge">vaft/mcp/</code> would shadow the SDK’s own <code class="language-plaintext highlighter-rouge">mcp</code> package.
+The repository root or any other directory is fine.</p>
+
+<h2 id="tools">Tools</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Answers from</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">get_capabilities</code>, <code class="language-plaintext highlighter-rouge">get_capability(topic, item)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.help()</code>: topics, defaults, sections, entry points</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">search_formulas(text, category, limit)</code>, <code class="language-plaintext highlighter-rouge">describe_formula(name)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.catalog</code> (units, definitions, references; not the source code)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">search_processes(text, category, limit)</code>, <code class="language-plaintext highlighter-rouge">describe_process(name)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.catalog</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">list_validation_checks(category)</code>, <code class="language-plaintext highlighter-rouge">describe_validation_check(key)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.registry</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">list_plots(query, domain, subject, view, status, limit)</code>, <code class="language-plaintext highlighter-rouge">describe_plot(name)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot.available_plots</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">get_plot_requirements(name)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot.dd(name)</code>: the Data Dictionary paths a plot reads</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">extract_plot_data(name, shot, max_points, options)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot.extract</code> on a packaged reference shot</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">list_samples</code>, <code class="language-plaintext highlighter-rouge">describe_sample(shot)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.available_samples</code> / <code class="language-plaintext highlighter-rouge">sample_manifest</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">list_boundaries(family)</code>, <code class="language-plaintext highlighter-rouge">describe_boundary(key)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.boundaries</code> (metadata only)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">get_atlas_summary(path, group_by, limit)</code></td>
+      <td>a <code class="language-plaintext highlighter-rouge">.csv</code>/<code class="language-plaintext highlighter-rouge">.parquet</code> table under <code class="language-plaintext highlighter-rouge">VAFT_ATLAS_DIR</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">extract_plot_data</code> returns the plot’s view model, with labels and units as VAFT stores them. Each
+array comes back as its shape, dtype, and finite minimum and maximum over all values, plus a
+strided preview. The preview is <code class="language-plaintext highlighter-rouge">array[::stride]</code>, a transport bound, not a resampling.
+<code class="language-plaintext highlighter-rouge">max_points</code> is a budget for the whole result, shared across its arrays, so a panel overview with
+hundreds of arrays gets a few points per array. A result that would exceed about 50 kB keeps array
+statistics only. <code class="language-plaintext highlighter-rouge">options</code> takes VAFT’s extraction options only; the tool description lists the
+allowed keys.</p>
+
+<p>Every result carries <code class="language-plaintext highlighter-rouge">truncated</code>: the <code class="language-plaintext highlighter-rouge">count</code> of places something was shortened (a list cut to
+<code class="language-plaintext highlighter-rouge">limit</code>, a long string, an array preview) and the first 20 of those <code class="language-plaintext highlighter-rouge">paths</code>. Shot 39915 ships in the
+wheel; the other samples load from a Git checkout.</p>
+
+<p>Tools run one at a time in a worker thread, so a slow extraction does not stall the protocol. The
+server keeps the JSON-RPC stream on a private copy of standard output and points file descriptor 1
+at stderr, so output printed by Python, C or Fortran code VAFT calls cannot corrupt the stream.</p>
+
+<h2 id="read-only-by-construction">Read-only by construction</h2>
+
+<p>Every tool is annotated <code class="language-plaintext highlighter-rouge">readOnlyHint</code>. None of them writes a file, publishes to the database,
+reaches HSDS or the network, runs EFIT, CHEASE or any other solver or pipeline, or executes
+caller-supplied code or shell commands. Results never carry credentials: help pages say whether
+HSDS is configured, not with what, and the server also scrubs the values of <code class="language-plaintext highlighter-rouge">HS_PASSWORD</code> and
+<code class="language-plaintext highlighter-rouge">HS_API_KEY</code> and replaces the home directory with <code class="language-plaintext highlighter-rouge">~</code> in every result and error message.
+Tool inputs name scientific things: a plot, a formula or
+a shot. They never name a data representation. During the DD migration (#1127, #1132, #1135),
+the loading code can change behind the same tool schema.</p>
+
+<h2 id="atlas-tables">Atlas tables</h2>
+
+<p><code class="language-plaintext highlighter-rouge">get_atlas_summary</code> reads tables only from the directory in the <code class="language-plaintext highlighter-rouge">VAFT_ATLAS_DIR</code> environment
+variable of the server process, and it refuses to run when that variable is unset. <code class="language-plaintext highlighter-rouge">path</code> must be
+relative to that directory. Absolute, drive and UNC paths and <code class="language-plaintext highlighter-rouge">..</code> components are refused before
+any file is touched. The path is then resolved, symlinks included, and refused if it lands outside
+the directory. Every refusal gives the same message. Tables are limited to 50 MB and <code class="language-plaintext highlighter-rouge">group_by</code> to
+three columns. The result gives the columns (first 200), the row count, the row counts per value
+of each <code class="language-plaintext highlighter-rouge">group_by</code> column (default <code class="language-plaintext highlighter-rouge">efit_quality</code> and <code class="language-plaintext highlighter-rouge">efit_lineage</code>) and the first <code class="language-plaintext highlighter-rouge">limit</code> rows,
+with cell text cut to 200 characters.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>claude mcp add vaft <span class="nt">-e</span> <span class="nv">VAFT_ATLAS_DIR</span><span class="o">=</span>/path/to/atlas <span class="nt">--</span> python <span class="nt">-m</span> vaft.mcp
+</code></pre></div></div>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/plot/"><code>vaft.plot</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/api/mcp/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: API: vaft.mcp">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/process/profile_gradients/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: profile_gradients">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install-and-register" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install and register</a></li><li class="page-toc-item page-toc-level-2"><a href="#tools" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tools</a></li><li class="page-toc-item page-toc-level-2"><a href="#read-only-by-construction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Read-only by construction</a></li><li class="page-toc-item page-toc-level-2"><a href="#atlas-tables" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atlas tables</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: profile_gradients",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_profile_gradients.md",
+            "ref": "_guide/Process_reference_profile_gradients.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/MCP.md",
+        "mtime": "2026-09-30 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-02 15:29:25 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

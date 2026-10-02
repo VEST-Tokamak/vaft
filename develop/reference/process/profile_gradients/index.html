@@ -25,7 +25,7 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/computational-layers/" />
+            <link rel="prev" href="/vaft/develop/reference/mcp/" />
         
 
         
@@ -142,6 +142,12 @@
                     <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
                     
                         <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
                     </li>
                 
                     
@@ -270,7 +276,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>0322ad0</code>. What is described
+  <code>7a2b045</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -399,7 +405,7 @@ reads <code class="language-plaintext highlighter-rouge">RADIAL_COORDINATES</cod
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#profile_gradient"><code>profile_gradient</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="profile_gradient" href="https://github.com/VEST-Tokamak/vaft/blob/0322ad01a36a70b6627320f587fc5fb3966bce0f/vaft/process/profile_gradients.py#L1165-L1440" title="vaft/process/profile_gradients.py, lines 1165–1440 at 0322ad0">source</a>
+<a class="ref-source" data-source="profile_gradient" href="https://github.com/VEST-Tokamak/vaft/blob/7a2b0458c470a32b1da164c9f87bedde050b0704/vaft/process/profile_gradients.py#L1165-L1440" title="vaft/process/profile_gradients.py, lines 1165–1440 at 7a2b045">source</a>
 </header>
     <pre class="ref-signature"><code>profile_gradient(profile, grid, profile_coordinate, *, equilibrium, coordinate=None, gradient_coordinate=UNSET, reference_length=UNSET, convention=None, metadata=None, at=None, time=None, quantity=None, source_quantity=&#39;f&#39;)</code></pre>
 
@@ -529,7 +535,7 @@ responsibility, and <em>time</em> only selects the slice.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#radial_coordinate_map"><code>radial_coordinate_map</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="radial_coordinate_map" href="https://github.com/VEST-Tokamak/vaft/blob/0322ad01a36a70b6627320f587fc5fb3966bce0f/vaft/process/profile_gradients.py#L311-L442" title="vaft/process/profile_gradients.py, lines 311–442 at 0322ad0">source</a>
+<a class="ref-source" data-source="radial_coordinate_map" href="https://github.com/VEST-Tokamak/vaft/blob/7a2b0458c470a32b1da164c9f87bedde050b0704/vaft/process/profile_gradients.py#L311-L442" title="vaft/process/profile_gradients.py, lines 311–442 at 7a2b045">source</a>
 </header>
     <pre class="ref-signature"><code>radial_coordinate_map(source, time=None)</code></pre>
 
@@ -620,7 +626,7 @@ sensitivity (#317).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#radial_coordinate_map_from_arrays"><code>radial_coordinate_map_from_arrays</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="radial_coordinate_map_from_arrays" href="https://github.com/VEST-Tokamak/vaft/blob/0322ad01a36a70b6627320f587fc5fb3966bce0f/vaft/process/profile_gradients.py#L549-L676" title="vaft/process/profile_gradients.py, lines 549–676 at 0322ad0">source</a>
+<a class="ref-source" data-source="radial_coordinate_map_from_arrays" href="https://github.com/VEST-Tokamak/vaft/blob/7a2b0458c470a32b1da164c9f87bedde050b0704/vaft/process/profile_gradients.py#L549-L676" title="vaft/process/profile_gradients.py, lines 549–676 at 7a2b045">source</a>
 </header>
     <pre class="ref-signature"><code>radial_coordinate_map_from_arrays(*, r_inboard, r_outboard, psi_norm=None, rho_tor_norm=None, magnetic_axis_r=None, time=None, source=&#39;caller-supplied arrays&#39;)</code></pre>
 
@@ -711,7 +717,7 @@ The proxy test needs <code class="language-plaintext highlighter-rouge">psi_norm
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_convention"><code>resolve_convention</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resolve_convention" href="https://github.com/VEST-Tokamak/vaft/blob/0322ad01a36a70b6627320f587fc5fb3966bce0f/vaft/process/profile_gradients.py#L914-L1023" title="vaft/process/profile_gradients.py, lines 914–1023 at 0322ad0">source</a>
+<a class="ref-source" data-source="resolve_convention" href="https://github.com/VEST-Tokamak/vaft/blob/7a2b0458c470a32b1da164c9f87bedde050b0704/vaft/process/profile_gradients.py#L914-L1023" title="vaft/process/profile_gradients.py, lines 914–1023 at 7a2b045">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_convention(name, metadata=None)</code></pre>
 
@@ -800,7 +806,7 @@ publicly available, so no GENE rule is encoded.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_reference_length"><code>resolve_reference_length</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resolve_reference_length" href="https://github.com/VEST-Tokamak/vaft/blob/0322ad01a36a70b6627320f587fc5fb3966bce0f/vaft/process/profile_gradients.py#L734-L816" title="vaft/process/profile_gradients.py, lines 734–816 at 0322ad0">source</a>
+<a class="ref-source" data-source="resolve_reference_length" href="https://github.com/VEST-Tokamak/vaft/blob/7a2b0458c470a32b1da164c9f87bedde050b0704/vaft/process/profile_gradients.py#L734-L816" title="vaft/process/profile_gradients.py, lines 734–816 at 7a2b045">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_reference_length(name, coordinate_map, metadata=None)</code></pre>
 
@@ -950,7 +956,7 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/computational-layers/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Computational layers">
+                        <a href="/vaft/develop/reference/mcp/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: MCP server for agents">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
@@ -1090,7 +1096,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 13:03:06 +0000"
+        "time": "2026-10-02 15:29:25 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
