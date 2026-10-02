@@ -10,7 +10,7 @@ from pathlib import Path
 
 from omas import load_omas_json
 
-from vaft.code.efit import EFITScientificConfig, efit_preset, generate_kfile
+from vaft.code.efit import EFITScientificConfig, efit_preset, generate_kfile, preset_of
 from vaft.code.efit.presets import DEFAULT_PRESET, PRESET_RECORD
 
 
@@ -32,12 +32,12 @@ def main() -> int:
     parser.add_argument(
         "--npprime",
         type=int,
-        help="Legacy KPPCUR override: selects the routine configuration with this basis.",
+        help="KPPCUR override on the default configuration (deprecated; --preset routine selects the legacy set).",
     )
     parser.add_argument(
         "--nffprime",
         type=int,
-        help="Legacy KFFCUR override: selects the routine configuration with this basis.",
+        help="KFFCUR override on the default configuration (deprecated; --preset routine selects the legacy set).",
     )
     parser.add_argument(
         "--config",
@@ -79,6 +79,11 @@ def main() -> int:
     record_path.unlink(missing_ok=True)
     legacy_basis = args.npprime is not None or args.nffprime is not None
     preset_name = args.preset or (None if (args.config is not None or legacy_basis) else DEFAULT_PRESET)
+    if preset_name is None and scientific_config is not None and not legacy_basis:
+        # A --config payload that resolves (by sha) to a named preset is that
+        # preset: record it, so the product does not read `unrecorded` and a
+        # replay carries the same floor and provenance as a --preset run.
+        preset_name = preset_of(scientific_config)
     if preset_name:
         preset = efit_preset(preset_name)
         ods, floor_changes = preset.prepare_constraints(ods)
