@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import gzip
 import json
 import math
 import sys
@@ -132,7 +131,9 @@ def _flags(result: dict[str, Any], extra: list[list[str]] | None = None) -> list
 
 
 def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[str, Any]:
-    from omas import ODS, save_omas_json
+    from omas import ODS
+
+    from vaft.omas import save
 
     from vaft.validation import kinetic_state as ks
     from vaft.validation.equilibrium import _pressure_on
@@ -313,11 +314,8 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
                 ods[f"{ion}.element.0.a"] = species["a"]
                 ods[f"{ion}.density_thermal"] = species["density_per_electron"] * s["n_e"]
                 ods[f"{ion}.temperature"] = s["t_i"]
-        raw = atlas / "core_profiles" / f"{shot}.json"
-        save_omas_json(ods, str(raw))
-        with open(raw) as source, gzip.open(f"{raw}.gz", "wt") as target:
-            target.write(source.read())
-        raw.unlink()
+        # through vaft.omas.save, which picks the encoder from the suffix (#813)
+        save(ods, atlas / "core_profiles" / f"{shot}.json.gz")
 
     eligible = [s for s in states if s["eligible"] == "true" and s.get("channels")]
     ratios = [float(p["ti_te"]) for p in points if p["kind"] == "channel" and math.isfinite(_f(p["ti_te"]))]
