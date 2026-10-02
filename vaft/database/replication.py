@@ -780,11 +780,47 @@ def replicate_stage(
         logger.info("shot %s %s not published to %s: %s", shot, name, source, reason)
         return record
 
+    def published_ids_retried() -> tuple[str, ...]:
+        """List what the shot already holds, retried like a write would be.
+
+        The listing is the one remote call on the skipped path. A busy or
+        refusing server is transient, not a verdict on the stage, so it is
+        tried ``attempts`` times and then recorded ``failed`` and raised as a
+        ReplicationError, the same bookkeeping as a failed publish; letting
+        the OSError escape left no record and no retry at all.
+        """
+        started_at = _now()
+        for attempt in range(1, max(1, attempts) + 1):
+            try:
+                return _published_ids(source, shot, entry.ids)
+            except OSError as exc:
+                logger.warning(
+                    "shot %s %s listing attempt %s/%s failed: %s",
+                    shot, name, attempt, attempts, exc,
+                )
+                if attempt < attempts:
+                    time.sleep(retry_delay)
+                    continue
+                record = ReplicationRecord(
+                    stage=name, shot=shot, source=source,
+                    remote_uri=f"hdf5://{source}/{shot}/", ids=entry.ids,
+                    occurrence=entry.occurrence,
+                    product_sha256=sha256_file(product_path) if product_path.exists() else "",
+                    state="failed", attempts=attempt, started_at=started_at,
+                    error=f"could not list hdf5://{source}/{shot}/: {exc}",
+                )
+                write_record(record, record_path)
+                raise ReplicationError(
+                    f"Could not list hdf5://{source}/{shot}/ for shot {shot} {name} "
+                    f"after {attempts} attempt(s): {exc}"
+                ) from exc
+        raise AssertionError("unreachable")  # pragma: no cover
+
     try:
         manifest = _read_manifest(manifest_path)
         nothing = _nothing_to_replicate(manifest, name)
         if nothing is not None:
-            stale = _published_ids(source, shot, entry.ids)
+            stale = published_ids_retried()
             if stale:
                 # Skipping would leave an earlier run's IDS on the shot,
                 # linked and read as current, under a record saying nothing
