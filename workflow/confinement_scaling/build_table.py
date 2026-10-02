@@ -23,9 +23,12 @@ Comparison columns (never the default): P_OH from the EFIT boundary flux
 the Spitzer integral with Z_eff and ln Lambda stated explicitly (#1188).
 
 Slice quality (#548 section 5) is evidence plus a decision. The evidence columns
-are always written; the decision uses the working thresholds below, and
-threshold_sweep.csv reports how the accepted count moves with each one. None of
-the thresholds is adopted from another database.
+are always written; the accepted/selected columns apply the primary selection
+decided 2026-10-02 on #1490 (PRIMARY_THRESHOLDS, the same numbers as fit.py's
+SELECTIONS["primary"]), and threshold_sweep.csv reports how the accepted count
+moves with each threshold. None of the thresholds is adopted from another
+database; fit.py re-derives the primary and the sensitivity selection from the
+evidence columns, so changing either needs no rebuild.
 
 Time matching is by time (5e-5 s, half the state key's 1e-4 s rounding), never by
 slice index. The product sha256 is checked against the state's; a regenerated
@@ -57,7 +60,9 @@ import pandas as pd
 
 TIME_TOLERANCE_S = 5e-5
 CONTRACT_VERSION = 1
-WORKING_THRESHOLDS = {"ip_min": 30e3, "max_dwdt_fraction": 0.5, "max_ip_change_per_tau": 0.05}
+# The #1490 primary selection (2026-10-02); fit.py's SELECTIONS["primary"] carries the same numbers
+# and the sensitivity set (0.5 / 0.05) lives there only.
+PRIMARY_THRESHOLDS = {"ip_min": 30e3, "max_dwdt_fraction": 1.0, "max_ip_change_per_tau": 0.20}
 SWEEP = {
     "ip_min": [0.0, 30e3, 50e3, 80e3],
     "max_dwdt_fraction": [0.1, 0.2, 0.3, 0.5, 1.0],
@@ -517,7 +522,7 @@ def build(args) -> int:
             table[col] = np.nan
     table = table[list(CONFINEMENT_COLUMNS) + [c for c in extension if c not in CONFINEMENT_COLUMNS]]
 
-    # Slice-quality decision at the working thresholds, and the sweep.
+    # Slice-quality decision at the primary thresholds, and the sweep.
     from vaft.process.confinement import ConfinementSliceEvidence
 
     def _evidence(frame):
@@ -529,7 +534,7 @@ def build(args) -> int:
         )
 
     ev = _evidence(table)
-    rules = confinement_slice_decision(ev, **WORKING_THRESHOLDS)
+    rules = confinement_slice_decision(ev, **PRIMARY_THRESHOLDS)
     for name in ("ip_min", "dwdt_fraction", "ip_change_per_tau"):
         table[f"rule_{name}"] = rules[name]
     table["rule_finite"] = rules["finite"]
@@ -537,7 +542,7 @@ def build(args) -> int:
     table["selected"] = table["accepted"]
 
     exclusions = pd.DataFrame(confinement_exclusion_table(rules))
-    exclusions.insert(0, "thresholds", json.dumps(WORKING_THRESHOLDS, sort_keys=True))
+    exclusions.insert(0, "thresholds", json.dumps(PRIMARY_THRESHOLDS, sort_keys=True))
     sweep = []
     for ip_min, dw, ic in itertools.product(*SWEEP.values()):
         r = confinement_slice_decision(ev, ip_min=ip_min, max_dwdt_fraction=dw, max_ip_change_per_tau=ic)
@@ -576,8 +581,10 @@ def build(args) -> int:
                              "sha256": _sha256(Path(args.state).expanduser())},
                    "filedb": str(filedb)},
         "parameters": {k: v for k, v in vars(args).items() if k not in ("state", "filedb", "out")},
-        "working_thresholds": WORKING_THRESHOLDS,
-        "working_thresholds_status": "provisional working values, not adopted; read threshold_sweep.csv",
+        "selection_thresholds": PRIMARY_THRESHOLDS,
+        "selection_thresholds_status": ("primary selection decided 2026-10-02 on #1490; accepted/selected apply "
+                                        "it; the sensitivity set is fit.py SELECTIONS['sensitivity']; "
+                                        "threshold_sweep.csv gives the count on a grid"),
         "assumptions": assumptions,
         "rows": int(len(table)),
         "quality_status": table["quality_status"].value_counts().to_dict(),

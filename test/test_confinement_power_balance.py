@@ -258,3 +258,52 @@ def test_builder_keeps_p_ohm_and_r_p_for_a_single_labelled_slice():
     assert np.isfinite(pb3.dwdt).all() and np.isfinite(pb3.p_net).all()
     np.testing.assert_allclose(split3.v_ind - 0.5 * MU0 * r0 * args2[3] * args2[1],
                                0.25 * MU0 * r0 * args2[0] * 100.0)  # dli_3/dt = 0.1 per 1 ms
+
+
+def _lane_d_module(name):
+    import importlib.util
+    import pathlib
+
+    path = pathlib.Path(__file__).resolve().parents[1] / "workflow/confinement_scaling" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"lane_d_{name}", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_builder_decision_columns_use_the_primary_selection():
+    """accepted/selected in table.csv are the #1490 primary selection, the one every result quotes.
+
+    The builder used to apply the sensitivity thresholds (0.5 / 0.05) while the
+    README, fit.py and the notebooks call 0.20 / 1.0 the primary selection
+    (cold review 0.8.0 delta-absorb-13 F2). The README's numbers and the
+    packaged table's `selected` column must match the code.
+    """
+    import pathlib
+    import re
+
+    build = _builder()
+    fit = _lane_d_module("fit")
+    assert build.PRIMARY_THRESHOLDS == fit.SELECTIONS["primary"]
+    assert build.PRIMARY_THRESHOLDS != fit.SELECTIONS["sensitivity"]
+
+    readme = (pathlib.Path(__file__).resolve().parents[1] / "workflow/confinement_scaling/README.md").read_text(
+        encoding="utf-8")
+    pattern = r"^\| (primary|sensitivity) \| ≤ ([\d.]+) \| ≤ ([\d.]+) \| ≥ (\d+) kA \|$"
+    rows = {m[0]: m[1:] for m in re.findall(pattern, readme, re.M)}
+    for name, (ip_change, dwdt, ip_ka) in rows.items():
+        sel = fit.SELECTIONS[name]
+        assert float(ip_change) == sel["max_ip_change_per_tau"]
+        assert float(dwdt) == sel["max_dwdt_fraction"]
+        assert float(ip_ka) * 1e3 == sel["ip_min"]
+    assert set(rows) == {"primary", "sensitivity"}
+    assert "provisional" not in readme.split("## Slice quality")[1].split("## Run")[0]
+
+    import pandas as pd
+    from vaft.data import data_path
+
+    table = pd.read_csv(data_path("confinement/vest_tier_a_confinement.csv"))
+    primary = fit.select(table, fit.SELECTIONS["primary"])
+    np.testing.assert_array_equal(table["selected"].to_numpy(bool), primary)
+    np.testing.assert_array_equal(table["accepted"].to_numpy(bool), primary)
+    assert int(primary.sum()) == 59 and table.loc[primary, "shot"].nunique() == 19  # the quoted primary set
