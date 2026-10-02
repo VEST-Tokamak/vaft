@@ -132,6 +132,45 @@ def test_a_channel_profile_point_carries_its_flag_under_a_stated_validity():
     assert points("ignore") == len(after.x)
 
 
+def _timed_flag_on_thomson():
+    """Channel 0 is valid as a channel; one of its samples is flagged (``validity_timed``)."""
+    import copy
+
+    ods = copy.deepcopy(sample_ods(48224))
+    data = np.asarray(ods["thomson_scattering.channel.0.t_e.data"])
+    timed = np.zeros(data.shape, dtype=int)
+    timed[0] = -1  # the sample the profile shows at time_slice=0
+    ods["thomson_scattering.channel.0.t_e.validity_timed"] = timed
+    return ods
+
+
+def test_without_validity_a_per_sample_flag_does_not_demote_a_profile_point():
+    """Cold review 0.8.0 delta-absorb-13-infra F6: the flags are attached only with a stated validity=.
+
+    The contract of this module is that without ``validity=`` nothing changes
+    from 0.7.1, which drew a channel profile without a per-point mask.  The
+    #1380 phase-3 builder attached the per-sample flag unconditionally, so a
+    code-0 channel whose ``validity_timed`` is negative at the shown sample
+    was drawn demoted by default.  A stated ``validity=`` owns the flags: it
+    carries them (``show``), removes them (``mask``), or ignores them.
+    """
+    ods = _timed_flag_on_thomson()
+    entries = normalize_entries(ods)
+    name = "thomson_scattering_profile_electron_temperature"
+    (default,) = build_model(name, entries).series
+    assert default.valid_mask is None and default.validity is None
+    (shown,) = build_model(name, entries, validity="show").series
+    assert shown.valid_mask is not None and int((~shown.valid_mask).sum()) == 1
+    assert len(shown.x) == len(default.x)
+
+    def points(**kwargs):
+        figure, axis = vaft.omas.plot_thomson_scattering_profile_electron_temperature(ods, **kwargs)
+        return sum(int(np.isfinite(line.get_ydata()).sum()) for line in axis.lines)
+
+    assert points() == points(validity="ignore") == len(default.x)
+    assert points(validity="mask") == len(default.x) - 1
+
+
 def test_the_interactive_controls_keep_the_channels_a_stated_validity_brought_in(sample):
     result = vaft.omas.plot_b_field_probe_time_field(sample, interactive=True, interaction_backend="none", validity="show")
     shown = len(_lines(result.axes))

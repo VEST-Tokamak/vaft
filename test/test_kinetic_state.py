@@ -429,3 +429,198 @@ def test_status_reads_the_criteria_v2_evaluation_not_a_stale_stored_verdict():
     evaluation = criteria.evaluate(record)
     assert build_state._status(evaluation, "thomson") == "fail"
     assert evaluation["physically_consistent"] is False
+
+
+# ---------------------------------------------------------------------------
+# pressure-partition T_i (#1426)
+# ---------------------------------------------------------------------------
+
+def test_composition_closure_gives_five_sixths():
+    comp = ks.ion_composition()
+    assert comp["ion_density_per_electron"] == pytest.approx(5.0 / 6.0)
+    main, carbon = comp["species"]
+    assert main["label"] == "H+" and main["density_per_electron"] == pytest.approx(0.8)
+    assert carbon["label"] == "C6+" and carbon["density_per_electron"] == pytest.approx(1.0 / 30.0)
+    # quasi-neutrality and Z_eff hold
+    assert sum(s["z_ion"] * s["density_per_electron"] for s in comp["species"]) == pytest.approx(1.0)
+    assert sum(s["z_ion"] ** 2 * s["density_per_electron"] for s in comp["species"]) == pytest.approx(2.0)
+
+
+def test_ti_follows_the_closure_not_p_over_pe_minus_one():
+    comp = ks.ion_composition()
+    n_e, t_e = np.full(4, 1e19), np.full(4, 20.0)
+    p_e = E * n_e * t_e
+    ratio = np.array([1.5, 2.0, 2.4, 3.0])
+    got = ks.infer_ti_pressure_partition(ratio * p_e, n_e, t_e, composition=comp, sigma_p_eq=0.0,
+                                         sigma_n_e=0.0, sigma_t_e=0.0, equilibrium_lineage="magnetics")
+    np.testing.assert_allclose(got["ti_te"], 1.2 * (ratio - 1.0))
+    np.testing.assert_allclose(got["t_i"], 1.2 * (ratio - 1.0) * 20.0)
+    assert got["origin"] == "inferred" and got["method"] == "equilibrium_pressure_partition"
+
+
+def test_ti_from_a_kinetic_equilibrium_is_refused_as_circular():
+    got = ks.infer_ti_pressure_partition([1.0], [1e19], [10.0], composition=ks.ion_composition(),
+                                         sigma_p_eq=0, sigma_n_e=0, sigma_t_e=0,
+                                         equilibrium_lineage="electron_kinetic")
+    assert got["eligible"] is False and got["reason"].startswith("circular")
+    assert "t_i" not in got
+
+
+def test_unphysical_points_are_flagged_not_filled():
+    comp = ks.ion_composition()
+    n_e, t_e = np.full(4, 1e19), np.full(4, 20.0)
+    p_e = E * n_e * t_e
+    p_eq = np.array([0.8, 1.0, 1.05, 2.0]) * p_e
+    got = ks.infer_ti_pressure_partition(p_eq, n_e, t_e, composition=comp, sigma_p_eq=0.1 * p_e,
+                                         sigma_n_e=0.0, sigma_t_e=0.0, equilibrium_lineage="magnetics")
+    assert got["flags"] == [["p_i_nonpositive"], ["p_i_nonpositive"], ["p_i_not_significant"], []]
+    assert np.isnan(got["t_i"][:3]).all() and np.isfinite(got["t_i"][3])
+    assert np.isnan(got["sigma_t_i"][:3]).all()
+    missing = ks.infer_ti_pressure_partition([2 * p_e[0]], [np.nan], [20.0], composition=comp, sigma_p_eq=0,
+                                             sigma_n_e=0, sigma_t_e=0, equilibrium_lineage="magnetics")
+    assert missing["flags"] == [["non_finite_input"]]
+
+
+def test_ti_uncertainty_matches_finite_differences():
+    comp = ks.ion_composition()
+    p_eq, n_e, t_e = 300.0, 8e18, 40.0
+    s_p, s_n, s_t = 30.0, 1e18, 6.0
+    got = ks.infer_ti_pressure_partition([p_eq], [n_e], [t_e], composition=comp, sigma_p_eq=s_p,
+                                         sigma_n_e=s_n, sigma_t_e=s_t, equilibrium_lineage="magnetics")
+
+    def ti(p, n, t):
+        return (p - E * n * t) / (E * comp["ion_density_per_electron"] * n)
+
+    parts = []
+    for k, (x, s) in enumerate(((p_eq, s_p), (n_e, s_n), (t_e, s_t))):
+        args = [p_eq, n_e, t_e]
+        h = x * 1e-6
+        args_hi, args_lo = list(args), list(args)
+        args_hi[k], args_lo[k] = x + h, x - h
+        parts.append((ti(*args_hi) - ti(*args_lo)) / (2 * h) * s)
+    assert got["sigma_t_i"][0] == pytest.approx(math.sqrt(sum(p * p for p in parts)), rel=1e-6)
+
+
+def test_pressure_sigma_takes_the_larger_of_spread_and_floor():
+    p = np.array([100.0, 100.0])
+    sigma, basis = ks.pressure_sigma(p)
+    assert basis == "floor" and np.allclose(sigma, 17.0)
+    sigma, basis = ks.pressure_sigma(p, [np.array([101.0, 160.0])])
+    assert basis == "ensemble(n=2)"
+    assert sigma[0] == pytest.approx(17.0)
+    assert sigma[1] == pytest.approx(np.std([100.0, 160.0], ddof=1))
+
+
+def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
+    import csv
+    import gzip
+    import importlib.util
+    import json
+    import sys
+    from pathlib import Path
+
+    folder = Path(__file__).resolve().parents[1] / "workflow" / "kinetic_state"
+    sys.path.insert(0, str(folder))
+    try:
+        modules = {}
+        for name in ("build_state", "build_ti"):
+            spec = importlib.util.spec_from_file_location(f"lane_k_{name}", folder / f"{name}.py")
+            modules[name] = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(modules[name])
+    finally:
+        sys.path.remove(str(folder))
+
+    shot = 99002
+    filedb = tmp_path / "filedb"
+    _plain(_equilibrium(), filedb / "omas/efit/magnetic" / str(shot) / "output/efit.json.gz")
+    _plain(_thomson(), filedb / "omas/thomson" / str(shot) / "output/thomson.json.gz")
+    cp = ODS(consistency_check=False)
+    cp["core_profiles.time"] = np.array([0.313, 0.314])
+    for j, t in enumerate((0.313, 0.314)):
+        root = f"core_profiles.profiles_1d.{j}"
+        cp[f"{root}.time"] = t
+        cp[f"{root}.grid.rho_tor_norm"] = np.linspace(0, 1, 11)
+        cp[f"{root}.electrons.density_thermal"] = np.full(11, 2e18)
+        cp[f"{root}.electrons.temperature"] = np.full(11, 50.0)
+    _plain(cp, filedb / "omas/core_profiles" / str(shot) / "output/core_profiles.json.gz")
+    analysis = tmp_path / "analysis.json"
+    analysis.write_text(json.dumps({"records": [_record(shot, 313), _record(shot, 314)], "labels": []}))
+    atlas = tmp_path / "atlas"
+    modules["build_state"].build(filedb, analysis, atlas, ti_te_ratio=1.0)
+    # a kinetic state, to be refused
+    with open(atlas / "state.csv", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    rows.append({**rows[0], "efit_lineage": "electron_kinetic"})
+    with open(atlas / "state.csv", "w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+    summary = modules["build_ti"].build(filedb, atlas, floor=0.17, window_s=1e-3)
+    assert summary["refused_circular"] == 1 and summary["eligible_with_channels"] == 2
+    # each slice has the other within 1 ms: the ensemble is used
+    assert set(summary["sigma_p_eq_basis"]) <= {"ensemble(n=2)", "floor"}
+    with open(atlas / "ti_inferred.csv", newline="") as handle:
+        points = list(csv.DictReader(handle))
+    channel = [p for p in points if p["kind"] == "channel" and p["time_efit_s"] == "0.313"]
+    for p in channel:
+        p_e = E * float(p["n_e_m3"]) * float(p["t_e_ev"])
+        expected = (float(p["p_eq_pa"]) - p_e) / (E * (5.0 / 6.0) * float(p["n_e_m3"]))
+        if p["t_i_ev"]:
+            assert float(p["t_i_ev"]) == pytest.approx(expected, rel=1e-9)
+        else:
+            assert p["flags"]
+    grid = [p for p in points if p["kind"] == "grid"]
+    assert any("outside_ts_span" in p["flags"] for p in grid)
+    with gzip.open(atlas / "core_profiles" / f"{shot}.json.gz", "rt") as handle:
+        stored = json.load(handle)["core_profiles"]
+    assert stored["time"] == [0.313, 0.314]
+    assert [ion["label"] for ion in stored["profiles_1d"][0]["ion"]] == ["H+", "C6+"]
+    assert json.loads(stored["code"]["parameters"])["origin"] == "inferred"
+    ion = stored["profiles_1d"][0]["ion"][0]
+    assert ion["temperature_fit"]["parameters"].startswith("origin=inferred")
+
+
+
+def test_a_missing_sigma_keeps_the_ti_and_says_so():
+    comp = ks.ion_composition()
+    got = ks.infer_ti_pressure_partition([2 * E * 1e19 * 20], [1e19], [20.0], composition=comp,
+                                         sigma_p_eq=[np.nan], sigma_n_e=0.0, sigma_t_e=0.0,
+                                         equilibrium_lineage="magnetics")
+    assert got["flags"] == [["sigma_unavailable"]]
+    assert np.isfinite(got["t_i"][0]) and np.isnan(got["sigma_t_i"][0])
+    assert "sigma_unavailable" in ks.TI_NOTES and "sigma_unavailable" not in ks.TI_FLAGS
+
+
+def test_scalar_inputs_broadcast():
+    comp = ks.ion_composition()
+    got = ks.infer_ti_pressure_partition(E * 1e19 * 20 * np.array([2.0, 3.0]), 1e19, 20.0, composition=comp,
+                                         sigma_p_eq=0.0, sigma_n_e=0.0, sigma_t_e=0.0,
+                                         equilibrium_lineage="magnetics")
+    np.testing.assert_allclose(got["ti_te"], [1.2, 2.4])
+
+
+def test_a_nan_neighbour_falls_back_to_the_floor_there():
+    sigma, basis = ks.pressure_sigma(np.array([100.0, 100.0]), [np.array([np.nan, 160.0])])
+    assert sigma[0] == pytest.approx(17.0)
+    assert sigma[1] == pytest.approx(np.std([100.0, 160.0], ddof=1))
+    assert basis == "ensemble(n=2)"
+
+
+def test_a_non_finite_tolerance_is_refused():
+    with pytest.raises(ValueError, match="finite"):
+        ks.slice_at_time(_equilibrium(), 0.314, tolerance_s=float("nan"))
+
+
+def test_an_empty_density_thermal_falls_back_to_density():
+    cp = ODS(consistency_check=False)
+    cp["core_profiles.time"] = np.array([0.314])
+    root = "core_profiles.profiles_1d.0"
+    cp[f"{root}.time"] = 0.314
+    cp[f"{root}.grid.rho_tor_norm"] = np.linspace(0, 1, 5)
+    cp[f"{root}.electrons.density_thermal"] = np.array([1e18, 1e18])  # wrong length
+    cp[f"{root}.electrons.density"] = np.full(5, 3e18)
+    cp[f"{root}.electrons.temperature"] = np.full(5, 10.0)
+    got = ks.core_profiles_electron_pressure(cp, time_s=0.314)
+    assert got["available"] and got["density_leaf"] == "density"
+    np.testing.assert_allclose(got["n_e"], 3e18)

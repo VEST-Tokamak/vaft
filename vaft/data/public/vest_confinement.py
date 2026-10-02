@@ -413,7 +413,7 @@ def load_vest_tier_a_confinement(
     table = pd.read_csv(source)
     manifest_path = source.with_name("manifest.json")
     if manifest_path.is_file():
-        definitions = json.loads(manifest_path.read_text()).get("dropped_columns", {}).get("definitions", {})
+        definitions = json.loads(manifest_path.read_text(encoding="utf-8")).get("dropped_columns", {}).get("definitions", {})
         for column, values in definitions.items():
             if column not in table.columns and isinstance(values, list) and len(values) == 1:
                 table[column] = values[0]

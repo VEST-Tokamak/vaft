@@ -286,9 +286,18 @@ SUBJECT_NOTATION_DEFAULTS: dict[tuple[str, str], str] = {
 #: ``(subject, quantity)`` because the stored unit -- nothing at all -- cannot
 #: tell ``beta_t`` from ``beta_p``.  Toroidal beta is conventionally read as a
 #: percentage; poloidal beta, normalized beta, ``li`` and ``q`` are not, which
-#: is why a beta family plot cannot put all three on one shared axis.
+#: is why a beta family plot cannot put all three on one shared axis.  The
+#: scale applies to what is drawn only; the stored value is never changed.
 DIMENSIONLESS_DISPLAY: dict[tuple[str, str], tuple[str, float, str]] = {
+    # The beta family (issue #947): one canonical value per quantity, as the
+    # IMAS DD and vaft.formula store it, and only the display differs.  beta_t
+    # is a fraction read as a percentage; beta_p is a plain ratio; beta_N
+    # keeps its conventional Troyon value -- the 100 and the MA are part of
+    # its definition, beta_N = beta_t[%] a[m] B0[T] / Ip[MA] -- and its axis
+    # names those units so the number is not mistaken for a fraction.
     ("equilibrium", "beta_t"): ("%", 100.0, "percent"),
+    ("equilibrium", "beta_p"): ("", 1.0, "auto"),
+    ("equilibrium", "beta_n"): ("%·m·T/MA", 1.0, "auto"),
     # A ratio of a field gradient to the field; the stable window 0 < n < 1.5
     # is quoted in these units and no other, so there is nothing to convert.
     ("vacuum", "decay_index"): ("", 1.0, "auto"),

@@ -41,13 +41,21 @@ Ratios
 ``R_W_full``
     The same over the whole plasma, which extrapolates the ``core_profiles`` fit
     beyond the channels; reported, and flagged as extrapolated.
+
+Inferred ion temperature
+------------------------
+:func:`infer_ti_pressure_partition` is #1426's closure,
+``T_i = (p_eq - e n_e T_e) / (e sum n_i)``, with the ion density from
+:func:`ion_composition`.  It is an *inferred* quantity and a separate lineage:
+the machine's Ti/Te policy (#1414) is not replaced, and a pressure that was
+itself fitted with an assumed Ti/Te is refused as circular.
 """
 
 from __future__ import annotations
 
 import math
 import warnings
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 
@@ -55,12 +63,18 @@ from vaft.ods_access import path_count, path_value
 
 __all__ = [
     "CONTRACT_VERSION",
+    "INDEPENDENT_LINEAGES",
+    "TI_FLAGS",
+    "TI_NOTES",
     "default_tolerance",
     "LINEAGES",
     "QUALITIES",
     "core_profiles_electron_pressure",
+    "infer_ti_pressure_partition",
     "integrated_pressure_ratio",
+    "ion_composition",
     "match_thomson_pressure",
+    "pressure_sigma",
     "rho_tor_norm_of",
     "slice_at_time",
     "state_time",
@@ -140,6 +154,9 @@ def slice_at_time(ods: Any, time_s: float, *, ids: str = "equilibrium",
     offsets = times - float(time_s)
     index = int(np.nanargmin(np.abs(offsets)))
     tolerance = default_tolerance(times) if tolerance_s is None else float(tolerance_s)
+    if not math.isfinite(tolerance) or tolerance < 0:
+        # NaN would compare False against every offset and accept any slice
+        raise ValueError(f"tolerance_s must be a finite non-negative number, not {tolerance_s!r}")
     if abs(offsets[index]) > tolerance:
         raise LookupError(
             f"the nearest {ids} slice to {time_s} s is {offsets[index]:+.4g} s away, beyond {tolerance:.4g} s"
@@ -269,16 +286,21 @@ def core_profiles_electron_pressure(profiles: Any, *, time_s: float,
         return {"available": False, "reason": str(missing)}
     root = f"core_profiles.profiles_1d.{index}"
     rho = _array(profiles, f"{root}.grid.rho_tor_norm")
-    density = _array(profiles, f"{root}.electrons.density_thermal")
-    if density is None:
-        density = _array(profiles, f"{root}.electrons.density")
     temperature = _array(profiles, f"{root}.electrons.temperature")
-    if rho is None or density is None or temperature is None:
-        return {"available": False, "reason": "the core_profiles slice lacks rho_tor_norm, n_e or T_e"}
-    if not (rho.size == density.size == temperature.size):
-        return {"available": False, "reason": "core_profiles rho_tor_norm, n_e and T_e differ in length"}
+    if rho is None or temperature is None:
+        return {"available": False, "reason": "the core_profiles slice lacks rho_tor_norm or T_e"}
+    # density_thermal when it is there and on this grid, else density
+    density, leaf = None, None
+    for name in ("density_thermal", "density"):
+        candidate = _array(profiles, f"{root}.electrons.{name}")
+        if candidate is not None and candidate.size == rho.size:
+            density, leaf = candidate, name
+            break
+    if density is None or temperature.size != rho.size:
+        return {"available": False, "reason": "core_profiles rho_tor_norm, n_e and T_e are missing or differ in length"}
     times = _slice_times(profiles, "core_profiles")
-    return {"available": True, "time_s": float(times[index]), "offset_s": offset, "rho_tor_norm": rho,
+    return {"available": True, "time_s": float(times[index]), "index": index, "offset_s": offset,
+            "rho_tor_norm": rho, "n_e": density, "t_e": temperature, "density_leaf": leaf,
             "p_e": _ELEMENTARY_CHARGE * density * temperature}
 
 
@@ -350,4 +372,159 @@ def integrated_pressure_ratio(equilibrium: Any, index: int, rho_tor_norm: np.nda
         "volume_m3": float(np.sum(dv[mask])),
         "cell_weights": "outline" if outline else "psi_threshold",
         "psi_norm_span": None if psi_norm_span is None else (float(psi_norm_span[0]), float(psi_norm_span[1])),
+    }
+
+
+# ---------------------------------------------------------------------------
+# ion temperature from the pressure partition (#1426)
+# ---------------------------------------------------------------------------
+
+#: Equilibrium lineages whose pressure carries information independent of the
+#: ion temperature being inferred.  ``electron_kinetic`` is excluded: its
+#: pressure was fitted to ``n_e T_e (1 + Ti/Te)`` with Ti/Te *assumed*, so
+#: inverting it returns the assumption (#1426 section 6).
+INDEPENDENT_LINEAGES = ("magnetics",)
+
+#: The flags that void a pressure-partition point: a flagged point has no T_i.
+TI_FLAGS = ("p_i_nonpositive", "p_i_not_significant", "non_finite_input")
+
+#: Notes a point can carry that leave its T_i in place.  ``sigma_unavailable``:
+#: an input uncertainty is missing, so neither sigma(T_i) nor the significance
+#: test exists for that point.
+TI_NOTES = ("sigma_unavailable",)
+
+
+def ion_composition(z_eff: float = 2.0, impurity: str = "C") -> dict[str, Any]:
+    """Ion species and densities per electron from a Z_eff closure.
+
+    One hydrogenic main ion (H+) and one fully stripped impurity, fixed by
+    quasi-neutrality and the definition of Z_eff through
+    :func:`vaft.code.gacode.inputs.impurity_fractions`, the closure GACODE input
+    preparation uses.  The total ion density per electron comes *out of* that
+    closure (5/6 for carbon at Z_eff = 2); it is not a separate constant.
+    """
+    from vaft.code.gacode.inputs import HYDROGEN_ISOTOPE_MASSES, IMPURITIES, impurity_fractions
+
+    charge, mass, label = IMPURITIES[impurity]
+    main, imp = impurity_fractions(z_eff, charge)
+    species = (
+        {"label": "H+", "z_ion": 1.0, "a": HYDROGEN_ISOTOPE_MASSES["H"], "density_per_electron": main},
+        {"label": label, "z_ion": float(charge), "a": float(mass), "density_per_electron": imp},
+    )
+    return {
+        "species": species,
+        "ion_density_per_electron": main + imp,
+        "z_eff": float(z_eff),
+        "composition_source": f"policy: H+ with {label}, Z_eff={z_eff:g} (vaft.code.gacode.inputs.impurity_fractions)",
+    }
+
+
+def pressure_sigma(pressure: np.ndarray, neighbours: Sequence[np.ndarray] = (), *,
+                   floor: float = 0.17) -> tuple[np.ndarray, str]:
+    """The EFIT pressure uncertainty: ensemble spread with a model-form floor.
+
+    ``pressure`` is the slice's pressure at the evaluation points and
+    ``neighbours`` the pressure of other good or admissible slices of the same
+    shot at the *same* normalized flux (the caller picks them by time, within
+    1 ms).  The spread is the sample standard deviation over all of them; the
+    result is ``max(spread, floor * pressure)`` pointwise.  ``floor`` defaults
+    to 0.17, the KPPCUR model-form uncertainty on the pressure-weighted area
+    found in #874.  Returns ``(sigma, basis)`` with ``basis`` either
+    ``"ensemble(n=k)"`` when the spread exceeds the floor anywhere, or
+    ``"floor"``.  A neighbour value that is not finite is left out of the
+    spread at that point, and a point with fewer than two finite values keeps
+    the floor.
+    """
+    pressure = np.asarray(pressure, dtype=float)
+    floor_sigma = floor * np.abs(pressure)
+    if not neighbours:
+        return floor_sigma, "floor"
+    stack = np.vstack([pressure, *[np.broadcast_to(np.asarray(n, dtype=float), pressure.shape) for n in neighbours]])
+    finite = np.isfinite(stack)
+    counts = finite.sum(axis=0)
+    with np.errstate(invalid="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN columns: handled below
+        spread = np.nanstd(stack, axis=0, ddof=1)
+    # fewer than two finite values at a point: no spread there, the floor stands
+    spread = np.where(counts >= 2, spread, 0.0)
+    sigma = np.maximum(spread, floor_sigma)
+    used = int(counts.max()) if counts.size else 0
+    basis = f"ensemble(n={used})" if np.any(spread > floor_sigma) else "floor"
+    return sigma, basis
+
+
+def infer_ti_pressure_partition(p_eq: Any, n_e: Any, t_e: Any, *, composition: Mapping[str, Any],
+                                sigma_p_eq: Any, sigma_n_e: Any, sigma_t_e: Any,
+                                equilibrium_lineage: str) -> dict[str, Any]:
+    """T_i from ``p_i = p_eq - e n_e T_e`` and ``T_i = p_i / (e sum n_i)``.
+
+    All arrays are on the same points: ``p_eq`` [Pa], ``n_e`` [m^-3], ``t_e`` [eV]
+    and their one-sigma uncertainties.  The ion density is
+    ``composition["ion_density_per_electron"] * n_e`` with a common ion
+    temperature, so ``T_i = p_eq / (e f n_e) - T_e / f``.
+
+    The uncertainty is propagated linearly through that form, which keeps the
+    n_e correlation between ``p_e`` and the ion density::
+
+        dT_i/dp_eq = 1/(e f n_e), dT_i/dn_e = -p_eq/(e f n_e^2), dT_i/dT_e = -1/f
+
+    Points are **flagged, never filled**: ``p_i <= 0`` (``p_i_nonpositive``) and
+    ``p_i < sigma(p_i)`` (``p_i_not_significant``) get ``T_i = NaN``.
+
+    An input uncertainty that is missing (NaN) does not void the point: its
+    T_i stands, ``sigma_t_i`` is NaN, the significance test is skipped, and the
+    point carries the note ``sigma_unavailable`` (:data:`TI_NOTES`).
+
+    The inference is refused (``eligible = False``) unless the equilibrium
+    lineage is in :data:`INDEPENDENT_LINEAGES`: a pressure fitted with an
+    assumed Ti/Te returns the assumption.  **The guard trusts the declared
+    lineage**; the equilibrium products carry no machine-readable record of
+    one, so a caller must derive ``equilibrium_lineage`` from *where the
+    pressure came from* (the FileDB stage it loaded), never from intent.  The
+    result is an *inferred* quantity, never a measurement.
+
+    Scalars broadcast against arrays; every input is brought to one shape.
+    """
+    if equilibrium_lineage not in INDEPENDENT_LINEAGES:
+        return {"eligible": False, "origin": "inferred", "method": "equilibrium_pressure_partition",
+                "reason": (f"circular: the {equilibrium_lineage!r} equilibrium pressure was reconstructed with an "
+                           "assumed Ti/Te, so partitioning it returns that assumption")}
+    p_eq, n_e, t_e, s_p, s_n, s_t = np.broadcast_arrays(
+        *(np.asarray(x, dtype=float) for x in (p_eq, n_e, t_e, sigma_p_eq, sigma_n_e, sigma_t_e)))
+    fraction = float(composition["ion_density_per_electron"])
+    p_e = _ELEMENTARY_CHARGE * n_e * t_e
+    p_i = p_eq - p_e
+    sigma_p_e = _ELEMENTARY_CHARGE * np.hypot(t_e * s_n, n_e * s_t)
+    sigma_p_i = np.hypot(s_p, sigma_p_e)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t_i = p_i / (_ELEMENTARY_CHARGE * fraction * n_e)
+        d_p = 1.0 / (_ELEMENTARY_CHARGE * fraction * n_e)
+        d_n = -p_eq / (_ELEMENTARY_CHARGE * fraction * n_e ** 2)
+        d_t = -1.0 / fraction
+        sigma_t_i = np.sqrt((d_p * s_p) ** 2 + (d_n * s_n) ** 2 + (d_t * s_t) ** 2)
+        ti_te = t_i / t_e
+    flags: list[list[str]] = []
+    for k in range(p_eq.size):
+        point: list[str] = []
+        values = (p_eq.flat[k], n_e.flat[k], t_e.flat[k])
+        sigmas_known = all(math.isfinite(v) for v in (s_p.flat[k], s_n.flat[k], s_t.flat[k]))
+        if not all(math.isfinite(v) for v in values) or n_e.flat[k] <= 0 or t_e.flat[k] <= 0:
+            point.append("non_finite_input")
+        elif p_i.flat[k] <= 0:
+            point.append("p_i_nonpositive")
+        elif sigmas_known and p_i.flat[k] < sigma_p_i.flat[k]:
+            point.append("p_i_not_significant")
+        if not point and not sigmas_known:
+            point.append("sigma_unavailable")
+        flags.append(point)
+    bad = np.array([any(f in TI_FLAGS for f in point) for point in flags], dtype=bool).reshape(p_eq.shape)
+    t_i = np.where(bad, np.nan, t_i)
+    sigma_t_i = np.where(bad, np.nan, sigma_t_i)
+    ti_te = np.where(bad, np.nan, ti_te)
+    return {
+        "eligible": True, "origin": "inferred", "method": "equilibrium_pressure_partition",
+        "equilibrium_lineage": equilibrium_lineage,
+        "assumptions": ("common ion temperature", composition["composition_source"]),
+        "p_e": p_e, "p_i": p_i, "sigma_p_i": sigma_p_i,
+        "t_i": t_i, "sigma_t_i": sigma_t_i, "ti_te": ti_te, "flags": flags,
     }

@@ -166,7 +166,7 @@ def main(argv=None) -> int:
     pd.DataFrame(summaries).to_csv(out / "summary.csv", index=False)
     if influences:
         pd.concat(influences).to_csv(out / "influence.csv", index=False)
-    (out / "identifiability.json").write_text(json.dumps(ident, indent=2))
+    (out / "identifiability.json").write_text(json.dumps(ident, indent=2), encoding="utf-8")
     manifest = {
         "generated_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
         "command": " ".join(sys.argv), "vaft_git": _git("rev-parse", "HEAD"),
@@ -177,7 +177,7 @@ def main(argv=None) -> int:
                   "(CR1, t with G-1 dof); boot95 is the shot bootstrap; loso_min/max the range over "
                   "leave-one-shot-out refits (least-squares fits only)"),
     }
-    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2))
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(pd.DataFrame(summaries).to_string())
     return 0
 
