@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 from omas import ODS
 
+from vaft.machine_mapping.core_profiles import classify_ti_record, inferred_ti_text
 from vaft.validation import kinetic_state as ks
 from vaft.validation.equilibrium import _thomson_pressure, thomson_pressure_samples
 
@@ -512,11 +513,8 @@ def test_pressure_sigma_takes_the_larger_of_spread_and_floor():
     assert sigma[1] == pytest.approx(np.std([100.0, 160.0], ddof=1))
 
 
-def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
-    import csv
-    import gzip
+def _lane_k_modules():
     import importlib.util
-    import json
     import sys
     from pathlib import Path
 
@@ -530,6 +528,15 @@ def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
             spec.loader.exec_module(modules[name])
     finally:
         sys.path.remove(str(folder))
+    return modules
+
+
+def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
+    import csv
+    import gzip
+    import json
+
+    modules = _lane_k_modules()
 
     shot = 99002
     filedb = tmp_path / "filedb"
@@ -579,7 +586,23 @@ def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
     assert [ion["label"] for ion in stored["profiles_1d"][0]["ion"]] == ["H+", "C6+"]
     assert json.loads(stored["code"]["parameters"])["origin"] == "inferred"
     ion = stored["profiles_1d"][0]["ion"][0]
-    assert ion["temperature_fit"]["parameters"].startswith("origin=inferred")
+    # the consumer's classification, not a spelling: the record round-trips as inferred
+    assert classify_ti_record(ion["temperature_fit"]["parameters"]) == "inferred"
+    assert ion["temperature_fit"]["parameters"].startswith(inferred_ti_text("equilibrium_pressure_partition"))
+
+
+def test_the_inferred_marker_is_the_shared_spelling_so_producer_and_consumer_cannot_drift(monkeypatch):
+    """build_ti writes the ion record through inferred_ti_text(); a hand-spelled
+    'origin=inferred' would stop classifying as inferred the day the shared label
+    changes (cold review 0.8.0 delta-absorb-14 physics F4)."""
+    from vaft.machine_mapping import core_profiles as labels
+
+    build_ti = _lane_k_modules()["build_ti"]
+    assert classify_ti_record(build_ti._ti_marker(0.3, 0.7)) == "inferred"
+    monkeypatch.setattr(labels, "INFERRED_TI_ORIGIN", "inferred_v2")
+    marker = build_ti._ti_marker(0.3, 0.7)
+    assert marker.startswith(labels.inferred_ti_text("equilibrium_pressure_partition"))
+    assert classify_ti_record(marker) == "inferred"
 
 
 

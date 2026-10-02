@@ -42,6 +42,8 @@ from typing import Any
 
 import numpy as np
 
+from vaft.machine_mapping.core_profiles import inferred_ti_text
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_state import SLICE_TOLERANCE_S, _cell, _git, _load  # noqa: E402
 
@@ -120,6 +122,18 @@ def _write(path: Path, columns: dict[str, tuple[str, str]], rows: list[dict[str,
               "properties": {k: {"type": [t, "null"], "description": d} for k, (t, d) in columns.items()}}
     (path.parent / "schema").mkdir(exist_ok=True)
     (path.parent / "schema" / f"{path.stem}.schema.json").write_text(json.dumps(schema, indent=1) + "\n", encoding="utf-8")
+
+
+def _ti_marker(lo: float, hi: float) -> str:
+    """The ``ion.*.temperature_fit.parameters`` record of an inferred T_i slice.
+
+    The machine-readable part is :func:`vaft.machine_mapping.core_profiles.inferred_ti_text`,
+    the one spelling ``classify_ti_record`` reads back as ``inferred``; the
+    rest is free text for a human reader.
+    """
+    return (f"{inferred_ti_text('equilibrium_pressure_partition')}; not measured; "
+            f"n_e and T_e outside rho_tor_norm [{lo:.4g}, {hi:.4g}] are the core_profiles fit "
+            f"extrapolated beyond the Thomson channels; NaN where p_i <= 0 or not significant")
 
 
 def _flags(result: dict[str, Any], extra: list[list[str]] | None = None) -> list[str]:
@@ -297,10 +311,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
             ods[f"{root}.grid.rho_tor_norm"] = s["rho"]
             ods[f"{root}.electrons.density_thermal"] = s["n_e"]
             ods[f"{root}.electrons.temperature"] = s["t_e"]
-            lo, hi = s["span"]
-            marker = (f"origin=inferred; method=equilibrium_pressure_partition; not measured; "
-                      f"n_e and T_e outside rho_tor_norm [{lo:.4g}, {hi:.4g}] are the core_profiles fit "
-                      f"extrapolated beyond the Thomson channels; NaN where p_i <= 0 or not significant")
+            marker = _ti_marker(*s["span"])
             for k, species in enumerate(composition["species"]):
                 ion = f"{root}.ion.{k}"
                 # Machine-readable next to the value: a reader keyed on the presence
