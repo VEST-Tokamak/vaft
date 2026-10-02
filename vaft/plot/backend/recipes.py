@@ -243,22 +243,23 @@ def _resolve_selection(
 
 
 def _channel_passes_signal_preset(
-    ods: Any, y_path: str, index: int, values: np.ndarray, selection: Any
+    ods: Any, y_path: str, index: int, values: np.ndarray, selection: Any, validity: Any = None,
 ) -> bool:
     """The :func:`_keep_by_signal` rule for one channel read directly."""
     preset = ACTIVE if selection is None else selection
     if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
         return True
-    code, mask = _validity_of(ods, y_path, index)
-    if is_condemned(record_from_mask(code, mask)):
-        return False
+    if validity is None:
+        code, mask = _validity_of(ods, y_path, index)
+        if is_condemned(record_from_mask(code, mask)):
+            return False
     if preset == ACTIVE:
         finite = values[np.isfinite(values)]
         return finite.size > 0 and bool(np.any(finite != 0.0))
     return True
 
 
-def _keep_by_signal(traces: list, selection: Any) -> list:
+def _keep_by_signal(traces: list, selection: Any, validity: Any = None) -> list:
     """Apply a signal preset to built traces (``vaft.plot.selection``).
 
     The default, ``active``, keeps channels flagged valid whose trace carries a
@@ -266,13 +267,21 @@ def _keep_by_signal(traces: list, selection: Any) -> list:
     they read; ``all`` keeps everything.  An explicit selection -- indices,
     identifiers, a region preset -- is what the caller named and is returned
     untouched, invalid channels included, for the renderer to mark.
+
+    Selection decides which channels are requested; ``validity=`` decides how
+    flagged data inside them are drawn (issue #1380).  When the caller states
+    a ``validity=`` mode, that mode owns the flags: a condemned channel is no
+    longer dropped here but reaches the renderer, which shows it demoted
+    (``show``), leaves it out (``mask``) or draws it plainly (``ignore``).
+    ``active`` still drops a channel with no signal.  Without ``validity=``
+    the presets keep their behaviour: condemned channels are left out.
     """
     preset = ACTIVE if selection is None else selection
     if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
         return traces
     kept = []
     for trace in traces:
-        if trace.is_invalid_channel:
+        if validity is None and trace.is_invalid_channel:
             continue
         if preset == ACTIVE:
             y = np.asarray(trace.y, dtype=float)
@@ -6734,6 +6743,7 @@ def _build_line_traces(
     line_index: Any = None,
     abscissa: Abscissa | None = None,
     resolved: list[str] | None = None,
+    validity: Any = None,
 ) -> list[Series]:
     """Extract traces in IMAS canonical units; display scaling happens later.
 
@@ -6851,7 +6861,7 @@ def _build_line_traces(
         # The abscissa is decided by the traces that are drawn: a channel the
         # selection preset drops takes its own failed reading with it, rather
         # than putting every surviving channel on a sample index.
-        kept = _keep_by_signal(traces, selection)
+        kept = _keep_by_signal(traces, selection, validity)
         drawn = {id(trace) for trace in kept}
         for trace, name in zip(traces, per_trace):
             if id(trace) in drawn:
@@ -7196,6 +7206,7 @@ def _build_line_series(
             recipe,
             entry_label=entry_label,
             selection=_selection_option(options),
+            validity=options.get("validity"),
             emission=emission,
             line_index=line_index,
             abscissa=abscissa,
@@ -7866,7 +7877,7 @@ def _build_channel_profile(
             axis = _first_time(ods, recipe.time_paths, i=index)
             if axis is None or axis.size != y.size:
                 continue
-            if not _channel_passes_signal_preset(ods, recipe.y_path, index, y, selection):
+            if not _channel_passes_signal_preset(ods, recipe.y_path, index, y, selection, options.get("validity")):
                 continue
             if sample_index is not None:
                 sample, stored, reason = sample_index, float(axis[sample_index]), f"sample {sample_index}"
@@ -8006,6 +8017,7 @@ def _build_profile_1d(
             selection = _selection_option(options)
             indices = _resolve_selection(ods, recipe.y_path, selection)
             x_values, y_values = [], []
+            valid_points: list[bool] = []
             coordinate_path = _profile_coordinate(recipe, coordinate)
             for index in indices:
                 x = _get(ods, coordinate_path.format(i=index)) if coordinate_path else None
@@ -8015,19 +8027,35 @@ def _build_profile_1d(
                 y_flat = np.asarray(y, dtype=float).ravel()
                 # A channel is one point of the profile; the signal presets
                 # apply to it as they do to a trace (vaft.plot.selection).
-                if not _channel_passes_signal_preset(ods, recipe.y_path, index, y_flat, selection):
+                if not _channel_passes_signal_preset(
+                    ods, recipe.y_path, index, y_flat, selection, options.get("validity"),
+                ):
                     continue
                 x_values.append(float(np.asarray(x, dtype=float).ravel()[0]))
                 position = min(time_slice, y_flat.size - 1) if y_flat.size else 0
                 y_values.append(float(y_flat[position]) if y_flat.size else np.nan)
+                # Each point carries its channel's flag at the sampled position,
+                # so a stated validity= can demote or mask it (issue #1380): a
+                # condemned channel the preset lets through is not drawn as valid.
+                # The stored per-sample mask is authoritative when present; the
+                # scalar is "worst state reached" and decides only without one
+                # (the Series.is_invalid_channel rule, #424).
+                code, mask = _validity_of(ods, recipe.y_path, index)
+                if mask is not None and np.asarray(mask).size == y_flat.size and y_flat.size:
+                    valid = bool(np.asarray(mask, dtype=bool).ravel()[position])
+                else:
+                    valid = code is None or int(np.asarray(code).ravel()[0]) >= 0
+                valid_points.append(valid)
             if x_values:
                 order = np.argsort(x_values)
+                flags = np.asarray(valid_points, dtype=bool)[order]
                 traces.append(
                     Series(
                         x=np.asarray(x_values)[order],
                         y=np.asarray(y_values)[order],
                         label=entry_label,
                         entry=entry_label,
+                        valid_mask=None if flags.all() else flags,
                         style={"marker": "o", "linestyle": "-"},
                     )
                 )
