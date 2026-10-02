@@ -6,6 +6,7 @@ This directory builds the VEST Tier A confinement table on a validated ohmic pow
 |---|---|
 | `build_table.py` | One row per magnetics state key of Lane K's state key contract v1 (#1454). It writes Lane M's `CONFINEMENT_COLUMNS` (`vaft.data.public.schema`) followed by Lane D extension columns: three stored energies, every power-balance term, slice-quality evidence and rule flags. |
 | `closures.py` | Runs four analyses: an errors-in-variables fit of W against P_OH (independent of W) and P_net (for comparison; it carries W noise through dW/dt), over a grid of the assumed equation error of W and measurement error of P; the Kadomtsev-completed size exponent and dimensionless indices, with the cluster covariance propagated and the size exponent labelled `assumed_not_measured`; closures μ_ρ = −2, −2.5 and −3 as linear constraints, compared by RMS, AIC/BIC, a cluster Wald test, leave-one-shot-out error and bootstrap spread; and NSTX (Buxton 2019, Kaye 2006) as a comparison, never a prior. |
+| `figures.py` | Figure functions for Lane V's conference notebook (`vaft.plot` is frozen). Each returns `(fig, axes)`: VEST over the ITPA DB5.2.3 standard set with the spherical tokamaks broken out; τ_E measured against IPB98(y,2) and NSTX2006L; the H-factor distributions; and the exponent comparison with the Kadomtsev-completed μ_ρ, marked as assumed and as undetermined where (1+α_P)/σ < 2. The CLI renders PNG and PDF. |
 | `fit.py` | Fits τ_E = C I_p^aI B_T^aB P_net^aP, density-free (A, primary) and with the Thomson line density (B) on the same subset. It reports errors clustered by shot, a shot bootstrap, leave-one-shot-out refits, influence, a Huber fit and identifiability (VIF, condition number, correlations, log spread). Each fit runs on the primary and the sensitivity selection. |
 
 ## Inputs (read only)
@@ -77,5 +78,11 @@ python closures.py --table ~/runs/campaign/atlas/confinement/table.csv --out ~/r
 ```
 
 This writes `closures.csv`, `odr_scan.csv`, `nstx_comparison.csv` and `MANIFEST.json`. Every dimensionless index divides by 1 + α_P, so read `one_plus_aP_over_se` before any μ: within about 2σ of zero, the completed indices are undetermined.
+
+Then the figures:
+
+```bash
+python figures.py --atlas ~/runs/campaign/atlas/confinement --out ~/runs/campaign/atlas/confinement/figures
+```
 
 Nothing is written to the FileDB.
