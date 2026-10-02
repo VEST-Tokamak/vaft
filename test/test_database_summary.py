@@ -220,7 +220,8 @@ def test_volume_averaged_extractor_matches_nearest_equilibrium_slice(monkeypatch
     assert rows[0]["time_diff_s"] == pytest.approx(0.01)
 
 
-def _reliability_ods():
+def _reliability_ods(efit_preset=None):
+    """A finalized EFIT product; ``efit_preset`` is the k-file stage's record, when one was written."""
     fitted = {
         "measured": 1.0,
         "reconstructed": 1.2,
@@ -259,6 +260,7 @@ def _reliability_ods():
                          "provenance": {"outputs": {"gfile": "/w/g039915.00010",
                                                     "mfile": "/w/m039915.00010"}}},
                     ],
+                    **({"efit_preset": efit_preset} if efit_preset is not None else {}),
                 }
             },
             sort_keys=True,
@@ -318,6 +320,41 @@ def test_efit_magnetic_reliability_extracts_all_mapped_families():
     assert flux["measurement_index"] == 2
     assert np.isnan(flux["uncertainty"])
     assert np.isnan(flux["normalized_residual"])
+
+
+@pytest.mark.parametrize("name", ["statistical_891", "routine"])
+def test_the_efit_configuration_column_names_the_recorded_preset(name):
+    """``name@sha12`` from the k-file stage's record: the one column that keeps
+    routine and statistical rows apart (cold review 0.8.0 delta-absorb-11b F3)."""
+    from vaft.code.efit import efit_preset
+
+    record = {**efit_preset(name).record(), "sigma_floor_changes": []}
+    rows = summary_module.extract_efit_magnetic_reliability(_reliability_ods(efit_preset=record), 42)
+    assert len(rows) == 6
+    assert {row["efit_configuration"] for row in rows} == {f"{name}@{record['scientific_sha256'][:12]}"}
+    assert rows[0]["efit_configuration"] != f"{name}@"
+
+
+def test_a_kinetic_product_names_its_preset_from_the_kinetic_payload():
+    from vaft.code.efit import efit_preset
+
+    record = efit_preset("routine").record()
+    ods = _reliability_ods()
+    ods["equilibrium.code.parameters"] = json.dumps({"kinetic_efit": {"efit_preset": record}})
+    rows = summary_module.extract_efit_kinetic_reliability(ods, 42)
+    assert rows and {row["efit_configuration"] for row in rows} == {
+        f"routine@{record['scientific_sha256'][:12]}"
+    }
+
+
+def test_a_product_without_a_preset_record_is_unrecorded():
+    """Pre-record products, and the --config / legacy-basis runs that name no preset."""
+    rows = summary_module.extract_efit_magnetic_reliability(_reliability_ods(), 42)
+    assert rows and {row["efit_configuration"] for row in rows} == {"unrecorded"}
+    ods = _reliability_ods()
+    ods["equilibrium.code.parameters"] = json.dumps({"kinetic_efit": {}})
+    rows = summary_module.extract_efit_kinetic_reliability(ods, 42)
+    assert rows and {row["efit_configuration"] for row in rows} == {"unrecorded"}
 
 
 def test_efit_kinetic_reliability_extracts_all_mapped_families():
