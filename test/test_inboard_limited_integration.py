@@ -66,7 +66,7 @@ def _rtes() -> Path | None:
     home = os.environ.get("TESHOME")
     for candidate in (
         Path(home) / "bin" / "rtes" if home else None,
-        Path(home) / "TES" / "rtes" if home else None,
+        Path(home) / "TES" / "rtes" if home else None,   # TES's own build layout
         Path(os.environ["RTES"]) if os.environ.get("RTES") else None,
     ):
         if candidate is not None and candidate.is_file():
