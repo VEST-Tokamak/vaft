@@ -276,7 +276,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>5b9b2d7</code>. What is described
+  <code>3f1fe6b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -431,7 +431,7 @@ zero-phase.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#VEST_CoilCurrentNoiseReduction"><code>VEST_CoilCurrentNoiseReduction</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-deprecated">Deprecated</span></span>
-<a class="ref-source" data-source="VEST_CoilCurrentNoiseReduction" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1998-L2006" title="vaft/process/signal_processing.py, lines 1998–2006 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="VEST_CoilCurrentNoiseReduction" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1998-L2006" title="vaft/process/signal_processing.py, lines 1998–2006 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>VEST_CoilCurrentNoiseReduction(data)</code></pre>
     <details class="ref-code" data-source-code="VEST_CoilCurrentNoiseReduction"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 1998–2006</span></summary>
@@ -456,7 +456,7 @@ zero-phase.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#anti_alias_filter"><code>anti_alias_filter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="anti_alias_filter" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1102-L1285" title="vaft/process/signal_processing.py, lines 1102–1285 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="anti_alias_filter" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1102-L1285" title="vaft/process/signal_processing.py, lines 1102–1285 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>anti_alias_filter(values, *, source_rate, cutoff_hz, stopband_hz=None, numtaps=None, axis=-1, nan_policy=&#39;segment&#39;, return_mask=False)</code></pre>
 
@@ -576,7 +576,7 @@ samples; on an irregular grid the design rate is a fiction, which
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#butterworth_bandpass"><code>butterworth_bandpass</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="butterworth_bandpass" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L513-L576" title="vaft/process/signal_processing.py, lines 513–576 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="butterworth_bandpass" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L513-L576" title="vaft/process/signal_processing.py, lines 513–576 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>butterworth_bandpass(data, low, high, fs, order=2, *, zero_phase=True)</code></pre>
     <details class="ref-code" data-source-code="butterworth_bandpass"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 513–576</span></summary>
@@ -716,7 +716,7 @@ from SciPy.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#butterworth_lowpass"><code>butterworth_lowpass</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="butterworth_lowpass" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L449-L510" title="vaft/process/signal_processing.py, lines 449–510 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="butterworth_lowpass" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L449-L510" title="vaft/process/signal_processing.py, lines 449–510 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>butterworth_lowpass(data, cutoff, fs, order=2, *, zero_phase=False)</code></pre>
     <details class="ref-code" data-source-code="butterworth_lowpass"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 449–510</span></summary>
@@ -855,7 +855,7 @@ length and raises from SciPy otherwise; nothing here catches that.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#define_baseline"><code>define_baseline</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="define_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1706-L1772" title="vaft/process/signal_processing.py, lines 1706–1772 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="define_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1706-L1772" title="vaft/process/signal_processing.py, lines 1706–1772 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>define_baseline(time, onset_time, onset_window, offset_time=None, offset_window=None)</code></pre>
     <details class="ref-code" data-source-code="define_baseline"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 1706–1772</span></summary>
@@ -994,7 +994,7 @@ pre-onset record yields fewer samples than asked, with no warning.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#describe_time_grid"><code>describe_time_grid</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="describe_time_grid" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1001-L1060" title="vaft/process/signal_processing.py, lines 1001–1060 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="describe_time_grid" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1001-L1060" title="vaft/process/signal_processing.py, lines 1001–1060 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>describe_time_grid(time, *, rtol=0.001)</code></pre>
     <details class="ref-code" data-source-code="describe_time_grid"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 1001–1060</span></summary>
@@ -1112,7 +1112,7 @@ tolerance would only reject it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#detect_active_window"><code>detect_active_window</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="detect_active_window" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L866-L947" title="vaft/process/signal_processing.py, lines 866–947 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="detect_active_window" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L866-L947" title="vaft/process/signal_processing.py, lines 866–947 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>detect_active_window(time, signal, threshold=0.01)</code></pre>
 
@@ -1191,7 +1191,7 @@ robust to noise: a single sample below <code class="language-plaintext highlight
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#detect_clipped_samples"><code>detect_clipped_samples</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="detect_clipped_samples" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L116-L183" title="vaft/process/signal_processing.py, lines 116–183 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="detect_clipped_samples" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L116-L183" title="vaft/process/signal_processing.py, lines 116–183 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>detect_clipped_samples(data, *, clip_values, tolerance)</code></pre>
     <details class="ref-code" data-source-code="detect_clipped_samples"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 116–183</span></summary>
@@ -1336,7 +1336,7 @@ function infers nothing about the hardware.  The VEST values are read from
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#detrend_moving_average"><code>detrend_moving_average</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="detrend_moving_average" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L744-L794" title="vaft/process/signal_processing.py, lines 744–794 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="detrend_moving_average" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L744-L794" title="vaft/process/signal_processing.py, lines 744–794 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>detrend_moving_average(data, window_samples)</code></pre>
     <details class="ref-code" data-source-code="detrend_moving_average"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 744–794</span></summary>
@@ -1447,7 +1447,7 @@ it and appears, inverted, in the neighbours.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#exp_baseline"><code>exp_baseline</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="exp_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1822-L1845" title="vaft/process/signal_processing.py, lines 1822–1845 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="exp_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1822-L1845" title="vaft/process/signal_processing.py, lines 1822–1845 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>exp_baseline(x, a, b, c)</code></pre>
     <details class="ref-code" data-source-code="exp_baseline"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 1822–1845</span></summary>
@@ -1515,7 +1515,7 @@ it and appears, inverted, in the neighbours.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fir_filter"><code>fir_filter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="fir_filter" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L668-L741" title="vaft/process/signal_processing.py, lines 668–741 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="fir_filter" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L668-L741" title="vaft/process/signal_processing.py, lines 668–741 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>fir_filter(data, cutoff, fs, *, kind=&#39;lowpass&#39;, numtaps=None, window=&#39;hann&#39;, zero_phase=True)</code></pre>
     <details class="ref-code" data-source-code="fir_filter"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 668–741</span></summary>
@@ -1672,7 +1672,7 @@ at a high sample rate.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fir_filter_coefficients"><code>fir_filter_coefficients</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="fir_filter_coefficients" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L579-L665" title="vaft/process/signal_processing.py, lines 579–665 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="fir_filter_coefficients" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L579-L665" title="vaft/process/signal_processing.py, lines 579–665 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>fir_filter_coefficients(cutoff, fs, *, kind=&#39;lowpass&#39;, numtaps=None, window=&#39;hann&#39;)</code></pre>
 
@@ -1744,7 +1744,7 @@ not meet a stated ripple specification the way an equiripple design would.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#infer_signal_orientation"><code>infer_signal_orientation</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="infer_signal_orientation" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L2122-L2215" title="vaft/process/signal_processing.py, lines 2122–2215 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="infer_signal_orientation" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L2122-L2215" title="vaft/process/signal_processing.py, lines 2122–2215 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>infer_signal_orientation(signal, *, mask=None, active_fraction=0.1, min_samples=8, agreement=0.6)</code></pre>
 
@@ -1831,7 +1831,7 @@ unresolved, which the caller must handle rather than assume.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#is_signal_active"><code>is_signal_active</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="is_signal_active" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L2034-L2101" title="vaft/process/signal_processing.py, lines 2034–2101 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="is_signal_active" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L2034-L2101" title="vaft/process/signal_processing.py, lines 2034–2101 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>is_signal_active(data, var_ratio_thresh=0.01, change_ratio_thresh=0.01, verbose=False)</code></pre>
     <details class="ref-code" data-source-code="is_signal_active"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 2034–2101</span></summary>
@@ -1960,7 +1960,7 @@ asking.  An identically zero trace is inactive.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#line_average_density"><code>line_average_density</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="line_average_density" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L334-L368" title="vaft/process/signal_processing.py, lines 334–368 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="line_average_density" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L334-L368" title="vaft/process/signal_processing.py, lines 334–368 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>line_average_density(n_e_line, path_length_m)</code></pre>
     <details class="ref-code" data-source-code="line_average_density"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 334–368</span></summary>
@@ -2054,7 +2054,7 @@ comes from <code class="language-plaintext highlighter-rouge">vaft.machine_mappi
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#linear_baseline"><code>linear_baseline</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="linear_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1774-L1795" title="vaft/process/signal_processing.py, lines 1774–1795 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="linear_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1774-L1795" title="vaft/process/signal_processing.py, lines 1774–1795 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>linear_baseline(x, a, b)</code></pre>
     <details class="ref-code" data-source-code="linear_baseline"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 1774–1795</span></summary>
@@ -2118,7 +2118,7 @@ comes from <code class="language-plaintext highlighter-rouge">vaft.machine_mappi
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#process_signal"><code>process_signal</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="process_signal" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1585-L1704" title="vaft/process/signal_processing.py, lines 1585–1704 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="process_signal" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1585-L1704" title="vaft/process/signal_processing.py, lines 1585–1704 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>process_signal(time, data, options=None)</code></pre>
 
@@ -2198,7 +2198,7 @@ audit tracked in #263.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#quadratic_baseline"><code>quadratic_baseline</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="quadratic_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1797-L1820" title="vaft/process/signal_processing.py, lines 1797–1820 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="quadratic_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1797-L1820" title="vaft/process/signal_processing.py, lines 1797–1820 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>quadratic_baseline(x, a, b, c)</code></pre>
     <details class="ref-code" data-source-code="quadratic_baseline"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 1797–1820</span></summary>
@@ -2266,7 +2266,7 @@ audit tracked in #263.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#repair_clipped_interval"><code>repair_clipped_interval</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="repair_clipped_interval" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L186-L331" title="vaft/process/signal_processing.py, lines 186–331 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="repair_clipped_interval" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L186-L331" title="vaft/process/signal_processing.py, lines 186–331 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>repair_clipped_interval(time, data, *, clip_value, tolerance, min_support=4, return_mask=False)</code></pre>
 
@@ -2380,7 +2380,7 @@ here, so the caller should look at the mask.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resample_to_time"><code>resample_to_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resample_to_time" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1301-L1582" title="vaft/process/signal_processing.py, lines 1301–1582 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="resample_to_time" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1301-L1582" title="vaft/process/signal_processing.py, lines 1301–1582 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>resample_to_time(source_time, values, target_time, *, anti_alias=&#39;auto&#39;, cutoff_fraction=0.8, cutoff_hz=None, numtaps=None, min_ratio=1.05, extrapolate=&#39;clamp&#39;, nan_policy=&#39;segment&#39;, on_unsorted=&#39;error&#39;, axis=-1, return_filter_mask=False)</code></pre>
 
@@ -2524,7 +2524,7 @@ a bare interpolation knowingly.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#signal_on_offset"><code>signal_on_offset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="signal_on_offset" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1939-L1995" title="vaft/process/signal_processing.py, lines 1939–1995 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="signal_on_offset" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1939-L1995" title="vaft/process/signal_processing.py, lines 1939–1995 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>signal_on_offset(time, data, smooth_window=5, threshold=0.01, verbose=False)</code></pre>
     <details class="ref-code" data-source-code="signal_on_offset"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 1939–1995</span></summary>
@@ -2656,7 +2656,7 @@ that stops at the first sample below it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#signal_onoffset"><code>signal_onoffset</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-deprecated">Deprecated</span></span>
-<a class="ref-source" data-source="signal_onoffset" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L2019-L2032" title="vaft/process/signal_processing.py, lines 2019–2032 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="signal_onoffset" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L2019-L2032" title="vaft/process/signal_processing.py, lines 2019–2032 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>signal_onoffset(time, data, smooth_window=5, threshold=0.01, verbose=False)</code></pre>
     <details class="ref-code" data-source-code="signal_onoffset"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 2019–2032</span></summary>
@@ -2686,7 +2686,7 @@ that stops at the first sample below it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#smooth"><code>smooth</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="smooth" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L371-L446" title="vaft/process/signal_processing.py, lines 371–446 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="smooth" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L371-L446" title="vaft/process/signal_processing.py, lines 371–446 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>smooth(array, span)</code></pre>
     <details class="ref-code" data-source-code="smooth"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 371–446</span></summary>
@@ -2832,7 +2832,7 @@ would but leaves them noisier than the interior.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#subtract_baseline"><code>subtract_baseline</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="subtract_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L1847-L1937" title="vaft/process/signal_processing.py, lines 1847–1937 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="subtract_baseline" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L1847-L1937" title="vaft/process/signal_processing.py, lines 1847–1937 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>subtract_baseline(time, signal, baseline_indices, fitting_opt=&#39;linear&#39;)</code></pre>
 
@@ -2925,7 +2925,7 @@ to converge and raises from SciPy.  Nothing checks that
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#vest_coil_current_noise_reduction"><code>vest_coil_current_noise_reduction</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="vest_coil_current_noise_reduction" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L797-L863" title="vaft/process/signal_processing.py, lines 797–863 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="vest_coil_current_noise_reduction" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L797-L863" title="vaft/process/signal_processing.py, lines 797–863 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>vest_coil_current_noise_reduction(data)</code></pre>
     <details class="ref-code" data-source-code="vest_coil_current_noise_reduction"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 797–863</span></summary>
@@ -3075,7 +3075,7 @@ test but preserved in the replacement.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#vfit_signal_start_end"><code>vfit_signal_start_end</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-deprecated">Deprecated</span></span>
-<a class="ref-source" data-source="vfit_signal_start_end" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L950-L957" title="vaft/process/signal_processing.py, lines 950–957 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="vfit_signal_start_end" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L950-L957" title="vaft/process/signal_processing.py, lines 950–957 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>vfit_signal_start_end(time, data, threshold=0.01)</code></pre>
     <details class="ref-code" data-source-code="vfit_signal_start_end"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 950–957</span></summary>
@@ -3099,7 +3099,7 @@ test but preserved in the replacement.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#vfit_signal_startend"><code>vfit_signal_startend</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-deprecated">Deprecated</span></span>
-<a class="ref-source" data-source="vfit_signal_startend" href="https://github.com/VEST-Tokamak/vaft/blob/5b9b2d744e8a01ddcab3a40840b16585cbeb6f07/vaft/process/signal_processing.py#L2009-L2016" title="vaft/process/signal_processing.py, lines 2009–2016 at 5b9b2d7">source</a>
+<a class="ref-source" data-source="vfit_signal_startend" href="https://github.com/VEST-Tokamak/vaft/blob/3f1fe6bfcddce7d588699c2fa32e281bb37e4444/vaft/process/signal_processing.py#L2009-L2016" title="vaft/process/signal_processing.py, lines 2009–2016 at 3f1fe6b">source</a>
 </header>
     <pre class="ref-signature"><code>vfit_signal_startend(time, data, threshold=0.01)</code></pre>
     <details class="ref-code" data-source-code="vfit_signal_startend"><summary>Show source <span class="ref-note">vaft/process/signal_processing.py, lines 2009–2016</span></summary>
@@ -3339,7 +3339,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 16:23:02 +0000"
+        "time": "2026-10-02 17:06:38 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
