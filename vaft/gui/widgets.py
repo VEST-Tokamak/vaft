@@ -61,12 +61,19 @@ def _shown(state: Any, name: str) -> Any:
     return _widget_value(state.spec(name), state[name])
 
 
-def panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = None) -> list[Any]:
+def panel_controls(
+    state: Any,
+    *,
+    on_error: Callable[[Exception], Any] | None = None,
+    scope: Callable[[], Any] | None = None,
+) -> list[Any]:
     """Panel widgets for every control of ``state``, kept in step with it.
 
     A value the plot refuses to draw leaves the previous values in place; the
     widgets are moved back and ``on_error`` receives the exception.  Without
-    ``on_error`` it propagates.  The returned objects are what to lay out: a
+    ``on_error`` it propagates.  ``scope`` returns a context manager entered
+    around every change, so the redraw it triggers draws under it (the
+    reader's figure options, #1421).  The returned objects are what to lay out: a
     ``multi`` control is its check boxes inside a titled, scrolling column.
     """
     pn = require_panel()
@@ -98,9 +105,12 @@ def panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = 
             busy["on"] = False
 
     def apply_value(name: str, value: Any, *, from_player: bool = False) -> None:
+        import contextlib
+
         before = state.values
         try:
-            state.set(name, value)
+            with scope() if scope is not None else contextlib.nullcontext():
+                state.set(name, value)
         except Exception as error:  # the builder's refusal
             # The Matplotlib redraw restores the values itself; the Plotly
             # rebuild does not, so the values are put back here for both.

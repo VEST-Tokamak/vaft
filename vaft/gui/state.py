@@ -105,6 +105,14 @@ class BrowserSession:
         self.plot: str | None = None
         self.renderer: str | None = None
         self.interactive: Any = None
+        #: A composed figure (#1467) instead of one plot: its composition and
+        #: what ``compose`` returned.
+        self.composition: Any = None
+        self._composed: Any = None
+        #: The reader's explicit figure options (#1421); empty = all inherited.
+        from vaft.plot import FigureOptions
+
+        self.figure_options: Any = FigureOptions()
         self._catalog: Any = None
         #: Database mode: one growing ODS per shot, the IDS it holds, and the
         #: IDS the shot stores at all.
@@ -270,11 +278,76 @@ class BrowserSession:
         # render_controls makes its pyplot figure before the first draw; a
         # refused draw must not leave it registered in a server that runs for
         # days.
-        with close_new_figures_on_error():
+        with close_new_figures_on_error(), self.scope():
             drawn = render_plot(name, self.ods, interactive=True, interaction_backend="none", **options)
         self._release()
         self.plot, self.renderer, self.interactive = name, renderer, drawn
         return drawn
+
+    def scope(self) -> Any:
+        """The figure options' type and line settings in force for a (re)draw.
+
+        The interactive path redraws long after :meth:`select` returns, on
+        every control change; whoever changes a control enters this scope so
+        the redraw is drawn with the reader's options as the first draw was.
+        """
+        from vaft.plot.figure_options import figure_options_scope
+
+        return figure_options_scope(self.figure_options)
+
+    def compose(self, composition: Any, *, renderer: str = "auto") -> Any:
+        """Draw ``composition`` from the loaded sources; the previous figure is released.
+
+        ``"auto"`` draws with Plotly when every cell's plot has a Plotly
+        rendering.  Database shots load every cell's IDS first.
+        """
+        if self.ods is None:
+            raise RuntimeError("no source is open")
+        if renderer not in RENDERERS:
+            raise ValueError(f"renderer must be one of {', '.join(RENDERERS)}; got {renderer!r}")
+        names = [cell.plot for cell in composition.cells]
+        if renderer == "auto":
+            renderer = "plotly" if all(self.supports_plotly(name) for name in names) else "matplotlib"
+        if self.database:
+            self.load_ids(list(dict.fromkeys(ident for name in names for ident in self.plot_ids(name))))
+        import vaft.omas
+        from vaft.plot.environment import close_new_figures_on_error
+
+        with close_new_figures_on_error():
+            drawn = vaft.omas.compose(
+                composition, self.ods, backend=renderer if renderer == "plotly" else None,
+                figure_options=self.figure_options.to_dict() or None,
+            )
+        self._release()
+        self.composition, self._composed, self.renderer = composition, drawn, renderer
+        return drawn
+
+    def request(self, *, format: str | None = None, theme: str | None = None) -> Any:
+        """The :class:`vaft.plot.PlotRequest` of what is on screen.
+
+        ``format``/``theme`` are the reproduction's; with either, the request
+        is for Matplotlib, which is what they shape.  A theme the controls
+        chose is carried when none is given.
+        """
+        from vaft.plot import DataSource, PlotRequest
+
+        if self.plot is None and self.composition is None:
+            raise RuntimeError("nothing is drawn")
+        kind = self.sources[0].kind
+        source = DataSource(
+            kind, tuple(source.value for source in self.sources),
+            self.sources[0].namespace if kind == "shot" else None,
+        )
+        options = {}
+        if self.composition is None:
+            options = self.intent_options()
+            chosen_theme = options.pop("theme", None)
+            theme = theme or (chosen_theme if self.renderer == "matplotlib" else None)
+        backend = "plotly" if self.renderer == "plotly" and not (format or theme) else None
+        return PlotRequest(
+            source=source, plot=self.plot, composition=self.composition, options=options,
+            format=format, theme=theme, backend=backend, figure_options=self.figure_options or None,
+        )
 
     def call_options(self) -> dict[str, Any]:
         """The plot call's keyword arguments for the controls as they stand.
@@ -287,6 +360,22 @@ class BrowserSession:
         if self.state is None:
             return {}
         return {**self.state.as_options(), **self.state.as_style()}
+
+    def intent_options(self) -> dict[str, Any]:
+        """The control values the reader changed: :meth:`call_options` less the defaults.
+
+        What reproduced code should say -- a control left where the plot put
+        it is the plot's default and stays out, so the code follows the
+        plot if its default improves.
+        """
+        if self.state is None:
+            return {}
+        from vaft.plot.navigation import ControlState
+
+        untouched = ControlState(self.state.controls)
+        defaults = {**untouched.as_options(), **untouched.as_style()}
+        missing = object()
+        return {key: value for key, value in self.call_options().items() if defaults.get(key, missing) != value}
 
     def carry_options(self) -> dict[str, Any]:
         """The controls' values to redraw the plot with, controls included.
@@ -302,40 +391,55 @@ class BrowserSession:
         if state is not None and state.values.get("channels"):
             options["selection"] = state["selection"]
             options["channels"] = tuple(state["channels"])
+        if state is not None and "validity" in options:
+            # A validity passed to an interactive plot pins the channels it
+            # brings in, whatever the control says later; at its default it
+            # is no choice of the reader's and is left to the control.
+            try:
+                if options["validity"] == state.spec("validity").default:
+                    del options["validity"]
+            except KeyError:
+                pass
         return options
 
-    def export(self, fmt: str = "png", *, dpi: int = 150, settings: Any = None) -> bytes:
-        """The current plot, with its controls, drawn by Matplotlib as ``fmt``.
+    def export(
+        self, fmt: str = "png", *, dpi: int = 150, format: str | None = None, theme: str | None = None,
+    ) -> bytes:
+        """What is on screen, drawn by Matplotlib as ``fmt`` with the reader's options.
 
-        The file is always the publication (Matplotlib) rendering, whichever
-        renderer is on screen; ``settings`` (a
-        :class:`~vaft.gui.figure.FigureSettings`) sizes and limits it.
+        The file is the publication (Matplotlib) rendering of :meth:`request`
+        whichever renderer is on screen, from the data already loaded --
+        nothing is read again.  ``format``/``theme`` shape it as the copied
+        code would; a ``dpi`` field of the figure options, when it has one,
+        wins over ``dpi``.
         """
         from .figure import EXPORT_FORMATS
 
-        if self.interactive is None:
+        if self.plot is None and self.composition is None:
             raise RuntimeError("no plot is drawn")
         if fmt not in EXPORT_FORMATS:
             raise ValueError(f"format must be one of {', '.join(EXPORT_FORMATS)}; got {fmt!r}")
         import io
 
-        from vaft.omas import render_plot
-        from vaft.plot.environment import close_figure, close_new_figures_on_error
+        import vaft.omas
+        from vaft.plot import save_figure
+        from vaft.plot.environment import close_new_figures_on_error
 
+        request = self.request(format=format, theme=theme)
+        presentation = {key: value for key, value in (("format", request.format), ("theme", request.theme)) if value}
+        options = request.figure_options.to_dict() if request.figure_options is not None else None
         # A builder that fails after pyplot made its figure must not leak it
         # into a server that runs for days.
         with close_new_figures_on_error():
-            drawn = render_plot(self.plot, self.ods, **self.call_options())
+            if self.composition is not None:
+                drawn = vaft.omas.compose(self.composition, self.ods, figure_options=options, **presentation)
+            else:
+                drawn = vaft.omas.render_plot(
+                    self.plot, self.ods, **dict(request.options), figure_options=options, **presentation,
+                )
         figure = drawn[0] if isinstance(drawn, tuple) else drawn
-        try:
-            sized = settings is not None and settings.sized
-            if settings is not None:
-                settings.apply(figure, "matplotlib", dpi=dpi)
-            buffer = io.BytesIO()
-            # An explicit size is the file's size; otherwise trim the margins.
-            figure.savefig(buffer, format=fmt, dpi=dpi, bbox_inches=None if sized else "tight")
-        finally:
-            close_figure(figure)
+        buffer = io.BytesIO()
+        save_figure(figure, buffer, format=fmt, dpi=getattr(self.figure_options, "dpi", None) or dpi)
         return buffer.getvalue()
 
     @property
@@ -344,16 +448,21 @@ class BrowserSession:
 
     @property
     def figure(self) -> Any:
+        if self._composed is not None:
+            return self._composed[0] if isinstance(self._composed, tuple) else self._composed
         return None if self.interactive is None else self.interactive.figure
 
     def _release(self) -> None:
-        if self.interactive is not None and self.renderer == "matplotlib":
-            from vaft.plot.environment import close_figure
+        from vaft.plot.environment import close_figure
 
-            # interaction_backend="none" draws on a pyplot figure, which the
-            # pyplot registry keeps alive until closed.
+        # Matplotlib figures are pyplot figures, which the pyplot registry
+        # keeps alive until closed.
+        if self.interactive is not None and self.renderer == "matplotlib":
             close_figure(self.interactive.figure)
+        if isinstance(self._composed, tuple):
+            close_figure(self._composed[0])
         self.plot, self.renderer, self.interactive = None, None, None
+        self.composition, self._composed = None, None
 
     def close(self) -> None:
         """Release the figure and forget the sources."""
