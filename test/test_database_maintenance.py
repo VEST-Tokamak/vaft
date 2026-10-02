@@ -167,7 +167,16 @@ class _FakeRemote:
         monkeypatch.setattr(
             replication, "_remote_entries", replication._require_remote_entries
         )
+        def hsget(uri, target):
+            # #1470: the audit downloads each unlinked file to tell data from a
+            # stub before relinking it. The fake remote's files hold data.
+            self.events.append("hsget")
+            with h5py.File(target, "w") as handle:
+                handle["profiles_1d.0.electrons.temperature"] = [10.0, 20.0]
+            return target
+
         monkeypatch.setattr("vaft.database.transport.run_hsload", hsload)
+        monkeypatch.setattr("vaft.database.transport.run_hsget", hsget)
         monkeypatch.setattr(
             "vaft.database.transport.verify_uploaded_image", lambda *a, **k: None
         )
