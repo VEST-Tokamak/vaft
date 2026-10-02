@@ -270,7 +270,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4a98959</code>. What is described
+  <code>78de8c5</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -301,7 +301,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.transport_state</code>:
-<strong>8</strong> public functions. Each entry is what
+<strong>9</strong> public functions. Each entry is what
 <code>vaft.process.describe("transport_state.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -336,7 +336,7 @@ modified: the ion-temperature policy writes into a deep copy.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 9 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="assess_neo_readiness"><td><a href="#assess_neo_readiness"><code>assess_neo_readiness</code></a></td><td>Decide whether a resolved state can go to NEO.
@@ -344,6 +344,8 @@ modified: the ion-temperature policy writes into a deep copy.</p>
   <tr data-ref-row="assess_tglf_readiness"><td><a href="#assess_tglf_readiness"><code>assess_tglf_readiness</code></a></td><td>Decide whether a resolved state, and each requested surface, can go to TGLF.
 </td></tr>
   <tr data-ref-row="classical_heat_fluxes"><td><a href="#classical_heat_fluxes"><code>classical_heat_fluxes</code></a></td><td>Classical perpendicular heat fluxes at one surface, from a TGLF local input.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="inferred_ti_supported"><td><a href="#inferred_ti_supported"><code>inferred_ti_supported</code></a></td><td>Whether a surface’s solver input is independent of the inferred-Ti gap fill.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="physics_parameters"><td><a href="#physics_parameters"><code>physics_parameters</code></a></td><td>The physics half of a GACODE config, with runtime-only fields dropped.
 </td></tr>
@@ -366,18 +368,22 @@ modified: the ion-temperature policy writes into a deep copy.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assess_neo_readiness"><code>assess_neo_readiness</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="assess_neo_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/4a989592c4a589a7aa541aceb4f11401aa5700a4/vaft/process/transport_state.py#L826-L859" title="vaft/process/transport_state.py, lines 826–859 at 4a98959">source</a>
+<a class="ref-source" data-source="assess_neo_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/78de8c5e3fa58eab7aaa4ecfdc0773a433b6c13f/vaft/process/transport_state.py#L1052-L1092" title="vaft/process/transport_state.py, lines 1052–1092 at 78de8c5">source</a>
 </header>
-    <pre class="ref-signature"><code>assess_neo_readiness(state)</code></pre>
-    <details class="ref-code" data-source-code="assess_neo_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 826–859</span></summary>
+    <pre class="ref-signature"><code>assess_neo_readiness(state, surfaces=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8))</code></pre>
+    <details class="ref-code" data-source-code="assess_neo_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1052–1092</span></summary>
 
-<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assess_neo_readiness</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReadinessReport</span><span class="p">:</span>
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assess_neo_readiness</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span>
+                         <span class="n">surfaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_SURFACES</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReadinessReport</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Decide whether a resolved state can go to NEO.
 
     Parameters
     ----------
     state : ResolvedTransportState
         From :func:`resolve_transport_state` [-].
+    surfaces : sequence of float
+        The r/a NEO will solve; with an inferred-Ti gap fill, at least one must have
+        an input independent of the fill [-].
 
     Returns
     -------
@@ -402,6 +408,9 @@ modified: the ion-temperature policy writes into a deep copy.</p>
     <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
         <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span>
                                <span class="n">reasons</span><span class="o">=</span><span class="nf">tuple</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">missing_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="sh">"</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">missing</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">state</span><span class="p">.</span><span class="n">fill_probe</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nf">any</span><span class="p">(</span>
+            <span class="nf">inferred_ti_supported</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">surfaces</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span> <span class="n">reasons</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">no_surface_independent_of_ti_fill</span><span class="sh">"</span><span class="p">,))</span>
     <span class="n">conditions</span> <span class="o">=</span> <span class="nf">_state_conditions</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
     <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">conditional</span><span class="sh">"</span> <span class="k">if</span> <span class="n">conditions</span> <span class="k">else</span> <span class="sh">"</span><span class="s">ready</span><span class="sh">"</span><span class="p">,</span>
                            <span class="n">conditions</span><span class="o">=</span><span class="n">conditions</span><span class="p">)</span></code></pre></figure>
@@ -414,6 +423,8 @@ modified: the ion-temperature policy writes into a deep copy.</p>
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
   <tr><td><code>state</code></td><td class="ref-type">ResolvedTransportState</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">resolve_transport_state</code>.</p>
+</td></tr>
+  <tr><td><code>surfaces</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>The r/a NEO will solve; with an inferred-Ti gap fill, at least one must have an input independent of the fill.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
@@ -447,10 +458,10 @@ report nothing missing.</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assess_tglf_readiness"><code>assess_tglf_readiness</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="assess_tglf_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/4a989592c4a589a7aa541aceb4f11401aa5700a4/vaft/process/transport_state.py#L762-L823" title="vaft/process/transport_state.py, lines 762–823 at 4a98959">source</a>
+<a class="ref-source" data-source="assess_tglf_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/78de8c5e3fa58eab7aaa4ecfdc0773a433b6c13f/vaft/process/transport_state.py#L984-L1049" title="vaft/process/transport_state.py, lines 984–1049 at 78de8c5">source</a>
 </header>
     <pre class="ref-signature"><code>assess_tglf_readiness(state, surfaces=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8), *, config=None)</code></pre>
-    <details class="ref-code" data-source-code="assess_tglf_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 762–823</span></summary>
+    <details class="ref-code" data-source-code="assess_tglf_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 984–1049</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assess_tglf_readiness</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span>
@@ -497,6 +508,10 @@ report nothing missing.</li>
             <span class="n">local</span> <span class="o">=</span> <span class="nf">prepare_tglf_input</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">profile</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">radius</span><span class="p">),</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">LocalConversionError</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
             <span class="n">results</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">SurfaceReadiness</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">radius</span><span class="p">),</span> <span class="nf">_surface_code</span><span class="p">(</span><span class="n">error</span><span class="p">),</span> <span class="nf">str</span><span class="p">(</span><span class="n">error</span><span class="p">)))</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nf">inferred_ti_supported</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">radius</span><span class="p">),</span> <span class="n">local</span><span class="o">=</span><span class="n">local</span><span class="p">):</span>
+            <span class="n">results</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">SurfaceReadiness</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">radius</span><span class="p">),</span> <span class="sh">"</span><span class="s">ti_not_inferred_here</span><span class="sh">"</span><span class="p">,</span>
+                                             <span class="sh">"</span><span class="s">this surface</span><span class="sh">'</span><span class="s">s solver input depends on the inferred-Ti gap fill</span><span class="sh">"</span><span class="p">))</span>
             <span class="k">continue</span>
         <span class="n">absent</span> <span class="o">=</span> <span class="n">local</span><span class="p">.</span><span class="nf">check_tglf_requirements</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">absent</span><span class="p">:</span>
@@ -561,7 +576,7 @@ are required.</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#classical_heat_fluxes"><code>classical_heat_fluxes</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="classical_heat_fluxes" href="https://github.com/VEST-Tokamak/vaft/blob/4a989592c4a589a7aa541aceb4f11401aa5700a4/vaft/process/transport_state.py#L1121-L1229" title="vaft/process/transport_state.py, lines 1121–1229 at 4a98959">source</a>
+<a class="ref-source" data-source="classical_heat_fluxes" href="https://github.com/VEST-Tokamak/vaft/blob/78de8c5e3fa58eab7aaa4ecfdc0773a433b6c13f/vaft/process/transport_state.py#L1354-L1462" title="vaft/process/transport_state.py, lines 1354–1462 at 78de8c5">source</a>
 </header>
     <pre class="ref-signature"><code>classical_heat_fluxes(local, b_tesla)</code></pre>
 
@@ -624,14 +639,129 @@ listed in #1453.</p>
 
   </section>
 
+  <section class="ref-entry" id="inferred_ti_supported" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#inferred_ti_supported"><code>inferred_ti_supported</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="inferred_ti_supported" href="https://github.com/VEST-Tokamak/vaft/blob/78de8c5e3fa58eab7aaa4ecfdc0773a433b6c13f/vaft/process/transport_state.py#L467-L524" title="vaft/process/transport_state.py, lines 467–524 at 78de8c5">source</a>
+</header>
+    <pre class="ref-signature"><code>inferred_ti_supported(state, r_over_a, *, solver=&#39;tglf&#39;, local=None)</code></pre>
+    <details class="ref-code" data-source-code="inferred_ti_supported"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 467–524</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">inferred_ti_supported</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="sh">"</span><span class="s">ResolvedTransportState</span><span class="sh">"</span><span class="p">,</span> <span class="n">r_over_a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                          <span class="n">solver</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">,</span> <span class="n">local</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Whether a surface</span><span class="sh">'</span><span class="s">s solver input is independent of the inferred-Ti gap fill.
+
+    Parameters
+    ----------
+    state : ResolvedTransportState
+        From :func:`resolve_transport_state` [-].
+    r_over_a : float
+        The surface [-].
+    solver : str
+        ``</span><span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="s">`` compares the full TGLF local input; ``</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="s">`` compares the ion
+        temperatures and their log-gradients the way NEO reads them [-].
+    local : TGLFInput, optional
+        The surface</span><span class="sh">'</span><span class="s">s input already built from ``state.profile``, to avoid rebuilding
+        it [-].
+
+    Returns
+    -------
+    bool
+        True when no gap was filled, or when the solver</span><span class="sh">'</span><span class="s">s input agrees (rtol 1e-4,
+        atol 1e-4) between the profile and its ``fill_probe`` [-].
+
+    Convention
+    ----------
+    GACODE differentiates on three grid points and evaluates with a spline over the
+    whole profile, so a filled node can reach a surface several grid steps away.
+    Rather than guess a margin, the gate builds the solver</span><span class="sh">'</span><span class="s">s input twice -- once from
+    the profile, once from ``fill_probe``, whose gaps are filled with a different
+    scale *and* offset -- and runs the surface only when nothing moves. TGLF</span><span class="sh">'</span><span class="s">s local
+    input uses a not-a-knot spline; NEO (PROFILE_MODEL=2, ``expro_locsim``</span><span class="sh">'</span><span class="s">s
+    ``cub_spline1``) a natural one, so each solver is checked with its own.
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="n">probe</span> <span class="o">=</span> <span class="nf">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="sh">"</span><span class="s">fill_probe</span><span class="sh">"</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">probe</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">True</span>
+    <span class="k">if</span> <span class="n">solver</span> <span class="o">==</span> <span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nf">_neo_ion_inputs_agree</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">profile</span><span class="p">,</span> <span class="n">probe</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">r_over_a</span><span class="p">))</span>
+    <span class="kn">from</span> <span class="n">vaft.code.gacode.tglf.inputs</span> <span class="kn">import</span> <span class="n">LocalConversionError</span><span class="p">,</span> <span class="n">prepare_tglf_input</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">local</span> <span class="k">if</span> <span class="n">local</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="nf">prepare_tglf_input</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">profile</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">r_over_a</span><span class="p">))</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="nf">prepare_tglf_input</span><span class="p">(</span><span class="n">probe</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">r_over_a</span><span class="p">))</span>
+    <span class="k">except</span> <span class="n">LocalConversionError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">False</span>
+    <span class="n">numeric</span> <span class="o">=</span> <span class="p">(</span><span class="sh">"</span><span class="s">taus</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rlts</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">as_</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rlns</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">zs</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">mass</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">betae</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">xnue</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">zeff</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">debye</span><span class="sh">"</span><span class="p">,</span>
+               <span class="sh">"</span><span class="s">p_prime_loc</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">q_loc</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">q_prime_loc</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rmin_loc</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rmaj_loc</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">kappa_loc</span><span class="sh">"</span><span class="p">,</span>
+               <span class="sh">"</span><span class="s">delta_loc</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">numeric</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">getattr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">getattr</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">x</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">y</span><span class="p">.</span><span class="n">shape</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">equal_nan</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">return</span> <span class="bp">True</span></code></pre></figure>
+
+</details>
+
+    <p>Whether a surface’s solver input is independent of the inferred-Ti gap fill.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">ResolvedTransportState</td><td class="ref-unit">-</td><td><p>From <code class="language-plaintext highlighter-rouge">resolve_transport_state</code>.</p>
+</td></tr>
+  <tr><td><code>r_over_a</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>The surface.</p>
+</td></tr>
+  <tr><td><code>solver</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"tglf"</code> compares the full TGLF local input; <code class="language-plaintext highlighter-rouge">"neo"</code> compares the ion temperatures and their log-gradients the way NEO reads them.</p>
+</td></tr>
+  <tr><td><code>local</code></td><td class="ref-type">TGLFInput, optional</td><td class="ref-unit">-</td><td><p>The surface’s input already built from <code class="language-plaintext highlighter-rouge">state.profile</code>, to avoid rebuilding it.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">bool</td><td class="ref-unit">-</td><td><p>True when no gap was filled, or when the solver’s input agrees (rtol 1e-4, atol 1e-4) between the profile and its <code class="language-plaintext highlighter-rouge">fill_probe</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>GACODE differentiates on three grid points and evaluates with a spline over the
+whole profile, so a filled node can reach a surface several grid steps away.
+Rather than guess a margin, the gate builds the solver’s input twice – once from
+the profile, once from <code class="language-plaintext highlighter-rouge">fill_probe</code>, whose gaps are filled with a different
+scale <em>and</em> offset – and runs the surface only when nothing moves. TGLF’s local
+input uses a not-a-knot spline; NEO (PROFILE_MODEL=2, <code class="language-plaintext highlighter-rouge">expro_locsim</code>’s
+<code class="language-plaintext highlighter-rouge">cub_spline1</code>) a natural one, so each solver is checked with its own.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Applicability</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="physics_parameters" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#physics_parameters"><code>physics_parameters</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="physics_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/4a989592c4a589a7aa541aceb4f11401aa5700a4/vaft/process/transport_state.py#L907-L939" title="vaft/process/transport_state.py, lines 907–939 at 4a98959">source</a>
+<a class="ref-source" data-source="physics_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/78de8c5e3fa58eab7aaa4ecfdc0773a433b6c13f/vaft/process/transport_state.py#L1140-L1172" title="vaft/process/transport_state.py, lines 1140–1172 at 78de8c5">source</a>
 </header>
     <pre class="ref-signature"><code>physics_parameters(config, *, exclude=())</code></pre>
-    <details class="ref-code" data-source-code="physics_parameters"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 907–939</span></summary>
+    <details class="ref-code" data-source-code="physics_parameters"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1140–1172</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">physics_parameters</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">exclude</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">())</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">The physics half of a GACODE config, with runtime-only fields dropped.
@@ -705,9 +835,9 @@ out of identity.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_transport_state"><code>resolve_transport_state</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span></span>
-<a class="ref-source" data-source="resolve_transport_state" href="https://github.com/VEST-Tokamak/vaft/blob/4a989592c4a589a7aa541aceb4f11401aa5700a4/vaft/process/transport_state.py#L427-L729" title="vaft/process/transport_state.py, lines 427–729 at 4a98959">source</a>
+<a class="ref-source" data-source="resolve_transport_state" href="https://github.com/VEST-Tokamak/vaft/blob/78de8c5e3fa58eab7aaa4ecfdc0773a433b6c13f/vaft/process/transport_state.py#L557-L951" title="vaft/process/transport_state.py, lines 557–951 at 78de8c5">source</a>
 </header>
-    <pre class="ref-signature"><code>resolve_transport_state(ods, key, *, efit_quality, quality_source=&#39;criteria&#39;, tolerance=0.0005, ti_te_ratio=&#39;policy&#39;, ti_te_ratio_sigma=None, inferred_ti=None, z_eff=2.0, impurity=&#39;C&#39;, rho_max=0.95, inputs=None)</code></pre>
+    <pre class="ref-signature"><code>resolve_transport_state(ods, key, *, efit_quality, quality_source=&#39;criteria&#39;, tolerance=0.0005, ti_te_ratio=&#39;policy&#39;, ti_te_ratio_sigma=None, inferred_ti=None, use_stored_inferred_ti=False, z_eff=2.0, impurity=&#39;C&#39;, rho_max=0.95, inputs=None)</code></pre>
 
     <p>Resolve one plasma state into a shared GACODE profile with per-quantity provenance.</p>
 
@@ -739,6 +869,8 @@ out of identity.</p>
   <tr><td><code>ti_te_ratio_sigma</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Its 1-sigma, for provenance; the policy’s when <code class="language-plaintext highlighter-rouge">None</code>.</p>
 </td></tr>
   <tr><td><code>inferred_ti</code></td><td class="ref-type">mapping, optional</td><td class="ref-unit">eV</td><td><p>A pressure-partition result (#1426), <code class="language-plaintext highlighter-rouge">{"temperature", "method", "time"}</code> on the core_profiles grid of the matched slice, preferred over the policy fallback; its <code class="language-plaintext highlighter-rouge">time</code> must match the paired slice within <code class="language-plaintext highlighter-rouge">tolerance</code>.</p>
+</td></tr>
+  <tr><td><code>use_stored_inferred_ti</code></td><td class="ref-type">bool</td><td class="ref-unit">-</td><td><p>Whether an ion temperature the product itself labels as inferred (<code class="language-plaintext highlighter-rouge">temperature_fit.parameters</code> containing <code class="language-plaintext highlighter-rouge">origin=inferred</code>, lane K’s #1426 partition) is used as the <code class="language-plaintext highlighter-rouge">inferred_ti</code> step. Off by default: the routine atlas keeps Ti = Te (#1414), and such a state is refused as <code class="language-plaintext highlighter-rouge">inferred_ti_not_enabled</code>. A labelled temperature is never taken as measured.</p>
 </td></tr>
   <tr><td><code>z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Effective charge the composition closure realizes.</p>
 </td></tr>
@@ -799,10 +931,10 @@ stage products are the data it was built against.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#run_identity"><code>run_identity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="run_identity" href="https://github.com/VEST-Tokamak/vaft/blob/4a989592c4a589a7aa541aceb4f11401aa5700a4/vaft/process/transport_state.py#L865-L904" title="vaft/process/transport_state.py, lines 865–904 at 4a98959">source</a>
+<a class="ref-source" data-source="run_identity" href="https://github.com/VEST-Tokamak/vaft/blob/78de8c5e3fa58eab7aaa4ecfdc0773a433b6c13f/vaft/process/transport_state.py#L1098-L1137" title="vaft/process/transport_state.py, lines 1098–1137 at 78de8c5">source</a>
 </header>
     <pre class="ref-signature"><code>run_identity(state, *, solver, parameters, surface=None, solver_revision=None)</code></pre>
-    <details class="ref-code" data-source-code="run_identity"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 865–904</span></summary>
+    <details class="ref-code" data-source-code="run_identity"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1098–1137</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">run_identity</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span>
@@ -885,10 +1017,10 @@ stage products are the data it was built against.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#surface_toroidal_field"><code>surface_toroidal_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="surface_toroidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/4a989592c4a589a7aa541aceb4f11401aa5700a4/vaft/process/transport_state.py#L1090-L1118" title="vaft/process/transport_state.py, lines 1090–1118 at 4a98959">source</a>
+<a class="ref-source" data-source="surface_toroidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/78de8c5e3fa58eab7aaa4ecfdc0773a433b6c13f/vaft/process/transport_state.py#L1323-L1351" title="vaft/process/transport_state.py, lines 1323–1351 at 78de8c5">source</a>
 </header>
     <pre class="ref-signature"><code>surface_toroidal_field(profile, local)</code></pre>
-    <details class="ref-code" data-source-code="surface_toroidal_field"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1090–1118</span></summary>
+    <details class="ref-code" data-source-code="surface_toroidal_field"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1323–1351</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">surface_toroidal_field</span><span class="p">(</span><span class="n">profile</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">local</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">The toroidal field at a surface</span><span class="sh">'</span><span class="s">s centre, ``|B_centr| R_centr / R``.
@@ -964,10 +1096,10 @@ field a gyro-orbit sees, so the classical baseline does not use it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#transport_partition"><code>transport_partition</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="transport_partition" href="https://github.com/VEST-Tokamak/vaft/blob/4a989592c4a589a7aa541aceb4f11401aa5700a4/vaft/process/transport_state.py#L980-L1059" title="vaft/process/transport_state.py, lines 980–1059 at 4a98959">source</a>
+<a class="ref-source" data-source="transport_partition" href="https://github.com/VEST-Tokamak/vaft/blob/78de8c5e3fa58eab7aaa4ecfdc0773a433b6c13f/vaft/process/transport_state.py#L1213-L1292" title="vaft/process/transport_state.py, lines 1213–1292 at 78de8c5">source</a>
 </header>
     <pre class="ref-signature"><code>transport_partition(neoclassical, turbulent, *, turbulent_charges=None, classical=None, rho_tolerance=0.001)</code></pre>
-    <details class="ref-code" data-source-code="transport_partition"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 980–1059</span></summary>
+    <details class="ref-code" data-source-code="transport_partition"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1213–1292</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">transport_partition</span><span class="p">(</span>
     <span class="n">neoclassical</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
@@ -1320,7 +1452,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 08:11:06 +0000"
+        "time": "2026-10-02 08:20:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
