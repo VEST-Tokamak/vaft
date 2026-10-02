@@ -244,6 +244,48 @@ DEFINITIONS = {
 }
 
 
+def power_balance_series(t, ip_meas, dip_dt, v_loop, li3, r0, w_mhd, *, dwdt_window_s, rate_polyorder):
+    """Loop-voltage split, power balance and slice evidence on the labelled slices.
+
+    Every quantity that needs a rate of an EFIT quantity (dli_3/dt, dW/dt and
+    so P_net and tau_E) requires at least two labelled slices inside the fit
+    window. P_OH = I_p V_res and R_p do not: where the window holds no rate
+    (one labelled slice, or labelled slices further apart than the window)
+    l_i is held fixed in V_ind, and only the rate-dependent columns are NaN.
+    dW/dt is NaN at exactly those slices, so P_net and tau_E stay NaN there.
+    """
+    from vaft.process.confinement import (
+        ConfinementPowerBalance,
+        confinement_power_balance,
+        confinement_slice_evidence,
+        resistive_loop_voltage,
+        smoothed_time_derivative,
+    )
+
+    t = np.asarray(t, dtype=float)
+    has_rate = t.size >= 2
+
+    def rate(y):
+        return smoothed_time_derivative(t, y, window_s=dwdt_window_s, polyorder=rate_polyorder)
+
+    dli3_dt = rate(li3) if has_rate else np.full(t.size, np.nan)
+    # No rate in the window: hold l_i fixed there instead of losing P_OH and R_p.
+    dli3_dt = np.where(np.isfinite(dli3_dt), dli3_dt, 0.0)
+    split = resistive_loop_voltage(v_loop, ip_meas, dip_dt, li3, r0, dli3_dt=dli3_dt)
+    # A loop voltage and current of opposite orientation make every P_OH negative;
+    # flag it instead of letting the shot fail its rules silently.
+    orientation = float(np.nanmedian(np.sign(ip_meas * v_loop))) if t.size else np.nan
+    if has_rate:
+        pb = confinement_power_balance(t, ip_meas, split.v_res, w_mhd, dwdt_window_s=dwdt_window_s,
+                                       dwdt_polyorder=rate_polyorder)
+    else:  # one labelled slice: no dW/dt, so P_OH (l_i held fixed) and nothing that needs a rate
+        nan = np.full(t.size, np.nan)
+        pb = ConfinementPowerBalance(time=t, p_ohmic=np.asarray(ip_meas, float) * split.v_res, dwdt=nan,
+                                     p_net=nan, p_transport=nan, tau_e_net=nan, tau_e_transport=nan)
+    ev = confinement_slice_evidence(ip_meas, dip_dt, w_mhd, pb.p_ohmic, pb.dwdt, pb.tau_e_net)
+    return split, pb, ev, orientation
+
+
 def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
     """Power balance and evidence of one shot on its magnetics EFIT time base.
 
@@ -254,13 +296,7 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
     from vaft.omas.discharge_timing import inboard_midplane_loop, loop_voltage
     from vaft.omas.formula_wrapper import compute_voltage_consumption
     from vaft.omas.update import resolve_reference_major_radius
-    from vaft.process.confinement import (
-        ConfinementPowerBalance,
-        confinement_power_balance,
-        confinement_slice_evidence,
-        resistive_loop_voltage,
-        smoothed_time_derivative,
-    )
+    from vaft.process.confinement import smoothed_time_derivative
 
     efit_path = filedb / "omas/efit/magnetic" / str(shot) / "output/efit.json.gz"
     diag = _load(filedb / "omas/diagnostics" / str(shot) / "output/diagnostics.json.gz")
@@ -294,23 +330,9 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
     li3, beta_n = li3_all[idx], beta_all[idx]
     r0 = float(resolve_reference_major_radius(efit))
 
-    def rate(y):
-        if t.size < 2:
-            return np.full(t.size, np.nan)
-        return smoothed_time_derivative(t, y, window_s=args.dwdt_window_s, polyorder=args.rate_polyorder)
-
-    split = resistive_loop_voltage(v_loop, ip_meas, dip_dt, li3, r0, dli3_dt=rate(li3))
-    # A loop voltage and current of opposite orientation make every P_OH negative;
-    # flag it instead of letting the shot fail its rules silently.
-    orientation = float(np.nanmedian(np.sign(ip_meas * v_loop))) if t.size else np.nan
-    if t.size >= 2:
-        pb = confinement_power_balance(t, ip_meas, split.v_res, w_mhd, dwdt_window_s=args.dwdt_window_s,
-                                       dwdt_polyorder=args.rate_polyorder)
-    else:  # one labelled slice: no rate, so P_OH only
-        nan = np.full(t.size, np.nan)
-        pb = ConfinementPowerBalance(time=t, p_ohmic=ip_meas * split.v_res, dwdt=nan, p_net=nan,
-                                     p_transport=nan, tau_e_net=nan, tau_e_transport=nan)
-    ev = confinement_slice_evidence(ip_meas, dip_dt, w_mhd, pb.p_ohmic, pb.dwdt, pb.tau_e_net)
+    split, pb, ev, orientation = power_balance_series(
+        t, ip_meas, dip_dt, v_loop, li3, r0, w_mhd,
+        dwdt_window_s=args.dwdt_window_s, rate_polyorder=args.rate_polyorder)
 
     # Comparison path: the EFIT boundary flux (#652) over the labelled slices; never the default.
     v_res_efit = np.full(t.size, np.nan)
@@ -390,7 +412,9 @@ def build(args) -> int:
         "v_loop": f"inboard-midplane flux loop, mean over {args.vloop_window_s} s",
         "dip_dt": f"local quadratic fit over {args.dip_window_s} s of the measured Ip",
         "dwdt": (f"local degree-{args.rate_polyorder} fit over {args.dwdt_window_s} s of W_mhd on the "
-                 "shot's labelled (good/admissible) EFIT slices only; NaN with one labelled slice"),
+                 "shot's labelled (good/admissible) EFIT slices only; NaN with one labelled slice, where "
+                 "dli_3/dt is unavailable too (likewise at labelled slices further apart than the window) "
+                 "and l_i is held fixed in V_ind there, so P_OH and R_p are still computed"),
         "li_3": "vaft.omas.update.update_equilibrium_global_quantities_beta_li after #1477",
         "p_rad": "not measured (no bolometer mapping): NaN; P_transport undefined",
         "m_eff_amu": f"{args.effective_mass_amu} (H+ per state key contract v1; not measured)",
