@@ -665,6 +665,19 @@ def test_classical_refuses_a_non_positive_field_and_the_row_stays_standard_json(
     assert json.loads(payload, parse_constant=refuse)["classical"] is None
 
 
+def test_classical_gamma1_table_is_braginskii_table_2(sample):
+    """F3: the Z -> inf knot is Braginskii's 3.25; above Z = 4 the coefficient is held at 3.6."""
+    from vaft.process.transport_state import _GAMMA1_PERP, classical_heat_fluxes
+
+    table = dict(_GAMMA1_PERP)
+    assert table[1.0] == 4.66 and table[2.0] == 4.0 and table[4.0] == 3.6
+    assert max(table) > 4.0 and table[max(table)] == 3.25
+    gamma = np.interp([4.0, 10.0, max(table)], *zip(*_GAMMA1_PERP))
+    assert gamma[0] == 3.6 and gamma[1] == pytest.approx(3.6, abs=1e-6) and gamma[2] == 3.25
+    _, local = _classical_state(sample)
+    assert classical_heat_fluxes(local, 0.3)["model"]["coefficients"]["electron"].count("3.25") == 1
+
+
 # --------------------------------------------------------------------------- cold review 0.8.0 delta-absorb-7
 
 
