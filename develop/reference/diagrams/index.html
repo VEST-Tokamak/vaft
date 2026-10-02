@@ -276,7 +276,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a413ca1</code>. What is described
+  <code>7689ffa</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -2778,7 +2778,12 @@ $\otimes$ into the page; the magnetic axis is a filled blue dot, an X-point a cr
 line, the separatrix blue; the computational boundary dashed; the machine (vessel, limiter, coils) in
 black outline, faint where it is shown only for reference; regions shaded plasma blue, vacuum green,
 conductor grey; measurements red (outboard) and orange (inboard). The machine and the flux are the toy
-free-boundary model of the Grad–Shafranov diagrams, not any device.</p>
+free-boundary model of the Grad–Shafranov diagrams, not any device. The sense of $\theta$ differs on
+purpose: the <code class="language-plaintext highlighter-rouge">cocos_orientation</code> panels draw it as the index fixes it (COCOS 11, $\sigma_{R\phi Z} = +1$
+and $\sigma_{\rho\theta\phi} = +1$ with $\phi$ into the page, puts $\theta$ clockwise in the $(R, Z)$ plane
+as drawn), while the torus, mesh and mapping figures (<code class="language-plaintext highlighter-rouge">tokamak_torus</code>, <code class="language-plaintext highlighter-rouge">logical_to_physical_mapping</code>,
+<code class="language-plaintext highlighter-rouge">sfl_coordinate_grids</code>) are convention-free sketches that use the mathematical angle, counter-clockwise
+from the outboard midplane.</p>
 
 <p><img src="/vaft/develop/assets/diagrams/tokamak_top_view.svg" alt="Top view" />
 <img src="/vaft/develop/assets/diagrams/cocos_orientation.svg" alt="COCOS orientation" />
@@ -3039,7 +3044,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 17:52:56 +0000"
+        "time": "2026-10-02 18:04:48 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
