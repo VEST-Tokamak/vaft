@@ -310,7 +310,7 @@ def main(argv=None) -> int:
                   "PLTH), ohmic L-mode; IPB98 H factors locate VEST, they are not a performance claim. mu_rho "
                   "is Kadomtsev-completed (assumed size exponent)."),
     }
-    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2))
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(json.dumps({k: manifest[k] for k in ("vest_rows", "files")}, indent=1))
     return 0
 

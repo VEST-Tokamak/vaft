@@ -409,7 +409,7 @@ def main(argv=None) -> int:
                   "between: shot means; dimensionless: <T> = W_mhd/(3 n V e), Ti=Te, n = Thomson line average, "
                   "errors of tau, rho*, beta, nu* share W"),
     }
-    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2))
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     show = result.loc[result["term"] != "log_C"]
     cols = [c for c in ("fit", "term", "coef", "se_cluster", "n", "shots", "rmse_log", "condition_number", "error")
             if c in show]

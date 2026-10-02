@@ -319,7 +319,7 @@ def main(argv=None) -> int:
                   "measured; VEST has no size scan). Closures are alternative hypotheses. NSTX values are "
                   "a comparison, never a prior. ODR fits W with P's exponent reported as the tau exponent."),
     }
-    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2, default=float))
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2, default=float), encoding="utf-8")
     cols = ["data", "model", "n", "shots", "a_i_p", "a_b_t", "a_p_net", "rmse_log", "aic", "bic",
             "loso_rmse_log", "wald_p", "mu_rho_completed", "one_plus_aP_over_se", "alpha_R_kadomtsev"]
     print(pd.DataFrame(closure_rows).reindex(columns=cols).round(3).to_string(index=False))

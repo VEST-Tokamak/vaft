@@ -46,7 +46,7 @@ Every row carries its evidence:
 - `ip_change_per_tau`, which is |dI_p/dt|/I_p · τ_E;
 - `dwdt_fraction`, which is |dW/dt|/P_OH.
 
-The `rule_*` and `accepted` columns apply the provisional working thresholds in `MANIFEST.json`. `threshold_sweep.csv` gives the accepted count and the number of shots on a threshold grid. The thresholds are not adopted until the sweep has been read; VEST discharges have no flat top, so stationarity is judged by rate, not by phase.
+The `rule_*`, `accepted` and `selected` columns apply the primary selection below (`PRIMARY_THRESHOLDS` in `build_table.py`, recorded in `MANIFEST.json` as `selection_thresholds`). `threshold_sweep.csv` gives the accepted count and the number of shots on a threshold grid. VEST discharges have no flat top, so stationarity is judged by rate, not by phase.
 
 ## Selections (decided 2026-10-02 on #1490)
 

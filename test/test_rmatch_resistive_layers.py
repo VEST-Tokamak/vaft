@@ -176,6 +176,21 @@ def test_the_feature_is_off_until_all_three_profiles_are_given():
     ).has_kinetic_profiles is True
 
 
+@pytest.mark.parametrize(
+    "given, missing",
+    [({}, "z_eff and ln_lambda"), ({"z_eff": 2.0}, "ln_lambda"), ({"ln_lambda": 17.0}, "z_eff")],
+)
+def test_kinetic_profiles_without_the_spitzer_inputs_are_refused_by_name(given, missing):
+    """No silent Z_eff = 2 / ln Lambda = 17 below the GPEC adapter (#1188;
+    cold review 0.8.0 delta-absorb-13-physics F4): the eta written to rmatch.in
+    must come from a value the caller stated."""
+    psi_norm, t_e, n_e = _profiles()
+    with pytest.raises(ValueError, match=rf"explicit {missing} .*#1188"):
+        RDCONOptions(t_e=t_e, n_e=n_e, psi_norm=psi_norm, **given)
+    # without the profiles nothing is written, so nothing is required
+    assert RDCONOptions(**given).z_eff == given.get("z_eff")
+
+
 # ---------------------------------------------------------------------------
 # rdcon has to write what rmatch reads
 # ---------------------------------------------------------------------------
@@ -237,7 +252,7 @@ def test_mismatched_profiles_are_refused_when_the_options_are_built():
     """They used to raise out of the suite after RDCON had already run."""
     psi_norm, t_e, n_e = _profiles()
     with pytest.raises(ValueError, match="one length"):
-        RDCONOptions(t_e=t_e, n_e=n_e[:-1], psi_norm=psi_norm)
+        RDCONOptions(t_e=t_e, n_e=n_e[:-1], **_SPITZER, psi_norm=psi_norm)
 
 
 def test_a_descending_coordinate_is_refused_when_the_options_are_built():

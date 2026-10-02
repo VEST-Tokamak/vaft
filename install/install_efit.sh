@@ -82,6 +82,26 @@ EOF
 die() { printf 'install_efit.sh: %s\n' "$*" >&2; exit 1; }
 note() { printf '==> %s\n' "$*"; }
 
+# Raise the stack limit of the current shell for EFIT's large automatic arrays
+# (8 MB segfaults; 64 MB passes every test on Ubuntu 24.04). Tried in order:
+# already enough; 65536 KB; the hard limit, which on macOS is 65520 KB, just
+# under the ask, so the plain raise fails there and the tests ran at 8 MB.
+# The adapter (vaft/code/_launch.py) falls back the same way.
+raise_stack_limit() {
+  local want="${1:-65536}" current hard
+  current="$(ulimit -s)"
+  [[ "$current" == unlimited ]] && return 0
+  (( current >= want )) && return 0
+  ulimit -s "$want" 2>/dev/null && return 0
+  hard="$(ulimit -Hs)"
+  if ulimit -s "$hard" 2>/dev/null; then
+    note "could not raise the stack limit to $want KB; raised it to the hard limit $hard KB"
+    return 0
+  fi
+  note "could not raise the stack limit to $want KB (hard limit $hard KB); ctest may segfault"
+  return 1
+}
+
 while (($#)); do
   case "$1" in
     --source) (($# >= 2)) || die '--source needs a path'; SOURCE="$2"; shift 2 ;;
@@ -467,11 +487,10 @@ if ((!SKIP_TESTS)); then
   # EFIT's large automatic arrays overflow the usual 8 MB default stack: on
   # Ubuntu 24.04 34 of 46 tests segfault at 8 MB and all 46 pass at 64 MB. The
   # adapter and check_efit.py raise the limit per run for the same reason, and
-  # to the same 65536 KB; raise it here in the subshell only.
+  # to the same 65536 KB; raise it here in the subshell only (a hard limit
+  # below that, as on macOS, is taken instead of leaving the 8 MB default).
   if (cd "$BUILD_DIR" &&
-      { [[ "$(ulimit -s)" == unlimited ]] || (( $(ulimit -s) >= 65536 )) ||
-        ulimit -s 65536 2>/dev/null ||
-        note "could not raise the stack limit to 65536 KB; ctest may segfault"; } &&
+      { raise_stack_limit 65536 || true; } &&
       ctest --output-on-failure >>"$LOG" 2>&1); then
     CTEST_STATUS="passed"
   else
