@@ -17,7 +17,8 @@ drawn is a model prediction under the atlas's declared assumptions, not an
 experimental operating boundary.
 
 ``transport_atlas_mode_branch`` colours by the sign of the real frequency of the
-fastest-growing ion-scale mode (``k_y rho_s <= 1``). In TGLF a negative frequency
+fastest-growing ion-scale mode (``k_y rho_s <= 1``), on surfaces where that mode
+grows (``gamma > 0``); a stable surface has no direction and is not drawn. In TGLF a negative frequency
 is the ion diamagnetic direction (``tglf/src/tglf_max.f90``). The colours are
 directions, not ITG/TEM labels.
 """
@@ -162,13 +163,15 @@ def transport_atlas_scatter(
     cs = _numeric(table, color) if color else None
     if cs is not None:
         mask &= np.isfinite(cs)
+    lineage = table.get("efit_lineage", pd.Series("", index=table.index)).astype(str).to_numpy()
+    quality = table.get("efit_quality", pd.Series("", index=table.index)).astype(str).to_numpy()
+    # Only rows with a known lineage and quality are drawn, so only they set the scale.
+    mask &= np.isin(lineage, list(MARKERS)) & np.isin(quality, QUALITIES)
     norm = None
     if cs is not None and mask.any():
         norm = mpl.colors.Normalize(vmin=float(cs[mask].min()), vmax=float(cs[mask].max()))
-    lineage = table.get("efit_lineage", pd.Series("", index=table.index)).astype(str).to_numpy()
-    quality = table.get("efit_quality", pd.Series("", index=table.index)).astype(str).to_numpy()
     drawn = 0
-    for name, marker in MARKERS.items():
+    for position, (name, marker) in enumerate(MARKERS.items()):
         for label in QUALITIES:
             sel = mask & (lineage == name) & (quality == label)
             if not sel.any():
@@ -181,7 +184,10 @@ def transport_atlas_scatter(
                 else:
                     ax.scatter(xs[sel], ys[sel], facecolors="none", edgecolors=colors, **kwargs)
             else:
-                ax.scatter(xs[sel], ys[sel], facecolors=None if label == "good" else "none", **kwargs)
+                # An open marker needs an explicit edge colour or matplotlib draws nothing.
+                edge = f"C{position}"
+                ax.scatter(xs[sel], ys[sel], facecolors=edge if label == "good" else "none",
+                           edgecolors=edge, **kwargs)
             drawn += int(sel.sum())
     ax.set_xlabel(axis_label(x))
     ax.set_ylabel(axis_label(y))
@@ -207,7 +213,8 @@ def transport_atlas_mode_branch(
 ):
     """Drive plane coloured by the direction of the fastest-growing ion-scale mode.
 
-    Marker area grows with ``log10(1 + |Q_e + Q_i| / Q_GB)``. The counts drawn in each
+    Marker area grows with ``log10(1 + |Q_e + Q_i| / Q_GB)``; filled markers are good
+    slices and open ones admissible, as in :func:`transport_atlas_scatter`. The counts drawn in each
     direction are left on ``ax.vaft_counts`` as ``{"electron": n, "ion": n}``.
 
     Returns
@@ -216,21 +223,28 @@ def transport_atlas_mode_branch(
     """
     fig, ax = _figure(ax)
     omega = _numeric(table, "omega_at_gamma_max_ion_scale")
+    gamma = _numeric(table, "gamma_max_ion_scale")
     xs, ys = _numeric(table, x), _numeric(table, y)
     q = np.abs(_numeric(table, "q_tot_gb")) if "q_tot_gb" in table else np.zeros(len(table))
     size = 6 + 10 * np.log10(1 + np.nan_to_num(q))
     lineage = table.get("efit_lineage", pd.Series("", index=table.index)).astype(str).to_numpy()
-    base = np.isfinite(omega) & (omega != 0) & np.isfinite(xs) & np.isfinite(ys)
+    quality = table.get("efit_quality", pd.Series("", index=table.index)).astype(str).to_numpy()
+    # A direction is a property of a growing mode: a stable surface has none.
+    base = (np.isfinite(omega) & (omega != 0) & (gamma > 0)
+            & np.isfinite(xs) & np.isfinite(ys))
     counts = {}
     for direction, sign, text in (("electron", 1, r"$\omega_r > 0$"), ("ion", -1, r"$\omega_r < 0$")):
         sel_dir = base & (np.sign(omega) == sign)
         counts[direction] = int(sel_dir.sum())
+        colour = DIRECTION_COLORS[direction]
         for name, marker in MARKERS.items():
-            sel = sel_dir & (lineage == name)
-            if sel.any():
-                ax.scatter(xs[sel], ys[sel], s=size[sel], marker=marker, facecolors="none",
-                           edgecolors=DIRECTION_COLORS[direction], linewidths=0.8,
-                           label=f"{direction} direction ({text}), {name} ({sel.sum()})")
+            for label in QUALITIES:
+                sel = sel_dir & (lineage == name) & (quality == label)
+                if sel.any():
+                    ax.scatter(xs[sel], ys[sel], s=size[sel], marker=marker,
+                               facecolors=colour if label == "good" else "none",
+                               edgecolors=colour, linewidths=0.8,
+                               label=f"{direction} ({text}), {name}, {label} ({sel.sum()})")
     ax.set_xlabel(axis_label(x))
     ax.set_ylabel(axis_label(y))
     ax.text(0.99, 0.01, r"$\omega_r$ of the fastest-growing mode with $k_y\rho_s\leq 1$;"

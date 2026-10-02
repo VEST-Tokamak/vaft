@@ -32,6 +32,7 @@ def _table(n=6):
         "a_over_lne": rng.uniform(0, 3, n), "a_over_lte": rng.uniform(0, 3, n),
         "f_e": np.linspace(0.1, 0.9, n), "q_tot_gb": np.logspace(-1, 2, n),
         "omega_at_gamma_max_ion_scale": [0.1, -0.2, 0.3, -0.4, 0.0, np.nan][:n],
+        "gamma_max_ion_scale": [0.05, 0.02, 0.04, 0.01, 0.03, 0.02][:n],
         "qe_gb": rng.normal(size=n), "qi_gb": rng.normal(size=n),
     })
 
@@ -88,3 +89,54 @@ def test_the_renderer_imports_no_data_layer():
     source = (ROOT / "vaft" / "plot" / "transport_atlas.py").read_text()
     for forbidden in ("import omas", "from omas", "vaft.database", "vaft.omas", "vaft.code"):
         assert forbidden not in source
+
+
+def test_open_markers_are_visible_without_a_colour_column():
+    fig, ax = ta.transport_atlas_scatter(_table(), "a_over_lne", "a_over_lte")
+    for collection in ax.collections:
+        assert len(collection.get_edgecolors()) > 0  # an open marker with no edge is invisible
+    plt.close(fig)
+
+
+def test_mode_branch_skips_stable_surfaces_and_marks_quality():
+    table = _table()
+    table.loc[0, "gamma_max_ion_scale"] = -0.01  # stable: omega 0.1 must not count
+    fig, ax = ta.transport_atlas_mode_branch(table)
+    assert ax.vaft_counts == {"electron": 1, "ion": 2}
+    filled = [c for c in ax.collections if len(c.get_facecolors()) and c.get_facecolors()[0][3] > 0]
+    assert filled  # good rows are filled
+    assert any("admissible" in t.get_text() for t in ax.get_legend().get_texts())
+    plt.close(fig)
+
+
+def test_rows_of_unknown_lineage_do_not_stretch_the_colour_scale():
+    table = _table()
+    table.loc[0, "efit_lineage"] = "unknown"
+    table.loc[0, "f_e"] = 99.0
+    fig, ax = ta.transport_atlas_scatter(table, "a_over_lne", "a_over_lte", "f_e")
+    assert fig.axes[-1].get_ylim()[1] < 1.0
+    plt.close(fig)
+
+
+def test_schema_units_and_label_units_agree():
+    spec = importlib.util.spec_from_file_location(
+        "transport_atlas_build_units", ROOT / "workflow" / "transport_atlas" / "build_atlas.py")
+    build = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(build)
+    expected = {"-": "", "Q_GB": "", "Gamma_GB": "", "c_s/a": r"$c_s/a$", "W/m^2": r"W m$^{-2}$",
+                "m^-2 s^-1": r"m$^{-2}$ s$^{-1}$", "m^2/s": r"m$^2$ s$^{-1}$", "m": "m", "T": "T"}
+    for column, (_, unit) in ta.LABELS.items():
+        assert unit == expected[build.SCHEMA[column][0]], column
+
+
+def test_independent_ti_is_judged_by_the_ratio_not_the_spelling():
+    spec = importlib.util.spec_from_file_location(
+        "transport_atlas_plot_cli", ROOT / "workflow" / "transport_atlas" / "plot_atlas.py")
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    table = pd.DataFrame({
+        "ti_lineage": ["ti_eq_te_assumed", "ti_te_1.2_measured", "pressure_partition_inferred",
+                       "measured", None, "unresolved"],
+        "ti_te_ratio": [1.0, 1.2, np.nan, np.nan, np.nan, np.nan],
+    })
+    assert cli.independent_ti(table).tolist() == [False, False, True, True, False, False]

@@ -1021,3 +1021,60 @@ def test_spectral_descriptors_survive_nan_growth_rates(atlas):
     native.eigenvalue_spectrum = spectrum
     d = atlas.spectral_descriptors(native)
     assert np.isfinite(d["gamma_max"]) and d["gamma_max"] == pytest.approx(np.nanmax(native.growth_rate))
+
+
+
+def test_f_em_and_ky_q_mean_follow_their_documented_signed_definitions(atlas):
+    from types import SimpleNamespace
+
+    ky = np.array([0.5, 1.0])
+    spectrum = np.zeros((2, 2, 2, 5))          # (species, field, ky, quantity)
+    spectrum[0, 0, :, 1] = [3.0, 1.0]          # electrons, phi
+    spectrum[1, 0, :, 1] = [-1.0, 1.0]         # an inward ion flux cancels at ky = 0.5
+    spectrum[0, 1, :, 1] = [0.5, -1.5]         # A_par: net -1.0
+    native = SimpleNamespace(gbflux={"energy": np.array([1.0, 1.0]), "particle": np.zeros(2)},
+                             ky_spectrum=ky, growth_rate=None, frequency=None, sum_flux_spectrum=spectrum)
+    d = atlas.spectral_descriptors(native)
+    # per-ky signed totals: 3 - 1 + 0.5 = 2.5 and 1 + 1 - 1.5 = 0.5
+    assert d["ky_q_mean"] == pytest.approx((0.5 * 2.5 + 1.0 * 0.5) / 3.0)
+    # Q_phi = 4, Q_mag = -1: f_em = 1 / (4 + 1)
+    assert d["f_em"] == pytest.approx(0.2)
+
+
+def test_the_atlas_refuses_a_mixed_or_unnamed_configuration_and_a_wide_dt(atlas, tmp_path, monkeypatch):
+    rows = [{"tglf_config": "tglf-sat3-em-bper", "tglf_sat_rule": 3, "tglf_use_bper": True,
+             "tglf_use_bpar": False, "dt_s": 0.0, "tolerance_s": 5e-4, "shot": 1, "time_efit_s": 0.3}]
+    def run(rows_):
+        monkeypatch.setattr(atlas, "build_rows", lambda *a, **k: [dict(r) for r in rows_])
+        return atlas.main(["--tglf", str(tmp_path), "--out", str(tmp_path / "o")])
+    with pytest.raises(ValueError, match="no TGLF"):
+        run([])
+    with pytest.raises(ValueError, match="not one named TGLF configuration"):
+        run(rows + [dict(rows[0], tglf_sat_rule=2)])
+    with pytest.raises(ValueError, match="not one named TGLF configuration"):
+        run([dict(rows[0], tglf_config=None)])
+    with pytest.raises(ValueError, match="tolerance"):
+        run([dict(rows[0], dt_s=1e-3)])
+
+
+def test_duplicate_neo_records_are_refused(atlas, tmp_path):
+    for name in ("a", "b"):
+        path = tmp_path / name / "magnetics" / "00300"
+        path.mkdir(parents=True)
+        (path / "state.json").write_text(json.dumps({"state_identity": "same"}))
+    with pytest.raises(ValueError, match="share state_identity"):
+        atlas._neo_index(tmp_path)
+
+
+def test_radial_summary_numbers(atlas):
+    rows = [{"shot": 1, "time_efit_s": 0.3, "efit_lineage": "magnetics", "efit_quality": "good",
+             "ti_lineage": "ti_eq_te_assumed", "neo_status": "solved", "tglf_status": "solved",
+             "r_over_a": r, "f_e": fe, "gamma_max_ion_scale": g, "q_tot_gb": q, "f_neo_qi": fn}
+            for r, fe, g, q, fn in ((0.3, 0.2, 0.1, 1.0, 0.9), (0.5, 0.7, 0.4, 3.0, 0.5), (0.7, 0.9, 0.2, 5.0, 0.1))]
+    (s,) = atlas.radial_summary(rows)
+    assert s["n_tglf_solved"] == 3
+    assert s["fraction_electron_dominated"] == pytest.approx(2 / 3)
+    assert (s["gamma_max_ion_scale"], s["r_over_a_at_gamma_max_ion_scale"]) == (0.4, 0.5)
+    assert s["median_q_tot_gb"] == pytest.approx(3.0) and s["median_f_neo_qi"] == pytest.approx(0.5)
+    (d,) = atlas.discharge_summary([s])
+    assert d["n_states"] == 1 and d["n_good"] == 1

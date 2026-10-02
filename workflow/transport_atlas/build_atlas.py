@@ -23,14 +23,16 @@ Spectral conventions (TGLF native units):
   real frequency. ``gamma_max_ion_scale`` repeats this for ``ky rho_s <= 1`` only.
 * ``ky_q_mean`` is the energy-flux-weighted mean ky,
   ``sum_k ky_k |Q_k| / sum_k |Q_k|``, where Q_k is ``out.tglf.sum_flux_spectrum``
-  summed over species and fields. Each Q_k already carries its ky weight, so the
-  sums are TGLF's own ky integral. This is a spectral moment, not an argmax: on a
-  log ky grid, an argmax of weighted contributions would depend on the grid.
+  summed (signed) over species and fields before its magnitude is taken. Each Q_k
+  already carries its ky weight, so the sums are TGLF's own ky integral. This is a
+  spectral moment, not an argmax: on a log ky grid, an argmax of weighted
+  contributions would depend on the grid.
 * Classical columns are the Braginskii perpendicular baseline (#1435), evaluated from
   the same TGLF local input. They join the partition as a third component, and only
   where the run recorded them.
-* ``f_em`` is the share of ``sum |Q|`` carried by the magnetic fields (A_par, B_par),
-  or empty when the run had only the electrostatic field.
+* ``f_em = |Q_mag| / (|Q_phi| + |Q_mag|)``, where Q_phi and Q_mag are the signed
+  energy fluxes (all species, all ky) of the electrostatic field and of the magnetic
+  fields (A_par, B_par). It is empty when the run had only the electrostatic field.
 """
 
 from __future__ import annotations
@@ -63,7 +65,7 @@ SCHEMA: dict[str, tuple[str, str, str]] = {
     "dt_s": ("s", "provenance", "time_profile_s - time_equilibrium; |dt| <= tolerance_s"),
     "tolerance_s": ("s", "provenance", "allowed pairing window"),
     "state_identity": ("-", "provenance", "sha256 of the resolved upstream state (shared by TGLF and NEO rows)"),
-    "rho_tor_norm": ("-", "derived_input", "sqrt(Phi/Phi_b) of the surface, from the profile's rmin<->rho map"),
+    "rho_tor_norm": ("-", "derived_input", "sqrt(Phi/Phi_b) of the surface: GACODEProfile.rho, which prepare_gacode_profile re-derives from phi or q when the stored value is the sqrt(psi_N) proxy, mapped through the profile's rmin<->rho"),
     "a_m": ("m", "reconstructed_input", "minor radius a of the cut profile"),
     "b_unit_T": ("T", "derived_input", "GACODE B_unit at the surface"),
     "q": ("-", "reconstructed_input", "safety factor"),
@@ -98,7 +100,7 @@ SCHEMA: dict[str, tuple[str, str, str]] = {
     "omega_at_gamma_max_ion_scale": ("c_s/a", "tglf_predicted", "real frequency at gamma_max_ion_scale"),
     "n_unstable_ky": ("-", "tglf_predicted", "ky points with a growing mode (gamma > 0)"),
     "ky_q_mean": ("-", "tglf_predicted", "energy-flux-weighted mean ky rho_s (see module docstring)"),
-    "f_em": ("-", "tglf_predicted", "share of sum|Q| carried by magnetic fields; empty when electrostatic only"),
+    "f_em": ("-", "tglf_predicted", "|Q_mag| / (|Q_phi| + |Q_mag|), signed sums over species and ky; empty when electrostatic only"),
     "tglf_config": ("-", "provenance", "tglf-sat<n>-<field>: the one configuration this atlas was built from (#1482)"),
     "tglf_sat_rule": ("-", "provenance", "TGLF SAT_RULE (no default: named by the run, #1482)"),
     "tglf_use_bper": ("-", "provenance", "TGLF USE_BPER"),
@@ -173,12 +175,17 @@ def spectral_descriptors(native: Any) -> dict[str, Any]:
             out[f"omega_at_gamma_max{suffix}"] = _f(omega[k, m])
     spectrum = getattr(native, "sum_flux_spectrum", None)
     if spectrum is not None and ky is not None and spectrum.shape[2] == ky.size:
-        q = np.nan_to_num(np.abs(spectrum[..., 1]))      # (species, field, ky); NaN = absent
-        per_ky = q.sum(axis=(0, 1))
+        q = np.nan_to_num(spectrum[..., 1])               # (species, field, ky); NaN = absent
+        # Signed sums first, then magnitudes: an inward and an outward species flux at
+        # one ky cancel, as they do in the total TGLF reports.
+        per_ky = np.abs(q.sum(axis=(0, 1)))
         if per_ky.sum() > 0:
             out["ky_q_mean"] = float(np.sum(ky * per_ky) / per_ky.sum())
-        if q.shape[1] > 1 and q.sum() > 0:
-            out["f_em"] = float(q[:, 1:, :].sum() / q.sum())
+        if q.shape[1] > 1:
+            electrostatic = abs(float(q[:, 0, :].sum()))
+            magnetic = abs(float(q[:, 1:, :].sum()))
+            if electrostatic + magnetic > 0:
+                out["f_em"] = magnetic / (electrostatic + magnetic)
     return out
 
 
@@ -220,10 +227,15 @@ def _local_columns(local: Optional[dict]) -> dict[str, Any]:
 def _neo_index(neo_root: Optional[Path]) -> dict[tuple, dict]:
     if neo_root is None:
         return {}
-    index = {}
-    for path in Path(neo_root).glob("*/*/*/state.json"):
+    index: dict[str, dict] = {}
+    where: dict[str, Path] = {}
+    for path in sorted(Path(neo_root).glob("*/*/*/state.json")):
         state = json.loads(path.read_text(encoding="utf-8"))
-        index[state["state_identity"]] = state
+        identity = state["state_identity"]
+        if identity in index:
+            raise ValueError(f"two NEO records share state_identity {identity[:12]}: "
+                             f"{where[identity]} and {path}")
+        index[identity], where[identity] = state, path
     return index
 
 
@@ -351,7 +363,8 @@ def radial_summary(rows: list[dict]) -> list[dict]:
                if _f(r.get("gamma_max_ion_scale")) is not None]
         qtot = [r.get("q_tot_gb") for r in solved]
         fneo = [r.get("f_neo_qi") for r in group]
-        top = max(gam) if gam else (None, None)
+        # The largest growth rate; on a tie the outer surface is reported.
+        top = max(gam, key=lambda pair: (pair[0], pair[1])) if gam else (None, None)
         out.append({
             "shot": shot, "time_efit_s": t, "efit_lineage": lineage,
             "efit_quality": group[0]["efit_quality"], "ti_lineage": group[0]["ti_lineage"],
@@ -403,10 +416,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     rows = build_rows(args.tglf, args.neo)
-    configs = sorted({str(row.get("tglf_config")) for row in rows})
-    if len(configs) != 1:
-        # One atlas is one TGLF configuration; comparing them is build_sensitivity.py's job.
-        raise ValueError(f"{args.tglf} mixes TGLF configurations {configs}; pass one tglf-sat*/ tree")
+    if not rows:
+        raise ValueError(f"no TGLF state.json under {args.tglf}")
+    configs = sorted({row.get("tglf_config") or "" for row in rows})
+    settings = sorted({(row.get("tglf_sat_rule"), row.get("tglf_use_bper"), row.get("tglf_use_bpar"))
+                       for row in rows}, key=str)
+    if len(configs) != 1 or not configs[0] or len(settings) != 1:
+        # One atlas is one named TGLF configuration; comparing them is build_sensitivity.py's job.
+        raise ValueError(f"{args.tglf} is not one named TGLF configuration: labels {configs}, "
+                         f"(SAT_RULE, USE_BPER, USE_BPAR) {settings}; pass one tglf-sat*/ tree")
     unknown = sorted({k for row in rows for k in row} - set(COLUMNS))
     if unknown:
         raise ValueError(f"columns without a schema entry: {unknown}")

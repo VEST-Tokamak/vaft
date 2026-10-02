@@ -4,12 +4,16 @@ The renderers are :func:`vaft.plot.transport_atlas.transport_atlas_scatter` and
 :func:`vaft.plot.transport_atlas.transport_atlas_mode_branch`. This script reads
 ``atlas.csv`` and writes the reference figures:
 
-* ``drive_space``: a/L_Te against a/L_ne, coloured by f_e. #1427 names a/L_Ti
-  against a/L_Te, but under the #1414 Ti = Te policy a/L_Ti *is* a/L_Te and that
-  map collapses onto the diagonal. ``ion_drive_space`` is drawn only from rows whose
-  ``ti_lineage`` is not a fixed ratio of Te (lane K's inferred Ti).
-* ``response_space``: Q_i/Q_GB against Q_e/Q_GB, coloured by the ion-scale gamma_max.
-* ``mode_branch``: the drive plane coloured by the direction of the ion-scale mode.
+Axes are named "x, y" below.
+
+* ``drive_space``: x = a/L_ne, y = a/L_Te, coloured by f_e; the same plane as
+  ``mode_branch``. #1427 names (a/L_Ti, a/L_Te), but under the #1414 Ti = Te policy
+  a/L_Ti *is* a/L_Te and that map collapses onto the diagonal. ``ion_drive_space``
+  (x = a/L_Ti, y = a/L_Te) is drawn only from rows whose Ti is not a ratio of Te.
+* ``response_space``: x = Q_i/Q_GB, y = Q_e/Q_GB (#1427), coloured by the ion-scale
+  gamma_max.
+* ``mode_branch``: x = a/L_ne, y = a/L_Te, coloured by the direction of the growing
+  ion-scale mode.
 
     python plot_atlas.py --atlas ~/runs/campaign/atlas/transport/atlas.csv --out figs/
 """
@@ -21,7 +25,7 @@ from pathlib import Path
 from typing import Optional
 
 REFERENCE = {
-    "drive_space": ("a_over_lte", "a_over_lne", "f_e"),
+    "drive_space": ("a_over_lne", "a_over_lte", "f_e"),
     "response_space": ("qi_gb", "qe_gb", "gamma_max_ion_scale"),
 }
 
@@ -30,9 +34,17 @@ ION_DRIVE = ("a_over_lti", "a_over_lte", "f_e")
 
 
 def independent_ti(table):
-    """Rows whose Ti was not set as a ratio of Te (contract v1 ``ti_lineage``)."""
-    lineage = table["ti_lineage"].astype(str)
-    return ~(lineage.eq("ti_eq_te_assumed") | lineage.str.match(r"^ti_te_.*_(assumed|caller)"))
+    """Rows whose Ti is not a fixed ratio of Te.
+
+    Judged by the value, not the spelling: a ratio-derived Ti always carries its
+    ``ti_te_ratio``, whatever status word its lineage ends in, and a row with no
+    resolved lineage is not independent either.
+    """
+    import pandas as pd
+
+    ratio = pd.to_numeric(table["ti_te_ratio"], errors="coerce")
+    lineage = table["ti_lineage"]
+    return ratio.isna() & lineage.notna() & ~lineage.astype(str).isin(("", "unresolved", "nan"))
 
 
 def main(argv: Optional[list[str]] = None) -> int:
