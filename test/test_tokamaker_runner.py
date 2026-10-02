@@ -192,13 +192,44 @@ def test_neck_faces_above_lim_zmax_stay_limiter_points():
     points = neck_limiter_points(VEST_LIMITER, config)
 
     z = np.abs(points[:, 1])
-    assert np.all((z > config.lim_zmax) & (z <= config.neck_limiter_zmax))
+    one_cell = max(config.dx_plasma, config.dx_conductor)
+    assert np.all((z > config.lim_zmax - one_cell) & (z <= config.neck_limiter_zmax))
+    # the outboard step (0.7-0.761, |Z| = 0.585-0.6) sits within one cell of
+    # lim_zmax and is covered explicitly, both halves
+    step = points[(points[:, 0] >= 0.7) & (points[:, 0] <= 0.761)]
+    assert np.any(np.isclose(step[:, 1], 0.585)) and np.any(np.isclose(step[:, 1], -0.585))
     # the inboard slant (0.105, 0.575) -> (0.1337, 0.7279), both halves
     slant = points[(points[:, 0] > 0.105) & (points[:, 0] < 0.1337)]
     assert slant[:, 1].max() > 0.7 and slant[:, 1].min() < -0.7
     # nothing from the chamber interior far above the neck
     assert z.max() <= 0.73
     assert len(neck_limiter_points(VEST_LIMITER, TokaMakerConfig(neck_limiter_zmax=None))) == 0
+
+
+def test_the_cell_just_below_lim_zmax_is_covered_by_explicit_points():
+    """OFT's lim_zmax cut is per cell (grad_shaf.F90: a cell with any node
+    above it is skipped), so a wall face within one cell height below
+    lim_zmax can lose every mesh limiter node it has. Pinned on a synthetic
+    box: a step at lim_zmax - dx/2 gets explicit points, one at
+    lim_zmax - 2 dx does not (cold review 0.8.0 delta-absorb-13-physics F2)."""
+    from vaft.code.tokamaker.runner import neck_limiter_points
+
+    config = TokaMakerConfig(lim_zmax=0.6, neck_limiter_zmax=0.73, dx_plasma=0.015,
+                             dx_conductor=0.015)
+    dx = config.dx_plasma
+    z_in, z_out = config.lim_zmax - 0.5 * dx, config.lim_zmax - 2.0 * dx
+    box = [
+        [0.1, -1.0], [0.1, 1.0], [0.4, 1.0], [0.4, z_in], [0.5, z_in], [0.5, -1.0],
+        [0.1, -1.0],
+    ]
+    points = neck_limiter_points(box, config)
+    covered = points[np.isclose(points[:, 1], z_in)]
+    assert covered[:, 0].min() == pytest.approx(0.4) and covered[:, 0].max() == pytest.approx(0.5)
+    assert np.all(np.abs(points[:, 1]) > config.lim_zmax - dx)
+
+    box_low = [[r, (z_out if z == z_in else z)] for r, z in box]
+    far = neck_limiter_points(box_low, config)
+    assert not np.any(np.isclose(far[:, 1], z_out))
 
 
 def test_neck_points_reach_tokamaker_as_a_limiter_file(tmp_path, monkeypatch):
