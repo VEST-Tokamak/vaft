@@ -217,6 +217,8 @@ CORE_MODULES: tuple[str, ...] = (
     # Transport atlas (lane T): the shared transport-state resolver on the packaged
     # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
     # reg05 fixture, and the routine driver with a fake runner. No solver runs.
+    # The atlas renderers draw synthetic tables only.
+    "test_plot_transport_atlas.py",
     "test_transport_state.py",
     # The gate's own contract.
     "test_core_selection.py",
