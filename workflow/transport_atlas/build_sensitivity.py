@@ -65,7 +65,12 @@ SCHEMA = {
     "state_identity": ("-", "provenance", "sha256 of the resolved upstream state (equal across configurations)"),
     "tglf_run_identity": ("-", "provenance", "sha256 of state + settings + surface + revision"),
     "gacode_revision": ("-", "provenance", "GACODE tree used"),
-    "status": ("-", "provenance", "solved | failed | not_ready | missing_outputs (native tree pruned)"),
+    "status": ("-", "provenance", "solved | failed | not_ready | not_run | missing_outputs (native tree pruned; "
+                                  "not_run: ready, but the batch recorded no result for it)"),
+    "runtime_status": ("-", "provenance", "launcher status of the surface's run (completed | timeout | error | ...); "
+                                          "empty when it was not run"),
+    "tglf_reason": ("-", "provenance", "readiness reason, runtime status, or not_run when not solved (as the atlas)"),
+    "n_errors": ("-", "provenance", "number of solver/launcher error lines recorded for the surface"),
     "qe_gb": ("Q_GB", "tglf_predicted", "electron energy flux"),
     "qi_gb": ("Q_GB", "tglf_predicted", "ion energy flux summed over ions"),
     "gamma_e_gb": ("Gamma_GB", "tglf_predicted", "electron particle flux"),
@@ -214,10 +219,22 @@ def build_rows(runs: Path) -> list[dict[str, Any]]:
                 "tglf_run_identity": surface.get("run_identity"),
                 "gacode_revision": state.get("gacode_revision"),
                 "status": surface.get("status"),
+                "runtime_status": surface.get("runtime_status"),
+                "n_errors": len(surface.get("errors") or []),
             }
             outputs = path.parent / f"r{r:.2f}" / "outputs.json"
             if surface.get("status") == "solved" and not outputs.is_file():
                 row["status"] = "missing_outputs"  # pruned native tree: reported, not fatal
+            # Why a surface is not solved, with the atlas's vocabulary (build_atlas.py):
+            # a #1299 timeout, a launcher error and a readiness refusal are different things.
+            if row["status"] == "solved":
+                row["tglf_reason"] = None
+            elif row["status"] == "failed":
+                row["tglf_reason"] = surface.get("runtime_status")
+            elif row["status"] in ("not_run", "missing_outputs"):
+                row["tglf_reason"] = row["status"]
+            else:
+                row["tglf_reason"] = surface.get("readiness")
             if row["status"] == "solved":
                 native = TglfOutputs.read_json(outputs)
                 descriptors = atlas.spectral_descriptors(native)

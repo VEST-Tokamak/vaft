@@ -1448,3 +1448,37 @@ def test_ky_peak_in_the_table_uses_the_grid_model_of_the_run(sensitivity, tmp_pa
     rows = {r["sat_rule"]: r for r in sensitivity.build_rows(tmp_path)}
     assert rows[0]["ky_q_peak"] == pytest.approx(0.3)    # model 0: the node
     assert rows[1]["ky_q_peak"] == pytest.approx(0.25)   # model 1: the interval midpoint
+
+
+def test_a_failed_surface_keeps_why_it_failed(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F2: a #1299 timeout is not just 'failed'."""
+    tree = _sens_state(tmp_path, 0, "es")
+    state = json.loads((tree / "state.json").read_text(encoding="utf-8"))
+    state["surfaces"] = [
+        {"r_over_a": 0.3, "status": "failed", "runtime_status": "timeout", "returncode": None,
+         "errors": [], "run_identity": "r0"},
+        {"r_over_a": 0.4, "status": "failed", "runtime_status": "error", "returncode": None,
+         "errors": ["FileNotFoundError: tglf"], "run_identity": "r1"},
+        {"r_over_a": 0.5, "status": "solved", "runtime_status": "completed", "returncode": 0,
+         "errors": [], "run_identity": "r2"},
+        {"r_over_a": 0.6, "status": "not_run", "readiness": "ready", "run_identity": "r3"},
+        {"r_over_a": 0.7, "status": "not_ready", "readiness": "outside_profile"},
+    ]
+    (tree / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    rows = {r["r_over_a"]: r for r in sensitivity.build_rows(tmp_path)}
+    assert (rows[0.3]["runtime_status"], rows[0.3]["tglf_reason"]) == ("timeout", "timeout")
+    assert (rows[0.4]["runtime_status"], rows[0.4]["tglf_reason"]) == ("error", "error")
+    assert rows[0.4]["n_errors"] == 1
+    assert rows[0.5]["tglf_reason"] is None
+    assert rows[0.6]["tglf_reason"] == "not_run"
+    assert rows[0.7]["tglf_reason"] == "outside_profile"
+    for column in ("runtime_status", "tglf_reason", "n_errors"):
+        assert column in sensitivity.SCHEMA
+    assert "not_run" in sensitivity.SCHEMA["status"][2]
+    # The columns reach the CSV through main.
+    assert sensitivity.main(["--runs", str(tmp_path), "--out", str(tmp_path / "s")]) == 0
+    import csv
+
+    with open(tmp_path / "s" / "sensitivity.csv", newline="", encoding="utf-8") as handle:
+        table = {float(r["r_over_a"]): r for r in csv.DictReader(handle)}
+    assert table[0.3]["tglf_reason"] == "timeout" and table[0.6]["tglf_reason"] == "not_run"
