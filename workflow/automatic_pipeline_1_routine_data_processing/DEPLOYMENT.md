@@ -894,7 +894,7 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    | Shot state | Meaning |
    | --- | --- |
    | `completed` | Every declared product succeeded. |
-   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. |
+   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. A solver stage that finished `no_output` by design -- EFIT ran and no slice survived, CHEASE had nothing to refine or every slice failed, or the stage is switched off -- has its replication recorded `skipped`, so the shot's other stages stay published and the shot is not retried. `no_output` because the executable is missing, an input is missing or the stage errored still fails, and so does `no_output` over IDS an earlier run already published to the shot (retire those first). |
    | `excluded` | The classifier, the raw preflight or an operator ruled the shot out. |
    | `failed` | A declared product is missing. The shot is retried on the next cycle, and Snakemake rebuilds only what is missing. |
    | `gave_up` | The shot has used `max_attempts` runs and waits for an operator. |
