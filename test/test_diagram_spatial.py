@@ -201,6 +201,26 @@ def test_cocos_accepts_numpy_indices():
         S.cocos_orientation_signs(11, sigma_ip=True)
 
 
+@pytest.mark.parametrize("name, key", [("structured_rz_grid", "n_r"), ("structured_rz_grid", "n_z"),
+                                       ("logical_to_physical_mapping", "n_xi"),
+                                       ("logical_to_physical_mapping", "n_eta"),
+                                       ("physical_to_flux_mapping", "n_points"), ("tokamak_top_view", "n_coils")])
+def test_size_arguments_accept_numpy_integers_like_cocos_does(name, key):
+    builder = getattr(vaft.diagram, name)
+    default = builder().model.get(key)
+    value = default if default is not None else 12
+    with_int, with_np = builder(**{key: value}), builder(**{key: np.int64(value)})
+    assert with_np.source_sha256 == with_int.source_sha256  # same scene, so the same committed render
+    if key in with_np.model:
+        assert with_np.model[key] == value and type(with_np.model[key]) is int
+    else:  # physical_to_flux_mapping stores the positions, not their count
+        assert len(with_np.model["R"]) == len(with_int.model["R"]) == value
+    with pytest.raises(ValueError):
+        builder(**{key: True})
+    with pytest.raises(ValueError):
+        builder(**{key: float(value)})
+
+
 def test_a_grid_too_coarse_for_the_plasma_fails_explicitly():
     with pytest.raises(ValueError, match="no node inside"):
         vaft.diagram.structured_rz_grid(n_r=4, n_z=4)
