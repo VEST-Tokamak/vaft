@@ -40,7 +40,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Iterable, Optional
 
 import numpy as np
@@ -81,8 +81,8 @@ SCHEMA: dict[str, tuple[str, str, str]] = {
     "a_over_lni": ("-", "derived_input", "a/L_ni of the main ion"),
     "ti_over_te": ("-", "assumed_input", "main-ion Ti/Te at the surface (TGLF TAUS_2)"),
     "q_gb_W_m2": ("W/m^2", "derived_input", "gyro-Bohm energy-flux unit ne Te c_s (rho_s/a)^2"),
-    "tglf_status": ("-", "provenance", "solved | failed | not_ready (per surface)"),
-    "tglf_reason": ("-", "provenance", "readiness reason or runtime status when not solved"),
+    "tglf_status": ("-", "provenance", "solved | failed | not_ready | not_run (per surface; not_run: ready, but the batch recorded no result for it)"),
+    "tglf_reason": ("-", "provenance", "readiness reason, runtime status, or not_run when not solved"),
     "tglf_run_identity": ("-", "provenance", "sha256 of state + TGLF physics settings + surface + revision"),
     "qe_gb": ("Q_GB", "tglf_predicted", "electron energy flux, gyro-Bohm units"),
     "qi_gb": ("Q_GB", "tglf_predicted", "ion energy flux summed over ion species, gyro-Bohm units"),
@@ -144,6 +144,49 @@ def _f(value: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return number if math.isfinite(number) else None
+
+
+SURFACE_TOLERANCE = 1e-4
+"""How far apart two r/a values may be and still name one surface.
+
+The tolerance run_neo.py accepts a NEO surface with (np.allclose atol=1e-4 against
+the request) and transport_partition joins by; a join keyed on a rounded value would
+split 0.30008 from 0.3 across the rounding boundary although both models solved it.
+"""
+
+
+def _nearest_surface(surfaces: Iterable[dict], r: float) -> Optional[dict]:
+    """The mapped surface closest in r/a to ``r`` within SURFACE_TOLERANCE, else None."""
+    best: Optional[tuple[float, dict]] = None
+    for surface in surfaces:
+        distance = abs(float(surface["r_over_a"]) - r)
+        if distance <= SURFACE_TOLERANCE and (best is None or distance < best[0]):
+            best = (distance, surface)
+    return None if best is None else best[1]
+
+
+def _native_dir(state_path: PurePath, tglf_root: PurePath, r: float) -> str:
+    """``<shot>/<lineage>/<time>/r<r>`` relative to the TGLF run root, in slash grammar.
+
+    A CSV cell is data read on any host: ``str(Path)`` would write the host's
+    separator, and a backslashed cell built on Windows is one file name on POSIX.
+    """
+    # The arithmetic stays in the path's own flavour (a PureWindowsPath keeps
+    # its backslashes against a PureWindowsPath root; re-wrapping in PurePath
+    # would turn it into the host's flavour and break relative_to); only the
+    # result is spelled in slash grammar.
+    return (state_path.parent.relative_to(tglf_root) / f"r{r:.2f}").as_posix()
+
+
+def _ion_sum(fluxes: Optional[dict]) -> Optional[float]:
+    """Sum of the per-species ion fluxes that were written; ``None`` when none was.
+
+    A mapper that did not project the ion channel writes ``None`` per species
+    (``run_tglf.project_state``, ``run_neo.project``); summing nothing is not 0 W/m^2,
+    and reporting it so would make ``f_e`` exactly 1.
+    """
+    present = [v for v in (fluxes or {}).values() if v is not None]
+    return _f(sum(present)) if present else None
 
 
 def spectral_descriptors(native: Any) -> dict[str, Any]:
@@ -269,42 +312,50 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
             "tglf_config": state.get("tglf_config"),
             "gacode_revision": state.get("gacode_revision"),
         }
-        mapped = {round(s["r_over_a"], 4): s for s in ((state.get("core_transport") or {}).get("surfaces") or [])}
+        mapped = (state.get("core_transport") or {}).get("surfaces") or []
         neo = neo_states.get(state["state_identity"])
-        neo_rows = {}
+        neo_rows: list[dict] = []
         if neo is not None and neo.get("status") in ("solved", "partial"):
-            neo_rows = {round(s["r_over_a"], 4): s for s in (neo.get("core_transport") or {}).get("surfaces") or []}
+            neo_rows = (neo.get("core_transport") or {}).get("surfaces") or []
         charges = None
         for surface in state["surfaces"]:
             r = float(surface["r_over_a"])
             row = dict(base, r_over_a=r, **_local_columns(surface.get("local")))
             status = surface.get("status")
             row["tglf_status"] = status
-            row["tglf_reason"] = None if status == "solved" else (
-                surface.get("runtime_status") if status == "failed" else surface.get("readiness"))
-            row["tglf_run_identity"] = surface.get("run_identity")
-            si = mapped.get(round(r, 4))
             if status == "solved":
-                rel = path.parent.relative_to(tglf_root) / f"r{r:.2f}"
-                row["tglf_native_dir"] = str(rel)
+                row["tglf_reason"] = None
+            elif status == "failed":
+                row["tglf_reason"] = surface.get("runtime_status")
+            elif status == "not_run":
+                # A ready surface whose job has no result (an interrupted batch,
+                # run_tglf.py): its readiness says "ready", which is not why it is empty.
+                row["tglf_reason"] = "not_run"
+            else:
+                row["tglf_reason"] = surface.get("readiness")
+            row["tglf_run_identity"] = surface.get("run_identity")
+            si = _nearest_surface(mapped, r)
+            if status == "solved":
+                rel = _native_dir(path, tglf_root, r)
+                row["tglf_native_dir"] = rel
                 native = TglfOutputs.read_json(Path(tglf_root) / rel / "outputs.json")
                 row.update(spectral_descriptors(native))
             if si is not None:
                 row["rho_tor_norm"] = si["rho_tor_norm"]
                 row["qe_tglf_W_m2"] = si["electron_energy_flux_W_m2"]
-                row["qi_tglf_W_m2"] = _f(sum(v for v in si["ion_energy_flux_W_m2"].values() if v is not None))
+                row["qi_tglf_W_m2"] = _ion_sum(si["ion_energy_flux_W_m2"])
                 row["gamma_e_tglf_m2_s"] = si["electron_particle_flux_m2_s"]
                 qe, qi = _f(row["qe_tglf_W_m2"]), _f(row["qi_tglf_W_m2"])
                 if qe is not None and qi is not None and abs(qe) + abs(qi) > 0:
                     row["f_e"] = abs(qe) / (abs(qe) + abs(qi))
                 if charges is None:
                     charges = species_charges((surface.get("local") or {}).get("species") or [])
-            # NEO join: same state identity, same surface
+            # NEO join: same state identity, same surface (within the driver's tolerance)
             row["neo_status"] = "missing" if neo is None else neo.get("status")
-            ns = neo_rows.get(round(r, 4))
+            ns = _nearest_surface(neo_rows, r)
             if ns is not None:
                 row["qe_neo_W_m2"] = ns["electron_energy_flux_W_m2"]
-                row["qi_neo_W_m2"] = _f(sum(v for v in ns["ion_energy_flux_W_m2"].values() if v is not None))
+                row["qi_neo_W_m2"] = _ion_sum(ns["ion_energy_flux_W_m2"])
                 row["gamma_e_neo_m2_s"] = ns["electron_particle_flux_m2_s"]
             classical = surface.get("classical")
             row["classical_reason"] = surface.get("classical_error")
@@ -314,7 +365,12 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
                 row["chi_e_classical_m2_s"] = classical.get("chi_e_m2_s")
                 row["chi_i_classical_m2_s"] = classical.get("chi_i_m2_s")
             if si is not None and ns is not None and charges is not None:
-                part = transport_partition(ns, si, turbulent_charges=charges, classical=classical)
+                try:
+                    part = transport_partition(ns, si, turbulent_charges=charges, classical=classical)
+                except ValueError as error:
+                    # Two ions sharing one charge, or a species without one: the
+                    # partition of this row is refused, not the atlas (#1501).
+                    part = {"status": "unavailable", "reason": f"partition_refused: {error}"}
                 row["partition_status"] = part["status"] if part["status"] == "available" else part["reason"]
                 if part["status"] == "available":
                     ch = part["channels"]

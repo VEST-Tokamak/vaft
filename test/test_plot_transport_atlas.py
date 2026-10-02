@@ -140,3 +140,13 @@ def test_independent_ti_is_judged_by_the_ratio_not_the_spelling():
         "ti_te_ratio": [1.0, 1.2, np.nan, np.nan, np.nan, np.nan],
     })
     assert cli.independent_ti(table).tolist() == [False, False, True, True, False, False]
+
+
+def test_mode_branch_counts_only_what_it_draws():
+    table = _table()
+    table.loc[1, "efit_lineage"] = "unknown"  # an ion-direction row no marker set draws
+    fig, ax = ta.transport_atlas_mode_branch(table)
+    assert ax.vaft_counts == {"electron": 2, "ion": 1}
+    legend_total = sum(int(t.get_text().rsplit("(", 1)[1].rstrip(")")) for t in ax.get_legend().get_texts())
+    assert legend_total == sum(ax.vaft_counts.values())
+    plt.close(fig)
