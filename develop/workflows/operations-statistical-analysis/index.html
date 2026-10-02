@@ -270,7 +270,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>cad89a9</code>. What is described
+  <code>0322ad0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -794,7 +794,7 @@ is the symptom.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code></td>
-      <td>$T_e$ in <strong>eV</strong>, not keV; $\ln\Lambda$ defaults to 17.0. Use <code class="language-plaintext highlighter-rouge">coulomb_logarithm_from_n_T</code> for a self-consistent value.</td>
+      <td>$T_e$ in <strong>eV</strong>, not keV; NRL <strong>parallel</strong> coefficient. Pass $Z_{\mathrm{eff}}$ and $\ln\Lambda$ explicitly: the old fallbacks 2 and 17 are deprecated (#1188). Use <code class="language-plaintext highlighter-rouge">coulomb_logarithm_from_n_T</code> for a self-consistent $\ln\Lambda$.</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code></td>
@@ -1171,7 +1171,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 11:57:44 +0000"
+        "time": "2026-10-02 13:03:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
