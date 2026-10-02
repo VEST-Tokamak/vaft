@@ -187,6 +187,14 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "human_ai_interface.svg": ("human_ai_interface", {}),
     # the machine and research archive since 2012 (#497)
     "machine_research_archive.svg": ("machine_research_archive", {}),
+    "tokamak_top_view.svg": ("tokamak_top_view", {}),
+    "cocos_orientation.svg": ("cocos_orientation", {}),
+    "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),
+    "machine_and_equilibrium_geometry.svg": ("machine_and_equilibrium_geometry", {}),
+    "structured_rz_grid.svg": ("structured_rz_grid", {}),
+    "geometry_to_mesh.svg": ("geometry_to_mesh", {}),
+    "logical_to_physical_mapping.svg": ("logical_to_physical_mapping", {}),
+    "physical_to_flux_mapping.svg": ("physical_to_flux_mapping", {}),
 }
 
 
