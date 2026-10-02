@@ -874,6 +874,29 @@ def test_an_absent_tmag_out_falls_back_to_gpecs_own_code_default(cell):
     assert gpec.peq_toroidal_angle(cell) == gpec._pentrc.PEQ_TMAG_DEFAULT == 1
 
 
+def test_a_namelist_without_the_requested_group_is_refused_not_read_from_the_top(tmp_path):
+    """``read_namelist_group`` used to return the *first* group when the asked one was absent.
+
+    Reached through hand-edited namelists read with the exported reader: a
+    ``tmag_out`` placed in ``&GPEC_INPUT`` came back as ``&GPEC_OUTPUT``'s
+    (cold review 0.8.0 delta-squash F5).
+    """
+    from vaft.code.gpec._runtime import read_namelist_group
+
+    path = tmp_path / "gpec.in"
+    path.write_text("&GPEC_INPUT\n  tmag_in=0\n/\n&GPEC_OUTPUT\n  tmag_out=0\n/\n", encoding="utf-8")
+    assert read_namelist_group(path, "gpec_output") == {"tmag_out": "0"}
+    with pytest.raises(ValueError, match=r"no &xyz namelist group") as refused:
+        read_namelist_group(path, "xyz")
+    assert "gpec_input" in str(refused.value) and "gpec_output" in str(refused.value)
+
+
+def test_a_tmag_out_in_the_wrong_group_does_not_pass_for_the_output_angle(cell):
+    (cell / "gpec.in").write_text("&GPEC_INPUT\n    tmag_out=0\n/\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="GPEC_OUTPUT|gpec_output"):
+        gpec.peq_toroidal_angle(cell)
+
+
 def test_an_unbounded_run_is_refused_rather_than_launched(cell, tmp_path):
     """``timeout=None`` is not "as long as it takes" for this module.
 

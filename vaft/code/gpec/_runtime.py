@@ -197,10 +197,23 @@ def read_namelist_group(path: Path | str, group: str) -> dict[str, str]:
 
     Group names are matched case-insensitively, because GPEC's own namelists
     and hand-written ones disagree about the spelling.
+
+    Raises
+    ------
+    ValueError
+        The file has no ``&group``.  It used to fall back to the top of the
+        file, which returned the *first* group's values under the requested
+        group's name (cold review 0.8.0 delta-squash F5); a group that is not
+        there is reported, the way a key that is not there is absent.
     """
     text = Path(path).read_text(encoding="utf-8")
     match = re.search(rf"&{re.escape(group)}\b", text, re.IGNORECASE)
-    body = text[match.end():] if match else text
+    if match is None:
+        found = sorted({name.lower() for name in re.findall(r"(?m)^\s*&(\w+)", text)})
+        raise ValueError(
+            f"{path} has no &{group} namelist group; it declares {found or 'none'}"
+        )
+    body = text[match.end():]
     values: dict[str, str] = {}
     for raw in body.splitlines():
         line = raw.split("!", 1)[0].strip()

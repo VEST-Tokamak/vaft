@@ -193,6 +193,9 @@ def peq_toroidal_angle(run_dir: Path | str) -> int:
         No ``gpec.in`` beside the displacement, so the angle the file is in is
         not recoverable.  Guessing the usual value is the shape of defect this
         module exists to remove.
+    ValueError
+        The ``gpec.in`` has no ``&GPEC_OUTPUT`` group, for the same reason: a
+        ``tmag_out`` sitting in some other group is not the one GPEC read.
     """
     namelist = Path(run_dir) / "gpec.in"
     if not namelist.is_file():
