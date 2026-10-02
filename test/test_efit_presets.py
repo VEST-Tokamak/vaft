@@ -215,6 +215,42 @@ def test_the_efit_collection_records_a_preset_only_when_one_was_used():
     assert with_preset["efit_preset"]["name"] == "statistical_891"
 
 
+def _generate_efit_ods_module():
+    sys.path.insert(0, str(PIPELINE1))
+    try:
+        import generate_efit_ods
+    finally:
+        sys.path.remove(str(PIPELINE1))
+    return generate_efit_ods
+
+
+def test_a_collection_without_a_record_stamps_unrecorded_not_the_default_sha(tmp_path):
+    """A re-collect over k-files nobody recorded (pre-switch, --config or a legacy
+    basis) used to stamp every slice status with today's default sha while the
+    collection said nothing (cold review 0.8.0 delta-absorb-11b F4)."""
+    from vaft.code.efit import collect_efit_outputs, resolved_efit_configuration
+
+    module = _generate_efit_ods_module()
+    config, configuration = module._collection_config(None, tmp_path, 39915)
+    assert configuration["scientific"] is None
+    assert configuration["scientific_sha256"] == "unrecorded"
+    assert configuration["execution"]["shot"] == 39915
+    result = collect_efit_outputs(tmp_path, config, configuration=configuration)
+    assert result.configuration["scientific_sha256"] == "unrecorded"
+    assert EFITScientificConfig().sha256 not in json.dumps(result.configuration)
+
+
+@pytest.mark.parametrize("name", ["statistical_891", "routine"])
+def test_a_collection_with_a_record_stamps_the_recorded_configuration(tmp_path, name):
+    from vaft.code.efit import resolved_efit_configuration
+
+    module = _generate_efit_ods_module()
+    record = {**efit_preset(name).record(), "sigma_floor_changes": []}
+    config, configuration = module._collection_config(record, tmp_path, 39915)
+    assert configuration is None
+    assert resolved_efit_configuration(config)["scientific_sha256"] == record["scientific_sha256"]
+
+
 @pytest.mark.parametrize("preset, kffcur", [(None, 1), ("statistical_891", 1), ("routine", 2)])
 def test_the_kinetic_base_kfile_follows_the_preset(tmp_path, monkeypatch, preset, kffcur):
     from vaft.code.efit import kinetic
