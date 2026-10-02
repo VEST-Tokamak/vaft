@@ -226,6 +226,9 @@ CORE_MODULES: tuple[str, ...] = (
     # The atlas renderers draw synthetic tables only.
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
+    # Class-shot diagnostics checklist (lane U, #1543): synthetic ODS only,
+    # and a product is read without a path being created on it.
+    "test_class_shot_checklist.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
