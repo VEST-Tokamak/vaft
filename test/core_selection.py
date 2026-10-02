@@ -203,6 +203,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
+    # The per-shot master lock (#913): an in-memory HSDS, ~4 s of threads.
+    "test_hsds_master_lock.py",
     "test_pipeline_worker.py",
     # Stability atlas (lane N): real DCON/RDCON output (trimmed netCDF files)
     # read back through the readers, the edge classifier and the ntms mapping,
