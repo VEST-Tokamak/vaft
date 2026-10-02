@@ -70,11 +70,13 @@ def test_threshold_curve_draws_a_registered_threshold_on_either_axis():
 def test_every_projection_default_is_drawable_on_its_own_axes():
     for key in ops.list_projections():
         proj = ops.get_projection(key)
-        fixed = {"area_elongation": 1.6}
+        fixed = {"area_elongation": 1.6, "elongation": 1.6, "minor_radius": 0.25, "major_radius": 0.4,
+                 "toroidal_field": 0.17, "plasma_surface_area": 4.0, "plasma_current": 0.1, "aspect_ratio": 1.6,
+                 "effective_charge": 2.0}
         plan = ops.overlay_plan(proj, x_range=(0.0, 5.0), y_range=(0.0, 1.0), fixed=fixed)
         assert plan.keys == proj.default_boundaries, (key, plan.omitted)
         for curve in plan.curves:
-            if key in ("troyon",):  # declared transform: drawn on the projection's own quantities
+            if key in ("troyon", "qstar_in"):  # transform or constant line: drawn on the projection's own quantities
                 assert B.same_quantity(curve.x_quantity, proj.x) and B.same_quantity(curve.y_quantity, proj.y)
                 continue
             assert {curve.x_quantity.name, curve.y_quantity.name} == {proj.x.name, proj.y.name}
@@ -237,3 +239,51 @@ def test_axis_ranges_and_colour_limits_are_honoured():
     assert ax.get_xlim() == (0.0, 10.0) and ax.get_ylim() == (0.0, 0.6)
     bar = fig.axes[1]
     assert bar.get_ylim()[1] == pytest.approx(6.0)
+
+
+def test_a_category_keeps_its_colour_across_figures():
+    t = _hugill_table()
+    order = ["stable", "marginal", "unresolved"]
+    t["verdict"] = pd.Categorical(["stable"] * (len(t) - 1) + ["unresolved"], categories=order)
+    _, ax1 = operational_space_population(t, "hugill", color="verdict")
+    t["verdict"] = pd.Categorical(["marginal"] + ["unresolved"] * (len(t) - 1), categories=order)
+    _, ax2 = operational_space_population(t, "hugill", color="verdict")
+
+    def legend_colour(ax, name):
+        handle = next(h for h, label in zip(*ax.get_legend_handles_labels()) if label == f"verdict={name}")
+        return tuple(handle.get_facecolor()[0])
+
+    assert legend_colour(ax1, "unresolved") == legend_colour(ax2, "unresolved")
+
+
+# --- kink limits (Freidberg 2008) and L-H access ---------------------------------------------------
+
+
+def test_freidberg_kink_limits_reproduce_the_book_and_each_other():
+    cur = B.get_boundary("freidberg_2008_kink_current")
+    qmin = B.get_boundary("freidberg_2008_kink_qstar")
+    kappa = np.array([1.0, 1.5, 2.0])
+    i_max = B.boundary_value(cur, minor_radius=0.3, major_radius=0.4, toroidal_field=0.18, elongation=kappa)
+    # Eq. (13.163): 2 pi a^2 B0/(mu0 R0) = 0.2025 MA at kappa = 1, and the factor 2 kappa/(1 + kappa)
+    np.testing.assert_allclose(i_max, 0.2025 * 2 * kappa / (1 + kappa), rtol=1e-3)
+    # Eq. (13.162) through Eq. (13.160): q* at I_max is exactly the limit
+    np.testing.assert_allclose(B.kink_coordinates(0.3, 0.4, 0.18, kappa, i_max),
+                               B.boundary_value(qmin, elongation=kappa))
+    assert "13.162" in qmin.sources[0].equation and "13.163" in cur.sources[0].equation
+
+
+def test_a_boundary_with_every_input_off_axis_is_a_constant_line_only_when_fixed():
+    plan = ops.overlay_plan("qstar_in", x_range=(0, 4), y_range=(0, 8), fixed={"elongation": 1.6})
+    curve = plan.curves[0]
+    assert np.allclose(curve.y, 1.3) and curve.allowed_side == "above" and curve.fixed["elongation"] == 1.6
+    plan = ops.overlay_plan("qstar_in", x_range=(0, 4), y_range=(0, 8))
+    assert plan.curves == () and "not fixed" in plan.omitted[0][1]
+
+
+def test_the_lh_plane_draws_martin_and_refuses_ryter_on_unit():
+    fixed = {"toroidal_field": 0.2, "plasma_surface_area": 4.0, "plasma_current": 0.1, "minor_radius": 0.25,
+             "aspect_ratio": 1.6, "effective_charge": 2.0}
+    plan = ops.overlay_plan("lh_threshold", ["martin_2008_lh", "ryter_2014_nmin"], x_range=(0, 0.5),
+                            y_range=(0, 2), fixed=fixed)
+    assert plan.keys == ("martin_2008_lh",)
+    assert "1e19" in plan.omitted[0][1]

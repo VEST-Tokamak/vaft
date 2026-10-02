@@ -81,6 +81,7 @@ __all__ = [
     "get_boundary",
     "list_boundaries",
     "hugill_coordinates",
+    "kink_coordinates",
 ]
 
 _FORMS = ("power_law", "threshold", "function")
@@ -1595,4 +1596,127 @@ _register(Boundary(
         doi="10.1088/0741-3335/29/3/006",
     ),),
     notes="The left edge of the stable domain for q(0) >= 1. On the cylinder's q(a), not q_psi (that is 'low_q').",
+))
+
+
+# ------------------------------------------------------------------
+# Low-beta external kink limit of an elongated tokamak (Freidberg 2008)
+# ------------------------------------------------------------------
+#
+# J. P. Freidberg, Plasma Physics and Fusion Energy (CUP 2008), Sec. 13 (pp. 405-406):
+# the kink safety factor of an elliptical tokamak is Eq. (13.158) with G(kappa) ~ 1 over
+# 1 < kappa < 2, i.e. Eq. (13.160), q* = 2 pi a^2 kappa B0 / (mu0 R0 I). The low-beta kink
+# limit Eq. (13.162), q* >= (1 + kappa)/2, is stated for THAT definition, and Eq. (13.163)
+# is the same limit written as a maximum current, I_max = (2 pi a^2 B0 / mu0 R0) 2 kappa/(1 + kappa).
+# The (1 + kappa^2)/2 form of Eq. (13.171) is the Princeton-group definition used with the
+# beta_N fit (13.172); it is a different quantity and is not paired with (13.162) here (#1524).
+
+_KINK_Q_STAR = BoundaryQuantity(
+    "kink_safety_factor_elliptic", "q_*", "-",
+    "Freidberg (2008) Eq. (13.160): 2 pi a^2 kappa B0 / (mu0 R0 I), the G(kappa) ~ 1 form of Eq. (13.158). "
+    "Not the (1 + kappa^2)/2 definition of Eq. (13.171).",
+)
+_ELONGATION = BoundaryQuantity("elongation", "kappa", "-", "Plasma elongation.")
+_FREIDBERG_SOURCE = dict(citation="J. P. Freidberg, Plasma Physics and Fusion Energy, Cambridge University Press (2008)",
+                         doi="10.1017/CBO9780511755705")
+_FREIDBERG_APPLICABILITY = dict(
+    machine_class="tokamak, elongated elliptical cross-section",
+    ranges={"elongation": (1.0, 2.0)},
+    assumptions=(
+        "low-beta external kink from the surface-current model; the coupled-harmonic result is approximate",
+        "q* is Eq. (13.160) (kappa in the numerator), not q95 and not the (1 + kappa^2)/2 form",
+        "derived for conventional aspect ratio; spherical-tokamak use is an extrapolation",
+    ),
+)
+
+
+def kink_coordinates(a, R0, B0, kappa, I_p):
+    r"""Freidberg's kink safety factor of an elongated tokamak, $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I)$.
+
+    $$q_* = \frac{2\pi a^2 \kappa B_0}{\mu_0 R_0 I_p} = \frac{5\,a^2\kappa B_0}{R_0\,I_p[\mathrm{MA}]}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``, magnitude [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    float or np.ndarray
+        Kink safety factor $q_*$ of Eq. (13.160) [-].
+
+    Raises
+    ------
+    ValueError
+        A non-positive minor radius, major radius, field or elongation.
+
+    Convention
+    ----------
+    Eq. (13.160) is the $G(\kappa) \approx 1$ form of Eq. (13.158), the definition with
+    which the kink limit ``"freidberg_2008_kink_qstar"`` (Eq. 13.162) is stated. It is
+    not ``vaft.formula.equilibrium.kink_safety_factor`` (#1524). A zero current maps to
+    an infinite $q_*$.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Plasma Physics and Fusion Energy*, Cambridge University
+           Press (2008), Eqs. (13.158)-(13.160), p. 405.
+    """
+    a_arr, R, B_abs, k = (np.asarray(v, dtype=float) for v in (a, R0, np.abs(np.asarray(B0, dtype=float)), kappa))
+    for name, value in (("a", a_arr), ("R0", R), ("B0", B_abs), ("kappa", k)):
+        if np.any(~(value > 0)):
+            raise ValueError(f"{name} must be positive and finite")
+    current = np.abs(np.asarray(I_p, dtype=float)) * 1e6
+    with np.errstate(divide="ignore"):
+        q = 2.0 * np.pi * a_arr**2 * k * B_abs / (MU0 * R * current)
+    return _scalar_or_array(q)
+
+
+_register(Boundary(
+    key="freidberg_2008_kink_qstar",
+    family="current_limit",
+    target=_KINK_Q_STAR,
+    inputs=(_ELONGATION,),
+    form="function",
+    function=lambda elongation: (1.0 + np.asarray(elongation, dtype=float)) / 2.0,
+    allowed_side="above",
+    hardness="hard",
+    origin="published",
+    basis="ideal_mhd_analytic",
+    event="external_kink",
+    applicability=Applicability(**_FREIDBERG_APPLICABILITY),
+    sources=(BoundarySource(**_FREIDBERG_SOURCE, equation="Eq. (13.162), p. 406",
+                            note="q* >= (1 + kappa)/2 for 1 < kappa < 2, with q* of Eq. (13.160)"),),
+    notes="The minimum stable kink safety factor rises with elongation; the current limit it implies is "
+          "'freidberg_2008_kink_current'.",
+))
+
+_register(Boundary(
+    key="freidberg_2008_kink_current",
+    family="current_limit",
+    target=_PLASMA_CURRENT_MA,
+    inputs=(_MINOR_RADIUS, _MAJOR_RADIUS, _TOROIDAL_FIELD, _ELONGATION),
+    form="function",
+    function=lambda minor_radius, major_radius, toroidal_field, elongation: (
+        2.0 * np.pi * np.asarray(minor_radius, dtype=float) ** 2 * np.abs(np.asarray(toroidal_field, dtype=float))
+        / (MU0 * np.asarray(major_radius, dtype=float))
+        * 2.0 * np.asarray(elongation, dtype=float) / (1.0 + np.asarray(elongation, dtype=float)) * 1e-6),
+    allowed_side="below",
+    hardness="hard",
+    origin="published",
+    basis="ideal_mhd_analytic",
+    event="external_kink",
+    applicability=Applicability(**_FREIDBERG_APPLICABILITY),
+    sources=(BoundarySource(**_FREIDBERG_SOURCE, equation="Eq. (13.163), p. 406",
+                            note="I_max = (2 pi a^2 B0 / mu0 R0) 2 kappa/(1 + kappa): Eq. (13.162) through Eq. (13.160)"),),
+    notes="Rises by 4/3 from kappa = 1 to 2. The printed Eq. (7) of Yun et al., PPCF 67 (2025) 115021 does not "
+          "reproduce its own Fig. 8(b); this relation does (#1524).",
 ))

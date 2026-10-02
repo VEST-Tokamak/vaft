@@ -20,6 +20,7 @@ the plot and the boundary off, with the reason in a warning and in
 from __future__ import annotations
 
 import re
+import textwrap
 import warnings
 from typing import Mapping, Optional, Sequence, Tuple, Union
 
@@ -149,9 +150,17 @@ def _label(quantity: _b.BoundaryQuantity, column: str) -> str:
 
 
 def _boundary_label(curve: _b.BoundaryCurve) -> str:
-    """Key and fixed inputs; the full citation stays on the registered entry."""
-    fixed = ", ".join(f"{k} = {v:.3g}" for k, v in curve.fixed.items())
-    return curve.key + (f" ({fixed})" if fixed else "")
+    """Key and fixed inputs by their symbols, wrapped; the full citation stays on the registered entry."""
+    entry = _b.get_boundary(curve.key)
+
+    def symbol(name):
+        try:
+            return entry.input(name).symbol
+        except (KeyError, AttributeError):
+            return name
+
+    fixed = ", ".join(f"{symbol(k)}={v:.3g}" for k, v in curve.fixed.items())
+    return textwrap.fill(curve.key + (f" ({fixed})" if fixed else ""), width=44, subsequent_indent="  ")
 
 
 def _applicability_warnings(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tuple[str, str]):
@@ -281,7 +290,14 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         colormap = plt.get_cmap(cmap).with_extremes(bad=MISSING_COLOR)  # a missing colour value stays visible
     elif color is not None:
         cats = rows[color].astype(object).where(rows[color].notna(), "unknown").astype(str)
-        palette = {name: CATEGORICAL[i % len(CATEGORICAL)] for i, name in enumerate(pd.unique(cats))}
+        # a fixed order, so one category keeps its colour across figures: a pandas Categorical's own
+        # categories, otherwise sorted; categories absent from these rows still hold their slot
+        order = ([str(c) for c in table[color].cat.categories] if isinstance(table[color].dtype, pd.CategoricalDtype)
+                 else sorted(pd.unique(cats)))
+        order += [c for c in sorted(pd.unique(cats)) if c not in order]
+        palette = {name: CATEGORICAL[i % len(CATEGORICAL)] for i, name in enumerate(order) if name in set(cats)}
+        slots = {name: i for i, name in enumerate(order)}
+        palette = {name: CATEGORICAL[slots[name] % len(CATEGORICAL)] for name in palette}
 
     mappable = None
     for gi, (name, mask) in enumerate(groups):
