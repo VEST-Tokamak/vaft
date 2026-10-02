@@ -67,7 +67,7 @@ EXTENSION_UNITS = {
     "time_efit_s": "s", "efit_lineage": "", "efit_quality": "", "efit_product_sha256": "",
     "ts_status": "", "paired_electron_kinetic": "", "ip_efit_A": "A", "dip_dt_A_s": "A/s",
     "v_loop_V": "V", "v_ind_V": "V", "v_res_V": "V", "r_p_ohm": "Ohm", "n_labelled_slices": "-", "w_kin_status": "", "li_3": "-", "beta_normal": "% m T/MA",
-    "w_mhd_J": "J", "w_kin_J": "J", "dwdt_W": "W", "p_ohm_W": "W", "p_net_W": "W",
+    "w_mhd_J": "J", "w_kin_J": "J", "w_e_ts_J": "J", "dwdt_W": "W", "p_ohm_W": "W", "p_net_W": "W",
     "p_rad_W": "W", "p_transport_W": "W", "tau_e_kin_s": "s",
     "p_ohm_efit_flux_W": "W", "v_res_efit_flux_V": "V", "p_ohm_spitzer_W": "W",
     "ip_rate_1_s": "1/s", "ip_change_per_tau": "-", "dwdt_fraction": "-",
@@ -184,6 +184,7 @@ def _descriptor_rows(ods, effective_mass_amu: float) -> list[dict]:
                 "delta": 0.5 * (value("triangularity_upper") + value("triangularity_lower")),
                 "b_t_T": abs(float(b0[k]) * r0) / r_geo if b0.size == n else np.nan,
                 "n_e_line_avg_m3": _line_average_density_z0(ods, k, eq),
+                "w_e_ts_J": _thomson_electron_energy(ods, k, eq),
                 "m_eff_amu": float(effective_mass_amu), "ok": True,
             })
         except Exception as exc:  # noqa: BLE001 - recorded per slice
@@ -192,11 +193,53 @@ def _descriptor_rows(ods, effective_mass_amu: float) -> list[dict]:
     return rows
 
 
+def _thomson_electron_energy(ods, k: int, eq) -> float:
+    """W_e = 1.5 int p_e dV of the Thomson fit at the EFIT time, inside the EFIT LCFS.
+
+    The fit's electron pressure is mapped through its own rho_pol_norm
+    (psi_N = rho_pol^2) onto the EFIT grid, so no toroidal-flux coordinate is
+    shared between the two; NaN without a fit within TIME_TOLERANCE_S. Beyond
+    the fit's last grid point p_e is taken as zero, which underestimates W_e
+    only for a fit grid that stops short of rho_pol = 1.
+    """
+    from matplotlib.path import Path as _Path
+
+    if "core_profiles.time" not in ods or eq.lcfs is None:
+        return np.nan
+    t_eq = float(ods["equilibrium.time"][k])
+    j = _match(np.asarray(ods["core_profiles.time"], dtype=float), t_eq)
+    if j is None:
+        return np.nan
+    prof = f"core_profiles.profiles_1d.{j}"
+    if f"{prof}.grid.rho_pol_norm" not in ods:
+        return np.nan
+    if f"{prof}.electrons.pressure" in ods:
+        p_e = np.asarray(ods[f"{prof}.electrons.pressure"], dtype=float)
+    elif f"{prof}.electrons.density" in ods and f"{prof}.electrons.temperature" in ods:
+        # The fit writer stores pressure_thermal only; the pipeline's pressure
+        # step adds electrons.pressure. n T e is the same quantity.
+        p_e = (np.asarray(ods[f"{prof}.electrons.density"], dtype=float)
+               * np.asarray(ods[f"{prof}.electrons.temperature"], dtype=float) * 1.602176634e-19)
+    else:
+        return np.nan
+    psi_n_fit = np.asarray(ods[f"{prof}.grid.rho_pol_norm"], dtype=float) ** 2
+    r, z = np.asarray(eq.r, float), np.asarray(eq.z, float)
+    psi_n = (np.asarray(eq.psi, float) - eq.psi_axis) / (eq.psi_boundary - eq.psi_axis)
+    rr, zz = np.meshgrid(r, z, indexing="ij")
+    outline = np.c_[np.asarray(eq.lcfs.r, float), np.asarray(eq.lcfs.z, float)]
+    inside = _Path(outline).contains_points(np.c_[rr.ravel(), zz.ravel()]).reshape(rr.shape)
+    order = np.argsort(psi_n_fit)
+    pe_grid = np.interp(np.clip(psi_n, 0.0, 1.0), psi_n_fit[order], p_e[order], right=0.0)
+    dv = 2.0 * np.pi * rr * (r[1] - r[0]) * (z[1] - z[0])
+    return float(1.5 * np.sum(pe_grid * dv * inside))
+
+
 DEFINITIONS = {
     "b_t_definition": "vacuum field |b0 r0| / r_geo_m, as DB5 BT",
     "n_e_definition": ("z = 0 chord inside the LCFS through the Thomson core_profiles n_e(rho_tor_norm) at "
                        "the EFIT time (vaft.data.public, Lane M); NaN without a TS profile at that time"),
-    "w_th_definition": "W_mhd = 1.5 int p dV of the magnetics EFIT (statistical_891); W_kin in w_kin_J",
+    "w_th_definition": ("W_mhd = 1.5 int p dV of the magnetics EFIT (statistical_891); W_kin (electron_kinetic "
+                        "EFIT) in w_kin_J; W_e = 1.5 int p_e dV of the Thomson fit alone in w_e_ts_J"),
     "m_eff_source": "assumed H+ (state key contract v1), not measured",
 }
 
@@ -420,6 +463,7 @@ def build(args) -> int:
                     "v_ind_V": series["v_ind"][k], "v_res_V": series["v_res"][k],
                     "li_3": series["li3"][k], "beta_normal": series["beta_n"][k],
                     "w_mhd_J": series["w_mhd"][k], "w_th_J": series["w_mhd"][k], "w_kin_J": w_k,
+                    "w_e_ts_J": c.get("w_e_ts_J", np.nan),
                     "dwdt_W": pb.dwdt[k], "p_ohm_W": pb.p_ohmic[k], "p_net_W": p_net,
                     "p_rad_W": np.nan, "p_transport_W": pb.p_transport[k],
                     "p_loss_W": p_net if p_net > 0 else np.nan,

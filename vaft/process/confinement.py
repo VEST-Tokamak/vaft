@@ -50,6 +50,11 @@ __all__ = [
     "confinement_slice_evidence",
     "confinement_slice_decision",
     "confinement_exclusion_table",
+    "ConfinementScalingFit",
+    "fit_confinement_scaling",
+    "assess_predictor_identifiability",
+    "bootstrap_confinement_scaling",
+    "leave_one_group_out_scaling",
 ]
 
 def _series(name: str, value, size: Optional[int] = None) -> np.ndarray:
@@ -571,3 +576,430 @@ def confinement_exclusion_table(rules: Mapping[str, np.ndarray]) -> list[dict]:
             "remaining": int(np.sum(passing)),
         })
     return table
+
+
+# --- Regression and identifiability (#548 Sec. 3, 4, 6) -------------------------
+
+
+def _log_design(response, predictors: Mapping[str, np.ndarray], groups):
+    """Log response, log design with intercept, groups and the kept-row mask."""
+    names = list(predictors)
+    if not names:
+        raise ValueError("at least one predictor is needed")
+    y = _series("response", response)
+    columns = [_series(name, predictors[name], y.size) for name in names]
+    g = np.asarray(groups)
+    if g.shape != y.shape:
+        raise ValueError(f"groups has shape {g.shape}, expected {y.shape}")
+    stack = np.vstack([y, *columns])
+    keep = np.all(np.isfinite(stack) & (stack > 0), axis=0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        log_y = np.log(y[keep])
+        x = np.column_stack([np.ones(keep.sum())] + [np.log(c[keep]) for c in columns])
+    return names, log_y, x, g[keep], keep
+
+
+#: Relative spread of a log predictor below which it counts as constant.
+_SPREAD_RTOL = 1e-9
+
+
+def _constant_columns(names, logs) -> list:
+    """Names of log-predictor columns (rows of ``logs``) that do not vary."""
+    out = []
+    for name, col in zip(names, logs):
+        scale = max(1.0, float(np.max(np.abs(col)))) if col.size else 1.0
+        if col.size == 0 or float(np.ptp(col)) <= _SPREAD_RTOL * scale:
+            out.append(name)
+    return out
+
+
+@dataclass(frozen=True)
+class ConfinementScalingFit:
+    """A log-linear confinement scaling fit with group-aware uncertainty.
+
+    ``names`` starts with ``"log_C"`` (the intercept) followed by the
+    predictors; ``coef``, ``stderr`` and ``ci95`` follow that order.
+    ``stderr``/``cov``/``ci95`` are cluster-robust by group (CR1, t with
+    G - 1 degrees of freedom); ``stderr_iid`` is the same estimator's error
+    treating every row as independent (OLS, or the Huber fit's own), kept to
+    show how much the grouping matters. ``mask`` marks the input rows the fit used.
+    """
+
+    names: tuple
+    coef: np.ndarray
+    stderr: np.ndarray
+    cov: np.ndarray
+    ci95: np.ndarray
+    stderr_iid: np.ndarray
+    n: int
+    n_groups: int
+    r2: float
+    rmse_log: float
+    residuals: np.ndarray
+    leverage: np.ndarray
+    cooks_distance: np.ndarray
+    mask: np.ndarray
+    robust: bool
+
+    def exponents(self) -> dict:
+        """Predictor exponents keyed by name, without the intercept."""
+        return dict(zip(self.names[1:], self.coef[1:]))
+
+
+def fit_confinement_scaling(
+    response: np.ndarray,
+    predictors: Mapping[str, np.ndarray],
+    groups: np.ndarray,
+    *,
+    robust: bool = False,
+) -> ConfinementScalingFit:
+    """Log-linear power-law fit $y = C \\prod_j x_j^{\\alpha_j}$ with errors clustered by group.
+
+    Parameters
+    ----------
+    response : numpy.ndarray
+        The fitted quantity, usually $\\tau_E$ or $W$ [any].
+    predictors : Mapping
+        Predictor arrays keyed by name, same length as ``response`` [any].
+    groups : numpy.ndarray
+        Group label per row, normally the shot: rows of one group are not
+        independent samples [-].
+    robust : bool, optional
+        Huber M-estimation instead of least squares for the coefficients
+        [bool].
+
+    Returns
+    -------
+    ConfinementScalingFit
+        Coefficients in log space (exponents, and $\\ln C$ first) [-], their
+        cluster-robust and naive errors, 95 % intervals, $R^2$ and the RMS
+        log residual [-], leverage and Cook's distance per kept row [-] [any].
+
+    Raises
+    ------
+    ValueError
+        No predictor, mismatched lengths, fewer kept rows than coefficients
+        plus one, fewer than two groups, a predictor that does not vary over
+        the kept rows, or an exactly collinear design: a least-squares solver
+        would otherwise return an arbitrary exponent with a confident error.
+
+    Processing steps
+    ----------------
+    1. Keep rows where the response and every predictor are finite and
+       positive; take logs and prepend an intercept column.
+    2. Fit by ordinary least squares (or Huber IRLS with ``robust``).
+    3. Covariance clustered by ``groups`` (statsmodels ``cov_type="cluster"``,
+       CR1 small-sample correction); 95 % intervals from Student's t with
+       $G - 1$ degrees of freedom.
+    4. Leverage and Cook's distance from the least-squares influence of the
+       same design (also for a robust fit, as a diagnostic).
+
+    With ``robust`` the cluster covariance is that of a weighted fit with the
+    converged Huber weights held fixed, which slightly understates the error
+    when rows are down-weighted; ``stderr_iid`` is then the Huber fit's own.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    With few groups the cluster-robust error is itself noisy (it has
+    $G - 1$ degrees of freedom); read it together with the group bootstrap
+    and leave-one-group-out results. Errors in the predictors are ignored,
+    so exponents are attenuated where a predictor is noisy; with $\\tau_E =
+    W/P$ and $P$ a predictor, the $P$ exponent is biased towards $-1$ by any
+    error in $P$.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 6: covariance, intervals, influence and robust
+       regression with grouped samples.
+    .. [CGM] A. C. Cameron and D. L. Miller, *J. Human Resources* **50**
+       (2015) 317: cluster-robust inference and the few-clusters problem.
+    """
+    import statsmodels.api as sm
+    from scipy import stats
+    from statsmodels.stats.outliers_influence import OLSInfluence
+
+    names, log_y, x, g, keep = _log_design(response, predictors, groups)
+    n, k = x.shape
+    n_groups = int(np.unique(g).size)
+    if n <= k:
+        raise ValueError(f"{n} usable rows cannot fit {k} coefficients")
+    if n_groups < 2:
+        raise ValueError("cluster-robust errors need at least two groups")
+    constant = _constant_columns(names, x[:, 1:].T)
+    if constant:
+        raise ValueError(f"predictor(s) {constant} do not vary over the kept rows; "
+                         "their exponents are not identifiable")
+    if np.linalg.matrix_rank(x) < k:
+        raise ValueError("the log design is rank deficient: some predictors are exactly "
+                         "collinear and their exponents are not separately identifiable")
+    codes = np.unique(g, return_inverse=True)[1]
+
+    ols = sm.OLS(log_y, x).fit()
+    clustered = sm.OLS(log_y, x).fit(cov_type="cluster", cov_kwds={"groups": codes})
+    if robust:
+        # Huber IRLS, then a WLS refit with its converged weights so the
+        # cluster covariance applies to the robust coefficients.
+        rlm = sm.RLM(log_y, x, M=sm.robust.norms.HuberT()).fit()
+        clustered = sm.WLS(log_y, x, weights=rlm.weights).fit(
+            cov_type="cluster", cov_kwds={"groups": codes})
+        coef = np.asarray(clustered.params, dtype=float)
+        stderr_iid = np.asarray(rlm.bse, dtype=float)
+    else:
+        stderr_iid = np.asarray(ols.bse, dtype=float)
+    if not robust:
+        coef = np.asarray(ols.params, dtype=float)
+    cov = np.asarray(clustered.cov_params(), dtype=float)
+    stderr = np.sqrt(np.diag(cov))
+    t = stats.t.ppf(0.975, n_groups - 1)
+    ci95 = np.column_stack([coef - t * stderr, coef + t * stderr])
+    residuals = log_y - x @ coef
+    ss_tot = float(np.sum((log_y - log_y.mean()) ** 2))
+    influence = OLSInfluence(ols)
+    return ConfinementScalingFit(
+        names=("log_C", *names), coef=coef, stderr=stderr, cov=cov, ci95=ci95,
+        stderr_iid=stderr_iid, n=n, n_groups=n_groups,
+        r2=1.0 - float(np.sum(residuals**2)) / ss_tot if ss_tot > 0 else np.nan,
+        rmse_log=float(np.sqrt(np.mean(residuals**2))), residuals=residuals,
+        leverage=np.asarray(influence.hat_matrix_diag, dtype=float),
+        cooks_distance=np.asarray(influence.cooks_distance[0], dtype=float),
+        mask=keep, robust=bool(robust),
+    )
+
+
+def assess_predictor_identifiability(predictors: Mapping[str, np.ndarray]) -> dict:
+    """Collinearity of log predictors: correlation, VIF, condition number and rank.
+
+    Parameters
+    ----------
+    predictors : Mapping
+        Predictor arrays keyed by name; rows with any non-finite or
+        non-positive value are dropped [any].
+
+    Returns
+    -------
+    dict
+        ``n`` rows used [-]; ``correlation``, the Pearson matrix of the log
+        predictors as nested dicts [-]; ``vif``, the variance inflation factor
+        per predictor [-]; ``condition_number`` of the column-equilibrated log
+        design with intercept [-]; ``rank`` of that design [-]; ``constant``,
+        the predictors that do not vary (VIF infinite, correlation NaN) [-]
+        [any].
+
+    Raises
+    ------
+    ValueError
+        No predictor, or mismatched lengths.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Says whether the sample *can* separate the exponents, not whether a fit
+    did; a predictor that barely varies has a large VIF only if it is also
+    correlated with another, so read the spread of each log predictor too.
+    The condition number follows Belsley (columns scaled to unit length,
+    intercept kept); values above about 30 signal harmful collinearity.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 3 and 6: B_T stays a fitted variable only if its
+       covariance with I_p and P is quantified.
+    .. [BKW] D. A. Belsley, E. Kuh and R. E. Welsch, *Regression Diagnostics*,
+       Wiley (1980), Ch. 3.
+    """
+    names = list(predictors)
+    if not names:
+        raise ValueError("at least one predictor is needed")
+    first = _series(names[0], predictors[names[0]])
+    columns = [_series(name, predictors[name], first.size) for name in names]
+    stack = np.vstack(columns)
+    keep = np.all(np.isfinite(stack) & (stack > 0), axis=0)
+    logs = np.log(stack[:, keep])
+    n = int(keep.sum())
+    constant = _constant_columns(names, logs)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        corr = np.atleast_2d(np.corrcoef(logs) if len(names) > 1 else np.ones((1, 1)))
+    for j, name in enumerate(names):
+        if name in constant:
+            corr[j, :] = corr[:, j] = np.nan
+    vif = {}
+    for j, name in enumerate(names):
+        others = np.delete(logs, j, axis=0)
+        if name in constant:
+            vif[name] = float("inf")
+            continue
+        if others.size == 0:
+            vif[name] = 1.0
+            continue
+        design = np.column_stack([np.ones(n), others.T])
+        beta, *_ = np.linalg.lstsq(design, logs[j], rcond=None)
+        resid = logs[j] - design @ beta
+        ss_tot = float(np.sum((logs[j] - logs[j].mean()) ** 2))
+        r2 = 1.0 - float(np.sum(resid**2)) / ss_tot if ss_tot > 0 else 1.0
+        vif[name] = float(1.0 / (1.0 - r2)) if r2 < 1.0 - 1e-12 else float("inf")
+    design = np.column_stack([np.ones(n), logs.T])
+    scaled = design / np.linalg.norm(design, axis=0)
+    return {
+        "n": n,
+        "correlation": {a: {b: float(corr[i, j]) for j, b in enumerate(names)}
+                        for i, a in enumerate(names)},
+        "vif": vif,
+        "condition_number": float(np.linalg.cond(scaled)),
+        "rank": int(np.linalg.matrix_rank(design)),
+        "constant": constant,
+    }
+
+
+def bootstrap_confinement_scaling(
+    response: np.ndarray,
+    predictors: Mapping[str, np.ndarray],
+    groups: np.ndarray,
+    *,
+    n_boot: int = 2000,
+    seed: int = 0,
+) -> dict:
+    """Group (shot) bootstrap of the log-linear scaling coefficients.
+
+    Parameters
+    ----------
+    response : numpy.ndarray
+        The fitted quantity [any].
+    predictors : Mapping
+        Predictor arrays keyed by name [any].
+    groups : numpy.ndarray
+        Group label per row; whole groups are resampled [-].
+    n_boot : int, optional
+        Number of resamples [-].
+    seed : int, optional
+        Seed of the random generator [-].
+
+    Returns
+    -------
+    dict
+        ``names`` (``log_C`` first) [-]; ``samples``, coefficients of every
+        resample whose design had full rank, shape ``(m, k)`` [-];
+        ``rejected``, the number of rank-deficient resamples [-];
+        ``percentile95``, the 2.5 and 97.5 percentiles per coefficient [-]
+        [any].
+
+    Raises
+    ------
+    ValueError
+        As :func:`fit_confinement_scaling` for the full sample.
+
+    Defaults
+    --------
+    ``n_boot = 2000`` and ``seed = 0``: numerical convenience; 2000 resamples
+    put the percentile endpoints within about a percent of their limit.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    With a handful of groups the bootstrap distribution is lumpy and its
+    intervals undercover; ``rejected`` counts resamples that could not
+    identify every exponent (e.g. a single field value drawn), which is
+    itself identifiability evidence.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 6: slices of one shot are not independent, so
+       resampling is by shot.
+    .. [Efron] B. Efron and R. J. Tibshirani, *An Introduction to the
+       Bootstrap*, Chapman & Hall (1993), Ch. 13.
+    """
+    names, log_y, x, g, _ = _log_design(response, predictors, groups)
+    labels, codes = np.unique(g, return_inverse=True)
+    if labels.size < 2:
+        raise ValueError("a group bootstrap needs at least two groups")
+    members = [np.flatnonzero(codes == i) for i in range(labels.size)]
+    rng = np.random.default_rng(seed)
+    k = x.shape[1]
+    samples, rejected = [], 0
+    for _ in range(int(n_boot)):
+        draw = rng.integers(0, labels.size, labels.size)
+        rows = np.concatenate([members[i] for i in draw])
+        xs = x[rows]
+        if rows.size <= k or np.linalg.matrix_rank(xs) < k:
+            rejected += 1
+            continue
+        beta, *_ = np.linalg.lstsq(xs, log_y[rows], rcond=None)
+        samples.append(beta)
+    samples = np.asarray(samples, dtype=float).reshape(-1, k)
+    pct = (np.percentile(samples, [2.5, 97.5], axis=0).T if len(samples)
+           else np.full((k, 2), np.nan))
+    return {"names": ("log_C", *names), "samples": samples, "rejected": rejected,
+            "percentile95": pct}
+
+
+def leave_one_group_out_scaling(
+    response: np.ndarray,
+    predictors: Mapping[str, np.ndarray],
+    groups: np.ndarray,
+) -> dict:
+    """Leave-one-group-out refits: coefficient stability and out-of-group prediction error.
+
+    Parameters
+    ----------
+    response : numpy.ndarray
+        The fitted quantity [any].
+    predictors : Mapping
+        Predictor arrays keyed by name [any].
+    groups : numpy.ndarray
+        Group label per row; each group is held out in turn [-].
+
+    Returns
+    -------
+    dict
+        ``names`` (``log_C`` first) [-]; ``groups``, the held-out labels [-];
+        ``coef``, the refit coefficients per held-out group, NaN where the
+        rest could not identify them, shape ``(G, k)`` [-]; ``log_error``, the
+        log prediction error of every kept row when its group was held out
+        [-]; ``rmse_log``, its RMS over rows [-] [any].
+
+    Raises
+    ------
+    ValueError
+        As :func:`fit_confinement_scaling` for the full sample.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A held-out shot whose predictor values lie outside the others' range
+    tests extrapolation, not interpolation; the prediction error of such a
+    group dominates ``rmse_log``.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 6 and 8: leave-one-shot-out error as a model
+       comparison criterion.
+    """
+    names, log_y, x, g, _ = _log_design(response, predictors, groups)
+    labels, codes = np.unique(g, return_inverse=True)
+    k = x.shape[1]
+    coef = np.full((labels.size, k), np.nan)
+    error = np.full(log_y.size, np.nan)
+    for i in range(labels.size):
+        held = codes == i
+        xs, ys = x[~held], log_y[~held]
+        if xs.shape[0] <= k or np.linalg.matrix_rank(xs) < k:
+            continue
+        beta, *_ = np.linalg.lstsq(xs, ys, rcond=None)
+        coef[i] = beta
+        error[held] = log_y[held] - x[held] @ beta
+    finite = np.isfinite(error)
+    return {
+        "names": ("log_C", *names), "groups": labels, "coef": coef, "log_error": error,
+        "rmse_log": float(np.sqrt(np.mean(error[finite] ** 2))) if finite.any() else np.nan,
+    }
