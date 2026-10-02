@@ -1,10 +1,11 @@
 # Confinement scaling (lane D, #548)
 
-This directory builds the VEST Tier A confinement table on a validated ohmic power balance, the first layer (A) of the #548 hierarchy. Regression, identifiability, Kadomtsev completion and the Bohm/gyro-Bohm comparison come in follow-up PRs. Progress and decisions are recorded in the Lane D log on GitHub.
+This directory builds the VEST Tier A confinement table on a validated ohmic power balance (layer A of the #548 hierarchy) and fits it (layers B and C). Kadomtsev completion and the Bohm/gyro-Bohm comparison come in a follow-up PR. Progress and decisions are recorded in the Lane D log on GitHub.
 
 | script | what it does |
 |---|---|
-| `build_table.py` | One row per magnetics state key of Lane K's state key contract v1 (#1454). It writes Lane M's `CONFINEMENT_COLUMNS` (`vaft.data.public.schema`) followed by Lane D extension columns: both stored energies, every power-balance term, slice-quality evidence and rule flags. |
+| `build_table.py` | One row per magnetics state key of Lane K's state key contract v1 (#1454). It writes Lane M's `CONFINEMENT_COLUMNS` (`vaft.data.public.schema`) followed by Lane D extension columns: three stored energies, every power-balance term, slice-quality evidence and rule flags. |
+| `fit.py` | Fits τ_E = C I_p^aI B_T^aB P_net^aP, density-free (A, primary) and with the Thomson line density (B) on the same subset. It reports errors clustered by shot, a shot bootstrap, leave-one-shot-out refits, influence, a Huber fit and identifiability (VIF, condition number, correlations, log spread). Each fit runs on the primary and the sensitivity selection. |
 
 ## Inputs (read only)
 
@@ -21,6 +22,10 @@ This directory builds the VEST Tier A confinement table on a validated ohmic pow
 - **The EFIT boundary-flux path** (`compute_voltage_consumption`) is kept only as a comparison column. The Tier A products store ψ in Wb, and their early slices jump by tens of volts.
 - **The Spitzer path** is a comparison only, and runs only with `--spitzer` and an explicit Z_eff and ln Λ (#1188).
 - **dW/dt and dli_3/dt** are computed only over the shot's labelled (good/admissible) slices, using a local linear fit over 3 ms. The other slices of a product are unreconstructed, with W down to −75 kJ.
+- **Stored energy, three columns:**
+  - `w_mhd_J` = 1.5∫p dV of the magnetics EFIT. This is `w_th_J`, the energy τ_E uses.
+  - `w_kin_J`: the same integral for the paired electron_kinetic EFIT.
+  - `w_e_ts_J` = 1.5∫p_e dV of the Thomson fit alone, mapped through its own ρ_pol onto the EFIT grid inside the LCFS.
 - **P_net** = P_OH − dW/dt. This is `p_loss_W`; radiation is not subtracted, as in DB5 `PLTH`.
 - **P_transport** is NaN: VEST maps no bolometer.
 - **τ_E** = W_mhd / P_net. The kinetic counterpart is `tau_e_kin_s`, which uses the magnetics dW/dt.
@@ -33,6 +38,15 @@ Every row carries its evidence:
 - `dwdt_fraction`, which is |dW/dt|/P_OH.
 
 The `rule_*` and `accepted` columns apply the provisional working thresholds in `MANIFEST.json`. `threshold_sweep.csv` gives the accepted count and the number of shots on a threshold grid. The thresholds are not adopted until the sweep has been read; VEST discharges have no flat top, so stationarity is judged by rate, not by phase.
+
+## Selections (decided 2026-10-02 on #1490)
+
+| | \|ΔI_p\| per τ_E | \|dW/dt\|/P_OH | \|I_p\| |
+|---|---|---|---|
+| primary | ≤ 0.20 | ≤ 1.0 | ≥ 30 kA |
+| sensitivity | ≤ 0.05 | ≤ 0.5 | ≥ 30 kA |
+
+`fit.py` re-derives both selections from the evidence columns, so changing them does not need a rebuild.
 
 ## Run
 
@@ -48,5 +62,13 @@ Outputs:
 - `series/<shot>.csv`, the per-shot power balance on the labelled EFIT slices;
 - `schema/table.schema.json` and `MANIFEST.json`;
 - `failures.csv`, written only if a shot fails.
+
+Then fit:
+
+```bash
+python fit.py --table ~/runs/campaign/atlas/confinement/table.csv --out ~/runs/campaign/atlas/confinement/fits
+```
+
+This writes `coefficients.csv`, `summary.csv`, `influence.csv`, `identifiability.json` and `MANIFEST.json`.
 
 Nothing is written to the FileDB.
