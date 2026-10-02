@@ -45,6 +45,9 @@ MAX_ATLAS_GROUPS = 3
 MAX_ATLAS_CELL = 200
 DEFAULT_REFERENCE_SHOT = 39915
 ATLAS_ENV = "VAFT_ATLAS_DIR"
+#: Equilibrium summary: slices returned per call, and slices computed per call.
+MAX_SLICES = 20
+MAX_SUMMARY_SLICES = 400
 #: Longest lane README carried by describe_atlas_table.
 MAX_README = 12_000
 
@@ -133,6 +136,26 @@ def _redacted(data: Any, pairs: list | None = None) -> Any:
         return out
     if isinstance(data, list):
         return [_redacted(value, pairs) for value in data]
+    return data
+
+
+#: An absolute POSIX or Windows path inside a string: a lane product records where it ran.
+_ABSOLUTE_PATH = re.compile(r"(?<![\w.~-])(?:[A-Za-z]:[\\/]|/)(?:[^\s\"',;:()\[\]{}<>|]+[\\/])+([^\s\"',;:()\[\]{}<>|/\\]*)")
+
+
+def _without_paths(data: Any) -> Any:
+    """``data`` with every absolute path reduced to ``.../<last component>``.
+
+    Atlas files are written on another machine and name its directories
+    (build commands, run directories); the server's own home redaction does
+    not know that account.
+    """
+    if isinstance(data, str):
+        return _ABSOLUTE_PATH.sub(lambda m: ".../" + m.group(1), data)
+    if isinstance(data, dict):
+        return {key: _without_paths(value) for key, value in data.items()}
+    if isinstance(data, list):
+        return [_without_paths(value) for value in data]
     return data
 
 
@@ -642,10 +665,14 @@ def _slice_index(times, time: float, tolerance: float | None) -> tuple[int, floa
 
     if times is None or not np.isfinite(times).any():
         raise ToolInputError("this dataset has no slice times to match against")
+    if not math.isfinite(float(time)):
+        raise ToolInputError(f"time must be a finite number of seconds, got {time!r}")
     if tolerance is None:
-        spacing = np.diff(np.sort(times[np.isfinite(times)]))
-        tolerance = 0.5 * float(np.median(spacing)) if spacing.size else 1e-3
+        spacing = np.diff(np.unique(times[np.isfinite(times)]))
+        tolerance = max(0.5 * float(np.median(spacing)), 1e-6) if spacing.size else 1e-3
     tolerance = float(tolerance)
+    if not math.isfinite(tolerance) or tolerance <= 0:
+        raise ToolInputError(f"tolerance must be a positive finite number of seconds, got {tolerance!r}")
     distance = np.abs(np.where(np.isfinite(times), times, np.inf) - float(time))
     index = int(np.argmin(distance))
     if distance[index] > tolerance:
@@ -654,6 +681,11 @@ def _slice_index(times, time: float, tolerance: float | None) -> tuple[int, floa
             f"list_equilibrium_times gives the slice times, or pass a wider tolerance"
         )
     return index, float(times[index]), tolerance
+
+
+#: Arrays of structures with one entry per ``<ids>.time``, where '*' may stand for the slice.
+TIME_INDEXED = ("equilibrium.time_slice", "core_profiles.profiles_1d", "core_sources.source.0.profiles_1d",
+                "core_transport.model.0.profiles_1d", "mhd_linear.time_slice")
 
 
 def inspect_data_path(
@@ -668,7 +700,8 @@ def inspect_data_path(
     """The value at one Data Dictionary path of a dataset, bounded, without creating anything.
 
     path is dotted, e.g. 'equilibrium.time_slice.*.global_quantities.q_95'. A '*'
-    stands for the time-slice index and needs time (seconds): the slice nearest that
+    (only after equilibrium.time_slice, core_profiles.profiles_1d and similar
+    time-indexed arrays) stands for the slice and needs time (seconds): the slice nearest that
     time is used, refused beyond tolerance (default half the slice spacing), and the
     matched time is reported. Arrays come back as shape, finite range and a strided
     preview of at most max_points values. An absent path answers present: false.
@@ -688,8 +721,13 @@ def inspect_data_path(
         if time is None:
             raise ToolInputError("a '*' in path is a time-slice index: pass time (s) to pick the slice")
         head = text.split("*", 1)[0].rstrip(".")
-        ids = head.split(".", 1)[0]
-        times = _times(ods, ids)
+        if head not in TIME_INDEXED:
+            raise ToolInputError(f"'*' stands for a time slice only under: {', '.join(TIME_INDEXED)}")
+        times = _times(ods, head.split(".", 1)[0])
+        from vaft.ods_access import path_count
+
+        if times is None or path_count(ods, head) != times.size:
+            raise ToolInputError(f"{head} does not have one entry per {head.split('.', 1)[0]}.time here")
         index, actual, tol = _slice_index(times, float(time), tolerance)
         text = text.replace("*", str(index), 1)
         matched = {"requested_time_s": float(time), "time_s": actual, "tolerance_s": tol, "slice": index}
@@ -736,7 +774,7 @@ def get_equilibrium_summary(
     database_source: str | None = None,
     time: float | None = None,
     tolerance: float | None = None,
-    limit: int = 50,
+    limit: int = 20,
 ) -> dict[str, Any]:
     """Global equilibrium quantities of a dataset: Ip, q95, q_axis, q_min, beta_N, beta_p,
     beta_t, li_3, W_mhd, R0, a, elongation, triangularity, volume, ... (units in the names).
@@ -744,13 +782,18 @@ def get_equilibrium_summary(
     These are VAFT's equilibrium_global summary columns, the same table
     vaft.database.summary builds. With time (s) the one slice nearest that time is
     returned, refused beyond tolerance (default half the slice spacing); without
-    it, the first limit slices in time order.
+    it, the first limit slices (at most 20 fit the size budget) in stored order.
+    The summary is computed for the whole shot, so a long database shot is slow.
     """
     import numpy as np
 
     from vaft.database._summary import extract_equilibrium_global
 
     dataset = _dataset(shot, artifact, database_source)
+    count = len(_times(dataset.data, "equilibrium") if _times(dataset.data, "equilibrium") is not None else ())
+    if count > MAX_SUMMARY_SLICES:
+        raise ToolInputError(f"{count} equilibrium slices; the summary is limited to {MAX_SUMMARY_SLICES} per call "
+                             f"(use inspect_data_path for single quantities)")
     rows = extract_equilibrium_global(dataset.data, dataset.shot)
     if not rows:
         raise ToolInputError("this dataset holds no equilibrium time slices")
@@ -762,12 +805,13 @@ def get_equilibrium_summary(
         selected = [rows[index]]
         matched = {"requested_time_s": float(time), "time_s": actual, "tolerance_s": tol}
     else:
-        limit = _clamp(limit, MAX_LIMIT, "limit")
+        limit = _clamp(limit, MAX_SLICES, "limit")
         selected = rows[:limit]
         if len(rows) > limit:
             notes.append(f"$.slices ({len(rows)} slices, kept {limit})")
     payload = {"dataset": dataset.provenance, "matched": matched, "count": len(rows), "slices": selected}
-    return _finish(payload, converter=Bounded(max_items=MAX_LIMIT), notes=notes)
+    data, converter = bounded_json(payload, budget=MAX_POINTS, max_bytes=MAX_EXTRACT_BYTES, max_items=MAX_SLICES)
+    return _finish(data, converter=converter, notes=notes, converted=True)
 
 
 # ---------------------------------------------------------------------------
@@ -883,7 +927,7 @@ def list_atlas_tables() -> dict[str, Any]:
             "present": present,
             "rows": _csv_rows(path) if present else None,
         })
-    return _finish({"total": len(rows), "items": rows})
+    return _finish(_without_paths({"total": len(rows), "items": rows}))
 
 
 def describe_atlas_table(name: str) -> dict[str, Any]:
@@ -920,17 +964,58 @@ def describe_atlas_table(name: str) -> dict[str, Any]:
         "rules": list(table.rules) + [str(r) for r in schema.get("rules", []) if isinstance(r, str)],
         "caveats": list(table.caveats),
         "description": schema.get("description") if isinstance(schema.get("description"), str) else None,
+        "schema_notes": _schema_notes(schema),
         "column_count": len(columns),
         "columns": columns[:MAX_ATLAS_COLUMNS],
         "readme": readme.read_text(encoding="utf-8", errors="replace")[:MAX_README] if readme else None,
         "provenance": _atlas_provenance(root, table, frame),
     }
-    data, converter = bounded_json(payload, budget=MAX_POINTS, max_bytes=MAX_EXTRACT_BYTES,
+    data, converter = bounded_json(_without_paths(payload), budget=MAX_POINTS, max_bytes=MAX_EXTRACT_BYTES,
                                    max_items=MAX_ATLAS_COLUMNS, max_string=MAX_README)
     return _finish(data, converter=converter, notes=notes, converted=True)
 
 
+def _schema_notes(schema: dict) -> dict[str, Any]:
+    """The lane schema's own prose: top-level text and short lists of words (status values, configurations).
+
+    Lane N, for one, defines its energies, delta' resolution and local criteria
+    there rather than per column.
+    """
+    skip = {"description", "rules", "properties", "columns", "pair_columns", "column_dictionary", "units",
+            "atlas_n_columns", "atlas_surfaces_columns", "$schema", "title", "type", "required",
+            # build records: provenance carries the allow-listed part of these
+            "command", "inputs", "outputs", "sources", "generated_at", "vaft_git", "vaft_dirty", "rows",
+            "status_counts", "counts"}
+    notes: dict[str, Any] = {}
+    for key, value in schema.items():
+        if key in skip:
+            continue
+        if isinstance(value, str):
+            notes[key] = value
+        elif isinstance(value, list) and len(value) <= 50 and all(isinstance(v, str) for v in value):
+            notes[key] = value
+        elif isinstance(value, dict) and len(value) <= 50 and all(isinstance(v, str) for v in value.values()):
+            notes[key] = value
+    return notes
+
+
 _OPERATORS = ("==", "!=", "<", "<=", ">", ">=", "in", "not_in", "isnull", "notnull")
+
+
+def _coerced(series, value: Any) -> Any:
+    """``value`` in the column's own type: 'true'/'false' for a boolean column, '1' for a numeric one."""
+    from pandas.api import types
+
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if types.is_bool_dtype(series) and text in ("true", "false"):
+            return text == "true"
+        if types.is_numeric_dtype(series) and not types.is_bool_dtype(series):
+            try:
+                return float(text)
+            except ValueError:
+                return value
+    return value
 
 
 def _condition(frame, clause: Any):
@@ -953,17 +1038,17 @@ def _condition(frame, clause: Any):
     if op in ("in", "not_in"):
         if not isinstance(value, list) or len(value) > MAX_LIMIT:
             raise ToolInputError(f"op {op!r} takes a list of at most {MAX_LIMIT} values")
-        values = [_atlas.normalised_value(column, v) for v in value]
+        values = [_coerced(series, _atlas.normalised_value(column, v)) for v in value]
         mask = series.isin(values)
         return ~mask if op == "not_in" else mask
     if isinstance(value, (list, dict)):
         raise ToolInputError(f"op {op!r} takes one scalar value")
-    value = _atlas.normalised_value(column, value)
+    value = _coerced(series, _atlas.normalised_value(column, value))
     try:
+        if op == "!=":
+            return (series != value) & series.notna()
         if op == "==":
             return series == value
-        if op == "!=":
-            return series != value
         return {"<": series.lt, "<=": series.le, ">": series.gt, ">=": series.ge}[op](value)
     except TypeError:
         raise ToolInputError(f"cannot compare column {column!r} ({series.dtype}) with {value!r}") from None
@@ -980,7 +1065,8 @@ def query_atlas_table(
     """Rows of one atlas table, filtered by value, with the lane's rules attached.
 
     where is a list of {column, op, value} clauses, all of which must hold; op is one
-    of ==, !=, <, <=, >, >=, in, not_in (value a list), isnull, notnull. Tables with
+    of ==, !=, <, <=, >, >=, in, not_in (value a list), isnull, notnull. Comparisons
+    never match a missing cell (use isnull for those). Tables with
     must_filter columns (stability: n_tor; stability_surfaces: n_tor and solver;
     transport_sensitivity: tglf_config) refuse a query that does not pin each of
     them with ==, because the lane forbids mixing their values. columns selects
@@ -1017,7 +1103,10 @@ def query_atlas_table(
         absent = [n for n in names if n not in frame.columns]
         if absent:
             raise ToolInputError(f"cannot order by unknown columns {absent}")
-        matched = matched.sort_values(names, ascending=[not k.startswith("-") for k in keys], na_position="last")
+        try:
+            matched = matched.sort_values(names, ascending=[not k.startswith("-") for k in keys], na_position="last")
+        except TypeError:
+            raise ToolInputError(f"cannot order by {names}: a column mixes numbers and text") from None
 
     if columns:
         chosen = [_atlas.normalised_column(str(c)) for c in columns]
@@ -1056,7 +1145,7 @@ def query_atlas_table(
         "caveats": list(table.caveats),
         "provenance": _atlas_provenance(root, table, frame),
     }
-    data, converter = bounded_json(payload, budget=MAX_POINTS, max_bytes=MAX_EXTRACT_BYTES,
+    data, converter = bounded_json(_without_paths(payload), budget=MAX_POINTS, max_bytes=MAX_EXTRACT_BYTES,
                                    max_items=MAX_LIMIT, max_string=MAX_ATLAS_CELL)
     return _finish(data, converter=converter, notes=notes, converted=True)
 

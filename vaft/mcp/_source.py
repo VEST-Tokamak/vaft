@@ -16,7 +16,11 @@ changing any tool schema.  Three kinds of dataset resolve:
 
 Every load returns a fresh object: VAFT's updaters and extraction may
 materialise paths on the loaded data, and a cached object would carry that
-into the next answer.  Nothing here writes.
+into the next answer.  Nothing here writes to the data's home: database shots
+are read with the download cache off, and the only files created are the
+temporary copies VAFT's own loaders stage (a decompressed ``.json.gz``, a
+partial IMAS entry), which they remove.  Artifacts are size-capped so that
+staging stays small.
 """
 
 from __future__ import annotations
@@ -28,6 +32,9 @@ from typing import Any
 __all__ = ["Dataset", "known_shots", "load_dataset", "load_reference_shot"]
 
 ARTIFACT_ENV = "VAFT_ARTIFACT_DIR"
+#: Largest artifact (a file, or all files of a directory) and largest compressed one.
+MAX_ARTIFACT_BYTES = 512 * 1024 * 1024
+MAX_COMPRESSED_BYTES = 32 * 1024 * 1024
 DATABASE_ENV = "VAFT_MCP_DATABASE"
 
 
@@ -88,6 +95,25 @@ def _vaft_version() -> str:
     return str(__version__)
 
 
+def _check_artifact(root, resolved, relative: str) -> None:
+    """Refuse a directory artifact with a member outside ``root`` (a symlink out), and oversized input."""
+    from ._paths import contained
+
+    if resolved.is_dir():
+        members = [m for m in resolved.rglob("*") if not m.is_dir()]
+        if len(members) > 10_000:
+            raise ValueError(f"artifact {relative!r} holds {len(members)} files; the limit is 10000")
+        if any(m.is_symlink() or contained(root, m) is None for m in members):
+            raise ValueError(f"artifact {relative!r} links outside {ARTIFACT_ENV}; copy the files in instead")
+        size = sum(m.stat().st_size for m in members)
+    else:
+        size = resolved.stat().st_size
+        if resolved.suffix.lower() == ".gz" and size > MAX_COMPRESSED_BYTES:
+            raise ValueError(f"compressed artifact {relative!r} is {size} bytes; the limit is {MAX_COMPRESSED_BYTES}")
+    if size > MAX_ARTIFACT_BYTES:
+        raise ValueError(f"artifact {relative!r} is {size} bytes; the limit is {MAX_ARTIFACT_BYTES}")
+
+
 def _artifact(path: str) -> Dataset:
     from ._paths import PathRefused, configured_root, contained_file
 
@@ -97,12 +123,13 @@ def _artifact(path: str) -> Dataset:
     )
     root = configured_root(ARTIFACT_ENV, "local artifacts (g-files, ODS JSON, IMAS netCDF/HDF5)")
     resolved = contained_file(root, path, refused, directory=True)
+    relative = resolved.relative_to(root).as_posix()
+    _check_artifact(root, resolved, relative)
     from vaft.omas import load
 
-    relative = resolved.relative_to(root).as_posix()
     try:
         ods = load(resolved)
-    except (OSError, ValueError, KeyError) as error:
+    except Exception as error:  # noqa: BLE001 - loader messages carry absolute paths
         raise ValueError(f"artifact {relative!r} could not be read: {type(error).__name__}") from None
     from vaft.ods_access import path_value
 
@@ -126,7 +153,7 @@ def _database(shot: int, source: str | None) -> Dataset:
     import vaft.database as database
 
     try:
-        ods = database.load(int(shot), source=source)
+        ods = database.load(int(shot), source=source, cache="off")
     except Exception as error:  # noqa: BLE001 - never echo server text: it may carry endpoints or accounts
         raise ValueError(f"database shot {shot} (source {source or 'default'}) is unavailable: "
                          f"{type(error).__name__}") from None

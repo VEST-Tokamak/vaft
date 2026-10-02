@@ -164,3 +164,10 @@ A client configured by file (Claude Desktop, a project `.mcp.json`) takes the sa
   }
 }
 ```
+
+## Demo scenarios
+
+`workflow/mcp_demo/run_demo.py` replays four questions through a real stdio session and writes
+the transcripts. The questions are the equilibrium summary of shot 39915, the Tier A states
+ideal-unstable at n = 1, the surfaces with the largest SAT-rule flux spread, and the identified
+resistive Z_eff windows. Its README lists the same questions to ask an agent live.

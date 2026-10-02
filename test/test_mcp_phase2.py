@@ -69,15 +69,17 @@ def atlas(tmp_path, monkeypatch):
         "columns": {}, "pair_columns": {"q_tot_gb_sat_spread_es": {"unit": "-", "definition": "SAT spread"}}}))
     # Lane N, atlas version 1: the pre-contract spellings.
     _write(root, "stability/atlas_n.csv",
-           "shot,time_efit_s,efit_lineage,efit_label,n_tor,dcon_full_256_W_t,ideal_stable_full_edge,atlas_version\n"
-           "39915,0.319,magnetics-only,good,1,0.5,True,1\n"
-           "39915,0.319,magnetics-only,good,2,-0.2,False,1\n"
-           "39915,0.32,electron-kinetic,admissible,1,-0.1,False,1\n")
+           "shot,time_efit_s,efit_lineage,efit_label,n_tor,dcon_full_256_W_t,ideal_stable_full_edge,atlas_version,"
+           "slice_dir\n"
+           "39915,0.319,magnetics-only,good,1,0.5,True,1,/home/someone/batch/39915_0.319\n"
+           "39915,0.319,magnetics-only,good,2,-0.2,False,1,/home/someone/batch/39915_0.319\n"
+           "39915,0.32,electron-kinetic,admissible,1,-0.1,False,1,/home/someone/batch/39915_0.32\n")
     _write(root, "stability/atlas_surfaces.csv",
            "shot,time_efit_s,efit_lineage,efit_label,n_tor,solver,m,delta_prime\n"
            "39915,0.319,magnetics-only,good,1,rdcon,2,3.0\n39915,0.319,magnetics-only,good,1,stride,2,2.0\n")
     _write(root, "stability/schema.json", json.dumps({
         "rules": ["no cross-n combination"],
+        "energies": "DCON least-stable normalized eigenvalues (not Joules).",
         "column_patterns": {"{t}": "full | trunc", "{r}": "256 | 512"},
         "column_dictionary": {
             "efit_label": {"type": "str", "unit": "", "meaning": "#1331 label"},
@@ -90,7 +92,10 @@ def atlas(tmp_path, monkeypatch):
            "record_id,shot,time_efit_s,efit_lineage,efit_quality,tau_e_th_s,accepted\nVEST:39915:319,39915,0.319,magnetics,good,0.001,True\n")
     _write(root, "lane_v/efit_base.csv",
            "shot,time_efit_s,efit_lineage,efit_quality,normalized_beta\n39915,0.319,magnetics,good,0.05\n")
-    _write(root, "lane_v/MANIFEST.json", json.dumps({"units": {"normalized_beta": "-"}}))
+    _write(root, "lane_v/MANIFEST.json", json.dumps({
+        "units": {"normalized_beta": "-"}, "vaft_git": "ff94",
+        "command": ["build_efit_base.py", "--state", "/home/someone/runs/atlas/v1/state.csv"],
+        "inputs": {"state": "/home/someone/runs/atlas/v1/state.csv"}}))
     monkeypatch.setenv("VAFT_ATLAS_DIR", str(root))
     return root
 
@@ -125,6 +130,7 @@ def test_each_schema_format_describes_its_columns(atlas):
     assert columns["dcon_full_256_W_t"]["pattern"] == "dcon_{t}_{r}_W_t"
     assert "no cross-n combination" in stability["rules"]
     assert "Never combine values across n" in stability["readme"]
+    assert "not Joules" in stability["schema_notes"]["energies"]
 
     base = {c["name"]: c for c in _json(tools.describe_atlas_table("op_space_base"))["columns"]}
     assert base["normalized_beta"]["unit"] == "-"
@@ -141,6 +147,31 @@ def test_old_spellings_come_back_in_contract_v1_spelling(atlas):
         {"column": "efit_lineage", "op": "==", "value": "magnetics-only"}]))
     assert old["total_matched"] == 1 and old["rows"][0]["time_efit_s"] == 0.319
     assert old["provenance"]["atlas_version"] == ["1"]
+
+
+def test_atlas_answers_never_carry_the_build_machine_paths(atlas):
+    texts = [json.dumps(tools.describe_atlas_table(name)) for name in ("op_space_base", "stability", "state")]
+    texts.append(json.dumps(tools.query_atlas_table(
+        "stability", where=[{"column": "n_tor", "op": "==", "value": 1}], columns=["slice_dir"])))
+    for text in texts:
+        assert "/home/someone" not in text
+    rows = tools.query_atlas_table("stability", where=[{"column": "n_tor", "op": "==", "value": 1}],
+                                   columns=["slice_dir"])["rows"]
+    assert rows[0]["slice_dir"] == ".../39915_0.319"
+    assert tools.describe_atlas_table("op_space_base")["provenance"].get("vaft_git") == "ff94"
+
+
+def test_filters_follow_the_column_type_and_skip_missing_cells(atlas):
+    pinned = {"column": "n_tor", "op": "==", "value": 1}
+    as_text = tools.query_atlas_table("stability", where=[pinned, {"column": "ideal_stable_full_edge", "op": "==",
+                                                                   "value": "false"}])
+    as_bool = tools.query_atlas_table("stability", where=[pinned, {"column": "ideal_stable_full_edge", "op": "==",
+                                                                   "value": False}])
+    assert as_text["total_matched"] == as_bool["total_matched"] == 1
+    assert tools.query_atlas_table("stability", where=[{"column": "n_tor", "op": "==", "value": "1"}])[
+        "total_matched"] == 2
+    # r_w is missing for 42929: != never matches a missing cell.
+    assert tools.query_atlas_table("state", where=[{"column": "r_w", "op": "!=", "value": 1.1}])["total_matched"] == 2
 
 
 def test_lane_rules_are_refusals(atlas):
@@ -254,6 +285,14 @@ def test_a_data_path_is_read_without_creating_it():
         tools.inspect_data_path("equilibrium.time_slice.*.global_quantities.q_95", shot=39915)
 
 
+def test_time_matching_refuses_what_it_cannot_match():
+    for time, tolerance in ((float("nan"), None), (0.32, float("nan")), (0.32, float("inf")), (0.32, 0.0)):
+        with pytest.raises(tools.ToolInputError):
+            tools.get_equilibrium_summary(shot=39915, time=time, tolerance=tolerance)
+    with pytest.raises(tools.ToolInputError, match="time slice only under"):
+        tools.inspect_data_path("magnetics.flux_loop.*.name", shot=39915, time=0.3)
+
+
 def test_a_shot_without_a_sample_needs_the_database_switch(monkeypatch):
     import vaft.database
 
@@ -294,6 +333,17 @@ def test_artifacts_resolve_only_inside_their_directory(tmp_path, monkeypatch):
     for path in ("../outside", "/etc/passwd", "~/x", "C:\\x", "missing"):
         with pytest.raises(tools.ToolInputError, match="no readable artifact"):
             tools.inspect_dataset(artifact=path)
+    linked = root / "linked"
+    linked.mkdir()
+    outside = tmp_path / "outside.h5"
+    outside.write_bytes(b"x")
+    try:
+        (linked / "entry.h5").symlink_to(outside)
+    except OSError:
+        pass
+    else:
+        with pytest.raises(ValueError, match="links outside"):
+            tools.inspect_dataset(artifact="linked")
     monkeypatch.delenv("VAFT_ARTIFACT_DIR")
     with pytest.raises(tools.ToolInputError, match="VAFT_ARTIFACT_DIR is not set"):
         tools.inspect_dataset(artifact="g039915")
