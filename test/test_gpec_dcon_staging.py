@@ -387,8 +387,12 @@ def test_a_dcon_cell_without_equil_in_is_skipped_rather_than_raising(
     can fail on an otherwise complete DCON result, and it must fail the same way
     the others do.
     """
+    # The run never reaches the executable (the missing equil.in is refused at
+    # staging), so the portable stub suffices; the POSIX handshake script the
+    # other tests use is not launchable on the Windows leg and the executable
+    # check would raise PermissionError before the check under test.
     home = tmp_path / "gpec_home"
-    _handshake_stub(home / "bin" / "gpec")
+    write_launchable_stub(home / "bin" / "gpec")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(home))
 
     dcon = _complete_dcon(case, equilibrium=False)
@@ -402,8 +406,12 @@ def test_a_dcon_cell_without_equil_in_is_skipped_rather_than_raising(
 
 
 def test_strict_raises_for_a_dcon_cell_without_equil_in(case, monkeypatch, tmp_path):
+    # The run never reaches the executable (the missing equil.in is refused at
+    # staging), so the portable stub suffices; the POSIX handshake script the
+    # other tests use is not launchable on the Windows leg and the executable
+    # check would raise PermissionError before the check under test.
     home = tmp_path / "gpec_home"
-    _handshake_stub(home / "bin" / "gpec")
+    write_launchable_stub(home / "bin" / "gpec")
     monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(home))
 
     dcon = _complete_dcon(case, equilibrium=False)
