@@ -1309,7 +1309,12 @@ $\otimes$ into the page; the magnetic axis is a filled blue dot, an X-point a cr
 line, the separatrix blue; the computational boundary dashed; the machine (vessel, limiter, coils) in
 black outline, faint where it is shown only for reference; regions shaded plasma blue, vacuum green,
 conductor grey; measurements red (outboard) and orange (inboard). The machine and the flux are the toy
-free-boundary model of the Grad–Shafranov diagrams, not any device.
+free-boundary model of the Grad–Shafranov diagrams, not any device. The sense of $\theta$ differs on
+purpose: the `cocos_orientation` panels draw it as the index fixes it (COCOS 11, $\sigma_{R\phi Z} = +1$
+and $\sigma_{\rho\theta\phi} = +1$ with $\phi$ into the page, puts $\theta$ clockwise in the $(R, Z)$ plane
+as drawn), while the torus, mesh and mapping figures (`tokamak_torus`, `logical_to_physical_mapping`,
+`sfl_coordinate_grids`) are convention-free sketches that use the mathematical angle, counter-clockwise
+from the outboard midplane.
 
 ![Top view]({{ '/assets/diagrams/tokamak_top_view.svg' | relative_url }})
 ![COCOS orientation]({{ '/assets/diagrams/cocos_orientation.svg' | relative_url }})

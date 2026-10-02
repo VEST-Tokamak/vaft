@@ -585,7 +585,10 @@ def logical_to_physical_mapping(*, n_xi: int = 6, n_eta: int = 16, cell: Tuple[i
     poloidal rays ($\theta = 2\pi\eta$). The shaded cell is the same cell in
     both. $\eta = 0$ and $\eta = 1$ map to one ray (periodic), and $\xi = 0$
     collapses to the magnetic axis -- the coordinate singularity every
-    flux-aligned mesh has.
+    flux-aligned mesh has. $\theta$ here is the mathematical angle,
+    counter-clockwise from the outboard midplane (as in ``tokamak_torus``),
+    a convention-free sketch; the sense of $\theta$ a COCOS index fixes is
+    what ``cocos_orientation`` draws (clockwise for COCOS 11).
     """
     labels = _check_labels(labels)
     n_xi, n_eta = _index(n_xi, "n_xi"), _index(n_eta, "n_eta")

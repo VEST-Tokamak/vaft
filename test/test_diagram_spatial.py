@@ -221,6 +221,19 @@ def test_size_arguments_accept_numpy_integers_like_cocos_does(name, key):
         builder(**{key: float(value)})
 
 
+def test_the_mapping_states_its_theta_sense_against_cocos():
+    # cold review 0.8.0 delta-absorb-14 F2: the COCOS 11 panel draws theta clockwise, the
+    # mapping/torus figures counter-clockwise; both the docstring and the docs page must say so
+    from pathlib import Path
+
+    assert "counter-clockwise" in vaft.diagram.logical_to_physical_mapping.__doc__
+    page = (Path(__file__).resolve().parents[1] / "docs" / "_guide" / "Diagrams.md").read_text(encoding="utf-8")
+    conventions = page[page.index("Conventions shared by every figure"):]
+    conventions = conventions[:conventions.index("## Using the committed assets")]
+    assert "counter-clockwise" in conventions and "clockwise in the $(R, Z)$ plane" in conventions
+    assert "`cocos_orientation`" in conventions and "`logical_to_physical_mapping`" in conventions
+
+
 def test_a_grid_too_coarse_for_the_plasma_fails_explicitly():
     with pytest.raises(ValueError, match="no node inside"):
         vaft.diagram.structured_rz_grid(n_r=4, n_z=4)
