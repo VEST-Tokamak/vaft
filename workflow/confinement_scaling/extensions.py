@@ -43,8 +43,11 @@ Three analyses on the primary selection of ``fit.py``:
    - the diamagnetic flux over its paramagnetic scale I_p^2 / B0R0;
    - with ``--state``, Lane K's p_EFIT/p_e and the EFIT probe reduced chi^2.
 
-   It also fits the block offset of tau computed from the Thomson-only W_e, which
-   is independent of the magnetics EFIT.
+   It also fits the block offset of the stored energy itself, W_mhd and the
+   Thomson-only W_e, against I_p and the raw ohmic power I_p V_loop. Neither W_e nor
+   I_p V_loop uses the EFIT, so a block offset present in W_mhd and absent from W_e
+   locates the offset in the magnetics reconstruction. Medians are per slice, so
+   shots with many slices weigh more.
 6. **Ohmic regime** (``neo_alcator_regime``). In the linear ohmic confinement
    (LOC) regime, tau_E rises with density (neo-Alcator tau ~ n); in the
    saturated regime (SOC) it does not, so H_NA = tau / tau_NA falls as n^-1.
@@ -175,12 +178,20 @@ def campaign_diagnostics(frame: pd.DataFrame, state: pd.DataFrame | None = None,
                 phi.append(float(np.interp(r["time_s"], t, np.asarray(d["data"], dtype=float))))
             except (OSError, KeyError, IndexError, ValueError):
                 phi.append(np.nan)
-        f["phi_dia_over_ip2_per_b0r0"] = np.asarray(phi) / (f["i_p_A"] ** 2 / f["b0r0_Tm"])
-        columns.append("phi_dia_over_ip2_per_b0r0")
+        # Paramagnetic scale mu0^2 I_p^2 / (4 pi B_T) with B_T = B0R0 / R_geo: the ratio
+        # is then (1 - beta_p,dia) times a shape factor, so equal block medians mean an
+        # unchanged beta_p,dia (and no gross Rogowski gain change), not a direct gain check.
+        f["phi_dia_over_paramagnetic_scale"] = np.asarray(phi) / (
+            4e-7 * np.pi * 4e-7 * np.pi * f["i_p_A"] ** 2 * f["r_geo_m"] / (4 * np.pi * f["b0r0_Tm"]))
+        columns.append("phi_dia_over_paramagnetic_scale")
     out = f.groupby("block")[columns].median().T
     out.insert(0, "quantity", out.index)
     if state is not None:
+        # The same slices as above: state rows joined on (shot, time) to the frame.
         st = state.loc[state["efit_lineage"] == "magnetics"].copy()
+        st["_key_t"] = st["time_efit_s"].round(4)
+        keys = pd.DataFrame({"shot": f["shot"].to_numpy(), "_key_t": f["time_s"].round(4).to_numpy()})
+        st = st.merge(keys.drop_duplicates(), on=["shot", "_key_t"], how="inner")
         st["block"] = np.where(st["shot"] >= CAMPAIGN_SPLIT_SHOT, "429xx-430xx", "399xx-403xx")
         extra = st.groupby("block")[["r_sum", "probe_reduced_chi2", "loop_reduced_chi2", "betap"]].median().T
         extra.insert(0, "quantity", ["lane_k_r_sum_p_efit_over_p_e", "efit_probe_reduced_chi2",
@@ -203,7 +214,7 @@ def neo_alcator_regime(frame: pd.DataFrame) -> list:
         base = {"n_e": f["n_e_line_avg_m3"].to_numpy(float), "i_p": f["i_p_A"].to_numpy(float),
                 "campaign2": block_indicator(f)}
         rows += run(f"ohmic:{energy}: tau ~ n, I_p, block", tau, base, g,
-                    "LOC: a_n ~ 1 (neo-Alcator); SOC: a_n ~ 0")
+                    "LOC: a_n ~ 1 (neo-Alcator); SOC: a_n ~ 0; tau uses P_net (dW_mhd/dt, li_3 from EFIT)")
         rows += run(f"ohmic:{energy}: H_NA ~ n, block", tau / tau_na,
                     {"n_e": base["n_e"], "campaign2": base["campaign2"]}, g,
                     "LOC: flat; SOC: a_n ~ -1")
@@ -217,7 +228,7 @@ def run(name, y, x, groups, note=""):
         fit = fit_confinement_scaling(y, x, groups)
     except ValueError as exc:
         return [{"fit": name, "term": "", "error": str(exc), "note": note}]
-    ident = assess_predictor_identifiability(x)
+    ident = assess_predictor_identifiability({k: np.asarray(v, dtype=float)[fit.mask] for k, v in x.items()})
     rows = []
     for j, term in enumerate(fit.names):
         rows.append({"fit": name, "term": term, "coef": fit.coef[j], "se_cluster": fit.stderr[j],
@@ -297,12 +308,16 @@ def main(argv=None) -> int:
         Path(args.filedb).expanduser() if args.filedb else None)
     campaign_table.to_csv(out / "campaign_diagnostics.csv", index=False)
     ts = frame.loc[np.isfinite(frame["w_e_ts_J"]) & (frame["w_e_ts_J"] > 0)].copy()
-    ts["tau_e_ts_s"] = ts["w_e_ts_J"] / ts["p_loss_W"]
-    for energy, col in (("W_mhd", "tau_e_th_s"), ("W_e,TS", "tau_e_ts_s")):
-        rows += run(f"campaign offset, tau from {energy} (TS rows)", ts[col].to_numpy(float),
-                    {"i_p": ts["i_p_A"].to_numpy(float), "p_net": ts["p_loss_W"].to_numpy(float),
+    # EFIT-free power: I_p V_loop from the measured current and flux-loop voltage, with no
+    # li_3 correction and no dW_mhd/dt. Responses are energies, not W/P, so the power
+    # appears on one side only.
+    ts["p_loop_raw_W"] = ts["i_p_A"] * ts["v_loop_V"]
+    for energy, col in (("W_mhd", "w_th_J"), ("W_e,TS", "w_e_ts_J")):
+        rows += run(f"campaign offset, {energy} ~ I_p, I_p V_loop (TS rows)", ts[col].to_numpy(float),
+                    {"i_p": ts["i_p_A"].to_numpy(float), "p_loop": ts["p_loop_raw_W"].to_numpy(float),
                      "campaign2": block_indicator(ts)}, ts["shot"].to_numpy(),
-                    "campaign2 = log offset of 429xx-430xx; W_e,TS is independent of the magnetics EFIT")
+                    "campaign2 = log offset of 429xx-430xx vs 399xx-403xx; W_e,TS and I_p V_loop use no EFIT; "
+                    "W_mhd is the magnetics EFIT")
     rows += neo_alcator_regime(frame)
 
     result = pd.DataFrame(rows)

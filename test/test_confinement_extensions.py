@@ -87,7 +87,13 @@ def test_campaign_diagnostics_reports_per_block_ratios():
                       "w_th_J": [200.0, 220.0, 600.0, 660.0], "w_e_ts_J": [100.0, 110.0, 150.0, np.nan],
                       "p_ohm_W": [1e5] * 4, "p_ohm_efit_flux_W": [1e5] * 4, "i_p_A": [8e4] * 4,
                       "n_e_line_avg_m3": [5e18] * 4, "b0r0_Tm": [0.06] * 4})
-    out = ext.campaign_diagnostics(f).set_index("quantity")
+    state = pd.DataFrame({"shot": [40000, 42900, 42900], "time_efit_s": [0.32, 0.32, 0.33],
+                          "efit_lineage": ["magnetics"] * 3, "r_sum": [2.0, 3.0, 99.0],
+                          "probe_reduced_chi2": [1.0, 5.0, 99.0], "loop_reduced_chi2": [1.0] * 3,
+                          "betap": [0.2] * 3})
+    out = ext.campaign_diagnostics(f, state).set_index("quantity")
+    # The 0.33 s state row is not one of the frame's slices, so it must not enter.
+    assert out.loc["lane_k_r_sum_p_efit_over_p_e", "429xx-430xx"] == pytest.approx(3.0)
     assert out.loc["w_mhd_over_w_e_ts", "399xx-403xx"] == pytest.approx(2.0)
     assert out.loc["w_mhd_over_w_e_ts", "429xx-430xx"] == pytest.approx(4.0)  # NaN W_e row skipped
     assert list(ext.block_indicator(f)) == [1.0, 1.0, np.e, np.e]
