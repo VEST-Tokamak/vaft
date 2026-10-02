@@ -264,7 +264,7 @@ def empirical_li_qa():
 
     Validity
     --------
-    Empirical, approximate readings of a published figure (JET 1985-1988),
+    Empirical fit. Approximate readings of a published figure (JET 1985-1988),
     not tabulated data. A 2026 audit (#1422) re-digitized Fig. 6 at 600 dpi:
     these values agree with it to about 0.03 in $l_i$. The registered
     ``vaft.formula.boundaries`` entries ``wesson_1989_jet_li_qpsi_lower`` and
