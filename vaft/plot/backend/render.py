@@ -20,7 +20,10 @@ from .recipes import (
     missing_required_path,
 )
 
-__all__ = ["frame_renderers", "refuse_when_unsupported", "render_entries"]
+__all__ = ["STATE_SELECTORS", "frame_renderers", "refuse_when_unsupported", "render_entries"]
+
+#: Keywords that each pick one state of a time-resolved plot (issue #1380).
+STATE_SELECTORS = ("time", "time_slice", "time_index", "frame_index")
 
 
 def render_entries(
@@ -145,6 +148,14 @@ def _render_interactive(
             )
         offered = tuple(c for c in offered if c.name in wanted)
     extraction, style = split_options(options)
+    # An instant the caller chose with another selector (time= on a plot whose
+    # slider is time_index, time_slice= on a camera frame) pins the state the
+    # same way: the slice control is not offered, since a builder takes one
+    # selector at a time (issue #1380).
+    pinned = [key for key in STATE_SELECTORS if extraction.get(key) is not None]
+    offered = tuple(
+        c for c in offered if not (c.group == "slice" and any(key != c.name for key in pinned))
+    )
     # A starting value the static call accepts but the control's list does not
     # hold (selection=[0, 3], yunit="auto", a slice outside the usable ones)
     # stays what the caller fixed: that one control is not offered, and the
@@ -163,6 +174,15 @@ def _render_interactive(
     fixed_style = {k: v for k, v in style.items() if k not in names}
     state = ControlState(offered, initial)
     build, draw = frame_renderers(spec, entries, fixed, fixed_style, backend)
+    if style.get("validity") is not None and "validity" not in fixed_style:
+        # The caller stated a validity mode and it became the control's start:
+        # the channels it brings in stay in, whatever the control is set to,
+        # so opening the controls draws what the static call draws.
+        stated = style["validity"]
+        plain_build = build
+
+        def build(chosen: Mapping[str, Any]) -> Any:
+            return plain_build({"validity": stated, **chosen})
     return render_controls(
         build, state, draw=draw, backend=interaction_backend, render_backend=backend, show=show,
     )
@@ -185,8 +205,13 @@ def frame_renderers(
     fixes the scale, limits and resolution across its frames).
     """
 
+    # validity= is drawn by the renderer, but a mode the caller states also
+    # tells the signal presets to keep condemned channels for that mode to
+    # handle (issue #1380), so the builder sees it as the static call does.
+    hints = {"validity": fixed_style["validity"]} if fixed_style.get("validity") is not None else {}
+
     def build(chosen: Mapping[str, Any]) -> Any:
-        return build_model(spec.name, entries, **{**fixed, **chosen})
+        return build_model(spec.name, entries, **{**fixed, **hints, **chosen})
 
     def draw(model: Any, **kwargs: Any) -> Any:
         return renderer_for(spec, model, backend)(model, **{**fixed_style, **kwargs})

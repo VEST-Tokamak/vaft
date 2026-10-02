@@ -3,10 +3,11 @@
 Reads ``state.csv`` (and the analysis JSONs, for the #1414 cross-check) and
 writes ``summary.json`` plus ``figures/pressure_consistency.{png,pdf}``.
 
-Every statistic is split by EFIT quality because criteria.py's ``good`` is
-gated on the Thomson bound ``p_e <= p <= 3 p_e``: on ``good`` rows ``R_sum``
-lies in [1, 3] by construction, so only ``admissible`` rows show the free
-distribution.
+Every statistic is split by EFIT quality.  Since criteria version 2
+(2026-10-02) ``good`` is fit quality only and is no longer gated on Thomson,
+so ``R_sum`` is free on both; the physical band ``1 <= p/p_e <= 2`` (no fast
+ions, ``T_i <= T_e``, ``n_i <= n_e``) is shown and counted, never selected on.
+Atlases built under version 1 gated ``good`` rows on ``[1, 3]``.
 
 Usage::
 
@@ -40,7 +41,8 @@ def _stats(values: Iterable[float]) -> dict[str, Any]:
         return {"n": 0}
     q1, median, q3 = np.percentile(finite, [25, 50, 75])
     return {"n": int(finite.size), "median": float(median), "q1": float(q1), "q3": float(q3),
-            "below_1": int(np.sum(finite < 1.0)), "above_3": int(np.sum(finite > 3.0))}
+            "below_1": int(np.sum(finite < 1.0)), "above_2": int(np.sum(finite > 2.0)),
+            "above_3": int(np.sum(finite > 3.0))}
 
 
 def _kinetic_reference(path: Path | None) -> dict[str, Any] | None:
@@ -94,7 +96,7 @@ def figure(rows: Sequence[dict[str, str]], out: Path) -> list[Path]:
     matched = [r for r in rows if r["ts_status"] == "matched"]
     colours = {"good": "#2166ac", "admissible": "#e08214"}
     fig, (left, right) = plt.subplots(1, 2, figsize=(10.5, 4.2), constrained_layout=True)
-    left.axhspan(1.0, 3.0, color="0.92", zorder=0, label="criteria band (workflow, not a bound)")
+    left.axhspan(1.0, 2.0, color="0.92", zorder=0, label="physical band: 1 \u2264 p/p$_e$ \u2264 2")
     left.axhline(1.0, color="0.3", lw=0.8, ls="--")
     for quality in ("admissible", "good"):
         for lineage, marker, face in (("magnetics", "o", None), ("electron_kinetic", "s", "none")):
@@ -139,9 +141,9 @@ def figure(rows: Sequence[dict[str, str]], out: Path) -> list[Path]:
         axis.set_major_locator(FixedLocator(ticks))
         axis.set_minor_locator(NullLocator())
         axis.set_major_formatter(ScalarFormatter())
-    fig.text(0.01, -0.10, "#1331 Tier A, statistical_891. Good slices are gated on the criteria band, "
-             "so their magnetics-only R lies in [1, 3] by construction. Kinetic markers: square = own "
-             "admissibility passes, x = fails.", fontsize=7)
+    fig.text(0.01, -0.10, "#1331 Tier A, statistical_891. Quality is fit quality only (criteria v2); "
+             "the shaded band is the physical-consistency check, not a selection. Kinetic markers: "
+             "square = own admissibility passes, x = fails.", fontsize=7)
     out.mkdir(parents=True, exist_ok=True)
     paths = [out / "pressure_consistency.png", out / "pressure_consistency.pdf"]
     for path in paths:

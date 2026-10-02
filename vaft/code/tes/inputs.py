@@ -61,28 +61,98 @@ def _resolve_time(ods: Any, config: TESConfig) -> float:
     raise ValueError("TESConfig.time (seconds) or TESConfig.time_index is required")
 
 
-def _clip_limiter_to_grid(r: np.ndarray, z: np.ndarray, config: TESConfig) -> tuple[np.ndarray, np.ndarray]:
-    """Drop limiter points outside the computational grid.
-
-    ``get_psi()`` in TES calls ``exit()`` for any coordinate outside
-    [RMIN, RMAX] x [ZMIN, ZMAX]; a margin of a few cells keeps interpolation
-    stencils in-bounds.
-    """
-    r = np.asarray(r, dtype=float)
-    z = np.asarray(z, dtype=float)
+def _grid_box(config: TESConfig) -> tuple[float, float, float, float]:
+    """The grid rectangle shrunk by ``limiter_grid_margin`` cells per side."""
     dr = (config.rmax - config.rmin) / max(config.nr - 1, 1)
     dz = (config.zmax - config.zmin) / max(config.nz - 1, 1)
     m = config.limiter_grid_margin
-    mask = (
-        (r >= config.rmin + m * dr) & (r <= config.rmax - m * dr)
-        & (z >= config.zmin + m * dz) & (z <= config.zmax - m * dz)
+    return (config.rmin + m * dr, config.rmax - m * dr, config.zmin + m * dz, config.zmax - m * dz)
+
+
+def _open_polygon(r: np.ndarray, z: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Drop a repeated closing vertex: TES closes the limiter itself."""
+    if r.size > 1 and r[0] == r[-1] and z[0] == z[-1]:
+        return r[:-1], z[:-1]
+    return r, z
+
+
+def _clip_limiter_to_grid(r: np.ndarray, z: np.ndarray, config: TESConfig) -> tuple[np.ndarray, np.ndarray]:
+    """Clip the limiter polygon to the computational grid.
+
+    ``get_psi()`` in TES calls ``exit()`` for any coordinate outside
+    [RMIN, RMAX] x [ZMIN, ZMAX]; a margin of a few cells keeps interpolation
+    stencils in-bounds. The polygon is clipped against that box
+    (Sutherland-Hodgman), so a wall leaving the grid is replaced by the box
+    edge. Dropping the outside vertices instead would join the remaining ones
+    with chords that cut across the vessel.
+    """
+    r, z = _open_polygon(np.asarray(r, dtype=float), np.asarray(z, dtype=float))
+    r0, r1, z0, z1 = _grid_box(config)
+    points = list(zip(r.tolist(), z.tolist()))
+    # (inside test, intersection with the clip line) per box side
+    sides = (
+        (lambda p: p[0] >= r0, lambda a, b: (r0, a[1] + (b[1] - a[1]) * (r0 - a[0]) / (b[0] - a[0]))),
+        (lambda p: p[0] <= r1, lambda a, b: (r1, a[1] + (b[1] - a[1]) * (r1 - a[0]) / (b[0] - a[0]))),
+        (lambda p: p[1] >= z0, lambda a, b: (a[0] + (b[0] - a[0]) * (z0 - a[1]) / (b[1] - a[1]), z0)),
+        (lambda p: p[1] <= z1, lambda a, b: (a[0] + (b[0] - a[0]) * (z1 - a[1]) / (b[1] - a[1]), z1)),
     )
-    if mask.sum() < 3:
+    for inside, cross in sides:
+        clipped: list[tuple[float, float]] = []
+        for i, current in enumerate(points):
+            previous = points[i - 1]
+            if inside(current):
+                if not inside(previous):
+                    clipped.append(cross(previous, current))
+                clipped.append(current)
+            elif inside(previous):
+                clipped.append(cross(previous, current))
+        points = clipped
+        if not points:
+            break
+    # consecutive duplicates appear where a vertex lies on the box
+    unique = [pt for i, pt in enumerate(points) if i == 0 or pt != points[i - 1]]
+    if len(unique) > 1 and unique[0] == unique[-1]:
+        unique.pop()
+    if len(unique) < 3:
         raise ValueError(
             "Limiter has fewer than 3 points inside the computational grid; "
             "check the wall outline or supply TESConfig.limiter explicitly."
         )
-    return r[mask], z[mask]
+    out = np.asarray(unique, dtype=float)
+    return out[:, 0], out[:, 1]
+
+
+def _densify_limiter(
+    r: np.ndarray,
+    z: np.ndarray,
+    spacing: float,
+    box: tuple[float, float, float, float] | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Split every edge of the closed polygon into pieces no longer than ``spacing``.
+
+    Edges lying along a side of ``box`` (the grid clip) are left whole: they
+    are the cut, not wall, and resampling them would hand TES dozens of
+    candidate limiting points across the open chamber neck.
+    """
+    if spacing <= 0.0:
+        raise ValueError(f"TESConfig.limiter_spacing must be positive, got {spacing!r}")
+    r, z = _open_polygon(np.asarray(r, dtype=float), np.asarray(z, dtype=float))
+    r_next, z_next = np.roll(r, -1), np.roll(z, -1)
+    out_r: list[np.ndarray] = []
+    out_z: list[np.ndarray] = []
+    def on_box(ra, za, rb, zb):
+        if box is None:
+            return False
+        r0, r1, z0, z1 = box
+        return any(abs(a - edge) < 1e-12 and abs(b - edge) < 1e-12
+                   for a, b, edge in ((ra, rb, r0), (ra, rb, r1), (za, zb, z0), (za, zb, z1)))
+
+    for ra, za, rb, zb in zip(r, z, r_next, z_next):
+        n = 1 if on_box(ra, za, rb, zb) else max(1, int(np.ceil(np.hypot(rb - ra, zb - za) / spacing)))
+        t = np.arange(n) / n
+        out_r.append(ra + t * (rb - ra))
+        out_z.append(za + t * (zb - za))
+    return np.concatenate(out_r), np.concatenate(out_z)
 
 
 def _limiter_from_ods(ods: Any, config: TESConfig) -> tuple[np.ndarray, np.ndarray]:
@@ -98,7 +168,57 @@ def _limiter_from_ods(ods: Any, config: TESConfig) -> tuple[np.ndarray, np.ndarr
             "No limiter found: ODS lacks wall.description_2d.0.limiter.unit.0.outline "
             "and TESConfig.limiter was not supplied."
         ) from exc
-    return _clip_limiter_to_grid(r, z, config)
+    r, z = _clip_limiter_to_grid(r, z, config)
+    if config.limiter_spacing is not None:
+        r, z = _densify_limiter(r, z, float(config.limiter_spacing), box=_grid_box(config))
+    return r, z
+
+
+def limited_iso_points(ods: Any, time: float, *, time_index: int | None = None) -> tuple[tuple[float, ...], tuple[float, ...]]:
+    """Iso-flux points for a plasma resting on the inboard limiter.
+
+    Returns ``(isor, isoz)``: the inboard limiter face at the axis height (the
+    target limiting point TES picks as nearest the wall), followed by the
+    outboard-midplane, top and bottom points of the reference equilibrium's
+    LCFS (the slice nearest ``time``; an explicit ``time_index`` wins). Use it
+    with ``TESConfig.limited_shape_control`` to hold the reference shape while
+    another target, such as Ip, is scanned. TES measures "nearest the wall" to
+    the limiter's listed points, which the default ``limiter_spacing``
+    resamples finely enough to include this face.
+    """
+    if "equilibrium.time" not in ods:
+        raise ValueError("limited_iso_points needs a reference equilibrium IDS")
+    idx = time_index
+    if idx is None:
+        idx = int(np.argmin(np.abs(np.asarray(ods["equilibrium.time"], dtype=float) - time)))
+    base = f"equilibrium.time_slice.{int(idx)}"
+    # `in` first: reading a missing ODS path creates it.
+    if f"{base}.boundary.outline.r" not in ods:
+        raise ValueError(f"reference equilibrium slice {idx} has no boundary outline")
+    r = np.asarray(ods[f"{base}.boundary.outline.r"], dtype=float)
+    z = np.asarray(ods[f"{base}.boundary.outline.z"], dtype=float)
+    z_axis = (
+        float(ods[f"{base}.global_quantities.magnetic_axis.z"])
+        if f"{base}.global_quantities.magnetic_axis.z" in ods else 0.0
+    )
+    wall = "wall.description_2d.0.limiter.unit.0.outline"
+    if f"{wall}.r" not in ods:
+        raise ValueError("limited_iso_points needs the limiter outline in ods['wall']")
+    wall_r = np.asarray(ods[f"{wall}.r"], dtype=float)
+    wall_z = np.asarray(ods[f"{wall}.z"], dtype=float)
+    # inboard face: the innermost crossing of the wall polygon with Z = z_axis
+    crossings = []
+    for ra, za, rb, zb in zip(wall_r, wall_z, np.roll(wall_r, -1), np.roll(wall_z, -1)):
+        if (za - z_axis) * (zb - z_axis) <= 0.0 and za != zb:
+            crossings.append(ra + (rb - ra) * (z_axis - za) / (zb - za))
+    if not crossings:
+        raise ValueError("the wall polygon does not cross the magnetic-axis height")
+    r_in = float(min(crossings))
+    outboard = np.argmax(np.where(np.abs(z - z_axis) < 0.25 * float(np.ptp(z)), r, -np.inf))
+    top, bottom = int(np.argmax(z)), int(np.argmin(z))
+    isor = (r_in, float(r[outboard]), float(r[top]), float(r[bottom]))
+    isoz = (z_axis, float(z[outboard]), float(z[top]), float(z[bottom]))
+    return isor, isoz
 
 
 def _ip0_from_magnetics(ods: Any, time: float) -> float:
@@ -166,21 +286,25 @@ def _resolve_targets(ods: Any, config: TESConfig, time: float) -> tuple[float, f
     if config.betap is not None:
         betap = float(config.betap)
     else:
-        betap = float(eq[f"time_slice.{idx}.global_quantities.beta_pol"])
+        # `in` first: reading a missing ODS path creates it (and returns an ODS).
+        path = f"time_slice.{idx}.global_quantities.beta_pol"
+        if path not in eq:
+            raise ValueError(
+                f"equilibrium slice {idx} carries no global_quantities.beta_pol; "
+                "set TESConfig.betap explicitly."
+            )
+        betap = float(eq[path])
 
     return ip0_kA, bt0, betap
 
 
-def _coils_from_ods(ods: Any, config: TESConfig, time: float) -> list[tuple]:
-    """Build the TES external-coil table from pf_active (+ optional pf_passive).
+def _legacy_pf_rows(ods: Any, time: float) -> list[tuple]:
+    """pf_active rows in the legacy ``VEST_tes`` layout (``coil_model="legacy"``).
 
     Ported faithfully from the legacy ``VEST_tes.generate_tes_input_ods``:
     PF1 and PF2 are each discretised into 5 upper + 5 lower sub-coils, the
     remaining 8 PF coils into 1 upper + 1 lower each (36 sub-coils, grouped
-    1..18 with two elements per group). When ``config.eddy`` is set, every
-    ``pf_passive`` loop is appended as its own single-element group.
-
-    Each row is ``(R, Z, dR, dZ, N_turn, I_kA, group_id, scale)``.
+    1..18 with two elements per group).
     """
     PF = ods["pf_active"]
     pf_time = PF["time"]
@@ -236,9 +360,8 @@ def _coils_from_ods(ods: Any, config: TESConfig, time: float) -> list[tuple]:
         PFCUR.append(_interp_current(cidx))
         PFturn.append(nbturn_total / 2.0)
 
-    # Note: the legacy writer divides the per-coil current (already in A) by 1000
-    # *twice* — once explicitly and once via the rtes "kA" convention — which is
-    # preserved here so results match the established workflow bit-for-bit.
+    # Per-coil currents [A] are written in kA, the rtes convention
+    # (read_input.cpp multiplies by 1000).
     def _i_kA(cur_A: float) -> float:
         return round(cur_A, 6) / 1000.0
 
@@ -260,6 +383,190 @@ def _coils_from_ods(ods: Any, config: TESConfig, time: float) -> list[tuple]:
     for i in range(8):
         rows.append((PFR[i], -PFZ[i], PFDR[i], PFDZ[i], int(PFturn[i]), _i_kA(PFCUR[i]), grp, 1.00)); grp += 1
 
+    return rows
+
+
+def _coil_index_by_name(PF: Any) -> dict[str, int]:
+    names = {}
+    for cidx in range(len(PF["coil"])):
+        # `in` first: reading a missing ODS path creates it.
+        name = PF[f"coil.{cidx}.name"] if f"coil.{cidx}.name" in PF else f"PF{cidx + 1}"
+        names[str(name).upper()] = cidx
+    return names
+
+
+def _element_pf_rows(ods: Any, time: float, lumped: Sequence[str] = ()) -> list[tuple]:
+    """pf_active rows as one filament per element (``coil_model="elements"``).
+
+    TES models a row outside its grid as a single filament at (R, Z), so each
+    pf_active element becomes its own row. The turns are folded into the
+    current (N_turn = 1, I = element ampere-turns), which keeps fractional
+    ``turns_with_sign`` exact in TES's integer turn column. Every row gets its
+    own coil group.
+
+    Coils named in ``lumped`` (the shape-control coils) are written first
+    instead: one row per up/down half at the half's mean position, with both
+    halves in one group (ids 1..k in ``lumped`` order) and the coil's
+    per-turn current, so TES's coil fit re-scales the whole coil and reports
+    its current per turn (ampere-turns with N = 1 when a half's turns are not
+    whole). Coils in series (VEST PF9/PF10) are still separate groups here. TES caps a group at 10 rows; the VEST shaping coils
+    sit at R >= 0.71 m, far enough from the plasma for one filament per half.
+    """
+    PF = ods["pf_active"]
+    pf_time = np.asarray(PF["time"], dtype=float)
+    by_name = _coil_index_by_name(PF)
+    unknown = [name for name in lumped if str(name).upper() not in by_name]
+    if unknown:
+        raise ValueError(
+            f"shape_coils {unknown} are not pf_active coils; available: {sorted(by_name)}"
+        )
+    lumped_idx = [by_name[str(name).upper()] for name in lumped]
+
+    def current(cidx: int) -> float:
+        return float(np.interp(time, pf_time, np.asarray(PF[f"coil.{cidx}.current.data"], dtype=float)))
+
+    rows: list[tuple] = []
+    grp = 1
+    for cidx in lumped_idx:
+        elements = [PF[f"coil.{cidx}.element.{i}"] for i in range(len(PF[f"coil.{cidx}.element"]))]
+        for upper in (True, False):
+            half = [e for e in elements if (float(e["geometry.rectangle.z"]) >= 0.0) == upper]
+            if not half:
+                continue
+            r = np.array([float(e["geometry.rectangle.r"]) for e in half])
+            z = np.array([float(e["geometry.rectangle.z"]) for e in half])
+            w = np.array([float(e["geometry.rectangle.width"]) for e in half])
+            h = np.array([float(e["geometry.rectangle.height"]) for e in half])
+            turns = float(sum(float(e["turns_with_sign"]) for e in half))
+            if turns == 0.0:
+                raise ValueError(f"shape coil {lumped[lumped_idx.index(cidx)]} has a half with zero net turns")
+            if turns.is_integer():
+                n_turn, i_kA = int(turns), round(current(cidx), 6) / 1000.0
+            else:
+                n_turn, i_kA = 1, round(current(cidx) * turns, 6) / 1000.0
+            rows.append((
+                float(r.mean()), float(z.mean()),
+                float((r + w / 2).max() - (r - w / 2).min()),
+                float((z + h / 2).max() - (z - h / 2).min()),
+                n_turn, i_kA, grp, 1.00,
+            ))
+        grp += 1
+    for cidx in range(len(PF["coil"])):
+        if cidx in lumped_idx:
+            continue
+        coil_current = current(cidx)
+        for i in range(len(PF[f"coil.{cidx}.element"])):
+            element = PF[f"coil.{cidx}.element.{i}"]
+            turns = float(element["turns_with_sign"])
+            rows.append((
+                float(element["geometry.rectangle.r"]),
+                float(element["geometry.rectangle.z"]),
+                float(element["geometry.rectangle.width"]),
+                float(element["geometry.rectangle.height"]),
+                1,
+                round(coil_current * turns, 6) / 1000.0,
+                grp,
+                1.00,
+            ))
+            grp += 1
+    return rows
+
+
+def _merge_in_grid_rows(rows: list[tuple], config: TESConfig) -> list[tuple]:
+    """Fold rows that TES would deposit into the same grid cell into one row.
+
+    TES models a row whose centre lies inside the computational grid as a
+    current density on ONE grid node: ``JPHI = I*N / (w*h)``, ASSIGNED (not
+    added) in ``update_jphi.cpp``. Two rows rounding to the same node therefore
+    keep only the last one, while the boundary flux (``update_psiv.cpp``)
+    still sums them all. The 5 mm-pitch inner-wall filaments (W4, W11) put up
+    to three rows in a 12.5 mm cell. Each occupied node becomes one row, sized
+    one cell and carrying the summed ampere-turns, so the deposited and the
+    boundary currents agree. The row sits at the mean position of the rows it
+    replaces: that rounds to the same node, while a row placed exactly ON a
+    grid node puts a filament singularity on the grid and TES's
+    post-processing then fails ("(r,z) is out of range"). Rows whose group
+    shape control re-fits are kept apart so their group is not altered.
+    """
+    dr = (config.rmax - config.rmin) / max(config.nr - 1, 1)
+    dz = (config.zmax - config.zmin) / max(config.nz - 1, 1)
+    refit = set(_shape_groups(config)) if config.fix_shape else set()
+    merged: dict[tuple, list] = {}
+    order: list[tuple | None] = []      # a merged-node key, or None for an out-of-grid row
+    outside: list[tuple] = []
+    for row in rows:
+        r, z = row[0], row[1]
+        if not (config.rmin < r < config.rmax and config.zmin < z < config.zmax):
+            order.append(None)
+            outside.append(row)
+            continue
+        # TES's own node choice (initialize.cpp / update_jphi.cpp), 0-based
+        ll = int((r - config.rmin) / dr)
+        jj = int((z - config.zmin) / dz)
+        if r - (config.rmin + ll * dr) > dr / 2.0:
+            ll += 1
+        if z - (config.zmin + jj * dz) > dz / 2.0:
+            jj += 1
+        key = (ll, jj, row[6] if row[6] in refit else None)
+        ampere_turns_kA = row[4] * row[5]
+        if key in merged:
+            entry = merged[key]
+            entry["rows"].append(row)
+            entry["kA"] += ampere_turns_kA
+        else:
+            merged[key] = {"rows": [row], "kA": ampere_turns_kA}
+            order.append(key)
+
+    def folded(entry: dict) -> tuple:
+        rows_here = entry["rows"]
+        if len(rows_here) == 1:
+            # alone on its node: keep its turns and per-turn current, which a
+            # coil fit scales (TES's shape response is built from COILT)
+            only = rows_here[0]
+            return (only[0], only[1], dr, dz) + tuple(only[4:])
+        first = rows_here[0]
+        return (float(np.mean([row[0] for row in rows_here])),
+                float(np.mean([row[1] for row in rows_here])),
+                dr, dz, 1, entry["kA"], first[6], first[7])
+
+    remaining = iter(outside)
+    rows = [next(remaining) if key is None else folded(merged[key]) for key in order]
+    # TES indexes its group table by group id in an array sized NCOIL, so the
+    # ids must stay within 1..NCOIL: renumber them in order of appearance.
+    # Shape-control groups come first and keep their ids.
+    renumber: dict[int, int] = {}
+    for row in rows:
+        renumber.setdefault(row[6], len(renumber) + 1)
+    if any(renumber.get(group, group) != group for group in refit):
+        raise ValueError("shape-control coil groups must lead the coil table")
+    return [row[:6] + (renumber[row[6]],) + tuple(row[7:]) for row in rows]
+
+
+def _coils_from_ods(ods: Any, config: TESConfig, time: float) -> list[tuple]:
+    """Build the TES external-coil table from pf_active (+ optional pf_passive).
+
+    ``config.coil_model`` selects how pf_active is laid out (see
+    ``TESConfig.coil_model``). When ``config.eddy`` is set, every
+    ``pf_passive`` loop is appended as its own single-element group.
+
+    Rows inside the computational grid are folded per TES grid node (see
+    ``_merge_in_grid_rows``), so the current TES deposits equals the rows'
+    ampere-turns.
+
+    Each row is ``(R, Z, dR, dZ, N_turn, I_kA, group_id, scale)``.
+    """
+    if config.coil_model == "elements":
+        rows = _element_pf_rows(ods, time, lumped=config.shape_coils)
+    elif config.coil_model == "legacy":
+        if config.shape_coils:
+            raise ValueError("shape_coils applies to coil_model='elements'; the legacy layout has fixed groups")
+        rows = _legacy_pf_rows(ods, time)
+    else:
+        raise ValueError(
+            f"TESConfig.coil_model must be 'elements' or 'legacy', got {config.coil_model!r}"
+        )
+    grp = max((row[6] for row in rows), default=0) + 1
+
     # --- optional eddy filaments from pf_passive ---
     if config.eddy:
         PFP = ods["pf_passive"]
@@ -273,10 +580,30 @@ def _coils_from_ods(ods: Any, config: TESConfig, time: float) -> list[tuple]:
             Z = sum(z) / 4
             DR = r[1] - r[0]
             DZ = z[2] - z[1]
-            CUR = float(np.interp(time, pfp_time, cur)) / 1000.0
+            CUR = float(np.interp(time, pfp_time, cur))   # [A]
             rows.append((R, Z, DR, DZ, 1, round(CUR, 6) / 1000.0, grp, 1.00)); grp += 1
 
-    return rows
+    if config.fix_shape:
+        groups = _shape_groups(config)
+        if not groups:
+            raise ValueError(
+                "TES shape control (fix_shape=1) re-fits coil groups: name them with "
+                "TESConfig.shape_coils (coil_model='elements') or grpid (legacy layout)."
+            )
+        sizes = {g: sum(1 for row in rows if row[6] == g) for g in groups}
+        crowded = {g: n for g, n in sizes.items() if n > 10 or n == 0}
+        if crowded:
+            raise ValueError(
+                f"shape-control coil groups must hold 1..10 rows (TES NGRPCOILMAX); got {crowded}"
+            )
+    return _merge_in_grid_rows(rows, config)
+
+
+def _shape_groups(config: TESConfig) -> tuple[int, ...]:
+    """Coil groups TES re-fits: explicit ``grpid``, else the lumped shape coils."""
+    if config.grpid:
+        return tuple(int(g) for g in config.grpid)
+    return tuple(range(1, len(config.shape_coils) + 1))
 
 
 def _mag_diagnostics_from_ods(ods: Any) -> dict[str, np.ndarray]:
@@ -501,7 +828,8 @@ def prepare_tes_inputs(ods: Any, config: TESConfig) -> TESInputs:
         "nxpt": config.nxpt, "xpr": config.xpr, "xpz": config.xpz,
         "active": config.active, "snowflake": config.snowflake,
         "drsep": config.drsep, "dsep": config.dsep,
-        "isor": config.isor, "isoz": config.isoz, "grpid": config.grpid,
+        "isor": config.isor, "isoz": config.isoz,
+        "grpid": _shape_groups(config) if config.fix_shape else tuple(config.grpid),
         "limr": limr, "limz": limz,
         "coils": coils,
         "mag_diag": mag_diag,

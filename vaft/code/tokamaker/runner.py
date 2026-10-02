@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -77,8 +78,96 @@ def _configure_tokamaker(oft, mygs, inputs, config: TokaMakerConfig) -> dict[str
         mygs.settings.urf = float(config.urf)
     if config.nl_tol is not None:
         mygs.settings.nl_tol = float(config.nl_tol)
+    if config.lim_zmax is not None:
+        mygs.settings.lim_zmax = float(config.lim_zmax)
+        points = neck_limiter_points(inputs.geometry["limiter"], config)
+        if len(points):
+            path = Path(inputs.workdir) / LIMITER_POINTS_NAME
+            try:
+                c_path = mygs._oft_env.path2c(str(path))
+            except ValueError:
+                # OFT caps paths at OFT_PATH_SLEN (200) characters
+                import tempfile
+                handle, short = tempfile.mkstemp(prefix="oft_lim_", suffix=".dat")
+                os.close(handle)
+                path = Path(short)
+                c_path = mygs._oft_env.path2c(str(path))
+            _write_limiter_points(path, points)
+            mygs.settings.limiter_file = c_path
     mygs.setup(order=config.order, F0=inputs.f0)
     return cond_regions
+
+
+LIMITER_POINTS_NAME = "limiter_points.dat"
+
+
+def neck_limiter_points(limiter: Any, config: TokaMakerConfig) -> np.ndarray:
+    """Limiter points on the wall between ``lim_zmax`` and ``neck_limiter_zmax``.
+
+    ``lim_zmax`` removes every mesh limiter node in a cell reaching above it.
+    The faces between the main chamber and that height are still wall, so they
+    are sampled along the limiter polygon every ``dx_plasma`` and returned as
+    an ``(n, 2)`` array of (R, Z) for OFT's explicit limiter points.
+    """
+    if config.lim_zmax is None or config.neck_limiter_zmax is None:
+        return np.zeros((0, 2))
+    lo, hi = float(config.lim_zmax), float(config.neck_limiter_zmax)
+    if hi <= lo:
+        return np.zeros((0, 2))
+    poly = np.asarray(limiter, dtype=float)
+    if len(poly) > 1 and np.allclose(poly[0], poly[-1]):
+        poly = poly[:-1]
+    points = []
+    for a, b in zip(poly, np.roll(poly, -1, axis=0)):
+        n = max(1, int(np.ceil(np.hypot(*(b - a)) / config.dx_plasma)))
+        t = np.arange(n + 1)[:, None] / n
+        segment = a + t * (b - a)
+        keep = (np.abs(segment[:, 1]) > lo) & (np.abs(segment[:, 1]) <= hi)
+        points.append(segment[keep])
+    points = np.concatenate(points) if points else np.zeros((0, 2))
+    return np.unique(np.round(points, 9), axis=0)
+
+
+def _write_limiter_points(path: Path, points: np.ndarray) -> None:
+    """OFT ``limiter_file`` format: the point count, then one ``R Z`` per line."""
+    lines = [str(len(points))] + [f"{r:.9f} {z:.9f}" for r, z in points]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _wall_check(mygs, limiter: Any, tolerance: float = 1.0e-3) -> dict[str, Any]:
+    """Does the native LCFS stay inside the full limiter polygon?
+
+    The limiting-point search ignores the chambers above ``lim_zmax`` and any
+    wall between explicit points, so this is checked on the result instead:
+    the solver's own trace of the psi_N = 0.999 surface against the whole
+    first wall. Returns ``lcfs_inside_wall`` and the largest excursion outside
+    it [m]; both are None when the trace fails.
+    """
+    from matplotlib.path import Path as PolygonPath
+
+    # just inside the boundary flux: OFT's own boundary statistics trace
+    # 1 - pad, because the exact separatrix of a diverted plasma does not close
+    try:
+        lcfs = mygs.trace_surf(1.0 - 1.0e-3)
+    except Exception:  # pragma: no cover - solver-side trace failure
+        lcfs = None
+    if lcfs is None or len(lcfs) == 0:
+        return {"lcfs_inside_wall": None, "lcfs_wall_excursion_m": None}
+    lcfs = np.asarray(lcfs, dtype=float)[:, :2]
+    poly = np.asarray(limiter, dtype=float)
+    outside = ~PolygonPath(poly).contains_points(lcfs)
+    excursion = 0.0
+    if outside.any():
+        from .topology import _min_distance_to_polyline
+
+        excursion = max(
+            _min_distance_to_polyline(np.array([r]), np.array([z]), poly[:, 0], poly[:, 1])[0]
+            for r, z in lcfs[outside]
+        )
+    inside = bool(excursion <= tolerance)
+    if not inside:
+        _log.warning("TokaMaker LCFS leaves the first wall by %.1f mm", excursion * 1e3)
+    return {"lcfs_inside_wall": inside, "lcfs_wall_excursion_m": float(excursion)}
 
 
 def _apply_vsc(mygs, config: TokaMakerConfig) -> None:
@@ -103,6 +192,42 @@ def _apply_profiles(oft, mygs, config: TokaMakerConfig) -> None:
         ffp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_f_a, config.alpha_f_b),
         pp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_p_a, config.alpha_p_b),
     )
+
+
+def _save_eqdsk(mygs, path: Path, config: TokaMakerConfig, run_info: str) -> None:
+    """Export the current equilibrium as a gEQDSK whose boundary is the LCFS.
+
+    ``truncate_eq=False`` keeps ``lcfs_pad`` for tracing but extrapolates the
+    contour back to the true boundary flux. OFT's default (``True``) writes the
+    ``1 - lcfs_pad`` surface as RBBBS/ZBBBS and as the boundary flux, so a
+    limited plasma never shows wall contact in the export (issue #882 item 1).
+    """
+    mygs.save_eqdsk(
+        str(path),
+        nr=config.eqdsk_nr,
+        nz=config.eqdsk_nz,
+        lcfs_pad=config.eqdsk_lcfs_pad,
+        truncate_eq=False,
+        run_info=run_info,
+        cocos=config.eqdsk_cocos,
+    )
+
+
+def _boundary_state(mygs) -> dict[str, Any]:
+    """Native boundary bookkeeping: what set the boundary flux, and where.
+
+    OFT's ``lim_point`` is the limiting wall point of a limited plasma and the
+    active X-point of a diverted one, so it is recorded under the matching
+    name. OFT leaves it at ``(-1, 1e99)`` when no bound was found.
+    """
+    diverted = bool(mygs.diverted)
+    state: dict[str, Any] = {"diverted": diverted}
+    point = getattr(mygs, "lim_point", None)
+    if point is not None:
+        point = [float(v) for v in np.asarray(point).ravel()[:2]]
+        if len(point) == 2 and point[0] >= 0.0 and abs(point[1]) < 1.0e98:
+            state["active_x_point" if diverted else "lim_point"] = point
+    return state
 
 
 def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMakerResult:
@@ -158,15 +283,9 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
         sidecar["stats"] = mygs.get_stats()
         sidecar["coil_currents_A"] = dict(mygs.get_coil_currents()[0])
         sidecar["o_point"] = mygs.o_point
-        sidecar["diverted"] = bool(mygs.diverted)
-        mygs.save_eqdsk(
-            str(gpath),
-            nr=config.eqdsk_nr,
-            nz=config.eqdsk_nz,
-            lcfs_pad=config.eqdsk_lcfs_pad,
-            run_info=f"# {shot} {ctime}ms",
-            cocos=config.eqdsk_cocos,
-        )
+        sidecar.update(_boundary_state(mygs))
+        sidecar.update(_wall_check(mygs, inputs.geometry["limiter"]))
+        _save_eqdsk(mygs, gpath, config, f"# {shot} {ctime}ms")
         returncode = 0
     except Exception as exc:
         error = str(exc)

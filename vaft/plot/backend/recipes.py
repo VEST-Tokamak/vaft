@@ -243,22 +243,23 @@ def _resolve_selection(
 
 
 def _channel_passes_signal_preset(
-    ods: Any, y_path: str, index: int, values: np.ndarray, selection: Any
+    ods: Any, y_path: str, index: int, values: np.ndarray, selection: Any, validity: Any = None,
 ) -> bool:
     """The :func:`_keep_by_signal` rule for one channel read directly."""
     preset = ACTIVE if selection is None else selection
     if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
         return True
-    code, mask = _validity_of(ods, y_path, index)
-    if is_condemned(record_from_mask(code, mask)):
-        return False
+    if validity is None:
+        code, mask = _validity_of(ods, y_path, index)
+        if is_condemned(record_from_mask(code, mask)):
+            return False
     if preset == ACTIVE:
         finite = values[np.isfinite(values)]
         return finite.size > 0 and bool(np.any(finite != 0.0))
     return True
 
 
-def _keep_by_signal(traces: list, selection: Any) -> list:
+def _keep_by_signal(traces: list, selection: Any, validity: Any = None) -> list:
     """Apply a signal preset to built traces (``vaft.plot.selection``).
 
     The default, ``active``, keeps channels flagged valid whose trace carries a
@@ -266,13 +267,21 @@ def _keep_by_signal(traces: list, selection: Any) -> list:
     they read; ``all`` keeps everything.  An explicit selection -- indices,
     identifiers, a region preset -- is what the caller named and is returned
     untouched, invalid channels included, for the renderer to mark.
+
+    Selection decides which channels are requested; ``validity=`` decides how
+    flagged data inside them are drawn (issue #1380).  When the caller states
+    a ``validity=`` mode, that mode owns the flags: a condemned channel is no
+    longer dropped here but reaches the renderer, which shows it demoted
+    (``show``), leaves it out (``mask``) or draws it plainly (``ignore``).
+    ``active`` still drops a channel with no signal.  Without ``validity=``
+    the presets keep their behaviour: condemned channels are left out.
     """
     preset = ACTIVE if selection is None else selection
     if not isinstance(preset, str) or preset not in SIGNAL_PRESETS or preset == ALL:
         return traces
     kept = []
     for trace in traces:
-        if trace.is_invalid_channel:
+        if validity is None and trace.is_invalid_channel:
             continue
         if preset == ACTIVE:
             y = np.asarray(trace.y, dtype=float)
@@ -5586,6 +5595,175 @@ RECIPES["summary_time_power_balance"] = CallableRecipe(
 )
 
 
+#: Conductivity models the resistive Z_eff view offers (#1214).
+ZEFF_CONDUCTIVITY_MODELS = ("redl", "sauter", "spitzer_nrl")
+
+#: Read because the Romero helper and the geometry trace copy whole IDSs
+#: (equilibrium, tf, wall) onto a scratch ODS before deriving li_3 and <B^2>.
+_RESISTIVE_ZEFF_COPY_READS = (
+    "equilibrium.time_slice.{i}.boundary.minor_radius",
+    "equilibrium.time_slice.{i}.constraints.b_field_tor_vacuum_r.measured",
+    "equilibrium.time_slice.{i}.constraints.b_field_tor_vacuum_r.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.chi_squared",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.measured",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.reconstructed",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.source",
+    "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.weight",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.chi_squared",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.measured",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.reconstructed",
+    "equilibrium.time_slice.{i}.constraints.diamagnetic_flux.weight",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.chi_squared",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.measured",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.reconstructed",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.source",
+    "equilibrium.time_slice.{i}.constraints.flux_loop.{j}.weight",
+    "equilibrium.time_slice.{i}.constraints.ip.chi_squared",
+    "equilibrium.time_slice.{i}.constraints.ip.measured",
+    "equilibrium.time_slice.{i}.constraints.ip.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.ip.reconstructed",
+    "equilibrium.time_slice.{i}.constraints.ip.weight",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.chi_squared",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.measured",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.measured_error_upper",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.reconstructed",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.source",
+    "equilibrium.time_slice.{i}.constraints.pf_current.{j}.weight",
+    "equilibrium.time_slice.{i}.profiles_1d.b_field_max",
+    "equilibrium.time_slice.{i}.profiles_1d.b_field_min",
+    "equilibrium.time_slice.{i}.profiles_1d.darea_dpsi",
+    "equilibrium.time_slice.{i}.profiles_1d.dvolume_dpsi",
+    "equilibrium.time_slice.{i}.profiles_1d.elongation",
+    "equilibrium.time_slice.{i}.profiles_1d.gm8",
+    "equilibrium.time_slice.{i}.profiles_1d.gm9",
+    "equilibrium.time_slice.{i}.profiles_1d.surface",
+    "equilibrium.time_slice.{i}.profiles_1d.triangularity_lower",
+    "equilibrium.time_slice.{i}.profiles_1d.triangularity_upper",
+    "tf.b_field_tor_vacuum_r.data",
+    "tf.b_field_tor_vacuum_r.time",
+    "tf.coil.{i}.current.data",
+    "tf.coil.{i}.current.time",
+    "tf.ids_properties.comment",
+    "tf.ids_properties.homogeneous_time",
+    "tf.time",
+    "wall.description_2d.{i}.limiter.type.description",
+    "wall.description_2d.{i}.limiter.type.index",
+    "wall.description_2d.{i}.limiter.type.name",
+    "wall.description_2d.{i}.limiter.unit.{j}.closed",
+    "wall.description_2d.{i}.limiter.unit.{j}.name",
+    "wall.description_2d.{i}.type.description",
+    "wall.description_2d.{i}.type.index",
+    "wall.description_2d.{i}.type.name",
+    "wall.ids_properties.comment",
+    "wall.ids_properties.homogeneous_time",
+)
+
+#: The stated assumptions of the resistive Z_eff view; shown in its title.
+_ZEFF_BOUNDS = (1.0, 8.0)
+
+
+def _build_resistive_zeff(ods: Any, **options: Any) -> Panels:
+    """Romero voltages, observed vs model R_p, and the resistive Z_eff history.
+
+    The Z_eff panel draws the window estimate (one scalar, #1214 Sec. 9) as a
+    line across its window with dashed +/- 1 sigma, and the per-slice
+    solutions as markers labelled a diagnostic -- never as the result.
+    """
+    from vaft.omas.resistive_zeff import compute_resistive_zeff_ods
+    from vaft.process.resistive_zeff import Smoothing, model_resistance
+
+    model = options.get("conductivity_model") or "redl"
+    if model not in ZEFF_CONDUCTIVITY_MODELS:
+        raise ValueError(f"conductivity_model must be one of {ZEFF_CONDUCTIVITY_MODELS}; got {model!r}")
+    window = _range_option(options, "time_range")
+    try:
+        result = compute_resistive_zeff_ods(
+            ods, time_range=window, model=model, ln_lambda="sauter", bounds=_ZEFF_BOUNDS,
+            I_ni=0.0, smoothing=Smoothing("none"),
+        )
+    except (KeyError, IndexError) as exc:
+        raise ValueError(f"resistive Z_eff needs a multi-slice equilibrium: {exc}") from exc
+    inference = result["inference"]
+    if inference is None:
+        reasons = "; ".join(reason for _, reason in result["skipped"]) or "no core_profiles slice"
+        raise ValueError(f"no electron profiles at an equilibrium time in the window ({reasons})")
+
+    obs = result["observed"]
+    t = obs.time
+    micro = 1e6
+    voltages = LineSeries(
+        series=(Series(x=t, y=obs.V_B, label="V_B (boundary)"),
+                Series(x=t, y=obs.V_I, label="V_I (inductive)"),
+                Series(x=t, y=obs.V_R, label="V_R = V_B - V_I")),
+        x_label="Time", x_unit="s", y_label="Voltage", y_unit="V",
+    )
+    estimate = inference.estimate
+    state_t = np.asarray([s.time for s in result["states"]], dtype=float)
+    traces = [Series(x=t, y=obs.R_p * micro, label="R_p observed",
+                     style={"color": "role:measured"})]
+    if estimate["zeff"] is not None:
+        r_model = np.asarray([model_resistance(s, estimate["zeff"], model=model,
+                                               ln_lambda="sauter").R_p for s in result["states"]])
+        order = np.argsort(state_t)
+        traces.append(Series(x=state_t[order], y=r_model[order] * micro,
+                             label=f"R_p model ({model}, Z = {estimate['zeff']:.2f})",
+                             style={"marker": "s", "linestyle": "none",
+                                    "color": "role:reconstructed"}))
+    resistance = LineSeries(series=tuple(traces), x_label="Time", x_unit="s",
+                            y_label="Plasma resistance", y_unit="uOhm")
+
+    per = result["per_slice"]
+    z_traces = [Series(x=per["time"], y=per["zeff"], label="per slice (diagnostic)",
+                       style={"marker": "o", "linestyle": "none", "color": "emphasis:medium"})]
+    if estimate["zeff"] is not None:
+        span = np.asarray(inference.time_window, dtype=float)
+        z = float(estimate["zeff"])
+        z_traces.insert(0, Series(x=span, y=np.full(2, z),
+                                  label=f"window estimate ({inference.status})",
+                                  style={"color": "role:reconstructed"}))
+        sigma = estimate.get("uncertainty")
+        if sigma:
+            for sign in (1.0, -1.0):
+                z_traces.insert(1, Series(x=span, y=np.full(2, z + sign * float(sigma)),
+                                          label="+/- 1 sigma" if sign > 0 else "",
+                                          style={"linestyle": "--",
+                                                 "color": "role:reconstructed"}))
+    shown = [float(v) for series in z_traces for v in np.asarray(series.y) if np.isfinite(v)]
+    top = min(_ZEFF_BOUNDS[1], max([3.0, *shown]) * 1.15) + 0.2
+    zeff_panel = LineSeries(series=tuple(z_traces), x_label="Time", x_unit="s",
+                            y_label="Z_eff (resistive)", y_unit="",
+                            y_limits=(_ZEFF_BOUNDS[0] - 0.2, top),
+                            title=(f"I_ni = 0, no bootstrap, bounds "
+                                   f"{_ZEFF_BOUNDS[0]:g}-{_ZEFF_BOUNDS[1]:g}"))
+    return Panels(
+        models=(voltages, resistance, zeff_panel), ncols=1, share_x=True,
+        suptitle=f"Resistive Z_eff, model-inferred ({model})",
+    )
+
+
+RECIPES["summary_time_resistive_zeff"] = CallableRecipe(
+    builder=_build_resistive_zeff,
+    description="Resistive Z_eff from Romero's transformer balance and a parallel conductivity model (#1214).",
+    reads=(*_EQUILIBRIUM_SLICE_READS,
+           "equilibrium.time_slice.{i}.global_quantities.li_3",
+           "equilibrium.time_slice.{i}.profiles_1d.gm1", "equilibrium.time_slice.{i}.profiles_1d.gm5",
+           "equilibrium.time_slice.{i}.profiles_1d.trapped_fraction",
+           "core_profiles.time", "core_profiles.profiles_1d.{i}.time",
+           "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+           "core_profiles.profiles_1d.{i}.electrons.temperature",
+           "core_profiles.profiles_1d.{i}.electrons.density",
+           "core_profiles.profiles_1d.{i}.electrons.density_thermal",
+           "tf.r0", *_WALL_LIMITER_READS, *_RESISTIVE_ZEFF_COPY_READS),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.resistive_zeff.compute_resistive_zeff_ods subscripts the ODS and traces geometry on a scratch ODS",
+    windowed=True,
+)
+
+
+
 # ---------------------------------------------------------------------------
 # camera_visible: raster frames and their pinhole-projected EFIT/field-line
 # overlays. This needs real computation (frame resolution, projection), not a
@@ -6734,6 +6912,7 @@ def _build_line_traces(
     line_index: Any = None,
     abscissa: Abscissa | None = None,
     resolved: list[str] | None = None,
+    validity: Any = None,
 ) -> list[Series]:
     """Extract traces in IMAS canonical units; display scaling happens later.
 
@@ -6851,7 +7030,7 @@ def _build_line_traces(
         # The abscissa is decided by the traces that are drawn: a channel the
         # selection preset drops takes its own failed reading with it, rather
         # than putting every surviving channel on a sample index.
-        kept = _keep_by_signal(traces, selection)
+        kept = _keep_by_signal(traces, selection, validity)
         drawn = {id(trace) for trace in kept}
         for trace, name in zip(traces, per_trace):
             if id(trace) in drawn:
@@ -7196,6 +7375,7 @@ def _build_line_series(
             recipe,
             entry_label=entry_label,
             selection=_selection_option(options),
+            validity=options.get("validity"),
             emission=emission,
             line_index=line_index,
             abscissa=abscissa,
@@ -7736,6 +7916,44 @@ def _default_x_limits(ods: Any, coordinate: str, traces: Sequence[Series]) -> tu
     return None
 
 
+#: Two channels share a time base when their stamps agree to this (seconds):
+#: a nanosecond, far below any VEST digitiser period.
+_SHARED_AXIS_TOLERANCE = 1e-9
+
+
+def channel_profile_axis(
+    ods: Any, recipe: ChannelProfileRecipe, indices: Sequence[int] | None = None,
+) -> np.ndarray | None:
+    """The time axis every channel of ``indices`` that carries data shares, or ``None``.
+
+    ``time_index=`` names one stored sample, and an index means the same
+    instant on every channel only when they sample one grid (issue #1380).
+    Every channel with data is checked -- never the first alone -- and any
+    disagreement in length or stamps returns ``None``; ``indices=None``
+    checks the whole array.  No signal preset is applied: a dead channel on
+    its own axis also withdraws the slider, which is the safe direction --
+    an index is then never applied to a channel off the shared grid.
+    """
+    container = _container_of(recipe.y_path, "{i}")
+    if indices is None:
+        indices = range(_count(ods, container))
+    candidates = (recipe.y_path,) + tuple(recipe.fallback_y_paths)
+    shared = None
+    for index in indices:
+        y = _first_array(ods, candidates, i=index)
+        if y is None or y.size == 0:
+            continue
+        axis = _first_time(ods, recipe.time_paths, i=index)
+        if axis is None or axis.size != y.size:
+            continue
+        axis = np.asarray(axis, dtype=float).ravel()
+        if shared is None:
+            shared = axis
+        elif axis.shape != shared.shape or not np.allclose(axis, shared, rtol=0.0, atol=_SHARED_AXIS_TOLERANCE):
+            return None
+    return shared
+
+
 def _build_channel_profile(
     entries: Sequence[tuple[str, Any]], recipe: ChannelProfileRecipe, **options: Any
 ) -> Any:
@@ -7775,6 +7993,20 @@ def _build_channel_profile(
     container = _container_of(recipe.y_path, "{i}")
     candidates = (recipe.y_path,) + tuple(recipe.fallback_y_paths)
 
+    given = [key for key in ("time", "time_slice", "time_index") if options.get(key) is not None]
+    if len(given) > 1:
+        # One instant, chosen once (issue #1380, after #933): two selectors
+        # never compete, whichever would have been read first.
+        raise ValueError(
+            f"{plot_name or recipe.title} takes one of time=, time_slice=, time_index=; "
+            f"got {', '.join(f'{key}=' for key in given)}"
+        )
+    sample_index = options.get("time_index")
+    if sample_index is not None:
+        if isinstance(sample_index, bool) or not isinstance(sample_index, (int, np.integer)):
+            raise ValueError(f"time_index= is a sample position (an int); got {sample_index!r}")
+        sample_index = int(sample_index)
+
     points: list[dict[str, Any]] = []   # one per entry
     stamps: list[str] = []
     for entry_label, ods in entries:
@@ -7790,8 +8022,23 @@ def _build_channel_profile(
         r_all, z_all = _channel_positions(ods, container, total)
         split = radial_divider(r_all)
         regions = classify_regions(r_all, split=split) if split else [UNCLASSIFIED] * total
+        shared_axis = None
+        if sample_index is not None:
+            shared_axis = channel_profile_axis(ods, recipe, indices)
+            if shared_axis is None:
+                raise ValueError(
+                    f"{plot_name or recipe.title}: the selected channels of {container} do not share one "
+                    "time base, so time_index= names no single instant; pass time= (seconds) instead"
+                )
+            if not -shared_axis.size <= sample_index < shared_axis.size:
+                raise ValueError(
+                    f"time_index={sample_index} is outside the {shared_axis.size} stored samples "
+                    f"(0-{shared_axis.size - 1}, or counted from the end as on the PF time base)"
+                )
+            sample_index %= shared_axis.size
         entry_points = []
-        stamp = None
+        sampled: list[float] = []
+        reason = ""
         for index in indices:
             y = _first_array(ods, candidates, i=index)
             if y is None or y.size == 0:
@@ -7799,11 +8046,13 @@ def _build_channel_profile(
             axis = _first_time(ods, recipe.time_paths, i=index)
             if axis is None or axis.size != y.size:
                 continue
-            if not _channel_passes_signal_preset(ods, recipe.y_path, index, y, selection):
+            if not _channel_passes_signal_preset(ods, recipe.y_path, index, y, selection, options.get("validity")):
                 continue
-            sample, stored, reason = resolve_time_sample(axis, time_value)
-            if stamp is None:
-                stamp = f"t = {stored * 1e3:.2f} ms ({reason})"
+            if sample_index is not None:
+                sample, stored, reason = sample_index, float(axis[sample_index]), f"sample {sample_index}"
+            else:
+                sample, stored, reason = resolve_time_sample(axis, time_value)
+            sampled.append(stored)
             code, mask = _validity_of(ods, recipe.y_path, index)
             valid = True
             if mask is not None and np.asarray(mask).size == y.size:
@@ -7816,7 +8065,7 @@ def _build_channel_profile(
                 "angle_stored": _get(ods, f"{container}.{index}.poloidal_angle"),
             })
         points.append({"label": entry_label, "points": entry_points, "r": r_all, "z": z_all})
-        stamps.append(stamp or "no sample")
+        stamps.append(_sampled_stamp(sampled, reason))
 
     y_display = _resolve_axis_display(
         recipe.y_unit, unit=options.get("yunit"), subject=subject,
@@ -7900,6 +8149,22 @@ def _build_channel_profile(
     return Panels(models=tuple(panels), ncols=len(panels), share_x=False, suptitle=title)
 
 
+def _sampled_stamp(sampled: Sequence[float], reason: str) -> str:
+    """The instant a spatial profile shows, without hiding a spread between channels.
+
+    Channels on one grid sample the same stored time and the stamp names it;
+    channels on their own axes each snap to their nearest sample, and the
+    stamp then gives the range they span rather than the first one's time
+    (issue #1380).
+    """
+    if not sampled:
+        return "no sample"
+    low, high = min(sampled), max(sampled)
+    if high - low <= _SHARED_AXIS_TOLERANCE:
+        return f"t = {low * 1e3:.2f} ms ({reason})"
+    return f"{reason}: channels sampled {low * 1e3:.2f}-{high * 1e3:.2f} ms"
+
+
 def _build_profile_1d(
     entries: Sequence[tuple[str, Any]], recipe: ProfileRecipe, **options: Any
 ) -> Profile1D:
@@ -7921,6 +8186,7 @@ def _build_profile_1d(
             selection = _selection_option(options)
             indices = _resolve_selection(ods, recipe.y_path, selection)
             x_values, y_values = [], []
+            valid_points: list[bool] = []
             coordinate_path = _profile_coordinate(recipe, coordinate)
             for index in indices:
                 x = _get(ods, coordinate_path.format(i=index)) if coordinate_path else None
@@ -7930,19 +8196,35 @@ def _build_profile_1d(
                 y_flat = np.asarray(y, dtype=float).ravel()
                 # A channel is one point of the profile; the signal presets
                 # apply to it as they do to a trace (vaft.plot.selection).
-                if not _channel_passes_signal_preset(ods, recipe.y_path, index, y_flat, selection):
+                if not _channel_passes_signal_preset(
+                    ods, recipe.y_path, index, y_flat, selection, options.get("validity"),
+                ):
                     continue
                 x_values.append(float(np.asarray(x, dtype=float).ravel()[0]))
                 position = min(time_slice, y_flat.size - 1) if y_flat.size else 0
                 y_values.append(float(y_flat[position]) if y_flat.size else np.nan)
+                # Each point carries its channel's flag at the sampled position,
+                # so a stated validity= can demote or mask it (issue #1380): a
+                # condemned channel the preset lets through is not drawn as valid.
+                # The stored per-sample mask is authoritative when present; the
+                # scalar is "worst state reached" and decides only without one
+                # (the Series.is_invalid_channel rule, #424).
+                code, mask = _validity_of(ods, recipe.y_path, index)
+                if mask is not None and np.asarray(mask).size == y_flat.size and y_flat.size:
+                    valid = bool(np.asarray(mask, dtype=bool).ravel()[position])
+                else:
+                    valid = code is None or int(np.asarray(code).ravel()[0]) >= 0
+                valid_points.append(valid)
             if x_values:
                 order = np.argsort(x_values)
+                flags = np.asarray(valid_points, dtype=bool)[order]
                 traces.append(
                     Series(
                         x=np.asarray(x_values)[order],
                         y=np.asarray(y_values)[order],
                         label=entry_label,
                         entry=entry_label,
+                        valid_mask=None if flags.all() else flags,
                         style={"marker": "o", "linestyle": "-"},
                     )
                 )

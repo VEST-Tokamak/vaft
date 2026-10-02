@@ -16,10 +16,11 @@ Flags the worker always passes, and why:
 ``--rerun-incomplete``
     a run the worker had to terminate leaves incomplete outputs; the next run
     rebuilds exactly those.
-``--resources hsds=1``
-    replications of one shot that overlap in time lose ``master.h5`` links
-    (#913), and a worker batch of a few new shots is precisely the
-    few-pending-targets case where they overlap.  Remove when #913 is fixed.
+
+HSDS concurrency is the pipeline configuration's ``hsds.concurrency``.  The
+worker used to force ``--resources hsds=1`` because replications of one shot
+that overlapped lost ``master.h5`` links; the write path now serializes each
+shot's master under a lock (#913, ``vaft.database._master_lock``).
 """
 
 from __future__ import annotations
@@ -38,8 +39,6 @@ import yaml
 from .config import WorkerConfig
 
 
-#: Serial HSDS replication until #913 is fixed.
-HSDS_RESOURCE = "hsds=1"
 
 _LOCK_MARKERS = ("LockException", "Directory cannot be locked")
 _TERMINATE_GRACE_SECONDS = 120.0
@@ -177,8 +176,6 @@ class SnakemakeRunner:
             "greedy",
             "--keep-going",
             "--rerun-incomplete",
-            "--resources",
-            HSDS_RESOURCE,
             *self.config.extra_args,
         ]
 
@@ -288,4 +285,4 @@ def _log_mentions_lock(log_path: Path) -> bool:
     return any(marker in text for marker in _LOCK_MARKERS)
 
 
-__all__ = ["HSDS_RESOURCE", "RunPlan", "RunResult", "SnakemakeRunner", "live_snakemake_in"]
+__all__ = ["RunPlan", "RunResult", "SnakemakeRunner", "live_snakemake_in"]

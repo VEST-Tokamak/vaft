@@ -364,7 +364,11 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
                 row["qi_classical_W_m2"] = _f(sum(classical["ion_energy_flux_W_m2"].values()))
                 row["chi_e_classical_m2_s"] = classical.get("chi_e_m2_s")
                 row["chi_i_classical_m2_s"] = classical.get("chi_i_m2_s")
-            if si is not None and ns is not None and charges is not None:
+            if ns is not None and ns.get("ti_supported") is False:
+                # NEO solved this surface on the policy-filled part of an inferred Ti
+                # profile; its values are kept but never partitioned (#1426 support).
+                row["partition_status"] = "ti_not_inferred_here"
+            elif si is not None and ns is not None and charges is not None:
                 try:
                     part = transport_partition(ns, si, turbulent_charges=charges, classical=classical)
                 except ValueError as error:

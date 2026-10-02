@@ -99,13 +99,20 @@ The record is `test/data/efit_sigma_calibration.json`. In the table below:
    - pair_13 is the RT-free closure. The others are ill-conditioned at VEST's aspect ratio (#649).
    - The slice is **indeterminate**, not failed, when the pair_13 denominator is below 0.1 or when either βp is ≤ 0. The admissibility veto catches the second case.
 4. **Grad–Shafranov.** Relative residual ≤ 0.05. The threshold is provisional.
-5. **Thomson.** This applies only where Thomson samples lie in the slice window, which today means 39915 at 308–317 ms.
-   - Thomson measures electrons, so p_e is a lower bound on the total pressure. Three times p_e bounds any credible ion and impurity share.
-   - The band is therefore **p_e ≤ p_recon ≤ 3 p_e**, i.e. ln(Σp_e / Σp_recon) ∈ [−ln 3, 0].
+5. **Thomson: physical consistency, not fit quality.** This applies only where Thomson samples lie in the slice window.
+   - An ohmic VEST plasma carries no fast-ion pressure, so p = p_e (1 + f_i T_i/T_e).
+     - f_i = n_i,tot/n_e ≤ 1, because impurities dilute the ions.
+     - T_i ≤ T_e, because the ions are heated only by the electrons.
+   - The band is therefore **p_e ≤ p_recon ≤ 2 p_e**, i.e. ln(Σp_e / Σp_recon) ∈ [−ln 2, 0].
+   - Criteria version 1 (before 2026-10-02) used [1, 3] p_e; every evaluation records `criteria_version`.
 
-A slice is **good** when it is admissible and no other criterion fails. A criterion that cannot be evaluated on a slice is reported and never counted against it.
+A slice is **good** when it is admissible, the measurement criterion passes, and neither the virial nor the Grad–Shafranov criterion fails. A criterion that cannot be evaluated on a slice is reported and never counted against it.
 
-Across settings each slice is labelled (`criteria.slice_labels`): **good** when some study setting is good there, **admissible** when some is admissible but none good, otherwise **unreconstructible** — no setting in the study gives a physical magnetics-only reconstruction of it. Such a slice is reported as that, not forced. The routine's verdict is shown beside the label and never counts towards it.
+**Thomson does not enter `good`.** It is reported beside it as `physically_consistent` (`None` where there is no Thomson), so a numerically sound fit that disagrees with Thomson stays visible as exactly that.
+- Thomson is never a target that a σ or a setting is chosen by.
+- Choosing by it would make it a hidden fitting constraint, and it would stop being an independent check.
+
+Across settings each slice is labelled (`criteria.slice_labels`, fit quality only; the good settings that pass or fail Thomson are listed beside it as `consistent` / `inconsistent`): **good** when some study setting is good there, **admissible** when some is admissible but none good, otherwise **unreconstructible** — no setting in the study gives a physical magnetics-only reconstruction of it. Such a slice is reported as that, not forced. The routine's verdict is shown beside the label and never counts towards it.
 
 ### Per setting: the σ is calibrated, not gridded
 

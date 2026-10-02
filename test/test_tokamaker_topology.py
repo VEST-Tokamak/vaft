@@ -96,3 +96,51 @@ def test_far_side_vacuum_saddles_do_not_register_as_near_null():
 
     assert report.topology is ScanTopology.LIMITED
     assert report.null_margin is None
+
+
+def _with_limiter(eq, r, z):
+    from vaft.data.equilibrium import Contour
+
+    return replace(eq, limiter=Contour(r, z, closed=True))
+
+
+def test_limited_contact_reports_its_side():
+    report = classify_boundary(_analytic_equilibrium("limited"))
+
+    # the analytic limited plasma rests on the outboard midplane of its limiter
+    assert report.limiter_contact.side == "outboard"
+    assert report.to_dict()["limiter_contact"]["side"] == "outboard"
+    assert report.contact_tolerance > 0.0
+
+
+def test_inboard_contact_is_named_inboard():
+    eq = _analytic_equilibrium("limited")
+    # the fixture limiter touches the LCFS at both midplanes; pull its outboard
+    # half 5 cm back so only the inboard (high-field-side) contact remains
+    r0 = eq.magnetic_axis[0]
+    r = np.where(eq.limiter.r > r0, eq.limiter.r + 0.05, eq.limiter.r)
+    report = classify_boundary(_with_limiter(eq, r, eq.limiter.z))
+
+    assert report.topology is ScanTopology.LIMITED
+    assert report.limiter_contact.side == "inboard"
+    assert report.limiter_contact.distance <= report.contact_tolerance
+
+
+def test_null_free_boundary_clear_of_the_wall_is_not_limited():
+    # No X-point and no wall contact: neither sets the boundary, so the contour
+    # cannot be a free-boundary LCFS. Calling it LIMITED hid a TokaMaker run
+    # whose boundary floated 6 cm off the VEST inboard limiter (#1469).
+    eq = _analytic_equilibrium("limited")
+    # the same wall, enlarged 20 % about the magnetic axis: 7 cm clear everywhere
+    r0, z0 = eq.magnetic_axis
+    wall = (r0 + 1.2 * (eq.limiter.r - r0), z0 + 1.2 * (eq.limiter.z - z0))
+    report = classify_boundary(_with_limiter(eq, *wall))
+
+    assert report.topology is ScanTopology.AMBIGUOUS
+    assert report.limiter_contact is not None
+    assert report.limiter_contact.distance > report.contact_tolerance
+    assert "clear of the limiter" in report.reason
+
+    # an explicit tolerance can accept the gap
+    loose = classify_boundary(_with_limiter(eq, *wall), contact_tolerance=0.1)
+    assert loose.topology is ScanTopology.LIMITED

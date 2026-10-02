@@ -156,7 +156,7 @@ checker = _load_checker()
 #: own README, reference cases and validation notes. This is not the axis
 #: #225's flatness rule is about -- that one forbids splitting the *bootstrap*
 #: by platform or by role, which is what a student would have to navigate.
-EXTERNAL_CODE_DIRECTORIES = ("gacode", "genray", "nubeam")
+EXTERNAL_CODE_DIRECTORIES = ("gacode", "genray", "nubeam", "tes")
 
 
 def test_install_directory_is_flat_and_complete():
@@ -720,6 +720,11 @@ def fake_conda(tmp_path, monkeypatch):
     log.touch()
     monkeypatch.setenv("PATH", f"{binary}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("FAKE_CONDA_LOG", str(log))
+    # The suite is normally run from inside `conda activate vaft`, which is
+    # exactly what the uninstaller's active-environment guard refuses. Start
+    # from no activation; a test that exercises the guard sets it explicitly.
+    for name in ("CONDA_DEFAULT_ENV", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
     return log
 
 

@@ -57,6 +57,7 @@ __all__ = [
     "TransportStateKey",
     "assess_neo_readiness",
     "assess_tglf_readiness",
+    "inferred_ti_supported",
     "CLASSICAL_MODEL",
     "classical_heat_fluxes",
     "surface_toroidal_field",
@@ -67,7 +68,7 @@ __all__ = [
 ]
 
 #: Bumped whenever a change here can alter a resolved state; part of every identity.
-RESOLVER_VERSION = 1
+RESOLVER_VERSION = 2
 
 #: The two EFIT lineages of lane K's State key contract v1 (#1454).
 EFIT_LINEAGES = ("magnetics", "electron_kinetic")
@@ -149,6 +150,9 @@ class ResolvedTransportState:
     provenance: Mapping[str, Any] = field(default_factory=dict)
     inputs: Mapping[str, Any] = field(default_factory=dict)
     settings: Mapping[str, Any] = field(default_factory=dict)
+    #: The same state with the inferred-Ti gaps filled at a different ratio: a surface
+    #: whose solver input changes between the two depends on the fill (not identity).
+    fill_probe: Any = field(default=None, repr=False, compare=False)
 
     @property
     def resolved(self) -> bool:
@@ -421,6 +425,137 @@ def _derive_shape_profiles(work: Any, eq_index: int) -> Optional[dict[str, Any]]
             "routine": "vaft.process.equilibrium.contour_shape_parameters"}
 
 
+def _stored_inferred_ti(ods: Any, prefix: str, ions: list, time: float) -> tuple[Optional[dict], Optional[str]]:
+    """An ion temperature the product itself labels as inferred, as an ``inferred_ti`` record.
+
+    Every ion must carry the inferred label and one common temperature (lane K writes
+    H+ and C6+ with the same partitioned T_i).  Returns ``(record, None)`` when it does,
+    else ``(None, reason)`` naming what is missing: ``label_missing`` (some ion carries
+    no inferred label), ``temperature_missing`` (a labelled ion has no array) or
+    ``species_disagree`` (the labelled arrays differ).  ``species`` is the number of
+    ions the product supplied, so the caller keeps its composition.
+    """
+    from vaft.machine_mapping.core_profiles import classify_ti_record
+
+    if not ions:
+        return None, "label_missing"
+    notes = [_get(ods, f"{prefix}.ion.{i}.temperature_fit.parameters") for i in ions]
+    if any(classify_ti_record(note) != "inferred" for note in notes):
+        return None, "label_missing"
+    arrays = [_get(ods, f"{prefix}.ion.{i}.temperature") for i in ions]
+    if any(a is None for a in arrays):
+        return None, "temperature_missing"
+    arrays = [np.asarray(a, dtype=float) for a in arrays]
+    if any(a.shape != arrays[0].shape or not np.allclose(a, arrays[0], equal_nan=True) for a in arrays[1:]):
+        return None, "species_disagree"
+    method = "equilibrium_pressure_partition"
+    for part in str(notes[0]).split(";"):
+        if part.strip().startswith("method="):
+            method = part.strip().split("=", 1)[1]
+    return {"temperature": arrays[0], "method": method, "time": float(time),
+            "source": str(notes[0]), "species": len(ions)}, None
+
+
+def _segments(rho: np.ndarray, valid: np.ndarray) -> list[list[float]]:
+    """Contiguous runs of valid points as ``[[rho_first, rho_last], ...]``."""
+    out, start = [], None
+    for k, ok in enumerate(valid):
+        if ok and start is None:
+            start = k
+        if (not ok or k == len(valid) - 1) and start is not None:
+            end = k if ok else k - 1
+            out.append([float(rho[start]), float(rho[end])])
+            start = None
+    return out
+
+
+def inferred_ti_supported(state: "ResolvedTransportState", r_over_a: float, *,
+                          solver: str = "tglf", local: Any = None) -> bool:
+    """Whether a surface's solver input is independent of the inferred-Ti gap fill.
+
+    Parameters
+    ----------
+    state : ResolvedTransportState
+        From :func:`resolve_transport_state` [-].
+    r_over_a : float
+        The surface [-].
+    solver : str
+        ``"tglf"`` compares the full TGLF local input; ``"neo"`` compares the ion
+        temperatures and their log-gradients the way NEO reads them [-].
+    local : TGLFInput, optional
+        The surface's input already built from ``state.profile``, to avoid rebuilding
+        it [-].
+
+    Returns
+    -------
+    bool
+        True when no gap was filled, or when the solver's input agrees (rtol 1e-4,
+        atol 1e-4) between the profile and its ``fill_probe`` [-].
+
+    Convention
+    ----------
+    GACODE differentiates on three grid points and evaluates with a spline over the
+    whole profile, so a filled node can reach a surface several grid steps away.
+    Rather than guess a margin, the gate builds the solver's input twice -- once from
+    the profile, once from ``fill_probe``, whose gaps are filled with a different
+    scale *and* offset -- and runs the surface only when nothing moves. TGLF's local
+    input uses a not-a-knot spline; NEO (PROFILE_MODEL=2, ``expro_locsim``'s
+    ``cub_spline1``) a natural one, so each solver is checked with its own.
+
+    Applicability
+    -------------
+    Machine-independent.
+    """
+    probe = getattr(state, "fill_probe", None)
+    if probe is None:
+        return True
+    if solver == "neo":
+        return _neo_ion_inputs_agree(state.profile, probe, float(r_over_a))
+    from vaft.code.gacode.tglf.inputs import LocalConversionError, prepare_tglf_input
+
+    try:
+        a = local if local is not None else prepare_tglf_input(state.profile, float(r_over_a))
+        b = prepare_tglf_input(probe, float(r_over_a))
+    except LocalConversionError:
+        return False
+    numeric = ("taus", "rlts", "as_", "rlns", "zs", "mass", "betae", "xnue", "zeff", "debye",
+               "p_prime_loc", "q_loc", "q_prime_loc", "rmin_loc", "rmaj_loc", "kappa_loc",
+               "delta_loc")
+    for name in numeric:
+        x = np.atleast_1d(np.asarray(getattr(a, name), dtype=float))
+        y = np.atleast_1d(np.asarray(getattr(b, name), dtype=float))
+        if x.shape != y.shape or not np.allclose(x, y, rtol=1e-4, atol=1e-4, equal_nan=True):
+            return False
+    return True
+
+
+def _neo_ion_inputs_agree(profile: Any, probe: Any, r_over_a: float) -> bool:
+    """NEO's local ion T and a/L_T, natural spline as in expro_locsim, profile vs probe."""
+    from scipy.interpolate import CubicSpline
+
+    from vaft.code.gacode.tglf.inputs import bound_deriv
+
+    def ion_inputs(prof):
+        rmin = np.asarray(prof.rmin, dtype=float)
+        grid = rmin / rmin[-1]
+        ti = np.atleast_2d(np.asarray(prof.ti, dtype=float))
+        out = []
+        for row in ti:
+            if np.any(row <= 0.0) or not np.all(np.isfinite(row)):
+                return None
+            # anti-alias: not a time series and not a downsample; one radial profile
+            # evaluated at one surface the way NEO's expro_locsim does.
+            value = CubicSpline(grid, row, bc_type="natural")(r_over_a)
+            gradient = CubicSpline(grid, bound_deriv(-np.log(row), rmin), bc_type="natural")(r_over_a)
+            out += [float(value), float(rmin[-1] * gradient)]
+        return np.asarray(out)
+
+    a, b = ion_inputs(profile), ion_inputs(probe)
+    if a is None or b is None or a.shape != b.shape:
+        return False
+    return bool(np.allclose(a, b, rtol=1e-4, atol=1e-4))
+
+
 # --------------------------------------------------------------------------- resolve
 
 
@@ -434,6 +569,7 @@ def resolve_transport_state(
     ti_te_ratio: Any = "policy",
     ti_te_ratio_sigma: Optional[float] = None,
     inferred_ti: Optional[Mapping[str, Any]] = None,
+    use_stored_inferred_ti: bool = False,
     z_eff: Optional[float] = 2.0,
     impurity: Optional[str] = "C",
     rho_max: Optional[float] = DEFAULT_RHO_MAX,
@@ -461,13 +597,25 @@ def resolve_transport_state(
         Ion-temperature fallback when no ion temperature is measured: ``"policy"``
         reads ``vest.yaml`` through
         :func:`vaft.machine_mapping.core_profiles.policy_for_ods`; a number is used
-        as given and recorded as caller-supplied; ``None`` disables the fallback [-].
+        as given and recorded as caller-supplied; ``None`` disables the fallback.
+        Any other string is refused with :class:`ValueError` at entry.  A product whose
+        ion temperature is itself a ratio record (``ti_te_ratio=...; status=assumed``,
+        #1414) is resolved at the record's own ratio, as ``assumed`` [-].
     ti_te_ratio_sigma : float, optional
         Its 1-sigma, for provenance; the policy's when ``None`` [-].
     inferred_ti : mapping, optional
         A pressure-partition result (#1426), ``{"temperature", "method", "time"}`` on
         the core_profiles grid of the matched slice, preferred over the policy
         fallback; its ``time`` must match the paired slice within ``tolerance`` [eV].
+    use_stored_inferred_ti : bool
+        Whether an ion temperature the product itself labels as inferred
+        (``temperature_fit.parameters`` reading ``origin=inferred; ...`` by
+        :func:`vaft.machine_mapping.core_profiles.classify_ti_record`, lane K's #1426
+        partition) is used as the ``inferred_ti`` step. Off by default: the routine atlas
+        keeps Ti = Te (#1414), and such a state is refused as
+        ``inferred_ti_not_enabled``. A temperature is taken as measured only when its
+        record is a measured fit's (or absent); a record in no known grammar is refused
+        as ``ti_record_unrecognised`` [-].
     z_eff : float, optional
         Effective charge the composition closure realizes [-].
     impurity : str, optional
@@ -487,8 +635,10 @@ def resolve_transport_state(
     ----------------
     1. Match the equilibrium slice to ``time_efit_s`` and the core_profiles slice to
        that equilibrium time, both by time within ``tolerance``.
-    2. Resolve the ion temperature: measured, then ``inferred_ti``, then the policy
-       ratio, else insufficient; write a main ion into a deep copy when needed.
+    2. Classify each ion's ``temperature_fit.parameters`` record, then resolve the ion
+       temperature: measured, then ``inferred_ti``, then the product's own ratio
+       record, then the policy ratio, else insufficient; write a main ion into a deep
+       copy when needed.
     3. Derive ``r_inboard``/``r_outboard`` and, when absent, the elongation and
        triangularity profiles from the 2-D flux map (on the copy), recording that
        they were derived here.
@@ -520,6 +670,10 @@ def resolve_transport_state(
         )
     if not np.isfinite(tolerance) or tolerance < 0.0:
         raise ValueError(f"tolerance must be finite and non-negative; got {tolerance!r}")
+    if isinstance(ti_te_ratio, str) and ti_te_ratio != "policy":
+        # Checked once here: a stored profile that happens to be complete would
+        # otherwise never reach the fallback branch and the typo would pass unseen.
+        raise ValueError(f"ti_te_ratio must be 'policy', a number or None; got {ti_te_ratio!r}")
 
     settings = {
         "tolerance_s": float(tolerance),
@@ -579,7 +733,37 @@ def resolve_transport_state(
     ) is not None:
         ions.append(position)
         position += 1
-    measured = [i for i in ions if _usable(_get(ods, f"{prefix}.ion.{i}.temperature"))]
+    # Each ion's ``temperature_fit.parameters`` record says what its temperature is
+    # (shared grammar: vaft.machine_mapping.core_profiles.classify_ti_record). A product
+    # may carry one that was inferred, not measured (lane K's #1426 pressure partition,
+    # ``origin=inferred; method=...``): it is never taken as a measurement; it is used
+    # as the inferred step only when the caller opts in (``use_stored_inferred_ti``),
+    # else refused. A ratio record (#1414, ``ti_te_ratio=...; status=assumed``) is the
+    # product's own Ti = ratio * Te and resolves as assumed, at that ratio.
+    from vaft.machine_mapping.core_profiles import classify_ti_record, ti_record_fields
+
+    records = {i: _get(ods, f"{prefix}.ion.{i}.temperature_fit.parameters") for i in ions}
+    kinds = {i: classify_ti_record(record) for i, record in records.items()}
+    if any(kind == "unknown" for kind in kinds.values()):
+        return _insufficient(base, "ti_record_unrecognised")
+    fill = None
+    stored, stored_reason = _stored_inferred_ti(ods, prefix, ions, cp_times[cp_index])
+    labelled = [i for i in ions if kinds[i] == "inferred"]
+    if labelled and not use_stored_inferred_ti and inferred_ti is None:
+        # The product's T_i is an inference and the caller did not opt in: refusing is
+        # the only honest choice, since the measured step would mislabel it.
+        return _insufficient(base, "inferred_ti_not_enabled")
+    if labelled and stored is None and inferred_ti is None:
+        # Some ion says its T_i was inferred but the set is not one common inferred
+        # profile: it is neither a measurement nor a usable inference. The reason
+        # names what is missing (a label, an array) rather than calling every case
+        # a disagreement.
+        return _insufficient(base, f"inferred_ti_{stored_reason}")
+    if use_stored_inferred_ti and stored is not None and inferred_ti is None:
+        inferred_ti = stored
+    measured = [i for i in ions
+                if kinds[i] == "measured" and _usable(_get(ods, f"{prefix}.ion.{i}.temperature"))]
+    assumed = [i for i in ions if kinds[i] == "assumed"]
     hierarchy: list[dict[str, Any]] = []
     work = ods
     if ions and len(measured) == len(ions):
@@ -587,8 +771,11 @@ def resolve_transport_state(
               "ratio": None, "sigma": None, "kind": "measured"}
         hierarchy.append({"step": "measured", "status": "used"})
     else:
-        hierarchy.append({"step": "measured", "status": "unavailable"})
-        if len(ions) > 1:
+        unavailable: dict[str, Any] = {"step": "measured", "status": "unavailable"}
+        if assumed:
+            unavailable["reason"] = f"product record: {records[assumed[0]]}"
+        hierarchy.append(unavailable)
+        if len(ions) > 1 and not (stored is not None and stored["species"] == len(ions)):
             return _insufficient(
                 {**base, "ti": {"lineage": "unresolved", "hierarchy": hierarchy}},
                 "ion_temperature_unresolved_multiple_species",
@@ -604,13 +791,40 @@ def resolve_transport_state(
             inferred_time = inferred_ti.get("time")
             if inferred_time is None or abs(float(inferred_time) - float(cp_times[cp_index])) > tolerance:
                 return _insufficient(base, "inferred_ti_time_mismatch")
-            if not _usable(temperature):
+            valid = np.isfinite(temperature) & (temperature > 0.0)
+            if not valid.any():
                 return _insufficient(base, "inferred_ti_not_positive")
             ti = {"lineage": "pressure_partition_inferred",
                   "method": str(inferred_ti.get("method", "equilibrium_pressure_partition")),
                   "ratio": None, "sigma": None, "kind": "inferred",
                   "temperature_sha256": hashlib.sha256(
-                      np.ascontiguousarray(temperature).tobytes()).hexdigest()}
+                      np.ascontiguousarray(np.nan_to_num(temperature, nan=-1.0)).tobytes()).hexdigest()}
+            if "source" in inferred_ti:
+                ti["source"] = str(inferred_ti["source"])
+            if not valid.all():
+                # The inference is undefined where p_i <= 0 or not significant. GACODE
+                # needs a complete profile, so those points take the policy ratio --
+                # declared here, and no surface whose stencil reaches them is run
+                # (readiness: ti_not_inferred_here), so every solved surface's Ti is
+                # purely inferred.
+                if ti_te_ratio is None:
+                    return _insufficient(base, "inferred_ti_incomplete")
+                if isinstance(ti_te_ratio, str):
+                    from vaft.machine_mapping.core_profiles import policy_for_ods
+
+                    fill_ratio, fill_source = float(policy_for_ods(ods, key.shot).ti_te_ratio), "policy"
+                else:
+                    fill_ratio, fill_source = float(ti_te_ratio), "caller"
+                if not np.isfinite(fill_ratio) or fill_ratio <= 0.0:
+                    return _insufficient(base, "non_positive_ti_te_ratio")
+                fill = (valid, np.asarray(temperature, dtype=float), fill_ratio)
+                temperature = np.where(valid, temperature, fill_ratio * te)
+                ti["fill"] = {"points": int((~valid).sum()), "of": int(valid.size),
+                              "value": f"ti_te_ratio {fill_ratio:g} ({fill_source}); a surface whose "
+                                       "solver input depends on it is not run"}
+            grid = _get(ods, f"{prefix}.grid.rho_tor_norm")
+            if grid is not None and np.size(grid) == valid.size:
+                ti["support_rho"] = _segments(np.asarray(grid, dtype=float), valid)
         else:
             hierarchy.append({"step": "pressure_inferred", "status": "unavailable",
                               "reason": "no #1426 result supplied"})
@@ -619,11 +833,19 @@ def resolve_transport_state(
                     {**base, "ti": {"lineage": "unresolved", "hierarchy": hierarchy}},
                     "no_defensible_ion_temperature",
                 )
-            if isinstance(ti_te_ratio, str):
-                if ti_te_ratio != "policy":
-                    raise ValueError(
-                        f"ti_te_ratio must be 'policy', a number or None; got {ti_te_ratio!r}"
-                    )
+            if assumed:
+                # The product already applied a ratio to its Te (#1414) and says so:
+                # that ratio, not the caller's, is what shaped the stored temperature.
+                fields = ti_record_fields(records[assumed[0]])
+                try:
+                    ratio = float(fields["ti_te_ratio"])
+                    sigma = float(fields["sigma"]) if "sigma" in fields else None
+                except (KeyError, ValueError):
+                    return _insufficient(base, "ti_record_unrecognised")
+                status = "assumed"
+                source = str(records[assumed[0]])
+                step = {"step": "policy_ratio", "status": "used", "source": "product record"}
+            elif isinstance(ti_te_ratio, str):
                 from vaft.machine_mapping.core_profiles import policy_for_ods
 
                 policy = policy_for_ods(ods, key.shot)
@@ -632,14 +854,16 @@ def resolve_transport_state(
                               else ti_te_ratio_sigma)
                 status = str(policy.ti_te_ratio_status)
                 source = policy.ti_te_ratio_text()
+                step = {"step": "policy_ratio", "status": "used"}
             else:
                 ratio = float(ti_te_ratio)
                 sigma = None if ti_te_ratio_sigma is None else float(ti_te_ratio_sigma)
                 status = "assumed"
                 source = "caller argument"
+                step = {"step": "policy_ratio", "status": "used"}
             if not np.isfinite(ratio) or ratio <= 0.0:
                 return _insufficient(base, "non_positive_ti_te_ratio")
-            hierarchy.append({"step": "policy_ratio", "status": "used"})
+            hierarchy.append(step)
             temperature = ratio * te
             # Contract v1 spells the #1414 Ti = Te policy ``ti_eq_te_assumed``; any
             # other ratio keeps its value in the name so two ratios never share one.
@@ -662,7 +886,8 @@ def resolve_transport_state(
             # densities from n_e, and without a closure a lone H+ at n_e is
             # quasi-neutrality, which is what is recorded.
             work[f"{ion}.density_thermal"] = ne
-        work[f"{ion}.temperature"] = temperature
+        for position in (ions or [0]):
+            work[f"{prefix}.ion.{position}.temperature"] = temperature
     ti["hierarchy"] = hierarchy
     base["ti"] = ti
 
@@ -693,15 +918,32 @@ def resolve_transport_state(
     from vaft.code.gacode.inputs import ProfileConversionError, prepare_gacode_profile
 
     try:
-        profile = prepare_gacode_profile(
-            work,
+        # A product that already carries its ion species (lane K's H+/C6+ closure) is
+        # converted as given: re-applying the closure would assume a single main ion.
+        # The product's ion list is its composition whoever supplies T_i: re-applying
+        # the single-main-ion closure to two ions would be refused (or double-count C).
+        product_species = stored is not None and stored["species"] > 1
+        convert = dict(
             time=eq_time,
             tolerance=max(float(tolerance), 1e-9),
             rho_max=rho_max,
-            z_eff=z_eff if impurity is not None else None,
-            impurity=impurity,
+            z_eff=None if product_species else (z_eff if impurity is not None else None),
+            impurity=None if product_species else impurity,
             shot=int(key.shot),
         )
+        profile = prepare_gacode_profile(work, **convert)
+        fill_probe = None
+        if fill is not None:
+            # The same profile with the gaps filled differently: the readiness gate
+            # compares every surface's solver input across the two.
+            valid_mask, raw, ratio_used = fill
+            probe = copy.deepcopy(work)
+            # Different scale *and* offset: a pure rescale leaves log-gradients inside
+            # the gap unchanged, and Te = 0 points would stay 0 under any rescale.
+            alternative = np.where(valid_mask, raw, 2.0 * ratio_used * te + 0.25 * float(np.nanmax(te)))
+            for position in (ions or [0]):
+                probe[f"{prefix}.ion.{position}.temperature"] = alternative
+            fill_probe = prepare_gacode_profile(probe, **convert)
     except ProfileConversionError as error:
         return _insufficient(base, f"profile_conversion: {error}")
 
@@ -717,15 +959,33 @@ def resolve_transport_state(
     provenance["shape"] = shape
     provenance["magnetic_shear"] = {"kind": "derived", "source": "equilibrium q"}
     profile.provenance = provenance
-    composition = {
-        "species": list(getattr(profile, "name", []) or []),
-        "z_eff": settings["z_eff"],
-        "impurity": impurity,
-        "origin": "policy_assumption" if impurity is not None else "measured_or_single_ion",
-    }
+    if product_species:
+        settings["z_eff"], settings["impurity"] = None, None
+        # From the species the solvers read, not from any z_eff column (#803).
+        ni = np.atleast_2d(np.asarray(profile.ni, dtype=float))
+        charge = np.asarray(profile.z, dtype=float)[:, None]
+        ne_profile = np.asarray(profile.ne, dtype=float)
+        realized = (ni * charge ** 2).sum(axis=0) / ne_profile
+        neutrality = float(np.max(np.abs((ni * charge).sum(axis=0) / ne_profile - 1.0)))
+        composition = {
+            "species": list(getattr(profile, "name", []) or []),
+            "z_eff": float(np.median(realized)),
+            "quasineutrality_error": neutrality,
+            "impurity": None,
+            # The product's species list is itself a modelling closure, not a measurement.
+            "origin": "policy_assumption",
+            "source": "the core_profiles product's own ion list",
+        }
+    else:
+        composition = {
+            "species": list(getattr(profile, "name", []) or []),
+            "z_eff": settings["z_eff"],
+            "impurity": impurity,
+            "origin": "policy_assumption" if impurity is not None else "measured_or_single_ion",
+        }
     return ResolvedTransportState(
         status="resolved", profile=profile, composition=composition,
-        provenance=provenance, **base,
+        provenance=provenance, fill_probe=fill_probe, **base,
     )
 
 
@@ -805,6 +1065,10 @@ def assess_tglf_readiness(
         except LocalConversionError as error:
             results.append(SurfaceReadiness(float(radius), _surface_code(error), str(error)))
             continue
+        if not inferred_ti_supported(state, float(radius), local=local):
+            results.append(SurfaceReadiness(float(radius), "ti_not_inferred_here",
+                                             "this surface's solver input depends on the inferred-Ti gap fill"))
+            continue
         absent = local.check_tglf_requirements()
         if absent:
             code = "invalid_gradient" if set(absent) & {"rlns", "rlts"} else "local_conversion_failure"
@@ -823,13 +1087,17 @@ def assess_tglf_readiness(
                            conditions=conditions, surfaces=tuple(results))
 
 
-def assess_neo_readiness(state: ResolvedTransportState) -> ReadinessReport:
+def assess_neo_readiness(state: ResolvedTransportState,
+                         surfaces: Sequence[float] = DEFAULT_SURFACES) -> ReadinessReport:
     """Decide whether a resolved state can go to NEO.
 
     Parameters
     ----------
     state : ResolvedTransportState
         From :func:`resolve_transport_state` [-].
+    surfaces : sequence of float
+        The r/a NEO will solve; with an inferred-Ti gap fill, at least one must have
+        an input independent of the fill [-].
 
     Returns
     -------
@@ -854,6 +1122,9 @@ def assess_neo_readiness(state: ResolvedTransportState) -> ReadinessReport:
     if missing:
         return ReadinessReport("neo", "insufficient",
                                reasons=tuple(f"missing_{name}" for name in missing))
+    if state.fill_probe is not None and not any(
+            inferred_ti_supported(state, r, solver="neo") for r in surfaces):
+        return ReadinessReport("neo", "insufficient", reasons=("no_surface_independent_of_ti_fill",))
     conditions = _state_conditions(state)
     return ReadinessReport("neo", "conditional" if conditions else "ready",
                            conditions=conditions)

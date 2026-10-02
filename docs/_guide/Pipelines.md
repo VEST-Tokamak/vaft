@@ -28,6 +28,12 @@ production counterpart of the interactive notebooks: the same `vaft` library cal
 > are library API. No `vaft.workflow` abstraction is planned; see
 > [Computational layers]({{ '/reference/computational-layers/' | relative_url }}).
 
+VAFT's products are designed to be traceable to their inputs, configuration and version. The example below
+follows one tokamak analysis chain; what is versioned includes the machine description, geometry,
+calibration, mappings and conventions, the processing and model configuration, and the schema.
+
+![Traceable provenance]({{ site.baseurl }}/assets/diagrams/scientific_provenance_chain.svg)
+
 | Pipeline | Orchestration | Purpose |
 |---|---|---|
 | `automatic_pipeline_1_routine_data_processing` | Snakemake DAG (10 rules) + `Makefile` | Per shot: raw DAQ dump → diagnostics/eddy/constraints ODS → EFIT → CHEASE → GPEC suite |

@@ -142,6 +142,7 @@ def _is_plotting_export(name: str) -> bool:
         name.startswith(("plot_", "dd_", "extract_"))
         or name in {
             "available_plots",
+            "compose",
             "disable_overlay_methods",
             "disable_plot_methods",
             "enable_overlay_methods",

@@ -301,7 +301,12 @@ def bound_deriv(values: Any, radius: Any) -> np.ndarray:
 
 
 def _at(grid: np.ndarray, values: np.ndarray, target: float) -> float:
-    """Interpolate to one radius with a cubic spline, as ``cub_spline1`` does."""
+    """Interpolate to one radius with SciPy's default (not-a-knot) cubic spline.
+
+    GACODE's ``cub_spline1`` (``f2py/expro/expro_locsim.f90``) is a *natural* spline
+    (zero second derivative at both ends), so this only approximates it: the two agree
+    closely in the interior and differ most near the first and last grid intervals.
+    """
     from scipy.interpolate import CubicSpline
 
     return float(CubicSpline(grid, np.asarray(values, dtype=float))(target))
