@@ -16,7 +16,7 @@ from .omas_imas import IMAS_DD_VERSION_CONVERSION
 
 __all__ = ["IMASHandle", "load", "save", "to_equilibrium", "IMAS_DD_VERSION_CONVERSION"]
 
-_PLOTTING_NAMES = frozenset({"available_plots", "normalize_entries", "render_plot", "plotting"})
+_PLOTTING_NAMES = frozenset({"available_plots", "compose", "normalize_entries", "render_plot", "plotting"})
 _ACCESS_NAMES = frozenset({"IDSEntry"})
 _PLOTTING_EXPORTS: frozenset | None = None
 

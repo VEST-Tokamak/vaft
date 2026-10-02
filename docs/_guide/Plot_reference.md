@@ -72,6 +72,49 @@ The **output suffix picks the writer**, and no backend name appears in the call:
 - `.mp4`/`.webm` need the optional `vaft[video]` extra (PyAV).
 - `.gif` needs nothing beyond Matplotlib.
 
+### Several plots in one figure
+
+A `vaft.plot.FigureComposition` places several canonical plots in one figure: a grid of cells, each
+naming a plot, its keywords and the region it covers (`rowspan`/`colspan`), and the axes that move
+together. `vaft.omas.compose` (or `vaft.imas.compose`) draws it from data:
+
+```python
+from vaft.plot import FigureCell, FigureComposition
+
+ods = vaft.omas.sample_ods()
+
+# m x 1: stacked time traces on one time axis, tick labels on the bottom one only
+stack = FigureComposition.stack(
+    ["plasma_current_time", "flux_loop_time_voltage", "equilibrium_time_q95"], panel_labels=True,
+)
+figure, axes = vaft.omas.compose(stack, ods)
+
+# a map over two rows beside two profiles
+equilibrium = FigureComposition(
+    shape=(2, 2),
+    cells=(
+        FigureCell("equilibrium_field_psi", row=0, col=0, rowspan=2),
+        FigureCell("equilibrium_profile_pressure", row=0, col=1),
+        FigureCell("equilibrium_profile_q", row=1, col=1, options={"coordinate": "psi_norm"}),
+    ),
+)
+figure, axes = vaft.omas.compose(equilibrium, ods, format="double_column")
+```
+
+Each cell is built by the plot's own recipe, so it shows what `plot_<name>` would. The keywords:
+
+- **`share_x`** links the x axes of the cells in each column. **`share_y`** links the y axes of the
+  cells in each row. **`AxisLink("x", (...cell names...))`** links any other group.
+- **`title=None`** names the shot. **`panel_labels=True`** marks the cells (a), (b), ...
+- **Matplotlib** returns `(Figure, axes)`, one axes per cell, and takes `format=`/`theme=`/`figsize=`.
+- **`backend="plotly"`** returns one Plotly figure with the same cells and links.
+
+`composition.to_dict()` is plain JSON and draws the same figure again.
+
+This is not a plot's own `layout=`. That keyword spreads the series of one plot over several axes;
+a composition places several plots. A cell therefore holds one panel, and an overview or a
+`layout="subplots"` plot is refused there.
+
 ## Index
 
 <div class="ref-index" data-ref-index>

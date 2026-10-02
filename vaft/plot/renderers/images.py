@@ -52,13 +52,18 @@ def render_image_2d(
             "Adapters such as vaft.omas.plot_* build the model from data objects."
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
+    # A grid that reserved a colorbar cell beside this panel hands it over (#1467).
+    colorbar_axes = style.pop("colorbar_ax", None)
 
     image = axes.imshow(
         model.values, cmap=model.cmap, origin=model.origin,
         vmin=model.vmin, vmax=model.vmax, **style,
     )
     if colorbar:
-        figure.colorbar(image, ax=axes, label=model.value_label)
+        if colorbar_axes is not None:
+            figure.colorbar(image, cax=colorbar_axes, label=model.value_label)
+        else:
+            figure.colorbar(image, ax=axes, label=model.value_label)
 
     labelled = False
     for layer in model.overlays:
