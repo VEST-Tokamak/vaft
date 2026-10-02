@@ -1,0 +1,2160 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: confinement · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/transport_state/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: confinement</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>cad89a9</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_confinement">Process reference: confinement</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.confinement, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.confinement</code>:
+<strong>15</strong> public functions. Each entry is what
+<code>vaft.process.describe("confinement.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The first layer of the #548 hierarchy: from time series of plasma current,
+resistive loop voltage and stored energy to the loss power and confinement
+time of each time slice, and the evidence that decides whether a slice enters
+a scaling fit. It composes the definitions of <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium</code>
+and adds no physics of its own.</p>
+
+<p>Two loss powers are kept apart, because databases do not agree on one:</p>
+
+<p>=================  ===========================================  =====================
+name               definition                                   compares with
+=================  ===========================================  =====================
+<code class="language-plaintext highlighter-rouge">p_net</code>          $P_\mathrm{OH} - dW/dt$                       ITPA DB5 <code class="language-plaintext highlighter-rouge">PLTH</code>
+<code class="language-plaintext highlighter-rouge">p_transport</code>    $P_\mathrm{OH} - dW/dt - P_\mathrm{rad}$      transport analyses
+=================  ===========================================  =====================</p>
+
+<p><code class="language-plaintext highlighter-rouge">p_transport</code> is NaN wherever the radiated power was not measured; a
+modelled $P_\mathrm{rad}$ is a sensitivity study, never the default.</p>
+
+<p>Slice qualification keeps the <em>evidence</em> (rates and ratios per slice) apart
+from the <em>decision</em> (thresholds), as #253 asks: thresholds are arguments,
+never constants copied from another database, and
+<code class="language-plaintext highlighter-rouge">confinement_exclusion_table</code> reports how many slices each rule
+removes so a threshold sweep can be read off directly.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 15 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="assess_predictor_identifiability"><td><a href="#assess_predictor_identifiability"><code>assess_predictor_identifiability</code></a></td><td>Collinearity of log predictors: correlation, VIF, condition number and rank.
+</td></tr>
+  <tr data-ref-row="bootstrap_confinement_scaling"><td><a href="#bootstrap_confinement_scaling"><code>bootstrap_confinement_scaling</code></a></td><td>Group (shot) bootstrap of the log-linear scaling coefficients.
+</td></tr>
+  <tr data-ref-row="closure_constraint"><td><a href="#closure_constraint"><code>closure_constraint</code></a></td><td>Linear constraint on I, B, P (and n) exponents fixing the Kadomtsev-completed $\mu_\rho$.
+</td></tr>
+  <tr data-ref-row="confinement_exclusion_table"><td><a href="#confinement_exclusion_table"><code>confinement_exclusion_table</code></a></td><td>How many slices each quality rule removes, alone and in sequence.
+</td></tr>
+  <tr data-ref-row="confinement_power_balance"><td><a href="#confinement_power_balance"><code>confinement_power_balance</code></a></td><td>Ohmic heating, stored-energy change, loss powers and confinement times of a discharge.
+</td></tr>
+  <tr data-ref-row="confinement_slice_decision"><td><a href="#confinement_slice_decision"><code>confinement_slice_decision</code></a></td><td>Pass/fail of each slice-quality rule, and their conjunction, for given thresholds.
+</td></tr>
+  <tr data-ref-row="confinement_slice_evidence"><td><a href="#confinement_slice_evidence"><code>confinement_slice_evidence</code></a></td><td>Rates and ratios that decide whether a time slice is quasi-stationary enough to fit.
+</td></tr>
+  <tr data-ref-row="dimensionless_confinement_indices"><td><a href="#dimensionless_confinement_indices"><code>dimensionless_confinement_indices</code></a></td><td>Kadomtsev-completed dimensionless indices $(\mu_\rho, \mu_\beta, \mu_\nu, \mu_q)$ with their covariance.
+</td></tr>
+  <tr data-ref-row="fit_confinement_scaling"><td><a href="#fit_confinement_scaling"><code>fit_confinement_scaling</code></a></td><td>Log-linear power-law fit $y = C \prod_j x_j^{\alpha_j}$ with errors clustered by group.
+</td></tr>
+  <tr data-ref-row="fit_confinement_scaling_odr"><td><a href="#fit_confinement_scaling_odr"><code>fit_confinement_scaling_odr</code></a></td><td>Errors-in-variables (orthogonal distance) power-law fit in log space.
+</td></tr>
+  <tr data-ref-row="fit_constrained_confinement_scaling"><td><a href="#fit_constrained_confinement_scaling"><code>fit_constrained_confinement_scaling</code></a></td><td>Log-linear power-law fit under one linear equality constraint on the exponents.
+</td></tr>
+  <tr data-ref-row="infer_kadomtsev_size_exponent"><td><a href="#infer_kadomtsev_size_exponent"><code>infer_kadomtsev_size_exponent</code></a></td><td>Size exponent the Kadomtsev constraint implies for fitted I, B, P (and n) exponents.
+</td></tr>
+  <tr data-ref-row="leave_one_group_out_scaling"><td><a href="#leave_one_group_out_scaling"><code>leave_one_group_out_scaling</code></a></td><td>Leave-one-group-out refits: coefficient stability and out-of-group prediction error.
+</td></tr>
+  <tr data-ref-row="resistive_loop_voltage"><td><a href="#resistive_loop_voltage"><code>resistive_loop_voltage</code></a></td><td>Inductive and resistive parts of a loop voltage, and the plasma resistance, from the internal inductance.
+</td></tr>
+  <tr data-ref-row="smoothed_time_derivative"><td><a href="#smoothed_time_derivative"><code>smoothed_time_derivative</code></a></td><td>Time derivative of a sampled quantity by a local polynomial fit, on any time grid.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="assess_predictor_identifiability" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#assess_predictor_identifiability"><code>assess_predictor_identifiability</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="assess_predictor_identifiability" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L778-L861" title="vaft/process/confinement.py, lines 778–861 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>assess_predictor_identifiability(predictors)</code></pre>
+
+    <p>Collinearity of log predictors: correlation, VIF, condition number and rank.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>predictors</code></td><td class="ref-type">Mapping</td><td class="ref-unit">any</td><td><p>Predictor arrays keyed by name; rows with any non-finite or non-positive value are dropped.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">n</code> rows used [-]; <code class="language-plaintext highlighter-rouge">correlation</code>, the Pearson matrix of the log predictors as nested dicts [-]; <code class="language-plaintext highlighter-rouge">vif</code>, the variance inflation factor per predictor [-]; <code class="language-plaintext highlighter-rouge">condition_number</code> of the column-equilibrated log design with intercept [-]; <code class="language-plaintext highlighter-rouge">rank</code> of that design [-]; <code class="language-plaintext highlighter-rouge">constant</code>, the predictors that do not vary (VIF infinite, correlation NaN) [-]</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> No predictor, or mismatched lengths.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Says whether the sample <em>can</em> separate the exponents, not whether a fit
+did; a predictor that barely varies has a large VIF only if it is also
+correlated with another, so read the spread of each log predictor too.
+The condition number follows Belsley (columns scaled to unit length,
+intercept kept); values above about 30 signal harmful collinearity.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 3 and 6: B_T stays a fitted variable only if its covariance with I_p and P is quantified.
+</li>
+  <li>D. A. Belsley, E. Kuh and R. E. Welsch, <em>Regression Diagnostics</em>, Wiley (1980), Ch. 3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="bootstrap_confinement_scaling" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#bootstrap_confinement_scaling"><code>bootstrap_confinement_scaling</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="bootstrap_confinement_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L864-L945" title="vaft/process/confinement.py, lines 864–945 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>bootstrap_confinement_scaling(response, predictors, groups, *, n_boot=2000, seed=0)</code></pre>
+
+    <p>Group (shot) bootstrap of the log-linear scaling coefficients.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>response</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">any</td><td><p>The fitted quantity.</p>
+</td></tr>
+  <tr><td><code>predictors</code></td><td class="ref-type">Mapping</td><td class="ref-unit">any</td><td><p>Predictor arrays keyed by name.</p>
+</td></tr>
+  <tr><td><code>groups</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Group label per row; whole groups are resampled.</p>
+</td></tr>
+  <tr><td><code>n_boot</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Number of resamples.</p>
+</td></tr>
+  <tr><td><code>seed</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Seed of the random generator.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">names</code> (<code class="language-plaintext highlighter-rouge">log_C</code> first) [-]; <code class="language-plaintext highlighter-rouge">samples</code>, coefficients of every resample whose design had full rank, shape <code class="language-plaintext highlighter-rouge">(m, k)</code> [-]; <code class="language-plaintext highlighter-rouge">rejected</code>, the number of rank-deficient resamples [-]; <code class="language-plaintext highlighter-rouge">percentile95</code>, the 2.5 and 97.5 percentiles per coefficient [-]</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">fit_confinement_scaling</code> for the full sample.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">n_boot = 2000</code> and <code class="language-plaintext highlighter-rouge">seed = 0</code>: numerical convenience; 2000 resamples
+put the percentile endpoints within about a percent of their limit.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>With a handful of groups the bootstrap distribution is lumpy and its
+intervals undercover; <code class="language-plaintext highlighter-rouge">rejected</code> counts resamples that could not
+identify every exponent (e.g. a single field value drawn), which is
+itself identifiability evidence.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 6: slices of one shot are not independent, so resampling is by shot.
+</li>
+  <li>B. Efron and R. J. Tibshirani, <em>An Introduction to the Bootstrap</em>, Chapman &amp; Hall (1993), Ch. 13.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="closure_constraint" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#closure_constraint"><code>closure_constraint</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="closure_constraint" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L1267-L1322" title="vaft/process/confinement.py, lines 1267–1322 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>closure_constraint(mu_rho, names)</code></pre>
+    <details class="ref-code" data-source-code="closure_constraint"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1267–1322</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">closure_constraint</span><span class="p">(</span><span class="n">mu_rho</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">names</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Linear constraint on I, B, P (and n) exponents fixing the Kadomtsev-completed $</span><span class="se">\\</span><span class="s">mu_</span><span class="se">\\</span><span class="s">rho$.
+
+    Parameters
+    ----------
+    mu_rho : float
+        Gyroradius index of the closure: $-2$ Bohm, $-3$ gyro-Bohm, or any
+        value between [-].
+    names : sequence of str
+        The fit</span><span class="sh">'</span><span class="s">s predictor names: ``i_p``, ``b_t``, ``p_net`` and optionally
+        ``n_e`` [-].
+
+    Returns
+    -------
+    coef : dict
+        Constraint coefficient per predictor name [-].
+    rhs : float
+        Right-hand side, so that ``sum(coef[k] * alpha[k]) == rhs`` [-].
+
+    Raises
+    ------
+    ValueError
+        Unknown or missing predictor names.
+
+    Processing steps
+    ----------------
+    1. Complete the size exponent with the Kadomtsev constraint,
+       $</span><span class="se">\\</span><span class="s">alpha_R = (</span><span class="se">\\</span><span class="s">alpha_I + 5</span><span class="se">\\</span><span class="s">alpha_B + 3</span><span class="se">\\</span><span class="s">alpha_P + 8</span><span class="se">\\</span><span class="s">alpha_n + 5)/4$.
+    2. Substitute into
+       $</span><span class="se">\\</span><span class="s">mu_</span><span class="se">\\</span><span class="s">rho(1+</span><span class="se">\\</span><span class="s">alpha_P) = </span><span class="se">\\</span><span class="s">alpha_B - </span><span class="se">\\</span><span class="s">alpha_I - 2</span><span class="se">\\</span><span class="s">alpha_R + 2</span><span class="se">\\</span><span class="s">alpha_n
+       - 3</span><span class="se">\\</span><span class="s">alpha_P + 1$, which leaves
+       $</span><span class="se">\\</span><span class="s">tfrac32</span><span class="se">\\</span><span class="s">alpha_I + </span><span class="se">\\</span><span class="s">tfrac32</span><span class="se">\\</span><span class="s">alpha_B + (</span><span class="se">\\</span><span class="s">mu_</span><span class="se">\\</span><span class="s">rho + </span><span class="se">\\</span><span class="s">tfrac92)</span><span class="se">\\</span><span class="s">alpha_P
+       + 2</span><span class="se">\\</span><span class="s">alpha_n = -(</span><span class="se">\\</span><span class="s">mu_</span><span class="se">\\</span><span class="s">rho + </span><span class="se">\\</span><span class="s">tfrac32)$.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The closures are alternative hypotheses, not simultaneous constraints;
+    the intermediate $</span><span class="se">\\</span><span class="s">mu_</span><span class="se">\\</span><span class="s">rho = -2.5$ is a single index, not an additive
+    Bohm plus gyro-Bohm model (#548 Sec. 8). A density-free fit has
+    $</span><span class="se">\\</span><span class="s">alpha_n = 0$ by definition, which is part of the hypothesis tested.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 8: Bohm, intermediate and gyro-Bohm closures as
+       one parameterized constraint.
+    </span><span class="sh">"""</span>
+    <span class="n">allowed</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">i_p</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span> <span class="sh">"</span><span class="s">b_t</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span> <span class="sh">"</span><span class="s">p_net</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">mu_rho</span><span class="p">)</span> <span class="o">+</span> <span class="mf">4.5</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">}</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+    <span class="n">unknown</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">unknown</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">{</span><span class="sh">"</span><span class="s">i_p</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">b_t</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">p_net</span><span class="sh">"</span><span class="p">}</span> <span class="o">&lt;=</span> <span class="nf">set</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">predictors must be i_p, b_t, p_net and optionally n_e; got </span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">allowed</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">},</span> <span class="o">-</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">mu_rho</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1.5</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Linear constraint on I, B, P (and n) exponents fixing the Kadomtsev-completed $\mu_\rho$.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>mu_rho</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Gyroradius index of the closure: $-2$ Bohm, $-3$ gyro-Bohm, or any value between.</p>
+</td></tr>
+  <tr><td><code>names</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>The fit’s predictor names: <code class="language-plaintext highlighter-rouge">i_p</code>, <code class="language-plaintext highlighter-rouge">b_t</code>, <code class="language-plaintext highlighter-rouge">p_net</code> and optionally <code class="language-plaintext highlighter-rouge">n_e</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>coef</code></td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p>Constraint coefficient per predictor name.</p>
+</td></tr>
+  <tr><td><code>rhs</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Right-hand side, so that <code class="language-plaintext highlighter-rouge">sum(coef[k] * alpha[k]) == rhs</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Unknown or missing predictor names.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Complete the size exponent with the Kadomtsev constraint,
+$\alpha_R = (\alpha_I + 5\alpha_B + 3\alpha_P + 8\alpha_n + 5)/4$.</li>
+        <li>Substitute into
+$\mu_\rho(1+\alpha_P) = \alpha_B - \alpha_I - 2\alpha_R + 2\alpha_n
+          <ul>
+            <li>3\alpha_P + 1$, which leaves
+$\tfrac32\alpha_I + \tfrac32\alpha_B + (\mu_\rho + \tfrac92)\alpha_P</li>
+            <li>2\alpha_n = -(\mu_\rho + \tfrac32)$.</li>
+          </ul>
+        </li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The closures are alternative hypotheses, not simultaneous constraints;
+the intermediate $\mu_\rho = -2.5$ is a single index, not an additive
+Bohm plus gyro-Bohm model (#548 Sec. 8). A density-free fit has
+$\alpha_n = 0$ by definition, which is part of the hypothesis tested.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 8: Bohm, intermediate and gyro-Bohm closures as one parameterized constraint.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="confinement_exclusion_table" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#confinement_exclusion_table"><code>confinement_exclusion_table</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="confinement_exclusion_table" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L530-L583" title="vaft/process/confinement.py, lines 530–583 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>confinement_exclusion_table(rules)</code></pre>
+    <details class="ref-code" data-source-code="confinement_exclusion_table"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 530–583</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">confinement_exclusion_table</span><span class="p">(</span><span class="n">rules</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">How many slices each quality rule removes, alone and in sequence.
+
+    Parameters
+    ----------
+    rules : Mapping
+        Boolean pass arrays keyed by rule name, in the order to apply them,
+        as :func:`confinement_slice_decision` returns; an ``accepted`` key
+        is ignored [bool].
+
+    Returns
+    -------
+    list of dict
+        One row per rule: ``rule``, ``failed`` (slices failing it),
+        ``failed_only_this`` (failing this rule and no other),
+        ``removed_in_sequence`` (newly removed when the rules are applied in
+        order) and ``remaining`` (after it) [-].
+
+    Raises
+    ------
+    ValueError
+        Pass arrays of different length.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 5: the rules and the number each excludes are
+       part of the result.
+    </span><span class="sh">"""</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">rules</span> <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">accepted</span><span class="sh">"</span><span class="p">]</span>
+    <span class="n">arrays</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">rules</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nf">len</span><span class="p">({</span><span class="n">a</span><span class="p">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arrays</span><span class="p">})</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">every rule must judge the same slices</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">arrays</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="n">passing</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">(</span><span class="n">arrays</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">stack</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">vstack</span><span class="p">(</span><span class="n">arrays</span><span class="p">)</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">passed</span><span class="p">)</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="nf">zip</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">arrays</span><span class="p">)):</span>
+        <span class="n">others</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">delete</span><span class="p">(</span><span class="n">stack</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">others_pass</span> <span class="o">=</span> <span class="n">others</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">others</span><span class="p">.</span><span class="n">size</span> <span class="k">else</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">passed</span><span class="p">)</span>
+        <span class="n">removed</span> <span class="o">=</span> <span class="n">passing</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">passed</span>
+        <span class="n">passing</span> <span class="o">=</span> <span class="n">passing</span> <span class="o">&amp;</span> <span class="n">passed</span>
+        <span class="n">table</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span>
+            <span class="sh">"</span><span class="s">rule</span><span class="sh">"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">failed</span><span class="sh">"</span><span class="p">:</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="o">~</span><span class="n">passed</span><span class="p">)),</span>
+            <span class="sh">"</span><span class="s">failed_only_this</span><span class="sh">"</span><span class="p">:</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="o">~</span><span class="n">passed</span> <span class="o">&amp;</span> <span class="n">others_pass</span><span class="p">)),</span>
+            <span class="sh">"</span><span class="s">removed_in_sequence</span><span class="sh">"</span><span class="p">:</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">removed</span><span class="p">)),</span>
+            <span class="sh">"</span><span class="s">remaining</span><span class="sh">"</span><span class="p">:</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">passing</span><span class="p">)),</span>
+        <span class="p">})</span>
+    <span class="k">return</span> <span class="n">table</span></code></pre></figure>
+
+</details>
+
+    <p>How many slices each quality rule removes, alone and in sequence.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>rules</code></td><td class="ref-type">Mapping</td><td class="ref-unit">bool</td><td><p>Boolean pass arrays keyed by rule name, in the order to apply them, as <code class="language-plaintext highlighter-rouge">confinement_slice_decision</code> returns; an <code class="language-plaintext highlighter-rouge">accepted</code> key is ignored.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">list of dict</td><td class="ref-unit">-</td><td><p>One row per rule: <code class="language-plaintext highlighter-rouge">rule</code>, <code class="language-plaintext highlighter-rouge">failed</code> (slices failing it), <code class="language-plaintext highlighter-rouge">failed_only_this</code> (failing this rule and no other), <code class="language-plaintext highlighter-rouge">removed_in_sequence</code> (newly removed when the rules are applied in order) and <code class="language-plaintext highlighter-rouge">remaining</code> (after it).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Pass arrays of different length.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 5: the rules and the number each excludes are part of the result.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="confinement_power_balance" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#confinement_power_balance"><code>confinement_power_balance</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="confinement_power_balance" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L290-L384" title="vaft/process/confinement.py, lines 290–384 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>confinement_power_balance(time, i_p, v_res, w_th, *, p_rad=None, dwdt_window_s=None, dwdt_polyorder=2)</code></pre>
+
+    <p>Ohmic heating, stored-energy change, loss powers and confinement times of a discharge.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">s</td><td><p>Sample times, strictly increasing, 1-D.</p>
+</td></tr>
+  <tr><td><code>i_p</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">A</td><td><p>Plasma current, in the orientation of <code class="language-plaintext highlighter-rouge">v_res</code>.</p>
+</td></tr>
+  <tr><td><code>v_res</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">V</td><td><p>Resistive loop voltage, the loop voltage with the inductive part removed.</p>
+</td></tr>
+  <tr><td><code>w_th</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">J</td><td><p>Stored (thermal) energy whose change and confinement are wanted.</p>
+</td></tr>
+  <tr><td><code>p_rad</code></td><td class="ref-type">numpy.ndarray, optional</td><td class="ref-unit">W</td><td><p>Measured radiated power; <code class="language-plaintext highlighter-rouge">None</code> (or NaN samples) leaves the transport loss power undefined there.</p>
+</td></tr>
+  <tr><td><code>dwdt_window_s</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Window of the local-polynomial $dW/dt$ derivative, see <code class="language-plaintext highlighter-rouge">smoothed_time_derivative</code>.</p>
+</td></tr>
+  <tr><td><code>dwdt_polyorder</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Polynomial order of that derivative.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ConfinementPowerBalance</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">p_ohmic</code>, <code class="language-plaintext highlighter-rouge">dwdt</code>, <code class="language-plaintext highlighter-rouge">p_net</code> and <code class="language-plaintext highlighter-rouge">p_transport</code> [W]; <code class="language-plaintext highlighter-rouge">tau_e_net</code> and <code class="language-plaintext highlighter-rouge">tau_e_transport</code> [s]; <code class="language-plaintext highlighter-rouge">time</code> [s].</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Arrays of different length, or what <code class="language-plaintext highlighter-rouge">smoothed_time_derivative</code> rejects.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>$P_\mathrm{OH} = I_p V_\mathrm{res}$
+(<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.ohmic_heating_power_from_I_p_V_res</code>).</li>
+        <li>$dW/dt$ by <code class="language-plaintext highlighter-rouge">smoothed_time_derivative</code> on <code class="language-plaintext highlighter-rouge">w_th</code>.</li>
+        <li>$P_\mathrm{net} = P_\mathrm{OH} - dW/dt$ and, where <code class="language-plaintext highlighter-rouge">p_rad</code> is
+finite, $P_\mathrm{transport} = P_\mathrm{net} - P_\mathrm{rad}$
+(<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.loss_power_from_p_heat_dWdt_p_rad</code>).</li>
+        <li>$\tau_E = W/P$ for each loss power, NaN where that power is not
+positive.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Ohmic plasmas: no auxiliary heating term.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">v_res</code> carries every assumption of how the inductive voltage was
+removed; with a loop voltage taken away from the plasma boundary the
+flux between loop and boundary is still inductive. The transport loss
+power needs a <em>measured</em> radiated power, which VEST does not map
+(no bolometer), so on VEST it is NaN.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 1: P_net and P_transport as separate, named quantities; W = (3/2) int p dV fixed by #1282/#1410.
+</li>
+  <li>ITER Physics Expert Groups, <em>Nucl. Fusion</em> <strong>39</strong> (1999) 2175, Ch. 2: the loss power $P_L = P_\mathrm{heat} - dW/dt$ of the confinement database.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="confinement_slice_decision" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#confinement_slice_decision"><code>confinement_slice_decision</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="confinement_slice_decision" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L470-L527" title="vaft/process/confinement.py, lines 470–527 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>confinement_slice_decision(evidence, *, ip_min, max_dwdt_fraction, max_ip_change_per_tau)</code></pre>
+    <details class="ref-code" data-source-code="confinement_slice_decision"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 470–527</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">confinement_slice_decision</span><span class="p">(</span>
+    <span class="n">evidence</span><span class="p">:</span> <span class="n">ConfinementSliceEvidence</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">ip_min</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">max_dwdt_fraction</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">max_ip_change_per_tau</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Pass/fail of each slice-quality rule, and their conjunction, for given thresholds.
+
+    Parameters
+    ----------
+    evidence : ConfinementSliceEvidence
+        Output of :func:`confinement_slice_evidence` [any].
+    ip_min : float
+        Smallest accepted $|I_p|$ [A].
+    max_dwdt_fraction : float
+        Largest accepted $|dW/dt|/P_</span><span class="se">\\</span><span class="s">mathrm{OH}$ [-].
+    max_ip_change_per_tau : float
+        Largest accepted fractional current change within one confinement
+        time, $</span><span class="se">\\</span><span class="s">tau_E |dI_p/dt|/|I_p|$ [-].
+
+    Returns
+    -------
+    dict
+        Boolean arrays keyed ``finite``, ``ip_min``, ``dwdt_fraction``,
+        ``ip_change_per_tau`` and ``accepted`` (all rules); a NaN evidence
+        value fails its rule [bool].
+
+    Applicability
+    -------------
+    Machine-independent. The thresholds are the caller</span><span class="sh">'</span><span class="s">s: none is a
+    database or machine default.
+
+    Limitations
+    -----------
+    Ramp phases are judged by rate against the confinement time, not by a
+    phase label: a short discharge with no flat top (VEST) has no plateau to
+    select, and a rate rule says how far from stationary each slice is.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 5: thresholds as arguments, studied by sweep
+       before any is adopted.
+    </span><span class="sh">"""</span>
+    <span class="n">ev</span> <span class="o">=</span> <span class="n">evidence</span>
+    <span class="n">rules</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">finite</span><span class="sh">"</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">ev</span><span class="p">.</span><span class="n">finite</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">ip_min</span><span class="sh">"</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">nan_to_num</span><span class="p">(</span><span class="n">ev</span><span class="p">.</span><span class="n">ip_abs</span><span class="p">,</span> <span class="n">nan</span><span class="o">=-</span><span class="n">np</span><span class="p">.</span><span class="n">inf</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="nf">float</span><span class="p">(</span><span class="n">ip_min</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">dwdt_fraction</span><span class="sh">"</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">nan_to_num</span><span class="p">(</span><span class="n">ev</span><span class="p">.</span><span class="n">dwdt_fraction</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">inf</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nf">float</span><span class="p">(</span><span class="n">max_dwdt_fraction</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">ip_change_per_tau</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">np</span><span class="p">.</span><span class="nf">nan_to_num</span><span class="p">(</span><span class="n">ev</span><span class="p">.</span><span class="n">ip_change_per_tau</span><span class="p">,</span> <span class="n">nan</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">inf</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nf">float</span><span class="p">(</span><span class="n">max_ip_change_per_tau</span><span class="p">)</span>
+        <span class="p">),</span>
+    <span class="p">}</span>
+    <span class="n">accepted</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">rules</span><span class="p">[</span><span class="sh">"</span><span class="s">finite</span><span class="sh">"</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">passed</span> <span class="ow">in</span> <span class="n">rules</span><span class="p">.</span><span class="nf">values</span><span class="p">():</span>
+        <span class="n">accepted</span> <span class="o">=</span> <span class="n">accepted</span> <span class="o">&amp;</span> <span class="n">passed</span>
+    <span class="n">rules</span><span class="p">[</span><span class="sh">"</span><span class="s">accepted</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">accepted</span>
+    <span class="k">return</span> <span class="n">rules</span></code></pre></figure>
+
+</details>
+
+    <p>Pass/fail of each slice-quality rule, and their conjunction, for given thresholds.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>evidence</code></td><td class="ref-type">ConfinementSliceEvidence</td><td class="ref-unit">any</td><td><p>Output of <code class="language-plaintext highlighter-rouge">confinement_slice_evidence</code>.</p>
+</td></tr>
+  <tr><td><code>ip_min</code></td><td class="ref-type">float</td><td class="ref-unit">A</td><td><table>
+  <tbody>
+    <tr>
+      <td>Smallest accepted $</td>
+      <td>I_p</td>
+      <td>$.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  <tr><td><code>max_dwdt_fraction</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><table>
+  <tbody>
+    <tr>
+      <td>Largest accepted $</td>
+      <td>dW/dt</td>
+      <td>/P_\mathrm{OH}$.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  <tr><td><code>max_ip_change_per_tau</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><table>
+  <tbody>
+    <tr>
+      <td>Largest accepted fractional current change within one confinement time, $\tau_E</td>
+      <td>dI_p/dt</td>
+      <td>/</td>
+      <td>I_p</td>
+      <td>$.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">bool</td><td><p>Boolean arrays keyed <code class="language-plaintext highlighter-rouge">finite</code>, <code class="language-plaintext highlighter-rouge">ip_min</code>, <code class="language-plaintext highlighter-rouge">dwdt_fraction</code>, <code class="language-plaintext highlighter-rouge">ip_change_per_tau</code> and <code class="language-plaintext highlighter-rouge">accepted</code> (all rules); a NaN evidence value fails its rule.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. The thresholds are the caller’s: none is a
+database or machine default.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Ramp phases are judged by rate against the confinement time, not by a
+phase label: a short discharge with no flat top (VEST) has no plateau to
+select, and a rate rule says how far from stationary each slice is.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 5: thresholds as arguments, studied by sweep before any is adopted.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="confinement_slice_evidence" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#confinement_slice_evidence"><code>confinement_slice_evidence</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="confinement_slice_evidence" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L404-L467" title="vaft/process/confinement.py, lines 404–467 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>confinement_slice_evidence(i_p, dip_dt, w_th, p_ohmic, dwdt, tau_e)</code></pre>
+    <details class="ref-code" data-source-code="confinement_slice_evidence"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 404–467</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">confinement_slice_evidence</span><span class="p">(</span>
+    <span class="n">i_p</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">dip_dt</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">w_th</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">p_ohmic</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">dwdt</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">tau_e</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConfinementSliceEvidence</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Rates and ratios that decide whether a time slice is quasi-stationary enough to fit.
+
+    Parameters
+    ----------
+    i_p : numpy.ndarray
+        Plasma current at the slices [A].
+    dip_dt : numpy.ndarray
+        Its time derivative at the slices [A/s].
+    w_th : numpy.ndarray
+        Stored energy at the slices [J].
+    p_ohmic : numpy.ndarray
+        Ohmic heating power at the slices [W].
+    dwdt : numpy.ndarray
+        Stored-energy change at the slices [W].
+    tau_e : numpy.ndarray
+        Confinement time at the slices [s].
+
+    Returns
+    -------
+    ConfinementSliceEvidence
+        ``ip_abs`` [A], ``ip_rate`` [1/s], ``ip_change_per_tau`` and
+        ``dwdt_fraction`` [-], ``finite`` [bool] [any].
+
+    Raises
+    ------
+    ValueError
+        Arrays of different length.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 5: the slice-quality evidence, kept apart from
+       the acceptance decision as #253 asks.
+    </span><span class="sh">"""</span>
+    <span class="n">ip</span> <span class="o">=</span> <span class="nf">_series</span><span class="p">(</span><span class="sh">"</span><span class="s">i_p</span><span class="sh">"</span><span class="p">,</span> <span class="n">i_p</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">ip</span><span class="p">.</span><span class="n">size</span>
+    <span class="n">didt</span> <span class="o">=</span> <span class="nf">_series</span><span class="p">(</span><span class="sh">"</span><span class="s">dip_dt</span><span class="sh">"</span><span class="p">,</span> <span class="n">dip_dt</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="nf">_series</span><span class="p">(</span><span class="sh">"</span><span class="s">w_th</span><span class="sh">"</span><span class="p">,</span> <span class="n">w_th</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="nf">_series</span><span class="p">(</span><span class="sh">"</span><span class="s">p_ohmic</span><span class="sh">"</span><span class="p">,</span> <span class="n">p_ohmic</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">dw</span> <span class="o">=</span> <span class="nf">_series</span><span class="p">(</span><span class="sh">"</span><span class="s">dwdt</span><span class="sh">"</span><span class="p">,</span> <span class="n">dwdt</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="nf">_series</span><span class="p">(</span><span class="sh">"</span><span class="s">tau_e</span><span class="sh">"</span><span class="p">,</span> <span class="n">tau_e</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">ip_abs</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">ip</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">ip_rate</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">didt</span><span class="p">)</span> <span class="o">/</span> <span class="n">ip_abs</span>
+        <span class="n">dw_frac</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">dw</span><span class="p">)</span> <span class="o">/</span> <span class="n">p</span>
+    <span class="n">dw_frac</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">p</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">dw_frac</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">finite</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">w</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">w</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">p</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">tau</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">tau</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="nc">ConfinementSliceEvidence</span><span class="p">(</span>
+        <span class="n">ip_abs</span><span class="o">=</span><span class="n">ip_abs</span><span class="p">,</span> <span class="n">ip_rate</span><span class="o">=</span><span class="n">ip_rate</span><span class="p">,</span> <span class="n">ip_change_per_tau</span><span class="o">=</span><span class="n">ip_rate</span> <span class="o">*</span> <span class="n">tau</span><span class="p">,</span>
+        <span class="n">dwdt_fraction</span><span class="o">=</span><span class="n">dw_frac</span><span class="p">,</span> <span class="n">finite</span><span class="o">=</span><span class="n">finite</span><span class="p">,</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Rates and ratios that decide whether a time slice is quasi-stationary enough to fit.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>i_p</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">A</td><td><p>Plasma current at the slices.</p>
+</td></tr>
+  <tr><td><code>dip_dt</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">A/s</td><td><p>Its time derivative at the slices.</p>
+</td></tr>
+  <tr><td><code>w_th</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">J</td><td><p>Stored energy at the slices.</p>
+</td></tr>
+  <tr><td><code>p_ohmic</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">W</td><td><p>Ohmic heating power at the slices.</p>
+</td></tr>
+  <tr><td><code>dwdt</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">W</td><td><p>Stored-energy change at the slices.</p>
+</td></tr>
+  <tr><td><code>tau_e</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">s</td><td><p>Confinement time at the slices.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ConfinementSliceEvidence</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">ip_abs</code> [A], <code class="language-plaintext highlighter-rouge">ip_rate</code> [1/s], <code class="language-plaintext highlighter-rouge">ip_change_per_tau</code> and <code class="language-plaintext highlighter-rouge">dwdt_fraction</code> [-], <code class="language-plaintext highlighter-rouge">finite</code> [bool].</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Arrays of different length.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 5: the slice-quality evidence, kept apart from the acceptance decision as #253 asks.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="dimensionless_confinement_indices" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#dimensionless_confinement_indices"><code>dimensionless_confinement_indices</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="dimensionless_confinement_indices" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L1185-L1264" title="vaft/process/confinement.py, lines 1185–1264 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>dimensionless_confinement_indices(alpha, cov)</code></pre>
+    <details class="ref-code" data-source-code="dimensionless_confinement_indices"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1185–1264</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">dimensionless_confinement_indices</span><span class="p">(</span>
+    <span class="n">alpha</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">cov</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Kadomtsev-completed dimensionless indices $(</span><span class="se">\\</span><span class="s">mu_</span><span class="se">\\</span><span class="s">rho, </span><span class="se">\\</span><span class="s">mu_</span><span class="se">\\</span><span class="s">beta, </span><span class="se">\\</span><span class="s">mu_</span><span class="se">\\</span><span class="s">nu, </span><span class="se">\\</span><span class="s">mu_q)$ with their covariance.
+
+    Parameters
+    ----------
+    alpha : Mapping
+        Fitted exponents keyed ``i_p``, ``b_t``, ``p_net`` and optionally
+        ``n_e`` [-].
+    cov : numpy.ndarray
+        Their covariance in the order of ``alpha`` [-].
+
+    Returns
+    -------
+    dict
+        ``alpha_R`` and ``alpha_R_stderr``, the completed size exponent [-];
+        ``names`` (``mu_rho``, ``mu_beta``, ``mu_nu``, ``mu_q``) [-];
+        ``value`` and ``cov`` of the indices [-]; ``stderr`` [-] [any].
+
+    Raises
+    ------
+    ValueError
+        As :func:`infer_kadomtsev_size_exponent`, or $</span><span class="se">\\</span><span class="s">alpha_P = -1$.
+
+    Processing steps
+    ----------------
+    1. Complete the size exponent with :func:`infer_kadomtsev_size_exponent`.
+    2. Map the completed engineering exponents to dimensionless indices with
+       :func:`vaft.formula.equilibrium.dimensionless_scaling_coeffs_from_engineering_scaling_coeffs`
+       (exact here: a completed scaling satisfies the constraint), and
+       $</span><span class="se">\\</span><span class="s">mu_q = -</span><span class="se">\\</span><span class="s">alpha_I/(1+</span><span class="se">\\</span><span class="s">alpha_P)$.
+    3. Propagate ``cov`` through the map</span><span class="sh">'</span><span class="s">s Jacobian (central differences,
+       the size exponent completed at every evaluation).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Inherits the *assumed* size exponent: the indices are those of the
+    Kadomtsev-completed scaling, not measured dimensionless dependences. The
+    linear propagation is poor when $1 + </span><span class="se">\\</span><span class="s">alpha_P$ is within a few standard
+    errors of zero, where every index diverges.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 7 (layer E): dimensionless conversion with
+       uncertainties and covariances.
+    .. [Luce] T. C. Luce, C. C. Petty and J. G. Cordey, *Plasma Phys. Control.
+       Fusion* **50** (2008) 043001.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.formula.equilibrium</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</span> <span class="k">as</span> <span class="n">_to_dimensionless</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">names</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="n">a0</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">float</span><span class="p">(</span><span class="n">alpha</span><span class="p">[</span><span class="n">name</span><span class="p">])</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">])</span>
+    <span class="n">alpha_r</span><span class="p">,</span> <span class="n">alpha_r_se</span> <span class="o">=</span> <span class="nf">infer_kadomtsev_size_exponent</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">cov</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">indices</span><span class="p">(</span><span class="n">vec</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="nf">dict</span><span class="p">(</span><span class="nf">zip</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">vec</span><span class="p">))</span>
+        <span class="n">a_r</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nf">infer_kadomtsev_size_exponent</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">),</span> <span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">))))</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="nf">_to_dimensionless</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="sh">"</span><span class="s">i_p</span><span class="sh">"</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="sh">"</span><span class="s">b_t</span><span class="sh">"</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="sh">"</span><span class="s">p_net</span><span class="sh">"</span><span class="p">],</span> <span class="n">a</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">a_r</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="n">mu</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mu</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">mu</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="o">-</span><span class="n">a</span><span class="p">[</span><span class="sh">"</span><span class="s">i_p</span><span class="sh">"</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">a</span><span class="p">[</span><span class="sh">"</span><span class="s">p_net</span><span class="sh">"</span><span class="p">])])</span>
+
+    <span class="n">value</span> <span class="o">=</span> <span class="nf">indices</span><span class="p">(</span><span class="n">a0</span><span class="p">)</span>
+    <span class="n">jac</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">)):</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="mf">1e-6</span> <span class="o">*</span> <span class="nf">max</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="nf">abs</span><span class="p">(</span><span class="n">a0</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+        <span class="n">up</span><span class="p">,</span> <span class="n">down</span> <span class="o">=</span> <span class="n">a0</span><span class="p">.</span><span class="nf">copy</span><span class="p">(),</span> <span class="n">a0</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+        <span class="n">up</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">h</span>
+        <span class="n">down</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="n">h</span>
+        <span class="n">jac</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nf">indices</span><span class="p">(</span><span class="n">up</span><span class="p">)</span> <span class="o">-</span> <span class="nf">indices</span><span class="p">(</span><span class="n">down</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">h</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">jac</span> <span class="o">@</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_2d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">cov</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span> <span class="o">@</span> <span class="n">jac</span><span class="p">.</span><span class="n">T</span>
+    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">alpha_R</span><span class="sh">"</span><span class="p">:</span> <span class="n">alpha_r</span><span class="p">,</span> <span class="sh">"</span><span class="s">alpha_R_stderr</span><span class="sh">"</span><span class="p">:</span> <span class="n">alpha_r_se</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">names</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="sh">"</span><span class="s">mu_rho</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">mu_beta</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">mu_nu</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">mu_q</span><span class="sh">"</span><span class="p">),</span> <span class="sh">"</span><span class="s">value</span><span class="sh">"</span><span class="p">:</span> <span class="n">value</span><span class="p">,</span> <span class="sh">"</span><span class="s">cov</span><span class="sh">"</span><span class="p">:</span> <span class="n">c</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">stderr</span><span class="sh">"</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">clip</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">c</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="bp">None</span><span class="p">))}</span></code></pre></figure>
+
+</details>
+
+    <p>Kadomtsev-completed dimensionless indices $(\mu_\rho, \mu_\beta, \mu_\nu, \mu_q)$ with their covariance.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>alpha</code></td><td class="ref-type">Mapping</td><td class="ref-unit">-</td><td><p>Fitted exponents keyed <code class="language-plaintext highlighter-rouge">i_p</code>, <code class="language-plaintext highlighter-rouge">b_t</code>, <code class="language-plaintext highlighter-rouge">p_net</code> and optionally <code class="language-plaintext highlighter-rouge">n_e</code>.</p>
+</td></tr>
+  <tr><td><code>cov</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Their covariance in the order of <code class="language-plaintext highlighter-rouge">alpha</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">alpha_R</code> and <code class="language-plaintext highlighter-rouge">alpha_R_stderr</code>, the completed size exponent [-]; <code class="language-plaintext highlighter-rouge">names</code> (<code class="language-plaintext highlighter-rouge">mu_rho</code>, <code class="language-plaintext highlighter-rouge">mu_beta</code>, <code class="language-plaintext highlighter-rouge">mu_nu</code>, <code class="language-plaintext highlighter-rouge">mu_q</code>) [-]; <code class="language-plaintext highlighter-rouge">value</code> and <code class="language-plaintext highlighter-rouge">cov</code> of the indices [-]; <code class="language-plaintext highlighter-rouge">stderr</code> [-].</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">infer_kadomtsev_size_exponent</code>, or $\alpha_P = -1$.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Complete the size exponent with <code class="language-plaintext highlighter-rouge">infer_kadomtsev_size_exponent</code>.</li>
+        <li>Map the completed engineering exponents to dimensionless indices with
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</code>
+(exact here: a completed scaling satisfies the constraint), and
+$\mu_q = -\alpha_I/(1+\alpha_P)$.</li>
+        <li>Propagate <code class="language-plaintext highlighter-rouge">cov</code> through the map’s Jacobian (central differences,
+the size exponent completed at every evaluation).</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Inherits the <em>assumed</em> size exponent: the indices are those of the
+Kadomtsev-completed scaling, not measured dimensionless dependences. The
+linear propagation is poor when $1 + \alpha_P$ is within a few standard
+errors of zero, where every index diverges.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 7 (layer E): dimensionless conversion with uncertainties and covariances.
+</li>
+  <li>T. C. Luce, C. C. Petty and J. G. Cordey, <em>Plasma Phys. Control. Fusion</em> <strong>50</strong> (2008) 043001.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="fit_confinement_scaling" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fit_confinement_scaling"><code>fit_confinement_scaling</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="fit_confinement_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L654-L775" title="vaft/process/confinement.py, lines 654–775 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>fit_confinement_scaling(response, predictors, groups, *, robust=False)</code></pre>
+
+    <p>Log-linear power-law fit $y = C \prod_j x_j^{\alpha_j}$ with errors clustered by group.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>response</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">any</td><td><p>The fitted quantity, usually $\tau_E$ or $W$.</p>
+</td></tr>
+  <tr><td><code>predictors</code></td><td class="ref-type">Mapping</td><td class="ref-unit">any</td><td><p>Predictor arrays keyed by name, same length as <code class="language-plaintext highlighter-rouge">response</code>.</p>
+</td></tr>
+  <tr><td><code>groups</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Group label per row, normally the shot: rows of one group are not independent samples.</p>
+</td></tr>
+  <tr><td><code>robust</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">bool</td><td><p>Huber M-estimation instead of least squares for the coefficients</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ConfinementScalingFit</td><td class="ref-unit">any</td><td><p>Coefficients in log space (exponents, and $\ln C$ first) [-], their cluster-robust and naive errors, 95 % intervals, $R^2$ and the RMS log residual [-], leverage and Cook’s distance per kept row [-].</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> No predictor, mismatched lengths, fewer kept rows than coefficients plus one, fewer than two groups, a predictor that does not vary over the kept rows, or an exactly collinear design: a least-squares solver would otherwise return an arbitrary exponent with a confident error.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Keep rows where the response and every predictor are finite and
+positive; take logs and prepend an intercept column.</li>
+        <li>Fit by ordinary least squares (or Huber IRLS with <code class="language-plaintext highlighter-rouge">robust</code>).</li>
+        <li>Covariance clustered by <code class="language-plaintext highlighter-rouge">groups</code> (statsmodels <code class="language-plaintext highlighter-rouge">cov_type="cluster"</code>,
+CR1 small-sample correction); 95 % intervals from Student’s t with
+$G - 1$ degrees of freedom.</li>
+        <li>Leverage and Cook’s distance from the least-squares influence of the
+same design (also for a robust fit, as a diagnostic).</li>
+      </ol>
+
+      <p>With <code class="language-plaintext highlighter-rouge">robust</code> the cluster covariance is that of a weighted fit with the
+converged Huber weights held fixed, which slightly understates the error
+when rows are down-weighted; <code class="language-plaintext highlighter-rouge">stderr_iid</code> is then the Huber fit’s own.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>With few groups the cluster-robust error is itself noisy (it has
+$G - 1$ degrees of freedom); read it together with the group bootstrap
+and leave-one-group-out results. Errors in the predictors are ignored,
+so exponents are attenuated where a predictor is noisy; with $\tau_E =
+W/P$ and $P$ a predictor, the $P$ exponent is biased towards $-1$ by any
+error in $P$.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 6: covariance, intervals, influence and robust regression with grouped samples.
+</li>
+  <li>A. C. Cameron and D. L. Miller, <em>J. Human Resources</em> <strong>50</strong> (2015) 317: cluster-robust inference and the few-clusters problem.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="fit_confinement_scaling_odr" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fit_confinement_scaling_odr"><code>fit_confinement_scaling_odr</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="fit_confinement_scaling_odr" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L1016-L1123" title="vaft/process/confinement.py, lines 1016–1123 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>fit_confinement_scaling_odr(response, predictors, *, sigma_log_response, sigma_log_predictors)</code></pre>
+
+    <p>Errors-in-variables (orthogonal distance) power-law fit in log space.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>response</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">any</td><td><p>The fitted quantity. For the $\tau_E = W/P$ coupling, fit $W$, not $\tau_E$, so its error is independent of the power’s.</p>
+</td></tr>
+  <tr><td><code>predictors</code></td><td class="ref-type">Mapping</td><td class="ref-unit">any</td><td><p>Predictor arrays keyed by name.</p>
+</td></tr>
+  <tr><td><code>sigma_log_response</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Standard deviation of the <em>equation</em> error of $\ln y$: measurement error plus the scaling’s intrinsic scatter, not measurement error alone.</p>
+</td></tr>
+  <tr><td><code>sigma_log_predictors</code></td><td class="ref-type">Mapping</td><td class="ref-unit">-</td><td><p>Standard deviation of the measurement error of $\ln x_j$ per predictor; zero marks a predictor as exact.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">names</code> (<code class="language-plaintext highlighter-rouge">log_C</code> first) [-]; <code class="language-plaintext highlighter-rouge">coef</code>, the errors-in-variables coefficients [-]; <code class="language-plaintext highlighter-rouge">n</code> rows used [-]; <code class="language-plaintext highlighter-rouge">mask</code> of the rows used [bool]; <code class="language-plaintext highlighter-rouge">ols_coef</code>, the least-squares coefficients of the same data [-].</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> No predictor, mismatched lengths, a non-positive response error, a negative or non-finite or missing predictor error, no noisy predictor, or fewer rows than coefficients plus one.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Keep rows where everything is finite and positive; take logs.</li>
+        <li>Partial the exact predictors (zero error) and the intercept out of the
+response and the noisy predictors by least squares.</li>
+        <li>Scale each residual column by its error and take the right singular
+vector $v$ of the smallest singular value (total least squares); the
+noisy slopes are $b_j = -(v_j/\sigma_j)/(v_y/\sigma_y)$.</li>
+        <li>The exact predictors’ slopes and the intercept by least squares of
+$y - \sum_{j\in\mathrm{noisy}} b_j x_j$ on them.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The answer depends only on the assumed error <em>ratios</em>, so report it as a
+function of them. Understating the equation error of the response
+over-corrects the attenuation and inflates the noisy slopes, the classic
+pitfall of errors-in-variables confinement fits. Errors are assumed independent between variables.
+Fitting $\tau_E = W/P$ against $P$ violates that, which is why the
+response should be $W$ (its $P$ exponent is $1 + \alpha_P$). No standard
+error is returned: rows of one shot are not independent, so use a shot
+bootstrap around this function.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 6: errors-in-variables regression, and the coupling from $\tau_E = W/P$ with $P$ a predictor.
+</li>
+  <li>S. Van Huffel and J. Vandewalle, <em>The Total Least Squares Problem</em>, SIAM (1991), Ch. 3: mixed exact/noisy columns (partial TLS); for a linear model with known error ratios it is the orthogonal distance (maximum-likelihood) solution.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="fit_constrained_confinement_scaling" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fit_constrained_confinement_scaling"><code>fit_constrained_confinement_scaling</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="fit_constrained_confinement_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L1325-L1423" title="vaft/process/confinement.py, lines 1325–1423 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>fit_constrained_confinement_scaling(response, predictors, groups, constraint, rhs)</code></pre>
+
+    <p>Log-linear power-law fit under one linear equality constraint on the exponents.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>response</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">any</td><td><p>The fitted quantity, usually $\tau_E$.</p>
+</td></tr>
+  <tr><td><code>predictors</code></td><td class="ref-type">Mapping</td><td class="ref-unit">any</td><td><p>Predictor arrays keyed by name.</p>
+</td></tr>
+  <tr><td><code>groups</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Group label per row (the shot).</p>
+</td></tr>
+  <tr><td><code>constraint</code></td><td class="ref-type">Mapping</td><td class="ref-unit">-</td><td><p>Coefficient per predictor name; omitted predictors (and the intercept) enter with zero.</p>
+</td></tr>
+  <tr><td><code>rhs</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Right-hand side of <code class="language-plaintext highlighter-rouge">sum(constraint[k] * alpha[k]) == rhs</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ConfinementScalingFit</td><td class="ref-unit">any</td><td><p>As <code class="language-plaintext highlighter-rouge">fit_confinement_scaling</code>, with the constrained coefficients, the cluster covariance projected onto the constraint (singular along it) and Student-t intervals with $G - 1$ degrees of freedom.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">fit_confinement_scaling</code>, or a constraint naming an unknown predictor or with all-zero coefficients.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>The unconstrained least-squares fit and its clustered covariance $V$
+(<code class="language-plaintext highlighter-rouge">fit_confinement_scaling</code>).</li>
+        <li>Restricted least squares,
+$\beta_c = \beta - (X^\top X)^{-1}c^\top(c(X^\top X)^{-1}c^\top)^{-1}(c\beta - r)$.</li>
+        <li>Covariance $MVM^\top$ with
+$M = I - (X^\top X)^{-1}c^\top(c(X^\top X)^{-1}c^\top)^{-1}c$.</li>
+        <li>Residuals, $R^2$, the restricted leverage
+$H - XAc^\top(cAc^\top)^{-1}cAX^\top$ ($A = (X^\top X)^{-1}$) and Cook’s
+distance with $k - 1$ free coefficients; <code class="language-plaintext highlighter-rouge">stderr_iid</code> from
+$s^2 MAM^\top$ with the constrained residual variance.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Least squares only (no robust option).</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 8: closures fitted as constraints and compared.
+</li>
+  <li>W. H. Greene, <em>Econometric Analysis</em>, 7th ed., Pearson (2012), Sec. 5.5: restricted least squares.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="infer_kadomtsev_size_exponent" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#infer_kadomtsev_size_exponent"><code>infer_kadomtsev_size_exponent</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="infer_kadomtsev_size_exponent" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L1126-L1182" title="vaft/process/confinement.py, lines 1126–1182 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>infer_kadomtsev_size_exponent(alpha, cov)</code></pre>
+    <details class="ref-code" data-source-code="infer_kadomtsev_size_exponent"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1126–1182</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">infer_kadomtsev_size_exponent</span><span class="p">(</span>
+    <span class="n">alpha</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+    <span class="n">cov</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Size exponent the Kadomtsev constraint implies for fitted I, B, P (and n) exponents.
+
+    Parameters
+    ----------
+    alpha : Mapping
+        Fitted exponents keyed ``i_p``, ``b_t``, ``p_net`` and, optionally,
+        ``n_e`` (absent means zero by model definition, not measured) [-].
+    cov : numpy.ndarray
+        Their covariance, rows and columns in the order of ``alpha`` [-].
+
+    Returns
+    -------
+    alpha_R : float
+        $</span><span class="se">\\</span><span class="s">alpha_R^{</span><span class="se">\\</span><span class="s">mathrm{KCT}} = </span><span class="se">\\</span><span class="s">tfrac14</span><span class="se">\\</span><span class="s">alpha_I + </span><span class="se">\\</span><span class="s">tfrac54</span><span class="se">\\</span><span class="s">alpha_B
+        + </span><span class="se">\\</span><span class="s">tfrac34</span><span class="se">\\</span><span class="s">alpha_P + 2</span><span class="se">\\</span><span class="s">alpha_n + </span><span class="se">\\</span><span class="s">tfrac54$ [-].
+    stderr : float
+        Its standard error, $</span><span class="se">\\</span><span class="s">sqrt{g^</span><span class="se">\\</span><span class="s">top C g}$ with $g$ the coefficients
+        above [-].
+
+    Raises
+    ------
+    ValueError
+        A missing or unknown exponent name, or a covariance of the wrong
+        shape.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    An *assumed* size exponent, not a measured one: one machine</span><span class="sh">'</span><span class="s">s shot-to-shot
+    radius changes are not a size scan, and a Kadomtsev-completed scaling
+    satisfies the constraint by construction, so a zero residual is no
+    evidence for it. Label every use accordingly (#548 Sec. 7).
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 7: the Connor-Taylor/Kadomtsev completion and its
+       covariance propagation.
+    .. [Kadomtsev] B. B. Kadomtsev, *Sov. J. Plasma Phys.* **1** (1975) 295.
+    </span><span class="sh">"""</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">i_p</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.25</span><span class="p">,</span> <span class="sh">"</span><span class="s">b_t</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.25</span><span class="p">,</span> <span class="sh">"</span><span class="s">p_net</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.75</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">}</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="n">unknown</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">weights</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">unknown</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">{</span><span class="sh">"</span><span class="s">i_p</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">b_t</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">p_net</span><span class="sh">"</span><span class="p">}</span> <span class="o">&lt;=</span> <span class="nf">set</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">exponents must be i_p, b_t, p_net and optionally n_e; got </span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_2d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">cov</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">c</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">),</span> <span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">cov must be </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="si">}</span><span class="s">x</span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="si">}</span><span class="s">, got </span><span class="si">{</span><span class="n">c</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="n">weights</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">])</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">g</span> <span class="o">@</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">float</span><span class="p">(</span><span class="n">alpha</span><span class="p">[</span><span class="n">name</span><span class="p">])</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">])</span> <span class="o">+</span> <span class="mf">1.25</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">value</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="nf">max</span><span class="p">(</span><span class="n">g</span> <span class="o">@</span> <span class="n">c</span> <span class="o">@</span> <span class="n">g</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Size exponent the Kadomtsev constraint implies for fitted I, B, P (and n) exponents.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>alpha</code></td><td class="ref-type">Mapping</td><td class="ref-unit">-</td><td><p>Fitted exponents keyed <code class="language-plaintext highlighter-rouge">i_p</code>, <code class="language-plaintext highlighter-rouge">b_t</code>, <code class="language-plaintext highlighter-rouge">p_net</code> and, optionally, <code class="language-plaintext highlighter-rouge">n_e</code> (absent means zero by model definition, not measured).</p>
+</td></tr>
+  <tr><td><code>cov</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Their covariance, rows and columns in the order of <code class="language-plaintext highlighter-rouge">alpha</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>alpha_R</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$\alpha_R^{\mathrm{KCT}} = \tfrac14\alpha_I + \tfrac54\alpha_B + \tfrac34\alpha_P + 2\alpha_n + \tfrac54$.</p>
+</td></tr>
+  <tr><td><code>stderr</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Its standard error, $\sqrt{g^\top C g}$ with $g$ the coefficients above.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A missing or unknown exponent name, or a covariance of the wrong shape.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>An <em>assumed</em> size exponent, not a measured one: one machine’s shot-to-shot
+radius changes are not a size scan, and a Kadomtsev-completed scaling
+satisfies the constraint by construction, so a zero residual is no
+evidence for it. Label every use accordingly (#548 Sec. 7).</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 7: the Connor-Taylor/Kadomtsev completion and its covariance propagation.
+</li>
+  <li>B. B. Kadomtsev, <em>Sov. J. Plasma Phys.</em> <strong>1</strong> (1975) 295.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="leave_one_group_out_scaling" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#leave_one_group_out_scaling"><code>leave_one_group_out_scaling</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="leave_one_group_out_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L948-L1010" title="vaft/process/confinement.py, lines 948–1010 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>leave_one_group_out_scaling(response, predictors, groups)</code></pre>
+    <details class="ref-code" data-source-code="leave_one_group_out_scaling"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 948–1010</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">leave_one_group_out_scaling</span><span class="p">(</span>
+    <span class="n">response</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">predictors</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">groups</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Leave-one-group-out refits: coefficient stability and out-of-group prediction error.
+
+    Parameters
+    ----------
+    response : numpy.ndarray
+        The fitted quantity [any].
+    predictors : Mapping
+        Predictor arrays keyed by name [any].
+    groups : numpy.ndarray
+        Group label per row; each group is held out in turn [-].
+
+    Returns
+    -------
+    dict
+        ``names`` (``log_C`` first) [-]; ``groups``, the held-out labels [-];
+        ``coef``, the refit coefficients per held-out group, NaN where the
+        rest could not identify them, shape ``(G, k)`` [-]; ``log_error``, the
+        log prediction error of every kept row when its group was held out
+        [-]; ``rmse_log``, its RMS over rows [-] [any].
+
+    Raises
+    ------
+    ValueError
+        As :func:`fit_confinement_scaling` for the full sample.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A held-out shot whose predictor values lie outside the others</span><span class="sh">'</span><span class="s"> range
+    tests extrapolation, not interpolation; the prediction error of such a
+    group dominates ``rmse_log``.
+
+    Provenance
+    ----------
+    .. [548] Issue #548 Sec. 6 and 8: leave-one-shot-out error as a model
+       comparison criterion.
+    </span><span class="sh">"""</span>
+    <span class="n">names</span><span class="p">,</span> <span class="n">log_y</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nf">_log_design</span><span class="p">(</span><span class="n">response</span><span class="p">,</span> <span class="n">predictors</span><span class="p">,</span> <span class="n">groups</span><span class="p">)</span>
+    <span class="n">labels</span><span class="p">,</span> <span class="n">codes</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">unique</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">return_inverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">coef</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">((</span><span class="n">labels</span><span class="p">.</span><span class="n">size</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">error</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="n">log_y</span><span class="p">.</span><span class="n">size</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">labels</span><span class="p">.</span><span class="n">size</span><span class="p">):</span>
+        <span class="n">held</span> <span class="o">=</span> <span class="n">codes</span> <span class="o">==</span> <span class="n">i</span>
+        <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">~</span><span class="n">held</span><span class="p">],</span> <span class="n">log_y</span><span class="p">[</span><span class="o">~</span><span class="n">held</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">xs</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">k</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">matrix_rank</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">k</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">beta</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">lstsq</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+        <span class="n">coef</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">beta</span>
+        <span class="n">error</span><span class="p">[</span><span class="n">held</span><span class="p">]</span> <span class="o">=</span> <span class="n">log_y</span><span class="p">[</span><span class="n">held</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="n">held</span><span class="p">]</span> <span class="o">@</span> <span class="n">beta</span>
+    <span class="n">finite</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="sh">"</span><span class="s">names</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="sh">"</span><span class="s">log_C</span><span class="sh">"</span><span class="p">,</span> <span class="o">*</span><span class="n">names</span><span class="p">),</span> <span class="sh">"</span><span class="s">groups</span><span class="sh">"</span><span class="p">:</span> <span class="n">labels</span><span class="p">,</span> <span class="sh">"</span><span class="s">coef</span><span class="sh">"</span><span class="p">:</span> <span class="n">coef</span><span class="p">,</span> <span class="sh">"</span><span class="s">log_error</span><span class="sh">"</span><span class="p">:</span> <span class="n">error</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">rmse_log</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">error</span><span class="p">[</span><span class="n">finite</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)))</span> <span class="k">if</span> <span class="n">finite</span><span class="p">.</span><span class="nf">any</span><span class="p">()</span> <span class="k">else</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">,</span>
+    <span class="p">}</span></code></pre></figure>
+
+</details>
+
+    <p>Leave-one-group-out refits: coefficient stability and out-of-group prediction error.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>response</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">any</td><td><p>The fitted quantity.</p>
+</td></tr>
+  <tr><td><code>predictors</code></td><td class="ref-type">Mapping</td><td class="ref-unit">any</td><td><p>Predictor arrays keyed by name.</p>
+</td></tr>
+  <tr><td><code>groups</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Group label per row; each group is held out in turn.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">names</code> (<code class="language-plaintext highlighter-rouge">log_C</code> first) [-]; <code class="language-plaintext highlighter-rouge">groups</code>, the held-out labels [-]; <code class="language-plaintext highlighter-rouge">coef</code>, the refit coefficients per held-out group, NaN where the rest could not identify them, shape <code class="language-plaintext highlighter-rouge">(G, k)</code> [-]; <code class="language-plaintext highlighter-rouge">log_error</code>, the log prediction error of every kept row when its group was held out [-]; <code class="language-plaintext highlighter-rouge">rmse_log</code>, its RMS over rows [-].</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">fit_confinement_scaling</code> for the full sample.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A held-out shot whose predictor values lie outside the others’ range
+tests extrapolation, not interpolation; the prediction error of such a
+group dominates <code class="language-plaintext highlighter-rouge">rmse_log</code>.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #548 Sec. 6 and 8: leave-one-shot-out error as a model comparison criterion.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="resistive_loop_voltage" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#resistive_loop_voltage"><code>resistive_loop_voltage</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="resistive_loop_voltage" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L190-L270" title="vaft/process/confinement.py, lines 190–270 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>resistive_loop_voltage(v_loop, i_p, dip_dt, li_3, r0, *, dli3_dt=None)</code></pre>
+
+    <p>Inductive and resistive parts of a loop voltage, and the plasma resistance, from the internal inductance.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>v_loop</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">V</td><td><p>Loop voltage, in the orientation of <code class="language-plaintext highlighter-rouge">i_p</code>.</p>
+</td></tr>
+  <tr><td><code>i_p</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">A</td><td><p>Plasma current.</p>
+</td></tr>
+  <tr><td><code>dip_dt</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">A/s</td><td><p>Its time derivative.</p>
+</td></tr>
+  <tr><td><code>li_3</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Normalised internal inductance $l_{i,3}$.</p>
+</td></tr>
+  <tr><td><code>r0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius normalising $l_{i,3}$.</p>
+</td></tr>
+  <tr><td><code>dli3_dt</code></td><td class="ref-type">numpy.ndarray, optional</td><td class="ref-unit">1/s</td><td><p>Time derivative of $l_{i,3}$; <code class="language-plaintext highlighter-rouge">None</code> holds the inductance fixed, so only $L_i\,dI_p/dt$ is removed.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ResistiveLoopVoltage</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">v_ind</code>, the inductive voltage $(1/I_p)\,dW_\mathrm{int}/dt$, and <code class="language-plaintext highlighter-rouge">v_res = v_loop - v_ind</code> [V]; <code class="language-plaintext highlighter-rouge">r_p = v_res / i_p</code>, the plasma resistance seen by the total current (NaN where $I_p = 0$) [Ohm]; <code class="language-plaintext highlighter-rouge">l_int</code>, the internal inductance $\mu_0 R_0 l_{i,3}/2$ [H].</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Arrays of different length or a non-positive <code class="language-plaintext highlighter-rouge">r0</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>$L_i = \mu_0 R_0 l_{i,3}/2$, so $W_\mathrm{int} = L_i I_p^2/2$.</li>
+        <li>$V_\mathrm{ind} = (1/I_p)\,dW_\mathrm{int}/dt
+= L_i\,dI_p/dt + \tfrac14\mu_0 R_0 I_p\,dl_{i,3}/dt$, the second
+term only when <code class="language-plaintext highlighter-rouge">dli3_dt</code> is given.</li>
+        <li>$V_\mathrm{res} = V_\mathrm{loop} - V_\mathrm{ind}$ and
+$R_p = V_\mathrm{res}/I_p$.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Exact (Romero’s eq. 24) only for the loop voltage <em>at the plasma
+boundary</em>. A flux loop away from the boundary also sees the external
+inductive flux between loop and boundary, which this does not remove.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>J. A. Romero et al., <em>Nucl. Fusion</em> <strong>50</strong> (2010) 115002, eq. 24: the inductive voltage of the internal poloidal-field energy.
+</li>
+  <li>Issue #548 Sec. 1: P_OH from the loop voltage with the inductive part removed, the Spitzer path only for comparison (#1188).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="smoothed_time_derivative" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#smoothed_time_derivative"><code>smoothed_time_derivative</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="smoothed_time_derivative" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/process/confinement.py#L74-L172" title="vaft/process/confinement.py, lines 74–172 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>smoothed_time_derivative(time, data, *, window_s=None, polyorder=2, at=None)</code></pre>
+
+    <p>Time derivative of a sampled quantity by a local polynomial fit, on any time grid.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">s</td><td><p>Sample times, strictly increasing, 1-D; gaps are allowed.</p>
+</td></tr>
+  <tr><td><code>data</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">any</td><td><p>The sampled quantity, same length as <code class="language-plaintext highlighter-rouge">time</code>.</p>
+</td></tr>
+  <tr><td><code>window_s</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Full width of the fitting window centred on each evaluation time; <code class="language-plaintext highlighter-rouge">None</code> takes the unsmoothed weighted central difference of <code class="language-plaintext highlighter-rouge">vaft.process.numerical.time_derivative</code> at the samples.</p>
+</td></tr>
+  <tr><td><code>polyorder</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Degree of the local polynomial.</p>
+</td></tr>
+  <tr><td><code>at</code></td><td class="ref-type">numpy.ndarray, optional</td><td class="ref-unit">s</td><td><p>Times to evaluate the derivative at; default the samples themselves. Needs <code class="language-plaintext highlighter-rouge">window_s</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">any/s</td><td><p><code class="language-plaintext highlighter-rouge">d(data)/dt</code> at <code class="language-plaintext highlighter-rouge">at</code> (or at each sample); NaN where the window holds no more than <code class="language-plaintext highlighter-rouge">polyorder</code> finite samples.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Arrays of different length, fewer than two samples, a non-increasing time axis, a non-positive window, <code class="language-plaintext highlighter-rouge">polyorder</code> below 1 with a window, or <code class="language-plaintext highlighter-rouge">at</code> without <code class="language-plaintext highlighter-rouge">window_s</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Without <code class="language-plaintext highlighter-rouge">window_s</code>: the weighted central difference at the samples
+(one-sided at the ends).</li>
+        <li>With <code class="language-plaintext highlighter-rouge">window_s</code>: at each evaluation time $t_0$, the finite samples
+with $|t - t_0| \le$ <code class="language-plaintext highlighter-rouge">window_s</code>/2 are fitted by a degree-
+<code class="language-plaintext highlighter-rouge">polyorder</code> polynomial in $t - t_0$ (least squares, unweighted);
+the derivative is its linear coefficient. On a uniform grid away
+from the ends this is the Savitzky-Golay first derivative; at the
+ends and across gaps the window is simply one-sided or sparser.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">polyorder = 2</code>: numerical convenience, the lowest degree whose
+derivative is unbiased for a quantity with constant curvature.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Smoothing biases a derivative that changes within the window; the window
+width belongs in the provenance of every quantity built on it. Near the
+ends the window is one-sided and the derivative noisier.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>A. Savitzky and M. J. E. Golay, <em>Anal. Chem.</em> <strong>36</strong> (1964) 1627: the local least-squares polynomial derivative.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/transport_state/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: transport_state">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VEST diagnostics and data availability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_confinement.md",
+        "mtime": "2026-10-01 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-02 11:57:44 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

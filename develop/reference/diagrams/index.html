@@ -270,7 +270,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>718eeed</code>. What is described
+  <code>cad89a9</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -426,9 +426,9 @@ which has no closed form, is a schematic, and the figure says so.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">peeling_ballooning</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">s_alpha_ballooning</span><span class="p">(</span><span class="n">s_max</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">alpha_max</span><span class="o">=</span><span class="mf">3.5</span><span class="p">)</span>
-<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">hugill</span><span class="p">(</span><span class="n">elongation</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">q_limit</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>          <span class="c1"># no size parameter: R, a, B cancel
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">troyon</span><span class="p">(</span><span class="n">beta_N_max</span><span class="o">=</span><span class="mf">2.8</span><span class="p">,</span> <span class="n">aspect_ratio</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">elongation</span><span class="o">=</span><span class="mf">1.7</span><span class="p">)</span>
-</code></pre></div></div>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">hugill</span><span class="p">(</span><span class="n">elongation</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>                       <span class="c1"># no size parameter: R, a, B cancel
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">troyon</span><span class="p">(</span><span class="n">aspect_ratio</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">elongation</span><span class="o">=</span><span class="mf">1.7</span><span class="p">)</span>      <span class="c1"># registered Troyon limit, ~2.76
+</span></code></pre></div></div>
 
 <table>
   <thead>
@@ -473,22 +473,28 @@ which has no closed form, is a schematic, and the figure says so.</p>
     </tr>
     <tr>
       <td>Hugill</td>
-      <td>Where are the density and low-$q$ disruption limits?</td>
+      <td>Where is the density limit?</td>
       <td>$\bar n_e R/B_T$, $1/q_\mathrm{cyl}$</td>
-      <td>The Greenwald line comes from <code class="language-plaintext highlighter-rouge">greenwald_density</code> and <code class="language-plaintext highlighter-rouge">q_cyl_from_B_R_epsilon_kappa_I</code>. Its slope depends only on $\kappa_a$: $50\kappa_a/\pi$. The low-$q$ limit is $q_\mathrm{cyl} = q_\mathrm{limit}$</td>
+      <td>The registered <code class="language-plaintext highlighter-rouge">greenwald_hugill</code> line (slope $\pi/50\kappa_a$ in $1/q_\mathrm{cyl}$ against $\bar n_e R/B_T$) and <code class="language-plaintext highlighter-rouge">murakami_hugill</code> ($\bar n_e R/B_T = 1$). The registered <code class="language-plaintext highlighter-rouge">low_q</code> is on the equilibrium $q_\psi$, not $q_\mathrm{cyl}$, so it is not drawn; <code class="language-plaintext highlighter-rouge">q_limit=</code> adds a dashed <em>reference</em> $q_\mathrm{cyl}$ line</td>
     </tr>
     <tr>
       <td>Troyon</td>
       <td>How much pressure can the current hold?</td>
       <td>$I_p/(aB_T)$, $\beta_T$</td>
-      <td>The beta limit is the line on which <code class="language-plaintext highlighter-rouge">beta_N_from_beta_a_B0_Ip</code> equals $\beta_{N,\max}$. The low-$q$ cutoff comes from <code class="language-plaintext highlighter-rouge">q_cyl_from_B_R_epsilon_kappa_I</code></td>
+      <td>The registered <code class="language-plaintext highlighter-rouge">troyon</code> limit, $\beta_N \le 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$. <code class="language-plaintext highlighter-rouge">beta_N_max=</code> draws a what-if value and the note says so; <code class="language-plaintext highlighter-rouge">q_limit=</code> adds a dashed reference $q_\mathrm{cyl}$ cutoff</td>
     </tr>
   </tbody>
 </table>
 
-<p>These charts show the <em>boundaries</em> of an operating space. For how measured discharges are projected
-onto the same axes, see #944 (operational-space projections) and #636 (Hugill and Greenwald
-analysis).</p>
+<p>These charts show the <em>boundaries</em> of an operating space. Each one reads its lines from
+<code class="language-plaintext highlighter-rouge">vaft.formula.boundaries</code> through a canonical projection (#1425), and a population of measured or
+modelled states goes on the same projection with
+<code class="language-plaintext highlighter-rouge">vaft.plot.operational_space.operational_space_population(table, "hugill")</code>. Table columns are named
+by quantity identity (<code class="language-plaintext highlighter-rouge">murakami_parameter</code>, <code class="language-plaintext highlighter-rouge">inverse_cylindrical_q</code>, <code class="language-plaintext highlighter-rouge">normalized_beta</code>, …) with
+units in <code class="language-plaintext highlighter-rouge">table.attrs["units"]</code>. A boundary is drawn only when both plotted columns are exactly the
+projection’s quantities in its units: a <code class="language-plaintext highlighter-rouge">q95</code> column never carries a $q_\psi$ or $q_\mathrm{cyl}$
+boundary. Projections: <code class="language-plaintext highlighter-rouge">hugill</code>, <code class="language-plaintext highlighter-rouge">troyon</code>, <code class="language-plaintext highlighter-rouge">beta_n_li</code>, <code class="language-plaintext highlighter-rouge">q95_li</code>, <code class="language-plaintext highlighter-rouge">greenwald_fraction_power</code>. See
+#944 and #636.</p>
 
 <h2 id="single-particle-motion">Single-particle motion</h2>
 
@@ -2491,6 +2497,7 @@ a test enforces this. The README uses the four pillars, the research cycle and t
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">machine_agnostic_architecture</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">experiment_modeling_theory_data_network</span><span class="p">()</span>   <span class="c1"># "point_to_point", "common_model", "equilibrium"
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">human_ai_interface</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">machine_research_archive</span><span class="p">()</span>
 </code></pre></div></div>
 
 <table>
@@ -2537,6 +2544,10 @@ a test enforces this. The README uses the four pillars, the research cycle and t
       <td><code class="language-plaintext highlighter-rouge">human_ai_interface</code></td>
       <td>Three layers: actors, shared access interfaces and one backend. Human researchers and AI agents collaborate through the Python API, CLI, GUI, repository and docs, and MCP (planned). The interface layer reaches the framework and the IMAS database through one common connection</td>
     </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">machine_research_archive</code></td>
+      <td>VEST’s institutional and scientific memory since 2012: machine history, research on VEST and research knowledge feed one living archive, which new analyses and research build on. No dates are drawn beyond the start of operation</td>
+    </tr>
   </tbody>
 </table>
 
@@ -2550,7 +2561,8 @@ a test enforces this. The README uses the four pillars, the research cycle and t
 <img src="/vaft/develop/assets/diagrams/experiment_modeling_theory_data_network_point_to_point.svg" alt="Without a common model" />
 <img src="/vaft/develop/assets/diagrams/experiment_modeling_theory_data_network.svg" alt="With a common model" />
 <img src="/vaft/develop/assets/diagrams/experiment_modeling_theory_data_network_equilibrium.svg" alt="The IMAS equilibrium as a common model" />
-<img src="/vaft/develop/assets/diagrams/human_ai_interface.svg" alt="Human-AI collaborative access" /></p>
+<img src="/vaft/develop/assets/diagrams/human_ai_interface.svg" alt="Human-AI collaborative access" />
+<img src="/vaft/develop/assets/diagrams/machine_research_archive.svg" alt="Machine and research archive" /></p>
 
 <p>The pillar names are the four README sections.
 The diagrams are built from the concept primitives in <code class="language-plaintext highlighter-rouge">vaft.diagram._concept</code>: <code class="language-plaintext highlighter-rouge">box</code>, <code class="language-plaintext highlighter-rouge">connector</code>, <code class="language-plaintext highlighter-rouge">band</code>,
@@ -2898,7 +2910,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 09:36:29 +0000"
+        "time": "2026-10-02 11:57:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

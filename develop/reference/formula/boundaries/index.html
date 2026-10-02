@@ -270,7 +270,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>718eeed</code>. What is described
+  <code>cad89a9</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -301,7 +301,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.boundaries</code>:
-<strong>7</strong> public functions. Each entry is what
+<strong>9</strong> public functions. Each entry is what
 <code>vaft.formula.describe("boundaries.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -341,7 +341,7 @@ margin lies on the boundary.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 9 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="boundary_curve"><td><a href="#boundary_curve"><code>boundary_curve</code></a></td><td>A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.
@@ -358,6 +358,10 @@ margin lies on the boundary.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="list_boundaries"><td><a href="#list_boundaries"><code>list_boundaries</code></a></td><td>Keys of the registered boundaries, optionally restricted to one family.
 </td></tr>
+  <tr data-ref-row="same_quantity"><td><a href="#same_quantity"><code>same_quantity</code></a></td><td>Whether two quantities are the same physical quantity in the same unit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="threshold_curve"><td><a href="#threshold_curve"><code>threshold_curve</code></a></td><td>A threshold boundary drawn as a straight line across a 2-D projection.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
 <p class="ref-filter-empty" hidden="">No function matches.</p>
@@ -369,10 +373,10 @@ margin lies on the boundary.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boundary_curve"><code>boundary_curve</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="boundary_curve" href="https://github.com/VEST-Tokamak/vaft/blob/718eeeda091180dd3526116892582608b4308502/vaft/formula/boundaries.py#L555-L610" title="vaft/formula/boundaries.py, lines 555–610 at 718eeed">source</a>
+<a class="ref-source" data-source="boundary_curve" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/formula/boundaries.py#L557-L612" title="vaft/formula/boundaries.py, lines 557–612 at cad89a9">source</a>
 </header>
     <pre class="ref-signature"><code>boundary_curve(boundary, sweep, values, swap_axes=False, **fixed)</code></pre>
-    <details class="ref-code" data-source-code="boundary_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 555–610</span></summary>
+    <details class="ref-code" data-source-code="boundary_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 557–612</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">boundary_curve</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="n">sweep</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">swap_axes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">fixed</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoundaryCurve</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.
@@ -482,10 +486,10 @@ With <code class="language-plaintext highlighter-rouge">swap_axes</code> the tar
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boundary_value"><code>boundary_value</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="boundary_value" href="https://github.com/VEST-Tokamak/vaft/blob/718eeeda091180dd3526116892582608b4308502/vaft/formula/boundaries.py#L373-L411" title="vaft/formula/boundaries.py, lines 373–411 at 718eeed">source</a>
+<a class="ref-source" data-source="boundary_value" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/formula/boundaries.py#L375-L413" title="vaft/formula/boundaries.py, lines 375–413 at cad89a9">source</a>
 </header>
     <pre class="ref-signature"><code>boundary_value(boundary, **inputs)</code></pre>
-    <details class="ref-code" data-source-code="boundary_value"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 373–411</span></summary>
+    <details class="ref-code" data-source-code="boundary_value"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 375–413</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">boundary_value</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Value of a boundary</span><span class="sh">'</span><span class="s">s target quantity at the given inputs.
@@ -578,7 +582,7 @@ boundary declared in MA converts first.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_boundary"><code>evaluate_boundary</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="evaluate_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/718eeeda091180dd3526116892582608b4308502/vaft/formula/boundaries.py#L425-L508" title="vaft/formula/boundaries.py, lines 425–508 at 718eeed">source</a>
+<a class="ref-source" data-source="evaluate_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/formula/boundaries.py#L427-L510" title="vaft/formula/boundaries.py, lines 427–510 at cad89a9">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_boundary(boundary, operating_value, **inputs)</code></pre>
 
@@ -642,10 +646,10 @@ interpreting it is left to the caller.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_window"><code>evaluate_window</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="evaluate_window" href="https://github.com/VEST-Tokamak/vaft/blob/718eeeda091180dd3526116892582608b4308502/vaft/formula/boundaries.py#L511-L552" title="vaft/formula/boundaries.py, lines 511–552 at 718eeed">source</a>
+<a class="ref-source" data-source="evaluate_window" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/formula/boundaries.py#L513-L554" title="vaft/formula/boundaries.py, lines 513–554 at cad89a9">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_window(window, operating_value, **inputs)</code></pre>
-    <details class="ref-code" data-source-code="evaluate_window"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 511–552</span></summary>
+    <details class="ref-code" data-source-code="evaluate_window"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 513–554</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">evaluate_window</span><span class="p">(</span><span class="n">window</span><span class="p">:</span> <span class="n">BoundaryWindow</span><span class="p">,</span> <span class="n">operating_value</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowEvaluation</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Position of an operating value relative to an access window.
@@ -733,10 +737,10 @@ the inputs it declares.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#get_boundary"><code>get_boundary</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="get_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/718eeeda091180dd3526116892582608b4308502/vaft/formula/boundaries.py#L689-L710" title="vaft/formula/boundaries.py, lines 689–710 at 718eeed">source</a>
+<a class="ref-source" data-source="get_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/formula/boundaries.py#L770-L791" title="vaft/formula/boundaries.py, lines 770–791 at cad89a9">source</a>
 </header>
     <pre class="ref-signature"><code>get_boundary(key)</code></pre>
-    <details class="ref-code" data-source-code="get_boundary"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 689–710</span></summary>
+    <details class="ref-code" data-source-code="get_boundary"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 770–791</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">get_boundary</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
     <span class="sh">"""</span><span class="s">A registered boundary or window by key.
@@ -792,10 +796,10 @@ the inputs it declares.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#hugill_coordinates"><code>hugill_coordinates</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="hugill_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/718eeeda091180dd3526116892582608b4308502/vaft/formula/boundaries.py#L613-L672" title="vaft/formula/boundaries.py, lines 613–672 at 718eeed">source</a>
+<a class="ref-source" data-source="hugill_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/formula/boundaries.py#L694-L753" title="vaft/formula/boundaries.py, lines 694–753 at cad89a9">source</a>
 </header>
     <pre class="ref-signature"><code>hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p)</code></pre>
-    <details class="ref-code" data-source-code="hugill_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 613–672</span></summary>
+    <details class="ref-code" data-source-code="hugill_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 694–753</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hugill_coordinates</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">R_geo</span><span class="p">,</span> <span class="n">B_t</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">kappa_a</span><span class="p">,</span> <span class="n">I_p</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
@@ -925,10 +929,10 @@ without cropping.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#list_boundaries"><code>list_boundaries</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="list_boundaries" href="https://github.com/VEST-Tokamak/vaft/blob/718eeeda091180dd3526116892582608b4308502/vaft/formula/boundaries.py#L713-L729" title="vaft/formula/boundaries.py, lines 713–729 at 718eeed">source</a>
+<a class="ref-source" data-source="list_boundaries" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/formula/boundaries.py#L794-L810" title="vaft/formula/boundaries.py, lines 794–810 at cad89a9">source</a>
 </header>
     <pre class="ref-signature"><code>list_boundaries(family=None)</code></pre>
-    <details class="ref-code" data-source-code="list_boundaries"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 713–729</span></summary>
+    <details class="ref-code" data-source-code="list_boundaries"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 794–810</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">list_boundaries</span><span class="p">(</span><span class="n">family</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Keys of the registered boundaries, optionally restricted to one family.
@@ -964,6 +968,176 @@ without cropping.</p>
 </td></tr>
   </tbody>
 </table></div>
+
+  </section>
+
+  <section class="ref-entry" id="same_quantity" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#same_quantity"><code>same_quantity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="same_quantity" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/formula/boundaries.py#L615-L636" title="vaft/formula/boundaries.py, lines 615–636 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>same_quantity(a, b)</code></pre>
+    <details class="ref-code" data-source-code="same_quantity"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 615–636</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">same_quantity</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">BoundaryQuantity</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">BoundaryQuantity</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Whether two quantities are the same physical quantity in the same unit.
+
+    Parameters
+    ----------
+    a, b : BoundaryQuantity
+        The quantities to compare [-].
+
+    Returns
+    -------
+    bool
+        ``True`` when both ``name`` (the identity) and ``unit`` match. The
+        symbol and the free-text definition are not compared [-].
+
+    Convention
+    ----------
+    Identity is the ``name``: ``edge_safety_factor`` ($q_\psi$),
+    ``edge_safety_factor_95`` ($q_{95}$) and ``inverse_cylindrical_q`` are
+    different quantities even where their values are close. A boundary may be
+    drawn on an axis only when this returns ``True`` for that axis (#1425).
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">a</span><span class="p">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">b</span><span class="p">.</span><span class="n">name</span> <span class="ow">and</span> <span class="n">a</span><span class="p">.</span><span class="n">unit</span> <span class="o">==</span> <span class="n">b</span><span class="p">.</span><span class="n">unit</span></code></pre></figure>
+
+</details>
+
+    <p>Whether two quantities are the same physical quantity in the same unit.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>a, b</code></td><td class="ref-type">BoundaryQuantity</td><td class="ref-unit">-</td><td><p>The quantities to compare.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">bool</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> when both <code class="language-plaintext highlighter-rouge">name</code> (the identity) and <code class="language-plaintext highlighter-rouge">unit</code> match. The symbol and the free-text definition are not compared.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Identity is the <code class="language-plaintext highlighter-rouge">name</code>: <code class="language-plaintext highlighter-rouge">edge_safety_factor</code> ($q_\psi$),
+<code class="language-plaintext highlighter-rouge">edge_safety_factor_95</code> ($q_{95}$) and <code class="language-plaintext highlighter-rouge">inverse_cylindrical_q</code> are
+different quantities even where their values are close. A boundary may be
+drawn on an axis only when this returns <code class="language-plaintext highlighter-rouge">True</code> for that axis (#1425).</p>
+
+    </div>
+
+  </section>
+
+  <section class="ref-entry" id="threshold_curve" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#threshold_curve"><code>threshold_curve</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="threshold_curve" href="https://github.com/VEST-Tokamak/vaft/blob/cad89a9115bcd02d3576d1139a2285148c01dd19/vaft/formula/boundaries.py#L639-L691" title="vaft/formula/boundaries.py, lines 639–691 at cad89a9">source</a>
+</header>
+    <pre class="ref-signature"><code>threshold_curve(boundary, axis, values, target_axis=&#39;y&#39;)</code></pre>
+    <details class="ref-code" data-source-code="threshold_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 639–691</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">threshold_curve</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="n">axis</span><span class="p">:</span> <span class="n">BoundaryQuantity</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">target_axis</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">y</span><span class="sh">"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoundaryCurve</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">A threshold boundary drawn as a straight line across a 2-D projection.
+
+    $$\text{target} = C \quad\text{for every value of the other axis}$$
+
+    Parameters
+    ----------
+    boundary : Boundary
+        A ``</span><span class="sh">"</span><span class="s">threshold</span><span class="sh">"</span><span class="s">`` boundary, for example ``</span><span class="sh">"</span><span class="s">murakami_hugill</span><span class="sh">"</span><span class="s">`` [-].
+    axis : BoundaryQuantity
+        The quantity on the other axis, which the threshold does not depend on [-].
+    values : array_like
+        Sample points along that axis, in its declared unit [varies].
+    target_axis : str
+        ``</span><span class="sh">"</span><span class="s">y</span><span class="sh">"</span><span class="s">`` draws a horizontal line (target on y); ``</span><span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="s">`` a vertical one [-].
+
+    Returns
+    -------
+    BoundaryCurve
+        The line, carrying both quantities and the permitted side: ``</span><span class="sh">"</span><span class="s">below</span><span class="sh">"</span><span class="s">``
+        / ``</span><span class="sh">"</span><span class="s">above</span><span class="sh">"</span><span class="s">`` for a horizontal line, ``</span><span class="sh">"</span><span class="s">left</span><span class="sh">"</span><span class="s">`` / ``</span><span class="sh">"</span><span class="s">right</span><span class="sh">"</span><span class="s">`` for a
+        vertical one [-].
+
+    Raises
+    ------
+    TypeError
+        ``boundary`` is not a threshold, or ``values`` is not 1-D.
+    ValueError
+        ``target_axis`` is neither ``</span><span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="s">`` nor ``</span><span class="sh">"</span><span class="s">y</span><span class="sh">"</span><span class="s">``, or ``axis`` is the
+        boundary</span><span class="sh">'</span><span class="s">s own target.
+
+    Convention
+    ----------
+    :func:`boundary_curve` sweeps one of a boundary</span><span class="sh">'</span><span class="s">s inputs, and a threshold
+    has none, so this is its counterpart. The value is the registered
+    coefficient; nothing is restated.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">boundary</span><span class="p">.</span><span class="n">form</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">threshold</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">boundary </span><span class="si">{</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="si">!r}</span><span class="s"> is a </span><span class="si">{</span><span class="n">boundary</span><span class="p">.</span><span class="n">form</span><span class="si">!r}</span><span class="s">, not a threshold; use boundary_curve</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">target_axis</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">y</span><span class="sh">"</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">target_axis must be </span><span class="sh">'</span><span class="s">x</span><span class="sh">'</span><span class="s"> or </span><span class="sh">'</span><span class="s">y</span><span class="sh">'</span><span class="s">, not </span><span class="si">{</span><span class="n">target_axis</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">same_quantity</span><span class="p">(</span><span class="n">axis</span><span class="p">,</span> <span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">the other axis cannot be the threshold</span><span class="sh">'</span><span class="s">s own target </span><span class="si">{</span><span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">.</span><span class="n">name</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">v</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">TypeError</span><span class="p">(</span><span class="sh">"</span><span class="s">values must be a 1-D sequence</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">shape</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="nf">boundary_value</span><span class="p">(</span><span class="n">boundary</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="n">target_axis</span> <span class="o">==</span> <span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">side</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">below</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">left</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">above</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">right</span><span class="sh">"</span><span class="p">}[</span><span class="n">boundary</span><span class="p">.</span><span class="n">allowed_side</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nc">BoundaryCurve</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">x_quantity</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">,</span> <span class="n">y_quantity</span><span class="o">=</span><span class="n">axis</span><span class="p">,</span>
+                             <span class="n">allowed_side</span><span class="o">=</span><span class="n">side</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">BoundaryCurve</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="n">x_quantity</span><span class="o">=</span><span class="n">axis</span><span class="p">,</span> <span class="n">y_quantity</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">,</span>
+                         <span class="n">allowed_side</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">allowed_side</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>A threshold boundary drawn as a straight line across a 2-D projection.</p>
+
+\[\text{target} = C \quad\text{for every value of the other axis}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>boundary</code></td><td class="ref-type">Boundary</td><td class="ref-unit">-</td><td><p>A <code class="language-plaintext highlighter-rouge">"threshold"</code> boundary, for example <code class="language-plaintext highlighter-rouge">"murakami_hugill"</code>.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td class="ref-type">BoundaryQuantity</td><td class="ref-unit">-</td><td><p>The quantity on the other axis, which the threshold does not depend on.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td class="ref-type">array_like</td><td class="ref-unit">varies</td><td><p>Sample points along that axis, in its declared unit.</p>
+</td></tr>
+  <tr><td><code>target_axis</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"y"</code> draws a horizontal line (target on y); <code class="language-plaintext highlighter-rouge">"x"</code> a vertical one.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">BoundaryCurve</td><td class="ref-unit">-</td><td><p>The line, carrying both quantities and the permitted side: <code class="language-plaintext highlighter-rouge">"below"</code> / <code class="language-plaintext highlighter-rouge">"above"</code> for a horizontal line, <code class="language-plaintext highlighter-rouge">"left"</code> / <code class="language-plaintext highlighter-rouge">"right"</code> for a vertical one.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">boundary_curve</code> sweeps one of a boundary’s inputs, and a threshold
+has none, so this is its counterpart. The value is the registered
+coefficient; nothing is restated.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>TypeError</code> <code class="language-plaintext highlighter-rouge">boundary</code> is not a threshold, or <code class="language-plaintext highlighter-rouge">values</code> is not 1-D.
+</li>
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">target_axis</code> is neither <code class="language-plaintext highlighter-rouge">"x"</code> nor <code class="language-plaintext highlighter-rouge">"y"</code>, or <code class="language-plaintext highlighter-rouge">axis</code> is the boundary’s own target.
+</li>
+</ul>
+</div>
 
   </section>
 
@@ -1187,7 +1361,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 09:36:29 +0000"
+        "time": "2026-10-02 11:57:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
