@@ -1391,6 +1391,129 @@ def test_a_nan_flux_does_not_make_the_spread_order_dependent(sensitivity, tmp_pa
     assert sensitivity.delta(float("nan"), 1.0) is None
 
 
+def test_ky_peak_reads_the_ky_grid_model_of_the_run(sensitivity):
+    """cold review 0.8.0 delta-absorb-11 F1.
+
+    ``write_tglf_sum_flux_spectrum`` only forms the log-trapezoid weights when
+    KYGRID_MODEL != 0. For KYGRID_MODEL = 0 (linear grid ky_k = k * ky_1) every entry is
+    ``ky_1 * Q_k``: a right-endpoint rectangle, so the flux is sampled AT ky_k, not
+    averaged over the interval, and the peak is the node, not the interval midpoint.
+    """
+    from types import SimpleNamespace
+
+    ky = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+    flux = np.array([0.1, 0.2, 0.5, 3.0, 0.4, 0.2])  # sampled flux peaks at ky = 0.4
+    spectrum = np.zeros((1, 1, ky.size, 5))
+    spectrum[0, 0, :, 1] = ky[0] * flux                 # KYGRID_MODEL = 0 weighting
+    native = SimpleNamespace(ky_spectrum=ky, sum_flux_spectrum=spectrum)
+    # The default grid model (1) is log-trapezoid: midpoint of the peak interval.
+    assert sensitivity.ky_peak(native, {}) == pytest.approx(0.35)
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": 1}}) == pytest.approx(0.35)
+    # Model 0: the entry is the sample at the node, so the peak is the node itself,
+    # whichever case the user spelled the key in.
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": 0}}) == pytest.approx(0.4)
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"kygrid_model": 0}}) == pytest.approx(0.4)
+    # Model 0 inverts the actual weight ky_1, not the interval width, so a corrupt
+    # non-uniform grid cannot bias the density towards its narrow intervals.
+    ky2 = np.array([0.1, 0.2, 0.4, 0.8])
+    flux2 = np.array([1.0, 1.0, 1.0, 1.5])
+    spectrum2 = np.zeros((1, 1, ky2.size, 5))
+    spectrum2[0, 0, :, 1] = ky2[0] * flux2
+    peak = sensitivity.ky_peak(SimpleNamespace(ky_spectrum=ky2, sum_flux_spectrum=spectrum2),
+                               {"extra_parameters": {"KYGRID_MODEL": 0}})
+    assert peak == pytest.approx(0.8)
+    # Every non-zero model takes the Fortran ``.ne.0`` branch (log-trapezoid); only a
+    # value that is not an integer leaves the descriptor empty.
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": 4}}) == pytest.approx(0.35)
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": "auto"}}) is None
+
+
+def test_ky_peak_in_the_table_uses_the_grid_model_of_the_run(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F1: build_rows passes the run's parameters."""
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    ky = np.array([0.1, 0.2, 0.3, 0.4])
+    flux = np.array([0.1, 0.2, 3.0, 0.4])
+    for sat, model in ((0, 0), (1, 1)):
+        tree = _sens_state(tmp_path, sat, "es")
+        state = json.loads((tree / "state.json").read_text(encoding="utf-8"))
+        state["tglf_parameters"]["extra_parameters"] = {"KYGRID_MODEL": model}
+        (tree / "state.json").write_text(json.dumps(state), encoding="utf-8")
+        spectrum = np.zeros((1, 1, ky.size, 5))
+        spectrum[0, 0, :, 1] = ky[0] * flux if model == 0 else _tglf_weighted(ky, flux)
+        TglfOutputs(directory=str(tree), gbflux={"particle": flux[:1], "energy": flux[:1],
+                    "momentum": 0 * flux[:1], "exchange": 0 * flux[:1]},
+                    grid={"n_species": 1, "n_xgrid": 4}, ky_spectrum=ky,
+                    sum_flux_spectrum=spectrum).write_json(tree / "r0.50" / "outputs.json")
+    rows = {r["sat_rule"]: r for r in sensitivity.build_rows(tmp_path)}
+    assert rows[0]["ky_q_peak"] == pytest.approx(0.3)    # model 0: the node
+    assert rows[1]["ky_q_peak"] == pytest.approx(0.25)   # model 1: the interval midpoint
+
+
+def test_a_failed_surface_keeps_why_it_failed(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F2: a #1299 timeout is not just 'failed'."""
+    tree = _sens_state(tmp_path, 0, "es")
+    state = json.loads((tree / "state.json").read_text(encoding="utf-8"))
+    state["surfaces"] = [
+        {"r_over_a": 0.3, "status": "failed", "runtime_status": "timeout", "returncode": None,
+         "errors": [], "run_identity": "r0"},
+        {"r_over_a": 0.4, "status": "failed", "runtime_status": "error", "returncode": None,
+         "errors": ["FileNotFoundError: tglf"], "run_identity": "r1"},
+        {"r_over_a": 0.5, "status": "solved", "runtime_status": "completed", "returncode": 0,
+         "errors": [], "run_identity": "r2"},
+        {"r_over_a": 0.6, "status": "not_run", "readiness": "ready", "run_identity": "r3"},
+        {"r_over_a": 0.7, "status": "not_ready", "readiness": "outside_profile"},
+    ]
+    (tree / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    rows = {r["r_over_a"]: r for r in sensitivity.build_rows(tmp_path)}
+    assert (rows[0.3]["runtime_status"], rows[0.3]["tglf_reason"]) == ("timeout", "timeout")
+    assert (rows[0.4]["runtime_status"], rows[0.4]["tglf_reason"]) == ("error", "error")
+    assert rows[0.4]["n_errors"] == 1
+    assert rows[0.5]["tglf_reason"] is None
+    assert rows[0.6]["tglf_reason"] == "not_run"
+    assert rows[0.7]["tglf_reason"] == "outside_profile"
+    for column in ("runtime_status", "tglf_reason", "n_errors"):
+        assert column in sensitivity.SCHEMA
+    assert "not_run" in sensitivity.SCHEMA["status"][2]
+    # The columns reach the CSV through main.
+    assert sensitivity.main(["--runs", str(tmp_path), "--out", str(tmp_path / "s")]) == 0
+    import csv
+
+    with open(tmp_path / "s" / "sensitivity.csv", newline="", encoding="utf-8") as handle:
+        table = {float(r["r_over_a"]): r for r in csv.DictReader(handle)}
+    assert table[0.3]["tglf_reason"] == "timeout" and table[0.6]["tglf_reason"] == "not_run"
+
+
+def test_sensitivity_refuses_other_states_and_other_configurations(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F5: the two refusals the PR claimed but never ran."""
+    _sens_state(tmp_path / "a", 0, "es", identity="s1")
+    _sens_state(tmp_path / "a", 1, "es", identity="s2")
+    with pytest.raises(ValueError, match="different states"):
+        sensitivity.build_pairs(sensitivity.build_rows(tmp_path / "a"))
+    _sens_state(tmp_path / "b", 4, "es")
+    with pytest.raises(ValueError, match="not in the sensitivity space"):
+        sensitivity.build_rows(tmp_path / "b")
+
+
+def test_pair_rows_carry_one_label_and_the_rows_surface_value(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F4/F6: efit_quality is checked, r_over_a is not re-rounded."""
+    for sat in (0, 1):
+        tree = _sens_state(tmp_path, sat, "es")
+        state = json.loads((tree / "state.json").read_text(encoding="utf-8"))
+        state["surfaces"][0]["r_over_a"] = 0.33333
+        (tree / "state.json").write_text(json.dumps(state), encoding="utf-8")
+        (tree / "r0.50").rename(tree / "r0.33")
+    rows = sensitivity.build_rows(tmp_path)
+    (pair,) = sensitivity.build_pairs(rows)
+    assert pair["r_over_a"] == rows[0]["r_over_a"] == 0.33333   # joins on the key text
+    assert pair["n_configs"] == 2
+    # A re-labelled slice between two configuration runs is not silently one state.
+    rows[1]["efit_quality"] = "admissible"
+    with pytest.raises(ValueError, match="efit_quality"):
+        sensitivity.build_pairs(rows)
+
+
+
 # --------------------------------------------------------------------------- lane K inferred Ti (#1426)
 
 

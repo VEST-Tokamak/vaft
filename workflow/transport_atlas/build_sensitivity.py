@@ -22,6 +22,13 @@ by its interval width gives the interval's mean spectral density, so the peak is
 reported at the midpoint of the interval with the largest
 ``|sum over species and fields of entry_k| / (ky_k - ky_{k-1})``; the signed sum is
 taken first, as for ``ky_q_mean``. The result does not depend on how the grid is spaced.
+That weighting is only formed when ``KYGRID_MODEL != 0``. For ``KYGRID_MODEL = 0`` (the
+linear grid ``ky_k = k * ky_1``, tglf_kygrid.f90) TGLF leaves ``dky0 = 0, dky1 = ky_1``,
+so entry k is ``ky_1 * Q_k``: a right-endpoint rectangle that samples the flux AT
+``ky_k``. The peak is then ``ky_k`` of the largest ``|entry_k| / ky_1``. Every other
+value of ``KYGRID_MODEL`` takes the ``.ne.0`` branch, so the trapezoid rule applies. The
+grid model is read from the run's recorded ``tglf_parameters`` (``extra_parameters``,
+default 1); a value that is not an integer leaves ``ky_q_peak`` empty.
 
     python build_sensitivity.py --runs ~/runs/transport/sensitivity --out <dir>
 """
@@ -58,7 +65,12 @@ SCHEMA = {
     "state_identity": ("-", "provenance", "sha256 of the resolved upstream state (equal across configurations)"),
     "tglf_run_identity": ("-", "provenance", "sha256 of state + settings + surface + revision"),
     "gacode_revision": ("-", "provenance", "GACODE tree used"),
-    "status": ("-", "provenance", "solved | failed | not_ready | missing_outputs (native tree pruned)"),
+    "status": ("-", "provenance", "solved | failed | not_ready | not_run | missing_outputs (native tree pruned; "
+                                  "not_run: ready, but the batch recorded no result for it)"),
+    "runtime_status": ("-", "provenance", "launcher status of the surface's run (completed | timeout | error | ...); "
+                                          "empty when it was not run"),
+    "tglf_reason": ("-", "provenance", "readiness reason, runtime status, or not_run when not solved (as the atlas)"),
+    "n_errors": ("-", "provenance", "number of solver/launcher error lines recorded for the surface"),
     "qe_gb": ("Q_GB", "tglf_predicted", "electron energy flux"),
     "qi_gb": ("Q_GB", "tglf_predicted", "ion energy flux summed over ions"),
     "gamma_e_gb": ("Gamma_GB", "tglf_predicted", "electron particle flux"),
@@ -121,14 +133,38 @@ def delta(a: Optional[float], b: Optional[float], eps: float = EPS) -> Optional[
     return (a - b) / max(abs(a), abs(b), eps)
 
 
-def ky_peak(native: Any) -> Optional[float]:
-    """Midpoint of the ky interval with the largest mean |Q| density (module docstring)."""
+def ky_grid_model(parameters: dict) -> Optional[int]:
+    """TGLF ``KYGRID_MODEL`` of a run from its recorded ``tglf_parameters`` (default 1).
+
+    ``extra_parameters`` is recorded verbatim and upper-cased only when the input file
+    is written, so the key is matched without regard to case.
+    """
+    extra = parameters.get("extra_parameters") or {}
+    for key, value in extra.items():
+        if str(key).upper() == "KYGRID_MODEL":
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+    return 1
+
+
+def ky_peak(native: Any, parameters: Optional[dict] = None) -> Optional[float]:
+    """ky rho_s of the largest |Q| spectral density, by the run's grid model (module docstring)."""
     ky = getattr(native, "ky_spectrum", None)
     spectrum = getattr(native, "sum_flux_spectrum", None)
     if ky is None or spectrum is None or ky.size < 2 or spectrum.shape[2] != ky.size:
         return None
+    model = ky_grid_model(parameters or {})
+    if model is None:
+        return None
     ky = np.asarray(ky, dtype=float)
     entries = np.abs(np.nan_to_num(spectrum[..., 1]).sum(axis=(0, 1)))
+    if model == 0:
+        # dky0 = 0, dky1 = ky_1 for every k: entry_k = ky_1 * Q_k, sampled at the node.
+        if not ky[0] > 0 or not np.any(entries > 0):
+            return None
+        return float(ky[int(np.argmax(entries))])
     lower = np.concatenate(([0.0], ky[:-1]))
     width = ky - lower
     density = np.divide(entries, width, out=np.zeros_like(entries), where=width > 0)
@@ -183,10 +219,22 @@ def build_rows(runs: Path) -> list[dict[str, Any]]:
                 "tglf_run_identity": surface.get("run_identity"),
                 "gacode_revision": state.get("gacode_revision"),
                 "status": surface.get("status"),
+                "runtime_status": surface.get("runtime_status"),
+                "n_errors": len(surface.get("errors") or []),
             }
             outputs = path.parent / f"r{r:.2f}" / "outputs.json"
             if surface.get("status") == "solved" and not outputs.is_file():
                 row["status"] = "missing_outputs"  # pruned native tree: reported, not fatal
+            # Why a surface is not solved, with the atlas's vocabulary (build_atlas.py):
+            # a #1299 timeout, a launcher error and a readiness refusal are different things.
+            if row["status"] == "solved":
+                row["tglf_reason"] = None
+            elif row["status"] == "failed":
+                row["tglf_reason"] = surface.get("runtime_status")
+            elif row["status"] in ("not_run", "missing_outputs"):
+                row["tglf_reason"] = row["status"]
+            else:
+                row["tglf_reason"] = surface.get("readiness")
             if row["status"] == "solved":
                 native = TglfOutputs.read_json(outputs)
                 descriptors = atlas.spectral_descriptors(native)
@@ -194,22 +242,33 @@ def build_rows(runs: Path) -> list[dict[str, Any]]:
                 qe, qi = descriptors.get("qe_gb"), descriptors.get("qi_gb")
                 if qe is not None and qi is not None and abs(qi) >= EPS:
                     row["qe_over_qi"] = qe / qi
-                row["ky_q_peak"] = ky_peak(native)
+                row["ky_q_peak"] = ky_peak(native, parameters)
             rows.append(row)
     return rows
 
 
 def build_pairs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    groups: dict[tuple, list[dict]] = {}
-    for row in rows:
-        if row["status"] == "solved":
-            key = (row["shot"], row["time_efit_s"], row["efit_lineage"], round(row["r_over_a"], 4))
-            groups.setdefault(key, []).append(row)
+    tolerance = _atlas_module().SURFACE_TOLERANCE
+    # Surfaces are joined like the atlas does: nearest within SURFACE_TOLERANCE, and the
+    # pair row carries the rows' own r_over_a so the two tables join on the key text.
+    groups: list[tuple[tuple, float, list[dict]]] = []   # ((shot, t, lineage), r, rows)
+    for row in sorted((r for r in rows if r["status"] == "solved"),
+                      key=lambda r: (r["shot"], r["time_efit_s"], r["efit_lineage"], r["r_over_a"])):
+        state = (row["shot"], row["time_efit_s"], row["efit_lineage"])
+        if groups and groups[-1][0] == state and abs(row["r_over_a"] - groups[-1][1]) <= tolerance:
+            groups[-1][2].append(row)
+        else:
+            groups.append((state, row["r_over_a"], [row]))
     out = []
-    for (shot, t, lineage, r), group in sorted(groups.items()):
+    for (shot, t, lineage), r, group in groups:
         identities = {g["state_identity"] for g in group}
         if len(identities) != 1:
             raise ValueError(f"{shot} {t} {lineage}: configurations were run on different states")
+        qualities = {g["efit_quality"] for g in group}
+        if len(qualities) != 1:
+            # Equal state identities with different labels: the slice was re-labelled
+            # between two configuration runs, and the pair cannot name one label.
+            raise ValueError(f"{shot} {t} {lineage}: one state carries efit_quality {sorted(qualities)}")
         by: dict[tuple, dict] = {}
         for g in group:
             config = (g["sat_rule"], g["field_model"])
