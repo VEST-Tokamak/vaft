@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import warnings
 from dataclasses import replace
 import subprocess
 import sys
@@ -14,7 +15,7 @@ from omas import save_omas_json
 
 from test_efit_config import _constraints_ods
 from vaft.code.efit import PRESETS, EFITScientificConfig, apply_sigma_floor, efit_preset, generate_kfile
-from vaft.code.efit.config import routine_scientific_config
+from vaft.code.efit.config import routine_profile_config, routine_scientific_config
 from vaft.code.efit.presets import DEFAULT_PRESET, PRESET_RECORD, PSI_ONLY_SAICON
 
 #: k-files written on develop before the 2026-10-01 default change, from the
@@ -53,13 +54,42 @@ def test_the_default_is_the_working_setting_byte_for_byte(tmp_path):
 
 
 def test_the_routine_preset_is_the_old_default_byte_for_byte(tmp_path):
-    """The legacy configuration stays reachable exactly, by name or by a positional basis."""
+    """The legacy configuration stays reachable exactly, by name."""
     routine = efit_preset("routine")
     assert routine.scientific == routine_scientific_config()
     assert routine.sigma_floor == 0.0
     golden = (GOLDEN / "routine.k").read_text(encoding="utf-8")
     assert _golden_kfile(tmp_path / "preset", config=routine.scientific) == golden
-    assert _golden_kfile(tmp_path / "positional", npprime=2, nffprime=2) == golden
+    assert _golden_kfile(tmp_path / "builder", config=routine_scientific_config(
+        profile=routine_profile_config(kppcur=2, kffcur=2))) == golden
+
+
+def test_a_positional_basis_swaps_only_the_basis_on_the_default(tmp_path, monkeypatch):
+    """One spelling, one meaning: ``generate_kfile(ods, shot, 2, 2)`` is
+    ``EFITConfig(npprime=2, nffprime=2)`` is the default with a (2,2) basis.
+
+    It used to select the whole routine configuration (legacy weights, EFIT
+    termination, no floor) while ``EFITConfig(npprime=..)`` swapped only the
+    basis on the statistical default (cold review 0.8.0 delta-absorb-11b F1).
+    """
+    from vaft.code.efit import EFITConfig, EFITProfileConfig, kfile as kfile_module
+
+    monkeypatch.setattr(kfile_module, "_POSITIONAL_BASIS_WARNED", False)
+    with pytest.warns(DeprecationWarning, match="routine_scientific_config.*'routine'"):
+        positional = _golden_kfile(tmp_path / "positional", npprime=2, nffprime=2)
+    typed = _golden_kfile(tmp_path / "typed",
+                          config=EFITScientificConfig(profile=EFITProfileConfig(kppcur=2, kffcur=2)))
+    through_efit_config = _golden_kfile(tmp_path / "efit_config",
+                                        config=EFITConfig(shot=39915, npprime=2, nffprime=2))
+    assert positional == typed == through_efit_config
+    # The statistical set, not the routine one: psi-only exit and SERROR 0 are in it.
+    assert positional != (GOLDEN / "routine.k").read_text(encoding="utf-8")
+    assert "SAICON" in positional and _key(positional, "KFFCUR") == "2"
+    # The warning is one-time, and a single argument leaves the other at the default (KFFCUR 1).
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        one_sided = _golden_kfile(tmp_path / "one_sided", npprime=3)
+    assert _key(one_sided, "KPPCUR") == "3" and _key(one_sided, "KFFCUR") == "1"
 
 
 def test_the_writer_applies_the_configured_sigma_floor(tmp_path):
