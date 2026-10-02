@@ -1347,3 +1347,90 @@ def test_a_product_with_its_own_inferred_species_list_is_converted_as_given(samp
     ods[f"{prefix}.ion.1.temperature"] = 0.5 * ti
     assert resolve_transport_state(ods, _key(0.3), efit_quality="good").reasons == (
         "inferred_ti_species_disagree",)
+
+
+def _two_ion_inferred(sample, outer_nan_from=None):
+    ods = _with_inferred_ti(sample, outer_nan_from=outer_nan_from)
+    prefix = "core_profiles.profiles_1d.0"
+    ne = np.asarray(ods[f"{prefix}.electrons.density_thermal"], dtype=float)
+    ods[f"{prefix}.ion.0.density_thermal"] = 0.8 * ne
+    for key, value in (("label", "C6+"), ("z_ion", 6.0), ("element.0.z_n", 6.0), ("element.0.a", 12.011)):
+        ods[f"{prefix}.ion.1.{key}"] = value
+    ods[f"{prefix}.ion.1.density_thermal"] = ne / 30.0
+    ods[f"{prefix}.ion.1.temperature"] = np.asarray(ods[f"{prefix}.ion.0.temperature"], dtype=float)
+    ods[f"{prefix}.ion.1.temperature_fit.parameters"] = "origin=inferred; method=equilibrium_pressure_partition"
+    return ods
+
+
+def test_a_caller_ti_on_a_multi_ion_product_keeps_the_product_species(sample):
+    te = np.asarray(sample["core_profiles.profiles_1d.0.electrons.temperature"], dtype=float)
+    state = resolve_transport_state(_two_ion_inferred(sample), _key(0.3), efit_quality="good",
+                                    inferred_ti={"temperature": 0.9 * te, "time": 0.3})
+    assert state.resolved, state.reasons
+    assert list(state.profile.name) == ["H+", "C6+"]
+    assert state.composition["z_eff"] == pytest.approx(2.0, rel=1e-3)
+
+
+def test_the_gate_catches_spline_reach_and_neo_has_its_own(sample):
+    from vaft.process.transport_state import inferred_ti_supported
+
+    state = resolve_transport_state(_with_inferred_ti(sample, outer_nan_from=0.6), _key(0.3),
+                                    efit_quality="good")
+    (lo, hi), = state.ti["support_rho"]
+    rho_at = lambda r: float(np.interp(r, state.profile.rmin / state.profile.rmin[-1], state.profile.rho))
+    grid = np.round(np.arange(0.30, 0.86, 0.01), 2)
+    tglf_ok = {r: inferred_ti_supported(state, r) for r in grid}
+    neo_ok = {r: inferred_ti_supported(state, r, solver="neo") for r in grid}
+    # Some surfaces inside the support are refused: the fill reaches them through the spline.
+    assert any(not ok and rho_at(r) < hi for r, ok in tglf_ok.items())
+    # Nothing beyond the support passes either gate.
+    assert not any(ok and rho_at(r) > hi for r, ok in {**tglf_ok, **neo_ok}.items())
+    assert any(neo_ok.values())
+    assert assess_neo_readiness(state, (0.85,)).reasons == ("no_surface_independent_of_ti_fill",)
+    assert assess_neo_readiness(state).runnable
+
+
+def test_the_atlas_never_partitions_a_neo_surface_the_fill_reaches(atlas, driver, neo_driver, sample,
+                                                                     tmp_path, monkeypatch):
+    from omas import ODS
+
+    import vaft.code.gacode.neo as neo
+    import vaft.code.gacode.tglf as tglf
+    from vaft.code.gacode.neo import NEOResult
+    from vaft.code.gacode.neo.outputs import collect_neo_outputs
+    from vaft.code.gacode.tglf import TGLFResult
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    ods = _two_ion_inferred(sample, outer_nan_from=0.6)
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps({"labels": [{"shot": 48224, "time_ms": 300, "label": "good"}]}))
+
+    def fake_tglf(profile, rho, workdir, config=None, *, check=True):
+        flux = np.array([1.0, 2.0, 0.1])
+        native = TglfOutputs(directory=str(workdir), gbflux={"particle": flux, "energy": flux,
+                             "momentum": 0 * flux, "exchange": 0 * flux}, grid={"n_species": 3, "n_xgrid": 4})
+        return TGLFResult(returncode=0, runtime_status="completed", workdir=Path(workdir), outputs_native=native)
+
+    def fake_neo(profile, workdir, config=None, *, check=True):
+        Path(workdir).mkdir(parents=True, exist_ok=True)
+        return NEOResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                         outputs_native=collect_neo_outputs(ROOT / "test" / "data" / "gacode" / "neo_vest_48224_carbon"))
+
+    monkeypatch.setattr(tglf, "run_tglf_case", fake_tglf)
+    monkeypatch.setattr(neo, "run_neo_case", fake_neo)
+    surfaces = [f"{0.2 + 0.1 * i:.1f}" for i in range(7)]
+    common = ["--filedb", str(filedb), "--labels", str(labels), "--lineages", "magnetics", "--surfaces", *surfaces]
+    driver.main(common + ["--out", str(tmp_path / "tglf"), "--sat-rule", "3", "--field-model", "em-bper"])
+    neo_driver.main(common + ["--out", str(tmp_path / "neo")])
+    rows = atlas.build_rows(tmp_path / "tglf" / "tglf-sat3-em-bper", tmp_path / "neo")
+    by_r = {round(r["r_over_a"], 1): r for r in rows}
+    assert by_r[0.8]["tglf_status"] == "not_ready"
+    assert by_r[0.8]["partition_status"] in ("ti_not_inferred_here", "missing_turbulent_component")
+    assert by_r[0.3]["partition_status"] == "available"
+    assert {r["ti_lineage"] for r in rows} == {"pressure_partition_inferred"}

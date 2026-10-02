@@ -464,7 +464,8 @@ def _segments(rho: np.ndarray, valid: np.ndarray) -> list[list[float]]:
     return out
 
 
-def inferred_ti_supported(state: "ResolvedTransportState", r_over_a: float) -> bool:
+def inferred_ti_supported(state: "ResolvedTransportState", r_over_a: float, *,
+                          solver: str = "tglf", local: Any = None) -> bool:
     """Whether a surface's solver input is independent of the inferred-Ti gap fill.
 
     Parameters
@@ -473,21 +474,28 @@ def inferred_ti_supported(state: "ResolvedTransportState", r_over_a: float) -> b
         From :func:`resolve_transport_state` [-].
     r_over_a : float
         The surface [-].
+    solver : str
+        ``"tglf"`` compares the full TGLF local input; ``"neo"`` compares the ion
+        temperatures and their log-gradients the way NEO reads them [-].
+    local : TGLFInput, optional
+        The surface's input already built from ``state.profile``, to avoid rebuilding
+        it [-].
 
     Returns
     -------
     bool
-        True when no gap was filled, or when the TGLF local ion inputs (T_i/T_e, a/L_Ti,
-        P_PRIME) agree to 1e-4 between the profile and its ``fill_probe`` [-].
+        True when no gap was filled, or when the solver's input agrees (rtol 1e-4,
+        atol 1e-4) between the profile and its ``fill_probe`` [-].
 
     Convention
     ----------
-    GACODE differentiates on three grid points and then evaluates values and gradients
-    with a global cubic spline, so a filled node can reach a surface several grid
-    steps away. Rather than guess a margin, the gate compares the actual local inputs
-    of the same surface built with the gaps filled at two different ratios: what does
-    not move cannot depend on the fill. NEO takes its local profile values the same
-    way, so its surfaces use the same gate.
+    GACODE differentiates on three grid points and evaluates with a spline over the
+    whole profile, so a filled node can reach a surface several grid steps away.
+    Rather than guess a margin, the gate builds the solver's input twice -- once from
+    the profile, once from ``fill_probe``, whose gaps are filled with a different
+    scale *and* offset -- and runs the surface only when nothing moves. TGLF's local
+    input uses a not-a-knot spline; NEO (PROFILE_MODEL=2, ``expro_locsim``'s
+    ``cub_spline1``) a natural one, so each solver is checked with its own.
 
     Applicability
     -------------
@@ -496,17 +504,51 @@ def inferred_ti_supported(state: "ResolvedTransportState", r_over_a: float) -> b
     probe = getattr(state, "fill_probe", None)
     if probe is None:
         return True
+    if solver == "neo":
+        return _neo_ion_inputs_agree(state.profile, probe, float(r_over_a))
     from vaft.code.gacode.tglf.inputs import LocalConversionError, prepare_tglf_input
 
     try:
-        a = prepare_tglf_input(state.profile, float(r_over_a))
+        a = local if local is not None else prepare_tglf_input(state.profile, float(r_over_a))
         b = prepare_tglf_input(probe, float(r_over_a))
     except LocalConversionError:
         return False
-    pairs = [(np.asarray(a.taus, dtype=float)[1:], np.asarray(b.taus, dtype=float)[1:]),
-             (np.asarray(a.rlts, dtype=float)[1:], np.asarray(b.rlts, dtype=float)[1:]),
-             (np.atleast_1d(float(a.p_prime_loc)), np.atleast_1d(float(b.p_prime_loc)))]
-    return all(np.allclose(x, y, rtol=1e-4, atol=1e-6) for x, y in pairs)
+    numeric = ("taus", "rlts", "as_", "rlns", "zs", "mass", "betae", "xnue", "zeff", "debye",
+               "p_prime_loc", "q_loc", "q_prime_loc", "rmin_loc", "rmaj_loc", "kappa_loc",
+               "delta_loc")
+    for name in numeric:
+        x = np.atleast_1d(np.asarray(getattr(a, name), dtype=float))
+        y = np.atleast_1d(np.asarray(getattr(b, name), dtype=float))
+        if x.shape != y.shape or not np.allclose(x, y, rtol=1e-4, atol=1e-4, equal_nan=True):
+            return False
+    return True
+
+
+def _neo_ion_inputs_agree(profile: Any, probe: Any, r_over_a: float) -> bool:
+    """NEO's local ion T and a/L_T, natural spline as in expro_locsim, profile vs probe."""
+    from scipy.interpolate import CubicSpline
+
+    from vaft.code.gacode.tglf.inputs import bound_deriv
+
+    def ion_inputs(prof):
+        rmin = np.asarray(prof.rmin, dtype=float)
+        grid = rmin / rmin[-1]
+        ti = np.atleast_2d(np.asarray(prof.ti, dtype=float))
+        out = []
+        for row in ti:
+            if np.any(row <= 0.0) or not np.all(np.isfinite(row)):
+                return None
+            # anti-alias: not a time series and not a downsample; one radial profile
+            # evaluated at one surface the way NEO's expro_locsim does.
+            value = CubicSpline(grid, row, bc_type="natural")(r_over_a)
+            gradient = CubicSpline(grid, bound_deriv(-np.log(row), rmin), bc_type="natural")(r_over_a)
+            out += [float(value), float(rmin[-1] * gradient)]
+        return np.asarray(out)
+
+    a, b = ion_inputs(profile), ion_inputs(probe)
+    if a is None or b is None or a.shape != b.shape:
+        return False
+    return bool(np.allclose(a, b, rtol=1e-4, atol=1e-4))
 
 
 # --------------------------------------------------------------------------- resolve
@@ -828,9 +870,9 @@ def resolve_transport_state(
     try:
         # A product that already carries its ion species (lane K's H+/C6+ closure) is
         # converted as given: re-applying the closure would assume a single main ion.
-        # Only when the product's own inferred Ti is the one used: a caller-supplied Ti
-        # keeps the caller's closure.
-        product_species = (stored is not None and inferred_ti is stored and stored["species"] > 1)
+        # The product's ion list is its composition whoever supplies T_i: re-applying
+        # the single-main-ion closure to two ions would be refused (or double-count C).
+        product_species = stored is not None and stored["species"] > 1
         convert = dict(
             time=eq_time,
             tolerance=max(float(tolerance), 1e-9),
@@ -842,11 +884,13 @@ def resolve_transport_state(
         profile = prepare_gacode_profile(work, **convert)
         fill_probe = None
         if fill is not None:
-            # The same profile with the gaps filled three times hotter: the readiness
-            # gate compares every surface's solver input across the two.
+            # The same profile with the gaps filled differently: the readiness gate
+            # compares every surface's solver input across the two.
             valid_mask, raw, ratio_used = fill
             probe = copy.deepcopy(work)
-            alternative = np.where(valid_mask, raw, 3.0 * ratio_used * te)
+            # Different scale *and* offset: a pure rescale leaves log-gradients inside
+            # the gap unchanged, and Te = 0 points would stay 0 under any rescale.
+            alternative = np.where(valid_mask, raw, 2.0 * ratio_used * te + 0.25 * float(np.nanmax(te)))
             for position in (ions or [0]):
                 probe[f"{prefix}.ion.{position}.temperature"] = alternative
             fill_probe = prepare_gacode_profile(probe, **convert)
@@ -971,7 +1015,7 @@ def assess_tglf_readiness(
         except LocalConversionError as error:
             results.append(SurfaceReadiness(float(radius), _surface_code(error), str(error)))
             continue
-        if not inferred_ti_supported(state, float(radius)):
+        if not inferred_ti_supported(state, float(radius), local=local):
             results.append(SurfaceReadiness(float(radius), "ti_not_inferred_here",
                                              "this surface's solver input depends on the inferred-Ti gap fill"))
             continue
@@ -993,13 +1037,17 @@ def assess_tglf_readiness(
                            conditions=conditions, surfaces=tuple(results))
 
 
-def assess_neo_readiness(state: ResolvedTransportState) -> ReadinessReport:
+def assess_neo_readiness(state: ResolvedTransportState,
+                         surfaces: Sequence[float] = DEFAULT_SURFACES) -> ReadinessReport:
     """Decide whether a resolved state can go to NEO.
 
     Parameters
     ----------
     state : ResolvedTransportState
         From :func:`resolve_transport_state` [-].
+    surfaces : sequence of float
+        The r/a NEO will solve; with an inferred-Ti gap fill, at least one must have
+        an input independent of the fill [-].
 
     Returns
     -------
@@ -1024,6 +1072,9 @@ def assess_neo_readiness(state: ResolvedTransportState) -> ReadinessReport:
     if missing:
         return ReadinessReport("neo", "insufficient",
                                reasons=tuple(f"missing_{name}" for name in missing))
+    if state.fill_probe is not None and not any(
+            inferred_ti_supported(state, r, solver="neo") for r in surfaces):
+        return ReadinessReport("neo", "insufficient", reasons=("no_surface_independent_of_ti_fill",))
     conditions = _state_conditions(state)
     return ReadinessReport("neo", "conditional" if conditions else "ready",
                            conditions=conditions)

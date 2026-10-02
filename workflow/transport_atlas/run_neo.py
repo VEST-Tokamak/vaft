@@ -246,7 +246,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                     "equilibrium": {"path": str(eq_path), "sha256": tglf._sha256(eq_path)},
                     "profile_mapped_on": "magnetics"},
         )
-        readiness = assess_neo_readiness(state)
+        readiness = assess_neo_readiness(state, args.surfaces)
         state_dir = out / key.slug()
         job = None
         if readiness.runnable:
@@ -288,7 +288,11 @@ def main(argv: Optional[list[str]] = None) -> int:
                     # NEO solves every surface of the profile; mark the ones whose input
                     # depends on an inferred-Ti gap fill so the atlas never partitions them.
                     for row in mapping["surfaces"]:
-                        row["ti_supported"] = bool(inferred_ti_supported(state, row["r_over_a"]))
+                        try:
+                            row["ti_supported"] = bool(
+                                inferred_ti_supported(state, row["r_over_a"], solver="neo"))
+                        except Exception:  # noqa: BLE001 - an unjudgeable surface is unsupported
+                            row["ti_supported"] = False
                 except Exception as error:  # noqa: BLE001 - one state's row, not the batch
                     # A missing or unreadable outputs.json fails this state; raising
                     # here would truncate states.jsonl and lose every finished state.
