@@ -7736,6 +7736,44 @@ def _default_x_limits(ods: Any, coordinate: str, traces: Sequence[Series]) -> tu
     return None
 
 
+#: Two channels share a time base when their stamps agree to this (seconds):
+#: a nanosecond, far below any VEST digitiser period.
+_SHARED_AXIS_TOLERANCE = 1e-9
+
+
+def channel_profile_axis(
+    ods: Any, recipe: ChannelProfileRecipe, indices: Sequence[int] | None = None,
+) -> np.ndarray | None:
+    """The time axis every channel of ``indices`` that carries data shares, or ``None``.
+
+    ``time_index=`` names one stored sample, and an index means the same
+    instant on every channel only when they sample one grid (issue #1380).
+    Every channel with data is checked -- never the first alone -- and any
+    disagreement in length or stamps returns ``None``; ``indices=None``
+    checks the whole array.  No signal preset is applied: a dead channel on
+    its own axis also withdraws the slider, which is the safe direction --
+    an index is then never applied to a channel off the shared grid.
+    """
+    container = _container_of(recipe.y_path, "{i}")
+    if indices is None:
+        indices = range(_count(ods, container))
+    candidates = (recipe.y_path,) + tuple(recipe.fallback_y_paths)
+    shared = None
+    for index in indices:
+        y = _first_array(ods, candidates, i=index)
+        if y is None or y.size == 0:
+            continue
+        axis = _first_time(ods, recipe.time_paths, i=index)
+        if axis is None or axis.size != y.size:
+            continue
+        axis = np.asarray(axis, dtype=float).ravel()
+        if shared is None:
+            shared = axis
+        elif axis.shape != shared.shape or not np.allclose(axis, shared, rtol=0.0, atol=_SHARED_AXIS_TOLERANCE):
+            return None
+    return shared
+
+
 def _build_channel_profile(
     entries: Sequence[tuple[str, Any]], recipe: ChannelProfileRecipe, **options: Any
 ) -> Any:
@@ -7775,6 +7813,20 @@ def _build_channel_profile(
     container = _container_of(recipe.y_path, "{i}")
     candidates = (recipe.y_path,) + tuple(recipe.fallback_y_paths)
 
+    given = [key for key in ("time", "time_slice", "time_index") if options.get(key) is not None]
+    if len(given) > 1:
+        # One instant, chosen once (issue #1380, after #933): two selectors
+        # never compete, whichever would have been read first.
+        raise ValueError(
+            f"{plot_name or recipe.title} takes one of time=, time_slice=, time_index=; "
+            f"got {', '.join(f'{key}=' for key in given)}"
+        )
+    sample_index = options.get("time_index")
+    if sample_index is not None:
+        if isinstance(sample_index, bool) or not isinstance(sample_index, (int, np.integer)):
+            raise ValueError(f"time_index= is a sample position (an int); got {sample_index!r}")
+        sample_index = int(sample_index)
+
     points: list[dict[str, Any]] = []   # one per entry
     stamps: list[str] = []
     for entry_label, ods in entries:
@@ -7790,8 +7842,23 @@ def _build_channel_profile(
         r_all, z_all = _channel_positions(ods, container, total)
         split = radial_divider(r_all)
         regions = classify_regions(r_all, split=split) if split else [UNCLASSIFIED] * total
+        shared_axis = None
+        if sample_index is not None:
+            shared_axis = channel_profile_axis(ods, recipe, indices)
+            if shared_axis is None:
+                raise ValueError(
+                    f"{plot_name or recipe.title}: the selected channels of {container} do not share one "
+                    "time base, so time_index= names no single instant; pass time= (seconds) instead"
+                )
+            if not -shared_axis.size <= sample_index < shared_axis.size:
+                raise ValueError(
+                    f"time_index={sample_index} is outside the {shared_axis.size} stored samples "
+                    f"(0-{shared_axis.size - 1}, or counted from the end as on the PF time base)"
+                )
+            sample_index %= shared_axis.size
         entry_points = []
-        stamp = None
+        sampled: list[float] = []
+        reason = ""
         for index in indices:
             y = _first_array(ods, candidates, i=index)
             if y is None or y.size == 0:
@@ -7801,9 +7868,11 @@ def _build_channel_profile(
                 continue
             if not _channel_passes_signal_preset(ods, recipe.y_path, index, y, selection):
                 continue
-            sample, stored, reason = resolve_time_sample(axis, time_value)
-            if stamp is None:
-                stamp = f"t = {stored * 1e3:.2f} ms ({reason})"
+            if sample_index is not None:
+                sample, stored, reason = sample_index, float(axis[sample_index]), f"sample {sample_index}"
+            else:
+                sample, stored, reason = resolve_time_sample(axis, time_value)
+            sampled.append(stored)
             code, mask = _validity_of(ods, recipe.y_path, index)
             valid = True
             if mask is not None and np.asarray(mask).size == y.size:
@@ -7816,7 +7885,7 @@ def _build_channel_profile(
                 "angle_stored": _get(ods, f"{container}.{index}.poloidal_angle"),
             })
         points.append({"label": entry_label, "points": entry_points, "r": r_all, "z": z_all})
-        stamps.append(stamp or "no sample")
+        stamps.append(_sampled_stamp(sampled, reason))
 
     y_display = _resolve_axis_display(
         recipe.y_unit, unit=options.get("yunit"), subject=subject,
@@ -7898,6 +7967,22 @@ def _build_channel_profile(
     if not panels:
         raise ValueError(f"{plot_name or recipe.title}: no channel of {container} carries a sample to draw")
     return Panels(models=tuple(panels), ncols=len(panels), share_x=False, suptitle=title)
+
+
+def _sampled_stamp(sampled: Sequence[float], reason: str) -> str:
+    """The instant a spatial profile shows, without hiding a spread between channels.
+
+    Channels on one grid sample the same stored time and the stamp names it;
+    channels on their own axes each snap to their nearest sample, and the
+    stamp then gives the range they span rather than the first one's time
+    (issue #1380).
+    """
+    if not sampled:
+        return "no sample"
+    low, high = min(sampled), max(sampled)
+    if high - low <= _SHARED_AXIS_TOLERANCE:
+        return f"t = {low * 1e3:.2f} ms ({reason})"
+    return f"{reason}: channels sampled {low * 1e3:.2f}-{high * 1e3:.2f} ms"
 
 
 def _build_profile_1d(
