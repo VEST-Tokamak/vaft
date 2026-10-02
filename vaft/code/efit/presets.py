@@ -1,35 +1,35 @@
 """Named EFIT configurations a pipeline can select by name.
 
-A preset is everything a run needs beyond the constraints product: the
-scientific configuration written into the k-file, and a relative sigma floor
-applied to the constraints before the k-file is written.  The floor is part of
-the preset rather than of :class:`EFITScientificConfig` so that the routine
-configuration, its ``to_dict()`` and its ``sha256`` stay exactly as they were.
+A preset is a named :class:`EFITScientificConfig`; the relative sigma floor it
+assumes is part of that configuration (``constraints.sigma_floor``), applied by
+:func:`vaft.code.efit.generate_kfile` for every caller.
+
+``statistical_891`` -- the default since 2026-10-01
+    The working setting of the #891 weight study: statistical sigma
+    calibrated self-consistently on the reference shots (probe x3.62, loop
+    x2.15 over the stored sigma, a 2 % floor on both), the diamagnetic flux
+    fitted at x16, Ip sigma 20 % (x4 of 5 %), profile basis KPPCUR = 2,
+    KFFCUR = 1, and an exit on psi convergence alone (ERRMIN 1e-4 with SAICON
+    out of reach, NXITER 1).  It is :class:`EFITScientificConfig`'s defaults,
+    so selecting it is the same as selecting nothing.  The calibration rests on
+    39915's flat-top; see ``workflow/efit_uncertainty_calibration``.
 
 ``routine``
-    The production configuration: legacy weights, (2,2) basis, EFIT's own
-    termination defaults.  Selecting it is the same as selecting nothing.
-
-``statistical_891``
-    The working setting of the #891 weight study (2026-09-29): statistical
-    sigma calibrated self-consistently on the reference shots (probe x3.62,
-    loop x2.15 over the stored sigma, a 2 % floor on both), the diamagnetic
-    flux fitted at x16, Ip sigma 20 % (x4 of 5 %), profile basis
-    KPPCUR = 2, KFFCUR = 1, and an exit on psi convergence alone
-    (ERRMIN 1e-4 with SAICON out of reach, NXITER 1).  The calibration rests
-    on 39915's flat-top; see ``workflow/efit_uncertainty_calibration``.
+    The legacy production configuration, the defaults before 2026-10-01:
+    legacy weights, a (2,2) basis, EFIT's own termination, no floor.  Its
+    beta_p sits near zero on the reference shots (#386); kept for the studies
+    recorded with it and as an explicit opt-out.
 """
 
 from __future__ import annotations
 
 import copy
-import math
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 import numpy as np
 
-from .config import EFITScientificConfig
+from .config import EFITScientificConfig, routine_scientific_config
 
 #: The families the sigma floor applies to: the multi-channel arrays.  The
 #: scalar Ip and diamagnetic-flux nodes carry their own relative sigma.
@@ -47,24 +47,34 @@ PSI_ONLY_SAICON = 1.0e10
 PSI_ONLY_MAX_ITERATIONS = 514
 
 
+#: The preset a run uses when it names none.
+DEFAULT_PRESET = "statistical_891"
+
+
 @dataclass(frozen=True)
 class EFITPreset:
-    """A named scientific configuration plus the constraint sigma floor it assumes."""
+    """A named scientific configuration."""
 
     name: str
     description: str
     scientific: EFITScientificConfig = field(default_factory=EFITScientificConfig)
-    #: Relative floor: each fitted channel's sigma is raised to at least this
-    #: fraction of its family's median |measured|, per slice.  0 changes nothing.
-    sigma_floor: float = 0.0
-    floor_families: tuple[str, ...] = FLOOR_FAMILIES
 
-    def __post_init__(self) -> None:
-        if not (math.isfinite(self.sigma_floor) and self.sigma_floor >= 0.0):
-            raise ValueError("sigma_floor must be a finite, non-negative fraction")
+    @property
+    def sigma_floor(self) -> float:
+        """The configuration's relative sigma floor (``constraints.sigma_floor``)."""
+        return self.scientific.constraints.sigma_floor
+
+    @property
+    def floor_families(self) -> tuple[str, ...]:
+        return self.scientific.constraints.sigma_floor_families
 
     def prepare_constraints(self, ods) -> tuple[Any, list[dict[str, Any]]]:
-        """A copy of ``ods`` with this preset's sigma floor applied, and what it changed."""
+        """A copy of ``ods`` with this preset's sigma floor applied, and what it changed.
+
+        ``generate_kfile`` applies the same floor itself; this is for a caller
+        that wants to see the floored constraints, and applying it twice
+        changes nothing (the floor is set by the measurements, not the sigma).
+        """
         out = copy.deepcopy(ods)
         return out, apply_sigma_floor(out, self.sigma_floor, self.floor_families)
 
@@ -121,39 +131,17 @@ def apply_sigma_floor(ods, fraction: float, families: Iterable[str] = FLOOR_FAMI
     return changes
 
 
-def _statistical_891() -> EFITPreset:
-    base = EFITScientificConfig()
-    constraints = replace(
-        base.constraints,
-        uncertainty_mode="standard_deviation",
-        uncertainty_scales={
-            **base.constraints.uncertainty_scales,
-            # uncertainty_scales divides sigma: a multiplier m is a scale 1/m.
-            "bpol_probe": 1.0 / 3.62,
-            "flux_loop": 1.0 / 2.15,
-            "plasma_current": 1.0 / 4.0,
-            "diamagnetic_flux": 1.0 / 16.0,
-        },
-    )
-    profile = replace(base.profile, kppcur=2, kffcur=1)
-    numerics = replace(
-        base.numerics,
-        inner_iterations=1,
-        error_minimum=1.0e-4,
-        chi_squared_target=PSI_ONLY_SAICON,
-        max_iterations=PSI_ONLY_MAX_ITERATIONS,
-    )
-    return EFITPreset(
-        name="statistical_891",
-        description="#891 working setting: statistical sigma, diamagnetic fitted, (2,1), psi-only exit",
-        scientific=replace(base, constraints=constraints, profile=profile, numerics=numerics),
-        sigma_floor=0.02,
-    )
-
-
 PRESETS: dict[str, EFITPreset] = {
-    "routine": EFITPreset(name="routine", description="production configuration (legacy weights, (2,2))"),
-    "statistical_891": _statistical_891(),
+    "statistical_891": EFITPreset(
+        name="statistical_891",
+        description="#891 working setting (default): statistical sigma, diamagnetic fitted, (2,1), psi-only exit",
+        scientific=EFITScientificConfig(),
+    ),
+    "routine": EFITPreset(
+        name="routine",
+        description="legacy routine configuration (before 2026-10-01): legacy weights, (2,2), EFIT termination",
+        scientific=routine_scientific_config(),
+    ),
 }
 
 
@@ -166,6 +154,7 @@ def efit_preset(name: str) -> EFITPreset:
 
 
 __all__ = [
+    "DEFAULT_PRESET",
     "EFITPreset",
     "FLOOR_FAMILIES",
     "PRESETS",

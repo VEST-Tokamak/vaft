@@ -9,13 +9,16 @@ from omas import ODS
 from vaft.machine_mapping.efit_coilset import vest_efit_coilset_policy
 
 COILSET = vest_efit_coilset_policy()
-from vaft.code.efit.config import DIAGNOSTIC_GROUPS
+from vaft.code.efit.config import (
+    DIAGNOSTIC_GROUPS,
+    routine_constraint_config,
+    routine_numerics_config,
+    routine_profile_config,
+    routine_scientific_config,
+)
 from vaft.code.efit import (
     EFITConfig,
-    EFITConstraintConfig,
     EFITInitializationConfig,
-    EFITNumericsConfig,
-    EFITProfileConfig,
     EFITScientificConfig,
     efit_parameter_grid,
     generate_kfile,
@@ -59,12 +62,17 @@ def _constraints_ods(tmp_path, *, time=0.319):
 
 
 def _kfile_text(tmp_path, scientific=None):
+    """A k-file under ``scientific``; the legacy routine configuration when None.
+
+    The tests in this file document the routine k-file's semantics; the #891
+    default (statistical_891) is pinned in test_efit_presets.py.
+    """
     ods = _constraints_ods(tmp_path)
     generate_kfile(
         ods,
         39915,
         save_dir=str(tmp_path),
-        config=scientific,
+        config=routine_scientific_config() if scientific is None else scientific,
     )
     return next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
 
@@ -76,14 +84,14 @@ def test_the_termination_settings_are_absent_until_a_study_sets_them(tmp_path):
     defaults still apply -- which is exactly the situation #171 exists to
     characterize, and it must stay reproducible while it is characterized.
     """
-    routine = _kfile_text(tmp_path, EFITScientificConfig())
+    routine = _kfile_text(tmp_path, routine_scientific_config())
     for key in ("ERRMIN", "SAICON", "ICONVR", "NXITER"):
         assert f" {key} " not in routine
 
     tuned = _kfile_text(
         tmp_path,
-        EFITScientificConfig(
-            numerics=EFITNumericsConfig(
+        routine_scientific_config(
+            numerics=routine_numerics_config(
                 error_minimum=1.0e-3,
                 chi_squared_target=60.0,
                 convergence_mode=1,
@@ -103,9 +111,9 @@ def test_the_termination_settings_are_absent_until_a_study_sets_them(tmp_path):
     # The scientific hash must move with them, or a scan would record two
     # different configurations under one identity.
     assert (
-        EFITScientificConfig().sha256
-        != EFITScientificConfig(
-            numerics=EFITNumericsConfig(chi_squared_target=60.0)
+        routine_scientific_config().sha256
+        != routine_scientific_config(
+            numerics=routine_numerics_config(chi_squared_target=60.0)
         ).sha256
     )
 
@@ -121,11 +129,11 @@ def test_the_termination_settings_are_absent_until_a_study_sets_them(tmp_path):
 )
 def test_the_termination_settings_refuse_values_efit_cannot_use(bad):
     with pytest.raises(ValueError):
-        EFITNumericsConfig(**bad)
+        routine_numerics_config(**bad)
 
 
 def test_routine_defaults_preserve_documented_kfile_semantics(tmp_path):
-    text = _kfile_text(tmp_path, EFITScientificConfig())
+    text = _kfile_text(tmp_path, routine_scientific_config())
 
     expected = {
         "KPPCUR": "2",
@@ -164,10 +172,10 @@ def test_the_inboard_seed_default_moves_relip_and_nothing_else(tmp_path):
     catches a recoupling, because a recoupled `RZERO` still writes a
     well-formed file that quietly reconstructs a different machine.
     """
-    routine = _kfile_text(tmp_path, EFITScientificConfig())
+    routine = _kfile_text(tmp_path, routine_scientific_config())
     coupled = _kfile_text(
         tmp_path,
-        EFITScientificConfig(initialization=EFITInitializationConfig(ellipse_rzero=None)),
+        routine_scientific_config(initialization=EFITInitializationConfig(ellipse_rzero=None)),
     )
 
     before, after = coupled.splitlines(), routine.splitlines()
@@ -198,7 +206,7 @@ def test_the_seed_comes_from_the_config_not_the_constraints_tree(tmp_path):
     ods = _constraints_ods(tmp_path)
     ods["equilibrium.code.parameters.time_slice.0.IN1.RELIP"] = 0.4
     ods["equilibrium.code.parameters.time_slice.0.IN1.RZERO"] = 0.4
-    generate_kfile(ods, 39915, save_dir=str(tmp_path), config=EFITScientificConfig())
+    generate_kfile(ods, 39915, save_dir=str(tmp_path), config=routine_scientific_config())
     text = next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
 
     assert " RELIP = 0.32" in text
@@ -361,16 +369,14 @@ def test_the_coil_constraint_matrix_is_derived_from_the_machine():
 
 
 def test_a_config_without_a_matrix_lets_the_machine_supply_one():
-    from vaft.code.efit.config import EFITConstraintConfig
-
-    assert EFITConstraintConfig().coil_constraint_matrix is None
-    assert EFITConstraintConfig().coil_constraint_targets is None
+    assert routine_constraint_config().coil_constraint_matrix is None
+    assert routine_constraint_config().coil_constraint_targets is None
 
     # An explicit matrix is still validated.
     with pytest.raises(ValueError, match="rectangular"):
-        EFITConstraintConfig(coil_constraint_matrix=((1.0, 0.0), (1.0,)))
+        routine_constraint_config(coil_constraint_matrix=((1.0, 0.0), (1.0,)))
     with pytest.raises(ValueError, match="needs a coil_constraint_matrix"):
-        EFITConstraintConfig(coil_constraint_targets=(0.0,))
+        routine_constraint_config(coil_constraint_targets=(0.0,))
 
 
 def test_the_plasma_current_floor_is_the_vacuum_switch():
@@ -682,7 +688,7 @@ def test_the_named_and_positional_forms_write_the_same_kfile(tmp_path):
     """The whole safety argument for the change, in one assertion."""
     from vaft.code.efit.kfile import ConstraintWeights
 
-    positional = _kfile_text(tmp_path, EFITScientificConfig())
+    positional = _kfile_text(tmp_path, routine_scientific_config())
     assert positional  # the fixture path still works
 
     weights = ConstraintWeights.from_sequence([1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01])
@@ -728,7 +734,7 @@ def test_a_table_describing_a_different_coilset_is_refused(tmp_path):
     (tmp_path / "mhdin.dat").write_text(" &machinein\n nfsum = 2\n /\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="different coilsets"):
-        generate_kfile(ods, 39915, save_dir=str(tmp_path), config=EFITScientificConfig())
+        generate_kfile(ods, 39915, save_dir=str(tmp_path), config=routine_scientific_config())
 
 
 def test_a_table_that_agrees_still_writes(tmp_path):
@@ -736,7 +742,7 @@ def test_a_table_that_agrees_still_writes(tmp_path):
     ods = _constraints_ods(tmp_path)
     (tmp_path / "mhdin.dat").write_text(f" &machinein\n nfsum = {COILSET.nfsum}\n /\n", encoding="utf-8")
 
-    generate_kfile(ods, 39915, save_dir=str(tmp_path), config=EFITScientificConfig())
+    generate_kfile(ods, 39915, save_dir=str(tmp_path), config=routine_scientific_config())
     text = next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
     # Every group reaches the writer: the repeat count in FWTFC is the number
     # of coils the k-file actually carries.
@@ -771,7 +777,7 @@ def test_legacy_profile_order_arguments_remain_supported(tmp_path):
 
 def test_scientific_config_rejects_conflicting_legacy_profile_orders(tmp_path):
     ods = _constraints_ods(tmp_path)
-    scientific = EFITScientificConfig(profile=EFITProfileConfig(kppcur=3))
+    scientific = routine_scientific_config(profile=routine_profile_config(kppcur=3))
 
     with pytest.raises(ValueError, match="npprime conflicts"):
         generate_kfile(
@@ -785,7 +791,7 @@ def test_scientific_config_rejects_conflicting_legacy_profile_orders(tmp_path):
 
 def test_scientific_config_accepts_matching_legacy_profile_orders(tmp_path):
     ods = _constraints_ods(tmp_path)
-    scientific = EFITScientificConfig(profile=EFITProfileConfig(kppcur=3, kffcur=4))
+    scientific = routine_scientific_config(profile=routine_profile_config(kppcur=3, kffcur=4))
 
     generate_kfile(
         ods,
@@ -802,7 +808,7 @@ def test_scientific_config_accepts_matching_legacy_profile_orders(tmp_path):
 
 
 def test_typed_settings_reach_their_namelist_fields(tmp_path):
-    profile = EFITProfileConfig(
+    profile = routine_profile_config(
         kppcur=3, kffcur=4, kppfnc=1, kfffnc=2, pcurbd=0, fcurbd=0
     )
     initialization = EFITInitializationConfig(
@@ -816,13 +822,13 @@ def test_typed_settings_reach_their_namelist_fields(tmp_path):
         elongation=1.8,
         current_threshold=7_500.0,
     )
-    numerics = EFITNumericsConfig(
+    numerics = routine_numerics_config(
         relaxation=0.8,
         error_tolerance=2e-6,
         measurement_error_floor=1e-3,
         max_iterations=250,
     )
-    constraints = EFITConstraintConfig(
+    constraints = routine_constraint_config(
         group_weights={"plasma_current": 8.0, "bpol_probe": 9.0},
         use_diamagnetic_flux=False,
         diamagnetic_flux_sign="negative",
@@ -863,7 +869,7 @@ def test_typed_settings_reach_their_namelist_fields(tmp_path):
 
 
 def test_objective_scales_change_only_submitted_fwt_values(tmp_path):
-    constraints = EFITConstraintConfig(
+    constraints = routine_constraint_config(
         objective_scales={
             "pf_current": 0.01,
             "plasma_current": 0.1,
@@ -872,7 +878,7 @@ def test_objective_scales_change_only_submitted_fwt_values(tmp_path):
             "flux_loop": 100.0,
         }
     )
-    text = _kfile_text(tmp_path, EFITScientificConfig(constraints=constraints))
+    text = _kfile_text(tmp_path, routine_scientific_config(constraints=constraints))
 
     assert f"FWTFC= {COILSET.nfsum}*0.02" in text
     assert "FWTCUR= 0.30000000000000004" in text
@@ -896,8 +902,8 @@ def test_uncertainty_scales_divide_only_their_own_family_sigma(tmp_path):
     baseline = _kfile_text(tmp_path / "baseline")
     scaled = _kfile_text(
         tmp_path / "scaled",
-        EFITScientificConfig(
-            constraints=EFITConstraintConfig(
+        routine_scientific_config(
+            constraints=routine_constraint_config(
                 uncertainty_scales={"diamagnetic_flux": 1000.0}
             )
         ),
@@ -916,8 +922,8 @@ def test_an_unscaled_kfile_is_byte_identical_to_the_one_without_the_knob(tmp_pat
     baseline = _kfile_text(tmp_path / "implicit")
     explicit = _kfile_text(
         tmp_path / "implicit",
-        EFITScientificConfig(
-            constraints=EFITConstraintConfig(
+        routine_scientific_config(
+            constraints=routine_constraint_config(
                 uncertainty_scales={name: 1.0 for name in DIAGNOSTIC_GROUPS}
             )
         ),
@@ -936,8 +942,8 @@ def test_a_scaled_legacy_sigma_is_not_rounded_away_to_zero(tmp_path):
     """
     text = _kfile_text(
         tmp_path,
-        EFITScientificConfig(
-            constraints=EFITConstraintConfig(
+        routine_scientific_config(
+            constraints=routine_constraint_config(
                 uncertainty_scales={"bpol_probe": 1.0e7}
             )
         ),
@@ -951,13 +957,13 @@ def test_a_scaled_legacy_sigma_is_not_rounded_away_to_zero(tmp_path):
 def test_an_uncertainty_scale_must_be_positive_because_it_divides():
     for bad in (0.0, -1.0):
         with pytest.raises(ValueError, match="must be greater than zero"):
-            EFITConstraintConfig(uncertainty_scales={"diamagnetic_flux": bad})
+            routine_constraint_config(uncertainty_scales={"diamagnetic_flux": bad})
     with pytest.raises(ValueError, match="unknown EFIT diagnostic group"):
-        EFITConstraintConfig(uncertainty_scales={"not_a_family": 1.0})
+        routine_constraint_config(uncertainty_scales={"not_a_family": 1.0})
 
 
 def test_uncertainty_scales_survive_the_round_trip_and_the_grid():
-    base = EFITScientificConfig()
+    base = routine_scientific_config()
     assert set(base.constraints.uncertainty_scales) == set(DIAGNOSTIC_GROUPS)
     assert set(base.to_dict()["constraints"]["uncertainty_scales"]) == set(
         DIAGNOSTIC_GROUPS
@@ -977,8 +983,8 @@ def test_uncertainty_scales_survive_the_round_trip_and_the_grid():
 def test_zero_objective_scale_disables_without_reenabling_rejected_channels(tmp_path):
     ods = _constraints_ods(tmp_path)
     ods["equilibrium.time_slice.0.constraints.bpol_probe.0.weight"] = 0.0
-    scientific = EFITScientificConfig(
-        constraints=EFITConstraintConfig(
+    scientific = routine_scientific_config(
+        constraints=routine_constraint_config(
             objective_scales={"bpol_probe": 100.0, "flux_loop": 0.0}
         )
     )
@@ -991,8 +997,8 @@ def test_zero_objective_scale_disables_without_reenabling_rejected_channels(tmp_
 
 
 def test_diamagnetic_switch_overrides_its_objective_scale(tmp_path):
-    scientific = EFITScientificConfig(
-        constraints=EFITConstraintConfig(
+    scientific = routine_scientific_config(
+        constraints=routine_constraint_config(
             use_diamagnetic_flux=False,
             objective_scales={"diamagnetic_flux": 100.0},
         )
@@ -1002,16 +1008,16 @@ def test_diamagnetic_switch_overrides_its_objective_scale(tmp_path):
 
 
 def test_pf_penalty_and_hard_relations_are_independent(tmp_path):
-    no_penalty = EFITScientificConfig(
-        constraints=EFITConstraintConfig(objective_scales={"pf_current": 0.0})
+    no_penalty = routine_scientific_config(
+        constraints=routine_constraint_config(objective_scales={"pf_current": 0.0})
     )
     penalty_text = _kfile_text(tmp_path / "penalty", no_penalty)
     assert f"FWTFC= {COILSET.nfsum}*0.0" in penalty_text
     assert f" KCCOILS = {len(COILSET.constraint_matrix()[0])}" in penalty_text
     assert "CCOILS(1,1)" in penalty_text and "XCOILS=" in penalty_text
 
-    no_relations = EFITScientificConfig(
-        constraints=EFITConstraintConfig(use_coil_relation_constraints=False)
+    no_relations = routine_scientific_config(
+        constraints=routine_constraint_config(use_coil_relation_constraints=False)
     )
     relation_text = _kfile_text(tmp_path / "relations", no_relations)
     assert f"FWTFC= {COILSET.nfsum}*2.0" in relation_text
@@ -1020,9 +1026,9 @@ def test_pf_penalty_and_hard_relations_are_independent(tmp_path):
 
 
 def test_constraint_controls_are_hashed_and_unit_defaults_are_stable(tmp_path):
-    baseline = EFITScientificConfig()
-    explicit_units = EFITScientificConfig(
-        constraints=EFITConstraintConfig(
+    baseline = routine_scientific_config()
+    explicit_units = routine_scientific_config(
+        constraints=routine_constraint_config(
             objective_scales={
                 name: 1.0
                 for name in (
@@ -1035,11 +1041,11 @@ def test_constraint_controls_are_hashed_and_unit_defaults_are_stable(tmp_path):
             }
         )
     )
-    changed_scale = EFITScientificConfig(
-        constraints=EFITConstraintConfig(objective_scales={"flux_loop": 10.0})
+    changed_scale = routine_scientific_config(
+        constraints=routine_constraint_config(objective_scales={"flux_loop": 10.0})
     )
-    changed_relations = EFITScientificConfig(
-        constraints=EFITConstraintConfig(use_coil_relation_constraints=False)
+    changed_relations = routine_scientific_config(
+        constraints=routine_constraint_config(use_coil_relation_constraints=False)
     )
 
     assert baseline == explicit_units
@@ -1054,9 +1060,9 @@ def test_constraint_controls_are_hashed_and_unit_defaults_are_stable(tmp_path):
 
 
 def test_fwtbp_is_explicit_and_part_of_the_scientific_identity(tmp_path):
-    baseline = EFITScientificConfig()
-    regularized = EFITScientificConfig(
-        profile=EFITProfileConfig(kppcur=2, kffcur=2, fwtbp=1)
+    baseline = routine_scientific_config()
+    regularized = routine_scientific_config(
+        profile=routine_profile_config(kppcur=2, kffcur=2, fwtbp=1)
     )
 
     assert " FWTBP = 0" in _kfile_text(tmp_path, baseline)
@@ -1076,11 +1082,11 @@ def test_fwtbp_is_explicit_and_part_of_the_scientific_identity(tmp_path):
 )
 def test_fwtbp_refuses_ineffective_or_misaligned_bases(profile, message):
     with pytest.raises(ValueError, match=message):
-        EFITProfileConfig(**profile)
+        routine_profile_config(**profile)
 
 
 def test_a_study_can_pin_the_executables_independent_slice_initialization(tmp_path):
-    scientific = EFITScientificConfig(
+    scientific = routine_scientific_config(
         initialization=EFITInitializationConfig(
             ellipse_rzero=0.32,
             icinit=2,
@@ -1101,10 +1107,10 @@ def test_icinit_refuses_modes_the_executable_does_not_define(value):
 
 
 def test_standard_deviation_mode_uses_measurement_errors(tmp_path):
-    constraints = EFITConstraintConfig(uncertainty_mode="standard_deviation")
+    constraints = routine_constraint_config(uncertainty_mode="standard_deviation")
     text = _kfile_text(
         tmp_path,
-        EFITScientificConfig(constraints=constraints),
+        routine_scientific_config(constraints=constraints),
     )
 
     assert "BITFC= 0.25" in text
@@ -1123,15 +1129,15 @@ def test_standard_deviation_pins_the_terms_efit_would_otherwise_fold_into_sigma(
     """
     sd = _kfile_text(
         tmp_path / "sd",
-        EFITScientificConfig(
-            constraints=EFITConstraintConfig(uncertainty_mode="standard_deviation")
+        routine_scientific_config(
+            constraints=routine_constraint_config(uncertainty_mode="standard_deviation")
         ),
     )
     assert " SERROR = 0.0\n" in sd
     assert " VBIT = 1.0\n" in sd
     assert " ERRSIL = 0.0\n" in sd
 
-    legacy = _kfile_text(tmp_path / "legacy", EFITScientificConfig())
+    legacy = _kfile_text(tmp_path / "legacy", routine_scientific_config())
     assert " SERROR = 0.0005\n" in legacy
     assert "VBIT" not in legacy
     assert "ERRSIL" not in legacy
@@ -1140,17 +1146,17 @@ def test_standard_deviation_pins_the_terms_efit_would_otherwise_fold_into_sigma(
 def test_standard_deviation_weights_only_switch_rows_on(tmp_path):
     # The fixture's Ip weight is 3.0 and every PF weight 2.0; a group weight
     # would scale Ip again.  Under standard_deviation none of that is strength.
-    constraints = EFITConstraintConfig(
+    constraints = routine_constraint_config(
         uncertainty_mode="standard_deviation",
         group_weights={"plasma_current": 8.0},
     )
-    sd = _kfile_text(tmp_path / "sd", EFITScientificConfig(constraints=constraints))
+    sd = _kfile_text(tmp_path / "sd", routine_scientific_config(constraints=constraints))
     assert "FWTCUR= 1.0\n" in sd
     assert f"FWTFC= {COILSET.nfsum}*1.0\n" in sd
 
     legacy = _kfile_text(
         tmp_path / "legacy",
-        EFITScientificConfig(constraints=EFITConstraintConfig(group_weights={"plasma_current": 8.0})),
+        routine_scientific_config(constraints=routine_constraint_config(group_weights={"plasma_current": 8.0})),
     )
     assert "FWTCUR= 8.0\n" in legacy
     assert f"FWTFC= {COILSET.nfsum}*2.0\n" in legacy
@@ -1162,8 +1168,8 @@ def test_standard_deviation_weights_only_switch_rows_on(tmp_path):
         ods,
         39915,
         save_dir=str(tmp_path / "off"),
-        config=EFITScientificConfig(
-            constraints=EFITConstraintConfig(uncertainty_mode="standard_deviation")
+        config=routine_scientific_config(
+            constraints=routine_constraint_config(uncertainty_mode="standard_deviation")
         ),
     )
     text = next((tmp_path / "off" / "kfile").iterdir()).read_text(encoding="utf-8")
@@ -1190,8 +1196,8 @@ def test_standard_deviation_refuses_an_enabled_row_without_a_sigma(tmp_path, pat
             ods,
             39915,
             save_dir=str(tmp_path),
-            config=EFITScientificConfig(
-                constraints=EFITConstraintConfig(uncertainty_mode="standard_deviation")
+            config=routine_scientific_config(
+                constraints=routine_constraint_config(uncertainty_mode="standard_deviation")
             ),
         )
 
@@ -1204,8 +1210,8 @@ def test_a_disabled_row_needs_no_sigma(tmp_path):
         ods,
         39915,
         save_dir=str(tmp_path),
-        config=EFITScientificConfig(
-            constraints=EFITConstraintConfig(uncertainty_mode="standard_deviation")
+        config=routine_scientific_config(
+            constraints=routine_constraint_config(uncertainty_mode="standard_deviation")
         ),
     )
 
@@ -1219,7 +1225,7 @@ def test_the_code_parameters_state_the_serror_the_kfile_carries(tmp_path):
             ods,
             39915,
             save_dir=str(tmp_path / mode),
-            config=EFITScientificConfig(constraints=EFITConstraintConfig(uncertainty_mode=mode)),
+            config=routine_scientific_config(constraints=routine_constraint_config(uncertainty_mode=mode)),
         )
         parameters = ods["equilibrium.code.parameters.time_slice.0.IN1"]
         assert float(parameters["SERROR"]) == expected
@@ -1234,7 +1240,7 @@ def test_resolved_configuration_is_stable_and_manifest_checksums_kfiles(tmp_path
     config = EFITConfig(
         workdir=tmp_path,
         shot=39915,
-        profile=EFITProfileConfig(kppcur=3),
+        profile=routine_profile_config(kppcur=3),
         provenance={"geometry_version": "vest-2025-07", "source": "main"},
     )
 
@@ -1252,7 +1258,7 @@ def test_resolved_configuration_is_stable_and_manifest_checksums_kfiles(tmp_path
 
 def test_parameter_grid_is_deterministic_and_validated():
     grid = efit_parameter_grid(
-        EFITScientificConfig(),
+        routine_scientific_config(),
         {
             "profile.kppcur": [2, 3],
             "numerics.relaxation": [1.0, 0.8],
@@ -1270,7 +1276,7 @@ def test_parameter_grid_is_deterministic_and_validated():
 
 def test_parameter_grid_scans_fwtbp_as_a_profile_axis():
     grid = efit_parameter_grid(
-        EFITScientificConfig(),
+        routine_scientific_config(),
         {"profile.fwtbp": [0, 1]},
     )
 
@@ -1279,9 +1285,9 @@ def test_parameter_grid_scans_fwtbp_as_a_profile_axis():
 
 
 def test_scientific_configuration_round_trips_through_json():
-    original = EFITScientificConfig(
-        profile=EFITProfileConfig(kppcur=4),
-        constraints=EFITConstraintConfig(
+    original = routine_scientific_config(
+        profile=routine_profile_config(kppcur=4),
+        constraints=routine_constraint_config(
             group_weights={"flux_loop": 7.0},
             passive_structure_mode="disabled",
         ),
@@ -1295,38 +1301,38 @@ def test_scientific_configuration_round_trips_through_json():
 
 
 def test_integral_scalar_types_are_canonicalized_before_hashing():
-    numpy_config = EFITScientificConfig(
-        profile=EFITProfileConfig(kppcur=np.int64(2)),
-        numerics=EFITNumericsConfig(max_iterations=np.int64(100)),
-        constraints=EFITConstraintConfig(nccoil=np.int64(0)),
+    numpy_config = routine_scientific_config(
+        profile=routine_profile_config(kppcur=np.int64(2)),
+        numerics=routine_numerics_config(max_iterations=np.int64(100)),
+        constraints=routine_constraint_config(nccoil=np.int64(0)),
     )
 
-    assert numpy_config.to_dict() == EFITScientificConfig().to_dict()
-    assert numpy_config.sha256 == EFITScientificConfig().sha256
+    assert numpy_config.to_dict() == routine_scientific_config().to_dict()
+    assert numpy_config.sha256 == routine_scientific_config().sha256
 
 
 @pytest.mark.parametrize(
     "factory, message",
     [
-        (lambda: EFITProfileConfig(kppcur=-1), "kppcur"),
-        (lambda: EFITProfileConfig(kppcur=2.0), "kppcur"),
-        (lambda: EFITProfileConfig(kppfnc=0.0), "kppfnc"),
-        (lambda: EFITProfileConfig(pcurbd=1.0), "pcurbd"),
-        (lambda: EFITProfileConfig(pcurbd=2), "pcurbd"),
+        (lambda: routine_profile_config(kppcur=-1), "kppcur"),
+        (lambda: routine_profile_config(kppcur=2.0), "kppcur"),
+        (lambda: routine_profile_config(kppfnc=0.0), "kppfnc"),
+        (lambda: routine_profile_config(pcurbd=1.0), "pcurbd"),
+        (lambda: routine_profile_config(pcurbd=2), "pcurbd"),
         (lambda: EFITInitializationConfig(minor_radius=0), "minor_radius"),
-        (lambda: EFITNumericsConfig(error_tolerance=0), "error_tolerance"),
-        (lambda: EFITNumericsConfig(max_iterations=100.0), "max_iterations"),
+        (lambda: routine_numerics_config(error_tolerance=0), "error_tolerance"),
+        (lambda: routine_numerics_config(max_iterations=100.0), "max_iterations"),
         (
-            lambda: EFITConstraintConfig(diamagnetic_flux_sign="legacy"),
+            lambda: routine_constraint_config(diamagnetic_flux_sign="legacy"),
             "diamagnetic_flux_sign",
         ),
         (
-            lambda: EFITConstraintConfig(group_weights={"unknown": 1.0}),
+            lambda: routine_constraint_config(group_weights={"unknown": 1.0}),
             "unknown EFIT diagnostic",
         ),
-        (lambda: EFITConstraintConfig(nccoil=0.0), "nccoil"),
+        (lambda: routine_constraint_config(nccoil=0.0), "nccoil"),
         (
-            lambda: EFITConstraintConfig(
+            lambda: routine_constraint_config(
                 coil_constraint_matrix=((1.0, 0.0),),
                 coil_constraint_targets=(0.0,),
             ),
@@ -1341,7 +1347,7 @@ def test_invalid_scientific_configuration_fails_before_execution(factory, messag
 
 def test_legacy_and_typed_profile_conflicts_fail_early():
     with pytest.raises(ValueError, match="npprime conflicts"):
-        EFITConfig(npprime=4, profile=EFITProfileConfig(kppcur=3))
+        EFITConfig(npprime=4, profile=routine_profile_config(kppcur=3))
 
     with pytest.raises(ValueError, match="npprime must be a positive integer"):
         EFITConfig(npprime=2.0)
@@ -1349,7 +1355,7 @@ def test_legacy_and_typed_profile_conflicts_fail_early():
 
 def test_custom_coil_matrix_is_validated_against_selected_machine_coils(tmp_path):
     constraints = replace(
-        EFITConstraintConfig(),
+        routine_constraint_config(),
         coil_constraint_matrix=((1.0,),),
         coil_constraint_targets=(0.0,),
     )
@@ -1357,5 +1363,5 @@ def test_custom_coil_matrix_is_validated_against_selected_machine_coils(tmp_path
     with pytest.raises(ValueError, match="row count"):
         _kfile_text(
             tmp_path,
-            EFITScientificConfig(constraints=constraints),
+            routine_scientific_config(constraints=constraints),
         )

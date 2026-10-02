@@ -174,7 +174,7 @@ from vaft.data.eqdsk import read_geqdsk
 # EFIT: run, then collect whatever landed in the workdir
 result = run_efit(EFITInputs(workdir=workdir, kfiles=kfiles),
                   EFITConfig(executable=exe, workdir=workdir, shot=shot,
-                             args=("129",), timeout=600))
+                             args=("129",), timeout=3600))
 result = collect_efit_outputs(workdir, EFITConfig(workdir=workdir, shot=shot))
 
 # CHEASE: resolve the binary ($CHEASEHOME/bin/chease, then $CHEASE,
@@ -226,11 +226,12 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   family's Gaussian profile, `2` every probe); a recovered value never re-enables a channel the quality
   layer rejected. The decisions are recorded in the product under
   `equilibrium.code.parameters.channel_decisions`.
-* **`efit.preset` selects a named EFIT configuration** from `vaft.code.efit.PRESETS` (`routine`, which is
-  the same as leaving it empty, or `statistical_891`). The k-file stage then writes `efit_preset.json` beside
-  its manifest and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`);
-  pipeline 2's `kinetic.efit_preset` builds the kinetic lineages' base magnetic k-file with the same preset. A
-  preset run writes the same product paths as a routine one, so give it its own `base_dir`. What each preset
+* **`efit.preset` selects a named EFIT configuration** from `vaft.code.efit.PRESETS`: empty is the library
+  default (`statistical_891`, since 2026-10-01) and `routine` the legacy one. The k-file stage always writes
+  `efit_preset.json` beside its manifest and the EFIT product carries that record under `code.parameters`
+  (`efit_collection.efit_preset`); pipeline 2's `kinetic.efit_preset` builds the kinetic lineages' base magnetic
+  k-file the same way. A `routine` run writes the same product paths as a default one, so give it its own
+  `base_dir`. What each preset
   sets is tabulated under [Named configurations]({{ site.baseurl }}/workflows/equilibrium-kinetic-profiles/#named-configurations-presets).
 
 Each constraint is the box average of the diagnostic samples inside `[t_i − w, t_i + w]` — every
