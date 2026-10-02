@@ -67,9 +67,11 @@ NOTHING_TO_REPLICATE_STATUSES = frozenset({"no_output"})
 #: the solver ran and no slice survived, there was no upstream equilibrium to
 #: refine, or the stage is switched off in the configuration. Anything else --
 #: an executable that is not there, a missing input, an error -- is a fault a
-#: person has to see, and still fails the replication.
+#: person has to see, and still fails the replication. In particular an EFIT
+#: ``completed: returncode=0; gfiles=N`` that still ended ``no_output`` wrote
+#: g-files that could not be read or converted: a fault, so it is not listed.
 _NOTHING_BY_DESIGN = re.compile(
-    r"^(completed"                  # EFIT ran: completed_no_gfiles / completed: ...
+    r"^(completed_no_gfiles\b"      # EFIT ran: no slice produced a g-file
     r"|failed: refined_gfiles=0\b"  # CHEASE ran: every slice a solver verdict
     r"|skipped: no EFIT gfiles\b"   # CHEASE: nothing upstream to refine
     r"|skipped: \w+\.run=false\b)"   # switched off on purpose

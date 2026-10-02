@@ -1077,6 +1077,11 @@ _FAULTS = [
     ("chease", "skipped: CHEASE executable unavailable: ; input_gfiles=3"),
     ("chease", "missing_input"),
     ("efit", ""),
+    # EFIT wrote g-files; `no_output` then means every one was unreadable or
+    # the conversion raised -- a VAFT fault, not a solver verdict (cold review
+    # 0.8.0 delta-absorb-14 infra F1).
+    ("efit", "completed: returncode=0; gfiles=3; parse_errors=3"),
+    ("efit", "completed: returncode=0; gfiles=3"),
 ]
 
 
