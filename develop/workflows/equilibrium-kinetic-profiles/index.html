@@ -270,7 +270,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>d6eef4a</code>. What is described
+  <code>4a98959</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1123,7 +1123,7 @@ flux map it returns.</p>
 <h3 id="named-configurations-presets">Named configurations (presets)</h3>
 
 <p><code class="language-plaintext highlighter-rouge">vaft.code.efit.PRESETS</code> names complete EFIT configurations: the scientific configuration written into the k-file, sigma floor included.
-Since 2026-10-01 the defaults of <code class="language-plaintext highlighter-rouge">EFITScientificConfig</code> <em>are</em> the #891 working setting, so a run that names no configuration writes it (<code class="language-plaintext highlighter-rouge">DEFAULT_PRESET = "statistical_891"</code>).</p>
+Since 2026-10-01 the defaults of <code class="language-plaintext highlighter-rouge">EFITScientificConfig</code> <em>are</em> the #891 working setting, so a run that names no configuration writes it (<code class="language-plaintext highlighter-rouge">vaft.code.efit.DEFAULT_PRESET == "statistical_891"</code>).</p>
 
 <table>
   <thead>
@@ -1166,10 +1166,12 @@ never changed. <code class="language-plaintext highlighter-rouge">prepare_constr
 
 <p><code class="language-plaintext highlighter-rouge">routine_profile_config()</code>, <code class="language-plaintext highlighter-rouge">routine_numerics_config()</code>, <code class="language-plaintext highlighter-rouge">routine_constraint_config()</code> and
 <code class="language-plaintext highlighter-rouge">routine_scientific_config()</code> in <code class="language-plaintext highlighter-rouge">vaft.code.efit.config</code> build the legacy pieces one at a time.
-Passing <code class="language-plaintext highlighter-rouge">npprime</code>/<code class="language-plaintext highlighter-rouge">nffprime</code> to <code class="language-plaintext highlighter-rouge">generate_kfile</code> without a <code class="language-plaintext highlighter-rouge">config</code> also selects the legacy
-configuration with that basis. <code class="language-plaintext highlighter-rouge">EFITConfig.npprime</code>/<code class="language-plaintext highlighter-rouge">nffprime</code> only override the basis of the
-configuration the <code class="language-plaintext highlighter-rouge">EFITConfig</code> carries; to run the legacy configuration through
-<code class="language-plaintext highlighter-rouge">prepare_efit_inputs</code>, pass its <code class="language-plaintext highlighter-rouge">profile</code>, <code class="language-plaintext highlighter-rouge">initialization</code>, <code class="language-plaintext highlighter-rouge">numerics</code> and <code class="language-plaintext highlighter-rouge">constraints</code>.</p>
+The legacy configuration is selected only by name: a positional <code class="language-plaintext highlighter-rouge">npprime</code>/<code class="language-plaintext highlighter-rouge">nffprime</code> on
+<code class="language-plaintext highlighter-rouge">generate_kfile</code> without a <code class="language-plaintext highlighter-rouge">config</code> (deprecated; it warns once) and <code class="language-plaintext highlighter-rouge">EFITConfig.npprime</code>/<code class="language-plaintext highlighter-rouge">nffprime</code>
+both mean the same thing, a basis override on the configuration otherwise in force – the default
+when nothing else is named. To run the legacy configuration with another basis, pass
+<code class="language-plaintext highlighter-rouge">routine_scientific_config(profile=routine_profile_config(kppcur=..., kffcur=...))</code>; to run it
+through <code class="language-plaintext highlighter-rouge">prepare_efit_inputs</code>, pass its <code class="language-plaintext highlighter-rouge">profile</code>, <code class="language-plaintext highlighter-rouge">initialization</code>, <code class="language-plaintext highlighter-rouge">numerics</code> and <code class="language-plaintext highlighter-rouge">constraints</code>.</p>
 
 <p><strong>Selecting a preset in the pipelines.</strong></p>
 <ul>
@@ -1556,7 +1558,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-02 07:58:53 +0000"
+        "time": "2026-10-02 08:11:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
