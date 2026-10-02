@@ -8208,8 +8208,15 @@ def _build_profile_1d(
                 # condemned channel the preset lets through is not drawn as valid.
                 # The stored per-sample mask is authoritative when present; the
                 # scalar is "worst state reached" and decides only without one
-                # (the Series.is_invalid_channel rule, #424).
-                code, mask = _validity_of(ods, recipe.y_path, index)
+                # (the Series.is_invalid_channel rule, #424).  Without validity=
+                # no flag is attached: the preset has already left condemned
+                # channels out, and a per-sample flag on a channel it kept must
+                # not demote the point by default -- 0.7.1 drew it plainly, and
+                # the contract is that an unstated validity changes nothing.
+                if options.get("validity") is None:
+                    code, mask = None, None
+                else:
+                    code, mask = _validity_of(ods, recipe.y_path, index)
                 if mask is not None and np.asarray(mask).size == y_flat.size and y_flat.size:
                     valid = bool(np.asarray(mask, dtype=bool).ravel()[position])
                 else:
