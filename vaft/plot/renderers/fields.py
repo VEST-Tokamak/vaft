@@ -70,6 +70,16 @@ def render_field_2d(
 
     levels = model.contour_levels
     contour_kwargs = {"cmap": cmap, **style}
+    if "norm" not in contour_kwargs:
+        # figure_options=FigureOptions(norm=...) (issue #1421): a contour set
+        # places its levels now, so the norm has to be known now too.
+        from ..figure_options import draw_norm
+
+        chosen = draw_norm(model.values)
+        if chosen is not None:
+            contour_kwargs["norm"] = chosen
+            if levels is None:
+                levels = _levels_under(chosen, model.values)
     if model.value_scale == "log" and "norm" not in contour_kwargs:
         # Both halves are needed: the norm spaces the colours and the levels
         # space the bands. A LogNorm with linear levels still puts every
@@ -130,6 +140,18 @@ def render_field_2d(
     if model.aspect_equal:
         axes.set_aspect("equal", adjustable="box")
     return finalize(figure, axes, show=show, tight_layout=ax is None)
+
+
+def _levels_under(norm: Any, values: Any, count: int = 24) -> Any:
+    """Contour levels spaced the way ``norm`` spaces colours, over its range."""
+    from matplotlib.colors import LogNorm
+
+    low, high = norm.vmin, norm.vmax
+    if low is None or high is None or not high > low:
+        return None
+    if isinstance(norm, LogNorm):
+        return np.logspace(np.log10(low), np.log10(high), count)
+    return np.linspace(low, high, count)
 
 
 def _field_renderer(*, domain: str, subject: str, quantity: str, description: str,

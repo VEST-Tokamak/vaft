@@ -119,6 +119,7 @@ def render_entries(
         return figure
     if not figure_options:
         return renderer(model, ax=ax, show=show, **style)
+    figure_options, model = _panel_marks(figure_options, model)
     with figure_options_scope(figure_options):
         result = renderer(model, ax=ax, show=False, **style)
     # A caller's own canvas keeps its other axes: edit only what was drawn.
@@ -128,6 +129,26 @@ def render_entries(
 
         plt.show()
     return result
+
+
+def _panel_marks(figure_options: Any, model: Any) -> tuple[Any, Any]:
+    """Hand ``panel_labels`` to a composite model, which draws its marks itself.
+
+    A ``Panels`` model marks its cells at render time (#1480); setting the
+    model's own flag -- rather than marking afterwards -- draws them in the
+    same place and style and never twice.  Returns the options without the
+    field and the replaced model, or the options unchanged and ``model``.
+    """
+    import dataclasses
+
+    from vaft.plot.models import Panels
+
+    if figure_options.panel_labels is None or not isinstance(model, Panels):
+        return figure_options, model
+    return (
+        dataclasses.replace(figure_options, panel_labels=None),
+        dataclasses.replace(model, panel_labels=figure_options.panel_labels),
+    )
 
 
 def _render_interactive(
