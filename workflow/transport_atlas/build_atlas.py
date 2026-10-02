@@ -40,7 +40,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Iterable, Optional
 
 import numpy as np
@@ -163,6 +163,15 @@ def _nearest_surface(surfaces: Iterable[dict], r: float) -> Optional[dict]:
         if distance <= SURFACE_TOLERANCE and (best is None or distance < best[0]):
             best = (distance, surface)
     return None if best is None else best[1]
+
+
+def _native_dir(state_path: PurePath, tglf_root: PurePath, r: float) -> str:
+    """``<shot>/<lineage>/<time>/r<r>`` relative to the TGLF run root, in slash grammar.
+
+    A CSV cell is data read on any host: ``str(Path)`` would write the host's
+    separator, and a backslashed cell built on Windows is one file name on POSIX.
+    """
+    return (PurePath(state_path).parent.relative_to(tglf_root) / f"r{r:.2f}").as_posix()
 
 
 def _ion_sum(fluxes: Optional[dict]) -> Optional[float]:
@@ -323,8 +332,8 @@ def build_rows(tglf_root: Path, neo_root: Optional[Path] = None) -> list[dict[st
             row["tglf_run_identity"] = surface.get("run_identity")
             si = _nearest_surface(mapped, r)
             if status == "solved":
-                rel = path.parent.relative_to(tglf_root) / f"r{r:.2f}"
-                row["tglf_native_dir"] = str(rel)
+                rel = _native_dir(path, tglf_root, r)
+                row["tglf_native_dir"] = rel
                 native = TglfOutputs.read_json(Path(tglf_root) / rel / "outputs.json")
                 row.update(spectral_descriptors(native))
             if si is not None:

@@ -1233,3 +1233,13 @@ def test_a_not_run_surface_names_its_status_and_the_schema_lists_it(atlas, tmp_p
     assert row["tglf_status"] == "not_run"
     assert row["tglf_reason"] == "not_run"  # not "ready": the surface was ready and never ran
     assert "not_run" in atlas.SCHEMA["tglf_status"][2]
+
+
+def test_the_native_directory_uses_the_slash_grammar_on_every_host(atlas):
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    posix = atlas._native_dir(PurePosixPath("/runs/tglf-sat1-es/48224/magnetics/00300/state.json"),
+                              PurePosixPath("/runs/tglf-sat1-es"), 0.3)
+    windows = atlas._native_dir(PureWindowsPath(r"C:\runs\tglf-sat1-es\48224\magnetics\00300\state.json"),
+                                PureWindowsPath(r"C:\runs\tglf-sat1-es"), 0.3)
+    assert posix == windows == "48224/magnetics/00300/r0.30"
