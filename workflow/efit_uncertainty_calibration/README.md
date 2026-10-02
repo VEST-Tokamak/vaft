@@ -112,7 +112,7 @@ A slice is **good** when it is admissible, the measurement criterion passes, and
 - Thomson is never a target that a σ or a setting is chosen by.
 - Choosing by it would make it a hidden fitting constraint, and it would stop being an independent check.
 
-Across settings each slice is labelled (`criteria.slice_labels`, fit quality only, with a separate `thomson_consistent` flag): **good** when some study setting is good there, **admissible** when some is admissible but none good, otherwise **unreconstructible** — no setting in the study gives a physical magnetics-only reconstruction of it. Such a slice is reported as that, not forced. The routine's verdict is shown beside the label and never counts towards it.
+Across settings each slice is labelled (`criteria.slice_labels`, fit quality only; the good settings that pass or fail Thomson are listed beside it as `consistent` / `inconsistent`): **good** when some study setting is good there, **admissible** when some is admissible but none good, otherwise **unreconstructible** — no setting in the study gives a physical magnetics-only reconstruction of it. Such a slice is reported as that, not forced. The routine's verdict is shown beside the label and never counts towards it.
 
 ### Per setting: the σ is calibrated, not gridded
 

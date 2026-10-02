@@ -100,7 +100,8 @@ STATE_COLUMNS: dict[str, tuple[str, str]] = {
     "virial_status": ("string", "magnetics rows: criteria virial verdict"),
     "gs_status": ("string", "magnetics rows: criteria Grad-Shafranov verdict"),
     "thomson_criterion_status": ("string", "magnetics rows: criteria Thomson verdict, band [1, 2] p_e (criteria v2)"),
-    "thomson_consistent": ("boolean", "magnetics rows: physically consistent with Thomson (criteria v2); never a gate"),
+    "thomson_consistent": ("boolean", "magnetics rows: this row's setting is consistent with Thomson, criteria v2 "
+                                       "band [1, 2] p_e on criteria_log_ratio; never a gate"),
 }
 
 PROFILE_COLUMNS: dict[str, tuple[str, str]] = {
@@ -402,6 +403,8 @@ def build(filedb: Path, analysis_path: Path, out: Path, *, ti_te_ratio: float) -
 def _cell(value: Any) -> Any:
     if value is None:
         return ""
+    if isinstance(value, (bool, np.bool_)):
+        return "true" if value else "false"  # JSON spelling, as the schema declares
     if isinstance(value, float) and not math.isfinite(value):
         return ""
     if isinstance(value, (np.floating,)):

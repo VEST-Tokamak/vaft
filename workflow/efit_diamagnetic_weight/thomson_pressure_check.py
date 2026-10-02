@@ -198,6 +198,16 @@ def summarize(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 def verdict(summary: Mapping[str, Any]) -> str:
+    text = _lower_side_verdict(summary)
+    upper = summary.get("upper_side_slices", 0)
+    if upper:
+        text += (f"; separately, the reconstructed total exceeds 2x the electron "
+                 f"pressure on {upper} of {summary['compared']} slices, more than any "
+                 "thermal ion population can carry (criteria.py physical-consistency band)")
+    return text
+
+
+def _lower_side_verdict(summary: Mapping[str, Any]) -> str:
     if not summary["compared"]:
         return (
             "no reconstruction fell within tolerance of a Thomson sample, so "

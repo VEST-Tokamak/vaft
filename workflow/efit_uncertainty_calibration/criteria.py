@@ -327,10 +327,11 @@ def slice_labels(records: Sequence[Mapping[str, Any]], criteria: Mapping[str, An
     ``good`` when some setting is good there, ``admissible`` when some setting
     is admissible but none good, else ``unreconstructible``: no setting in
     the study gives a physical magnetics-only reconstruction of that slice.
-    The label is fit quality only.  ``consistent`` lists the good settings
-    that are also consistent with Thomson, and ``thomson_consistent`` says
-    whether any is (``None`` where no good setting could be judged).  The
-    routine is reported beside it, never counted towards the label.
+    The label is fit quality only.  Thomson is reported per good setting, not
+    collapsed into one flag: ``consistent`` and ``inconsistent`` list the good
+    settings whose Thomson verdict passes or fails (a good setting with no
+    Thomson verdict is in neither).  The routine is reported beside it, never
+    counted towards the label.
     """
     by_slice: dict[tuple[int, int], list[Mapping[str, Any]]] = {}
     for record in records:
@@ -341,15 +342,15 @@ def slice_labels(records: Sequence[Mapping[str, Any]], criteria: Mapping[str, An
         study = [r for r in group if r.get("setting") != "routine"]
         evaluated = [(r["setting"], evaluate(r, criteria)) for r in study]
         good = sorted({name for name, e in evaluated if e["good"]})
-        judged = [e["physically_consistent"] for _, e in evaluated if e["good"] and e["physically_consistent"] is not None]
         consistent = sorted({name for name, e in evaluated if e["good"] and e["physically_consistent"] is True})
+        inconsistent = sorted({name for name, e in evaluated if e["good"] and e["physically_consistent"] is False})
         admissible_settings = sorted({name for name, e in evaluated
                                       if e["verdicts"]["admissible"]["status"] == PASS})
         label = "good" if good else "admissible" if admissible_settings else "unreconstructible"
         routine = next((r for r in group if r.get("setting") == "routine"), None)
         out.append({
             "shot": shot, "time_ms": time_ms, "label": label, "good": good, "admissible": admissible_settings,
-            "consistent": consistent, "thomson_consistent": (any(judged) if judged else None),
+            "consistent": consistent, "inconsistent": inconsistent,
             "routine": None if routine is None else evaluate(routine, criteria)["verdicts"]["admissible"]["status"],
         })
     return out

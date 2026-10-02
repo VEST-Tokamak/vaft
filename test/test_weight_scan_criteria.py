@@ -115,9 +115,9 @@ def test_slice_labels_keep_the_fit_label_and_flag_consistency_separately(criteri
     ]
     labels = {row["shot"]: row for row in criteria.slice_labels(records)}
     assert [labels[s]["label"] for s in (1, 2, 3)] == ["good", "good", "good"]
-    assert labels[1]["consistent"] == ["b"] and labels[1]["thomson_consistent"] is True
-    assert labels[2]["consistent"] == [] and labels[2]["thomson_consistent"] is False
-    assert labels[3]["thomson_consistent"] is None
+    assert labels[1]["consistent"] == ["b"] and labels[1]["inconsistent"] == ["a"]
+    assert labels[2]["consistent"] == [] and labels[2]["inconsistent"] == ["a"]
+    assert labels[3]["consistent"] == [] and labels[3]["inconsistent"] == []
 
 
 def test_thomson_is_not_available_off_the_samples_and_never_counts_against(criteria):
@@ -209,7 +209,7 @@ def test_slice_labels_name_the_unreconstructible_slices(criteria):
     # criteria v2: a Thomson fail leaves the fit label alone and is flagged beside it
     assert [(x["time_ms"], x["label"]) for x in labels] == [
         (10, "good"), (11, "unreconstructible"), (12, "good")]
-    assert labels[2]["thomson_consistent"] is False and labels[0]["thomson_consistent"] is True
+    assert labels[2]["inconsistent"] == ["s"] and labels[0]["consistent"] == ["s"]
     # the routine is reported, never counted towards the label
     assert labels[1]["routine"] == "pass"
 
