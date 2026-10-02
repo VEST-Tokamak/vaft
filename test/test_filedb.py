@@ -526,7 +526,11 @@ def test_only_hdf5_stages_can_be_written_with_a_compression_filter():
     finally:
         sys.path.remove(str(ingest))
 
-    for tree in module.DIAGNOSTIC_TREES:
+    # Only a tree whose storage asks for a filter is constrained; the ShotLog's
+    # pulse_schedule product is small JSON and asks for none (#995).
+    compressed = [tree for tree in module.DIAGNOSTIC_TREES if module._storage(tree)]
+    assert compressed, "no ingested tree requests compression; this guard is vacuous"
+    for tree in compressed:
         suffix = OMAS_PRODUCT_SUFFIXES.get(tree, OMAS_PRODUCT_SUFFIX)
         assert suffix in {".h5", ".hdf5"}, (
             f"{tree!r} is ingested with a compression filter but declares "

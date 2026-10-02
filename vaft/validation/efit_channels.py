@@ -114,12 +114,16 @@ def condemned_channels(source: Any, *, nbprobe: int) -> set[int]:
     :func:`vaft.validation.imas.is_condemned_channel`: a channel that holds
     its last value after the diagnostics window is not condemned, one the
     quality layer rejected in its entirety is.  Probes map to their own
-    index, flux loops to ``index + nbprobe``.
+    index, flux loops to ``index + nbprobe``.  Probes at or beyond
+    ``nbprobe`` are not EFIT channels and are skipped, as in
+    :func:`decide_efit_channels`; counting them would alias a flux loop.
     """
     condemned: set[int] = set()
     for kind, offset in (("b_field_pol_probe", 0), ("flux_loop", int(nbprobe))):
         quantity = EFIT_QUANTITY[kind]
         for index in range(_count(source, kind)):
+            if kind == "b_field_pol_probe" and index >= int(nbprobe):
+                continue
             if is_condemned_channel(source, f"magnetics.{kind}.{index}.{quantity}"):
                 condemned.add(index + offset)
     return condemned

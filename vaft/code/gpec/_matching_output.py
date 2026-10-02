@@ -30,7 +30,12 @@ from typing import Any, Optional
 
 import numpy as np
 
+from ._dcon_output import _ballooning_evaluated
 from ._netcdf import complex_scalar_attr, complex_var
+
+#: Per-surface stability columns, in the order :meth:`Pest3MatchingOutput.rational_surface_stability` returns them.
+_PROFILES = ("psi_n", "q", "di", "dr", "h", "ca1")
+SURFACE_COLUMNS = ("m", "n", "psi_n", "q", "delta_prime_real", "delta_prime_imag", "di", "dr", "h", "ca1")
 
 
 @dataclass
@@ -67,6 +72,25 @@ class Pest3MatchingOutput:
     vacuum1: Optional[complex] = None
     total1: Optional[complex] = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    #: Local stability profiles on the solver's own ``psi_n`` grid (issue #939).
+    #: Both solvers write them from ``locstab%fs`` (``rdcon_netcdf.f:412-415``):
+    #: ``di`` the ideal Mercier criterion D_I, ``dr`` the resistive
+    #: interchange criterion D_R, ``ca1`` the high-n ballooning criterion C_A.
+    #: ``dr`` is computed as ``di + (h - 1/2)**2`` (``rdcon/mercier.f:157``),
+    #: the identity ``D_R = E + F + H**2 = D_I + (H - 1/2)**2`` of Glasser,
+    #: Wang & Park, Phys. Plasmas 23, 112506 (2016), Appendix eqs. (A9)-(A10),
+    #: whose parameters are the Glasser, Greene & Johnson (1975) ones in
+    #: current notation (other texts swap the H/H**2 labelling). ``h`` (Glasser's H)
+    #: is written by RDCON only; it is ``None`` for STRIDE. ``ca1`` is NaN where
+    #: the ballooning scan left the zero it was initialised with, the same rule
+    #: as :attr:`DconOutput.ca1`: RDCON's own ``bal.f:53`` integrates only where
+    #: ``di <= 0`` (and ``psi <= 1``), exactly like DCON's.
+    psi_n: Optional[np.ndarray] = None
+    q: Optional[np.ndarray] = None
+    di: Optional[np.ndarray] = None
+    dr: Optional[np.ndarray] = None
+    h: Optional[np.ndarray] = None
+    ca1: Optional[np.ndarray] = None
 
     @property
     def msing(self) -> int:
@@ -96,6 +120,34 @@ class Pest3MatchingOutput:
             )
         return out
 
+    def rational_surface_stability(self) -> list[dict[str, Any]]:
+        """One row per rational surface: diagonal Delta-prime and the local criteria there.
+
+        Columns are :data:`SURFACE_COLUMNS`. ``di``/``dr``/``h``/``ca1`` are
+        interpolated linearly in ``psi_n`` from the solver's profiles to each
+        surface's ``psi_n_rational``, and are ``None`` when the profile is
+        absent. This is a table of values, not a verdict: neither a positive
+        Delta-prime nor ``dr > 0`` alone decides tearing stability (#939).
+        """
+        rows = []
+        for row in self.delta_prime_diagonal():
+            for name in ("di", "dr", "h", "ca1"):
+                row[name] = self._profile_at(getattr(self, name), row["psi_n"])
+            rows.append({name: row[name] for name in SURFACE_COLUMNS})
+        return rows
+
+    def _profile_at(self, values: Optional[np.ndarray], psi_n: Optional[float]) -> Optional[float]:
+        if values is None or self.psi_n is None or psi_n is None:
+            return None
+        grid = np.asarray(self.psi_n, dtype=float)
+        values = np.asarray(values, dtype=float)
+        # A surface beyond the solver's profile grid (it ends at psihigh, e.g.
+        # 0.994) has no criteria rather than an extrapolated value.
+        if values.shape != grid.shape or not grid[0] <= psi_n <= grid[-1]:
+            return None
+        value = float(np.interp(psi_n, grid, np.asarray(values, dtype=float)))
+        return None if np.isnan(value) else value
+
     @property
     def stable(self) -> Optional[bool]:
         """Free-boundary-style stability from ``sign(Re(total1))``, when available.
@@ -116,9 +168,13 @@ class Pest3MatchingOutput:
         def _cs(value: Optional[complex]) -> Optional[dict[str, float]]:
             return None if value is None else {"real": float(value.real), "imag": float(value.imag)}
 
+        def _r(arr: Optional[np.ndarray]) -> Optional[list]:
+            # NaN (unevaluated ca1) and +-inf are not valid JSON; they serialize as null.
+            return None if arr is None else [float(v) if np.isfinite(v) else None for v in np.asarray(arr, dtype=float)]
+
         return {
             "schema": "vaft.code.gpec.Pest3MatchingOutput",
-            "schema_version": 1,
+            "schema_version": 2,
             "solver": self.solver,
             "n_tor": self.n_tor,
             "mlow": self.mlow,
@@ -138,6 +194,7 @@ class Pest3MatchingOutput:
             "vacuum1": _cs(self.vacuum1),
             "total1": _cs(self.total1),
             "metadata": self.metadata,
+            **{name: _r(getattr(self, name)) for name in _PROFILES},
         }
 
     @classmethod
@@ -172,6 +229,11 @@ class Pest3MatchingOutput:
             vacuum1=_cs(payload.get("vacuum1")),
             total1=_cs(payload.get("total1")),
             metadata=payload.get("metadata", {}),
+            # Absent in schema_version 1 payloads.
+            **{
+                name: None if payload.get(name) is None else np.asarray(payload[name], dtype=float)
+                for name in _PROFILES
+            },
         )
 
     def write_json(self, path: str | Path) -> Path:
@@ -220,6 +282,12 @@ def read_pest3_matching_output(run_dir: str | Path, *, solver: str, mode: int) -
         Delta_prime = complex_var(ds, "Delta_prime")
         Delta = complex_var(ds, "Delta")
 
+        profiles = {
+            name: np.asarray(ds[name].values, dtype=float) if name in ds.variables else None for name in _PROFILES
+        }
+        if profiles["ca1"] is not None:
+            profiles["ca1"] = np.where(_ballooning_evaluated(profiles["ca1"]), profiles["ca1"], np.nan)
+
         nzero_attr = ds.attrs.get("nzero")
         nzero = None if nzero_attr is None else int(nzero_attr)
         plasma1 = complex_scalar_attr(ds, "plasma1")
@@ -246,4 +314,5 @@ def read_pest3_matching_output(run_dir: str | Path, *, solver: str, mode: int) -
         vacuum1=vacuum1,
         total1=total1,
         metadata={"run_dir": str(run_dir), "nc_file": nc_path.name},
+        **profiles,
     )

@@ -174,7 +174,7 @@ def test_the_impa_stage_does_not_depend_on_the_baseline_product(snakefile):
 
 
 def test_the_impa_stage_records_a_failure_instead_of_raising_one():
-    script = (WORKFLOW / "generate_impa_ods.py").read_text()
+    script = (WORKFLOW / "generate_impa_ods.py").read_text(encoding="utf-8")
     assert "except Exception" in script
     assert '"status": "failed"' in script
     assert "return 0" in script

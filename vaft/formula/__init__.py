@@ -11,7 +11,7 @@ has.  Reading ``__all__`` is what pulls the whole subtree in: the module-level
 import triggers the full load at the moment it actually needs it, and nothing
 before then does.
 
-The discovery layer -- ``describe``, ``search``, ``list_formulas``,
+The discovery layer -- ``describe``, ``show``, ``search``, ``list_formulas``,
 ``categories`` and the ``catalog`` submodule they live in -- is resolved the
 same way, on first access, and is never part of ``__all__``: the star import
 does not touch it, and neither does importing a physics submodule.
@@ -19,7 +19,6 @@ does not touch it, and neither does importing a physics submodule.
 
 from __future__ import annotations
 
-import warnings
 from importlib import import_module
 
 _SUBMODULES = {
@@ -34,6 +33,18 @@ _SUBMODULES = {
     "magnetics": ".magnetics",
     "neoclassical": ".neoclassical",
     "startup": ".startup",
+    "transformer": ".transformer",
+    "particle": ".particle",
+    "geometry": ".geometry",
+    "ripple": ".ripple",
+    "disruption": ".disruption",
+    "nbi": ".nbi",
+    "waves": ".waves",
+    "ntv": ".ntv",
+    "vde": ".vde",
+    "pwi": ".pwi",
+    "sol": ".sol",
+    "boundaries": ".boundaries",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -55,13 +66,25 @@ _IMPORT_ORDER = (
     "magnetics",
     "neoclassical",
     "startup",
+    "transformer",
+    "particle",
+    "geometry",
+    "ripple",
+    "disruption",
+    "nbi",
+    "waves",
+    "ntv",
+    "vde",
+    "pwi",
+    "sol",
+    "boundaries",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
 #: ``_SUBMODULES``: joining that map would put ``catalog`` into ``__all__`` and
 #: make the star import load it, which is exactly what issue #248 forbids.
 _CATALOG_NAMES = frozenset(
-    {"catalog", "FormulaSpec", "describe", "search", "list_formulas", "categories"}
+    {"catalog", "FormulaSpec", "describe", "search", "list_formulas", "categories", "show"}
 )
 
 _MODULES: dict[str, object] = {}
@@ -96,41 +119,9 @@ def _public_names() -> list[str]:
     return sorted(name for name in collected if not name.startswith("_"))
 
 
-#: Lower-case physical constants that ``equilibrium.py`` defined at module scope
-#: and the star export re-published, so ``vaft.formula.e`` was the elementary
-#: charge and ``vaft.formula.c`` the speed of light (#368). They were duplicates
-#: of the canonical constants and are gone; these map the old spellings onto the
-#: real ones for one release, because a caller who wrote ``vaft.formula.e``
-#: meant something specific and deserves to be told what to write instead.
-#:
-#: Deliberately not covered: ``np``, ``warnings``, ``Union``, ``curve_fit`` and
-#: the other re-imported plumbing that also leaked. Nothing should have been
-#: reaching those through this package, and a shim would only invite it.
-_RENAMED_CONSTANTS = {
-    "e": "QE",
-    "eV_to_J": "QE",
-    "m_e": "ME",
-    "epsilon_0": "EPS0",
-    "k_B": "K_BOLTZMANN",
-    "c": "C_LIGHT",
-    "h": "H_PLANCK",
-}
-
-
 def __getattr__(name: str):
     if name in _SUBMODULES:
         return _submodule(name)
-
-    if name in _RENAMED_CONSTANTS:
-        replacement = _RENAMED_CONSTANTS[name]
-        warnings.warn(
-            f"`vaft.formula.{name}` was a duplicate of `vaft.formula.{replacement}` "
-            f"that leaked through the star export; use `{replacement}`. "
-            "The old spelling is removed in 0.8.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return getattr(_submodule("constants"), replacement)
 
     if name in _CATALOG_NAMES:
         module = import_module(".catalog", __name__)

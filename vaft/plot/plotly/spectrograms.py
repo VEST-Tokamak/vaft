@@ -42,6 +42,12 @@ def add_spectrogram(
         colorscale=scale, reversescale=reverse, showscale=colorbar,
         colorbar=_bar(figure, model, row, col), meta={"vaft": "spectrogram"},
     ), **cell)
+    if model.ridge_time is not None:
+        figure.add_trace(go.Scatter(
+            x=np.asarray(model.ridge_time), y=np.asarray(model.ridge_frequency), mode="lines",
+            name=model.ridge_label or "tracked ridge", connectgaps=False,
+            meta={"vaft": "spectrogram_ridge"},
+        ), **cell)
     figure.update_xaxes(title_text=model.x_label if x_title else None, **cell)
     figure.update_yaxes(title_text=model.y_label,
                         range=[0.0, float(model.max_frequency)] if model.max_frequency is not None else None, **cell)

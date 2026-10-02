@@ -164,7 +164,7 @@ def test_the_psi_alias_draws_exactly_the_same_map(entries):
 # ---------------------------------------------------------------------------
 
 def test_the_default_overlays_are_the_machine_plus_the_fields_own(entries):
-    assert POLOIDAL_OVERLAYS == ("coils", "passive", "wall", "boundary", "axis")
+    assert POLOIDAL_OVERLAYS == ("coils", "passive", "wall", "boundary", "axis", "x_points")
     assert DEFAULT_POLOIDAL_OVERLAYS == ("coils", "wall")
     assert _labels(_map(entries)) == {"PF coils", "Boundary", "Magnetic axis"}
 

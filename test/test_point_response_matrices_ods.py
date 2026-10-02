@@ -22,7 +22,7 @@ def machine_ods() -> ODS:
 
     ods = ODS(consistency_check=False)
     vfit_pf_active_static(ods, shot=45968)
-    pf_passive(ods)
+    pf_passive(ods, shot=45968)
     em_coupling(ods, shot=45968)
     return ods
 

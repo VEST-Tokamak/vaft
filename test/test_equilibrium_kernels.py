@@ -22,12 +22,10 @@ from vaft.formula import (
     auxiliary_heating_power,
     bootstrap_current_fraction,
     bremsstrahlung_power_density_from_T_e_p_Z_eff,
-    bremsstrahlung_power_density_from_Z_eff_n_e_T_e,
     bremsstrahlung_power_density_from_n_e_T_e_Z_eff,
     bremsstrahlung_radiation_power_from_z_eff_n_e_t_e,
     confinement_time_from_P_loss_W_th,
     current_density_from_B,
-    current_density_from_psi,
     current_drive_efficiency,
     current_limit_from_beta,
     current_limit_from_q,
@@ -290,36 +288,6 @@ def test_an_explicit_cocos_index_rescales_the_field_by_the_factor_ratio():
     assert cocos11 == pytest.approx(default * ratio, rel=1e-12, abs=0.0)
 
 
-def test_current_density_from_psi_is_minus_b_z_over_mu0_and_warns():
-    # #355: the value is -B_Z/mu0 [A/m], a current per unit length, not a
-    # current density.  The docstring used to say +B_Z/mu0, which is the sign
-    # this module's own default convention (k = -1) does not give -- anyone
-    # migrating on that advice would have flipped sign.  Pin the sign, not the
-    # prose.
-    R = np.linspace(1.0, 2.0, 41)
-    psi = 0.3 + 0.07 * R
-    b_z = vertical_magnetic_field_from_psi(psi, R, np.zeros_like(R))
-    with pytest.warns(DeprecationWarning, match="not a current density"):
-        value = current_density_from_psi(psi, R)
-    assert value == pytest.approx(-b_z / MU0, rel=1e-10, abs=0.0)
-    # ... which is the same thing the inline k = -1 spelled out.
-    assert value == pytest.approx(
-        b_z / (MU0 * poloidal_field_factor(None)), rel=1e-10, abs=0.0
-    )
-
-
-def test_the_documented_replacement_for_current_density_from_psi_agrees():
-    # The migration path the docstring names must reproduce the old number
-    # exactly, or the deprecation sends callers somewhere wrong.
-    R = np.linspace(1.0, 2.0, 41)
-    Z = np.zeros_like(R)
-    psi = 0.3 + 0.07 * R
-    with pytest.warns(DeprecationWarning):
-        legacy = current_density_from_psi(psi, R)
-    replacement = -vertical_magnetic_field_from_psi(psi, R, Z) / MU0
-    assert replacement == pytest.approx(legacy, rel=1e-13, abs=0.0)
-
-
 def test_current_density_from_B_is_the_radial_derivative_over_mu0():
     R = np.linspace(1.0, 2.0, 41)
     slope = 0.11
@@ -455,8 +423,13 @@ def test_q_from_phi_is_exact_for_full_weber_psi_and_says_so():
     assert q_from_phi(psi_wb, phi)[1:-1] == pytest.approx(q0, rel=1e-12)
     assert q_from_phi(psi_wb / (2 * np.pi), phi)[1:-1] == pytest.approx(2 * np.pi * q0, rel=1e-12)
 
+    # A per-radian flux is taken when the caller says so (#354).
+    assert q_from_phi(psi_wb / (2 * np.pi), phi, psi_per_radian=True)[1:-1] == pytest.approx(
+        q0, rel=1e-12
+    )
+
     doc = q_from_phi.__doc__
-    assert "monotonic, full weber [Wb]." in doc
+    assert "monotonic; full weber unless" in doc
     assert "[Wb/rad]" not in doc
     # C = 2 Phi_b / (psi_b - psi_a) is likewise exact with full-weber psi.
     rhoN = np.sqrt(phi / phi[-1])
@@ -744,22 +717,6 @@ def test_the_canonical_bremsstrahlung_form_refuses_a_positional_Z_eff():
         bremsstrahlung_power_density_from_n_e_T_e_Z_eff(1e19, 1000.0, 2.0)
 
 
-def test_the_deprecated_bremsstrahlung_name_warns_and_forwards_unchanged():
-    # A caller written against the old *signature* must keep its answer; the
-    # shim only adds the warning.  One written against the old *name* keeps its
-    # wrong answer, which a compatibility shim cannot detect -- the warning is
-    # what points at the fix.
-    with pytest.warns(DeprecationWarning, match="from_n_e_T_e_Z_eff"):
-        legacy = bremsstrahlung_power_density_from_Z_eff_n_e_T_e(1e19, 1000.0, 2.0)
-    assert legacy == bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
-        1e19, 1000.0, Z_eff=2.0
-    )
-    with pytest.warns(DeprecationWarning):
-        assert bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
-            1e19, 1000.0
-        ) == bremsstrahlung_power_density_from_n_e_T_e_Z_eff(1e19, 1000.0)
-
-
 def test_nrl_bremsstrahlung_matches_its_published_coefficient():
     assert bremsstrahlung_radiation_power_from_z_eff_n_e_t_e(
         2.0, 1e19, 1000.0
@@ -915,24 +872,23 @@ def test_collisionality_from_nu_ii_is_linear_in_the_collision_frequency():
 
 
 def test_kadomtsev_constraint_matches_its_closed_form():
+    # alpha_K = (1 + a_P)(mu_rho + 2 mu_beta - 4 mu_nu) - 2 a_P (#351).
     mu_rho, mu_beta, mu_nu, a_P = 0.4, 0.2, 0.1, 0.5
-    expected = 5.0 + (
-        mu_rho * (1 + a_P) - (3 * (mu_rho + 2 * mu_beta - 4 * mu_nu - 2) / 2)
-    )
-    assert verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P) == pytest.approx(
-        expected, rel=1e-12, abs=0.0
-    )
+    expected = (1 + a_P) * (mu_rho + 2 * mu_beta - 4 * mu_nu) - 2 * a_P
+    with pytest.warns(FutureWarning, match="351"):
+        got = verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P)
+    assert got == pytest.approx(expected, rel=1e-12, abs=1e-12)
 
 
-def test_kadomtsev_constraint_returns_five_when_the_bracket_vanishes():
-    # The offset from 5 is mu_rho*(1 + a_P) - (3/2)(mu_rho + 2 mu_beta
-    # - 4 mu_nu - 2).  With mu_rho = mu_nu = 0 the bracket closes at
-    # mu_beta = 1, which pins the factor on mu_beta and the -2 together.
-    assert verify_kadomtsev_constraint(0.0, 1.0, 0.0, 0.0) == pytest.approx(
-        5.0, rel=1e-12, abs=0.0
-    )
-    # mu_nu enters the bracket with a factor -4, so -0.5 closes it too and
-    # the two cases together fix both coefficients and their signs.
-    assert verify_kadomtsev_constraint(0.0, 0.0, -0.5, 0.0) == pytest.approx(
-        5.0, rel=1e-12, abs=0.0
-    )
+def test_kadomtsev_constraint_vanishes_for_a_pure_dimensionless_scaling():
+    # Bohm, beta- and nu-free: B tau ~ rho*^-2.  Its T exponent is -1, which
+    # a_P = -1/2 reproduces (a_P / (1 + a_P) = -1), so the residual is 0 ...
+    with pytest.warns(FutureWarning):
+        assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, -0.5) == pytest.approx(
+            0.0, abs=1e-12
+        )
+    # ... and a mismatched a_P shows up as a non-zero residual.
+    with pytest.warns(FutureWarning):
+        assert verify_kadomtsev_constraint(-2.0, 0.0, 0.0, 0.0) != pytest.approx(
+            0.0, abs=1e-6
+        )

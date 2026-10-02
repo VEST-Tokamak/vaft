@@ -48,6 +48,7 @@ EXTERNAL_CODE_WINDOWS_SCRIPTS = (
 EXTERNAL_CODE_POSIX_SCRIPTS = (
     "install_chease.sh",
     "install_efit.sh",
+    "install_genray.sh",
     "install_gpec.sh",
 )
 #: Rules that hold for an external-code installer whatever it is written in.
@@ -59,6 +60,7 @@ EXTERNAL_CODE_CHECKERS = (
     "check_chease.py",
     "check_efit.py",
     "check_gacode.py",
+    "check_genray.py",
     "check_gpec.py",
     "check_nubeam.py",
 )
@@ -154,7 +156,7 @@ checker = _load_checker()
 #: own README, reference cases and validation notes. This is not the axis
 #: #225's flatness rule is about -- that one forbids splitting the *bootstrap*
 #: by platform or by role, which is what a student would have to navigate.
-EXTERNAL_CODE_DIRECTORIES = ("gacode", "nubeam")
+EXTERNAL_CODE_DIRECTORIES = ("gacode", "genray", "nubeam", "tes")
 
 
 def test_install_directory_is_flat_and_complete():
@@ -176,6 +178,8 @@ def test_install_directory_is_flat_and_complete():
         "_external_code_common.py",
         "README.md",
         "check_vaft_environment.py",
+        # Not a code checker: vaft-nn is a model registry, not a build (#669).
+        "check_vaft_nn.py",
     )
     for name in expected:
         assert (INSTALL / name).is_file(), f"install/{name} is missing"
@@ -224,23 +228,23 @@ def test_platform_wrappers_are_thin():
 
 
 def test_python_version_bounds_are_parsed():
-    assert checker.parse_version_bounds(">=3.10,<3.14") == ((3, 10), (3, 14))
+    assert checker.parse_version_bounds(">=3.10,<3.15") == ((3, 10), (3, 15))
     assert checker.parse_version_bounds("") == (None, None)
 
 
 def test_requires_python_is_read_from_the_checkout():
-    assert checker.read_requires_python() == ">=3.10,<3.14"
+    assert checker.read_requires_python() == ">=3.10,<3.15"
 
 
-@pytest.mark.parametrize("version", [(3, 9), (3, 14)])
+@pytest.mark.parametrize("version", [(3, 9), (3, 15)])
 def test_unsupported_python_fails_with_remediation(version):
-    result = checker.check_python_version(version=version, specifier=">=3.10,<3.14")
+    result = checker.check_python_version(version=version, specifier=">=3.10,<3.15")
     assert result.failed
     assert result.remediation
 
 
 def test_supported_python_passes():
-    result = checker.check_python_version(version=(3, 12), specifier=">=3.10,<3.14")
+    result = checker.check_python_version(version=(3, 14), specifier=">=3.10,<3.15")
     assert result.status == checker.PASS
 
 
@@ -320,13 +324,13 @@ def test_missing_hsds_configuration_warns_but_does_not_fail_offline(tmp_path):
     result = checker.check_hsds_configuration(path=tmp_path / ".hscfg")
     assert result.status == checker.WARN
     assert not result.failed
-    assert "hsconfigure" in result.remediation
+    assert "vaft hsds configure" in result.remediation
 
 
 def test_missing_hsds_configuration_fails_when_a_network_probe_was_requested(tmp_path):
     result = checker.check_hsds_configuration(path=tmp_path / ".hscfg", required=True)
     assert result.failed
-    assert "hsconfigure" in result.remediation
+    assert "vaft hsds configure" in result.remediation
 
 
 def test_offline_run_passes_without_any_credentials(monkeypatch, tmp_path):
@@ -368,7 +372,7 @@ def test_offline_run_skips_the_network_probe(monkeypatch):
 def test_network_probe_delegates_to_the_shared_helper():
     assert checker.check_hsds_connection(probe=lambda: True).status == checker.PASS
     failed = checker.check_hsds_connection(probe=lambda: False)
-    assert failed.failed and "hsconfigure" in failed.remediation
+    assert failed.failed and "vaft hsds configure" in failed.remediation
 
 
 def test_connection_errors_are_reported_not_raised():
@@ -716,6 +720,11 @@ def fake_conda(tmp_path, monkeypatch):
     log.touch()
     monkeypatch.setenv("PATH", f"{binary}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("FAKE_CONDA_LOG", str(log))
+    # The suite is normally run from inside `conda activate vaft`, which is
+    # exactly what the uninstaller's active-environment guard refuses. Start
+    # from no activation; a test that exercises the guard sets it explicitly.
+    for name in ("CONDA_DEFAULT_ENV", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
     return log
 
 
@@ -816,7 +825,7 @@ def test_bootstrap_performs_the_documented_steps_in_order(fake_conda, monkeypatc
     assert positions == sorted(positions), "bootstrap steps ran out of order"
     assert "pip install -e ." in stdout  # via the stub echo
     assert "check_vaft_environment" in stdout, "the bootstrap must end by verifying"
-    assert "hsconfigure" in stdout
+    assert "vaft hsds configure" in stdout
     assert "never asks for, stores, or transmits your credentials" in stdout
 
 
@@ -2258,9 +2267,9 @@ def test_windows_nubeam_link_restores_a_space_separated_ifs():
     only the bare one needs the IFS restored.
     """
     text = (NUBEAM_DIR / "windows.sh").read_text(encoding="utf-8")
-    # The bare expansion is the plasma_state_test link; the three earlier ones
+    # The bare expansion is the vaft_plasma_state link; the three earlier ones
     # sit inside quoted "VAR=..." strings, so index() would find those first.
-    bare = text.index("gfortran -o plasma_state_test.exe")
+    bare = text.index("gfortran -o vaft_plasma_state.exe")
     preceding = text[:bare]
     assert "IFS=' '" in preceding[-600:], (
         "the bare $(link_libraries) expansion needs a space-separated IFS set "
@@ -3032,3 +3041,54 @@ def test_external_code_checkers_never_use_the_locale_encoding(name):
         )
         if text_mode:
             assert "encoding" in keywords, f"install/{name}:{node.lineno}: {called}() without encoding="
+
+
+_STACK_FUNCTION = re.compile(r"^raise_stack_limit\(\) \{\n.*?^\}\n", re.S | re.M)
+
+
+def _raise_stack_limit(*, soft: int, hard: int, want: int = 65536):
+    """Run install_efit.sh's raise_stack_limit in a shell whose limits are set first.
+
+    Lowering the hard limit inside the subprocess is what any account may do,
+    so the macOS case (hard limit 65520 KB, below the 65536 KB ask) is
+    reproduced on every POSIX runner rather than only on a Mac.
+    """
+    text = (INSTALL / "install_efit.sh").read_text(encoding="utf-8")
+    match = _STACK_FUNCTION.search(text)
+    assert match, "install_efit.sh no longer defines raise_stack_limit()"
+    harness = (
+        "set -euo pipefail\nIFS=$'\\n\\t'\n"
+        "note() { printf '==> %s\\n' \"$*\"; }\n"
+        + match.group(0)
+        + f"ulimit -S -s {soft}\nulimit -H -s {hard}\n"
+        f"if raise_stack_limit {want}; then status=0; else status=$?; fi\n"
+        'printf \'limit=%s status=%s\\n\' "$(ulimit -s)" "$status"\n'
+    )
+    return subprocess.run([BASH, "-c", harness], capture_output=True, text=True, timeout=60)
+
+
+@requires_bash
+@pytest.mark.skipif(os.name == "nt", reason="ulimit is a POSIX shell builtin")
+def test_efit_installer_takes_the_hard_stack_limit_when_the_ask_exceeds_it():
+    """Cold review 0.8.0 delta-absorb-13-infra F2.
+
+    macOS caps the stack hard limit at 65520 KB. The installer asked for
+    exactly 65536 KB, the raise failed, and EFIT's ctest ran at the 8 MB
+    default, where its automatic arrays segfault: a good build was recorded
+    as a failed acceptance. The adapter already falls back to the hard limit;
+    the installer now does the same and says so.
+    """
+    completed = _raise_stack_limit(soft=8192, hard=16384)
+    assert completed.returncode == 0, completed.stderr
+    assert "limit=16384 status=0" in completed.stdout
+    assert "raised it to the hard limit 16384 KB" in completed.stdout
+
+    # When the ask fits under the hard limit it is taken as before, silently.
+    # (The hard limits used here stay under macOS's 65520 KB cap, which no
+    # account may raise, so the harness itself can always set them.)
+    completed = _raise_stack_limit(soft=8192, hard=49152, want=32768)
+    assert "limit=32768 status=0" in completed.stdout and "hard limit" not in completed.stdout
+
+    # Already enough: nothing to do, nothing said.
+    completed = _raise_stack_limit(soft=32768, hard=49152, want=16384)
+    assert "limit=32768 status=0" in completed.stdout and "==>" not in completed.stdout

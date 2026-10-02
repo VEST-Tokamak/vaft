@@ -25,7 +25,14 @@ production counterpart of the interactive notebooks: the same `vaft` library cal
 > **These are scripts, not a package.** `workflow/` contains no `__init__.py`; nothing in it is importable as
 > `vaft.workflow.*`. Each directory is self-contained and is meant to be run **from inside itself**, because
 > several scripts resolve output paths relative to the working directory. Only the `vaft.*` calls they make
-> are library API.
+> are library API. No `vaft.workflow` abstraction is planned; see
+> [Computational layers]({{ '/reference/computational-layers/' | relative_url }}).
+
+VAFT's products are designed to be traceable to their inputs, configuration and version. The example below
+follows one tokamak analysis chain; what is versioned includes the machine description, geometry,
+calibration, mappings and conventions, the processing and model configuration, and the schema.
+
+![Traceable provenance]({{ site.baseurl }}/assets/diagrams/scientific_provenance_chain.svg)
 
 | Pipeline | Orchestration | Purpose |
 |---|---|---|
@@ -173,12 +180,13 @@ from vaft.data.eqdsk import read_geqdsk
 # EFIT: run, then collect whatever landed in the workdir
 result = run_efit(EFITInputs(workdir=workdir, kfiles=kfiles),
                   EFITConfig(executable=exe, workdir=workdir, shot=shot,
-                             args=("129",), timeout=600))
+                             args=("129",), timeout=3600))
 result = collect_efit_outputs(workdir, EFITConfig(workdir=workdir, shot=shot))
 
 # CHEASE: resolve the binary ($CHEASEHOME/bin/chease, then $CHEASE,
 # then $CHEASE_EXEC_DIR -- there is no $PATH fallback), prepare, run
-config = CHEASEConfig(executable=exe, timeout=600, target_psin=0.993, nideal=6, nw=513)
+# GEQDSK in, GEQDSK out: the adapter selects CHEASE's NIDEAL itself (#516)
+config = CHEASEConfig(executable=exe, timeout=600, target_psin=0.993, nw=513)
 result = run_chease(prepare_chease_inputs(gfile, config), config)
 
 # GPEC suite: one case per refined g-file
@@ -224,6 +232,13 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   family's Gaussian profile, `2` every probe); a recovered value never re-enables a channel the quality
   layer rejected. The decisions are recorded in the product under
   `equilibrium.code.parameters.channel_decisions`.
+* **`efit.preset` selects a named EFIT configuration** from `vaft.code.efit.PRESETS`: empty is the library
+  default (`statistical_891`, since 2026-10-01) and `routine` the legacy one. The k-file stage always writes
+  `efit_preset.json` beside its manifest and the EFIT product carries that record under `code.parameters`
+  (`efit_collection.efit_preset`); pipeline 2's `kinetic.efit_preset` builds the kinetic lineages' base magnetic
+  k-file the same way. A `routine` run writes the same product paths as a default one, so give it its own
+  `base_dir`. What each preset
+  sets is tabulated under [Named configurations]({{ site.baseurl }}/workflows/equilibrium-kinetic-profiles/#named-configurations-presets).
 
 Each constraint is the box average of the diagnostic samples inside `[t_i − w, t_i + w]` — every
 sample once, equal weights, no interpolation grid of its own (issue #433) — with `w =

@@ -216,7 +216,7 @@ def build_nubeam_deposition_poloidal(outputs: Any, *, title: Optional[str] = Non
         z=columns["z"] / _CM_PER_M,
         kind="points",
         label=f"deposition ({native.birth.count} markers)",
-        style={"marker": "o", "markersize": 2, "color": "#e41a1c", "alpha": 0.6},
+        style={"marker": "o", "markersize": 2, "color": "palette:8", "alpha": 0.6},
     )
     return GeometryLayers(
         layers=(layer,),
@@ -245,7 +245,7 @@ def build_nubeam_deposition_topview(outputs: Any, *, title: Optional[str] = None
             z=radius * np.sin(angle),
             kind="points",
             label=f"deposition ({native.birth.count} markers)",
-            style={"marker": "o", "markersize": 2, "color": "#e41a1c", "alpha": 0.6},
+            style={"marker": "o", "markersize": 2, "color": "palette:8", "alpha": 0.6},
         )
     ]
     # A ring at the outermost deposition radius, so the projection is readable
@@ -258,7 +258,7 @@ def build_nubeam_deposition_topview(outputs: Any, *, title: Optional[str] = None
             z=edge * np.sin(turn),
             kind="polyline",
             label=f"R = {edge:.2f} m",
-            style={"color": "0.6", "linewidth": 0.8},
+            style={"color": "emphasis:lower", "linewidth": 0.8},
         )
     )
     return GeometryLayers(
@@ -310,8 +310,8 @@ def build_nubeam_lost_fast_ions(outputs: Any, *, title: Optional[str] = None) ->
     prompt = np.asarray(native.lost.prompt)
     layers = []
     for mask, label, color in (
-        (prompt, "prompt loss", "#377eb8"),
-        (~prompt, "orbit loss", "#ff7f00"),
+        (prompt, "prompt loss", "palette:0"),
+        (~prompt, "orbit loss", "palette:1"),
     ):
         if not mask.any():
             continue

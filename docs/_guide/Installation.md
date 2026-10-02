@@ -7,7 +7,7 @@ layout: post
 permalink: /workflows/start-here/
 guide:
   architecture: Entry point from installation to an offline ODS and optional public data.
-  prerequisites: Python 3.10–3.13, Git, and a fresh virtual environment.
+  prerequisites: Python 3.10–3.14, Git, and a fresh virtual environment.
   expected: A local plasma-current plot, followed optionally by read-only shot 39915 metadata.
   status: Verified offline and against public HSDS.
 related:
@@ -22,7 +22,7 @@ database credentials or an external fusion code. Public VEST data access is the 
 
 ## 1. Install VAFT from source
 
-VAFT supports Python 3.10–3.13. Use a virtual environment and install the repository source:
+VAFT supports Python 3.10–3.14. Use a virtual environment and install the repository source:
 
 ```bash
 git clone https://github.com/VEST-Tokamak/vaft.git
@@ -39,14 +39,20 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines four extras; none is needed for the first result on this page:
+The project defines ten extras (nine optional-dependency groups plus `dev`); none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
 | `sklearn` | scikit-learn | `fit_profile(fitting_function='gp_sklearn')`; the default `'gp'` mode runs on SciPy alone |
 | `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
 | `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
-| `dev` | pytest, pytest-xdist, pre-commit and the two runtimes above | running the test suite and contributing |
+| `ml` | torch, onnx, onnxruntime, scikit-learn, skl2onnx | the `torch` and `sklearn` backends of `vaft.process.ml` and ONNX export; datasets, splits, the `numpy` backend and resolving a published model need no extra |
+| `vtk` | pyvista (VTK) | `vaft.plot.pyvista.to_pyvista` / `write_vtk`: 3-D scenes as PyVista multiblocks and `.vtm`/`.vtp` files for ParaView (#1087) |
+| `jupyter3d` | k3d | `vaft.plot.k3d.to_k3d` and `coil_phase_explorer`: interactive 3-D scenes in Jupyter (#1087) |
+| `video` | PyAV (av) | writing `.mp4`/`.webm` from `plot_*(..., animation=True)` and its inline notebook preview; `.gif` export needs no extra (#1050) |
+| `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
+| `mcp` | mcp (the Model Context Protocol SDK) | `python -m vaft.mcp` / `vaft mcp`: the local, read-only MCP server for agent clients ([MCP server]({{ site.baseurl }}/reference/mcp/)); `import vaft` never needs it |
+| `dev` | pytest, pytest-xdist, pre-commit, the two runtimes above, PyAV and the MCP SDK | running the test suite and contributing |
 
 ```bash
 python -m pip install -e ".[dev]"            # development tooling
@@ -93,21 +99,28 @@ the public database below.
 
 ## 3. Configure read-only public HSDS access
 
-Run `hsconfigure` and enter the endpoint plus credentials supplied by the VEST team. Credentials stay
+Run `vaft hsds configure` and enter the endpoint plus credentials supplied by the VEST team. Credentials stay
 in the user configuration and must never be committed to a notebook or documentation asset.
 
 ```bash
->> hsconfigure
-Enter new values or accept defaults in brackets with Enter.
-
-Server endpoint []: http://147.46.36.244:5101
-Username []: [assigned_username]
-Password []: [assigned_password]
-API Key [None]: 
-Testing connection...
-connection ok
-Quit? (Y/N)Y
+>> vaft hsds configure
+Configuring HSDS credentials in /home/you/.hscfg
+Server endpoint: http://147.46.36.244:5101
+Username: [assigned_username]
+Password (input hidden, Enter keeps it):
+API key (input hidden, Enter keeps it):
+Updated hs_endpoint, hs_password, hs_username in /home/you/.hscfg (mode 0600).
 ```
+
+> Do not use the upstream `hsconfigure` for this: it reads the password as visible text and
+> prints an already-stored password as the prompt default. `vaft hsds configure` writes the same
+> h5pyd `~/.hscfg` with hidden input and mode `0600` (on Windows file modes are not enforced; the
+> file inherits your user-profile permissions). Never commit a `.hscfg`.
+
+For CI, HPC jobs and containers, skip the file: export `HS_ENDPOINT`, `HS_USERNAME` and
+`HS_PASSWORD` (or `HS_API_KEY`), which h5pyd reads directly, or run
+`vaft hsds configure --endpoint URL --username NAME --password-stdin < secret-file`. Secrets are never
+accepted as command-line arguments.
 
 A successful read uses the public namespace and does not modify the database:
 
@@ -169,6 +182,17 @@ That build runs on macOS/Apple Silicon and on native Windows. The adapter runs N
 its native output; `vaft.machine_mapping.core_sources` and `vaft.machine_mapping.distributions` map
 the profiles into IMAS, while the Monte Carlo marker records stay in the native container.
 
+NICE (`vaft.code.nice`, issue #666) is **experimental**: the adapter prepares and collects a
+standalone `nice_recon` run, but it does not yet reconstruct VEST equilibria, and nothing in the
+routine pipeline uses it. Upstream has no install step, so `$NICEHOME` is the built source tree;
+VAFT looks for `build/nice_recon`, then `run/nice_recon`, then `nice_recon` beneath it, or takes
+`NiceConfig.executable`. The validated build is pinned revision `7ad1ea8f` with AppleClang, Eigen 3
+and SuiteSparse; see `vaft/code/nice/README.md` for the flags it needs.
+
+```bash
+export NICEHOME=/path/to/nice     # experimental; source tree with build/nice_recon
+```
+
 GACODE differs from every other code here in three ways, and each one breaks an assumption stated
 above. It **builds in place**, so `$GACODEHOME` is the source checkout rather than a separate prefix.
 Each suite member carries its own `bin`, so the executables are `neo/bin/neo` and `tglf/bin/tglf`, not
@@ -205,6 +229,25 @@ That root holds no executables at all — it is a
 with no variable set. `onnxruntime` is optional
 (`pip install 'vaft[surrogate]'`) and is needed only to *run* a network; deciding whether a model
 applies to a given plasma needs neither the runtime nor a prediction, and is the question to ask first.
+
+VAFT's own trained models are a third kind. `vaft.process.ml` trains them, and
+[`vaft-nn`](https://github.com/VEST-Tokamak/vaft-nn) publishes them. This is a **private registry
+repository**: each version's manifest and hashes are in git, and the weights are GitHub Release
+assets. Point VAFT at a checkout of it the same way:
+
+```bash
+git clone git@github.com:VEST-Tokamak/vaft-nn.git ~/git/vaft-nn
+export VAFT_NN_HOME=~/git/vaft-nn         # registry: models/<name>/releases.yaml + manifests
+export VAFT_NN_CACHE=~/scratch/vaft-nn    # optional; default is the platform cache directory
+gh auth login                             # once; fetching reuses the GitHub CLI's login
+python install/check_vaft_nn.py           # registry, cache and gh access, layer by layer
+```
+
+`vaft.process.ml.fetch_model(name, version=...)` downloads a release into the cache.
+Alternatively, `load_model(..., fetch=True)` fetches on a cache miss. Either way, a file is accepted
+only if its SHA-256 matches the manifest the registry pins. VAFT never reads or stores a GitHub token
+itself. Training and inference with the `torch` and `sklearn` backends need
+`pip install 'vaft[ml]'`; resolving and verifying a model does not.
 
 On Windows, set the same roots as user environment variables so that a new
 terminal and a Jupyter kernel both inherit them:

@@ -44,7 +44,9 @@ Every canonical renderer has this shape::
 * The return value is ``(Figure, Axes)``, or ``(Figure, ndarray[Axes])`` for
   multi-panel renderers -- with one exception: ``<domain>_animation_<quantity>``
   renderers return ``(Figure, Axes, FuncAnimation)``, since none of the other
-  view kinds models a time animation.
+  view kinds models a time animation.  (A movie of any plot is the adapter's
+  ``animation=True``, which draws the plot over its slice control and returns
+  a lazy result with ``save("x.mp4")``; see :func:`vaft.plot.backend.render.render_entries`.)
 
 Renderers take a typed view model from :mod:`vaft.plot.models` plus styling and
 layout options, and nothing else.  None of them interprets an OMAS
@@ -180,6 +182,7 @@ from .models import (
     TextPanel,
     ViewModel,
 )
+from .composition import AxisLink, FigureCell, FigureComposition
 from .discovery import PlotCapability, PlotCatalog
 from .display import PSI_STYLES
 from .navigation import SliceNavigator
@@ -204,6 +207,8 @@ from .renderers.fields import (
     equilibrium_field_2d,
     equilibrium_field_psi,
     equilibrium_field_psi_vacuum,
+    field_line_topology_field_connection_length,
+    mhd_linear_field_spectrum,
     passive_structure_field_wall_reduction,
     vacuum_field,
 )
@@ -213,12 +218,14 @@ from .renderers.geometry import (
     coil_3d_geometry_topview,
     equilibrium_geometry_boundary,
     equilibrium_geometry_topview,
+    machine_geometry3d,
     machine_geometry_poloidal,
     machine_geometry_topview,
     magnetics_geometry_poloidal,
-    pf_coil_geometry_poloidal,
+    mhd_linear_geometry_island,
     passive_structure_geometry_poloidal,
     passive_structure_geometry_wall_mode,
+    pf_coil_geometry_poloidal,
     pf_plasma_geometry_poloidal,
     soft_x_rays_geometry_lines_of_sight,
     thomson_scattering_geometry_poloidal,
@@ -246,6 +253,11 @@ from .renderers.lines import (
     equilibrium_time_diamagnetic_flux,
     equilibrium_time_li,
     equilibrium_time_major_radius,
+    equilibrium_time_minor_radius,
+    equilibrium_time_elongation,
+    equilibrium_time_triangularity,
+    equilibrium_time_triangularity_upper,
+    equilibrium_time_triangularity_lower,
     equilibrium_time_plasma_current,
     equilibrium_time_q0,
     equilibrium_time_q95,
@@ -292,6 +304,8 @@ from .renderers.panels import (
     equilibrium_overview_histories,
     equilibrium_overview_profiles,
     equilibrium_overview_residuals,
+    equilibrium_overview_constraint_weights,
+    equilibrium_overview_pressure_weight_scan,
     equilibrium_overview_verification,
     equilibrium_time_virial,
     interferometer_overview,
@@ -305,8 +319,10 @@ from .renderers.panels import (
     soft_x_rays_overview,
     spectrometer_uv_time_impurity,
     equilibrium_time_beta,
+    equilibrium_time_shape,
     summary_time_energy,
     summary_time_power_balance,
+    summary_time_resistive_zeff,
     summary_time_voltage_consumption,
     passive_structure_overview_wall_time,
     passive_structure_overview_wall_reduction,
@@ -318,11 +334,15 @@ from .renderers.profiles import (
     nbi_profile_current_drive,
     nbi_profile_electron_heating,
     nbi_profile_ion_heating,
+    charge_exchange_profile_fit,
     charge_exchange_profile_ion_temperature,
     charge_exchange_profile_velocity_tor,
     electron_density_profile,
+    electron_density_profile_gradient,
     electron_temperature_profile,
+    electron_temperature_profile_gradient,
     ion_temperature_profile,
+    ion_temperature_profile_gradient,
     thermal_pressure_profile,
     equilibrium_profile_f,
     equilibrium_profile_ffprime,
@@ -332,14 +352,20 @@ from .renderers.profiles import (
     equilibrium_profile_q,
     neoclassical_profile_bootstrap_current,
     mhd_linear_profile_b_field_perturbed,
+    mhd_linear_profile_chirikov,
     mhd_linear_profile_displacement,
     mhd_linear_profile_island_width,
     mhd_linear_profile_resonant_flux,
+    mhd_linear_spectrum_b_field_perturbed,
     impa_profile_field,
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,
+    thomson_scattering_profile_fit,
+    coil_3d_profile_current,
+    coil_3d_spectrum_current,
 )
 from .renderers.spectra import (
+    diagnostics_spectrum_coherence,
     interferometer_spectrum,
     mirnov_spectrum,
     soft_x_rays_spectrum,
@@ -351,6 +377,19 @@ from .renderers.spectrograms import (
     soft_x_rays_spectrogram,
 )
 from .parameter_history import plot_parameter_history
+from .analytic import (
+    miller_surfaces_model,
+    plasma_state_projection_model,
+    plot_miller_surfaces,
+    plot_plasma_state_projection,
+    plot_solovev_equilibrium,
+    solovev_equilibrium_model,
+)
+from .fluctuation import (
+    cross_spectrum_model,
+    plot_cross_spectrum,
+    plot_fluctuation_frequency_coverage,
+)
 
 # Public surface that is not a canonical renderer.
 _SUPPORT_EXPORTS = (
@@ -358,6 +397,9 @@ _SUPPORT_EXPORTS = (
     "DEFAULT_FORMAT",
     "FORMATS",
     "PSI_STYLES",
+    "AxisLink",
+    "FigureCell",
+    "FigureComposition",
     "Geometry3DLayer",
     "Geometry3DLayers",
     "GeometryLayer",
@@ -395,6 +437,15 @@ _SUPPORT_EXPORTS = (
     "render_spectrogram",
     "save_figure",
     "plot_parameter_history",
+    "miller_surfaces_model",
+    "plasma_state_projection_model",
+    "plot_miller_surfaces",
+    "plot_plasma_state_projection",
+    "plot_solovev_equilibrium",
+    "solovev_equilibrium_model",
+    "cross_spectrum_model",
+    "plot_cross_spectrum",
+    "plot_fluctuation_frequency_coverage",
     "THEMES",
     "resolve_presentation",
 )

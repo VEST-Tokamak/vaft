@@ -209,6 +209,11 @@ EFIT_RELIABILITY_COLUMNS = (
     "convergence_deviation",
     "equilibrium_source",
     "equilibrium_lineage",
+    # Which EFIT configuration produced the row: chi-square, weight and the
+    # iteration counts mean different things under the routine legacy weights
+    # and the statistical default of 2026-10-01 (#891), so rows of both must
+    # not be read as one population.  "name@sha12", or "unrecorded".
+    "efit_configuration",
 )
 
 EFIT_MAGNETIC_FAMILIES = (
@@ -909,6 +914,28 @@ def _efit_collection(ods) -> dict:
         return {}  # CHEASE writes its own payload here, and XML is not ours
 
 
+def _efit_configuration(ods, collection: dict) -> str:
+    """``"name@sha12"`` of the EFIT configuration that built this product.
+
+    The magnetic collection records it as ``efit_collection.efit_preset``;
+    a kinetic product as ``kinetic_efit.efit_preset``.  ``"unrecorded"`` is a
+    product written before configurations were recorded (on the production
+    database, the routine configuration), or one whose k-files came from an
+    explicit ``--config`` payload or a legacy ``--npprime/--nffprime`` basis,
+    which name no preset.
+    """
+    record = collection.get("efit_preset")
+    if not record:
+        raw = _safe_get(ods, "equilibrium.code.parameters", None)
+        try:
+            record = (json.loads(raw).get("kinetic_efit") or {}).get("efit_preset") if isinstance(raw, str) else None
+        except (TypeError, ValueError, AttributeError):
+            record = None
+    if not isinstance(record, dict) or not record.get("name"):
+        return "unrecorded"
+    return f"{record['name']}@{str(record.get('scientific_sha256', ''))[:12]}"
+
+
 def _slice_artifacts(collection: dict, eq_time) -> dict:
     """The artifact hashes of the slice at ``eq_time``, from the payload.
 
@@ -1073,6 +1100,25 @@ def _measurement_value(measurement, field: str, default=np.nan):
     return _safe_get(container, path, default)
 
 
+def _ip_chi_squared(equilibrium_slice) -> dict | None:
+    """Plasma-current chi-square recomputed without the vessel term, or None."""
+    from vaft.omas.efit_quality import ip_chi_squared_record
+
+    if "constraints.ip" not in equilibrium_slice:
+        return None
+    values = {
+        name: _as_float(_safe_get(equilibrium_slice, f"constraints.ip.{name}"))
+        for name in ("measured", "reconstructed", "measured_error_upper", "chi_squared")
+    }
+    record = ip_chi_squared_record(
+        values["measured"],
+        values["reconstructed"],
+        values["measured_error_upper"],
+        values["chi_squared"],
+    )
+    return record if record["source"] != "unavailable" else None
+
+
 def _extract_efit_reliability_families(
     ods,
     shot: int,
@@ -1083,6 +1129,7 @@ def _extract_efit_reliability_families(
         return []
     equilibrium_times = _safe_get(ods, "equilibrium.time", [])
     collection = _efit_collection(ods)
+    configuration = _efit_configuration(ods, collection)
     rows: list[dict] = []
     for eq_index in range(len(ods["equilibrium.time_slice"])):
         equilibrium_slice = ods["equilibrium.time_slice"][eq_index]
@@ -1092,6 +1139,28 @@ def _extract_efit_reliability_families(
         aggregate_chi_squared = _as_float(
             _safe_get(equilibrium_slice, "constraints.chi_squared_reduced")
         )
+        # EFIT's reported Ip chi-square adds the prescribed vessel current,
+        # which VEST's inner Rogowski does not link; the slice aggregate is
+        # built from the same total.  Both are recomputed from the plasma-only
+        # residual EFIT fitted (vaft.omas.efit_quality.IP_CHI_SQUARED_CONVENTION).
+        ip_record = _ip_chi_squared(equilibrium_slice)
+        if (
+            ip_record is not None
+            and np.isfinite(ip_record["vessel_accounting_term"])
+            and ip_record["vessel_accounting_term"] != 0.0
+        ):
+            freedom = _as_float(
+                _safe_get(equilibrium_slice, "constraints.freedom_degrees_n")
+            )
+            # The reported aggregate is per degree of freedom; the vessel term
+            # is a raw chi-square.  Without the degree count the two cannot be
+            # combined, so the aggregate is unavailable rather than the raw
+            # term subtracted whole (which gave -47.8 for a 1.2 fit).
+            aggregate_chi_squared = (
+                aggregate_chi_squared - ip_record["vessel_accounting_term"] / freedom
+                if np.isfinite(freedom) and freedom > 0
+                else np.nan
+            )
         convergence_iterations = _as_float(
             _safe_get(equilibrium_slice, "convergence.iterations_n")
         )
@@ -1128,6 +1197,8 @@ def _extract_efit_reliability_families(
                 )
                 weight = _as_float(_measurement_value(measurement, "weight"))
                 chi_squared = _as_float(_measurement_value(measurement, "chi_squared"))
+                if label == "ip" and ip_record is not None:
+                    chi_squared = ip_record["chi_squared"]
                 exact_value = _as_float(_measurement_value(measurement, "exact"))
                 residual = reconstructed - measured
                 normalized = (
@@ -1172,6 +1243,7 @@ def _extract_efit_reliability_families(
                         "convergence_deviation": convergence_deviation,
                         "equilibrium_source": "",
                         "equilibrium_lineage": lineage,
+                        "efit_configuration": configuration,
                     }
                 )
     return rows
@@ -1389,7 +1461,9 @@ def summary(
     if shot_range is None:
         from .utils import exist_shot
 
-        discovered = exist_shot(source=source, sort=1) or []
+        # strict: an unreachable server must not read as "no shots" and return
+        # an empty table.
+        discovered = exist_shot(source=source, sort=1, strict=True) or []
         shots = sorted({int(value) for value in discovered if str(value).isdigit()})
     else:
         if (

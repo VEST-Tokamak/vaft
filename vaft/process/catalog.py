@@ -42,11 +42,13 @@ from ._docstring import (
     ModuleDoc,
     ParamDoc,
     ParsedDocstring,
+    RaiseDoc,
     Reference,
     ReturnDoc,
     machine_scope,
     parse_docstring,
     parse_module_docstring,
+    source_span,
     strip_roles,
 )
 
@@ -68,7 +70,7 @@ __all__ = [
 #: functions are public through ``equilibrium``, and that is where they appear.
 CATEGORIES: tuple[str, ...] = (*_IMPORT_ORDER, "cocos")
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _GENERATOR = "python -m vaft.process.catalog --output docs/_data/process_catalog.yml"
 _PACKAGE = Path(__file__).resolve().parent
 
@@ -99,6 +101,11 @@ class ProcessSpec:
     deprecated: bool
     aliases: tuple[str, ...] = ()
     errors: tuple[str, ...] = ()
+    raises: tuple[RaiseDoc, ...] = ()
+    source_path: str = ""
+    source_line: int = 0
+    source_end_line: int = 0
+    source_code: str = ""
 
     @property
     def qualname(self) -> str:
@@ -196,7 +203,7 @@ class ProcessSpec:
             "sections": [
                 {"title": title, "text": strip_roles(text)}
                 for title, text in self.sections
-                if title not in ("Parameters", "Returns", "Yields", "Provenance")
+                if title not in ("Parameters", "Returns", "Yields", "Raises", "Provenance")
             ],
             "provenance": [
                 {"label": ref.label, "text": strip_roles(ref.text)} for ref in self.references
@@ -205,6 +212,16 @@ class ProcessSpec:
             "convention_sensitive": self.convention_sensitive,
             "deprecated": self.deprecated,
             "conforming": self.conforming,
+            "raises": [
+                {"type": item.type, "description": strip_roles(item.description)}
+                for item in self.raises
+            ],
+            "source": {
+                "path": self.source_path,
+                "line": self.source_line,
+                "end_line": self.source_end_line,
+                "code": self.source_code,
+            },
             "aliases": list(self.aliases),
             "errors": list(self.errors),
         }
@@ -254,14 +271,19 @@ def _require_docstrings() -> None:
 
 
 def _source_files() -> list[Path]:
-    """Every module file the snapshot describes, ``__init__`` excepted.
+    """Every module file the snapshot describes, the package ``__init__`` excepted.
+
+    Recursive, because ``ml`` is a subpackage whose category docstring is its
+    own ``__init__`` and whose functions live in its submodules.
 
     One entry per file rather than per category, because ``equilibrium``
     re-exports ``_equilibrium_parametric``: a checksum keyed by category
     would pass while an edit to the private module went unnoticed.
     """
     return sorted(
-        path for path in _PACKAGE.glob("*.py") if path.name != "__init__.py"
+        path
+        for path in _PACKAGE.rglob("*.py")
+        if path != _PACKAGE / "__init__.py" and "__pycache__" not in path.parts
     )
 
 
@@ -319,6 +341,7 @@ def _structural_violations(parsed: ParsedDocstring, fn) -> list[str]:
 
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> ProcessSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
+    span = source_span(fn, _PACKAGE.parent.parent)
     errors = list(dict.fromkeys([*parsed.errors, *_structural_violations(parsed, fn)]))
     return ProcessSpec(
         name=name,
@@ -336,6 +359,11 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         deprecated=parsed.deprecated,
         aliases=aliases,
         errors=tuple(errors),
+        raises=parsed.raises,
+        source_path=span["path"],
+        source_line=span["line"],
+        source_end_line=span["end_line"],
+        source_code=span["code"],
     )
 
 
@@ -488,7 +516,7 @@ def documentation_snapshot(
         "generator": _GENERATOR,
         "source": [
             {
-                "path": f"vaft/process/{path.name}",
+                "path": f"vaft/process/{path.relative_to(_PACKAGE).as_posix()}",
                 "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             }
             for path in _source_files()

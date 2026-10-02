@@ -1,4 +1,6 @@
 from typing import List, Tuple, Dict, Any, Optional
+import hashlib
+import weakref
 import numpy as np
 
 from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
@@ -36,15 +38,54 @@ from vaft.formula.equilibrium import (
 )
 from vaft.formula.constants import _SCALING_COEFS
 
-_POWER_BALANCE_CACHE: Dict[int, Dict[str, ndarray]] = {}
-_POWER_BALANCE_CACHE_SIGNATURE: Dict[int, Tuple[int, int]] = {}
+# The names defined here.  What this module imports (``omas``, NumPy, other
+# VAFT modules) is not re-exported through it (#1382).
+__all__ = [
+    "compute_bremsstrahlung_power",
+    "compute_confiment_time_paramters",
+    "compute_magnetic_shear",
+    "compute_power_balance",
+    "compute_tau_E_engineering_parameters",
+    "compute_tau_E_exp",
+    "compute_tau_E_scaling",
+    "compute_voltage_consumption",
+]
+
+# One entry per live ODS: id(ods) -> (content signature, power balance).
+# An ODS is unhashable (omas 0.95.2 says so explicitly), so it cannot key a
+# WeakKeyDictionary; the entry is evicted by a weakref.finalize on the ODS
+# instead, so a freed id reused by a later ODS never finds a stale entry.
+_POWER_BALANCE_CACHE: Dict[int, Tuple[bytes, Dict[str, ndarray]]] = {}
+
+_POWER_BALANCE_INPUT_IDS = ("equilibrium", "core_profiles")
 
 
-def _power_balance_signature(ods: ODS) -> Tuple[int, int]:
-    """Create a lightweight signature for per-ODS power-balance caching."""
-    n_eq = len(ods['equilibrium.time_slice']) if 'equilibrium.time_slice' in ods else 0
-    n_cp = len(ods['core_profiles.profiles_1d']) if 'core_profiles.profiles_1d' in ods else 0
-    return int(n_eq), int(n_cp)
+def _power_balance_signature(ods: ODS) -> bytes:
+    """Content signature of the IDS the power balance reads.
+
+    A digest over every leaf of ``equilibrium`` and ``core_profiles`` (path,
+    dtype, shape and bytes), so an in-place edit that keeps the slice count --
+    a profile re-fit, a psi convention change, an updater filling a leaf --
+    changes the signature and invalidates the cached balance.  Roughly 30 ms
+    for a nine-slice VEST ODS against about a second to recompute it.
+    """
+    digest = hashlib.blake2b(digest_size=16)
+    for ids in _POWER_BALANCE_INPUT_IDS:
+        digest.update(ids.encode("utf-8"))
+        if ids not in ods:
+            continue
+        flat = ods[ids].flat()
+        for path in sorted(flat):
+            digest.update(path.encode("utf-8"))
+            value = flat[path]
+            arr = np.asarray(value)
+            if arr.dtype.kind in "OUS":
+                digest.update(repr(value).encode("utf-8"))
+                continue
+            digest.update(arr.dtype.str.encode("ascii"))
+            digest.update(repr(arr.shape).encode("ascii"))
+            digest.update(np.ascontiguousarray(arr).tobytes())
+    return digest.digest()
 
 
 def _get_cached_power_balance(ods: ODS) -> Dict[str, ndarray]:
@@ -53,15 +94,21 @@ def _get_cached_power_balance(ods: ODS) -> Dict[str, ndarray]:
 
     This avoids recomputing the same equilibrium/core-profile time-matching path
     repeatedly within per-slice loops, which also suppresses duplicated warnings.
+    The entry is keyed by the ODS identity and guarded by
+    :func:`_power_balance_signature`, so an ODS edited in place is recomputed
+    and an ODS that has been freed leaves nothing behind.
     """
     key = id(ods)
-    sig = _power_balance_signature(ods)
-    if key in _POWER_BALANCE_CACHE and _POWER_BALANCE_CACHE_SIGNATURE.get(key) == sig:
-        return _POWER_BALANCE_CACHE[key]
+    entry = _POWER_BALANCE_CACHE.get(key)
+    if entry is not None and entry[0] == _power_balance_signature(ods):
+        return entry[1]
 
     pb = compute_power_balance(ods)
-    _POWER_BALANCE_CACHE[key] = pb
-    _POWER_BALANCE_CACHE_SIGNATURE[key] = sig
+    # Sign the state the balance leaves behind (it fills
+    # global_quantities.volume), so the next call on an untouched ODS hits.
+    _POWER_BALANCE_CACHE[key] = (_power_balance_signature(ods), pb)
+    if entry is None:
+        weakref.finalize(ods, _POWER_BALANCE_CACHE.pop, key, None)
     return pb
 
 def compute_magnetic_shear(ods, time_slice: slice) -> ndarray:
@@ -142,19 +189,30 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
     from vaft.omas.update import update_equilibrium_boundary
     update_equilibrium_boundary(ods)
 
+    def _required_scalar(path: str) -> float:
+        # By membership: on a consistency_check=False ODS a bare subscript of
+        # a missing leaf hands back an empty ODS (float() then fails with a
+        # TypeError that names no leaf) and attaches that empty node.
+        if path not in eq_ts:
+            raise KeyError(
+                f"equilibrium.time_slice[{time_slice}].{path} is not in this ODS; "
+                "compute_tau_E_engineering_parameters needs it"
+            )
+        return float(eq_ts[path])
+
     # Get engineering parameters from equilibrium global_quantities
-    I_p = abs(float(eq_ts['global_quantities.ip']))  # [A]
+    I_p = abs(_required_scalar('global_quantities.ip'))  # [A]
 
     # Get toroidal magnetic field at vessel ref position
     R_ref = 0.4 # [m] VEST reference
-    B_t_axis = float(eq_ts['global_quantities.magnetic_axis.b_field_tor'])
-    R_axis = float(eq_ts['global_quantities.magnetic_axis.r'])
+    B_t_axis = _required_scalar('global_quantities.magnetic_axis.b_field_tor')
+    R_axis = _required_scalar('global_quantities.magnetic_axis.r')
     B_t = abs(B_t_axis * R_axis / R_ref) # [T]
 
     
-    R = float(eq_ts['boundary.geometric_axis.r'])  # [m]
-    a = float(eq_ts['boundary.minor_radius'])  # [m]
-    kappa = float(eq_ts['boundary.elongation'])  # [-]
+    R = _required_scalar('boundary.geometric_axis.r')  # [m]
+    a = _required_scalar('boundary.minor_radius')  # [m]
+    kappa = _required_scalar('boundary.elongation')  # [-]
     epsilon = inverse_aspect_ratio_from_a_R(a, R)  # [-]
 
     # Compute P_loss from compute_power_balance
@@ -245,8 +303,15 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
     n_e_psi_norm = interp_func(rho_tor_norm_eq)
 
     # Map to 2D grid and compute averages
-    n_e_RZ, psiN_RZ = psi_to_rz(psi_norm_1d, n_e_psi_norm, psi_RZ, psi_axis, psi_lcfs)
-    n_e_vol_avg, _ = volume_average(n_e_RZ, psiN_RZ, R_grid, Z_grid)  # [m^-3]
+    n_e_RZ, psiN_RZ = psi_to_rz(
+        psi_norm_1d, n_e_psi_norm, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge"
+    )
+    from vaft.omas.process_wrapper import _slice_plasma_weights
+
+    n_e_vol_avg, _ = volume_average(
+        n_e_RZ, psiN_RZ, R_grid, Z_grid,
+        weights=_slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ),
+    )  # [m^-3]
     # Ensure scalar
     if isinstance(n_e_vol_avg, np.ndarray):
         n_e_vol_avg = float(n_e_vol_avg[0] if len(n_e_vol_avg) > 0 else n_e_vol_avg)
@@ -566,9 +631,54 @@ def compute_tau_E_exp(ods, time_slice: int, Z_eff: float = 2.0) -> float:
     
     return tau_E_exp
 
+#: The equilibrium leaves the li_3 derivation reads, copied into a scratch ODS
+#: so the caller's structure is neither read wholesale nor written to.
+_LI3_GLOBAL_LEAVES = (
+    "equilibrium.ids_properties.cocos", "equilibrium.ids_properties.comment",
+    "equilibrium.ids_properties.homogeneous_time",
+    "equilibrium.vacuum_toroidal_field.r0",
+)
+_LI3_SLICE_LEAVES = (
+    "time", "boundary.outline.r", "boundary.outline.z",
+    "global_quantities.ip", "global_quantities.psi_axis", "global_quantities.psi_boundary",
+    "global_quantities.magnetic_axis.r", "global_quantities.magnetic_axis.z",
+    "profiles_1d.psi", "profiles_1d.pressure", "profiles_1d.volume", "profiles_1d.f",
+    "profiles_1d.q", "profiles_1d.phi", "profiles_1d.rho_tor_norm",
+    "profiles_2d.0.grid_type.index", "profiles_2d.0.grid.dim1",
+    "profiles_2d.0.grid.dim2", "profiles_2d.0.psi",
+)
+
+
+def _equilibrium_leaves_copy(ods, idxs):
+    """Scratch ODS holding only the li_3 inputs of slices ``idxs``, renumbered 0.."""
+    import copy
+
+    work = ODS()
+    for path in _LI3_GLOBAL_LEAVES:
+        if path in ods:
+            work[path] = copy.deepcopy(ods[path])
+    # equilibrium.time and the b0 trace are per slice only when their length
+    # says so; a hand-built ODS can carry more slices than time entries, and
+    # each slice's own time is copied below regardless.
+    n_slices = len(ods['equilibrium.time_slice'])
+    if 'equilibrium.time' in ods:
+        times = np.atleast_1d(np.asarray(ods['equilibrium.time'], float))
+        if times.size == n_slices:
+            work['equilibrium.time'] = times[list(idxs)]
+    if 'equilibrium.vacuum_toroidal_field.b0' in ods:
+        b0 = np.atleast_1d(np.asarray(ods['equilibrium.vacuum_toroidal_field.b0'], float))
+        work['equilibrium.vacuum_toroidal_field.b0'] = b0[list(idxs)] if b0.size == n_slices else b0
+    for k, i in enumerate(idxs):
+        source = ods['equilibrium.time_slice'][i]
+        for leaf in _LI3_SLICE_LEAVES:
+            if leaf in source:
+                work[f'equilibrium.time_slice.{k}.{leaf}'] = copy.deepcopy(source[leaf])
+    return work
+
+
 def compute_voltage_consumption(
     ods: ODS,
-    time_slice: Optional[int] = None
+    time_slice=None
     ) -> Tuple[ndarray, ndarray, ndarray, ndarray]:
     """
     Compute loop / inductive / resistive voltage time series using:
@@ -579,9 +689,27 @@ def compute_voltage_consumption(
 
     Notes
     -----
-    - Uses magnetic energy W_mag computed from 2D psi via
-      `vaft.omas.process_wrapper.compute_magnetic_energy`.
-    - If `time_slice` is provided, returns arrays of length 1.
+    - ``V_loop`` is the boundary loop voltage: the rate of change of the flux
+      *at* the boundary, which is what an inboard flux loop measures.  It is
+      not ``d(ψ_boundary - ψ_axis)/dt``, the change of the flux inside the
+      plasma, which this used to compute (#652): the two agreed to 12 % on
+      39915 by coincidence and differ nine-fold on 41672.
+    - Sign: ``+2π dψ_b/dt`` in the stored COCOS (see
+      :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux`), so on
+      IMAS COCOS-11 data with positive current a driving voltage is positive.
+    - ``V_ind`` is the exact inductive voltage of the internal field (Romero,
+      NF 50 (2010) 115002, eq. 24), so ``V_res`` is the resistive voltage
+      ``R_p (I_p - I_ni)``.
+    - ``W_mag`` is the poloidal-field energy inside the plasma,
+      ``mu0 R0 li_3 I_p^2 / 4``, with ``li_3`` from
+      :func:`vaft.omas.update.update_equilibrium_global_quantities_beta_li`
+      on a copy; a slice it cannot derive gives ``nan`` there.  It used to be
+      `vaft.omas.process_wrapper.compute_magnetic_energy`, which includes the
+      vacuum toroidal field and so is 60 times too large and moves with the
+      plasma volume (#652).
+    - ``time_slice``: ``None`` for every slice, an ``int`` for one (arrays of
+      length 1), or a sequence of indices -- the flux-closure window -- which
+      keeps a degenerate slice outside it from being read at all.
 
     Returns
     -------
@@ -590,8 +718,6 @@ def compute_voltage_consumption(
     V_ind : ndarray
     V_res : ndarray
     """
-    from vaft.omas.process_wrapper import compute_magnetic_energy
-
     if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
         raise KeyError("equilibrium.time_slice not found in ODS")
 
@@ -600,10 +726,10 @@ def compute_voltage_consumption(
     if time_slice is None:
         idxs = list(range(n_eq))
     else:
-        idx = int(time_slice)
-        if idx < 0 or idx >= n_eq:
-            raise IndexError(f"time_slice {idx} is out of bounds for equilibrium.time_slice")
-        idxs = [idx]
+        idxs = [int(i) for i in np.atleast_1d(time_slice)]
+        for idx in idxs:
+            if idx < 0 or idx >= n_eq:
+                raise IndexError(f"time_slice {idx} is out of bounds for equilibrium.time_slice")
 
     # Time, psi_boundary, Ip arrays
     t = np.zeros(len(idxs), dtype=float)
@@ -616,9 +742,7 @@ def compute_voltage_consumption(
         # loop_voltage_from_total_flux multiplies by 2*pi, i.e. it expects
         # psi in Wb/rad; convert from the ODS storage convention (issue #236).
         _psi_factor = ods_psi_to_wb_per_radian_factor(ods, i)
-        psi_boundary[k] = (
-            float(ts['global_quantities.psi_boundary']) - float(ts['global_quantities.psi_axis'])
-        ) * _psi_factor
+        psi_boundary[k] = float(ts['global_quantities.psi_boundary']) * _psi_factor
         Ip[k] = float(ts['global_quantities.ip'])
 
     # V_loop from total flux (2π psi_boundary)
@@ -630,10 +754,30 @@ def compute_voltage_consumption(
     else:
         V_loop = loop_voltage_from_total_flux(t, psi_boundary)
 
-    # Magnetic energy time series
-    W_mag = np.zeros(len(idxs), dtype=float)
-    for k, i in enumerate(idxs):
-        W_mag[k] = float(compute_magnetic_energy(ods, time_slice=i))
+    # Poloidal-field energy inside the plasma, W_int = L_i I_p^2 / 2 with
+    # L_i = mu0 R0 li_3 / 2 -- the energy Romero's inductive voltage is made
+    # of.  Not compute_magnetic_energy, which adds the vacuum toroidal field
+    # over the plasma volume (26 kJ against 0.4 kJ on 39915) and so turns a
+    # volume change into a "voltage".  li_3 is recomputed on a copy with any
+    # stored leaf removed first: its normalising radius is not recorded.
+    from vaft.formula.constants import MU0
+    from vaft.omas.update import (
+        resolve_reference_major_radius,
+        update_equilibrium_global_quantities_beta_li,
+    )
+
+    # Only the leaves the li_3 derivation reads are copied, not the whole ODS:
+    # a deep copy would read every IDS it carries, which the plot recipes
+    # that call this declare against (test_plot_recipe_reads), and a stored
+    # li_3 is left behind on purpose.
+    work = _equilibrium_leaves_copy(ods, idxs)
+    update_equilibrium_global_quantities_beta_li(work, time_slice=list(range(len(idxs))))
+    r0 = float(resolve_reference_major_radius(work))
+    W_mag = np.full(len(idxs), np.nan, dtype=float)
+    for k in range(len(idxs)):
+        slice_node = work['equilibrium.time_slice'][k]
+        if 'global_quantities.li_3' in slice_node:
+            W_mag[k] = 0.25 * MU0 * r0 * float(slice_node['global_quantities.li_3']) * Ip[k] ** 2
 
     # dW/dt using time_derivative function
     from vaft.process.numerical import time_derivative
@@ -788,8 +932,8 @@ def compute_bremsstrahlung_power(
     psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
     
     # Map T_e and n_e to 2D (R,Z)
-    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs)
-    n_e_RZ, _ = psi_to_rz(psiN_1d, n_e_1d, psi_RZ, psi_axis, psi_lcfs)
+    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge")
+    n_e_RZ, _ = psi_to_rz(psiN_1d, n_e_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge")
     
     # Get pressure from equilibrium profiles_1d if available, otherwise compute from n_e * T_e
     # pressure_1d = None
@@ -809,7 +953,7 @@ def compute_bremsstrahlung_power(
     pressure_1d = n_e_1d * T_e_1d * QE * 2  # [Pa] 
     
     # Map pressure to 2D (R,Z)
-    pressure_RZ, _ = psi_to_rz(psiN_1d, pressure_1d, psi_RZ, psi_axis, psi_lcfs)
+    pressure_RZ, _ = psi_to_rz(psiN_1d, pressure_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge")
     
     # Calculate bremsstrahlung power density using pressure-based formula
     # Handle zero/negative values (outside plasma)
@@ -837,10 +981,17 @@ def compute_bremsstrahlung_power(
     
     # Compute volume integrals: P_B = ∫_V S_B dV
     # Using volume_average: returns (average, volume), so integral = average * volume
-    p_avg_pressure, V = volume_average(S_B_pressure_RZ, psiN_RZ, R_grid, Z_grid)
+    from vaft.omas.process_wrapper import _slice_plasma_weights
+
+    plasma_weights = _slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ)
+    p_avg_pressure, V = volume_average(
+        S_B_pressure_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+    )
     P_B_pressure = float(p_avg_pressure * V)  # [W]
     
-    p_avg_electron, _ = volume_average(S_B_electron_RZ, psiN_RZ, R_grid, Z_grid)
+    p_avg_electron, _ = volume_average(
+        S_B_electron_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+    )
     P_B_electron = float(p_avg_electron * V)  # [W]
     
     return P_B_pressure, P_B_electron
@@ -1108,7 +1259,13 @@ def compute_power_balance(
             missing_cp_match_slices.append(i)
             continue
         try:
-            P_ohm_diss[k] = float(compute_ohmic_heating_power_from_core_profiles(ods, time_slice=int(cp_idx)))
+            # The former hidden Spitzer fallbacks, stated rather than implied
+            # (#1188). Deliberately not this function's Z_eff argument: that
+            # would move P_ohm_diss for callers who set it for line radiation;
+            # the inconsistency is noted on #1188 for the #548 owner.
+            P_ohm_diss[k] = float(compute_ohmic_heating_power_from_core_profiles(
+                ods, time_slice=int(cp_idx), Z_eff=2.0, ln_Lambda=17.0,
+            ))
         except Exception:
             failed_ohmic_slices.append(i)
 
@@ -1149,15 +1306,16 @@ def compute_power_balance(
     # Compute volume-averaged pressure from core_profiles for all time slices
     p_vol_avg = compute_volume_averaged_pressure(ods, time_slice=None, option='core_profiles')
     
-    # Calculate W_th = p_vol_average * 2/3 * volume for each time slice
+    # Calculate W_th = p_vol_average * 3/2 * volume for each time slice, the
+    # same stored energy compute_tau_E_exp divides by P_loss (issue #1282).
     W_th = np.zeros(len(idxs), dtype=float)
     volume_series = np.zeros(len(idxs), dtype=float)
     for k, i in enumerate(idxs):
         eq_ts = ods['equilibrium.time_slice'][i]
         volume = float(eq_ts['global_quantities.volume'])
         volume_series[k] = volume
-        # W_th = p_vol_average * 2/3 * volume
-        W_th[k] = p_vol_avg[k] * (2.0 / 3.0) * volume
+        # W_th = 3/2 * <p>_V * V for an ideal plasma (W = 3/2 integral p dV)
+        W_th[k] = p_vol_avg[k] * (3.0 / 2.0) * volume
     
     # Calculate dW/dt robustly on finite W_th points only.
     # This prevents NaNs at trailing slices from contaminating earlier finite slices.

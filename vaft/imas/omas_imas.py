@@ -41,7 +41,48 @@ from omas.omas_core import (
 )
 from omas.omas_utils import _extra_structures
 
+from ..compat import user_home
 from .code_parameters import entry_safe_code_parameters
+
+# The low-level bridge VAFT calls and the guide documents.  Not listed: the
+# star import above (``omas.omas_utils`` is OMAS's API, not VAFT's), and the
+# AL4 / ITER-scenario / MDSplus-browsing code this file inherited from the
+# OMAS fork, which VAFT never calls; those stay reachable as attributes.
+__all__ = [
+    "IDS",
+    "IMAS_DD_VERSION_CONVERSION",
+    "IMAS_REMOVED_IDS",
+    "filled_paths_in_ids",
+    "imas_empty",
+    "imas_get",
+    "imas_open",
+    "imas_open_uri",
+    "imas_set",
+    "infer_fetch_paths",
+    "load_omas_imas",
+    "ods_from_toplevels",
+    "save_omas_imas",
+]
+
+
+class _CurrentUser:
+    """Default that resolves to ``$USER`` when the function is called.
+
+    A default read at import time would bake the importing user's name into
+    the signature, and from there into the rendered API reference.
+    """
+
+    def __repr__(self):
+        return "<$USER>"
+
+
+_CURRENT_USER = _CurrentUser()
+
+
+def _resolve_user(user, fallback="dummy_user"):
+    if user is _CURRENT_USER:
+        return os.environ.get("USER", fallback)
+    return user
 
 
 class IDS:
@@ -1027,7 +1068,7 @@ def _load_al5_ods(
 
 @codeparams_xml_load
 def load_omas_imas(
-    user=os.environ.get("USER", "dummy_user"),
+    user=_CURRENT_USER,
     machine=None,
     pulse=None,
     run=0,
@@ -1074,6 +1115,7 @@ def load_omas_imas(
     :return: OMAS data set
     """
 
+    user = _resolve_user(user)
     if uri is None and (pulse is None or run is None):
         raise Exception("`pulse` and `run` must be specified when `uri` is not set")
 
@@ -1278,7 +1320,7 @@ class dynamic_omas_imas(dynamic_ODS):
 
     def __init__(
         self,
-        user=os.environ.get("USER", "dummy_user"),
+        user=_CURRENT_USER,
         machine=None,
         pulse=None,
         run=0,
@@ -1286,7 +1328,7 @@ class dynamic_omas_imas(dynamic_ODS):
         verbose=True,
     ):
         self.kw = {
-            "user": user,
+            "user": _resolve_user(user),
             "machine": machine,
             "pulse": pulse,
             "run": run,
@@ -1338,10 +1380,10 @@ class dynamic_omas_imas(dynamic_ODS):
 
 
 def browse_imas(
-    user=os.environ.get("USER", "dummy_user"),
+    user=_CURRENT_USER,
     pretty=True,
     quiet=False,
-    user_imasdbdir=os.sep.join([os.environ["HOME"], "public", "imasdb"]),
+    user_imasdbdir=None,
 ):
     """
     Browse available IMAS data (machine/pulse/run) for given user
@@ -1352,10 +1394,14 @@ def browse_imas(
 
     :param quiet: print database to screen
 
-    :param user_imasdbdir: directory where imasdb is located for current user (typically $HOME/public/imasdb/)
+    :param user_imasdbdir: directory where imasdb is located for current user (defaults to $HOME/public/imasdb/)
 
     :return: hierarchical dictionary with database of available IMAS data (machine/pulse/run) for given user
     """
+    user = _resolve_user(user)
+    if user_imasdbdir is None:
+        user_imasdbdir = os.sep.join([str(user_home()), "public", "imasdb"])
+
     # if no users are specified, find all users
     if user is None:
         user = glob.glob(

@@ -92,6 +92,41 @@ def test_every_redirect_page_is_declared_as_a_migration():
     assert not unaccounted, f"redirect pages missing from page_migrations.yml: {unaccounted}"
 
 
+# --- prose that restates the code ---------------------------------------------
+
+NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+                "eleven", "twelve"]
+
+
+def test_the_installation_page_counts_the_extras_it_tabulates():
+    """"six extras" over an eight-row table (cold review 0.8.0 docs-and-tutorials F2).
+
+    The count is compared with ``pyproject.toml``, not with the table alone, so
+    adding an extra without a row fails here as well as in
+    test_readme_consistency (which only checks that every name is mentioned).
+    """
+    tomllib = pytest.importorskip("tomllib")  # absent on Python 3.10
+    extras = list(tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["optional-dependencies"])
+    text = (DOCS / "_guide" / "Installation.md").read_text(encoding="utf-8")
+    match = re.search(r"The project defines (\w+) extras", text)
+    assert match, "Installation.md no longer states how many extras there are"
+    assert match.group(1) == NUMBER_WORDS[len(extras)], (
+        f"Installation.md says {match.group(1)!r} extras; pyproject.toml defines {len(extras)}: {extras}"
+    )
+    rows = re.findall(r"^\| `([A-Za-z0-9_]+)` \| .* \| .* \|$", text, re.M)
+    assert sorted(rows) == sorted(extras), f"the extras table lists {rows}, pyproject.toml {extras}"
+
+
+def test_the_machine_mapping_coverage_table_names_files_that_exist():
+    """``pulse_schedule.py`` for a package (cold review 0.8.0 docs-and-tutorials F6)."""
+    text = (DOCS / "_guide" / "Machine_mapping.md").read_text(encoding="utf-8")
+    section = text.split("# Coverage: which IDS, which module", 1)[1]
+    rows = re.findall(r"^\| `([a-z_]+)` \| `([A-Za-z0-9_/.]+)` \|", section, re.M)
+    assert len(rows) >= 10, "the coverage table moved or changed shape"
+    missing = [f"{ids}: {file}" for ids, file in rows if not (ROOT / "vaft" / "machine_mapping" / file).is_file()]
+    assert not missing, f"Machine_mapping.md names files vaft/machine_mapping/ does not have: {missing}"
+
+
 # --- resource references -----------------------------------------------------
 
 
@@ -276,3 +311,23 @@ def test_visual_baselines_still_point_at_canonical_pages():
     stale = sorted(url[len("/vaft"):] for url in referenced
                    if url[len("/vaft"):] not in canonical)
     assert not stale, f"visual specs assert on URLs that are no longer canonical: {stale}"
+
+
+@pytest.mark.parametrize(
+    "page",
+    sorted((DOCS / "_guide").glob("Formula_reference_*.md"))
+    + sorted((DOCS / "_guide").glob("Process_reference_*.md")),
+    ids=lambda page: page.name,
+)
+def test_reference_category_pages_use_the_shared_template(page):
+    """A category page is front matter plus the shared include, nothing else.
+
+    The body used to be one Liquid template copied into every page; a new
+    category copied from an old page would bring the unstyled layout back.
+    """
+    kind = "formula" if page.name.startswith("Formula_") else "process"
+    category = page.stem.split("_reference_", 1)[1]
+    body = page.read_text(encoding="utf-8").split("\n---\n", 1)[1]
+    assert body.strip() == (
+        f'{{% include reference/category.html kind="{kind}" category="{category}" %}}'
+    )

@@ -181,3 +181,10 @@ def geometry_signature(geometry: dict, config: TokaMakerConfig) -> str:
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(canonical.encode("utf-8")).hexdigest()[:10]
+
+
+__all__ = [
+    "split_coil_names",
+    "tokamaker_geometry_from_ods",
+    "geometry_signature",
+]

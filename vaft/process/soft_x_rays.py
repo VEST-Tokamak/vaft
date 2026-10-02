@@ -15,6 +15,12 @@ data the caller supplied.
 
 Generic spectral analysis (PSD, spectral index, spectrogram) is *not* here --
 use :mod:`vaft.process.fluctuation` on any prepared channel.
+
+The forward direction is here too: :func:`synthetic_island_soft_x_rays` turns a
+prescribed magnetic island on an equilibrium into chord signals (issue #886),
+through :mod:`vaft.process.magnetic_island` and
+:mod:`vaft.process.line_of_sight`. It is machine-independent; VEST chords come
+from :func:`vaft.machine_mapping.soft_x_rays.sxr_sightlines`.
 """
 
 from dataclasses import dataclass
@@ -30,6 +36,7 @@ from vaft.process.signal_processing import butterworth_bandpass, butterworth_low
 __all__ = [
     "SXRBandResult",
     "SXRTemperatureResult",
+    "SyntheticSXRResult",
     "ToroidalModeCandidate",
     "hilbert_instantaneous_phase",
     "load_te_ratio_calibration",
@@ -40,6 +47,7 @@ __all__ = [
     "sxr_electron_temperature",
     "sxr_subtract_vacuum_reference",
     "sxr_te_pairs_from_ods",
+    "synthetic_island_soft_x_rays",
 ]
 
 #: Packaged Be/Al ratio -> Te calibration table (see ``vaft/data/README.md``).
@@ -905,3 +913,155 @@ def sxr_cwt_spectrogram(signal, fs: float, f0: float, f1: float, n_freq: int):
         nthreads=1,
     )
     return np.asarray(frequencies)[::-1], np.abs(out[::-1, :])
+
+
+@dataclass(frozen=True)
+class SyntheticSXRResult:
+    """A synthetic soft-X-ray response to a prescribed island.
+
+    ``emissivity`` and ``delta_emissivity`` are ``(time, plane, R, Z)``, one
+    poloidal plane per distinct chord toroidal angle in ``planes``;
+    ``brightness`` is ``(time, channel)`` in the order of ``sightlines``, each
+    chord integrated through the plane at its own toroidal angle. The two
+    field arrays are ``None`` when the fields were not kept. ``topology`` is
+    the island at the first time and ``phi = 0``, for its geometry (resonant
+    surface, helicity, width); rephase it to see any chord's plane.
+    """
+
+    time: np.ndarray
+    planes: np.ndarray
+    r: np.ndarray
+    z: np.ndarray
+    emissivity: np.ndarray
+    delta_emissivity: np.ndarray
+    brightness: np.ndarray
+    sightlines: Any
+    topology: Any
+
+
+def synthetic_island_soft_x_rays(
+    equilibrium,
+    island,
+    sightlines,
+    *,
+    time=0.0,
+    emissivity_profile=None,
+    model: str = "flatten",
+    domain=None,
+    amplitude: float = 1.0,
+    smoothing: float = 0.1,
+    hard_mask: bool = False,
+    keep_fields: bool = True,
+) -> SyntheticSXRResult:
+    """Line-integrated soft-X-ray signals of a rotating island on an equilibrium.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData or source
+        The axisymmetric equilibrium, the only source of plasma geometry;
+        anything :func:`vaft.process.equilibrium.as_equilibrium` accepts [-].
+    island : MagneticIslandSpec
+        Mode numbers, outboard-midplane full width, phase and rotation [-].
+    sightlines : Sightlines
+        The chords, each in the poloidal plane at its own toroidal angle [-].
+    time : float or array_like, optional
+        Times at which to evaluate the island phase [s].
+    emissivity_profile : callable or tuple of array_like, optional
+        Axisymmetric background ``epsilon_0(psi_N)`` [emissivity unit].
+    model : str, optional
+        ``"flatten"`` or ``"island"``, as in
+        :func:`vaft.process.magnetic_island.island_emissivity` [-].
+    domain : tuple of array_like, optional
+        ``(R, Z)`` of a closed polygon, normally the limiter, that clips every
+        chord [m].
+    amplitude : float, optional
+        Island amplitude ``A`` [- or emissivity unit].
+    smoothing : float, optional
+        Width of the island mask edge in helical-flux units [-].
+    hard_mask : bool, optional
+        Use a binary island mask [-].
+    keep_fields : bool, optional
+        Keep the emissivity fields on the result; ``False`` keeps only the
+        brightness, for a long time series where the ``(time, plane, R, Z)``
+        arrays would dominate memory [-].
+
+    Returns
+    -------
+    SyntheticSXRResult
+        Time, the chord planes' toroidal angles, the emissivity and its island
+        part on the equilibrium grid per time and plane, and the chord
+        brightness per time and channel [emissivity unit times m].
+
+    Raises
+    ------
+    ValueError
+        The island cannot be placed on the equilibrium, or the emissivity model
+        or profile is invalid.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Build the island topology once, which fixes the resonant surface, the
+       straight-field-line angle and the displacement.
+    2. Group the chords by toroidal angle and build one path-length operator
+       per plane, clipped to the domain.
+    3. For every time and plane, rephase the island, form the emissivity, and
+       integrate it along that plane's chords.
+
+    Input semantics
+    ---------------
+    A prescribed island on a reconstructed or analytic equilibrium, and chord
+    geometry from the machine mapping; no measured signal enters.
+
+    Output semantics
+    ----------------
+    Synthetic chord brightness in the emissivity's unit times metres, before
+    any detector, filter or etendue response, comparable to measured signals
+    only up to a per-channel calibration.
+
+    Limitations
+    -----------
+    A forward model only: no inversion, no noise, pencil-beam chords. Each
+    chord is assumed to lie in one poloidal plane. The island rotates rigidly
+    at a fixed width.
+
+    Provenance
+    ----------
+    .. [1] Le, T. X. K. et al., Plasma Phys. Control. Fusion 68, 065003 (2026),
+       a rotating-island SXR forward model of the same scope.
+    .. [2] Dreval, M. B. et al., Plasma Phys. Control. Fusion 63, 065006 (2021)
+       and 65, 035001 (2023), for SXR forward modelling of MHD modes.
+    .. [3] Jang, J. Y. et al., Rev. Sci. Instrum. 93, 093506 (2022), the VEST
+       SXR arrays.
+    """
+    from .line_of_sight import build_line_integral_operator, project_emissivity
+    from .magnetic_island import island_emissivity, magnetic_island_topology
+
+    times = np.atleast_1d(np.asarray(time, dtype=float)).reshape(-1)
+    base = magnetic_island_topology(equilibrium, island, time=float(times[0]), phi=0.0)
+    planes, plane_of_chord = np.unique(np.round(sightlines.phi, 12), return_inverse=True)
+    operators = [
+        build_line_integral_operator(base.r, base.z, sightlines.subset(plane_of_chord == k),
+                                     domain=domain)
+        for k in range(planes.size)
+    ]
+    shape = (times.size, planes.size, base.r.size, base.z.size)
+    emissivity = np.zeros(shape) if keep_fields else None
+    delta = np.zeros(shape) if keep_fields else None
+    brightness = np.zeros((times.size, len(sightlines)))
+    for i, t in enumerate(times):
+        for k, phi in enumerate(planes):
+            topology = base.rephase(time=float(t), phi=float(phi))
+            eps, d_eps = island_emissivity(topology, profile=emissivity_profile, model=model,
+                                           amplitude=amplitude, smoothing=smoothing,
+                                           hard_mask=hard_mask)
+            if keep_fields:
+                emissivity[i, k] = eps
+                delta[i, k] = d_eps
+            brightness[i, plane_of_chord == k] = project_emissivity(eps, operators[k])
+    return SyntheticSXRResult(time=times, planes=planes, r=base.r, z=base.z,
+                              emissivity=emissivity, delta_emissivity=delta,
+                              brightness=brightness, sightlines=sightlines, topology=base)

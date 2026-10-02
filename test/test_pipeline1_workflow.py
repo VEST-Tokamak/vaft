@@ -76,7 +76,8 @@ def _config(tmp_path: Path, layout: str = "filedb") -> Path:
 
 
 def _dry_run(
-    tmp_path: Path, targets: list[str] | None = None, *, layout: str = "filedb"
+    tmp_path: Path, targets: list[str] | None = None, *, layout: str = "filedb",
+    extra: list[str] | None = None,
 ):
     # config.yaml interpolates these; a dry run never executes them.
     env = dict(os.environ)
@@ -89,7 +90,10 @@ def _dry_run(
             "--configfile", str(_config(tmp_path, layout)),
             "--directory", str(tmp_path),
             "--cores", "1", "-n",
+            # Targets before the options: `--config` takes every following
+            # word as a name=value pair.
             *(targets or []),
+            *(extra or []),
         ],
         capture_output=True,
         text=True,
@@ -105,6 +109,47 @@ def _paths(tmp_path: Path, layout: str = "filedb"):
     finally:
         sys.path.remove(str(WORKFLOW))
     return PipelinePaths(str(tmp_path / "filedb"), layout)
+
+
+def _kfile_command(stdout: str) -> str:
+    """The k-file stage's printed shell command, up to its log redirect.
+
+    Whitespace is collapsed: Snakemake 7 prints a ``{param}`` substitution
+    with the template's indentation around it (``--preset  statistical_891``),
+    Snakemake 9 does not, and the assertions are about the words.
+    """
+    start = stdout.index("generate_kfile.py")
+    return " ".join(stdout[start:stdout.index(">", start)].split())
+
+
+def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
+    """#891: `efit.preset` selects a named configuration for every shot's k-files."""
+    target = [_paths(tmp_path).kfile_manifest(SHOT)]
+    preset = _dry_run(tmp_path, target, extra=["-p", "--config", 'efit={"preset": "statistical_891"}'])
+    assert preset.returncode == 0, preset.stderr[-3000:]
+    command = _kfile_command(preset.stdout)
+    assert "--preset statistical_891" in command
+    assert "--npprime" not in command  # the constraints stage still takes its own
+    # Naming nothing is the library default (statistical_891 since 2026-10-01):
+    # no basis and no preset flag; generate_kfile.py records the default itself.
+    default = _dry_run(tmp_path, target, extra=["-p"])
+    assert default.returncode == 0, default.stderr[-3000:]
+    command = _kfile_command(default.stdout)
+    assert "--preset" not in command and "--npprime" not in command
+
+
+def test_the_routine_preset_is_an_explicit_opt_out(tmp_path):
+    target = [_paths(tmp_path).kfile_manifest(SHOT)]
+    result = _dry_run(tmp_path, target, extra=["-p", "--config", 'efit={"preset": "routine"}'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    command = _kfile_command(result.stdout)
+    assert "--preset routine" in command and "--npprime" not in command
+
+
+def test_an_unknown_efit_preset_fails_the_run_before_any_job(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'efit={"preset": "statistical"}'])
+    assert result.returncode != 0
+    assert "unknown EFIT preset" in (result.stderr + result.stdout)
 
 
 def test_the_snakefile_parses_under_the_canonical_layout(tmp_path):
@@ -183,3 +228,58 @@ def test_shot_first_reaches_the_per_product_stage_by_the_path_that_names_it(tmp_
 
     assert result.returncode == 0, result.stderr[-3000:]
     assert "build_mhd_linear" in result.stdout
+
+
+# --------------------------------------------------------------------------- #
+# CHEASE refinement: a run of solver verdicts is a result, not a missing one
+# --------------------------------------------------------------------------- #
+def _run_chease_refinement(tmp_path, monkeypatch, run_chease):
+    """Run the refinement script in-process against a fake `run_chease`."""
+    import runpy
+    from types import SimpleNamespace
+
+    from vaft.code import chease as chease_module
+
+    gfile = tmp_path / "g039915.00316"
+    gfile.write_text("not read: prepare_chease_inputs is stubbed\n", encoding="utf-8")
+    manifest = tmp_path / "gfiles.txt"
+    manifest.write_text(f"{gfile}\n", encoding="utf-8")
+    monkeypatch.setattr(chease_module, "find_chease_executable", lambda config: Path("/stub/chease"))
+    monkeypatch.setattr(chease_module, "prepare_chease_inputs", lambda gfile, config: SimpleNamespace(gfile=gfile))
+    monkeypatch.setattr(chease_module, "run_chease", run_chease)
+    output = tmp_path / "chease" / "refined.txt"
+    status = tmp_path / "chease" / "status.txt"
+    monkeypatch.setattr(sys, "argv", [
+        "run_chease_refinement.py", "--shot", str(SHOT), "--gfile-manifest", str(manifest),
+        "--output", str(output), "--status", str(status), "--run", "true", "--timeout", "1",
+        "--create-plot", "false", "--plot-dir", str(tmp_path / "plot"),
+    ])
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_path(str(WORKFLOW / "run_chease_refinement.py"), run_name="__main__")
+    return exit_info.value.code, output, status, json.loads((output.parent / "chease_runs.json").read_text())
+
+
+def test_an_all_timeout_chease_run_is_a_recorded_result(tmp_path, monkeypatch):
+    """cold review 0.8.0 workflows F5: exit 1 made Snakemake drop the outputs and
+    the worker re-run every slice until it gave up on the same verdict."""
+    from types import SimpleNamespace
+
+    def timed_out(inputs, config):
+        return SimpleNamespace(returncode=None, refined_geqdsk=None, comparison={}, stderr="timed out")
+
+    code, output, status, runs = _run_chease_refinement(tmp_path, monkeypatch, timed_out)
+    assert code == 0
+    assert output.read_text(encoding="utf-8") == ""
+    assert status.read_text(encoding="utf-8").startswith("failed: refined_gfiles=0; failed=1")
+    (record,) = runs["records"]
+    assert record["status"] == "failed" and record["returncode"] is None
+
+
+def test_a_chease_run_that_raised_still_fails_the_rule(tmp_path, monkeypatch):
+    def broken(inputs, config):
+        raise RuntimeError("the work directory vanished")
+
+    code, _output, status, runs = _run_chease_refinement(tmp_path, monkeypatch, broken)
+    assert code == 1
+    assert status.read_text(encoding="utf-8").startswith("failed:")
+    assert runs["records"][0]["status"] == "error"

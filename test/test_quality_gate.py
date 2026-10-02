@@ -99,24 +99,29 @@ def test_the_gate_excludes_h3_08_on_39915_for_the_reasons_343_detects(unassessed
     interval = plasma_free_interval(unassessed_39915)
     window = (interval.start, interval.end)
     gated, gate = quality_gate(unassessed_39915, window=window)
-    # IMPA left the diagnostics product for its own stage (#305), so H3-08 is
-    # the only unusable channel in the window: 65 probes + 11 flux loops.
+    # IMPA left the diagnostics product for its own stage (#305). In the
+    # window the detectors condemn H3-08 alone; C4-04 is out because vest.yaml
+    # records it as a fault on every shot (#977), which the waveform check
+    # could not have found (it is 0.85x its family median).
+    # 64 probes + 11 flux loops: the field-171 phase-reference twin is gone (#825).
     assert not any(name.startswith("IMPA") for name in gate.excluded)
-    assert set(gate.excluded) == {"MagneticFieldProbe_H3-08_Bz"}
+    assert set(gate.excluded) == {"MagneticFieldProbe_H3-08_Bz", "MagneticFieldProbe_C4-04"}
     reasons = set(gate.reasons["MagneticFieldProbe_H3-08_Bz"])
     assert {"implausible_magnitude", "population_outlier"} <= reasons
+    assert "known_fault" in gate.reasons["MagneticFieldProbe_C4-04"]
     assert gate.validity_source == "re-assessed here"
-    assert gate.assessed == 76
+    assert gate.assessed == 75
     # the source was not written
     assert "validity" not in unassessed_39915["magnetics.b_field_pol_probe.25.field"]
     assert "validity" in gated["magnetics.b_field_pol_probe.25.field"]
 
 
 def test_the_packaged_product_already_carries_the_stage_verdict(shot_39915):
-    """The regenerated diagnostics stage condemns H3-08 itself (#189)."""
+    """The regenerated diagnostics stage condemns H3-08 itself (#189); the
+    re-assessment adds C4-04 from the pulse's recorded faults (#977)."""
     interval = plasma_free_interval(shot_39915)
     _, gate = quality_gate(shot_39915, window=(interval.start, interval.end))
-    assert set(gate.excluded) == {"MagneticFieldProbe_H3-08_Bz"}
+    assert set(gate.excluded) == {"MagneticFieldProbe_H3-08_Bz", "MagneticFieldProbe_C4-04"}
     assert "validity" in shot_39915["magnetics.b_field_pol_probe.25.field"]
 
 
@@ -128,12 +133,14 @@ def test_gating_removes_the_probe_and_materially_changes_the_residual(unassessed
     ungated = synthetic_vacuum_magnetics(benchmark_wall_currents(unassessed_39915), **kw)
     gated_ods, gate = quality_gate(unassessed_39915, window=window)
     gated = synthetic_vacuum_magnetics(benchmark_wall_currents(gated_ods), **kw)
-    assert len(ungated) - len(gated) == 1
-    assert "MagneticFieldProbe_H3-08_Bz" not in {c.name for c in gated}
+    # H3-08 by the detectors, C4-04 by the pulse's recorded faults (#977).
+    assert len(ungated) - len(gated) == 2
+    assert not {"MagneticFieldProbe_H3-08_Bz", "MagneticFieldProbe_C4-04"} & {c.name for c in gated}
     before, after = _rms(ungated, window), _rms(gated, window)
     assert after < before
     # measured 0.256 -> 0.228 over the window to the PF-pickup crossing; over
-    # the window to the light's onset (#409) 0.356 -> 0.339, 4.8 %
+    # the window to the light's onset (#409) 0.356 -> 0.339, 4.8 %, for H3-08
+    # alone, and 0.356 -> 0.317, 11.0 %, once C4-04 is recorded out too (#977)
     assert (before - after) / before > 0.04
     stacked = plasma_free_residual(gated, window, gate=gate, normalize=True)
     assert np.isclose(float(np.sqrt(np.mean(stacked**2))), after)

@@ -20,6 +20,7 @@ from .._executables import (
     executable_from_home,
     missing_home_message,
 )
+from ..execution import ExecutionRequest, resolve_backend
 from ._types import GPEC_HOME_ENV
 
 if TYPE_CHECKING:
@@ -79,7 +80,9 @@ def optional_executable(config: "GPECSuiteConfig", program: str) -> Path | None:
 def unconfigured_reason() -> str:
     return missing_home_message(
         home_variable=GPEC_HOME_ENV,
-        relative_path="bin/{dcon,match,rdcon,rmatch,stride,gpec}",
+        # `pentrc` included: it is resolved out of the same `bin` and a reason
+        # that listed every other program implied PENTRC was somewhere else.
+        relative_path="bin/{dcon,match,rdcon,rmatch,stride,gpec,pentrc}",
         code_name="GPEC suite",
     )
 
@@ -156,6 +159,12 @@ def _format_value(value: Any) -> str:
         return _quote_namelist_string(value)
     if isinstance(value, Path):
         return _quote_namelist_string(str(value))
+    if isinstance(value, (tuple, list)):
+        # A namelist array assignment, one element per value: Fortran accepts
+        # either commas or blanks and the packaged templates use both, so the
+        # comma is chosen and applied consistently rather than matched to
+        # whatever the line being replaced happened to use.
+        return ", ".join(_format_value(item) for item in value)
     return str(value)
 
 
@@ -173,14 +182,105 @@ def _set_value(text: str, key: str, value: Any) -> str:
     return new_text
 
 
+def read_namelist_group(path: Path | str, group: str) -> dict[str, str]:
+    """The scalar assignments of one Fortran namelist group, as the file writes them.
+
+    Values come back as strings with quotes and trailing comments stripped;
+    nothing is defaulted, so a key the file omits is simply absent. Indexed
+    assignments (``ss_flag(3)=f``) are skipped -- they are arrays, and no caller
+    here reads one.
+
+    Comments are stripped before the group terminator is looked for, because a
+    path-valued entry (``data_dir="/a/b" ! where the .dat files are``) puts a
+    slash inside the value: the terminating ``/`` has to be recognised as its
+    own line rather than as the first slash in the text.
+
+    Group names are matched case-insensitively, because GPEC's own namelists
+    and hand-written ones disagree about the spelling.
+
+    Raises
+    ------
+    ValueError
+        The file has no ``&group``.  It used to fall back to the top of the
+        file, which returned the *first* group's values under the requested
+        group's name (cold review 0.8.0 delta-squash F5); a group that is not
+        there is reported, the way a key that is not there is absent.
+    """
+    text = Path(path).read_text(encoding="utf-8")
+    match = re.search(rf"&{re.escape(group)}\b", text, re.IGNORECASE)
+    if match is None:
+        found = sorted({name.lower() for name in re.findall(r"(?m)^\s*&(\w+)", text)})
+        raise ValueError(
+            f"{path} has no &{group} namelist group; it declares {found or 'none'}"
+        )
+    body = text[match.end():]
+    values: dict[str, str] = {}
+    for raw in body.splitlines():
+        line = raw.split("!", 1)[0].strip()
+        if line.startswith("/"):
+            break
+        if "=" not in line or "(" in line.split("=", 1)[0]:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        values[key] = value.strip().strip("\"'")
+    return values
+
+
+class MissingNamelistKeyError(KeyError, ValueError):
+    """A namelist key a run asked for that its template does not declare.
+
+    Both a ``KeyError`` (what :func:`write_template` always raised, so a caller
+    catching that keeps working) and a ``ValueError`` (what a refused request
+    is), and the message names the template file and the key rather than the
+    bare key, because the remedy is in the template: a caller's own
+    ``templates_dir`` is where the line has to be added.
+    """
+
+    def __init__(self, template: Path, key: str) -> None:
+        self.template = Path(template)
+        self.key = str(key)
+        super().__init__(
+            f"{self.template} does not declare namelist key {self.key!r}, which this "
+            "run needs to write; a Fortran namelist READ stops on a name the "
+            "group does not declare, so the key cannot be appended either. Add the "
+            "line to the template this templates_dir points at, or drop the "
+            "request that needs it"
+        )
+
+    def __str__(self) -> str:  # KeyError would repr-quote the message
+        return str(self.args[0])
+
+
 def write_template(
     template: Path,
     target: Path,
     replacements: Mapping[str, Any],
+    optional: Mapping[str, Any] | None = None,
 ) -> Path:
+    """Copy *template* to *target* with the named namelist values patched in.
+
+    *replacements* must all be present in the template; a missing key is a
+    :class:`MissingNamelistKeyError` (a ``KeyError`` that is also a
+    ``ValueError``) naming the template and the key, because a value the
+    caller asked for and did not get is a run that does not do what it says.
+
+    *optional* is patched where the key exists and skipped where it does not.
+    That is for a key the caller is restating rather than requesting -- writing
+    ``singthresh_flag=f`` on a run that asked for no threshold, say -- which a
+    custom ``templates_dir`` is entitled not to carry.  Skipping is safe there
+    precisely because the value matches what the code would default to anyway.
+    """
     text = template.read_text(encoding="utf-8")
     for key, value in replacements.items():
-        text = _set_value(text, key, value)
+        try:
+            text = _set_value(text, key, value)
+        except KeyError:
+            raise MissingNamelistKeyError(template, key) from None
+    for key, value in (optional or {}).items():
+        try:
+            text = _set_value(text, key, value)
+        except KeyError:
+            continue
     target.write_text(text, encoding="utf-8")
     return target
 
@@ -253,22 +353,19 @@ def run_subprocess(
     *,
     config: "GPECSuiteConfig",
 ) -> tuple[int, Path]:
-    # The log is opened outside the try so that a bad log path stays its own
-    # error rather than being reported as an unlaunchable solver.
-    with log_path.open("w", encoding="utf-8") as log:
-        try:
-            result = subprocess.run(
-                [str(executable_path)],
-                cwd=cwd,
-                env=gpec_env(config),
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                text=True,
-                timeout=config.timeout,
-                check=False,
-            )
-        except OSError as error:
-            raise ExecutableNotLaunchable(
-                f"cannot launch {executable_path}: {error}"
-            ) from error
-    return int(result.returncode), log_path
+    command = (str(executable_path),)
+    execution = resolve_backend(config).run(
+        ExecutionRequest(
+            command=command,
+            workdir=Path(cwd),
+            env=gpec_env(config),
+            timeout=config.timeout,
+            log_path=Path(log_path),
+            label=Path(executable_path).name,
+        )
+    )
+    if execution.timed_out:
+        # The suite's timeout carve-out (run_gpec_module) catches this type.
+        # A scheduler can kill on its own walltime with no timeout configured.
+        raise subprocess.TimeoutExpired(list(command), config.timeout or execution.elapsed_s)
+    return int(execution.returncode), log_path

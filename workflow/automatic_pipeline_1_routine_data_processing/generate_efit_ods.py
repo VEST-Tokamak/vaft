@@ -10,7 +10,13 @@ from pathlib import Path
 
 from omas import ODS, load_omas_json
 
-from vaft.code.efit import EFITConfig, collect_efit_outputs
+from vaft.code.efit import (
+    EFITConfig,
+    EFITScientificConfig,
+    collect_efit_outputs,
+    unrecorded_efit_configuration,
+)
+from vaft.code.efit.presets import PRESET_RECORD
 from vaft.data.meqdsk import EFIT_MAPPING_SOURCE_REVISION
 from vaft.omas import save as save_ods
 from vaft.omas.vest_upstream import write_manifest
@@ -36,6 +42,7 @@ def efit_collection_parameters(
     artifact_hashes,
     artifact_manifest,
     mapping_source_revision=EFIT_MAPPING_SOURCE_REVISION,
+    efit_preset=None,
 ) -> str:
     """Serialize the EFIT collection payload for `equilibrium.code.parameters`.
 
@@ -49,20 +56,66 @@ def efit_collection_parameters(
     cache stays on the local product (#642), and a revision read back from the
     reader's own constant would describe the reader rather than the run -- so
     it is recorded here, where it replicates (#728).
+
+    `efit_preset` is the record the k-file stage wrote when a named EFIT
+    configuration built the k-files (#891).  The k-file stage writes one on
+    every run since 2026-10-01; a product from before presets existed has none,
+    and then the payload is exactly what it was.  A record also
+    states the uncertainty model the constraints were fitted under, which is
+    written once more as the top-level `uncertainty_model` --  the key
+    `vaft.omas.efit_quality.constraint_uncertainty_model` reads, and what
+    decides whether a sigma-normalized fit grade means anything.
     """
-    return json.dumps(
-        {
-            "efit_collection": {
-                "status": status,
-                "slice_statuses": [s.to_dict() for s in slice_statuses],
-                "mapping_diagnostics": list(mapping_diagnostics),
-                "artifact_hashes": dict(artifact_hashes),
-                "artifact_manifest": artifact_manifest,
-                "mapping_source_revision": str(mapping_source_revision),
-            }
-        },
-        sort_keys=True,
-    )
+    collection = {
+        "status": status,
+        "slice_statuses": [s.to_dict() for s in slice_statuses],
+        "mapping_diagnostics": list(mapping_diagnostics),
+        "artifact_hashes": dict(artifact_hashes),
+        "artifact_manifest": artifact_manifest,
+        "mapping_source_revision": str(mapping_source_revision),
+    }
+    payload: dict = {"efit_collection": collection}
+    if efit_preset is not None:
+        collection["efit_preset"] = efit_preset
+        model = preset_uncertainty_model(efit_preset)
+        if model is not None:
+            payload["uncertainty_model"] = model
+    return json.dumps(payload, sort_keys=True)
+
+
+def preset_uncertainty_model(record) -> str | None:
+    """The ``uncertainty_mode`` a preset record's scientific configuration names."""
+    try:
+        model = record["scientific"]["constraints"]["uncertainty_mode"]
+    except (KeyError, TypeError):
+        return None
+    return str(model) if model else None
+
+
+def _preset_record(kfile_manifest: Path):
+    """The preset record the k-file stage left beside its manifest, if any."""
+    path = kfile_manifest.parent / PRESET_RECORD
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+
+def _collection_config(preset, workdir: Path, shot: int) -> tuple[EFITConfig, dict | None]:
+    """The ``EFITConfig`` to collect under, and the configuration record to stamp.
+
+    Each slice status records the configuration it was collected under: the
+    one the k-file stage recorded, so a ``routine`` run does not claim the
+    default.  Without a record (a workdir whose k-files predate the record,
+    or came from ``--config`` or a legacy basis) nothing is known, and the
+    statuses say ``unrecorded`` rather than the sha of today's default
+    (cold review 0.8.0 delta-absorb-11b F4).
+    """
+    if preset and "scientific" in preset:
+        scientific = EFITScientificConfig.from_dict(preset["scientific"])
+        config = EFITConfig(workdir=workdir, shot=shot, profile=scientific.profile,
+                            initialization=scientific.initialization,
+                            numerics=scientific.numerics, constraints=scientific.constraints)
+        return config, None
+    config = EFITConfig(workdir=workdir, shot=shot)
+    return config, unrecorded_efit_configuration(config)
 
 
 def main() -> int:
@@ -87,9 +140,11 @@ def main() -> int:
     status_text = args.status.read_text(encoding="utf-8").strip() if args.status.exists() else "unknown"
     constraints_ods = load_omas_json(str(args.constraints_ods), consistency_check=False)
     kfiles = tuple(Path(line.strip()) for line in args.kfile_manifest.read_text(encoding="utf-8").splitlines() if line.strip())
+    preset = _preset_record(args.kfile_manifest)
+    config, configuration = _collection_config(preset, workdir, args.shot)
     result = collect_efit_outputs(
-        workdir, EFITConfig(workdir=workdir, shot=args.shot),
-        expected_kfiles=kfiles, constraints_ods=constraints_ods,
+        workdir, config, expected_kfiles=kfiles, constraints_ods=constraints_ods,
+        configuration=configuration,
     )
 
     ods = result.ods if result.ods is not None else _minimal_efit_ods(args.shot, args.run, status_text)
@@ -115,6 +170,7 @@ def main() -> int:
             artifact_manifest=json.loads(
                 args.artifact_manifest.read_text(encoding="utf-8")
             ),
+            efit_preset=preset,
         )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

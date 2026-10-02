@@ -27,8 +27,10 @@ __all__ = [
     "coil_3d_geometry3d",
     "coil_3d_geometry_topview",
     "draw_geometry_layer",
+    "finite_runs",
     "equilibrium_geometry_boundary",
     "equilibrium_geometry_topview",
+    "machine_geometry3d",
     "machine_geometry_poloidal",
     "machine_geometry_topview",
     "magnetics_geometry_poloidal",
@@ -41,6 +43,7 @@ __all__ = [
     "soft_x_rays_geometry_lines_of_sight",
     "thomson_scattering_geometry_poloidal",
     "wall_geometry_poloidal",
+    "mhd_linear_geometry_island",
 ]
 
 _DEFAULT_FIGSIZE = (6.0, 7.0)
@@ -77,7 +80,74 @@ def draw_geometry_layer(
     if layer.kind == "polygon" and r.size and (r[0] != r[-1] or z[0] != z[-1]):
         r = np.concatenate([r, r[:1]])
         z = np.concatenate([z, z[:1]])
+    runs = finite_runs(r, z)
+    if runs is not None:
+        _draw_runs(axes, runs, options)
+        return
     axes.plot(r, z, **options)
+
+
+def finite_runs(r: Any, z: Any) -> list[np.ndarray] | None:
+    """The finite stretches of a polyline, or ``None`` when it has no gap.
+
+    A layer marks a break with a non-finite sample (issue #1314): the camera
+    overlays set a sample that is behind the camera or outside the lens model
+    to NaN.  Each run is an ``(n, 2)`` array of consecutive finite samples;
+    a lone finite sample between two gaps is no segment and is dropped.
+    """
+    r = np.asarray(r, dtype=float).ravel()
+    z = np.asarray(z, dtype=float).ravel()
+    finite = np.isfinite(r) & np.isfinite(z)
+    if finite.all():
+        return None
+    edges = np.flatnonzero(np.diff(np.concatenate([[0], finite.astype(np.int8), [0]])))
+    return [
+        np.column_stack([r[start:stop], z[start:stop]])
+        for start, stop in zip(edges[::2], edges[1::2])
+        if stop - start >= 2
+    ]
+
+
+#: Line2D keywords that a :class:`~matplotlib.collections.LineCollection`
+#: has no counterpart for; markers are drawn separately.
+_MARKER_KEYS = ("marker", "markersize", "ms", "markevery", "markerfacecolor", "mfc",
+                "markeredgecolor", "mec", "markeredgewidth", "mew", "fillstyle", "drawstyle", "ds")
+
+
+def _draw_runs(axes: Axes, runs: list[np.ndarray], options: dict[str, Any]) -> None:
+    """Draw ``runs`` as explicit segments, never one path across their gaps.
+
+    Matplotlib breaks a ``Line2D`` at NaN, but only while the NaN is still in
+    the line's data: anything that rewrites that data after ``plot`` -- a
+    third-party ``xlim_changed`` hook that crops each line to the view, which
+    a Jupyter startup script can install (issue #1314) -- joins the runs with
+    straight segments.  A ``LineCollection`` holds each run as its own path.
+    """
+    from matplotlib.collections import LineCollection
+
+    options = dict(options)
+    marker = {key: options.pop(key) for key in _MARKER_KEYS if key in options}
+    if options.get("color") is None and options.get("c") is None:
+        options["color"] = axes._get_lines.get_next_color()
+    kwargs: dict[str, Any] = {}
+    for key, value in options.items():
+        name = {"c": "color", "lw": "linewidth", "ls": "linestyle",
+                "solid_capstyle": "capstyle", "solid_joinstyle": "joinstyle"}.get(key, key)
+        if name in ("dash_capstyle", "dash_joinstyle"):
+            continue
+        kwargs[name] = value
+    if kwargs.get("linestyle") in ("none", "None", "", " "):
+        kwargs.pop("linestyle")
+        kwargs["linewidth"] = 0.0
+    collection = LineCollection(runs, **kwargs)
+    axes.add_collection(collection, autolim=True)
+    # Autoscale lazily, as ``plot`` does, so a later set_xlim still wins.
+    request = getattr(axes, "_request_autoscale_view", None)
+    request() if request is not None else axes.autoscale_view()
+    if marker.get("marker") not in (None, "", "none", "None") and runs:
+        points = np.concatenate(runs)
+        extra = {"zorder": kwargs["zorder"]} if "zorder" in kwargs else {}
+        axes.plot(points[:, 0], points[:, 1], linestyle="none", color=kwargs.get("color"), **extra, **marker)
 
 
 def _entry_colors(model: GeometryLayers) -> dict[str, Any]:
@@ -491,6 +561,30 @@ def coil_3d_geometry3d(
     return render_geometry_3d_layers(model, ax=ax, show=show, **style)
 
 
+@renderer(
+    domain="machine", view="geometry3d", model=Geometry3DLayers,
+    subject="machine",
+    description="Composed 3D machine scene: wall and plasma-boundary cuts at four "
+                "toroidal angles, PF coil rings, non-axisymmetric coils, and every "
+                "diagnostic channel that stores r, phi and z.",
+    ids=("wall", "pf_active", "coils_non_axisymmetric", "equilibrium", "magnetics",
+         "thomson_scattering", "charge_exchange", "langmuir_probes", "barometry",
+         "interferometer", "soft_x_rays", "bolometer", "spectrometer_uv"),
+    required_paths=(),
+    optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",
+                    "pf_active.coil.{i}.element.{j}.geometry.geometry_type",
+                    "coils_non_axisymmetric.coil.{i}.conductor.{j}.elements.start_points.r",
+                    "equilibrium.time_slice.{i}.boundary.outline.r",
+                    "magnetics.b_field_pol_probe.{i}.position.phi",
+                    "soft_x_rays.channel.{i}.line_of_sight.first_point.phi"),
+)
+def machine_geometry3d(
+    model: Geometry3DLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Composed 3D machine scene."""
+    return render_geometry_3d_layers(model, ax=ax, show=show, **style)
+
+
 @_geometry_renderer(
     domain="coils_non_axisymmetric", quantity="topview",
     subject="coil_3d",
@@ -505,4 +599,33 @@ def coil_3d_geometry_topview(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Top view (x-y) of the non-axisymmetric coil filaments."""
+    return render_geometry_layers(model, ax=ax, show=show, **style)
+
+
+@_geometry_renderer(
+    domain="mhd_linear", quantity="island",
+    subject="mhd_linear",
+    description="Saturated island separatrices in the poloidal plane at one toroidal "
+                "angle, derived from the mapped perturbed flux and drawn on the run's "
+                "own flux-surface mesh; the island phase is GPEC's arg(I_res).",
+    ids=("mhd_linear",),
+    required_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim2",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.real",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.imaginary",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.grid.dim1",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.grid.dim2",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.r",
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.coordinate_system.z",
+        # The per-surface geometry and chi1 the resonant derivation needs;
+        # they have no IMAS slot, so the mapper records them here (D-12).
+        "mhd_linear.code.parameters",
+    ),
+)
+def mhd_linear_geometry_island(
+    model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Saturated island separatrices in the poloidal plane."""
     return render_geometry_layers(model, ax=ax, show=show, **style)

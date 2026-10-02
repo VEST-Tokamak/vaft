@@ -64,6 +64,54 @@ from scipy.interpolate import interp1d
 import logging
 import vaft.process
 
+# The names defined here.  What this module imports (``omas``, NumPy, other
+# VAFT modules) is not re-exported through it (#1382).
+__all__ = [
+    "ALPHA_METHODS",
+    "COINCIDENT_SOURCE_TOL",
+    "DT_SUB",
+    "EC_FREQUENCY_VEST_HZ",
+    "GEOMETRY_TYPE_POLYGON",
+    "GEOMETRY_TYPE_RECTANGLE",
+    "PREFILL_WINDOW_S",
+    "camera_projection_for",
+    "clear_vacuum_field_cache",
+    "compute_camera_visible_efit_overlay",
+    "compute_camera_visible_field_line_overlay",
+    "compute_camera_visible_vacuum_field_lines",
+    "compute_connection_length_map_ods",
+    "compute_core_profile_2d",
+    "compute_core_profile_psi",
+    "compute_decay_index_ods",
+    "compute_diamagnetic_flux_measured_vs_computed",
+    "compute_diamagnetism",
+    "compute_eddy_currents",
+    "compute_ejiri_mirror_proxy_ods",
+    "compute_field_line_trace",
+    "compute_grad_shafranov_residual",
+    "compute_grid_ods",
+    "compute_grid_response_ods",
+    "compute_impedance_matrices_ods",
+    "compute_magnetic_energy",
+    "compute_null_ods",
+    "compute_ohmic_heating_power_from_core_profiles",
+    "compute_parallel_current_from_toroidal",
+    "compute_point_response_matrices_ods",
+    "compute_point_response_ods",
+    "compute_point_vacuum_fields_ods",
+    "compute_prefill_pressure_ods",
+    "compute_reconstructed_diamagnetic_flux",
+    "compute_romero_flux_balance_ods",
+    "compute_startup_loop_voltage_ods",
+    "compute_startup_proxies_ods",
+    "compute_vacuum_field_map",
+    "compute_vacuum_midplane_profiles_ods",
+    "compute_virial_equilibrium_quantities_ods",
+    "compute_volume_averaged_pressure",
+    "compute_wall_mode_basis_ods",
+    "ensure_em_coupling",
+]
+
 
 # A library module must not configure the root logger (see vaft.database.raw).
 logger = logging.getLogger(__name__)
@@ -466,6 +514,15 @@ def ensure_em_coupling(ods: ODS) -> None:
     any single matrix lets such an ODS through to a bare ``KeyError`` in
     :func:`compute_impedance_matrices_ods`. Require every matrix that function
     reads, and leave a caller-supplied pair untouched.
+
+    The only reconstruction VAFT has is VEST's packaged coupling asset, which
+    accepts an ODS only when its PF coils and passive loops match that asset
+    exactly (names, order and geometry).  When they do not -- another machine,
+    or a VEST ODS whose geometry is of another era -- the error says so and
+    names the two matrices the caller can supply instead, rather than leaving
+    the asset's own mismatch message to suggest renaming the caller's coils
+    (issue #271).  Whether the ODS "is VEST" is never guessed: the asset's
+    full-geometry check is the only test, and it cannot pass a foreign machine.
     """
     existing = ods["em_coupling"] if "em_coupling" in ods else None
     if existing is not None and all(
@@ -474,14 +531,31 @@ def ensure_em_coupling(ods: ODS) -> None:
     ):
         return
 
+    from vaft.machine_mapping.em_coupling import CouplingGeometryMismatch
     from vaft.machine_mapping.em_coupling import em_coupling as _map_em_coupling
+
+    from vaft.ods_access import path_value
 
     shot = None
     try:
-        shot = int(ods["dataset_description.data_entry.pulse"])
-    except (KeyError, ValueError, TypeError):
+        # read without subscripting: an OMAS subscript would leave an empty
+        # dataset_description behind on an ODS that has none (#118)
+        shot = int(path_value(ods, "dataset_description.data_entry.pulse"))
+    except (ValueError, TypeError):
         pass
-    _map_em_coupling(ods, shot=shot)
+    try:
+        _map_em_coupling(ods, shot=shot)
+    except CouplingGeometryMismatch as error:
+        # only a geometry mismatch: a corrupt asset or a bad matrix keeps its
+        # own message, since supplying matrices would not be the remedy
+        raise CouplingGeometryMismatch(
+            "em_coupling.mutual_passive_passive / mutual_passive_active are missing "
+            "or incomplete, and VAFT's only reconstruction -- VEST's packaged "
+            "coupling asset -- does not fit this ODS's PF coils and passive loops: "
+            f"{error}. For a machine other than VEST, supply both matrices in "
+            "em_coupling before calling; for VEST, populate pf_active/pf_passive "
+            "with vaft.machine_mapping for the ODS's own shot."
+        ) from error
 
 
 
@@ -1041,12 +1115,12 @@ def _vacuum_map_grid(ods: ODS, resolution: int) -> Tuple[ndarray, ndarray]:
     and a grid point landing on one reads a meaningless spike.  That is a
     question for the contour levels, not for the extent.
     """
-    try:
-        wall_r = np.asarray(
-            ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
-        wall_z = np.asarray(
-            ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
-    except (KeyError, ValueError, IndexError):
+    # _limiter_outline, not ods[...]: reading a missing OMAS path does not raise,
+    # it creates the path, so the except below never fired and every caller --
+    # the connection-length and Ejiri wrappers among them -- was handed back an
+    # ODS with an empty wall it did not have before.
+    wall_r, wall_z = _limiter_outline(ods)
+    if wall_r is None:
         wall_r = wall_z = np.asarray([])
     if wall_r.size < 3:
         # No wall: fall back to the filaments' own extent, which at least
@@ -1258,14 +1332,15 @@ def compute_connection_length_map_ods(
     grid = compute_vacuum_field_map(ods, time=time, resolution=resolution)
     product = _vacuum_toroidal_product(ods, grid["time"])
 
-    try:
-        wall_r = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.r"], dtype=float)
-        wall_z = np.asarray(ods["wall.description_2d.0.limiter.unit.0.outline.z"], dtype=float)
-    except (KeyError, ValueError) as error:
+    # Read through _limiter_outline, not ods[...]: a missing OMAS path does not
+    # raise, it returns an empty array and creates the path in the caller's ODS,
+    # so a try/except KeyError here never fired and left an empty wall behind.
+    wall_r, wall_z = _limiter_outline(ods)
+    if wall_r is None:
         raise ValueError(
             "a limiter outline is required for a connection length; without a wall "
             "nothing terminates a field line"
-        ) from error
+        )
 
     # Keyed on what the length is a function of -- the field on this grid, the
     # toroidal product and the wall -- and not on the machine's geometry: every
@@ -1313,6 +1388,87 @@ def compute_connection_length_map_ods(
         "time": grid["time"],
         "time_index": grid["time_index"],
     }
+
+
+def compute_ejiri_mirror_proxy_ods(
+    ods: ODS,
+    *,
+    time: float,
+    r_start: float,
+    resolution: int = 65,
+    z_fit: Optional[float] = None,
+    dphi_deg: float = 1.0,
+    max_length_m: float = 150.0,
+) -> Dict[str, Any]:
+    """Ejiri mirror-confinement proxy in the vacuum field, at one instant.
+
+    Whether the configuration could hold an electron an EC wave produced at
+    ``r_start`` -- the geometric half of issue #676.  The field is the vacuum
+    field, coils and vessel with no plasma, because the model is for the
+    configuration before breakdown.
+
+    Args:
+        ods: OMAS data structure carrying ``pf_active``, ``pf_passive``, ``tf``
+            and ``wall``, with the vessel currents already solved.
+        time: Instant to evaluate, snapped to the nearest stored PF sample [s].
+        r_start: Major radius the electron starts at on the midplane [m].
+            Deliberately required rather than defaulted: the usual choice is the
+            electron-cyclotron resonance,
+            :func:`vaft.formula.startup.electron_cyclotron_resonance_radius`, but
+            which harmonic and which launcher is the caller's decision.
+        resolution: Points per axis of the vacuum-field grid the line is traced
+            through [-].
+        z_fit: Half-height of the midplane parabola fit; ``None`` takes the
+            process default [m].
+        dphi_deg: Fixed step in toroidal angle [deg].
+        max_length_m: Path length at which to stop each branch; the default
+            matches the process function's, where VEST converges [m].
+
+    Returns:
+        The mapping :func:`vaft.process.equilibrium.ejiri_mirror_geometry`
+        returns -- ``r_start``, ``r_inboard_limiter``, ``curvature_radius``,
+        ``z_max``, ``alpha``, ``f3``, ``mirror`` and the per-branch diagnostics --
+        plus the ``time`` and ``time_index`` actually used.
+
+    Raises:
+        ValueError: The toroidal field product or the limiter outline is
+            missing, or the process function rejects the geometry.
+
+    Notes:
+        The wall is read from the same path as
+        :func:`compute_connection_length_map_ods`, so the two agree on what
+        terminates a line.  ``r_inboard_limiter`` is limiter-sensitive, so a
+        stub outline gives a stub answer; this does not normalise the wall.
+    """
+    grid = compute_vacuum_field_map(ods, time=time, resolution=resolution)
+    product = _vacuum_toroidal_product(ods, grid["time"])
+    wall_r, wall_z = _limiter_outline(ods)
+    if wall_r is None:
+        raise ValueError(
+            "a limiter outline is required for the Ejiri proxy; without a wall "
+            "neither the inboard limiter nor the end of a field line exists"
+        )
+
+    # The private kernel rather than the public function, so its saturation
+    # warning blames this function's caller instead of this line.
+    from vaft.process.equilibrium import (
+        _ejiri_mirror_geometry,
+        make_vacuum_field_interpolator,
+    )
+
+    b_field = make_vacuum_field_interpolator(
+        grid["r"], grid["z"], grid["b_r"], grid["b_z"], product
+    )
+    result = _ejiri_mirror_geometry(
+        float(r_start),
+        b_field,
+        wall_r=wall_r,
+        wall_z=wall_z,
+        z_fit=z_fit,
+        dphi=np.deg2rad(float(dphi_deg)),
+        max_length_m=float(max_length_m),
+    )
+    return {**result, "time": grid["time"], "time_index": grid["time_index"]}
 
 
 # ---------------------------------------------------------------------------
@@ -2200,16 +2356,62 @@ def _per_radian_cocos(ods):
     return index - 10 if index >= 11 else index
 
 
-def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float:
-    """Compute magnetic energy from ODS.
-    
+def compute_magnetic_energy(
+    ods: ODS,
+    time_slice: Optional[int] = None,
+    *,
+    components: str = "total",
+    write_fields: bool = False,
+) -> float:
+    """Magnetic field energy inside the last closed flux surface, by component.
+
+    ``W = int B^2 / (2 mu0) dV`` over the inside of ``boundary.outline``,
+    weighted by each grid cell's area fraction inside it, with ``B_R`` and ``B_Z`` from the stored psi map (Sauter Eq. 20) and
+    ``B_phi = B0 R0 / R`` -- the *vacuum* toroidal field, ``F`` held constant.
+
+    Which energy that is matters more than the arithmetic:
+
+    ========== ========================================= ==================
+    components integrand                                 39915, t = 0.316 s
+    ========== ========================================= ==================
+    "total"    B_R^2 + B_Z^2 + B_phi^2 (the default)     12.4 kJ
+    "poloidal" B_R^2 + B_Z^2                             0.44 kJ
+    "toroidal" B_phi^2, vacuum F                         12.0 kJ
+    ========== ========================================= ==================
+
+    The poloidal energy is the one the internal inductance, the virial
+    ``W_mag = li B_pa^2 V / (2 mu0)`` and Romero's inductive voltage are made
+    of (``L_i I_p^2 / 2``): on the packaged 39915 and 41672 slices it matches
+    ``mu0 R0 li_3 I_p^2 / 4`` from the surface integral to 0.3-1.2 %.  The toroidal part is the vacuum field's energy
+    over the plasma volume: it follows the volume, not the current, and it
+    carries no diamagnetic or paramagnetic correction because ``F`` is not
+    ``F(psi)``.  So the default total is dominated by a term that says nothing
+    about the plasma current (issue #652), and a time derivative of it is not
+    an inductive voltage.
+
     Args:
-        ods: OMAS data structure
-        time_slice: Time slice index (None = use first available)
-    
+        ods: OMAS data structure.
+        time_slice: Time slice index (None = the first).
+        components: ``"total"``, ``"poloidal"`` or ``"toroidal"``.
+        write_fields: When true, also store ``profiles_2d.0.b_field_r``,
+            ``b_field_z`` and ``b_field_tor`` in ``ods`` -- the constant-``F``
+            toroidal field included.  Off by default: the function used to do
+            this silently. For the fields themselves prefer
+            :func:`vaft.omas.update.update_equilibrium_profiles_2d_b_field`,
+            which uses the real ``F(psi)``.
+
     Returns:
-        float: Magnetic energy [J]
+        float: Magnetic energy of the requested components [J].
+
+    Raises:
+        KeyError: Missing psi map, reference field or reference radius.
+        ValueError: An unknown ``components``, an unexpected psi shape, or a
+            zero plasma volume.
     """
+    if components not in ("total", "poloidal", "toroidal"):
+        raise ValueError(
+            f"components must be 'total', 'poloidal' or 'toroidal'; got {components!r}"
+        )
     from vaft.formula.constants import MU0
 
     if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
@@ -2294,21 +2496,47 @@ def compute_magnetic_energy(ods: ODS, time_slice: Optional[int] = None) -> float
     F_ref = B0 * R0
     B_PHI = F_ref / Rm_safe
 
-    # Total B^2
-    B2 = B_R**2 + B_Z**2 + B_PHI**2
+    if components == "poloidal":
+        B2 = B_R**2 + B_Z**2
+    elif components == "toroidal":
+        B2 = B_PHI**2
+    else:
+        B2 = B_R**2 + B_Z**2 + B_PHI**2
 
-    # Normalize psi for plasma mask via volume_average()
-    psiN_RZ = (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
-
-    # Magnetic energy density and volume integral (use provided volume_average)
     w_mag_RZ = B2 / (2.0 * MU0)  # [J/m^3]
-    w_avg, V = volume_average(w_mag_RZ, psiN_RZ, R_grid, Z_grid)
-    W_B = float(w_avg * V)  # [J]
 
-    # Store computed fields back into ODS (optional but useful for diagnostics/plotting)
-    eq_ts['profiles_2d.0.b_field_r'] = B_R
-    eq_ts['profiles_2d.0.b_field_z'] = B_Z
-    eq_ts['profiles_2d.0.b_field_tor'] = B_PHI
+    # The plasma is the inside of the boundary outline.  A normalised-flux
+    # mask alone is not: every grid cell whose psi happens to lie between the
+    # axis and boundary values passes it, including cells by the central
+    # solenoid and the PF coils where B_p is large -- on 41672 at 0.338 s
+    # that put 23.6 kJ of "poloidal plasma energy" where L_i I_p^2 / 2 is 0.6.
+    outline_r = np.asarray(eq_ts['boundary.outline.r'], float) if 'boundary.outline.r' in eq_ts else np.asarray([])
+    outline_z = np.asarray(eq_ts['boundary.outline.z'], float) if 'boundary.outline.z' in eq_ts else np.asarray([])
+    finite = np.isfinite(outline_r) & np.isfinite(outline_z) if outline_r.size == outline_z.size else np.asarray([], bool)
+    if finite.sum() >= 3:
+        from vaft.process.equilibrium import fractional_cell_weights_from_boundary
+
+        weights = fractional_cell_weights_from_boundary(
+            Rm, Zm, outline_r[finite], outline_z[finite], samples_per_axis=5
+        )
+        cell_area = np.outer(np.gradient(R_grid), np.gradient(Z_grid))
+        d_volume = 2.0 * np.pi * np.where(np.isfinite(Rm_safe), Rm_safe, 0.0) * cell_area * weights
+        if not np.any(d_volume > 0.0):
+            raise ValueError("Total plasma volume is zero.")
+        W_B = float(np.nansum(w_mag_RZ * d_volume))  # [J]
+    else:
+        logger.warning(
+            "time slice %s has no boundary outline; masking the plasma by normalised "
+            "flux alone, which also admits cells outside the boundary.", eq_idx
+        )
+        psiN_RZ = (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
+        w_avg, V = volume_average(w_mag_RZ, psiN_RZ, R_grid, Z_grid)
+        W_B = float(w_avg * V)  # [J]
+
+    if write_fields:
+        eq_ts['profiles_2d.0.b_field_r'] = B_R
+        eq_ts['profiles_2d.0.b_field_z'] = B_Z
+        eq_ts['profiles_2d.0.b_field_tor'] = B_PHI
 
     return W_B
 
@@ -3078,8 +3306,9 @@ def compute_virial_equilibrium_quantities_ods(
             #
             # The remaining approximation is first order in (F - F_b)/F_b,
             # which no single flux measurement can improve on -- not a sign
-            # ambiguity. The sign is settled: the measurement carries it, in
-            # the convention test/test_diamagnetic_flux_sign.py pins.
+            # ambiguity. The sign is settled: the measurement carries it,
+            # positive for a paramagnetic plasma (#1196), in the convention
+            # test/test_diamagnetic_flux_sign.py pins.
             mui_measured = -float(
                 virial_muihat_from_Bt_R0_dphi(
                     _b_t_for_flux, R_0, delta_phi_measured, B_pa, V_p
@@ -3199,6 +3428,21 @@ def compute_virial_equilibrium_quantities_ods(
     return out
 
 
+def _slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ):
+    """Plasma cell fractions for one equilibrium slice.
+
+    From ``boundary.outline`` when the slice has one, through
+    :func:`vaft.process.equilibrium.plasma_cell_weights`; otherwise the
+    normalized-flux threshold, which that function warns about.  Read by
+    membership so a missing outline is not created on the slice.
+    """
+    from vaft.process.equilibrium import plasma_cell_weights
+
+    outline_r = np.asarray(eq_ts['boundary.outline.r'], float) if 'boundary.outline.r' in eq_ts else None
+    outline_z = np.asarray(eq_ts['boundary.outline.z'], float) if 'boundary.outline.z' in eq_ts else None
+    return plasma_cell_weights(R_grid, Z_grid, psiN_RZ, outline_r, outline_z)
+
+
 def compute_reconstructed_diamagnetic_flux(ods, time_index=0):
     """
     Compute reconstructed diamagnetic flux (CDFLUX) from ODS.
@@ -3254,8 +3498,12 @@ def compute_reconstructed_diamagnetic_flux(ods, time_index=0):
     if psiN_1d.size != f_1d.size:
         raise ValueError("profiles_1d F and psi/psi_norm must have the same length")
 
+    weights = _slice_plasma_weights(
+        eq_slice, R_grid, Z_grid, (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
+    )
     return calculate_reconstructed_diamagnetic_flux(
-        R_grid, Z_grid, psi_RZ, psi_axis, psi_lcfs, psiN_1d, f_1d, f_vac_val
+        R_grid, Z_grid, psi_RZ, psi_axis, psi_lcfs, psiN_1d, f_1d, f_vac_val,
+        weights=weights,
     )
 
 
@@ -3399,9 +3647,13 @@ def compute_diamagnetism(ods, time_index=0):
 
     V_p = None
     if "profiles_1d.volume" in eq_slice:
+        # IMAS profiles_1d.volume is the volume ENCLOSED by each flux surface,
+        # cumulative from 0 on the axis to the plasma volume at the LCFS; the
+        # normaliser is its LCFS value (update_equilibrium_global_quantities_volume
+        # reads the same profile's last point), not its mean.
         vol = np.asarray(eq_slice["profiles_1d.volume"], float)
         if vol.size >= 1 and np.isfinite(vol).any():
-            V_p = float(np.nanmean(vol))
+            V_p = float(np.nanmax(vol))
     if V_p is None or V_p <= 0:
         R_bc = np.append(R_bdry, R_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else R_bdry
         Z_bc = np.append(Z_bdry, Z_bdry[0]) if (R_bdry[0] != R_bdry[-1] or Z_bdry[0] != Z_bdry[-1]) else Z_bdry
@@ -3410,14 +3662,18 @@ def compute_diamagnetism(ods, time_index=0):
         R_mid_b = 0.5 * (R_bc[:-1] + R_bc[1:])
         V_p = float(np.abs(-np.sum(np.pi * (R_mid_b**2) * dZ_b)))
 
+    weights = _slice_plasma_weights(
+        eq_slice, R_grid, Z_grid, (psi_RZ - psi_axis) / (psi_lcfs - psi_axis)
+    )
     return calculate_diamagnetism(
         R_grid, Z_grid, psi_RZ, psi_axis, psi_lcfs,
-        psiN_1d, f_1d, f_vac_val, B_pa, V_p=V_p
+        psiN_1d, f_1d, f_vac_val, B_pa, V_p=V_p, weights=weights,
     )
 
 
-def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optional[int] = None, 
-                                                    Z_eff: float = 2.0, ln_Lambda: float = 17.0) -> float:
+def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optional[int] = None,
+                                                    Z_eff: Optional[float] = None,
+                                                    ln_Lambda: Optional[float] = None) -> float:
     """
     Compute ohmic heating power from core profiles.
     
@@ -3429,8 +3685,10 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     Args:
         ods: OMAS data structure
         time_slice: Time slice index for core profile (None = use first available)
-        Z_eff: Effective charge (default: 2.0)
-        ln_Lambda: Coulomb logarithm (default: 17.0)
+        Z_eff: Effective charge for the NRL parallel Spitzer resistivity.
+            Required in substance: omitting it is deprecated (#1188) and falls
+            back to 2.0 with a FutureWarning until 0.9.
+        ln_Lambda: Coulomb logarithm; as Z_eff (former fallback 17.0).
     
     Returns:
         P_ohm: Ohmic heating power [W]
@@ -3440,7 +3698,22 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
         ValueError: If plasma volume is zero
     """
     from vaft.omas.update import update_equilibrium_profiles_1d_normalized_psi, update_equilibrium_profiles_2d_j_tor
-    
+
+    if Z_eff is None or ln_Lambda is None:
+        import warnings
+
+        missing = [name for name, value in (("Z_eff", Z_eff), ("ln_Lambda", ln_Lambda))
+                   if value is None]
+        warnings.warn(
+            f"compute_ohmic_heating_power_from_core_profiles called without {', '.join(missing)}; "
+            "the hidden fallbacks Z_eff=2, ln_Lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        Z_eff = 2.0 if Z_eff is None else Z_eff
+        ln_Lambda = 17.0 if ln_Lambda is None else ln_Lambda
+
     # Find matching time indices between core_profiles and equilibrium
     cp_idx, equil_idx, time = find_matching_time_indices(ods, time_slice)
     
@@ -3524,7 +3797,7 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     psi_lcfs = float(eq_ts['global_quantities.psi_boundary'])
     
     # Map T_e to 2D (R,Z)
-    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs)
+    T_e_RZ, psiN_RZ = psi_to_rz(psiN_1d, T_e_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge")
     
     # Calculate Spitzer resistivity 2D profile
     # Handle zero/negative temperatures (outside plasma)
@@ -3570,12 +3843,21 @@ def compute_ohmic_heating_power_from_core_profiles(ods: ODS, time_slice: Optiona
     if J_phi_RZ is None:
         raise KeyError(f"Toroidal current density (j_tor/jtor/j) not found in equilibrium.time_slice[{equil_idx}].profiles_2d.0 and could not be built from profiles_1d.j_tor")
     
+    # j_tor is NaN outside the confined region by design (update's
+    # _inside_boundary); the outline weights below can still reach a sliver
+    # edge cell just past psiN = 1 (86 cells on 39915 slice 0), where a NaN
+    # would make the whole integral NaN.  There is no current there.
+    J_phi_RZ = np.where(np.isfinite(J_phi_RZ), J_phi_RZ, 0.0)
+
     # Calculate eta * J_phi^2 2D profile
     eta_J2_RZ = eta_RZ * (J_phi_RZ ** 2)
     
     # Compute volume integral: P_ohm = ∫_V η J_φ² dV
     # Using volume_average: returns (average, volume), so integral = average * volume
-    p_avg, V = volume_average(eta_J2_RZ, psiN_RZ, R_grid, Z_grid)
+    p_avg, V = volume_average(
+        eta_J2_RZ, psiN_RZ, R_grid, Z_grid,
+        weights=_slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ),
+    )
     P_ohm = float(p_avg * V)  # [W]
     
     return P_ohm
@@ -3780,10 +4062,15 @@ def compute_volume_averaged_pressure(ods: ODS, time_slice: Optional[int] = None,
                 raise ValueError(f"Invalid option: {option}. Must be 'equilibrium' or 'core_profiles'")
             
             # Build 2D pressure map using psi_to_RZ
-            p_RZ, psiN_RZ = psi_to_rz(psi_norm_1d, p_1d, psi_RZ, psi_axis, psi_lcfs)
+            p_RZ, psiN_RZ = psi_to_rz(
+                psi_norm_1d, p_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge"
+            )
             
             # Compute volume average
-            p_avg, _ = volume_average(p_RZ, psiN_RZ, R_grid, Z_grid)
+            p_avg, _ = volume_average(
+                p_RZ, psiN_RZ, R_grid, Z_grid,
+                weights=_slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ),
+            )
             pressure_vol_avg_list.append(float(p_avg))
             
         except Exception as e:
@@ -4126,9 +4413,25 @@ def compute_field_line_trace(
         )
 
     field_data = _equilibrium_field_slice_data(time_slice)
+    per_radian_cocos = _per_radian_cocos(ods)
+    if per_radian_cocos is None:
+        # Nothing declared: take the index the slice's own signs resolve to, so
+        # the orientation is not guessed.  Still None when they leave it open,
+        # and the interpolator then warns that it assumes one (#1313).
+        from vaft.omas.update import _per_radian_cocos as _resolved_per_radian_cocos
+        from vaft.process.equilibrium import as_equilibrium
+
+        try:
+            per_radian_cocos = _resolved_per_radian_cocos(
+                as_equilibrium(ods, time_index=equilibrium_time_index).convention
+            )
+        except Exception:  # noqa: BLE001 - identification is best effort here
+            per_radian_cocos = None
     b_field = make_equilibrium_field_interpolator(
         field_data["R_grid"], field_data["Z_grid"], field_data["psi_grid"],
-        field_data["psi_1d"], field_data["f_1d"], cocos=_per_radian_cocos(ods),
+        field_data["psi_1d"], field_data["f_1d"], cocos=per_radian_cocos,
+        # The slice data is already scaled to Wb/rad (#1313).
+        psi_per_radian=True,
     )
 
     wall_r = wall_z = None
@@ -4435,3 +4738,191 @@ def compute_grad_shafranov_residual(
         n_surfaces=n_surfaces,
         psi_norm_max=psi_norm_max,
     )
+
+
+def _romero_boundary_histories(
+    ods: ODS, time_range: Optional[Tuple[float, float]]
+) -> Dict[str, Any]:
+    """Plasma current, Romero boundary flux and ``li_3`` of the selected slices.
+
+    The slice reading shared by :func:`compute_romero_flux_balance_ods` and
+    :func:`vaft.omas.resistive_zeff.romero_boundary_flux_ods`: the flux comes
+    back in full webers and Romero's sign, ``L_i = mu0 R0 li_3 / 2`` with
+    ``li_3`` recomputed from ``int B_p^2 dV`` on a copy of ``ods``.
+    """
+    import copy
+
+    from vaft.formula.constants import MU0
+    from vaft.omas.update import (
+        resolve_reference_major_radius,
+        update_equilibrium_global_quantities_beta_li,
+    )
+    from vaft.process.equilibrium import as_equilibrium
+
+    # Read by membership: on a consistency_check=False ODS a bare subscript
+    # of a missing leaf attaches an empty node that `in` and flat() then hide
+    # but keys() and save() show. Slices that carry their own `time` are the
+    # fallback; a slice without either is NaN and falls out of the selection.
+    if "equilibrium.time" in ods:
+        times = np.asarray(ods["equilibrium.time"], dtype=float).reshape(-1)
+    elif "equilibrium.time_slice" in ods:
+        slices = ods["equilibrium.time_slice"]
+        times = np.asarray(
+            [
+                float(slices[i]["time"]) if "time" in slices[i] else np.nan
+                for i in range(len(slices))
+            ],
+            dtype=float,
+        )
+    else:
+        times = np.asarray([], dtype=float)
+    selected = [
+        i for i, t in enumerate(times)
+        if np.isfinite(t) and (time_range is None or (time_range[0] <= t <= time_range[1]))
+    ]
+    if len(selected) < 3:
+        raise ValueError(
+            f"{len(selected)} equilibrium slices in {time_range}; the balance needs three"
+        )
+
+    # Copy only what the inductance and R0 derivations read: a whole-ODS copy
+    # would touch every IDS the caller carries (the plot read declarations).
+    from omas import ODS as _ODS
+
+    work = _ODS(consistency_check=False)
+    for ids in ("equilibrium", "tf", "wall"):
+        if ids in ods:
+            work[ids] = copy.deepcopy(ods[ids])
+    for idx in selected:
+        # A stored li_3 has an unrecorded normalising radius; if the updater
+        # skips a slice it must show up as missing, not as that stale leaf.
+        slice_gq = work["equilibrium.time_slice"][idx]
+        if "global_quantities.li_3" in slice_gq:
+            del slice_gq["global_quantities.li_3"]
+    update_equilibrium_global_quantities_beta_li(work, time_slice=selected)
+    r0 = float(resolve_reference_major_radius(work))
+
+    ip, psi_b, li_3, signs, per_radian = [], [], [], [], []
+    for idx in selected:
+        ts = work["equilibrium.time_slice"][idx]
+        current = float(ts["global_quantities.ip"]) if "global_quantities.ip" in ts else np.nan
+        if not np.isfinite(current) or current == 0.0:
+            raise ValueError(
+                f"equilibrium slice {idx} (t = {times[idx]:.4f} s) has no plasma current; "
+                "restrict time_range to the flux-closure window"
+            )
+        if "global_quantities.li_3" not in ts:
+            raise ValueError(f"li_3 could not be derived for equilibrium slice {idx}")
+        axis = float(ts["global_quantities.psi_axis"])
+        boundary = float(ts["global_quantities.psi_boundary"])
+        stored_per_radian = bool(as_equilibrium(work, time_index=idx).convention.psi_per_radian)
+        ip.append(current)
+        psi_b.append(boundary * (2.0 * np.pi if stored_per_radian else 1.0))
+        li_3.append(float(ts["global_quantities.li_3"]))
+        signs.append(np.sign((axis - boundary) * current))
+        per_radian.append(stored_per_radian)
+
+    if len(set(signs)) != 1 or signs[0] == 0.0 or len(set(per_radian)) != 1:
+        raise ValueError(
+            "the equilibrium slices disagree on the flux convention "
+            f"(sign {sorted(set(signs))}, per-radian {sorted(set(per_radian))})"
+        )
+    flux_sign = float(signs[0])
+    ip_arr, li_arr = np.asarray(ip), np.asarray(li_3)
+    psi_b_romero = flux_sign * np.asarray(psi_b)
+    return {
+        "time": times[selected],
+        "time_index": np.asarray(selected),
+        "I_p": ip_arr,
+        "psi_boundary": psi_b_romero,
+        "li_3": li_arr,
+        "L_i": 0.5 * MU0 * r0 * li_arr,
+        "R0": r0,
+        "flux_sign": flux_sign,
+        "psi_per_radian": per_radian[0],
+    }
+
+
+
+def compute_romero_flux_balance_ods(
+    ods: ODS,
+    *,
+    R_p,
+    I_ni,
+    time_range: Optional[Tuple[float, float]] = None,
+) -> Dict[str, Any]:
+    """Romero's voltage and volt-second balance over the equilibrium slices of a shot.
+
+    Reads the plasma current and boundary flux of every ``equilibrium``
+    time slice in ``time_range``, brings the flux to Romero's convention, takes
+    the internal inductance from the poloidal-field energy, and hands the
+    histories to :func:`vaft.process.equilibrium.romero_flux_balance` (issue
+    #781).
+
+    Args:
+        ods: OMAS data structure with an ``equilibrium`` carrying
+            ``profiles_2d.0.psi`` on each slice. Not modified: the inductance is
+            derived on a copy.
+        R_p: Plasma resistance, one value or one per selected slice [Ohm].
+        I_ni: Non-inductively driven current, one value or one per selected
+            slice; ``0`` asserts a purely Ohmic discharge [A]. Required, as in
+            the process function.
+        time_range: ``(t_start, t_end)`` inclusive, in seconds. ``None`` takes
+            every slice; a slice with zero or missing current then raises, so
+            the flux-closure window must be chosen, not assumed.
+
+    Returns:
+        The process function's mapping, plus ``time_index`` (the slices used),
+        ``psi_per_radian`` (the stored convention detected), ``flux_sign``
+        (the factor, ``+1`` or ``-1``, that brought the stored flux to
+        Romero's sign), ``R0`` (the radius ``li_3`` was normalised by),
+        ``li_3``, and ``R_closing`` -- the resistance that would close the
+        instantaneous balance, ``(V_B - V_I) / (I_p - I_ni)``.
+
+    Raises:
+        ValueError: Fewer than three usable slices, a slice with no current or
+            no derivable ``li_3``, slices that disagree on the flux sign, or any
+            rejection by the process function.
+
+    Notes:
+        ``psi_C`` is not integrated from a current density, which the packaged
+        equilibria do not carry: it is ``psi_B + L_i I_p``, Romero's exact
+        eqs. (35)-(36), with ``L_i = mu0 R0 li_3 / 2`` and ``li_3`` recomputed
+        from ``int B_p^2 dV`` by
+        :func:`vaft.omas.update.update_equilibrium_global_quantities_beta_li`
+        rather than read from the stored leaf, whose normalising radius is not
+        recorded. The flux sign is set per slice from
+        ``(psi_axis - psi_boundary) * I_p``, which has the sign of
+        ``psi_C - psi_B`` for any monotonic profile -- the data decide it, not
+        an assumed COCOS.
+
+        On the packaged samples ``R_closing`` is 2-50 micro-ohm and falls
+        through each discharge, the size of a Spitzer estimate at a few tens of
+        eV. Two symptoms mark slices to cut from the window: ``li_3`` running
+        away (41672 reaches 2.4-12 after 0.345 s, as the reconstruction
+        collapses) and a negative ``R_closing``. ``Phi_B`` and
+        ``Phi_B_direct`` differ by a few percent at 1 ms sampling with gaps,
+        which is the differencing and not the physics.
+    """
+    from vaft.process.equilibrium import romero_flux_balance
+
+    hist = _romero_boundary_histories(ods, time_range)
+    ip_arr, l_i = hist["I_p"], hist["L_i"]
+    psi_b_romero = hist["psi_boundary"]
+    psi_c_romero = psi_b_romero + l_i * ip_arr
+
+    out = romero_flux_balance(
+        hist["time"], ip_arr, psi_b_romero, psi_c_romero, R_p, I_ni
+    )
+    driven = np.broadcast_to(np.asarray(I_ni, dtype=float), ip_arr.shape)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        closing = (out["V_B"] - out["V_I"]) / (ip_arr - driven)
+    out.update(
+        time_index=hist["time_index"],
+        psi_per_radian=hist["psi_per_radian"],
+        flux_sign=hist["flux_sign"],
+        R0=hist["R0"],
+        li_3=hist["li_3"],
+        R_closing=closing,
+    )
+    return out

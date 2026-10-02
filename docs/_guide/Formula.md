@@ -18,7 +18,9 @@ related:
 ---
 
 `vaft.formula` is the **physics layer** of VAFT: closed-form expressions, empirical scalings and
-Green's functions, written as pure functions of NumPy arrays and scalars. Nothing in it touches an
+Green's functions, written as pure functions of NumPy arrays and scalars. How it sits beside
+`vaft.process` and `vaft.code` is set out on
+[Computational layers]({{ '/reference/computational-layers/' | relative_url }}). Nothing in it touches an
 ODS, reads a file, or plots. To evaluate the same physics directly on a VEST shot, use the ODS-aware
 wrappers in `vaft.omas.formula_wrapper` (the `vaft.omas.compute_*` functions), which pull the inputs
 out of the IDSs and hand them to these functions.
@@ -122,7 +124,7 @@ Fields and current density from the flux map:
 ```python
 B_r = vaft.formula.radial_magnetic_field_from_psi(psi, R, Z)      # B_r = -(1/R) dpsi/dZ
 B_z = vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z)    # B_z = +(1/R) dpsi/dR
-# current_density_from_psi is deprecated (#355): it returns -B_Z/mu0 [A/m],
+# current_density_from_psi (removed in 0.8.0, #355) returned -B_Z/mu0 [A/m],
 # not a current density.  For that quantity, note the minus sign:
 j   = -vaft.formula.vertical_magnetic_field_from_psi(psi, R, Z) / MU0   # [A/m]
 # For a real toroidal current density use the Grad-Shafranov operator:
@@ -262,20 +264,27 @@ element is the answer:
 ```python
 alpha        = ballooning_alpha_from_p_B_R(p, B, R, q)       # alpha = -2 mu0 R q^2 (dp/dR) / B^2
 d_alpha, a_c = ballooning_stability_criterion(alpha, s)      # alpha_crit = 0.6 s
-d_beta, b_c  = kink_stability_criterion(q_95, beta_N)        # beta_N_crit = 2.8 q95
-d_bp,   bp_c = sawtooth_stability_criterion(q_0, beta_pol)   # beta_p_crit = 0.3 (1 - q0)
-d_bN,   bN_c = beta_stability_boundary(beta_N, q_95)         # beta_N_crit = 0.028 q95
+d_beta, b_c  = kink_stability_criterion(q_95, beta_N)        # deprecated (#350): beta_N_crit = 2.8 q95
+d_bp,   bp_c = sawtooth_stability_criterion(q_0, beta_pol)   # deprecated (#350): beta_p_crit = 0.3 (1 - q0)
+d_bN,   bN_c = beta_stability_boundary(beta_N, q_95)         # deprecated (#350): beta_N_crit = 0.028 q95
 
-beta_margin, q_margin, density_margin = plasma_stability_margins(beta_N, q_95, n_e, n_G)
+beta_margin, q_margin, density_margin = plasma_stability_margins(beta_N, q_95, n_e, n_G)  # deprecated (#350)
 ```
+
+The four heuristics above are deprecated (#350): no source multiplies the $\beta_N$ limit by $q_{95}$,
+and Porcelli's sawtooth trigger is a set of conditions, not $0.3\,(1 - q_0)$. The sourced limits live
+in `vaft.formula.boundaries` (`"troyon"`, `"low_q"`, `"greenwald"`, `"murakami"`), evaluated with
+`evaluate_boundary`.
 
 `kink_stability_criterion` and `beta_stability_boundary` use **different** critical-$\beta_N$
 coefficients (2.8 versus 0.028) — the same Troyon-type relation written in two unit conventions
 (%·m·T/MA versus the dimensionless fraction). `plasma_stability_margins` is built on
 `beta_stability_boundary`, so it lives in the 0.028 convention; its `q_margin` is simply $q_{95} - 2$.
 
-Empirical $(q_a, l_i)$ operational boundary from the JET disruption survey
-(Wesson *et al.*, Nucl. Fusion **29**, 1989):
+Legacy vertices of the JET empirical $l_i$–$q_\psi$ stability boundary (Wesson *et al.*, Nucl.
+Fusion **29**, 1989, Fig. 6, lower boundary). The audited boundaries, with provenance and quantity
+identity, are the registered `wesson_1989_jet_li_qpsi_*` entries of `vaft.formula.boundaries`
+(see Stability, "Internal inductance against edge q"):
 
 <!-- docs-snippet: skip fragment (placeholder name qa is never defined on the page) -->
 ```python
@@ -393,11 +402,11 @@ Everything on this page that will silently give you a wrong number if you feed i
 | --- | --- |
 | `radial_magnetic_field_from_psi`, `vertical_magnetic_field_from_psi` | Differentiate along a single axis with `np.gradient` — pass **1-D slices**, not a 2-D $(R,Z)$ map. |
 | `volume_from_RZ_boundary` | Shoelace area $\times\ 2\pi\bar{R}$ with $\bar{R}$ the arithmetic mean of the boundary points — an approximation, not the exact Pappus centroid. |
-| `spitzer_resistivity_from_T_e_Z_eff_ln_Lambda` | $T_e$ in **eV**, not keV; $\ln\Lambda$ defaults to 17.0. Use `coulomb_logarithm_from_n_T` for a self-consistent value. |
+| `spitzer_resistivity_from_T_e_Z_eff_ln_Lambda` | $T_e$ in **eV**, not keV; NRL **parallel** coefficient. Pass $Z_{\mathrm{eff}}$ and $\ln\Lambda$ explicitly: the old fallbacks 2 and 17 are deprecated (#1188). Use `coulomb_logarithm_from_n_T` for a self-consistent $\ln\Lambda$. |
 | `beta_N_from_beta_a_B0_Ip` | Takes $\beta$ in **percent** and $I_p$ in **MA** and returns %·m·T/MA; a fraction and amperes give $10^{-8}$ times the Troyon number. |
 | `normalized_plasma_current` | `Ip` in [A] on the way in, MA/(m·T) on the way out. |
 | `greenwald_density` / `greenwald_fraction` | $I_p$ in **MA**, and $n_G$ comes back in $10^{19}\ \mathrm{m^{-3}}$. Compare against the **line-averaged** density in the same units. |
-| `kink_stability_criterion` vs `beta_stability_boundary` | Critical-$\beta_N$ coefficients 2.8 and 0.028 — the same Troyon-type relation in two unit conventions. `plasma_stability_margins` lives in the 0.028 one. |
+| `kink_stability_criterion` vs `beta_stability_boundary` | Deprecated (#350). Critical-$\beta_N$ coefficients 2.8 and 0.028, each times an unsourced $q_{95}$. Use the `"troyon"` boundary ($\beta_N \le 2.2\,\mu_0\cdot10^6 \approx 2.76$ %·m·T/MA). |
 | `kink_safety_factor` | `'circular'` returns `None` for `beta_max` / `beta_crit`; only `'conventional'` and `'ST'` fill them in. |
 | `c_s_from_Te_Ti_mi` | Temperatures in **keV**. |
 | `v_alfven_from_B_n_mi` vs `collisionality_from_n_T_B_R` | $n$ in $\mathrm{m^{-3}}$ for the Alfvén speed, but $n_e$ in $10^{19}\ \mathrm{m^{-3}}$ for $\nu_*$. |

@@ -1,0 +1,959 @@
+"""NICE adapter preparation/collection tests; no NICE installation required."""
+
+import json
+import math
+from pathlib import Path
+
+import numpy as np
+import pytest
+from omas import ODS
+
+from vaft.code.nice import (
+    NiceConfig,
+    collect_nice_outputs,
+    constraint_family_configs,
+    lcfs_rms_displacement,
+    prepare_nice_inputs,
+    summarize_window,
+    vest_reference_parameter_file,
+)
+
+
+def _ods():
+    ods = ODS(consistency_check=False)
+    ods["dataset_description.data_entry.pulse"] = 41672
+    ods["wall.description_2d.0.limiter.unit.0.outline.r"] = [0.2, 0.6, 0.6, 0.2]
+    ods["wall.description_2d.0.limiter.unit.0.outline.z"] = [-0.4, -0.4, 0.4, 0.4]
+    ods["pf_active.time"] = [0.3, 0.4]
+    ods["pf_active.coil.0.name"] = "PF1"
+    b = "pf_active.coil.0.element.0"
+    ods[f"{b}.geometry.rectangle.r"] = 0.1
+    ods[f"{b}.geometry.rectangle.z"] = 0.5
+    ods[f"{b}.geometry.rectangle.width"] = 0.04
+    ods[f"{b}.geometry.rectangle.height"] = 0.1
+    ods[f"{b}.turns_with_sign"] = 8.0
+    ods["pf_active.coil.0.current.data"] = [-1000.0, -1200.0]
+    ods["pf_passive.time"] = [0.3, 0.4]
+    p = "pf_passive.loop.0.element.0"
+    ods["pf_passive.loop.0.name"] = "W1"
+    ods[f"{p}.geometry.rectangle.r"] = 0.65
+    ods[f"{p}.geometry.rectangle.z"] = 0.0
+    ods[f"{p}.geometry.rectangle.width"] = 0.01
+    ods[f"{p}.geometry.rectangle.height"] = 0.2
+    ods["pf_passive.loop.0.current"] = [10.0, 20.0]
+    ods["magnetics.time"] = [0.3, 0.4]
+    ods["magnetics.ip.0.data"] = [100_000.0, 120_000.0]
+    ods["magnetics.ip.0.time"] = [0.3, 0.4]
+    ods["magnetics.b_field_pol_probe.0.identifier"] = "BP1"
+    ods["magnetics.b_field_pol_probe.0.position.r"] = 0.7
+    ods["magnetics.b_field_pol_probe.0.position.z"] = 0.1
+    ods["magnetics.b_field_pol_probe.0.poloidal_angle"] = 3 * math.pi / 2
+    ods["magnetics.b_field_pol_probe.0.field.data"] = [0.01, 0.02]
+    ods["magnetics.b_field_pol_probe.0.field.time"] = [0.3, 0.4]
+    ods["magnetics.flux_loop.0.identifier"] = "FL1"
+    ods["magnetics.flux_loop.0.position.0.r"] = 0.6
+    ods["magnetics.flux_loop.0.position.0.z"] = 0.2
+    ods["magnetics.flux_loop.0.flux.data"] = [0.001, 0.002]
+    ods["magnetics.flux_loop.0.flux.time"] = [0.3, 0.4]
+    ods["tf.time"] = [0.3, 0.4]
+    ods["tf.b_field_tor_vacuum_r.data"] = [0.08, 0.08]
+    return ods
+
+
+# The smallest parameter file preparation accepts: COCOS declaration, the
+# major radius the B0 line is derived from, and NICE's stopping criteria.
+_MINIMAL_XML = (
+    "<parameters><inCOCOS>11</inCOCOS><outCOCOS>11</outCOCOS>"
+    "<useNewCOCOSManager>1</useNewCOCOSManager><inoutCOCOS>11</inoutCOCOS>"
+    "<r0>0.4</r0><iterMaxRecon>30</iterMaxRecon>"
+    "<epsStopRecon>1.0e-10</epsStopRecon></parameters>"
+)
+
+
+def test_prepare_is_nice_free_and_hashes_fixed_passive_state(tmp_path):
+    inputs = prepare_nice_inputs(
+        _ods(),
+        NiceConfig(
+            time=0.35,
+            workdir=tmp_path,
+            source_revision="abc",
+            passive_current_mode="external_coils",
+        ),
+    )
+    assert inputs.passive_currents == pytest.approx((15.0,))
+    assert not (tmp_path / "input" / "param.xml").exists()
+    assert (tmp_path / "input" / "coils.txt").read_text().splitlines()[0] == "2"
+    assert float(
+        (tmp_path / "input" / "Bprobes.txt").read_text().splitlines()[1].split()[2]
+    ) == pytest.approx(3 * np.pi / 2)
+    assert float(
+        (tmp_path / "input" / "Icoils.txt").read_text().splitlines()[-1]
+    ) == pytest.approx(15)
+    manifest = json.loads(inputs.manifest_file.read_text())
+    assert manifest["nice_source_revision"] == "abc"
+    assert len(manifest["passive_current_hash"]) == 64
+    assert len(manifest["diagnostic_channel_hash"]) == 64
+    assert {d.identifier for d in inputs.diagnostics} == {"Ip", "BP1", "FL1"}
+
+
+def test_default_passive_treatment_subtracts_fixed_response(tmp_path):
+    inputs = prepare_nice_inputs(_ods(), NiceConfig(time=0.35, workdir=tmp_path))
+    assert (tmp_path / "input" / "coils.txt").read_text().splitlines()[0] == "1"
+    assert (
+        inputs.manifest["passive_current_treatment"]
+        == "fixed_forward_model_subtracted_from_diagnostics"
+    )
+    assert next(
+        d for d in inputs.diagnostics if d.identifier == "BP1"
+    ).value != pytest.approx(0.015)
+
+
+def test_disabled_channel_is_preserved_in_manifest_but_not_native_fit(tmp_path):
+    inputs = prepare_nice_inputs(
+        _ods(), NiceConfig(time=0.35, workdir=tmp_path, disabled_channels=("BP1",))
+    )
+    bp = next(d for d in inputs.diagnostics if d.identifier == "BP1")
+    assert not bp.enabled and bp.reason
+    assert (tmp_path / "input" / "Bprobes.txt").read_text().splitlines() == ["0"]
+
+
+def test_collect_native_outputs_without_nice(tmp_path):
+    output = tmp_path / "output"
+    output.mkdir()
+    (tmp_path / "nice_case_manifest.json").write_text('{"cocos_out": 11}')
+    (output / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1.0 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2 0\n"
+    )
+    (output / "dataEqui_convergence_cost.txt").write_text("0.331 7 1e-9 2 1 0.6 0.4\n")
+    (output / "dataEqui_bp.txt").write_text("0.331 1 0.01 0.011 1000\n")
+    result = collect_nice_outputs(tmp_path)
+    assert result.converged and result.nonlinear_iterations == 7
+    assert result.ods["equilibrium.time_slice.0.global_quantities.ip"] == pytest.approx(
+        100000
+    )
+    assert result.ods["equilibrium.time_slice.0.time"] == pytest.approx(0.331)
+    assert result.diagnostic_residuals[0]["normalized_residual"] == pytest.approx(1.0)
+    assert result.ods["equilibrium.code.name"] == "NICE"
+
+
+def test_collect_native_unstructured_psi_as_profiles_2d(tmp_path):
+    output = tmp_path / "output"
+    output.mkdir()
+    (tmp_path / "nice_case_manifest.json").write_text(
+        '{"cocos_out": 11, "process_returncode": 0}'
+    )
+    (output / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1.0 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2 0\n"
+    )
+    (output / "dataEqui_convergence_cost.txt").write_text(
+        "0.331 7 1e-11 2 1 0.6 0.4\n"
+    )
+    (output / "dataEqui_mesh_coord.txt").write_text(
+        "0.2 -0.1\n0.6 -0.1\n0.2 0.1\n0.6 0.1\n"
+    )
+    # time, node count, then psi/Br/Bz/Btor blocks.
+    (output / "dataEqui_psi_br_bz_btor.txt").write_text(
+        "0.331 4 1 2 3 4 0 0 0 0 0 0 0 0 0 0 0 0\n"
+    )
+    result = collect_nice_outputs(tmp_path)
+    r = np.asarray(result.ods["equilibrium.time_slice.0.profiles_2d.0.grid.dim1"])
+    z = np.asarray(result.ods["equilibrium.time_slice.0.profiles_2d.0.grid.dim2"])
+    psi = np.asarray(result.ods["equilibrium.time_slice.0.profiles_2d.0.psi"])
+    assert r.shape == z.shape == (129,)
+    assert psi.shape == (129, 129)
+    assert np.all(np.isfinite(psi))
+    assert psi[0, 0] == pytest.approx(-2 * np.pi)
+
+
+def test_parameter_cocos_must_match_config(tmp_path):
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(
+        "<parameters><inCOCOS>13</inCOCOS><outCOCOS>11</outCOCOS></parameters>"
+    )
+    with pytest.raises(ValueError, match="does not match"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(time=0.35, workdir=tmp_path / "case", parameter_file=parameter),
+        )
+
+
+def test_effective_cocos_manager_is_required(tmp_path):
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(
+        "<parameters><inCOCOS>11</inCOCOS><outCOCOS>11</outCOCOS></parameters>"
+    )
+    with pytest.raises(ValueError, match="Effective NICE"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(time=0.35, workdir=tmp_path / "case", parameter_file=parameter),
+        )
+    parameter.write_text(_MINIMAL_XML)
+    inputs = prepare_nice_inputs(
+        _ods(),
+        NiceConfig(
+            time=0.35,
+            workdir=tmp_path / "valid",
+            parameter_file=parameter,
+            flux_loop_input_sign=-1,
+        ),
+    )
+    assert inputs.manifest["effective_cocos"] == 11
+    probe = next(d for d in inputs.diagnostics if d.family == "bpol_probe")
+    assert probe.geometry["poloidal_angle"] == pytest.approx(3 * math.pi / 2)
+    native_flux = np.loadtxt(inputs.input_dir / "fluxloops_meas.txt", skiprows=1)
+    flux = next(d for d in inputs.diagnostics if d.family == "flux_loop")
+    assert native_flux[0] == pytest.approx(-flux.value)
+    assert native_flux[1] == pytest.approx(flux.uncertainty)
+
+
+def test_native_flux_profiles_convert_from_nicpp(tmp_path):
+    from vaft.code.nice.outputs import _native_ods
+
+    (tmp_path / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2\n"
+    )
+    (
+        tmp_path
+        / "dataEqui_profiles_psi_rhotornorm_pressure_f_dpdpsi_fdfdpsi_jtor_q_Ne.txt"
+    ).write_text("0.331 1 0.01 0.5 1000 0.08 -30 -40 100000 2 1e18\n")
+    ods, errors = _native_ods(tmp_path, 11, -1, -1)
+    assert not errors
+    b = "equilibrium.time_slice.0"
+    assert ods[b + ".global_quantities.psi_axis"] == pytest.approx(0.01 * 2 * np.pi)
+    assert ods[b + ".global_quantities.ip"] == -100000
+    assert ods[b + ".profiles_1d.dpressure_dpsi"][0] == pytest.approx(-30 / (2 * np.pi))
+    assert ods[b + ".profiles_1d.f"][0] == pytest.approx(-0.08)
+    assert ods[b + ".profiles_1d.q"][0] == 2
+    # Declared where VAFT's readers look, so none of them falls back to guessing
+    # whether psi is in Wb or Wb/rad.
+    from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+    from vaft.omas.general import ods_cocos
+
+    assert ods_cocos(ods) == 11
+    assert ods_psi_to_wb_per_radian_factor(ods) == pytest.approx(1 / (2 * np.pi))
+
+
+
+def test_psi_derivative_profiles_compare_per_radian(tmp_path, monkeypatch):
+    import copy
+
+    import vaft.data.eqdsk as eqdsk
+    from vaft.code.nice import compare_equilibria
+    from vaft.code.nice.outputs import _native_ods
+
+    (tmp_path / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2\n"
+    )
+    (
+        tmp_path
+        / "dataEqui_profiles_psi_rhotornorm_pressure_f_dpdpsi_fdfdpsi_jtor_q_Ne.txt"
+    ).write_text("0.331 1 0.01 0.5 1000 0.08 -30 -40 100000 2 1e18\n")
+    nice, _ = _native_ods(tmp_path, 11, -1, -1)
+    # The same equilibrium as a legacy EFIT artifact storing psi in Wb/rad:
+    # its psi-derivatives are 2*pi larger.
+    efit = copy.deepcopy(nice)
+    b = "equilibrium.time_slice.0.profiles_1d"
+    for name in ("dpressure_dpsi", "f_df_dpsi"):
+        efit[f"{b}.{name}"] = np.asarray(nice[f"{b}.{name}"]) * 2 * np.pi
+    monkeypatch.setattr(
+        eqdsk,
+        "ods_psi_to_wb_per_radian_factor",
+        lambda ods, index=0: 1.0 if ods is efit else 1 / (2 * np.pi),
+    )
+    report = compare_equilibria(nice, efit, 0.331)
+    assert report["profiles"]["dpressure_dpsi"]["max_abs"] == pytest.approx(0, abs=1e-12)
+    assert report["profiles"]["f_df_dpsi"]["max_abs"] == pytest.approx(0, abs=1e-12)
+
+def test_shared_constraints_preserve_raw_conditioned_and_fixed_responses(tmp_path):
+    ods = _ods()
+    ods["equilibrium.time"] = [0.35]
+    for name, value, sigma, weight in (
+        ("ip", 115000, 2000, 0.1),
+        ("bpol_probe.0", 0.012, 0.002, 0.1),
+        ("flux_loop.0", 0.003, 0.0002, 0),
+    ):
+        base = "equilibrium.time_slice.0.constraints." + name
+        ods[base + ".measured"] = value
+        ods[base + ".measured_error_upper"] = sigma
+        ods[base + ".weight"] = weight
+    inputs = prepare_nice_inputs(
+        ods,
+        NiceConfig(
+            time=0.35,
+            workdir=tmp_path,
+            diagnostic_source="equilibrium_constraints",
+            correct_active_response=True,
+        ),
+    )
+    bp = next(d for d in inputs.diagnostics if d.family == "bpol_probe")
+    assert bp.original_value == pytest.approx(0.015)
+    assert bp.conditioned_value == 0.012
+    assert bp.uncertainty == 0.002 and bp.weight == 0.1
+    assert (
+        bp.value + bp.passive_response + bp.active_response_correction
+        == pytest.approx(0.012)
+    )
+    assert not next(d for d in inputs.diagnostics if d.family == "flux_loop").enabled
+    for row in inputs.manifest["active_response_audit"]:
+        assert (
+            abs(row["native"] + row["correction"] - row["exact"])
+            < 0.1 * row["uncertainty"]
+        )
+    with pytest.raises(ValueError, match="exact-time"):
+        prepare_nice_inputs(
+            ods,
+            NiceConfig(
+                time=0.351,
+                workdir=tmp_path / "wrong",
+                diagnostic_source="equilibrium_constraints",
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    "log",
+    [
+        "_nBoundaryInnerNodes=175 _nBoundaryInnerEdges=181\n",
+        "BEGIN iter=1\ncost=nan\n",
+        "plasma valid = 0\n",
+    ],
+)
+def test_failure_logs_cannot_be_success_without_tables(tmp_path, log):
+    (tmp_path / "nice.stdout.log").write_text(log)
+    (tmp_path / "nice_case_manifest.json").write_text('{"process_returncode":0}')
+    result = collect_nice_outputs(tmp_path)
+    assert result.process_succeeded and not result.ok
+    assert result.converged is False
+    if "BEGIN" in log:
+        assert result.nonlinear_iterations == 1
+
+
+def test_contour_rejects_crossings_and_reversed_orientation():
+    from vaft.code.nice.geometry import validate_contour
+
+    geometry = {
+        "limiter": [[0.2, -0.4], [0.6, -0.4], [0.6, 0.4], [0.2, 0.4]],
+        "pf_active": [],
+    }
+    validate_contour([0.1, 0.7, 0.7, 0.1], [-0.5, -0.5, 0.5, 0.5], geometry)
+    with pytest.raises(ValueError, match="intersects"):
+        validate_contour([0.1, 0.5, 0.5, 0.1], [-0.5, -0.5, 0.5, 0.5], geometry)
+    with pytest.raises(ValueError, match="counter-clockwise"):
+        validate_contour([0.1, 0.1, 0.7, 0.7], [-0.5, 0.5, 0.5, -0.5], geometry)
+
+
+def test_unsupported_family_rejected_before_resolving_executable(tmp_path):
+    from vaft.code.nice import run_nice
+
+    config = NiceConfig(
+        time=0.35,
+        workdir=tmp_path,
+        include_bpol_probes=False,
+        executable="/does/not/exist",
+    )
+    result = run_nice(prepare_nice_inputs(_ods(), config), config)
+    assert result.returncode is None and not result.ok
+    assert "unsupported" in result.termination_reason
+
+
+def test_trailing_probe_validity_cannot_disable_flux_loop():
+    from vaft.validation.imas import write_validity
+    from vaft.code.efit.kfile import _condemned_channels
+
+    ods = _ods()
+    ods["magnetics.b_field_pol_probe.1.field.data"] = [0.0, 0.0]
+    write_validity(ods, "magnetics.b_field_pol_probe.1.field", [-2, -2], scalar=-2)
+    assert _condemned_channels(ods, nbprobe=1) == set()
+
+
+def test_native_zero_sign_diagnostic_tables_are_rejected(tmp_path):
+    out = tmp_path / "output"
+    out.mkdir()
+    (out / "dataEqui_bp.txt").write_text("0 1 0 0 1000\n")
+    (tmp_path / "nice_case_manifest.json").write_text(
+        json.dumps(
+            {
+                "diagnostic_channels": [
+                    {
+                        "family": "bpol_probe",
+                        "enabled": True,
+                        "value": 0.01,
+                        "uncertainty": 0.001,
+                    }
+                ]
+            }
+        )
+    )
+    result = collect_nice_outputs(tmp_path)
+    assert any(
+        "unverifiable native diagnostic output sign" in e for e in result.parsing_errors
+    )
+    assert not result.diagnostic_residuals
+
+
+def test_auxiliary_sign_warning_does_not_reject_numerical_stage_success(tmp_path):
+    out = tmp_path / "output"
+    out.mkdir()
+    (out / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1.0 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2 0\n"
+    )
+    (out / "dataEqui_convergence_cost.txt").write_text(
+        "0.331 7 1e-11 2 1 0.6 0.4\n"
+    )
+    (out / "dataEqui_bp.txt").write_text("0.331 1 0 0 1000\n")
+    (tmp_path / "nice_case_manifest.json").write_text(
+        json.dumps(
+            {
+                "process_returncode": 0,
+                "solver_tolerances": {"epsStopRecon": 1e-10},
+                "diagnostic_channels": [
+                    {
+                        "family": "bpol_probe",
+                        "enabled": True,
+                        "value": 0.01,
+                        "uncertainty": 0.001,
+                    }
+                ],
+            }
+        )
+    )
+    result = collect_nice_outputs(tmp_path)
+    assert result.ok
+    assert "auxiliary output warnings" in result.termination_reason
+    assert any(
+        "unverifiable native diagnostic output sign" in error
+        for error in result.parsing_errors
+    )
+
+
+def test_vacth_sentinel_is_not_final_numerical_convergence(tmp_path):
+    out = tmp_path / "output"
+    out.mkdir()
+    (out / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1.0 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2 0\n"
+    )
+    (out / "dataEqui_convergence_cost.txt").write_text(
+        "0.331 0 -9e40 -9e40 -9e40\n"
+    )
+    (tmp_path / "nice_case_manifest.json").write_text(
+        '{"process_returncode": 0, "solver_tolerances": {"epsStopRecon": 1e-10}}'
+    )
+    result = collect_nice_outputs(tmp_path)
+    assert result.converged is False
+    assert not result.ok
+
+
+def test_coil_audit_detects_native_response_error(tmp_path):
+    out = tmp_path / "output"
+    out.mkdir()
+    audits, channels = [], []
+    for family, prefix in (("bpol_probe", "Bprobes"), ("flux_loop", "fluxloops")):
+        (out / f"vacth_{prefix}_comp.txt").write_text("1.2\n")
+        (out / f"vacth_{prefix}_comp_minus_pfcoils.txt").write_text("0\n")
+        (out / f"vacth_{prefix}_meas.txt").write_text("1\n")
+        audits.append(
+            {
+                "family": family,
+                "ods_path": family,
+                "exact": 1,
+                "native": 1,
+                "correction": 0,
+                "uncertainty": 1,
+            }
+        )
+        channels.append(
+            {
+                "family": family,
+                "ods_path": family,
+                "enabled": True,
+                "value": 1,
+                "uncertainty": 1,
+            }
+        )
+    (tmp_path / "nice_case_manifest.json").write_text(
+        json.dumps(
+            {
+                "active_response_audit": audits,
+                "diagnostic_channels": channels,
+                "flux_loop_input_sign": -1,
+            }
+        )
+    )
+    result = collect_nice_outputs(tmp_path)
+    assert "active coil response mismatch exceeds 0.1 sigma" in result.parsing_errors
+    assert not result.ok
+    assert len(result.provenance["initializer_residuals"]) == 2
+
+
+def test_contour_rejects_passive_intersection():
+    from vaft.code.nice.geometry import validate_contour
+
+    geometry = {
+        "limiter": [[0.2, -0.4], [0.6, -0.4], [0.6, 0.4], [0.2, 0.4]],
+        "pf_active": [],
+        "pf_passive": [
+            {
+                "name": "wall",
+                "outline": [[0.69, -0.2], [0.71, -0.2], [0.71, 0.2], [0.69, 0.2]],
+            }
+        ],
+    }
+    with pytest.raises(ValueError, match="intersects wall"):
+        validate_contour([0.1, 0.7, 0.7, 0.1], [-0.5, -0.5, 0.5, 0.5], geometry)
+
+
+def test_study_helpers_preserve_failures_and_compare_lcfs():
+    from vaft.code.nice import NiceResult
+
+    results = (
+        NiceResult(
+            0,
+            __import__("pathlib").Path("a"),
+            converged=True,
+            scientifically_usable=True,
+            ods=object(),
+        ),
+        NiceResult(
+            1,
+            __import__("pathlib").Path("b"),
+            converged=False,
+            termination_reason="failed",
+        ),
+    )
+    summary = summarize_window([0.1, 0.2], results)
+    assert summary["requested"] == 2 and summary["failed_or_missing_times_s"] == [0.2]
+    assert (
+        lcfs_rms_displacement([1, 2, 2, 1], [0, 0, 1, 1], [2, 2, 1, 1], [1, 0, 0, 1])
+        < 1e-12
+    )
+    configs = constraint_family_configs(NiceConfig())
+    assert (
+        not configs["Core"].include_flux_loops
+        and configs["Full"].include_diamagnetic_flux
+    )
+
+
+def test_real_41672_reference_slice_maps_without_nice(tmp_path):
+    import vaft
+
+    sample = (
+        Path(__file__).parents[1] / "vaft" / "data" / "samples" / "41672" / "imas.nc"
+    )
+    source = sample.parent / "source" / "pipeline-until-efit.json.gz"
+    ods = vaft.omas.load(source)
+    inputs = prepare_nice_inputs(
+        ods,
+        NiceConfig(
+            shot=41672,
+            time=0.331,
+            workdir=tmp_path,
+            parameter_file=vest_reference_parameter_file(),
+            source_revision="7ad1ea8f3da4fee25a61a7c2c01b1773db5f4906",
+        ),
+    )
+    assert len(inputs.geometry["pf_active"]) < 100
+    assert len(inputs.geometry["pf_passive"]) == len(inputs.passive_currents) == 950
+    assert sum(channel.enabled for channel in inputs.diagnostics) == 75
+    assert inputs.manifest["diagnostic_channel_set_hash"]
+    assert inputs.manifest["input_snapshot_hash"]
+
+
+def test_two_time_shared_conditioner_keeps_time_index_and_channel_identity(tmp_path):
+    from vaft.omas import load
+    from vaft.code.nice.validate_reference import condition
+
+    repo = Path(__file__).parents[1]
+    ods = load(repo / "vaft/data/samples/41672/source/pipeline-until-efit.json.gz")
+    report = condition(ods, 41672, [0.331, 0.332], tmp_path / "condition", repo)
+    assert np.allclose(ods["equilibrium.time"], [0.331, 0.332])
+    assert set(report["channel_decisions"]) == {"b_field_pol_probe", "flux_loop"}
+    inputs = prepare_nice_inputs(
+        ods,
+        NiceConfig(
+            time=0.331,
+            workdir=tmp_path / "native",
+            diagnostic_source="equilibrium_constraints",
+        ),
+    )
+    assert sum(d.enabled and d.family == "flux_loop" for d in inputs.diagnostics) == 5
+    ods[
+        "equilibrium.time_slice.0.constraints.bpol_probe.0.source"
+    ] = "wrong physical probe"
+    with pytest.raises(ValueError, match="source mismatch"):
+        prepare_nice_inputs(
+            ods,
+            NiceConfig(
+                time=0.331,
+                workdir=tmp_path / "wrong",
+                diagnostic_source="equilibrium_constraints",
+            ),
+        )
+
+
+def test_executable_resolves_from_nicehome_build_layouts(tmp_path, monkeypatch):
+    from external_code_stubs import write_launchable_stub, write_unlaunchable_file
+
+    from vaft.code.nice.runner import resolve_nice_executable
+
+    monkeypatch.delenv("NICEHOME", raising=False)
+    with pytest.raises(FileNotFoundError, match=r"\$NICEHOME"):
+        resolve_nice_executable(NiceConfig(workdir=tmp_path))
+
+    home = tmp_path / "nice"
+    # The message names the expected path, spelled with the host separator.
+    with pytest.raises(FileNotFoundError, match=r"build[/\\]nice_recon"):
+        resolve_nice_executable(NiceConfig(workdir=tmp_path, nice_home=home))
+
+    # The second documented layout is found when the first is absent.
+    exe = write_launchable_stub(home / "run" / "nice_recon")
+    monkeypatch.setenv("NICEHOME", str(home))
+    assert resolve_nice_executable(NiceConfig(workdir=tmp_path)) == exe
+
+    refused = write_unlaunchable_file(tmp_path / "other" / "nice_recon")
+    with pytest.raises(PermissionError):
+        resolve_nice_executable(NiceConfig(workdir=tmp_path, executable=refused))
+
+
+def test_window_report_renders_through_vaft_plot(tmp_path):
+    import copy
+
+    from vaft.code.nice import NiceResult
+    from vaft.code.nice.outputs import _native_ods
+    from vaft.code.nice.study import write_window_report
+
+    (tmp_path / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2\n"
+    )
+    (
+        tmp_path
+        / "dataEqui_profiles_psi_rhotornorm_pressure_f_dpdpsi_fdfdpsi_jtor_q_Ne.txt"
+    ).write_text("0.331 1 0.01 0.5 1000 0.08 -30 -40 100000 2 1e18\n")
+    equilibrium, _ = _native_ods(tmp_path, 11, -1, -1)
+    results = [
+        NiceResult(0, tmp_path, converged=True, scientifically_usable=True, ods=equilibrium),
+        NiceResult(1, tmp_path, converged=False, termination_reason="failed"),
+    ]
+    files = write_window_report(
+        tmp_path / "report", 41672, [0.331, 0.332], results, efit_ods=equilibrium
+    )
+    assert files["traces"].stat().st_size > 0
+    summary = json.loads(files["summary"].read_text())
+    assert summary["shot"] == 41672 and len(summary["slice_comparisons"]) == 1
+    comparison = summary["slice_comparisons"][0]
+    assert comparison["exact_time_match"] and comparison["efit_time_s"] == 0.331
+
+    # A reference that lacks the requested time is compared, but not called a match.
+    from vaft.code.nice import compare_equilibria
+
+    shifted = copy.deepcopy(equilibrium)
+    shifted["equilibrium.time"] = np.asarray([0.333])
+    assert not compare_equilibria(equilibrium, shifted, 0.331)["exact_time_match"]
+
+
+# --------------------------------------------------------------------------
+# Execution backend (#671 follow-up): NICE launches through vaft.code.execution
+# --------------------------------------------------------------------------
+
+
+def _backend_case(tmp_path, backend, **overrides):
+    from external_code_stubs import write_launchable_stub
+
+    exe = write_launchable_stub(tmp_path / "bin" / "nice_recon")
+    config = NiceConfig(
+        time=0.35,
+        workdir=tmp_path / "case",
+        parameter_file=vest_reference_parameter_file(),
+        executable=str(exe),
+        backend=backend,
+        **overrides,
+    )
+    return exe, config, prepare_nice_inputs(_ods(), config)
+
+
+def test_run_nice_hands_its_launch_to_the_configured_backend(tmp_path):
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.nice import run_nice
+
+    backend = RecordingBackend(ExecutionResult(returncode=3, stdout="out\n", stderr="err\n"))
+    exe, config, inputs = _backend_case(
+        tmp_path, backend, arguments=("--verbose",), env={"NICE_FLAG": "1"}, timeout=90.0
+    )
+    result = run_nice(inputs, config)
+
+    (request,) = backend.requests
+    assert request.command == (str(exe), "--verbose")
+    assert request.workdir == Path(inputs.workdir)
+    assert request.env == {"NICE_FLAG": "1"}
+    assert request.timeout == 90.0
+    # The two streams still land in their own files, and on the result.
+    assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8") == "out\n"
+    assert (inputs.workdir / "nice.stderr.log").read_text(encoding="utf-8") == "err\n"
+    assert (result.returncode, result.stdout, result.stderr) == (3, "out\n", "err\n")
+    assert result.termination_reason == "NICE exited with status 3"
+    manifest = json.loads(inputs.manifest_file.read_text(encoding="utf-8"))
+    assert (manifest["process_returncode"], manifest["process_timed_out"]) == (3, False)
+
+
+def test_a_backend_timeout_is_a_failed_result_with_the_partial_logs(tmp_path):
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.nice import run_nice
+
+    backend = RecordingBackend(
+        ExecutionResult(
+            returncode=None, stdout="iteration 1\n", stderr="", timed_out=True, elapsed_s=5.0
+        )
+    )
+    _, config, inputs = _backend_case(tmp_path, backend, timeout=5.0)
+    result = run_nice(inputs, config)
+
+    assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
+    assert result.elapsed_s == 5.0
+    assert not result.process_succeeded
+    assert result.termination_reason == "NICE timed out after 5 s of running"
+    assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8") == "iteration 1\n"
+    manifest = json.loads(inputs.manifest_file.read_text(encoding="utf-8"))
+    assert (manifest["process_returncode"], manifest["process_timed_out"]) == (None, True)
+    assert manifest["process_runtime_status"] == "timeout"
+    assert result.stderr.endswith("NICE timed out after 5 s of running")
+    # Collected again from the directory, the stop is still a stop.
+    from vaft.code.nice import collect_nice_outputs
+
+    again = collect_nice_outputs(inputs.workdir, config)
+    assert (again.returncode, again.runtime_status, again.elapsed_s) == (None, "timeout", 5.0)
+
+
+@pytest.mark.parametrize("error", [FileNotFoundError, PermissionError])
+def test_a_launch_the_os_refuses_as_missing_or_forbidden_keeps_its_type(tmp_path, error):
+    from vaft.code._executables import ExecutableNotLaunchable
+    from vaft.code.nice import run_nice
+
+    class Refusing:
+        def run(self, request):
+            try:
+                raise error(f"{request.command[0]} refused")
+            except OSError as cause:
+                raise ExecutableNotLaunchable(f"cannot launch {request.command[0]}") from cause
+
+    _, config, inputs = _backend_case(tmp_path, Refusing())
+    with pytest.raises(error):
+        run_nice(inputs, config)
+    # The logs were truncated before the launch, not left from an earlier run.
+    assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8") == ""
+
+
+def test_any_other_refusal_is_the_shared_launch_error(tmp_path, monkeypatch):
+    import subprocess
+
+    from vaft.code._executables import ExecutableNotLaunchable
+    from vaft.code.nice import run_nice
+
+    def refuse(*args, **kwargs):
+        raise OSError(8, "Exec format error")
+
+    _, config, inputs = _backend_case(tmp_path, None)
+    monkeypatch.setattr(subprocess, "run", refuse)
+    with pytest.raises(ExecutableNotLaunchable, match="Exec format error"):
+        run_nice(inputs, config)
+
+
+def test_a_local_launch_writes_each_stream_to_its_own_log(tmp_path):
+    """End to end through the real LocalBackend, with Python standing in for NICE."""
+    import sys
+
+    from vaft.code.nice import run_nice
+
+    config = NiceConfig(
+        time=0.35,
+        workdir=tmp_path / "case",
+        parameter_file=vest_reference_parameter_file(),
+        executable=sys.executable,
+        arguments=("-c", "import sys; print('to stdout'); print('to stderr', file=sys.stderr)"),
+    )
+    inputs = prepare_nice_inputs(_ods(), config)
+    result = run_nice(inputs, config)
+
+    assert result.returncode == 0
+    assert (inputs.workdir / "nice.stdout.log").read_text(encoding="utf-8").strip() == "to stdout"
+    assert (inputs.workdir / "nice.stderr.log").read_text(encoding="utf-8").strip() == "to stderr"
+
+
+# -- cold review 0.8.0 external-codes-genray-nice ----------------------------
+
+
+def test_solver_tolerances_are_written_into_param_xml_and_read_back(tmp_path):
+    """F1: the manifest records what NICE will read, and the file carries it."""
+    import xml.etree.ElementTree as ET
+
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(
+        '<?xml version="1.0"?>\n<!-- reviewed -->\n' + _MINIMAL_XML, encoding="utf-8"
+    )
+    inputs = prepare_nice_inputs(
+        _ods(),
+        NiceConfig(
+            time=0.35,
+            workdir=tmp_path / "case",
+            parameter_file=parameter,
+            solver_tolerances={"epsStopRecon": 1e-12, "iterMaxRecon": 5},
+        ),
+    )
+    written = inputs.input_dir / "param.xml"
+    root = ET.parse(written).getroot()
+    assert root.findtext("epsStopRecon") == "1e-12"
+    assert root.findtext("iterMaxRecon") == "5"
+    assert root.findtext("inoutCOCOS") == "11"
+    assert "<!-- reviewed -->" in written.read_text(encoding="utf-8")
+    assert inputs.manifest["solver_tolerances"] == {
+        "epsStopRecon": 1e-12,
+        "iterMaxRecon": 5,
+    }
+    manifest = json.loads(inputs.manifest_file.read_text(encoding="utf-8"))
+    assert manifest["solver_tolerances"] == inputs.manifest["solver_tolerances"]
+    # Untouched: the copy is the source file.
+    assert (
+        prepare_nice_inputs(
+            _ods(), NiceConfig(time=0.35, workdir=tmp_path / "plain", parameter_file=parameter)
+        ).input_dir
+        / "param.xml"
+    ).read_bytes() == parameter.read_bytes()
+
+
+@pytest.mark.parametrize(
+    "tolerances, match",
+    [
+        ({"epsStopReco": 1e-12}, "matched 0 elements"),
+        ({"epsStopRecon": float("inf")}, "finite"),
+        ({"eps<Stop": 1e-12}, "element name"),
+    ],
+)
+def test_a_tolerance_that_cannot_reach_nice_is_refused(tmp_path, tolerances, match):
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(_MINIMAL_XML, encoding="utf-8")
+    with pytest.raises(ValueError, match=match):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(
+                time=0.35,
+                workdir=tmp_path / "case",
+                parameter_file=parameter,
+                solver_tolerances=tolerances,
+            ),
+        )
+    with pytest.raises(ValueError, match="parameter_file"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(
+                time=0.35, workdir=tmp_path / "none", solver_tolerances={"epsStopRecon": 1e-12}
+            ),
+        )
+
+
+def test_collector_judges_convergence_by_the_tolerance_nice_ran_with(tmp_path):
+    """F1: an iteration-cap stop at a residual above param.xml's epsStopRecon
+    is not converged, whatever the manifest (or its absence) says."""
+    output = tmp_path / "output"
+    output.mkdir()
+    (tmp_path / "input").mkdir()
+    (tmp_path / "input" / "param.xml").write_text(_MINIMAL_XML, encoding="utf-8")
+    (tmp_path / "nice_case_manifest.json").write_text('{"cocos_out": 11}')
+    (output / "dataEqui_global_quantities.txt").write_text(
+        "0.331 0.4 0.2 0.5 0.01 1.0 100000 100000 0.8 0.2 0.1 1.2 0.01 0.02 0.35 0.01 1.1 3.2 0\n"
+    )
+    (output / "dataEqui_convergence_cost.txt").write_text("0.331 30 5e-9 2 1 0.6 0.4\n")
+    result = collect_nice_outputs(tmp_path)
+    assert result.converged is False
+    assert result.termination_reason == "reconstruction tolerance not reached"
+    (output / "dataEqui_convergence_cost.txt").write_text("0.331 12 5e-11 2 1 0.6 0.4\n")
+    assert collect_nice_outputs(tmp_path).converged is True
+
+
+def test_flux_loop_polarity_defaults_to_the_vest_convention(tmp_path):
+    """F2: the only machine VAFT maps needs -1; the README example relies on it."""
+    assert NiceConfig().flux_loop_input_sign == -1
+    inputs = prepare_nice_inputs(_ods(), NiceConfig(time=0.35, workdir=tmp_path))
+    assert inputs.manifest["flux_loop_input_sign"] == -1
+    native_flux = np.loadtxt(inputs.input_dir / "fluxloops_meas.txt", skiprows=1)
+    flux = next(d for d in inputs.diagnostics if d.family == "flux_loop")
+    assert native_flux[0] == pytest.approx(-flux.value)
+
+
+def test_major_radius_must_match_the_parameter_files_r0(tmp_path):
+    """F3: B0 = F0 / major_radius is multiplied back by the XML's r0."""
+    parameter = tmp_path / "param.xml"
+    parameter.write_text(_MINIMAL_XML, encoding="utf-8")
+    with pytest.raises(ValueError, match="r0"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(
+                time=0.35, workdir=tmp_path / "case", parameter_file=parameter, major_radius=0.5
+            ),
+        )
+    parameter.write_text(_MINIMAL_XML.replace("<r0>0.4</r0>", ""), encoding="utf-8")
+    with pytest.raises(ValueError, match="r0=None"):
+        prepare_nice_inputs(
+            _ods(),
+            NiceConfig(time=0.35, workdir=tmp_path / "case2", parameter_file=parameter),
+        )
+
+
+def test_a_probe_without_poloidal_angle_is_disabled_not_measured_at_zero():
+    """F4: the measurement direction is unknown, so the channel cannot be fitted."""
+    from vaft.code.nice.diagnostics import diagnostics_from_ods
+
+    ods = _ods()
+    del ods["magnetics.b_field_pol_probe.0.poloidal_angle"]
+    probe = next(
+        d for d in diagnostics_from_ods(ods, 0.35, NiceConfig()) if d.family == "bpol_probe"
+    )
+    assert not probe.enabled
+    assert "poloidal_angle" in probe.reason
+    assert probe.geometry["poloidal_angle"] is None
+
+
+def test_diagnostics_do_not_materialise_missing_paths_in_the_callers_ods():
+    """N1: reading ``magnetics.ip`` when absent must not create it."""
+    from vaft.code.nice.diagnostics import diagnostics_from_ods
+
+    ods = _ods()
+    del ods["magnetics.ip"]
+    ip = next(
+        d
+        for d in diagnostics_from_ods(ods, 0.35, NiceConfig(include_diamagnetic_flux=True))
+        if d.family == "plasma_current"
+    )
+    assert not ip.enabled
+    assert "magnetics.ip" not in ods
+    assert "magnetics.diamagnetic_flux" not in ods
+
+
+def test_profiles_are_compared_on_each_sides_declared_psi_norm():
+    """F5: NICE on a non-uniform psi grid vs EFIT uniform, same analytic profile."""
+    from vaft.code.nice import compare_equilibria
+
+    def side(psi_norm, psi_axis, psi_boundary):
+        ods = ODS(consistency_check=False)
+        b = "equilibrium.time_slice.0"
+        ods["equilibrium.time"] = [0.331]
+        ods[f"{b}.time"] = 0.331
+        ods[f"{b}.global_quantities.psi_axis"] = psi_axis
+        ods[f"{b}.global_quantities.psi_boundary"] = psi_boundary
+        ods[f"{b}.profiles_1d.psi"] = psi_axis + (psi_boundary - psi_axis) * psi_norm
+        ods[f"{b}.profiles_1d.pressure"] = 1000.0 * (1 - psi_norm) ** 2
+        ods["equilibrium.vacuum_toroidal_field.r0"] = 0.4
+        ods["equilibrium.vacuum_toroidal_field.b0"] = [0.2]
+        return ods
+
+    nice = side(np.linspace(0, 1, 40) ** 2, 0.0, 0.06)
+    efit = side(np.linspace(0, 1, 129), -0.01, 0.05)
+    report = compare_equilibria(nice, efit, 0.331)
+    assert report["profile_grid"] == {"nice": "psi_norm", "efit": "psi_norm"}
+    assert report["profiles"]["pressure"]["max_abs"] < 1.0  # linear interpolation only
+    # By index the same profiles disagree by hundreds of Pa.
+    by_index = np.interp(
+        np.linspace(0, 1, 101), np.linspace(0, 1, 40), nice["equilibrium.time_slice.0.profiles_1d.pressure"]
+    ) - np.interp(
+        np.linspace(0, 1, 101), np.linspace(0, 1, 129), efit["equilibrium.time_slice.0.profiles_1d.pressure"]
+    )
+    assert np.max(np.abs(by_index)) > 100.0

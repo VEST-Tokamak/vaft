@@ -231,6 +231,20 @@ def thomson_source_rank(filename: str, shotnumber: int) -> tuple[int, int, int] 
     return None
 
 
+def thomson_file_shot(filename: str) -> int | None:
+    """The shot a Thomson MAT filename belongs to, or ``None`` if it is not one.
+
+    The same layouts :func:`thomson_source_rank` ranks, so an inventory of a
+    data root and the resolver agree on which files are Thomson files.
+    """
+    name = Path(filename).name
+    for pattern, _family in _THOMSON_NAME_PATTERNS:
+        match = pattern.match(name)
+        if match is not None:
+            return int(match.group("shot"))
+    return None
+
+
 def _discover_thomson_sources(shotnumber: int, search_root: Path) -> list[Path]:
     """Return every Thomson MAT for ``shotnumber`` under ``search_root``.
 
@@ -613,6 +627,7 @@ def thomson_scattering(
 
 
 __all__ = [
+    "thomson_file_shot",
     "thomson_scattering",
     "thomson_source_rank",
     "vfit_thomson_scattering_dynamic",

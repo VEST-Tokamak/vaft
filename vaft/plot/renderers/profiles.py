@@ -22,11 +22,15 @@ from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axe
 
 __all__ = [
     "impa_profile_field",
+    "charge_exchange_profile_fit",
     "charge_exchange_profile_ion_temperature",
     "charge_exchange_profile_velocity_tor",
     "electron_density_profile",
+    "electron_density_profile_gradient",
     "electron_temperature_profile",
+    "electron_temperature_profile_gradient",
     "ion_temperature_profile",
+    "ion_temperature_profile_gradient",
     "thermal_pressure_profile",
     "equilibrium_profile_f",
     "equilibrium_profile_ffprime",
@@ -34,10 +38,15 @@ __all__ = [
     "equilibrium_profile_pprime",
     "equilibrium_profile_pressure",
     "equilibrium_profile_q",
+    "coil_3d_profile_current",
+    "coil_3d_spectrum_current",
     "mhd_linear_profile_b_field_perturbed",
+    "mhd_linear_profile_chirikov",
     "mhd_linear_profile_displacement",
+    "mhd_linear_spectrum_b_field_perturbed",
     "render_profile_1d",
     "thomson_scattering_profile_electron_density",
+    "thomson_scattering_profile_fit",
     "thomson_scattering_profile_electron_temperature",
 ]
 
@@ -357,6 +366,84 @@ def ion_temperature_profile(
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
+#: What a profile gradient view needs from the equilibrium it is mapped
+#: through (issue #551): the flux map and the axis the midplane radii come from.
+_GRADIENT_EQUILIBRIUM_PATHS = (
+    "equilibrium.time_slice.{i}.profiles_1d.psi",
+    "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+)
+#: The grids a profile may be stored on; the recipe takes the first it finds.
+_GRADIENT_GRID_PATHS = (
+    "core_profiles.profiles_1d.{i}.grid.psi",
+    "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
+    "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+)
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="gradient",
+    subject="electron_temperature",
+    description=(
+        "Normalized logarithmic gradient of the core electron temperature, -L d ln f/dx, with its "
+        "abscissa, gradient coordinate and reference length stated (a/L by default)."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        *_GRADIENT_EQUILIBRIUM_PATHS,
+    ),
+    optional_paths=_GRADIENT_GRID_PATHS,
+)
+def electron_temperature_profile_gradient(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Core electron temperature gradient; the model carries the values, the label and the record."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="gradient",
+    subject="electron_density",
+    description=(
+        "Normalized logarithmic gradient of the core electron density, -L d ln f/dx, with its "
+        "abscissa, gradient coordinate and reference length stated (a/L by default)."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.density",
+        *_GRADIENT_EQUILIBRIUM_PATHS,
+    ),
+    optional_paths=_GRADIENT_GRID_PATHS,
+)
+def electron_density_profile_gradient(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Core electron density gradient; the model carries the values, the label and the record."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="gradient",
+    subject="ion_temperature",
+    description=(
+        "Normalized logarithmic gradient of the core ion temperature, -L d ln f/dx, with its "
+        "abscissa, gradient coordinate and reference length stated (a/L by default)."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.ion.{j}.temperature",
+        *_GRADIENT_EQUILIBRIUM_PATHS,
+    ),
+    optional_paths=_GRADIENT_GRID_PATHS,
+)
+def ion_temperature_profile_gradient(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Core ion temperature gradient; the model carries the values, the label and the record."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
 @_profile_renderer(
     domain="core_profiles", quantity="",
     subject="thermal_pressure",
@@ -405,6 +492,59 @@ def thomson_scattering_profile_electron_density(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Thomson-scattering electron density versus position."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="thomson_scattering", quantity="fit",
+    subject="thomson_scattering",
+    description=(
+        "Thomson T_e or n_e (field=te|ne) at one time: channels with error bars, refused "
+        "channels hollow, and the fit through them on psi_N, rho_N or R, mapped through "
+        "the ODS's own or a given equilibrium (issue #952)."
+    ),
+    ids=("thomson_scattering", "equilibrium"),
+    required_paths=(
+        "thomson_scattering.time",
+        "thomson_scattering.channel.{i}.t_e.data",
+        "thomson_scattering.channel.{i}.n_e.data",
+        "thomson_scattering.channel.{i}.position.r",
+    ),
+    optional_paths=(
+        "thomson_scattering.channel.{i}.t_e.data_error_upper",
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    ),
+)
+def thomson_scattering_profile_fit(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Thomson points and their fit on a flux coordinate."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="charge_exchange", quantity="fit",
+    subject="charge_exchange",
+    description=(
+        "Charge-exchange T_i or V_phi (field=ti|vphi) at one time: channels with error "
+        "bars, refused channels hollow, and the fit through them on psi_N, rho_N or R "
+        "(issue #952)."
+    ),
+    ids=("charge_exchange", "equilibrium"),
+    required_paths=(
+        "charge_exchange.time",
+        "charge_exchange.channel.{i}.ion.{j}.t_i.data",
+        "charge_exchange.channel.{i}.position.r.data",
+    ),
+    optional_paths=(
+        "charge_exchange.channel.{i}.ion.{j}.velocity_tor.data",
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    ),
+)
+def charge_exchange_profile_fit(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Charge-exchange points and their fit on a flux coordinate."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -561,6 +701,50 @@ def mhd_linear_profile_island_width(
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
+@_profile_renderer(
+    domain="mhd_linear", quantity="chirikov",
+    subject="mhd_linear",
+    description="Island-overlap parameter per rational surface against normalized "
+                "poloidal flux, in GPEC's own surface definition, with the K = 1 "
+                "criterion drawn; derived from the mapped perturbed flux.",
+    ids=("mhd_linear",),
+    required_paths=_GPEC_RESONANT_PATHS,
+)
+def mhd_linear_profile_chirikov(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Island overlap per rational surface."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+_MHD_LINEAR_SPECTRUM_PATHS = (
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim2",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.real",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.imaginary",
+)
+
+
+@renderer(
+    domain="mhd_linear", subject="mhd_linear", view="spectrum",
+    quantity="b_field_perturbed", model=Profile1D,
+    description="Perturbed normal flux amplitude against poloidal harmonic at one "
+                "flux surface; the outermost mapped surface unless psi_n names "
+                "another, and the title reports the surface actually drawn.",
+    ids=("mhd_linear",),
+    required_paths=_MHD_LINEAR_SPECTRUM_PATHS,
+    optional_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed",
+    ),
+)
+def mhd_linear_spectrum_b_field_perturbed(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Perturbed normal flux spectrum at one flux surface."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
 _NBI_PROFILE_PATHS = (
     "core_sources.source.{i}.identifier.index",
     "core_sources.source.{i}.profiles_1d.{j}.grid.rho_tor_norm",
@@ -623,3 +807,46 @@ def nbi_profile_current_drive(
     """Beam-driven parallel current density."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
+
+_COIL_3D_EXCITATION_PATHS = (
+    # `code.parameters` carries the `<coil_set>` blocks the sets are grouped
+    # by, and `identifier` is what each coil is matched to one with.
+    "coils_non_axisymmetric.code.parameters",
+    "coils_non_axisymmetric.coil.{i}.identifier",
+    "coils_non_axisymmetric.coil.{i}.name",
+    "coils_non_axisymmetric.coil.{i}.current.data",
+    "coils_non_axisymmetric.coil.{i}.conductor.0.elements.start_points.phi",
+)
+
+
+@_profile_renderer(
+    domain="coils_non_axisymmetric", quantity="current",
+    subject="coil_3d",
+    description="Sector currents of each non-axisymmetric coil set against toroidal "
+                "angle: one marker per sector, because that is the whole waveform a "
+                "discrete coil set carries.",
+    ids=("coils_non_axisymmetric",),
+    required_paths=_COIL_3D_EXCITATION_PATHS,
+    optional_paths=("coils_non_axisymmetric.coil.{i}.current.time",),
+)
+def coil_3d_profile_current(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Non-axisymmetric coil currents against toroidal angle."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="coils_non_axisymmetric", subject="coil_3d", view="spectrum",
+    quantity="current", model=Profile1D,
+    description="Toroidal mode content |C_n| of each non-axisymmetric coil set's "
+                "excitation, to the last harmonic its sectors resolve.",
+    ids=("coils_non_axisymmetric",),
+    required_paths=_COIL_3D_EXCITATION_PATHS,
+    optional_paths=("coils_non_axisymmetric.coil.{i}.current.time",),
+)
+def coil_3d_spectrum_current(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Toroidal mode content of a non-axisymmetric coil excitation."""
+    return render_profile_1d(model, ax=ax, show=show, **style)

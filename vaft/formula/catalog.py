@@ -12,6 +12,12 @@ time, and the docstrings they already carry are the only source of truth.
 >>> print(F.describe("greenwald_density"))          # one function, rendered
 >>> F.search("Sauter")                              # specs whose text mentions it
 >>> F.list_formulas(category="stability")           # imports only stability
+>>> F.describe("greenwald_density").definition      # its $$...$$ equation
+>>> F.show("greenwald_density", sections=["definition", "validity"])  # in Jupyter
+
+A :class:`FormulaSpec` renders as plain text (``str``/``render``) at a
+terminal and as Markdown (``to_markdown``, ``_repr_markdown_``) in Jupyter, so
+a notebook shows the docstring's equation instead of restating it (#889).
 
 ``python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml`` writes
 the deterministic YAML snapshot the documentation site renders, in the same
@@ -25,6 +31,7 @@ import ast
 import dataclasses
 import hashlib
 import inspect
+import re
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -34,13 +41,16 @@ from pathlib import Path
 from . import _IMPORT_ORDER, _submodule
 from ._docstring import (
     CUSTOM_SECTIONS,
+    SECTION_VOCABULARY,
     ModuleDoc,
     ParamDoc,
     ParsedDocstring,
+    RaiseDoc,
     Reference,
     ReturnDoc,
     parse_docstring,
     parse_module_docstring,
+    source_span,
     strip_roles,
 )
 
@@ -54,14 +64,24 @@ __all__ = [
     "export_documentation_snapshot",
     "list_formulas",
     "search",
+    "show",
 ]
 
 #: Submodules whose functions the catalog covers, in package import order.
 #: ``constants`` defines no functions and appears only through :func:`categories`.
 CATEGORIES: tuple[str, ...] = tuple(key for key in _IMPORT_ORDER if key != "constants")
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 _GENERATOR = "python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml"
+
+#: A displayed equation of the description, ``$$...$$``, possibly over several lines.
+_DISPLAY_MATH = re.compile(r"\$\$(.+?)\$\$", re.S)
+
+#: Sections ``FormulaSpec.to_markdown`` can select besides the docstring's own titles.
+_CARD_PARTS = ("signature", "summary", "definition", "description", "parameters", "returns", "raises")
+
+#: Docstring sections the card draws elsewhere (the item lists) or last (references).
+_LISTED_SECTIONS = ("Parameters", "Returns", "Yields", "Raises", "References")
 
 
 @dataclass(frozen=True)
@@ -91,11 +111,26 @@ class FormulaSpec:
     aliases: tuple[str, ...] = ()
     shadowed_by: str | None = None
     errors: tuple[str, ...] = ()
+    raises: tuple[RaiseDoc, ...] = ()
+    source_path: str = ""
+    source_line: int = 0
+    source_end_line: int = 0
+    source_code: str = ""
+    definitions: tuple[str, ...] = ()
 
     @property
     def qualname(self) -> str:
         """``category.name``, the unambiguous catalog key."""
         return f"{self.category}.{self.name}"
+
+    @property
+    def definition(self) -> str:
+        """The defining equations as Markdown display math, ``""`` when there are none.
+
+        These are the description's ``$$...$$`` blocks, in order; ``definitions``
+        holds the same LaTeX without the delimiters.
+        """
+        return "\n\n".join(f"$${equation}$$" for equation in self.definitions)
 
     def section(self, title: str) -> str | None:
         """Text of one section, or ``None`` when the docstring lacks it."""
@@ -152,6 +187,125 @@ class FormulaSpec:
 
     __str__ = render
 
+    def to_markdown(self, sections: list[str] | tuple[str, ...] | None = None) -> str:
+        """The same card as Markdown with ``$...$`` math, for Jupyter and notebooks.
+
+        With ``sections=None`` the whole card is drawn in the order of the
+        reference page: signature, summary, description, parameters, returns,
+        ``Convention``, ``Raises``, the other sections, references.  Otherwise
+        only the named parts are drawn, in the order given.  A part is one of
+        ``signature``, ``summary``, ``definition``, ``description``,
+        ``parameters``, ``returns``, ``raises``, ``references`` or a docstring
+        section title such as ``"validity"`` (case-insensitive).  ``definition``
+        is the equations alone; the description already shows them in their
+        prose, so asking for both draws the description only.
+
+        Raises
+        ------
+        ValueError
+            If a part is unknown, or this formula's docstring does not have it.
+        """
+        if sections is None:
+            parts = ["signature", "summary"]
+            parts += ["description"] if self.description else []
+            parts += ["parameters"] if self.parameters else []
+            parts += ["returns"] if self.returns else []
+            parts += ["convention"] if self.section("Convention") is not None else []
+            parts += ["raises"] if self.raises else []
+            parts += [
+                title.lower()
+                for title, _ in self.sections
+                if title not in _LISTED_SECTIONS and title != "Convention"
+            ]
+            parts += ["references"] if self.references else []
+        else:
+            if isinstance(sections, str):
+                raise TypeError("sections is a list of part names, not one string")
+            parts = [part.strip().lower().replace("_", " ") for part in sections]
+            if not parts:
+                raise ValueError("sections is empty; pass None for the whole card")
+            parts = ["returns" if part == "yields" else part for part in parts]
+            if "description" in parts:
+                parts = [part for part in parts if part != "definition"]
+            parts = list(dict.fromkeys(parts))  # each part once, first request wins
+        return "\n\n".join(self._markdown_part(part) for part in parts)
+
+    def _repr_markdown_(self) -> str:
+        return self.to_markdown()
+
+    def _markdown_part(self, part: str) -> str:
+        """One part of the Markdown card; ``ValueError`` if unknown or absent."""
+        titles = {title.lower(): title for title, _ in self.sections if title not in _LISTED_SECTIONS}
+        present = [name for name in _CARD_PARTS if self._has(name)] + list(titles)
+        present += ["references"] if self.references else []
+        if part not in present:
+            known = set(_CARD_PARTS) | {"references"} | {t.lower() for t in SECTION_VOCABULARY}
+            if part in known:
+                raise ValueError(f"{self.qualname} documents no {part}; it has {', '.join(present)}")
+            raise ValueError(
+                f"unknown part {part!r}; choose from {', '.join(_CARD_PARTS)}, references "
+                f"or a docstring section such as {', '.join(t.lower() for t in CUSTOM_SECTIONS)}"
+            )
+        if part == "signature":
+            flags = [
+                label
+                for label, on in (
+                    ("empirical fit", self.empirical),
+                    ("convention-sensitive", self.convention_sensitive),
+                    ("deprecated", self.deprecated),
+                )
+                if on
+            ]
+            head = f"**`{self.qualname}{self.signature}`**"
+            head += f" &nbsp;*{' · '.join(flags)}*" if flags else ""
+            notes = []
+            if self.aliases:
+                notes.append("Also exported as " + ", ".join(f"`{alias}`" for alias in self.aliases) + ".")
+            if self.shadowed_by:
+                notes.append(
+                    f"`vaft.formula.{self.name}` resolves to the `{self.shadowed_by}` copy; "
+                    f"reach this one as `vaft.formula.{self.category}.{self.name}`."
+                )
+            return head + ("\n\n" + " ".join(notes) if notes else "")
+        if part == "summary":
+            return strip_roles(self.summary)
+        if part == "definition":
+            return self.definition
+        if part == "description":
+            return strip_roles(self.description)
+        if part in ("parameters", "returns"):
+            lines = [f"**{part.capitalize()}**", ""]
+            for item in self.parameters if part == "parameters" else self.returns:
+                head = f"`{item.name}` : {item.type}" if item.name else item.type
+                unit = f" [{item.unit}]" if item.unit else ""
+                lines.append(f"- {head}{unit} — {_one_line(item.description)}")
+            return "\n".join(lines)
+        if part == "raises":
+            lines = ["**Raises**", ""]
+            lines += [f"- `{item.type}` — {_one_line(item.description)}" for item in self.raises]
+            return "\n".join(lines)
+        if part == "references":
+            lines = ["**References**", ""]
+            lines += [f"- [{ref.label}] {_one_line(ref.text)}" for ref in self.references]
+            return "\n".join(lines)
+        text = strip_roles(self.section(titles[part]))
+        if titles[part] == "Examples":  # doctest prompts are not Markdown
+            text = f"```python\n{text}\n```"
+        return f"**{titles[part]}**\n\n{text}"
+
+    def _has(self, part: str) -> bool:
+        return bool(
+            {
+                "signature": True,
+                "summary": self.summary,
+                "definition": self.definitions,
+                "description": self.description,
+                "parameters": self.parameters,
+                "returns": self.returns,
+                "raises": self.raises,
+            }[part]
+        )
+
     def as_dict(self) -> dict:
         """The snapshot row: plain scalars and lists, Sphinx roles stripped."""
         return {
@@ -183,7 +337,7 @@ class FormulaSpec:
             "sections": [
                 {"title": title, "text": strip_roles(text)}
                 for title, text in self.sections
-                if title not in ("Parameters", "Returns", "Yields", "References")
+                if title not in ("Parameters", "Returns", "Yields", "Raises", "References")
             ],
             "references": [
                 {"label": ref.label, "text": strip_roles(ref.text)} for ref in self.references
@@ -191,9 +345,33 @@ class FormulaSpec:
             "empirical": self.empirical,
             "convention_sensitive": self.convention_sensitive,
             "deprecated": self.deprecated,
+            "raises": [
+                {"type": item.type, "description": strip_roles(item.description)}
+                for item in self.raises
+            ],
+            "source": {
+                "path": self.source_path,
+                "line": self.source_line,
+                "end_line": self.source_end_line,
+                "code": self.source_code,
+            },
+            "definitions": list(self.definitions),
             "aliases": list(self.aliases),
             "shadowed_by": self.shadowed_by,
         }
+
+
+def _one_line(text: str) -> str:
+    return " ".join(strip_roles(text).split())
+
+
+class FormulaMarkdown(str):
+    """Markdown text that Jupyter renders when it is a cell's last expression."""
+
+    __slots__ = ()
+
+    def _repr_markdown_(self) -> str:
+        return str(self)
 
 
 @dataclass(frozen=True)
@@ -279,6 +457,7 @@ def _signature(fn) -> str:
 
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> FormulaSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
+    span = source_span(fn, Path(__file__).resolve().parents[2])
     return FormulaSpec(
         name=name,
         category=category,
@@ -296,6 +475,12 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         aliases=aliases,
         shadowed_by=_shadowing_category(category, name),
         errors=parsed.errors,
+        raises=parsed.raises,
+        source_path=span["path"],
+        source_line=span["line"],
+        source_end_line=span["end_line"],
+        source_code=span["code"],
+        definitions=tuple(equation.strip() for equation in _DISPLAY_MATH.findall(parsed.description)),
     )
 
 
@@ -384,6 +569,16 @@ def describe(name: str) -> FormulaSpec:
         if alias:
             return specs[alias]
     raise KeyError(f"no formula named {name!r}; use vaft.formula.list_formulas() to list them")
+
+
+def show(name: str, sections: list[str] | tuple[str, ...] | None = None) -> FormulaMarkdown:
+    """One formula's card, or the chosen parts of it, as Markdown for a notebook.
+
+    ``show("greenwald_density", sections=["definition"])`` as the last line of
+    a Jupyter cell renders the docstring's equation, so the notebook reuses it
+    instead of restating it; see :meth:`FormulaSpec.to_markdown` for the parts.
+    """
+    return FormulaMarkdown(describe(name).to_markdown(sections))
 
 
 def list_formulas(category: str | None = None) -> list[FormulaSpec]:

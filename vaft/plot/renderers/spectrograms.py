@@ -9,7 +9,7 @@ from matplotlib.figure import Figure
 
 from ..models import Spectrogram
 from ..registry import renderer
-from ..presentation import presented
+from ..presentation import presented, resolve_color
 from ..style import finalize, resolve_axes
 
 __all__ = [
@@ -42,12 +42,18 @@ def render_spectrogram(
             "Adapters such as vaft.omas.plot_* build the model from data objects."
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
+    # A grid that reserved a colorbar cell beside this panel hands it over, so
+    # the mesh keeps the width of the panels it is aligned with (#1467).
+    colorbar_axes = style.pop("colorbar_ax", None)
 
     style.setdefault("shading", "auto")
     style.setdefault("cmap", model.cmap)
     mesh = axes.pcolormesh(model.time, model.frequency, model.magnitude, **style)
     if colorbar:
-        figure.colorbar(mesh, ax=axes, label=model.value_label)
+        if colorbar_axes is not None:
+            figure.colorbar(mesh, cax=colorbar_axes, label=model.value_label)
+        else:
+            figure.colorbar(mesh, ax=axes, label=model.value_label)
 
     axes.set_xlabel(model.x_label)
     axes.set_ylabel(model.y_label)
@@ -55,6 +61,13 @@ def render_spectrogram(
         axes.set_title(model.title)
     if model.max_frequency is not None:
         axes.set_ylim(0.0, model.max_frequency)
+    if model.ridge_time is not None:
+        # The tracked ridge (issue #1005); NaN windows leave gaps, not a line to zero.
+        axes.plot(
+            model.ridge_time, model.ridge_frequency, color=resolve_color("palette:2"),
+            linewidth=1.4, label=model.ridge_label or "tracked ridge",
+        )
+        axes.legend(loc="upper right", fontsize="small")
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 

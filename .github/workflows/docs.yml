@@ -13,28 +13,34 @@ on:
     paths:
       - 'docs/**'
       - 'notebooks/**'
-      - 'vaft/formula/**'
-      - 'vaft/machine_mapping/**'
+      # Every vaft module is documented by the generated API reference (#162).
+      - 'vaft/**'
       - '.github/workflows/docs.yml'
   push:
     branches: [main, develop]
     paths:
       - 'docs/**'
       - 'notebooks/**'
-      - 'vaft/formula/**'
-      - 'vaft/machine_mapping/**'
+      # Every vaft module is documented by the generated API reference (#162).
+      - 'vaft/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# One publisher at a time, and never cancel a queued one: a cancelled run
-# publishes nothing (the push is its last step), but a cancelled *queued* run
-# would silently skip a commit's documentation.
+# One publisher at a time, and never cancel a running one: a cancelled run
+# publishes nothing (the push is its last step).  A group holds at most one
+# *pending* run, and a newer one replaces it; for publishing that is harmless,
+# since every publish rebuilds both tracks from the branch tips.
+#
+# Pull requests build and validate but never publish, so they get a group of
+# their own per pull request.  Sharing docs-publish made every queued PR check
+# lose its place to the next push or PR in the repository and end cancelled
+# with no jobs run; now only a newer push to the same PR supersedes it.
 concurrency:
-  group: docs-publish
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('docs-pr-{0}', github.event.pull_request.number) || 'docs-publish' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -48,7 +54,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
 
       - uses: ruby/setup-ruby@v1
@@ -114,7 +120,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
 
       - uses: ruby/setup-ruby@v1

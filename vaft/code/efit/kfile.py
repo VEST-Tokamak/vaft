@@ -3,12 +3,13 @@
 Moved verbatim out of the former monolithic ``efit.py``.
 """
 
+import copy
 import json
 import numpy as np
 import os
 import re
 import warnings
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from functools import partial
 from numbers import Integral
 from pathlib import Path
@@ -38,7 +39,7 @@ from vaft.validation.magnetics import unusable_channels_at
 from .efund import table_machine_era
 from .slice_name import encode_time_suffix, time_to_microseconds
 from .magnetic import EFITConfig
-from .config import EFITScientificConfig, EFITProfileConfig
+from .config import EFITScientificConfig
 
 
 #: How a magnetics channel family is named in the EFIT constraint tree. The
@@ -422,6 +423,11 @@ def generate_constraints_ods(
         "b_field_tor_vacuum_r",
     ]
     # For later need to develop option to add other constraints (e.g. internal magnetic probe, thomson scattering, etc.)
+    # A shot whose diamagnetic loop carried nothing usable has no
+    # diamagnetic_flux node (#993); it is fitted without that row rather than
+    # failing, and the k-file writer switches the row off.
+    if "magnetics.diamagnetic_flux.0.data" not in ods:
+        constraints.remove("diamagnetic_flux")
 
     # Accepts the legacy positional lists; everything below reads names.
     errors = ConstraintErrors.coerce(uncertainty)
@@ -473,10 +479,11 @@ def generate_constraints_ods(
     MG["ip.0.data_error_upper"] = abs(errors.ip * MG["ip.0.data"])
 
     ## (4) Diamagnetic flux
-    MG["diamagnetic_flux.0.time"] = MG["time"]
-    MG["diamagnetic_flux.0.data_error_upper"] = abs(
-        errors.diamagnetic_flux * MG["diamagnetic_flux.0.data"]
-    )
+    if "diamagnetic_flux" in constraints:
+        MG["diamagnetic_flux.0.time"] = MG["time"]
+        MG["diamagnetic_flux.0.data_error_upper"] = abs(
+            errors.diamagnetic_flux * MG["diamagnetic_flux.0.data"]
+        )
 
     ## (5) Poloidal magnetic probe
     Index_inBz = np.where(MG["b_field_pol_probe.:.position.r"] < INBOARD_PROBE_MAX_R)
@@ -595,14 +602,17 @@ def generate_constraints_ods(
 
     # The diamagnetic flux keeps its sign (issue #385).  EFIT reads DFLUX as a
     # signed quantity and fits it against cdflux = integral (B_t - B_tv) dA, so
-    # a diamagnetic plasma in VEST's positive toroidal field is a *negative*
-    # flux.  The donor code compared magnitudes with a magnitude-only
-    # reconstruction, which is not what EFIT does.
+    # a paramagnetic plasma in VEST's positive toroidal field is a *positive*
+    # flux, and the stored measurement is signed the same way (#1196).  The
+    # donor code compared magnitudes with a magnitude-only reconstruction,
+    # which is not what EFIT does.
     for i in range(len(EQ["time"])):
         for j in range(len(EQ[f"time_slice.{i}.constraints.pf_current"])):
             EQ[f"time_slice.{i}.constraints.pf_current.{j}.weight"] = weights.pf_current
         EQ[f"time_slice.{i}.constraints.ip.weight"] = weights.ip
-        EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = weights.diamagnetic_flux
+        EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = (
+            weights.diamagnetic_flux if "diamagnetic_flux" in constraints else 0.0
+        )
 
     if decisions is None:
         # The legacy interface: the manual list and the fit option are the
@@ -656,7 +666,6 @@ def generate_constraints_ods(
         PM[f"time_slice.{i}.IN1.KPPCUR"] = PPCUR
         PM[f"time_slice.{i}.IN1.KFFFNC"] = 0
         PM[f"time_slice.{i}.IN1.KPPFNC"] = 0
-        PM[f"time_slice.{i}.IN1.SERROR"] = 0.05
         PM[f"time_slice.{i}.IN1.IVESEL"] = 1
         PM[f"time_slice.{i}.IN1.IFITVS"] = 0
         PM[f"time_slice.{i}.IN1.FCURBD"] = 1
@@ -697,6 +706,27 @@ def generate_constraints_ods(
     return decisions
 
 
+_POSITIONAL_BASIS_WARNED = False
+
+
+def _warn_positional_basis() -> None:
+    """Warn once per process that a positional basis is the deprecated spelling."""
+    global _POSITIONAL_BASIS_WARNED
+    if _POSITIONAL_BASIS_WARNED:
+        return
+    _POSITIONAL_BASIS_WARNED = True
+    warnings.warn(
+        "generate_kfile(ods, shot, npprime, nffprime) is deprecated: the positional "
+        "basis swaps only KPPCUR/KFFCUR on the default configuration (preset "
+        "'statistical_891'); pass config=EFITScientificConfig(profile=EFITProfileConfig("
+        "kppcur=..., kffcur=...)) for that, or config=routine_scientific_config("
+        "profile=routine_profile_config(kppcur=..., kffcur=...)) / preset 'routine' "
+        "for the legacy routine configuration with a basis",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 def generate_kfile(
     ods,
     shotnumber,
@@ -710,7 +740,14 @@ def generate_kfile(
     """
     Generate k-files under ``save_dir/kfile`` for the requested shot.
 
-    ``npprime`` and ``nffprime`` remain supported for legacy callers.  New
+    Without ``config`` the k-file is written from the default configuration,
+    the #891 working setting (preset ``statistical_891``).  A positional
+    ``npprime``/``nffprime`` is the deprecated spelling of a basis override:
+    it swaps only KPPCUR/KFFCUR on that default, exactly as
+    ``EFITConfig(npprime=..., nffprime=...)`` does, and warns once.  The
+    legacy routine configuration (legacy weights, (2,2), EFIT's own
+    termination, no floor) is selected only by name:
+    ``config=routine_scientific_config()`` or the ``routine`` preset.  New
     callers should supply an :class:`EFITConfig` or
     :class:`EFITScientificConfig` so every scientific namelist choice is
     explicit and serializable.
@@ -737,18 +774,37 @@ def generate_kfile(
                 "argument or make the values equal"
             )
     elif config is None:
-        scientific = EFITScientificConfig(
-            profile=EFITProfileConfig(
-                kppcur=2 if npprime is None else npprime,
-                kffcur=2 if nffprime is None else nffprime,
+        # The default: the #891 working setting (statistical_891).
+        scientific = EFITScientificConfig()
+        if npprime is not None or nffprime is not None:
+            # The positional basis means the same thing as EFITConfig's
+            # npprime/nffprime: a basis override on the default.  It used to
+            # select the whole routine configuration, so the same spelling
+            # meant two sigma/termination sets depending on the door used
+            # (cold review 0.8.0 delta-absorb-11b F1).
+            _warn_positional_basis()
+            scientific = replace(
+                scientific,
+                profile=replace(
+                    scientific.profile,
+                    kppcur=scientific.profile.kppcur if npprime is None else npprime,
+                    kffcur=scientific.profile.kffcur if nffprime is None else nffprime,
+                ),
             )
-        )
     else:
         raise TypeError("config must be EFITConfig, EFITScientificConfig, or None")
     profile = scientific.profile
     initialization = scientific.initialization
     numerics = scientific.numerics
     constraint_config = scientific.constraints
+
+    # The sigma floor is part of the configuration, so it is applied here, on a
+    # copy, for every caller -- the routine configuration's is 0 (#891).
+    if constraint_config.sigma_floor:
+        from .presets import apply_sigma_floor
+
+        ods = copy.deepcopy(ods)
+        apply_sigma_floor(ods, constraint_config.sigma_floor, constraint_config.sigma_floor_families)
 
     # Load the constraints ODS
     EQ = ods["equilibrium"]
@@ -758,6 +814,19 @@ def generate_kfile(
     # Define the kfile parameters
     vbit = constraint_config.legacy_vbit
     shft = constraint_config.legacy_weight_scale
+    # Under standard_deviation the submitted BIT* values *are* the uncertainty.
+    # EFIT does not use them as written: it multiplies every BIT by VBIT
+    # (default 10) and takes the larger of that and a relative floor --
+    # SERROR*|m| for probes, Ip and PF currents, ERRSIL*|m| (default 3 %) for
+    # flux loops.  Unless all three are pinned, the sigma EFIT fits against is
+    # ten times the one submitted, or a floor nobody chose (#891).  Legacy
+    # weighting depends on VBIT = 10 through its `weight / vbit` formula and is
+    # left exactly as it was.
+    statistical = constraint_config.uncertainty_mode == "standard_deviation"
+    serror_written = 0.0 if statistical else numerics.measurement_error_floor
+    # EFIT drops a statistical row whose sigma is at or below this without a
+    # word (data_input.F90), so an enabled row must clear it.
+    efit_minimum_sigma = 1.0e-10
     TABLE_DIR = "TABLE_DIR = '{}' \n".format(PM["time_slice.0.IN1.INPUT_DIR"])
     INPUT_DIR = "INPUT_DIR = '{}' \n".format(PM["time_slice.0.IN1.INPUT_DIR"])
 
@@ -788,6 +857,21 @@ def generate_kfile(
 
     def _objective_scale(group: str) -> float:
         return float(constraint_config.objective_scales[group])
+
+    def _row_weight(weight: float, group: str) -> float:
+        """The FWT written for one row.
+
+        Under standard_deviation the ODS weight only includes or excludes the
+        row; how strongly it constrains is the sigma's job alone (#891).  The
+        objective scale stays an explicit study control.  Legacy weighting is
+        unchanged: the weight is a strength there.
+        """
+        if statistical:
+            return _objective_scale(group) if weight > 0 else 0.0
+        return weight * _objective_scale(group)
+
+    def _usable_sigma(value: float) -> bool:
+        return bool(np.isfinite(value) and value > efit_minimum_sigma)
 
     def _measurement_error(
         cstr, path: str, fallback: float, *, group: str, unit_scale: float = 1.0
@@ -920,8 +1004,14 @@ def generate_kfile(
         # when a circuit is switched off. The objective scale multiplies the
         # weight in both forms -- it is a property of the family, not of the
         # spelling.
-        pf_objective_scale = _objective_scale("pf_current")
-        scaled_pf_weight = pf_weight * pf_objective_scale
+        scaled_pf_weight = _row_weight(pf_weight, "pf_current")
+        unusable = []
+        if statistical and scaled_pf_weight > 0:
+            unusable += [
+                f"pf_current.{source_index}"
+                for i, source_index in enumerate(pf_indices)
+                if COILWEIGHT[i] > 0 and not _usable_sigma(BITCURRENT[i])
+            ]
         if np.all(COILWEIGHT == 1.0):
             FWTFC = f"FWTFC= {nbcoil}*{scaled_pf_weight}\n"
         else:
@@ -943,15 +1033,32 @@ def generate_kfile(
         ## (4) Plasma current with weight
         plasma_weight = _weight(CSTR, "ip", "plasma_current")
         PLASMA = f"PLASMA= {CSTR['ip.measured']}"
-        BITIP = f"BITIP= {_measurement_error(CSTR, 'ip', plasma_weight / vbit * shft, group='plasma_current')}"
-        FWTCUR = f"FWTCUR= {plasma_weight * _objective_scale('plasma_current')}"
+        bitip_value = _measurement_error(
+            CSTR, "ip", plasma_weight / vbit * shft, group="plasma_current"
+        )
+        BITIP = f"BITIP= {bitip_value}"
+        plasma_row_weight = _row_weight(plasma_weight, "plasma_current")
+        FWTCUR = f"FWTCUR= {plasma_row_weight}"
+        if statistical and plasma_row_weight > 0 and not _usable_sigma(bitip_value):
+            unusable.append("ip")
 
         ## (5) Diamagnetic flux with weight
         flux_scale = (
             1000.0 if constraint_config.diamagnetic_flux_input_units == "Wb" else 1.0
         )
+        # No measurement at all (#993: the loop carried nothing usable): the
+        # row is written switched off, with a zero value and sigma EFIT never
+        # reads while FWTDLC is 0.
+        measured_dia = "diamagnetic_flux.measured" in CSTR
+        if not measured_dia and constraint_config.use_diamagnetic_flux:
+            warnings.warn(
+                f"shot {shotnumber}, slice {time_idx}: no diamagnetic flux measurement; "
+                "the row is written switched off (FWTDLC=0)",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         # "imas" writes the stored, signed value: EFIT's convention (#385).
-        VAL = float(CSTR["diamagnetic_flux.measured"]) * flux_scale
+        VAL = float(CSTR["diamagnetic_flux.measured"]) * flux_scale if measured_dia else 0.0
         if constraint_config.diamagnetic_flux_sign == "absolute":
             VAL = abs(VAL)
         elif constraint_config.diamagnetic_flux_sign == "negative":
@@ -959,8 +1066,21 @@ def generate_kfile(
         DFLUX = f"DFLUX= {VAL} \n"
 
         ## Original SIGDLC is written as the standard deviation but we use the fitting weight instead
-        diamagnetic_weight = _weight(CSTR, "diamagnetic_flux", "diamagnetic_flux")
-        SIGDLC = f"SIGDLC= {_measurement_error(CSTR, 'diamagnetic_flux', diamagnetic_weight * shft * flux_scale, group='diamagnetic_flux', unit_scale=flux_scale)}"
+        diamagnetic_weight = (
+            _weight(CSTR, "diamagnetic_flux", "diamagnetic_flux") if measured_dia else 0.0
+        )
+        sigdlc_value = (
+            _measurement_error(
+                CSTR,
+                "diamagnetic_flux",
+                diamagnetic_weight * shft * flux_scale,
+                group="diamagnetic_flux",
+                unit_scale=flux_scale,
+            )
+            if measured_dia
+            else 0.0
+        )
+        SIGDLC = f"SIGDLC= {sigdlc_value}"
         # SIGDLC=f'SIGDLC= {CSTR["diamagnetic_flux.measured_error_upper"]*1000}' # Standard deviation of diamagnetic flux measurement data in mWb
         # SIGDLC=f'SIGDLC= {VAL*CSTR["diamagnetic_flux.weight"]}' # set sigdlc as measured value * weight
 
@@ -972,13 +1092,20 @@ def generate_kfile(
             FWTDLC = "FWTDLC= 0"
         else:
             FWTDLC = f"FWTDLC= {_objective_scale('diamagnetic_flux')}"
+            # A zero SIGDLC with the row on is not a zero sigma to EFIT: it
+            # skips the division, keeps the raw FWTDLC and divides by zero in
+            # chidflux.  SIGDLC is in mWb; EFIT's sigma is 1e-3 of it.
+            if statistical and not _usable_sigma(1.0e-3 * sigdlc_value):
+                unusable.append("diamagnetic_flux")
 
         ## (6) Poloidal magnetic probe with weight
         # magpri (dprobe.dat/mhdin.dat) is EFIT's own count of physically
         # fitted probes -- for VEST this is 64, the leading `bpol_probe`
         # entries built from vest_equilibrium_magnetics_channel_definitions(). VAFT's OMAS
-        # magnetics IDS additionally carries 4 trailing toroidal-mirnov
-        # phase-reference channels (identifier suffix ":phase_reference")
+        # magnetics IDS may additionally carry trailing toroidal-mirnov
+        # phase-reference channels (identifier suffix ":phase_reference";
+        # three up to shot 35520, none after) and, from 44156, the
+        # fluctuation array
         # that are not part of EFIT's B-pol fitting set; writing all of
         # them into EXPMP2/FWTMP2/BITMPI overflows what EFIT's compiled
         # geometry table expects and is rejected as an invalid namelist
@@ -1008,6 +1135,8 @@ def generate_kfile(
                         group="bpol_probe",
                     )
                 )
+                if statistical and fwtmp2_values[-1] > 0 and not _usable_sigma(bitmpi_values[-1]):
+                    unusable.append(f"bpol_probe.{i}")
         FWTMP2 = _namelist_array("FWTMP2", fwtmp2_values, per_line=32)
         BITMPI = _namelist_array(
             "BITMPI",
@@ -1045,6 +1174,14 @@ def generate_kfile(
                         unit_scale=1.0 / (2.0 * np.pi),
                     )
                 )
+                if statistical and fwtsi_values[-1] > 0 and not _usable_sigma(psibit_values[-1]):
+                    unusable.append(f"flux_loop.{i}")
+        if unusable:
+            raise ValueError(
+                "standard_deviation constraints must carry a usable sigma for every "
+                f"enabled row (EFIT silently drops sigma <= {efit_minimum_sigma:g}); "
+                f"slice {time[time_idx]} has none on: {', '.join(unusable)}"
+            )
         FWTSI = _namelist_array("FWTSI", fwtsi_values, per_line=32)
         PSIBIT = _namelist_array(
             "PSIBIT",
@@ -1114,7 +1251,13 @@ def generate_kfile(
         # default and separable when a study needs to move only the seed.
         f.write(f" RELIP = {initialization.seed_rzero}\n")
         f.write(f" RZERO = {initialization.rzero}\n")
-        f.write(f" SERROR = {numerics.measurement_error_floor}\n")
+        f.write(f" SERROR = {serror_written}\n")
+        PM[f"time_slice.{time_idx}.IN1.SERROR"] = serror_written
+        if statistical:
+            f.write(" VBIT = 1.0\n")
+            f.write(" ERRSIL = 0.0\n")
+            PM[f"time_slice.{time_idx}.IN1.VBIT"] = 1.0
+            PM[f"time_slice.{time_idx}.IN1.ERRSIL"] = 0.0
         f.write(TABLE_DIR)
         f.write(VCURRT)
         f.write("\n")
@@ -1185,3 +1328,14 @@ def generate_kfile(
         f.write(" /\n")
         f.write("                                            MAG\n")
         f.close()
+
+
+__all__ = [
+    "build_efit_coil_currents",
+    "apply_validity_exclusions",
+    "ConstraintErrors",
+    "ConstraintWeights",
+    "apply_channel_decisions",
+    "generate_constraints_ods",
+    "generate_kfile",
+]

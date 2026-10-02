@@ -74,6 +74,7 @@ SKIP_CLASSES = {
     "needs-external-code": "runs an external physics code or a pipeline stage that does",
     "needs-file": "opens a user-supplied file or directory the repository does not ship",
     "needs-data": "needs an IDS the packaged sample shot does not carry",
+    "needs-extra": "needs an optional-dependency extra (vaft[...]) the core install does not provide",
     "fragment": "uses placeholder names the page never defines; shows a call shape",
     "signature": "a signature listing or pseudo-code, not a Python program",
 }
@@ -97,12 +98,26 @@ def _front_matter(path: Path) -> dict:
     return yaml.safe_load(match.group(1)) if match else {}
 
 
+def _site_pages() -> list[Path]:
+    pages = sorted(DOCS.glob("_guide/*.md")) + sorted(DOCS.glob("_pages/*.md"))
+    return [p for p in pages + [DOCS / "index.markdown"] if p.is_file()]
+
+
+def _redirect_stubs() -> list[Path]:
+    return [p for p in _site_pages() if _front_matter(p).get("layout") == "redirect"]
+
+
 def _pages() -> list[Path]:
     """Rendered guide/site pages plus the READMEs (the PyPI long description)."""
-    pages = sorted(DOCS.glob("_guide/*.md")) + sorted(DOCS.glob("_pages/*.md"))
-    pages = [p for p in pages + [DOCS / "index.markdown"] if p.is_file()]
-    pages = [p for p in pages if _front_matter(p).get("layout") != "redirect"]
+    pages = [p for p in _site_pages() if _front_matter(p).get("layout") != "redirect"]
     return pages + [p for p in (ROOT / "README.md", ROOT / "README.ko.md") if p.is_file()]
+
+
+def _stub_body(path: Path) -> str:
+    """What follows the front matter of a redirect stub."""
+    text = path.read_text(encoding="utf-8")
+    match = re.match(r"\A---\s*\n.*?\n---[ \t]*\n?", text, re.S)
+    return text[match.end():] if match else text
 
 
 def extract_fences(path: Path, root: Path = ROOT) -> tuple[list[dict], list[str]]:
@@ -298,6 +313,42 @@ def test_every_marker_is_well_formed_and_the_corpus_is_not_empty():
     )
 
 
+#: What a redirect stub may carry after its front matter: pointer comments for
+#: the GitHub reader, nothing a page is made of.
+STUB_BODY_LINES = 3
+
+
+def test_redirect_stubs_carry_no_page_content():
+    """A ``layout: redirect`` page renders only its redirect, and this gate skips it.
+
+    0.8.0 documented the EFIT presets, the ``cocos=`` argument, the 3-D export
+    API and ``vaft hsds configure`` on three redirect stubs (cold review 0.8.0
+    docs-and-tutorials F1): ``docs/_layouts/redirect.html`` never emits
+    ``{{ content }}``, so no reader saw it, and the two new fences were wrong
+    (a ``NameError`` and an ``AttributeError``) without anything noticing.
+    Content belongs on the page the stub redirects to.
+    """
+    stubs = _redirect_stubs()
+    assert stubs, "no redirect stubs found; the layout name or the page glob changed"
+    offending = []
+    for stub in stubs:
+        body = _stub_body(stub)
+        lines = [line for line in body.splitlines() if line.strip()]
+        has_markup = any(
+            line.lstrip().startswith(("#", "```", "|", "* ", "- ", ">")) or set(line.strip()) <= set("=-") and len(line.strip()) >= 3
+            for line in lines
+        )
+        if has_markup or len(lines) > STUB_BODY_LINES:
+            offending.append(
+                f"{stub.relative_to(ROOT).as_posix()}: {len(lines)} body lines"
+                + (" with headings, fences or tables" if has_markup else "")
+            )
+    assert not offending, (
+        "\n" + "\n".join(offending) + "\n\nA layout: redirect page renders nothing but the redirect; "
+        f"move the content to the page named by its redirect_to (at most {STUB_BODY_LINES} pointer lines may stay)."
+    )
+
+
 def test_signature_markers_mean_what_they_say():
     """``signature`` is for text that is not Python; a fence that parses is a fragment or a sample."""
     wrong = []
@@ -316,10 +367,13 @@ def test_signature_markers_mean_what_they_say():
 
 
 #: Fences that run everywhere except on native Windows, where a platform
-#: limitation outside VAFT stops them.  Keyed by (page, line); the entry is the
-#: limitation, so a fix upstream can retire it.
-WINDOWS_LIMITATIONS: dict[tuple[str, int], str] = {
-    ("README.ko.md", 256): (
+#: limitation outside VAFT stops them.  Keyed by (page, a line the fence's
+#: source contains) rather than by line number: prose added above a fence
+#: (the #1090 README diagrams moved this one from 261 to 276) must not turn
+#: a documented limitation back into a red leg.  The entry is the limitation,
+#: so a fix upstream can retire it.
+WINDOWS_LIMITATIONS: dict[tuple[str, str], str] = {
+    ("README.ko.md", 'vaft.imas.save(ods, "./shot")'): (
         "imas_core cannot close the HDF5 entry it just wrote on Windows "
         "(al_close_pulse, ALBackendException); the same limitation is why "
         "vaft.imas scratch cleanup is best-effort there (0.6.2 notes)"
@@ -327,11 +381,20 @@ WINDOWS_LIMITATIONS: dict[tuple[str, int], str] = {
 }
 
 
+def _windows_limitation(fence: dict) -> str | None:
+    lines = {line.strip() for line in fence["source"].splitlines()}
+    for (page, marker), reason in WINDOWS_LIMITATIONS.items():
+        if fence["page"] == page and marker in lines:
+            return reason
+    return None
+
+
 @pytest.mark.parametrize("fence", _executed(), ids=lambda f: f"{f['page']}:{f['line']}")
 def test_the_snippet_runs_offline_on_the_packaged_sample(fence, outcomes):
     key = (fence["page"], fence["line"])
-    if os.name == "nt" and key in WINDOWS_LIMITATIONS:
-        pytest.xfail(WINDOWS_LIMITATIONS[key])
+    limitation = _windows_limitation(fence)
+    if os.name == "nt" and limitation is not None:
+        pytest.xfail(limitation)
     assert key in outcomes, f"{key} was never reached by the runner"
     failure = outcomes[key]
     assert failure is None, (
@@ -342,3 +405,14 @@ def test_the_snippet_runs_offline_on_the_packaged_sample(fence, outcomes):
         "    <!-- docs-snippet: skip <class> (<reason>) -->\n"
         f"classes: {', '.join(sorted(SKIP_CLASSES))}"
     )
+
+
+def test_every_windows_limitation_names_a_fence_that_exists():
+    """A limitation entry keyed to a line of code that no fence carries any
+    more would silently stop excusing anything; keep the table honest."""
+    fences = _executed()
+    for (page, marker), _reason in WINDOWS_LIMITATIONS.items():
+        assert any(
+            f["page"] == page and marker in {l.strip() for l in f["source"].splitlines()} for f in fences
+        ), f"{page}: no executed fence contains {marker!r}"
+

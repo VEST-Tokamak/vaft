@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pytest
 
@@ -758,3 +760,290 @@ def test_the_squared_fit_still_reports_a_distance_to_the_curve():
     dense = np.column_stack(evaluate_miller(fit.surface, np.linspace(0, 2 * np.pi, 100_000, endpoint=False)))
     brute = cKDTree(dense).query(fit.contour.points)[0]
     assert fit.rms_error == pytest.approx(float(np.sqrt(np.mean(brute**2))), rel=1e-3)
+
+
+@pytest.mark.parametrize("convention", [11, 1, 2, 13, 17])
+def test_solovev_plasma_current_agrees_with_amperes_law(convention):
+    """#966: the exported ``ip`` is the current the exported field encloses,
+    along the convention's own toroidal direction, and carries the sign Sauter
+    Eq. 23 ties to the flux and pressure gradients."""
+    from vaft.data.cocos import cocos_spec
+    from vaft.formula.constants import MU0
+    from vaft.process.equilibrium import equilibrium_field_on_grid, solovev_to_equilibrium
+    from scipy.interpolate import RectBivariateSpline
+
+    eq = solovev_to_equilibrium(_classic_solovev(), np.linspace(0.55, 1.4, 129),
+                                np.linspace(-0.55, 0.55, 129), convention=convention)
+    spec = cocos_spec(convention)
+    b_r, b_z, _ = equilibrium_field_on_grid(eq.r, eq.z, eq.psi, eq.psi_1d, eq.f, cocos=convention)
+    fr, fz = RectBivariateSpline(eq.r, eq.z, b_r), RectBivariateSpline(eq.r, eq.z, b_z)
+    r = np.append(eq.lcfs.r, eq.lcfs.r[0])
+    z = np.append(eq.lcfs.z, eq.lcfs.z[0])
+    rm, zm = 0.5 * (r[1:] + r[:-1]), 0.5 * (z[1:] + z[:-1])
+    circulation = float(np.sum(fr.ev(rm, zm) * np.diff(r) + fz.ev(rm, zm) * np.diff(z)))
+    orientation = np.sign(np.sum(r[:-1] * z[1:] - r[1:] * z[:-1]))
+    # A counter-clockwise (R, Z) loop has normal -e_phi when (R, phi, Z) is
+    # right-handed and +e_phi when it is not.
+    enclosed = -spec.sigma_rpz * orientation * circulation / MU0
+    assert eq.ip == pytest.approx(enclosed, rel=5e-3)
+    sigma_ip = int(np.sign(eq.ip))
+    dpsi = np.sign(eq.psi_boundary - eq.psi_axis)
+    assert dpsi == spec.expected_sign("dpsi", sigma_ip=sigma_ip, sigma_b0=1)
+    assert np.sign(eq.pprime[0]) == spec.expected_sign("pprime", sigma_ip=sigma_ip, sigma_b0=1)
+
+
+# ---------------------------------------------------------------------------
+# compare_contours (#885)
+# ---------------------------------------------------------------------------
+
+def _circle(radius, count, *, start=0.0, reverse=False, centre=(1.0, 0.0)):
+    theta = start + np.linspace(0.0, 2 * np.pi, count, endpoint=False)
+    if reverse:
+        theta = theta[::-1]
+    return centre[0] + radius * np.cos(theta), centre[1] + radius * np.sin(theta)
+
+
+def test_concentric_circles_are_their_radial_gap_apart():
+    from vaft.process.equilibrium import compare_contours
+
+    result = compare_contours(*_circle(0.30, 400), *_circle(0.31, 157))
+    # Point-to-segment, so only the chord sag of the coarser polygon remains:
+    # 0.31 * (1 - cos(pi/157)) = 6.2e-5 m, 0.6% of the 1 cm gap.
+    sag = 0.31 * (1 - np.cos(np.pi / 157))
+    assert abs(result["rms"] - 0.01) <= sag
+    assert abs(result["max"] - 0.01) <= sag
+    assert result["length_reference"] == pytest.approx(2 * np.pi * 0.30, rel=1e-4)
+
+
+def test_the_separation_ignores_start_point_orientation_and_closure():
+    from vaft.process.equilibrium import compare_contours
+
+    r0, z0 = _circle(0.32, 200, centre=(1.0, 0.05))
+    base = compare_contours(*_circle(0.3, 200), r0, z0)
+    # The same vertices, started elsewhere, run backwards and closed explicitly.
+    r, z = np.roll(r0, 57)[::-1], np.roll(z0, 57)[::-1]
+    moved = compare_contours(*_circle(0.3, 200), np.r_[r, r[0]], np.r_[z, z[0]])
+    for key in ("rms", "mean", "max", "length_other"):
+        assert moved[key] == pytest.approx(base[key], rel=1e-9)
+
+
+def test_a_one_sided_bump_is_seen_from_one_side_only():
+    """The Hausdorff distance is the larger of the two directed maxima."""
+    from vaft.process.equilibrium import compare_contours
+
+    r, z = _circle(0.3, 720)
+    theta = np.linspace(0.0, 2 * np.pi, 720, endpoint=False)
+    bump = 0.05 * np.exp(-((theta - np.pi / 2) / 0.1) ** 2)
+    rb = 1.0 + (0.3 + bump) * np.cos(theta)
+    zb = (0.3 + bump) * np.sin(theta)
+    result = compare_contours(r, z, rb, zb)
+    assert result["max_other"] == pytest.approx(0.05, rel=1e-2)
+    # The circle's top is nearer the bump's flank than its tip.
+    assert result["max_reference"] < 0.8 * result["max_other"]
+    assert result["max"] == result["max_other"]
+
+
+def test_uneven_sampling_does_not_weight_the_average():
+    """A contour sampled densely on one side must not pull the RMS that way."""
+    from vaft.process.equilibrium import compare_contours
+
+    # A circle 1 cm outside a reference on the right half, 3 cm on the left.
+    theta = np.linspace(0.0, 2 * np.pi, 2000, endpoint=False)
+    radius = np.where(np.cos(theta) > 0, 0.31, 0.33)
+    r_out, z_out = 1.0 + radius * np.cos(theta), radius * np.sin(theta)
+    even = compare_contours(*_circle(0.30, 400), r_out, z_out)
+    # The same reference, with 20x the vertices on its right half.
+    dense = np.r_[np.linspace(-np.pi / 2, np.pi / 2, 2000, endpoint=False),
+                  np.linspace(np.pi / 2, 3 * np.pi / 2, 100, endpoint=False)]
+    skewed = compare_contours(1.0 + 0.3 * np.cos(dense), 0.3 * np.sin(dense), r_out, z_out)
+    assert skewed["rms"] == pytest.approx(even["rms"], rel=2e-2)
+    assert skewed["mean"] == pytest.approx(even["mean"], rel=2e-2)
+
+
+def test_a_large_pair_of_contours_is_processed_in_blocks():
+    from vaft.process.equilibrium import compare_contours
+
+    result = compare_contours(*_circle(0.30, 6000), *_circle(0.31, 6000))
+    assert result["max"] == pytest.approx(0.01, rel=1e-3)
+
+
+def test_a_contour_needs_three_points():
+    from vaft.process.equilibrium import compare_contours
+
+    with pytest.raises(ValueError, match="three points"):
+        compare_contours([1.0, 1.1], [0.0, 0.1], *_circle(0.3, 10))
+
+
+# ---------------------------------------------------------------------------
+# find_stationary_points (#220)
+# ---------------------------------------------------------------------------
+
+def _saddle_field():
+    """psi = (R-R0)^2 + z^2 - z^3/(3 zx): O-point at (R0, 0), saddle at (R0, 2 zx).
+
+    R0 and zx are chosen off the grid nodes so that recovering them is a
+    sub-grid statement rather than a grid lookup.
+    """
+    r0, zx = 1.0123, 0.2587
+    r = np.linspace(0.5, 1.5, 81)
+    z = np.linspace(-0.6, 0.8, 113)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    psi = (rm - r0) ** 2 + zm**2 - zm**3 / (3 * zx)
+    psi_x = 4 * zx**2 / 3
+    eq = EquilibriumData(r=r, z=z, psi=psi, psi_axis=0.0, psi_boundary=psi_x)
+    return eq, (r0, 0.0), (r0, 2 * zx), float(max(np.diff(r).max(), np.diff(z).max()))
+
+
+def test_stationary_points_are_located_to_sub_grid_accuracy():
+    from vaft.process.equilibrium import find_stationary_points
+
+    eq, o_true, x_true, spacing = _saddle_field()
+    points = find_stationary_points(eq)
+    assert [point.kind for point in points] == ["o", "x"]
+    o_point, x_point = points
+    assert np.hypot(o_point.r - o_true[0], o_point.z - o_true[1]) < 1e-3 * spacing
+    assert np.hypot(x_point.r - x_true[0], x_point.z - x_true[1]) < 1e-3 * spacing
+    assert o_point.psi_n == pytest.approx(0.0, abs=1e-6)
+    assert x_point.psi_n == pytest.approx(1.0, abs=1e-6)
+    assert o_point.hessian_determinant > 0 > x_point.hessian_determinant
+
+
+def test_stationary_points_filter_by_kind_and_refuse_an_unknown_one():
+    from vaft.process.equilibrium import find_stationary_points
+
+    eq, *_ = _saddle_field()
+    assert [point.kind for point in find_stationary_points(eq, kind="x")] == ["x"]
+    assert [point.kind for point in find_stationary_points(eq, kind="o")] == ["o"]
+    with pytest.raises(ValueError, match="kind"):
+        find_stationary_points(eq, kind="saddle")
+
+
+def test_stationary_points_of_a_solovev_field_are_true_zeros_of_its_gradient():
+    """Checked against the closed-form gradient, not the spline that found them."""
+    from vaft.process._equilibrium_parametric import _solovev_components
+    from vaft.process.equilibrium import find_stationary_points, solovev_to_equilibrium
+
+    theta = np.linspace(0, 2 * np.pi, 9, endpoint=False)
+    model = solve_solovev_constraints(
+        [SolovevConstraint(1.0 + 0.3 * np.cos(t), 1.6 * 0.3 * np.sin(t), "psi", 0.0) for t in theta],
+        pprime=-1.0e4, ffprime=0.05, rref=1.0, psi_boundary=0.0,
+    )
+    r = np.linspace(0.6, 1.4, 65)
+    z = np.linspace(-0.6, 0.6, 97)
+    eq = solovev_to_equilibrium(model, r, z)
+    spacing = float(max(np.diff(r).max(), np.diff(z).max()))
+    o_points = find_stationary_points(eq, kind="o")
+    assert o_points, "a Solov'ev plasma has a magnetic axis"
+    axis = o_points[0]
+    assert np.hypot(axis.r - eq.magnetic_axis[0], axis.z - eq.magnetic_axis[1]) < 1e-2 * spacing
+    assert axis.psi_n == pytest.approx(0.0, abs=1e-6)
+    for point in find_stationary_points(eq):
+        _, dpsi_dr, dpsi_dz, _ = _solovev_components(model, point.r, point.z)
+        _, scale_r, scale_z, _ = _solovev_components(model, 1.3, 0.0)
+        assert np.hypot(dpsi_dr, dpsi_dz) < 1e-3 * np.hypot(scale_r, scale_z), point
+
+
+def test_a_double_null_solovev_field_has_its_saddles_where_they_were_put():
+    """The #220 criterion names Solov'ev saddles as well as its axis.
+
+    Constraining psi and both of its derivatives to vanish at (0.88, +-0.47) --
+    the basis is even in Z, so one constraint covers both -- places the
+    X-points there exactly, off every grid node.
+    """
+    from vaft.process._equilibrium_parametric import _solovev_components
+    from vaft.process.equilibrium import find_stationary_points
+
+    x_r, x_z = 0.88, 0.47
+    model = solve_solovev_constraints(
+        [
+            SolovevConstraint(1.3, 0.0, "psi", 0.0),
+            SolovevConstraint(0.7, 0.0, "psi", 0.0),
+            SolovevConstraint(x_r, x_z, "psi", 0.0),
+            SolovevConstraint(x_r, x_z, "dpsi_dr", 0.0),
+            SolovevConstraint(x_r, x_z, "dpsi_dz", 0.0),
+        ],
+        pprime=-1.0e4, ffprime=0.05, rref=1.0, psi_boundary=0.0,
+    )
+    r = np.linspace(0.5, 1.5, 101)
+    z = np.linspace(-0.7, 0.7, 141)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    psi = evaluate_solovev(model, rm, zm, cocos=11)["psi"]
+    spacing = float(max(np.diff(r).max(), np.diff(z).max()))
+    saddles = find_stationary_points(EquilibriumData(r=r, z=z, psi=psi), kind="x")
+    for target_z in (x_z, -x_z):
+        nearest = min(saddles, key=lambda p: np.hypot(p.r - x_r, p.z - target_z))
+        assert np.hypot(nearest.r - x_r, nearest.z - target_z) < 1e-3 * spacing
+    # Gradient scale from a generic interior point: (1.3, 0) is itself nearly
+    # a saddle of this field, so its gradient is no scale at all.
+    _, scale_r, scale_z, _ = _solovev_components(model, 1.1, 0.3)
+    scale = float(np.hypot(scale_r, scale_z))
+    assert scale > 0
+    for point in saddles:
+        _, dpsi_dr, dpsi_dz, _ = _solovev_components(model, point.r, point.z)
+        assert np.hypot(dpsi_dr, dpsi_dz) < 1e-3 * scale, point
+
+
+def test_stationary_points_of_a_record_without_psi_are_empty():
+    from vaft.process.equilibrium import find_stationary_points
+
+    assert find_stationary_points(EquilibriumData()) == ()
+
+
+# --- #1307: one source of truth for the sign of B_phi -------------------------------------------------------------
+
+def _field_sign_record(f_boundary, f_sign):
+    from vaft.process.equilibrium import solovev_shape_constraints, solovev_to_equilibrium
+
+    constraints = solovev_shape_constraints(major_radius=0.4, minor_radius=0.2, elongation=1.5, triangularity=0.3)
+    model = solve_solovev_constraints(constraints, pprime=-1e4, ffprime=-0.01, rref=0.4,
+                                      f_boundary=f_boundary, f_sign=f_sign)
+    return model, solovev_to_equilibrium(model, np.linspace(0.15, 0.65, 65), np.linspace(-0.4, 0.4, 97))
+
+
+@pytest.mark.parametrize("f_boundary, f_sign", [(0.04, None), (-0.04, None), (0.04, 1), (-0.04, -1)])
+def test_solovev_field_sign_is_consistent_between_f_and_bt0(f_boundary, f_sign):
+    model, eq = _field_sign_record(f_boundary, f_sign)
+    expected = np.sign(f_boundary)
+    assert model.f_sign == expected and isinstance(model.f_sign, int)
+    assert np.all(np.sign(eq.f) == expected)
+    assert np.sign(eq.bt0) == expected
+    assert np.sign(evaluate_solovev(model, 0.4, 0.0)["b_phi"]) == expected
+
+
+@pytest.mark.parametrize("f_boundary, f_sign", [(-0.04, 1), (0.04, -1)])
+def test_solovev_contradictory_field_sign_is_refused(f_boundary, f_sign):
+    """The refusal is a 0.8.0 breaking change for the 0.7.x-legal
+    ``f_sign=-1, f_boundary>0``, so the message names the old behaviour and
+    the exact replacement (cold review 0.8.0 equilibrium-representation F4)."""
+    expected = rf"0\.7\.x.*derived from f_boundary.*f_boundary={-f_boundary:g} and leave f_sign=None"
+    with pytest.raises(ValueError, match="contradicts f_boundary") as info:
+        _field_sign_record(f_boundary, f_sign)
+    assert re.search(expected, str(info.value)), str(info.value)
+    with pytest.raises(ValueError, match="contradicts f_boundary") as info:
+        SolovevEquilibrium(np.zeros(5), -1.0, 0.0, 1.0, f_boundary=f_boundary, f_sign=f_sign)
+    assert re.search(expected, str(info.value)), str(info.value)
+    from vaft.data.equilibrium import _resolve_solovev_f_sign
+
+    assert "0.7.x" in _resolve_solovev_f_sign.__doc__
+    assert "0.7.x" in solve_solovev_constraints.__doc__
+
+
+def test_solovev_zero_or_invalid_field_sign_inputs_are_refused():
+    with pytest.raises(ValueError, match="non-zero"):
+        _field_sign_record(0.0, None)
+    with pytest.raises(ValueError, match=r"\+1, -1 or None"):
+        _field_sign_record(0.04, 2)
+    # The record type itself derives the sign, and keeps +1 for a zero boundary current.
+    assert SolovevEquilibrium(np.zeros(5), -1.0, 0.0, 1.0, f_boundary=-2.0).f_sign == -1
+    assert SolovevEquilibrium(np.zeros(5), -1.0, 0.0, 1.0, f_boundary=0.0).f_sign == 1
+
+
+def test_solovev_default_field_sign_path_is_unchanged_for_positive_f_boundary():
+    # f_sign=+1 was the old default: the derived-sign path must reproduce it bit for bit.
+    derived_model, derived = _field_sign_record(0.04, None)
+    explicit_model, explicit = _field_sign_record(0.04, 1)
+    assert derived_model.f_sign == explicit_model.f_sign == 1
+    assert derived_model.coefficients.tobytes() == explicit_model.coefficients.tobytes()
+    for name in ("psi", "psi_1d", "f", "pressure", "pprime", "ffprime"):
+        assert np.asarray(getattr(derived, name)).tobytes() == np.asarray(getattr(explicit, name)).tobytes(), name
+    assert (derived.bt0, derived.ip, derived.psi_axis) == (explicit.bt0, explicit.ip, explicit.psi_axis)

@@ -515,3 +515,102 @@ def test_the_session_declares_itself_complete_in_both_modes(book):
     assert metadata.get("session") == 2
     assert metadata.get("status") == "complete"
     assert list(metadata.get("modes", [])) == ["offline", "lab"]
+
+
+# ---------------------------------------------------------------------------
+# #783: the reduced models after breakdown
+# ---------------------------------------------------------------------------
+
+TOYS = ("s02-toy3", "s02-toy4", "s02-toy5", "s02-toy6", "s02-toy7", "s02-toy8")
+
+
+def test_the_reduced_models_follow_breakdown_in_order(book):
+    ids = [cell.id for cell in book.cells]
+    positions = [ids.index(cell_id) for cell_id in TOYS]
+    assert positions == sorted(positions)
+    assert ids.index("s02-breakdown-note") < positions[0] < ids.index("s02-camera-lines-intro")
+
+
+def test_every_reduced_model_states_what_it_supports_and_what_it_does_not(book):
+    """#783: assumptions, the supported conclusion and the unsupported one, for each toy."""
+    notes = {"s02-breakdown-note": "s02-toy2", "s02-toy4-intro": "s02-toy3", "s02-toy5-intro": "s02-toy4", "s02-toy6-intro": "s02-toy5",
+             "s02-toy7-intro": "s02-toy6", "s02-toy8-intro": "s02-toy7", "s02-toy8-note": "s02-toy8"}
+    for note, toy in notes.items():
+        text = _source(_cell(book, note))
+        assert "Not supported" in text or "not the moment" in text, (toy, note)
+    for note in ("s02-breakdown-note", "s02-toy4-intro", "s02-toy5-intro", "s02-toy6-intro", "s02-toy7-intro", "s02-toy8-intro"):
+        assert "Assumptions" in _source(_cell(book, note)), note
+
+
+def test_no_atomic_coefficient_is_invented(book):
+    """The barrier is drawn per unit P_RI and the map shows the P_RI the heating can beat."""
+    for cell_id in ("s02-toy3", "s02-toy4"):
+        source = _strip_comments(_source(_cell(book, cell_id)))
+        for call in re.findall(r"radiation_ionization_(?:power|barrier)_from_[A-Za-z_]+\(([^,]+),", source):
+            assert call.strip() == "1.0", (cell_id, call)
+    assert "#897" in _markdown(book)
+
+
+def test_the_reduced_models_use_the_startup_formulas(book):
+    executable = _executable(book)
+    for api in ("neutral_density_after_ionization_from_n_0_n_e_V_p_V_V", "ionization_fraction_from_n_e_n_D0",
+                "radiation_ionization_power_from_P_RI_n_e_n_D0_V_p", "radiation_ionization_barrier_from_P_RI_n_0_V_V",
+                "critical_ionization_fraction_from_V_p_V_V", "spitzer_resistivity_from_T_e_Z_eff_ln_Lambda",
+                "q_cyl_from_B_R_epsilon_kappa_I", "plasma_self_field_from_I_p_a"):
+        assert api in executable, api
+
+
+def test_the_vessel_shields_the_ramp_and_leaves_a_tail(executed):
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-toy5").outputs)
+    removed = float(re.search(r"removes up to ([0-9.]+)%", printed).group(1))
+    tail = float(re.search(r"a tail of ([0-9.]+)%", printed).group(1))
+    assert 0 < removed < 100 and 0 < tail < 100
+
+
+def test_the_vessel_shielding_matches_its_circuit(executed):
+    """The plotted voltage is the circuit's own: the tail equals the coupling times (1 - e^(-T/tau))."""
+    import math
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-toy5").outputs)
+    coupling = float(re.search(r"coupling g_v M / \(L_v g_c\) = ([0-9.]+)", printed).group(1))
+    tail = float(re.search(r"a tail of ([0-9.]+)%", printed).group(1)) / 100
+    assert tail == pytest.approx(coupling * (1 - math.exp(-2.0)), rel=0.02)
+
+
+def test_the_flux_closure_current_is_the_analytic_crossing(executed):
+    """mu0 I / (2 pi a) = B_stray solved for I -- not the first point of a plotting grid."""
+    import math
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-toy8").outputs)
+    stray = float(re.search(r"stray field ([0-9.]+) G", printed).group(1)) * 1e-4
+    radius = float(re.search(r"channel a = ([0-9.]+) m", printed).group(1))
+    closing = float(re.search(r"passes it at Ip of about ([0-9.]+) kA", printed).group(1)) * 1e3
+    assert closing == pytest.approx(2 * math.pi * radius * stray / (4e-7 * math.pi), rel=0.02)
+    assert closing < 1e3
+
+
+def test_the_penetration_crossing_is_inside_the_scan(executed):
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-toy6").outputs)
+    assert "tau_R passes this shot's ramp time" in printed
+
+
+# ---------------------------------------------------------------------------
+# #254: an analysis task, stated first and accepted on its semantics
+# ---------------------------------------------------------------------------
+
+
+def test_the_analysis_task_is_stated_before_its_implementation(book):
+    ids = [cell.id for cell in book.cells]
+    intro = _source(_cell(book, "s02-task-intro"))
+    assert "**Analysis task.**" in intro and "**Acceptance.**" in intro
+    assert ids.index("s02-task-intro") < ids.index("s02-task") < ids.index("s02-task-check")
+
+
+def test_the_analysis_task_passes_its_acceptance_criteria(executed):
+    """Checked against the figure and the data, not against the preset's intent."""
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s02-task-check").outputs)
+    assert re.search(r"the onset found by h_alpha\w*: True; H-alpha: True", printed), printed
+    assert "only inboard: True" in printed
+    low, high, unit = re.search(r"window drawn: ([-0-9.e]+) to ([-0-9.e]+) on an axis labelled 'Time \[(\w+)\]'",
+                                printed).groups()
+    scale = {"s": 1.0, "ms": 1e3}[unit]
+    assert (float(low), float(high)) == pytest.approx((-5e-3 * scale, 30e-3 * scale))
+    assert re.search(r"flux unit on the axis: '.*\[m?Wb\]'", printed)

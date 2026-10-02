@@ -17,6 +17,7 @@ _ALLOWED_DATA_FILES = {
     "geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
     "geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
     "geometry/VEST_em_coupling_pf_versions.npz",
+    "geometry/VEST_passive_wall_2409.npz",
     "geometry/VEST_static_geometry.json.gz",
     "geometry/camera_visible/intrinsics.json",
     "geometry/camera_visible/pose_34764.json",
@@ -28,7 +29,10 @@ _ALLOWED_DATA_FILES = {
     "samples/39915/omas.json.gz",
     "samples/39915/imas.nc",
     "samples/41524/manifest.yaml",
+    "samples/40600/manifest.yaml",
     "samples/41672/manifest.yaml",
+    "samples/45531/manifest.yaml",
+    "samples/48224/manifest.yaml",
 }
 
 # The compact variant setup.py swaps in for ``samples/39915``. The sdist must
@@ -42,9 +46,15 @@ _SDIST_ONLY_DATA_FILES = {
     "wheel_samples/39915/imas.nc",
 }
 _ALLOWED_DATA_SUFFIXES = {
+    # Code, not data: the public-database readers ship; the databases they
+    # read are fetched at run time and never shipped (#1205).
+    "public/": (".py",),
     "geometry/": (".yaml", ".csv"),
     "gpec/": (".in", ".dat"),
     "legacy/": (".txt", ".yaml"),
+    # ShotLog era schemas, read at run time by vaft.machine_mapping.pulse_schedule
+    # (#995); package-data in pyproject.toml and an explicit include in MANIFEST.in.
+    "shotlog/schemas/": (".yaml",),
 }
 
 REQUIRED_FILES = {
@@ -55,6 +65,17 @@ REQUIRED_FILES = {
     "vaft/data/gpec/gpec.in",
     "vaft/data/legacy/diagnostic-trigger-settings.yaml",
     "vaft/data/legacy/sql_table.txt",
+    # ``prune vaft/data`` in MANIFEST.in would drop the subpackage from the sdist.
+    "vaft/data/public/__init__.py",
+    "vaft/data/shotlog/schemas/common.yaml",
+    # Runtime data outside vaft/data: ``_allowed_data_file`` never looks there,
+    # so only this set notices a distribution that lacks them.
+    # The revision-pinned VEST NICE parameters and the compatibility header
+    # NICE builds are force-included with (vaft.code.nice).
+    "vaft/code/nice/vest_reference_param.xml",
+    "vaft/code/nice/upstream_compat.h",
+    # The TikZ template every vaft.diagram scene renders into.
+    "vaft/diagram/templates/standalone.tex",
 } | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES}
 
 

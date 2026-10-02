@@ -1,0 +1,53 @@
+# VEST ShotLog schema `common` (ported from VEST_ShotLog docs/schemas, #995).
+schema_id: common
+version: 1.0.0
+status: supported
+detection:
+  required_headers: []
+  minimum_score: 0.0
+fields:
+- path: experiment_session.id
+  type: string
+  required: true
+  meaning_ko: 날짜와 시트명을 결합한 재현 가능한 실험 세션 식별자
+  aliases: []
+  parsing: derived_session_id
+  validation:
+    pattern: date_or_undated__sheet
+- path: run_groups[].shots[].shot
+  type: integer
+  required: true
+  meaning_ko: VEST의 물리적 방전 번호
+  aliases:
+  - Shot#
+  - shot
+  parsing: integer_or_inclusive_range
+  validation:
+    minimum: 1
+    unique_within_run_group: true
+- path: run_groups[].references[].shot
+  type: integer
+  required: true
+  meaning_ko: 동일 run group에서 기준으로 인용한 과거 또는 외부 날짜의 방전 번호
+  aliases:
+  - Ref.
+  - Reference
+  parsing: reference_integer
+  validation:
+    minimum: 1
+- path: run_groups[].shots[].status.normalized
+  type: string
+  required: true
+  meaning_ko: 원문 비고로부터 자동 정규화한 실행 상태
+  aliases:
+  - Fail
+  - Remark
+  - Remarks
+  parsing: status_normalization
+  validation:
+    enum:
+    - success
+    - failure
+    - partial
+    - unknown
+    - not_recorded

@@ -22,12 +22,18 @@ ingest_external_diagnostics.py      archive        -> one IDS product per shot
   camera_visible/{shot}/{shot}_{frame:08d}.bmp + {shot}_bmp.txt
   camera_visible_fluctuation/{shot}/      >= 50 kfps, reserved for issue #161
   camera_visible_fluctuation/index.json   what is reserved and why
+  hard_x_rays/{shot}/digitizer_hxr_{variant}_{daq}_{shot}.csv + provenance.json
+  hard_x_rays/_reference/                 placed by hand (#1160): unfolding model, acquisition scripts, paper
+  shotlog/input/{YYYY}/ShotLog_*.xlsx     each month's ShotLog record, byte-identical (#995)
+  shotlog/input/supplementary/            real logs outside the monthly naming (ERC, KSTAR_Conference, ...)
+  shotlog/input/other/                    copies, autosaves, forms, in-progress copies: kept, not read
+  shotlog/output/                         session documents + batch manifest
+  shotlog/{shot}/metadata/shotlog.json    per-shot record the pulse_schedule mapping reads
 
 {root}/unmapped/                          local only; no mapping reads these
   camera_visible_arranged/{shot}/         bmp_arranger output, derived
   camera_visible_mcf/{shot}.mcf           vendor container, no reader exists
   camera_ccd_2013/{shot}/                 2013-era CCD, jpg/avi
-  hard_x_rays/{shot}/                     hard_x_rays is not_implemented
 
 {root}/omas/{tree}/{shot}/output/         generated IDS products
 {root}/omas/{tree}/{shot}/metadata/       their manifests
@@ -57,6 +63,33 @@ need no namespace of their own. The high-frame-rate camera set owns the *same*
 `camera_visible` IDS as routine camera, so it has its own source: two stages
 cannot own one IDS in one source without the second replacing the first, and an
 occurrence split is closed off because lazy HSDS access reads occurrence 0 only.
+
+## The ShotLog
+
+The operators' monthly ShotLog workbooks are not a diagnostic export, so they
+do not go through the inventory and consolidation scripts. `python -m vaft.cli
+shotlog` archives and reads them instead (issue #995):
+
+```bash
+python -m vaft.cli shotlog archive --source "/path/to/1. ShotLog" --filedb "$VAFT_FILEDB_DIR" \
+    --extra "/path/to/a stray ShotLog_YYYY_MM.xlsx"
+python -m vaft.cli shotlog extract --filedb "$VAFT_FILEDB_DIR"
+./ingest_external_diagnostics.py --root "$VAFT_FILEDB_DIR" --diagnostic shotlog
+```
+
+The ShotLog is kept because it is the one record meant to cover every
+discharge, so `archive` keeps *every* file in the folder, byte for byte and
+sha256-verified, under the path its role gives it; only Excel lock files and
+AppleDouble sidecars are left out, and `input/manifest.json` lists them. It
+copies, never moves, and keeps the earlier bytes of a file that changed under
+`input/superseded/`. `extract` reads the monthly records and the
+supplementary logs, gives every logged shot a record (a sheet no template
+matches keeps its raw cells, marked `unclassified`), and writes
+`output/coverage.json`: the first logged shot and every gap after it, with the
+records on either side of each gap. `extract` writes one record per shot; `ingest` maps the
+records into `pulse_schedule` products. Shots before the 2023 card template
+have a record but no structured trigger, and are recorded as `unavailable`
+rather than failed.
 
 ## Classification
 
@@ -114,15 +147,57 @@ deletion in a repository this tooling has no business editing.
 `--format` restrict and shape ingest. Routine ingest never reads
 `camera_visible_fluctuation`; `--include-fluctuation` is the deliberate override.
 
+## Packing soft X-ray records
+
+A digitizer CSV spends ~20 bytes of text on each float64 sample, and the samples
+are already-processed floats, so the int32 narrowing that shrinks camera
+products has nothing to reclaim here. `python -m vaft.cli sxr-pack` writes a
+lossless HDF5 container `digitizer_{daq}_{shot}.h5` beside each CSV instead
+(`vaft.database.digitizer_hdf5`): float64, one chunk per channel, shuffle +
+gzip, 27--30 % of the CSV and 20--40x faster to load.
+
+```bash
+python -m vaft.cli sxr-pack --root "$VAFT_FILEDB_DIR/legacy/soft_x_rays" --dry-run
+python -m vaft.cli sxr-pack --root "$VAFT_FILEDB_DIR/legacy/soft_x_rays" --jobs 4 --delete-csv
+```
+
+The container regenerates the CSV byte for byte (`restore_csv`), and a
+container is renamed into place only after that regeneration matches the
+source's sha256, so `--delete-csv` never removes a CSV that is not recoverable.
+A CSV that does not follow `sample_v3.py`'s exact text (`repr` floats, `,`,
+`\r\n`), or does not parse, is logged and kept. Each shot's `provenance.json`
+records the source CSV's size and sha256 under `containers`, written before the
+CSV is removed. The run is restartable; outcomes go to
+`{root}/_sxr_pack_log.jsonl`.
+
+The `soft_x_rays` mapping prefers the container at every location it searches
+and falls back to the CSV, and reads the CSV with pandas' round-trip parser, so
+both give bit-identical arrays. Deploy a VAFT that reads containers to every
+consumer of an archive *before* running `--delete-csv` on it.
+
+The layout -- one `/data` dataset in the CSV's own `(channels, samples)`
+orientation, source record in root attributes -- is meant to be publishable
+unchanged to an HSDS raw domain, where a reader could fetch one channel's
+chunks instead of a whole record.
+
 ## Replication
 
 Only `legacy/` goes to the server:
 
 ```bash
 rsync -a --partial --exclude='._*' --exclude='Thumbs.db' \
-  "$VAFT_FILEDB_DIR"/legacy/{soft_x_rays,camera_visible,camera_visible_fluctuation} \
+  "$VAFT_FILEDB_DIR"/legacy/{soft_x_rays,camera_visible,camera_visible_fluctuation,shotlog} \
   vestuser1:/srv/vest.filedb/legacy/
 ```
+
+From a Mac, add `--iconv=utf-8-mac,utf-8`. macOS hands back Korean file
+names decomposed (NFD) -- on the exFAT archive too -- and Linux treats NFD and
+NFC as different names, so without it `legacy/shotlog/input/other/복사본 …` and
+the session documents of sheets named `…밤-HI` land under names the manifest
+does not use, and the next sync re-sends them as new files. Needs rsync 3
+(Homebrew); the system `openrsync` has no `--iconv`. The ShotLog products are
+built locally and synced as `omas/shotlog/` too, since the server's
+production checkout does not yet carry the mapping.
 
 ## What the archive holds, and what it costs
 

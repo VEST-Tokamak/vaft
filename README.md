@@ -27,7 +27,9 @@ implementation for modern, reproducible, and data-driven fusion research.
 
 Four things, which together are what "framework" means here.
 
-### Integrated Standardized Interface
+![The four pillars of VAFT](docs/assets/diagrams/vaft_four_pillars.svg)
+
+### Standardized Data Interface
 
 Integrate standardized data representations, scientific data processing,
 validation, visualization, and physics codes into one consistent scientific
@@ -38,7 +40,7 @@ representations, VAFT processing and plotting, verification and validation, and
 community physics codes — EFIT, CHEASE, GPEC, TokaMaker, VFIT — interoperate
 rather than being reimplemented here.
 
-### Version-Controlled Data Pipeline
+### Traceable & Reproducible Pipeline
 
 Produce traceable and reproducible data products across the whole workflow, from
 machine design and data acquisition to reconstructed and simulated physics states.
@@ -49,7 +51,7 @@ source code: machine descriptions and geometry, diagnostic mappings, calibration
 conventions, processing logic, validation criteria, model configuration, and
 schema versions.
 
-### IMAS-FAIR Database
+### FAIR Scientific Data Repository
 
 Preserve, discover, access, and share validated data through both native and
 standardized representations, following the FAIR principles — Findability,
@@ -59,13 +61,20 @@ partial access, and programmatic APIs are the foundation for finding which
 experimental and modelling information exists for a shot. Standardized access
 **complements** native scientific artifacts rather than replacing them.
 
-### Machine & Research Archive
+### Machine Knowledge Archive
 
-A living archive of the VEST tokamak and its research ecosystem since operation
-began in 2012 — machine history, technical documentation, experimental practices,
-tutorials, example notebooks, and reproducible research knowledge, kept usable for
+A living archive of machine knowledge — machine configuration and history,
+experimental history, operational decisions, technical documentation, tutorials,
+example notebooks, and institutional scientific knowledge of the VEST tokamak since
+operation began in 2012 — kept usable for
 long-term verification, comparison, and study across generations of researchers
 and collaborating institutions.
+
+Together they close a research-learning cycle: from the experiment through machine
+description and raw data, processing, modelling and interpretation to comparison and
+discovery, whose new questions drive the next experiment.
+
+![Research-learning cycle](docs/assets/diagrams/fusion_science_knowledge_lifecycle.svg)
 
 ## What can I do with VAFT?
 
@@ -141,6 +150,16 @@ VAFT extends that ecosystem into a shareable, interoperable scientific framework
 
 ## Architecture
 
+Heterogeneous machine and experimental sources become qualified, analysis-ready data
+through a managed pipeline: diagnostic processing, equilibrium reconstruction and
+profile fitting, and interpretive simulation share one standardized scientific state
+in the Common Data Model (IMAS), and verification,
+validation and quality assessment feed back into the processing configurations.
+
+![Managed scientific processing pipeline](docs/assets/diagrams/scientific_workflow.svg)
+
+The current VEST deployment:
+
 ```
 VEST Data Analysis Platform
 ├── Automated Pipeline (Snakemake)     ── experiment → postprocessing → simulation
@@ -208,13 +227,13 @@ which commands never to run while recovering.
 #### Legacy NumPy 1 installation
 
 Use this only for an external package that still requires NumPy 1. Because
-`h5pyd==0.20.0` declares a NumPy 2 requirement, install it with `--no-deps`
+`h5pyd==0.24.0` declares a NumPy 2 requirement, install it with `--no-deps`
 after replacing NumPy:
 
 ```bash
 python -m pip install -e .
 python -m pip install --force-reinstall --no-deps "numpy>=1.26.4,<2"
-python -m pip install --force-reinstall --no-deps h5pyd==0.20.0
+python -m pip install --force-reinstall --no-deps h5pyd==0.24.0
 ```
 
 This is a legacy compatibility option; `pip check` may report the intentionally
@@ -230,7 +249,7 @@ This installs the latest published release. Install from source instead when
 you need unreleased changes from `develop`.
 
 
-**Supported Python**: 3.10 -- 3.13
+**Supported Python**: 3.10 -- 3.14
 **Numerical stack default**: NumPy 2.x (`numpy>=2.0.0,<3`)
 
 
@@ -286,10 +305,15 @@ for layouts, compatibility variables, FileDB configuration, and validation, and
 If you will use the remote VEST HSDS database, configure your HSDS credentials:
 
 ```bash
-hsconfigure
+vaft hsds configure
 ```
 
-Enter the following when prompted:
+> Do not use the upstream `hsconfigure` for this: it reads the password as visible text and
+> prints an already-stored password as the prompt default. `vaft hsds configure` writes the same
+> h5pyd `~/.hscfg` with hidden input and mode `0600` (on Windows file modes are not enforced; the
+> file inherits your user-profile permissions). Never commit a `.hscfg`.
+
+Enter the following when prompted (the password is not echoed):
 
 
 | Field           | Value                                                             |
@@ -353,7 +377,9 @@ vaft/
 | [tokamak_power_balance](notebooks/tokamak_power_balance.ipynb)                                                                         | Tokamak power balance and radiation decomposition |
 | [verification_and_validation](notebooks/verification_and_validation.ipynb)                                                             | Verification and validation examples        |
 | [soft_x_ray_signal_analysis](notebooks/soft_x_ray_signal_analysis.ipynb)                                                               | Soft X-ray signal analysis                  |
+| [analytic_island_model_and_synthetic_response_model](notebooks/analytic_island_model_and_synthetic_response_model.ipynb) | Analytic magnetic island on an equilibrium and its synthetic soft X-ray response |
 | [equilibrium_refinement_using_chease](notebooks/equilibrium_refinement_using_chease.ipynb)                                             | Equilibrium refinement with CHEASE          |
+| [fixed_boundary_parametric_scan_using_chease](notebooks/fixed_boundary_parametric_scan_using_chease.ipynb)                             | Fixed-boundary sensitivity scans with CHEASE |
 | [forward_equilibrium_using_TES](notebooks/forward_equilibrium_using_TES.ipynb)                                                         | Forward equilibrium reconstruction with TES |
 | [forward_equilibrium_using_TokaMaker](notebooks/forward_equilibrium_using_TokaMaker.ipynb)                                             | Forward free-boundary equilibrium with TokaMaker (Open FUSION Toolkit) |
 | [time_dependent_equilibrium_using_TokaMaker](notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb)                             | Vessel eddy currents, wall modes, and quasi-static evolution with TokaMaker |

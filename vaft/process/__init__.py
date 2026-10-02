@@ -39,9 +39,12 @@ _SUBMODULES = {
     "cocos": ".cocos",
     "electromagnetics": ".electromagnetics",
     "equilibrium": ".equilibrium",
+    "field_line_topology": ".field_line_topology",
     "fluctuation": ".fluctuation",
     "impa": ".impa",
     "langmuir": ".langmuir",
+    "line_of_sight": ".line_of_sight",
+    "magnetic_island": ".magnetic_island",
     "magnetics": ".magnetics",
     "numerical": ".numerical",
     "onset": ".onset",
@@ -50,8 +53,15 @@ _SUBMODULES = {
     "signal_processing": ".signal_processing",
     "soft_x_rays": ".soft_x_rays",
     "statistical_analysis": ".statistical_analysis",
+    "transients": ".transients",
     "wall_modes": ".wall_modes",
     "coils_non_axisymmetric": ".coils_non_axisymmetric",
+    "ml": ".ml",
+    "nbi": ".nbi",
+    "profile_gradients": ".profile_gradients",
+    "resistive_zeff": ".resistive_zeff",
+    "transport_state": ".transport_state",
+    "confinement": ".confinement",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -85,6 +95,27 @@ _IMPORT_ORDER = (
     "wall_modes",
     "coils_non_axisymmetric",
     "camera_fluctuation",
+    "line_of_sight",
+    "magnetic_island",
+    # The FLARE interoperability half of #1099; nothing it exports collides.
+    "field_line_topology",
+    # A subpackage (#669); it imports NumPy only, its ML frameworks on first use.
+    "ml",
+    "transients",
+    # The reduced NBI reference layer (#1136); nothing it exports collides.
+    "nbi",
+    # Coordinate, gradient coordinate and reference length kept apart (#551);
+    # nothing it exports collides.
+    "profile_gradients",
+    # Resistive Z_eff from the transformer balance (#1214); nothing it exports
+    # collides.
+    "resistive_zeff",
+    # One resolved plasma state shared by TGLF, NEO and classical (#1428);
+    # nothing it exports collides.
+    "transport_state",
+    # Confinement power balance and slice qualification (#548); nothing it
+    # exports collides.
+    "confinement",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

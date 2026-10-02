@@ -48,16 +48,17 @@ relevant external-code roots, such as `CHEASEHOME`, `EFITHOME`, and `GPECHOME`.
 | Session | Topic | Workflow role | Status |
 | --- | --- | --- | --- |
 | 01 | Getting Started with VAFT | diagnostic data and public plotting APIs | complete |
-| 02 | Startup Scenario and Vacuum Fields | breakdown timing, actuators, vessel circuit, vacuum-field startup proxies, multi-shot comparison | complete |
-| 03 | Equilibrium and Kinetic Profiles | reconstruction, profiles, and forward equilibrium | complete |
-| 04 | Fluctuations and Transient Events | spectral analysis and event interpretation | complete |
-| 05 | MHD Stability and 3D Perturbed Equilibrium | equilibrium-to-stability/response modelling | scaffold |
-| 06 | Operational Space and Statistics | cross-shot filtering, limits, and statistical analysis | scaffold |
+| 02 | Startup Scenario and Vacuum Fields | breakdown timing, actuators, vessel circuit, vacuum-field startup proxies, reduced models of burn-through, shielding, current penetration, ramp and flux closure, multi-shot comparison | complete |
+| 03 | Equilibrium and Kinetic Profiles | equilibrium representation, analytic shapes, EFIT constraints and weights, flux-coordinate mapping and profile-fit statistics, derived kinetic state, Grad-Shafranov residual, multi-time and multi-shot comparison | complete |
+| 04 | Fluctuation Diagnostics for Plasma Perturbations and Transient Events | lab vs plasma frame, VEST fluctuation-diagnostic coverage, Mirnov / SXR / fast-camera perturbations, cross-spectral coherence and phase, toroidal mode number with its alias step, rational surfaces, transients as sequences, multi-time and multi-shot comparison | complete |
+| 05 | MHD Stability and Perturbed Equilibria | rational surfaces, ideal stability (DCON, $\delta W$), tearing (RDCON, $\Delta'$), VEST 3-D coils and sector harmonics, vacuum field and relative phase by linearity, driven response (GPEC); solvers in lab mode | complete |
+| 06 | Operational Space and Data-Driven Analysis | units of analysis, coverage and validity, representative states, distributions, observed envelope vs limit, reference-limit provenance, dimensionless variables and H factors, confounding, similarity, events joined by time, planned data-driven representations | complete |
 
 Each session assumes the one before it. Session 02 starts from a discharge you
 can load and plot; session 03 from a discharge you can place in time; session 04
-from an equilibrium you can interrogate. Only session 04 currently says so in its
-own text.
+from an equilibrium you can interrogate; session 05 from a measured perturbation
+and the rational surfaces it could sit on. Sessions 04 and 05 say so in their own
+text.
 
 One promise is session-scoped and worth knowing about: session 01 tells you that
 you need no NumPy and no VAFT submodule imported by hand. That holds for session
@@ -122,6 +123,33 @@ Existing notebooks under `notebooks/` remain specialized references. Reuse
 their public VAFT workflows where mature, but keep detailed theory and narrow
 research procedures there rather than copying them into this introductory
 course.
+
+## Analysis tasks
+
+Exercises state their scientific intent in words before any code, as an **Analysis task**
+(issue #254). A task is a compact specification, not a conversational prompt, and it makes clear:
+
+| element | example |
+| --- | --- |
+| input | the loaded discharge |
+| selection | the inboard flux loops |
+| reference and operation | plasma onset detected from H-alpha |
+| transformation | relative time, $t' = t - t_{\mathrm{onset}}$ |
+| window | $-5$ ms to $+30$ ms |
+| representation | one time-series plot on a common relative axis |
+
+and ends with **acceptance** criteria: the scientific facts any correct implementation must satisfy,
+for example "only inboard loops are drawn", "$t = 0$ is the H-alpha onset", "the window is the one
+asked for". Implementations are judged by those semantics, not by matching code or pixels.
+
+The convention introduces no LLM or agent dependency; it is a human-readable specification. The same
+corpus of tasks is the empirical input for a later agent/MCP interface (#188), which must reach the
+same public VAFT APIs a student uses. A task that is simple to state but needs substantial
+notebook-local code to implement is evidence of a missing VAFT API, not a reason to add
+tutorial-only logic.
+
+Session 01 uses one-call tasks; session 02 gives the first multi-step task a worked implementation
+and a printed acceptance check.
 
 ## Session 01 is different on purpose
 

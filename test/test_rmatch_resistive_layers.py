@@ -19,6 +19,9 @@ from vaft.code.gpec._solvers import (
 from vaft.data.resources import data_path
 from vaft.process.equilibrium import resistive_layer_at, resistive_layer_parameters
 
+#: The NRL parallel Spitzer inputs, stated: omitting them is deprecated (#1188).
+_SPITZER = {"z_eff": 2.0, "ln_lambda": 17.0}
+
 
 def _profiles(points: int = 64):
     """A monotonic, physically ordered VEST-like pair of kinetic profiles."""
@@ -35,7 +38,7 @@ def _profiles(points: int = 64):
 def test_resistivity_rises_outward_as_the_plasma_cools():
     """Spitzer goes as T_e^-3/2, so a cooling profile must give rising eta."""
     psi_norm, t_e, n_e = _profiles()
-    got = resistive_layer_at([0.1, 0.5, 0.9], psi_norm=psi_norm, t_e=t_e, n_e=n_e)
+    got = resistive_layer_at([0.1, 0.5, 0.9], psi_norm=psi_norm, t_e=t_e, n_e=n_e, **_SPITZER)
     assert np.all(np.diff(got["eta"]) > 0.0)
     assert np.all(np.diff(got["mass_density"]) < 0.0)
 
@@ -43,7 +46,7 @@ def test_resistivity_rises_outward_as_the_plasma_cools():
 def test_resistivity_follows_the_spitzer_scaling_exactly():
     """Not merely monotonic: the T_e^-3/2 law itself."""
     psi_norm, t_e, n_e = _profiles()
-    got = resistive_layer_at([0.2, 0.7], psi_norm=psi_norm, t_e=t_e, n_e=n_e)
+    got = resistive_layer_at([0.2, 0.7], psi_norm=psi_norm, t_e=t_e, n_e=n_e, **_SPITZER)
     ratio = got["eta"][1] / got["eta"][0]
     expected = (got["t_e"][0] / got["t_e"][1]) ** 1.5
     assert ratio == pytest.approx(expected, rel=1e-9)
@@ -54,7 +57,7 @@ def test_mass_density_is_the_ion_mass_times_the_density():
 
     psi_norm, t_e, n_e = _profiles()
     got = resistive_layer_at(
-        [0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e, ion_mass_amu=2.0
+        [0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e, **_SPITZER, ion_mass_amu=2.0
     )
     assert got["mass_density"][0] == pytest.approx(got["n_e"][0] * 2.0 * MI_P)
 
@@ -62,9 +65,9 @@ def test_mass_density_is_the_ion_mass_times_the_density():
 def test_a_hydrogen_default_matches_vest():
     """VEST runs hydrogen, so the default must not be deuterium."""
     psi_norm, t_e, n_e = _profiles()
-    hydrogen = resistive_layer_at([0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e)
+    hydrogen = resistive_layer_at([0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e, **_SPITZER)
     deuterium = resistive_layer_at(
-        [0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e, ion_mass_amu=2.0
+        [0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e, **_SPITZER, ion_mass_amu=2.0
     )
     assert deuterium["mass_density"][0] == pytest.approx(
         2.0 * hydrogen["mass_density"][0]
@@ -76,14 +79,23 @@ def test_a_profile_that_reaches_zero_temperature_is_reported_not_clipped():
     psi_norm = np.linspace(0.0, 1.0, 16)
     t_e = 100.0 * (1.0 - psi_norm)  # exactly zero at the separatrix
     n_e = np.full_like(psi_norm, 1.0e19)
-    got = resistive_layer_at([1.0], psi_norm=psi_norm, t_e=t_e, n_e=n_e)
+    got = resistive_layer_at([1.0], psi_norm=psi_norm, t_e=t_e, n_e=n_e, **_SPITZER)
     assert not np.isfinite(got["eta"][0])
+
+
+def test_omitting_the_spitzer_inputs_is_deprecated():
+    """#1188: Z_eff and ln(Lambda) are physics inputs, not hidden defaults."""
+    psi_norm, t_e, n_e = _profiles()
+    with pytest.warns(FutureWarning, match="#1188"):
+        implied = resistive_layer_at([0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e)
+    stated = resistive_layer_at([0.3], psi_norm=psi_norm, t_e=t_e, n_e=n_e, **_SPITZER)
+    assert implied["eta"][0] == pytest.approx(stated["eta"][0])
 
 
 def test_mismatched_profile_length_is_refused():
     psi_norm, t_e, n_e = _profiles()
     with pytest.raises(ValueError, match="coordinate points"):
-        resistive_layer_at([0.5], psi_norm=psi_norm, t_e=t_e[:-1], n_e=n_e)
+        resistive_layer_at([0.5], psi_norm=psi_norm, t_e=t_e[:-1], n_e=n_e, **_SPITZER)
 
 
 def test_a_decreasing_kinetic_coordinate_is_refused():
@@ -92,7 +104,7 @@ def test_a_decreasing_kinetic_coordinate_is_refused():
     psi_norm, t_e, n_e = _profiles()
     with pytest.raises(ValueError, match="strictly increasing"):
         resistive_layer_at(
-            [0.5], psi_norm=psi_norm[::-1], t_e=t_e[::-1], n_e=n_e[::-1]
+            [0.5], psi_norm=psi_norm[::-1], t_e=t_e[::-1], n_e=n_e[::-1], **_SPITZER
         )
 
 
@@ -100,14 +112,14 @@ def test_a_non_positive_ion_mass_is_refused():
     psi_norm, t_e, n_e = _profiles()
     with pytest.raises(ValueError, match="ion_mass_amu"):
         resistive_layer_at(
-            [0.5], psi_norm=psi_norm, t_e=t_e, n_e=n_e, ion_mass_amu=0.0
+            [0.5], psi_norm=psi_norm, t_e=t_e, n_e=n_e, **_SPITZER, ion_mass_amu=0.0
         )
 
 
 def test_the_finding_variant_returns_one_value_per_surface_it_found():
     psi_norm, t_e, n_e = _profiles()
     q = 2.0 + 10.0 * psi_norm**2
-    got = resistive_layer_parameters(psi_norm, q, 1, t_e=t_e, n_e=n_e)
+    got = resistive_layer_parameters(psi_norm, q, 1, t_e=t_e, n_e=n_e, **_SPITZER)
     assert got["eta"].size == got["m"].size > 0
     assert got["mass_density"].size == got["m"].size
 
@@ -158,10 +170,25 @@ def test_the_feature_is_off_until_all_three_profiles_are_given():
     psi_norm, t_e, n_e = _profiles()
     assert RDCONOptions().has_kinetic_profiles is False
     assert RDCONOptions(t_e=t_e).has_kinetic_profiles is False
-    assert RDCONOptions(t_e=t_e, n_e=n_e).has_kinetic_profiles is False
+    assert RDCONOptions(t_e=t_e, n_e=n_e, **_SPITZER).has_kinetic_profiles is False
     assert RDCONOptions(
-        t_e=t_e, n_e=n_e, psi_norm=psi_norm
+        t_e=t_e, n_e=n_e, **_SPITZER, psi_norm=psi_norm
     ).has_kinetic_profiles is True
+
+
+@pytest.mark.parametrize(
+    "given, missing",
+    [({}, "z_eff and ln_lambda"), ({"z_eff": 2.0}, "ln_lambda"), ({"ln_lambda": 17.0}, "z_eff")],
+)
+def test_kinetic_profiles_without_the_spitzer_inputs_are_refused_by_name(given, missing):
+    """No silent Z_eff = 2 / ln Lambda = 17 below the GPEC adapter (#1188;
+    cold review 0.8.0 delta-absorb-13-physics F4): the eta written to rmatch.in
+    must come from a value the caller stated."""
+    psi_norm, t_e, n_e = _profiles()
+    with pytest.raises(ValueError, match=rf"explicit {missing} .*#1188"):
+        RDCONOptions(t_e=t_e, n_e=n_e, psi_norm=psi_norm, **given)
+    # without the profiles nothing is written, so nothing is required
+    assert RDCONOptions(**given).z_eff == given.get("z_eff")
 
 
 # ---------------------------------------------------------------------------
@@ -225,14 +252,14 @@ def test_mismatched_profiles_are_refused_when_the_options_are_built():
     """They used to raise out of the suite after RDCON had already run."""
     psi_norm, t_e, n_e = _profiles()
     with pytest.raises(ValueError, match="one length"):
-        RDCONOptions(t_e=t_e, n_e=n_e[:-1], psi_norm=psi_norm)
+        RDCONOptions(t_e=t_e, n_e=n_e[:-1], **_SPITZER, psi_norm=psi_norm)
 
 
 def test_a_descending_coordinate_is_refused_when_the_options_are_built():
     """np.interp took it silently and gave every surface the same end value."""
     psi_norm, t_e, n_e = _profiles()
     with pytest.raises(ValueError, match="strictly increasing"):
-        RDCONOptions(t_e=t_e[::-1], n_e=n_e[::-1], psi_norm=psi_norm[::-1])
+        RDCONOptions(t_e=t_e[::-1], n_e=n_e[::-1], **_SPITZER, psi_norm=psi_norm[::-1])
 
 
 def _stub_surfaces(monkeypatch, surfaces):
@@ -258,7 +285,7 @@ def test_a_cold_plateau_leaves_the_template_alone(tmp_path, monkeypatch):
     _stub_surfaces(monkeypatch, [0.5, 0.9])
 
     report = write_rmatch_resistive_layers(
-        tmp_path, 1, RDCONOptions(t_e=t_e, n_e=n_e, psi_norm=psi_norm)
+        tmp_path, 1, RDCONOptions(t_e=t_e, n_e=n_e, **_SPITZER, psi_norm=psi_norm)
     )
     assert "eta" in report["skipped"]
     assert (tmp_path / "rmatch.in").read_bytes() == template

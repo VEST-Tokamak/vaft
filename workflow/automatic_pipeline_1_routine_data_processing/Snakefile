@@ -42,7 +42,7 @@ config.update(_expand_config_environment(config))
 # --------------------------------------------------------------------------- #
 SCRIPT_DIR = Path(workflow.basedir)
 sys.path.insert(0, str(SCRIPT_DIR))
-from paths import FILEDB, PipelinePaths, solver_module, stability_product
+from paths import FILEDB, PipelinePaths, select_efit_table, solver_module, stability_product
 
 from vaft.database.sources import STAGE_REPLICATION, replicable_stages
 from vaft.omas.vest_upstream import machine_era_for_shot
@@ -62,6 +62,39 @@ IMPA_CONFIG = config.get("impa", {}) or {}
 EDDY_CONFIG = config.get("eddy", {})
 CONSTRAINTS_CONFIG = config.get("constraints", {})
 EFIT_CONFIG = config.get("efit", {})
+# Named EFIT configuration (vaft.code.efit.PRESETS). Empty is the library
+# default (statistical_891 since 2026-10-01); `routine` is the legacy one.
+# Checked here so a typo fails the DAG, not every shot's k-file job.
+EFIT_PRESET = EFIT_CONFIG.get("preset") or None
+if EFIT_PRESET:
+    from vaft.code.efit import efit_preset as _efit_preset
+    _efit_preset(EFIT_PRESET)
+# The basis the constraints product records follows the k-file configuration
+# unless constraints.npprime/nffprime override it.
+from vaft.code.efit.presets import PRESETS as _EFIT_PRESETS, DEFAULT_PRESET as _DEFAULT_EFIT_PRESET
+EFIT_PROFILE = _EFIT_PRESETS[EFIT_PRESET or _DEFAULT_EFIT_PRESET].scientific.profile
+# Per-era Green tables. `efit.table_dir` is the base table, and a shot of its
+# own era uses it exactly as configured. A shot of another era gets a table the
+# pipeline builds once per era (rule generate_efit_table) with the base table's
+# grid and flags, so only the machine geometry differs (#805). `era_tables:
+# false` keeps the base table for every shot, which the constraint stage then
+# refuses for other eras.
+from vaft.code.efit.efund import read_table_manifest as _read_table_manifest
+
+EFIT_BASE_TABLE_DIR = EFIT_CONFIG.get("table_dir", "")
+EFIT_ERA_TABLES = bool(EFIT_CONFIG.get("era_tables", True))
+_EFIT_BASE_MANIFEST = _read_table_manifest(EFIT_BASE_TABLE_DIR) if EFIT_BASE_TABLE_DIR else None
+EFIT_BASE_ERA = ((_EFIT_BASE_MANIFEST or {}).get("machine") or {}).get("era") or None
+EFIT_TABLE_SUFFIX = ((_EFIT_BASE_MANIFEST or {}).get("table") or {}).get("suffix") or None
+EFIT_BASE_IDENTITY = "{}:{}".format(
+    ((_EFIT_BASE_MANIFEST or {}).get("table") or {}).get("identity", ""),
+    ((_EFIT_BASE_MANIFEST or {}).get("efund") or {}).get("config_sha256", ""),
+)
+# Operational settings of rule generate_efit_table, handed over through the
+# environment so that changing them never reruns the rule (see its params).
+os.environ["VAFT_EFIT_BASE_TABLE_DIR"] = str(EFIT_BASE_TABLE_DIR)
+os.environ["VAFT_EFUND"] = str(EFIT_CONFIG.get("efund", "") or "")
+os.environ["VAFT_EFUND_TIMEOUT"] = str(EFIT_CONFIG.get("efund_timeout", "") or "")
 VEST_CONFIG = config.get("vest", {})
 CHEASE_CONFIG = config.get("chease", {})
 # The lineage this run produces. `PipelinePaths` resolves every product under
@@ -248,6 +281,25 @@ def bool_text(value):
 
 def eddy_filament(name):
     return csv(EDDY_CONFIG.get("filament", {}).get(name, []))
+
+
+def efit_table_selection(wildcards):
+    return select_efit_table(
+        machine_era_for_shot(int(wildcards.shot)).name,
+        base_table_dir=EFIT_BASE_TABLE_DIR,
+        base_era=EFIT_BASE_ERA,
+        suffix=EFIT_TABLE_SUFFIX,
+        paths=PATHS,
+        era_tables=EFIT_ERA_TABLES,
+    )
+
+
+def efit_table_dir_for_shot(wildcards):
+    return efit_table_selection(wildcards)[0]
+
+
+def efit_table_inputs_for_shot(wildcards):
+    return efit_table_selection(wildcards)[1]
 
 
 def static_ods_for_shot(wildcards):
@@ -556,7 +608,10 @@ rule generate_constraints_ods:
     input:
         eddy=PATHS.shot_pattern("eddy_ods"),
         diagnostics=PATHS.shot_pattern("diagnostics_ods"),
-        eddy_manifest=PATHS.shot_pattern("eddy_manifest")
+        eddy_manifest=PATHS.shot_pattern("eddy_manifest"),
+        # Empty for a shot of the base table's era, so its inputs -- and
+        # therefore Snakemake's rerun decision -- are what they always were.
+        efit_table=efit_table_inputs_for_shot
     output:
         ods=PATHS.shot_pattern("constraints_ods")
     log:
@@ -568,11 +623,11 @@ rule generate_constraints_ods:
         detect_broken=bool_text(CONSTRAINTS_CONFIG.get("detect_broken", False)),
         fl_correct_option=CONSTRAINTS_CONFIG.get("fl_correct_option", 0),
         gaussian_fit_option=CONSTRAINTS_CONFIG.get("gaussian_fit_option", 1),
-        npprime=CONSTRAINTS_CONFIG.get("npprime", 2),
-        nffprime=CONSTRAINTS_CONFIG.get("nffprime", 2),
+        npprime=CONSTRAINTS_CONFIG.get("npprime", EFIT_PROFILE.kppcur),
+        nffprime=CONSTRAINTS_CONFIG.get("nffprime", EFIT_PROFILE.kffcur),
         uncertainty=csv(CONSTRAINTS_CONFIG.get("uncertainty", DEFAULT_UNCERTAINTY)),
         weighting=csv(CONSTRAINTS_CONFIG.get("weighting", DEFAULT_WEIGHTING)),
-        efit_table_dir=EFIT_CONFIG.get("table_dir", "")
+        efit_table_dir=efit_table_dir_for_shot
     conda:
         CONDA if CONDA else None
     shell:
@@ -599,6 +654,40 @@ rule generate_constraints_ods:
         """
 
 ############################################################
+# Per-era EFIT Green table (#805)
+############################################################
+if EFIT_ERA_TABLES and EFIT_BASE_ERA and EFIT_TABLE_SUFFIX:
+    rule generate_efit_table:
+        output:
+            manifest=PATHS.efit_table_manifest("{machine_version}", EFIT_TABLE_SUFFIX)
+        log:
+            PATHS.efit_table_dir("{machine_version}", EFIT_TABLE_SUFFIX) + ".log"
+        wildcard_constraints:
+            # An era name, never a path segment: keeps the suffix out of it.
+            machine_version="vest-[a-z0-9]+(-[a-z0-9]+)*?"
+        params:
+            # What the table is built *from* -- the base table's contents and
+            # EFUND configuration -- and nothing else. A replaced base table
+            # rebuilds every generated one; moving it, or the efund binary, or
+            # changing the timeout does not, because those reach the job
+            # through the environment below and are not params Snakemake
+            # would rerun on (a rerun here reruns EFIT for the whole era).
+            base_identity=EFIT_BASE_IDENTITY
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p "$(dirname {log})"
+            python {SCRIPT_DIR}/generate_efit_table.py \
+                --era {wildcards.machine_version} \
+                --base-table-dir "$VAFT_EFIT_BASE_TABLE_DIR" \
+                --output-dir "$(dirname {output.manifest})" \
+                --efund "$VAFT_EFUND" \
+                --timeout "$VAFT_EFUND_TIMEOUT" \
+                > {log} 2>&1
+            """
+
+############################################################
 # EFIT Input/Execution/ODS
 ############################################################
 rule generate_kfile:
@@ -609,8 +698,10 @@ rule generate_kfile:
     log:
         PATHS.shot_pattern("log", "generate_kfile")
     params:
-        npprime=CONSTRAINTS_CONFIG.get("npprime", 2),
-        nffprime=CONSTRAINTS_CONFIG.get("nffprime", 2)
+        # A named preset (efit.preset) carries its own profile basis, sigma
+        # and termination. Empty is the library default (statistical_891), which generate_kfile.py
+        # records like any named preset; `routine` is the legacy opt-out.
+        configuration=f"--preset {EFIT_PRESET}" if EFIT_PRESET else ""
     conda:
         CONDA if CONDA else None
     shell:
@@ -620,8 +711,7 @@ rule generate_kfile:
             --shot {wildcards.shot} \
             --constraints-ods {input.constraints} \
             --output {output.manifest} \
-            --npprime {params.npprime} \
-            --nffprime {params.nffprime} \
+            {params.configuration} \
             > {log} 2>&1
         """
 
@@ -1077,7 +1167,14 @@ rule run_chease:
         timeout=CHEASE_CONFIG.get("timeout", ""),
         target_psin=CHEASE_CONFIG.get("target_psin", 0.993),
         relax=CHEASE_CONFIG.get("relax", 0.5),
-        nideal=CHEASE_CONFIG.get("nideal", 6),
+        # Deprecated raw NIDEAL for a non-upstream CHEASE build (#516); the
+        # adapter selects it from its GEQDSK output contract otherwise.
+        mesh_args=" ".join(
+            f"--{key} {int(CHEASE_CONFIG[key])}" for key in ("ns", "nt") if CHEASE_CONFIG.get(key) is not None
+        ),
+        nideal_arg=(
+            f"--nideal {int(CHEASE_CONFIG['nideal'])}" if CHEASE_CONFIG.get("nideal") is not None else ""
+        ),
         nw=CHEASE_CONFIG.get("nw", 513),
         auto_cocos=bool_text(CHEASE_CONFIG.get("auto_cocos", True)),
         output_cocos=CHEASE_CONFIG.get("output_cocos", "input"),
@@ -1101,7 +1198,8 @@ rule run_chease:
             --timeout "{params.timeout}" \
             --target-psin {params.target_psin} \
             --relax {params.relax} \
-            --nideal {params.nideal} \
+            {params.nideal_arg} \
+            {params.mesh_args} \
             --nw {params.nw} \
             --auto-cocos {params.auto_cocos} \
             --output-cocos "{params.output_cocos}" \

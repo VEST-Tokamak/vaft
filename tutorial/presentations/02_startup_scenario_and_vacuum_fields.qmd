@@ -260,6 +260,29 @@ Lloyd's constants are a fit read at extreme E/p here — trust the ordering of
 operating points, not the third significant figure.
 
 TRANSITION:
+Breakdown is the first gate. What has to happen next?
+:::
+
+## After breakdown: six reduced models
+
+- **burn-through**: the barrier $P_{\mathrm{RIB}} = \tfrac14 V_V P_{RI} n_0^2$ peaks at $\gamma_{iz} = V_V/(V_V+V_p)$
+- **prefill trade-off**: breakdown wants gas, burn-through $\propto p_0^2$ does not
+- **vessel shielding**: the plasma sees less, and later, than the coil commands
+- **penetration**: $\tau_R = \mu_0 a^2/\eta$ passes the ramp time near 10--15 eV
+- **ramp**: $q_a$ falls at fixed $a$, holds if $a \propto \sqrt{I_p}$; $B_v$ tracks both
+- **closure**: $B_{p,\mathrm{self}}$ beats the stray field below 1 kA --- a heuristic only
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+Each model states its assumptions and what it cannot show. The burn-through
+figures are drawn per unit atomic coefficient: the notebook does not invent
+P_RI, it prints the largest value the ohmic power could beat, and leaves the
+atomic data (issue 897) as the missing input. Breakdown success is not
+burn-through success.
+
+TRANSITION:
 Back to the camera, with the field it saw.
 :::
 

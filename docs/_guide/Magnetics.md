@@ -119,8 +119,13 @@ Raw signals consumed, by DAQ field code:
 | 207, 241, 209, 171 | The four toroidal Mirnov reference probes |
 
 Probe and flux-loop channels come from the packaged geometry tables
-(`vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml`, `MD.yaml`, `table.yaml`), **not**
-from `vest.yaml`. Shot-number-dependent behaviour that silently changes results:
+(`vaft/data/geometry/VEST_MagneticsGeometry_Full_ver_2302.yaml`, `MD.yaml`, `table.yaml`); `vest.yaml`
+revises them per shot only where the wiring changed (`equilibrium_magnetics.processing.wiring`:
+through shot 39437 the Z = +0.06 and Z = -0.42 outboard probes read fields 170 and 225, the reverse
+of the 2409 layout) and records channels known to be broken (`known_faults`: the Z = +0.06 probe up
+to 36480 and for 36822-36905, and probe C4-04 at Z = -0.34 on every shot, #977), which the magnetics
+validation marks invalid. Both are in
+`vest_processing_provenance(shot)`. Shot-number-dependent behaviour that silently changes results:
 
 - Rogowski mutual inductance is `2.8e-4` below shot 17455 and `5.0e-4` from 17455 on.
 - The $I_p$ sign is flipped for shot ≥ 20259.
@@ -237,6 +242,8 @@ list of ODSs**, returns `(Figure, Axes)`, and does **not** call `plt.show()` unl
 An unknown option is refused and the message names the ones the plot does take, so
 `vaft.omas.available_plots(ods, detail=True)` is the fastest way to see what a given input supports —
 including how many channels are usable and which regions and representatives it offers.
+Without an input, the generated [plot reference]({{ site.baseurl }}/reference/plot/) lists every
+plot the registry holds, by subject and view, with the IDS paths each one needs.
 
 There is no `time_slices` argument on any magnetics plot — a magnetics trace is a full time series.
 To compare several shots, pass an **ODC**:
@@ -253,7 +260,7 @@ vaft.omas.plot_plasma_current_time(odc, yunit='kA', label='shot')
 
 Plot names are built from the physical **subject**, not the IDS that stores it. The older IDS-shaped
 spellings (`magnetics_time_ip`, `time_magnetics_ip`) still resolve but emit a `DeprecationWarning`
-naming their replacement, and they are removed in 0.7.0 and 0.8.0 respectively.
+naming their replacement, and both are removed in 0.9.0.
 `vaft.plot.migration_table()` renders the current mapping from the code.
 
 ## Inboard $B_z$
@@ -367,6 +374,44 @@ vaft.omas.plot_equilibrium_time_diamagnetic_flux(ods)   # magnetics + measured +
 
 See [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) for how the reconstructed value is computed.
 
+## 3-D scenes and ParaView
+
+`Geometry3DLayers` is the lightweight 3-D view model: points and polylines in
+machine Cartesian metres (IMAS `phi` counter-clockwise from above, through
+`vaft.machine_mapping.conventions.cylindrical_to_cartesian`). Each layer names
+its subsystem in `group`, a `/` path such as `machine/pf_active/PF1/0`.
+Surfaces, grids and fields are not layers; they belong to the scientific mesh
+work (#909, #1100).
+
+| Tool | Role | Entry point | Install |
+|---|---|---|---|
+| Matplotlib | static validation and publication figures | `plot_machine_geometry3d(ods)`, `plot_coil_3d_geometry3d(ods)` | core |
+| Plotly | browser figure, hover, legend toggles per set | the same, `backend="plotly"` | core |
+| PyVista / VTK | scientific 3-D objects, `.vtm`/`.vtp` files | `vaft.plot.pyvista.to_pyvista`, `write_vtk` | `vaft[vtk]` |
+| K3D | interactive scene in Jupyter | `vaft.plot.k3d.to_k3d`, `coil_phase_explorer` | `vaft[jupyter3d]` |
+| ParaView | external viewer of the exported files | open the `.vtm` | not a dependency |
+
+The scene is extracted like any other view model; the adapters are subpackages that
+`import vaft` does not load, so import them by name:
+
+```python
+scene = vaft.plot.extract("machine_geometry3d", ods)
+scene.layers[0].group   # 'machine/...': the block path ParaView and K3D keep
+```
+
+<!-- docs-snippet: skip needs-extra (write_vtk needs vaft[vtk] and coil_phase_explorer vaft[jupyter3d], neither of which the core install provides) -->
+```python
+from vaft.plot.pyvista import write_vtk
+from vaft.plot.k3d import coil_phase_explorer
+
+write_vtk(scene, "machine.vtm")                  # blocks follow `group`
+coil_phase_explorer(ods, coil_set="MID")         # n / phase sliders
+```
+
+`RENDER_BACKENDS` stays Matplotlib and Plotly: `vaft.plot.pyvista` and
+`vaft.plot.k3d` are adapters of the model beside `vaft.plot.plotly`, imported
+only on use, and no data or physics API returns their objects.
+
 ---
 
 # Mirnov and fluctuation diagnostics
@@ -441,12 +486,21 @@ the channels *this* input can actually use.
 Probes separated in toroidal angle give the mode number $n$ from the wrapped phase of each
 fluctuation band, fitted against toroidal angle at one instant. That is
 `plot_mirnov_spatial_phase`, whose `wrapped n fit` method takes `frequencies`, `num_modes`,
-`candidate_n`, `channels`, `window_size`, `show_fit` and `preprocess`:
+`candidate_n`, `channels`, `window_size`, `show_fit` and `preprocess`.
+
+Shot 39915 cannot supply one: it falls in the 35521-44155 gap where no toroidal array recorded, and
+its only fluctuation-capable probe is one channel (DAQ field 171, equilibrium probe 36), which is
+not two positions (issues #724, #825). The fit is shown on the repository-only fluctuation sample
+45531 instead, which carries the three-angle outboard array (IMAS phi 315/225/135 deg) around its
+0.294-0.308 s discharge. It loads from a Git checkout; an installed wheel raises
+`FileNotFoundError`, because only 39915 ships inside the package:
 
 ```python
+array = vaft.omas.sample_ods(45531)   # outboard Mirnov array, three toroidal positions
+
 fig, ax = vaft.omas.plot_mirnov_spatial_phase(
-    ods,
-    time=0.310,
+    array,
+    time=0.300,
     frequencies=[26e3, 52e3],         # None -> dominant peaks are picked automatically
     num_modes=2,
     candidate_n=range(0, 5),

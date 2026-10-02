@@ -35,13 +35,16 @@ NEUTRAL = frozenset({
     "impa_time_field", "impa_time_voltage", "impa_profile_field",
     "soft_x_rays_geometry_lines_of_sight", "coil_3d_geometry3d", "coil_3d_geometry_topview",
     "pf_coil_geometry_poloidal", "passive_structure_geometry_poloidal", "machine_geometry_poloidal",
-    "equilibrium_geometry_topview", "machine_geometry_topview",
+    "equilibrium_geometry_topview", "machine_geometry_topview", "machine_geometry3d",
     "electron_temperature_field", "electron_density_field",
     "camera_visible_animation_frames", "camera_visible_spectrogram",
-    "limiter_current_time", "mirnov_spatial_phase",
+    "limiter_current_time", "mirnov_spatial_phase", "diagnostics_spectrum_coherence",
     "ntms_time_delta_prime", "mhd_linear_time_energy_perturbed",
     "mhd_linear_profile_displacement", "mhd_linear_profile_b_field_perturbed",
     "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",
+    "mhd_linear_profile_chirikov", "mhd_linear_field_spectrum",
+    "mhd_linear_spectrum_b_field_perturbed", "mhd_linear_geometry_island",
+    "coil_3d_profile_current", "coil_3d_spectrum_current",
     # Built on vaft.omas helpers that read through vaft.ods_access, which
     # dispatches to the registered accessor: native on an IMAS entry too.
     "pf_plasma_geometry_poloidal",
@@ -49,22 +52,43 @@ NEUTRAL = frozenset({
     "equilibrium_overview_convergence", "equilibrium_overview_constraints",
     "equilibrium_overview_constraint_coverage", "equilibrium_overview_residuals",
     "chease_overview_refinement_summary", "chease_overview_profile_validity",
+    # issue #952: the constraint weights and the pressure-weight scan read
+    # through vaft.omas.efit_quality, which reads through vaft.ods_access.
+    "equilibrium_overview_constraint_weights", "equilibrium_overview_pressure_weight_scan",
+    # issue #1099: the FLARE connection-length map reads plasma_initiation
+    # through the accessor only.
+    "field_line_topology_field_connection_length",
 })
 OMAS_BOUND = frozenset({
     "passive_structure_geometry_wall_mode",
     "passive_structure_overview_wall_time", "passive_structure_overview_wall_reduction",
     "passive_structure_field_wall_reduction", "neoclassical_profile_bootstrap_current",
     "equilibrium_field_psi_vacuum", "vacuum_field", "summary_time_power_balance",
+    "summary_time_resistive_zeff",
     "camera_visible_image", "camera_visible_image_frame", "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line", "camera_visible_image_fluctuation",
     "camera_visible_image_mhd_power", "equilibrium_overview",
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
     # issue #888: the startup views solve vessel currents on a private copy.
     "startup_proxies_time", "vacuum_field_midplane", "camera_visible_image_vacuum_field_line",
+    # issue #952: the kinetic profile fits call the vaft.process.profile mappers
+    # and fitters, which subscript the ODS.
+    "thomson_scattering_profile_fit", "charge_exchange_profile_fit",
+    # issue #551: radial_coordinate_map selects and adapts the equilibrium
+    # slice with ODS item access (as_equilibrium).
+    "electron_temperature_profile_gradient", "electron_density_profile_gradient",
+    "ion_temperature_profile_gradient",
 })
 
 #: Recorded reads that are not the plot's input, per plot, with the reason.
-IGNORED_READS: dict[str, dict[str, str]] = {}
+_MAPPER_PROBES = {
+    "fluxSurfaces": "the mapper first asks whether it was handed a legacy fluxSurfaces mapping",
+    "NW": "the mapper then asks whether it was handed a GEQDSK before reading the ODS equilibrium",
+}
+IGNORED_READS: dict[str, dict[str, str]] = {
+    "thomson_scattering_profile_fit": _MAPPER_PROBES,
+    "charge_exchange_profile_fit": _MAPPER_PROBES,
+}
 
 #: Neutral views whose synthetic input cannot be written to IMAS and read back.
 SYNTHETIC_ROUND_TRIP_UNSUPPORTED: dict[str, str] = {}

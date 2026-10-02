@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from vaft.code import gpec
+from vaft.compat import IS_WINDOWS
 
 from external_code_stubs import write_launchable_stub
 
@@ -184,7 +185,15 @@ def test_prepare_writes_stride_without_a_gpec_installation(no_gpec_env, case):
 
 
 def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path, case):
-    """FileDB stores ideal-GPEC and DCON under distinct code/mode roots."""
+    """FileDB stores ideal-GPEC and DCON under distinct code/mode roots.
+
+    That layout is unchanged, and ``dcon_workdir`` still says where DCON's
+    products come from.  What ``gpec.in`` names is no longer that tree but the
+    GPEC cell itself: GPEC writes its vacuum handshake files into its working
+    directory and reads them back from ``dcon_dir``, so the two have to be one
+    directory, and the products are brought over by ``stage_dcon_products``
+    once DCON has made them (``test_gpec_dcon_staging.py``).
+    """
     coil = tmp_path / "coil.in"
     coil.write_text("&coil /\n", encoding="utf-8")
     case.dcon_workdir = tmp_path / "dcon-work"
@@ -196,9 +205,15 @@ def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path
     )
 
     assert result.ok
-    gpec_in = case.workdir / "00325" / "gpec" / "nn=1" / "gpec.in"
+    run_dir = case.workdir / "00325" / "gpec" / "nn=1"
+    text = (run_dir / "gpec.in").read_text(encoding="utf-8")
+    assert str(run_dir.resolve()) in text
+
+    # The separate tree is still where the suite looks for DCON, which is what
+    # the layout claim is about.
     expected_dcon = case.dcon_workdir / "00325" / "dcon" / "nn=1"
-    assert str(expected_dcon.resolve()) in gpec_in.read_text(encoding="utf-8")
+    assert gpec._dcon_run_dir(case, 1, case.geqdsk) == expected_dcon
+    assert str(expected_dcon.resolve()) not in text
 
 
 def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tmp_path, case):
@@ -320,6 +335,12 @@ def test_timeout_with_truncated_outputs_is_not_reported_as_success(monkeypatch, 
     dcon_dir.mkdir(parents=True, exist_ok=True)
     (dcon_dir / "euler.bin").write_bytes(b"")
     (dcon_dir / "psi_in.bin").write_bytes(b"")
+    # Staged into the GPEC cell with them: GPEC opens `equil.in` in its own
+    # working directory (see test_gpec_dcon_staging.py).
+    (dcon_dir / "equil.in").write_text(
+        f'&EQUIL_CONTROL\n    eq_filename="{case.geqdsk.name}"\n/\n', encoding="utf-8"
+    )
+    (dcon_dir / case.geqdsk.name).write_text(GFILE_TEXT, encoding="utf-8")
     _write_valid_dcon_netcdf(dcon_dir, n=1)
 
     # The three core outputs exist but hold no readable physics content.
@@ -897,3 +918,73 @@ def test_a_reused_stable_cell_reports_the_same_status_as_a_fresh_one(
     (record,) = gpec.run_gpec_suite_case(case, config).records
     assert record.status == "stable"
     assert "reused existing solver outputs" in record.reason
+
+
+def test_gpec_modules_launch_through_the_configured_backend(monkeypatch, tmp_path, case):
+    """#671: the suite builds the launch; the backend decides how to run it."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    backend = RecordingBackend(ExecutionResult(returncode=0))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto", backend=backend),
+    )
+
+    (record,) = result.records
+    assert record.returncode == 0
+    (request,) = [r for r in backend.requests if Path(r.command[0]).name == dcon.name]
+    assert request.env[gpec.GPEC_HOME_ENV] == str(tmp_path / "gpec")
+    assert request.log_path.name == "dcon.log"
+    assert request.timeout == 1200.0
+
+
+def test_a_backend_timeout_still_reaches_the_suite_timeout_carve_out(monkeypatch, tmp_path, case):
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(
+            modules=("dcon",), modes=(1,), run_mode="auto", timeout=7.0, backend=backend
+        ),
+    )
+
+    (record,) = result.records
+    assert record.status == "failed"
+    assert record.returncode is None
+    assert "timeout after 7.0 seconds" in record.reason
+
+
+def test_find_gpec_executable_is_none_without_an_installation(no_gpec_env):
+    assert gpec.find_gpec_executable("dcon") is None
+
+
+def test_find_gpec_executable_resolves_a_built_program_and_not_a_missing_one(tmp_path, monkeypatch):
+    """A notebook preflights each solver separately: a home where only DCON
+    was built answers for DCON and says nothing is there for GPEC."""
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path))
+    built = write_launchable_stub(tmp_path / "bin" / "dcon")
+
+    assert gpec.find_gpec_executable("dcon") == built
+    assert gpec.find_gpec_executable("gpec") is None
+
+
+def test_find_gpec_executable_is_none_for_a_program_without_an_execute_bit(tmp_path, monkeypatch):
+    """A preflight must answer, not raise: the offline tutorial path calls it."""
+    if IS_WINDOWS:
+        pytest.skip("the execute bit is a POSIX notion")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path))
+    program = tmp_path / "bin" / "dcon"
+    program.parent.mkdir(parents=True)
+    program.write_text("#!/bin/sh\n", encoding="utf-8")
+    program.chmod(0o644)
+
+    assert gpec.find_gpec_executable("dcon") is None

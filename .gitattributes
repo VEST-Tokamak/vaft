@@ -7,6 +7,9 @@ vaft/data/efit/*.ddd filter=lfs diff=lfs merge=lfs -text
 # changes the hash and offline verification fails on Windows. `text=auto` lets
 # Git leave detected binaries (.json.gz, .nc, .h5) untouched.
 test/data/vest_reference/** text=auto eol=lf
+test/data/island_sxr/** text=auto eol=lf
+# Real GPEC namelists read back by the DCON reader: keep LF so Windows parses them alike.
+test/data/gpec/** text=auto eol=lf
 docs/assets/notebook-outputs/** text=auto eol=lf
 vaft/data/samples/** text=auto eol=lf
 # The EFIT table's text inputs are pinned by efund_table_manifest.json, and
@@ -15,6 +18,12 @@ vaft/data/samples/** text=auto eol=lf
 # only, so the LFS `*.ddd` rules above are not overridden by `text=auto`.
 vaft/data/efit/**/*.dat text=auto eol=lf
 vaft/data/wheel_samples/** text=auto eol=lf
+# The 48224 kinetic sample pins these by sha256 (its manifest's equilibria
+# point at ../../kineticEfit/g048224.00300.chease), and the 45531 manifest pins
+# its SXR digitizer CSVs the same way. A CRLF checkout of the text g-files
+# failed test_load_sample on Windows CI; keep them byte-exact.
+vaft/data/kineticEfit/** -text
+vaft/data/legacy/digitizer_*_45531.csv -text
 
 # POSIX shell scripts must keep LF even in a Windows checkout.
 *.sh text eol=lf
@@ -22,3 +31,8 @@ vaft/data/wheel_samples/** text=auto eol=lf
 # GACODE fixed-format text fixtures are compared field-by-field against a
 # real NEO run, so a CRLF checkout must not change them.
 test/data/gacode/** text=auto eol=lf
+
+# Committed diagram SVGs are pinned by docs/assets/diagrams/manifest.json
+# (vaft.diagram.build --check hashes the bytes), so a CRLF checkout would
+# read as a hand edit on Windows CI.
+docs/assets/diagrams/** text=auto eol=lf

@@ -13,7 +13,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from .magnetics import UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS
+from .magnetics import (
+    UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS,
+    known_magnetics_faults,
+    magnetics_wiring_for_shot,
+)
 from .utils import resolve_shot_revisions_with_provenance, resolve_vest_diagnostic
 
 __all__ = ["vest_processing_provenance"]
@@ -100,6 +104,7 @@ def _equilibrium_magnetics_provenance(shot: int) -> dict[str, Any]:
     )
     flux_window = window.get("flux_baseline_window")
     flux_samples = window.get("flux_baseline_samples")
+    wiring = magnetics_wiring_for_shot(int(shot))
     return {
         "daq_mode": str(window["daq_mode"]),
         "output_index_window": (int(window["index_start"]), int(window["index_end"])),
@@ -111,6 +116,17 @@ def _equilibrium_magnetics_provenance(shot: int) -> dict[str, Any]:
         "revision": window_prov,
         "geometry_supported": int(shot) not in UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS,
         "required_geometry_version": UNSUPPORTED_MAGNETICS_GEOMETRY_SHOTS.get(int(shot)),
+        # Which raw field feeds each probe position, and which positions are
+        # recorded as broken, for this shot (issue #956).
+        "wiring": {
+            "layout": wiring.layout,
+            "probe_overrides": [dict(entry) for entry in wiring.overrides],
+            "revision": dict(wiring.provenance),
+        },
+        "known_faults": [
+            {"kind": kind, "index": index, "reason": reason}
+            for (kind, index), reason in sorted(known_magnetics_faults(int(shot)).items())
+        ],
     }
 
 

@@ -10,6 +10,8 @@ which machine the coils belong to.
 * :func:`toroidal_mode_decomposition` -- complex Fourier coefficient of a
   per-sector quantity (typically coil currents) for each toroidal mode
   number, ``C_n = <v_k exp(-i n phi_k)>``.
+* :func:`phased_sector_currents` -- the inverse: the per-sector currents of
+  a single toroidal harmonic, ``I_k = A cos(n phi_k + delta)``.
 * :func:`biot_savart_filaments` -- vacuum magnetic field of closed polyline
   filaments carrying given currents, at arbitrary probe points.
 """
@@ -24,6 +26,7 @@ from vaft.formula.constants import MU0
 
 __all__ = [
     "biot_savart_filaments",
+    "phased_sector_currents",
     "toroidal_mode_decomposition",
 ]
 
@@ -63,8 +66,7 @@ def toroidal_mode_decomposition(
     when the sectors resolve ``n`` without aliasing: the peak amplitude is
     ``2 |C_n|`` and the phase of ``C_n`` is the pattern's phase ``delta`` at
     ``phi = 0``.  The ``exp(-i n phi)`` kernel is the one GPEC's ``coil.in``
-    documentation and the legacy hsyun_GPEC ``fourier_mode_coefficient``
-    use; a ``exp(+i n phi)`` convention conjugates every coefficient.  No
+    documentation and the legacy ``fourier_mode_coefficient`` use; a ``exp(+i n phi)`` convention conjugates every coefficient.  No
     normalisation by ``2/K`` is applied, so ``C_0`` is the mean.
 
     Assumptions
@@ -82,7 +84,7 @@ def toroidal_mode_decomposition(
     ----------
     .. [GPEC] GPEC ``coil.in`` documentation: per-coil currents are
        combined per toroidal harmonic with ``exp(-i n phi)``.
-    .. [legacy] hsyun_GPEC ``library/gpec_input_processor.py``
+    .. [legacy] The legacy implementation's ``gpec_input_processor.py``
        ``fourier_mode_coefficient`` (same kernel), ported unchanged.
     """
     phi = np.asarray(phi_rad, dtype=float)
@@ -94,6 +96,54 @@ def toroidal_mode_decomposition(
     if phi.size == 0:
         raise ValueError("at least one sector sample is required")
     return {int(n): complex(np.mean(v * np.exp(-1j * int(n) * phi))) for n in modes}
+
+
+def phased_sector_currents(phi_rad, n: int, phase_rad: float, amplitude_a: float) -> np.ndarray:
+    """Per-sector currents of one toroidal harmonic.
+
+    Parameters
+    ----------
+    phi_rad : array_like
+        Toroidal angle of each sector, IMAS ``phi``, shape ``(K,)`` [rad].
+    n : int
+        Toroidal mode number [-].
+    phase_rad : float
+        Phase ``delta`` of the pattern at ``phi = 0`` [rad].
+    amplitude_a : float
+        Peak sector current ``A`` [A].
+
+    Returns
+    -------
+    np.ndarray
+        ``I_k`` for each sector, shape ``(K,)`` [A].
+
+    Raises
+    ------
+    ValueError
+        ``phi_rad`` is not one-dimensional or is empty.
+
+    Convention
+    ----------
+    ``I_k = A cos(n phi_k + delta)``: the pattern whose
+    :func:`toroidal_mode_decomposition` coefficient is
+    ``C_n = (A/2) exp(+i delta)`` when the sectors resolve ``n``, so the two
+    functions are inverse to each other.  Positive current flows along the
+    filament vertex order, as :func:`biot_savart_filaments` takes it.
+
+    Assumptions
+    -----------
+    A single harmonic with no ``n = 0`` offset; the sectors are driven in
+    phase with each other up to the stated pattern.
+
+    Applicability
+    -------------
+    Machine-independent.  Any toroidal row of discrete coils phased as one
+    harmonic: RMP and error-field correction coils.
+    """
+    phi = np.asarray(phi_rad, dtype=float)
+    if phi.ndim != 1 or phi.size == 0:
+        raise ValueError(f"phi_rad must be a non-empty one-dimensional array, got shape {phi.shape}")
+    return float(amplitude_a) * np.cos(int(n) * phi + float(phase_rad))
 
 
 def biot_savart_filaments(points_xyz, currents_a, probes_xyz) -> np.ndarray:
@@ -153,9 +203,9 @@ def biot_savart_filaments(points_xyz, currents_a, probes_xyz) -> np.ndarray:
     ----------
     .. [Jackson] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Sec. 5.2:
        the Biot-Savart law for a line current.
-    .. [legacy] hsyun_GPEC ``library/gpec_input_processor.py`` and
-       ``library/mast_u_input_convertor.py`` carried three copies of this
-       midpoint-rule kernel; this is the single replacement.
+    .. [legacy] The legacy implementation carried three copies of this
+       midpoint-rule kernel, in ``gpec_input_processor.py`` and
+       ``mast_u_input_convertor.py``; this is the single replacement.
     """
     if isinstance(points_xyz, np.ndarray) and points_xyz.ndim == 3:
         filaments: Sequence[np.ndarray] = [np.asarray(points_xyz[k], dtype=float) for k in range(points_xyz.shape[0])]

@@ -11,11 +11,18 @@ the ones that workflow already produced: edge-zeroing, FFT boundary smoothing,
 Two things the donor did are deliberately *not* reproduced, because they were
 conventions rather than physics:
 
-  * ``NIDEAL=11``, which upstream CHEASE rejects outright (#717). The default is
-    6; the writer still emits 11 when asked for it.
+  * ``NIDEAL=11``, which upstream CHEASE rejects outright (#717). The adapter
+    now selects NIDEAL from its GEQDSK output contract (6, #516); the writer
+    still emits 11 through the deprecated raw override.
   * sampling q at ``sqrt(0.95)``, which constrains the surface at
     ``psi_norm = 0.9747`` rather than the conventional q95 surface at 0.95.
     ``q_constraint_psi_norm`` now means what it says.
+
+One thing is deliberately *fixed* rather than reproduced, because it was an
+off-by-one rather than a convention:
+
+  * edge-zeroing now examines the separatrix sample. The donor's loop started
+    one sample inside and let a p' reversal at psi_N = 1 through as ``-|p'|``.
 """
 
 import os
@@ -94,13 +101,48 @@ def test_the_default_nideal_is_one_upstream_chease_accepts():
     Upstream CHEASE validates the range in ``cotrol.f90`` (0 to 10) and quits
     before doing any equilibrium work on anything outside it, so the previous
     default of 11 meant a bare ``CHEASEConfig()`` could not run at all against
-    a CHEASE built from the public repository. See #717.
+    a CHEASE built from the public repository. See #717. Since #516 a caller
+    names the output, not the number.
     """
-    cfg = ch.CHEASEConfig()
-    assert cfg.nideal == 6
-    assert 0 <= cfg.nideal <= 10
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # the default path must not warn
+        cfg = ch.CHEASEConfig()
+    assert cfg.output == "geqdsk"
+    assert cfg.nideal is None
+    assert cfg.resolved_nideal == ch.CHEASE_OUTPUT_NIDEAL["geqdsk"] == 6
     text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
     assert "NIDEAL=6," in text
+    assert "NEQDSK=0" in text  # EXPEQ input, written by the adapter itself
+
+
+def test_an_output_the_adapter_cannot_read_is_refused():
+    """NIDEAL=9 and friends write files nothing here reads (#516)."""
+    with pytest.raises(ValueError, match="not supported"):
+        ch.CHEASEConfig(output="gyrokinetic")
+
+
+def test_the_nideal_deprecation_warns_where_it_is_written_not_on_every_copy():
+    """The adapters copy a config with ``dataclasses.replace(config, workdir=...)``
+    several times per solve; each copy re-ran ``__post_init__`` and re-warned
+    from inside ``dataclasses.py`` (cold review 0.8.0 plasma-state-and-chease F6)."""
+    import warnings
+    from dataclasses import replace
+
+    with pytest.warns(FutureWarning, match="deprecated") as record:
+        cfg = ch.CHEASEConfig(nideal=11)
+    assert len(record) == 1 and record[0].filename == __file__
+    with warnings.catch_warnings(record=True) as copies:
+        warnings.simplefilter("always")
+        for index in range(3):
+            cfg = replace(cfg, workdir=f"copy_{index}")
+    assert cfg.resolved_nideal == 11 and cfg.nideal == 11
+    assert [str(w.message) for w in copies] == []
+    # A fresh construction by the user is a fresh override, and warns once more, at their line.
+    with pytest.warns(FutureWarning, match="deprecated") as again:
+        ch.CHEASEConfig(**vars(cfg))
+    assert len(again) == 1 and again[0].filename == __file__
 
 
 def test_namelist_epslon_default_and_jsk95_nideal_on_request():
@@ -109,10 +151,13 @@ def test_namelist_epslon_default_and_jsk95_nideal_on_request():
     ``NIDEAL=11`` is what the VEST jsk95 workflow runs, against the CHEASE
     revision that group uses. It stopped being the default in #717 because
     upstream rejects it, but asking for it must still emit it -- that is the
-    parity claim this file exists to defend.
+    parity claim this file exists to defend. Asking is deprecated (#516), so
+    it warns.
     """
-    cfg = ch.CHEASEConfig(nideal=11)
+    with pytest.warns(FutureWarning, match="deprecated"):
+        cfg = ch.CHEASEConfig(nideal=11)
     assert cfg.epslon_exponent == 10
+    assert cfg.resolved_nideal == 11
     text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
     assert "EPSLON=1.0E-10," in text
     assert "NIDEAL=11," in text
@@ -215,15 +260,58 @@ def test_edge_zero_zeros_positive_edge_and_flattens_ffprim():
     pprime = np.array([-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 0.5, 0.7, 0.9])
     ffprim = np.arange(11, dtype=float)
     pp, ff, surface = ch._edge_zero_profiles(psin, pprime, ffprim, 0.95)
-    # Positive edge points (indices 8,9) zeroed; index 10 (edge) untouched by loop.
-    assert pp[8] == 0.0 and pp[9] == 0.0
+    # Every positive point is zeroed, the separatrix sample (index 10) included:
+    # the donor's loop starts one sample in and would have left 0.9 there,
+    # which _write_expeq writes as -|0.9| (scaled), a bulk-sign drive at the edge.
+    assert pp[8] == 0.0 and pp[9] == 0.0 and pp[10] == 0.0
     assert pp[7] == -1.0
-    # FF' flattened inward across the zeroed band (held at just-outside value).
+    # FF' flattened inward across the zeroed band, held at the separatrix
+    # value, which itself has nothing outside it to take.
+    assert ff[10] == pytest.approx(10.0)
     assert ff[9] == pytest.approx(10.0)  # ff[9] <- ff[10]
     assert ff[8] == pytest.approx(10.0)  # ff[8] <- ff[9] (already updated)
     # 0.95 > 0.3, so the donor's inward-nudge branch never fires for an edge
     # constraint; it exists for a near-axis one.
     assert surface == pytest.approx(0.95)
+
+
+def test_a_reversal_on_the_separatrix_sample_alone_reaches_expeq_as_zero(tmp_path):
+    """The donor's loop never looked at psi_N = 1; this adapter does.
+
+    A hollow-edge legacy g-file (VFIT g039516.031400) is reversed from
+    psi_N ~ 0.6 outward with its largest |p'| on the last sample. The donor
+    zeroed every reversed sample but that one, and ``-|p'|`` then wrote it as
+    the strongest bulk-sign drive of the profile, at the separatrix.
+    """
+    n = ch.NCHEASE
+    cfg = ch.CHEASEConfig(target_psin=0.0)
+
+    def expeq_profiles(geq, path):
+        ch._write_expeq(geq, path, cfg)
+        lines = path.read_text().splitlines()
+        start = 4 + int(lines[3]) + 2  # header, boundary, NCHEASE, "1 0"
+        pp = np.array([float(v) for v in lines[start + n:start + 2 * n]])
+        ff = np.array([float(v) for v in lines[start + 2 * n:start + 3 * n]])
+        return pp, ff
+
+    geq = _fake_geqdsk()
+    pp0, ff0 = expeq_profiles(geq, tmp_path / "EXPEQ.base")
+    geq["PPRIME"] = geq["PPRIME"].copy()
+    geq["PPRIME"][-1] = 0.5  # opposite to the negative bulk, on the last sample only
+    pp, ff = expeq_profiles(geq, tmp_path / "EXPEQ")
+
+    # The raw reversal only reaches the resampled profile inside the last raw
+    # interval; everything inside it is written exactly as without it.
+    inner = np.linspace(0.0, 1.0, n) < 1.0 - 1.0 / (len(geq["PPRIME"]) - 1)
+    assert np.array_equal(pp[inner], pp0[inner])
+    assert pp[-1] == 0.0
+    # FF' on the separatrix has no outside value to take and keeps its own,
+    # and the zeroed band inside it is held at that value.
+    zeroed = ~inner & (pp == 0.0)
+    assert zeroed.sum() > 1
+    assert ff[-1] == ff0[-1]
+    assert np.all(ff[zeroed] == ff0[-1])
+    assert not np.all(ff0[zeroed] == ff0[-1])  # i.e. the hold did something
 
 
 # ---------------------------------------------------------------------------
@@ -364,3 +452,125 @@ def test_comparison_plot_is_rendered_by_vaft_plot_and_saved(tmp_path):
     )
     assert Path(result) == target
     assert target.stat().st_size > 10_000
+
+
+# ---------------------------------------------------------------------------
+# (e) What CHEASE receives is visible to the caller (#885)
+# ---------------------------------------------------------------------------
+
+def test_the_materialized_input_is_the_expeq_content_in_source_units(tmp_path):
+    """The record must say what EXPEQ says, and be comparable with the source.
+
+    Undo EXPEQ's normalization and sign pattern and the record's p'/FF' must
+    come back; undo the resampling and the source's must come back.
+    """
+    import json
+
+    from vaft.data.eqdsk import read_geqdsk
+    from vaft.data.resources import data_path
+
+    source = data_path("efit/g039915.00319")
+    inputs = ch.prepare_chease_inputs(
+        source, ch.CHEASEConfig(workdir=tmp_path, create_plot=False)
+    )
+    m = inputs.materialized
+    geq = read_geqdsk(source)
+
+    # Resampling only, in the source's own sign.
+    x = np.linspace(0.0, 1.0, len(geq["PPRIME"]))
+    np.testing.assert_allclose(m.pprime_resampled, np.interp(m.psi_norm, x, geq["PPRIME"]))
+    np.testing.assert_allclose(m.ffprime_resampled, np.interp(m.psi_norm, x, geq["FFPRIM"]))
+
+    # The EXPEQ file, parsed back, is the record re-normalized.
+    lines = inputs.expeq.read_text(encoding="utf-8").splitlines()
+    count = int(lines[3])
+    boundary = np.array([[float(v) for v in line.split()] for line in lines[4 : 4 + count]])
+    r0 = m.parameters["R0EXP"]
+    np.testing.assert_allclose(boundary * r0, m.boundary, rtol=1e-10, atol=1e-12)
+    n = int(lines[4 + count])
+    offset = 4 + count + 2 + n  # skip N, "1 0", then the sqrt(psi_N) column
+    pp = np.array([float(v) for v in lines[offset : offset + n]])
+    ff = np.array([float(v) for v in lines[offset + n : offset + 2 * n]])
+    b0 = m.parameters["B0EXP"]
+    psi_sign = m.sign_transform["psi"]
+    assert psi_sign == -1  # 39915 is flipped into CHEASE's pattern, so the sign is exercised
+    # The written profiles, not only the resampled ones, keep the source's sign.
+    assert np.sign(np.median(m.pprime)) == np.sign(np.median(geq["PPRIME"]))
+    assert np.sign(np.median(m.ffprime)) == np.sign(np.median(geq["FFPRIM"]))
+    np.testing.assert_allclose(pp, -np.abs(m.pprime) * ch.MU0 * r0**2 / b0, rtol=1e-10)
+    np.testing.assert_allclose(ff, -(psi_sign * m.ffprime) / b0, rtol=1e-10)
+
+    record = json.loads((tmp_path / "chease_input_manifest.json").read_text())
+    assert record["nideal"] == 6 and record["neqdsk"] == 0
+    assert record["expeq_boundary_points"] == m.boundary.shape[0]
+    assert record["q_constraint_psi_norm_used"] == pytest.approx(0.95)
+
+
+def test_edge_conditioning_is_reported_where_it_changed_the_profile(tmp_path):
+    """A reversed edge p' sample is zeroed, and the record says which ones."""
+    geq = _fake_geqdsk()
+    geq["PPRIME"] = geq["PPRIME"].copy()
+    geq["PPRIME"][-3:] = 0.2  # opposite to the negative bulk
+    payload = ch._expeq_payload(geq, ch.CHEASEConfig(target_psin=0.0))
+    m = ch._materialized_input(payload, ch.CHEASEConfig(target_psin=0.0), {"psi": 1})
+    changed = np.flatnonzero(m.edge_modified)
+    assert changed.size > 0
+    assert m.psi_norm[changed].min() > 0.97  # the edge, and only the edge
+    assert np.all(m.pprime[changed] == 0.0)
+    assert np.all(m.pprime[~m.edge_modified] == m.pprime_resampled[~m.edge_modified])
+    # The separatrix sample itself is examined too (#996), so a reversal there
+    # is zeroed instead of reaching EXPEQ as -|p'|, and the record shows it.
+    assert m.edge_modified[-1] and m.pprime[-1] == 0.0
+
+
+def test_the_record_undoes_the_psi_flip_on_the_written_profiles():
+    """p' and FF' flip with psi on the way into CHEASE, and back in the record."""
+    geq = _fake_geqdsk()
+    cfg = ch.CHEASEConfig(target_psin=0.0)
+    payload = ch._expeq_payload(geq, cfg)
+    kept = ch._materialized_input(payload, cfg, {"psi": 1})
+    flipped = ch._materialized_input(payload, cfg, {"psi": -1})
+    np.testing.assert_array_equal(flipped.pprime, -kept.pprime)
+    np.testing.assert_array_equal(flipped.ffprime, -kept.ffprime)
+    np.testing.assert_array_equal(flipped.pressure, kept.pressure)  # not a d/dpsi quantity
+
+
+def test_a_q_constraint_on_axis_is_not_reported_as_a_surface(tmp_path):
+    cfg = ch.CHEASEConfig(target_psin=0.0, q_constraint_psi_norm=None)
+    m = ch._materialized_input(ch._expeq_payload(_fake_geqdsk(), cfg), cfg, {"psi": 1})
+    assert m.q_constraint_psi_norm is None
+    assert m.csspec == 0.0
+
+
+def test_the_solver_mesh_defaults_and_overrides_reach_the_namelist():
+    """``nw`` is the output box; the solve's own mesh is NS x NT (#885)."""
+    text = "".join(ch._namelist_lines(ch.CHEASEConfig(), _WRITER_PARAMS))
+    assert "NS=150, NT=150," in text
+    assert "NPSI=200, NCHI=100," in text
+    assert "NRBOX=513," in text
+
+    cfg = ch.CHEASEConfig(ns=60, nt=40, npsi=120, nchi=64)
+    text = "".join(ch._namelist_lines(cfg, _WRITER_PARAMS))
+    assert "NS=60, NT=40," in text
+    assert "NPSI=120, NCHI=64," in text
+
+    with pytest.raises(ValueError, match="at least 2"):
+        ch.CHEASEConfig(ns=1)
+
+
+def test_a_run_carries_what_it_handed_chease(tmp_path):
+    """A scan sees only CHEASEResults, so the result must say what went in (#887).
+
+    A stub that exits 0 without writing an EQDSK is a failed run, and a run
+    CHEASE returns from keeps its materialized input even when it failed --
+    that is when it is most needed. (A timeout raises before any result.)
+    """
+    from vaft.data.resources import data_path
+
+    exe = write_launchable_stub(tmp_path / "bin" / "chease")
+    cfg = ch.CHEASEConfig(workdir=tmp_path / "run", executable=str(exe), create_plot=False)
+    inputs = ch.prepare_chease_inputs(data_path("efit/g039915.00319"), cfg)
+    result = ch.run_chease(inputs, cfg)
+    assert not result.ok
+    assert result.materialized is inputs.materialized
+    assert result.materialized.boundary.shape[1] == 2

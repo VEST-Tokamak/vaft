@@ -283,11 +283,17 @@ class Profile1D(ViewModel):
     display: "DisplaySpec | None" = None
     #: Vertical markers in the abscissa's coordinate (issue #479).
     reference_lines: tuple["ReferenceLine", ...] = ()
+    #: How a derived profile was formed, as plain JSON-serialisable values: a
+    #: profile gradient carries the resolved record of
+    #: :func:`vaft.process.profile_gradients.profile_gradient` here (issue
+    #: #551).  ``to_xarray`` writes it to the ``metadata`` attribute.
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(
             self, "series", _as_series_tuple(self.series, where="Profile1D.series")
         )
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
         if self.x_limits is not None:
             object.__setattr__(
                 self, "x_limits", (float(self.x_limits[0]), float(self.x_limits[1]))
@@ -335,6 +341,13 @@ class Field2D(ViewModel):
     #: The display policy's resolution of the value unit, when the builder
     #: applied one; ``value_label`` already carries the unit it names.
     display: "DisplaySpec | None" = None
+    #: ``"linear"`` or ``"log"``: how the value axis and its colours are
+    #: spaced.  A field whose interest is spread over decades -- a connection
+    #: length running from a metre to the tracing limit -- is unreadable on a
+    #: linear ramp, where every value below the top decade shares one colour.
+    #: ``"log"`` requires strictly positive values, so a caller masks the
+    #: zeros first; ``value_label`` should say the axis is logarithmic.
+    value_scale: str = "linear"
     #: What happens to values outside ``contour_levels``: ``"neither"`` leaves
     #: them blank, ``"min"``/``"max"``/``"both"`` saturate them at the end
     #: colours.  Levels chosen from a percentile need this -- otherwise the
@@ -377,6 +390,21 @@ class Field2D(ViewModel):
                 "contour_levels",
                 as_model_array(self.contour_levels, where="Field2D.contour_levels"),
             )
+        if self.value_scale not in ("linear", "log"):
+            raise ValueError(
+                'Field2D.value_scale must be "linear" or "log"; got '
+                f"{self.value_scale!r}"
+            )
+        if self.value_scale == "log":
+            positive = values[np.isfinite(values)]
+            if positive.size and positive.min() <= 0.0:
+                raise ValueError(
+                    "Field2D.value_scale='log' needs strictly positive "
+                    f"values; the smallest finite one is {positive.min()!r}. "
+                    "Mask the non-positive cells rather than clipping them, "
+                    "so the map shows where there is no value instead of "
+                    "inventing the smallest one."
+                )
         if self.extend not in ("neither", "min", "max", "both"):
             raise ValueError(
                 'Field2D.extend must be one of "neither", "min", "max", "both"; '
@@ -495,7 +523,22 @@ class GeometryLayers(ViewModel):
 
 @dataclass(frozen=True)
 class Geometry3DLayer(ViewModel):
-    """One polyline or point cloud drawn in machine Cartesian coordinates."""
+    """One polyline or point cloud drawn in machine Cartesian coordinates.
+
+    ``x``/``y``/``z`` are metres on the right-handed axes of
+    :func:`vaft.machine_mapping.conventions.cylindrical_to_cartesian` (IMAS
+    ``phi`` counter-clockwise from above).  ``label`` is the legend entry --
+    usually set on one layer of a set only -- while ``group`` names the
+    subsystem the layer belongs to as a ``/``-separated path
+    (``"coils_non_axisymmetric/RMP/sector 3"``): the Plotly legend group, the
+    block tree of a VTK multiblock export and the K3D object name.
+
+    This model is the *lightweight* 3-D contract: points and polylines --
+    filaments, rings, diagnostic positions, sight lines, trajectories.
+    Surfaces, structured or unstructured grids and fields on them are not
+    layers; they belong to the scientific mesh representation (#909, #1100),
+    and are not to be faked by stacking polylines into a surface.
+    """
 
     x: np.ndarray
     y: np.ndarray
@@ -503,6 +546,7 @@ class Geometry3DLayer(ViewModel):
     kind: str = "polyline"
     label: str = ""
     style: Mapping[str, Any] = field(default_factory=dict)
+    group: str = ""
 
     KINDS = ("polyline", "points")
 
@@ -524,6 +568,7 @@ class Geometry3DLayer(ViewModel):
         object.__setattr__(self, "z", z)
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "group", str(self.group).strip("/"))
 
     def to_xarray(self, **attrs: Any) -> Any:
         """This layer as a one-layer :class:`xarray.Dataset`; see :mod:`vaft.plot._xarray`.
@@ -538,7 +583,13 @@ class Geometry3DLayer(ViewModel):
 
 @dataclass(frozen=True)
 class Geometry3DLayers(ViewModel):
-    """A stack of 3D geometry layers drawn into one machine-coordinate view."""
+    """A stack of 3D geometry layers drawn into one machine-coordinate view.
+
+    Rendered by Matplotlib and Plotly through ``backend=``; converted to
+    PyVista/VTK (and so ParaView) by :mod:`vaft.plot.pyvista` and to K3D by
+    :mod:`vaft.plot.k3d`, which keep each layer's ``group`` as its
+    block/object identity.
+    """
 
     layers: tuple[Geometry3DLayer, ...]
     x_label: str = "x [m]"
@@ -706,8 +757,25 @@ class Spectrogram(ViewModel):
     title: str = ""
     max_frequency: float | None = None
     cmap: str = "hot_r"
+    #: A tracked spectral ridge drawn over the map (issue #1005): one frequency
+    #: per ``ridge_time``, NaN where no ridge was found.  ``None`` draws none.
+    ridge_time: np.ndarray | None = None
+    ridge_frequency: np.ndarray | None = None
+    ridge_label: str = ""
 
     def __post_init__(self) -> None:
+        if (self.ridge_time is None) != (self.ridge_frequency is None):
+            raise ValueError("Spectrogram.ridge_time and ridge_frequency are given together or not at all")
+        if self.ridge_time is not None:
+            ridge_time = np.asarray(self.ridge_time, dtype=float).reshape(-1)
+            ridge_frequency = np.asarray(self.ridge_frequency, dtype=float).reshape(-1)
+            if ridge_time.shape != ridge_frequency.shape:
+                raise ValueError(
+                    "Spectrogram.ridge_time and ridge_frequency must have equal length; "
+                    f"got {ridge_time.size} and {ridge_frequency.size}"
+                )
+            object.__setattr__(self, "ridge_time", ridge_time)
+            object.__setattr__(self, "ridge_frequency", ridge_frequency)
         time = as_model_array(self.time, where="Spectrogram.time")
         frequency = as_model_array(self.frequency, where="Spectrogram.frequency")
         magnitude = as_model_array(self.magnitude, where="Spectrogram.magnitude")
@@ -933,6 +1001,15 @@ class Panels(ViewModel):
     #: entries come from the first panel, so the panels must agree; a figure
     #: whose panels show different quantities wants its per-panel legends.
     share_legend: bool = False
+    #: Axis links between panels, as ``(axis, slots)`` with ``axis`` ``"x"`` or
+    #: ``"y"`` and ``slots`` the panel indices that zoom and pan together
+    #: (issue #1467).  Unlike ``share_x``, which ties a whole regular grid, a
+    #: link names exactly the panels that share a coordinate -- the stacked
+    #: time traces of a composed figure, not the R-Z map beside them.
+    links: tuple[tuple[str, tuple[int, ...]], ...] = ()
+    #: Mark the panels ``(a)``, ``(b)``, ... in slot order, the way a
+    #: publication figure refers to them.
+    panel_labels: bool = False
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")
@@ -975,6 +1052,20 @@ class Panels(ViewModel):
                         f"{nrows}x{ncols} grid"
                     )
             object.__setattr__(self, "spans", spans)
+        links = []
+        for link in self.links:
+            axis, slots = link
+            slots = tuple(int(slot) for slot in slots)
+            if axis not in ("x", "y"):
+                raise ValueError(f"Panels.links axis must be 'x' or 'y'; got {axis!r}")
+            if len(set(slots)) < 2:
+                raise ValueError(f"Panels.links entry {link!r} links fewer than two panels")
+            if any(slot < 0 or slot >= occupied for slot in slots):
+                raise ValueError(f"Panels.links entry {link!r} names a panel outside 0..{occupied - 1}")
+            if any(isinstance(models[slot], Geometry3DLayers) for slot in slots):
+                raise ValueError("Panels.links cannot link a 3-D scene, which has no x/y axes")
+            links.append((axis, slots))
+        object.__setattr__(self, "links", tuple(links))
         object.__setattr__(self, "nrows", nrows)
         object.__setattr__(self, "ncols", ncols)
 

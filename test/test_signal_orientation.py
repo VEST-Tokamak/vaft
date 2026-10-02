@@ -104,11 +104,15 @@ def test_intuitive_is_the_default_for_signed_conventions_and_visible_when_it_fli
 
 
 def test_the_packaged_shot_shows_a_positive_diamagnetic_envelope_and_an_unflipped_current(sample):
+    # The stored flux is paramagnetic and positive (#1196): neither
+    # orientation flips it, and both draw the same positive envelope.
     figure, axes = vaft.omas.plot_diamagnetic_flux_time(sample)
-    assert axes.lines[0].get_ydata().max() > 1.0 and "(sign flipped)" in axes.get_title()
+    intuitive = axes.lines[0].get_ydata()
+    assert intuitive.max() > 1.0 and "(sign flipped)" not in axes.get_title()
     plt.close(figure)
     figure, axes = vaft.omas.plot_diamagnetic_flux_time(sample, orientation="canonical")
-    assert axes.lines[0].get_ydata().min() < -1.0 and "intuitive" not in axes.get_title()
+    assert axes.lines[0].get_ydata().max() > 1.0 and "intuitive" not in axes.get_title()
+    np.testing.assert_allclose(axes.lines[0].get_ydata(), intuitive)
     plt.close(figure)
     figure, axes = vaft.omas.plot_plasma_current_time(sample)
     assert "intuitive" not in axes.get_title()  # VEST samples store ip > 0 today (#307 note)

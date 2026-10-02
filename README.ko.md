@@ -26,7 +26,9 @@ implementation) 역할을 합니다.
 
 여기서 "프레임워크"가 뜻하는 네 가지입니다.
 
-### 통합 표준 인터페이스 (Integrated Standardized Interface)
+![VAFT의 네 기둥](docs/assets/diagrams/vaft_four_pillars.svg)
+
+### 표준화된 데이터 인터페이스 (Standardized Data Interface)
 
 표준화된 데이터 표현, 과학적 데이터 처리, 검증, 시각화, 물리 코드를 공통 API
 뒤의 개별 도구로 두지 않고 하나의 일관된 과학 워크플로로 통합합니다. VEST 고유
@@ -34,7 +36,7 @@ implementation) 역할을 합니다.
 VAFT 처리 및 플로팅, 검증(V&V), 그리고 EFIT, CHEASE, GPEC, TokaMaker, VFIT 등
 커뮤니티 물리 코드가 재구현이 아니라 **상호운용**됩니다.
 
-### 버전 관리되는 데이터 파이프라인 (Version-Controlled Data Pipeline)
+### 추적·재현 가능한 파이프라인 (Traceable & Reproducible Pipeline)
 
 장치 설계와 실험 데이터 취득에서 재구성·시뮬레이션된 물리 상태까지, 전체
 워크플로에 걸쳐 추적 가능하고 재현 가능한 데이터 산출물을 만듭니다. 추적
@@ -43,7 +45,7 @@ VAFT 처리 및 플로팅, 검증(V&V), 그리고 EFIT, CHEASE, GPEC, TokaMaker,
 *검증*할 수 있습니다. 버전 관리 대상은 소스 코드에 그치지 않고 장치 기술과 형상,
 진단 매핑, 교정, 관례, 처리 로직, 검증 기준, 모델 설정, 스키마 버전을 포함합니다.
 
-### IMAS-FAIR 데이터베이스 (IMAS-FAIR Database)
+### FAIR 과학 데이터 저장소 (FAIR Scientific Data Repository)
 
 검증된 데이터를 고유 형식과 표준 형식 양쪽으로 보존·탐색·접근·공유하며, FAIR 원칙
 (Findability, Accessibility, Interoperability, Reusability)을 따릅니다.
@@ -52,11 +54,16 @@ IMAS/OMAS, FileDB와 고유 산출물, [HSDS](https://github.com/HDFGroup/hsds) 
 찾는 기반입니다. 표준화된 접근은 고유 과학 산출물을 **대체하는 것이 아니라
 보완**합니다.
 
-### 장치 및 연구 아카이브 (Machine & Research Archive)
+### 장치 지식 아카이브 (Machine Knowledge Archive)
 
-2012년 운전 개시 이후 VEST 토카막과 그 연구 생태계의 살아 있는 아카이브입니다.
-장치 이력, 기술 문서, 실험 관행, 튜토리얼, 예제 노트북, 재현 가능한 연구 지식을
+장치 지식의 살아 있는 아카이브입니다. 2012년 운전 개시 이후 VEST 토카막의 장치 구성과
+이력, 실험 이력, 운영상의 결정, 기술 문서, 튜토리얼, 예제 노트북, 기관의 과학 지식을
 장기적인 검증·비교·연구에 쓸 수 있도록 연구자 세대와 협력 기관에 걸쳐 보존합니다.
+
+네 가지가 함께 연구 학습 순환을 완성합니다. 실험에서 출발해 장치 기술과 원시 데이터, 처리,
+모델링과 해석을 거쳐 비교와 발견에 이르고, 거기서 나온 새 질문이 다음 실험을 이끕니다.
+
+![연구 학습 순환](docs/assets/diagrams/fusion_science_knowledge_lifecycle.svg)
 
 ## VAFT로 무엇을 할 수 있나요?
 
@@ -114,6 +121,14 @@ IMAS/OMAS, FileDB와 고유 산출물, [HSDS](https://github.com/HDFGroup/hsds) 
 
 
 ## 아키텍처
+
+이질적인 장치·실험 원천은 관리되는 파이프라인을 거쳐 품질이 검증된 분석용 데이터가 됩니다.
+진단 처리, 평형 재구성과 분포 피팅, 해석 시뮬레이션은 공통 데이터 모델(IMAS)의 표준화된 과학 상태를 공유하고, 검증·확인과
+품질 평가 결과는 처리 설정으로 되돌아가 파이프라인을 개선합니다.
+
+![관리되는 과학 처리 파이프라인](docs/assets/diagrams/scientific_workflow.svg)
+
+현재 VEST 배포 구성:
 
 ```
 VEST 데이터 분석 플랫폼
@@ -182,12 +197,12 @@ modified로 표시됩니다. 단계별 설명과 `git pull`이나 `git stash pop
 
 #### 레거시 NumPy 1 설치
 
-NumPy 1을 요구하는 외부 패키지가 있을 때에만 사용하세요. `h5pyd==0.20.0`이 NumPy 2를 요구한다고 선언하는 이슈가 있으므로, NumPy를 교체한 뒤 `h5pyd`는 `--no-deps`로 설치합니다.
+NumPy 1을 요구하는 외부 패키지가 있을 때에만 사용하세요. `h5pyd==0.24.0`이 NumPy 2를 요구한다고 선언하는 이슈가 있으므로, NumPy를 교체한 뒤 `h5pyd`는 `--no-deps`로 설치합니다.
 
 ```bash
 python -m pip install -e .
 python -m pip install --force-reinstall --no-deps "numpy>=1.26.4,<2"
-python -m pip install --force-reinstall --no-deps h5pyd==0.20.0
+python -m pip install --force-reinstall --no-deps h5pyd==0.24.0
 ```
 
 이는 레거시 호환성 옵션이며, `pip check`는 의도적으로 우회한 NumPy 요구 사항을 보고할 수 있습니다.
@@ -201,7 +216,7 @@ pip install vaft
 가장 최근에 공개된 릴리스를 설치합니다. `develop`의 미공개 변경 사항이 필요하면 소스에서
 설치하세요.
 
-**지원 Python 버전**: 3.10 -- 3.13
+**지원 Python 버전**: 3.10 -- 3.14
 **기본 수치 연산 스택**: NumPy 2.x (`numpy>=2.0.0,<3`)
 
 외부 코드 설치 루트와 VAFT 런타임 경로는 프로세스 환경 변수로 설정합니다.
@@ -213,10 +228,15 @@ pip install vaft
 원격 VEST HSDS 데이터베이스를 사용하려면 HSDS 자격 증명을 설정하세요.
 
 ```bash
-hsconfigure
+vaft hsds configure
 ```
 
-프롬프트에 다음 값을 입력합니다.
+> upstream `hsconfigure`는 쓰지 마세요. 비밀번호 입력이 화면에 그대로 보이고, 이미 저장된 비밀번호를
+> 프롬프트 기본값으로 출력합니다. `vaft hsds configure`는 같은 h5pyd `~/.hscfg`를 숨김 입력과 `0600`
+> 권한으로 씁니다. Windows에서는 파일 권한이 적용되지 않으며, 파일은 사용자 프로필의 권한을 따릅니다.
+> `.hscfg`는 절대 커밋하지 마세요.
+
+프롬프트에 다음 값을 입력합니다. 비밀번호는 화면에 표시되지 않습니다.
 
 | 항목 | 값 |
 | --- | --- |
@@ -292,6 +312,7 @@ vaft/
 | [tokamak_power_balance](notebooks/tokamak_power_balance.ipynb) | 토카막 전력 수지 및 복사 성분 분해 |
 | [verification_and_validation](notebooks/verification_and_validation.ipynb) | 검증 및 유효성 확인 예제 |
 | [soft_x_ray_signal_analysis](notebooks/soft_x_ray_signal_analysis.ipynb) | 연 X선 신호 분석 |
+| [analytic_island_model_and_synthetic_response_model](notebooks/analytic_island_model_and_synthetic_response_model.ipynb) | 평형 위에 놓은 해석적 자기섬과 합성 연 X선 응답 |
 | [equilibrium_refinement_using_chease](notebooks/equilibrium_refinement_using_chease.ipynb) | CHEASE를 이용한 평형 정교화 |
 | [forward_equilibrium_using_TES](notebooks/forward_equilibrium_using_TES.ipynb) | TES를 이용한 순방향 평형 재구성 |
 | [forward_equilibrium_using_TokaMaker](notebooks/forward_equilibrium_using_TokaMaker.ipynb) | TokaMaker(Open FUSION Toolkit)를 이용한 순방향 자유경계 평형 계산 |

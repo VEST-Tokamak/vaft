@@ -1,0 +1,391 @@
+---
+title: "Fluctuation Diagnostics for Plasma Perturbations and Transient Events"
+subtitle: "VAFT Introductory Tutorial | Session 04"
+format:
+  vaftslides-revealjs: default
+  vaftslides-beamer: default
+bibliography: assets/bibliography/vaft.bib
+---
+
+# Where this session starts
+
+## What session 03 handed over
+
+A background state: an equilibrium and kinetic profiles you can interrogate.
+This session reads what lives on top of it:
+
+$$X = X_0 + \tilde X, \qquad
+\tilde X = A(\psi)\cos\!\left(m\theta - n\phi - \omega t + \varphi_0\right)$$
+
+- $m$ — poloidal structure; $n$ — toroidal structure; $\omega$ — how fast it passes
+
+Frequency and mode number are **two projections of one rotating structure**.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+Session 03 built $X_0$. Session 04 is about $\tilde X$. Write the helical
+perturbation on the board and name each symbol. The key sentence: a single
+fixed probe sees only the pattern passing it, which is a frequency. Several
+probes at different angles sample its spatial phase, which is a mode number.
+
+TRANSITION:
+The frequency a probe reports is not the mode's own frequency. The plasma
+moves.
+:::
+
+## Lab frame and plasma frame
+
+$$f_{\mathrm{lab}} \approx f_{\mathrm{plasma}} + n\,f_\phi, \qquad
+f_\phi = \frac{v_\phi}{2\pi R}$$
+
+- **tearing mode** — carried by the plasma: $f_{\mathrm{lab}}$ is largely rotation
+- **locked mode** — $f_{\mathrm{lab}} \to 0$: zero frequency is not zero perturbation
+- **Alfven eigenmode** — intrinsic frequency dominates: not a convection frequency
+
+On VEST (CES on shot 48224): $f_\phi \approx 4$–$22$ kHz, as large as the
+observed 3–9 kHz line or larger.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+The Doppler term is the reason an observed frequency cannot be read as a mode
+property. Walk the three cases. The locked-mode case matters for Mirnov coils in
+particular: they measure dB/dt, so a perturbation that stops moving vanishes
+from the voltage.
+
+WARN:
+The rotation numbers come from 48224, a different discharge from the one whose
+mode we analyse (45531). They are an order-of-magnitude estimate of the Doppler
+term on VEST, not a correction.
+
+TRANSITION:
+Before any analysis: what can each diagnostic see at all?
+:::
+
+# What the diagnostics can see
+
+## Each diagnostic measures a different variable
+
+| diagnostic | measures | rate (Nyquist) on these samples |
+| --- | --- | --- |
+| Mirnov, fluctuation array | $dB/dt$ | 2 MHz (1 MHz), 500 kHz |
+| Mirnov, equilibrium probes | $dB/dt$ | 250 kHz (125 kHz) |
+| soft X-ray | line-integrated emissivity | 976.6 kHz (488 kHz) |
+| fast camera | projected visible light | 50 kframe/s (25 kHz) |
+| Langmuir, H-alpha | edge $n_e$, $T_e$; line emission | 25 kHz (12.5 kHz) |
+| interferometer | $\int n_e\,dl$ | not in these samples |
+
+$f_{\mathrm{usable}} < f_{\mathrm{Nyquist}}$. **Sampling rate is never detectability.**
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+Every rate on this slide was read from the stored time bases by
+`vaft.omas.fluctuation_bandwidths`, not from a table of nominal rates. The
+usable band sits below Nyquist because of the sensor transfer function, the
+analogue and anti-alias filters, the exposure (19 us on the camera), SNR and
+line integration.
+
+WARN:
+The filterscope at 25 kHz samples the 3-9 kHz line only 3-8 times per period
+and cannot represent the 14 kHz harmonic at all. It confirms timing, not a
+mode.
+
+TRANSITION:
+The notebook draws this against the typical phenomenon bands, and the caption
+is part of the figure.
+:::
+
+## Phenomenon bands are order of magnitude
+
+- locked / slow MHD: ~0 to a few kHz
+- tearing / NTM, IRE precursor: kHz to tens of kHz
+- fishbones: tens of kHz; Alfven eigenmodes: tens to hundreds of kHz
+- IRE, disruption: **not one frequency** --- a sequence
+
+`plot_fluctuation_frequency_coverage` puts these beside each diagnostic's
+Nyquist frequency. It is **typical order of magnitude, not an identification
+rule**.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+A feature in the tearing band is not thereby a tearing mode. The bands depend
+on the machine, the rotation and the mode. Separate a mode, which you can track
+through f(t), m and n, from an event, which is an ordered sequence of changes.
+
+TRANSITION:
+Now the three diagnostics, in order.
+:::
+
+# Mirnov, SXR, camera
+
+## Two shots, said honestly
+
+No archived VEST shot has a toroidal Mirnov array, SXR **and** a fast camera.
+
+- **45531**: fluctuation Mirnov array at three toroidal angles, 52 SXR chords,
+  $I_p$, H-alpha, Langmuir. No equilibrium.
+- **40600**: 602 camera frames at 50 kframe/s beside the outboard probe `C2-05`.
+- **39915**: the EFIT equilibrium, for $q$. **48224**: CES rotation.
+
+Every number is labelled with its shot.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+The session uses each shot for what it has and never moves a number from one
+shot to another without saying so. 45531 and 40600 are repository-only samples
+and need a source checkout.
+
+TRANSITION:
+Start with the magnetic probes on 45531.
+:::
+
+## Mirnov: a line, its floor, its mode number
+
+- tracked line 7 kHz (harmonic near 14 kHz), falling to 3 kHz during the flat-top
+- 2--40 kHz band power **150$\times$** the pre-discharge floor
+- a coil measures $dB/dt$: $S_{dB/dt} = (2\pi f)^2 S_B$; a fitted index is the field's **+2**
+- midplane trio at 135/225/315$^\circ$: **$n = 1$ modulo 4**, 8$^\circ$ residual
+- off-midplane trios: $n = 2, 0, 1$ at 27--42$^\circ$ --- they **disagree**
+  (candidates $-1..2$: one per residue modulo 4)
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+The spectrogram's ridge comes from `track_dominant_frequency`. The floor is
+measured before the coils fire, so the claim is a ratio. For n: three positions
+90 degrees apart resolve n modulo 4; the title of the phase plot states the
+number of distinct positions before any number.
+
+WARN:
+A fit asked for n returns one whether or not a line passes through the points.
+The residual, not a vote across trios, says which fit describes its data. The
+honest statement is "n = 1 modulo 4 on the midplane trio, not reproduced by the
+off-midplane trios". Also: the 14 kHz band fits n = 0 modulo 4, not the n = 2 a
+harmonic of n = 1 would carry.
+
+TRANSITION:
+And the converse case: a shot that cannot answer.
+:::
+
+## Available is not informative --- and now VAFT refuses
+
+Shot 39915 has **no toroidal array**. Its archive published DAQ field 171 twice,
+at two angles, so a fit used to compare a signal with itself and return an
+identity.
+
+Since the #724 / #825 fix, `mirnov_spatial_phase` counts **distinct
+acquisitions**, and on 39915 the call refuses --- with its reason.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+Sessions 02 and 03 taught that a refused plot is often underived. This is the
+converse: a plot that ran and returned a number was not an answer. The guard
+now checks the physical condition, two distinct acquisitions at two angles,
+rather than a neighbour of it. Show `available_plots(..., available_only=False)`
+and the reason string.
+
+TRANSITION:
+Now the same perturbation from inside the plasma.
+:::
+
+## Soft X-ray: the same line from the core
+
+- baseline from the quiet tail; vacuum subtraction **optional**, and not applied
+  (no vacuum shot in the sample)
+- Bottom Al Ch 16 shows the 3--4 kHz branch strongly in the second half
+- two arrays 120$^\circ$ apart: Hilbert phases rank $n = -1$ and $n = +2$ **tied**
+- and their chords view different poloidal locations: $m\,\Delta\theta$ mixes in
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+`sxr_band_signals` removes each chord's offset (one array sits near -2 V raw),
+then band-passes. The two-filter Te is a line-integrated proxy, not a profile.
+The ranked n candidates tie in pairs because 120 degrees leaves n modulo 3, and
+the chords do not share a poloidal location, so the ranking is a list of what
+the phases permit, not a measurement.
+
+TRANSITION:
+Then a third view: a projected image, on another shot.
+:::
+
+## Fast camera: where the magnetic frequency lives
+
+On 40600:
+
+1. subtract each pixel's local background (15 frames)
+2. take $f_{\mathrm{MHD}}(t)$ from the **probe**
+3. per-pixel spectrum, integrated about $f_{\mathrm{MHD}} \pm 0.5$ kHz
+4. divide by local emission
+
+Camera and probe tracks: 9--10 kHz, jump to ~14 kHz, back near 11 kHz, then
+fall. Detrended correlation **$r = 0.93$** over 36 windows that overlap by 90 %:
+about **3 independent** windows, so no p-value.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+This is the published VEST camera chain, in `vaft.process.camera_fluctuation`.
+One perturbation appears as a single number f_MHD from dB/dt at the wall, and as
+a 2-D pattern in projected light.
+
+WARN:
+It is not a clean chirp; after about 315 ms the probe line fades while the
+camera sits near the bottom of the search band. The correlation depends on the
+windows: the sample manifest records 0.67 for one-frame steps over 503 windows,
+which are about five independent ones. A Pearson p-value on overlapping
+windows treats them as independent and is meaningless; report r with N_eff.
+And a bright pixel is where the projection fluctuates, not necessarily where
+the perturbation is largest. Optical intensity is not density.
+
+TRANSITION:
+Three diagnostics grew at the same time. Is that one perturbation?
+:::
+
+# Coherence, not coincidence
+
+## Same timing is not the same mode
+
+$$C_{xy}(f) = \frac{|S_{xy}|^2}{S_{xx}S_{yy}}, \qquad \phi_{xy} = \arg S_{xy}$$
+
+- Mirnov vs every SXR chord, 2--5 kHz (6 bins, 12 segments): **38 of 52** chords
+  above the Bonferroni line 0.35 (single-bin line 0.24)
+- pre-plasma control, coils energised (7 segments): **1 of 52** --- noise expects ~2.6
+- best chord 0.88, phase steady near **-85$^\circ$** across 2.4--5.2 kHz
+- first 4 ms only: **2 segments, line 0.95** --- a high value there means nothing
+- probe vs camera (40600): coherent bins at 7.5--12 and 14--14.5 kHz
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+Two diagnostics becoming large at the same time is consistent with one
+perturbation, with two, or with a plasma that got hotter. Coherence above its
+95 % line with a stable phase is the evidence that ties them. `cross_spectrum`
+records the grid both records were put on and which one was resampled.
+
+WARN:
+A coherence value without its segment count is not a result. A chord's best of
+six bins must be judged against a line for a maximum (Bonferroni), not the
+single-bin line: against that one, 40 of 52 chords already "pass" before the
+plasma. The control rules out pickup as the source; it does not prove one mode.
+
+TRANSITION:
+Assemble what has been measured.
+:::
+
+## Frequency + phase + n + consistency $\to$ mode
+
+- $f$: 9 kHz falling to 3 kHz; $n = 1$ mod 4; coherent in $\delta B$ and $\delta\epsilon$
+- **$m$ is not measured**: outboard probes outside the LCFS span only ~16--20$^\circ$
+  of $\theta^*$ on 39915 (#472, #506)
+- $q = m/n$: for $n = 1$, 39915 has **9 surfaces** ($m = 3$--$11$), and no
+  $q = 1$ surface
+- **$n$ alone does not fix the resonant surface**
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+This is a coherent, rotating, low-n magnetic perturbation seen by the wall
+probes and by core emissivity with a fixed phase between them. It is not yet a
+named mode, and the missing entry is m. Each candidate surface corresponds to a
+different assumed m, and the assumption is exactly what is not measured. Without
+the same-shot rotation, f_plasma is also undetermined.
+
+TRANSITION:
+Events rather than modes.
+:::
+
+# Transients
+
+## Transients are sequences of numbers
+
+- 45531: $I_p$ 163.4 kA; **80--20 % in 2.64 ms**; no spike above 5 $\sigma$;
+  no equilibrium, so no vertical position (said, not zeroed)
+- 39915: 80--20 % in **7.23 ms** (crossings read from the raw trace, by design); steepest $dI_p/dt$
+  -64.6 / -43.0 / -24.5 MA/s (raw / 0.2 / 0.5 ms), because a
+  **+6.9 kA spike** sits inside the quench at 327.52 ms
+- 39915 $Z_{\mathrm{axis}}$: 23.4 mm $\to$ ~0 (sub-micron) between two slices --- a step between
+  reconstructions, not a plasma moving
+
+VAFT has **no classifier**: nothing is named IRE or disruption.
+
+::: {.notes}
+[4 min]
+
+NARRATE:
+`current_quench` and `current_spike` return numbers and, when nothing
+qualifies, a reason. Read the transient panel top to bottom: coherent line
+through the flat-top, SXR band grows, current falls, fluctuation power and light
+collapse. That is precursor, quench, termination, in order.
+
+WARN:
+Quote a steepest slope with its smoothing, or quote the 80-20 time. The 80-20
+time is the same at every smoothing by construction -- smoothing only changes
+how the rate is taken -- so its sameness is not a robustness test. And a
+derivative of a reconstruction inherits its artefacts.
+
+TRANSITION:
+The session's workflow in one slide.
+:::
+
+## Session workflow
+
+timing $\rightarrow$ bandwidth $\rightarrow$ Mirnov (track, floor, $n$ mod alias)
+$\rightarrow$ SXR $\rightarrow$ camera $\rightarrow$ coherence and phase
+$\rightarrow$ rotation and $q$ $\rightarrow$ transient sequence
+$\rightarrow$ same shot over time, several shots
+
+Part II: $n = 1$ in **19 of 20** tracked windows while $f$ falls; across 45531,
+39915, 41524, 41672 only 45531 is allowed an $n$.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+Every window comes from `plasma_timing` and `discharge_timing`; nothing typed.
+The multi-shot table aligns each shot to its own onset, compares all four on the
+same 250 kHz probe, and writes "not allowed" where no toroidal array recorded.
+The exercise is the same chain on a shot of the student's choice.
+
+TRANSITION:
+Close with where the chain stops.
+:::
+
+# Where it stops
+
+## Where the chain stops
+
+- no resolver from $(m, n)$ to a surface, and no measured $m$ --- #506, #472
+- no $f = n f_\phi$ overlay on spectrograms, and no same-shot rotation --- #460
+- field 171 published twice --- fixed in the mapper and the fit guard (#724, #825)
+- no IRE, sawtooth or disruption classifier
+- method depth: `notebooks/fluctuation_diagnostics_analysis.ipynb`
+
+**Next**: session 05 turns $m$, $n$ and the rational surfaces into *inputs* for
+stability and perturbed-equilibrium calculations.
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+Naming the gaps is more useful than approximating them. The central message: a
+plasma perturbation is not identified by a spectral peak alone. It is inferred
+by combining frequency, spatial phase, diagnostic response, rotation,
+equilibrium structure and consistency across diagnostics.
+:::

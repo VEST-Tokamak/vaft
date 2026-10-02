@@ -13,6 +13,8 @@ Submodules:
 * ``legacy``   -- legacy VEST/OMFIT signal-processing helpers
 * ``kfile``    -- constraints-ODS and k-file generation
 * ``magnetic`` -- the core magnetic EFIT adapter (``EFITConfig``, ``run_efit``, ...)
+* ``termination`` -- what EFIT's log says about how each slice ended (``parse_slices``)
+* ``iteration_history`` -- each slice's Picard trajectory (``EFITIterationHistory``, #1038)
 * ``kinetic``  -- kinetic-pressure constraint mode (``KineticEFITConfig``, ``run_kinetic_efit``, ...)
 
 Kinetic pressure is an EFIT constraint mode, not a separate code adapter, so
@@ -27,8 +29,24 @@ from .config import (
     EFITProfileConfig,
     EFITScientificConfig,
     efit_parameter_grid,
+    routine_constraint_config,
+    routine_numerics_config,
+    routine_profile_config,
+    routine_scientific_config,
 )
+from .presets import DEFAULT_PRESET, PRESETS, EFITPreset, apply_sigma_floor, efit_preset, preset_of
 from .termination import EFIT_LOG_PATTERNS, parse_slices
+from .iteration_history import (
+    ITERATION_HISTORY_LEVELS,
+    EFITIteration,
+    EFITIterationHistory,
+    EFITSliceIterationHistory,
+    compare_iteration_histories,
+    iteration_history_from_workdir,
+    parse_iteration_history,
+    plot_iteration_convergence,
+    read_iteration_history,
+)
 from .status import (
     EFIT_FAILURE_CODES,
     EFITSliceStatus,
@@ -58,6 +76,8 @@ from .magnetic import (
     EFITResult,
     _efit_unconfigured_reason,
     resolved_efit_configuration,
+    unrecorded_efit_configuration,
+    UNRECORDED_SCIENTIFIC_SHA256,
     find_efit_executable,
     prepare_efit_inputs,
     run_efit,
@@ -119,6 +139,16 @@ __all__ = [
     "EFITProfileConfig",
     "EFITScientificConfig",
     "efit_parameter_grid",
+    "routine_constraint_config",
+    "routine_numerics_config",
+    "routine_profile_config",
+    "routine_scientific_config",
+    "DEFAULT_PRESET",
+    "EFITPreset",
+    "PRESETS",
+    "apply_sigma_floor",
+    "efit_preset",
+    "preset_of",
     "EFIT_FAILURE_CODES",
     "EFITSliceStatus",
     "EFITValidationConfig",
@@ -142,6 +172,8 @@ __all__ = [
     "analyze_efit_identifiability",
     "read_efit_linearization",
     "resolved_efit_configuration",
+    "unrecorded_efit_configuration",
+    "UNRECORDED_SCIENTIFIC_SHA256",
     "find_efit_executable",
     "prepare_efit_inputs",
     "run_efit",
@@ -164,6 +196,15 @@ __all__ = [
     "table_identity",
     "EFIT_LOG_PATTERNS",
     "parse_slices",
+    "ITERATION_HISTORY_LEVELS",
+    "EFITIteration",
+    "EFITIterationHistory",
+    "EFITSliceIterationHistory",
+    "compare_iteration_histories",
+    "iteration_history_from_workdir",
+    "parse_iteration_history",
+    "plot_iteration_convergence",
+    "read_iteration_history",
     "resolve_toolchain",
     "executable_identity",
     "EQE",

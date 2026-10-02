@@ -479,7 +479,9 @@ def q_from_flux_surface_averages(
 
 
 def q_from_phi(psi: np.ndarray,
-               phi: np.ndarray) -> np.ndarray:
+               phi: np.ndarray,
+               *,
+               psi_per_radian: bool = False) -> np.ndarray:
     r"""Safety factor $q$ as the flux derivative $d\Phi/d\psi$.
 
     $$q = \frac{d\Phi}{d\psi}$$
@@ -487,9 +489,13 @@ def q_from_phi(psi: np.ndarray,
     Parameters
     ----------
     psi : np.ndarray
-        Poloidal flux profile, monotonic, full weber [Wb].
+        Poloidal flux profile, monotonic; full weber unless
+        ``psi_per_radian`` [Wb].
     phi : np.ndarray
         Toroidal flux enclosed by the same surfaces [Wb].
+    psi_per_radian : bool, optional
+        True when ``psi`` is per radian (COCOS 1-8, a g-file flux); it is then
+        multiplied by $2\pi$ first [-].
 
     Returns
     -------
@@ -499,11 +505,11 @@ def q_from_phi(psi: np.ndarray,
     Convention
     ----------
     Sauter and Medvedev define $q = \sigma_{\rho\theta\varphi}\sigma_{B_p}
-    (2\pi)^{e_{B_p}-1}\,d\Phi/d\psi$.  This routine applies neither sign nor
-    $2\pi$: it is exact, up to the orientation sign, for ``psi`` in full weber
-    (the IMAS Data Dictionary flux, COCOS 11-18, $e_{B_p}=1$), and returns
-    $2\pi q$ when ``psi`` is per radian (COCOS 1-8, $e_{B_p}=0$, the g-file
-    flux) -- multiply such a ``psi`` by $2\pi$ first.  This is the inverse of
+    (2\pi)^{e_{B_p}-1}\,d\Phi/d\psi$.  This routine applies no orientation sign.
+    It is exact, up to that sign, for ``psi`` in full weber (the IMAS Data
+    Dictionary flux, COCOS 11-18, $e_{B_p}=1$), the default; for a per-radian
+    ``psi`` (COCOS 1-8, $e_{B_p}=0$, the g-file flux) pass
+    ``psi_per_radian=True``, without which the result is $2\pi q$.  This is the inverse of
     :func:`toroidal_flux_from_q_psi`, which integrates on the same full-weber
     grid.  :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` tells which
     family an ODS stores.  Tracked in #354.
@@ -520,6 +526,7 @@ def q_from_phi(psi: np.ndarray,
            Eq. (17) and Table I.
     .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 3.4.
     """
+    psi = np.asarray(psi, dtype=float) * (2.0 * np.pi if psi_per_radian else 1.0)
     return gradient(psi, phi)
 
 
@@ -697,8 +704,438 @@ magnetic_shear = shear_from_r_q  # noqa: E305
 
 
 # ------------------------------------------------------------------
+# Flux coordinates
+# ------------------------------------------------------------------
+
+
+def miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0, indentation=0.0):
+    r"""Major radius and height of a Miller-parametrised flux surface.
+
+    $$R = R_0 + \Delta + r\left[\cos\!\left(\theta + \arcsin(\delta)\,\sin\theta\right) + b\,\sin^2\theta\cos\theta\right],
+    \qquad Z = Z_0 + \kappa\, r \sin\!\left(\theta + \zeta\sin 2\theta\right)$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Minor-radius label of the surface [m].
+    theta : float or np.ndarray
+        Poloidal parametrisation angle [rad].
+    R0 : float
+        Major radius of the reference axis [m].
+    kappa : float or np.ndarray
+        Elongation of the surface [-].
+    delta : float or np.ndarray
+        Triangularity of the surface, in $(-1, 1)$ [-].
+    shift : float or np.ndarray
+        Shafranov shift of the surface centre along $R$ [m].
+    squareness : float or np.ndarray
+        Squareness $\zeta$, in $(-1/2, 1/2)$ [-].
+    Z0 : float or np.ndarray
+        Height of the surface centre [m].
+    indentation : float or np.ndarray
+        Inboard indentation $b$, above $-\sqrt{1-\delta^2}$; positive values
+        dent the high-field side into a bean [-].
+
+    Returns
+    -------
+    R : float or np.ndarray
+        Major radius of the surface point [m].
+    Z : float or np.ndarray
+        Height of the surface point above the midplane [m].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is negative or not finite, ``kappa`` is not positive, ``delta``
+        lies outside $(-1, 1)$, ``squareness`` outside $(-1/2, 1/2)$, or
+        ``indentation`` at or below $-\sqrt{1-\delta^2}$.
+
+    Convention
+    ----------
+    $\theta$ runs from the outboard midplane towards the top. ``delta`` is
+    the surface's own triangularity: a family of nested surfaces passes its
+    radial profile (VAFT's schematics use $\delta(r) = \delta_a r/a$).
+    ``theta`` is the parametrisation angle, not a straight-field-line angle
+    (see ``straight_field_line_angle``). ``squareness = 0`` and ``Z0 = 0``
+    reproduce the five-parameter surface exactly, and so does
+    ``indentation = 0``; the process layer's ``evaluate_miller`` evaluates
+    this same function. The indentation term
+    $g(\theta) = \sin^2\theta\cos\theta$ vanishes at the outboard and
+    inboard midplanes and at the top and bottom, so $r$, $\kappa$ and
+    $\delta$ keep their cardinal-point definitions; the geometric elongation
+    and triangularity of the whole contour do move with $b$. Nothing keeps
+    $R$ positive: a large $b$ on a small major radius can push the inboard
+    shoulders through the axis, as a large $r$ always could.
+
+    Physical interpretation
+    -----------------------
+    The top and bottom of the surface sit at $R_0 + \Delta - \delta r$: a
+    positive triangularity pulls them inward, making the D shape; the
+    outboard midplane stays at $R_0 + \Delta + r$. With $\alpha = \arcsin\delta$,
+    the high-field side is concave -- a bean -- once $b > (1-\alpha)^2/2$, and
+    the outboard side stays convex while $b < (1+\alpha)^2/2$.
+
+    Assumptions
+    -----------
+    Up-down symmetric surfaces described by three shape parameters.
+
+    References
+    ----------
+    .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
+           R. E. Waltz, Phys. Plasmas 5, 973 (1998).
+    .. [2] The indentation term and its bean-onset criterion are VAFT's own
+           (issue #941), for the bean-shaped plasmas of PBX/PBX-M.
+    """
+    kappa = np.asarray(kappa, dtype=float)
+    delta = np.asarray(delta, dtype=float)
+    squareness = np.asarray(squareness, dtype=float)
+    r = np.asarray(r, dtype=float)
+    if not np.all(np.isfinite(r)) or np.any(r < 0.0):
+        raise ValueError("r must be finite and non-negative")
+    if np.any(kappa <= 0.0):
+        raise ValueError("kappa must be positive")
+    if np.any(np.abs(delta) >= 1.0):
+        raise ValueError("delta must lie in (-1, 1)")
+    if np.any(np.abs(squareness) >= 0.5):
+        raise ValueError("squareness must lie in (-1/2, 1/2): beyond it the surface doubles back on itself")
+    indentation = np.asarray(indentation, dtype=float)
+    if np.any(indentation <= -np.sqrt(1.0 - delta**2)):
+        raise ValueError("indentation must exceed -sqrt(1 - delta**2): at or below it the inboard side crosses the outboard one")
+    theta = np.asarray(theta, dtype=float)
+    return _miller_rz(r, theta, R0 + np.asarray(shift, dtype=float), Z0, kappa, delta, squareness, indentation)
+
+
+def _miller_rz(r, theta, R0, Z0, kappa, delta, squareness, indentation):
+    """The Miller point formula without validation, for a fitter's trial parameters."""
+    R = R0 + r * np.cos(theta + np.arcsin(delta) * np.sin(theta))
+    if np.any(indentation != 0.0):
+        # Only added when asked for, so a zero indentation is the old surface to the bit.
+        R = R + r * indentation * np.sin(theta)**2 * np.cos(theta)
+    return R, Z0 + kappa * r * np.sin(theta + squareness * np.sin(2.0 * theta))
+
+
+def shafranov_shift_from_r_a_R0_beta_p_li(r, a, R0, beta_p, l_i):
+    r"""Large-aspect-ratio Shafranov shift of a circular surface relative to the boundary.
+
+    $$\Delta(r) - \Delta(a) = \frac{a^2 - r^2}{2R_0}\left(\beta_p + \frac{l_i}{2}\right)$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Minor radius of the surface, in $[0, a]$ [m].
+    a : float
+        Minor radius of the boundary [m].
+    R0 : float
+        Major radius of the boundary centre [m].
+    beta_p : float
+        Poloidal beta, taken constant across the surfaces [-].
+    l_i : float
+        Internal inductance, taken constant across the surfaces [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Outward shift of the surface centre beyond the boundary's, largest on
+        the magnetic axis [m].
+
+    Raises
+    ------
+    ValueError
+        ``a`` or ``R0`` is not positive, or ``r`` lies outside $[0, a]$.
+
+    Convention
+    ----------
+    Positive outward (towards larger $R$), measured from the centre of the
+    boundary, which is the geometric axis. It integrates Wesson's
+    $d\Delta/dr = -(r/R_0)(\beta_p + l_i/2)$ with $\beta_p$ and $l_i$
+    held at their global values; profile-resolved $\beta_p(r)$ and $l_i(r)$
+    would need the integral itself.
+
+    Physical interpretation
+    -----------------------
+    Pressure (the $\beta_p$ term) and the hoop force of the plasma current --
+    the poloidal field is stronger, so its pressure higher, on the inboard side
+    (the $l_i/2$ term) -- push the inner surfaces outward, so the
+    magnetic axis sits outside the geometric axis by
+    $a^2(\beta_p + l_i/2)/(2R_0)$ and the surfaces crowd on the low-field side.
+
+    Assumptions
+    -----------
+    Circular surfaces, large aspect ratio $a/R_0 \ll 1$, a shift small
+    against $a$, and radially uniform $\beta_p + l_i/2$.
+
+    Validity
+    --------
+    Accurate to $O(\epsilon)$; at tight aspect ratio (spherical tokamaks)
+    the shift and the shaping it couples to need a Grad--Shafranov solution.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.7.
+    .. [2] V. D. Shafranov, Rev. Plasma Phys. 2 (1966) 103.
+    """
+    a, R0 = float(a), float(R0)
+    if not (a > 0.0 and R0 > 0.0):
+        raise ValueError(f"a and R0 must be positive, not {a!r} and {R0!r}")
+    r = np.asarray(r, dtype=float)
+    if not np.all(np.isfinite(r)) or np.any(r < 0.0) or np.any(r > a * (1.0 + 1e-12)):
+        raise ValueError("r must be finite and lie in [0, a]")
+    result = (a * a - r * r) / (2.0 * R0) * (float(beta_p) + 0.5 * float(l_i))
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def straight_field_line_angle(theta, jacobian, R):
+    r"""Straight-field-line (PEST) poloidal angle on one flux surface.
+
+    $$\theta^*(\theta) = \theta_0 + 2\pi\,
+    \frac{\int_{\theta_0}^{\theta} \mathcal{J}/R^{2}\,\mathrm{d}\theta'}
+         {\oint \mathcal{J}/R^{2}\,\mathrm{d}\theta'}$$
+
+    Parameters
+    ----------
+    theta : np.ndarray
+        Poloidal angle of the surface's own parametrisation, strictly
+        increasing and spanning exactly one period, both ends included [rad].
+    jacobian : np.ndarray
+        Jacobian $\mathcal{J} = (\nabla r \times \nabla\theta \cdot \nabla\phi)^{-1}$
+        of the $(r, \theta, \phi)$ coordinates at each ``theta``; only its
+        variation along the surface matters, so any radial label and unit may
+        be used [arb].
+    R : np.ndarray
+        Major radius at each ``theta`` [m].
+
+    Returns
+    -------
+    np.ndarray
+        Straight-field-line angle at each ``theta``, equal to ``theta[0]`` at
+        the first point and to ``theta[0] + 2 pi`` at the last [rad].
+
+    Raises
+    ------
+    ValueError
+        The arrays differ in shape, ``theta`` is not strictly increasing, it
+        does not span exactly one period, or ``jacobian`` changes sign (the
+        coordinates fold over, and no angle is defined).
+
+    Convention
+    ----------
+    PEST: $\theta^*$ is the poloidal angle in which a field line on the
+    surface is straight, $\mathrm{d}\phi/\mathrm{d}\theta^* = q$, with the
+    toroidal angle left geometric. It runs in the same direction as
+    ``theta`` and shares its origin. The overall sign of $\mathcal{J}$ (the
+    handedness of the coordinates) is ignored, but it must not change along
+    the surface.
+    A helical phase $m\theta^* - n\phi$ is constant along a field line of
+    $q = m/n$ only in this angle.
+
+    Physical interpretation
+    -----------------------
+    With $\mathbf{B} = F\nabla\phi + \nabla\phi\times\nabla\psi$ and
+    $\psi = \psi(r)$, the local field-line pitch is
+    $\mathbf{B}\cdot\nabla\phi / \mathbf{B}\cdot\nabla\theta
+    = F\mathcal{J}/(R^{2}\psi')$. $F$ and $\psi'$ are constant on the surface,
+    so the pitch varies with $\mathcal{J}/R^{2}$ alone and normalising its
+    integral gives the angle in which the pitch is uniform. For concentric
+    circles $\mathcal{J}/R^{2} = r/R$, and
+    $\theta^* = 2\arctan\!\left(\sqrt{(1-\epsilon)/(1+\epsilon)}\,
+    \tan(\theta/2)\right)$: field lines linger on the low-field side, so
+    features evenly spaced in $\theta^*$ spread out there.
+
+    Assumptions
+    -----------
+    Axisymmetric nested flux surfaces labelled by the radial coordinate of
+    the Jacobian. No equilibrium solve is needed: the angle follows from the
+    surface geometry and its radial neighbours through $\mathcal{J}$.
+
+    Numerical notes
+    ---------------
+    Cumulative trapezoid rule on the given grid; the error is second order in
+    the grid spacing, so the grid must resolve $\mathcal{J}/R^{2}$.
+
+    References
+    ----------
+    .. [1] R. C. Grimm, R. L. Dewar and J. Manickam, "Ideal MHD stability
+           calculations in axisymmetric toroidal coordinate systems",
+           J. Comput. Phys. 49, 94 (1983).
+    .. [2] W. D. D'haeseleer, W. N. G. Hitchon, J. D. Callen and
+           J. L. Shohet, *Flux Coordinates and Magnetic Field Structure*,
+           Springer (1991), Ch. 6.
+    """
+    theta = np.asarray(theta, dtype=float)
+    jacobian = np.asarray(jacobian, dtype=float)
+    R = np.asarray(R, dtype=float)
+    if theta.ndim != 1 or jacobian.shape != theta.shape or R.shape != theta.shape:
+        raise ValueError("theta, jacobian and R must be 1-D arrays of the same length")
+    if theta.size < 3 or np.any(np.diff(theta) <= 0.0):
+        raise ValueError("theta must be strictly increasing with at least three points")
+    if not np.isclose(theta[-1] - theta[0], 2.0 * np.pi, rtol=0.0, atol=1e-9):
+        raise ValueError(f"theta must span exactly one period (2 pi), not {theta[-1] - theta[0]!r}")
+    if not (np.all(jacobian > 0.0) or np.all(jacobian < 0.0)):
+        raise ValueError("jacobian changes sign or vanishes along the surface: the coordinates fold over")
+    weight = np.abs(jacobian) / R ** 2
+    cumulative = np.concatenate([[0.0], np.cumsum(0.5 * (weight[1:] + weight[:-1]) * np.diff(theta))])
+    return theta[0] + 2.0 * np.pi * cumulative / cumulative[-1]
+
+
+def generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0.0, power_b=0.0, power_r=2.0):
+    r"""Straight-field-line poloidal angle of the generalised family: PEST, Boozer, Hamada, equal-arc.
+
+    $$\theta_\mathrm{sfl}(\theta) = \theta_0 + 2\pi\,
+    \frac{\int_{\theta_0}^{\theta} \mathcal{J}\,R^{-p_R}B_p^{\,p_{Bp}}B^{\,p_B}\,\mathrm{d}\theta'}
+         {\oint \mathcal{J}\,R^{-p_R}B_p^{\,p_{Bp}}B^{\,p_B}\,\mathrm{d}\theta'}$$
+
+    Parameters
+    ----------
+    theta : np.ndarray
+        Poloidal angle of the surface's own parametrisation, strictly
+        increasing and spanning exactly one period, both ends included [rad].
+    jacobian : np.ndarray
+        Jacobian of the $(r, \theta, \phi)$ coordinates at each ``theta``, as
+        in ``straight_field_line_angle`` [arb].
+    R : np.ndarray
+        Major radius at each ``theta`` [m].
+    B_p : np.ndarray
+        Poloidal field strength at each ``theta``; only its variation matters [T].
+    B : np.ndarray
+        Total field strength at each ``theta``; only its variation matters [T].
+    power_bp : float
+        $p_{Bp}$ [-].
+    power_b : float
+        $p_B$ [-].
+    power_r : float
+        $p_R$ [-].
+
+    Returns
+    -------
+    np.ndarray
+        The straight-field-line angle at each ``theta``, from ``theta[0]`` to
+        ``theta[0] + 2 pi`` [rad].
+
+    Raises
+    ------
+    ValueError
+        As ``straight_field_line_angle``, or a field is not positive.
+
+    Convention
+    ----------
+    The target coordinates have Jacobian
+    $\mathcal{J}_\mathrm{sfl} \propto R^{p_R}/(B_p^{\,p_{Bp}}B^{\,p_B})$, the
+    DCON/GPEC generalised family: PEST $(0, 0, 2)$, Boozer $(0, 2, 0)$,
+    Hamada $(0, 0, 0)$, equal-arc $(1, 0, 0)$ for
+    $(p_{Bp}, p_B, p_R)$. Since $\mathbf B\cdot\nabla\theta_\mathrm{sfl} \propto
+    1/\mathcal J_\mathrm{sfl}$ whatever toroidal angle is paired with it,
+    $d\theta_\mathrm{sfl}/d\theta = \mathcal J/\mathcal J_\mathrm{sfl}$: the
+    poloidal angle is fully set here. Every member except PEST also shifts the
+    toroidal angle, $\zeta = \phi + \nu(\psi, \theta)$ -- with the geometric
+    $\phi$ the field-line condition forces $\mathcal J \propto R^2$ -- given by
+    ``sfl_toroidal_angle_shift``. The defaults give PEST, equal to
+    ``straight_field_line_angle``.
+
+    Physical interpretation
+    -----------------------
+    Straightness does not fix the coordinates: every member of the family
+    makes field lines straight, and the powers say what else is made simple --
+    the geometric $\phi$ (PEST), $|B|$ in the Jacobian (Boozer), a flux-function
+    Jacobian that also straightens current lines (Hamada), or uniform
+    poloidal arc sampling (equal-arc).
+
+    Assumptions
+    -----------
+    Axisymmetric nested flux surfaces; the fields are those on the surface
+    at the same points.
+
+    Numerical notes
+    ---------------
+    Cumulative trapezoid rule, as ``straight_field_line_angle``.
+
+    References
+    ----------
+    .. [1] A. H. Glasser, Phys. Plasmas 23 (2016) 072505 (DCON), Sec. II.
+    .. [2] W. D. D'haeseleer, W. N. G. Hitchon, J. D. Callen and
+           J. L. Shohet, *Flux Coordinates and Magnetic Field Structure*,
+           Springer (1991), Ch. 6.
+    """
+    theta = np.asarray(theta, dtype=float)
+    B_p = np.asarray(B_p, dtype=float)
+    B = np.asarray(B, dtype=float)
+    if B_p.shape != theta.shape or B.shape != theta.shape:
+        raise ValueError("B_p and B must have the shape of theta")
+    if np.any(B_p <= 0.0) or np.any(B <= 0.0):
+        raise ValueError("B_p and B must be positive")
+    R = np.asarray(R, dtype=float)
+    # the PEST angle of a re-weighted Jacobian: J R^-pR Bp^pBp B^pB = (J R^{2-pR} Bp^pBp B^pB) / R^2
+    weighted = np.asarray(jacobian, dtype=float) * R ** (2.0 - float(power_r)) * B_p ** float(power_bp) \
+        * B ** float(power_b)
+    return straight_field_line_angle(theta, weighted, R)
+
+
+
+def sfl_toroidal_angle_shift(q, theta_sfl, theta_pest):
+    r"""Toroidal-angle shift $\nu$ that keeps field lines straight in a non-PEST poloidal angle.
+
+    $$\zeta = \phi + \nu, \qquad \nu(\psi, \theta) = q(\psi)\,\bigl(\theta_\mathrm{sfl} - \theta_\mathrm{PEST}\bigr)$$
+
+    Parameters
+    ----------
+    q : float or np.ndarray
+        Safety factor of the surface, signed as $d\phi/d\theta_\mathrm{PEST}$ along a
+        field line [-].
+    theta_sfl : float or np.ndarray
+        The straight-field-line poloidal angle of the chosen member of the
+        family (Boozer, Hamada, equal-arc, ...) at the surface points [rad].
+    theta_pest : float or np.ndarray
+        The PEST angle at the same points, with the same origin as
+        ``theta_sfl``, broadcast against it [rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\nu$, to be added to the geometric toroidal angle $\phi$ [rad].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input.
+
+    Convention
+    ----------
+    PEST pairs its poloidal angle with the geometric $\phi$: along a field
+    line $d\phi = q\,d\theta_\mathrm{PEST}$. Another member straightens field
+    lines only with its own toroidal angle $\zeta$, $d\zeta = q\,d\theta_\mathrm{sfl}$;
+    subtracting gives $d\nu = q\,d(\theta_\mathrm{sfl} - \theta_\mathrm{PEST})$. $\nu$ is
+    fixed only up to a flux function; the gauge here sets $\nu = 0$ where the
+    two angles share their origin, which requires both to start at the same
+    point of the surface (as ``generalized_straight_field_line_angle`` does
+    for every member). $\nu = 0$ for PEST.
+
+    Physical interpretation
+    -----------------------
+    A perturbation $e^{-in\phi}$ reads $e^{-in\zeta}e^{in\nu}$ in the shifted
+    angle: for $n \ne 0$ the factor $e^{in\nu(\theta)}$ couples poloidal
+    harmonics, so a coordinate's Fourier cost depends on $n$ as well as on
+    how it samples the poloidal angle.
+
+    References
+    ----------
+    .. [1] W. D. D'haeseleer, W. N. G. Hitchon, J. D. Callen and
+           J. L. Shohet, *Flux Coordinates and Magnetic Field Structure*,
+           Springer (1991), Ch. 6.
+    .. [2] A. H. Glasser, Phys. Plasmas 23 (2016) 072505 (DCON), Sec. II.
+    """
+    q = np.asarray(q, dtype=float)
+    a = np.asarray(theta_sfl, dtype=float)
+    b = np.asarray(theta_pest, dtype=float)
+    if not (np.all(np.isfinite(q)) and np.all(np.isfinite(a)) and np.all(np.isfinite(b))):
+        raise ValueError("q, theta_sfl and theta_pest must be finite")
+    result = q * (a - b)
+    return float(result) if np.ndim(result) == 0 else result
+
+
+# ------------------------------------------------------------------
 # Current Density
 # ------------------------------------------------------------------
+
 
 def current_density_from_B(B: Union[float, np.ndarray],
                           R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
@@ -741,78 +1178,182 @@ def current_density_from_B(B: Union[float, np.ndarray],
     return gradient(R, B) / MU0
 
 
-def current_density_from_psi(psi: Union[float, np.ndarray],
-                           R: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
-    r"""Deprecated: this is $-B_Z/\mu_0$, not a current density.
+def grad_shafranov_source(R, J_phi):
+    r"""Right-hand side of the poloidal-flux equation from Ampere's law, any region.
 
-    $$j = -\frac{1}{\mu_0 R}\,\frac{d\psi}{dR} = -\frac{B_Z}{\mu_0}
-      \ \ [\mathrm{A/m}]$$
-
-    The value is unchanged; only the name and the guidance are.  Emits a
-    ``DeprecationWarning``.  The old spelling is removed in 0.8.0.
+    $$\Delta^*\psi = -\mu_0 R J_\phi,\qquad
+      \Delta^* = R\frac{\partial}{\partial R}\frac{1}{R}\frac{\partial}{\partial R}
+      + \frac{\partial^2}{\partial Z^2}$$
 
     Parameters
     ----------
-    psi : float or np.ndarray
-        Poloidal flux along a 1-D radial cut [Wb/rad].
     R : float or np.ndarray
-        Major radius of the samples, monotonic [m].
+        Major radius, positive [m].
+    J_phi : float or np.ndarray
+        Toroidal current density: plasma, coil or zero [A/m^2].
 
     Returns
     -------
     float or np.ndarray
-        The quantity $-(\mu_0 R)^{-1}\,d\psi/dR$ [A/m].
+        $\Delta^*\psi$ for a per-radian $\psi$ [Wb/(rad m^2)].
+
+    Raises
+    ------
+    ValueError
+        ``R`` is not positive.
 
     Convention
     ----------
-    **Mind the sign when migrating.**  This module's default convention is
-    $k = -1$ (weber-per-radian, COCOS 2/3/6/7), where
-    :func:`vertical_magnetic_field_from_psi` returns
-    $B_Z = -k/R\;d\psi/dR = +(1/R)\,d\psi/dR$.  This function is therefore
-    $-B_Z/\mu_0$, not $+B_Z/\mu_0$ as its ``Limitations`` section claimed until
-    #355; the replacement expression needs the minus sign or the result flips.
+    Per-radian flux $\psi = RA_\phi$ with $\mathbf B_p = \nabla\psi\times\nabla\phi$
+    and $(R, \phi, Z)$ right-handed, $\phi$ counter-clockwise from above
+    (Freidberg; COCOS 3, $\sigma_{B_p} = -1$): a positive $J_\phi$ makes $\psi$
+    a maximum on the magnetic axis. A flux stored in another COCOS is
+    converted first with ``psi_per_radian_from_cocos`` -- for the full-weber
+    COCOS 11 of an IMAS ODS, $\psi = -\psi_{11}/(2\pi)$. The operator itself
+    on a grid is ``vaft.process.equilibrium.grad_shafranov_operator``.
 
-    The $k$ was written inline rather than taken from
-    :func:`poloidal_field_factor`, so this function cannot be told its COCOS.
-    That is the second reason not to keep it: the replacement can.
+    Physical interpretation
+    -----------------------
+    One elliptic equation for one flux function everywhere; only the source
+    differs by region. In the plasma $J_\phi$ is constrained by force balance
+    (``toroidal_current_density_from_p_prime_ff_prime``), in a coil it is the
+    prescribed coil current density, and in vacuum it is zero, leaving the
+    homogeneous equation $\Delta^*\psi = 0$ -- Laplace-type, but not the
+    scalar Laplacian ($\Delta^*$ has $-R^{-1}\partial_R$ where $\nabla^2$ has
+    $+R^{-1}\partial_R$).
 
-    Limitations
+    Assumptions
     -----------
-    A current per unit length [A/m], not the toroidal current density
-    $j_\varphi = -\Delta^*\psi/(\mu_0 R)$ [A/m^2].  A single first derivative
-    along one radial cut cannot produce $j_\varphi$, which needs second
-    derivatives in both $R$ and $Z$.
-
-    See Also
-    --------
-    vertical_magnetic_field_from_psi : for the quantity this actually returns,
-        as ``-vertical_magnetic_field_from_psi(psi, R, Z, cocos=...) / MU0``,
-        which unlike this function can be told its COCOS.
-    vaft.process.equilibrium.grad_shafranov_operator : $\Delta^*\psi$ on a 2-D
-        map, for a real $j_\varphi = -\Delta^*\psi/(\mu_0 R)$.
-    vaft.omas.update.update_equilibrium_profiles_2d_j_tor : writes
-        ``profiles_2d.j_tor``, which is where an ODS already carries it.
-
-    Numerical notes
-    ---------------
-    ``numpy.gradient`` along the single supplied axis; pass a 1-D slice.
+    Axisymmetry, $\partial_\phi = 0$; magnetostatics (no displacement current).
 
     References
     ----------
-    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
-           Sec. 3.3 (Grad-Shafranov equation, $\mu_0 R j_\varphi = -\Delta^*\psi$).
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 6.2.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
     """
-    warnings.warn(
-        "`current_density_from_psi` is deprecated -- it returns -B_Z/mu0 [A/m], "
-        "not a current density. For that quantity use "
-        "`-vertical_magnetic_field_from_psi(psi, R, Z, cocos=...) / MU0` (mind "
-        "the sign); for a real toroidal current density use "
-        "`vaft.process.equilibrium.grad_shafranov_operator` or the ODS's own "
-        "`profiles_2d.j_tor`. Removed in 0.8.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return -gradient(R, psi) / (MU0 * R)
+    R = np.asarray(R, dtype=float)
+    if np.any(R <= 0.0):
+        raise ValueError("R must be positive")
+    return -MU0 * R * np.asarray(J_phi, dtype=float)
+
+
+def toroidal_current_density_from_p_prime_ff_prime(R, p_prime, ff_prime):
+    r"""Plasma toroidal current density allowed by force balance, $J_\phi(p', FF')$.
+
+    $$J_\phi = R\,p'(\psi) + \frac{F F'(\psi)}{\mu_0 R},\qquad
+      \Delta^*\psi = -\mu_0R^2p'(\psi) - FF'(\psi)$$
+
+    Parameters
+    ----------
+    R : float or np.ndarray
+        Major radius, positive [m].
+    p_prime : float or np.ndarray
+        $dp/d\psi$ [Pa rad/Wb].
+    ff_prime : float or np.ndarray
+        $F\,dF/d\psi$, $F = RB_\phi$ [T^2 m^2 rad/Wb].
+
+    Returns
+    -------
+    float or np.ndarray
+        $J_\phi$ [A/m^2].
+
+    Raises
+    ------
+    ValueError
+        ``R`` is not positive.
+
+    Convention
+    ----------
+    Per-radian $\psi$ as in ``grad_shafranov_source``, whose source this is:
+    ``grad_shafranov_source(R, J_phi)`` is then the Grad--Shafranov right-hand
+    side. A positive $J_\phi$ makes $\psi$ a maximum on the axis, so $\psi$
+    and a peaked pressure both fall outward: $p' > 0$, and the pressure term
+    adds co-current $J_\phi$. Profiles from an EFIT g-file or an ODS carry
+    their own COCOS sign on $\psi$; convert before combining.
+
+    Physical interpretation
+    -----------------------
+    $\mathbf J\times\mathbf B = \nabla p$ with $\mathbf B = \nabla\psi\times
+    \nabla\phi + F\nabla\phi$ forces $p$ and $F$ to be flux functions and
+    leaves only these two free profiles for the toroidal current: a
+    pressure-gradient part $\propto R$ and a poloidal-current part
+    $\propto 1/R$. This is what makes the plasma region's
+    equation the Grad--Shafranov equation rather than Ampere's law alone.
+
+    Assumptions
+    -----------
+    Axisymmetric, static, isotropic-pressure ideal MHD equilibrium; no flow.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 6.2.
+    .. [2] V. D. Shafranov, Sov. Phys. JETP 6, 545 (1958); H. Grad and
+           H. Rubin, Proc. 2nd UN Conf. Peaceful Uses of Atomic Energy 31, 190
+           (1958).
+    """
+    R = np.asarray(R, dtype=float)
+    if np.any(R <= 0.0):
+        raise ValueError("R must be positive")
+    return R * np.asarray(p_prime, dtype=float) + np.asarray(ff_prime, dtype=float) / (MU0 * R)
+
+
+def flux_perturbation_from_normal_displacement(xi_n, grad_psi):
+    r"""Ideal (flux-frozen) perturbed flux of a displacement normal to the flux surfaces.
+
+    $$\delta\psi = -\boldsymbol\xi\cdot\nabla\psi_0 = -\xi_n\,|\nabla\psi_0|$$
+
+    Parameters
+    ----------
+    xi_n : float or np.ndarray
+        Displacement along $\hat{\mathbf n} = \nabla\psi_0/|\nabla\psi_0|$ [m].
+    grad_psi : float or np.ndarray
+        $|\nabla\psi_0|$ of the equilibrium flux, non-negative, in the unit of $\psi_0$ per metre [Wb/m or Wb/(rad m)].
+
+    Returns
+    -------
+    float or np.ndarray
+        Eulerian flux perturbation $\delta\psi$, in the unit of $\psi_0$ [Wb or Wb/rad].
+
+    Raises
+    ------
+    ValueError
+        ``grad_psi`` is negative.
+
+    Convention
+    ----------
+    $\hat{\mathbf n}$ points up the gradient of $\psi_0$, so a positive
+    $\xi_n$ moves a surface towards larger $\psi_0$ -- outward when $\psi$
+    increases from the axis (COCOS 11 with positive $I_p$, VAFT's usual ODS
+    storage), inward when it decreases (COCOS 11 with negative $I_p$, or a
+    per-radian COCOS-3 flux with positive current). Only the
+    normal component enters; a tangential displacement moves the surface
+    into itself.
+
+    Physical interpretation
+    -----------------------
+    Ideal MHD freezes the flux into the fluid, so a surface displaced by
+    $\xi_n$ carries its $\psi_0$ with it and the flux at a fixed point
+    changes by the linearised amount above. It is what turns a displacement
+    into a perturbed flux map, and back: an eigenfunction solver's
+    $\xi_n$ and its $\delta\psi$ are the same information.
+
+    Assumptions
+    -----------
+    Linear, $|\xi_n\nabla\ln|\nabla\psi_0|| \ll 1$; ideal (no reconnection),
+    so it fails in a resistive layer at a rational surface.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Sec. 8.3.
+    """
+    grad_psi = np.asarray(grad_psi, dtype=float)
+    if np.any(grad_psi < 0.0):
+        raise ValueError("grad_psi must be non-negative (it is |grad psi|)")
+    return -np.asarray(xi_n, dtype=float) * grad_psi
 
 
 # ------------------------------------------------------------------
@@ -927,6 +1468,63 @@ def bootstrap_current_fraction(n_e: float,
 # ------------------------------------------------------------------
 # Magnetic Field $B$
 # ------------------------------------------------------------------
+
+
+def vacuum_toroidal_field(B0, R0, R):
+    r"""Vacuum toroidal field of a set of toroidal-field coils.
+
+    $$B_\phi(R) = \frac{B_0 R_0}{R}$$
+
+    Parameters
+    ----------
+    B0 : float or np.ndarray
+        Toroidal field at the reference radius $R_0$ [T].
+    R0 : float or np.ndarray
+        Reference major radius [m].
+    R : float or np.ndarray
+        Major radius at which the field is wanted [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Toroidal field, with the sign of ``B0`` [T].
+
+    Raises
+    ------
+    ValueError
+        ``R`` or ``R0`` is not positive.
+
+    Convention
+    ----------
+    Signed: $B_\phi$ carries the sign of ``B0`` along $+\hat\phi$
+    (counter-clockwise seen from above). $R B_\phi$ is the constant $F$ of
+    a vacuum region.
+
+    Physical interpretation
+    -----------------------
+    Ampère's law around the torus: the coil current linked by a circle of
+    radius $R$ is the same for every $R$ inside the coils, so the field falls
+    as $1/R$ -- stronger on the high-field (inboard) side, and the origin of
+    the grad-B and curvature drifts.
+
+    Assumptions
+    -----------
+    Axisymmetric coils (no ripple), no plasma current or diamagnetism.
+
+    See Also
+    --------
+    vaft.diagram.hfs_lfs_field : the canonical diagram of this relation.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.1.
+    """
+    R = np.asarray(R, dtype=float)
+    R0 = np.asarray(R0, dtype=float)
+    if np.any(R <= 0.0) or np.any(R0 <= 0.0):
+        raise ValueError("R and R0 must be positive")
+    return np.asarray(B0, dtype=float) * R0 / R
 
 
 def poloidal_field_magnitude(b_r: np.ndarray, b_z: np.ndarray) -> np.ndarray:
@@ -1365,6 +1963,123 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     return 2 * float(Bp2_dV) / (MU0**2 * float(Ip) ** 2 * float(R0))
 
 
+def internal_inductance_from_W_int_Ip(W_int: float, Ip: float) -> float:
+    r"""Dimensional internal inductance from the poloidal-field energy inside the plasma.
+
+    $$L_i = \frac{2W_{p,\mathrm{int}}}{I_p^2},\qquad
+      W_{p,\mathrm{int}} = \int_{V_p}\frac{B_p^2}{2\mu_0}\,dV$$
+
+    Parameters
+    ----------
+    W_int : float
+        Poloidal magnetic energy inside the last closed flux surface [J].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+
+    Returns
+    -------
+    float
+        Internal inductance [H].
+
+    Raises
+    ------
+    ValueError
+        Zero or non-finite plasma current.
+
+    Convention
+    ----------
+    **Dimensional, in henry**, and only the field *inside* the plasma counts:
+    the energy outside contains plasma-coil cross terms, which is why the
+    external inductance is defined from the boundary flux and not from
+    $2W_{\mathrm{outside}}/I_p^2$.  Its dimensionless counterpart is the IMAS
+    ``li_3`` (:func:`li_3_from_internal_inductance_R0`); the same energy
+    written as $\int B_p^2\,dV = 2\mu_0 W_{p,\mathrm{int}}$ gives
+    :func:`li_3_from_Bp2_volume_integral` directly.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, Sec. II, eq. (22).
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 3, Equilibrium (internal inductance).
+    """
+    current = float(Ip)
+    if not np.isfinite(current) or current == 0.0:
+        raise ValueError(f"Ip must be finite and non-zero; got {Ip!r}")
+    return 2.0 * float(W_int) / current**2
+
+
+def internal_inductance_from_li_3_R0(li_3: float, R0: float) -> float:
+    r"""Dimensional internal inductance from the IMAS ``li_3``.
+
+    $$L_i = \frac{\mu_0 R_0}{2}\,l_{i3}$$
+
+    Parameters
+    ----------
+    li_3 : float
+        Internal inductance in the IMAS ``li_3`` definition [-].
+    R0 : float
+        Major radius ``li_3`` was normalised by [m].
+
+    Returns
+    -------
+    float
+        Internal inductance [H].
+
+    Convention
+    ----------
+    **Exact only for** ``li_3``, and only with the $R_0$ the equilibrium
+    normalised by: $l_{i3} = 2\int B_p^2\,dV/(\mu_0^2 I_p^2 R_0)$ is
+    $2L_i/(\mu_0 R_0)$ by definition.  ``li_1`` normalises by the edge
+    poloidal field instead, $l_{i1}/l_{i3} = L_{pol}^2 R_0/(2V)$, so it is not
+    a valid input here -- about 8.5 % too large at $\kappa = 1.6$.
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
+    .. [2] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eq. (71), which normalises by the magnetic-axis radius.
+    """
+    return 0.5 * MU0 * float(R0) * float(li_3)
+
+
+def li_3_from_internal_inductance_R0(L_i: float, R0: float) -> float:
+    r"""IMAS ``li_3`` from a dimensional internal inductance.
+
+    $$l_{i3} = \frac{2L_i}{\mu_0 R_0}$$
+
+    Parameters
+    ----------
+    L_i : float
+        Internal inductance [H].
+    R0 : float
+        Major radius to normalise by; positive [m].
+
+    Returns
+    -------
+    float
+        Internal inductance in the IMAS ``li_3`` definition [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive ``R0``.
+
+    Convention
+    ----------
+    The inverse of :func:`internal_inductance_from_li_3_R0`; the result is
+    ``li_3`` and not ``li_1``, and it depends on which $R_0$ is passed.
+
+    References
+    ----------
+    .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
+    """
+    radius = float(R0)
+    if not np.isfinite(radius) or radius <= 0.0:
+        raise ValueError(f"R0 must be finite and positive; got {R0!r}")
+    return 2.0 * float(L_i) / (MU0 * radius)
+
+
 def beta_poloidal_from_circumference(p_average: float,
                                      Ip: float,
                                      length_pol: float) -> float:
@@ -1495,6 +2210,115 @@ def current_limit_from_beta(beta_N: float,
 # ------------------------------------------------------------------
 # Stored Energy
 # ------------------------------------------------------------------
+
+def _thermal_pressure(n, T, *, n_name: str, T_name: str):
+    """$n T e$ with both inputs checked finite and non-negative."""
+    density = np.asarray(n, dtype=float)
+    temperature = np.asarray(T, dtype=float)
+    if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+        raise ValueError(f"{n_name} must be finite and non-negative in m^-3; got {n!r}")
+    if not np.all(np.isfinite(temperature)) or np.any(temperature < 0.0):
+        raise ValueError(f"{T_name} must be finite and non-negative in eV; got {T!r}")
+    pressure = density * temperature * QE
+    return float(pressure) if np.ndim(pressure) == 0 else pressure
+
+
+def electron_pressure(n_e: Union[float, np.ndarray],
+                      T_e: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Electron thermal pressure from density and temperature, $p_e = n_e T_e$.
+
+    $$p_e = n_e\,k_B T_e = n_e\,T_e[\mathrm{eV}]\;e$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Electron density, finite and non-negative [m^-3].
+    T_e : float or np.ndarray
+        Electron temperature, finite and non-negative, broadcastable
+        against ``n_e`` [eV].
+
+    Returns
+    -------
+    float or np.ndarray
+        Electron pressure; $10^{19}\,\mathrm{m^{-3}}$ at 100 eV is 160.2 Pa [Pa].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density or temperature.
+
+    Convention
+    ----------
+    Temperature in electronvolts, converted with the elementary charge
+    :data:`vaft.formula.constants.QE`; density in m^-3, not $10^{19}$ m^-3.
+    This is one species' pressure: the total kinetic pressure is
+    $p_e + \sum_i p_i$, which is **not** $2 n_e T_e$ unless $T_i = T_e$ and
+    $\sum_i n_i = n_e$ (hydrogen, no impurity).
+
+    Assumptions
+    -----------
+    Isotropic Maxwellian electrons; a fast or anisotropic population needs
+    its own $p_\parallel$, $p_\perp$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 2 (the ideal-gas pressure of a plasma species).
+
+    See Also
+    --------
+    ion_pressure
+    """
+    return _thermal_pressure(n_e, T_e, n_name="n_e", T_name="T_e")
+
+
+def ion_pressure(n_i: Union[float, np.ndarray],
+                 T_i: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Ion thermal pressure of one species from density and temperature, $p_i = n_i T_i$.
+
+    $$p_i = n_i\,k_B T_i = n_i\,T_i[\mathrm{eV}]\;e$$
+
+    Parameters
+    ----------
+    n_i : float or np.ndarray
+        Density of one ion species, finite and non-negative [m^-3].
+    T_i : float or np.ndarray
+        Temperature of that species, finite and non-negative, broadcastable
+        against ``n_i`` [eV].
+
+    Returns
+    -------
+    float or np.ndarray
+        Pressure of that species [Pa].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density or temperature.
+
+    Convention
+    ----------
+    Same law and units as :func:`electron_pressure`.  The density is the
+    *ion* density of that species, not $n_e$: quasi-neutrality gives
+    $\sum_i Z_i n_i = n_e$.  Sum the species yourself for the total ion
+    pressure.
+
+    Assumptions
+    -----------
+    Isotropic Maxwellian ions of the stated temperature; beam or
+    fusion-product ions are a separate, non-thermal pressure.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 2 (the ideal-gas pressure of a plasma species).
+
+    See Also
+    --------
+    electron_pressure
+    """
+    return _thermal_pressure(n_i, T_i, n_name="n_i", T_name="T_i")
+
 
 def stored_energy_from_p_V(p: Union[float, np.ndarray],
                           V: float) -> Union[float, np.ndarray]:
@@ -2024,9 +2848,9 @@ def peaking_factor(central: float,
 # ------------------------------------------------------------------
 
 def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
-                                                 Z_eff: float = 2.0,
-                                                 ln_Lambda: float = 17.0) -> float:
-    r"""Spitzer parallel resistivity $\eta_\parallel$.
+                                                 Z_eff: Optional[float] = None,
+                                                 ln_Lambda: Optional[float] = None) -> float:
+    r"""Spitzer parallel resistivity $\eta_\parallel$ (NRL, parallel coefficient).
 
     $$\eta = 5.2\times10^{-5}\,\frac{Z_{\mathrm{eff}}\,\ln\Lambda}{T_e^{3/2}}
       \quad[\Omega\,\mathrm{m}],\ T_e\ \text{in eV}$$
@@ -2035,10 +2859,12 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     ----------
     T_e : float
         Electron temperature [eV].
-    Z_eff : float, optional
-        Effective ion charge; default 2 [-].
-    ln_Lambda : float, optional
-        Coulomb logarithm; default 17 [-].
+    Z_eff : float
+        Effective ion charge. Omitting it is deprecated (#1188): it still
+        falls back to 2 with a ``FutureWarning`` and will raise in 0.9 [-].
+    ln_Lambda : float
+        Coulomb logarithm. Omitting it is deprecated (#1188): it still falls
+        back to 17 with a ``FutureWarning`` and will raise in 0.9 [-].
 
     Returns
     -------
@@ -2050,7 +2876,9 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     The NRL Formulary value $\eta_\parallel = 1.65\times10^{-9}\,Z\ln\Lambda\,
     T_{\mathrm{keV}}^{-3/2}\ \Omega$ m rewritten for $T_e$ in eV; the
     $Z_{\mathrm{eff}}$ factor is applied linearly (the Spitzer-Harm
-    $Z$-dependence is weaker than linear for $Z>1$).
+    $Z$-dependence is weaker than linear for $Z>1$). This is the **parallel**
+    coefficient; the NRL perpendicular value ($1.03\times10^{-4}$) is 1.98x
+    larger and is not what a parallel Ohm's law needs (#1188).
 
     Assumptions
     -----------
@@ -2058,9 +2886,11 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
 
     Validity
     --------
-    Core tokamak plasmas well above the ionisation stage; the defaults
-    $Z_{\mathrm{eff}}=2$ and $\ln\Lambda=17$ are typical rather than derived,
-    use :func:`coulomb_logarithm_from_n_T` for a self-consistent value.
+    Core tokamak plasmas well above the ionisation stage.  $Z_{\mathrm{eff}}$
+    and $\ln\Lambda$ are physics inputs, not defaults: the former fallbacks
+    $Z_{\mathrm{eff}}=2$, $\ln\Lambda=17$ were typical rather than derived and
+    are deprecated (#1188); use :func:`coulomb_logarithm_from_n_T` for a
+    self-consistent $\ln\Lambda$.
 
     Limitations
     -----------
@@ -2074,6 +2904,20 @@ def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
     .. [3] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
            Sec. 2.16 (resistivity).
     """
+    if Z_eff is None or ln_Lambda is None:
+        import warnings
+
+        missing = [name for name, value in (("Z_eff", Z_eff), ("ln_Lambda", ln_Lambda))
+                   if value is None]
+        warnings.warn(
+            f"spitzer_resistivity_from_T_e_Z_eff_ln_Lambda called without {', '.join(missing)}; "
+            "the hidden fallbacks Z_eff=2, ln_Lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        Z_eff = 2.0 if Z_eff is None else Z_eff
+        ln_Lambda = 17.0 if ln_Lambda is None else ln_Lambda
     return SPITZER_RESISTIVITY_COEF * Z_eff * ln_Lambda / T_e**1.5
 
 
@@ -2479,47 +3323,12 @@ def bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
     return C_B * Z_eff * n_e_m3**2 * np.sqrt(T_J)
 
 
-def bremsstrahlung_power_density_from_Z_eff_n_e_T_e(
-    n_e_m3: float,
-    T_e_eV: float,
-    Z_eff: float = 2.0
-) -> float:
-    r"""Deprecated: use :func:`bremsstrahlung_power_density_from_n_e_T_e_Z_eff`.
-
-    The name states the argument order everywhere else in this module, and this
-    one stated it wrongly: it promised $(Z_{\mathrm{eff}}, n_e, T_e)$ while the
-    signature was $(n_e, T_e, Z_{\mathrm{eff}})$.  Every argument is a float and
-    $Z_{\mathrm{eff}}$ carried a default, so a call in the documented order was
-    accepted and returned a value 27 orders of magnitude wrong.
-
-    The shim keeps the old signature exactly and forwards unchanged, so a caller
-    written against the *signature* keeps its answer and a caller written
-    against the *name* keeps its wrong one -- a compatibility shim cannot tell
-    the two apart.  What it adds is the warning naming the replacement, whose
-    keyword-only ``Z_eff`` makes the mistake impossible to repeat.  Tracked in
-    #760.
-
-    See Also
-    --------
-    bremsstrahlung_power_density_from_n_e_T_e_Z_eff
-    """
-    warnings.warn(
-        "`bremsstrahlung_power_density_from_Z_eff_n_e_T_e` is deprecated -- its "
-        "name contradicts its argument order; use "
-        "`bremsstrahlung_power_density_from_n_e_T_e_Z_eff(n_e, T_e, Z_eff=...)`. "
-        "The old spelling is removed in 0.8.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return bremsstrahlung_power_density_from_n_e_T_e_Z_eff(
-        n_e_m3, T_e_eV, Z_eff=Z_eff
-    )
-
-
 # ------------------------------------------------------------------
 # Flux Consumption
 # ------------------------------------------------------------------
-def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
+def surface_poloidal_flux_from_psi_boundary(
+    psi_boundary: np.ndarray, *, psi_per_radian: bool = True
+) -> float:
     r"""Total poloidal flux at the plasma surface, $\Phi_{surface} = 2\pi\psi_b$.
 
     $$\Phi_{\mathrm{surface}} = 2\pi\,\psi_b$$
@@ -2527,7 +3336,11 @@ def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
     Parameters
     ----------
     psi_boundary : np.ndarray or float
-        Poloidal flux at the plasma boundary [Wb/rad].
+        Poloidal flux at the plasma boundary; per radian unless
+        ``psi_per_radian=False`` [Wb/rad].
+    psi_per_radian : bool, optional
+        False when ``psi_boundary`` is already full weber (the IMAS flux,
+        COCOS 11-18), which is then returned unchanged [-].
 
     Returns
     -------
@@ -2538,8 +3351,11 @@ def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
     ----------
     Converts a per-radian boundary flux (COCOS 1-8, EFIT g-file, VFIT) to the full
     flux that flux-consumption bookkeeping uses.  An IMAS full-weber
-    ``global_quantities.psi_boundary`` (COCOS 11-18) must not be passed: the
-    result would be $2\pi$ too large.  Tracked in #354.
+    ``global_quantities.psi_boundary`` (COCOS 11-18) needs
+    ``psi_per_radian=False``; without it the result is $2\pi$ too large.
+    The default stays per radian so existing callers do not move (#354);
+    :func:`vaft.data.eqdsk.ods_psi_to_wb_per_radian_factor` tells which family
+    an ODS stores.
 
     Physical interpretation
     -----------------------
@@ -2552,9 +3368,11 @@ def surface_poloidal_flux_from_psi_boundary(psi_boundary: np.ndarray) -> float:
     .. [2] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293,
            Table I.
     """
-    return psi_boundary * 2 * np.pi
+    return psi_boundary * (2 * np.pi if psi_per_radian else 1.0)
 
-def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarray) -> float:
+def loop_voltage_from_total_flux(
+    time_slice: np.ndarray, psi_boundary: np.ndarray, *, psi_per_radian: bool = True
+) -> float:
     r"""Surface loop voltage from the time series of boundary flux.
 
     $$V_{\mathrm{loop}} = \frac{d\Phi_{\mathrm{surface}}}{dt} = 2\pi\,\frac{d\psi_b}{dt}$$
@@ -2564,7 +3382,11 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
     time_slice : np.ndarray
         Time of each sample, monotonic [s].
     psi_boundary : np.ndarray
-        Boundary poloidal flux at each time [Wb/rad].
+        Boundary poloidal flux at each time; per radian unless
+        ``psi_per_radian=False`` [Wb/rad].
+    psi_per_radian : bool, optional
+        False when ``psi_boundary`` is full weber (the IMAS flux, COCOS
+        11-18) [-].
 
     Returns
     -------
@@ -2573,14 +3395,18 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
 
     Convention
     ----------
-    Assumes ``psi_boundary`` per radian, as :func:`surface_poloidal_flux_from_psi_boundary`
-    does; a full-weber IMAS flux gives a voltage $2\pi$ too large.  The sign is
+    ``psi_boundary`` is per radian by default, as for
+    :func:`surface_poloidal_flux_from_psi_boundary`; pass
+    ``psi_per_radian=False`` for a full-weber IMAS flux, which the default
+    would make $2\pi$ too large.  The sign is
     that of $d\psi_b/dt$ in the supplied COCOS, so a discharge with positive
     current and the usual $\sigma_{B_p}$ shows negative $V_{loop}$ during ramp-up.
-    Tracked in `#354 <https://github.com/VEST-Tokamak/vaft/issues/354>`_, which is
-    the disagreement with :func:`toroidal_electric_field` over both sign and flux
-    normalisation.  The start-up chain in :mod:`vaft.formula.startup` sidesteps it
-    by taking a field magnitude; that choice is not a resolution of #354.
+    That sign is the opposite of Lenz's $V = -\dot\psi$, which
+    :func:`toroidal_electric_field` and :mod:`vaft.formula.transformer` use:
+    on the same full-weber flux, ``loop_voltage_from_total_flux(t, psi,
+    psi_per_radian=False)`` is $-2\pi R\,E_\varphi$ at the boundary, and $-V_B$
+    when the flux is already in Romero's sign.  The start-up chain in :mod:`vaft.formula.startup`
+    sidesteps the sign by taking a field magnitude.
 
     Physical interpretation
     -----------------------
@@ -2601,7 +3427,7 @@ def loop_voltage_from_total_flux(time_slice: np.ndarray, psi_boundary: np.ndarra
     toroidal_electric_field
     vaft.formula.startup.breakdown_margin
     """
-    return gradient(time_slice, psi_boundary) * 2 * np.pi
+    return gradient(time_slice, psi_boundary) * (2 * np.pi if psi_per_radian else 1.0)
 
 def inductive_voltage_from_dW_magdt_I_p(dW_magdt: float, I_p: float) -> float:
     r"""Inductive voltage from the rate of change of magnetic energy.
@@ -2620,11 +3446,27 @@ def inductive_voltage_from_dW_magdt_I_p(dW_magdt: float, I_p: float) -> float:
     float
         Inductive voltage [V].
 
-    Assumptions
-    -----------
-    Exact for $W = \tfrac{1}{2}LI^2$ with constant $L$; when the inductance
-    changes (current-profile evolution) the full inductive voltage is
-    $d(LI)/dt$ and this expression captures only part of it.
+    Convention
+    ----------
+    **Exact for the internal field, whether or not the inductance changes.**
+    With $W_{\mathrm{mag}} = \tfrac12 L_i I_p^2$ the energy inside the
+    plasma, this is Romero's $V_{\mathrm{ind}} = L_i\dot I_p +
+    \tfrac12 I_p\dot L_i$ (eq. 24), and $V_B = R_p I_p + V_{\mathrm{ind}}$
+    closes exactly.  The circuit form $\mathrm{d}(L_i I_p)/\mathrm{d}t$ is
+    *not* the larger "full" voltage it is sometimes taken for: $L_i I_p$ is not
+    a flux linked by one loop, and that form overstates the profile term by
+    $\tfrac12 I_p\dot L_i$.  The external inductance is different -- there
+    $\mathrm{d}(L_e I_p)/\mathrm{d}t$ is right, because $L_e I_p$ is the
+    boundary flux.
+
+    References
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (22)-(24).
+
+    See Also
+    --------
+    vaft.formula.transformer.plasma_current_rate_from_L_i_V_B_V_C_V_R
     """
     return dW_magdt / I_p
 
@@ -3763,8 +4605,8 @@ def check_kadomtsev_constraint(
     -----------
     The default tolerance is far tighter than any published fit satisfies
     (ITER89P misses by 0.15); pass a physically motivated ``tol``.
-    :func:`verify_kadomtsev_constraint` evaluates a different expression from
-    the dimensionless indices; the two are tracked in #351.
+    :func:`verify_kadomtsev_constraint` returns the same residual from the
+    dimensionless indices (#351).
 
     References
     ----------
@@ -4082,12 +4924,12 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
 
     $$\Omega_i\tau_E \propto \rho_*^{\mu_\rho}\,\beta^{\mu_\beta}\,\nu_*^{\mu_\nu}$$
 
-    with, for $\alpha_L = \alpha_R + \alpha_I$, $\alpha_B^* = \alpha_B + \alpha_I$
-    and $D = 1 + \alpha_P$,
+    for $\tau_E \propto I^{\alpha_I}B^{\alpha_B}P^{\alpha_P}n^{\alpha_n}R^{\alpha_R}$
+    at fixed $q$, $\epsilon$, $\kappa$ and $M$.  With $D = 1 + \alpha_P$,
 
-    $$\mu_\rho = \frac{3\alpha_L + \alpha_B^* + \alpha_n - 2\alpha_P - 5}{D}, \quad
-      \mu_\beta = \frac{-\alpha_L - 2\alpha_n - \alpha_B^* + 3\alpha_P + 3}{D}, \quad
-      \mu_\nu = \frac{\alpha_L + 3\alpha_n + \alpha_B^* - 2\alpha_P - 4}{2D}$$
+    $$\mu_\rho = \frac{\alpha_B - \alpha_I - 2\alpha_R + 2\alpha_n - 3\alpha_P + 1}{D}, \quad
+      \mu_\nu = \mu_\rho + \frac{\alpha_I + \alpha_R + 3\alpha_P}{D}, \quad
+      \mu_\beta = \frac{\alpha_n + \alpha_P}{D} - \mu_\nu$$
 
     Parameters
     ----------
@@ -4102,7 +4944,8 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     a_M : float
         Exponent of the ion mass, passed through [-].
     a_R : float
-        Exponent of the major radius [-].
+        Exponent of the size at fixed aspect ratio: the major-radius exponent,
+        plus the minor-radius one when the scaling also carries $a^{\alpha_a}$ [-].
     a_eps : float
         Exponent of the inverse aspect ratio, unused [-].
     a_kappa : float
@@ -4124,19 +4967,28 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     Raises
     ------
     ValueError
-        When $1 + \alpha_P$ vanishes, which is the exact-power-degradation case
-        $\alpha_P = -1$: every index divides by it, so the transformation has no
-        value there rather than a special one [-].
+        For a non-finite exponent, or when $1 + \alpha_P$ vanishes, which is
+        the exact-power-degradation case $\alpha_P = -1$: every index divides
+        by it, so the transformation has no value there rather than a special
+        one [-].
 
     Assumptions
     -----------
-    Constant safety factor, $I_p \propto a^2B/R$, so current is absorbed into
-    the size and field indices; temperature eliminated through $P = W/\tau_E$.
+    Temperature is eliminated through $P = W/\tau_E \propto nTR^3/\tau_E$, and
+    $\rho_* \propto T^{1/2}/(BR)$, $\beta \propto nT/B^2$,
+    $\nu_* \propto nR/T^2$ at fixed $q \propto RB/I$.  The $n$, $B$ and $R$
+    exponents fix the three indices exactly and the $T$ exponent is left
+    unmatched: it misses by $\alpha_K / (2D)$, with $\alpha_K$ the residual of
+    :func:`kadomtsev_constraint_from_engineering_exponents`.  The indices are
+    therefore not a test of the constraint.  The $q$ index, $-\alpha_I/D$, is
+    not returned.
 
     Limitations
     -----------
     ``a_eps`` is accepted and unused; ``a_M`` and ``a_kappa`` are returned
-    unchanged, so the transformation is a no-op for those two axes.
+    unchanged, so the transformation is a no-op for those two axes.  Before
+    #351 the indices came from a different, wrong closed form (IPB98(y,2)
+    gave $\mu_\rho = 21.2$).
 
     References
     ----------
@@ -4144,18 +4996,12 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
            Fusion 50 (2008) 043001, Sec. 3 (engineering to dimensionless
            exponent transformation).
     .. [2] B. B. Kadomtsev, Sov. J. Plasma Phys. 1 (1975) 295.
+    .. [3] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2,
+           Sec. 6.2: IPB98(y,2) is $\rho_*^{-2.70}\beta^{-0.90}\nu_*^{-0.01}$.
     """
-    
-    # 1. Basis Transformation (Consolidating to fundamental dimensions: L and B)
-    # Using the relation I_p ∝ R * eps^2 * B (since a = R * eps)
-    a_L = a_R + a_I        # Combined length (L) scaling index
-    a_B_star = a_B + a_I   # Combined magnetic field (B) scaling index
-    # Note: a_n (density) and a_P (power) remain as primary engineering inputs.
-
-    # 2. Derive Dimensionless Indices (mu) via Power Balance
-    # Normalized confinement time follows: Ω_c * τ_E ∝ (ρ*)^μ_ρ * β^μ_β * (ν*)^μ_ν
-    # The derivation eliminates Temperature (T) using P = W / τ_E.
-    
+    exponents = np.asarray([a_I, a_B, a_P, a_n, a_R], dtype=float)
+    if np.any(~np.isfinite(exponents)):
+        raise ValueError(f"engineering exponents must be finite. Got {exponents!r}")
     denom = 1 + a_P
     if abs(denom) < 1e-9:
         # Returning None here made every caller fail on the unpack instead, with
@@ -4165,28 +5011,107 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
             f"by it; the transformation is undefined there. Got a_P={a_P!r}."
         )
 
-    # Mapping based on Gyro-kinetic transport theory and Kadomtsev's similarity principles
-    # mu_rho: Characterizes size scaling (e.g., -3 for Gyro-Bohm, -2 for Bohm)
-    mu_rho = (3 * a_L + a_B_star + a_n - 2 * a_P - 5) / denom
-    
-    # mu_beta: Characterizes plasma pressure scaling
-    mu_beta = (-a_L - 2 * a_n - a_B_star + 3 * a_P + 3) / denom
-    
-    # mu_nu: Characterizes collisionality scaling
-    mu_nu = (a_L + 3 * a_n + a_B_star - 2 * a_P - 4) / (2 * denom)
+    # tau_E exponents after eliminating P = W/tau_E ~ n T R^3 / tau_E, with the
+    # current absorbed through I ~ R B at fixed q.
+    e_n = (a_n + a_P) / denom
+    e_L = (a_I + a_R + 3 * a_P) / denom
+
+    # Solve B tau ~ rho*^x beta^y nu*^z on the n, B and R exponents (#351).
+    mu_rho = (a_B - a_I - 2 * a_R + 2 * a_n - 3 * a_P + 1) / denom
+    mu_nu = mu_rho + e_L
+    mu_beta = e_n - mu_nu
 
     # Deliberately unrounded: three decimals is a presentation choice, and a
     # kernel that bakes one in cannot be used for anything needing more.
     return mu_rho, mu_beta, mu_nu, a_M, a_kappa
 
+
+def engineering_exponents_from_dimensionless_coeffs(
+    mu_rho: float,
+    mu_beta: float,
+    mu_nu: float,
+    a_P: float,
+    mu_q: float = 0.0,
+) -> Tuple[float, float, float, float, float]:
+    r"""Engineering exponents $(\alpha_I, \alpha_B, \alpha_P, \alpha_n, \alpha_R)$ from dimensionless indices.
+
+    $$\alpha_I = -D\mu_q, \quad
+      \alpha_B = D(\mu_q - \mu_\rho - 2\mu_\beta - 1), \quad
+      \alpha_n = D(\mu_\beta + \mu_\nu) - \alpha_P, \quad
+      \alpha_R = D(\mu_q + \mu_\nu - \mu_\rho) - 3\alpha_P$$
+
+    with $D = 1 + \alpha_P$, for
+    $\Omega_i\tau_E \propto \rho_*^{\mu_\rho}\beta^{\mu_\beta}\nu_*^{\mu_\nu}q^{\mu_q}$.
+
+    Parameters
+    ----------
+    mu_rho : float
+        Gyroradius index [-].
+    mu_beta : float
+        Beta index [-].
+    mu_nu : float
+        Collisionality index [-].
+    a_P : float
+        Engineering exponent of the heating power [-].
+    mu_q : float, optional
+        Safety-factor index; the default 0 returns the fixed-$q$ form, in which
+        the current exponent is folded into ``alpha_B`` and ``alpha_R`` [-].
+
+    Returns
+    -------
+    alpha_I : float
+        Exponent of the plasma current [-].
+    alpha_B : float
+        Exponent of the toroidal field [-].
+    alpha_P : float
+        Exponent of the heating power, equal to ``a_P`` [-].
+    alpha_n : float
+        Exponent of the density [-].
+    alpha_R : float
+        Exponent of the size at fixed aspect ratio [-].
+
+    Raises
+    ------
+    ValueError
+        For non-finite input, or when $1 + \alpha_P$ vanishes [-].
+
+    Assumptions
+    -----------
+    The same closure as
+    :func:`dimensionless_scaling_coeffs_from_engineering_scaling_coeffs`, run
+    backwards on the $n$, $B$, $R$ and $I$ exponents.  A ``a_P`` that does not
+    match the indices' own temperature exponent gives exponents that violate
+    the Kadomtsev constraint by exactly that mismatch.
+
+    References
+    ----------
+    .. [1] T. C. Luce, C. C. Petty and J. G. Cordey, Plasma Phys. Control.
+           Fusion 50 (2008) 043001, Sec. 3.
+    """
+    values = np.asarray([mu_rho, mu_beta, mu_nu, a_P, mu_q], dtype=float)
+    if np.any(~np.isfinite(values)):
+        raise ValueError(f"indices and a_P must be finite. Got {values!r}")
+    denom = 1.0 + float(a_P)
+    if abs(denom) < 1e-9:
+        raise ValueError(
+            "a_P = -1 leaves 1 + a_P = 0, so the indices fix no finite "
+            f"engineering exponent. Got a_P={a_P!r}."
+        )
+    alpha_i = -denom * mu_q
+    alpha_b = denom * (mu_q - mu_rho - 2.0 * mu_beta - 1.0)
+    alpha_n = denom * (mu_beta + mu_nu) - a_P
+    alpha_r = denom * (mu_q + mu_nu - mu_rho) - 3.0 * a_P
+    return alpha_i, alpha_b, float(a_P), alpha_n, alpha_r
+
+
 def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
-    r"""Reconstruct the Kadomtsev constraint value from dimensionless indices.
+    r"""Kadomtsev constraint residual of the engineering scaling behind dimensionless indices.
 
-    $$x = 5 + \mu_\rho(1 + \alpha_P) - \frac{3}{2}\left(\mu_\rho + 2\mu_\beta - 4\mu_\nu - 2\right)$$
+    $$\alpha_K = (1 + \alpha_P)(\mu_\rho + 2\mu_\beta - 4\mu_\nu) - 2\alpha_P$$
 
-    which should return 5 when the dimensionless mapping of
-    :func:`dimensionless_scaling_coeffs_from_engineering_scaling_coeffs`
-    preserves the identity $\alpha_L + 2\alpha_n + \alpha_B^* - 3\alpha_P = 5$.
+    which is :func:`kadomtsev_constraint_from_engineering_exponents` evaluated
+    on :func:`engineering_exponents_from_dimensionless_coeffs`, and so equals
+    the residual :func:`check_kadomtsev_constraint` tests.
 
     Parameters
     ----------
@@ -4202,13 +5127,24 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     Returns
     -------
     float
-        Reconstructed constraint value, 5 for a consistent mapping [-].
+        Constraint residual, 0 when ``a_P`` is consistent with the indices [-].
+
+    Physical interpretation
+    -----------------------
+    Indices produced by
+    :func:`dimensionless_scaling_coeffs_from_engineering_scaling_coeffs`
+    return the residual of the engineering scaling they came from: the
+    transformation keeps the $n$, $B$, $R$ exponents and drops the $T$ one,
+    and the residual is $2(1 + \alpha_P)$ times what the dropped equation
+    misses by.
 
     Limitations
     -----------
-    Evaluates a different expression from
-    :func:`check_kadomtsev_constraint` (which uses the engineering exponents
-    directly) and the two need not agree; tracked in #351.
+    Until #351 this returned
+    $5 + \mu_\rho(1+\alpha_P) - \tfrac32(\mu_\rho + 2\mu_\beta - 4\mu_\nu - 2)$,
+    "5 for a consistent mapping", which no published scaling reached.  It now
+    returns the residual and emits a ``FutureWarning`` saying so, until
+    0.9.0; prefer :func:`check_kadomtsev_constraint` on engineering exponents.
 
     References
     ----------
@@ -4216,12 +5152,336 @@ def verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P):
     .. [2] T. C. Luce, C. C. Petty and J. G. Cordey, Plasma Phys. Control.
            Fusion 50 (2008) 043001.
     """
-     
-    # Reconstructing the constraint value x from the dimensionless indices
-    # For a purely physical model, calculated_x should converge to 5.0.
-    x_val = 5.0 + (mu_rho * (1 + a_P) - (3 * (mu_rho + 2 * mu_beta - 4 * mu_nu - 2) / 2))
-    
-    return x_val
+    warnings.warn(
+        "verify_kadomtsev_constraint now returns the Kadomtsev residual "
+        "alpha_K (0 when consistent), the quantity check_kadomtsev_constraint "
+        "tests, instead of the old value that 'should be 5' (#351). This "
+        "warning is removed in 0.9.0.",
+        FutureWarning,
+        stacklevel=2,
+    )
+    alpha_i, alpha_b, alpha_p, alpha_n, alpha_r = (
+        engineering_exponents_from_dimensionless_coeffs(mu_rho, mu_beta, mu_nu, a_P)
+    )
+    return kadomtsev_constraint_from_engineering_exponents(
+        alpha_I=alpha_i,
+        alpha_B=alpha_b,
+        alpha_P=alpha_p,
+        alpha_n=alpha_n,
+        alpha_R=alpha_r,
+    )
+
+
+# --- Analytic 1-D profile kernels in normalized poloidal flux (#552) ----------
+
+
+#: How far outside [0, 1] a psi_N grid may stray by rounding and still be
+#: accepted (and clipped) by the bounded kernels.
+_PSI_N_ROUNDING = 1e-12
+
+
+def _profile_psi_n(psi_n, *, bounded):
+    x = np.asarray(psi_n, dtype=float)
+    if not np.all(np.isfinite(x)):
+        raise ValueError("psi_n must be finite")
+    if bounded:
+        if np.any(x < -_PSI_N_ROUNDING) or np.any(x > 1.0 + _PSI_N_ROUNDING):
+            raise ValueError("psi_n must lie in [0, 1] for a generalized-parabolic profile")
+        x = np.clip(x, 0.0, 1.0)
+    return x
+
+
+def _finite_parameters(**values):
+    for name, value in values.items():
+        if np.ndim(value) != 0:
+            raise ValueError(f"{name} must be a scalar, got an array of shape {np.shape(value)}")
+        if not np.isfinite(value):
+            raise ValueError(f"{name} must be finite, got {value!r}")
+
+
+def generalized_parabolic_profile(psi_n, *, core_value=1.0, edge_value=0.0, alpha=1.0, beta=1.0):
+    r"""Smooth core profile that falls from its axis value to its edge value.
+
+    $$f(\psi_N) = f_\mathrm{edge} + (f_\mathrm{core} - f_\mathrm{edge})\,(1 - \psi_N^{\alpha})^{\beta}$$
+
+    Parameters
+    ----------
+    psi_n : float or np.ndarray
+        Normalized poloidal flux, 0 on the magnetic axis and 1 on the boundary [-].
+    core_value : float
+        Value on the magnetic axis [any].
+    edge_value : float
+        Value on the boundary [any].
+    alpha : float
+        Radial exponent, positive; larger values flatten the core [-].
+    beta : float
+        Peaking exponent, positive; larger values peak the profile on axis [-].
+
+    Returns
+    -------
+    f : float or np.ndarray
+        Profile value, in the unit of *core_value* and *edge_value*, with the
+        shape of *psi_n* [any].
+
+    Raises
+    ------
+    ValueError
+        *psi_n* is not finite or lies outside ``[0, 1]``, a parameter is not
+        finite, or *alpha* or *beta* is not positive.
+
+    Convention
+    ----------
+    The radial coordinate is the normalized poloidal flux
+    $\psi_N = (\psi - \psi_\mathrm{axis})/(\psi_\mathrm{boundary} - \psi_\mathrm{axis})$,
+    so the shape does not depend on the flux sign or on whether the flux is
+    stored in Wb or Wb/rad. ``alpha = beta = 1`` is linear in $\psi_N$.
+
+    Physical interpretation
+    -----------------------
+    The usual smooth L-mode or core shape for pressure, density, temperature
+    or a prescribed current shape. It carries no pedestal: its gradient near
+    the edge is set by *beta* alone.
+
+    Assumptions
+    -----------
+    A monotone profile between two prescribed end values; nothing here
+    solves for them.
+
+    Limitations
+    -----------
+    The derivative is singular where an exponent is below one: at the axis
+    for ``alpha < 1`` and at the boundary for ``beta < 1`` (see
+    :func:`generalized_parabolic_profile_derivative`). Outside ``[0, 1]`` the
+    form is undefined for non-integer exponents, so it is refused rather than
+    extrapolated; a rounding excess below 1e-12 is clipped.
+    """
+    x = _profile_psi_n(psi_n, bounded=True)
+    _finite_parameters(core_value=core_value, edge_value=edge_value, alpha=alpha, beta=beta)
+    if alpha <= 0.0 or beta <= 0.0:
+        raise ValueError("alpha and beta must be positive")
+    return edge_value + (core_value - edge_value) * np.power(1.0 - np.power(x, alpha), beta)
+
+
+def generalized_parabolic_profile_derivative(psi_n, *, core_value=1.0, edge_value=0.0, alpha=1.0, beta=1.0):
+    r"""Gradient against normalized flux of :func:`generalized_parabolic_profile`.
+
+    $$\frac{df}{d\psi_N} = -\alpha\beta\,(f_\mathrm{core} - f_\mathrm{edge})\,\psi_N^{\alpha-1}(1 - \psi_N^{\alpha})^{\beta-1}$$
+
+    Parameters
+    ----------
+    psi_n : float or np.ndarray
+        Normalized poloidal flux, in ``[0, 1]`` [-].
+    core_value : float
+        Value on the magnetic axis [any].
+    edge_value : float
+        Value on the boundary [any].
+    alpha : float
+        Radial exponent, positive [-].
+    beta : float
+        Peaking exponent, positive [-].
+
+    Returns
+    -------
+    df_dpsi_n : float or np.ndarray
+        Derivative with respect to $\psi_N$, in the profile's unit; infinite
+        at an endpoint where the form is singular [any].
+
+    Raises
+    ------
+    ValueError
+        As for :func:`generalized_parabolic_profile`.
+
+    Convention
+    ----------
+    This is $df/d\psi_N$, not $df/d\psi$. The physical gradient is
+    $df/d\psi = (df/d\psi_N)/(\psi_\mathrm{boundary} - \psi_\mathrm{axis})$
+    in whatever flux unit and sign the equilibrium carries; that conversion
+    is left to the equilibrium layer so there is one owner of it.
+
+    Physical interpretation
+    -----------------------
+    With a pressure profile this is the shape of $p'$ up to the constant flux
+    span, which is what a Grad-Shafranov source term needs.
+
+    Limitations
+    -----------
+    At ``psi_n = 0`` the value is $-\beta(f_\mathrm{core}-f_\mathrm{edge})$
+    for ``alpha = 1``, zero for ``alpha > 1`` and infinite for
+    ``alpha < 1``; at ``psi_n = 1`` it is zero for ``beta > 1``,
+    $-\alpha(f_\mathrm{core}-f_\mathrm{edge})$ for ``beta = 1`` and infinite
+    for ``beta < 1``. A flat profile (``core_value == edge_value``) has a
+    zero gradient everywhere, singular exponents included.
+
+    """
+    x = _profile_psi_n(psi_n, bounded=True)
+    _finite_parameters(core_value=core_value, edge_value=edge_value, alpha=alpha, beta=beta)
+    if alpha <= 0.0 or beta <= 0.0:
+        raise ValueError("alpha and beta must be positive")
+    amplitude = core_value - edge_value
+    if amplitude == 0.0:
+        # a flat profile, even where the shape is singular; a scalar psi_n gets
+        # the same np.float64 the sloped path returns, not a 0-d ndarray
+        return np.float64(0.0) if x.ndim == 0 else np.zeros_like(x)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        inner = np.power(x, alpha - 1.0) if alpha != 1.0 else np.ones_like(x)
+        outer = np.power(1.0 - np.power(x, alpha), beta - 1.0) if beta != 1.0 else np.ones_like(x)
+        return -alpha * beta * amplitude * inner * outer
+
+
+def _mtanh(z, slope):
+    """Groebner's modified tanh, ``((1 + s z) e^z - e^-z)/(e^z + e^-z)``, written overflow-free."""
+    t = np.tanh(z)
+    return t + slope * z * (1.0 + t) / 2.0
+
+
+def _mtanh_derivative(z, slope):
+    t = np.tanh(z)
+    sech2 = 1.0 - t * t
+    return sech2 + slope * ((1.0 + t) + z * sech2) / 2.0
+
+
+def _mtanh_arguments(psi_n, pedestal_height, pedestal_position, pedestal_width, core_slope, edge_value):
+    x = _profile_psi_n(psi_n, bounded=False)
+    _finite_parameters(pedestal_height=pedestal_height, pedestal_position=pedestal_position,
+                       pedestal_width=pedestal_width, core_slope=core_slope, edge_value=edge_value)
+    if pedestal_width <= 0.0:
+        raise ValueError(f"pedestal_width must be positive, got {pedestal_width!r}")
+    return 2.0 * (pedestal_position - x) / pedestal_width
+
+
+def modified_tanh_profile(psi_n, *, pedestal_height, pedestal_position, pedestal_width, core_slope=0.0, edge_value=0.0):
+    r"""H-mode pedestal profile: Groebner's modified hyperbolic tangent in normalized flux.
+
+    $$f(\psi_N) = f_\mathrm{edge} + \frac{h}{2}\left[1 + \mathrm{mtanh}(z, s)\right],\qquad z = \frac{2(\psi_\mathrm{sym} - \psi_N)}{\Delta}$$
+
+    $$\mathrm{mtanh}(z, s) = \frac{(1 + s z)e^{z} - e^{-z}}{e^{z} + e^{-z}}$$
+
+    Parameters
+    ----------
+    psi_n : float or np.ndarray
+        Normalized poloidal flux; values above 1 extend the form into the
+        scrape-off layer [-].
+    pedestal_height : float
+        Step from the edge value to the pedestal top, $h$ [any].
+    pedestal_position : float
+        Symmetry point $\psi_\mathrm{sym}$, the centre of the steep-gradient
+        region [-].
+    pedestal_width : float
+        Full width $\Delta$ in $\psi_N$, positive; the knee is at
+        $\psi_\mathrm{sym} - \Delta/2$ and the foot at $\psi_\mathrm{sym} + \Delta/2$ [-].
+    core_slope : float
+        Core-continuation slope $s$ of the modified tanh, in units of $z$;
+        zero is a pure tanh pedestal [-].
+    edge_value : float
+        Asymptotic value outside the pedestal, $f_\mathrm{edge}$ [any].
+
+    Returns
+    -------
+    f : float or np.ndarray
+        Profile value, in the unit of *pedestal_height* and *edge_value*, with
+        the shape of *psi_n* [any].
+
+    Raises
+    ------
+    ValueError
+        *psi_n* or a parameter is not finite, or *pedestal_width* is not positive.
+
+    Convention
+    ----------
+    VAFT adopts Groebner and Carlstrom's parameterization: their fit is
+    $Y = A\tanh(2(X_\mathrm{sym} - X)/W) + B$ with the pedestal value
+    $A + B$, the offset $B - A$ and the knee at $X_\mathrm{sym} - W/2$ [1]_.
+    Here $h = 2A$ is the step above the offset, $f_\mathrm{edge} = B - A$,
+    and $W = \Delta$ is the *full* width, so ``z = +-1`` at the knee and the
+    foot. The core term replaces their piecewise-linear slope with the
+    smooth modified tanh $(1 + s z)e^{z}$ of the same group [2]_. Other
+    codes use the half width, or put the symmetry point at the pedestal top;
+    convert before comparing. The coordinate is $\psi_N$, so the shape is
+    independent of the flux sign and its Wb or Wb/rad storage.
+
+    Physical interpretation
+    -----------------------
+    With ``core_slope = 0`` the pedestal top value is approached as
+    $f_\mathrm{edge} + h$ well inside the knee, and the steepest gradient,
+    $-h/\Delta$, sits at the symmetry point. A positive *core_slope* keeps the
+    profile rising into the core at about $h s / \Delta$ per unit $\psi_N$.
+
+    Assumptions
+    -----------
+    One pedestal, monotone across it; a separately modelled core shape can be
+    added to it (see :func:`generalized_parabolic_profile`).
+
+    Limitations
+    -----------
+    The core-slope term grows linearly in $z$ without bound, so a large
+    *core_slope* on a narrow pedestal overshoots on axis; compose with a core
+    shape instead when the axis value matters. This is a shape model: it
+    does not predict the pedestal height or width (EPED) or its bootstrap
+    current (#550).
+
+    References
+    ----------
+    .. [1] R. J. Groebner and T. N. Carlstrom, *Critical edge parameters for
+           H-mode transition in DIII-D*, Plasma Phys. Control. Fusion 40, 673
+           (1998), Fig. 1 (General Atomics report GA-A22723).
+    .. [2] R. J. Groebner et al., *Progress in quantifying the edge physics of
+           the H mode regime in DIII-D*, Nucl. Fusion 41, 1789 (2001), for the
+           modified tanh with its core slope.
+    """
+    z = _mtanh_arguments(psi_n, pedestal_height, pedestal_position, pedestal_width, core_slope, edge_value)
+    return edge_value + 0.5 * pedestal_height * (1.0 + _mtanh(z, core_slope))
+
+
+def modified_tanh_profile_derivative(psi_n, *, pedestal_height, pedestal_position, pedestal_width, core_slope=0.0, edge_value=0.0):
+    r"""Gradient against normalized flux of :func:`modified_tanh_profile`.
+
+    $$\frac{df}{d\psi_N} = -\frac{h}{\Delta}\left[\mathrm{sech}^2 z + \frac{s}{2}\left(1 + \tanh z + z\,\mathrm{sech}^2 z\right)\right]$$
+
+    Parameters
+    ----------
+    psi_n : float or np.ndarray
+        Normalized poloidal flux [-].
+    pedestal_height : float
+        Step from the edge value to the pedestal top [any].
+    pedestal_position : float
+        Symmetry point of the pedestal [-].
+    pedestal_width : float
+        Full pedestal width in $\psi_N$, positive [-].
+    core_slope : float
+        Core-continuation slope of the modified tanh [-].
+    edge_value : float
+        Asymptotic value outside the pedestal; it does not enter the gradient [any].
+
+    Returns
+    -------
+    df_dpsi_n : float or np.ndarray
+        Derivative with respect to $\psi_N$, in the profile's unit [any].
+
+    Raises
+    ------
+    ValueError
+        As for :func:`modified_tanh_profile`.
+
+    Convention
+    ----------
+    $df/d\psi_N$, with the width and position conventions of
+    :func:`modified_tanh_profile`; divide by the flux span
+    $\psi_\mathrm{boundary} - \psi_\mathrm{axis}$ for $df/d\psi$.
+
+    Physical interpretation
+    -----------------------
+    For a pressure profile this is the localized edge gradient that drives
+    edge current. A shape built from it is phenomenological and must not be
+    called a bootstrap current unless that physics is evaluated (#550).
+
+    References
+    ----------
+    .. [1] Differentiation of :func:`modified_tanh_profile`; the form follows
+           R. J. Groebner and T. N. Carlstrom, Plasma Phys. Control. Fusion 40,
+           673 (1998).
+    """
+    z = _mtanh_arguments(psi_n, pedestal_height, pedestal_position, pedestal_width, core_slope, edge_value)
+    return -pedestal_height / pedestal_width * _mtanh_derivative(z, core_slope)
 
 
 #: Derived rather than listed, so a function added here cannot silently

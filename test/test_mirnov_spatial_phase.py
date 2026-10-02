@@ -141,18 +141,37 @@ def test_one_toroidal_position_cannot_support_a_fit():
         vaft.omas.plot_mirnov_spatial_phase(stacked, show=False)
 
 
-def test_the_packaged_shot_says_how_thin_its_array_is(sample):
-    """Two positions do fit, and the title must not hide what that means."""
+def _two_position_ods():
+    """Two probes 240 degrees apart: a fit that aliases n modulo 3."""
+    from omas import ODS
+
+    source = _phase_ods()
+    ods = ODS()
+    for target, index in enumerate((0, 3)):
+        for leaf in ("name", "position.phi", "voltage.time", "voltage.data"):
+            ods[f"magnetics.b_field_pol_probe.{target}.{leaf}"] = source[
+                f"magnetics.b_field_pol_probe.{index}.{leaf}"
+            ]
+    ods["dataset_description.data_entry.pulse"] = 99999
+    return ods
+
+
+def test_the_packaged_shot_offers_no_toroidal_fit(sample):
+    """39915 sits in the 35521-44155 gap: no toroidal array recorded (#724, #825).
+
+    It used to offer two positions -- field 171 published twice, 120 degrees
+    apart, the same samples under both -- and fit a signal against itself.
+    """
+    from vaft.machine_mapping.magnetics import toroidal_array_for_shot
     from vaft.plot.backend.recipes import _toroidal_phase_group
 
-    # The regenerated sample gives every equilibrium probe a position.phi
-    # (#731), so the candidates span four angles; the fit uses one poloidal
-    # position (#816), which on 39915 is still two probes at two angles.
+    assert toroidal_array_for_shot(39915)["name"] is None
     _, angles = _toroidal_phase_group(sample)
-    assert np.unique(np.round(np.degrees(angles), 3)).size == 2
-    assert missing_required_path(sample, NAME) is None
-    model = build_model(NAME, normalize_entries(sample), time=0.30, window_size=512)
-    assert "2 toroidal positions" in model.title
+    assert np.unique(np.round(np.degrees(angles), 3)).size <= 1
+    assert missing_required_path(sample, NAME) is not None
+    assert NAME not in {record.name for record in vaft.omas.available_plots(sample)}
+    with pytest.raises(ValueError, match="toroidal"):
+        build_model(NAME, normalize_entries(sample), time=0.30, window_size=512)
 
 
 def test_the_predicate_passes_an_array_that_can(phase_ods):
@@ -202,26 +221,25 @@ def test_both_renderers_draw_it(phase_ods):
 
 
 def test_omas_and_imas_agree(sample):
-    """The same measurement whichever data model carries the probes."""
+    """The same answer whichever data model carries the probes: no array here."""
     imas = pytest.importorskip("imas")
     entry = imas.DBEntry(str(vaft.data.data_path("samples/39915/imas.nc")), "r", dd_version="3.41.0")
     options = dict(time=0.30, window_size=512)
     from vaft.imas.entries import normalize_entries as imas_entries
 
-    left = build_model(NAME, normalize_entries(sample), **options)
-    right = build_model(NAME, imas_entries(entry), **options)
-    assert len(left.series) == len(right.series)
-    for a, b in zip(left.series, right.series):
-        assert a.label == b.label
-        np.testing.assert_allclose(a.x, b.x, equal_nan=True)
-        np.testing.assert_allclose(a.y, b.y, equal_nan=True)
+    messages = []
+    for entries in (normalize_entries(sample), imas_entries(entry)):
+        with pytest.raises(ValueError, match="toroidal") as raised:
+            build_model(NAME, entries, **options)
+        messages.append(str(raised.value))
+    assert messages[0] == messages[1]
 
 
 # ---------------------------------------------------------------------------
 # what the numbers are allowed to claim
 # ---------------------------------------------------------------------------
 
-def test_a_number_two_positions_cannot_settle_is_labelled_as_a_family(sample):
+def test_a_number_two_positions_cannot_settle_is_labelled_as_a_family():
     """Angles that are all multiples of one spacing alias n by 360/spacing."""
     from vaft.plot.backend.recipes import _toroidal_alias_period
 
@@ -229,8 +247,11 @@ def test_a_number_two_positions_cannot_settle_is_labelled_as_a_family(sample):
     assert _toroidal_alias_period(np.array([0.0, 120.0, 180.0, 240.0])) == 6
     assert _toroidal_alias_period(np.array([0.0])) is None
 
-    model = build_model(NAME, normalize_entries(sample), time=0.30, window_size=512)
-    # 39915 sits at 0 and 240 degrees, so its default candidates -6..6 hold
+    model = build_model(
+        NAME, normalize_entries(_two_position_ods()),
+        frequencies=[8_000.0], window_size=512, preprocess=False, time=0.020,
+    )
+    # Two probes at 0 and 240 degrees: the default candidates -6..6 hold
     # five members of one family and the label must not pick one silently.
     assert all("(mod 3)" in s.label for s in model.series), [s.label for s in model.series]
 
@@ -241,14 +262,12 @@ def test_a_number_the_array_can_settle_carries_no_family(phase_ods):
     assert label.endswith("n=2") and "mod" not in label
 
 
-def test_the_title_reports_the_probes_behind_the_positions(sample):
-    title = build_model(NAME, normalize_entries(sample), time=0.30, window_size=512).title
+def test_the_title_reports_the_probes_behind_the_positions():
+    title = _model(_two_position_ods()).title
     assert "2 toroidal positions" in title
     assert "probes at" in title
-    # No "left out" clause here: since issue #816 the fit is built from one
-    # poloidal position, and on this sample every probe of the chosen group
-    # shares a timebase. The clause is exercised below, where probes really are
-    # dropped.
+    # No "left out" clause here: every probe of this input shares a timebase.
+    # The clause is exercised below, where probes really are dropped.
 
 
 def test_the_title_says_when_probes_were_dropped_for_their_timebase(phase_ods):
@@ -354,9 +373,25 @@ def test_named_channels_are_honoured_and_unknown_ones_refused(phase_ods):
         _model(phase_ods, channels=[0, 99])
 
 
-def test_each_band_is_paired_with_its_own_fit_by_colour(sample):
+def test_each_band_is_paired_with_its_own_fit_by_colour():
     """Two bands, so a fit taking the wrong band's colour would show."""
-    model = build_model(NAME, normalize_entries(sample), time=0.30, window_size=512)
+    from omas import ODS
+
+    time = np.arange(4096, dtype=float) / 100_000.0
+    ods = ODS()
+    for index, angle in enumerate(np.deg2rad([0.0, 120.0, 180.0, 240.0])):
+        probe = f"magnetics.b_field_pol_probe.{index}"
+        ods[f"{probe}.name"] = f"TOR{index}"
+        ods[f"{probe}.position.phi"] = float(angle)
+        ods[f"{probe}.voltage.time"] = time
+        ods[f"{probe}.voltage.data"] = np.sin(2 * np.pi * 8_000.0 * time - 2 * angle) + 0.7 * np.sin(
+            2 * np.pi * 12_000.0 * time - angle
+        )
+    ods["dataset_description.data_entry.pulse"] = 99999
+    model = build_model(
+        NAME, normalize_entries(ods), frequencies=[8_000.0, 12_000.0],
+        window_size=512, preprocess=False, time=0.020,
+    )
     measured = [s for s in model.series if s.role != "fit"]
     fits = [s for s in model.series if s.role == "fit"]
     assert len(measured) == 2 and len(fits) == 2
@@ -372,7 +407,11 @@ def test_each_band_is_paired_with_its_own_fit_by_colour(sample):
 
 
 def _positioned_ods(rows):
-    """Probes at explicit ``(r, z, phi_deg)``, each carrying the same waveform."""
+    """Probes at explicit ``(r, z, phi_deg)``, each carrying one n=1 band.
+
+    Each probe records its own phase of the mode, so no two entries are copies
+    of one acquisition -- which the fit refuses to count twice (#724, #825).
+    """
     from omas import ODS
 
     sample_rate = 100_000.0
@@ -385,7 +424,9 @@ def _positioned_ods(rows):
         ods[f"{probe}.position.z"] = float(z)
         ods[f"{probe}.position.phi"] = float(np.deg2rad(phi_deg))
         ods[f"{probe}.voltage.time"] = time
-        ods[f"{probe}.voltage.data"] = np.sin(2 * np.pi * 8_000.0 * time)
+        ods[f"{probe}.voltage.data"] = np.sin(
+            2 * np.pi * 8_000.0 * time - np.deg2rad(phi_deg) + 0.01 * index
+        )
     ods["dataset_description.data_entry.pulse"] = 99999
     return ods
 

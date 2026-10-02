@@ -220,6 +220,17 @@ def core_transport_from_tglf(
     ods[f"core_transport.model.{model}.identifier.name"] = ANOMALOUS_MODEL_NAME
     ods[f"core_transport.model.{model}.identifier.description"] = ANOMALOUS_MODEL_DESCRIPTION
     ods[f"core_transport.model.{model}.flux_multiplier"] = FLUX_MULTIPLIER
+    # Per model, not on the IDS: NEO's mapper owns `core_transport.code`, and a
+    # turbulent and a neoclassical model written into one ODS must keep apart.
+    ods[f"core_transport.model.{model}.code.name"] = "TGLF"
+    ods[f"core_transport.model.{model}.code.repository"] = "https://github.com/gafusion/gacode"
+    revisions = {
+        str((getattr(native, "version", None) or {}).get("revision", ""))
+        .replace("<", "").replace(">", "")
+        for _, native in usable
+    }
+    if len(revisions) == 1 and "" not in revisions:
+        ods[f"core_transport.model.{model}.code.version"] = revisions.pop()
 
     base = f"core_transport.model.{model}.profiles_1d.{time_index}"
     _ensure_aos(ods, f"core_transport.model.{model}.profiles_1d", time_index)

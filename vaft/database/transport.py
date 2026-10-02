@@ -17,6 +17,16 @@ from typing import Sequence
 import h5py
 import numpy as np
 
+__all__ = [
+    "HSDSCommandError",
+    "HSDSCommandNotFoundError",
+    "HSDSTransportError",
+    "HSDSTransportVerificationError",
+    "run_hsget",
+    "run_hsload",
+    "verify_uploaded_image",
+]
+
 
 logger = logging.getLogger(__name__)
 

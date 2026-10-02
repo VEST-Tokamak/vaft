@@ -41,6 +41,9 @@ def main() -> int:
     parser.add_argument("--executable", default="", help="EFIT binary; resolved from $EFIT when empty.")
     parser.add_argument("--encoding", default="raw6", help="Pressure-point encoding: raw6, raw5 or spline.")
     parser.add_argument("--run", default=1, type=int, help="Dataset run number.")
+    parser.add_argument("--efit-preset", default="",
+                        help="Named EFIT configuration (vaft.code.efit.PRESETS) for the base magnetic kfile; "
+                             "empty is the library default (statistical_891), routine the legacy one.")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -58,6 +61,7 @@ def main() -> int:
             executable=args.executable or None,
             encoding=args.encoding,
             run=args.run,
+            efit_preset=args.efit_preset or None,
         )
     except Exception as error:  # noqa: BLE001 - the containment is the point
         LOGGER.exception("%s stage failed for shot %s; recording", args.stage, args.shot)

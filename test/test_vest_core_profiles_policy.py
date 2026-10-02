@@ -37,9 +37,10 @@ def test_policy_resolves_for_a_two_diagnostic_shot():
     assert isinstance(policy, CoreProfilesPolicy)
     assert policy.shot == 48224
     assert policy.coordinate == "rho_tor_norm"
-    assert policy.ti_te_ratio == pytest.approx(0.17)
-    assert policy.ti_te_ratio_sigma == pytest.approx(0.08)
-    assert policy.ti_te_ratio_status == "inferred"
+    # Ti = Te, assumed until enough CES/IDS shots exist to infer it (#1331).
+    assert policy.ti_te_ratio == pytest.approx(1.0)
+    assert policy.ti_te_ratio_sigma == pytest.approx(0.5)
+    assert policy.ti_te_ratio_status == "assumed"
     assert policy.impurity_species == ("C", "O")
     assert policy.impurity_fractions == {"C": pytest.approx(1e-2), "O": pytest.approx(1e-2)}
     assert policy.impurity_status == {"C": "assumed", "O": "assumed"}
@@ -49,7 +50,10 @@ def test_policy_resolves_for_a_two_diagnostic_shot():
 def test_policy_carries_the_derivation_provenance_verbatim():
     policy = vest_core_profiles_policy(48224)
     notes = policy.provenance["ti_te_ratio"]
+    assert "#1331" in notes["decided"] and "Ti = Te" in notes["rationale"]
+    notes = notes["superseded_inference"]  # the earlier inference, kept as the record
 
+    assert notes["value"] == pytest.approx(0.17)
     assert notes["shots"] == [48224, 48226, 48233]
     assert notes["time_window_ms"] == [299, 301]
     assert "pressure-matching" in notes["estimator"]
@@ -72,7 +76,7 @@ def test_text_records_name_value_status_and_source():
     policy = vest_core_profiles_policy(48224)
 
     assert policy.ti_te_ratio_text() == (
-        "ti_te_ratio=0.17; sigma=0.08; status=inferred; "
+        "ti_te_ratio=1; sigma=0.5; status=assumed; "
         "source=vest.yaml:diagnostics.core_profiles; base"
     )
     unknown = vest_core_profiles_policy(None)
@@ -132,7 +136,7 @@ def test_policy_is_part_of_the_shot_provenance_report():
 
     report = vest_processing_provenance(48224)
     assert report["core_profiles"]["coordinate"] == "rho_tor_norm"
-    assert report["core_profiles"]["ti_te_ratio"]["status"] == "inferred"
+    assert report["core_profiles"]["ti_te_ratio"]["status"] == "assumed"
 
 
 # --- the layering ---------------------------------------------------------------
@@ -216,3 +220,42 @@ def test_the_retired_atomic_defaults_are_gone():
         assert not hasattr(atomic, name)
         with pytest.raises(AttributeError):
             getattr(atomic, name)
+
+
+# --- the ion temperature record grammar (cold review 0.8.0) -----------------------
+
+
+@pytest.mark.parametrize("record, kind", [
+    (None, "measured"),
+    ("", "measured"),
+    ("coordinate=rho_tor_norm; method=polynomial; order=2; measured_span=0.0500:0.9500", "measured"),
+    ("coordinate=rho_tor_norm; method=external", "measured"),
+    ("origin=measured; source=CES", "measured"),
+    ("ti_te_ratio=1; status=assumed; source=legacy Ti=Te fallback", "assumed"),
+    ("ti_te_ratio=1; sigma=0.3; status=assumed; source=caller argument", "assumed"),
+    ("ti_te_ratio=0.8; status=unspecified", "assumed"),
+    ("origin=inferred; method=equilibrium_pressure_partition; not measured", "inferred"),
+    ("origin: inferred; method: equilibrium_pressure_partition", "inferred"),
+    ("origin=pressure_inferred; method=x", "inferred"),
+    ("origin=synthetic", "unknown"),
+    ("free text", "unknown"),
+])
+def test_the_ti_record_classifier_reads_every_spelling_the_tree_writes(record, kind):
+    from vaft.machine_mapping.core_profiles import TI_RECORD_KINDS, classify_ti_record
+
+    assert kind in TI_RECORD_KINDS
+    assert classify_ti_record(record) == kind
+
+
+def test_the_writers_records_classify_as_what_they_are():
+    """Producer and consumer share one grammar: what each writer stores reads back as itself."""
+    from vaft.machine_mapping.core_profiles import classify_ti_record, inferred_ti_text, ti_record_fields
+    from vaft.process.profile import FittedProfile
+
+    policy = vest_core_profiles_policy(48224)
+    assert classify_ti_record(policy.ti_te_ratio_text()) == "assumed"
+    assert ti_record_fields(policy.ti_te_ratio_text())["ti_te_ratio"] == f"{policy.ti_te_ratio:g}"
+    assert classify_ti_record(inferred_ti_text("equilibrium_pressure_partition")) == "inferred"
+    assert ti_record_fields(inferred_ti_text("x"))["method"] == "x"
+    fit = FittedProfile(function=lambda x: x, coordinate="rho_tor_norm", method="polynomial", order=2)
+    assert classify_ti_record(fit.parameters_text()) == "measured"

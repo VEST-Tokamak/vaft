@@ -629,23 +629,15 @@ def _contradiction_fractions(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Per-probe fraction of scorable samples over ``sigma``, and the mask of those samples.
 
-    A probe scorable on fewer than ``min_scored`` of the window is ``nan``:
-    its fraction would be a statement about a stretch too short to mean the
-    same thing as its neighbours'.
+    The shared kernel (:func:`vaft.validation.magnetics.array_contradiction_fractions_of`)
+    over this array's heights, with the benchmark's witness requirement.
     """
-    from vaft.validation.magnetics import array_contradiction_scores
+    from vaft.validation.magnetics import array_contradiction_fractions_of
 
-    scores = array_contradiction_scores(
-        [float(m.z) for m in members], Y, floor=floor, min_witnesses=MIN_WITNESSES
+    return array_contradiction_fractions_of(
+        [float(m.z) for m in members], Y, floor=floor, sigma=sigma,
+        min_scored=min_scored, min_witnesses=MIN_WITNESSES,
     )
-    finite = np.isfinite(scores)
-    contradicting = finite & (scores > float(sigma))
-    counted = finite.sum(axis=1)
-    with np.errstate(invalid="ignore", divide="ignore"):
-        fractions = np.where(
-            counted >= float(min_scored) * Y.shape[1], contradicting.sum(axis=1) / counted, np.nan
-        )
-    return fractions, contradicting
 
 
 def array_contradiction_fractions(
@@ -701,43 +693,27 @@ def array_contradictions(
     of the scored spread and reports it; it never touches the artifact's
     validity.
     """
+    from vaft.validation.magnetics import attribute_array_contradictions
+
     flagged: list[dict[str, Any]] = []
     for members, time, inside, Y, floor in _probe_arrays(channels, window, min_members=min_members):
-        remaining = list(range(len(members)))
-
-        def scored(indices):
-            return _contradiction_fractions(
-                [members[i] for i in indices], Y[indices], floor,
-                sigma=sigma, min_scored=ARRAY_CONTRADICTION_MIN_SCORED,
-            )
-
-        fractions, contradicting = scored(remaining)
-        # Leave-one-out needs an array of at least min_members left to judge.
-        while len(remaining) > int(min_members):
-            candidates = [k for k, value in enumerate(fractions) if np.isfinite(value) and value > float(fraction)]
-            if not candidates:
-                break
-            without: dict[int, tuple[np.ndarray, np.ndarray]] = {}
-            for k in candidates:
-                without[k] = scored(remaining[:k] + remaining[k + 1:])
-            def left_behind(k: int) -> float:
-                values = without[k][0]
-                return float(np.nanmax(values)) if np.isfinite(values).any() else 0.0
-            worst = min(candidates, key=lambda k: (left_behind(k), -fractions[k]))
-            probe = members[remaining[k := worst]]
-            stretch = time[inside][contradicting[worst]]
+        for entry in attribute_array_contradictions(
+            [float(m.z) for m in members], Y, floor=floor, sigma=sigma, fraction=fraction,
+            min_members=min_members, min_scored=ARRAY_CONTRADICTION_MIN_SCORED,
+            min_witnesses=MIN_WITNESSES,
+        ):
+            probe = members[entry["index"]]
+            stretch = time[inside][entry["contradicting"]]
             flagged.append(
                 {
                     "channel": probe.name,
                     "kind": probe.kind,
                     "reason": "array_contradiction",
-                    "fraction": float(fractions[worst]),
+                    "fraction": entry["fraction"],
                     "from": float(stretch[0]),
                     "to": float(stretch[-1]),
                 }
             )
-            remaining.pop(worst)
-            fractions, contradicting = without[worst]
     return flagged
 
 

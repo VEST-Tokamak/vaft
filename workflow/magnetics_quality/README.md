@@ -50,24 +50,38 @@ All three are **degraded**, none is unfit, and the reasons differ:
 
 | shot | verdict | window [s] | slices | usable frac (min) | condemned probes | measured to [s] | model residual (median) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 39915 | degraded | 0.306–0.331 | 26 | 0.97 | H3-08 | 0.340 | 0.016 |
-| 41524 | degraded | 0.315–0.336 | 22 | 0.95 | H3-08, C3-01, C3-05 | 0.340 | 0.037 |
-| 41672 | degraded | 0.312–0.352 | 41 | 0.91 | H3-08, C1-01, C3-01, C3-02, C3-05, C4-02 | 0.360 | 0.026 |
+| 39915 | degraded | 0.306–0.331 | 26 | 0.96 | H3-08, C4-04 | 0.340 | 0.016 |
+| 41524 | degraded | 0.315–0.336 | 22 | 0.85 | H3-08, C3-01, C3-05; H3-01, C1-01, C3-02, C4-02, C4-04, C4-06, L-07 | 0.340 | 0.037 |
+| 41672 | degraded | 0.312–0.352 | 41 | 0.76 | H3-08, C1-01, C3-01, C3-02, C3-05, C4-02; H3-01, H3-03, H3-06, H3-07, H3-09, C2-04, C3-03, C4-03, C4-04, C4-06, L-07 | 0.360 | 0.026 |
+
+(Scanned 2026-09-18. Probes after the semicolon are condemned by the array
+review (#977) -- or, for C4-04, by its recorded fault, which the review
+reaches independently.)
 
 Five findings worth carrying into the studies:
 
-- **No EFIT-facing channel carries a stored validity in the packaged pre-EFIT
-  products.** 0 of 75; the only 8 channels with a record are the IMPA probes,
-  which have no waveform at all. "All valid" and "never looked at" are the
-  same bytes in a product, so this sweep assesses and gates into a copy rather
-  than trusting what it is handed. A constraint build that reads projected
-  validity from these products would find nothing and fit everything — which
-  is exactly why the constraint stage now refuses an unassessed product.
+- **The packaged pre-EFIT products now carry the diagnostics stage's
+  projected validity** for 74 of 75 EFIT-facing channels (all but the missing
+  H1-01), since they were regenerated on the current pipeline (5dfcc64a); on
+  the 2026-09-07 scan it was 0 of 75. The sweep still assesses and gates into
+  a copy rather than trusting what it is handed: a stored projection is the
+  verdict of the detectors that ran when the product was made, and the array
+  review (#977) postdates these products.
 - **H3-08 (`b_field_pol_probe[25]`) is condemned on all three shots**, and not
   marginally: its amplitude is 40 times its family's median and exceeds the
   physical ceiling, with no usable sample anywhere in the record. The
-  condemned set grows with shot number — one probe on 39915, three on 41524,
-  six on 41672 — all of them inboard or C-array.
+  condemned set grows with shot number — two probes on 39915, ten on 41524,
+  seventeen on 41672 — all of them B-probes.
+- **Most of that growth is the array review (#977)**, which condemns a probe
+  that departs from its two array neighbours by more than the array's own
+  amplitude for 30 % or more of its record. The family-amplitude rule cannot
+  see these: three outboard probes on 41524 read five times the field their
+  array reads yet sit at 3.5–3.9× the family median, and C4-04 is a sign
+  fault inside the family. On 41672 the lower inboard H3 set zig-zags
+  (+175, +82, +140, +32, −28, +45, −14 mT at one plasma instant) while the
+  upper H1 set opposite it falls smoothly; on 39915 the same set is smooth.
+  Every condemned probe sits at 0.35 of its record or more, every survivor
+  at 0.24 or less (`test_the_array_margin_holds_on_the_reference_shots`).
 - **One EFIT-facing channel is missing on every shot**, `b_field_pol_probe[0]`
   (H1-01). It is a deterministic placeholder at weight zero, not a silent gap.
 - **The routine window ends before the record does on all three shots.**

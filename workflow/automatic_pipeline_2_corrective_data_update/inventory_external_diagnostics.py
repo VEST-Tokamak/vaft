@@ -42,14 +42,13 @@ from typing import Any, Iterable, Iterator, Sequence
 
 #: Diagnostic keys that resolve under the canonical ``legacy/`` FileDB domain,
 #: i.e. data a vaft machine mapping can read today.
-MAPPED_DIAGNOSTICS = ("soft_x_rays", "camera_visible", "camera_visible_fluctuation")
+MAPPED_DIAGNOSTICS = ("soft_x_rays", "camera_visible", "camera_visible_fluctuation", "hard_x_rays")
 
 #: Keys that live under ``unmapped/`` instead: real data, no reader yet.
 UNMAPPED_DIAGNOSTICS = (
     "camera_visible_arranged",
     "camera_visible_mcf",
     "camera_ccd_2013",
-    "hard_x_rays",
 )
 
 #: A camera acquisition at or above this rate is fluctuation-grade and is

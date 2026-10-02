@@ -96,8 +96,9 @@ constraints:
   # Recovery backend: 0 none, 1 refit rejected probes from their family's
   # Gaussian profile, 2 refit every probe.
   gaussian_fit_option: 1
-  npprime: 2
-  nffprime: 2
+  # npprime/nffprime: the basis recorded in the constraints product
+  # (code.parameters). Unset, it follows the EFIT configuration (efit.preset
+  # below), which is also what the k-files use.
   uncertainty:
   - 1.0e-4
   - 1.0e-4
@@ -119,17 +120,37 @@ constraints:
   - 0.01
 efit:
   run: true
+  # Named EFIT configuration from vaft.code.efit.PRESETS. Empty is the default,
+  # statistical_891: the #891 working setting (statistical sigma, diamagnetic
+  # flux fitted, (2,1) basis, psi-only exit), the production configuration
+  # since 2026-10-01. `routine` is the legacy configuration (legacy weights,
+  # (2,2), EFIT's own termination), whose beta_p sits near zero (#386).
+  # Every EFIT product names the configuration in code.parameters.
+  preset: ""
   executable: ${EFIT}
+  # The base Green table. A Green table is valid for one machine era only
+  # (#805); a shot of the base table's era uses this directory as is, and a
+  # shot of any other era uses a table built once per era by rule
+  # generate_efit_table (EFUND, ~3 min and ~170 MB at 129x129, under
+  # <base_dir>/pipeline/efit_tables/, or <base_dir>/efit_tables/ with
+  # layout: shot_first) with this table's grid and flags. Replacing this
+  # table rebuilds them; moving it, efund or efund_timeout does not.
+  # `era_tables: false` turns that off; such shots are then refused.
   table_dir: ${VAFT_DATA_DIR}/efit/
+  era_tables: true
+  # EFUND for those builds: empty means $EFITHOME/bin/efund.
+  efund: ""
+  efund_timeout: 1800
   args: "129"
-  timeout: 600
+  # statistical_891 iterates up to 514 times per slice (routine 100), and a
+  # shot's slices run in one EFIT call: 600 s timed out 26 of 33 shots (#1331).
+  timeout: 3600
 chease:
   run: true
   executable: ${CHEASE}
   timeout: 600
   target_psin: 0.993
   relax: 0.5
-  nideal: 6
   nw: 513
   auto_cocos: true
   output_cocos: input

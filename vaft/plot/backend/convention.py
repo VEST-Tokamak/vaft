@@ -3,24 +3,29 @@
 The IMAS Data Dictionary keeps ``equilibrium.*.psi`` in full weber (COCOS
 11-18); legacy VAFT artifacts hold the g-file's weber per radian (COCOS 1-8).
 The plotting layer labels psi from this probe (issue #478): a declared COCOS
-index settles it, otherwise the same two data probes ``vaft.data.eqdsk``
-uses -- the dphi/dpsi-vs-q slope, then Ampere's law round the LCFS -- run on
-arrays read through :mod:`vaft.plot.backend.access`, so an OMAS ODS and an
-IMAS entry answer alike without converting one into the other.
+index settles it, otherwise ``vaft.data.eqdsk``'s ladder decides.
+
+**The ladder itself is not reimplemented here.** It used to be, with two of its
+three probes, and a label two pi away from the value the same file computed to
+was the result on an ODS carrying neither ``profiles_1d.phi`` nor a boundary
+outline. What this module supplies is the *reader*: a
+:data:`~vaft.data.eqdsk.SliceReader` per time slice built on
+:mod:`vaft.plot.backend.access`, so an OMAS ODS and an IMAS entry answer alike
+without converting one into the other, and so a probe added to the ladder
+reaches the plotting layer on the same commit.
 
 This module knows no data model: it imports numpy, the accessor and, lazily,
-``vaft.process.cocos``.
+``vaft.data.eqdsk``.
 """
 
 from __future__ import annotations
 
 import re
-from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
 
-from .access import array, count, get
+from .access import count, get
 
 #: The two storage families, spelled as the canonical display-unit tokens.
 FLUX_CONVENTIONS = ("Wb", "Wb/rad")
@@ -76,83 +81,31 @@ def psi_convention(obj: Any, time_slice: int = 0) -> str:
     index = declared_cocos(obj)
     if index is not None:
         return "Wb/rad" if index < 10 else "Wb"
+    exponent = flux_exponent(obj, time_slice)
+    if exponent is None:
+        return "Wb"
+    return "Wb/rad" if exponent == 0 else "Wb"
+
+
+def slice_reader(obj: Any, time_slice: int):
+    """A :data:`~vaft.data.eqdsk.SliceReader` over one slice, through the accessor."""
+    base = f"equilibrium.time_slice.{time_slice}"
+    return lambda path: get(obj, f"{base}.{path}")
+
+
+def flux_exponent(obj: Any, time_slice: int = 0) -> int | None:
+    """``e_Bp`` (0 per radian, 1 weber) from the data, else ``None``.
+
+    The requested slice is consulted first and the others after it, since the
+    convention is a property of the file and a degenerate slice must not force
+    the default.  Precedence between the probes runs ahead of precedence
+    between slices; :func:`vaft.data.eqdsk.flux_exponent_tier` owns both.
+    """
+    from vaft.data.eqdsk import flux_exponent_tier
+
     total = count(obj, "equilibrium.time_slice")
     order = [time_slice] + [i for i in range(total) if i != time_slice] if total else [time_slice]
-    for index_ in order:
-        exponent = slice_flux_exponent(obj, index_)
-        if exponent is not None:
-            return "Wb/rad" if exponent == 0 else "Wb"
-    return "Wb"
+    _tier, decided = flux_exponent_tier([slice_reader(obj, i) for i in order])
+    return decided[min(decided)] if decided else None
 
 
-def slice_flux_exponent(obj: Any, time_slice: int) -> int | None:
-    """``e_Bp`` (0 per radian, 1 weber) from one slice's own data, else ``None``."""
-    for probe in (_slope_exponent, _ampere_exponent):
-        exponent = probe(obj, time_slice)
-        if exponent is not None:
-            return exponent
-    return None
-
-
-def _slope_exponent(obj: Any, time_slice: int) -> int | None:
-    base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
-    phi = array(obj, f"{base}.phi")
-    q = array(obj, f"{base}.q")
-    psi = array(obj, f"{base}.psi")
-    if phi is None or q is None or psi is None:
-        return None
-    phi, q, psi = phi.reshape(-1), q.reshape(-1), psi.reshape(-1)
-    if phi.size < 3 or phi.size != q.size or phi.size != psi.size or not np.all(np.isfinite(phi)):
-        return None
-    dpsi = np.diff(psi)
-    good = np.abs(dpsi) > 0
-    if np.count_nonzero(good) < 2:
-        return None
-    slope = np.diff(phi)[good] / dpsi[good]
-    q_mid = 0.5 * (q[1:] + q[:-1])[good]
-    finite = np.isfinite(slope) & np.isfinite(q_mid) & (np.abs(q_mid) > 1e-12)
-    if np.count_nonzero(finite) < 2:
-        return None
-    ratio = float(np.nanmedian(np.abs(slope[finite] / q_mid[finite])))
-    if not np.isfinite(ratio) or ratio <= 0:
-        return None
-    from vaft.process.cocos import FLUX_EXPONENT_TOLERANCE
-
-    for exponent, expected in ((1, 1.0), (0, 2.0 * np.pi)):
-        if abs(ratio - expected) <= FLUX_EXPONENT_TOLERANCE * expected:
-            return exponent
-    return None
-
-
-def _ampere_exponent(obj: Any, time_slice: int) -> int | None:
-    base = f"equilibrium.time_slice.{time_slice}"
-    r = array(obj, f"{base}.profiles_2d.0.grid.dim1")
-    z = array(obj, f"{base}.profiles_2d.0.grid.dim2")
-    psi = array(obj, f"{base}.profiles_2d.0.psi")
-    boundary_r = array(obj, f"{base}.boundary.outline.r")
-    boundary_z = array(obj, f"{base}.boundary.outline.z")
-    ip = get(obj, f"{base}.global_quantities.ip")
-    if r is None or z is None or psi is None or boundary_r is None or boundary_z is None or ip is None:
-        return None
-    r, z = r.reshape(-1), z.reshape(-1)
-    if psi.shape == (z.size, r.size) and psi.shape != (r.size, z.size):
-        psi = psi.T
-    if psi.shape != (r.size, z.size):
-        return None
-    try:
-        ip = float(np.asarray(ip, dtype=float).reshape(-1)[0])
-    except (IndexError, TypeError, ValueError):
-        return None
-    if not np.isfinite(ip) or ip == 0.0:
-        return None
-    from vaft.process.cocos import identify_flux_exponent
-
-    equilibrium = SimpleNamespace(
-        r=r, z=z, psi=psi, ip=ip,
-        lcfs=SimpleNamespace(r=boundary_r.reshape(-1), z=boundary_z.reshape(-1)),
-    )
-    try:
-        exponent, _ratio = identify_flux_exponent(equilibrium)
-    except Exception:
-        return None
-    return exponent

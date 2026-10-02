@@ -1,0 +1,73 @@
+# The published VAFT Python API (issue #162).
+#
+# `python -m vaft._api_catalog` documents every public module (no `_` in its
+# dotted name) that declares `__all__`: `__all__` is the module's own statement
+# of what it publishes, and this file only says how the modules are grouped
+# into pages.  `docs/scripts/catalog_coverage.py` fails the build when
+#
+#   * a public module declares no `__all__` and is not listed under
+#     `undeclared` -- a new module has to say what it publishes, or be listed
+#     here as publishing nothing yet;
+#   * a module listed under `undeclared` declares `__all__` or no longer
+#     exists -- the list is stale;
+#   * a public module belongs to no page below.
+#
+# Order is page order.  `modules` are dotted prefixes covering a module and its
+# submodules (the longest match wins), except `vaft`, which covers only itself.
+pages:
+  - slug: core
+    title: Top level and utilities
+    modules: [vaft, vaft.compat, vaft.ods_access, vaft.spectroscopy, vaft.version]
+  - slug: database
+    title: vaft.database
+    modules: [vaft.database]
+  - slug: data
+    title: vaft.data
+    modules: [vaft.data]
+  - slug: machine-mapping
+    title: vaft.machine_mapping
+    modules: [vaft.machine_mapping]
+  - slug: omas
+    title: vaft.omas
+    modules: [vaft.omas]
+  - slug: imas
+    title: vaft.imas
+    modules: [vaft.imas]
+  - slug: process
+    title: vaft.process
+    modules: [vaft.process]
+  - slug: formula
+    title: vaft.formula
+    modules: [vaft.formula]
+  - slug: plot
+    title: vaft.plot
+    modules: [vaft.plot]
+  - slug: diagram
+    title: vaft.diagram
+    modules: [vaft.diagram]
+  - slug: validation
+    title: vaft.validation
+    modules: [vaft.validation]
+  - slug: code
+    title: vaft.code
+    modules: [vaft.code]
+  - slug: cli
+    title: vaft.cli
+    modules: [vaft.cli]
+  - slug: mcp
+    title: vaft.mcp
+    modules: [vaft.mcp]
+
+# Public-looking modules that declare no `__all__`, so publish nothing yet.
+# Declaring `__all__` in one of them publishes it: remove it from this list.
+undeclared:
+  - vaft.diagram.build
+  - vaft.plot.analysis
+  - vaft.plot.backend
+  - vaft.plot.backend.convention
+  - vaft.plot.history
+  - vaft.plot.mirnov
+  - vaft.plot.onedim
+  - vaft.plot.profile
+  - vaft.plot.time
+  - vaft.plot.twodim

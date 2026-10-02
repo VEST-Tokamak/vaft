@@ -37,6 +37,10 @@ _EXTERNAL_ENVIRONMENT = (
     # asserts nothing is configured.
     "TURBULENTTRANSPORTHOME",
     "TURBULENTTRANSPORT_ROOT",
+    # The vaft-nn model registry (#669): a checkout of published model metadata
+    # and a cache of verified release assets -- external, like the codes above.
+    "VAFT_NN_HOME",
+    "VAFT_NN_CACHE",
     # TokaMaker (Open FUSION Toolkit) is imported in-process rather than run
     # as a $XHOME/bin binary; these steer library discovery and sys.path.
     "OFT_ROOTPATH",
@@ -157,6 +161,32 @@ def test_legacy_variables_work_when_home_is_unset(monkeypatch, tmp_path):
 
     assert efit.find_efit_executable() == legacy_efit
     assert chease.find_chease_executable() == legacy_chease
+    assert tes_runner._resolve_executable(TESConfig()) == str(legacy_rtes)
+
+
+def test_teshome_finds_the_source_tree_build(monkeypatch, tmp_path):
+    # TES's Makefile builds rtes at TES/rtes; an unmodified build has no bin/
+    built = _executable(tmp_path / "TESm", "TES/rtes")
+    monkeypatch.setenv("TESHOME", str(tmp_path / "TESm"))
+    monkeypatch.delenv("RTES", raising=False)
+
+    assert tes_runner._resolve_executable(TESConfig()) == str(built)
+
+
+def test_teshome_prefers_bin_over_the_source_tree(monkeypatch, tmp_path):
+    installed = _executable(tmp_path / "TESm", "bin/rtes")
+    _executable(tmp_path / "TESm", "TES/rtes")
+    monkeypatch.setenv("TESHOME", str(tmp_path / "TESm"))
+
+    assert tes_runner._resolve_executable(TESConfig()) == str(installed)
+
+
+def test_rtes_applies_when_teshome_holds_no_binary(monkeypatch, tmp_path):
+    legacy_rtes = _executable(tmp_path, "elsewhere/rtes")
+    (tmp_path / "TESm").mkdir()
+    monkeypatch.setenv("TESHOME", str(tmp_path / "TESm"))
+    monkeypatch.setenv("RTES", str(legacy_rtes))
+
     assert tes_runner._resolve_executable(TESConfig()) == str(legacy_rtes)
 
 

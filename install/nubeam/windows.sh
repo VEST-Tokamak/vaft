@@ -25,6 +25,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 NUBEAM_ROOT="${NUBEAM_SOURCE_DIR:-}"
 NETCDF_HOME="${VAFT_NETCDF_HOME:-}"
 ACCEPT_NTCC_TERMS=0
@@ -428,6 +429,46 @@ static void __attribute__((constructor)) vaft_winsock_startup_ctor(void)
 void vaft_winsock_startup(void) { vaft_winsock_startup_ctor(); }
 EOF
 
+  cat > "$COMPAT_DIR/cmkdir_win32.c" <<'EOF'
+/*
+  cmkdir for Windows.
+
+  portlib's gmkdir treats a path as absolute only when it starts with '/'.
+  Anything else is taken as relative and appended to the current directory,
+  so the absolute Windows path NUBEAM hands it -- mpi_share_env calls
+  mpi_mkdir on getcwd(), which is "C:\work\run" -- arrives here as
+  "C:\work\run/C:\work\run". _mkdir rejects the embedded colon with EINVAL and
+  nubeam_comp_exec stops at INIT with "mpi_mkdir(cwd=...)".
+
+  A drive specifier can only begin a Windows path, so one that follows a
+  separator marks where the real absolute path starts; everything before it is
+  gmkdir's misplaced prefix. Paths without one are passed through unchanged,
+  and an existing directory is success, as in portlib's own cmkdir.
+*/
+#include <ctype.h>
+#include <direct.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+
+int cmkdir_(const char *path)
+{
+  const char *start = path;
+  const char *s;
+
+  for (s = path + 1; s[0] && s[1]; ++s) {
+    if (s[1] == ':' && isalpha((unsigned char) s[0]) && (s[-1] == '/' || s[-1] == '\\'))
+      start = s;
+  }
+  errno = 0;
+  _mkdir(start);
+  if (errno == EEXIST) errno = 0;
+  if (errno != 0)
+    fprintf(stderr, " cmkdir %s: strerror(%d): %s\n", start, errno, strerror(errno));
+  return errno;
+}
+EOF
+
   cat > "$COMPAT_DIR/c_execsystem_win32.c" <<'EOF'
 /*
   c_execsystem for Windows.
@@ -618,12 +659,15 @@ seed_portlib() {
   # that install_ntcc_artifacts then copies over the complete one.
   [[ -f "$obj/lib/libportlib.a" ]] || return 0
   mkdir -p "$obj/obj/portlib"
-  local cflags="-c -O -std=gnu89 -Wno-implicit-int -Wno-implicit-function-declaration"
-  gcc $cflags -I"$COMPAT_DIR" -I"$root" -I"$root/include" \
+  # An array, not a string: this script runs under IFS=$'\n\t', so an unquoted
+  # $cflags would reach gcc as one argument and be rejected whole.
+  local -a cflags=(-c -O -std=gnu89 -Wno-implicit-int -Wno-implicit-function-declaration)
+  gcc "${cflags[@]}" -I"$COMPAT_DIR" -I"$root" -I"$root/include" \
       -o "$obj/obj/portlib/c_execsystem.o" "$COMPAT_DIR/c_execsystem_win32.c"
   gcc -c -O -o "$obj/obj/portlib/vaft_wsa_init.o" "$COMPAT_DIR/vaft_wsa_init.c"
   gcc -c -O -o "$obj/obj/portlib/vaft_get_proc_mem.o" "$COMPAT_DIR/vaft_get_proc_mem.c"
-  gcc $cflags -I"$COMPAT_DIR" -I"$root/portlib" -I"$root/include" \
+  gcc -c -O -o "$obj/obj/portlib/cmkdir.o" "$COMPAT_DIR/cmkdir_win32.c"
+  gcc "${cflags[@]}" -I"$COMPAT_DIR" -I"$root/portlib" -I"$root/include" \
       -include "$COMPAT_DIR/vaft_trsocket_win32.h" \
       -o "$obj/obj/portlib/trsocket.o" "$root/portlib/trsocket.c"
   # -U, not the default: binutils writes deterministic archives, which zero
@@ -633,6 +677,7 @@ seed_portlib() {
      "$obj/obj/portlib/c_execsystem.o" \
      "$obj/obj/portlib/vaft_wsa_init.o" \
      "$obj/obj/portlib/vaft_get_proc_mem.o" \
+     "$obj/obj/portlib/cmkdir.o" \
      "$obj/obj/portlib/trsocket.o"
   ranlib "$obj/lib/libportlib.a"
 }
@@ -811,7 +856,11 @@ link_libraries() {
     name="${name#lib}"
     name="${name%.a}"
     # netCDF and HDF5 are named by path below, never found by -l search.
-    case "$name" in netcdff|netcdf|hdf5|hdf5_hl) continue ;; esac
+    # cdf_dummy is NTCC's no-netCDF stand-in: it defines nf_open_, nf_get_vara_*
+    # and the rest as stubs. Inside the group it can satisfy a reference before
+    # the real libnetcdff is reached, and vaft_plasma_state then fails with
+    # "multiple definition of nf_put_vara_int_" (or, worse, links the stubs).
+    case "$name" in netcdff|netcdf|hdf5|hdf5_hl|cdf_dummy) continue ;; esac
     case " $group " in *" -l$name "*) continue ;; esac
     group="$group -l$name"
   done
@@ -829,7 +878,7 @@ NUBEAM_EXEC="$BUILD_DIR/nubeam/test/nubeam_comp_exec.exe"
 mkdir -p "$PREFIX/bin"
 cp "$NUBEAM_EXEC" "$PREFIX/bin/nubeam_comp_exec.exe"
 build_aux_executables() {
-  local preact_root preact_build generator_build source_file
+  local preact_root preact_build generator_build
 
   note "building update_state"
   # update_state ends its link line with $(LAPACK) and never reaches
@@ -855,29 +904,20 @@ build_aux_executables() {
     die "preact_init was not created; see $LOG_FILE"
   cp "$preact_build/test/preact_init.exe" "$PREFIX/bin/preact_init.exe"
 
-  # The Plasma State generator. The NTCC archives ship no main program for it;
-  # the complete source is plasma_state_test.f90 in the 2021 server tree, which
-  # arrives with a full NUBEAM distribution rather than with the modules this
-  # script downloads. Its own Makefile is unusable (absolute /home paths,
-  # MDSplus, termcap), so compile and link it directly.
-  local src="$ROOT_DIR/vendor/server-ntcc-2021/plasma_state_test"
-  if [[ ! -f "$src/plasma_state_test.f90" ]]; then
-    note "skipping plasma_state_test: no source at $src"
-    note "  Cases that generate a Plasma State from scratch need it; cases that"
-    note "  read an existing state do not. It ships with the full NUBEAM"
-    note "  distribution, not with the NTCC dependency modules."
-    return 0
-  fi
-  note "building plasma_state_test"
+  # The Plasma State generator. The public NTCC archive ships the Plasma State
+  # library but no program that creates a state, so VAFT carries its own,
+  # plasma_state/vaft_plasma_state.f90 beside this script. It contains no NTCC
+  # source and is compiled here against the libraries just built.
+  local src="$SCRIPT_DIR/plasma_state"
+  [[ -f "$src/vaft_plasma_state.f90" ]] ||
+    die "Plasma State generator source not found: $src/vaft_plasma_state.f90"
+  note "building vaft_plasma_state"
   generator_build="$BUILD_DIR/generator"
   mkdir -p "$generator_build"
   ( cd "$generator_build"
-    for source_file in ps_momtest.F90 plasma_state_test.f90; do
-      gfortran -c -O -m64 -fno-range-check -fdollar-ok -cpp -fno-common \
-        -std=legacy -fallow-argument-mismatch -fallow-invalid-boz \
-        -I"$PREFIX/mod" -I"$PREFIX/include" -I"$NETCDF_HOME/include" \
-        -o "${source_file%.*}.o" "$src/$source_file"
-    done
+    gfortran -c -O -m64 -fno-range-check -fdollar-ok -cpp -fno-common \
+      -I"$PREFIX/mod" -I"$PREFIX/include" -I"$NETCDF_HOME/include" \
+      -o vaft_plasma_state.o "$src/vaft_plasma_state.f90"
     # The same group and the same static netCDF as every other link here.
     #
     # IFS is restored to a space for this one command. link_libraries emits a
@@ -888,11 +928,11 @@ build_aux_executables() {
     # it inside a quoted "VAR=..." string, where no splitting is wanted.
     IFS=' '
     # shellcheck disable=SC2046  # deliberate word split, per the note above
-    gfortran -o plasma_state_test.exe plasma_state_test.o ps_momtest.o \
+    gfortran -o vaft_plasma_state.exe vaft_plasma_state.o \
       $(link_libraries) -L/ucrt64/lib -lopenblas )
-  [[ -f "$generator_build/plasma_state_test.exe" ]] ||
-    die "plasma_state_test was not created; see $LOG_FILE"
-  cp "$generator_build/plasma_state_test.exe" "$PREFIX/bin/plasma_state_test.exe"
+  [[ -f "$generator_build/vaft_plasma_state.exe" ]] ||
+    die "vaft_plasma_state was not created; see $LOG_FILE"
+  cp "$generator_build/vaft_plasma_state.exe" "$PREFIX/bin/vaft_plasma_state.exe"
 }
 
 # nubeam_comp_exec requires both PREACTDIR and ADASDIR and calls bad_exit when

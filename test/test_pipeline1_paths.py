@@ -32,7 +32,7 @@ BASE_DIR = "/srv/vest.filedb/public"
 FAMILY = "magnetic"
 REFINEMENT = "chease"
 SHOT = 48226
-VERSION = "vest-43017-45957-pf1906"
+VERSION = "vest-43017-45967-pf1906"
 
 
 def _rule_filedb(root: str) -> FileDB:

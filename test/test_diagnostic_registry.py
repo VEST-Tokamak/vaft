@@ -34,7 +34,8 @@ def test_registry_contains_the_legacy_inventory_and_valid_status_axes():
 
 def test_implemented_registry_entries_resolve_to_real_mapping_entrypoints():
     for record in load_diagnostic_registry().values():
-        if record["mapping_status"] != "implemented":
+        # A partial mapping that names an entrypoint must resolve too.
+        if record["mapping_status"] != "implemented" and "mapping" not in record:
             continue
         module = importlib.import_module(record["mapping"]["module"])
         assert callable(getattr(module, record["mapping"]["entrypoint"]))

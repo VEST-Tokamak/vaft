@@ -382,7 +382,23 @@ def make_chease(_sample: ODS) -> ODS:
 
 
 # ---------------------------------------------------------------------------
+# thomson_scattering_profile_fit / charge_exchange_profile_fit (issue #952):
+# the packaged kinetic-EFIT input of shot 48224 at 300 ms -- Thomson, CES and
+# the equilibrium they are mapped through, in one loose ODS file.
+# ---------------------------------------------------------------------------
+def make_kinetic_48224(_sample: ODS) -> ODS:
+    import omas
+    from vaft.data import data_path
+
+    return omas.load_omas_json(
+        str(data_path("kineticEfit/ods_48224_300ms.json")), consistency_check=False
+    )
+
+
+# ---------------------------------------------------------------------------
 SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
+    "thomson_scattering_profile_fit": make_kinetic_48224,
+    "charge_exchange_profile_fit": make_kinetic_48224,
     "nbi_profile_electron_heating": make_nbi,
     "nbi_profile_ion_heating": make_nbi,
     "nbi_profile_current_drive": make_nbi,
@@ -396,9 +412,16 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "coil_3d_geometry_topview": make_coils_3d,
     "pf_plasma_geometry_poloidal": make_pf_plasma,
     "neoclassical_profile_bootstrap_current": make_neoclassical,
+    # issue #551: 39915 carries no core_profiles; the gradient views read the
+    # synthetic profiles through the equilibrium slice at their time.
+    "electron_temperature_profile_gradient": make_core_profiles,
+    "electron_density_profile_gradient": make_core_profiles,
+    "ion_temperature_profile_gradient": make_core_profiles,
     "electron_temperature_field": make_core_profiles,
     "electron_density_field": make_core_profiles,
     "summary_time_power_balance": make_power_balance,
+    # Same shape: every current-carrying 39915 slice gets electron profiles.
+    "summary_time_resistive_zeff": make_power_balance,
     "camera_visible_image": make_camera,
     "camera_visible_image_frame": make_camera,
     "camera_visible_image_efit_overlay": make_camera,
@@ -417,8 +440,12 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
 
 #: build_model options a name needs beyond the ODS (factories cannot pass options).
 OPTIONS: dict[str, dict] = {
+    "charge_exchange_profile_fit": {"order": 2},
     "camera_visible_image_field_line": {"field_line_start": (0.4, 0.0)},
     "camera_visible_image_vacuum_field_line": {"shot": 39915, "max_turns": 0.25, "resolution": 21},
+    # #1446: the island separatrices take no default field -- the total and
+    # vacuum resonant pairs are different objects drawn on the same axes.
+    "mhd_linear_geometry_island": {"field": "total"},
 }
 
 #: Names no factory could make build, with the exact error.
@@ -473,9 +500,105 @@ def make_gpec_resonant(_sample: ODS) -> ODS:
         write_control_nc(path, n=1)
         write_cylindrical_nc(path, n=1)
         write_profile_nc(path, n=1, rational_q=(2.0, 3.0))
-        gpec_ideal(out, str(path), {"modes": [1]})
+        # The island overlay is drawn on the flux-surface mesh, which the
+        # mapper writes only when asked.
+        gpec_ideal(out, str(path), {"modes": [1], "include_geometry": True})
     return out
 
 
-for _name in ("mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width"):
+for _name in (
+    "mhd_linear_profile_resonant_flux", "mhd_linear_profile_island_width",
+    "mhd_linear_profile_chirikov", "mhd_linear_field_spectrum",
+    "mhd_linear_spectrum_b_field_perturbed", "mhd_linear_geometry_island",
+):
     SYNTHETIC[_name] = make_gpec_resonant
+
+
+# ---------------------------------------------------------------------------
+# mirnov_spatial_phase -- the packaged 39915 sample has no toroidal array (it
+# sits in the 35521-44155 gap, and its field-171 twin is gone since #724/#825),
+# so the view is built on the shape of the modern outboard fluctuation array:
+# one poloidal row at 135/225/315 deg carrying an n=1 band.
+# ---------------------------------------------------------------------------
+def make_mirnov_toroidal_array(_sample: ODS) -> ODS:
+    time = 0.3 + np.arange(4096, dtype=float) / 1.0e6
+    ods = ODS()
+    ods["dataset_description.data_entry.pulse"] = 45531
+    for index, degrees in enumerate((135.0, 225.0, 315.0)):
+        probe = f"magnetics.b_field_pol_probe.{index}"
+        angle = np.deg2rad(degrees)
+        ods[f"{probe}.name"] = f"OutMirnov_{index}"
+        ods[f"{probe}.identifier"] = f"OutMirnov_{index}"
+        ods[f"{probe}.position.r"] = 0.796
+        ods[f"{probe}.position.z"] = 0.0
+        ods[f"{probe}.position.phi"] = float(angle)
+        ods[f"{probe}.voltage.time"] = time
+        ods[f"{probe}.voltage.data"] = np.sin(2 * np.pi * 20_000.0 * (time - 0.3) - angle)
+    return ods
+
+
+SYNTHETIC["mirnov_spatial_phase"] = make_mirnov_toroidal_array
+OPTIONS["mirnov_spatial_phase"] = {"frequencies": [20_000.0], "window_size": 512, "preprocess": False}
+
+
+# ---------------------------------------------------------------------------
+# coil_3d_profile_current / coil_3d_spectrum_current -- the packaged VEST 3D
+# coil geometry with an n = 2 excitation overlaid, which is how a GPEC run's
+# coil currents reach the IDS.
+# ---------------------------------------------------------------------------
+
+
+def make_coil_3d_excitation(_sample: ODS) -> ODS:
+    from vaft.machine_mapping.coils_non_axisymmetric import (
+        apply_coil_excitation,
+        coils_non_axisymmetric,
+    )
+    from vaft.machine_mapping.coils_non_axisymmetric_geometry import (
+        CoilExcitation,
+        load_vest_3d_coil_config,
+    )
+
+    out = ODS(consistency_check=False)
+    coils_non_axisymmetric(out)
+    config = load_vest_3d_coil_config()
+    excitations = []
+    for name, coil_set in config.coil_sets.items():
+        angles = np.asarray([
+            np.mean(np.unwrap(np.arctan2(
+                filament.points_xyz[:, 1], filament.points_xyz[:, 0]
+            )))
+            for filament in coil_set.filaments
+        ])
+        excitations.append(
+            CoilExcitation(coil_set=name, currents_a=list(1000.0 * np.cos(2.0 * angles)))
+        )
+    apply_coil_excitation(out, excitations, time_s=[0.0, 0.1])
+    return out
+
+
+for _name in ("coil_3d_profile_current", "coil_3d_spectrum_current"):
+    SYNTHETIC[_name] = make_coil_3d_excitation
+
+
+# ---------------------------------------------------------------------------
+# field_line_topology_field_connection_length -- one traced plane written
+# through the FLARE mapper, adapted from test/test_field_line_connection_plot.py
+# (`traced`). The grid is deliberately not square, so a transposed read fails.
+# ---------------------------------------------------------------------------
+
+
+def make_field_line_plane(_sample: ODS) -> ODS:
+    from vaft.machine_mapping.field_line_topology import write_b_field_lines
+
+    grid_r = np.array([1.0, 1.5, 2.0, 2.5])
+    grid_z = np.array([-1.0, 0.0])
+    r, z = (a.ravel() for a in np.meshgrid(grid_r, grid_z))
+    out = ODS()
+    write_b_field_lines(
+        out, grid_r=grid_r, grid_z=grid_z, starting_r=r, starting_z=z,
+        lengths=100.0 * r + z, open_fraction=0.5, time=0.1, phi_deg=30.0,
+    )
+    return out
+
+
+SYNTHETIC["field_line_topology_field_connection_length"] = make_field_line_plane

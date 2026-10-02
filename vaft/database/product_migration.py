@@ -52,6 +52,19 @@ from .filedb import (
 )
 from .sources import STAGE_REPLICATION
 
+__all__ = [
+    "LEGACY_SUFFIX",
+    "MIGRATIONS",
+    "PROJECTIONS",
+    "ProductMigration",
+    "ProductMigrationError",
+    "ProductMigrationReport",
+    "Recontainment",
+    "audit_product_containers",
+    "migrate_product_containers",
+    "sweep_superseded_products",
+]
+
 
 class ProductMigrationError(Exception):
     """A migration that refuses to run rather than guess."""

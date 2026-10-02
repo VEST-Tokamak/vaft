@@ -31,18 +31,18 @@ open to all users; writing to the database is restricted to authorized accounts.
 
 Four things, which together are what "framework" means here.
 
-- **Integrated Standardized Interface** — standardized data representations, data processing,
+- **Standardized Data Interface** — standardized data representations, data processing,
   validation, visualization and community physics codes (EFIT, CHEASE, GPEC, TokaMaker, VFIT)
   integrated into one scientific workflow, interoperating rather than reimplemented.
-- **Version-Controlled Data Pipeline** — traceable and reproducible data products from machine design
+- **Traceable & Reproducible Pipeline** — traceable and reproducible data products from machine design
   to reconstructed and simulated states, which is what makes a result verifiable against its
   provenance and assumptions. Versioning covers geometry, diagnostic mappings, calibration,
   conventions, processing logic and schema versions, not only source code.
-- **IMAS-FAIR Database** — validated data preserved and shared in both native and standardized
+- **FAIR Scientific Data Repository** — validated data preserved and shared in both native and standardized
   representations, following the FAIR principles, as the foundation for finding which experimental
   and modelling information exists for a shot.
-- **Machine & Research Archive** — the VEST tokamak and its research ecosystem since 2012: machine
-  history, experimental practice, tutorials and notebooks, kept usable for long-term verification,
+- **Machine Knowledge Archive** — machine configuration and history, experimental history, decisions,
+  documentation, tutorials and notebooks of the VEST tokamak since 2012, kept usable for long-term verification,
   comparison and study.
 
 ## Choose a path

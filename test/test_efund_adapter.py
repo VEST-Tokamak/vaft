@@ -16,6 +16,7 @@ import pytest
 
 from external_code_stubs import write_launchable_stub
 from lfs_assets import skip_unless_materialized
+from vaft import compat
 from vaft.code.efit import efund as efund_module
 from vaft.code.efit.efund import (
     MHDIN_NAME,
@@ -287,7 +288,7 @@ def test_run_refuses_a_workdir_without_the_input(geometry, tmp_path, monkeypatch
 
 
 def test_command_raises_the_stack_only_when_asked(tmp_path, monkeypatch):
-    monkeypatch.setattr(efund_module.compat, "IS_WINDOWS", False)
+    monkeypatch.setattr(compat, "IS_WINDOWS", False)
     executable = tmp_path / "efund"
     with_stack = efund_module._efund_command(EFUNDConfig(nw=65, nh=33, stack_size_kb=4096), executable)
     assert with_stack[:2] == ["bash", "-lc"]
@@ -310,7 +311,7 @@ def test_windows_reserves_the_stack_at_link_time_not_through_bash(tmp_path, monk
     deliberately keep off PATH, so the command would fail before reaching a
     setting that could not have worked.
     """
-    monkeypatch.setattr(efund_module.compat, "IS_WINDOWS", True)
+    monkeypatch.setattr(compat, "IS_WINDOWS", True)
     executable = tmp_path / "efund.exe"
 
     for config in (
@@ -440,3 +441,30 @@ def test_efund_generates_a_complete_small_table_for_the_legacy_era(static, tmp_p
     assert [array.size for array in arrays] == [11 * 26, 64 * 26]
     assert np.all(np.isfinite(arrays[0])) and np.any(arrays[0] != 0.0)
     assert path.is_file()
+
+
+def test_efund_launches_through_the_backend_single_threaded(geometry, tmp_path):
+    """#671: EFUND's timeout still becomes a failed result naming the limit."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    fake = write_launchable_stub(tmp_path / "bin" / "efund")
+    backend = RecordingBackend(ExecutionResult(returncode=None, stdout="partial", timed_out=True))
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / MHDIN_NAME).write_text("", encoding="utf-8")
+    config = EFUNDConfig(
+        workdir=run, executable=str(fake), timeout=9.0, stack_size_kb=None, backend=backend
+    )
+    inputs = EFUNDInputs(
+        workdir=run, mhdin=run / MHDIN_NAME, mhdin_sha256="0" * 64,
+        geometry=geometry, counts=geometry.counts(),
+    )
+    result = run_efund(inputs, config)
+
+    (request,) = backend.requests
+    assert request.resources.threads_per_task == 1
+    assert request.timeout == 9.0
+    assert result.status == "failed"
+    assert result.returncode is None
+    assert result.reason == "efund timed out after 9.0 seconds"

@@ -181,6 +181,10 @@ def profile_dataset(model: Any, **extra: Any) -> "xr.Dataset":
     ds.attrs["reference_lines"] = _plain(
         [{"x": line.x, "label": line.label, "style": dict(line.style)} for line in model.reference_lines]
     )
+    metadata = getattr(model, "metadata", None)
+    if metadata:
+        # JSON text: json.loads(ds.attrs["metadata"]) is the model's record
+        ds.attrs["metadata"] = _plain(dict(metadata))
     return ds
 
 
@@ -202,6 +206,7 @@ def _layer_variables(layers: Sequence[Any], axes: Sequence[str], *, prefix: str 
         f"{prefix}label": (dim, np.array([layer.label for layer in layers], dtype=object)),
         f"{prefix}entry": (dim, np.array([getattr(layer, "entry", "") for layer in layers], dtype=object)),
         f"{prefix}role": (dim, np.array([getattr(layer, "role", "") for layer in layers], dtype=object)),
+        f"{prefix}group": (dim, np.array([getattr(layer, "group", "") for layer in layers], dtype=object)),
         f"{prefix}length": (dim, np.array([np.asarray(getattr(layer, axes[0])).size for layer in layers], dtype=int)),
         f"{prefix}layer_style": (dim, np.array([_plain(dict(layer.style)) for layer in layers], dtype=object)),
     }
