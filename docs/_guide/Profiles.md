@@ -729,7 +729,7 @@ flux map it returns.
 ### Named configurations (presets)
 
 `vaft.code.efit.PRESETS` names complete EFIT configurations: the scientific configuration written into the k-file, sigma floor included.
-Since 2026-10-01 the defaults of `EFITScientificConfig` *are* the #891 working setting, so a run that names no configuration writes it (`DEFAULT_PRESET = "statistical_891"`).
+Since 2026-10-01 the defaults of `EFITScientificConfig` *are* the #891 working setting, so a run that names no configuration writes it (`vaft.code.efit.DEFAULT_PRESET == "statistical_891"`).
 
 | preset | what it is |
 | --- | --- |
@@ -760,10 +760,12 @@ generate_kfile(ods, 39915, save_dir="efit-legacy", config=efit_preset("routine")
 
 `routine_profile_config()`, `routine_numerics_config()`, `routine_constraint_config()` and
 `routine_scientific_config()` in `vaft.code.efit.config` build the legacy pieces one at a time.
-Passing `npprime`/`nffprime` to `generate_kfile` without a `config` also selects the legacy
-configuration with that basis. `EFITConfig.npprime`/`nffprime` only override the basis of the
-configuration the `EFITConfig` carries; to run the legacy configuration through
-`prepare_efit_inputs`, pass its `profile`, `initialization`, `numerics` and `constraints`.
+The legacy configuration is selected only by name: a positional `npprime`/`nffprime` on
+`generate_kfile` without a `config` (deprecated; it warns once) and `EFITConfig.npprime`/`nffprime`
+both mean the same thing, a basis override on the configuration otherwise in force -- the default
+when nothing else is named. To run the legacy configuration with another basis, pass
+`routine_scientific_config(profile=routine_profile_config(kppcur=..., kffcur=...))`; to run it
+through `prepare_efit_inputs`, pass its `profile`, `initialization`, `numerics` and `constraints`.
 
 **Selecting a preset in the pipelines.**
 - **Pipeline 1:** `efit.preset` in `config.yaml` is empty for the default and `routine` for the legacy configuration. The k-file stage always writes `efit_preset.json` beside its manifest, and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`). `vaft.database.summary` reports it as `efit_configuration` (`name@sha12`, or `unrecorded` for products written before the record existed).

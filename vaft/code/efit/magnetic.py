@@ -391,6 +391,25 @@ def _write_efit_configuration_manifest(
     return destination
 
 
+#: What a collection stamps as ``scientific_sha256`` when the k-files'
+#: configuration was not recorded: never a guessed hash.
+UNRECORDED_SCIENTIFIC_SHA256 = "unrecorded"
+
+
+def unrecorded_efit_configuration(config: EFITConfig) -> dict[str, Any]:
+    """The configuration record of a collection over k-files nobody recorded.
+
+    The execution part is ``config``'s; the scientific part is absent and its
+    hash says ``unrecorded``, because the scientific block an ``EFITConfig``
+    carries by default is today's default, not the one that built the k-files
+    (a pre-switch workdir, or one written from ``--config`` or a legacy basis).
+    """
+    resolved = resolved_efit_configuration(config)
+    resolved["scientific"] = None
+    resolved["scientific_sha256"] = UNRECORDED_SCIENTIFIC_SHA256
+    return resolved
+
+
 def _efit_workdir(config: EFITConfig | None = None, workdir: str | Path | None = None) -> Path:
     if workdir is not None:
         return Path(workdir).expanduser()
@@ -1104,13 +1123,24 @@ def collect_efit_outputs(
     pre_run_output_fingerprints: Mapping[
         str, tuple[int, int, int, int, str]
     ] | None = None,
+    configuration: Mapping[str, Any] | None = None,
 ) -> EFITResult:
-    """Collect EFIT files and assign independent status to every attempted slice."""
+    """Collect EFIT files and assign independent status to every attempted slice.
+
+    Every slice status records the run's resolved configuration.  It is
+    ``config``'s unless ``configuration`` says otherwise -- the caller's own
+    record when it knows better than ``config`` what built the k-files, e.g.
+    :func:`unrecorded_efit_configuration` for a re-collect over k-files whose
+    configuration was never recorded.
+    """
     base = _efit_workdir(config, workdir)
     shot = config.shot if config is not None else None
-    result_configuration = (
-        resolved_efit_configuration(config) if config is not None else {}
-    )
+    if configuration is not None:
+        result_configuration = dict(configuration)
+    else:
+        result_configuration = (
+            resolved_efit_configuration(config) if config is not None else {}
+        )
     if result_configuration and executed_kfiles:
         execution = result_configuration["execution"]
         execution["executed_kfiles"] = [
@@ -1548,6 +1578,8 @@ __all__ = [
     "EFITInputs",
     "EFITResult",
     "resolved_efit_configuration",
+    "unrecorded_efit_configuration",
+    "UNRECORDED_SCIENTIFIC_SHA256",
     "find_efit_executable",
     "prepare_efit_inputs",
     "run_efit",

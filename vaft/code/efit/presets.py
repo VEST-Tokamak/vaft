@@ -145,6 +145,21 @@ PRESETS: dict[str, EFITPreset] = {
 }
 
 
+def preset_of(scientific: EFITScientificConfig) -> EFITPreset | None:
+    """The preset whose scientific configuration ``scientific`` is, if any.
+
+    What a stage that resolved a configuration from a payload (``--config``)
+    rather than from a name should record: a payload that resolves to a
+    preset is that preset, and a product built from it must not be
+    ``unrecorded``.  Matched on the configuration hash.
+    """
+    sha = scientific.sha256
+    for preset in PRESETS.values():
+        if preset.scientific.sha256 == sha:
+            return preset
+    return None
+
+
 def efit_preset(name: str) -> EFITPreset:
     """The preset called ``name``; a ``ValueError`` names the known ones."""
     try:
@@ -163,4 +178,5 @@ __all__ = [
     "PSI_ONLY_SAICON",
     "apply_sigma_floor",
     "efit_preset",
+    "preset_of",
 ]

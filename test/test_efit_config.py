@@ -766,13 +766,19 @@ def test_the_constraints_tree_stores_no_machine_values_the_writer_overrides():
         assert f'PM[f"time_slice.{{i}}.{key}"]' not in source, key
 
 
-def test_legacy_profile_order_arguments_remain_supported(tmp_path):
+def test_legacy_profile_order_arguments_remain_supported(tmp_path, monkeypatch):
+    """A positional basis still writes that basis -- on the default configuration, with a warning."""
+    from vaft.code.efit import kfile as kfile_module
+
+    monkeypatch.setattr(kfile_module, "_POSITIONAL_BASIS_WARNED", False)
     ods = _constraints_ods(tmp_path)
-    generate_kfile(ods, 39915, 3, 4, save_dir=str(tmp_path))
+    with pytest.deprecated_call():
+        generate_kfile(ods, 39915, 3, 4, save_dir=str(tmp_path))
     text = next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
 
     assert " KPPCUR = 3" in text
     assert " KFFCUR = 4" in text
+    assert " SERROR = 0.0\n" in text  # the default's statistical sigma, not the routine SERROR 0.0005
 
 
 def test_scientific_config_rejects_conflicting_legacy_profile_orders(tmp_path):
