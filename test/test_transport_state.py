@@ -1531,7 +1531,7 @@ def _with_inferred_ti(sample, outer_nan_from=None, note="origin=inferred; method
 
 
 def test_a_stored_inferred_ti_is_not_taken_as_measured(sample):
-    state = resolve_transport_state(_with_inferred_ti(sample), _key(0.3), efit_quality="good")
+    state = resolve_transport_state(_with_inferred_ti(sample), _key(0.3), use_stored_inferred_ti=True, efit_quality="good")
     assert state.resolved, state.reasons
     assert state.ti_lineage == "pressure_partition_inferred"
     assert state.ti["kind"] == "inferred"
@@ -1548,7 +1548,7 @@ def test_inferred_ti_gaps_are_filled_declared_and_never_reach_a_run_surface(samp
 
     ods = _with_inferred_ti(sample, outer_nan_from=0.6)
     surfaces = tuple(np.round(np.arange(0.30, 0.86, 0.01), 2))
-    state = resolve_transport_state(ods, _key(0.3), efit_quality="good")
+    state = resolve_transport_state(ods, _key(0.3), use_stored_inferred_ti=True, efit_quality="good")
     assert state.resolved, state.reasons
     assert state.ti["fill"]["points"] > 0 and "(policy)" in state.ti["fill"]["value"]
     assert state.fill_probe is not None
@@ -1557,7 +1557,7 @@ def test_inferred_ti_gaps_are_filled_declared_and_never_reach_a_run_surface(samp
     assert ready and len(ready) < len(surfaces)
     assert {s.status for s in report.surfaces if not s.ready} == {"ti_not_inferred_here"}
     # The real precondition: a run surface's ion inputs do not move when only the fill does.
-    hot = resolve_transport_state(ods, _key(0.3), efit_quality="good", ti_te_ratio=5.0)
+    hot = resolve_transport_state(ods, _key(0.3), use_stored_inferred_ti=True, efit_quality="good", ti_te_ratio=5.0)
     for r in ready:
         a, b = prepare_tglf_input(state.profile, r), prepare_tglf_input(hot.profile, r)
         np.testing.assert_allclose(a.taus[1:], b.taus[1:], rtol=1e-3)
@@ -1575,12 +1575,12 @@ def test_a_caller_ti_keeps_the_caller_closure_over_a_labelled_product(sample):
 
 
 def test_a_non_positive_fill_ratio_is_refused(sample):
-    state = resolve_transport_state(_with_inferred_ti(sample, outer_nan_from=0.6), _key(0.3),
+    state = resolve_transport_state(_with_inferred_ti(sample, outer_nan_from=0.6), _key(0.3), use_stored_inferred_ti=True,
                                     efit_quality="good", ti_te_ratio=-1.0)
     assert state.reasons == ("non_positive_ti_te_ratio",)
 
 def test_an_incomplete_inferred_ti_without_a_fallback_is_insufficient(sample):
-    state = resolve_transport_state(_with_inferred_ti(sample, outer_nan_from=0.6), _key(0.3),
+    state = resolve_transport_state(_with_inferred_ti(sample, outer_nan_from=0.6), _key(0.3), use_stored_inferred_ti=True,
                                     efit_quality="good", ti_te_ratio=None)
     assert state.reasons == ("inferred_ti_incomplete",)
 
@@ -1605,7 +1605,7 @@ def test_a_product_with_its_own_inferred_species_list_is_converted_as_given(samp
     ods[f"{prefix}.ion.1.density_thermal"] = ne / 30.0
     ods[f"{prefix}.ion.1.temperature"] = ti
     ods[f"{prefix}.ion.1.temperature_fit.parameters"] = "origin=inferred; method=equilibrium_pressure_partition"
-    state = resolve_transport_state(ods, _key(0.3), efit_quality="good")
+    state = resolve_transport_state(ods, _key(0.3), use_stored_inferred_ti=True, efit_quality="good")
     assert state.resolved, state.reasons
     assert state.ti_lineage == "pressure_partition_inferred"
     assert list(state.profile.name) == ["H+", "C6+"]
@@ -1614,7 +1614,7 @@ def test_a_product_with_its_own_inferred_species_list_is_converted_as_given(samp
     assert state.composition["quasineutrality_error"] < 1e-6
     # Two ions with different inferred temperatures are not one inferred state.
     ods[f"{prefix}.ion.1.temperature"] = 0.5 * ti
-    assert resolve_transport_state(ods, _key(0.3), efit_quality="good").reasons == (
+    assert resolve_transport_state(ods, _key(0.3), use_stored_inferred_ti=True, efit_quality="good").reasons == (
         "inferred_ti_species_disagree",)
 
 
@@ -1643,7 +1643,7 @@ def test_a_caller_ti_on_a_multi_ion_product_keeps_the_product_species(sample):
 def test_the_gate_catches_spline_reach_and_neo_has_its_own(sample):
     from vaft.process.transport_state import inferred_ti_supported
 
-    state = resolve_transport_state(_with_inferred_ti(sample, outer_nan_from=0.6), _key(0.3),
+    state = resolve_transport_state(_with_inferred_ti(sample, outer_nan_from=0.6), _key(0.3), use_stored_inferred_ti=True,
                                     efit_quality="good")
     (lo, hi), = state.ti["support_rho"]
     rho_at = lambda r: float(np.interp(r, state.profile.rmin / state.profile.rmin[-1], state.profile.rho))
@@ -1695,11 +1695,22 @@ def test_the_atlas_never_partitions_a_neo_surface_the_fill_reaches(atlas, driver
     monkeypatch.setattr(neo, "run_neo_case", fake_neo)
     surfaces = [f"{0.2 + 0.1 * i:.1f}" for i in range(7)]
     common = ["--filedb", str(filedb), "--labels", str(labels), "--lineages", "magnetics", "--surfaces", *surfaces]
-    driver.main(common + ["--out", str(tmp_path / "tglf"), "--sat-rule", "3", "--field-model", "em-bper"])
-    neo_driver.main(common + ["--out", str(tmp_path / "neo")])
+    driver.main(common + ["--use-inferred-ti", "--out", str(tmp_path / "tglf"), "--sat-rule", "3", "--field-model", "em-bper"])
+    neo_driver.main(common + ["--use-inferred-ti", "--out", str(tmp_path / "neo")])
     rows = atlas.build_rows(tmp_path / "tglf" / "tglf-sat3-em-bper", tmp_path / "neo")
     by_r = {round(r["r_over_a"], 1): r for r in rows}
     assert by_r[0.8]["tglf_status"] == "not_ready"
     assert by_r[0.8]["partition_status"] in ("ti_not_inferred_here", "missing_turbulent_component")
     assert by_r[0.3]["partition_status"] == "available"
     assert {r["ti_lineage"] for r in rows} == {"pressure_partition_inferred"}
+
+
+def test_a_stored_inferred_ti_is_refused_unless_the_caller_opts_in(sample):
+    """The routine atlas keeps Ti = Te (2026-10-02): a labelled product is refused by default."""
+    state = resolve_transport_state(_with_inferred_ti(sample), _key(0.3), efit_quality="good")
+    assert not state.resolved
+    assert state.reasons == ("inferred_ti_not_enabled",)
+    assert state.ti.get("lineage") != "measured"
+    opted = resolve_transport_state(_with_inferred_ti(sample), _key(0.3), efit_quality="good",
+                                    use_stored_inferred_ti=True)
+    assert opted.ti["lineage"] == "pressure_partition_inferred"

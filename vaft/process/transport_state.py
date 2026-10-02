@@ -564,6 +564,7 @@ def resolve_transport_state(
     ti_te_ratio: Any = "policy",
     ti_te_ratio_sigma: Optional[float] = None,
     inferred_ti: Optional[Mapping[str, Any]] = None,
+    use_stored_inferred_ti: bool = False,
     z_eff: Optional[float] = 2.0,
     impurity: Optional[str] = "C",
     rho_max: Optional[float] = DEFAULT_RHO_MAX,
@@ -598,6 +599,12 @@ def resolve_transport_state(
         A pressure-partition result (#1426), ``{"temperature", "method", "time"}`` on
         the core_profiles grid of the matched slice, preferred over the policy
         fallback; its ``time`` must match the paired slice within ``tolerance`` [eV].
+    use_stored_inferred_ti : bool
+        Whether an ion temperature the product itself labels as inferred
+        (``temperature_fit.parameters`` containing ``origin=inferred``, lane K's #1426
+        partition) is used as the ``inferred_ti`` step. Off by default: the routine atlas
+        keeps Ti = Te (#1414), and such a state is refused as
+        ``inferred_ti_not_enabled``. A labelled temperature is never taken as measured [-].
     z_eff : float, optional
         Effective charge the composition closure realizes [-].
     impurity : str, optional
@@ -711,16 +718,21 @@ def resolve_transport_state(
         position += 1
     # A product may carry an ion temperature that was inferred, not measured (lane K's
     # #1426 pressure partition writes ``temperature_fit.parameters = "origin=inferred;
-    # method=..."``). It is taken as an inferred profile here, never as a measurement.
+    # method=..."``). It is never taken as a measurement; it is used as the inferred
+    # step only when the caller opts in (``use_stored_inferred_ti``), else refused.
     fill = None
     stored = _stored_inferred_ti(ods, prefix, ions, cp_times[cp_index])
     labelled = [i for i in ions if "origin=inferred" in str(
         _get(ods, f"{prefix}.ion.{i}.temperature_fit.parameters") or "")]
+    if labelled and not use_stored_inferred_ti and inferred_ti is None:
+        # The product's T_i is an inference and the caller did not opt in: refusing is
+        # the only honest choice, since the measured step would mislabel it.
+        return _insufficient(base, "inferred_ti_not_enabled")
     if labelled and stored is None and inferred_ti is None:
         # Some ion says its T_i was inferred but the set is not one common inferred
         # profile: it is neither a measurement nor a usable inference.
         return _insufficient(base, "inferred_ti_species_disagree")
-    if stored is not None and inferred_ti is None:
+    if use_stored_inferred_ti and stored is not None and inferred_ti is None:
         inferred_ti = stored
     measured = [i for i in ions
                 if _usable(_get(ods, f"{prefix}.ion.{i}.temperature")) and i not in labelled]

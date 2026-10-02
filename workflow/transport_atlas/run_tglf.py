@@ -417,6 +417,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--core-profiles-dir", type=Path,
                         help="per-shot <shot>.json.gz core_profiles to use instead of the FileDB stage "
                              "(e.g. lane K's inferred-Ti atlas/v1/core_profiles)")
+    parser.add_argument("--use-inferred-ti", action="store_true",
+                        help="use a core_profiles product's own inferred T_i (lane K #1426). Off: "
+                             "such a state is refused and the atlas keeps Ti = Te (#1414)")
     parser.add_argument("--labels", type=Path, required=True,
                         help="#1331 analysis JSON (its 'labels' list)")
     parser.add_argument("--out", type=Path, required=True)
@@ -478,7 +481,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         ods = compose(cached(eq_path), cached(cp_path))
         state = resolve_transport_state(
             ods, key, efit_quality=label, quality_source=source, ti_te_ratio=ratio,
-            rho_max=args.rho_max,
+            use_stored_inferred_ti=args.use_inferred_ti, rho_max=args.rho_max,
             inputs={"core_profiles": {"path": str(cp_path), "sha256": _sha256(cp_path)},
                     "equilibrium": {"path": str(eq_path), "sha256": _sha256(eq_path)},
                     "profile_mapped_on": "magnetics"},
