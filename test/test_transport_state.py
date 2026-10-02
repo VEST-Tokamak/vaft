@@ -621,6 +621,72 @@ def test_a_classical_failure_is_recorded_not_raised(driver, sample):
     assert record is None and "normalisation" in error
 
 
+# --------------------------------------------------------------------------- cold review 0.8.0 delta-absorb-9
+
+
+def _classical_state(sample, r=0.5):
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    return state, assess_tglf_readiness(state, (r,)).surfaces[0].local_input
+
+
+def test_a_classical_failure_of_any_kind_is_recorded_not_raised(driver, sample):
+    """F1: a missing field or an electron-only species list is a reason, not a raise."""
+    import dataclasses
+
+    state, local = _classical_state(sample)
+    # GACODEProfile's default: no bcentr/rcentr on the profile.
+    record, error = driver.classical_record(dataclasses.replace(state.profile, bcentr=None), local)
+    assert record is None and "TypeError" in error
+    # TGLF local input carrying electrons only: there is no main ion to evaluate.
+    electrons_only = dataclasses.replace(
+        local, zs=np.array([-1.0]), as_=np.array([1.0]), mass=np.array([local.mass[0]]),
+        taus=np.array([1.0]), rlts=np.array([local.rlts[0]]))
+    record, error = driver.classical_record(state.profile, electrons_only)
+    assert record is None and "IndexError" in error
+
+
+def test_classical_refuses_a_non_positive_field_and_the_row_stays_standard_json(driver, sample):
+    """F2: b = 0 must not become an ``Infinity`` token in state.json."""
+    import dataclasses
+
+    from vaft.process.transport_state import classical_heat_fluxes
+
+    state, local = _classical_state(sample)
+    for b in (0.0, -0.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="b_tesla"):
+            classical_heat_fluxes(local, b)
+    record, error = driver.classical_record(dataclasses.replace(state.profile, bcentr=0.0), local)
+    assert record is None and "b_tesla" in error
+
+    def refuse(token):
+        raise AssertionError(f"non-standard JSON token {token!r}")
+
+    payload = json.dumps({"classical": record, "classical_error": error}, default=float)
+    assert json.loads(payload, parse_constant=refuse)["classical"] is None
+
+
+def test_classical_gamma1_table_is_braginskii_table_2(sample):
+    """F3: the Z -> inf knot is Braginskii's 3.25; above Z = 4 the coefficient is held at 3.6."""
+    from vaft.process.transport_state import _GAMMA1_PERP, classical_heat_fluxes
+
+    table = dict(_GAMMA1_PERP)
+    assert table[1.0] == 4.66 and table[2.0] == 4.0 and table[4.0] == 3.6
+    assert max(table) > 4.0 and table[max(table)] == 3.25
+    gamma = np.interp([4.0, 10.0, max(table)], *zip(*_GAMMA1_PERP))
+    assert gamma[0] == 3.6 and gamma[1] == pytest.approx(3.6, abs=1e-6) and gamma[2] == 3.25
+    _, local = _classical_state(sample)
+    assert classical_heat_fluxes(local, 0.3)["model"]["coefficients"]["electron"].count("3.25") == 1
+
+
+def test_surface_toroidal_field_docstring_tags_rcentr_as_a_length():
+    """F4: rcentr is a major radius [m], not a field [T]."""
+    from vaft.process.transport_state import surface_toroidal_field
+
+    doc = surface_toroidal_field.__doc__
+    assert "``bcentr`` [T] and ``rcentr`` [m]." in doc
+    assert "``rcentr`` [T]" not in doc
+
+
 # --------------------------------------------------------------------------- cold review 0.8.0 delta-absorb-7
 
 

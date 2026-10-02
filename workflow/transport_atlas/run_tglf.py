@@ -373,7 +373,10 @@ def classical_record(profile: Any, local: Any) -> tuple[Optional[dict], Optional
         return None, "local input carries no normalisation"
     try:
         return classical_heat_fluxes(local, surface_toroidal_field(profile, local)), None
-    except (ValueError, ArithmeticError) as error:
+    except (ValueError, ArithmeticError, TypeError, LookupError, AttributeError) as error:
+        # ValueError/ArithmeticError: a refused or degenerate surface; TypeError: a
+        # profile without bcentr/rcentr (the GACODEProfile default); LookupError /
+        # AttributeError: a local input with no ion species or an odd shape.
         return None, f"{type(error).__name__}: {error}"
 
 

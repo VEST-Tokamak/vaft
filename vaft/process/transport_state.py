@@ -1068,7 +1068,8 @@ CLASSICAL_MODEL = {
     "formulation": "Braginskii perpendicular conductive heat flux, strongly magnetised limit",
     "terms": "q_perp,s = -kappa_perp,s dT_s/dr for electrons and the main ion only; "
              "no particle flux, no thermal-force cross terms, no impurity heat flux",
-    "coefficients": {"electron": "Braginskii gamma_1' at Z_eff (4.66 at Z=1, 4.0 at Z=2)",
+    "coefficients": {"electron": "Braginskii gamma_1' at Z_eff (4.66 at Z=1, 4.0 at Z=2, "
+                                 "3.6 at Z=4, 3.25 at Z=inf; held at 3.6 above Z=4)",
                      "ion": 2.0},
     "collision_times": "tau_e with n_i Z^2 -> n_e Z_eff; tau_i against every ion species, "
                        "Z_i^2 sum_j n_j Z_j^2 (like-particle form for unlike field ions); "
@@ -1080,8 +1081,10 @@ CLASSICAL_MODEL = {
     "reference": "S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205; NRL Plasma Formulary",
 }
 
-#: Braginskii's gamma_1' (electron perpendicular heat conductivity) against Z.
-_GAMMA1_PERP = ((1.0, 4.66), (2.0, 4.0), (3.0, 3.7), (4.0, 3.6), (1e9, 3.2))
+#: Braginskii's gamma_1' (electron perpendicular heat conductivity) against Z,
+#: Braginskii 1965, Table 2: 4.66, 4.0, 3.7, 3.6, 3.25 for Z = 1, 2, 3, 4, inf.  The
+#: Z = inf knot sits at 1e9, so a linear lookup in Z is held at 3.6 for Z > 4.
+_GAMMA1_PERP = ((1.0, 4.66), (2.0, 4.0), (3.0, 3.7), (4.0, 3.6), (1e9, 3.25))
 
 
 def surface_toroidal_field(profile: Any, local: Any) -> float:
@@ -1093,7 +1096,7 @@ def surface_toroidal_field(profile: Any, local: Any) -> float:
     Parameters
     ----------
     profile : GACODEProfile
-        Supplies ``bcentr`` and ``rcentr`` [T].
+        Supplies ``bcentr`` [T] and ``rcentr`` [m].
     local : TGLFInput
         Supplies ``rmaj_loc`` and the minor radius of the surface [-].
 
@@ -1124,7 +1127,8 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
         From :func:`assess_tglf_readiness`, supplying n_e, T_e, Ti/Te, every ion's
         n/n_e and charge, a/L_T, the main ion's mass and a at the surface [-].
     b_tesla : float
-        Magnetic-field magnitude at the surface, e.g. :func:`surface_toroidal_field` [T].
+        Magnetic-field magnitude at the surface, e.g. :func:`surface_toroidal_field`;
+        must be non-zero and finite, else ``ValueError`` [T].
 
     Returns
     -------
@@ -1152,13 +1156,16 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
     Electrons and one main ion only; no particle flux or thermal-force terms; unlike
     field ions enter tau_i in the like-particle form; slab geometry and B_pol neglected.
     ``coulomb_log_valid`` is False below 10 eV, where the electron form is not
-    defined.  The rest is listed in #1453.
+    defined.  ``gamma_1'`` is interpolated linearly in Z between Braginskii's tabulated
+    charges and is held at its Z = 4 value (3.6) for every Z_eff above 4, the Z = inf
+    asymptote (3.25) being unreachable; below Z = 1 it is clamped to 4.66.  The rest is
+    listed in #1453.
 
     Provenance
     ----------
     .. [1] S. I. Braginskii, "Transport processes in a plasma", Rev. Plasma Phys. 1
-       (1965) 205: kappa_perp,e coefficient gamma_1'(Z) (4.66, 4.0, 3.7, 3.6, 3.2 for
-       Z = 1, 2, 3, 4, inf) and kappa_perp,i coefficient 2.
+       (1965) 205, Table 2: kappa_perp,e coefficient gamma_1'(Z) (4.66, 4.0, 3.7, 3.6,
+       3.25 for Z = 1, 2, 3, 4, inf) and kappa_perp,i coefficient 2.
     .. [2] NRL Plasma Formulary: tau_e = 3.44e5 T_e^1.5 / (n lnLambda),
        tau_i = 2.09e7 T_i^1.5 mu^0.5 / (n lnLambda Z^4) and the ion-ion lnLambda
        (cgs, eV), which the SI forms here reproduce (test_transport_state.py).
@@ -1173,6 +1180,10 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
     te_ev = te / c.e
     a = float(norm.minor_radius)
     b = abs(float(b_tesla))
+    if not (b > 0.0 and np.isfinite(b)):
+        # Omega -> 0 makes chi infinite, which json.dumps would write as the
+        # non-standard token ``Infinity``; a surface without a field has no baseline.
+        raise ValueError(f"b_tesla must be positive and finite, got {b_tesla!r}")
     zeff = float(local.zeff)
     charges = np.asarray(local.zs, dtype=float)[1:]
     fractions = np.asarray(local.as_, dtype=float)[1:]
