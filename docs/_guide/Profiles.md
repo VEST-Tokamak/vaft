@@ -729,7 +729,7 @@ flux map it returns.
 ### Named configurations (presets)
 
 `vaft.code.efit.PRESETS` names complete EFIT configurations: the scientific configuration written into the k-file, sigma floor included.
-Since 2026-10-01 the defaults of `EFITScientificConfig` *are* the #891 working setting, so a run that names no configuration writes it (`DEFAULT_PRESET = "statistical_891"`).
+Since 2026-10-01 the defaults of `EFITScientificConfig` *are* the #891 working setting, so a run that names no configuration writes it (`vaft.code.efit.DEFAULT_PRESET == "statistical_891"`).
 
 | preset | what it is |
 | --- | --- |

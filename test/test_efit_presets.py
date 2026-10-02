@@ -44,6 +44,17 @@ def _golden_kfile(tmp_path, **kwargs):
     return next((tmp_path / "kfile").iterdir()).read_text(encoding="utf-8")
 
 
+def test_the_package_exports_what_the_profiles_page_names():
+    """`vaft.code.efit.DEFAULT_PRESET` and the routine builders, not only their modules."""
+    import vaft.code.efit as efit
+
+    assert efit.DEFAULT_PRESET is DEFAULT_PRESET
+    assert efit.routine_scientific_config is routine_scientific_config
+    for name in ("DEFAULT_PRESET", "routine_profile_config", "routine_numerics_config",
+                 "routine_constraint_config", "routine_scientific_config", "preset_of"):
+        assert name in efit.__all__
+
+
 def test_the_default_is_the_working_setting_byte_for_byte(tmp_path):
     """2026-10-01: the defaults are statistical_891, whose k-file is unchanged from #1339."""
     assert DEFAULT_PRESET == "statistical_891"
@@ -200,16 +211,13 @@ def test_a_run_naming_nothing_records_the_default(tmp_path):
     assert record["name"] == DEFAULT_PRESET
 
 
-def test_the_efit_collection_records_a_preset_only_when_one_was_used():
-    sys.path.insert(0, str(PIPELINE1))
-    try:
-        from generate_efit_ods import efit_collection_parameters
-    finally:
-        sys.path.remove(str(PIPELINE1))
+def test_the_efit_collection_payload_of_a_pre_record_product_is_unchanged():
+    """No record (a product from before the k-file stage wrote one): the payload is what it was."""
+    efit_collection_parameters = _generate_efit_ods_module().efit_collection_parameters
     common = dict(status="success", slice_statuses=[], mapping_diagnostics=[], artifact_hashes={},
                   artifact_manifest={})
-    routine = json.loads(efit_collection_parameters(**common))["efit_collection"]
-    assert "efit_preset" not in routine
+    pre_record = json.loads(efit_collection_parameters(**common))["efit_collection"]
+    assert "efit_preset" not in pre_record
     record = efit_preset("statistical_891").record()
     with_preset = json.loads(efit_collection_parameters(**common, efit_preset=record))["efit_collection"]
     assert with_preset["efit_preset"]["name"] == "statistical_891"

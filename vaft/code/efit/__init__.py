@@ -29,8 +29,12 @@ from .config import (
     EFITProfileConfig,
     EFITScientificConfig,
     efit_parameter_grid,
+    routine_constraint_config,
+    routine_numerics_config,
+    routine_profile_config,
+    routine_scientific_config,
 )
-from .presets import PRESETS, EFITPreset, apply_sigma_floor, efit_preset
+from .presets import DEFAULT_PRESET, PRESETS, EFITPreset, apply_sigma_floor, efit_preset, preset_of
 from .termination import EFIT_LOG_PATTERNS, parse_slices
 from .iteration_history import (
     ITERATION_HISTORY_LEVELS,
@@ -135,10 +139,16 @@ __all__ = [
     "EFITProfileConfig",
     "EFITScientificConfig",
     "efit_parameter_grid",
+    "routine_constraint_config",
+    "routine_numerics_config",
+    "routine_profile_config",
+    "routine_scientific_config",
+    "DEFAULT_PRESET",
     "EFITPreset",
     "PRESETS",
     "apply_sigma_floor",
     "efit_preset",
+    "preset_of",
     "EFIT_FAILURE_CODES",
     "EFITSliceStatus",
     "EFITValidationConfig",
