@@ -402,6 +402,39 @@ def test_prepare_only_writes_the_namelist_and_launches_nothing(cell, tmp_path):
     assert (cell / "pentrc.in").is_file()
 
 
+@pytest.mark.parametrize("installed, run_mode", [(False, "prepare_only"), (True, "run_if_available")])
+def test_a_missing_displacement_is_skipped_not_raised_under_the_lenient_modes(
+    cell, tmp_path, installed, run_mode
+):
+    """``skipped`` when an input is missing, as the docstring says -- in every mode but strict.
+
+    ``prepare_pentrc_run`` needs the displacement for ``jac_in`` and raised
+    ``FileNotFoundError`` before the ``prepare_only`` return and before the
+    input check, after staging the kin file into the cell (cold review 0.8.0
+    delta-squash F4).
+    """
+    (cell / "gpec_xclebsch_n1.out").unlink()
+    record = gpec.run_pentrc(
+        cell, mode=1, options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=_config(tmp_path, installed=installed, run_mode=run_mode),
+    )
+    assert record.status == "skipped"
+    assert "gpec_xclebsch_n1.out" in record.reason
+    assert not (cell / "pentrc.in").exists()
+    assert not (cell / "profiles.kin").exists(), "nothing is staged into a cell that cannot run"
+
+
+def test_strict_still_raises_for_a_missing_displacement(cell, tmp_path):
+    (cell / "gpec_xclebsch_n1.out").unlink()
+    with pytest.raises(FileNotFoundError, match="xclebsch_flag and ascii_flag"):
+        gpec.run_pentrc(
+            cell, mode=1, options=_options(),
+            kinetic_file=cell.parents[2] / "profiles.kin",
+            config=_config(tmp_path, run_mode="strict"),
+        )
+
+
 def test_an_uninstalled_pentrc_is_skipped_with_the_reason(cell, tmp_path):
     record = gpec.run_pentrc(
         cell,

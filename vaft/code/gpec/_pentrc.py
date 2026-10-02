@@ -657,6 +657,22 @@ def run_pentrc(
             record.reason = reason
             return record
 
+    # The displacement is checked before the namelist is written, for the same
+    # reason the executable is: `prepare_pentrc_run` needs it for `jac_in` and
+    # raises without it, which under `prepare_only` / `run_if_available` would
+    # be an exception where the docstring promises `skipped` -- after the kin
+    # file had already been staged into the cell (cold review 0.8.0
+    # delta-squash F4). `strict` keeps the raise, from the preparation itself.
+    if policy != "strict":
+        missing = [
+            reason for reason in validate_pentrc_inputs(run_dir, mode)
+            if f"gpec_xclebsch_n{int(mode)}.out" in reason
+        ]
+        if missing:
+            record.status = "skipped"
+            record.reason = f"cannot run PENTRC in {run_dir}: {'; '.join(missing)}"
+            return record
+
     prepare_pentrc_run(
         run_dir, mode=mode, options=options, kinetic_file=kinetic_file, config=config
     )
