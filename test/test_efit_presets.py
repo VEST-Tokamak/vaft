@@ -238,18 +238,49 @@ def test_the_routine_hash_did_not_move():
     assert "sigma_floor" in EFITScientificConfig().to_dict()["constraints"]
 
 
-def test_a_payload_without_the_new_keys_replays_the_legacy_values():
-    """A configuration recorded before a key existed ran with its legacy value."""
+def test_from_dict_fills_what_the_payload_lacks_from_the_default():
+    """A partial payload is the default with those keys changed, like every other "nothing named" path.
+
+    It used to be filled from the routine values, so ``--config '{"profile":
+    {"kppcur": 3}}'`` silently selected legacy weights, EFIT termination and
+    no floor (cold review 0.8.0 delta-absorb-11b F2).
+    """
+    from vaft.code.efit import EFITProfileConfig
+
+    assert EFITScientificConfig.from_dict({}) == EFITScientificConfig()
+    partial = EFITScientificConfig.from_dict({"profile": {"kppcur": 3}})
+    assert partial == EFITScientificConfig(profile=EFITProfileConfig(kppcur=3))
+    assert partial.constraints.sigma_floor == 0.02 and partial.numerics.max_iterations == 514
+    assert partial.constraints.uncertainty_mode == "standard_deviation"
+    # Present keys win, including inside a section.
+    mixed = EFITScientificConfig.from_dict({"numerics": {"max_iterations": 7}})
+    assert mixed.numerics.max_iterations == 7 and mixed.numerics.error_minimum == 1e-4
+
+
+def test_from_dict_is_the_inverse_of_to_dict_for_both_configurations():
+    """`to_dict` omits a zero floor (the routine hash depends on that), so a
+    constraints section without one reads back as no floor -- and a record
+    written before the floor was part of the configuration keeps its hash."""
+    routine = routine_scientific_config()
+    assert EFITScientificConfig.from_dict(routine.to_dict()) == routine
+    assert EFITScientificConfig.from_dict(EFITScientificConfig().to_dict()) == EFITScientificConfig()
     payload = EFITScientificConfig().to_dict()
     payload["constraints"].pop("sigma_floor")
     payload["constraints"].pop("sigma_floor_families")
-    for key in ("error_minimum", "chi_squared_target", "inner_iterations"):
-        payload["numerics"].pop(key)
     replayed = EFITScientificConfig.from_dict(payload)
     assert replayed.constraints.sigma_floor == 0.0
-    assert replayed.numerics.error_minimum is None and replayed.numerics.inner_iterations is None
-    assert replayed.constraints.uncertainty_mode == "standard_deviation"  # present keys win
-    assert EFITScientificConfig.from_dict(routine_scientific_config().to_dict()) == routine_scientific_config()
+    assert replayed.constraints.uncertainty_mode == "standard_deviation"
+    assert replayed.to_dict() == payload
+
+
+def test_a_payload_that_resolves_to_a_preset_names_it():
+    """What a `--config` stage should record instead of nothing."""
+    from vaft.code.efit import EFITProfileConfig
+    from vaft.code.efit.presets import preset_of
+
+    assert preset_of(EFITScientificConfig.from_dict({})).name == DEFAULT_PRESET
+    assert preset_of(EFITScientificConfig.from_dict(routine_scientific_config().to_dict())).name == "routine"
+    assert preset_of(EFITScientificConfig(profile=EFITProfileConfig(kppcur=3))) is None
 
 
 @pytest.mark.parametrize("driver", [

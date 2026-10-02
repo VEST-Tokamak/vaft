@@ -600,13 +600,23 @@ class EFITScientificConfig:
     def from_dict(cls, payload: Mapping[str, Any]) -> "EFITScientificConfig":
         """Rebuild a validated configuration from :meth:`to_dict` output.
 
-        A key the payload lacks takes its *legacy* value, not today's default:
-        a payload written before a key existed was run with the routine value
-        (no sigma floor, EFIT's own termination), and replaying it must not
-        pick up the working setting instead.
+        A key the payload lacks takes today's default, the same value every
+        other path that names nothing resolves to: ``from_dict({})`` is
+        ``EFITScientificConfig()`` and a partial payload is the default with
+        those keys changed.  (Until 2026-10-02 the fill was the legacy routine
+        value, so a partial ``--config`` payload silently selected the routine
+        configuration; cold review 0.8.0 delta-absorb-11b F2.)
+
+        The one exception is what :meth:`to_dict` itself leaves out: a
+        ``constraints`` section that is present but names no ``sigma_floor``
+        was written for a configuration without one, and that absence is part
+        of the routine hash, so it reads back as a zero floor.  A payload with
+        no ``constraints`` section at all takes the default floor.
         """
-        legacy = _canonical(routine_scientific_config())
-        payload = {section: {**legacy.get(section, {}), **dict(payload.get(section, {}))}
+        default = _canonical(cls())
+        payload = {section: {**default.get(section, {}), **dict(payload.get(section, {}))}
+                   if section != "constraints" or section not in payload
+                   else {**default["constraints"], "sigma_floor": 0.0, **dict(payload["constraints"])}
                    for section in ("profile", "initialization", "numerics", "constraints")}
         constraints = dict(payload["constraints"])
         # `None` survives the round trip: it means "derive from the coilset",
