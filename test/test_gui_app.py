@@ -574,3 +574,11 @@ def test_every_origin_serve_lists_is_one_bokeh_accepts(monkeypatch):
         gui_app.serve(address="fe80::1", port=5123)
     for kwargs in calls:
         create_hosts_allowlist(kwargs["websocket_origin"], 5123)
+
+
+def test_the_page_loads_plotly_before_the_first_figure(monkeypatch):
+    """Without the extension the Plotly pane stays blank in the browser."""
+    loaded = []
+    monkeypatch.setattr(pn, "extension", lambda *names, **kw: loaded.extend(names))
+    gui_app.build_app(sample=39915, plot="plasma_current_time")
+    assert "plotly" in loaded

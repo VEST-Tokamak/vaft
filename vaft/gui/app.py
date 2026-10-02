@@ -626,7 +626,11 @@ def build_app(
     if len(given) > 1:
         raise ValueError("give at most one of sample=, file= and shot=")
     pn = require_panel()
-    pn.extension()
+    # Plotly's JavaScript must be on the page before the first figure, or the
+    # pane errors in the browser ("reading 'relayout'") and stays blank.
+    import importlib.util
+
+    pn.extension(*(("plotly",) if importlib.util.find_spec("plotly") else ()))
     app = BrowserApp(plot=plot)
     if sample is not None:
         initial = [Source("sample", value) for value in _as_list(sample)]
