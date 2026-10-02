@@ -227,3 +227,11 @@ def classify_boundary(
         reason=reason,
         representation=representation,
     )
+
+
+__all__ = [
+    "ScanTopology",
+    "LimiterContact",
+    "TopologyReport",
+    "classify_boundary",
+]

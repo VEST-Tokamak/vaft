@@ -60,6 +60,7 @@ _SUBMODULES = {
     "nbi": ".nbi",
     "profile_gradients": ".profile_gradients",
     "resistive_zeff": ".resistive_zeff",
+    "transport_state": ".transport_state",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -108,6 +109,9 @@ _IMPORT_ORDER = (
     # Resistive Z_eff from the transformer balance (#1214); nothing it exports
     # collides.
     "resistive_zeff",
+    # One resolved plasma state shared by TGLF, NEO and classical (#1428);
+    # nothing it exports collides.
+    "transport_state",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

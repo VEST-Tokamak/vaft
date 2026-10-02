@@ -75,6 +75,14 @@ DEFINITIONAL = frozenset({
     "export_electron_profile_txt",
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
+    # transport_state (#1428): readiness, identity and config bookkeeping; the
+    # physics they gate lives in the GACODE adapters they call.
+    "assess_tglf_readiness",
+    "assess_neo_readiness",
+    "run_identity",
+    "physics_parameters",
+    # Signed sums and magnitude shares of fluxes the models already computed.
+    "transport_partition",
     # Deleting a sum-over-species leaf from a slice that has no ion species is
     # what the leaf means, not a method borrowed from anywhere.
     "strip_electron_only_pressure",
@@ -109,6 +117,8 @@ PIPELINE = frozenset({
     "infer_resistive_zeff",
     "per_slice_resistive_zeff",
     "resistive_zeff_sensitivity",
+    # transport_state (#1428): times -> Ti hierarchy -> geometry -> composition/convert
+    "resolve_transport_state",
     # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
     "radial_coordinate_map",
     "profile_gradient",
@@ -272,6 +282,8 @@ CONVENTION_SENSITIVE = frozenset({
     "observed_resistance",
     "parallel_conductivity",
     "model_resistance",
+    # transport_state (#1435): a positive flux runs down the gradient, as the TGLF/NEO mappers
+    "classical_heat_fluxes",
     # profile_gradient (#551): midplane r_minor (not the contour half-width), the
     # reference length's definition, and each code's gradient normalization
     "radial_coordinate_map",

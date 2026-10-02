@@ -108,8 +108,11 @@ CORE_MODULES: tuple[str, ...] = (
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
+    # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
+    # limit far below it, and a ledger with a fake MemAvailable.
     "test_code_execution.py",
     "test_code_resources.py",
+    "test_memory_gate.py",
     "test_process_tree.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
@@ -201,11 +204,22 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_wall_conditioning.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
     "test_pipeline_worker.py",
-    # Stability atlas (lane N): real DCON output (two trimmed netCDF files)
-    # read back through the reader and the edge classifier, and the #141 scan
-    # driver's template patching. No solver runs.
+    # Stability atlas (lane N): real DCON/RDCON output (trimmed netCDF files)
+    # read back through the readers, the edge classifier and the ntms mapping,
+    # and the #141 scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
+    "test_gpec_rdcon_criteria.py",
+    "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
+    # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
+    # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
+    "test_kinetic_state.py",
+    # Transport atlas (lane T): the shared transport-state resolver on the packaged
+    # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
+    # reg05 fixture, and the routine driver with a fake runner. No solver runs.
+    # The atlas renderers draw synthetic tables only.
+    "test_plot_transport_atlas.py",
+    "test_transport_state.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

@@ -448,6 +448,55 @@ vaft.omas.plot_charge_exchange_profile_ion_temperature(ods)   # measured Ti vers
 vaft.omas.plot_charge_exchange_time_ion_temperature(ods)      # per-channel Ti history
 ```
 
+### Normalized gradients
+
+`plot_electron_temperature_profile_gradient`, `plot_electron_density_profile_gradient` and
+`plot_ion_temperature_profile_gradient` draw $-L\,d\ln f/dx_g$ of the stored `core_profiles` slice
+(#551). The builder calls `vaft.process.profile_gradients.profile_gradient` once, and the renderer
+only draws the result. Four options keep the choices apart:
+
+| option | default | meaning |
+| --- | --- | --- |
+| `coordinate` | `rho_tor_norm` | the abscissa, any `RADIAL_COORDINATES` name |
+| `gradient_coordinate` | `r_minor` | what the derivative is taken with respect to |
+| `reference_length` | `a_minor` | the length multiplying it; `"none"` gives the dimensional $-d\ln f/dr$ in m$^{-1}$ |
+| `convention` | none | `tglf` or `cgyro`, which resolve the two above to `r_minor` and `a_minor` |
+
+The default is therefore $a/L$, and the axis label is generated from the resolved record:
+$a/L_{T_i}$, $R_0/L_{T_i}$ for `R_major_axis`, or $-\partial\ln T_i/\partial r$ [m$^{-1}$] for
+`"none"`.
+
+```python
+import vaft
+
+ods = vaft.omas.load(vaft.data.sample(48224))
+vaft.omas.plot_ion_temperature_profile_gradient(ods, coordinate="rho_tor_norm", convention="tglf")
+model = vaft.omas.extract_ion_temperature_profile_gradient(ods, reference_length="R_major_axis")
+model.y_label                                  # '$R_0/L_{T_i}$'
+model.metadata["mathematical_definition"]      # '-R_0 * d(log(T_i)) / d(r_minor)'
+model.to_xarray().attrs["metadata"]            # the same record, as JSON text
+```
+
+The profile is paired with the equilibrium slice at its own time, never by index. Its grid is
+read from `grid.psi` (normalized by that slice's axis and boundary flux), else `grid.rho_pol_norm`,
+else `grid.rho_tor_norm`, and the record names the one used. A stored `grid.rho_tor_norm` is used
+only when it equals the slice's own `profiles_1d.rho_tor_norm`, is not the $\sqrt{\psi_N}$ proxy, and
+lies within `RHO_TOR_GRID_TOLERANCE` (0.05) of the map's $q$-integrated $\rho_{tor,N}$; the check is
+recorded in `profile_grid_check`. Samples with $f \le 0$ or a non-finite value at either end of the
+profile are left out and counted by side and cause in `excluded_points` and in the title.
+Everything else is refused with its reason:
+
+* an equilibrium that is not at the profile's time;
+* a non-positive value inside the profile;
+* a point outside the map's support;
+* `gs2`, `gkw`, `gene` and `L_ref`, which need run settings a plot option cannot carry. For
+  these, call `profile_gradient` with `metadata=`;
+* a flux-label `gradient_coordinate` with a reference length (pass `reference_length="none"`);
+* an explicit `reference_length=None`, which `profile_gradient` reads as `"none"`.
+
+Choosing a convention in the interactive controls stops the `gradient_coordinate` and
+`reference_length` controls from being sent, since the preset resolves both.
+
 ## Kinetic-profile files
 
 `vaft.data.kinetic_profiles` is the container the kinetic-profile file formats read into and write

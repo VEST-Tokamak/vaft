@@ -9,6 +9,11 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 
 
+#: Backend runtime statuses of a run a limit ended (see :mod:`vaft.code.execution`):
+#: the time limit, the memory limit, or a queue wait after which it never started.
+#: All three carry the ``timeout`` failure code; ``runtime_status`` keeps which.
+LIMIT_STOP_STATUSES = frozenset({"timeout", "memory_limit", "queue_timeout"})
+
 EFIT_FAILURE_CODES = (
     "runtime_error",
     "timeout",
@@ -171,7 +176,7 @@ def validate_efit_slice(
         None,
         0,
     }
-    if runtime_status == "timeout":
+    if runtime_status in LIMIT_STOP_STATUSES:
         failures.extend(("runtime_error", "timeout"))
     elif not runtime_ok:
         failures.append("runtime_error")
@@ -314,8 +319,8 @@ def validate_efit_slice(
             "returncode": returncode,
             "runtime": {
                 "executable_resolved": bool((provenance or {}).get("executable")),
-                "process_started": runtime_status in {"completed", "timeout"},
-                "timed_out": runtime_status == "timeout",
+                "process_started": runtime_status in {"completed", "timeout", "memory_limit"},
+                "timed_out": runtime_status in LIMIT_STOP_STATUSES,
                 "returncode": returncode,
             },
             "converged": converged,

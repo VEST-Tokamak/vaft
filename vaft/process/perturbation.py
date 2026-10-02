@@ -122,6 +122,7 @@ __all__ = [
     "SurfaceMember",
     "toroidal_phase_audit",
     "ToroidalPhaseAudit",
+    "ZERO_MEANS_NOT_COMPUTED",
 ]
 
 #: The statistics a resonant column may be reduced with. ``rms`` is the
@@ -142,11 +143,38 @@ RESONANT_STATISTICS: tuple[str, ...] = ("rms", "max", "min", "mean", "sum")
 #: surfaces. Reducing those gives a number -- an RMS of a radial coordinate,
 #: or an edge temperature of zero on a run that never filled the column --
 #: that reads exactly like a resonant metric and is not one.
+#: ``B_pen`` is the one spelling ``vaft.code.gpec`` hands back for the variable a
+#: current GPEC writes as ``b_pen``; ``Phi_res_crit_callen``, ``w_isl_sat`` and
+#: ``w_isl_min`` are columns only a run with the Callen threshold model on fills.
+#: ``P_res`` and ``dP_res`` are deliberately *not* here: they are pressures, and an
+#: RMS over a pressure column reads exactly like a field metric.
 RESONANT_RESPONSE_COLUMNS: tuple[str, ...] = (
-    "Phi_res", "Phi_res_v", "Phi_res_crit",
+    "Phi_res", "Phi_res_v", "Phi_res_crit", "Phi_res_crit_callen",
     "Delta", "B_pen", "I_res",
-    "w_isl", "w_isl_v", "w_isl_v_crit",
+    "w_isl", "w_isl_v", "w_isl_v_crit", "w_isl_sat", "w_isl_min",
     "K_isl", "K_isl_v",
+)
+
+#: Response columns a run writes as **exactly zero** when it did not compute them.
+#:
+#: GPEC zeroes its threshold quantities outright when neither the Callen nor the
+#: SLAYER model is switched on (``gpec/gpout.f:1744-1746``, the ``ELSE`` branch),
+#: and zeroes the two Callen cubic-root widths whenever the cubic has no valid
+#: solution.  Zero is not a small threshold and not a property of the equilibrium:
+#: it is the run saying it never worked one out.
+#:
+#: So :func:`resonant_metrics` leaves such a column out of its **default**
+#: selection when every entry is zero, rather than reducing it to ``0.0`` -- which
+#: is a number, sits in a metrics table beside real ones, and reads as "the
+#: threshold is zero here".  Naming the column explicitly still reduces it: an
+#: explicit request is a decision, and a caller comparing two runs may want the
+#: zeros.
+ZERO_MEANS_NOT_COMPUTED: tuple[str, ...] = (
+    "Phi_res_crit",
+    "Phi_res_crit_callen",
+    "w_isl_v_crit",
+    "w_isl_sat",
+    "w_isl_min",
 )
 
 #: The windows the legacy metrics hard-coded, kept so that an old number can
@@ -470,7 +498,11 @@ def resonant_metrics(
         )
     psi_norm = np.asarray(table["psi_n_rational"], dtype=float)
     if columns is None:
-        columns = [name for name in RESONANT_RESPONSE_COLUMNS if name in table]
+        columns = [
+            name
+            for name in RESONANT_RESPONSE_COLUMNS
+            if name in table and not _is_not_computed(name, table[name])
+        ]
         if not columns:
             raise KeyError(
                 "the table carries none of the resonant response columns "
@@ -489,6 +521,14 @@ def resonant_metrics(
         for name in columns
         for window_name, window in windows.items()
     }
+
+
+def _is_not_computed(name: str, values) -> bool:
+    """Whether *name* is a threshold column this run left at exactly zero."""
+    if name not in ZERO_MEANS_NOT_COMPUTED:
+        return False
+    array = np.asarray(values)
+    return bool(array.size) and not np.any(array)
 
 
 def amplification_ratio(
@@ -3040,8 +3080,8 @@ def toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor: int) -> ToroidalPha
 
     Provenance
     ----------
-    .. [legacy] hsyun_GPEC ``library/gpec_phase.py::audit_gpec_coil_brzphi_phase``
-       on branch ``codex/gpec-flare-cocos-handshake``, which is this
+    .. [legacy] The legacy implementation's
+       ``gpec_phase.py::audit_gpec_coil_brzphi_phase``, which is this
        measurement; decision D-06 makes it mandatory for a GPEC-to-FLARE
        handshake.  The legacy computed it only for a GPEC coil field and only
        against its own Biot-Savart; the arithmetic is the same and is machine-

@@ -180,6 +180,24 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("psi_n", "float", description="normalized poloidal flux of the surface a poloidal spectrum is cut at"),
         OptionSpec("pedestal", description="fitted pedestal whose top is marked on a psi_N abscissa"),
         OptionSpec("phi_deg", "float", description="toroidal angle in degrees of an island cross-section"),
+        # Profile gradient views (issue #551): what the derivative is taken
+        # against, the length that multiplies it, and a code preset resolving
+        # both.  The vocabularies are vaft.process.profile_gradients' own.
+        OptionSpec("gradient_coordinate", "choice", "recipes.GRADIENT_COORDINATES",
+                   "radial coordinate a profile gradient is taken with respect to"),
+        OptionSpec("reference_length", "choice", "recipes.GRADIENT_REFERENCE_LENGTHS",
+                   "length that multiplies a profile gradient; 'none' for the dimensional one "
+                   "(an explicit None is refused: in profile_gradient it means 'none')"),
+        OptionSpec("convention", "choice", "recipes.GRADIENT_CONVENTIONS",
+                   "code preset resolving gradient_coordinate and reference_length"),
+        # Required by the island separatrix figure, with no default: the total
+        # and vacuum resonant pairs are different physical objects on the same
+        # axes (20 % apart in width and up to 3.1 rad apart in phase on the
+        # DIII-D reference), so the caller says which.
+        OptionSpec("field", "choice", "recipes.ISLAND_FIELD_SOURCES",
+                   description="which resonant pair an island separatrix is drawn from: "
+                               "total (the ideal response, derived from the mapped "
+                               "spectral field) or vacuum (GPEC's own w_isl_v / Phi_res_v)"),
     )
 
 
@@ -188,6 +206,10 @@ OPTION_SCHEMA: Mapping[str, OptionSpec] = {spec.name: spec for spec in _specs()}
 
 #: The extraction option names, the split every adapter applies.
 EXTRACTION_OPTIONS: frozenset[str] = frozenset(OPTION_SCHEMA)
+
+#: Options only a computed view that declares them takes (issue #551).  Any
+#: other plot refuses them by name, exactly as it refuses an unknown option.
+DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({"gradient_coordinate", "reference_length", "convention"})
 
 #: Options an adapter passes on internally (besides leading-underscore keys);
 #: never offered, never refused.
@@ -260,6 +282,11 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
         if key.startswith("_") or key in INTERNAL_OPTIONS or key in STYLE_OPTIONS:
             continue
         spec = OPTION_SCHEMA.get(key)
+        if spec is not None and key in DECLARED_ONLY_OPTIONS:
+            from . import recipes
+
+            if recipes.choice_options_for(name, key) is None:
+                spec = None
         if spec is None:
             raise ValueError(
                 f"{name!r} does not take an option named {key!r}; extraction options: "
@@ -300,9 +327,13 @@ def _plot_scoped_choices(name: str, key: str) -> tuple[Any, ...] | None:
     ``overlay`` (issue #483) are declared per recipe, so the schema's static
     list is only the union: what a given plot accepts is asked of the plot.
     """
+    from . import recipes
+
+    declared = recipes.choice_options_for(name, key)
+    if declared is not None:
+        return declared
     if key not in ("coordinate", "x", "field", "overlay", "members"):
         return None
-    from . import recipes
 
     resolve = {
         "coordinate": recipes.coordinate_options_for,

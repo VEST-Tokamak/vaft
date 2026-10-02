@@ -10,6 +10,7 @@ from vaft.process.equilibrium import find_rational_surfaces
 from vaft.process.perturbation import (
     LEGACY_WINDOWS,
     RESONANT_RESPONSE_COLUMNS,
+    ZERO_MEANS_NOT_COMPUTED,
     RESONANT_STATISTICS,
     ResonantWindow,
     amplification_ratio,
@@ -247,13 +248,53 @@ def test_only_the_response_columns_are_reduced_by_default():
     table = resonant_table()
     metrics = resonant_metrics(table, windows=resonant_windows(legacy=True))
     reduced = {column for column, _ in metrics}
-    assert reduced == set(RESONANT_RESPONSE_COLUMNS) & set(table)
     assert not reduced & {
         "psi_n_rational", "q_rational", "m_rational", "rho_rational",
         "rho1_rational", "q1_rational", "T_e_rational", "n_e_rational",
         "area_rational", "dqdpsi_n_rational", "omega_E_rational",
     }
-    assert "Phi_res" in reduced and "w_isl_v_crit" in reduced
+    assert "Phi_res" in reduced
+    # This fixture is an ideal run, so its threshold columns are identically
+    # zero -- see the next test for why that keeps them out.
+    assert reduced == (set(RESONANT_RESPONSE_COLUMNS) & set(table)) - set(
+        ZERO_MEANS_NOT_COMPUTED
+    )
+
+
+def test_a_threshold_column_of_zeros_is_left_out_rather_than_reduced_to_zero():
+    """Zero is GPEC saying it never worked the threshold out.
+
+    It zeroes them outright when neither threshold model is on
+    (``gpec/gpout.f:1744-1746``), so an RMS over the column is ``0.0`` -- a
+    number, in a metrics table, beside real ones, reading as "the critical field
+    is zero here", which is also what an unattainably *small* threshold would
+    look like. The columns are therefore absent from the default selection on
+    such a run, and present on a run that computed them.
+    """
+    ideal = resonant_table()
+    assert all(not np.any(ideal[name]) for name in ("Phi_res_crit", "w_isl_v_crit"))
+    reduced = {column for column, _ in resonant_metrics(
+        ideal, windows=resonant_windows(legacy=True)
+    )}
+    assert "Phi_res_crit" not in reduced and "w_isl_v_crit" not in reduced
+
+    with_threshold = dict(ideal)
+    with_threshold["Phi_res_crit"] = np.full(ideal["psi_n_rational"].size, 5.1e-4)
+    computed = {column for column, _ in resonant_metrics(
+        with_threshold, windows=resonant_windows(legacy=True)
+    )}
+    assert "Phi_res_crit" in computed
+    assert "w_isl_v_crit" not in computed, "still zero, still not computed"
+
+
+def test_a_zero_threshold_column_is_still_reduced_when_it_is_asked_for():
+    """Naming it is a decision; two runs' zeros may be exactly what a caller wants."""
+    table = resonant_table()
+    metrics = resonant_metrics(
+        table, windows=resonant_windows(legacy=True), columns=["Phi_res_crit"]
+    )
+    assert set(metrics) == {("Phi_res_crit", w) for w in ("core", "edge", "total")}
+    assert set(metrics.values()) == {0.0}
 
 
 def test_a_column_that_is_not_a_response_can_still_be_asked_for():

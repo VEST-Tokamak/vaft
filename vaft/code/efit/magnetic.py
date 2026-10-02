@@ -26,7 +26,7 @@ from ... import compat
 from ...compat import is_executable
 from .._executables import ExecutableNotLaunchable, missing_home_message
 from .._launch import with_stack_limit
-from ..execution import ExecutionRequest, ResourceRequest, resolve_backend
+from ..execution import ExecutionRequest, ResourceRequest, resolve_backend, timeout_reason
 from .slice_name import (
     decode_time_suffix,
     split_slice_file_name,
@@ -853,11 +853,15 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
         stderr = completed.stderr
         (workdir / "run_efit.out").write_text(stdout, encoding="utf-8")
         (workdir / "run_efit.err").write_text(stderr, encoding="utf-8")
+        # Which limit stopped it (time, memory, or a queue wait that never
+        # started it) is the backend's runtime_status; keep it, and word the
+        # reason the way every other adapter does.
+        limit_reason = timeout_reason("EFIT", completed, config.timeout)
         result = collect_efit_outputs(
             workdir,
             config,
-            runtime_status="timeout",
-            runtime_reason=f"EFIT timed out after {config.timeout} seconds",
+            runtime_status=completed.runtime_status,
+            runtime_reason=limit_reason,
             executable=executable,
             expected_kfiles=inputs.kfiles,
             diagnostics_dir=diagnostics_dir,
@@ -869,7 +873,7 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
             pre_run_output_fingerprints=pre_run_output_fingerprints,
         )
         result.status = "failed"
-        result.reason = f"EFIT timed out after {config.timeout} seconds"
+        result.reason = limit_reason
         result.stdout = stdout
         result.stderr = stderr
         return result
@@ -1529,3 +1533,19 @@ def gfile_to_omas(self, ods=None, time_index=0, profile_index=0, allow_derived_d
         profile_index=profile_index,
         allow_derived_data=allow_derived_data,
     )
+
+
+__all__ = [
+    "EFIT_EXEC_ENV",
+    "EFIT_HOME_ENV",
+    "EFIT_HOME_EXECUTABLE",
+    "EFITConfig",
+    "EFITInputs",
+    "EFITResult",
+    "resolved_efit_configuration",
+    "find_efit_executable",
+    "prepare_efit_inputs",
+    "run_efit",
+    "collect_efit_outputs",
+    "gfile_to_omas",
+]

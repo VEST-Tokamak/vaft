@@ -26,14 +26,25 @@ import numpy as np
 #: Bumped when the stored shape changes incompatibly; `from_dict` refuses a payload
 #: written by a newer version rather than silently misreading it.
 SCHEMA = "vaft.code.gacode.tglf.TglfOutputs"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 #: `out.tglf.gbflux` is one flat row, quantity-major: every species' particle flux,
 #: then every species' energy flux, and so on. Verified against the per-species table
 #: TGLF prints at the end of `out.tglf.run`.
 GBFLUX_QUANTITIES = ("particle", "energy", "momentum", "exchange")
 
+#: The five columns of each ky row in `out.tglf.sum_flux_spectrum`, in the order
+#: `write_tglf_sum_flux_spectrum` (tglf_inout.f90) writes them. Each value is the
+#: ky-integration weight times the mode-summed flux, so a sum over ky is the total.
+FLUX_SPECTRUM_QUANTITIES = ("particle", "energy", "toroidal_stress", "parallel_stress", "exchange")
+
+#: Field index in `out.tglf.sum_flux_spectrum`: 1 electrostatic potential, 2 the
+#: perpendicular magnetic perturbation (USE_BPER), 3 the parallel one (USE_BPAR).
+FLUX_SPECTRUM_FIELDS = ("phi", "a_par", "b_par")
+
 __all__ = [
+    "FLUX_SPECTRUM_FIELDS",
+    "FLUX_SPECTRUM_QUANTITIES",
     "GBFLUX_QUANTITIES",
     "SCHEMA",
     "SCHEMA_VERSION",
@@ -52,6 +63,16 @@ class TglfOutputs:
         Gyro-Bohm normalised fluxes keyed by :data:`GBFLUX_QUANTITIES`, each an array
         over species in TGLF's order -- **electrons first**. Normalised, not SI: the
         conversion needs a gyro-Bohm unit this layer does not compute.
+    ky_spectrum
+        The ky grid (``ky rho_s``), from ``out.tglf.ky_spectrum``.
+    eigenvalue_spectrum
+        ``out.tglf.eigenvalue_spectrum`` as written: one row per ky, columns
+        ``gamma_1, omega_1, gamma_2, omega_2, ...`` over the NMODES modes, in
+        gyro-Bohm units (``c_s/a``). :attr:`growth_rate` and :attr:`frequency` split it.
+    sum_flux_spectrum
+        ``out.tglf.sum_flux_spectrum`` shaped ``(species, field, ky, quantity)`` with
+        quantities :data:`FLUX_SPECTRUM_QUANTITIES` and fields
+        :data:`FLUX_SPECTRUM_FIELDS` (only those the run included). Electrons first.
     errors
         Lines TGLF logged as errors. Non-empty means the run is not solved, whatever
         the exit status said.
@@ -61,6 +82,7 @@ class TglfOutputs:
     gbflux: Optional[Mapping[str, np.ndarray]] = None
     ky_spectrum: Optional[np.ndarray] = None
     eigenvalue_spectrum: Optional[np.ndarray] = None
+    sum_flux_spectrum: Optional[np.ndarray] = None
     grid: Optional[Mapping[str, int]] = None
     precision: Optional[float] = None
     version: Optional[Mapping[str, str]] = None
@@ -83,6 +105,25 @@ class TglfOutputs:
     @property
     def particle_flux(self) -> Optional[np.ndarray]:
         return None if self.gbflux is None else self.gbflux.get("particle")
+
+    def _eigen_columns(self, offset: int) -> Optional[np.ndarray]:
+        values = self.eigenvalue_spectrum
+        if values is None:
+            return None
+        table = np.atleast_2d(np.asarray(values, dtype=float))
+        if table.shape[1] % 2:
+            return None
+        return table[:, offset::2]
+
+    @property
+    def growth_rate(self) -> Optional[np.ndarray]:
+        """Linear growth rate ``(ky, mode)`` in ``c_s/a``, from the eigenvalue spectrum."""
+        return self._eigen_columns(0)
+
+    @property
+    def frequency(self) -> Optional[np.ndarray]:
+        """Real frequency ``(ky, mode)`` in ``c_s/a``; TGLF's sign convention, unlabelled."""
+        return self._eigen_columns(1)
 
     @property
     def solved(self) -> bool:
@@ -172,6 +213,95 @@ def _load(path: Path) -> Optional[np.ndarray]:
     return values if values.size else None
 
 
+def _numeric_rows(path: Path) -> Optional[list[list[float]]]:
+    """Rows of numbers in a TGLF list-directed file, text header lines dropped.
+
+    TGLF's spectrum writers open with prose lines (``index limits: nky``), which
+    ``np.loadtxt`` rejects outright; a row that does not parse as numbers is a header.
+    """
+    if not path.is_file():
+        return None
+    rows = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        parts = line.replace(",", " ").split()
+        if not parts:
+            continue
+        try:
+            rows.append([float(part) for part in parts])
+        except ValueError:
+            continue
+    return rows or None
+
+
+def _parse_ky_spectrum(directory: Path) -> Optional[np.ndarray]:
+    """``out.tglf.ky_spectrum``: a prose line, ``nky``, then one ky per line."""
+    rows = _numeric_rows(directory / "out.tglf.ky_spectrum")
+    if not rows or len(rows[0]) != 1:
+        return None
+    count = int(rows[0][0])
+    values = [row[0] for row in rows[1:] if len(row) == 1]
+    if count <= 0 or len(values) != count:
+        return None
+    return np.asarray(values, dtype=float)
+
+
+def _parse_eigenvalue_spectrum(directory: Path, nky: Optional[int]) -> Optional[np.ndarray]:
+    """``out.tglf.eigenvalue_spectrum``: two prose lines, then ``nky`` rows of
+    ``(gamma_n, freq_n), n = 1..NMODES``."""
+    rows = _numeric_rows(directory / "out.tglf.eigenvalue_spectrum")
+    if not rows:
+        return None
+    widths = {len(row) for row in rows}
+    if len(widths) != 1 or next(iter(widths)) % 2:
+        return None
+    if nky is not None and len(rows) != nky:
+        return None
+    return np.asarray(rows, dtype=float)
+
+
+def _parse_sum_flux_spectrum(
+    directory: Path, n_species: Optional[int], nky: Optional[int]
+) -> Optional[np.ndarray]:
+    """``out.tglf.sum_flux_spectrum``: per (species, field) a two-line header
+    (``species = i field = j`` and a column legend), then ``nky`` rows of the five
+    :data:`FLUX_SPECTRUM_QUANTITIES`."""
+    path = directory / "out.tglf.sum_flux_spectrum"
+    if not path.is_file() or n_species is None or nky is None:
+        return None
+    blocks: dict[tuple[int, int], list[list[float]]] = {}
+    current: Optional[tuple[int, int]] = None
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        if text.startswith("species"):
+            numbers = [part for part in text.replace("=", " ").split() if part.lstrip("-").isdigit()]
+            if len(numbers) != 2:
+                return None
+            current = (int(numbers[0]), int(numbers[1]))
+            blocks[current] = []
+            continue
+        try:
+            row = [float(part) for part in text.split()]
+        except ValueError:
+            continue
+        if current is None or len(row) != len(FLUX_SPECTRUM_QUANTITIES):
+            return None
+        blocks[current].append(row)
+    if not blocks:
+        return None
+    species = sorted({key[0] for key in blocks})
+    field_ids = sorted({key[1] for key in blocks})
+    if len(species) != n_species or field_ids != list(range(1, len(field_ids) + 1)):
+        return None
+    out = np.full((len(species), len(field_ids), nky, len(FLUX_SPECTRUM_QUANTITIES)), np.nan)
+    for (spec, fld), rows in blocks.items():
+        if len(rows) != nky:
+            return None
+        out[species.index(spec), fld - 1] = np.asarray(rows, dtype=float)
+    return out
+
+
 def _parse_gbflux(directory: Path, n_species: Optional[int]) -> Optional[dict]:
     """Split the flat gyro-Bohm row into its quantities.
 
@@ -246,11 +376,15 @@ def collect_tglf_outputs(workdir: str | Path) -> Optional[TglfOutputs]:
     if not products:
         return None
     grid = _parse_grid(directory)
+    n_species = None if grid is None else grid["n_species"]
+    ky = _parse_ky_spectrum(directory)
+    nky = None if ky is None else int(ky.size)
     return TglfOutputs(
         directory=str(directory),
-        gbflux=_parse_gbflux(directory, None if grid is None else grid["n_species"]),
-        ky_spectrum=_load(directory / "out.tglf.ky_spectrum"),
-        eigenvalue_spectrum=_load(directory / "out.tglf.eigenvalue_spectrum"),
+        gbflux=_parse_gbflux(directory, n_species),
+        ky_spectrum=ky,
+        eigenvalue_spectrum=_parse_eigenvalue_spectrum(directory, nky),
+        sum_flux_spectrum=_parse_sum_flux_spectrum(directory, n_species, nky),
         grid=grid,
         precision=_parse_precision(directory),
         version=_parse_version(directory),

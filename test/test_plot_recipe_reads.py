@@ -74,6 +74,10 @@ OMAS_BOUND = frozenset({
     # issue #952: the kinetic profile fits call the vaft.process.profile mappers
     # and fitters, which subscript the ODS.
     "thomson_scattering_profile_fit", "charge_exchange_profile_fit",
+    # issue #551: radial_coordinate_map selects and adapts the equilibrium
+    # slice with ODS item access (as_equilibrium).
+    "electron_temperature_profile_gradient", "electron_density_profile_gradient",
+    "ion_temperature_profile_gradient",
 })
 
 #: Recorded reads that are not the plot's input, per plot, with the reason.

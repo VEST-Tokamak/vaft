@@ -412,6 +412,11 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "coil_3d_geometry_topview": make_coils_3d,
     "pf_plasma_geometry_poloidal": make_pf_plasma,
     "neoclassical_profile_bootstrap_current": make_neoclassical,
+    # issue #551: 39915 carries no core_profiles; the gradient views read the
+    # synthetic profiles through the equilibrium slice at their time.
+    "electron_temperature_profile_gradient": make_core_profiles,
+    "electron_density_profile_gradient": make_core_profiles,
+    "ion_temperature_profile_gradient": make_core_profiles,
     "electron_temperature_field": make_core_profiles,
     "electron_density_field": make_core_profiles,
     "summary_time_power_balance": make_power_balance,
@@ -438,6 +443,9 @@ OPTIONS: dict[str, dict] = {
     "charge_exchange_profile_fit": {"order": 2},
     "camera_visible_image_field_line": {"field_line_start": (0.4, 0.0)},
     "camera_visible_image_vacuum_field_line": {"shot": 39915, "max_turns": 0.25, "resolution": 21},
+    # #1446: the island separatrices take no default field -- the total and
+    # vacuum resonant pairs are different objects drawn on the same axes.
+    "mhd_linear_geometry_island": {"field": "total"},
 }
 
 #: Names no factory could make build, with the exact error.

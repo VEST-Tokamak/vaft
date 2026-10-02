@@ -187,6 +187,7 @@ def write_profile_nc(
     machine="VEST",
     trimmed=False,
     coil_names=("MID", "UP"),
+    jac_out="boozer",
 ):
     """Write a miniature ``gpec_profile_output_n<mode>.nc``; returns its data.
 
@@ -251,9 +252,15 @@ def write_profile_nc(
         "Delta": (("i", "psi_n_rational"), _complex_pair(delta)),
         "area_rational": (("psi_n_rational",), q_rational * 2.0, {"units": "m^2"}),
         "Phi_res": (("i", "psi_n_rational"), _complex_pair(phi_res), {"units": "T"}),
-        "Phi_res_v": (("i", "psi_n_rational"), _complex_pair(phi_res * 0.5), {"units": "T"}),
+        # Half the total flux AND rotated by 0.9 rad: a renderer that reads the
+        # total pair where the vacuum one was asked for cannot pass by accident,
+        # in width or in phase. (On the real DIII-D example the two phases
+        # differ by 3.1 rad at q = 2, so this understates the difference.)
+        "Phi_res_v": (("i", "psi_n_rational"),
+                      _complex_pair(phi_res * 0.5 * np.exp(1j * 0.9)), {"units": "T"}),
         "I_res": (("i", "psi_n_rational"), _complex_pair(i_res), {"units": "A"}),
         "w_isl": (("psi_n_rational",), q_rational * 1e-2, {"units": "psi_n"}),
+        "w_isl_v": (("psi_n_rational",), q_rational * 1e-2 * 0.5, {"units": "psi_n"}),
         "K_isl": (("psi_n_rational",), q_rational * 0.1),
         "T_e_rational": (("psi_n_rational",), q_rational * 100.0, {"units": "eV"}),
         # psi_n-dimensioned: a real extract keeps these.
@@ -285,9 +292,14 @@ def write_profile_nc(
                 "xi_n_fun": (("i", "theta_dcon", "psi_n"), _complex_pair(b_n_fun * 10.0), {"units": "m"}),
                 # Extras: present in real files, not named fields. Jbgradpsi
                 # is the one the resonant derivation reads.
-                "b_eul": (("i", "m_out", "psi_n"), _complex_pair(b_n * 2.0), {"units": "Tesla"}),
+                "b_eul": (("i", "m_out", "psi_n"), _complex_pair(b_n * 2.0),
+                          {"units": "Tesla", "jacobian": jac_out}),
+                # Every spectral variable in a real file carries a `jacobian`
+                # attribute naming GPEC's jac_out, which is a different
+                # namelist entry from the jac_type the run solved in and on the
+                # DIII-D example a different value ("boozer" against "hamada").
                 "Jbgradpsi": (("i", "m_out", "psi_n"), _complex_pair(b_n * 3.0),
-                              {"units": "Tesla"}),
+                              {"units": "Tesla", "jacobian": jac_out}),
                 # A character matrix, and an index that has as many entries as
                 # there are rational surfaces when the two happen to coincide.
                 "coil_name": (("coil_index", "coil_strlen"), name_chars),
@@ -333,6 +345,10 @@ def write_profile_nc(
         "shot": shot,
         "time": time,
         "coil_names": coil_names,
+        "jac_out": jac_out,
+        "w_isl": q_rational * 1e-2,
+        "Phi_res_v": phi_res * 0.5 * np.exp(1j * 0.9),
+        "w_isl_v": q_rational * 1e-2 * 0.5,
     }
 
 
