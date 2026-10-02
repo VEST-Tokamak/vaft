@@ -1,7 +1,17 @@
 """What makes a scanned EFIT setting good, per slice (#891).
 
-The four criteria agreed on #891 after the diamagnetic sign was corrected
-(#1196), behind a physical-admissibility veto:
+Two separate questions are answered, and never folded into one:
+
+* **fit quality** (``good``) -- the four criteria agreed on #891 after the
+  diamagnetic sign was corrected (#1196), behind a physical-admissibility
+  veto: is this a converged reconstruction that fits its own measurements?
+* **physical consistency** (``physically_consistent``) -- does it agree with
+  pressure it never used (Thomson)?  A slice can be a numerically sound fit
+  and still be inconsistent with Thomson; that information is kept, not used
+  to discard the slice, and Thomson is never a target any setting is chosen
+  by (it would then stop being an independent check).
+
+The fit-quality criteria:
 
 * **admissible** -- converged, positive pressure everywhere, beta_p and W > 0,
   q95 above a floor, reconstructed/measured Ip in [0.3, 1 + 2 sigma_Ip] (the
@@ -19,11 +29,17 @@ The four criteria agreed on #891 after the diamagnetic sign was corrected
   *indeterminate* rather than scored (#649: the other closures are
   ill-conditioned at VEST's aspect ratio).
 * **grad_shafranov** -- the relative Grad-Shafranov residual of the g-file.
+
+The physical-consistency criterion:
+
 * **thomson** -- only where Thomson samples lie in the slice's window:
-  ``p_e <= p_recon <= 3 p_e`` at the sampled points, i.e.
-  ``-ln 3 <= ln(sum p_e / sum p_recon) <= 0``.  Thomson measures electrons, so
-  ``p_e`` is a lower bound; three times it bounds any credible ion and
-  impurity share.
+  ``p_e <= p_recon <= 2 p_e`` at the sampled points, i.e.
+  ``-ln 2 <= ln(sum p_e / sum p_recon) <= 0``.  An ohmic VEST plasma carries
+  no fast-ion pressure, so ``p = p_e (1 + f_i T_i/T_e)`` with
+  ``f_i = n_i,tot / n_e <= 1`` (impurities dilute the ions) and
+  ``T_i <= T_e`` (the ions are heated only by the electrons); hence
+  ``1 <= p/p_e <= 2``.  The band was ``[1, 3]`` before criteria version 2
+  (2026-10-02).
 
 Every function here is pure: a slice record in, a verdict out.  Verdicts are
 ``"pass"``, ``"fail"`` or ``"indeterminate"``; a criterion that cannot be
@@ -39,6 +55,11 @@ from typing import Any, Iterable, Mapping, Sequence
 import numpy as np
 
 PASS, FAIL, INDETERMINATE, NOT_AVAILABLE = "pass", "fail", "indeterminate", "not_available"
+
+#: Written into every evaluation.  2 (2026-10-02): the Thomson band is
+#: [1, 2] p_e and Thomson no longer decides ``good``; 1 was [1, 3] p_e and
+#: a Thomson fail made a slice not good.
+CRITERIA_VERSION = 2
 
 #: The fitted families and the band their reduced chi-square must fall in.
 FAMILIES = ("probe", "loop", "ip", "pf", "dia")
@@ -72,10 +93,14 @@ CRITERIA: dict[str, Any] = {
     # Provisional: the routine reconstructions sit near 0.5 %; revisit once
     # stage 1 shows the spread across settings.
     "grad_shafranov_max": 0.05,
-    "thomson_log_ratio_band": (-math.log(3.0), 0.0),
+    "thomson_log_ratio_band": (-math.log(2.0), 0.0),
 }
 
-ORDER = ("admissible", "measurement", "virial", "grad_shafranov", "thomson")
+#: Fit quality: what ``good`` is made of.
+FIT_QUALITY = ("admissible", "measurement", "virial", "grad_shafranov")
+#: Physical consistency: reported beside ``good``, never part of it.
+PHYSICAL_CONSISTENCY = ("thomson",)
+ORDER = FIT_QUALITY + PHYSICAL_CONSISTENCY
 
 
 def _finite(value: Any) -> float:
@@ -208,19 +233,31 @@ CHECKS = {
 }
 
 
-def evaluate(record: Mapping[str, Any], criteria: Mapping[str, Any] = CRITERIA) -> dict[str, Any]:
-    """Every criterion on one slice, plus whether the slice is good.
+def physically_consistent(verdicts: Mapping[str, Mapping[str, Any]]) -> bool | None:
+    """``True``/``False`` from the physical-consistency verdicts; ``None`` when none could be judged."""
+    statuses = [verdicts[name]["status"] for name in PHYSICAL_CONSISTENCY]
+    judged = [status for status in statuses if status in (PASS, FAIL)]
+    if not judged:
+        return None
+    return all(status == PASS for status in judged)
 
-    ``good`` needs admissible and every other criterion either passing or not
-    available; an indeterminate virial or Thomson verdict does not count
-    against a slice but is reported.
+
+def evaluate(record: Mapping[str, Any], criteria: Mapping[str, Any] = CRITERIA) -> dict[str, Any]:
+    """Every criterion on one slice: fit quality (``good``) and physical consistency, separately.
+
+    ``good`` needs admissible and measurement passing, and virial and
+    Grad-Shafranov either passing or not judged; an indeterminate verdict
+    does not count against a slice but is reported.  Thomson does not enter
+    ``good``: ``physically_consistent`` carries it (``None`` where there is
+    no Thomson).
     """
     verdicts = {name: CHECKS[name](record, criteria) for name in ORDER}
     # The measurement criterion must actually pass: a slice with no fitted
     # family (no m-file) has not been checked against the data at all.
     good = (verdicts["admissible"]["status"] == PASS and verdicts["measurement"]["status"] == PASS
-            and all(verdicts[name]["status"] != FAIL for name in ORDER[2:]))
-    return {"verdicts": verdicts, "good": bool(good)}
+            and all(verdicts[name]["status"] != FAIL for name in FIT_QUALITY[2:]))
+    return {"verdicts": verdicts, "good": bool(good), "physically_consistent": physically_consistent(verdicts),
+            "criteria_version": CRITERIA_VERSION}
 
 
 def summarize(records: Sequence[Mapping[str, Any]], criteria: Mapping[str, Any] = CRITERIA) -> list[dict[str, Any]]:
@@ -237,7 +274,11 @@ def summarize(records: Sequence[Mapping[str, Any]], criteria: Mapping[str, Any] 
     for setting, group in by_setting.items():
         evaluated = [evaluate(r, criteria) for r in group]
         row: dict[str, Any] = {"setting": setting, "slices": len(group),
-                               "good": sum(e["good"] for e in evaluated)}
+                               "good": sum(e["good"] for e in evaluated),
+                               "physically_consistent": sum(e["physically_consistent"] is True for e in evaluated),
+                               "physically_inconsistent": sum(e["physically_consistent"] is False for e in evaluated),
+                               "good_and_consistent": sum(e["good"] and e["physically_consistent"] is True
+                                                          for e in evaluated)}
         for name in ORDER:
             statuses = [e["verdicts"][name]["status"] for e in evaluated]
             row[name] = {
@@ -286,7 +327,10 @@ def slice_labels(records: Sequence[Mapping[str, Any]], criteria: Mapping[str, An
     ``good`` when some setting is good there, ``admissible`` when some setting
     is admissible but none good, else ``unreconstructible``: no setting in
     the study gives a physical magnetics-only reconstruction of that slice.
-    The routine is reported beside it, never counted towards the label.
+    The label is fit quality only.  ``consistent`` lists the good settings
+    that are also consistent with Thomson, and ``thomson_consistent`` says
+    whether any is (``None`` where no good setting could be judged).  The
+    routine is reported beside it, never counted towards the label.
     """
     by_slice: dict[tuple[int, int], list[Mapping[str, Any]]] = {}
     for record in records:
@@ -297,12 +341,15 @@ def slice_labels(records: Sequence[Mapping[str, Any]], criteria: Mapping[str, An
         study = [r for r in group if r.get("setting") != "routine"]
         evaluated = [(r["setting"], evaluate(r, criteria)) for r in study]
         good = sorted({name for name, e in evaluated if e["good"]})
+        judged = [e["physically_consistent"] for _, e in evaluated if e["good"] and e["physically_consistent"] is not None]
+        consistent = sorted({name for name, e in evaluated if e["good"] and e["physically_consistent"] is True})
         admissible_settings = sorted({name for name, e in evaluated
                                       if e["verdicts"]["admissible"]["status"] == PASS})
         label = "good" if good else "admissible" if admissible_settings else "unreconstructible"
         routine = next((r for r in group if r.get("setting") == "routine"), None)
         out.append({
             "shot": shot, "time_ms": time_ms, "label": label, "good": good, "admissible": admissible_settings,
+            "consistent": consistent, "thomson_consistent": (any(judged) if judged else None),
             "routine": None if routine is None else evaluate(routine, criteria)["verdicts"]["admissible"]["status"],
         })
     return out
@@ -313,7 +360,7 @@ def good_fraction(row: Mapping[str, Any]) -> float:
 
 
 __all__: Iterable[str] = (
-    "CRITERIA", "FAMILIES", "ORDER", "PASS", "FAIL", "INDETERMINATE", "NOT_AVAILABLE",
-    "admissible", "measurement", "virial", "grad_shafranov", "thomson", "evaluate",
+    "CRITERIA", "CRITERIA_VERSION", "FAMILIES", "FIT_QUALITY", "ORDER", "PHYSICAL_CONSISTENCY", "PASS", "FAIL", "INDETERMINATE", "NOT_AVAILABLE",
+    "admissible", "measurement", "virial", "grad_shafranov", "thomson", "evaluate", "physically_consistent",
     "summarize", "setting_calibration", "good_fraction", "ip_sigma_relative", "ip_ratio_band", "slice_labels",
 )

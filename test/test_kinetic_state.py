@@ -405,3 +405,19 @@ def test_build_gates_on_rederived_labels_and_uses_the_earning_setting(tmp_path):
     assert rows[0.312]["ts_status"] == "matched"
     assert result["manifest"]["labels"]["differ_from_stored"] == 1
     assert (out / "state.csv").is_file() and (out / "schema/state.schema.json").is_file()
+
+
+def test_magnetics_rows_carry_thomson_consistency_regraded_not_stored():
+    """criteria v2: Thomson is a column beside efit_quality, re-graded with this
+    checkout's criteria rather than read from the analysis JSON's stored verdicts."""
+    import math
+
+    build_state = _build_state_module()
+    criteria = build_state._criteria()
+    assert build_state.STATE_COLUMNS["thomson_consistent"][0] == "boolean"
+    # A record whose stored evaluation is stale (graded under the old [1, 3] band).
+    record = {"thomson": {"log_ratio": math.log(1.0 / 2.7)},
+              "evaluation": {"verdicts": {"thomson": {"status": "pass"}}}}
+    evaluation = criteria.evaluate(record)
+    assert build_state._status(evaluation, "thomson") == "fail"
+    assert evaluation["physically_consistent"] is False

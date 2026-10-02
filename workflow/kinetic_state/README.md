@@ -29,5 +29,7 @@ python3 workflow/kinetic_state/summarize.py --atlas ~/runs/campaign/atlas/v1 \
   - `R_W_full` covers the whole plasma and therefore extrapolates that fit.
 - **Magnetics-only rows** are held-out validation: Thomson was not used in the fit.
 - **Electron-kinetic rows** are fit consistency: Thomson was fitted, with Ti = Te.
-- **`good` rows are gated on the criteria band** `1 ≤ R_sum ≤ 3`, so their magnetics-only `R_sum` lies in that band by construction. Only `admissible` rows show the ungated distribution.
-- The band is a workflow criterion, not a physical bound.
+- **`efit_quality` is fit quality only** (criteria version 2, 2026-10-02). Thomson does not gate `good` rows, so `R_sum` is free on both `good` and `admissible` rows.
+- **`thomson_consistent`** is the physical-consistency check `1 ≤ R_sum ≤ 2`, reported per magnetics row and never used to select one.
+  - The ceiling follows from `p = p_e (1 + f_i T_i/T_e)` with no fast ions, `T_i ≤ T_e` and `f_i = n_i,tot/n_e ≤ 1`.
+  - Version 1 used `[1, 3]` and gated `good` rows on it, so atlases built before 2026-10-02 differ.
