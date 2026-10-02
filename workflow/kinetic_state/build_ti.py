@@ -98,7 +98,7 @@ STATE_COLUMNS: dict[str, tuple[str, str]] = {
 
 
 def _read(path: Path) -> list[dict[str, str]]:
-    with open(path, newline="") as handle:
+    with open(path, newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
 
 
@@ -110,7 +110,7 @@ def _f(value: Any) -> float:
 
 
 def _write(path: Path, columns: dict[str, tuple[str, str]], rows: list[dict[str, Any]], title: str) -> None:
-    with open(path, "w", newline="") as handle:
+    with open(path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(columns), extrasaction="raise")
         writer.writeheader()
         for row in rows:
@@ -119,7 +119,7 @@ def _write(path: Path, columns: dict[str, tuple[str, str]], rows: list[dict[str,
               "required": list(KEY),
               "properties": {k: {"type": [t, "null"], "description": d} for k, (t, d) in columns.items()}}
     (path.parent / "schema").mkdir(exist_ok=True)
-    (path.parent / "schema" / f"{path.stem}.schema.json").write_text(json.dumps(schema, indent=1) + "\n")
+    (path.parent / "schema" / f"{path.stem}.schema.json").write_text(json.dumps(schema, indent=1) + "\n", encoding="utf-8")
 
 
 def _flags(result: dict[str, Any], extra: list[list[str]] | None = None) -> list[str]:
@@ -334,7 +334,7 @@ def build(filedb: Path, atlas: Path, *, floor: float, window_s: float) -> dict[s
         "core_profiles_shots": sorted(slices_by_shot),
         "floor": floor, "window_s": window_s,
     }
-    (atlas / "ti_summary.json").write_text(json.dumps(summary, indent=1) + "\n")
+    (atlas / "ti_summary.json").write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8")
     return summary
 
 

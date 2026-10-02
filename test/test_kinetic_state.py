@@ -336,12 +336,13 @@ def _text_mode_calls_without_encoding(source: Path) -> list[str]:
     return missing
 
 
-def test_the_atlas_is_written_and_read_as_utf8_not_at_the_locale():
+@pytest.mark.parametrize("script", ["build_state.py", "build_ti.py"])
+def test_the_atlas_is_written_and_read_as_utf8_not_at_the_locale(script):
     """CSV reason cells may carry non-ASCII; the repository rule is UTF-8 everywhere
-    (vaft/version.py; cold review 0.8.0 delta-absorb-5 F6)."""
+    (vaft/version.py; cold review 0.8.0 delta-absorb-5 F6, delta-absorb-14 physics F1)."""
     from pathlib import Path
 
-    source = Path(__file__).resolve().parents[1] / "workflow" / "kinetic_state" / "build_state.py"
+    source = Path(__file__).resolve().parents[1] / "workflow" / "kinetic_state" / script
     assert _text_mode_calls_without_encoding(source) == []
 
 
@@ -548,10 +549,10 @@ def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
     atlas = tmp_path / "atlas"
     modules["build_state"].build(filedb, analysis, atlas, ti_te_ratio=1.0)
     # a kinetic state, to be refused
-    with open(atlas / "state.csv", newline="") as handle:
+    with open(atlas / "state.csv", newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     rows.append({**rows[0], "efit_lineage": "electron_kinetic"})
-    with open(atlas / "state.csv", "w", newline="") as handle:
+    with open(atlas / "state.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
@@ -560,7 +561,7 @@ def test_build_ti_infers_on_magnetics_and_refuses_kinetic(tmp_path):
     assert summary["refused_circular"] == 1 and summary["eligible_with_channels"] == 2
     # each slice has the other within 1 ms: the ensemble is used
     assert set(summary["sigma_p_eq_basis"]) <= {"ensemble(n=2)", "floor"}
-    with open(atlas / "ti_inferred.csv", newline="") as handle:
+    with open(atlas / "ti_inferred.csv", newline="", encoding="utf-8") as handle:
         points = list(csv.DictReader(handle))
     channel = [p for p in points if p["kind"] == "channel" and p["time_efit_s"] == "0.313"]
     for p in channel:
