@@ -425,32 +425,35 @@ def _derive_shape_profiles(work: Any, eq_index: int) -> Optional[dict[str, Any]]
             "routine": "vaft.process.equilibrium.contour_shape_parameters"}
 
 
-def _stored_inferred_ti(ods: Any, prefix: str, ions: list, time: float) -> Optional[dict]:
+def _stored_inferred_ti(ods: Any, prefix: str, ions: list, time: float) -> tuple[Optional[dict], Optional[str]]:
     """An ion temperature the product itself labels as inferred, as an ``inferred_ti`` record.
 
     Every ion must carry the inferred label and one common temperature (lane K writes
-    H+ and C6+ with the same partitioned T_i); otherwise ``None``. ``species`` is the
-    number of ions the product supplied, so the caller keeps its composition.
+    H+ and C6+ with the same partitioned T_i).  Returns ``(record, None)`` when it does,
+    else ``(None, reason)`` naming what is missing: ``label_missing`` (some ion carries
+    no inferred label), ``temperature_missing`` (a labelled ion has no array) or
+    ``species_disagree`` (the labelled arrays differ).  ``species`` is the number of
+    ions the product supplied, so the caller keeps its composition.
     """
     from vaft.machine_mapping.core_profiles import classify_ti_record
 
     if not ions:
-        return None
+        return None, "label_missing"
     notes = [_get(ods, f"{prefix}.ion.{i}.temperature_fit.parameters") for i in ions]
     if any(classify_ti_record(note) != "inferred" for note in notes):
-        return None
+        return None, "label_missing"
     arrays = [_get(ods, f"{prefix}.ion.{i}.temperature") for i in ions]
     if any(a is None for a in arrays):
-        return None
+        return None, "temperature_missing"
     arrays = [np.asarray(a, dtype=float) for a in arrays]
     if any(a.shape != arrays[0].shape or not np.allclose(a, arrays[0], equal_nan=True) for a in arrays[1:]):
-        return None
+        return None, "species_disagree"
     method = "equilibrium_pressure_partition"
     for part in str(notes[0]).split(";"):
         if part.strip().startswith("method="):
             method = part.strip().split("=", 1)[1]
     return {"temperature": arrays[0], "method": method, "time": float(time),
-            "source": str(notes[0]), "species": len(ions)}
+            "source": str(notes[0]), "species": len(ions)}, None
 
 
 def _segments(rho: np.ndarray, valid: np.ndarray) -> list[list[float]]:
@@ -739,7 +742,7 @@ def resolve_transport_state(
     if any(kind == "unknown" for kind in kinds.values()):
         return _insufficient(base, "ti_record_unrecognised")
     fill = None
-    stored = _stored_inferred_ti(ods, prefix, ions, cp_times[cp_index])
+    stored, stored_reason = _stored_inferred_ti(ods, prefix, ions, cp_times[cp_index])
     labelled = [i for i in ions if kinds[i] == "inferred"]
     if labelled and not use_stored_inferred_ti and inferred_ti is None:
         # The product's T_i is an inference and the caller did not opt in: refusing is
@@ -747,8 +750,10 @@ def resolve_transport_state(
         return _insufficient(base, "inferred_ti_not_enabled")
     if labelled and stored is None and inferred_ti is None:
         # Some ion says its T_i was inferred but the set is not one common inferred
-        # profile: it is neither a measurement nor a usable inference.
-        return _insufficient(base, "inferred_ti_species_disagree")
+        # profile: it is neither a measurement nor a usable inference. The reason
+        # names what is missing (a label, an array) rather than calling every case
+        # a disagreement.
+        return _insufficient(base, f"inferred_ti_{stored_reason}")
     if use_stored_inferred_ti and stored is not None and inferred_ti is None:
         inferred_ti = stored
     measured = [i for i in ions

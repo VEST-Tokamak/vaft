@@ -1804,3 +1804,22 @@ def test_a_record_in_no_known_grammar_is_refused_by_name(sample, record):
     state = resolve_transport_state(_with_record(sample, record), _key(0.3), efit_quality="good")
     assert state.reasons == ("ti_record_unrecognised",)
     assert state.ti.get("lineage") != "measured"
+
+
+def test_an_incomplete_inferred_label_set_names_what_is_missing(sample):
+    """F4: an unlabelled main ion beside a labelled impurity is not a disagreement."""
+    ods = _two_ion_inferred(sample)
+    prefix = "core_profiles.profiles_1d.0"
+    del ods[f"{prefix}.ion.0.temperature_fit.parameters"]
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good", use_stored_inferred_ti=True)
+    assert state.reasons == ("inferred_ti_label_missing",)
+    # A labelled ion with no temperature array is missing its array, not disagreeing.
+    ods = _two_ion_inferred(sample)
+    del ods[f"{prefix}.ion.1.temperature"]
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good", use_stored_inferred_ti=True)
+    assert state.reasons == ("inferred_ti_temperature_missing",)
+    # Two labelled ions with different arrays do disagree.
+    ods = _two_ion_inferred(sample)
+    ods[f"{prefix}.ion.1.temperature"] = 0.5 * np.asarray(ods[f"{prefix}.ion.1.temperature"], dtype=float)
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good", use_stored_inferred_ti=True)
+    assert state.reasons == ("inferred_ti_species_disagree",)
