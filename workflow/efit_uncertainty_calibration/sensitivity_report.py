@@ -13,7 +13,10 @@ The axes are kept apart, as #579 asks.  None of them selects a configuration.
    (``physically_consistent``), reported where Thomson exists.
 3. **Robustness** -- per slice, the spread of W, beta_p, l_i and q95 across
    the configurations that pass fit quality: the model-form uncertainty
-   sigma_EFIT,model.  Thomson never enters this set.
+   sigma_EFIT,model.  Thomson never enters this set.  The same spread is also
+   given over the *admissible* members: the reduced-chi-square band is not
+   invariant along the sigma axis (halving a family's sigma quadruples its
+   chi2r), so ``good`` alone would confound that axis with the band.
 
 The marginal effect of each axis of the ensemble (diamagnetic sigma, profile
 basis, probe/loop sigma) is reported as the median, over slices, of each
@@ -139,6 +142,8 @@ def report(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
                      "good": working["good"], "consistent": working["consistent"],
                      "p_over_p_e": working["p_over_p_e"], **{q: working[q] for q in QUANTITIES}},
                  "model_form": {q: _spread([r[q] for r in good]) for q in QUANTITIES},
+                 "admissible": sum(r["admissible"] for r in group),
+                 "model_form_admissible": {q: _spread([r[q] for r in group if r["admissible"]]) for q in QUANTITIES},
                  "p_over_p_e_over_good": _spread([r["p_over_p_e"] for r in good])}
         slices.append(entry)
 
