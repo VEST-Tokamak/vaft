@@ -1243,3 +1243,271 @@ def test_the_native_directory_uses_the_slash_grammar_on_every_host(atlas):
     windows = atlas._native_dir(PureWindowsPath(r"C:\runs\tglf-sat1-es\48224\magnetics\00300\state.json"),
                                 PureWindowsPath(r"C:\runs\tglf-sat1-es"), 0.3)
     assert posix == windows == "48224/magnetics/00300/r0.30"
+
+
+# --------------------------------------------------------------------------- SAT x field sensitivity (#1482)
+
+
+@pytest.fixture()
+def sensitivity():
+    path = ROOT / "workflow" / "transport_atlas" / "build_sensitivity.py"
+    spec = importlib.util.spec_from_file_location("transport_atlas_sensitivity", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    sys.modules.pop(spec.name, None)
+
+
+def test_delta_is_bounded_and_quiet_near_zero(sensitivity):
+    assert sensitivity.delta(2.0, 1.0) == pytest.approx(0.5)
+    assert sensitivity.delta(-1.0, 1.0) == pytest.approx(-2.0)
+    assert abs(sensitivity.delta(1e-5, -1e-5)) < 0.03  # both below eps: not blown up
+    assert sensitivity.delta(None, 1.0) is None
+
+
+def _tglf_weighted(ky, flux):
+    """``sum_flux_spectrum`` entries exactly as write_tglf_sum_flux_spectrum forms them."""
+    entries = [ky[0] * flux[0]]
+    for k in range(1, len(ky)):
+        k0, k1 = ky[k - 1], ky[k]
+        d = np.log(k1 / k0) / (k1 - k0)
+        entries.append(k0 * (k1 * d - 1.0) * flux[k - 1] + k1 * (1.0 - k0 * d) * flux[k])
+    return np.asarray(entries)
+
+
+def test_ky_peak_follows_tglf_interval_weighting(sensitivity):
+    from types import SimpleNamespace
+
+    ky = np.array([0.1, 0.2, 0.3, 0.4, 0.8, 1.6, 3.2])
+    flux = np.array([0.1, 0.2, 0.5, 3.0, 0.4, 0.2, 0.1])   # density peaked at ky = 0.4
+    spectrum = np.zeros((2, 1, ky.size, 5))
+    spectrum[0, 0, :, 1] = _tglf_weighted(ky, 0.7 * flux)
+    spectrum[1, 0, :, 1] = _tglf_weighted(ky, 0.3 * flux)
+    peak = sensitivity.ky_peak(SimpleNamespace(ky_spectrum=ky, sum_flux_spectrum=spectrum))
+    # Interval means straddle the peak point: (0.3, 0.4] -> midpoint 0.35, (0.4, 0.8] -> 0.6.
+    assert peak == pytest.approx(0.35)
+    # Each entry's width-mean lies between its two endpoint densities (dky0 + dky1 = width).
+    widths = ky - np.concatenate(([0.0], ky[:-1]))
+    mean = _tglf_weighted(ky, flux)[1:] / widths[1:]
+    assert np.all(mean >= np.minimum(flux[:-1], flux[1:]) - 1e-12)
+    assert np.all(mean <= np.maximum(flux[:-1], flux[1:]) + 1e-12)
+
+
+def test_sensitivity_tables_compare_configurations_on_one_state(sensitivity, driver, sample,
+                                                                 tmp_path, monkeypatch):
+    from omas import ODS
+
+    import vaft.code.gacode.tglf as tglf
+    from vaft.code.gacode.tglf import TGLFResult
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    ods = _electron_only(sample)
+    eq, cp = ODS(consistency_check=False), ODS(consistency_check=False)
+    eq["equilibrium"] = ods["equilibrium"]
+    cp["core_profiles"] = ods["core_profiles"]
+    filedb = tmp_path / "filedb"
+    _write_product(filedb / "omas", "core_profiles", 48224, "core_profiles.json.gz", cp)
+    _write_product(filedb / "omas", "efit/magnetic", 48224, "efit.json.gz", eq)
+    labels = tmp_path / "labels.json"
+    labels.write_text(json.dumps({"labels": [{"shot": 48224, "time_ms": 300, "label": "good"}]}))
+
+    def fake(profile, rho, workdir, config=None, *, check=True):
+        scale = (1.0 + config.sat_rule) * (2.0 if config.use_bper else 1.0)
+        flux = np.array([1.0, 2.0, 0.1]) * scale
+        native = TglfOutputs(directory=str(workdir), gbflux={"particle": flux, "energy": flux,
+                             "momentum": 0 * flux, "exchange": 0 * flux},
+                             grid={"n_species": 3, "n_xgrid": 4})
+        return TGLFResult(returncode=0, runtime_status="completed", workdir=Path(workdir),
+                          outputs_native=native)
+
+    monkeypatch.setattr(tglf, "run_tglf_case", fake)
+    for sat in ("0", "3"):
+        for field in ("es", "em-bper"):
+            driver.main(["--filedb", str(filedb), "--labels", str(labels), "--out", str(tmp_path / "runs"),
+                         "--lineages", "magnetics", "--surfaces", "0.5",
+                         "--sat-rule", sat, "--field-model", field])
+    assert sensitivity.main(["--runs", str(tmp_path / "runs"), "--out", str(tmp_path / "s")]) == 0
+    schema = json.loads((tmp_path / "s" / "schema.json").read_text())
+    assert schema["configurations"] == ["tglf-sat0-em-bper", "tglf-sat0-es", "tglf-sat3-em-bper", "tglf-sat3-es"]
+    import csv
+
+    with open(tmp_path / "s" / "sensitivity_pairs.csv", newline="") as handle:
+        (pair,) = list(csv.DictReader(handle))
+    # q_tot scales 1 (sat0 es), 2 (sat0 em), 4 (sat3 es), 8 (sat3 em): spreads 0.75, EM effect 0.5
+    assert float(pair["q_tot_gb_sat_spread_es"]) == pytest.approx(0.75)
+    assert float(pair["q_tot_gb_sat_spread_em-bper"]) == pytest.approx(0.75)
+    assert float(pair["q_tot_gb_em_vs_es_sat0"]) == pytest.approx(0.5)
+    assert float(pair["q_tot_gb_em_vs_es_sat3"]) == pytest.approx(0.5)
+    assert pair["q_tot_gb_em_vs_es_sat1"] == ""  # not run: missing, not zero
+
+
+
+def _sens_state(root, sat, field, *, identity="s1", quality="good", label=None, energy=(1.0, 2.0)):
+    params = {"sat_rule": sat, "use_bper": field != "es", "use_bpar": field == "em-bper-bpar"}
+    tree = root / (label or f"tglf-sat{sat}-{field}") / "48224" / "magnetics" / "00300"
+    (tree / "r0.50").mkdir(parents=True)
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    flux = np.array([energy[0], energy[1], 0.0])
+    TglfOutputs(directory=str(tree), gbflux={"particle": flux, "energy": flux, "momentum": 0 * flux,
+                "exchange": 0 * flux}, grid={"n_species": 3, "n_xgrid": 4}).write_json(tree / "r0.50" / "outputs.json")
+    (tree / "state.json").write_text(json.dumps({
+        "shot": 48224, "time_efit_s": 0.3, "efit_lineage": "magnetics", "efit_quality": quality,
+        "ti_lineage": "ti_eq_te_assumed", "state_identity": identity,
+        "tglf_config": label or f"tglf-sat{sat}-{field}", "tglf_parameters": params,
+        "surfaces": [{"r_over_a": 0.5, "status": "solved", "run_identity": f"r{sat}{field}"}]}))
+    return tree
+
+
+def test_sensitivity_refuses_what_it_cannot_compare_honestly(sensitivity, tmp_path):
+    _sens_state(tmp_path / "a", 0, "es")
+    _sens_state(tmp_path / "b", 0, "es")           # the same configuration on the same state twice
+    with pytest.raises(ValueError, match="appears twice"):
+        sensitivity.build_rows(tmp_path)
+    with pytest.raises(ValueError, match="does not name its settings"):
+        _sens_state(tmp_path / "c", 1, "es", label="tglf-sat3-es")
+        sensitivity.build_rows(tmp_path / "c")
+    with pytest.raises(ValueError, match="not good/admissible"):
+        _sens_state(tmp_path / "d", 1, "es", quality="unreconstructible")
+        sensitivity.build_rows(tmp_path / "d")
+
+
+def test_a_pruned_native_tree_is_reported_not_fatal(sensitivity, tmp_path):
+    tree = _sens_state(tmp_path, 0, "es")
+    (tree / "r0.50" / "outputs.json").unlink()
+    (row,) = sensitivity.build_rows(tmp_path)
+    assert row["status"] == "missing_outputs" and "qe_gb" not in row
+
+
+def test_a_nan_flux_does_not_make_the_spread_order_dependent(sensitivity, tmp_path):
+    _sens_state(tmp_path, 0, "es", energy=(float("nan"), 1.0))
+    _sens_state(tmp_path, 1, "es", energy=(1.0, 1.0))
+    _sens_state(tmp_path, 2, "es", energy=(2.0, 2.0))
+    (pair,) = sensitivity.build_pairs(sensitivity.build_rows(tmp_path))
+    assert pair["n_configs"] == 3
+    assert pair["qi_gb_sat_spread_es"] == pytest.approx(0.5)   # all three finite
+    assert pair["qe_gb_sat_spread_es"] == pytest.approx(0.5)   # NaN (sat0) left out
+    assert sensitivity.delta(float("nan"), 1.0) is None
+
+
+def test_ky_peak_reads_the_ky_grid_model_of_the_run(sensitivity):
+    """cold review 0.8.0 delta-absorb-11 F1.
+
+    ``write_tglf_sum_flux_spectrum`` only forms the log-trapezoid weights when
+    KYGRID_MODEL != 0. For KYGRID_MODEL = 0 (linear grid ky_k = k * ky_1) every entry is
+    ``ky_1 * Q_k``: a right-endpoint rectangle, so the flux is sampled AT ky_k, not
+    averaged over the interval, and the peak is the node, not the interval midpoint.
+    """
+    from types import SimpleNamespace
+
+    ky = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+    flux = np.array([0.1, 0.2, 0.5, 3.0, 0.4, 0.2])  # sampled flux peaks at ky = 0.4
+    spectrum = np.zeros((1, 1, ky.size, 5))
+    spectrum[0, 0, :, 1] = ky[0] * flux                 # KYGRID_MODEL = 0 weighting
+    native = SimpleNamespace(ky_spectrum=ky, sum_flux_spectrum=spectrum)
+    # The default grid model (1) is log-trapezoid: midpoint of the peak interval.
+    assert sensitivity.ky_peak(native, {}) == pytest.approx(0.35)
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": 1}}) == pytest.approx(0.35)
+    # Model 0: the entry is the sample at the node, so the peak is the node itself,
+    # whichever case the user spelled the key in.
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": 0}}) == pytest.approx(0.4)
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"kygrid_model": 0}}) == pytest.approx(0.4)
+    # Model 0 inverts the actual weight ky_1, not the interval width, so a corrupt
+    # non-uniform grid cannot bias the density towards its narrow intervals.
+    ky2 = np.array([0.1, 0.2, 0.4, 0.8])
+    flux2 = np.array([1.0, 1.0, 1.0, 1.5])
+    spectrum2 = np.zeros((1, 1, ky2.size, 5))
+    spectrum2[0, 0, :, 1] = ky2[0] * flux2
+    peak = sensitivity.ky_peak(SimpleNamespace(ky_spectrum=ky2, sum_flux_spectrum=spectrum2),
+                               {"extra_parameters": {"KYGRID_MODEL": 0}})
+    assert peak == pytest.approx(0.8)
+    # Every non-zero model takes the Fortran ``.ne.0`` branch (log-trapezoid); only a
+    # value that is not an integer leaves the descriptor empty.
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": 4}}) == pytest.approx(0.35)
+    assert sensitivity.ky_peak(native, {"extra_parameters": {"KYGRID_MODEL": "auto"}}) is None
+
+
+def test_ky_peak_in_the_table_uses_the_grid_model_of_the_run(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F1: build_rows passes the run's parameters."""
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+
+    ky = np.array([0.1, 0.2, 0.3, 0.4])
+    flux = np.array([0.1, 0.2, 3.0, 0.4])
+    for sat, model in ((0, 0), (1, 1)):
+        tree = _sens_state(tmp_path, sat, "es")
+        state = json.loads((tree / "state.json").read_text(encoding="utf-8"))
+        state["tglf_parameters"]["extra_parameters"] = {"KYGRID_MODEL": model}
+        (tree / "state.json").write_text(json.dumps(state), encoding="utf-8")
+        spectrum = np.zeros((1, 1, ky.size, 5))
+        spectrum[0, 0, :, 1] = ky[0] * flux if model == 0 else _tglf_weighted(ky, flux)
+        TglfOutputs(directory=str(tree), gbflux={"particle": flux[:1], "energy": flux[:1],
+                    "momentum": 0 * flux[:1], "exchange": 0 * flux[:1]},
+                    grid={"n_species": 1, "n_xgrid": 4}, ky_spectrum=ky,
+                    sum_flux_spectrum=spectrum).write_json(tree / "r0.50" / "outputs.json")
+    rows = {r["sat_rule"]: r for r in sensitivity.build_rows(tmp_path)}
+    assert rows[0]["ky_q_peak"] == pytest.approx(0.3)    # model 0: the node
+    assert rows[1]["ky_q_peak"] == pytest.approx(0.25)   # model 1: the interval midpoint
+
+
+def test_a_failed_surface_keeps_why_it_failed(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F2: a #1299 timeout is not just 'failed'."""
+    tree = _sens_state(tmp_path, 0, "es")
+    state = json.loads((tree / "state.json").read_text(encoding="utf-8"))
+    state["surfaces"] = [
+        {"r_over_a": 0.3, "status": "failed", "runtime_status": "timeout", "returncode": None,
+         "errors": [], "run_identity": "r0"},
+        {"r_over_a": 0.4, "status": "failed", "runtime_status": "error", "returncode": None,
+         "errors": ["FileNotFoundError: tglf"], "run_identity": "r1"},
+        {"r_over_a": 0.5, "status": "solved", "runtime_status": "completed", "returncode": 0,
+         "errors": [], "run_identity": "r2"},
+        {"r_over_a": 0.6, "status": "not_run", "readiness": "ready", "run_identity": "r3"},
+        {"r_over_a": 0.7, "status": "not_ready", "readiness": "outside_profile"},
+    ]
+    (tree / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    rows = {r["r_over_a"]: r for r in sensitivity.build_rows(tmp_path)}
+    assert (rows[0.3]["runtime_status"], rows[0.3]["tglf_reason"]) == ("timeout", "timeout")
+    assert (rows[0.4]["runtime_status"], rows[0.4]["tglf_reason"]) == ("error", "error")
+    assert rows[0.4]["n_errors"] == 1
+    assert rows[0.5]["tglf_reason"] is None
+    assert rows[0.6]["tglf_reason"] == "not_run"
+    assert rows[0.7]["tglf_reason"] == "outside_profile"
+    for column in ("runtime_status", "tglf_reason", "n_errors"):
+        assert column in sensitivity.SCHEMA
+    assert "not_run" in sensitivity.SCHEMA["status"][2]
+    # The columns reach the CSV through main.
+    assert sensitivity.main(["--runs", str(tmp_path), "--out", str(tmp_path / "s")]) == 0
+    import csv
+
+    with open(tmp_path / "s" / "sensitivity.csv", newline="", encoding="utf-8") as handle:
+        table = {float(r["r_over_a"]): r for r in csv.DictReader(handle)}
+    assert table[0.3]["tglf_reason"] == "timeout" and table[0.6]["tglf_reason"] == "not_run"
+
+
+def test_sensitivity_refuses_other_states_and_other_configurations(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F5: the two refusals the PR claimed but never ran."""
+    _sens_state(tmp_path / "a", 0, "es", identity="s1")
+    _sens_state(tmp_path / "a", 1, "es", identity="s2")
+    with pytest.raises(ValueError, match="different states"):
+        sensitivity.build_pairs(sensitivity.build_rows(tmp_path / "a"))
+    _sens_state(tmp_path / "b", 4, "es")
+    with pytest.raises(ValueError, match="not in the sensitivity space"):
+        sensitivity.build_rows(tmp_path / "b")
+
+
+def test_pair_rows_carry_one_label_and_the_rows_surface_value(sensitivity, tmp_path):
+    """cold review 0.8.0 delta-absorb-11 F4/F6: efit_quality is checked, r_over_a is not re-rounded."""
+    for sat in (0, 1):
+        tree = _sens_state(tmp_path, sat, "es")
+        state = json.loads((tree / "state.json").read_text(encoding="utf-8"))
+        state["surfaces"][0]["r_over_a"] = 0.33333
+        (tree / "state.json").write_text(json.dumps(state), encoding="utf-8")
+        (tree / "r0.50").rename(tree / "r0.33")
+    rows = sensitivity.build_rows(tmp_path)
+    (pair,) = sensitivity.build_pairs(rows)
+    assert pair["r_over_a"] == rows[0]["r_over_a"] == 0.33333   # joins on the key text
+    assert pair["n_configs"] == 2
+    # A re-labelled slice between two configuration runs is not silently one state.
+    rows[1]["efit_quality"] = "admissible"
+    with pytest.raises(ValueError, match="efit_quality"):
+        sensitivity.build_pairs(rows)

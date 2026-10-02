@@ -197,10 +197,23 @@ def read_namelist_group(path: Path | str, group: str) -> dict[str, str]:
 
     Group names are matched case-insensitively, because GPEC's own namelists
     and hand-written ones disagree about the spelling.
+
+    Raises
+    ------
+    ValueError
+        The file has no ``&group``.  It used to fall back to the top of the
+        file, which returned the *first* group's values under the requested
+        group's name (cold review 0.8.0 delta-squash F5); a group that is not
+        there is reported, the way a key that is not there is absent.
     """
     text = Path(path).read_text(encoding="utf-8")
     match = re.search(rf"&{re.escape(group)}\b", text, re.IGNORECASE)
-    body = text[match.end():] if match else text
+    if match is None:
+        found = sorted({name.lower() for name in re.findall(r"(?m)^\s*&(\w+)", text)})
+        raise ValueError(
+            f"{path} has no &{group} namelist group; it declares {found or 'none'}"
+        )
+    body = text[match.end():]
     values: dict[str, str] = {}
     for raw in body.splitlines():
         line = raw.split("!", 1)[0].strip()
@@ -213,6 +226,31 @@ def read_namelist_group(path: Path | str, group: str) -> dict[str, str]:
     return values
 
 
+class MissingNamelistKeyError(KeyError, ValueError):
+    """A namelist key a run asked for that its template does not declare.
+
+    Both a ``KeyError`` (what :func:`write_template` always raised, so a caller
+    catching that keeps working) and a ``ValueError`` (what a refused request
+    is), and the message names the template file and the key rather than the
+    bare key, because the remedy is in the template: a caller's own
+    ``templates_dir`` is where the line has to be added.
+    """
+
+    def __init__(self, template: Path, key: str) -> None:
+        self.template = Path(template)
+        self.key = str(key)
+        super().__init__(
+            f"{self.template} does not declare namelist key {self.key!r}, which this "
+            "run needs to write; a Fortran namelist READ stops on a name the "
+            "group does not declare, so the key cannot be appended either. Add the "
+            "line to the template this templates_dir points at, or drop the "
+            "request that needs it"
+        )
+
+    def __str__(self) -> str:  # KeyError would repr-quote the message
+        return str(self.args[0])
+
+
 def write_template(
     template: Path,
     target: Path,
@@ -222,8 +260,9 @@ def write_template(
     """Copy *template* to *target* with the named namelist values patched in.
 
     *replacements* must all be present in the template; a missing key is a
-    ``KeyError``, because a value the caller asked for and did not get is a run
-    that does not do what it says.
+    :class:`MissingNamelistKeyError` (a ``KeyError`` that is also a
+    ``ValueError``) naming the template and the key, because a value the
+    caller asked for and did not get is a run that does not do what it says.
 
     *optional* is patched where the key exists and skipped where it does not.
     That is for a key the caller is restating rather than requesting -- writing
@@ -233,7 +272,10 @@ def write_template(
     """
     text = template.read_text(encoding="utf-8")
     for key, value in replacements.items():
-        text = _set_value(text, key, value)
+        try:
+            text = _set_value(text, key, value)
+        except KeyError:
+            raise MissingNamelistKeyError(template, key) from None
     for key, value in (optional or {}).items():
         try:
             text = _set_value(text, key, value)

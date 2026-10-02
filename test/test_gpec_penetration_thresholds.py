@@ -29,7 +29,7 @@ from vaft.code.gpec import IdealGPECOptions
 
 from external_code_stubs import write_launchable_stub
 
-#: An inverse Prandtl number with enough digits to catch a reformat.
+#: A magnetic Prandtl number Pm with enough digits to catch a reformat.
 #:
 #: Arbitrary, and deliberately so: a value carried over from a real discharge
 #: would make this fixture a measurement of that discharge.
@@ -185,6 +185,40 @@ def test_an_options_change_alone_moves_the_prandtl_number(case):
     assert float(_namelist(cell / "gpec.in")["singthresh_slayer_inpr"]) == pytest.approx(
         AWKWARD_INPR, abs=0.0
     )
+
+
+def test_inpr_is_the_magnetic_prandtl_number_itself_not_its_inverse(case):
+    """``Pm = 5`` is written as ``5.0``, and every word around the key says so.
+
+    SLAYER takes ``tau_v = tau_r / inpr`` (``slayer/gslayer.f:86``), so ``inpr``
+    is ``tau_r / tau_v = nu / eta``: the magnetic Prandtl number, which GPEC's
+    own ``input/gpec.in`` calls the "Scalar Prandtl number".  This module once
+    documented it as the *inverse*; a caller following that text would have
+    passed ``0.2`` for ``Pm = 5`` and run SLAYER at ``Pm = 0.2`` (cold review
+    0.8.0 delta-squash F1).  The value passes through unchanged, so the pin is
+    on the words a caller reads: the refusal text, the packaged template.
+    """
+    import re
+
+    prandtl_number = 5.0
+    cell = _prepared_gpec_cell(
+        case, IdealGPECOptions(singthresh_slayer_flag=True, singthresh_slayer_inpr=prandtl_number)
+    )
+    assert float(_namelist(cell / "gpec.in")["singthresh_slayer_inpr"]) == prandtl_number
+    assert float(_namelist(cell / "gpec.in")["singthresh_slayer_inpr"]) != 1 / prandtl_number
+
+    with pytest.raises(ValueError, match="magnetic Prandtl number Pm") as refused:
+        IdealGPECOptions(singthresh_slayer_flag=True)
+    assert "not its inverse" in str(refused.value)
+    assert not re.search(r"\bthe inverse", str(refused.value))
+
+    template_line = next(
+        line for line in gpec._runtime.package_vest_dir().joinpath("gpec.in")
+        .read_text(encoding="utf-8").splitlines()
+        if line.strip().startswith("singthresh_slayer_inpr=")
+    )
+    assert "Magnetic Prandtl number" in template_line
+    assert "Inverse magnetic" not in template_line
 
 
 # --------------------------------------------------------------------------
@@ -621,6 +655,76 @@ def test_a_template_shipping_singthresh_flag_on_is_turned_off_when_unasked(case,
     assert read_namelist_group(cell / "gpec.in", "gpec_output")["singthresh_flag"] == "f"
 
 
+#: The two sub-flags GPEC's own ``input/gpec.in`` does not declare.
+SUB_FLAGS = ("singthresh_callen_flag", "singthresh_slayer_flag")
+
+
+def _gpec_like_templates(tmp_path) -> Path:
+    """The packaged templates with ``gpec.in`` shaped like GPEC's own ``input/``.
+
+    GPEC ships ``singthresh_flag`` and ``singthresh_slayer_inpr`` but neither
+    sub-flag (they are code defaults, ``gpec/gpec.f:159-162``), and the
+    ``inpr_prof`` refusal tells a caller to point ``templates_dir`` at exactly
+    such a file.  Synthesised from the packaged copy rather than read from a
+    GPEC checkout, so the test needs none.
+    """
+    templates = tmp_path / "templates"
+    templates.mkdir()
+    packaged = gpec._runtime.package_vest_dir()
+    for name in ("gpec.in", "coil.in", "equil.in", "dcon.in", "vac.in", "match.in"):
+        shutil.copy2(packaged / name, templates / name)
+    stripped = "\n".join(
+        line for line in (templates / "gpec.in").read_text(encoding="utf-8").splitlines()
+        if not any(line.strip().startswith(key) for key in SUB_FLAGS)
+    )
+    (templates / "gpec.in").write_text(stripped + "\n", encoding="utf-8")
+    return templates
+
+
+def test_the_shorthand_prepares_against_a_template_without_the_sub_flags(case, tmp_path):
+    """GPEC's own ``input/gpec.in`` can express ``singthresh_flag=t``.
+
+    The sub-flags are implied by the shorthand inside GPEC
+    (``gpec/gpec.f:274-279``), so a template that does not declare them loses
+    nothing; it used to die on a bare ``KeyError`` (cold review 0.8.0
+    delta-squash F2).
+    """
+    templates = _gpec_like_templates(tmp_path)
+    config = gpec.GPECSuiteConfig(
+        modules=("gpec",), modes=(1,), gpec_home=tmp_path / "gpec_home",
+        templates_dir=templates,
+        gpec=IdealGPECOptions(
+            singthresh_flag=True, singthresh_slayer_inpr=AWKWARD_INPR, coil_flag=True
+        ),
+    )
+    gpec.prepare_gpec_suite_case(case, config)  # no KeyError
+    cell = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+    values = _namelist(cell / "gpec.in")
+    assert values["singthresh_flag"] == "t"
+    assert float(values["singthresh_slayer_inpr"]) == pytest.approx(AWKWARD_INPR, abs=0.0)
+    assert not any(key in values for key in SUB_FLAGS)
+
+
+def test_a_sub_flag_alone_against_such_a_template_is_refused_naming_it(case, tmp_path):
+    """Callen without SLAYER cannot be said in a namelist that lacks the key.
+
+    Appending it is not an option -- a Fortran namelist READ stops on a name
+    the group does not declare -- so the refusal names the template file and
+    the key, which is where the remedy is.  A ``ValueError`` that is still the
+    ``KeyError`` it always was.
+    """
+    templates = _gpec_like_templates(tmp_path)
+    config = gpec.GPECSuiteConfig(
+        modules=("gpec",), modes=(1,), gpec_home=tmp_path / "gpec_home",
+        templates_dir=templates,
+        gpec=IdealGPECOptions(singthresh_callen_flag=True, coil_flag=True),
+    )
+    with pytest.raises(ValueError, match="singthresh_callen_flag") as refused:
+        gpec.prepare_gpec_suite_case(case, config)
+    assert isinstance(refused.value, KeyError)
+    assert str(templates / "gpec.in") in str(refused.value)
+
+
 # --------------------------------------------------------------------------
 # The pentrc.in GPEC's own threshold models read
 # --------------------------------------------------------------------------
@@ -690,6 +794,46 @@ def test_the_threshold_input_claims_no_torque_method(tmp_path):
     )
     methods = read_namelist_group(cell / "pentrc.in", "pent_output")
     assert {methods[f"{method}_flag"] for method in TORQUE_METHODS} == {"f"}
+
+
+#: The nine ``<method>_flag`` keys GPEC's own ``input/pentrc.in`` does not declare.
+MXM_FLAGS_GPEC_OMITS = ("twmm", "pwmm", "ttmm", "ptmm", "tkmm", "pkmm", "frmm", "trmm", "prmm")
+
+
+def _gpec_like_pentrc_template(tmp_path) -> Path:
+    """A ``templates_dir`` whose ``pentrc.in`` declares the nine flags GPEC's does."""
+    templates = tmp_path / "templates"
+    templates.mkdir(exist_ok=True)
+    packaged = gpec._runtime.package_vest_dir()
+    stripped = "\n".join(
+        line for line in (packaged / "pentrc.in").read_text(encoding="utf-8").splitlines()
+        if not any(line.strip().startswith(f"{m}_flag") for m in MXM_FLAGS_GPEC_OMITS)
+    )
+    (templates / "pentrc.in").write_text(stripped + "\n", encoding="utf-8")
+    return templates
+
+
+def test_the_threshold_input_can_be_written_into_gpecs_own_pentrc_template(tmp_path):
+    """Nine of the eighteen flags are missing there, and none is selected.
+
+    Every flag the template declares is still written off; the ones it does
+    not declare are PENTRC's own ``.false.`` defaults and are left out rather
+    than refused (cold review 0.8.0 delta-squash F2).
+    """
+    from vaft.code.gpec._runtime import read_namelist_group
+
+    templates = _gpec_like_pentrc_template(tmp_path)
+    cell = tmp_path / "cell"
+    cell.mkdir()
+    kin = tmp_path / "profiles.kin"
+    kin.write_text("psi n_e\n0.1 1e19\n", encoding="utf-8")
+    written = gpec.write_threshold_pentrc_input(
+        cell, options=_pentrc_options(), kinetic_file=kin,
+        config=gpec.GPECSuiteConfig(templates_dir=templates),
+    )
+    methods = read_namelist_group(written, "pent_output")
+    assert methods["fgar_flag"] == "f" and methods["tgar_flag"] == "f"
+    assert not any(f"{m}_flag" in methods for m in MXM_FLAGS_GPEC_OMITS)
 
 
 def test_the_threshold_input_survives_the_torque_run_that_overwrites_it(tmp_path):

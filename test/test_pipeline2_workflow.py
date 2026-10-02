@@ -104,8 +104,11 @@ def test_the_kinetic_efit_preset_reaches_both_lineages(tmp_path):
     result = _dry_run(tmp_path, extra=["-p", "--config", kinetic])
     assert result.returncode == 0, result.stderr[-3000:]
     assert result.stdout.count('--efit-preset "statistical_891"') == 2, result.stdout[-3000:]
-    routine = _dry_run(tmp_path, extra=["-p"])
-    assert routine.returncode == 0 and '--efit-preset ""' in routine.stdout
+    default = _dry_run(tmp_path, extra=["-p"])
+    assert default.returncode == 0 and '--efit-preset ""' in default.stdout  # the library default
+    legacy = 'kinetic={"encoding": "raw6", "executable": "", "efit_preset": "routine"}'
+    routine = _dry_run(tmp_path, extra=["-p", "--config", legacy])
+    assert routine.returncode == 0 and routine.stdout.count('--efit-preset "routine"') == 2
 
 
 def test_the_shot_first_layout_is_refused(tmp_path):
