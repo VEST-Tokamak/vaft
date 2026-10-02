@@ -188,6 +188,8 @@ def _json(value: Any) -> Any:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--filedb", type=Path, required=True)
+    parser.add_argument("--core-profiles-dir", type=Path,
+                        help="per-shot <shot>.json.gz core_profiles instead of the FileDB stage")
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--shots", type=int, nargs="*")
@@ -215,7 +217,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     labels = tglf.load_labels(args.labels)
     shots = args.shots or sorted({shot for shot, _ in labels})
-    states, counts = tglf.enumerate_states(args.filedb, labels, shots, args.lineages)
+    states, counts = tglf.enumerate_states(args.filedb, labels, shots, args.lineages,
+                                           args.core_profiles_dir)
     if args.times_ms:
         states = [s for s in states if s[0].time_ms in set(args.times_ms)]
     if args.max_states:
@@ -281,6 +284,12 @@ def main(argv: Optional[list[str]] = None) -> int:
                 try:
                     native = NeoOutputs.read_json(Path(job["workdir"]) / "outputs.json")
                     mapping = project(native, state.key.time_efit_s)
+                    # NEO solves every surface of the profile; mark the ones an inferred
+                    # Ti does not cover so the atlas never partitions them.
+                    from vaft.process.transport_state import _ti_supported
+
+                    for row in mapping["surfaces"]:
+                        row["ti_supported"] = bool(_ti_supported(state, row["r_over_a"]))
                 except Exception as error:  # noqa: BLE001 - one state's row, not the batch
                     # A missing or unreadable outputs.json fails this state; raising
                     # here would truncate states.jsonl and lose every finished state.

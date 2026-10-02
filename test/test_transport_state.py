@@ -1243,3 +1243,63 @@ def test_the_native_directory_uses_the_slash_grammar_on_every_host(atlas):
     windows = atlas._native_dir(PureWindowsPath(r"C:\runs\tglf-sat1-es\48224\magnetics\00300\state.json"),
                                 PureWindowsPath(r"C:\runs\tglf-sat1-es"), 0.3)
     assert posix == windows == "48224/magnetics/00300/r0.30"
+
+
+# --------------------------------------------------------------------------- lane K inferred Ti (#1426)
+
+
+def _with_inferred_ti(sample, outer_nan_from=None, note="origin=inferred; method=equilibrium_pressure_partition; not measured"):
+    ods = copy.deepcopy(sample)
+    prefix = "core_profiles.profiles_1d.0"
+    te = np.asarray(ods[f"{prefix}.electrons.temperature"], dtype=float)
+    rho = np.asarray(ods[f"{prefix}.grid.rho_tor_norm"], dtype=float)
+    ti = 1.8 * te
+    if outer_nan_from is not None:
+        ti = np.where(rho >= outer_nan_from, np.nan, ti)
+    ods[f"{prefix}.ion.0.temperature"] = ti
+    ods[f"{prefix}.ion.0.temperature_fit.parameters"] = note
+    return ods
+
+
+def test_a_stored_inferred_ti_is_not_taken_as_measured(sample):
+    state = resolve_transport_state(_with_inferred_ti(sample), _key(0.3), efit_quality="good")
+    assert state.resolved, state.reasons
+    assert state.ti_lineage == "pressure_partition_inferred"
+    assert state.ti["kind"] == "inferred"
+    # Only the separatrix point, where the sample's Te (so Ti) is exactly 0, is filled.
+    assert state.ti["fill"]["points"] == 1
+    assert state.ti["method"] == "equilibrium_pressure_partition"
+    report = assess_tglf_readiness(state)
+    assert "ti_inferred" in report.conditions
+    assert all(s.ready for s in report.surfaces)
+
+
+def test_inferred_ti_gaps_are_filled_declared_and_never_run(sample):
+    ods = _with_inferred_ti(sample, outer_nan_from=0.6)
+    state = resolve_transport_state(ods, _key(0.3), efit_quality="good")
+    assert state.resolved, state.reasons
+    assert state.ti["fill"]["points"] > 0 and "policy" in state.ti["fill"]["value"]
+    (lo, hi), = state.ti["support_rho"]
+    assert hi < 0.6 <= 1.0
+    statuses = {s.r_over_a: s.status for s in assess_tglf_readiness(state).surfaces}
+    rho_at = lambda r: float(np.interp(r, state.profile.rmin / state.profile.rmin[-1], state.profile.rho))
+    for r, status in statuses.items():
+        expected = "ready" if rho_at(r) < hi - 0.02 else "ti_not_inferred_here"
+        if abs(rho_at(r) - hi) > 0.03:  # clear of the one-step margin
+            assert status == expected, (r, rho_at(r), status)
+    assert "ti_not_inferred_here" in statuses.values() and "ready" in statuses.values()
+    # The source ODS still carries its NaNs: the fill happened on a copy.
+    assert np.isnan(np.asarray(ods["core_profiles.profiles_1d.0.ion.0.temperature"], dtype=float)).any()
+
+
+def test_an_incomplete_inferred_ti_without_a_fallback_is_insufficient(sample):
+    state = resolve_transport_state(_with_inferred_ti(sample, outer_nan_from=0.6), _key(0.3),
+                                    efit_quality="good", ti_te_ratio=None)
+    assert state.reasons == ("inferred_ti_incomplete",)
+
+
+def test_a_core_profiles_directory_replaces_the_stage_product(driver, tmp_path):
+    (tmp_path / "39916.json.gz").write_bytes(b"x")
+    path, manifest = driver.core_profiles_product(tmp_path / "filedb", 39916, tmp_path)
+    assert path == tmp_path / "39916.json.gz" and manifest == {}
+    assert driver.core_profiles_product(tmp_path / "filedb", 1, tmp_path)[0] is None

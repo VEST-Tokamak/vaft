@@ -125,7 +125,20 @@ def _time_vector(ods: Any, path: str) -> np.ndarray:
     return np.atleast_1d(np.asarray(values, dtype=float))
 
 
-def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages: Iterable[str]):
+def core_profiles_product(filedb: Path, shot: int, directory: Optional[Path] = None):
+    """The core_profiles product: the FileDB stage, or ``<directory>/<shot>.json.gz``.
+
+    ``directory`` points at another producer's per-shot products, for example lane K's
+    inferred-Ti ``atlas/v1/core_profiles/`` (#1454); those carry no stage manifest.
+    """
+    if directory is None:
+        return product(filedb, "core_profiles", shot)
+    path = Path(directory) / f"{int(shot)}.json.gz"
+    return (path if path.is_file() else None), {}
+
+
+def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages: Iterable[str],
+                     core_profiles_dir: Optional[Path] = None):
     """Yield ``(key, efit_quality, quality_source)`` for every good/admissible state.
 
     Returns the generator's bookkeeping through the ``counts`` dict it fills.
@@ -134,7 +147,7 @@ def enumerate_states(filedb: Path, labels: dict, shots: Iterable[int], lineages:
                               "missing_products": [], "states": 0}
     states = []
     for shot in shots:
-        cp_path, cp_manifest = product(filedb, "core_profiles", shot)
+        cp_path, cp_manifest = core_profiles_product(filedb, shot, core_profiles_dir)
         if cp_path is None or cp_manifest.get("status") not in (None, "success"):
             counts["missing_products"].append({"shot": shot, "stage": "core_profiles",
                                                "status": cp_manifest.get("status")})
@@ -401,6 +414,9 @@ def state_status(readiness, surfaces: list[dict], resolved: bool) -> str:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--filedb", type=Path, required=True)
+    parser.add_argument("--core-profiles-dir", type=Path,
+                        help="per-shot <shot>.json.gz core_profiles to use instead of the FileDB stage "
+                             "(e.g. lane K's inferred-Ti atlas/v1/core_profiles)")
     parser.add_argument("--labels", type=Path, required=True,
                         help="#1331 analysis JSON (its 'labels' list)")
     parser.add_argument("--out", type=Path, required=True)
@@ -439,7 +455,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     labels = load_labels(args.labels)
     shots = args.shots or sorted({shot for shot, _ in labels})
-    states, counts = enumerate_states(args.filedb, labels, shots, args.lineages)
+    states, counts = enumerate_states(args.filedb, labels, shots, args.lineages, args.core_profiles_dir)
     if args.times_ms:
         states = [s for s in states if s[0].time_ms in set(args.times_ms)]
     if args.max_states:

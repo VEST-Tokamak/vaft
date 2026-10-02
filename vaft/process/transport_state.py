@@ -421,6 +421,53 @@ def _derive_shape_profiles(work: Any, eq_index: int) -> Optional[dict[str, Any]]
             "routine": "vaft.process.equilibrium.contour_shape_parameters"}
 
 
+def _stored_inferred_ti(ods: Any, prefix: str, ions: list, time: float) -> Optional[dict]:
+    """An ion temperature the product itself labels as inferred, as an ``inferred_ti`` record."""
+    if len(ions) != 1:
+        return None
+    note = _get(ods, f"{prefix}.ion.{ions[0]}.temperature_fit.parameters")
+    if note is None or "origin=inferred" not in str(note):
+        return None
+    values = _get(ods, f"{prefix}.ion.{ions[0]}.temperature")
+    if values is None:
+        return None
+    method = "equilibrium_pressure_partition"
+    for part in str(note).split(";"):
+        if part.strip().startswith("method="):
+            method = part.strip().split("=", 1)[1]
+    return {"temperature": np.asarray(values, dtype=float), "method": method,
+            "time": float(time), "source": str(note)}
+
+
+def _segments(rho: np.ndarray, valid: np.ndarray) -> list[list[float]]:
+    """Contiguous runs of valid points as ``[[rho_first, rho_last], ...]``."""
+    out, start = [], None
+    for k, ok in enumerate(valid):
+        if ok and start is None:
+            start = k
+        if (not ok or k == len(valid) - 1) and start is not None:
+            end = k if ok else k - 1
+            out.append([float(rho[start]), float(rho[end])])
+            start = None
+    return out
+
+
+def _ti_supported(state: "ResolvedTransportState", r_over_a: float) -> bool:
+    """Whether an inferred Ti covers this surface, one grid step clear of any gap."""
+    segments = state.ti.get("support_rho")
+    if state.ti.get("kind") != "inferred" or segments is None:
+        return True
+    profile = state.profile
+    rmin = np.asarray(profile.rmin, dtype=float)
+    grid = np.asarray(profile.rho, dtype=float)
+    rho = float(np.interp(r_over_a, rmin / rmin[-1], grid))
+    # The local grid step: GACODE differentiates on three neighbouring points, so a
+    # surface must sit a full step inside the inferred support on both sides.
+    j = int(np.clip(np.searchsorted(grid, rho), 1, grid.size - 1))
+    step = float(max(grid[j] - grid[j - 1], grid[min(j + 1, grid.size - 1)] - grid[j]))
+    return any(lo + step <= rho <= hi - step for lo, hi in segments)
+
+
 # --------------------------------------------------------------------------- resolve
 
 
@@ -579,7 +626,14 @@ def resolve_transport_state(
     ) is not None:
         ions.append(position)
         position += 1
-    measured = [i for i in ions if _usable(_get(ods, f"{prefix}.ion.{i}.temperature"))]
+    # A product may carry an ion temperature that was inferred, not measured (lane K's
+    # #1426 pressure partition writes ``temperature_fit.parameters = "origin=inferred;
+    # method=..."``). It is taken as an inferred profile here, never as a measurement.
+    stored = _stored_inferred_ti(ods, prefix, ions, cp_times[cp_index])
+    if stored is not None and inferred_ti is None:
+        inferred_ti = stored
+    measured = [i for i in ions
+                if _usable(_get(ods, f"{prefix}.ion.{i}.temperature")) and stored is None]
     hierarchy: list[dict[str, Any]] = []
     work = ods
     if ions and len(measured) == len(ions):
@@ -604,13 +658,34 @@ def resolve_transport_state(
             inferred_time = inferred_ti.get("time")
             if inferred_time is None or abs(float(inferred_time) - float(cp_times[cp_index])) > tolerance:
                 return _insufficient(base, "inferred_ti_time_mismatch")
-            if not _usable(temperature):
+            valid = np.isfinite(temperature) & (temperature > 0.0)
+            if not valid.any():
                 return _insufficient(base, "inferred_ti_not_positive")
             ti = {"lineage": "pressure_partition_inferred",
                   "method": str(inferred_ti.get("method", "equilibrium_pressure_partition")),
                   "ratio": None, "sigma": None, "kind": "inferred",
                   "temperature_sha256": hashlib.sha256(
-                      np.ascontiguousarray(temperature).tobytes()).hexdigest()}
+                      np.ascontiguousarray(np.nan_to_num(temperature, nan=-1.0)).tobytes()).hexdigest()}
+            if "source" in inferred_ti:
+                ti["source"] = str(inferred_ti["source"])
+            if not valid.all():
+                # The inference is undefined where p_i <= 0 or not significant. GACODE
+                # needs a complete profile, so those points take the policy ratio --
+                # declared here, and no surface whose stencil reaches them is run
+                # (readiness: ti_not_inferred_here), so every solved surface's Ti is
+                # purely inferred.
+                if ti_te_ratio is None:
+                    return _insufficient(base, "inferred_ti_incomplete")
+                from vaft.machine_mapping.core_profiles import policy_for_ods
+
+                fill_ratio = (float(policy_for_ods(ods, key.shot).ti_te_ratio)
+                              if isinstance(ti_te_ratio, str) else float(ti_te_ratio))
+                temperature = np.where(valid, temperature, fill_ratio * te)
+                ti["fill"] = {"points": int((~valid).sum()), "of": int(valid.size),
+                              "value": f"ti_te_ratio {fill_ratio:g} (policy), never at a run surface"}
+            grid = _get(ods, f"{prefix}.grid.rho_tor_norm")
+            if grid is not None and np.size(grid) == valid.size:
+                ti["support_rho"] = _segments(np.asarray(grid, dtype=float), valid)
         else:
             hierarchy.append({"step": "pressure_inferred", "status": "unavailable",
                               "reason": "no #1426 result supplied"})
@@ -804,6 +879,10 @@ def assess_tglf_readiness(
             local = prepare_tglf_input(state.profile, float(radius), config=config)
         except LocalConversionError as error:
             results.append(SurfaceReadiness(float(radius), _surface_code(error), str(error)))
+            continue
+        if not _ti_supported(state, float(radius)):
+            results.append(SurfaceReadiness(float(radius), "ti_not_inferred_here",
+                                             "the inferred Ti is undefined within one grid step"))
             continue
         absent = local.check_tglf_requirements()
         if absent:
