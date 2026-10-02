@@ -55,12 +55,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fit import BASE, SELECTIONS, _git, select  # noqa: E402
 
 CLOSURES = {"bohm": -2.0, "intermediate": -2.5, "gyro_bohm": -3.0}
-SIGMA_LOG_W = 0.10
+#: Equation error of ln W (measurement plus intrinsic scatter) and measurement
+#: error of ln P, scanned as a grid: only their ratio matters to the solution.
+SIGMA_LOG_W_SCAN = (0.10, 0.20, 0.30)
 SIGMA_LOG_IB = 0.02
 SIGMA_LOG_P_SCAN = (0.05, 0.10, 0.20, 0.30)
-SIGMA_LOG_P_REF = 0.20
+#: Reference point for the shot bootstrap: P error near the P_OH path scatter,
+#: W equation error near the free fit's RMS log residual.
+SIGMA_REF = (0.20, 0.20)
+#: The power predictor of the ODR. P_OH is independent of W; P_net = P_OH - dW/dt
+#: carries W's noise through dW/dt and is reported for comparison only.
+ODR_POWER = {"p_ohm": "p_ohm_W", "p_net": "p_loss_W"}
 NSTX = {
-    # Buxton et al., PPCF 61 (2019) 035006: gyro-Bohm-completed NSTX scaling (#548 Sec. 9).
+    # Buxton et al., PPCF 61 (2019) 035006: gyro-Bohm-completed NSTX scaling, as
+    # quoted in #548 Sec. 9 (exponents not re-checked against the paper here).
     "NSTX Buxton2019 (gyro-Bohm completed)": {"i_p": 0.54, "b_t": 0.91, "p_net": -0.38, "n_e": -0.05},
 }
 
@@ -130,6 +138,7 @@ def closures_for(name, frame, predictors, n_boot):
     from vaft.process.confinement import (
         closure_constraint,
         dimensionless_confinement_indices,
+        infer_kadomtsev_size_exponent,
         fit_confinement_scaling,
         fit_constrained_confinement_scaling,
         leave_one_group_out_scaling,
@@ -140,7 +149,12 @@ def closures_for(name, frame, predictors, n_boot):
     g = frame["shot"].to_numpy()
     free = fit_confinement_scaling(y, x, g)
     alpha = free.exponents()
-    dim = dimensionless_confinement_indices(alpha, free.cov[1:, 1:])
+    try:
+        dim = dimensionless_confinement_indices(alpha, free.cov[1:, 1:])
+    except ValueError:  # aP exactly -1: no dimensionless form, the fits still stand
+        nan4 = np.full(4, np.nan)
+        dim = {"alpha_R": np.nan, "alpha_R_stderr": np.nan, "value": nan4, "stderr": nan4,
+               "names": ("mu_rho", "mu_beta", "mu_nu", "mu_q")}
     rows = [{
         "data": name, "model": "free", "mu_rho_imposed": np.nan, "n": free.n, "shots": free.n_groups,
         **{f"a_{k}": v for k, v in alpha.items()},
@@ -173,7 +187,7 @@ def closures_for(name, frame, predictors, n_boot):
             **{f"se_{k}": s for k, s in zip(fit.names[1:], fit.stderr[1:])},
             **{f"boot_sd_{k}": s for k, s in zip(fit.names[1:], boot.std(axis=0) if len(boot) else
                                                      [np.nan] * len(a))},
-            "alpha_R_kadomtsev": dimensionless_confinement_indices(a, fit.cov[1:, 1:])["alpha_R"],
+            "alpha_R_kadomtsev": infer_kadomtsev_size_exponent(a, fit.cov[1:, 1:])[0],
             "rmse_log": fit.rmse_log, "aic": aic, "bic": bic,
             "loso_rmse_log": _loso_constrained(y, x, g, coef, rhs),
             "wald_F": wald, "wald_p": float(stats.f.sf(wald, 1, free.n_groups - 1)),
@@ -183,40 +197,47 @@ def closures_for(name, frame, predictors, n_boot):
 
 
 def odr_scan(name, frame, n_boot):
+    """ODR of W on (I_p, B_T, P) over a grid of error assumptions, for P = P_OH and P = P_net."""
     from vaft.process.confinement import fit_confinement_scaling_odr
 
     y = frame["w_th_J"].to_numpy(float)
-    x = {k: frame[c].to_numpy(float) for k, c in BASE.items()}
+    groups = frame["shot"].to_numpy()
+    labels = np.unique(groups)
+    members = [np.flatnonzero(groups == g) for g in labels]
     rows = []
-    for sp in SIGMA_LOG_P_SCAN:
-        out = fit_confinement_scaling_odr(
-            y, x, sigma_log_response=SIGMA_LOG_W,
-            sigma_log_predictors={"i_p": SIGMA_LOG_IB, "b_t": SIGMA_LOG_IB, "p_net": sp})
-        row = {"data": name, "sigma_log_w": SIGMA_LOG_W, "sigma_log_p": sp, "n": out["n"]}
-        for k, b, o in zip(out["names"], out["coef"], out["ols_coef"]):
-            shift = 1.0 if k == "p_net" else 0.0  # W ~ P^(1 + aP): report the tau exponent
-            row.update({f"a_{k}": b - shift, f"ols_a_{k}": o - shift})
-        if sp == SIGMA_LOG_P_REF:
-            groups = frame["shot"].to_numpy()
-            labels = np.unique(groups)
-            members = [np.flatnonzero(groups == g) for g in labels]
-            rng = np.random.default_rng(548)
-            draws = []
-            for _ in range(n_boot):
-                rows_ = np.concatenate([members[i] for i in rng.integers(0, labels.size, labels.size)])
-                try:
-                    b = fit_confinement_scaling_odr(
-                        y[rows_], {k: v[rows_] for k, v in x.items()}, sigma_log_response=SIGMA_LOG_W,
-                        sigma_log_predictors={"i_p": SIGMA_LOG_IB, "b_t": SIGMA_LOG_IB, "p_net": sp})
-                    draws.append(b["coef"])
-                except ValueError:
-                    continue
-            draws = np.asarray(draws)
-            for j, k in enumerate(out["names"]):
-                shift = 1.0 if k == "p_net" else 0.0
-                lo, hi = np.percentile(draws[:, j], [2.5, 97.5]) - shift
-                row.update({f"boot95_lo_{k}": lo, f"boot95_hi_{k}": hi})
-        rows.append(row)
+    for power, column in ODR_POWER.items():
+        x = {"i_p": frame["i_p_A"].to_numpy(float), "b_t": frame["b_t_T"].to_numpy(float),
+             power: frame[column].to_numpy(float)}
+        for sw in SIGMA_LOG_W_SCAN:
+            for sp in SIGMA_LOG_P_SCAN:
+                errors = {"i_p": SIGMA_LOG_IB, "b_t": SIGMA_LOG_IB, power: sp}
+                out = fit_confinement_scaling_odr(y, x, sigma_log_response=sw, sigma_log_predictors=errors)
+                row = {"data": name, "power": power, "sigma_log_w": sw, "sigma_log_p": sp,
+                       "ratio_p_over_w": sp / sw, "n": out["n"]}
+                for k, b, o in zip(out["names"], out["coef"], out["ols_coef"]):
+                    shift = 1.0 if k == power else 0.0  # W ~ P^(1 + aP): report the tau exponent
+                    key = "power" if k == power else k
+                    row.update({f"a_{key}": b - shift, f"ols_a_{key}": o - shift})
+                if (sp, sw) == SIGMA_REF:
+                    rng = np.random.default_rng(548)
+                    draws = []
+                    for _ in range(n_boot):
+                        r = np.concatenate([members[i] for i in rng.integers(0, labels.size, labels.size)])
+                        try:
+                            draws.append(fit_confinement_scaling_odr(
+                                y[r], {k: v[r] for k, v in x.items()}, sigma_log_response=sw,
+                                sigma_log_predictors=errors)["coef"])
+                        except ValueError:
+                            continue
+                    if draws:
+                        draws = np.asarray(draws)
+                        for j, k in enumerate(out["names"]):
+                            shift = 1.0 if k == power else 0.0
+                            key = "power" if k == power else k
+                            lo, hi = np.percentile(draws[:, j], [2.5, 97.5]) - shift
+                            row.update({f"boot95_lo_{key}": lo, f"boot95_hi_{key}": hi})
+                    row["boot_kept"] = len(draws)
+                rows.append(row)
     return rows
 
 
@@ -242,8 +263,14 @@ def main(argv=None) -> int:
         ratio = ratio[np.isfinite(ratio)]
         # Two independent estimates of the same P_OH: their log difference has
         # variance 2 sigma^2 if both carry the same error.
-        p_scatter[sel_name] = {"n": int(ratio.size), "median_log_ratio": float(np.median(ratio)),
-                               "sigma_log_p_each": float(np.std(ratio) / np.sqrt(2.0))}
+        dwdt_share = (frame["dwdt_W"].abs() / frame["p_ohm_W"]).replace([np.inf, -np.inf], np.nan)
+        p_scatter[sel_name] = {
+            "n": int(ratio.size), "median_log_ratio": float(np.median(ratio)),
+            # Lower bound: the two paths share I_p, whose error cancels in the ratio.
+            "sigma_log_p_ohm_each_lower_bound": float(np.std(ratio) / np.sqrt(2.0)),
+            # P_net = P_OH - dW/dt: how much of it is the W-derived term.
+            "median_abs_dwdt_over_p_ohm": float(np.nanmedian(dwdt_share)),
+        }
         for data_name, data, preds in (
             (f"{sel_name}:A", frame, BASE),
             (f"{sel_name}:A_ts_subset", ts, BASE),
@@ -283,9 +310,11 @@ def main(argv=None) -> int:
         "vaft_dirty": bool(_git("status", "--porcelain")),
         "table": {"path": str(table_path), "sha256": hashlib.sha256(table_path.read_bytes()).hexdigest()},
         "selections": SELECTIONS, "closures": CLOSURES, "n_boot": args.n_boot,
-        "odr": {"sigma_log_w": SIGMA_LOG_W, "sigma_log_i_b": SIGMA_LOG_IB,
-                "sigma_log_p_scan": SIGMA_LOG_P_SCAN, "sigma_log_p_bootstrap": SIGMA_LOG_P_REF,
-                "p_ohm_path_scatter": p_scatter},
+        "odr": {"sigma_log_w_scan": SIGMA_LOG_W_SCAN, "sigma_log_i_b": SIGMA_LOG_IB,
+                "sigma_log_p_scan": SIGMA_LOG_P_SCAN, "bootstrap_at_sigma_p_w": SIGMA_REF,
+                "power_predictors": ODR_POWER, "p_ohm_path_scatter": p_scatter,
+                "independence": ("P_OH is independent of W; P_net = P_OH - dW/dt is not (dW/dt is "
+                                 "W-derived), so the P_net rows are a comparison only")},
         "notes": ("alpha_R_kadomtsev and *_completed are Kadomtsev-completed (assumed size exponent, not "
                   "measured; VEST has no size scan). Closures are alternative hypotheses. NSTX values are "
                   "a comparison, never a prior. ODR fits W with P's exponent reported as the tau exponent."),

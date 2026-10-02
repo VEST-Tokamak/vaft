@@ -1030,11 +1030,12 @@ def fit_confinement_scaling_odr(
     predictors : Mapping
         Predictor arrays keyed by name [any].
     sigma_log_response : float
-        Standard deviation of $\\ln y$, i.e. the relative error of the
-        response [-].
+        Standard deviation of the *equation* error of $\\ln y$: measurement
+        error plus the scaling's intrinsic scatter, not measurement error
+        alone [-].
     sigma_log_predictors : Mapping
-        Standard deviation of $\\ln x_j$ per predictor; zero marks a predictor
-        as exact [-].
+        Standard deviation of the measurement error of $\\ln x_j$ per
+        predictor; zero marks a predictor as exact [-].
 
     Returns
     -------
@@ -1068,8 +1069,10 @@ def fit_confinement_scaling_odr(
 
     Limitations
     -----------
-    The answer depends on the assumed error *ratios*, so report it as a
-    function of them. Errors are assumed independent between variables.
+    The answer depends only on the assumed error *ratios*, so report it as a
+    function of them. Understating the equation error of the response
+    over-corrects the attenuation and inflates the noisy slopes, the classic
+    pitfall of errors-in-variables confinement fits. Errors are assumed independent between variables.
     Fitting $\\tau_E = W/P$ against $P$ violates that, which is why the
     response should be $W$ (its $P$ exponent is $1 + \\alpha_P$). No standard
     error is returned: rows of one shot are not independent, so use a shot
@@ -1363,8 +1366,10 @@ def fit_constrained_confinement_scaling(
        $\\beta_c = \\beta - (X^\\top X)^{-1}c^\\top(c(X^\\top X)^{-1}c^\\top)^{-1}(c\\beta - r)$.
     3. Covariance $MVM^\\top$ with
        $M = I - (X^\\top X)^{-1}c^\\top(c(X^\\top X)^{-1}c^\\top)^{-1}c$.
-    4. Residuals, $R^2$, leverage and Cook's distance of the constrained fit's
-       residuals on the same design.
+    4. Residuals, $R^2$, the restricted leverage
+       $H - XAc^\\top(cAc^\\top)^{-1}cAX^\\top$ ($A = (X^\\top X)^{-1}$) and Cook's
+       distance with $k - 1$ free coefficients; ``stderr_iid`` from
+       $s^2 MAM^\\top$ with the constrained residual variance.
 
     Applicability
     -------------
@@ -1372,8 +1377,7 @@ def fit_constrained_confinement_scaling(
 
     Limitations
     -----------
-    Least squares only (no robust option). ``stderr_iid`` is the projected
-    iid error.
+    Least squares only (no robust option).
 
     Provenance
     ----------
@@ -1398,14 +1402,17 @@ def fit_constrained_confinement_scaling(
     m = np.eye(c.size) - np.outer(gain, c)
     cov = m @ base.cov @ m.T
     stderr = np.sqrt(np.clip(np.diag(cov), 0.0, None))
-    iid = m @ np.diag(base.stderr_iid**2) @ m.T
     t = stats.t.ppf(0.975, base.n_groups - 1)
     residuals = log_y - x @ coef
     ss_tot = float(np.sum((log_y - log_y.mean()) ** 2))
     k_free = c.size - 1
     s2 = float(np.sum(residuals**2)) / max(base.n - k_free, 1)
-    lev = base.leverage
-    cooks = residuals**2 / (k_free * s2) * lev / (1.0 - lev) ** 2
+    iid = m @ (s2 * xtx_inv) @ m.T
+    # Restricted hat matrix H_c = H - X A c'(c A c')^-1 c A X', A = (X'X)^-1.
+    xa_c = x @ (xtx_inv @ c)
+    lev = base.leverage - xa_c**2 / float(c @ xtx_inv @ c)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cooks = residuals**2 / (k_free * s2) * lev / (1.0 - lev) ** 2
     return ConfinementScalingFit(
         names=base.names, coef=coef, stderr=stderr, cov=cov,
         ci95=np.column_stack([coef - t * stderr, coef + t * stderr]),

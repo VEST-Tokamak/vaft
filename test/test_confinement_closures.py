@@ -148,3 +148,12 @@ def test_odr_requires_an_error_for_every_predictor():
     with pytest.raises(ValueError, match="b_t"):
         fit_confinement_scaling_odr(tau, x, sigma_log_response=0.1,
                                     sigma_log_predictors={"i_p": 0.0, "p_net": 0.1})
+
+
+def test_restricted_leverage_has_one_fewer_degree_of_freedom():
+    tau, x, shot = _sample()
+    coef, rhs = closure_constraint(-3.0, list(x))
+    fit = fit_constrained_confinement_scaling(tau, x, shot, coef, rhs)
+    assert np.sum(fit.leverage) == pytest.approx(len(fit.coef) - 1, abs=1e-9)
+    free = fit_confinement_scaling(tau, x, shot)
+    assert np.sum(free.leverage) == pytest.approx(len(free.coef), abs=1e-9)
