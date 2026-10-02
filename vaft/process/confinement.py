@@ -599,6 +599,20 @@ def _log_design(response, predictors: Mapping[str, np.ndarray], groups):
     return names, log_y, x, g[keep], keep
 
 
+#: Relative spread of a log predictor below which it counts as constant.
+_SPREAD_RTOL = 1e-9
+
+
+def _constant_columns(names, logs) -> list:
+    """Names of log-predictor columns (rows of ``logs``) that do not vary."""
+    out = []
+    for name, col in zip(names, logs):
+        scale = max(1.0, float(np.max(np.abs(col)))) if col.size else 1.0
+        if col.size == 0 or float(np.ptp(col)) <= _SPREAD_RTOL * scale:
+            out.append(name)
+    return out
+
+
 @dataclass(frozen=True)
 class ConfinementScalingFit:
     """A log-linear confinement scaling fit with group-aware uncertainty.
@@ -606,9 +620,9 @@ class ConfinementScalingFit:
     ``names`` starts with ``"log_C"`` (the intercept) followed by the
     predictors; ``coef``, ``stderr`` and ``ci95`` follow that order.
     ``stderr``/``cov``/``ci95`` are cluster-robust by group (CR1, t with
-    G - 1 degrees of freedom); ``stderr_iid`` is the textbook OLS error that
-    treats every row as independent, kept to show how much the grouping
-    matters. ``mask`` marks the input rows the fit used.
+    G - 1 degrees of freedom); ``stderr_iid`` is the same estimator's error
+    treating every row as independent (OLS, or the Huber fit's own), kept to
+    show how much the grouping matters. ``mask`` marks the input rows the fit used.
     """
 
     names: tuple
@@ -665,7 +679,9 @@ def fit_confinement_scaling(
     ------
     ValueError
         No predictor, mismatched lengths, fewer kept rows than coefficients
-        plus one, or fewer than two groups.
+        plus one, fewer than two groups, a predictor that does not vary over
+        the kept rows, or an exactly collinear design: a least-squares solver
+        would otherwise return an arbitrary exponent with a confident error.
 
     Processing steps
     ----------------
@@ -677,6 +693,10 @@ def fit_confinement_scaling(
        $G - 1$ degrees of freedom.
     4. Leverage and Cook's distance from the least-squares influence of the
        same design (also for a robust fit, as a diagnostic).
+
+    With ``robust`` the cluster covariance is that of a weighted fit with the
+    converged Huber weights held fixed, which slightly understates the error
+    when rows are down-weighted; ``stderr_iid`` is then the Huber fit's own.
 
     Applicability
     -------------
@@ -709,6 +729,13 @@ def fit_confinement_scaling(
         raise ValueError(f"{n} usable rows cannot fit {k} coefficients")
     if n_groups < 2:
         raise ValueError("cluster-robust errors need at least two groups")
+    constant = _constant_columns(names, x[:, 1:].T)
+    if constant:
+        raise ValueError(f"predictor(s) {constant} do not vary over the kept rows; "
+                         "their exponents are not identifiable")
+    if np.linalg.matrix_rank(x) < k:
+        raise ValueError("the log design is rank deficient: some predictors are exactly "
+                         "collinear and their exponents are not separately identifiable")
     codes = np.unique(g, return_inverse=True)[1]
 
     ols = sm.OLS(log_y, x).fit()
@@ -720,7 +747,10 @@ def fit_confinement_scaling(
         clustered = sm.WLS(log_y, x, weights=rlm.weights).fit(
             cov_type="cluster", cov_kwds={"groups": codes})
         coef = np.asarray(clustered.params, dtype=float)
+        stderr_iid = np.asarray(rlm.bse, dtype=float)
     else:
+        stderr_iid = np.asarray(ols.bse, dtype=float)
+    if not robust:
         coef = np.asarray(ols.params, dtype=float)
     cov = np.asarray(clustered.cov_params(), dtype=float)
     stderr = np.sqrt(np.diag(cov))
@@ -731,7 +761,7 @@ def fit_confinement_scaling(
     influence = OLSInfluence(ols)
     return ConfinementScalingFit(
         names=("log_C", *names), coef=coef, stderr=stderr, cov=cov, ci95=ci95,
-        stderr_iid=np.asarray(ols.bse, dtype=float), n=n, n_groups=n_groups,
+        stderr_iid=stderr_iid, n=n, n_groups=n_groups,
         r2=1.0 - float(np.sum(residuals**2)) / ss_tot if ss_tot > 0 else np.nan,
         rmse_log=float(np.sqrt(np.mean(residuals**2))), residuals=residuals,
         leverage=np.asarray(influence.hat_matrix_diag, dtype=float),
@@ -755,7 +785,9 @@ def assess_predictor_identifiability(predictors: Mapping[str, np.ndarray]) -> di
         ``n`` rows used [-]; ``correlation``, the Pearson matrix of the log
         predictors as nested dicts [-]; ``vif``, the variance inflation factor
         per predictor [-]; ``condition_number`` of the column-equilibrated log
-        design with intercept [-]; ``rank`` of that design [-] [any].
+        design with intercept [-]; ``rank`` of that design [-]; ``constant``,
+        the predictors that do not vary (VIF infinite, correlation NaN) [-]
+        [any].
 
     Raises
     ------
@@ -790,11 +822,18 @@ def assess_predictor_identifiability(predictors: Mapping[str, np.ndarray]) -> di
     keep = np.all(np.isfinite(stack) & (stack > 0), axis=0)
     logs = np.log(stack[:, keep])
     n = int(keep.sum())
-    corr = np.corrcoef(logs) if len(names) > 1 else np.ones((1, 1))
-    corr = np.atleast_2d(corr)
+    constant = _constant_columns(names, logs)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        corr = np.atleast_2d(np.corrcoef(logs) if len(names) > 1 else np.ones((1, 1)))
+    for j, name in enumerate(names):
+        if name in constant:
+            corr[j, :] = corr[:, j] = np.nan
     vif = {}
     for j, name in enumerate(names):
         others = np.delete(logs, j, axis=0)
+        if name in constant:
+            vif[name] = float("inf")
+            continue
         if others.size == 0:
             vif[name] = 1.0
             continue
@@ -803,7 +842,7 @@ def assess_predictor_identifiability(predictors: Mapping[str, np.ndarray]) -> di
         resid = logs[j] - design @ beta
         ss_tot = float(np.sum((logs[j] - logs[j].mean()) ** 2))
         r2 = 1.0 - float(np.sum(resid**2)) / ss_tot if ss_tot > 0 else 1.0
-        vif[name] = float(1.0 / (1.0 - r2)) if r2 < 1.0 else float("inf")
+        vif[name] = float(1.0 / (1.0 - r2)) if r2 < 1.0 - 1e-12 else float("inf")
     design = np.column_stack([np.ones(n), logs.T])
     scaled = design / np.linalg.norm(design, axis=0)
     return {
@@ -813,6 +852,7 @@ def assess_predictor_identifiability(predictors: Mapping[str, np.ndarray]) -> di
         "vif": vif,
         "condition_number": float(np.linalg.cond(scaled)),
         "rank": int(np.linalg.matrix_rank(design)),
+        "constant": constant,
     }
 
 

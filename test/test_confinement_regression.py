@@ -106,3 +106,33 @@ def test_leave_one_group_out_holds_out_whole_groups():
     np.testing.assert_allclose(out["log_error"], 0.0, atol=1e-9)
     noisy = leave_one_group_out_scaling(*_sample())
     assert noisy["rmse_log"] > fit_confinement_scaling(*_sample()).rmse_log
+
+
+def test_a_constant_predictor_is_refused_not_given_an_exponent():
+    """Pseudo-inverse solvers return a confident, arbitrary exponent here."""
+    tau, x, shot = _sample()
+    x = dict(x, b_t=np.full_like(x["b_t"], 0.18))
+    with pytest.raises(ValueError, match="b_t"):
+        fit_confinement_scaling(tau, x, shot)
+    x["b_t"] = 0.18 * (1.0 + 1e-12 * np.arange(x["b_t"].size))
+    with pytest.raises(ValueError, match="b_t"):
+        fit_confinement_scaling(tau, x, shot)
+    out = assess_predictor_identifiability(x)
+    assert out["constant"] == ["b_t"] and out["vif"]["b_t"] == float("inf")
+    assert np.isnan(out["correlation"]["b_t"]["i_p"])
+
+
+def test_an_exactly_collinear_design_is_refused():
+    tau, x, shot = _sample()
+    x = dict(x, p2=x["p"] ** 2)
+    with pytest.raises(ValueError, match="rank"):
+        fit_confinement_scaling(tau, x, shot)
+
+
+def test_robust_iid_error_is_the_robust_estimators_own():
+    tau, x, shot = _sample(shot_sd=0.0, noise=0.02)
+    tau = tau.copy()
+    tau[7] *= 20.0
+    plain = fit_confinement_scaling(tau, x, shot)
+    robust = fit_confinement_scaling(tau, x, shot, robust=True)
+    assert robust.stderr_iid[1] < plain.stderr_iid[1]

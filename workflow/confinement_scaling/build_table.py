@@ -198,7 +198,9 @@ def _thomson_electron_energy(ods, k: int, eq) -> float:
 
     The fit's electron pressure is mapped through its own rho_pol_norm
     (psi_N = rho_pol^2) onto the EFIT grid, so no toroidal-flux coordinate is
-    shared between the two; NaN without a fit within TIME_TOLERANCE_S.
+    shared between the two; NaN without a fit within TIME_TOLERANCE_S. Beyond
+    the fit's last grid point p_e is taken as zero, which underestimates W_e
+    only for a fit grid that stops short of rho_pol = 1.
     """
     from matplotlib.path import Path as _Path
 
@@ -209,9 +211,17 @@ def _thomson_electron_energy(ods, k: int, eq) -> float:
     if j is None:
         return np.nan
     prof = f"core_profiles.profiles_1d.{j}"
-    if f"{prof}.electrons.pressure" not in ods or f"{prof}.grid.rho_pol_norm" not in ods:
+    if f"{prof}.grid.rho_pol_norm" not in ods:
         return np.nan
-    p_e = np.asarray(ods[f"{prof}.electrons.pressure"], dtype=float)
+    if f"{prof}.electrons.pressure" in ods:
+        p_e = np.asarray(ods[f"{prof}.electrons.pressure"], dtype=float)
+    elif f"{prof}.electrons.density" in ods and f"{prof}.electrons.temperature" in ods:
+        # The fit writer stores pressure_thermal only; the pipeline's pressure
+        # step adds electrons.pressure. n T e is the same quantity.
+        p_e = (np.asarray(ods[f"{prof}.electrons.density"], dtype=float)
+               * np.asarray(ods[f"{prof}.electrons.temperature"], dtype=float) * 1.602176634e-19)
+    else:
+        return np.nan
     psi_n_fit = np.asarray(ods[f"{prof}.grid.rho_pol_norm"], dtype=float) ** 2
     r, z = np.asarray(eq.r, float), np.asarray(eq.z, float)
     psi_n = (np.asarray(eq.psi, float) - eq.psi_axis) / (eq.psi_boundary - eq.psi_axis)

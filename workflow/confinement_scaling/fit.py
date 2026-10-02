@@ -142,13 +142,17 @@ def main(argv=None) -> int:
             (f"{sel_name}:A_ts_subset", ts, "tau_e_th_s", BASE, {}),
             (f"{sel_name}:B_with_n_e", ts, "tau_e_th_s", with_n, {}),
         ]
+        # Identifiability on exactly the rows the fits can use (finite, positive tau_E).
+        usable = lambda f: f.loc[np.isfinite(f["tau_e_th_s"]) & (f["tau_e_th_s"] > 0)]  # noqa: E731
+        frame_u, ts_u = usable(frame), usable(ts)
         ident[sel_name] = {
             "rows": int(len(frame)), "shots": int(frame["shot"].nunique()),
             "ts_rows": int(len(ts)), "ts_shots": int(ts["shot"].nunique()),
-            "log_spread": {k: float(np.nanstd(np.log(frame[c].where(frame[c] > 0)))) for k, c in with_n.items()},
-            "A": assess_predictor_identifiability({k: frame[c].to_numpy(float) for k, c in BASE.items()}),
-            "B": (assess_predictor_identifiability({k: ts[c].to_numpy(float) for k, c in with_n.items()})
-                  if len(ts) > 4 else None),
+            "log_spread": {k: float(np.nanstd(np.log(frame_u[c].where(frame_u[c] > 0))))
+                           for k, c in with_n.items()},
+            "A": assess_predictor_identifiability({k: frame_u[c].to_numpy(float) for k, c in BASE.items()}),
+            "B": (assess_predictor_identifiability({k: ts_u[c].to_numpy(float) for k, c in with_n.items()})
+                  if len(ts_u) > 4 else None),
         }
         for name, data, resp, preds, kw in plan:
             try:
