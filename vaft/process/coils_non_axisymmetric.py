@@ -66,8 +66,7 @@ def toroidal_mode_decomposition(
     when the sectors resolve ``n`` without aliasing: the peak amplitude is
     ``2 |C_n|`` and the phase of ``C_n`` is the pattern's phase ``delta`` at
     ``phi = 0``.  The ``exp(-i n phi)`` kernel is the one GPEC's ``coil.in``
-    documentation and the legacy hsyun_GPEC ``fourier_mode_coefficient``
-    use; a ``exp(+i n phi)`` convention conjugates every coefficient.  No
+    documentation and the legacy ``fourier_mode_coefficient`` use; a ``exp(+i n phi)`` convention conjugates every coefficient.  No
     normalisation by ``2/K`` is applied, so ``C_0`` is the mean.
 
     Assumptions
@@ -85,7 +84,7 @@ def toroidal_mode_decomposition(
     ----------
     .. [GPEC] GPEC ``coil.in`` documentation: per-coil currents are
        combined per toroidal harmonic with ``exp(-i n phi)``.
-    .. [legacy] hsyun_GPEC ``library/gpec_input_processor.py``
+    .. [legacy] The legacy implementation's ``gpec_input_processor.py``
        ``fourier_mode_coefficient`` (same kernel), ported unchanged.
     """
     phi = np.asarray(phi_rad, dtype=float)
@@ -204,9 +203,9 @@ def biot_savart_filaments(points_xyz, currents_a, probes_xyz) -> np.ndarray:
     ----------
     .. [Jackson] J. D. Jackson, *Classical Electrodynamics*, 3rd ed., Sec. 5.2:
        the Biot-Savart law for a line current.
-    .. [legacy] hsyun_GPEC ``library/gpec_input_processor.py`` and
-       ``library/mast_u_input_convertor.py`` carried three copies of this
-       midpoint-rule kernel; this is the single replacement.
+    .. [legacy] The legacy implementation carried three copies of this
+       midpoint-rule kernel, in ``gpec_input_processor.py`` and
+       ``mast_u_input_convertor.py``; this is the single replacement.
     """
     if isinstance(points_xyz, np.ndarray) and points_xyz.ndim == 3:
         filaments: Sequence[np.ndarray] = [np.asarray(points_xyz[k], dtype=float) for k in range(points_xyz.shape[0])]

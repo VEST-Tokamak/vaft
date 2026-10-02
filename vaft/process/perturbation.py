@@ -3080,8 +3080,8 @@ def toroidal_phase_audit(stored, sampled, phi_rad, *, n_tor: int) -> ToroidalPha
 
     Provenance
     ----------
-    .. [legacy] hsyun_GPEC ``library/gpec_phase.py::audit_gpec_coil_brzphi_phase``
-       on branch ``codex/gpec-flare-cocos-handshake``, which is this
+    .. [legacy] The legacy implementation's
+       ``gpec_phase.py::audit_gpec_coil_brzphi_phase``, which is this
        measurement; decision D-06 makes it mandatory for a GPEC-to-FLARE
        handshake.  The legacy computed it only for a GPEC coil field and only
        against its own Biot-Savart; the arithmetic is the same and is machine-

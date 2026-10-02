@@ -12005,7 +12005,7 @@ def _gpec_jacobian(ods: Any, n_tor: int, time_slice: int | None) -> str:
 #: ``arg(Phi_res)`` and the helical potential's phase carries a conjugation
 #: whose sense follows the orientation of the code's angles against the
 #: machine's helicity, and the FLARE traces that settle it were run on a
-#: ``helicity = -1`` equilibrium only (C-44, vaft-mastu#79). It is a measured
+#: ``helicity = -1`` equilibrium only (convention C-44). It is a measured
 #: convention, not a derived one, so the other sign is refused rather than
 #: guessed.
 _C44_MEASURED_HELICITY = -1.0
@@ -12162,11 +12162,13 @@ def _build_mhd_linear_geometry_island(ods: Any, **options: Any) -> GeometryLayer
     equilibrium ``g147131.02300_DIIID_KEFIT`` (SHA-256
     ``35bf902f...bfe579``) with ``gpec_profile_output_n1.nc`` (SHA-256
     ``8c17f967...2a16b5``) for the angles and ``gpec_cbrzphi_n1.out`` (SHA-256
-    ``718da784...05a8fa``) for the trace, which was produced by
-    ``tools/flare_r01_poincare.py OUTDIR --c1 1 --c3 0 --field coil --q 2
-    --span 0.06 --surfaces 45 --punctures 300 --run`` (repository
-    ``HongSik-Yun-Fusion/vaft-mastu``) against FLARE ``7ad6d2dc``.  The full
-    hashes, unabbreviated, are in
+    ``718da784...05a8fa``) for the trace.  The trace is FLARE ``7ad6d2dc``'s
+    ``poincare_map_psiN`` over ``psi_N`` in [0.533644, 0.653644] -- the ``q = 2``
+    surface plus and minus a 0.06 span -- 45 field lines x 300 punctures,
+    ``nsym = 1``, on one ``Gpec`` element carrying the vacuum (coil) field at
+    ``|c_1| = 1`` with no ``n = 3`` element, so a single toroidal harmonic is
+    live.  The full hashes, the fit that reads ``xi_O`` off the punctures and
+    the rest of the record are in
     ``test/test_gpec_island_geometry.py::R01_PROVENANCE``.
 
     **``field`` is required and has no default** -- ``"total"`` or
