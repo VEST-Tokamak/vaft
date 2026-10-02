@@ -81,12 +81,43 @@ def _finish(payload: Any, *, converter: Bounded | None = None, notes=(), convert
     (or a dictionary that already uses that key) is returned under ``result``.
     """
     converter = converter or Bounded()
-    data = payload if converted else converter(payload)
+    data = _redacted(payload if converted else converter(payload))
     cut = list(notes) + converter.truncated
     record = {"count": len(cut), "paths": cut[:REPORTED_PATHS]}
     if isinstance(data, dict) and "truncated" not in data:
         return {**data, "truncated": record}
     return {"result": data, "truncated": record}
+
+
+#: Environment variables whose values never leave the server, whatever printed them.
+SECRET_ENV = ("HS_PASSWORD", "HS_API_KEY")
+
+
+def _redactions() -> list[tuple[str, str]]:
+    """(text, replacement) pairs: secret values first, then the home directory as ``~``."""
+    pairs = [(value, "<redacted>") for name in SECRET_ENV if len(value := os.environ.get(name, "")) >= 4]
+    home = str(Path.home())
+    if len(home) > 1:
+        pairs.append((home, "~"))
+    return pairs
+
+
+def _redacted(data: Any, pairs: list[tuple[str, str]] | None = None) -> Any:
+    """``data`` (already plain JSON) with secrets and the home directory scrubbed from every string.
+
+    Help pages report where a configuration file lives and which variables are
+    set; an agent needs the fact, not the account's absolute path or a value.
+    """
+    pairs = _redactions() if pairs is None else pairs
+    if isinstance(data, str):
+        for text, replacement in pairs:
+            data = data.replace(text, replacement)
+        return data
+    if isinstance(data, dict):
+        return {_redacted(key, pairs): _redacted(value, pairs) for key, value in data.items()}
+    if isinstance(data, list):
+        return [_redacted(value, pairs) for value in data]
+    return data
 
 
 def _without_source_code(row: dict) -> dict:
@@ -109,12 +140,14 @@ def get_capabilities() -> dict[str, Any]:
     Start here. Each topic can be opened with get_capability(topic).
     """
     from vaft._help import help as vaft_help
-    from vaft._help._registry import TOPICS
+    from vaft._help import topics
 
+    overview = vaft_help().as_dict()
+    summaries = {label: text for section in overview["sections"] if section["title"] == "Topics"
+                 for label, text in section["rows"]}
     return _finish({
-        "topics": [{"name": name, "summary": topic.summary, "has_items": bool(topic.item)}
-                   for name, topic in TOPICS.items()],
-        "overview": vaft_help().as_dict(),
+        "topics": [{"name": name, "summary": summaries.get(name, "")} for name in topics()],
+        "overview": overview,
     })
 
 

@@ -33,6 +33,10 @@ Any client that launches a stdio server can run `python -m vaft.mcp` the same wa
 interpreter of the environment where VAFT is installed. `import vaft` never needs the extra: only
 `vaft.mcp.server.build_server()` imports the MCP SDK.
 
+Do not start the server with the `vaft/` package directory as the working directory. Python puts the
+working directory first on `sys.path`, so `vaft/mcp/` would shadow the SDK's own `mcp` package.
+The repository root or any other directory is fine.
+
 ## Tools
 
 | Tool | Answers from |
@@ -68,7 +72,10 @@ at stderr, so output printed by Python, C or Fortran code VAFT calls cannot corr
 
 Every tool is annotated `readOnlyHint`. None of them writes a file, publishes to the database,
 reaches HSDS or the network, runs EFIT, CHEASE or any other solver or pipeline, or executes
-caller-supplied code or shell commands. Tool inputs name scientific things: a plot, a formula or
+caller-supplied code or shell commands. Results never carry credentials: help pages say whether
+HSDS is configured, not with what, and the server also scrubs the values of `HS_PASSWORD` and
+`HS_API_KEY` and replaces the home directory with `~` in every result and error message.
+Tool inputs name scientific things: a plot, a formula or
 a shot. They never name a data representation. During the DD migration (#1127, #1132, #1135),
 the loading code can change behind the same tool schema.
 

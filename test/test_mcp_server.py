@@ -50,6 +50,20 @@ def test_the_server_lists_exactly_the_curated_tools_all_read_only():
     assert "Allowed options keys" in extract.description and "coordinate" in extract.description
 
 
+def test_the_sdk_internals_the_stdio_guard_relies_on_still_exist():
+    """``_serve`` re-implements ``FastMCP.run_stdio_async`` through ``_mcp_server``.
+
+    The SDK is pinned below 2; if a release inside the pin renames these, fail
+    here, by name, rather than as a hung stdio session.
+    """
+    server = build_server()
+    low = getattr(server, "_mcp_server", None)
+    assert low is not None, "FastMCP no longer has _mcp_server: rewrite vaft.mcp.server._serve"
+    assert callable(getattr(low, "run", None))
+    assert callable(getattr(low, "create_initialization_options", None))
+    from mcp.server.stdio import stdio_server  # noqa: F401 - the transport _serve opens
+
+
 def test_a_vaft_error_becomes_a_tool_error():
     from mcp.server.fastmcp.exceptions import ToolError
 

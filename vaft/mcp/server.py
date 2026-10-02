@@ -66,14 +66,14 @@ def _threaded(function, tool_error):
     """An async tool running ``function`` in a worker thread, VAFT errors made tool errors."""
     import anyio
 
-    from ._tools import _message
+    from ._tools import _message, _redacted
 
     def guarded(**kwargs: Any):
         with _CALL_LOCK:
             try:
                 return function(**kwargs)
             except (LookupError, ValueError, TypeError, FileNotFoundError) as error:
-                raise tool_error(_message(error)) from error
+                raise tool_error(_redacted(_message(error))) from error
 
     @functools.wraps(function)
     async def call(**kwargs: Any):

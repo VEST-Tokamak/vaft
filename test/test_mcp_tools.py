@@ -129,6 +129,32 @@ def test_capability_items_route_to_the_dedicated_tools():
         tools.get_capability("data", "not-a-shot")
 
 
+def test_capability_summaries_come_from_the_overview():
+    result = _body(tools.get_capabilities())
+    summaries = {row["name"]: row["summary"] for row in result["topics"]}
+    assert summaries["formula"] and summaries["database"]
+
+
+def test_no_output_carries_a_secret_or_the_home_directory(monkeypatch, tmp_path):
+    """Help reports *that* HSDS is configured; values and the account's paths stay local."""
+    home = tmp_path / "home-of-someone"
+    home.mkdir()
+    (home / ".hscfg").write_text(
+        "hs_endpoint = http://hsds.invalid\nhs_username = someone\n"
+        "hs_password = pw-in-file-1234\nhs_api_key = key-in-file-5678\n", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("HS_PASSWORD", "pw-in-env-9876")
+    monkeypatch.setenv("HS_API_KEY", "key-in-env-5432")
+    monkeypatch.chdir(tmp_path)
+    text = json.dumps([tools.get_capability("database"), tools.get_capability("code"), tools.get_capabilities()])
+    for secret in ("pw-in-file-1234", "key-in-file-5678", "pw-in-env-9876", "key-in-env-5432", str(home)):
+        assert secret not in text
+    # The redaction also covers strings a tool did not expect to carry them.
+    scrubbed = tools._finish({"note": f"{home}/x and pw-in-env-9876"})
+    assert scrubbed["note"] == "~/x and <redacted>"
+
+
 # -- formulas, processes, validation -----------------------------------------------
 
 
