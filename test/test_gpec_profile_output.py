@@ -288,7 +288,9 @@ def test_the_cheap_reader_refuses_a_file_without_its_mode_number(tmp_path):
 # --- one quantity, two spellings ---------------------------------------------
 
 
-def _add_rational_variable(path, name: str, values, *, units: str | None = None) -> None:
+def _add_rational_variable(
+    path, name: str, values, *, units: str | None = None, jacobian: str | None = None
+) -> None:
     """Append one ``(i, psi_n_rational)`` complex variable to a written file."""
     with netCDF4.Dataset(path, "a") as ds:
         variable = ds.createVariable(name, "f8", ("i", "psi_n_rational"))
@@ -296,6 +298,8 @@ def _add_rational_variable(path, name: str, values, *, units: str | None = None)
         variable.long_name = "Penetrated resonant field"
         if units:
             variable.units = units
+        if jacobian:
+            variable.jacobian = jacobian
 
 
 @pytest.mark.parametrize("written_as", ["B_pen", "b_pen"])
@@ -310,12 +314,16 @@ def test_the_penetrated_field_reads_under_either_spelling(tmp_path, written_as):
     write_profile_nc(tmp_path)
     path = tmp_path / "gpec_profile_output_n1.nc"
     expected = np.asarray([1e-4 + 2e-5j, 3e-4 - 1e-5j])
-    _add_rational_variable(path, written_as, expected, units="T")
+    _add_rational_variable(path, written_as, expected, units="T", jacobian="hamada")
 
     output = read_gpec_profile_output(path)
     assert output.B_pen is not None, f"{written_as} did not reach the B_pen field"
     np.testing.assert_allclose(output.B_pen, expected)
     assert output.units["B_pen"] == "T"
+    # `jacobians` is keyed like `units` and `dims`, not by the raw name
+    # (cold review 0.8.0 delta-squash F6).
+    assert output.jacobians["B_pen"] == "hamada"
+    assert "b_pen" not in output.jacobians
     # And under one name on both paths, so a caller cannot get the same
     # quantity twice under two keys depending on which reader it used.
     assert "B_pen" in output.resonant_table()

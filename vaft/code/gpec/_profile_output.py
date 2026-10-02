@@ -225,8 +225,9 @@ def _read_profile(path: Path) -> GpecProfileOutput:
             for name in ds.variables
             if "units" in ds[name].attrs
         }
+        # Keyed the way `units` and `dims` are, so one spelling serves all three.
         jacobians = {
-            name: str(ds[name].attrs["jacobian"]).strip().lower()
+            _RENAMED_VARIABLES.get(str(name), str(name)): str(ds[name].attrs["jacobian"]).strip().lower()
             for name in ds.variables
             if "jacobian" in ds[name].attrs
         }
