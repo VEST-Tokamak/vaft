@@ -6,6 +6,9 @@ notebook re-derivation:
 * :func:`vest_summary_to_confinement_table` converts rows of the
   ``core_profiles`` summary preset (:func:`vaft.database.summary`) -- the
   shot-scale path lane D fills from the database;
+* :func:`load_vest_tier_a_confinement` reads lane D's Tier A table (#548): one
+  row per EFIT state key with a measured ohmic power balance, the rows VEST's
+  confinement results rest on;
 * :func:`vest_ods_to_confinement_rows` builds rows straight from an ODS with the
   equilibrium descriptors of :mod:`vaft.process.equilibrium`, for packaged
   samples that carry no magnetics and therefore no power balance.  Loss power
@@ -27,6 +30,9 @@ from .schema import CONFINEMENT_COLUMNS, make_record_id, validate_confinement_ta
 __all__ = [
     "VEST_REFERENCE_RADIUS_M",
     "VEST_SUMMARY_DEFINITIONS",
+    "VEST_TIER_A_BLOCK_SPLIT_SHOT",
+    "VEST_TIER_A_SELECTIONS",
+    "load_vest_tier_a_confinement",
     "vest_ods_to_confinement_rows",
     "vest_summary_to_confinement_table",
 ]
@@ -295,3 +301,133 @@ def vest_ods_to_confinement_rows(
     table["shot"] = table["shot"].astype("Int64")
     _labels(table, "VAFT ODS equilibrium descriptors", release)
     return validate_confinement_table(table)
+
+
+#: Slice-quality selections of the Tier A confinement analysis (#548, decided on
+#: #1490): the largest fractional current change within one confinement time, the
+#: largest |dW/dt| / P_OH, and the smallest |I_p|.  ``primary`` is the analysis set;
+#: ``sensitivity`` the strict one that cannot identify three exponents on its own.
+VEST_TIER_A_SELECTIONS: dict[str, dict[str, float]] = {
+    "primary": {"ip_min": 30e3, "max_dwdt_fraction": 1.0, "max_ip_change_per_tau": 0.20},
+    "sensitivity": {"ip_min": 30e3, "max_dwdt_fraction": 0.5, "max_ip_change_per_tau": 0.05},
+}
+
+#: First shot of the second Tier A block.  The 429xx-430xx block's magnetics-EFIT
+#: stored energy is biased high relative to Thomson (#1490), so callers that pool
+#: the blocks should carry ``tier_a_block``.
+VEST_TIER_A_BLOCK_SPLIT_SHOT = 42000
+
+_TIER_A_SAMPLE = "confinement/vest_tier_a_confinement.csv"
+
+
+def _tier_a_selected(table: pd.DataFrame, thresholds: dict[str, float]) -> pd.Series:
+    """Rows passing every slice-quality rule, NaN evidence failing (as
+    :func:`vaft.process.confinement.confinement_slice_decision`)."""
+
+    def column(name: str) -> pd.Series:
+        return pd.to_numeric(table[name], errors="coerce")
+
+    finite = table["rule_finite"].astype("boolean").fillna(False).astype(bool)
+    evaluated = table["quality_status"].astype(str) == "evaluated"
+    return (
+        finite
+        & evaluated
+        & (column("i_p_A").abs() >= thresholds["ip_min"]).fillna(False)
+        & (column("dwdt_fraction") <= thresholds["max_dwdt_fraction"]).fillna(False)
+        & (column("ip_change_per_tau") <= thresholds["max_ip_change_per_tau"]).fillna(False)
+        & (column("tau_e_th_s") > 0).fillna(False)
+    )
+
+
+def load_vest_tier_a_confinement(
+    selection: str | None = "primary",
+    *,
+    path=None,
+) -> pd.DataFrame:
+    """VEST Tier A confinement rows with a measured ohmic power balance (#548).
+
+    Parameters
+    ----------
+    selection : str or None, optional
+        ``"primary"`` (default) or ``"sensitivity"`` returns only the rows of that
+        slice-quality selection (:data:`VEST_TIER_A_SELECTIONS`); ``None``
+        returns every state key [str].
+    path : str or path-like, optional
+        A Tier A table to read instead of the repository sample, e.g. the atlas
+        ``table.csv`` that ``workflow/confinement_scaling/build_table.py`` writes
+        [path].
+
+    Returns
+    -------
+    pandas.DataFrame
+        The canonical confinement columns, validated by
+        :func:`~vaft.data.public.schema.validate_confinement_table`, followed by
+        the Lane D extension columns (state key, power-balance terms, slice
+        evidence) and ``tier_a_block``. ``selected`` marks membership of the
+        primary selection [table].
+
+    Raises
+    ------
+    FileNotFoundError
+        No ``path`` and the repository sample is absent: it is a repo-only
+        derived sample (``vaft/data/confinement/``), not shipped in the wheel.
+    ValueError
+        An unknown ``selection``, or a table missing the evidence columns.
+
+    Notes
+    -----
+    * ``p_loss_W`` is $P_{OH} - dW/dt$ with radiation not subtracted, as DB5
+      ``PLTH``; ``w_th_J`` is the magnetics-EFIT stored energy.
+    * The definition strings the packaged sample keeps once, in its
+      ``manifest.json``, are restored on every row; a table without them (and
+      without a manifest beside it) gets NaN there, as the schema's missing value.
+    * The magnetics-EFIT stored energy of the 429xx-430xx block is about 1.6x what
+      Thomson supports at the same current and ohmic power (#1490); keep
+      ``tier_a_block`` when pooling.
+    """
+    import json
+    from pathlib import Path
+
+    if selection is not None and selection not in VEST_TIER_A_SELECTIONS:
+        raise ValueError(f"selection must be one of {sorted(VEST_TIER_A_SELECTIONS)} or None, "
+                         f"got {selection!r}")
+    if path is None:
+        from vaft.data import data_path
+
+        source = Path(data_path(_TIER_A_SAMPLE))
+        if not source.is_file():
+            raise FileNotFoundError(
+                f"{source} is a repo-only derived sample and is not in the installed wheel; "
+                "use a source checkout or pass path= (the atlas table.csv)")
+    else:
+        source = Path(path).expanduser()
+    table = pd.read_csv(source)
+    manifest_path = source.with_name("manifest.json")
+    if manifest_path.is_file():
+        definitions = json.loads(manifest_path.read_text()).get("dropped_columns", {}).get("definitions", {})
+        for column, values in definitions.items():
+            if column not in table.columns and len(values) == 1:
+                table[column] = values[0]
+    for column in CONFINEMENT_COLUMNS:       # missing stays missing (NaN), per the schema
+        if column not in table.columns:
+            table[column] = np.nan
+    needed = {"rule_finite", "quality_status", "dwdt_fraction", "ip_change_per_tau"}
+    missing = needed - set(table.columns)
+    if missing:
+        raise ValueError(f"{source} lacks the slice-evidence columns {sorted(missing)}; "
+                         "is it a Lane D Tier A table?")
+    primary = _tier_a_selected(table, VEST_TIER_A_SELECTIONS["primary"])
+    if selection is not None:
+        table = table.loc[_tier_a_selected(table, VEST_TIER_A_SELECTIONS[selection])]
+        primary = primary.loc[table.index]
+    table = table.reset_index(drop=True)
+    table["selected"] = primary.to_numpy()
+    canonical = validate_confinement_table(table)
+    extension = table[[c for c in table.columns if c not in CONFINEMENT_COLUMNS and c != "assumptions"]]
+    out = pd.concat([canonical, extension], axis=1)
+    out["tier_a_block"] = np.where(pd.to_numeric(out["shot"]) >= VEST_TIER_A_BLOCK_SPLIT_SHOT,
+                                   "429xx-430xx", "399xx-403xx")
+    out.attrs = dict(canonical.attrs)
+    out.attrs["source"] = str(source)
+    out.attrs["selection"] = selection
+    return out

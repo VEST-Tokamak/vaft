@@ -35,6 +35,7 @@ __all__ = [
     "transition_margin",
     "validate_confinement_table",
     "validate_transition_table",
+    "load_vest_tier_a_confinement",
     "vest_ods_to_confinement_rows",
     "vest_summary_to_confinement_table",
 ]
@@ -62,6 +63,7 @@ _EXPORT_MAP = {
     "read_db5": (".itpa_hmode", "read_db5"),
     "normalize_db5": (".itpa_hmode", "normalize_db5"),
     "vest_ods_to_confinement_rows": (".vest_confinement", "vest_ods_to_confinement_rows"),
+    "load_vest_tier_a_confinement": (".vest_confinement", "load_vest_tier_a_confinement"),
     "vest_summary_to_confinement_table": (".vest_confinement", "vest_summary_to_confinement_table"),
     "predict_confinement_time": (".analysis", "predict_confinement_time"),
     "h_factor": (".analysis", "h_factor"),

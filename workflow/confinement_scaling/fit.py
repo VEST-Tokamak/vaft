@@ -45,10 +45,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-SELECTIONS = {
-    "primary": {"ip_min": 30e3, "max_dwdt_fraction": 1.0, "max_ip_change_per_tau": 0.20},
-    "sensitivity": {"ip_min": 30e3, "max_dwdt_fraction": 0.5, "max_ip_change_per_tau": 0.05},
-}
+# One source for the thresholds: the loader in vaft.data.public applies the same ones.
+from vaft.data.public.vest_confinement import VEST_TIER_A_SELECTIONS as SELECTIONS  # noqa: E402
 BASE = {"i_p": "i_p_A", "b_t": "b_t_T", "p_net": "p_loss_W"}
 
 
