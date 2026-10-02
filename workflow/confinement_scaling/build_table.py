@@ -437,7 +437,7 @@ def build(args) -> int:
                 "ts_status": state.get("ts_status", ""),
                 # Criteria v2 (#1521): Thomson consistency is a verdict beside fit
                 # quality (p within [1, 2] p_e), never part of efit_quality.
-                "thomson_consistent": {"true": True, "false": False}.get(
+                "thomson_consistent": {"true": True, "false": False, "1": True, "0": False}.get(
                     str(state.get("thomson_consistent", "")).strip().lower(), np.nan),
                 "paired_electron_kinetic": key in kinetic_keys,
                 "assumptions": json.dumps(assumptions, sort_keys=True),

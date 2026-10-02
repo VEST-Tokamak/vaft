@@ -1,6 +1,7 @@
 """Lane D extensions (workflow/confinement_scaling/extensions.py): the decompositions on synthetic data."""
 
 import importlib.util
+import io
 import pathlib
 import sys
 
@@ -120,3 +121,93 @@ def test_block_offset_by_thomson_consistency_splits_and_counts():
     assert get("Thomson-inconsistent").block_offset_log == pytest.approx(np.log(1.5), abs=0.05)
     assert set(census["block"]) == {"399xx-403xx", "429xx-430xx"}
     assert int(census["consistent"].sum() + census["inconsistent"].sum()) == len(rows)
+
+    # A CSV round trip turns the verdict into strings, with NaN where Thomson is absent.
+    frame = pd.DataFrame(rows)
+    frame["thomson_consistent"] = frame["thomson_consistent"].astype(object)
+    frame.loc[frame.index[:3], "thomson_consistent"] = np.nan
+    buffer = io.StringIO()
+    frame.to_csv(buffer, index=False)
+    buffer.seek(0)
+    read_back = pd.read_csv(buffer)
+    _, census_csv = ext.block_offset_by_thomson_consistency(read_back)
+    assert int(census_csv["consistent"].sum() + census_csv["inconsistent"].sum()) == len(rows) - 3
+
+    # Without the column every row is "no Thomson", and the split fits report errors instead of raising.
+    offsets_none, census_none = ext.block_offset_by_thomson_consistency(frame.drop(columns="thomson_consistent"))
+    assert int(census_none["consistent"].sum() + census_none["inconsistent"].sum()) == 0
+    split = offsets_none[offsets_none.subset != "all Thomson rows"]
+    assert split["error"].notna().all()
+
+    # A single-block subset cannot carry a block offset: an error row, not an exception.
+    single, _ = ext.block_offset_by_thomson_consistency(frame[frame.shot < 42000])
+    assert single["error"].notna().all()
+
+
+def _tglf_link():
+    sys.path.insert(0, str(HERE))
+    try:
+        spec = importlib.util.spec_from_file_location("lane_d_tglf_link", HERE / "tglf_link.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(HERE))
+    return module
+
+
+def test_miller_volume_matches_a_circular_torus():
+    link = _tglf_link()
+    r = np.linspace(0.01, 0.3, 30)
+    volume, dvdr = link.miller_volume(r, np.full_like(r, 0.4), np.ones_like(r), np.zeros_like(r))
+    assert volume == pytest.approx(2 * np.pi**2 * 0.4 * r**2, rel=1e-4)
+    assert dvdr[5:-5] == pytest.approx(4 * np.pi**2 * 0.4 * r[5:-5], rel=1e-3)
+    # Elongation scales the volume linearly.
+    volume_k, _ = link.miller_volume(r, np.full_like(r, 0.4), np.full_like(r, 1.8), np.zeros_like(r))
+    assert volume_k == pytest.approx(1.8 * volume, rel=1e-6)
+
+
+def test_power_link_converts_gyro_bohm_flux_to_watts_by_state_key():
+    link = _tglf_link()
+    key = {"shot": 39915, "time_efit_s": 0.317, "efit_lineage": "magnetics"}
+    sens = pd.DataFrame([{**key, "r_over_a": ra, "tglf_config": cfg, "sat_rule": sat, "field_model": "es",
+                          "qe_gb": 2.0, "qi_gb": 1.0} for ra in (0.4, 0.8) for cfg, sat in (("a", 0), ("b", 3))])
+    transport = pd.DataFrame([{**key, "r_over_a": ra, "q_gb_W_m2": 1000.0, "qe_neo_W_m2": 10.0,
+                               "qi_neo_W_m2": 0.0, "a_m": 0.3, "tglf_config": "b"} for ra in (0.4, 0.8)])
+    # A second time on the same shot must not leak into the match (time, not index).
+    confinement = pd.DataFrame([{"shot": 39915, "time_efit_s": 0.320, "p_ohm_W": 9e9, "p_net_W": 9e9,
+                                 "efit_quality": "good", "thomson_consistent": True},
+                                {"shot": 39915, "time_efit_s": 0.317, "p_ohm_W": 1.2e5, "p_net_W": 1e5,
+                                 "efit_quality": "good", "thomson_consistent": True}])
+    r = np.linspace(0.0, 0.3, 61)
+
+    def geometry(shot, time_s, lineage):
+        return r, np.full_like(r, 0.4), np.ones_like(r), np.zeros_like(r)
+
+    out = link.power_link(sens, transport, confinement, geometry)
+    assert len(out) == 4 and (out["p_net_W"] == 1e5).all()
+    at = out[(out.r_over_a == 0.8)].iloc[0]
+    vp = 4 * np.pi**2 * 0.4 * 0.24
+    assert at["P_tglf_W"] == pytest.approx(3.0 * 1000.0 * vp, rel=2e-3)
+    assert at["P_neo_W"] == pytest.approx(10.0 * vp, rel=2e-3)
+    assert at["ratio_tglf_to_p_net"] == pytest.approx(at["P_tglf_W"] / 1e5)
+    s = link.summary(out)
+    assert len(s) == 1 and s["P_tglf_min_W"].iloc[0] == pytest.approx(s["P_tglf_max_W"].iloc[0])
+
+    # An electron_kinetic state takes its magnetics twin's power; keys spelled a little
+    # differently (float time, solved r/a) still join.
+    kin = sens.assign(efit_lineage="electron_kinetic", time_efit_s=0.31700000000000006,
+                      r_over_a=sens["r_over_a"] + 8e-5)
+    both = link.power_link(pd.concat([sens, kin]), pd.concat([transport, transport.assign(efit_lineage="electron_kinetic")]),
+                           confinement, geometry)
+    assert len(both) == 8 and (both["p_net_W"] == 1e5).all()
+    assert len(link.summary(both)) == 2
+
+    # A state without a measured power is refused, not left NaN.
+    with pytest.raises(ValueError, match="measured power"):
+        link.power_link(sens, transport, confinement.iloc[:1], geometry)
+    with pytest.raises(ValueError, match="delta"):
+        link.miller_volume(r, r, r, None)
+
+    # A profile whose edge disagrees with the atlas minor radius is refused.
+    with pytest.raises(ValueError, match="a_m"):
+        link.power_link(sens, transport.assign(a_m=0.25), confinement, geometry)

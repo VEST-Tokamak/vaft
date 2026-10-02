@@ -50,8 +50,12 @@ Three analyses on the primary selection of ``fit.py``:
    shots with many slices weigh more.
 6. **Criteria v2** (``block_offset_by_thomson_consistency``, #1521). The same block
    offset split by the Thomson verdict (p within [1, 2] p_e), with and without the
-   Thomson density. On the consistent slices, with density in, the offset vanishes;
-   it survives on the inconsistent ones, which are 84 % of the 429xx block.
+   Thomson density. On all evaluated state keys, with density in, the offset
+   vanishes on the consistent slices and survives on the inconsistent ones (26 of
+   the block's 31 Thomson-matched slices). The consistent 429xx subset is only 5
+   slices, and on the primary selection the consistent offset stays (+0.61 +- 0.27).
+   The Thomson-only W_e of the inconsistent 429xx slices is low (log offset -1.3), so
+   the disagreement is not one-sided.
 7. **Ohmic regime** (``neo_alcator_regime``). In the linear ohmic confinement
    (LOC) regime, tau_E rises with density (neo-Alcator tau ~ n); in the
    saturated regime (SOC) it does not, so H_NA = tau / tau_NA falls as n^-1.
@@ -253,8 +257,6 @@ def block_offset_by_thomson_consistency(frame: pd.DataFrame) -> tuple[pd.DataFra
 
 def neo_alcator_regime(frame: pd.DataFrame) -> list:
     """tau and H_NA against n_e, with W_mhd and with the Thomson-only W_e; the block offset is a nuisance."""
-    import extra_scalings
-
     f = frame.loc[np.isfinite(frame["n_e_line_avg_m3"]) & (frame["n_e_line_avg_m3"] > 0)].copy()
     f["tau_e_ts_s"] = f["w_e_ts_J"] / f["p_loss_W"]
     tau_na = extra_scalings.neo_alcator(f)
