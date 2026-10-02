@@ -337,6 +337,8 @@ class TabulatedConductivity:
                 f"{self.name} covers psi_norm {grid.min():.3f}-{grid.max():.3f}; restrict the "
                 "state to that band first (FluxSurfaceState.restricted)"
             )
+        # anti-alias: spatial. Both axes are psi_norm, a flux coordinate, so there is no
+        # sampling rate to reduce and nothing to fold (#425).
         return np.interp(state.psi_norm, grid, np.asarray(self.sigma, dtype=float))
 
 
