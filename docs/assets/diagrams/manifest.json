@@ -555,10 +555,35 @@
       "source_sha256": "e9cab7924e48ee98e258f081fce7901754f050143f39fd9c58c68f5bdbcbb507",
       "svg_sha256": "abf2b244167fb52aa6b5000239516d626d85a53a767f88840115e156b9cb288a"
     },
+    "profile_propagation_oblique.svg": {
+      "call": "vaft.diagram.profile_propagation(theta=1.0471975511965976)",
+      "source_sha256": "f9bcfff127b635caac85f655277c815f8966966c96bc830c92b5bf15e414c54f",
+      "svg_sha256": "4bb23ae82d1e1ec44e88189f01553ee67dd70aa57d3b387fc6c129f06da5e370"
+    },
     "rational_surface.svg": {
       "call": "vaft.diagram.rational_surface()",
       "source_sha256": "9d694cc74b5d340c674d84c082437e2d93bc7c8313583bd87c9a3a41affaa5b5",
       "svg_sha256": "28497bd9cf79da93947e11b0a89ac5d0a57eebf1cc528c689918e3da758e14c4"
+    },
+    "refractive_index_vs_X.svg": {
+      "call": "vaft.diagram.refractive_index_vs_X()",
+      "source_sha256": "966ada119a61c222a87b30ef87ab9a2ecf2d6334478a8bdc70789dc3196ec6ff",
+      "svg_sha256": "4953f624b2d62ff41664cf040beb171e530a7cb51cdcb9aaf275eeae2da740b9"
+    },
+    "refractive_index_vs_X_oblique.svg": {
+      "call": "vaft.diagram.refractive_index_vs_X(theta=1.0471975511965976)",
+      "source_sha256": "3683eba1206dd067398ce91340ea0b6601d7e8dbf4df911fd83b2085bd98fc6c",
+      "svg_sha256": "2f73a0856f42dbb57a19d19fdd21f5c54af3d9ab824ca190b60e7088c56b4993"
+    },
+    "refractive_index_vs_Y.svg": {
+      "call": "vaft.diagram.refractive_index_vs_Y()",
+      "source_sha256": "f9417a9e9fa60f0229b80bab59811b72f079ea35e6fa269bff149a5b3fbd65e5",
+      "svg_sha256": "e4ddd8f5b3d561af47c4c246b988d48706cb02b0bf5934a9fddbfe0672bc5215"
+    },
+    "refractive_index_vs_Y_oblique.svg": {
+      "call": "vaft.diagram.refractive_index_vs_Y(theta=1.0471975511965976)",
+      "source_sha256": "bad86a93355c21000978fbade26ca98f43ba663632f99f25f02caca0a94573a6",
+      "svg_sha256": "1a36a277d8faad53efe707616efc085a87c80c683691b451d3abe75ba15399dc"
     },
     "resonant_layer_matching.svg": {
       "call": "vaft.diagram.resonant_layer_matching()",
@@ -829,6 +854,16 @@
       "call": "vaft.diagram.wall_conditioning_sequence()",
       "source_sha256": "05db5da9abb09ee8045f3321d12f4ace88668f4f85a9b3f92af6a91b6d876bf5",
       "svg_sha256": "185d50d596b7755b4e1c4debd14c9428c01830c007939b0f3428b73cf0db3d07"
+    },
+    "wave_dispersion_omega_k.svg": {
+      "call": "vaft.diagram.wave_dispersion_omega_k()",
+      "source_sha256": "e4b326d5ace655c824a8244de924368e9bad5bb34e515f12e5a62023cd6f4fc8",
+      "svg_sha256": "5f123dafb55de037ab387761466d6c39ddef3344c6e6113a5ee42b55809e3ed1"
+    },
+    "wave_dispersion_omega_k_oblique.svg": {
+      "call": "vaft.diagram.wave_dispersion_omega_k(theta=1.0471975511965976)",
+      "source_sha256": "ea3838cc681b21d99b1b4a8805fed9569a9ad9fa8c48d93b03f701f84843fa73",
+      "svg_sha256": "01f996c27239e1c5fb5354970fcc4684e9833d89f4353ec3e506fa44f2364dd2"
     },
     "x_mode_dispersion.svg": {
       "call": "vaft.diagram.x_mode_dispersion()",
