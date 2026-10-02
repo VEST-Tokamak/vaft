@@ -93,12 +93,23 @@ MEMORY_MB: dict[tuple[str, int], tuple[float, float]] = {
 }
 MEMORY_MB_RDCON_HIGH_N = (40_000, 60_000)
 MEMORY_MB_DEFAULT = (2_000, 8_000)
+#: DCON per n [MiB]: its companion ``match`` builds the eigenfunction and
+#: dominates the peak, which grows with the number of harmonics (~n*q range).
+#: Measured on 39915@319 ms (q_edge 11.7), mpsi 512, n=6 (m = -12..86): 9.4 GB
+#: full edge, 9.2 GB truncated. Reservation 1.8 GB*n and limit 3.6 GB*n
+#: cover that with margin; small n keeps the default floor.
+DCON_MB_PER_N = (1_800, 3_600)
 
 
 def memory_policy(module: str, n: int) -> tuple[float, float]:
     """(reservation, limit) in MiB for one solver job."""
     if module == "rdcon" and n >= 3:
         return MEMORY_MB_RDCON_HIGH_N
+    if module == "dcon":
+        return (
+            max(MEMORY_MB_DEFAULT[0], DCON_MB_PER_N[0] * n),
+            max(MEMORY_MB_DEFAULT[1], DCON_MB_PER_N[1] * n),
+        )
     return MEMORY_MB.get((module, n), MEMORY_MB_DEFAULT)
 
 

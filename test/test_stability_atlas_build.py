@@ -347,5 +347,9 @@ def test_duplicate_kinetic_entries_are_refused(select):
 def test_rdcon_n2_gets_the_measured_memory_budget(batch):
     reserve, limit = batch.memory_policy("rdcon", 2)
     assert reserve >= 24_600 and limit > reserve  # measured peak 24.6 GB at mpsi 512 (#1460)
-    assert batch.memory_policy("dcon", 2) == batch.MEMORY_MB_DEFAULT
+    assert batch.memory_policy("dcon", 2) == (3_600, 8_000)
+    # DCON n=6 at mpsi 512 peaked at 9.4 GB (39915@319 ms, match companion).
+    reserve6, limit6 = batch.memory_policy("dcon", 6)
+    assert reserve6 >= 9_400 and limit6 >= 2 * 9_400
+    assert batch.memory_policy("stride", 2) == batch.MEMORY_MB_DEFAULT
     assert batch.memory_policy("rdcon", 3) == batch.MEMORY_MB_RDCON_HIGH_N
