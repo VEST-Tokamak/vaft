@@ -29,8 +29,14 @@ INSTRUCTIONS = (
     "get_capabilities. Formulas, processes, validation checks, plots and boundaries "
     "each have a search/list tool and a describe tool; get_plot_requirements gives "
     "the data paths a plot reads; extract_plot_data returns bounded numbers from a "
-    "packaged reference shot (list_samples). Every result reports what it shortened "
-    "under 'truncated'. Nothing here writes data, contacts a server or runs a solver."
+    "packaged reference shot (list_samples). Datasets (a shot, or a local artifact) "
+    "are inspected with inspect_dataset, inspect_data_path, list_equilibrium_times and "
+    "get_equilibrium_summary; slices are matched by time, never by index. Campaign "
+    "results (equilibrium states, kinetic profiles, transport, stability, Z_eff, "
+    "confinement, operating space) are atlas tables: list_atlas_tables, then "
+    "describe_atlas_table for units, rules and caveats before query_atlas_table. "
+    "Every result reports what it shortened under 'truncated'. Nothing here writes "
+    "data, runs a solver or executes code."
 )
 
 _INSTALL_HINT = "the VAFT MCP server needs the MCP SDK: pip install 'vaft[mcp]'"

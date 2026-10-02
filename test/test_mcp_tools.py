@@ -66,7 +66,13 @@ def test_the_tool_set_is_the_curated_read_only_list():
         "describe_sample",
         "list_boundaries",
         "describe_boundary",
-        "get_atlas_summary",
+        "inspect_dataset",
+        "inspect_data_path",
+        "list_equilibrium_times",
+        "get_equilibrium_summary",
+        "list_atlas_tables",
+        "describe_atlas_table",
+        "query_atlas_table",
     ]
     forbidden = ("write", "save", "publish", "run", "exec", "shell", "delete", "upload", "solve")
     assert not [t.__name__ for t in tools.TOOLS if any(word in t.__name__ for word in forbidden)]
@@ -327,86 +333,6 @@ def test_boundaries_are_the_registry_without_callables():
         tools.describe_boundary("nope")
     with pytest.raises(tools.ToolInputError):
         tools.list_boundaries("no_family")
-
-
-# -- atlas tables ---------------------------------------------------------------------
-
-
-@pytest.fixture
-def atlas(tmp_path, monkeypatch):
-    root = tmp_path / "atlas"
-    root.mkdir()
-    (root / "atlas.csv").write_text(
-        "shot,efit_quality,efit_lineage,ip,note\n"
-        f"1,good,v1,1.0,{'x' * 500}\n2,good,v2,,a\n3,poor,v1,3.0,b\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setenv(tools.ATLAS_ENV, str(root))
-    return root
-
-
-def test_atlas_summary_counts_groups_and_bounds_rows(atlas):
-    result = _json(tools.get_atlas_summary(limit=2))
-    assert result["path"] == "atlas.csv"
-    assert result["rows"] == 3
-    assert [c["name"] for c in result["columns"]] == ["shot", "efit_quality", "efit_lineage", "ip", "note"]
-    assert {r["value"]: r["rows"] for r in result["counts"]["efit_quality"]} == {"good": 2, "poor": 1}
-    assert len(result["head"]) == 2 and result["head_truncated"] is True
-    assert result["head"][1]["ip"] is None  # NaN is not JSON
-    assert len(result["head"][0]["note"]) == tools.MAX_ATLAS_CELL
-    assert result["truncated"]["count"] >= 1
-    custom = tools.get_atlas_summary("atlas.csv", group_by=["shot", "absent"])
-    assert custom["missing_group_columns"] == ["absent"]
-    with pytest.raises(tools.ToolInputError, match="at most"):
-        tools.get_atlas_summary(group_by=["a", "b", "c", "d"])
-
-
-def test_atlas_parquet_tables_read_the_same(atlas):
-    pytest.importorskip("pyarrow")
-    import pandas as pd
-
-    pd.read_csv(atlas / "atlas.csv").to_parquet(atlas / "atlas.parquet")
-    result = _json(tools.get_atlas_summary("atlas.parquet", limit=1))
-    assert result["rows"] == 3 and len(result["head"]) == 1
-    assert {r["value"]: r["rows"] for r in result["counts"]["efit_lineage"]} == {"v1": 2, "v2": 1}
-
-
-def test_atlas_caps_columns_and_file_size(atlas, monkeypatch):
-    monkeypatch.setattr(tools, "MAX_ATLAS_COLUMNS", 2)
-    result = _json(tools.get_atlas_summary())
-    assert result["column_count"] == 5 and len(result["columns"]) == 2
-    assert all(len(row) == 2 for row in result["head"])
-    monkeypatch.setattr(tools, "MAX_ATLAS_BYTES", 10)
-    with pytest.raises(tools.ToolInputError, match="limit"):
-        tools.get_atlas_summary()
-
-
-def test_atlas_refuses_paths_outside_its_directory_with_one_message(atlas, tmp_path):
-    outside = tmp_path / "secret.csv"
-    outside.write_text("a\n1\n", encoding="utf-8")
-    messages = set()
-    for path in ("../secret.csv", str(outside), "C:\\secret.csv", "\\\\server\\share\\x.csv",
-                 "//server/share/x.csv", "sub/../../secret.csv", "missing.csv", "atlas.txt", "~/x.csv"):
-        with pytest.raises(tools.ToolInputError) as caught:
-            tools.get_atlas_summary(path)
-        messages.add(str(caught.value).replace(repr(path[:200]), "<path>"))
-    assert len(messages) == 1, messages
-    if hasattr(os, "symlink"):
-        try:
-            (atlas / "link.csv").symlink_to(outside)
-        except OSError:  # Windows without symlink privilege
-            pass
-        else:
-            with pytest.raises(tools.ToolInputError, match="no readable atlas table"):
-                tools.get_atlas_summary("link.csv")
-            # an escaping link is not offered either, so the single table is still chosen
-            assert tools.get_atlas_summary()["path"] == "atlas.csv"
-
-
-def test_atlas_needs_its_directory(monkeypatch):
-    monkeypatch.delenv(tools.ATLAS_ENV, raising=False)
-    with pytest.raises(tools.ToolInputError, match=tools.ATLAS_ENV):
-        tools.get_atlas_summary()
 
 
 # -- the bounded converter ------------------------------------------------------------

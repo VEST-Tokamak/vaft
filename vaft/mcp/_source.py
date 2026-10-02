@@ -1,19 +1,46 @@
-"""Where the MCP adapter gets data from: the private source seam (#1423).
+"""Where the MCP adapter gets data from: the private source seam (#1423, #188 Phase 2).
 
-The MCP protocol names a dataset semantically -- today, a packaged reference
-shot number.  How that shot is opened (currently the OMAS reference sample) is
-decided here and nowhere else, so a later DD/DDView-backed loader (#1127,
-#1132, #1135) replaces this module without changing any tool schema.
+The MCP protocol names a dataset semantically: a shot number, or a local
+artifact by its path relative to a directory the server's user chose.  How
+that dataset is opened is decided here and nowhere else, so a later
+DD/DDView-backed loader (#1127, #1132, #1135) replaces this module without
+changing any tool schema.  Three kinds of dataset resolve:
 
-Only packaged samples are resolved: nothing here reaches HSDS, a database, the
-network or an arbitrary file path.
+* a packaged reference shot (:func:`vaft.omas.sample.sample_ods`), offline;
+* a local artifact under ``VAFT_ARTIFACT_DIR`` -- a g-file, OMAS JSON, IMAS
+  netCDF or IMAS HDF5 -- through :func:`vaft.omas.load`;
+* a database shot through :func:`vaft.database.load`, only when the server was
+  started with ``VAFT_MCP_DATABASE=1``.  Credentials come from the user's own
+  HSDS configuration; nothing here reads, logs or returns them, and a failure
+  is reported by its exception class only.
+
+Every load returns a fresh object: VAFT's updaters and extraction may
+materialise paths on the loaded data, and a cached object would carry that
+into the next answer.  Nothing here writes.
 """
 
 from __future__ import annotations
 
+import os
+from dataclasses import dataclass, field
 from typing import Any
 
-__all__ = ["known_shots", "load_reference_shot"]
+__all__ = ["Dataset", "known_shots", "load_dataset", "load_reference_shot"]
+
+ARTIFACT_ENV = "VAFT_ARTIFACT_DIR"
+DATABASE_ENV = "VAFT_MCP_DATABASE"
+
+
+@dataclass
+class Dataset:
+    """A loaded dataset and the provenance a tool reports with it."""
+
+    data: Any
+    provenance: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def shot(self) -> int:
+        return int(self.provenance.get("shot") or 0)
 
 
 def known_shots() -> tuple[int, ...]:
@@ -23,12 +50,12 @@ def known_shots() -> tuple[int, ...]:
     return tuple(int(shot) for shot in available_samples())
 
 
-def load_reference_shot(shot: int) -> Any:
-    """Open packaged reference shot ``shot`` for :func:`vaft.plot.extract`.
+def database_enabled() -> bool:
+    return os.environ.get(DATABASE_ENV, "").strip().lower() in ("1", "true", "yes", "on")
 
-    A fresh object every call: extraction may materialise paths on the loaded
-    data, and a cached object would carry that into the next answer.
-    """
+
+def load_reference_shot(shot: int) -> Any:
+    """Open packaged reference shot ``shot`` for :func:`vaft.plot.extract`."""
     shot = int(shot)
     shots = known_shots()
     if shot not in shots:
@@ -40,5 +67,102 @@ def load_reference_shot(shot: int) -> Any:
     except FileNotFoundError as error:
         raise ValueError(
             f"reference shot {shot} is declared but its data is not installed here "
-            f"(repository-only sample): {error}"
+            f"(repository-only sample): {type(error).__name__}"
         ) from None
+
+
+def _data_dictionary_version(ods) -> str | None:
+    from vaft.ods_access import path_value
+
+    for path in ("dataset_description.ids_properties.version_put.data_dictionary",
+                 "equilibrium.ids_properties.version_put.data_dictionary"):
+        value = path_value(ods, path, None)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _vaft_version() -> str:
+    from vaft.version import __version__
+
+    return str(__version__)
+
+
+def _artifact(path: str) -> Dataset:
+    from ._paths import PathRefused, configured_root, contained_file
+
+    refused = PathRefused(
+        f"no readable artifact {str(path)[:200]!r}: pass a path relative to {ARTIFACT_ENV} "
+        f"(a g-file, OMAS JSON, IMAS netCDF or IMAS HDF5 file or directory)"
+    )
+    root = configured_root(ARTIFACT_ENV, "local artifacts (g-files, ODS JSON, IMAS netCDF/HDF5)")
+    resolved = contained_file(root, path, refused, directory=True)
+    from vaft.omas import load
+
+    relative = resolved.relative_to(root).as_posix()
+    try:
+        ods = load(resolved)
+    except (OSError, ValueError, KeyError) as error:
+        raise ValueError(f"artifact {relative!r} could not be read: {type(error).__name__}") from None
+    from vaft.ods_access import path_value
+
+    shot = path_value(ods, "dataset_description.data_entry.pulse", None)
+    return Dataset(ods, {
+        "kind": "artifact",
+        "artifact": relative,
+        "shot": int(shot) if isinstance(shot, (int, float)) and shot == shot else None,
+        "loader": "vaft.omas.load",
+        "data_dictionary": _data_dictionary_version(ods),
+        "vaft_version": _vaft_version(),
+    })
+
+
+def _database(shot: int, source: str | None) -> Dataset:
+    if not database_enabled():
+        raise ValueError(
+            f"shot {shot} is not a packaged sample, and database access is off: start the server "
+            f"with {DATABASE_ENV}=1 to read database shots (read-only, your own HSDS configuration)"
+        )
+    import vaft.database as database
+
+    try:
+        ods = database.load(int(shot), source=source)
+    except Exception as error:  # noqa: BLE001 - never echo server text: it may carry endpoints or accounts
+        raise ValueError(f"database shot {shot} (source {source or 'default'}) is unavailable: "
+                         f"{type(error).__name__}") from None
+    return Dataset(ods, {
+        "kind": "database",
+        "shot": int(shot),
+        "database_source": source or "default",
+        "loader": "vaft.database.load",
+        "data_dictionary": _data_dictionary_version(ods),
+        "vaft_version": _vaft_version(),
+    })
+
+
+def load_dataset(shot: int | None = None, artifact: str | None = None,
+                 database_source: str | None = None) -> Dataset:
+    """Resolve one dataset: exactly one of ``shot`` and ``artifact``.
+
+    A shot is the packaged sample when one ships and no ``database_source`` is
+    named; otherwise it is read from the database (when enabled).
+    """
+    if (shot is None) == (artifact is None):
+        raise ValueError("name exactly one dataset: shot=<number> or artifact=<relative path>")
+    if artifact is not None:
+        if database_source is not None:
+            raise ValueError("database_source applies to shots, not artifacts")
+        return _artifact(str(artifact))
+    try:
+        shot = int(shot)
+    except (TypeError, ValueError):
+        raise ValueError(f"shot must be a shot number, got {shot!r}") from None
+    if database_source is None and shot in known_shots():
+        return Dataset(load_reference_shot(shot), {
+            "kind": "sample",
+            "shot": shot,
+            "loader": "vaft.omas.sample.sample_ods",
+            "data_dictionary": None,
+            "vaft_version": _vaft_version(),
+        })
+    return _database(shot, None if database_source is None else str(database_source))
