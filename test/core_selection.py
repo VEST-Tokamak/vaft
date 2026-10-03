@@ -111,12 +111,14 @@ CORE_MODULES: tuple[str, ...] = (
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
+    # The ssh+Slurm backend runs against fake ssh/rsync/Slurm shims: no network.
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
     "test_process_tree.py",
+    "test_remote_backend.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures and the canonical
