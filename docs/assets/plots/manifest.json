@@ -1072,6 +1072,15 @@
       "reason": "no packaged sample carries the data this plot needs",
       "status": "no_sample"
     },
+    "summary_time_romero_balance": {
+      "call": "vaft.omas.plot_summary_time_romero_balance(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "6347d4dd3e69c3fd1db6e56df3b2a00ed2e7ccc9b193d1ee64ff05909d0024fd",
+      "png_sha256": "30273f45edcb608869d96e8d33048f6949122d1000a72df4c7ec219e3f3076f5",
+      "renderer_sha256": "c9cff8331c17bfcf347d85914ee30225366192ae0f7da0d4410f8fa2293a4518",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
     "summary_time_voltage_consumption": {
       "call": "vaft.omas.plot_summary_time_voltage_consumption(vaft.omas.load(vaft.data.sample(39915)))",
       "model_sha256": "c9b33312abd5afce7860ec000220dc3ce6b701c080c30547abe97dfdd16da811",

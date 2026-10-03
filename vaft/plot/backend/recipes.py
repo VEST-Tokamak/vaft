@@ -5775,6 +5775,133 @@ RECIPES["summary_time_resistive_zeff"] = CallableRecipe(
 )
 
 
+# ---------------------------------------------------------------------------
+# Romero's voltage and volt-second balance (#781, #1590)
+#
+# compute_romero_flux_balance_ods evaluates every term; this view draws them.
+# The plasma resistance is an upstream estimate with its own provenance
+# (#781), so none is assumed: without plasma_resistance= the view draws the
+# terms that do not depend on it and the resistive part the balance
+# *implies*, V_B - V_I, labelled as such and never as an independent V_R.
+# ---------------------------------------------------------------------------
+
+
+def _romero_resistance(value: Any, n: int) -> np.ndarray | None:
+    """``plasma_resistance=`` as one value per slice [Ohm], or ``None`` when not given."""
+    if value is None:
+        return None
+    try:
+        r_p = np.broadcast_to(np.asarray(value, dtype=float), (n,)).copy()
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"plasma_resistance must be one value or one per selected slice ({n}) in ohm; got {value!r}"
+        ) from None
+    if not np.all(np.isfinite(r_p)) or np.any(r_p < 0.0):
+        raise ValueError("plasma_resistance must be finite and non-negative")
+    return r_p
+
+
+def _build_romero_balance(ods: Any, **options: Any) -> Panels:
+    """Romero's voltages, volt-seconds, internal inductance and closing resistance (#1590).
+
+    ``V_B``, ``V_C``, ``V_I``, ``L_i``, ``Phi_B``, ``Phi_B_direct`` and
+    ``Phi_I`` do not depend on the plasma resistance and are always drawn.
+    With ``plasma_resistance=`` the view adds ``V_R = R_p (I_p - I_ni)``, the
+    balance residual, ``Phi_R`` and ``Phi_closure``; without it, the
+    resistive voltage and volt-seconds the balance implies (``V_B - V_I``,
+    ``Phi_B - Phi_I``), which close it by construction.
+    """
+    from vaft.omas.process_wrapper import compute_romero_flux_balance_ods
+    from vaft.omas.resistive_zeff import current_carrying_window
+
+    asked = _range_option(options, "time_range")
+    window = asked
+    try:
+        if window is None:
+            window = current_carrying_window(ods)
+        i_ni = float(options.get("non_inductive_current") or 0.0)
+        if not np.isfinite(i_ni):
+            raise ValueError(f"non_inductive_current must be finite; got {i_ni!r}")
+        # R_p only enters V_R and what is built from it; those are taken from
+        # a second call with the caller's R_p, never from this zero.
+        out = compute_romero_flux_balance_ods(ods, R_p=0.0, I_ni=i_ni, time_range=window)
+    except (KeyError, IndexError) as exc:
+        raise ValueError(f"Romero's balance needs a multi-slice equilibrium: {exc}") from exc
+    t = np.asarray(out["time"], dtype=float)
+    r_p = _romero_resistance(options.get("plasma_resistance"), t.size)
+    given = None
+    if r_p is not None:
+        given = compute_romero_flux_balance_ods(ods, R_p=r_p, I_ni=i_ni, time_range=window)
+
+    voltages = [
+        Series(x=t, y=out["V_B"], label="V_B = -dpsi_B/dt (boundary)", style={"color": palette(0), "lw": 1.8}),
+        Series(x=t, y=out["V_I"], label="V_I (internal inductive)", style={"color": palette(1)}),
+        Series(x=t, y=out["V_C"], label="V_C = -dpsi_C/dt", style={"color": palette(2), "linestyle": "--"}),
+    ]
+    flux = [
+        Series(x=t, y=out["Phi_B"], label="Phi_B = int V_B dt", style={"color": palette(0), "lw": 1.8}),
+        Series(x=t, y=out["Phi_B_direct"], label="-(psi_B - psi_B(t0)) direct",
+               style={"color": palette(0), "linestyle": "none", "marker": "o", "markersize": 4}),
+        Series(x=t, y=out["Phi_I"], label="Phi_I", style={"color": palette(1)}),
+    ]
+    if given is None:
+        voltages.append(Series(x=t, y=out["V_B"] - out["V_I"], label="V_B - V_I (implied resistive)",
+                               style={"color": palette(3), "linestyle": ":"}))
+        flux.append(Series(x=t, y=out["Phi_B"] - out["Phi_I"], label="Phi_B - Phi_I (implied resistive)",
+                           style={"color": palette(3), "linestyle": ":"}))
+    else:
+        voltages += [
+            Series(x=t, y=given["V_R"], label="V_R = R_p (I_p - I_ni)", style={"color": palette(3)}),
+            Series(x=t, y=given["balance_residual"], label="residual V_B - V_R - V_I",
+                   style={"color": "emphasis:alert", "linestyle": ":"}),
+        ]
+        flux += [
+            Series(x=t, y=given["Phi_R"], label="Phi_R", style={"color": palette(3)}),
+            Series(x=t, y=given["Phi_closure"], label="closure Phi_B - Phi_R - Phi_I",
+                   style={"color": "emphasis:alert", "linestyle": ":"}),
+        ]
+    micro = 1e6
+    resistance = [Series(x=t, y=out["R_closing"] * micro, label="R_closing = (V_B - V_I)/(I_p - I_ni)",
+                         style={"color": palette(3), "marker": "o", "linestyle": "none"})]
+    if r_p is not None:
+        resistance.append(Series(x=t, y=r_p * micro, label="R_p given", style={"color": "role:reference"}))
+    assumption = "I_ni = 0 (purely Ohmic, assumed)" if i_ni == 0.0 else f"I_ni = {i_ni:g} A (given)"
+    # A caller's window is the axis, as on every windowed time history; the
+    # default (current-carrying) window is just where the slices are.
+    limits = None if asked is None else (float(asked[0]), float(asked[1]))
+    panels = Panels(
+        models=(
+            LineSeries(series=tuple(voltages), x_label="Time", x_unit="s", y_label="Voltage", y_unit="V",
+                       title="no R_p given: the resistive part is implied, not measured" if r_p is None
+                       else "R_p given by the caller"),
+            LineSeries(series=tuple(flux), x_label="Time", x_unit="s", y_label="Volt-seconds", y_unit="Wb"),
+            LineSeries(series=(Series(x=t, y=out["L_i"] * micro, label="L_i = mu0 R0 li_3 / 2",
+                                      style={"color": palette(0)}),),
+                       x_label="Time", x_unit="s", y_label="L_i", y_unit="uH",
+                       title=f"R0 = {out['R0']:.3f} m"),
+            LineSeries(series=tuple(resistance), x_label="Time", x_unit="s", y_label="Plasma resistance",
+                       y_unit="uOhm"),
+        ),
+        ncols=1, share_x=True,
+        suptitle=f"Romero voltage and volt-second balance, {assumption}",
+    )
+    if limits is None:
+        return panels
+    return replace(panels, models=tuple(replace(panel, x_limits=limits) for panel in panels.models))
+
+
+RECIPES["summary_time_romero_balance"] = CallableRecipe(
+    builder=_build_romero_balance,
+    description="Romero's boundary, inductive and resistive voltages and volt-seconds (#781, #1590).",
+    reads=(*_EQUILIBRIUM_SLICE_READS,
+           "equilibrium.time_slice.{i}.global_quantities.li_3",
+           "tf.r0", *_WALL_LIMITER_READS, *_RESISTIVE_ZEFF_COPY_READS),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.process_wrapper.compute_romero_flux_balance_ods subscripts the ODS and derives li_3 on a copy",
+    windowed=True,
+)
+
+
 
 # ---------------------------------------------------------------------------
 # camera_visible: raster frames and their pinhole-projected EFIT/field-line
