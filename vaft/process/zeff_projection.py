@@ -138,7 +138,9 @@ def profile_conductivity_model(
     Surface ``i`` gets ``parallel_conductivity(state, Z_eff[i])[i]``: the
     unmodified scalar model, so a flat profile reproduces it exactly and no
     kernel is copied.  ``model_resistance`` records ``z_eff = 1`` for this
-    route; the profile is the record of what was used.
+    route; the profile is the record of what was used.  The ``ln_lambda`` it
+    is built with must be the one ``model_resistance`` is called with; a
+    mismatch is refused, not silently overridden.
 
     Applicability
     -------------
@@ -149,12 +151,18 @@ def profile_conductivity_model(
     .. [issue] #1566 Sec. 3 (the Redl/Sauter projection through Lane Z's
                conductivity models), #1214 (the models), #1486 (Lane Z).
     """
-    from vaft.process.resistive_zeff import parallel_conductivity
+    from vaft.process.resistive_zeff import _ln_lambda_profile, parallel_conductivity
 
     profile = np.asarray(zeff_profile, dtype=float)
 
-    def model(state, _z, _lnl):
+    def model(state, _z, lnl):
         z = _profile(state, profile)
+        own, _ = _ln_lambda_profile(state, ln_lambda)
+        if not np.allclose(np.asarray(lnl, dtype=float), own, rtol=1e-12, atol=0.0):
+            raise ValueError(
+                "model_resistance was given a different ln_lambda from the one this profile model was "
+                f"built with ({ln_lambda!r}); build it with the same ln_lambda"
+            )
         sigma = np.empty(z.shape)
         for value in np.unique(z):
             at = z == value
@@ -163,6 +171,7 @@ def profile_conductivity_model(
 
     model.zeff_profile = profile
     model.base_model = base_model
+    model.__name__ = f"profile_{base_model}"
     return model
 
 
@@ -344,8 +353,8 @@ def project_window_to_resistive_scalar(
     Raises
     ------
     ValueError
-        Unequal numbers of states and profiles, or a profile off its state's
-        surfaces.
+        Unequal numbers of states and profiles, two states at one time, or a
+        profile off its state's surfaces.
 
     Processing steps
     ----------------
@@ -360,6 +369,10 @@ def project_window_to_resistive_scalar(
     ----------
     #1566 Sec. 7: a spatio-temporal model-equivalent scalar, comparable with
     ``Z_eff^res,obs`` because the objective is literally the same function.
+    The drive is ``|I_p|``: ``R_p`` is a dissipation and does not depend on
+    the current's sign convention.  Near Z_eff = 1 the estimator reports
+    ``bound_hit`` (a ~0.3 % bias at the lower bound), exactly as it does for
+    the observed scalar.
 
     Applicability
     -------------
@@ -382,7 +395,10 @@ def project_window_to_resistive_scalar(
         for s, z in zip(states, profiles)
     ])
     time = np.array([float(s.time) for s in states])
-    ip = np.array([float(s.I_p) for s in states])
+    if np.unique(time).size != time.size:
+        raise ValueError("two states share a time; Lane Z's estimator would silently use only the first")
+    # the current's sign is a COCOS choice; the dissipation is not -- drive with |I_p|
+    ip = np.abs(np.array([float(s.I_p) for s in states]))
     n = time.size
     nan = np.full(n, np.nan)
     observed = ObservedResistance(

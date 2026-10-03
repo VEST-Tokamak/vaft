@@ -14,9 +14,10 @@ states).  Profiles:
   n_e-weighted mean Z_eff = 2 (the Lane L default);
 * ``transient_fixed``: n_C/n_e = n_O/n_e = 1/86 with transient charge states.
 
-``resistive_closure`` then asks the inverse question: what common impurity
-amplitude makes the transient profile reproduce the observed scalar on every
-state of the window (#1566, closure of composition and resistance)?  The
+``resistive_closure`` then asks the inverse question: what one impurity
+amplitude, common to the window, makes the transient profiles reproduce the
+observed scalar under the same window objective (#1566, closure of
+composition and resistance)?  The
 residual is reported, never forced.  Writes ``resistive_projection.csv`` and
 ``resistive_projection.MANIFEST.json`` into ``--out``.
 
@@ -54,7 +55,13 @@ def _lane_z():
 
 
 def _filled(z: np.ndarray) -> tuple[np.ndarray, int]:
-    """NaN surfaces (n_e = 0 at the fitted edge) take their nearest defined value; they carry no current."""
+    """Surfaces where the atomic-data Z_eff is undefined take values interpolated from their neighbours.
+
+    A FluxSurfaceState has T_e, n_e > 0 everywhere, so NaN here means the
+    charge-state moments could not be formed (T_e outside the ADF11 table, a
+    fully neutral point).  Such surfaces may carry current: the fill is an
+    assumption, counted per profile (``filled_surfaces``) so it can be judged.
+    """
     z = np.asarray(z, dtype=float).copy()
     bad = ~np.isfinite(z)
     if bad.all():
@@ -62,7 +69,7 @@ def _filled(z: np.ndarray) -> tuple[np.ndarray, int]:
     if bad.any():
         index = np.arange(z.size)
         z[bad] = np.interp(index[bad], index[~bad], z[~bad])
-    return np.maximum(z, 1.0), int(bad.sum())
+    return z, int(bad.sum())
 
 
 def _onset(filedb: Path, shot: int) -> Optional[float]:
@@ -97,7 +104,8 @@ def build(filedb: Path, atlas: Path, zeff_atlas: Path, out: Path) -> dict:
         model = w["conductivity_model"]
         ln_lambda = w["ln_lambda"] if w["ln_lambda"] == "sauter" else float(w["ln_lambda"])
         times = sorted({float(s["time_efit_s"]) for s in slices
-                        if int(s["shot"]) == shot and s["window_t_start_s"] and abs(float(s["window_t_start_s"]) - t0) < 5e-5
+                        if int(s["shot"]) == shot and s.get("window_kind") == w["window_kind"]
+                        and s["window_t_start_s"] and abs(float(s["window_t_start_s"]) - t0) < 5e-5
                         and s.get("has_state") in ("True", "true", "1") and t0 - 5e-5 <= float(s["time_efit_s"]) <= t1 + 5e-5})
         base = {"shot": shot, "t_start_s": t0, "t_end_s": t1, "window_kind": w["window_kind"],
                 "conductivity_model": model, "ln_lambda": w["ln_lambda"],
@@ -114,24 +122,32 @@ def build(filedb: Path, atlas: Path, zeff_atlas: Path, out: Path) -> dict:
             rows.append({**base, "profile": "all", "status": "error", "reason": "; ".join(notes) or "no state"})
             continue
         onset = _onset(filedb, shot)
-        profiles: dict[str, list] = {"preset_flat": [np.full(np.shape(s.psi_norm), 2.0) for s in states]}
-        filled = 0
+        profiles: dict[str, Any] = {"preset_flat": ([np.full(np.shape(s.psi_norm), 2.0) for s in states], 0)}
+        unit: Optional[list] = None
         for name, ionization, normalization in (("coronal_ne_mean", "coronal", "ne_weighted_mean"),
                                                 ("transient_ne_mean", "transient", "ne_weighted_mean"),
                                                 ("transient_fixed", "transient", "fixed")):
-            if ionization == "transient" and onset is None:
-                continue
-            built = []
-            for s in states:
-                age = float(s.time) - onset if onset is not None else None
-                r = zeff_profile_for_state(s, WEIGHTS, normalization=normalization, ionization=ionization,
-                                           plasma_age_s=age if age and age > 0 else None)
-                z, n_bad = _filled(r.zeff)
-                filled += n_bad
-                built.append(z)
-            profiles[name] = built
-        for name, zs in profiles.items():
-            row = {**base, "profile": name, "states_used": len(states)}
+            try:
+                built, filled = [], 0
+                for s in states:
+                    age = float(s.time) - onset if onset is not None else None
+                    if ionization == "transient" and not (age is not None and age > 0.0):
+                        raise ValueError(f"no positive plasma age at t={float(s.time):.4f}")
+                    r = zeff_profile_for_state(s, WEIGHTS, normalization=normalization, ionization=ionization,
+                                               plasma_age_s=age if age is not None and age > 0.0 else None)
+                    z, n_bad = _filled(r.zeff)
+                    filled += n_bad
+                    built.append(z)
+                    if name == "transient_fixed":
+                        # Z_eff - 1 = c (S2 - S1): the per-unit-amplitude excess of this state
+                        unit = (unit or []) + [(z - 1.0) / r.scale]
+                profiles[name] = (built, filled)
+            except Exception as exc:  # noqa: BLE001 -- one profile model failing is a row, not the end
+                rows.append({**base, "profile": name, "status": "error", "reason": f"{type(exc).__name__}: {exc}"[:200]})
+                if name == "transient_fixed":
+                    unit = None
+        for name, (zs, filled) in profiles.items():
+            row = {**base, "profile": name, "states_used": len(states), "filled_surfaces": filled}
             try:
                 p = project_window_to_resistive_scalar(states, zs, model=model, ln_lambda=ln_lambda,
                                                        bounds=(1.0, 8.0), profile_source=name)
@@ -144,36 +160,36 @@ def build(filedb: Path, atlas: Path, zeff_atlas: Path, out: Path) -> dict:
             except Exception as exc:  # noqa: BLE001
                 row.update(status="error", reason=f"{type(exc).__name__}: {exc}"[:200])
             rows.append(row)
-        # the inverse: the amplitude that makes the transient profile reproduce the observed scalar
-        if onset is not None:
-            scales, n_c, zmean = [], [], []
-            for s in states:
-                age = float(s.time) - onset
+        # the inverse: ONE impurity amplitude c, common to the window, whose transient
+        # profiles Z = 1 + c (S2 - S1) reproduce the observed scalar under the same objective
+        if unit is not None:
+            from scipy.optimize import brentq
 
-                def projection(z, _s=s):
-                    zf, _ = _filled(z)
-                    return project_zeff_profile_to_resistive_scalar(_s, zf, model=model, ln_lambda=ln_lambda,
-                                                                    bounds=(1.0, 20.0)).zeff_equivalent
-                try:
-                    r = zeff_profile_for_state(s, WEIGHTS, normalization="resistive_closure", ionization="transient",
-                                               plasma_age_s=age if age > 0 else None, projection=projection,
-                                               resistive_target=base["zeff_res_obs"])
-                    scales.append(r.scale)
-                    valid = np.isfinite(r.elemental_fractions[:, 0])
-                    n_c.append(float(r.elemental_fractions[valid, 0][0]))
-                    zmean.append(float(np.nanmean(r.zeff)))
-                except Exception as exc:  # noqa: BLE001
-                    rows.append({**base, "profile": "resistive_closure", "status": "error",
-                                 "reason": f"t={float(s.time):.4f}: {type(exc).__name__}: {exc}"[:200]})
-            if scales:
-                rows.append({**base, "profile": "resistive_closure", "status": "ok", "states_used": len(scales),
-                             "closure_n_C_over_ne": float(np.median(n_c)),
-                             "closure_n_C_over_ne_min": float(np.min(n_c)), "closure_n_C_over_ne_max": float(np.max(n_c)),
-                             "zeff_profile_volume_mean": float(np.median(zmean))})
-        if filled:
-            for row in rows:
-                if row.get("shot") == shot and row.get("t_start_s") == t0:
-                    row["filled_edge_surfaces"] = filled
+            def window_scalar(c):
+                zs = [1.0 + c * u for u in unit]
+                return project_window_to_resistive_scalar(states, zs, model=model, ln_lambda=ln_lambda,
+                                                          bounds=(1.0, 20.0)).zeff_equivalent
+
+            row = {**base, "profile": "resistive_closure", "states_used": len(states)}
+            target = base["zeff_res_obs"]
+            try:
+                hi = 0.08
+                f_lo, f_hi = window_scalar(1e-6) - target, window_scalar(hi) - target
+                if not (np.isfinite(f_lo) and np.isfinite(f_hi)) or f_lo * f_hi > 0.0:
+                    raise ValueError(f"no amplitude in [0, {hi}] gives {target:.3f} "
+                                     f"(range {f_lo + target:.3f} .. {f_hi + target:.3f})")
+                c = brentq(lambda v: window_scalar(v) - target, 1e-6, hi, xtol=1e-7)
+                zs = [1.0 + c * u for u in unit]
+                from vaft.process.zeff_projection import project_window_to_resistive_scalar as pw
+
+                check = pw(states, zs, model=model, ln_lambda=ln_lambda, bounds=(1.0, 20.0))
+                row.update(status="ok", closure_scale=float(c), closure_n_C_over_ne=float(c * WEIGHTS["C"] / sum(WEIGHTS.values())),
+                           zeff_res_equiv=check.zeff_equivalent, residual=check.zeff_equivalent - target,
+                           zeff_profile_volume_mean=check.profile_volume_mean,
+                           zeff_axis_mean=float(np.mean([z[0] for z in zs])))
+            except Exception as exc:  # noqa: BLE001
+                row.update(status="error", reason=f"{type(exc).__name__}: {exc}"[:200])
+            rows.append(row)
     out.mkdir(parents=True, exist_ok=True)
     columns = sorted({k for r in rows for k in r}, key=lambda c: (c not in ("shot", "t_start_s", "t_end_s", "profile"), c))
     with open(out / "resistive_projection.csv", "w", newline="") as handle:

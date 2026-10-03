@@ -87,3 +87,45 @@ def test_bad_profiles_are_refused():
         project_zeff_profile_to_resistive_scalar(state, np.full(81, 0.5))
     with pytest.raises(ValueError, match="no constant Z_eff"):
         project_zeff_profile_to_resistive_scalar(state, np.full(81, 9.0), bounds=(1.0, 3.0))
+
+
+# --- cold-review findings ------------------------------------------------------------------
+
+
+def test_a_numeric_ln_lambda_and_a_radial_profile_still_match_the_analytic_spitzer():
+    state = _state()
+    profile = 1.2 + 1.5 * state.psi_norm
+    analytic = spitzer_resistive_equivalent_zeff(state, profile, ln_lambda=12.0)
+    numeric = project_zeff_profile_to_resistive_scalar(state, profile, model="spitzer_nrl", ln_lambda=12.0)
+    assert numeric.zeff_equivalent == pytest.approx(analytic, rel=1e-8)
+
+
+def test_the_profile_model_refuses_a_different_ln_lambda():
+    from vaft.process.resistive_zeff import model_resistance
+
+    closure = profile_conductivity_model(np.full(81, 2.0), base_model="redl", ln_lambda="sauter")
+    with pytest.raises(ValueError, match="different ln_lambda"):
+        model_resistance(_state(), 1.0, model=closure, ln_lambda=15.0)
+
+
+@pytest.mark.parametrize("model", ["sauter", "redl"])
+def test_the_profile_model_is_surface_local_for_a_radial_profile(model):
+    from vaft.process.resistive_zeff import parallel_conductivity
+
+    state = _state()
+    profile = 1.0 + 2.0 * state.psi_norm
+    sigma = profile_conductivity_model(profile, base_model=model)(state, 1.0, parallel_conductivity.__globals__["_ln_lambda_profile"](state, "sauter")[0])
+    for i in (0, 20, 40, 80):
+        assert sigma[i] == pytest.approx(parallel_conductivity(state, profile[i], model=model, ln_lambda="sauter")[i], rel=1e-12)
+
+
+def test_the_window_scalar_does_not_depend_on_the_current_sign():
+    states = [_state(time=t, ip=-1e5) for t in (0.0, 1e-3, 2e-3)]
+    p = project_window_to_resistive_scalar(states, [np.full(81, 2.0)] * 3, model="redl")
+    assert p.convergence["status"] == "ok" and p.zeff_equivalent == pytest.approx(2.0, rel=1e-4)
+
+
+def test_states_sharing_a_time_are_refused():
+    states = [_state(time=0.0), _state(time=0.0)]
+    with pytest.raises(ValueError, match="share a time"):
+        project_window_to_resistive_scalar(states, [np.full(81, 2.0)] * 2)
