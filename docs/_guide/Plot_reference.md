@@ -115,6 +115,51 @@ This is not a plot's own `layout=`. That keyword spreads the series of one plot 
 a composition places several plots. A cell therefore holds one panel, and an overview or a
 `layout="subplots"` plot is refused there.
 
+### Figure options and reproducible requests
+
+On top of a `format` and `theme`, `figure_options=` sets what a figure asks for explicitly. It works
+on any plot and on `compose`, with either backend. The settings it covers:
+
+- **Axes**: title, axis labels, limits and scales.
+- **Legend**: shown or hidden, location, columns, frame.
+- **Ticks and grid**: grid, minor ticks, tick direction.
+- **Type**: font sizes and faces. Sizes scale with the format's proportions.
+- **Series**: line and marker scale.
+- **Scalar fields**: colour map, colour range, colorbar label.
+
+Every option left out is inherited from the format, theme or plot:
+
+```python
+from vaft.plot import DataSource, FigureOptions, PlotRequest
+
+ods = vaft.omas.sample_ods()
+vaft.omas.plot_plasma_current_time(
+    ods, format="single_column", theme="technical",
+    figure_options={"xlim": (0.30, 0.33), "legend": False, "minor_ticks": True},
+)
+
+request = PlotRequest(
+    DataSource("sample", (39915,)), plot="plasma_current_time",
+    format="single_column", figure_options=FigureOptions(xlim=(0.30, 0.33)),
+)
+figure, axes = request.render()
+print(request.to_python())   # the plot call that draws it
+print(request.to_cli())      # vaft plot plasma_current_time --sample 39915 --format ...
+```
+
+A `PlotRequest` describes a whole figure:
+
+- **Data**: samples, files or database shots.
+- **Content**: one plot with its keywords, or a composition.
+- **Presentation**: the format, theme, backend and options.
+
+`to_python()`, `to_cli()` and `to_dict()` write only what was set, so a figure reproduced later
+follows any improvement to the canonical defaults. `to_python(pylustrator=True)` starts
+Pylustrator first, for one-off finishing by hand.
+
+Each theme pairs its text face with a MathText font. Vector files written by `save_figure` keep
+their text as text: TrueType embedded in PDF, `<text>` in SVG.
+
 ## Index
 
 <div class="ref-index" data-ref-index>

@@ -491,16 +491,27 @@ The resulting $(s, \alpha)$ stability diagram is `s_alpha_ballooning`.
   (`s_alpha_ballooning_eigenmode`). An unstable surface has a mode peaked at the outboard midplane (bad
   curvature) that decays within a few transits; a stable surface has only the continuum.
 
-Boundary conditions differ between the two pictures. The ballooning representation requires decay on the
-extended angle, while flux-tube codes join the sheared ends of the box (twist and shift, not derived here).
-Near an X-point $B_p \to 0$ and $q \to \infty$, so ordinary field-aligned coordinates distort; see
-`sfl_coordinate_validity` (#1074) and X-point-adapted coordinates for the edge.
+- `ballooning_transit_map` ties the extended angle to the cross-section: one poloidal circle per transit $k$,
+  under $\theta = 2\pi k$, its outboard point (bad curvature) labelled with $F(2\pi k)$. The same point,
+  revisited on every transit, carries less of the mode each time.
+- `ballooning_boundary_conditions` puts the two ways of closing the field line side by side. The ballooning
+  representation requires decay on the covering space, $F \to 0$ as $|\theta| \to \infty$. A flux tube joins
+  its ends after one poloidal turn, and because $k_x = k_y\hat s\theta$ the rejoined end has a shifted $k_x$:
+  twist and shift, named and not derived.
+- `field_aligned_xpoint_limitation` draws lines of constant straight-field-line angle $\theta^*$
+  ($d\theta^*/dl \propto 1/(R^2B_p)$) on the diverted toy equilibrium of the Grad–Shafranov diagrams. They are
+  evenly spread in the core and crowd into the X-point near the separatrix, where $B_p \to 0$ and
+  $q \propto \oint dl/(R^2B_p)$ diverges; outside it the lines are open and X-point-adapted coordinates take
+  over. See also `sfl_coordinate_validity` (#1074).
 
 ```python
 vaft.diagram.field_aligned_basis(q=2.5)
 vaft.diagram.flux_tube_patch()
 vaft.diagram.magnetic_shear_field_aligned(shear=1.0)
 vaft.diagram.ballooning_eigenfunction()
+vaft.diagram.ballooning_transit_map(transits=2)
+vaft.diagram.ballooning_boundary_conditions(shear=1.0)
+vaft.diagram.field_aligned_xpoint_limitation(n_theta=24)
 ```
 
 | | |
@@ -508,6 +519,9 @@ vaft.diagram.ballooning_eigenfunction()
 | ![basis]({{ '/assets/diagrams/field_aligned_basis.svg' | relative_url }}) | ![eigenfunction]({{ '/assets/diagrams/ballooning_eigenfunction.svg' | relative_url }}) |
 
 ![flux tube]({{ '/assets/diagrams/flux_tube_patch.svg' | relative_url }})
+![transits]({{ '/assets/diagrams/ballooning_transit_map.svg' | relative_url }})
+![boundary conditions]({{ '/assets/diagrams/ballooning_boundary_conditions.svg' | relative_url }})
+![X-point limitation]({{ '/assets/diagrams/field_aligned_xpoint_limitation.svg' | relative_url }})
 
 ![shear]({{ '/assets/diagrams/magnetic_shear_field_aligned.svg' | relative_url }})
 
@@ -1309,7 +1323,12 @@ $\otimes$ into the page; the magnetic axis is a filled blue dot, an X-point a cr
 line, the separatrix blue; the computational boundary dashed; the machine (vessel, limiter, coils) in
 black outline, faint where it is shown only for reference; regions shaded plasma blue, vacuum green,
 conductor grey; measurements red (outboard) and orange (inboard). The machine and the flux are the toy
-free-boundary model of the Grad–Shafranov diagrams, not any device.
+free-boundary model of the Grad–Shafranov diagrams, not any device. The sense of $\theta$ differs on
+purpose: the `cocos_orientation` panels draw it as the index fixes it (COCOS 11, $\sigma_{R\phi Z} = +1$
+and $\sigma_{\rho\theta\phi} = +1$ with $\phi$ into the page, puts $\theta$ clockwise in the $(R, Z)$ plane
+as drawn), while the torus, mesh and mapping figures (`tokamak_torus`, `logical_to_physical_mapping`,
+`sfl_coordinate_grids`) are convention-free sketches that use the mathematical angle, counter-clockwise
+from the outboard midplane.
 
 ![Top view]({{ '/assets/diagrams/tokamak_top_view.svg' | relative_url }})
 ![COCOS orientation]({{ '/assets/diagrams/cocos_orientation.svg' | relative_url }})

@@ -106,13 +106,15 @@ class TokaMakerConfig:
     # ``neck_limiter_zmax`` puts those faces back as explicit points.
     # None -> every limiter node is a candidate (OFT default).
     lim_zmax: Optional[float] = 0.6
-    # Wall faces between lim_zmax and this height [m] are handed to TokaMaker
-    # as explicit limiter points (OFT ``settings.limiter_file``), sampled every
-    # dx_plasma along the limiter polygon. On VEST that is the inboard slant up
-    # to (0.1337, +-0.728) and the R = 0.6 m chamber wall up to |Z| = 0.73; the
-    # outboard step at |Z| = 0.585-0.6 lies below lim_zmax and stays a mesh
-    # limiter. A plasma pushed upward then rests on the neck instead of
-    # passing it.
+    # Wall faces from one mesh cell below lim_zmax up to this height [m] are
+    # handed to TokaMaker as explicit limiter points (OFT
+    # ``settings.limiter_file``), sampled every dx_plasma along the limiter
+    # polygon. On VEST that is the inboard slant up to (0.1337, +-0.728) and
+    # the R = 0.6 m chamber wall up to |Z| = 0.73, plus the outboard step at
+    # |Z| = 0.585-0.6: it lies below lim_zmax, but the cut is per cell (a cell
+    # with any node above lim_zmax loses all its nodes), so its mesh nodes are
+    # not guaranteed to survive and are covered explicitly. A plasma pushed
+    # upward then rests on the neck or the step instead of passing them.
     # None (or <= lim_zmax) adds no points.
     neck_limiter_zmax: Optional[float] = 0.73
     # None -> interpolate pf_active coil currents [A] at ``time``.

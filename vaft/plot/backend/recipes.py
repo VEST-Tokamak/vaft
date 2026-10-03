@@ -5736,8 +5736,13 @@ def _build_resistive_zeff(ods: Any, **options: Any) -> Panels:
     zeff_panel = LineSeries(series=tuple(z_traces), x_label="Time", x_unit="s",
                             y_label="Z_eff (resistive)", y_unit="",
                             y_limits=(_ZEFF_BOUNDS[0] - 0.2, top),
+                            # Every stated assumption of the estimate, the
+                            # smoothing included: it moves dL_i/dt and V_R,
+                            # so a reader comparing with build_zeff.py or a
+                            # smoothed re-analysis must see it.
                             title=(f"I_ni = 0, no bootstrap, bounds "
-                                   f"{_ZEFF_BOUNDS[0]:g}-{_ZEFF_BOUNDS[1]:g}"))
+                                   f"{_ZEFF_BOUNDS[0]:g}-{_ZEFF_BOUNDS[1]:g}, "
+                                   f"smoothing {obs.provenance['smoothing']}"))
     return Panels(
         models=(voltages, resistance, zeff_panel), ncols=1, share_x=True,
         suptitle=f"Resistive Z_eff, model-inferred ({model})",
@@ -8208,8 +8213,15 @@ def _build_profile_1d(
                 # condemned channel the preset lets through is not drawn as valid.
                 # The stored per-sample mask is authoritative when present; the
                 # scalar is "worst state reached" and decides only without one
-                # (the Series.is_invalid_channel rule, #424).
-                code, mask = _validity_of(ods, recipe.y_path, index)
+                # (the Series.is_invalid_channel rule, #424).  Without validity=
+                # no flag is attached: the preset has already left condemned
+                # channels out, and a per-sample flag on a channel it kept must
+                # not demote the point by default -- 0.7.1 drew it plainly, and
+                # the contract is that an unstated validity changes nothing.
+                if options.get("validity") is None:
+                    code, mask = None, None
+                else:
+                    code, mask = _validity_of(ods, recipe.y_path, index)
                 if mask is not None and np.asarray(mask).size == y_flat.size and y_flat.size:
                     valid = bool(np.asarray(mask, dtype=bool).ravel()[position])
                 else:
@@ -10003,7 +10015,9 @@ def resolve_time_sample(times: Any, time: float | None) -> tuple[int, float, str
 
 
 #: Global quantities a slice summary states, in order: label, IMAS leaf,
-#: canonical unit ("" for dimensionless), display subject.
+#: canonical unit ("" for dimensionless), display subject.  A dimensionless
+#: row whose label is a beta names its taxonomy quantity in
+#: :data:`_SLICE_DIMENSIONLESS`, so it is shown as its time plot shows it.
 _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
     ("Ip", "ip", "A"),
     ("beta_p", "beta_pol", ""),
@@ -10021,6 +10035,10 @@ _SLICE_GLOBAL_QUANTITIES: tuple[tuple[str, str, str], ...] = (
     ("area", "area", "m^2"),
     ("W_mhd", "energy_mhd", "J"),
 )
+
+#: Slice-summary labels that are a beta, and the taxonomy quantity whose
+#: display convention they follow (issue #947).
+_SLICE_DIMENSIONLESS: dict[str, str] = {"beta_p": "beta_p", "beta_N": "beta_n"}
 
 
 def _global_scalar(ods: Any, index: int, leaf: str) -> float:
@@ -10049,6 +10067,7 @@ def _slice_global_lines(
     width = max(len(label) for label, _, _ in _SLICE_GLOBAL_QUANTITIES)
     for label, leaf, unit in _SLICE_GLOBAL_QUANTITIES:
         value = _global_scalar(ods, index, leaf)
+        dimensionless = _SLICE_DIMENSIONLESS.get(label)
         if not np.isfinite(value) and derived is not None:
             value = _global_scalar(derived, index, leaf)
         if not np.isfinite(value):
@@ -10059,9 +10078,9 @@ def _slice_global_lines(
             if flux_display is None:
                 flux_display = _flux_display(ods, index)
             value, shown_unit = value * flux_display.scale, flux_display.unit
-        elif unit:
+        elif unit or dimensionless:
             try:
-                display = resolve_display(unit, subject="equilibrium")
+                display = resolve_display(unit, subject="equilibrium", quantity=dimensionless)
                 value, shown_unit = value * display.scale, display.unit
             except ValueError:
                 pass

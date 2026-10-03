@@ -916,8 +916,10 @@ def infer_resistive_zeff(
        with a bounded scalar search.
     5. Uncertainty from the curvature of ``J`` and the residual scatter
        (``None`` with one sample); a minimum within 0.1 % of the range from
-       a bound gives ``bound_hit``, as does a scan whose smallest ``J`` is
-       at an end point.
+       a bound gives ``bound_hit``. The scan only brackets the search: its
+       smallest ``J`` sitting at an end point says nothing by itself, since
+       a clean plasma (Z_eff ~ 1.0-1.03) minimises inside the first scan
+       interval without touching the bound.
 
     Defaults
     --------
@@ -1051,10 +1053,13 @@ def infer_resistive_zeff(
         sigma_z = math.sqrt(j_star / (idx.size - 1) / fisher)
     else:
         sigma_z = None
-    # On a bound when the scan's minimum is an end point (the unconstrained
-    # minimum lies beyond it) or the solution sits within 0.1 % of the range.
+    # On a bound when the refined solution sits within 0.1 % of the range of
+    # it. An unconstrained minimum beyond the bound lands there (the bounded
+    # search converges to the end point); a minimum merely inside the first or
+    # last scan interval does not, and is a plain ``ok`` (cold review 0.8.0
+    # delta-absorb-13-physics F1).
     tol = 1e-3 * (z_hi - z_lo)
-    on_bound = (k0 in (0, grid.size - 1) or z_star - z_lo <= tol or z_hi - z_star <= tol)
+    on_bound = bool(z_star - z_lo <= tol or z_hi - z_star <= tol)
     rms = math.sqrt(j_star / np.sum(w))
     quality.update(
         residual_rms_V=rms,

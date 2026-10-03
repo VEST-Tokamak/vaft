@@ -91,12 +91,15 @@ class RDCONOptions:
     #: Passed through to :func:`vaft.process.equilibrium.resistive_layer_parameters`.
     #: ``z_eff`` and ``ln_lambda`` are an explicit *assumed value* for the NRL
     #: parallel Spitzer resistivity, not a derived one (#1188): they only reach
-    #: ``rmatch.in``'s eta/massden and leave Delta-prime untouched. Pass a
-    #: measured or inferred Z_eff (e.g. Lane Z's resistive estimate, #1214)
-    #: when the RMATCH growth rates are to be read quantitatively.
+    #: ``rmatch.in``'s eta/massden and leave Delta-prime untouched. They have
+    #: no default: kinetic profiles without both are refused by name in
+    #: ``__post_init__`` rather than silently evaluated at Z_eff = 2,
+    #: ln Lambda = 17 (Refs #1188). Pass a measured or inferred Z_eff (e.g.
+    #: Lane Z's resistive estimate, #1214) when the RMATCH growth rates are
+    #: to be read quantitatively.
     ion_mass_amu: float = 1.0
-    z_eff: float = 2.0
-    ln_lambda: float = 17.0
+    z_eff: Optional[float] = None
+    ln_lambda: Optional[float] = None
 
     def __post_init__(self) -> None:
         # Checked here, where the caller's mistake is, rather than after RDCON
@@ -105,6 +108,14 @@ class RDCONOptions:
         # was interpolated as if it were sorted.
         if not self.has_kinetic_profiles:
             return
+        missing = [name for name in ("z_eff", "ln_lambda") if getattr(self, name) is None]
+        if missing:
+            raise ValueError(
+                "RDCONOptions with kinetic profiles needs an explicit "
+                + " and ".join(missing)
+                + " for the Spitzer resistivity written to rmatch.in; there is no "
+                "hidden Z_eff = 2 / ln Lambda = 17 fallback (#1188)"
+            )
         sizes = {
             name: len(getattr(self, name)) for name in ("psi_norm", "t_e", "n_e")
         }

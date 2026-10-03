@@ -13,7 +13,7 @@ boundary once rather than once per solver:
               |
       +-------+--------+
       v                v
-    NEO              TGLF / CGYRO   (issue #553)
+    NEO              TGLF (#553) / CGYRO (#1354)
 
 ``input.gacode`` is an interoperability format, not VAFT's kinetic state: the
 canonical state stays in IMAS/OMAS and is converted deterministically here.
@@ -76,7 +76,7 @@ __all__ = [
 
 #: Suite members that are subpackages, imported on first use so that
 #: `vaft.code.gacode` itself stays as light as the rest of `vaft.code`.
-_SUBPACKAGES = ("neo", "tglf")
+_SUBPACKAGES = ("neo", "tglf", "cgyro")
 
 
 def __getattr__(name: str):
