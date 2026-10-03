@@ -292,6 +292,17 @@ from .renderers.lines import (
     thomson_scattering_time_electron_density,
     thomson_scattering_time_electron_temperature,
 )
+from .renderers.gyrokinetics import (
+    gyrokinetics_overview,
+    gyrokinetics_profile_eigenfunction,
+    gyrokinetics_spectrum_energy_flux,
+    gyrokinetics_spectrum_frequency,
+    gyrokinetics_spectrum_growth_rate,
+    gyrokinetics_spectrum_particle_flux,
+    turbulent_transport_overview,
+    turbulent_transport_profile_energy_flux,
+    turbulent_transport_profile_particle_flux,
+)
 from .renderers.panels import (
     chease_overview_profile_validity,
     chease_overview_refinement_summary,

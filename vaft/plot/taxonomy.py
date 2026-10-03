@@ -129,6 +129,11 @@ _SUBJECTS = (
     # Neoclassical transport: the analytic models and the drift-kinetic solver
     # that answer the same question, which is why the plot compares them.
     Subject("neoclassical", "model", ("bootstrap_current",)),
+    # Turbulence (#1591): one local flux-tube calculation (gyrokinetics_local) and the
+    # radial turbulent fluxes several of them give (core_transport, anomalous) are
+    # different objects, so they are two subjects rather than one "turbulence".
+    Subject("gyrokinetics", "model", ("gyrokinetics_local", "local_gyrokinetics", "linear_spectrum")),
+    Subject("turbulent_transport", "model", ("anomalous_transport", "turbulent_flux")),
     Subject("nbi", "machine", ("neutral_beam", "nubeam")),
     Subject("ec_launchers", "machine", ("ech", "ecrh", "electron_cyclotron")),
     Subject("chease", "code"),
