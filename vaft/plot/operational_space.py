@@ -35,6 +35,7 @@ from vaft.diagram._op_space import (
     requested_boundaries,
 )
 from vaft.formula import boundaries as _b
+from vaft.plot.presentation import presented
 
 __all__ = ["operational_space_population", "population_overlay"]
 
@@ -161,12 +162,18 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
                         samples=samples)
 
 
+_POWER_OF_TEN = re.compile(r"\b1e(-?\d+)\b")
+
+
 def _label(quantity: _b.BoundaryQuantity, column: str) -> str:
     if column != quantity.name:
         return column
     symbol = re.sub(r"(?<![\\A-Za-z])(beta|kappa|delta|epsilon|psi)(?![A-Za-z])", r"\\\1", quantity.symbol)
     symbol = re.sub(r"_([A-Za-z0-9]+)", r"_{\1}", symbol)
-    unit = "" if quantity.unit == "-" else f" [{quantity.unit}]"
+    from vaft.plot.display import unit_markup
+
+    # "1e19 m^-2 T^-1" reads as 10^19 m^-2 T^-1, typeset like every other vaft.plot axis
+    unit = "" if quantity.unit == "-" else f" [{unit_markup(_POWER_OF_TEN.sub(r'10^\1', quantity.unit))}]"
     return f"${symbol}${unit}"
 
 
@@ -219,6 +226,8 @@ def _inline_legend_label(curve: _b.BoundaryCurve) -> str:
     entry = _b.get_boundary(curve.key)
 
     def symbol(name):
+        if name == entry.target.name:
+            return _math(entry.target.symbol)
         try:
             return _math(entry.input(name).symbol)
         except (KeyError, AttributeError):
@@ -243,6 +252,11 @@ def _label_along(ax, curve: _b.BoundaryCurve, text: str, color: str, where: floa
     if idx.size < 2:
         return None
     pts = ax.transData.transform(np.c_[x[idx], y[idx]])
+    box = ax.get_window_extent()
+    u = (pts[:, 0] - box.x0) / box.width
+    v = (pts[:, 1] - box.y0) / box.height
+    if np.ptp(u) > 0.05 and (v.max() < 0.07 or v.min() > 0.93) or np.ptp(v) > 0.05 and (u.max() < 0.05 or u.min() > 0.95):
+        return None   # it runs along an edge: a name there would sit on the tick labels
     arc = np.r_[0.0, np.cumsum(np.hypot(*np.diff(pts, axis=0).T))]
     if arc[-1] <= 0:
         return None
@@ -306,7 +320,7 @@ def _label_allowed_zone(ax, curves, xs: np.ndarray, ys: np.ndarray, text: str):
     if not curves:
         return None
     (xlo, xhi), (ylo, yhi) = ax.get_xlim(), ax.get_ylim()
-    u, v = np.meshgrid(np.linspace(0.1, 0.9, 33), np.linspace(0.08, 0.92, 33))
+    u, v = np.meshgrid(np.linspace(0.2, 0.8, 33), np.linspace(0.08, 0.92, 33))   # the label's width stays inside
     px, py = xlo + u.ravel() * (xhi - xlo), ylo + v.ravel() * (yhi - ylo)
     allowed = np.ones(px.shape, bool)
     for curve in curves:
@@ -370,8 +384,16 @@ def _shade_forbidden(ax, curve: _b.BoundaryCurve, color: str, hatch: Optional[st
         ax.fill_betweenx(y, xlo, x, **kw)
 
 
-def _draw_trajectories(ax, trajectories, x: str, y: str, time: str, colour_of) -> None:
-    """Each discharge's states joined in time order; markers shrink with time and an arrow ends the path."""
+def _scales() -> Tuple[float, float]:
+    """Line-width and marker-area factors of the active format/theme, relative to Matplotlib's defaults."""
+    import matplotlib
+
+    return (float(matplotlib.rcParams["lines.linewidth"]) / 1.5,
+            (float(matplotlib.rcParams["lines.markersize"]) / 6.0) ** 2)
+
+
+def _draw_trajectories(ax, trajectories, x: str, y: str, time: str, colour_of, size: float) -> None:
+    """Each discharge's states joined in time order, one marker size throughout; an arrow ends the path."""
     for k, (label, sub) in enumerate(trajectories.items()):
         if time not in sub.columns:
             raise KeyError(f"trajectory {label!r} has no time column {time!r}")
@@ -380,16 +402,18 @@ def _draw_trajectories(ax, trajectories, x: str, y: str, time: str, colour_of) -
         if t.empty:
             continue
         edge = TRAJECTORY_COLORS[k % len(TRAJECTORY_COLORS)]
-        sizes = np.linspace(110.0, 22.0, len(t)) if len(t) > 1 else np.array([60.0])
-        ax.plot(t["_x"], t["_y"], color=edge, linewidth=1.0, zorder=5)
-        ax.scatter(t["_x"], t["_y"], s=sizes, c=[colour_of(r) for _, r in t.iterrows()], edgecolors=edge,
-                   linewidths=1.6, zorder=6, label=str(label))
+        lw, _ = _scales()
+        ax.plot(t["_x"], t["_y"], color=edge, linewidth=1.0 * lw, zorder=5)
+        ax.scatter(t["_x"], t["_y"], s=np.full(len(t), size), c=[colour_of(r) for _, r in t.iterrows()],
+                   edgecolors=edge, linewidths=1.4 * lw, zorder=6, label=str(label))
         if len(t) > 1:
             ax.annotate("", xy=(t["_x"].iloc[-1], t["_y"].iloc[-1]), xytext=(t["_x"].iloc[-2], t["_y"].iloc[-2]),
-                        arrowprops=dict(arrowstyle="-|>", color=edge, linewidth=1.2, shrinkA=0, shrinkB=4),
+                        arrowprops=dict(arrowstyle="-|>", color=edge, linewidth=1.2 * lw, shrinkA=0,
+                                        shrinkB=0.5 * np.sqrt(size) + 2, mutation_scale=12 * lw),
                         zorder=7)
 
 
+@presented()
 def operational_space_population(table: pd.DataFrame, projection, *, x: Optional[str] = None,
                                  y: Optional[str] = None, color: Optional[str] = None,
                                  marker: Optional[str] = None, hollow: Sequence = (),
@@ -403,7 +427,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                                  trajectories: Optional[Mapping[str, pd.DataFrame]] = None,
                                  time_column: str = "time_efit_s", legend_keys: bool = True,
                                  marker_size: float = 34.0, category_colors: Optional[Mapping[str, str]] = None,
-                                 ax=None, show: bool = False):
+                                 ax=None, figsize: Optional[Tuple[float, float]] = None,
+                                 format: Optional[str] = None, theme: Optional[str] = None, show: bool = False):
     """Scatter a population on a canonical operational-space projection.
 
     Parameters
@@ -455,12 +480,22 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     legend_keys : bool
         Legend entries as ``column=value``; False shows the value alone.
     marker_size : float
-        Population marker area [pt^2].
+        Population marker area [pt^2] at Matplotlib's default marker size;
+        a format or theme scales it, and trajectory markers are drawn at
+        twice it, one size for every state of a discharge.
     category_colors : mapping of str to colour, optional
         Colours for named categories of a categorical ``color`` column,
         replacing their palette slots (for example stable in green).
     ax : matplotlib.axes.Axes, optional
         Target axes.
+    figsize : (float, float), optional
+        Canvas size; beside ``format=`` it is refused.
+    format : str, optional
+        Presentation format of :mod:`vaft.plot.presentation` (``screen``,
+        ``single_column``, ``double_column``, ...); ``None`` on a canvas the
+        renderer creates means ``screen``. Type, lines and markers scale with it.
+    theme : str, optional
+        Presentation theme (``technical``, ``minimal``, ``monochrome``).
     show : bool
         Call ``plt.show()``.
 
@@ -480,9 +515,13 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     if missing:
         raise KeyError(f"table has no column(s) {missing}; columns are {list(table.columns)}")
     if ax is None:
-        fig, ax = plt.subplots(figsize=(5.2, 4.2), constrained_layout=True)
+        # a format sizes the canvas and lays it out afterwards; the legacy path keeps its own layout
+        fig, ax = (plt.subplots(figsize=figsize) if figsize is not None
+                   else plt.subplots(figsize=(5.2, 4.2), constrained_layout=True))
     else:
         fig = ax.figure
+    line_scale, area_scale = _scales()
+    marker_size = marker_size * area_scale
 
     xs, ys = _finite(table, x), _finite(table, y)
     ok = np.isfinite(xs) & np.isfinite(ys)
@@ -551,7 +590,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         sc = ax.scatter(xs[mask], ys[mask], label=(key(marker, name) if name is not None and color is None else None),
                         **kw)
         if name is not None and color is not None:  # shape legend in neutral grey; colour has its own entries
-            ax.scatter([], [], marker=shape, s=30, label=key(marker, name),
+            ax.scatter([], [], marker=shape, s=30 * area_scale, label=key(marker, name),
                        **({"facecolors": "none", "edgecolors": "#6b6b66"} if open_marker else {"c": "#6b6b66"}))
         if numeric_color and not open_marker:
             mappable = sc
@@ -568,7 +607,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         fig.colorbar(sm, ax=ax, label=color, extend=extend)
     if color is not None and not numeric_color:
         for name, c in palette.items():
-            ax.scatter([], [], color=c, marker="o", s=30,
+            ax.scatter([], [], color=c, marker="o", s=30 * area_scale,
                        label=f"{color}={name}" if legend_keys else str(name))
 
     if x_range is not None:
@@ -595,9 +634,14 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                 xlim, ylim = (lim, ylim) if axis == "x" else (xlim, lim)
     inline = boundary_style == "inline"
     patches = []
+    # the forbidden side is shaded to the final limits: shading to the limits from before a threshold widened
+    # them filled the wrong side of it
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
     for i, curve in enumerate(plan.curves):
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
-        ax.plot(curve.x, curve.y, color=c, linewidth=1.6, label=None if inline else _boundary_label(curve), zorder=2)
+        ax.plot(curve.x, curve.y, color=c, linewidth=1.6 * line_scale, label=None if inline else _boundary_label(curve),
+                zorder=2)
         _shade_forbidden(ax, curve, c, hatch="////" if inline else None)
         if inline:
             from matplotlib.colors import to_rgba
@@ -622,7 +666,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             name = "unknown" if pd.isna(value) else str(value)
             return palette.get(name, MISSING_COLOR)
 
-        _draw_trajectories(ax, trajectories, x, y, time_column, colour_of)
+        _draw_trajectories(ax, trajectories, x, y, time_column, colour_of, 2.0 * marker_size)
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
     for curve in plan.curves:
@@ -633,12 +677,13 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
 
     ax.set_xlabel(_label(proj.x, x))
     ax.set_ylabel(_label(proj.y, y))
-    ax.set_title(title if title is not None else proj.title)
+    # an inline figure's legend sits beside the axes, so a long title starts at the axes' left edge
+    ax.set_title(title if title is not None else proj.title, loc="left" if inline else "center")
     handles, labels_ = ax.get_legend_handles_labels()
     handles, labels_ = handles + patches, labels_ + [p.get_label() for p in patches]
     if handles and inline:
-        ax.legend(handles, labels_, fontsize="x-small", frameon=False, loc="upper left", bbox_to_anchor=(1.02, 1.0),
-                  borderaxespad=0.0)
+        ax.legend(handles, labels_, frameon=False, loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0,
+                  fontsize="small")
     elif handles:
         ax.legend(handles, labels_, fontsize="x-small", frameon=False, loc="best")
     ax.vaft_overlay = plan

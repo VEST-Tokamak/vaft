@@ -397,7 +397,7 @@ def test_shade_style_is_unchanged_by_default():
     assert "greenwald_hugill" in " ".join(ax.get_legend_handles_labels()[1])
 
 
-def test_trajectories_run_in_time_order_with_shrinking_markers():
+def test_trajectories_run_in_time_order_with_one_marker_size():
     t = _hugill_table()
     t["time_efit_s"] = np.linspace(0.30, 0.33, len(t))
     traj = t.iloc[[5, 1, 3]]          # given out of order
@@ -406,7 +406,7 @@ def test_trajectories_run_in_time_order_with_shrinking_markers():
     order = traj.sort_values("time_efit_s")
     np.testing.assert_allclose(path.get_offsets()[:, 0], order["murakami_parameter"])
     sizes = path.get_sizes()
-    assert np.all(np.diff(sizes) < 0)
+    assert np.ptp(sizes) == 0 and sizes[0] > 0
 
 
 def test_category_colors_replace_palette_slots_but_not_missing_grey():
@@ -419,3 +419,22 @@ def test_category_colors_replace_palette_slots_but_not_missing_grey():
                                          category_colors={"Stable": "#8fd18f", "unknown": "#ff0000"})
     assert _legend_colour(ax, "Stable") == tuple(np.round(to_rgb("#8fd18f"), 3))
     assert _legend_colour(ax, "unknown") == tuple(np.round(to_rgb(MISSING_COLOR), 3))
+
+
+def test_a_widened_threshold_is_shaded_on_its_forbidden_side():
+    """f_G = 1 above every state: the hatch is above the line, not between it and the old axis top."""
+    t = pd.DataFrame({"loss_power": [0.1, 0.5, 1.0], "greenwald_fraction": [0.2, 0.4, 0.6]})
+    t.attrs["units"] = {"loss_power": "MW"}
+    _, ax = operational_space_population(t, "greenwald_fraction_power", boundary_style="inline")
+    assert ax.get_ylim()[1] > 1.0
+    fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
+    ys = np.concatenate([p.vertices[:, 1] for c in fills for p in c.get_paths()])
+    assert ys.min() >= 1.0 - 1e-9
+
+
+def test_format_sizes_the_canvas_and_is_refused_beside_a_callers_axes():
+    fig, _ = operational_space_population(_hugill_table(), "hugill", format="double_column", theme="technical")
+    assert fig.get_size_inches()[0] == pytest.approx(7.0)
+    _, ax0 = plt.subplots()
+    with pytest.raises(TypeError):
+        operational_space_population(_hugill_table(), "hugill", format="screen", ax=ax0)
