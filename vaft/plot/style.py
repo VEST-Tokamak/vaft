@@ -235,6 +235,7 @@ def finalize(
     (issue #689); ``None`` keeps Matplotlib's default.
     """
     if tight_layout:
+        _place_suptitle(figure, pad)
         # Dense panel grids can be impossible to lay out tightly; that is a
         # cosmetic outcome, not a failure, so do not surface it to callers.
         with warnings.catch_warnings():
@@ -249,6 +250,25 @@ def finalize(
     if show:
         plt.show()
     return figure, axes
+
+
+def _place_suptitle(figure: Figure, pad: float | None) -> None:
+    """Hang the suptitle from the top edge, inside the band ``tight_layout`` keeps for it.
+
+    ``tight_layout`` reserves the suptitle's height plus one pad on each side
+    above the topmost axes' titles, wherever the suptitle sits.  Hanging it
+    (``va="top"``) one pad below the top edge puts it in that band whatever
+    the grid's shape, the figure's height or the number of title lines: on
+    the canvas, and clear of the first row's titles.  A suptitle the caller
+    positioned (``y=`` given) is left where it was put.
+    """
+    suptitle = getattr(figure, "_suptitle", None)
+    if suptitle is None or not suptitle.get_text() or not getattr(suptitle, "_autopos", False):
+        return
+    pad_points = (1.08 if pad is None else pad) * plt.rcParams["font.size"]
+    height_points = figure.get_figheight() * 72.0
+    suptitle.set_y(1.0 - pad_points / height_points)
+    suptitle.set_verticalalignment("top")
 
 
 def save_figure(figure: Figure, path: Any, *, close: bool = True, **savefig_kwargs: Any):

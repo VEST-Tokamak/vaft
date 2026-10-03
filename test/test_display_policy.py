@@ -220,8 +220,8 @@ def test_panel_members_keep_the_short_recipe_title(ip_ods):
 
 
 def test_a_grid_suptitle_clears_the_panels_it_names():
-    """tight_layout reserves no room for a suptitle: on a tall grid it landed
-    on the first row's own titles, which is what a reader sees first."""
+    """On a tall grid the suptitle must not land on the first row's own
+    titles, which is what a reader sees first -- nor leave the canvas."""
     sample = packaged_ods("samples/39915/omas.json.gz")
     figure, axes = vaft.omas.plot_b_field_probe_time_field(
         sample, selection=list(range(24)), layout="subplots"
@@ -229,8 +229,11 @@ def test_a_grid_suptitle_clears_the_panels_it_names():
     drawn = [panel for panel in np.asarray(axes).ravel() if panel.get_visible()]
     assert len(drawn) > 12  # a grid deep enough for the collision to happen
     assert figure._suptitle is not None
-    top = max(panel.get_position().y1 for panel in drawn)
-    assert figure._suptitle.get_position()[1] >= top
+    figure.canvas.draw()
+    renderer = figure.canvas.get_renderer()
+    extent = figure._suptitle.get_window_extent(renderer)
+    assert extent.y0 >= max(panel.get_tightbbox(renderer).y1 for panel in drawn) - 0.5
+    assert extent.y1 <= figure.bbox.y1 + 0.5
     plt.close(figure)
 
 
