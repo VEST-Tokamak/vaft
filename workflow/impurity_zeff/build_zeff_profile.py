@@ -56,7 +56,7 @@ MODELS = (
 STATE_COLUMNS = {
     "shot": "shot number", "time_efit_s": "EFIT slice time [s]", "efit_lineage": "magnetics",
     "efit_quality": "criteria.py label (good | admissible)", "ionization": "coronal | transient",
-    "normalization": "ne_weighted_mean | fixed", "status": "ok | no_core_profiles_slice | no_equilibrium | error",
+    "normalization": "ne_weighted_mean | fixed", "status": "ok | no_core_profiles_slice | error",
     "reason": "why a state has no result", "time_cp_s": "matched core_profiles slice time [s]",
     "plasma_age_s": "EFIT time minus plasma onset [s]", "onset_source": "plasma timing source",
     "scale": "n_s/n_e = scale * w_s", "n_C_over_ne": "carbon elemental fraction",
@@ -115,7 +115,10 @@ def _volume_weights(eq: Any, t: float, rho: np.ndarray) -> Optional[np.ndarray]:
     rho_eq, volume = np.asarray(rho_eq, dtype=float), np.asarray(volume, dtype=float)
     ok = np.isfinite(rho_eq) & np.isfinite(volume)
     order = np.argsort(rho_eq[ok])
-    edges = np.concatenate(([rho[0]], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
+    if not ok.any():
+        return None
+    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
+    # beyond the EFIT rho range np.interp clamps: those points get dV = 0
     v = np.interp(edges, rho_eq[ok][order], volume[ok][order])
     return np.clip(np.diff(v), 0.0, None)
 
@@ -131,7 +134,7 @@ def _onset(filedb: Path, shot: int, cache: dict) -> tuple[Optional[float], str]:
             try:
                 timing = plasma_timing(_load(path))
                 cache[shot] = (timing.onset, str(timing.source)) if timing.found else (None, "no plasma found")
-            except Exception as exc:  # noqa: BLE001 -- recorded, the state still runs coronal
+            except Exception as exc:  # noqa: BLE001 -- recorded; the coronal models still run, unchecked
                 cache[shot] = (None, f"{type(exc).__name__}: {exc}"[:120])
     return cache[shot]
 
@@ -142,50 +145,60 @@ def build(filedb: Path, atlas: Path, out: Path, *, tolerance: float, cache_dir: 
 
     rows = [r for r in csv.DictReader(open(atlas / "state.csv"))
             if r["efit_lineage"] == "magnetics" and r["efit_quality"] in ("good", "admissible")]
+    rows.sort(key=lambda r: (int(r["shot"]), float(r["time_efit_s"])))
     model = vest_impurity_model(None)
     weights = {item["element"]: item["relative_density"] for item in model["species"]}
     target = model["target_zeff"]
-    profiles, states, inputs, onsets, cps, eqs = [], [], {}, {}, {}, {}
-    for r in rows:
-        shot, t = int(r["shot"]), float(r["time_efit_s"])
-        key = {"shot": shot, "time_efit_s": round(t, 4), "efit_lineage": "magnetics",
-               "efit_quality": r["efit_quality"]}
-        cp_path = _product(filedb, "core_profiles", shot, "core_profiles.json.gz")
-        eq_path = _product(filedb, "efit/magnetic", shot, "efit.json.gz")
-        if cp_path is None or eq_path is None:
-            states += [{**key, "ionization": i, "normalization": n, "status": "no_equilibrium" if cp_path else "no_core_profiles_slice",
-                        "reason": "no FileDB product"} for i, n in MODELS]
-            continue
-        for p in (cp_path, eq_path):
-            inputs.setdefault(str(p.relative_to(filedb)), _sha(p))
-        cp = cps.setdefault(shot, _load(cp_path))
-        eq = eqs.setdefault(shot, _load(eq_path))
+    profiles, states, inputs, onsets = [], [], {}, {}
+    loaded: dict[str, Any] = {"shot": None}
+
+    def products(shot: int):
+        """Load and hash one shot's products once; drop the previous shot's (memory)."""
+        if loaded["shot"] != shot:
+            loaded.clear()
+            loaded["shot"] = shot
+            for name, stage, filename in (("cp", "core_profiles", "core_profiles.json.gz"),
+                                          ("eq", "efit/magnetic", "efit.json.gz")):
+                path = _product(filedb, stage, shot, filename)
+                loaded[name] = None
+                if path is not None:
+                    inputs[str(path.relative_to(filedb))] = _sha(path)
+                    loaded[name] = _load(path)
+        return loaded["cp"], loaded["eq"]
+
+    def one_state(key: dict, shot: int, t: float) -> list[dict]:
+        cp, eq = products(shot)
+        if cp is None:
+            return [{**key, "ionization": i, "normalization": n, "status": "no_core_profiles_slice",
+                     "reason": "no FileDB core_profiles product"} for i, n in MODELS]
         index = _slice(cp, "core_profiles", t, tolerance)
         if index is None:
-            states += [{**key, "ionization": i, "normalization": n, "status": "no_core_profiles_slice",
-                        "reason": f"no core_profiles slice within {tolerance:g} s"} for i, n in MODELS]
-            continue
+            return [{**key, "ionization": i, "normalization": n, "status": "no_core_profiles_slice",
+                     "reason": f"no core_profiles slice within {tolerance:g} s"} for i, n in MODELS]
         base = f"core_profiles.profiles_1d.{index}"
-        rho = np.asarray(_value(cp, f"{base}.grid.rho_tor_norm"), dtype=float)
-        te = np.asarray(_value(cp, f"{base}.electrons.temperature"), dtype=float)
+        rho = np.atleast_1d(np.asarray(_value(cp, f"{base}.grid.rho_tor_norm"), dtype=float))
+        te = np.atleast_1d(np.asarray(_value(cp, f"{base}.electrons.temperature"), dtype=float))
         ne = _value(cp, f"{base}.electrons.density_thermal")
-        ne = np.asarray(ne if ne is not None else _value(cp, f"{base}.electrons.density"), dtype=float)
+        ne = np.atleast_1d(np.asarray(ne if ne is not None else _value(cp, f"{base}.electrons.density"), dtype=float))
         t_cp = float(np.atleast_1d(_value(cp, "core_profiles.time"))[index])
-        dv = _volume_weights(eq, t, rho)
+        dv = None if eq is None or not np.all(np.isfinite(rho)) else _volume_weights(eq, t, rho)
         onset, onset_source = _onset(filedb, shot, onsets)
         age = None if onset is None else t - onset
+        positive_age = age if age is not None and age > 0.0 else None
+        out_rows = []
         for ionization, normalization in MODELS:
             row = {**key, "ionization": ionization, "normalization": normalization, "time_cp_s": t_cp,
                    "plasma_age_s": age, "onset_source": onset_source}
-            if ionization == "transient" and (age is None or age <= 0.0):
-                states.append({**row, "status": "error", "reason": f"no plasma age ({onset_source})"})
+            if ionization == "transient" and positive_age is None:
+                out_rows.append({**row, "status": "error", "reason": f"no positive plasma age ({onset_source})"})
                 continue
             try:
                 result = resolve_radial_composition(
                     te, ne, rho, weights, normalization=normalization, target_zeff=target,
-                    ionization=ionization, plasma_age_s=age, volume_weights=dv, cache_dir=cache_dir, time=t_cp)
+                    ionization=ionization, plasma_age_s=positive_age, volume_weights=dv,
+                    cache_dir=cache_dir, time=t_cp)
             except Exception as exc:  # noqa: BLE001 -- recorded per state
-                states.append({**row, "status": "error", "reason": f"{type(exc).__name__}: {exc}"[:200]})
+                out_rows.append({**row, "status": "error", "reason": f"{type(exc).__name__}: {exc}"[:200]})
                 continue
             from vaft.process.impurity import _radial_weights
 
@@ -209,10 +222,20 @@ def build(filedb: Path, atlas: Path, out: Path, *, tolerance: float, cache_dir: 
                 not_coronal_fraction=None if result.coronal_valid is None
                 else float(np.mean(~result.coronal_valid[valid])),
             )
-            states.append(row)
-            for prow in result.as_rows(**key, ionization=ionization, normalization=normalization):
-                profiles.append(prow)
+            out_rows.append(row)
+            profiles.extend(result.as_rows(**key, ionization=ionization, normalization=normalization))
             inputs.setdefault("adf11", result.provenance["tables"])
+        return out_rows
+
+    for r in rows:
+        shot, t = int(r["shot"]), float(r["time_efit_s"])
+        key = {"shot": shot, "time_efit_s": round(t, 4), "efit_lineage": "magnetics",
+               "efit_quality": r["efit_quality"]}
+        try:
+            states.extend(one_state(key, shot, t))
+        except Exception as exc:  # noqa: BLE001 -- one bad product must not end the atlas
+            states.extend({**key, "ionization": i, "normalization": n, "status": "error",
+                           "reason": f"{type(exc).__name__}: {exc}"[:200]} for i, n in MODELS)
     out.mkdir(parents=True, exist_ok=True)
     for name, table, columns in (("states.csv", states, list(STATE_COLUMNS)),
                                  ("zeff_profile.csv", profiles, None)):

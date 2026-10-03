@@ -101,7 +101,7 @@ def test_each_normalization_hits_its_target(tables, rule):
     if rule == "axis":
         assert r.zeff[0] == pytest.approx(2.0)
     else:
-        edges = np.concatenate(([RHO[0]], 0.5 * (RHO[1:] + RHO[:-1]), [RHO[-1]]))
+        edges = np.concatenate(([0.0], 0.5 * (RHO[1:] + RHO[:-1]), [RHO[-1]]))
         dv = RHO * np.diff(edges)
         assert np.sum(NE * dv * r.zeff) / np.sum(NE * dv) == pytest.approx(2.0)
     assert r.normalization["method"] == rule and r.kind == "derived"
@@ -170,3 +170,14 @@ def test_bundled_ions_carry_charge_profiles_and_states(tables):
               + sum((q + 1) * np.asarray(out[f"{base}.ion.{k}.state.{q}.density"])
                     for k, z in ((1, 6), (2, 8)) for q in range(z)))
     np.testing.assert_allclose(charge, NE, rtol=1e-9)              # quasi-neutral incl. charge states
+
+
+def test_the_resistive_closure_projection_must_ignore_undefined_points(tables):
+    te = TE.copy()
+    te[-1] = np.nan
+    with pytest.raises(ValueError, match="ignore NaN"):
+        resolve_radial_composition(te, NE, RHO, {"C": 1}, normalization="resistive_closure",
+                                   resistive_target=1.5, projection=lambda z: float(np.mean(z)), tables=tables)
+    r = resolve_radial_composition(te, NE, RHO, {"C": 1}, normalization="resistive_closure",
+                                   resistive_target=1.5, projection=lambda z: float(np.nanmean(z)), tables=tables)
+    assert np.nanmean(r.zeff) == pytest.approx(1.5)

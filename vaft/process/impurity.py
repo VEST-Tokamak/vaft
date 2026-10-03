@@ -1265,8 +1265,9 @@ class RadialImpurityComposition:
     Elements keep a fixed relative density and a flat ``n_s/n_e`` shape scaled
     by one factor ``scale`` (``n_s/n_e = scale * w_s``); their charge-state
     distributions follow ``T_e(rho)``, ``n_e(rho)`` from ADF11 data.  Arrays
-    run over ``rho``; species-indexed ones carry the element on the last axis,
-    charge-state fractions the element on axis 1 and the charge on the last.
+    run over ``rho``; species-indexed ones carry the element on the last axis;
+    ``charge_state_fractions`` is a tuple, one ``(n_rho, Z_n + 1)`` array per
+    element with the charge (neutral first) on the last axis.
     """
 
     kind: str
@@ -1328,8 +1329,12 @@ def _tables(element: str, tables: Optional[Mapping[str, Any]], cache_dir) -> tup
 
     if tables is not None and element in tables:
         acd, scd = tables[element]
-        return read_adf11(acd) if not hasattr(acd, "log_coefficients") else acd, \
-            read_adf11(scd) if not hasattr(scd, "log_coefficients") else scd, {"acd": str(acd), "scd": str(scd)}
+        def label(source):
+            return str(getattr(source, "path", source))
+
+        return (read_adf11(acd) if not hasattr(acd, "log_coefficients") else acd,
+                read_adf11(scd) if not hasattr(scd, "log_coefficients") else scd,
+                {"acd": label(acd), "scd": label(scd)})
     names = default_adf11_files(element)
     acd_path = get_adf11_path(names["acd"], cache_dir=cache_dir)
     scd_path = get_adf11_path(names["scd"], cache_dir=cache_dir)
@@ -1436,7 +1441,7 @@ def _radial_weights(rho: np.ndarray, ne: np.ndarray, volume_weights) -> tuple[np
         if dv.shape != rho.shape or np.any(dv < 0.0) or not np.all(np.isfinite(dv)):
             raise ValueError("volume_weights must be finite, non-negative and on the rho grid")
         return dv, "caller dV"
-    edges = np.concatenate(([rho[0]], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
+    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
     return rho * np.diff(edges), "cylindrical rho drho (no volume given)"
 
 
@@ -1485,12 +1490,14 @@ def resolve_radial_composition(
     plasma_age_s : float, optional
         Time since breakdown; also the age of the coronal-validity check [s].
     volume_weights : array-like, optional
-        ``dV`` per rho point for the volume mean; default ``rho drho`` [m^3].
+        ``dV`` per rho point for the volume mean; default ``rho drho``, a
+        cylindrical stand-in in rho units [m^3].
     resistive_target : float, optional
         Resistive Z_eff the ``resistive_closure`` rule matches [-].
     projection : callable, optional
         ``Z_eff(rho) -> scalar`` resistive projection (#1566) for
-        ``resistive_closure`` [any].
+        ``resistive_closure``; it receives the full ``rho`` grid with NaN at
+        undefined points and must ignore them [any].
     coronal_tolerance : float, optional
         Largest ``|<Z>_transient(age) - <Z>_coronal|`` still called coronal [-].
     tables : mapping, optional
@@ -1618,10 +1625,16 @@ def resolve_radial_composition(
             raise ValueError("resistive_closure needs projection= and resistive_target=")
         from scipy.optimize import brentq
 
+        if not np.nanmax(s1[valid]) > 0.0:
+            raise ValueError("every valid point is neutral: no impurity amplitude changes Z_eff")
         upper = 1.0 / np.nanmax(s1[valid])
 
         def mismatch(c):
-            return float(projection(main_charge + c * excess)) - float(resistive_target)
+            value = float(projection(np.where(valid, main_charge + c * excess, np.nan)))
+            if not np.isfinite(value):
+                raise ValueError("the projection returned a non-finite value; it must ignore NaN "
+                                 "(undefined) points of Z_eff(rho)")
+            return value - float(resistive_target)
 
         lo, hi = mismatch(0.0), mismatch(upper * (1 - 1e-9))
         if lo * hi > 0.0:
@@ -1689,10 +1702,14 @@ def populate_radial_impurity_profiles(
     -------
     ODS
         A deep copy whose slice ``ion[]`` is the diluted hydrogenic main ion
-        and one bundled entry per element: ``z_ion`` (the n_e-weighted mean
-        charge), ``z_ion_1d`` = <Z>(rho), ``z_ion_square_1d`` = <Z^2>(rho),
-        the elemental ``density`` and ``state[q]`` (``z_min = z_max = q``,
-        charge-state density) for every ionised state; plus ``zeff`` [any].
+        and one bundled entry per element: ``z_ion`` (the mean charge
+        weighted by the element's density at the grid points, no volume
+        element), ``z_ion_1d`` = <Z>(rho), ``z_ion_square_1d`` = <Z^2>(rho),
+        the elemental ``density`` -- all charge states *including the neutral
+        atoms*, the density <Z> and <Z^2> are averaged over -- and
+        ``state[q]`` (``z_min = z_max = q``, charge-state density) for every
+        ionised state, so ``sum(state.density) = density (1 - f_0)``; plus
+        ``zeff`` [any].
 
     Raises
     ------
