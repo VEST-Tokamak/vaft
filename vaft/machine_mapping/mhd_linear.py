@@ -497,8 +497,13 @@ def _dcon_native_xml(result: DconOutput) -> str:
     """DCON's stability payload with no IMAS slot (#940), as XML elements.
 
     Everything is a value, not a pointer, and at the reader's full
-    resolution: the 1-D profiles are small (mpsi + 1 points). The least-stable
-    entries are selected by mode label, as :attr:`DconOutput.total1` is.
+    resolution: the 1-D profiles are small (mpsi + 1 points), about 16 kB per
+    (time slice, n) at mpsi 128. The least-stable entries are selected by
+    mode label, as :attr:`DconOutput.total1` is; the spectra carry the labels
+    so that can be re-checked. ``energy_perturbed`` keeps its historical
+    ``W_t_eigenvalue[0]``, which is the same entry whenever the labels are in
+    order (they are in every DCON output seen so far). Evaluation flags are
+    written as ``1``/``0`` and omitted when unknown.
     """
     parts = [
         "<least_stable"
@@ -510,12 +515,15 @@ def _dcon_native_xml(result: DconOutput) -> str:
         )
         + "/>"
     ]
+    labels = None if result.mode is None else " ".join(str(int(m)) for m in np.asarray(result.mode).ravel())
     for name in ("W_t", "W_p", "W_v"):
         spectrum = getattr(result, f"{name}_eigenvalue")
         if spectrum is not None and np.asarray(spectrum).size:
-            spectrum = np.asarray(spectrum)
+            spectrum = np.asarray(spectrum).ravel()
+            label_attr = f' mode="{labels}"' if labels is not None and len(labels.split()) == spectrum.size else ""
             parts.append(
-                f'<spectrum quantity="{name}" real="{_xml_numbers(spectrum.real)}" imag="{_xml_numbers(spectrum.imag)}"/>'
+                f'<spectrum quantity="{name}"{label_attr} real="{_xml_numbers(spectrum.real)}"'
+                f' imag="{_xml_numbers(spectrum.imag)}"/>'
             )
     evaluation = result.evaluation
     parts.append(
@@ -544,13 +552,32 @@ def _dcon_native_xml(result: DconOutput) -> str:
         if result.ca1_evaluated is not None:
             attrs.append(f'ca1_evaluated="{" ".join("1" if v else "0" for v in np.asarray(result.ca1_evaluated, dtype=bool))}"')
         if evaluation is not None:
-            attrs.append(f'mer_flag="{evaluation.mer_flag}" bal_flag="{evaluation.bal_flag}"')
+            for name in ("mer_flag", "bal_flag"):
+                value = getattr(evaluation, name)
+                if value is not None:
+                    attrs.append(f'{name}="{1 if value else 0}"')
         parts.append("<local_criteria " + " ".join(attrs) + "/>")
     return "".join(parts)
 
 
 def _numbers(text: Optional[str]) -> Optional[np.ndarray]:
     return None if text is None else np.array([float(v) for v in text.split()], dtype=float)
+
+
+def _complex_numbers(real: Optional[str], imag: Optional[str]) -> Optional[np.ndarray]:
+    re_part, im_part = _numbers(real), _numbers(imag)
+    if re_part is None:
+        return None
+    if im_part is None:
+        im_part = np.zeros_like(re_part)
+    if re_part.shape != im_part.shape:
+        raise ValueError(f"real/imag lengths differ ({re_part.size} vs {im_part.size})")
+    return re_part + 1j * im_part
+
+
+def _flag(text: Optional[str]) -> Optional[bool]:
+    """``1``/``0`` as written (legacy ``True``/``False`` too); absent or other text is unknown."""
+    return {"1": True, "0": False, "True": True, "False": False}.get(text) if text is not None else None
 
 
 def extract_dcon_stability(ods: ODS) -> list[dict[str, Any]]:
@@ -570,9 +597,11 @@ def extract_dcon_stability(ods: ODS) -> list[dict[str, Any]]:
       points only.
 
     Values only, no verdicts: the sign of W_t, D_I > 0, D_R > 0 and C_A < 0 are
-    the criteria a consumer applies. Version-1 fragments carry none of this
-    and yield nothing. Malformed fragments are skipped with a warning. The ODS
-    is not modified.
+    the criteria a consumer applies. Every row has the same keys (None where
+    the run wrote nothing). If one (time slice, n) was mapped more than once,
+    the last fragment wins. Version-1 fragments carry none of this and yield
+    nothing. Malformed fragments are skipped with a warning. The ODS is not
+    modified.
     """
     import xml.etree.ElementTree as ET
 
@@ -584,15 +613,20 @@ def extract_dcon_stability(ods: ODS) -> list[dict[str, Any]]:
     except ET.ParseError as exc:
         warnings.warn(f"mhd_linear.code.parameters is not XML ({exc}); no DCON payload", RuntimeWarning, stacklevel=2)
         return []
-    rows: list[dict[str, Any]] = []
+    latest: dict[tuple[int, int], dict[str, Any]] = {}
     for solver in root.iter("solver"):
-        if solver.get("name") != "dcon" or int(solver.get("version", "1")) < 2:
+        if solver.get("name") != "dcon":
             continue
         try:
-            rows.append(_parse_dcon_fragment(solver))
+            if int(solver.get("version", "1")) < 2:
+                continue
+            row = _parse_dcon_fragment(solver)
         except (TypeError, ValueError) as exc:
             warnings.warn(f"skipping malformed DCON fragment: {exc}", RuntimeWarning, stacklevel=2)
-    return rows
+            continue
+        latest.pop((row["time_slice"], row["n_tor"]), None)  # re-mapping: the last fragment wins
+        latest[(row["time_slice"], row["n_tor"])] = row
+    return list(latest.values())
 
 
 def _parse_dcon_fragment(solver: Any) -> dict[str, Any]:
@@ -609,13 +643,17 @@ def _parse_dcon_fragment(solver: Any) -> dict[str, Any]:
     least = solver.find("least_stable")
     for name in ("W_t", "W_p", "W_v"):
         row[name] = complex_of(least, name)
+        row[f"{name}_spectrum"] = None
+        row[f"{name}_spectrum_mode"] = None
     for spectrum in solver.findall("spectrum"):
-        row[f"{spectrum.get('quantity')}_spectrum"] = _numbers(spectrum.get("real")) + 1j * _numbers(spectrum.get("imag"))
+        name = spectrum.get("quantity")
+        row[f"{name}_spectrum"] = _complex_numbers(spectrum.get("real"), spectrum.get("imag"))
+        mode = spectrum.get("mode")
+        row[f"{name}_spectrum_mode"] = None if mode is None else np.array([int(v) for v in mode.split()])
     edge = solver.find("edge")
-    if edge is not None:
-        row["edge_treatment"] = edge.get("treatment")
-        for key in ("requested_psiedge", "psilim", "qlim"):
-            row[key] = None if edge.get(key) is None else float(edge.get(key))
+    row["edge_treatment"] = None if edge is None else edge.get("treatment")
+    for key in ("requested_psiedge", "psilim", "qlim"):
+        row[key] = None if edge is None or edge.get(key) is None else float(edge.get(key))
     scan = solver.find("edge_scan")
     row["edge_scan"] = (
         None
@@ -623,7 +661,7 @@ def _parse_dcon_fragment(solver: Any) -> dict[str, Any]:
         else {
             "psi_n": _numbers(scan.get("psi_n")),
             "q": _numbers(scan.get("q")),
-            "dW": _numbers(scan.get("dW_re")) + 1j * _numbers(scan.get("dW_im")),
+            "dW": _complex_numbers(scan.get("dW_re"), scan.get("dW_im")),
         }
     )
     criteria = solver.find("local_criteria")
@@ -635,10 +673,10 @@ def _parse_dcon_fragment(solver: Any) -> dict[str, Any]:
     evaluated = None if criteria is None or criteria.get("ca1_evaluated") is None else (
         np.array([v == "1" for v in criteria.get("ca1_evaluated").split()], dtype=bool)
     )
-    mer = None if criteria is None else criteria.get("mer_flag")
-    bal = None if criteria is None else criteria.get("bal_flag")
-    row["mercier_evaluated"] = None if mer is None else mer == "True"
-    row["ballooning_evaluated"] = None if bal is None or evaluated is None else (bal == "True" and bool(evaluated.any()))
+    mer = None if criteria is None else _flag(criteria.get("mer_flag"))
+    bal = None if criteria is None else _flag(criteria.get("bal_flag"))
+    row["mercier_evaluated"] = mer
+    row["ballooning_evaluated"] = None if bal is None or evaluated is None else (bal and bool(evaluated.any()))
 
     def extremum(values: Optional[np.ndarray], mask: Optional[np.ndarray], largest: bool):
         if values is None or psi is None or values.shape != psi.shape:
@@ -652,7 +690,8 @@ def _parse_dcon_fragment(solver: Any) -> dict[str, Any]:
     mercier = row["mercier_evaluated"]
     row["max_D_I"], row["psi_n_at_max_D_I"] = extremum(row["D_I"], None, True) if mercier else (None, None)
     row["max_D_R"], row["psi_n_at_max_D_R"] = extremum(row["D_R"], None, True) if mercier else (None, None)
-    row["min_C_A"], row["psi_n_at_min_C_A"] = extremum(row["C_A"], evaluated, False)
+    ballooning = row["ballooning_evaluated"]
+    row["min_C_A"], row["psi_n_at_min_C_A"] = extremum(row["C_A"], evaluated, False) if ballooning else (None, None)
     return row
 
 
