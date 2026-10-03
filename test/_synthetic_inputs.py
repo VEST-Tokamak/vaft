@@ -602,3 +602,61 @@ def make_field_line_plane(_sample: ODS) -> ODS:
 
 
 SYNTHETIC["field_line_topology_field_connection_length"] = make_field_line_plane
+
+
+# ---------------------------------------------------------------------------
+# gyrokinetics_* (#1591): a real CGYRO linear run (the packaged EM fixture) mapped
+# with vaft.machine_mapping.gyrokinetics, plus a quasilinear ky-resolved flux block
+# of the shape the TGLF mapping writes. turbulent_transport_*: two anomalous
+# core_transport models (TGLF and CGYRO) on one radial grid.
+# ---------------------------------------------------------------------------
+def make_gyrokinetics_local(_sample: ODS) -> ODS:
+    from vaft.code.gacode import cgyro
+    from vaft.code.gacode.cgyro import collect_cgyro_outputs
+    from vaft.machine_mapping.gyrokinetics import gyrokinetics_local_from_cgyro
+
+    from test_cgyro_adapter import tglf_local
+
+    local = cgyro.cgyro_input_from_tglf(tglf_local())
+    run = collect_cgyro_outputs(Path(__file__).parent / "data" / "gacode" / "cgyro_linear_48224_r0.7_em")
+    out = ODS()
+    parameters = cgyro.cgyro_parameters(local, cgyro.CGYROConfig(field_model="em-aperp"))
+    gyrokinetics_local_from_cgyro(out, local, run, provenance={"parameters": parameters}, time=0.3)
+    ky = np.array([0.2, 0.4, 0.8, 1.6])
+    out["gyrokinetics_local.non_linear.binormal_wavevector_norm"] = ky
+    out["gyrokinetics_local.non_linear.quasi_linear"] = 1
+    for quantity, scale in (("energy", 2.0), ("particles", 0.5)):
+        out[f"gyrokinetics_local.non_linear.fluxes_2d_k_x_sum.{quantity}_phi_potential"] = (
+            scale * np.outer([1.0, 0.6, 0.3], np.exp(-((ky - 0.6) / 0.4) ** 2)))
+    return out
+
+
+def make_turbulent_transport(_sample: ODS) -> ODS:
+    out = ODS()
+    rho = np.linspace(0.3, 0.8, 6)
+    out["core_transport.ids_properties.homogeneous_time"] = 1
+    out["core_transport.time"] = np.array([0.317])
+    for m, (code, scale) in enumerate((("TGLF", 1.0), ("CGYRO", 0.4))):
+        base = f"core_transport.model.{m}"
+        out[f"{base}.identifier.index"] = 6
+        out[f"{base}.identifier.name"] = "anomalous"
+        out[f"{base}.code.name"] = code
+        profile = f"{base}.profiles_1d.0"
+        out[f"{profile}.time"] = 0.317
+        out[f"{profile}.grid_flux.rho_tor_norm"] = rho
+        out[f"{profile}.electrons.energy.flux"] = scale * 1e4 * rho**2
+        out[f"{profile}.electrons.particles.flux"] = scale * 1e19 * rho
+        out[f"{profile}.ion.0.label"] = "H+"
+        out[f"{profile}.ion.0.energy.flux"] = scale * 5e3 * rho**2
+        out[f"{profile}.ion.0.particles.flux"] = scale * 1e19 * rho
+    return out
+
+
+for _name in ("gyrokinetics_spectrum_growth_rate", "gyrokinetics_spectrum_frequency",
+              "gyrokinetics_spectrum_energy_flux", "gyrokinetics_spectrum_particle_flux",
+              "gyrokinetics_profile_eigenfunction", "gyrokinetics_overview"):
+    SYNTHETIC[_name] = make_gyrokinetics_local
+for _name in ("turbulent_transport_profile_energy_flux", "turbulent_transport_profile_particle_flux",
+              "turbulent_transport_overview"):
+    SYNTHETIC[_name] = make_turbulent_transport
+del _name

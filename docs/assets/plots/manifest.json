@@ -662,6 +662,30 @@
       "shot": 39915,
       "status": "rendered"
     },
+    "gyrokinetics_overview": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "gyrokinetics_profile_eigenfunction": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "gyrokinetics_spectrum_energy_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "gyrokinetics_spectrum_frequency": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "gyrokinetics_spectrum_growth_rate": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "gyrokinetics_spectrum_particle_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
     "impa_overview": {
       "call": "vaft.omas.plot_impa_overview(vaft.omas.load(vaft.data.sample(39915)))",
       "model_sha256": "be7102a877951bc94313d0b15f074df98c7cf7e317755a2eee2f9355d01b8e65",
@@ -1170,6 +1194,18 @@
       "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
       "shot": 48224,
       "status": "rendered"
+    },
+    "turbulent_transport_overview": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "turbulent_transport_profile_energy_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "turbulent_transport_profile_particle_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
     },
     "vacuum_field": {
       "call": "vaft.omas.plot_vacuum_field(vaft.omas.load(vaft.data.sample(39915)))",
