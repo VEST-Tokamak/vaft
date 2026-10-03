@@ -11369,8 +11369,10 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
     Read shape-agnostically for the reason :func:`_mhd_linear_radial_stride`
     documents: ``code.parameters`` reaches a reader either as the string the
     mapper wrote or as the tree OMAS decoded, and which one depends on the
-    document.  A block with no ``time_slice`` attribute -- DCON writes none --
-    is keyed on ``None`` and matches any slice.
+    document.  A block with no ``time_slice`` attribute (DCON fragments before
+    version 2, #940) is keyed on ``None`` and matches any slice; since version 2
+    DCON blocks carry ``time_slice`` too, so for a cell both DCON and GPEC wrote
+    the later block in document order names the solver.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
     found: dict[tuple[int | None, int], str] = {}
