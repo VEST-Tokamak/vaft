@@ -234,6 +234,7 @@ CORE_MODULES: tuple[str, ...] = (
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
     "test_formula_impurity.py",
+    "test_impurity_charge_states.py",
     "test_process_impurity.py",
     "test_vest_core_profiles_policy.py",
     # The gate's own contract.
