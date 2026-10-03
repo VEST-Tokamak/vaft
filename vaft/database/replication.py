@@ -74,6 +74,7 @@ _NOTHING_BY_DESIGN = re.compile(
     r"^(completed_no_gfiles\b"      # EFIT ran: no slice produced a g-file
     r"|failed: refined_gfiles=0\b"  # CHEASE ran: every slice a solver verdict
     r"|skipped: no EFIT gfiles\b"   # CHEASE: nothing upstream to refine
+    r"|skipped: required input unavailable\b"  # eddy: the shot's data lacks an input (#1568)
     r"|skipped: \w+\.run=false\b)"   # switched off on purpose
 )
 
