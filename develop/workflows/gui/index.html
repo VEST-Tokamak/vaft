@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Kinetic profile file formats · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Browser GUI · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/formula/neoclassical/" />
+            <link rel="prev" href="/vaft/develop/reference/computational-layers/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/formula/startup/" />
+            <link rel="next" href="/vaft/develop/reference/api/gui/" />
         
     </head>
     <body>
@@ -129,7 +129,7 @@
                     </li>
                 
                     
-                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    <li class="chapter active" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
                     
                         <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
                     </li>
@@ -199,7 +199,7 @@
                     </li>
                 
                     
-                    <li class="chapter active" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
                     
                         <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
                     </li>
@@ -274,7 +274,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Kinetic profile file formats</a>
+                            <a href="." >Browser GUI</a>
                         
                     </h1>
                 </div>
@@ -300,216 +300,176 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/Kinetic_profile_files">Kinetic profile file formats</h1>
+                        <h1 id="/workflows/GUI">Browser GUI</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>One container behind three profile file formats, and the TRANSP conversion that fills it.</dd>
-    <dt>Prerequisites / inputs</dt><dd>A TRANSP run, or a .kin, pfile or MARS deck to read.</dd>
-    <dt>Expected result</dt><dd>A KineticProfiles set whose units and radial coordinate are stated rather than assumed.</dd>
-    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+    <dt>Architecture position</dt><dd>An optional Panel application over the same loading, discovery and plotting APIs a notebook uses.</dd>
+    <dt>Prerequisites / inputs</dt><dd>VAFT installed with the `gui` extra; a browser on the machine you sit at.</dd>
+    <dt>Expected result</dt><dd>The plot browser at http://localhost:5006, locally or through a forwarded port.</dd>
+    <dt>Status</dt><dd>Experimental reference application (#1086); workspaces follow the GUI roadmap (#1359).</dd>
   </dl>
 </aside>
 
-<p>Three file formats carry kinetic profiles into the codes VAFT drives, and they disagree about
-almost everything: what the radial coordinate is, what units the numbers are in, and what the
-rotation column means. <code class="language-plaintext highlighter-rouge">vaft.data.kinetic_profiles.KineticProfiles</code> is the one container all three
-read into, and this page is the contract each of them keeps with it.</p>
+<p><code class="language-plaintext highlighter-rouge">vaft gui</code> serves a small browser application: pick a data source, pick one of the plots VAFT
+can draw from it, and change that plot’s controls. It is a presentation layer, not a separate
+analysis tool. The plot list comes from <code class="language-plaintext highlighter-rouge">vaft.omas.available_plots</code>, the controls from the
+plot’s capability record, and every drawing from <code class="language-plaintext highlighter-rouge">vaft.omas.render_plot</code>, so what the GUI
+shows is what the same calls give in a notebook.</p>
 
-<h2 id="the-container-fixes-the-units">The container fixes the units</h2>
+<p>The application runs where VAFT and the data are, and the browser only displays it. The same
+command therefore works on a workstation, on a remote server over SSH, and on a cluster node,
+with no X11 or remote desktop.</p>
 
-<p>Densities in m⁻³, temperatures in eV, angular frequencies in rad/s, pressures in Pa, electric fields
-in V/m — the set <code class="language-plaintext highlighter-rouge">vaft.data.KINETIC_UNITS</code> names, and the set GPEC’s own reader consumes, so the
-<code class="language-plaintext highlighter-rouge">.kin</code> path needs no conversion at all. Every reader converts into them and records what it
-converted from. Nothing carries free-text units around.</p>
+<h2 id="install">Install</h2>
 
-<p>Two fields exist because one of them kept being written into the other:</p>
+<p>Panel is an optional dependency:</p>
 
-<table>
-  <thead>
-    <tr>
-      <th>field</th>
-      <th>what it is</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">omega_tor</code></td>
-      <td>toroidal angular velocity, ω_φ</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">omega_exb</code></td>
-      <td>E×B rotation frequency, ω_E</td>
-    </tr>
-  </tbody>
-</table>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="s2">".[gui]"</span>
+</code></pre></div></div>
 
-<p>They differ by the ion diamagnetic frequency. The <code class="language-plaintext highlighter-rouge">.kin</code> rotation column is ω_E, so <code class="language-plaintext highlighter-rouge">write_kin</code>
-refuses a set that carries only ω_φ.</p>
+<p>Without it, <code class="language-plaintext highlighter-rouge">import vaft</code> and every other workflow are unaffected; <code class="language-plaintext highlighter-rouge">vaft gui</code> stops with a
+message naming the extra.</p>
 
-<h2 id="the-radial-coordinate-is-never-rescaled-on-read">The radial coordinate is never rescaled on read</h2>
+<h2 id="run-locally">Run locally</h2>
 
-<p><code class="language-plaintext highlighter-rouge">normalization.method</code> says how the coordinate came to be what it is, and the value is not always
-<code class="language-plaintext highlighter-rouge">"as_read"</code>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft gui                          <span class="c"># first packaged sample, opens a browser</span>
+vaft gui <span class="nt">--sample</span> 39915 41524     <span class="c"># two samples, compared on each plot</span>
+vaft gui <span class="nt">--file</span> equilibrium.json
+vaft gui <span class="nt">--shot</span> 39915 41524       <span class="c"># database shots (needs HSDS read access)</span>
+vaft gui <span class="nt">--plot</span> equilibrium_field_psi <span class="nt">--port</span> 5010
+</code></pre></div></div>
 
-<table>
-  <thead>
-    <tr>
-      <th>format</th>
-      <th>coordinate in the file</th>
-      <th><code class="language-plaintext highlighter-rouge">method</code></th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">.kin</code></td>
-      <td>ψ_N</td>
-      <td><code class="language-plaintext highlighter-rouge">as_read</code></td>
-    </tr>
-    <tr>
-      <td>pfile</td>
-      <td>ψ_N (<code class="language-plaintext highlighter-rouge">psinorm</code>)</td>
-      <td><code class="language-plaintext highlighter-rouge">as_read</code></td>
-    </tr>
-    <tr>
-      <td>MARS <code class="language-plaintext highlighter-rouge">PROF*.IN</code></td>
-      <td><code class="language-plaintext highlighter-rouge">s</code> = √ψ_poloidal (header key 1)</td>
-      <td><code class="language-plaintext highlighter-rouge">mars_s_squared</code></td>
-    </tr>
-    <tr>
-      <td>TRANSP</td>
-      <td><code class="language-plaintext highlighter-rouge">PLFLX / PLFLXA</code> on <code class="language-plaintext highlighter-rouge">XB</code></td>
-      <td><code class="language-plaintext highlighter-rouge">transp_plflx_over_plflxa</code></td>
-    </tr>
-  </tbody>
-</table>
-
-<p>Making a coordinate span exactly [0, 1] is <code class="language-plaintext highlighter-rouge">normalize_psi()</code>, a separate named operation that has no
-default method — passing <code class="language-plaintext highlighter-rouge">axis=</code>/<code class="language-plaintext highlighter-rouge">edge=</code> and silently getting a min–max stretch instead would be the
-rescale this whole design exists to prevent, only with a provenance record vouching for it.</p>
-
-<h2 id="reading-a-transp-run">Reading a TRANSP run</h2>
-
-<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code.transp</span> <span class="kn">import</span> <span class="n">read_transp_profiles</span>
-
-<span class="n">profiles</span> <span class="o">=</span> <span class="nf">read_transp_profiles</span><span class="p">(</span><span class="sh">"</span><span class="s">45453X01.CDF</span><span class="sh">"</span><span class="p">,</span> <span class="n">time_s</span><span class="o">=</span><span class="mf">0.750</span><span class="p">)</span>
-<span class="n">profiles</span><span class="p">.</span><span class="n">psi_norm</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>                 <span class="c1"># exactly 1.0 — the last closed flux surface
-</span><span class="n">profiles</span><span class="p">.</span><span class="n">provenance</span><span class="p">[</span><span class="sh">"</span><span class="s">omega_exb</span><span class="sh">"</span><span class="p">]</span>      <span class="c1"># "-d(VRPOT)/d(PLFLX) ... [VOLTS per Wb/rad = rad/s]"
-</span><span class="n">profiles</span><span class="p">.</span><span class="n">provenance</span><span class="p">[</span><span class="sh">"</span><span class="s">target_grid</span><span class="sh">"</span><span class="p">]</span>    <span class="c1"># which grid, and why
-</span></code></pre></div></div>
-
-<p>This is the one place under <code class="language-plaintext highlighter-rouge">vaft.code</code> that converts anything. Every other module there keeps its
-code’s own names and units; this one converts because turning a run into a <code class="language-plaintext highlighter-rouge">.kin</code> needs the two
-radial grids reconciled and the potential differentiated, and doing that at each call site is how
-the grids came to be conflated in the first place.</p>
-
-<p><strong>ψ_N is <code class="language-plaintext highlighter-rouge">PLFLX / PLFLXA</code></strong> — the flux enclosed by each zone boundary over the flux enclosed by the
-plasma boundary. Not <code class="language-plaintext highlighter-rouge">(P − P[0]) / (P[−1] − P[0])</code>, which declares the innermost zone boundary to be
-the magnetic axis and moves the whole grid inward by 0.0049 for the MAST reference run.</p>
-
-<p><strong>ω_E is <code class="language-plaintext highlighter-rouge">−dΦ/dψ</code> from <code class="language-plaintext highlighter-rouge">VRPOT</code> and <code class="language-plaintext highlighter-rouge">PLFLX</code></strong>, and needs no unit conversion: <code class="language-plaintext highlighter-rouge">VRPOT</code> is in volts and
-<code class="language-plaintext highlighter-rouge">PLFLX</code> in webers per radian, and a volt per weber is an inverse second.</p>
-
-<p><strong>The result is on the zone-boundary grid <code class="language-plaintext highlighter-rouge">XB</code>.</strong> TRANSP writes the kinetic profiles on the zone
-centres <code class="language-plaintext highlighter-rouge">X</code> and the flux on the boundaries <code class="language-plaintext highlighter-rouge">XB</code>, and the two interleave — <code class="language-plaintext highlighter-rouge">X[i]</code> is half a cell
-inside <code class="language-plaintext highlighter-rouge">XB[i]</code>, and in a real run they are the <em>same length</em>, which is why nothing anywhere resolves
-a grid by counting. Choosing <code class="language-plaintext highlighter-rouge">XB</code> leaves ψ_N and ω_E untouched and interpolates only the smooth
-kinetic profiles. Measured on the reference run at 750 ms, the choice is not symmetric:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>default <code class="language-plaintext highlighter-rouge">target_grid="XB"</code></th>
-      <th><code class="language-plaintext highlighter-rouge">target_grid="X"</code></th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>edge ψ_N stays exactly 1.0</td>
-      <td>edge ψ_N falls to 0.9857, losing the last closed surface</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">n_e</code> moves ≤ 4.2% of peak, resampling</td>
-      <td>ψ_N moves by up to 0.036</td>
-    </tr>
-    <tr>
-      <td>the one clamped point is the outermost, and moves by nothing</td>
-      <td>the clamped point is the <strong>innermost</strong>, where a constant stands in badly for a quantity varying quadratically towards the axis</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>The edge matters because GPEC’s <code class="language-plaintext highlighter-rouge">read_kin</code> re-splines onto a uniform [0, 1] grid <em>with
-extrapolation</em>: a set whose outermost point is the last closed surface is the one it can use.
-Whichever grid is chosen, the provenance records which quantities were interpolated and how many
-points fell outside their source range.</p>
-
-<h3 id="what-changed-against-the-legacy-converter">What changed against the legacy converter</h3>
-
-<p>The scripts this replaces produced <code class="language-plaintext highlighter-rouge">sample/transp_example/input/g045453.00750.kin</code> by going through
-a 201-point pfile. Reading the same run directly:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>quantity</th>
-      <th>agreement</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">n_e</code>, <code class="language-plaintext highlighter-rouge">n_i</code></td>
-      <td>≤ 1.8% of peak</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">T_e</code>, <code class="language-plaintext highlighter-rouge">T_i</code></td>
-      <td>≤ 1.2% of peak</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">omega_tor</code></td>
-      <td>≤ 7.8% of peak, all points within 10%</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">omega_exb</code></td>
-      <td>97.5% of points within 10% of peak (98.5% against the pfile’s own <code class="language-plaintext highlighter-rouge">omgeb</code>)</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>The profile deltas are resampling — the reference was interpolated twice, CDF → 201-point pfile →
-<code class="language-plaintext highlighter-rouge">.kin</code>, against one step here.</p>
-
-<p>ω_E is the one quantity with real outliers, and there are five rather than one: ψ_N = 0.120, 0.125,
-0.990, 0.995 and 1.000, the largest being 26% at the edge. Three are at the boundary, where a
-one-sided derivative on the file’s own 20-point grid differs from the same formula applied to a
-ten-times interpolant of it. The pair at ψ_N ≈ 0.12 is not explained by that and is a genuine
-difference in where the derivative is evaluated. Against the pfile’s own <code class="language-plaintext highlighter-rouge">omgeb</code>, which is derived
-the same way, three points exceed 10% instead of five.</p>
-
-<p>The migration’s fix-forward decision records such a change rather than driving it to zero.
-Differentiating the file’s own data is the more defensible of the two, and <code class="language-plaintext highlighter-rouge">omega_tor</code> is now read
-from <code class="language-plaintext highlighter-rouge">OMEG_VTR</code> — the measured charge-exchange rotation the legacy writer preferred — rather than
-from <code class="language-plaintext highlighter-rouge">OMEGA</code>, which is a different quantity in the same file.</p>
-
-<h2 id="the-three-file-formats">The three file formats</h2>
-
-<p><code class="language-plaintext highlighter-rouge">.kin</code> (GPEC), the Osborne pfile, and MARS <code class="language-plaintext highlighter-rouge">PROF*.IN</code> each have their own section in
-<a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/">Equilibrium and kinetic profiles</a>,
-covering the header and footer rules, the unit ladders, the rotation mappings and what each reader
-refuses. In short:</p>
+<p>The page shows the source picker and the plot selector in the sidebar, the plot’s controls
+beneath them, and the figure in the main area. Slices, channels, units and overlays appear
+only for plots that offer them. A value a plot cannot draw leaves the previous figure on screen
+and shows the reason above it.</p>
 
 <ul>
-  <li><strong><code class="language-plaintext highlighter-rouge">.kin</code></strong> — six columns, <code class="language-plaintext highlighter-rouge">psi ni ne ti te wexb</code>. The header/footer rule is GPEC’s own
-<code class="language-plaintext highlighter-rouge">readtable</code>: the first contiguous block of numeric lines, and nothing after it.</li>
-  <li><strong>pfile</strong> — a species block and 22 sections, each with its own unit and an inline derivative
-column that is preserved rather than recomputed, because recomputing it reproduces none of the
-reference files.</li>
-  <li><strong>MARS <code class="language-plaintext highlighter-rouge">PROF*.IN</code></strong> — one quantity per file. <code class="language-plaintext highlighter-rouge">PROFROT.IN</code> is ω_φ and <code class="language-plaintext highlighter-rouge">PROFWE.IN</code> is ω_E; they are
-never merged and neither takes precedence.</li>
+  <li><strong>Files.</strong> Type server paths (one per line), pick them with <strong>Browse server files</strong> (the files
+of the machine the GUI runs on), or upload them from your own computer. Uploads are copied to a
+temporary folder on the server for the session (at most 512 MB per upload); select an IMAS
+entry’s <code class="language-plaintext highlighter-rouge">master.h5</code> together with its per-IDS files to upload the entry.</li>
+  <li><strong>Database shots.</strong> Nothing is downloaded up front. Loading a shot lists the IDS it stores
+(<code class="language-plaintext highlighter-rouge">vaft.database.stored_ids</code>) and judges the plots from that list; each plot then fetches only the
+IDS it reads, the first time it is drawn, and keeps them in memory for every later plot and
+control change. The status line names the IDS in memory, and <strong>Load chosen IDS</strong> fetches IDS
+ahead of any plot. Reading needs HSDS read access to the shot’s per-IDS domains.</li>
+  <li><strong>Several shots.</strong> Pick several samples, or type several database shots (<code class="language-plaintext highlighter-rouge">39915, 41524</code>); every
+plot then draws them together, labelled by shot.</li>
+  <li><strong>Interactive or static.</strong> Plots that have a Plotly rendering open interactive: box zoom, pan,
+scroll zoom, hover read-out, spike lines, and drawing tools to mark lines, regions and shapes.
+Zoom survives a change of slice or unit. <strong>Static</strong> switches to the Matplotlib image, and the
+choice is remembered for the next plot.</li>
+  <li><strong>Playback.</strong> A plot with a slice or time control – equilibrium slices, camera frames – gets a
+player beneath it: play, pause, step, loop, and the frame interval. Each frame is the plot
+redrawn on the server with every other control as chosen, so a frame that cannot be drawn is
+reported and skipped. Writing the sequence to a video file is not part of the GUI yet (#1049/#1050).</li>
+  <li><strong>Figure.</strong> Width and height in pixels, axis limits and log scales; empty fields stay automatic.</li>
+  <li><strong>Export.</strong> Downloads the current plot as PNG, SVG or PDF at the chosen DPI. The file is the
+Matplotlib rendering with the controls and figure settings on screen, whichever renderer is shown.</li>
 </ul>
 
+<p>Loading a source computes its plot catalog, which takes a few seconds the first time.</p>
+
+<h2 id="run-on-a-remote-host-over-ssh">Run on a remote host over SSH</h2>
+
+<p>The server binds to <code class="language-plaintext highlighter-rouge">127.0.0.1</code> by default, so it is not reachable from other machines. Forward
+the port instead:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh <span class="nt">-L</span> 5006:localhost:5006 user@server
+vaft gui <span class="nt">--no-show</span>            <span class="c"># on the server</span>
+</code></pre></div></div>
+
+<p>Then open <a href="http://localhost:5006">http://localhost:5006</a> on your own machine. <code class="language-plaintext highlighter-rouge">vaft gui</code> does not try to open a browser
+when it runs inside an SSH session. Keep the local port equal to the server’s: the page’s
+connection is only accepted from <code class="language-plaintext highlighter-rouge">localhost:&lt;port&gt;</code> of the server. To forward to another local
+port, name it: <code class="language-plaintext highlighter-rouge">ssh -L 8080:localhost:5006 ...</code> with <code class="language-plaintext highlighter-rouge">vaft gui --allow-websocket-origin localhost:8080</code>.</p>
+
+<p>Under SSH the page asks for a password, which <code class="language-plaintext highlighter-rouge">vaft gui</code> prints when it starts (any user name is
+accepted). Set <code class="language-plaintext highlighter-rouge">VAFT_GUI_PASSWORD</code> to choose it yourself; see <a href="#access">Access</a> for why.</p>
+
+<h2 id="run-in-vs-code-remote-ssh">Run in VS Code Remote-SSH</h2>
+
+<p>Run <code class="language-plaintext highlighter-rouge">vaft gui</code> in the VS Code terminal of the remote window. VS Code detects the port and
+forwards it; open it from the notification or the <strong>Ports</strong> panel. If VS Code forwards to a
+different local port because 5006 is taken on your machine, the page stays blank: restart with
+<code class="language-plaintext highlighter-rouge">--allow-websocket-origin localhost:&lt;that port&gt;</code>, or pick a free <code class="language-plaintext highlighter-rouge">--port</code> on both ends.</p>
+
+<h2 id="run-on-a-cluster-node">Run on a cluster node</h2>
+
+<p>Start the GUI on a compute node (inside an interactive allocation), then tunnel to that node
+through the login node. The tunnel must end on the compute node itself, because the server
+listens only on that node’s loopback:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># on the compute node</span>
+vaft gui <span class="nt">--no-show</span> <span class="nt">--port</span> 5006
+
+<span class="c"># on your machine</span>
+ssh <span class="nt">-J</span> user@login-node <span class="nt">-L</span> 5006:localhost:5006 user@&lt;compute-node&gt;
+</code></pre></div></div>
+
+<p>If compute nodes do not accept SSH from the login node, ask the site how interactive jobs expose
+ports; do not bind <code class="language-plaintext highlighter-rouge">--address 0.0.0.0</code> on a shared cluster.</p>
+
+<h2 id="access">Access</h2>
+
+<p>Loopback keeps other <em>machines</em> out, not other <em>users</em>: on a login or compute node shared with
+others, anyone logged in to that node can connect to <code class="language-plaintext highlighter-rouge">127.0.0.1:5006</code>. The application reads
+files and database data with your permissions, so <code class="language-plaintext highlighter-rouge">vaft gui</code> protects it with a password whenever
+it runs under SSH or binds another address (<code class="language-plaintext highlighter-rouge">--auth auto</code>, the default). Use <code class="language-plaintext highlighter-rouge">--auth password</code> to
+require it locally too, and <code class="language-plaintext highlighter-rouge">--auth none</code> only on a machine nobody else uses.</p>
+
+<p>Binding another address (<code class="language-plaintext highlighter-rouge">--address 0.0.0.0</code>) also prints a warning: the connection is not
+encrypted. Multi-user deployment is a separate concern from this page, and belongs with the
+database portal (#960).</p>
+
+<h2 id="what-comes-next">What comes next</h2>
+
+<p>The browser application is Track A of the GUI roadmap (#1359). An application shell and a
+fuller plot explorer follow, then workspaces for routine diagnostics, equilibrium,
+fluctuations and stability, operational space, start-up and pipeline monitoring.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="omas"><a href="/vaft/develop/reference/api/omas/"><code>vaft.omas</code></a></li>
+        
+          
+          <li data-resource-id="database"><a href="/vaft/develop/reference/api/database/"><code>vaft.database</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/plot/"><code>vaft.plot</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+          
+          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+  </div>
+</section>
 
 </section>
             </div><div class="search-results">
@@ -567,13 +527,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/formula/neoclassical/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: neoclassical">
+                        <a href="/vaft/develop/reference/computational-layers/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Computational layers">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/formula/startup/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: startup">
+                        <a href="/vaft/develop/reference/api/gui/" class="navigation navigation-next navigation-unique" aria-label="Next page: API: vaft.gui">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -589,7 +549,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-container-fixes-the-units" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The container fixes the units</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-radial-coordinate-is-never-rescaled-on-read" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The radial coordinate is never rescaled on read</a></li><li class="page-toc-item page-toc-level-2"><a href="#reading-a-transp-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reading a TRANSP run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#what-changed-against-the-legacy-converter" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What changed against the legacy converter</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#the-three-file-formats" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The three file formats</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
     </nav>
 </aside>
 
@@ -605,11 +565,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Formula reference: startup",
+            "title": "API: vaft.gui",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Formula_reference_startup.md",
-            "ref": "_guide/Formula_reference_startup.md",
+            "path": "_guide/Api_reference_gui.md",
+            "ref": "_guide/Api_reference_gui.md",
             "articles": []
         },
         
@@ -701,8 +661,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Kinetic_profile_files.md",
-        "mtime": "2026-09-14 09:00:00 +0000",
+        "path": "_guide/GUI.md",
+        "mtime": "2026-09-30 09:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {

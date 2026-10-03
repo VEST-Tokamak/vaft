@@ -1,0 +1,904 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>API: vaft.gui · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/workflows/gui/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/api/mcp/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >API: vaft.gui</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>b15430a</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/api/Api_reference_gui">API: vaft.gui</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated reference of the objects vaft.gui publishes, read from each module's __all__ and docstrings (issue 162).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>The signature, summary, deprecation status and source of every published object.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from each module's <code>__all__</code> by <code>python -m vaft._api_catalog</code>:
+<strong>19</strong> published objects in <strong>5</strong> modules.
+Signatures and summaries are read from the source; nothing here is written by hand.
+<a href="/vaft/develop/reference/api/">All API pages</a></p>
+
+<div class="ref-index tex2jax_ignore" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 19 objects by name or module" aria-label="Filter objects" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.gui"><code>vaft.gui</code></a></th></tr>
+  <tr data-ref-row="vaft.gui.require_panel vaft.gui "><td><a href="#vaft.gui.require_panel"><code>require_panel</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.gui.app"><code>vaft.gui.app</code></a></th></tr>
+  <tr data-ref-row="vaft.gui.app.AUTH_MODES vaft.gui.app "><td><a href="#vaft.gui.app.AUTH_MODES"><code>AUTH_MODES</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.gui.app.BrowserApp vaft.gui.app vaft.gui.BrowserApp"><td><a href="#vaft.gui.app.BrowserApp"><code>BrowserApp</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.gui.app.build_app vaft.gui.app vaft.gui.build_app"><td><a href="#vaft.gui.app.build_app"><code>build_app</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.gui.app.LOOPBACK vaft.gui.app "><td><a href="#vaft.gui.app.LOOPBACK"><code>LOOPBACK</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.gui.app.parse_shots vaft.gui.app "><td><a href="#vaft.gui.app.parse_shots"><code>parse_shots</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.gui.app.PLOTLY_CONFIG vaft.gui.app "><td><a href="#vaft.gui.app.PLOTLY_CONFIG"><code>PLOTLY_CONFIG</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.gui.app.serve vaft.gui.app vaft.gui.serve"><td><a href="#vaft.gui.app.serve"><code>serve</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.gui.figure"><code>vaft.gui.figure</code></a></th></tr>
+  <tr data-ref-row="vaft.gui.figure.EXPORT_FORMATS vaft.gui.figure "><td><a href="#vaft.gui.figure.EXPORT_FORMATS"><code>EXPORT_FORMATS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.gui.figure.FigureSettings vaft.gui.figure "><td><a href="#vaft.gui.figure.FigureSettings"><code>FigureSettings</code></a></td><td>class</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.gui.state"><code>vaft.gui.state</code></a></th></tr>
+  <tr data-ref-row="vaft.gui.state.BrowserSession vaft.gui.state vaft.gui.BrowserSession"><td><a href="#vaft.gui.state.BrowserSession"><code>BrowserSession</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.gui.state.load_source vaft.gui.state "><td><a href="#vaft.gui.state.load_source"><code>load_source</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.gui.state.RENDERERS vaft.gui.state "><td><a href="#vaft.gui.state.RENDERERS"><code>RENDERERS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.gui.state.sample_shots vaft.gui.state "><td><a href="#vaft.gui.state.sample_shots"><code>sample_shots</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.gui.state.Source vaft.gui.state vaft.gui.Source"><td><a href="#vaft.gui.state.Source"><code>Source</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.gui.state.SOURCE_KINDS vaft.gui.state "><td><a href="#vaft.gui.state.SOURCE_KINDS"><code>SOURCE_KINDS</code></a></td><td>data</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.gui.widgets"><code>vaft.gui.widgets</code></a></th></tr>
+  <tr data-ref-row="vaft.gui.widgets.INDIVIDUAL_LABEL vaft.gui.widgets "><td><a href="#vaft.gui.widgets.INDIVIDUAL_LABEL"><code>INDIVIDUAL_LABEL</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.gui.widgets.panel_controls vaft.gui.widgets vaft.gui.panel_controls"><td><a href="#vaft.gui.widgets.panel_controls"><code>panel_controls</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.gui.widgets.PLAY_INTERVAL_MS vaft.gui.widgets "><td><a href="#vaft.gui.widgets.PLAY_INTERVAL_MS"><code>PLAY_INTERVAL_MS</code></a></td><td>data</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No object matches.</p>
+</div>
+
+<h2 id="module-vaft.gui">vaft.gui</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Optional browser GUI over the public VAFT APIs (#1086, roadmap #1359).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.gui.require_panel" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.require_panel"><code>require_panel</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.gui.require_panel" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/_require.py#L10-L18" title="vaft/gui/_require.py, lines 10–18 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>require_panel() -&gt; Any</code></pre>
+
+    <p><code class="language-plaintext highlighter-rouge">panel</code>, or an ImportError naming <code class="language-plaintext highlighter-rouge">vaft[gui]</code>.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.gui.app">vaft.gui.app</h2>
+
+<div class="ref-note tex2jax_ignore"><p>The reference browser application: pick sources, a plot and its controls (#1086).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.gui.app.AUTH_MODES" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.app.AUTH_MODES"><code>AUTH_MODES</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>AUTH_MODES = (&#39;auto&#39;, &#39;password&#39;, &#39;none&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.app.BrowserApp" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.app.BrowserApp"><code>BrowserApp</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" data-source="vaft.gui.app.BrowserApp" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L63-L603" title="vaft/gui/app.py, lines 63–603 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>BrowserApp(session: BrowserSession | None = None, *, plot: str | None = None) -&gt; None</code></pre>
+
+    <p>Source picker, plot selector, controls, figure settings and the figure.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.gui.BrowserApp</code>.</p>
+    <details class="ref-more"><summary>9 members</summary>
+<ul class="api-members">
+<li><code>requested_sources</code> <span class="ref-type">method</span> &mdash; The sources the source widgets currently name. <a class="ref-source" data-source="vaft.gui.app.BrowserApp.requested_sources" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L179-L189" title="vaft/gui/app.py, lines 179–189 at b15430a">source</a></li>
+<li><code>load</code> <span class="ref-type">method</span> &mdash; Open <code class="language-plaintext highlighter-rouge">sources</code> and draw their first plot; <code class="language-plaintext highlighter-rouge">False</code> when it failed. <a class="ref-source" data-source="vaft.gui.app.BrowserApp.load" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L199-L246" title="vaft/gui/app.py, lines 199–246 at b15430a">source</a></li>
+<li><code>show</code> <span class="ref-type">method</span> &mdash; Draw <code class="language-plaintext highlighter-rouge">name</code> with its controls; <code class="language-plaintext highlighter-rouge">False</code> when it could not be drawn. <a class="ref-source" data-source="vaft.gui.app.BrowserApp.show" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L304-L332" title="vaft/gui/app.py, lines 304–332 at b15430a">source</a></li>
+<li><code>figure</code> <span class="ref-type">property</span> &mdash; The pane showing the current plot. <a class="ref-source" data-source="vaft.gui.app.BrowserApp.figure" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L334-L337" title="vaft/gui/app.py, lines 334–337 at b15430a">source</a></li>
+<li><code>apply_settings</code> <span class="ref-type">method</span> &mdash; Lay <code class="language-plaintext highlighter-rouge">settings</code> over the current plot; <code class="language-plaintext highlighter-rouge">False</code> when refused. <a class="ref-source" data-source="vaft.gui.app.BrowserApp.apply_settings" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L407-L429" title="vaft/gui/app.py, lines 407–429 at b15430a">source</a></li>
+<li><code>sidebar</code> <span class="ref-type">method</span> <a class="ref-source" data-source="vaft.gui.app.BrowserApp.sidebar" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L565-L581" title="vaft/gui/app.py, lines 565–581 at b15430a">source</a></li>
+<li><code>main</code> <span class="ref-type">method</span> <a class="ref-source" data-source="vaft.gui.app.BrowserApp.main" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L583-L590" title="vaft/gui/app.py, lines 583–590 at b15430a">source</a></li>
+<li><code>view</code> <span class="ref-type">method</span> &mdash; The page served by <code class="language-plaintext highlighter-rouge">vaft gui</code>. <a class="ref-source" data-source="vaft.gui.app.BrowserApp.view" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L592-L597" title="vaft/gui/app.py, lines 592–597 at b15430a">source</a></li>
+<li><code>close</code> <span class="ref-type">method</span> <a class="ref-source" data-source="vaft.gui.app.BrowserApp.close" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L599-L603" title="vaft/gui/app.py, lines 599–603 at b15430a">source</a></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.gui.app.build_app" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.app.build_app"><code>build_app</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.gui.app.build_app" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L612-L656" title="vaft/gui/app.py, lines 612–656 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>build_app(*, sample: int | Sequence[int] | None = None, file: str | None = None, shot: int | Sequence[int] | None = None, namespace: str | None = None, plot: str | None = None) -&gt; BrowserApp</code></pre>
+
+    <p>A <code class="language-plaintext highlighter-rouge">BrowserApp</code>, with one kind of source loaded when the page opens.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.gui.build_app</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.app.LOOPBACK" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.app.LOOPBACK"><code>LOOPBACK</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>LOOPBACK = frozenset({&#39;127.0.0.1&#39;, &#39;::1&#39;, &#39;localhost&#39;})</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.app.parse_shots" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.app.parse_shots"><code>parse_shots</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.gui.app.parse_shots" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L54-L60" title="vaft/gui/app.py, lines 54–60 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>parse_shots(text: str) -&gt; list[int]</code></pre>
+
+    <p>Shot numbers from <code class="language-plaintext highlighter-rouge">"39915, 41524 41672"</code>; ranges are not expanded.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.app.PLOTLY_CONFIG" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.app.PLOTLY_CONFIG"><code>PLOTLY_CONFIG</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>PLOTLY_CONFIG = &lt;builtins.dict&gt;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.app.serve" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.app.serve"><code>serve</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.gui.app.serve" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/app.py#L664-L743" title="vaft/gui/app.py, lines 664–743 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>serve(*, address: str = &#39;127.0.0.1&#39;, port: int = 5006, show: bool | None = None, websocket_origin: Sequence[str] | None = None, auth: str = &#39;auto&#39;, password: str | None = None, **app_options: Any) -&gt; Any</code></pre>
+
+    <p>Serve <code class="language-plaintext highlighter-rouge">build_app</code> until interrupted; one app per browser session.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.gui.serve</code>.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.gui.figure">vaft.gui.figure</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Figure-level settings the reader may override: size, axis limits, scale.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.gui.figure.EXPORT_FORMATS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.figure.EXPORT_FORMATS"><code>EXPORT_FORMATS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>EXPORT_FORMATS = (&#39;png&#39;, &#39;svg&#39;, &#39;pdf&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.figure.FigureSettings" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.figure.FigureSettings"><code>FigureSettings</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" data-source="vaft.gui.figure.FigureSettings" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/figure.py#L18-L102" title="vaft/gui/figure.py, lines 18–102 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>FigureSettings(width: int | None = None, height: int | None = None, xmin: float | None = None, xmax: float | None = None, ymin: float | None = None, ymax: float | None = None, xlog: bool = False, ylog: bool = False) -&gt; None</code></pre>
+
+    <p>Width and height in pixels, axis limits in data units, log scales.</p>
+
+    <details class="ref-more"><summary>8 fields · 4 members</summary>
+<ul class="api-members">
+<li><code>width: int | None</code></li>
+<li><code>height: int | None</code></li>
+<li><code>xmin: float | None</code></li>
+<li><code>xmax: float | None</code></li>
+<li><code>ymin: float | None</code></li>
+<li><code>ymax: float | None</code></li>
+<li><code>xlog: bool</code></li>
+<li><code>ylog: bool</code></li>
+<li><code>update</code> <span class="ref-type">method</span> <a class="ref-source" data-source="vaft.gui.figure.FigureSettings.update" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/figure.py#L46-L47" title="vaft/gui/figure.py, lines 46–47 at b15430a">source</a></li>
+<li><code>sized</code> <span class="ref-type">property</span> <a class="ref-source" data-source="vaft.gui.figure.FigureSettings.sized" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/figure.py#L49-L51" title="vaft/gui/figure.py, lines 49–51 at b15430a">source</a></li>
+<li><code>key</code> <span class="ref-type">property</span> &mdash; Changes whenever an explicit limit or scale does (Plotly uirevision). <a class="ref-source" data-source="vaft.gui.figure.FigureSettings.key" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/figure.py#L53-L56" title="vaft/gui/figure.py, lines 53–56 at b15430a">source</a></li>
+<li><code>apply</code> <span class="ref-type">method</span> &mdash; Lay the settings over <code class="language-plaintext highlighter-rouge">figure</code> in place; returns it. <a class="ref-source" data-source="vaft.gui.figure.FigureSettings.apply" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/figure.py#L58-L66" title="vaft/gui/figure.py, lines 58–66 at b15430a">source</a></li>
+</ul>
+</details>
+  </section>
+</div>
+
+<h2 id="module-vaft.gui.state">vaft.gui.state</h2>
+
+<div class="ref-note tex2jax_ignore"><p>What the browser shows, kept apart from the widgets that show it (#1086).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.gui.state.BrowserSession" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.state.BrowserSession"><code>BrowserSession</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" data-source="vaft.gui.state.BrowserSession" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L88-L362" title="vaft/gui/state.py, lines 88–362 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>BrowserSession() -&gt; None</code></pre>
+
+    <p>The loaded sources, their catalog and the plot on screen.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.gui.BrowserSession</code>.</p>
+    <details class="ref-more"><summary>17 members</summary>
+<ul class="api-members">
+<li><code>database</code> <span class="ref-type">property</span> &mdash; Whether the sources are database shots, loaded IDS by IDS. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.database" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L115-L118" title="vaft/gui/state.py, lines 115–118 at b15430a">source</a></li>
+<li><code>label</code> <span class="ref-type">property</span> &mdash; What is loaded, for a status line or a file name. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.label" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L120-L131" title="vaft/gui/state.py, lines 120–131 at b15430a">source</a></li>
+<li><code>open</code> <span class="ref-type">method</span> &mdash; Load <code class="language-plaintext highlighter-rouge">sources</code> and their catalog; nothing changes unless both succeed. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.open" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L133-L162" title="vaft/gui/state.py, lines 133–162 at b15430a">source</a></li>
+<li><code>plot_ids</code> <span class="ref-type">method</span> &mdash; The IDS plot <code class="language-plaintext highlighter-rouge">name</code> reads, with the one that labels a shot. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.plot_ids" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L178-L182" title="vaft/gui/state.py, lines 178–182 at b15430a">source</a></li>
+<li><code>plotted_ids</code> <span class="ref-type">method</span> &mdash; Every IDS some available plot reads and every open shot stores. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.plotted_ids" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L184-L189" title="vaft/gui/state.py, lines 184–189 at b15430a">source</a></li>
+<li><code>held_ids</code> <span class="ref-type">method</span> &mdash; The IDS in memory for every open database shot. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.held_ids" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L191-L195" title="vaft/gui/state.py, lines 191–195 at b15430a">source</a></li>
+<li><code>load_ids</code> <span class="ref-type">method</span> &mdash; Fetch <code class="language-plaintext highlighter-rouge">names</code> for every open database shot; the IDS newly loaded. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.load_ids" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L197-L226" title="vaft/gui/state.py, lines 197–226 at b15430a">source</a></li>
+<li><code>catalog</code> <span class="ref-type">method</span> &mdash; The plots available for the loaded sources. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.catalog" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L228-L232" title="vaft/gui/state.py, lines 228–232 at b15430a">source</a></li>
+<li><code>grouped_plots</code> <span class="ref-type">method</span> &mdash; Available plot names by subject, in catalog order. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.grouped_plots" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L234-L239" title="vaft/gui/state.py, lines 234–239 at b15430a">source</a></li>
+<li><code>supports_plotly</code> <span class="ref-type">method</span> &mdash; Whether <code class="language-plaintext highlighter-rouge">name</code> declares a Plotly renderer in its capability record. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.supports_plotly" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L241-L246" title="vaft/gui/state.py, lines 241–246 at b15430a">source</a></li>
+<li><code>select</code> <span class="ref-type">method</span> &mdash; Draw <code class="language-plaintext highlighter-rouge">name</code> with its controls; the previous figure is released. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.select" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L248-L277" title="vaft/gui/state.py, lines 248–277 at b15430a">source</a></li>
+<li><code>call_options</code> <span class="ref-type">method</span> &mdash; The plot call’s keyword arguments for the controls as they stand. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.call_options" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L279-L289" title="vaft/gui/state.py, lines 279–289 at b15430a">source</a></li>
+<li><code>carry_options</code> <span class="ref-type">method</span> &mdash; The controls’ values to redraw the plot with, controls included. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.carry_options" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L291-L305" title="vaft/gui/state.py, lines 291–305 at b15430a">source</a></li>
+<li><code>export</code> <span class="ref-type">method</span> &mdash; The current plot, with its controls, drawn by Matplotlib as <code class="language-plaintext highlighter-rouge">fmt</code>. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.export" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L307-L339" title="vaft/gui/state.py, lines 307–339 at b15430a">source</a></li>
+<li><code>state</code> <span class="ref-type">property</span> <a class="ref-source" data-source="vaft.gui.state.BrowserSession.state" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L341-L343" title="vaft/gui/state.py, lines 341–343 at b15430a">source</a></li>
+<li><code>figure</code> <span class="ref-type">property</span> <a class="ref-source" data-source="vaft.gui.state.BrowserSession.figure" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L345-L347" title="vaft/gui/state.py, lines 345–347 at b15430a">source</a></li>
+<li><code>close</code> <span class="ref-type">method</span> &mdash; Release the figure and forget the sources. <a class="ref-source" data-source="vaft.gui.state.BrowserSession.close" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L358-L362" title="vaft/gui/state.py, lines 358–362 at b15430a">source</a></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.gui.state.load_source" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.state.load_source"><code>load_source</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.gui.state.load_source" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L64-L78" title="vaft/gui/state.py, lines 64–78 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>load_source(source: Source) -&gt; Any</code></pre>
+
+    <p>The ODS behind <code class="language-plaintext highlighter-rouge">source</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.state.RENDERERS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.state.RENDERERS"><code>RENDERERS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>RENDERERS = (&#39;auto&#39;, &#39;plotly&#39;, &#39;matplotlib&#39;)</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.state.sample_shots" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.state.sample_shots"><code>sample_shots</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.gui.state.sample_shots" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L81-L85" title="vaft/gui/state.py, lines 81–85 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>sample_shots() -&gt; tuple[int, ...]</code></pre>
+
+    <p>The packaged samples this install can open.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.state.Source" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.state.Source"><code>Source</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" data-source="vaft.gui.state.Source" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L31-L61" title="vaft/gui/state.py, lines 31–61 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>Source(kind: str, value: int | str, namespace: str | None = None) -&gt; None</code></pre>
+
+    <p>Where the data comes from.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.gui.Source</code>.</p>
+    <details class="ref-more"><summary>3 fields · 1 members</summary>
+<ul class="api-members">
+<li><code>kind: str</code></li>
+<li><code>value: int | str</code></li>
+<li><code>namespace: str | None</code></li>
+<li><code>label</code> <span class="ref-type">property</span> <a class="ref-source" data-source="vaft.gui.state.Source.label" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/state.py#L52-L61" title="vaft/gui/state.py, lines 52–61 at b15430a">source</a></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.gui.state.SOURCE_KINDS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.state.SOURCE_KINDS"><code>SOURCE_KINDS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>SOURCE_KINDS = (&#39;sample&#39;, &#39;file&#39;, &#39;shot&#39;)</code></pre>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.gui.widgets">vaft.gui.widgets</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Panel widgets over a plot’s <code class="language-plaintext highlighter-rouge">vaft.plot.navigation.ControlState</code>.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.gui.widgets.INDIVIDUAL_LABEL" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.widgets.INDIVIDUAL_LABEL"><code>INDIVIDUAL_LABEL</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>INDIVIDUAL_LABEL = &#39;(individual channels)&#39;</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.widgets.panel_controls" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.widgets.panel_controls"><code>panel_controls</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.gui.widgets.panel_controls" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/gui/widgets.py#L64-L187" title="vaft/gui/widgets.py, lines 64–187 at b15430a">source</a>
+</header>
+    <pre class="ref-signature"><code>panel_controls(state: Any, *, on_error: Callable[[Exception], Any] | None = None) -&gt; list[Any]</code></pre>
+
+    <p>Panel widgets for every control of <code class="language-plaintext highlighter-rouge">state</code>, kept in step with it.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.gui.panel_controls</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.gui.widgets.PLAY_INTERVAL_MS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.gui.widgets.PLAY_INTERVAL_MS"><code>PLAY_INTERVAL_MS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>PLAY_INTERVAL_MS = 700</code></pre>
+
+  </section>
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/workflows/gui/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Browser GUI">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/api/mcp/" class="navigation navigation-next navigation-unique" aria-label="Next page: API: vaft.mcp">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.gui" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.gui</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.gui.app" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.gui.app</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.gui.figure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.gui.figure</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.gui.state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.gui.state</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.gui.widgets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.gui.widgets</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "API: vaft.mcp",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Api_reference_mcp.md",
+            "ref": "_guide/Api_reference_mcp.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Api_reference_gui.md",
+        "mtime": "2026-09-30 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-03 09:23:38 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>
