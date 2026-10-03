@@ -1281,13 +1281,14 @@ EDDY_INPUT_UNAVAILABLE = "skipped: required input unavailable"
 def eddy_no_output_product(
     *, shot: int, diagnostics_ods: str | Path, static_ods: str | Path, reason: str
 ) -> tuple[ODS, dict[str, Any]]:
-    """The eddy product for a shot whose inputs are not in the data (#1568).
+    """The eddy product for a shot with an unrecorded PF circuit (#1568).
 
-    :func:`build_eddy_ods` refuses such a shot -- a PF circuit that was not
-    recorded, or no plasma current -- and that stays an error for a direct
-    caller. The routine stage records it instead: a product with no
+    :func:`build_eddy_ods` refuses such a shot, and that stays an error for a
+    direct caller. The routine stage records it instead: a product with no
     ``pf_passive`` and a manifest saying ``no_output`` and why, so the shot is
-    complete with nothing to compute rather than a failure retried forever.
+    finished with nothing to compute rather than a failure retried forever.
+    Only an unrecorded circuit takes this path; a missing diagnostics
+    component still fails the stage, because it can be a configuration fault.
     """
     diagnostics_path, static_path = Path(diagnostics_ods), Path(static_ods)
     product = ODS(consistency_check=False)
