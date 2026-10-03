@@ -161,12 +161,44 @@ def _legacy_pf_filter(values: np.ndarray, processing: dict) -> np.ndarray:
     return ndimage.uniform_filter1d(filtered, size=min(int(filter_config["smoothing_window"]), values.size))
 
 
+#: IMAS ``validity`` for a coil current that was not acquired: invalid, do not use.
+UNACQUIRED_VALIDITY = -2
+
+
 def vfit_pf(
     shot: int,
     geometry_root: str | Path | None = None,
     *,
     raw_source: raw_db.RawSource | None = None,
 ) -> tuple[np.ndarray, list[np.ndarray]]:
+    """Every PF circuit's current; raises if a required circuit was not acquired.
+
+    The strict reader, for every caller that computes with the currents: a
+    required circuit is never zero-filled (#44). The diagnostics stage, which
+    only publishes them, uses :func:`vfit_pf_acquired` instead (#1568).
+    """
+    reference_time, pf_data, unacquired = vfit_pf_acquired(shot, raw_source=raw_source)
+    if unacquired:
+        raise next(iter(unacquired.values()))
+    return reference_time, pf_data
+
+
+def vfit_pf_acquired(
+    shot: int,
+    *,
+    raw_source: raw_db.RawSource | None = None,
+) -> tuple[np.ndarray, list[np.ndarray], dict[int, raw_db.RawSignalUnavailableError]]:
+    """PF circuit currents, keeping the circuits that were acquired.
+
+    Returns ``(time, currents, unacquired)``. A *required* circuit whose
+    channel holds no waveform is returned as an all-NaN series -- never zeros,
+    which would claim the coil carried no current -- and listed in
+    ``unacquired`` (coil index -> the error :func:`vfit_pf` raises). One
+    unrecorded channel used to drop every other circuit with it: PF5 (field 5)
+    on 48644-48760 and PF6 (field 62) on 48534-48537 lost PF1, PF2, PF9/10 too.
+
+    Raises if no declared circuit was acquired at all: there is no time base.
+    """
     processing = resolve_vest_diagnostic(shot, "pf_active")["processing"]
     coil_codes = coil_field_code_by_index(shot)
     coil_gains = _coil_gain_by_index(shot)
@@ -188,6 +220,8 @@ def vfit_pf(
     }
     required_signals: dict[int, tuple[np.ndarray, np.ndarray]] = {}
     unacquired: set[int] = set()
+    # Required channels that came back empty: kept, as NaN, never as zero.
+    missing_required: dict[int, raw_db.RawSignalUnavailableError] = {}
     for field_code in sorted(set(coil_codes.values())):
         try:
             required_signals[field_code] = raw_db.require_signal(
@@ -196,10 +230,14 @@ def vfit_pf(
                 field=field_code,
                 signal_name="PF active coil current",
             )
-        except raw_db.RawSignalUnavailableError:
+        except raw_db.RawSignalUnavailableError as error:
             if field_code not in optional_codes:
-                raise
+                missing_required[field_code] = error
+                continue
             unacquired.add(field_code)
+    if not required_signals and missing_required:
+        # Nothing to take a time base from: the strict error stands.
+        raise next(iter(missing_required.values()))
     # The time base is the first *coil's* channel, not the lowest field code:
     # PF2's code (4) sorts below PF1's (59), and the reference must not move
     # depending on which circuits a discharge happened to energise.
@@ -216,8 +254,14 @@ def vfit_pf(
     }
 
     pf_data: list[np.ndarray] = []
+    missing_coils: dict[int, raw_db.RawSignalUnavailableError] = {}
     for coil_index in range(PF_COIL_COUNT):
         field_code = coil_codes.get(coil_index)
+        if field_code in missing_required:
+            # Acquired-but-unrecorded: the coil may well have been driven.
+            pf_data.append(np.full(reference_time.size, np.nan))
+            missing_coils[coil_index] = missing_required[field_code]
+            continue
         if field_code is None or field_code in unacquired:
             # No channel at all, or a channel this discharge left empty.
             # Unlike a missing *acquired* signal, this zero is meaningful: it
@@ -242,7 +286,7 @@ def vfit_pf(
             )
         pf_data.append(current)
 
-    return reference_time, pf_data
+    return reference_time, pf_data, missing_coils
 
 
 def vfit_pf_active_static(
@@ -311,7 +355,7 @@ def vfit_pf_active_dynamic(
     raw_source: raw_db.RawSource | None = None,
     target_time: np.ndarray | None = None,
 ) -> None:
-    waveform_time, pf_data = vfit_pf(shot, raw_source=raw_source)
+    waveform_time, pf_data, unacquired = vfit_pf_acquired(shot, raw_source=raw_source)
     time_axis = (
         np.asarray(target_time, dtype=float)
         if target_time is not None
@@ -325,6 +369,42 @@ def vfit_pf_active_dynamic(
         current = np.interp(time_axis, waveform_time, pf_data[coil_index])
         set_path(ods, f"pf_active.coil.{coil_index}.current.time", time_axis)
         set_path(ods, f"pf_active.coil.{coil_index}.current.data", current)
+        if coil_index in unacquired:
+            # NaN data and an IMAS "invalid" flag: the other circuits are
+            # published; every computation refuses this one (#1568).
+            set_path(ods, f"pf_active.coil.{coil_index}.current.validity", UNACQUIRED_VALIDITY)
+
+
+def unacquired_pf_coils(ods: object) -> list[str]:
+    """Names (or ``coil.<i>``) of the PF circuits marked not acquired (#1568)."""
+    names: list[str] = []
+    if "pf_active.coil" not in ods:
+        return names
+    for index in range(len(ods["pf_active.coil"])):
+        validity_path = f"pf_active.coil.{index}.current.validity"
+        if validity_path in ods and int(ods[validity_path]) == UNACQUIRED_VALIDITY:
+            name_path = f"pf_active.coil.{index}.name"
+            names.append(str(ods[name_path]) if name_path in ods else f"coil.{index}")
+    return names
+
+
+def require_acquired_pf_currents(ods: object, shot: int, consumer: str) -> None:
+    """Refuse to compute with PF currents when a required circuit was not acquired.
+
+    A missing drive current makes every induced or fitted current wrong, and a
+    zero would hide that (#44); the diagnostics product keeps such a coil as
+    NaN with validity -2 instead of dropping the IDS (#1568), so each consumer
+    of the currents checks here and fails naming the coil.
+    """
+    missing = unacquired_pf_coils(ods)
+    if missing:
+        raise raw_db.RawSignalUnavailableError(
+            shot,
+            "pf_active",
+            f"{', '.join(missing)} current was not acquired (validity -2); "
+            f"{consumer} needs every driven PF circuit",
+            signal_name="PF active coil current",
+        )
 
 
 def vfit_pf_active_for_shot(
@@ -381,7 +461,11 @@ __all__ = [
     "pf_active_from_raw_database",
     "pf_geometry_version_for_shot",
     "resolve_geometry_asset",
+    "UNACQUIRED_VALIDITY",
+    "require_acquired_pf_currents",
+    "unacquired_pf_coils",
     "vfit_pf",
+    "vfit_pf_acquired",
     "vfit_pf_active_dynamic",
     "vfit_pf_active_for_shot",
     "vfit_pf_active_static",
