@@ -663,6 +663,7 @@ def summary_time_resistive_zeff(
     required_paths=(
         "equilibrium.time_slice.{i}.global_quantities.ip",
         "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+        "equilibrium.time_slice.{i}.global_quantities.psi_axis",
         "equilibrium.time_slice.{i}.profiles_2d.0.psi",
     ),
 )

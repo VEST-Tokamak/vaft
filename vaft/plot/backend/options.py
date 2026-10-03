@@ -74,7 +74,8 @@ def _specs() -> tuple[OptionSpec, ...]:
         # Romero's balance (#1590): the resistance is the caller's estimate,
         # never assumed; the non-inductive current defaults to 0 (Ohmic).
         OptionSpec("plasma_resistance", description="plasma resistance in ohm, one value or one per slice"),
-        OptionSpec("non_inductive_current", "float", description="non-inductively driven current in A (default 0)"),
+        OptionSpec("non_inductive_current", "float",
+                   description="non-inductively driven current in A, signed like I_p (default 0: Ohmic)"),
         OptionSpec("smooth", "float", description="rolling-median window in seconds applied to line traces"),
         # A dense time base is indexed, not chosen from a list: the vacuum map
         # runs over the PF samples, thousands of them, where time_slice= names

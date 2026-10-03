@@ -80,22 +80,31 @@ def test_the_non_inductive_current_is_used_and_stated(ods):
     closing = _series(model.models[3], "R_closing = (V_B - V_I)/(I_p - I_ni)")
     np.testing.assert_allclose(closing.y, ref["R_closing"] * 1e6)
     assert "I_ni = 1000 A (given)" in model.suptitle
+    assert "I_ni = 0 A (given)" in _extract(ods, non_inductive_current=0).suptitle
+
+
+@pytest.mark.parametrize("bad", [-1e3, 1e9, float("nan"), "abc", True])
+def test_a_non_inductive_current_against_or_above_i_p_is_refused(ods, bad):
+    with pytest.raises(ValueError, match="non_inductive_current"):
+        _extract(ods, non_inductive_current=bad)
 
 
 def test_time_range_windows_the_balance(ods):
     full = _extract(ods).models[0].series[0].x
     window = (float(full[0]), float(full[4]))
-    windowed = _extract(ods, time_range=window).models[0].series[0].x
-    np.testing.assert_array_equal(windowed, full[:5])
+    model = _extract(ods, time_range=window)
+    np.testing.assert_array_equal(model.models[0].series[0].x, full[:5])
+    assert all(panel.x_limits == window for panel in model.models)
+    assert all(panel.x_limits is None for panel in _extract(ods).models)
 
 
-@pytest.mark.parametrize("bad", [[1e-5, 2e-5], -1e-5, float("nan"), "spitzer"])
+@pytest.mark.parametrize("bad", [[1e-5, 2e-5], -1e-5, float("nan"), "spitzer", True])
 def test_a_resistance_that_is_not_one_value_per_slice_in_ohm_is_refused(ods, bad):
     with pytest.raises(ValueError, match="plasma_resistance"):
         _extract(ods, plasma_resistance=bad)
 
 
 def test_the_view_leaves_the_ods_as_it_was(ods):
-    before = sorted(ods.flat())
+    before = sorted(ods.paths())
     _extract(ods, plasma_resistance=2e-5)
-    assert sorted(ods.flat()) == before
+    assert sorted(ods.paths()) == before

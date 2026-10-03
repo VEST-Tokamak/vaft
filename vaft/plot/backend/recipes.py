@@ -5790,6 +5790,8 @@ def _romero_resistance(value: Any, n: int) -> np.ndarray | None:
     """``plasma_resistance=`` as one value per slice [Ohm], or ``None`` when not given."""
     if value is None:
         return None
+    if isinstance(value, (bool, str)) or (isinstance(value, np.ndarray) and value.dtype.kind in "bUS"):
+        raise ValueError(f"plasma_resistance must be a number (or one per selected slice) in ohm; got {value!r}")
     try:
         r_p = np.broadcast_to(np.asarray(value, dtype=float), (n,)).copy()
     except (TypeError, ValueError):
@@ -5819,15 +5821,31 @@ def _build_romero_balance(ods: Any, **options: Any) -> Panels:
     try:
         if window is None:
             window = current_carrying_window(ods)
-        i_ni = float(options.get("non_inductive_current") or 0.0)
+        raw_ni = options.get("non_inductive_current")
+        try:
+            if isinstance(raw_ni, (bool, str)):
+                raise TypeError
+            i_ni = 0.0 if raw_ni is None else float(raw_ni)
+        except (TypeError, ValueError):
+            raise ValueError(f"non_inductive_current must be a number in ampere; got {raw_ni!r}") from None
         if not np.isfinite(i_ni):
-            raise ValueError(f"non_inductive_current must be finite; got {i_ni!r}")
+            raise ValueError(f"non_inductive_current must be finite; got {raw_ni!r}")
         # R_p only enters V_R and what is built from it; those are taken from
         # a second call with the caller's R_p, never from this zero.
         out = compute_romero_flux_balance_ods(ods, R_p=0.0, I_ni=i_ni, time_range=window)
     except (KeyError, IndexError) as exc:
         raise ValueError(f"Romero's balance needs a multi-slice equilibrium: {exc}") from exc
     t = np.asarray(out["time"], dtype=float)
+    if i_ni != 0.0:
+        # I_ni is signed like the stored I_p; a magnitude passed on a
+        # negative-current shot would enlarge |I_p - I_ni| instead of reducing it.
+        ip = np.asarray([_get(ods, f"equilibrium.time_slice.{int(i)}.global_quantities.ip")
+                         for i in out["time_index"]], dtype=float)
+        if np.any(np.sign(ip) != np.sign(i_ni)) or abs(i_ni) >= np.min(np.abs(ip)):
+            raise ValueError(
+                f"non_inductive_current={i_ni:g} A must carry the sign of I_p and stay below |I_p| "
+                f"in the window ({np.min(np.abs(ip)):.4g}-{np.max(np.abs(ip)):.4g} A, sign {np.sign(ip[0]):+g})"
+            )
     r_p = _romero_resistance(options.get("plasma_resistance"), t.size)
     given = None
     if r_p is not None:
@@ -5836,7 +5854,7 @@ def _build_romero_balance(ods: Any, **options: Any) -> Panels:
     voltages = [
         Series(x=t, y=out["V_B"], label="V_B = -dpsi_B/dt (boundary)", style={"color": palette(0), "lw": 1.8}),
         Series(x=t, y=out["V_I"], label="V_I (internal inductive)", style={"color": palette(1)}),
-        Series(x=t, y=out["V_C"], label="V_C = -dpsi_C/dt", style={"color": palette(2), "linestyle": "--"}),
+        Series(x=t, y=out["V_C"], label="V_C = -d(psi_B + L_i I_p)/dt", style={"color": palette(2), "linestyle": "--"}),
     ]
     flux = [
         Series(x=t, y=out["Phi_B"], label="Phi_B = int V_B dt", style={"color": palette(0), "lw": 1.8}),
@@ -5865,7 +5883,8 @@ def _build_romero_balance(ods: Any, **options: Any) -> Panels:
                          style={"color": palette(3), "marker": "o", "linestyle": "none"})]
     if r_p is not None:
         resistance.append(Series(x=t, y=r_p * micro, label="R_p given", style={"color": "role:reference"}))
-    assumption = "I_ni = 0 (purely Ohmic, assumed)" if i_ni == 0.0 else f"I_ni = {i_ni:g} A (given)"
+    assumption = ("I_ni = 0 (purely Ohmic, assumed)" if raw_ni is None
+                  else f"I_ni = {i_ni:g} A (given)")
     # A caller's window is the axis, as on every windowed time history; the
     # default (current-carrying) window is just where the slices are.
     limits = None if asked is None else (float(asked[0]), float(asked[1]))
