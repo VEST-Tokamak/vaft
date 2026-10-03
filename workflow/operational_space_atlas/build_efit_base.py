@@ -15,6 +15,8 @@ population renderer can check identity and unit:
     edge_safety_factor        q at the boundary surface, q_psi (derive_global_descriptors q_edge)
     area_elongation           cross-section area / (pi a^2)
     elongation                boundary elongation kappa (derive_global_descriptors)
+    triangularity             mean of the upper and lower LCFS triangularity (derive_global_descriptors)
+    poloidal_beta             2 mu0 <p> / <B_p>_boundary^2 (derive_global_descriptors, beta_p_boundary_average)
     plasma_surface_area       LCFS surface area S (derive_global_descriptors), for L-H thresholds
     inverse_cylindrical_q     |I_p| R_geo / (5 a^2 kappa_a B_T(R_geo)), B_T(R_geo) = |b0| R_0 / R_geo,
                               R_0 = resolve_reference_major_radius (the r0 leaf can be corrupt, #325)
@@ -67,6 +69,8 @@ UNITS = {
     "edge_safety_factor": "-",
     "area_elongation": "-",
     "elongation": "-",
+    "triangularity": "-",
+    "poloidal_beta": "-",
     "plasma_surface_area": "m^2",
     "inverse_cylindrical_q": "-",
     "plasma_current_ma": "MA",
@@ -206,6 +210,8 @@ def _row(ods, t_s: float) -> dict:
         "edge_safety_factor": pick("q_edge"),
         "area_elongation": kappa_a,
         "elongation": pick("elongation"),
+        "triangularity": 0.5 * (pick("triangularity_upper") + pick("triangularity_lower")),
+        "poloidal_beta": pick("beta_p_boundary_average"),
         "plasma_surface_area": pick("surface_area"),
         "inverse_cylindrical_q": ip_ma * r_geo / (5.0 * a * a * kappa_a * b_geo),
         "plasma_current_ma": ip_ma,
