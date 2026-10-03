@@ -276,7 +276,12 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     groups = [(None, np.ones(len(rows), bool))]
     if marker:
         labels = rows[marker].astype(object).where(rows[marker].notna(), "unknown").astype(str)
-        groups = [(name, (labels == name).to_numpy()) for name in pd.unique(labels)]
+        # like the colours, shapes follow the whole table's order, so a group keeps its shape in every panel
+        whole_m = table[marker].astype(object).where(table[marker].notna(), "unknown").astype(str)
+        order_m = ([str(c) for c in table[marker].cat.categories]
+                   if isinstance(table[marker].dtype, pd.CategoricalDtype) else list(pd.unique(whole_m)))
+        order_m += [c for c in pd.unique(labels) if c not in order_m]
+        groups = [(name, (labels == name).to_numpy()) for name in order_m]
     hollow = {str(h) for h in hollow}
 
     numeric_color = (color is not None and pd.api.types.is_numeric_dtype(rows[color])

@@ -335,3 +335,21 @@ def test_placement_says_where_a_boundary_lands_or_why_not():
     assert not refused.drawable and refused.reason
     with pytest.raises(ops.IncompatibleBoundary):
         ops.placement("q95_li", "wesson_1989_jet_li_qpsi_lower", strict=True)
+
+
+def _legend_marker(ax, label):
+    handle = next(h for h, text in zip(*ax.get_legend_handles_labels()) if text == label)
+    return handle.get_paths()[0].vertices.shape
+
+
+def test_marker_shapes_keep_their_group_across_subsets():
+    t = _hugill_table()
+    t["efit_quality"] = ["good", "admissible"] * 15
+    _, ax = operational_space_population(t, "hugill", marker="efit_quality", color="efit_quality")
+    sub = t.copy()
+    sub.loc[sub.index[0], "murakami_parameter"] = np.nan   # the first row (a 'good' one) cannot be plotted
+    sub.loc[sub["efit_quality"] == "good", "murakami_parameter"] = np.nan
+    sub.loc[sub.index[2], "murakami_parameter"] = 1.0      # one 'good' row plotted after 'admissible' rows
+    _, ax2 = operational_space_population(sub, "hugill", marker="efit_quality", color="efit_quality")
+    for label in ("efit_quality=good", "efit_quality=admissible"):
+        assert _legend_marker(ax, label) == _legend_marker(ax2, label)
