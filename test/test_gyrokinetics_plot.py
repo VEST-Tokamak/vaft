@@ -63,3 +63,70 @@ def test_a_supplied_axes_is_used():
     figure, ax = plt.subplots()
     out_figure, out_ax = gkplot.plot_flux_ky_spectrum([0.1], {"Q": [1]}, ax=ax)
     assert out_ax is ax and out_figure is figure
+
+
+# --------------------------------------------------------------------------
+# native TGLF views (#1591), on real VEST runs
+# --------------------------------------------------------------------------
+
+from pathlib import Path
+
+from vaft.code.gacode.tglf.outputs import collect_tglf_outputs
+
+_DATA = Path(__file__).parent / "data" / "gacode"
+_SAT0 = _DATA / "tglf_vest_39915_r0.70_sat0-es"
+_SAT2 = _DATA / "tglf_vest_39915_r0.70_sat2-em-bper"
+
+
+def test_tglf_linear_spectrum_names_its_preset_family():
+    spectrum = gkplot.tglf_linear_spectrum(collect_tglf_outputs(_SAT2))
+    assert spectrum["gamma"].shape == (21, 2)
+    assert "XNU_MODEL=3" in spectrum["preset"] and "SAT2" in spectrum["preset"]
+
+
+def test_flux_contributors_show_only_the_fields_tglf_wrote():
+    es = gkplot.tglf_flux_contributors(collect_tglf_outputs(_SAT0))
+    em = gkplot.tglf_flux_contributors(collect_tglf_outputs(_SAT2))
+    assert set(es["series"]["e"]) == {"phi", "total"}
+    assert set(em["series"]["i"]) == {"phi", "a_par", "total"}
+    # the bins sum to TGLF's own total energy flux
+    run = collect_tglf_outputs(_SAT2)
+    assert np.isclose(em["series"]["e"]["total"].sum(), run.energy_flux[0], rtol=1e-3)
+    figure, axes = gkplot.plot_flux_contributors(em)
+    labels = [line.get_label() for line in axes[1].get_lines()]
+    assert "total" in labels and any("A_" in label for label in labels)
+
+
+def test_mixing_length_proxy_states_its_definition():
+    spectrum = gkplot.tglf_linear_spectrum(collect_tglf_outputs(_SAT0))
+    figure, ax = gkplot.plot_mixing_length_proxy(spectrum)
+    assert "k_x=0" in ax.get_ylabel()
+    figure, ax = gkplot.plot_mixing_length_proxy(spectrum, definition="gamma_over_ky")
+    assert "k_y^2" not in ax.get_ylabel()
+    with pytest.raises(ValueError, match="definition"):
+        gkplot.plot_mixing_length_proxy(spectrum, definition="gamma_over_k")
+
+
+def test_fluctuation_model_and_saturation_panels_draw_from_the_native_run():
+    run = collect_tglf_outputs(_SAT2)
+    gkplot.plot_fluctuation_spectra(
+        run.ky_spectrum, {"dn_e/n_e": run.density_spectrum[:, 0],
+                          "dT_e/T_e": run.temperature_spectrum[:, 0]},
+        cross_phase=run.nete_crossphase_spectrum)
+    figure, panels = gkplot.plot_model_details(
+        run.ky_spectrum, {"width": run.width_spectrum, "kx/ky shift": run.spectral_shift_spectrum,
+                          "ave_p0": run.ave_p0_spectrum, "absent": None})
+    assert len(panels) == 3
+    figure, ax = gkplot.plot_saturation_parameters(run.saturation_parameters)
+    assert "XNU_MODEL" in ax.texts[0].get_text()
+
+
+def test_local_state_marks_provenance_kinds():
+    from test_cgyro_adapter import tglf_local
+
+    state = gkplot.tglf_local_state(tglf_local())
+    assert [s["name"] for s in state["species"]] == ["e", "H+", "C6+"]
+    assert state["scalars"]["ExB shear"] is None
+    figure, axes = gkplot.plot_local_state(state)
+    text = axes[1].texts[0].get_text()
+    assert "ExB shear" in text and "unavailable" in text
