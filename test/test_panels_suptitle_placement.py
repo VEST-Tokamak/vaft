@@ -66,3 +66,23 @@ def test_a_suptitle_the_caller_positioned_is_left_alone():
     finalize(figure, axis)
     assert figure._suptitle.get_position()[1] == 0.5
     plt.close(figure)
+
+
+@pytest.mark.parametrize("format", [None, "screen"])
+def test_a_taller_title_set_after_layout_still_clears_the_panels(format):
+    """FigureOptions replaces the suptitle's text after the layout: a second
+    line must push the panels down, not land on their titles."""
+    from vaft.plot.figure_options import FigureOptions
+
+    kwargs = {"format": format} if format is not None else {"figsize": (8.0, 5.0)}
+    figure, axes = render_panels(_panels("One line", 4, 2), **kwargs)
+    try:
+        FigureOptions(title="Two\nlines here").apply(figure)
+        figure.canvas.draw()
+        renderer = figure.canvas.get_renderer()
+        extent = figure._suptitle.get_window_extent(renderer)
+        drawn = [axis for axis in np.asarray(axes).ravel() if axis.get_visible()]
+        assert extent.y1 <= figure.bbox.y1 + 0.5
+        assert extent.y0 >= max(axis.get_tightbbox(renderer).y1 for axis in drawn) - 0.5
+    finally:
+        plt.close(figure)
