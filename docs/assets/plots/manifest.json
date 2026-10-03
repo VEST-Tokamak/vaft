@@ -1064,9 +1064,45 @@
       "reason": "no packaged sample carries the data this plot needs",
       "status": "no_sample"
     },
+    "summary_time_estimated_q95": {
+      "call": "vaft.omas.plot_summary_time_estimated_q95(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "e3978c3be27d4c54c9bf78e3cce31c27ff32ee2d91c275f7e151e1963a61ce9d",
+      "png_sha256": "ac0888085bebf678c2a7793cbea5a93bae0dec236e0debdd051551104b24b4f2",
+      "renderer_sha256": "2fbc1da8abd142a7207fabe520c2f54895bfc56733cb3e343a18828d9a277e02",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "summary_time_normalized_current": {
+      "call": "vaft.omas.plot_summary_time_normalized_current(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "b1dfc968cc87110f76f7f299c117a3d6d714c870709e2cf487f1946a75b8ceb8",
+      "png_sha256": "34309d89e7a5e51a4d943c97b134d87cf5e7f0f4cdf7335b7807da7e187a7626",
+      "renderer_sha256": "2fbc1da8abd142a7207fabe520c2f54895bfc56733cb3e343a18828d9a277e02",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
     "summary_time_power_balance": {
       "reason": "no packaged sample carries the data this plot needs",
       "status": "no_sample"
+    },
+    "summary_time_q_star_cylindrical": {
+      "call": "vaft.omas.plot_summary_time_q_star_cylindrical(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "cc0911e5d905525cb62bd88d1f24bb03227357187296a5ac6ad389acc4d87af7",
+      "png_sha256": "50ec6153ffd543837fec59e0d9a532f333bab8ae3b41e9568b9b1f4e56577fb0",
+      "renderer_sha256": "2fbc1da8abd142a7207fabe520c2f54895bfc56733cb3e343a18828d9a277e02",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "summary_time_q_star_kink": {
+      "call": "vaft.omas.plot_summary_time_q_star_kink(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "77e930a59516185aa7af027d04991caf837a265cfd37bca19ebdfbabad2d320a",
+      "png_sha256": "7f7de4168bac051f4a1d09750cd8e745c5f1ba859a2e2d88ed9283270e8087fd",
+      "renderer_sha256": "2fbc1da8abd142a7207fabe520c2f54895bfc56733cb3e343a18828d9a277e02",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
     },
     "summary_time_resistive_zeff": {
       "reason": "no packaged sample carries the data this plot needs",

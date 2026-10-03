@@ -200,6 +200,15 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "(an explicit None is refused: in profile_gradient it means 'none')"),
         OptionSpec("convention", "choice", "recipes.GRADIENT_CONVENTIONS",
                    "code preset resolving gradient_coordinate and reference_length"),
+        # Edge-q estimates (issue #1583): where shape and current come from, the
+        # stand-in shape, and the q95 scaling; the defaults are vest.yaml's.
+        OptionSpec("estimate_from", "choice", "recipes.EDGE_Q_SOURCES",
+                   "shape and current from the equilibrium, the magnetics, or auto"),
+        OptionSpec("shape", description="{minor_radius, major_radius, elongation, triangularity} replacing "
+                                        "the equilibrium's or the machine default shape"),
+        OptionSpec("scaling", "choice", "recipes.Q95_SCALINGS", "q95 estimate: START (Akers 2000) or ITER (Post 1991)"),
+        OptionSpec("configuration", "choice", "recipes.START_CONFIGURATIONS",
+                   "START scaling C: limiter (1.0) or double_null (0.77)"),
     )
 
 

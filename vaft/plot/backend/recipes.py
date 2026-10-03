@@ -14516,3 +14516,116 @@ def conversion_reason(name: str) -> str:
     """Why plot ``name`` converts a non-OMAS input, or ``""`` when it never does."""
     recipe = RECIPES.get(name)
     return recipe.reason if isinstance(recipe, CallableRecipe) else ""
+
+
+# ---------------------------------------------------------------------------
+# Edge-q estimates for shots without an equilibrium (#1583)
+# ---------------------------------------------------------------------------
+
+#: ``summary_time_<quantity>`` -> (EdgeQEstimate field, y label, unit). The
+#: estimate's label comes from the result ("q95 (START estimate)"), never bare q95.
+EDGE_Q_VIEWS: dict[str, tuple[str, str, str]] = {
+    "summary_time_estimated_q95": ("estimated_q95", "", ""),
+    "summary_time_q_star_cylindrical": ("q_star_cylindrical", "q* (Menard, cylindrical)", ""),
+    "summary_time_q_star_kink": ("q_star_kink", "q* (Freidberg kink)", ""),
+    "summary_time_normalized_current": ("normalized_current", "I_N = I_p/(a B_T)", "MA/(m T)"),
+}
+
+#: The ``estimate_from=``, ``scaling=`` and ``configuration=`` vocabularies.
+EDGE_Q_SOURCES = ("auto", "equilibrium", "magnetics")
+Q95_SCALINGS = ("start", "iter")
+START_CONFIGURATIONS = ("limiter", "double_null")
+
+#: What :func:`vaft.omas.edge_q.edge_q_estimate` reads, for either source.
+_EDGE_Q_READS = (
+    "equilibrium.time", "equilibrium.vacuum_toroidal_field.r0", "equilibrium.vacuum_toroidal_field.b0",
+    "equilibrium.time_slice.{i}.boundary.minor_radius", "equilibrium.time_slice.{i}.boundary.geometric_axis.r",
+    "equilibrium.time_slice.{i}.boundary.elongation", "equilibrium.time_slice.{i}.boundary.triangularity",
+    "equilibrium.time_slice.{i}.boundary.outline.r", "equilibrium.time_slice.{i}.boundary.outline.z",
+    "equilibrium.time_slice.{i}.global_quantities.ip", "equilibrium.time_slice.{i}.global_quantities.q_95",
+    "magnetics.ip.0.data", "magnetics.ip.0.time", "magnetics.time",
+    "tf.time", "tf.b_field_tor_vacuum_r.data",
+    "dataset_description.data_entry.pulse",
+)
+
+
+def _edge_q_available(ods: Any) -> str | None:
+    """Why ``ods`` has neither an equilibrium nor a magnetics current to estimate from."""
+    if _count(ods, "equilibrium.time_slice") > 0 and _has(ods, "equilibrium.vacuum_toroidal_field.b0"):
+        return None
+    if _has(ods, "magnetics.ip.0.data") and (
+        _has(ods, "tf.b_field_tor_vacuum_r.data") or _has(ods, "equilibrium.vacuum_toroidal_field.b0")
+    ):
+        return None
+    return "needs equilibrium time slices, or magnetics.ip with the tf field"
+
+
+def _build_edge_q_time(entries: Sequence[tuple[str, Any]], *, _plot_name: str, **options: Any) -> LineSeries:
+    """One edge-q proxy against time, every entry overlaid, provenance in the legend.
+
+    ``estimate_from=`` (its ``source=``), ``shape=``, ``scaling=`` and ``configuration=`` go to
+    :func:`vaft.omas.edge_q.edge_q_estimate`; the scaling and the stand-in shape
+    default to the machine description. On the estimated-q95 view each entry's
+    equilibrium q95 is overlaid as markers where the ODS has one.
+    """
+    from vaft.omas.edge_q import edge_q_estimate
+
+    key, quantity_label, unit = EDGE_Q_VIEWS[_plot_name]
+    window = _range_option(options, "time_range")
+    kwargs = {name: options[name] for name in ("shape", "scaling", "configuration") if options.get(name) is not None}
+    if options.get("estimate_from") is not None:
+        kwargs["source"] = options["estimate_from"]
+    several = len(entries) > 1
+    series: list[Series] = []
+    estimates: list[Series] = []
+    titles: set[str] = set()
+    for position, (label, ods) in enumerate(entries):
+        result = edge_q_estimate(ods, **kwargs)
+        name = result.label if key == "estimated_q95" else quantity_label
+        titles.add(name)
+        time = np.asarray(result.time, dtype=float)
+        keep = np.ones(time.shape, dtype=bool) if window is None else (time >= window[0]) & (time <= window[1])
+        shape_note = "" if result.source == "equilibrium" and result.shape_source.startswith("equilibrium") else (
+            "default shape" if result.shape_source.startswith("the default shape") else "caller shape")
+        parts = ([str(label)] if several else []) + ([name] if key == "estimated_q95" else [])
+        parts.append(f"from {result.source}" + (f", {shape_note}" if shape_note else ""))
+        style = {"color": palette(position)} if several else {}
+        series.append(Series(x=time[keep], y=np.asarray(getattr(result, key), dtype=float)[keep],
+                             label=", ".join(parts), entry=str(label), style=style))
+        estimates.append(series[-1])
+        if key == "estimated_q95" and result.equilibrium_q95 is not None:
+            eq_time = np.asarray(result.equilibrium_time, dtype=float)
+            eq_keep = np.ones(eq_time.shape, dtype=bool) if window is None else (
+                (eq_time >= window[0]) & (eq_time <= window[1]))
+            eq_label = f"{label} q95 (equilibrium)" if several else "q95 (equilibrium)"
+            series.append(Series(x=eq_time[eq_keep], y=result.equilibrium_q95[eq_keep], label=eq_label,
+                                 entry=str(label),
+                                 style={"marker": "o", "linestyle": "none", **style}))
+    heading = titles.pop() if len(titles) == 1 else "q95 (estimate)"
+    y_label = "q95" if key == "estimated_q95" else heading
+    shot = _entry_shot(entries)
+    title = options.get("title") or (f"{heading} #{shot}" if shot else heading)
+    return LineSeries(
+        series=tuple(series),
+        x_label="Time", x_unit="s",
+        y_label=y_label, y_unit=unit,
+        title=title,
+        x_limits=window if window is not None else _finite_span([s.x[np.isfinite(s.y)] for s in estimates]),
+    )
+
+
+for _name in EDGE_Q_VIEWS:
+    RECIPES[_name] = CallableRecipe(
+        builder=(lambda plot_name: (
+            lambda entries, **options: _build_edge_q_time(entries, _plot_name=plot_name, **options)
+        ))(_name),
+        description=(
+            "An edge-q proxy from global shape, plasma current and toroidal field against time "
+            "(vaft.omas.edge_q.edge_q_estimate), with the scaling and the shape's source stated."
+        ),
+        available=_edge_q_available,
+        reads=_EDGE_Q_READS,
+        backend=NEUTRAL,
+        multi_entry=True,
+        windowed=True,
+    )
