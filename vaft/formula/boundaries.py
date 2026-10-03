@@ -2069,3 +2069,147 @@ _register(Boundary(
     sources=(_POST_1991_SOURCE,),
     notes="I_max [MA] = 5 a^2 B/R [1 + kappa^2(1 + 2 delta^2 - 1.2 delta^3)]/2 (1.17 - 0.65 eps)/(1 - eps^2)^2 / 2.1.",
 ))
+
+
+# The START low-aspect-ratio correction (Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227):
+# I_N = (5/(A q95)) f(A) [1 + kappa^2 (1 + 2 delta^2 - 1.2 delta^3)]/2 with, from START equilibrium data,
+# f(A) = 1.17 C sqrt(A/(A - 1)); C = 1.0 for natural limiter plasmas, 0.77 for double null. Same shaping
+# factor and normalisation as the ITER guideline (Akers' ref. [14] is Post et al. 1991).
+
+_Q95_START_ESTIMATE = BoundaryQuantity(
+    "edge_safety_factor_95_estimate_start", "q_{95,START}", "-",
+    "q95 from the START low-aspect-ratio scaling of Akers et al. (2000) on global shape and engineering "
+    "parameters; an estimate, not an equilibrium q95.",
+)
+_AKERS_2000_SOURCE = BoundarySource(
+    "R. J. Akers et al., Nucl. Fusion 40 (2000) 1223",
+    equation="Sec. 2.1, p. 1227: I_N = (5/(A q95)) f(A) [1 + kappa^2(1 + 2 delta^2 - 1.2 delta^3)]/2, "
+             "f(A) = 1.17 C sqrt(A/(A - 1)), C = 1.0 (limiter) | 0.77 (double null)",
+    doi="10.1088/0029-5515/40/6/317",
+    note="the START scaling; the ITER f(A) of the same paper is Post et al. 1991 (its ref. [14])",
+)
+#: C of Akers et al. (2000): natural limiter plasma, double null.
+AKERS_2000_C = {"limiter": 1.0, "double_null": 0.77}
+
+
+def _start_q95_per_ma(a, R0, B0, kappa, delta, c):
+    A = R0 / a
+    shape = (1.0 + kappa**2 * (1.0 + 2.0 * delta**2 - 1.2 * delta**3)) / 2.0
+    return 5.0 * a**2 * B0 / R0 * shape * 1.17 * c * np.sqrt(A / (A - 1.0))
+
+
+def start_q95_coordinates(a, R0, B0, kappa, delta, I_p, configuration="limiter"):
+    r"""The START low-aspect-ratio $q_{95}$ estimate of Akers et al. (2000) from global shape.
+
+    $$q_{95} \approx \frac{5a^2B}{R\,I_p[\mathrm{MA}]}\,
+      \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\;1.17\,C\sqrt{\frac{A}{A-1}},
+      \qquad A = R/a$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation of the 95 % flux surface, kappa_95 [-].
+    delta : float or np.ndarray
+        Triangularity of the 95 % flux surface, delta_95 [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+    configuration : {"limiter", "double_null"}
+        Sets C = 1.0 (natural limiter plasma) or 0.77 (double null) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Estimated $q_{95}$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation, an infinite triangularity, $a \ge R_0$, or an
+        unknown configuration.
+
+    Convention
+    ----------
+    A fit to START equilibria (spherical tokamak), more conservative in aspect ratio
+    than the ITER guideline formula (``iter_q95_coordinates``), whose shaping factor and
+    normalisation it shares. Like it, it is written for the 95 % surface shape.
+
+    References
+    ----------
+    .. [1] R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227.
+    """
+    if configuration not in AKERS_2000_C:
+        raise ValueError(f"configuration must be one of {sorted(AKERS_2000_C)}, not {configuration!r}")
+    g = _positive_geometry(a=a, R0=R0, B0=np.abs(np.asarray(B0, dtype=float)), kappa=kappa)
+    if np.any(np.isfinite(g["a"] / g["R0"]) & (g["a"] / g["R0"] >= 1.0)):
+        raise ValueError("a must be smaller than R0")
+    d = np.asarray(delta, dtype=float)
+    if np.any(np.isinf(d)):
+        raise ValueError("delta must be finite where it is given")
+    current = np.abs(np.asarray(I_p, dtype=float))
+    with np.errstate(divide="ignore"):
+        q = _start_q95_per_ma(g["a"], g["R0"], g["B0"], g["kappa"], d, AKERS_2000_C[configuration]) / current
+    return _scalar_or_array(q)
+
+
+def _start_current(minor_radius, major_radius, toroidal_field, elongation, triangularity, q95=2.1):
+    g = _positive_geometry(a=minor_radius, R0=major_radius, kappa=elongation)
+    b = _finite_field(toroidal_field)
+    if np.any(np.isfinite(g["a"] / g["R0"]) & (g["a"] / g["R0"] >= 1.0)):
+        raise ValueError("a must be smaller than R0")
+    return _start_q95_per_ma(g["a"], g["R0"], b, g["kappa"], np.asarray(triangularity, dtype=float),
+                             AKERS_2000_C["limiter"]) / q95
+
+
+__all__ += ["start_q95_coordinates"]
+
+_register(Boundary(
+    key="akers_2000_q95_estimate_min",
+    family="current_limit",
+    target=_Q95_START_ESTIMATE,
+    inputs=(),
+    form="threshold",
+    coefficient=2.1,
+    allowed_side="above",
+    hardness="soft",
+    origin="derived",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="spherical tokamak (START equilibria), limiter plasma (C = 1.0)",
+        ranges={},
+        assumptions=(
+            "the ITER extended-performance guideline q95 >= 2.1 (Post et al. 1991) applied to the START q95 "
+            "estimate; Akers et al. state the scaling, not a q95 limit (their Fig. 4 uses q95 = 3)",
+        ),
+    ),
+    sources=(_AKERS_2000_SOURCE, _POST_1991_SOURCE),
+    notes="The q95 guideline on the START estimate of 'start_q95_coordinates' (limiter, C = 1.0).",
+))
+
+_register(Boundary(
+    key="akers_2000_q95_current",
+    family="current_limit",
+    target=_PLASMA_CURRENT_MA,
+    inputs=(_MINOR_RADIUS, _MAJOR_RADIUS, _TOROIDAL_FIELD, _ELONGATION, _TRIANGULARITY),
+    form="function",
+    function=_start_current,
+    allowed_side="below",
+    hardness="soft",
+    origin="derived",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="spherical tokamak (START equilibria), limiter plasma (C = 1.0)",
+        assumptions=("'akers_2000_q95_estimate_min' (q95 >= 2.1) written as a maximum current through the START "
+                     "scaling", "the scaling takes the 95 % surface kappa and delta; LCFS values raise the limit"),
+    ),
+    sources=(_AKERS_2000_SOURCE, _POST_1991_SOURCE),
+    notes="I_max [MA] = 5 a^2 B/R [1 + kappa^2(1 + 2 delta^2 - 1.2 delta^3)]/2 * 1.17 sqrt(A/(A - 1)) / 2.1.",
+))

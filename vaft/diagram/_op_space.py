@@ -72,6 +72,7 @@ AXIS_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
         _registered("freidberg_2008_kink_current", "toroidal_field"),
         _registered("menard_2004_qstar_min"),
         _registered("iter_1991_q95_estimate_min"),
+        _registered("akers_2000_q95_estimate_min"),
         _b.BoundaryQuantity(
             "normalized_current", "I_p/(a B_T)", "MA m^-1 T^-1",
             "Plasma current over minor radius times vacuum toroidal field (Troyon's I_N up to mu0).",
@@ -255,11 +256,13 @@ _register(OperationalProjection(
     title="Plasma current against toroidal field",
     x=_q("toroidal_field"),
     y=_q("plasma_current"),
-    default_boundaries=("freidberg_2008_kink_current", "menard_2004_qstar_current", "iter_1991_q95_current"),
+    default_boundaries=("freidberg_2008_kink_current", "menard_2004_qstar_current", "iter_1991_q95_current",
+                        "akers_2000_q95_current"),
     references=("PPCF 67 (2025) 115021, Fig. 6(b) (engineering operational space)",
                 "J. P. Freidberg, Plasma Physics and Fusion Energy (2007), Eq. (13.163)",
                 "J. E. Menard et al., Phys. Plasmas 11 (2004) 639",
-                "D. E. Post et al., ITER Physics, ITER Documentation Series No. 21 (1991), Table 1-2"),
+                "D. E. Post et al., ITER Physics, ITER Documentation Series No. 21 (1991), Table 1-2",
+                "R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1"),
     assumptions=(
         "every limit is a current at fixed shape: pass the minor radius, major radius, elongation and "
         "triangularity it should represent (a mean shape for a shot database)",
@@ -285,6 +288,16 @@ _register(OperationalProjection(
     references=("D. E. Post et al., ITER Physics, ITER Documentation Series No. 21 (1991), Table 1-2",),
     assumptions=("q95 from the guideline formula on global shape; conventional-aspect-ratio fit, extrapolated "
                  "at A ~ 1.3",),
+))
+
+_register(OperationalProjection(
+    key="q95_start_estimate_in",
+    title="START q95 estimate against normalized current",
+    x=_q("normalized_current"),
+    y=_q("edge_safety_factor_95_estimate_start"),
+    default_boundaries=("akers_2000_q95_estimate_min",),
+    references=("R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1",),
+    assumptions=("q95 from the START low-aspect-ratio scaling on global shape (limiter, C = 1.0)",),
 ))
 
 _register(OperationalProjection(

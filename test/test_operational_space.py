@@ -502,3 +502,19 @@ def test_current_limits_validate_their_geometry():
     with pytest.raises(ValueError):
         B.boundary_value(B.get_boundary("iter_1991_q95_current"), minor_radius=0.45, major_radius=0.4,
                          toroidal_field=0.17, elongation=1.5, triangularity=0.3)
+
+
+def test_start_scaling_is_akers_f_of_A_on_the_iter_shaping_factor():
+    a, R0, B0, kappa, delta, ip = 0.27, 0.38, 0.17, 1.5, 0.3, 0.1
+    A = R0 / a
+    f_start = 1.17 * np.sqrt(A / (A - 1.0))
+    f_iter = (1.17 - 0.65 / A) / (1.0 - 1.0 / A**2) ** 2
+    ratio = B.start_q95_coordinates(a, R0, B0, kappa, delta, ip) / B.iter_q95_coordinates(a, R0, B0, kappa, delta, ip)
+    assert ratio == pytest.approx(f_start / f_iter)
+    dnd = B.start_q95_coordinates(a, R0, B0, kappa, delta, ip, configuration="double_null")
+    assert dnd / B.start_q95_coordinates(a, R0, B0, kappa, delta, ip) == pytest.approx(0.77)
+    with pytest.raises(ValueError):
+        B.start_q95_coordinates(a, R0, B0, kappa, delta, ip, configuration="diverted")
+    i_lim = B.boundary_value(B.get_boundary("akers_2000_q95_current"), minor_radius=a, major_radius=R0,
+                             toroidal_field=B0, elongation=kappa, triangularity=delta)
+    assert B.start_q95_coordinates(a, R0, B0, kappa, delta, i_lim) == pytest.approx(2.1)
