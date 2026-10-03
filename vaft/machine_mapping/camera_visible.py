@@ -55,6 +55,22 @@ _BOTTOM_FRAME_PATTERN = re.compile(r"^Bottom Frame,.+,([+-]?\d+\.\d+)")
 # archive -- so the prefix is now anything up to the parenthesis.
 _SHUTTER_SPEED_PATTERN = re.compile(r"ShutterSpeed:\s*[^(\n]*\(([\d.]+)us\)")
 
+# A second header layout, written by BatchConv2 (the MEMRECAM HXLink batch
+# converter) when an archived `.mcf` is re-exported long after the shot. It
+# starts with `Type: GX-8` and carries the exported sub-range as `TopFrame:` /
+# `BottomFrame:` keys, the rate as `Frame_Rate:` and the shutter as a bare
+# `Shutter_SRC_Speed: 200k`, but it has neither the `Frames:` line nor the
+# `Top Frame,...,<relative time>` rows the fixed-index parser needs. Its
+# `[CONV_PARAM]` block also has `BEGIN_TIME=`/`END_TIME=`, and those must NOT
+# be used: they are copied from the converter's parameter template and read
+# +0.280000/+0.340000 whatever range was exported (2,990 of 5,312 re-exported
+# shots disagree with their own frame numbers).
+_GX8_TYPE_PATTERN = re.compile(r"^Type:\s*GX-8\b")
+_GX8_KEY_PATTERN = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*?)\s*$")
+# `200k` -> 200000 frames-per-second-equivalent shutter, i.e. 1/200000 s.
+# `OPEN` and `CUSTOM` carry no exposure in this layout and leave it unset.
+_GX8_SHUTTER_PATTERN = re.compile(r"^([\d.]+)\s*([kK]?)$")
+
 
 class CameraFrameSelectionError(RuntimeError):
     """Raised when no non-dark frame can be found in a shot's frame sequence."""
@@ -68,6 +84,8 @@ class CameraHeaderInfo:
     end_time_ms: float
     total_frames: int
     exposure_time_s: float | None
+    #: Where ``exposure_time_s`` came from, for the IDS comment.
+    exposure_source: str = f"header ShutterSpeed line {_SHUTTER_SPEED_LINE_INDEX + 1}"
 
 
 #: VEST's two camera-viewing ports, as the visible-camera calibration uses
@@ -181,16 +199,77 @@ def vest_port_corner_points() -> np.ndarray:
     return np.vstack([corners(first), corners(first + PORT_SEPARATION_RAD)])
 
 
+def _parse_gx8_header(path: Path, lines: Sequence[str]) -> CameraHeaderInfo:
+    """Parse the BatchConv2 ``Type: GX-8`` header layout by key.
+
+    Frame numbers are counted from the trigger frame, exactly as in the
+    original layout, whose ``Top Frame`` row reads ``+700 ... +0.280000`` at
+    2500 fps. So the top and bottom times are ``frame / Frame_Rate``, and the
+    exported frame count is ``BottomFrame - TopFrame + 1``. Verified against
+    the three shots (26151, 26153, 26155) that exist in both layouts: same
+    start, end and exposure.
+    """
+    values: dict[str, str] = {}
+    for line in lines:
+        match = _GX8_KEY_PATTERN.match(line)
+        if match is not None:
+            values.setdefault(match.group(1), match.group(2))
+
+    def required_int(key: str) -> int:
+        try:
+            return int(values[key])
+        except (KeyError, ValueError):
+            raise ValueError(
+                f"GX-8 camera header {path} has no integer {key!r}: {values.get(key)!r}"
+            ) from None
+
+    top_frame = required_int("TopFrame")
+    bottom_frame = required_int("BottomFrame")
+    rate_text = values.get("Frame_Rate") or values.get("Frame_SRC_Rate")
+    try:
+        frame_rate = float(rate_text) if rate_text is not None else float("nan")
+    except ValueError:
+        frame_rate = float("nan")
+    if not np.isfinite(frame_rate) or frame_rate <= 0:
+        raise ValueError(f"GX-8 camera header {path} has no positive Frame_Rate: {rate_text!r}")
+    if bottom_frame <= top_frame:
+        raise ValueError(
+            f"GX-8 camera header {path} has BottomFrame {bottom_frame} <= TopFrame {top_frame}."
+        )
+
+    exposure_time_s: float | None = None
+    shutter_text = values.get("Shutter_SRC_Speed") or values.get("Shutter_Speed")
+    if shutter_text is not None:
+        shutter_match = _GX8_SHUTTER_PATTERN.match(shutter_text)
+        if shutter_match is not None:
+            speed = float(shutter_match.group(1)) * (1e3 if shutter_match.group(2) else 1.0)
+            if speed > 0:
+                exposure_time_s = 1.0 / speed
+
+    return CameraHeaderInfo(
+        start_time_ms=top_frame / frame_rate * 1000.0,
+        end_time_ms=bottom_frame / frame_rate * 1000.0,
+        total_frames=bottom_frame - top_frame + 1,
+        exposure_time_s=exposure_time_s,
+        exposure_source=f"GX-8 header Shutter_SRC_Speed {shutter_text!r} as 1/speed",
+    )
+
+
 def _parse_bmp_header(path: str | Path) -> CameraHeaderInfo:
     """Parse a FAST-camera `{shot}_bmp.txt` header.
 
     Reuses the fixed-line-index convention of the donor `bmp_arranger.py`
     ``extract_data`` function rather than searching by content, since that
     convention was verified stable across every sample shot header available.
+    A BatchConv2 re-export (``Type: GX-8`` on line 2) is parsed by key instead;
+    see :func:`_parse_gx8_header`.
     """
     path = Path(path)
     with path.open("r", encoding="utf-8", errors="replace") as handle:
         lines = handle.readlines()
+
+    if len(lines) > 1 and _GX8_TYPE_PATTERN.match(lines[1]):
+        return _parse_gx8_header(path, lines)
 
     required_index = max(_FRAMES_LINE_INDEX, _TOP_FRAME_LINE_INDEX, _BOTTOM_FRAME_LINE_INDEX)
     if len(lines) <= required_index:
@@ -547,7 +626,7 @@ def camera_visible(
     lines_n, columns_n = images[0].shape
 
     exposure_note = (
-        f"exposure_time from header ShutterSpeed line {_SHUTTER_SPEED_LINE_INDEX + 1}."
+        f"exposure_time from {header.exposure_source}."
         if header.exposure_time_s is not None
         else "exposure_time unavailable: no ShutterSpeed line found in header."
     )
