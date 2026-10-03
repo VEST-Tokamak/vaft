@@ -203,7 +203,20 @@ def _xml_parameters(entries: Mapping[str, Any]) -> str:
     return f"<parameters><cgyro>{body}</cgyro></parameters>"
 
 
-def _write_code(ods: ODS, base: str, provenance: Mapping[str, Any]) -> None:
+def _locality_entries(locality: Optional[Mapping[str, Any]]) -> dict[str, Any]:
+    if not locality:
+        return {}
+    keys = ("rho_star", "L_x_over_a", "l_corr_over_a", "l_corr_over_L_x", "epsilon_local",
+            "limiting_scale", "distance_to_edge_over_a")
+    entries = {f"locality_{k}": locality.get(k) for k in keys}
+    verdict = locality.get("verdict") or {}
+    entries["locality_verdict"] = verdict.get("locality")
+    entries["locality_box_verdict"] = verdict.get("box")
+    return entries
+
+
+def _write_code(ods: ODS, base: str, provenance: Mapping[str, Any],
+                locality: Optional[Mapping[str, Any]] = None) -> None:
     version = provenance.get("version") or {}
     ods[f"{base}.code.name"] = "CGYRO"
     ods[f"{base}.code.repository"] = CGYRO_REPOSITORY
@@ -223,6 +236,7 @@ def _write_code(ods: ODS, base: str, provenance: Mapping[str, Any]) -> None:
             "state_key": provenance.get("state_key"),
             "frequency_sign_convention": FREQUENCY_SIGN_CONVENTION,
             "normalisation": "GKDB: L_ref=R0, B_ref=Btor(R0), v_thref=sqrt(2Te/mD)",
+            **_locality_entries(locality),
         }
     )
 
@@ -235,6 +249,7 @@ def gyrokinetics_local_from_cgyro(
     provenance: Optional[Mapping[str, Any]] = None,
     time: Optional[float] = None,
     flux_window: Optional[tuple[float, float]] = None,
+    locality: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
     """Write one CGYRO run into ``ods['gyrokinetics_local']``.
 
@@ -252,6 +267,10 @@ def gyrokinetics_local_from_cgyro(
         ``(t0, t1)`` in ``a/c_s`` over which a nonlinear run's fluxes are averaged. A
         nonlinear run without one writes no fluxes and says so: choosing the window is a
         judgement about saturation this layer does not make.
+    locality
+        :func:`~vaft.code.gacode.cgyro.locality.locality_report` for the run. The DD has
+        no home for it, so its scalars and verdicts go into ``code.parameters``
+        (``locality_*``) -- the validity of a local result travels with the result.
 
     Returns
     -------
@@ -282,7 +301,7 @@ def gyrokinetics_local_from_cgyro(
     )
     if time is not None:
         ods[f"{base}.time"] = np.asarray([float(time)])
-    _write_code(ods, base, provenance)
+    _write_code(ods, base, provenance, locality=locality)
 
     # -- model --------------------------------------------------------------
     parameters = provenance.get("parameters") or {}
