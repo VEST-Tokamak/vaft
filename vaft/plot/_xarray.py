@@ -252,6 +252,10 @@ def field_dataset(model: Any, **extra: Any) -> "xr.Dataset":
         model, "value_label", "x_label", "y_label", "title", "contour_levels", "filled",
         "aspect_equal", "secondary_levels", "colorbar", "extend", **extra,
     ))
+    metadata = getattr(model, "metadata", None)
+    if metadata:
+        # JSON text, as on a profile: json.loads(ds.attrs["metadata"])
+        ds.attrs["metadata"] = _plain(dict(metadata))
     return ds
 
 

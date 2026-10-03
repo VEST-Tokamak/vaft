@@ -51,6 +51,8 @@ from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from .recipes import (
     entry_supports,
+    RATIONAL_SURFACE_OPTIONS,
+    RATIONAL_SURFACE_PLOTS,
     CAMERA_OVERLAYS,
     ChannelProfileRecipe,
     SPECTROGRAM_METHODS,
@@ -306,6 +308,16 @@ def _declare(record: PlotCapability) -> PlotCapability:
                          **({"applies_to": dict(choice.applies_to)} if choice.applies_to else {})}
                 for option, choice in recipe.choices.items()
             }
+    if record.name in RATIONAL_SURFACE_PLOTS:
+        # Optional overlays the plot takes on request (issue #506); the base
+        # view's own requirements are unchanged by them.
+        updates["annotations"] = {
+            "rational_surfaces": {
+                "options": RATIONAL_SURFACE_OPTIONS,
+                "reads": ("equilibrium.time_slice.{i}.profiles_1d.q",
+                          "equilibrium.time_slice.{i}.profiles_1d.psi"),
+            },
+        }
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")

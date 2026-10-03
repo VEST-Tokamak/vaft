@@ -359,8 +359,14 @@ class Field2D(ViewModel):
     #: grid; ``None`` draws them everywhere.  A flux map confines its plasma
     #: levels to the plasma, since the same psi values recur beside the coils.
     region: np.ndarray | None = None
+    #: How a derived annotation of the map was formed, as plain
+    #: JSON-serialisable values: the rational-surface overlay records the
+    #: resolved surfaces and the slice they came from here (issue #506).
+    #: ``to_xarray`` writes it to the ``metadata`` attribute.
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
         r = as_model_array(self.r, where="Field2D.r")
         z = as_model_array(self.z, where="Field2D.z")
         values = as_model_array(self.values, where="Field2D.values")

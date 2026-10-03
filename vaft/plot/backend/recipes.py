@@ -7908,6 +7908,346 @@ def _profile_reference_lines(ods: Any, time_slice: int, coordinate: str, traces:
     return tuple(lines)
 
 
+# --- rational surfaces (issue #506) ------------------------------------------
+
+#: The options that ask a view to mark rational surfaces: ``rational_q=`` (a
+#: q value or several) and ``resonances=`` (``(m, n)`` harmonics).  Both are
+#: declared-only (:data:`vaft.plot.backend.options.DECLARED_ONLY_OPTIONS`):
+#: only the plots in :data:`RATIONAL_SURFACE_PLOTS` take them.
+RATIONAL_SURFACE_OPTIONS = ("rational_q", "resonances")
+
+#: The 2-D equilibrium maps (contours ``psi_N(R, Z) = root``) and the 1-D
+#: profiles (vertical markers on a flux abscissa) that draw rational surfaces.
+RATIONAL_SURFACE_PLOTS = frozenset({
+    "equilibrium_field_psi",
+    "equilibrium_field_2d",
+    "equilibrium_profile_pressure",
+    "equilibrium_profile_q",
+    "equilibrium_profile_j_tor",
+    "equilibrium_profile_pprime",
+    "equilibrium_profile_f",
+    "equilibrium_profile_ffprime",
+    "electron_temperature_profile",
+    "electron_density_profile",
+})
+
+
+def declares_option(name: str, option: str) -> bool:
+    """Whether plot ``name`` declares the declared-only ``option``."""
+    if option in RATIONAL_SURFACE_OPTIONS:
+        return name in RATIONAL_SURFACE_PLOTS
+    return choice_options_for(name, option) is not None
+
+
+def _rational_request(options: Mapping[str, Any]) -> tuple[tuple[float, ...], tuple[tuple[int, int], ...]] | None:
+    """``(q_targets, resonances)`` asked of a view, or ``None`` when neither was."""
+    raw_q, raw_res = options.get("rational_q"), options.get("resonances")
+    if raw_q is None and raw_res is None:
+        return None
+    q_targets: tuple[float, ...] = ()
+    if raw_q is not None:
+        if isinstance(raw_q, (str, bytes)):
+            raise ValueError(f"rational_q= takes q values, not {raw_q!r}")
+        try:
+            q_targets = tuple(float(v) for v in np.atleast_1d(np.asarray(raw_q, dtype=float)).ravel())
+        except (TypeError, ValueError):
+            raise ValueError(f"rational_q= takes a q value or several; got {raw_q!r}") from None
+    resonances: tuple[tuple[int, int], ...] = ()
+    if raw_res is not None:
+        pairs = list(raw_res) if not isinstance(raw_res, (str, bytes)) else [raw_res]
+        if len(pairs) == 2 and all(isinstance(v, (int, float, np.integer, np.floating)) for v in pairs):
+            pairs = [tuple(pairs)]  # one (m, n) passed bare
+        resonances = tuple(tuple(pair) if not isinstance(pair, (str, bytes)) else pair for pair in pairs)
+    if not q_targets and not resonances:
+        raise ValueError("rational_q= and resonances= are empty: name a q value or an (m, n) harmonic")
+    return q_targets, resonances
+
+
+def _rational_label(surface: Any) -> str:
+    """``q = 2`` for a plain value, ``2/1, 4/2 (q = 2)`` for harmonics."""
+    value = f"q = {surface.q_target:g}"
+    if surface.harmonics:
+        return f"{', '.join(f'{m}/{n}' for m, n in surface.harmonics)} ({value})"
+    return value
+
+
+def _resolve_rational_surfaces(
+    ods: Any,
+    time_slice: int,
+    request: tuple[tuple[float, ...], tuple[tuple[int, int], ...]],
+    *,
+    psi_norm: Any = None,
+    rho_tor_norm: Any = None,
+) -> tuple[Any, ...]:
+    """The rational surfaces of one equilibrium slice, through the one resolver.
+
+    Every overlay comes through here, and the location itself through
+    :func:`vaft.process.equilibrium.rational_surfaces`; no view searches ``q``.
+    ``psi_norm`` defaults to the 2-D map's normalisation (global
+    ``psi_axis``/``psi_boundary``, else the profile's ends) and
+    ``rho_tor_norm`` to the slice's authentic toroidal radius
+    (:func:`_rho_tor_of_psi_norm`), left unavailable when the slice has none.
+    A profile view passes its own abscissa instead, so a marker lands where
+    its curve is drawn.  An absent surface warns and is returned as absent.
+    """
+    from vaft.process.equilibrium import rational_surfaces
+
+    base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
+    q = _array(ods, f"{base}.q")
+    psi = _array(ods, f"{base}.psi")
+    if q is None or psi is None or q.size != psi.size or q.size < 2:
+        raise ValueError(
+            f"rational_q=/resonances= need {base}.q and {base}.psi on one grid; "
+            f"equilibrium slice {time_slice} of this input has not got them"
+        )
+    if psi_norm is None:
+        span = _psi_axis_boundary(ods, time_slice)
+        if span is None:
+            raise ValueError(
+                f"rational_q=/resonances= need the psi range of equilibrium slice {time_slice} "
+                "(global psi_axis/psi_boundary or profiles_1d.psi)"
+            )
+        psi_norm = (psi - span[0]) / (span[1] - span[0])
+    if rho_tor_norm is None:
+        try:
+            rho_tor_norm = _rho_tor_of_psi_norm(ods, time_slice)[1]
+        except ValueError:
+            rho_tor_norm = None
+    surfaces = rational_surfaces(
+        psi_norm, q, q_targets=request[0], resonances=request[1], rho_tor_norm=rho_tor_norm,
+    )
+    span = np.abs(q[np.isfinite(q)])
+    instant = _finite_scalar(_get(ods, f"equilibrium.time_slice.{time_slice}.time"))
+    when = f" (t = {instant * 1e3:.2f} ms)" if instant is not None else ""
+    for surface in surfaces:
+        if not surface.present:
+            warnings.warn(
+                f"{_rational_label(surface)} does not occur in equilibrium slice {time_slice}{when}: "
+                f"|q| spans [{span.min():.3g}, {span.max():.3g}]; no surface is drawn for it",
+                UserWarning,
+                stacklevel=4,
+            )
+    return surfaces
+
+
+def _rational_metadata(
+    surfaces: Sequence[Any], ods: Any, time_slice: int, coordinate: str, **extra: Any
+) -> dict[str, Any]:
+    """The resolved surfaces as plain values, for ``extract_*`` and ``to_xarray``."""
+    instant = _finite_scalar(_get(ods, f"equilibrium.time_slice.{time_slice}.time"))
+    return {
+        "equilibrium_time_slice": int(time_slice),
+        "equilibrium_time": instant,
+        "coordinate": coordinate,
+        **extra,
+        "surfaces": [
+            {
+                "label": _rational_label(surface),
+                "q_target": surface.q_target,
+                "harmonics": [list(pair) for pair in surface.harmonics],
+                "requested_q": surface.requested_q,
+                "status": surface.status,
+                "method": surface.method,
+                "roots": [
+                    {
+                        "root_index": root.root_index,
+                        "psi_norm": root.psi_norm,
+                        "rho_pol_norm": root.rho_pol_norm,
+                        "rho_tor_norm": root.rho_tor_norm,
+                    }
+                    for root in surface.roots
+                ],
+            }
+            for surface in surfaces
+        ],
+    }
+
+
+def _rational_contour_layers(
+    ods: Any, recipe: FieldRecipe, time_slice: int, surfaces: Sequence[Any]
+) -> list[GeometryLayer]:
+    """``psi_N(R, Z) = root`` for every root, one legend entry per q value.
+
+    The map's own normalisation (global ``psi_axis``/``psi_boundary``, else the
+    profile's ends) on the stored psi grid, contoured without pyplot.  Where
+    the same psi_N recurs outside the plasma (beside the coils) the pieces
+    outside the stored boundary are dropped; with no boundary, a piece that
+    does not enclose the magnetic axis is.
+    """
+    import contourpy
+    from matplotlib.path import Path
+
+    r = _array(ods, recipe.r_path.format(i=time_slice))
+    z = _array(ods, recipe.z_path.format(i=time_slice))
+    psi = _array(ods, recipe.value_path.format(i=time_slice))
+    span = _psi_axis_boundary(ods, time_slice)
+    if r is None or z is None or psi is None or span is None:
+        return []
+    values = psi.T if recipe.values_order == "rz" or psi.shape != (z.size, r.size) else psi
+    normalized = (np.asarray(values, dtype=float) - span[0]) / (span[1] - span[0])
+    generator = contourpy.contour_generator(x=r, y=z, z=np.ma.masked_invalid(normalized))
+
+    outline = None
+    if recipe.boundary_paths:
+        boundary_r = _array(ods, recipe.boundary_paths[0].format(i=time_slice))
+        boundary_z = _array(ods, recipe.boundary_paths[1].format(i=time_slice))
+        if boundary_r is not None and boundary_z is not None and boundary_r.size >= 3:
+            outline = Path(np.column_stack([boundary_r, boundary_z]))
+    axis_base = f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis"
+    axis_r = _finite_scalar(_get(ods, f"{axis_base}.r"))
+    axis_z = _finite_scalar(_get(ods, f"{axis_base}.z"))
+
+    def belongs(piece: np.ndarray) -> bool:
+        if outline is not None:
+            # A surface just inside the edge runs along the outline; most of
+            # it, not all, has to fall inside.
+            return bool(np.mean(outline.contains_points(piece, radius=1e-9)) >= 0.5)
+        if axis_r is not None and axis_z is not None and piece.shape[0] >= 3:
+            return bool(Path(piece).contains_point((axis_r, axis_z)))
+        return True
+
+    layers: list[GeometryLayer] = []
+    for colour, surface in enumerate(surfaces):
+        label = _rational_label(surface)
+        for root in surface.roots:
+            pieces = [np.asarray(p, dtype=float) for p in generator.lines(root.psi_norm)]
+            pieces = [p for p in pieces if p.shape[0] >= 2 and belongs(p)]
+            if not pieces:
+                continue
+            joined = np.concatenate(
+                [np.vstack([p, [[np.nan, np.nan]]]) for p in pieces[:-1]] + [pieces[-1]]
+            )
+            layers.append(GeometryLayer(
+                r=joined[:, 0], z=joined[:, 1], kind="polyline", label=label,
+                style={"color": palette(colour), "linestyle": "--", "linewidth": 1.2},
+                role=EQUILIBRIUM_ROLE,
+            ))
+            label = ""  # one legend entry per q value, however many roots
+    return layers
+
+
+def _with_rational_contours(field: Field2D, ods: Any, recipe: FieldRecipe, options: Mapping[str, Any]) -> Field2D:
+    """``field`` with the requested rational surfaces drawn over it (unchanged if none)."""
+    request = _rational_request(options)
+    if request is None:
+        return field
+    time_slice = options.get("time_slice", 0)
+    surfaces = _resolve_rational_surfaces(ods, time_slice, request)
+    layers = _rational_contour_layers(ods, recipe, time_slice, surfaces)
+    metadata = dict(field.metadata)
+    metadata["rational_surfaces"] = _rational_metadata(surfaces, ods, time_slice, "psi_norm")
+    return dataclasses.replace(field, overlays=tuple(field.overlays) + tuple(layers), metadata=metadata)
+
+
+#: The profile abscissae a rational surface can be marked on, by the root
+#: coordinate that places it.  ``sqrt_phi_norm`` is sqrt(|phi|/|phi_edge|),
+#: rho_tor_norm's own definition, so it takes the toroidal root.
+_RATIONAL_ROOT_COORDINATE = {
+    "psi_norm": "psi_norm",
+    "rho_tor_norm": "rho_tor_norm",
+    "sqrt_phi_norm": "rho_tor_norm",
+}
+
+
+def _rational_reference_lines(
+    entries: Sequence[tuple[str, Any]],
+    recipe: ProfileRecipe,
+    coordinate: str,
+    options: Mapping[str, Any],
+) -> tuple[tuple[ReferenceLine, ...], dict[str, Any]]:
+    """Markers at the requested rational surfaces, on the abscissa actually drawn.
+
+    The equilibrium slice is the view's own for an equilibrium profile, and
+    the one nearest the profile's time for a core profile, whose times are
+    recorded and, when they differ, stated in the legend and a warning.  An
+    abscissa no root can be placed on (a midplane radius, a sample index, an
+    unavailable toroidal radius) draws no marker and says why.
+    """
+    request = _rational_request(options)
+    if request is None or not entries:
+        return (), {}
+    entry_label, ods = entries[0]
+    if len(entries) > 1:
+        warnings.warn(
+            f"rational surfaces are marked for the first entry ({entry_label}) only; "
+            "each entry has its own q profile",
+            UserWarning,
+            stacklevel=3,
+        )
+    root_coordinate = _RATIONAL_ROOT_COORDINATE.get(coordinate)
+    if root_coordinate is None:
+        warnings.warn(
+            f"rational surfaces are not marked on a {coordinate} abscissa: a root is located "
+            "in flux (psi_norm, rho_tor_norm, sqrt_phi_norm), and placing it on this axis "
+            "would be a guess",
+            UserWarning,
+            stacklevel=3,
+        )
+        return (), {}
+
+    time_slice = options.get("time_slice", 0)
+    extra: dict[str, Any] = {}
+    suffix = ""
+    if recipe.slice_container == "core_profiles.profiles_1d":
+        profile_time = slice_times(ods, "core_profiles.profiles_1d")
+        instant = float(profile_time[time_slice]) if 0 <= time_slice < profile_time.size else np.nan
+        if not np.isfinite(instant) or not _count(ods, "equilibrium.time_slice"):
+            warnings.warn(
+                f"rational surfaces are not marked: core_profiles.profiles_1d[{time_slice}] stores no "
+                "time or there is no equilibrium to take q from",
+                UserWarning,
+                stacklevel=3,
+            )
+            return (), {}
+        eq_slice = resolve_slice_option(ods, "equilibrium.time_slice", time=instant, name="rational surfaces")
+        surfaces = _resolve_rational_surfaces(ods, eq_slice, request)
+        eq_time = _finite_scalar(_get(ods, f"equilibrium.time_slice.{eq_slice}.time"))
+        extra = {"profile_slice": int(time_slice), "profile_time": instant}
+        if eq_time is not None and abs(eq_time - instant) > 1e-9:
+            suffix = f" [eq. t = {eq_time * 1e3:.2f} ms]"
+            warnings.warn(
+                f"rational surfaces come from equilibrium slice {eq_slice} (t = {eq_time:g} s), "
+                f"not the profile's own time (t = {instant:g} s); the legend says so",
+                UserWarning,
+                stacklevel=3,
+            )
+    else:
+        eq_slice = time_slice
+        q = _array(ods, f"equilibrium.time_slice.{eq_slice}.profiles_1d.q")
+        size = q.size if q is not None else 0
+        # The view's own abscissa, so the marker sits where its curve is drawn.
+        psi_view, got = _equilibrium_coordinate_values(ods, recipe, "psi_norm", eq_slice, size)
+        toroidal = None
+        if root_coordinate == "rho_tor_norm":
+            toroidal, got_toroidal = _equilibrium_coordinate_values(ods, recipe, coordinate, eq_slice, size)
+            if got_toroidal != coordinate:
+                toroidal = None
+        surfaces = _resolve_rational_surfaces(
+            ods, eq_slice, request,
+            psi_norm=psi_view if got == "psi_norm" else None, rho_tor_norm=toroidal,
+        )
+
+    lines: list[ReferenceLine] = []
+    unplaced: list[str] = []
+    for colour, surface in enumerate(surfaces):
+        label = _rational_label(surface) + suffix
+        for root in surface.roots:
+            x = root.psi_norm if root_coordinate == "psi_norm" else root.rho_tor_norm
+            if x is None:
+                unplaced.append(_rational_label(surface))
+                continue
+            lines.append(ReferenceLine(x, label, {"color": palette(colour), "linestyle": "--"}))
+            label = ""
+    if unplaced:
+        warnings.warn(
+            f"{', '.join(dict.fromkeys(unplaced))}: not marked on the {coordinate} axis, because "
+            f"equilibrium slice {eq_slice} supplies no authentic toroidal radius",
+            UserWarning,
+            stacklevel=3,
+        )
+    return tuple(lines), _rational_metadata(surfaces, ods, eq_slice, coordinate, **extra)
+
+
 def _default_x_limits(ods: Any, coordinate: str, traces: Sequence[Series]) -> tuple[float, float] | None:
     if coordinate in _FLUX_COORDINATES:
         return (0.0, 1.0)
@@ -8294,6 +8634,14 @@ def _build_profile_1d(
         reference_lines = _profile_reference_lines(first_ods, time_slice, drawn_coordinate, scaled)
         if x_limits is None:
             x_limits = _default_x_limits(first_ods, drawn_coordinate, scaled)
+    metadata: dict[str, Any] = {}
+    if recipe.index != "channel":
+        rational_lines, rational = _rational_reference_lines(
+            trace_entries, recipe, drawn_coordinate, options,
+        )
+        reference_lines = reference_lines + rational_lines
+        if rational:
+            metadata["rational_surfaces"] = rational
     return Profile1D(
         series=scaled,
         coordinate_label=_COORDINATE_LABELS.get(drawn_coordinate, drawn_coordinate),
@@ -8303,6 +8651,7 @@ def _build_profile_1d(
         x_limits=x_limits,
         display=y_display,
         reference_lines=reference_lines,
+        metadata=metadata,
     )
 
 
@@ -8766,6 +9115,16 @@ def _style_scalar_field(field: Field2D, spec: EquilibriumField, unit: str | None
 
 
 def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
+    """A 2-D map, with the requested rational surfaces over it (issue #506)."""
+    base = {k: v for k, v in options.items() if k not in RATIONAL_SURFACE_OPTIONS}
+    field = _build_field_2d_base(ods, recipe, **base)
+    if not recipe.boundary_paths:
+        # Only a map of the equilibrium itself owns a q profile to resolve.
+        return field
+    return _with_rational_contours(field, ods, recipe, options)
+
+
+def _build_field_2d_base(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
     time_slice = options.get("time_slice", 0)
     plot_name = options.get("_plot_name")
     if "yunit" in options:
