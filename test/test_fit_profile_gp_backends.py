@@ -68,6 +68,56 @@ def test_both_backends_agree_end_to_end_through_fit_profile():
     np.testing.assert_allclose(scipy_std, sklearn_std, rtol=0, atol=1e-5)
 
 
+def test_the_sklearn_backend_does_not_depend_on_numpys_global_rng():
+    """The restart starts are seeded, so the fit is a function of the data only.
+
+    scikit-learn draws its ``n_restarts_optimizer`` starting points from
+    ``check_random_state(random_state)``; left at ``None`` that is numpy's
+    global ``RandomState``, whose state depends on whatever ran earlier in the
+    process. In a full-suite run the test order differs per platform and
+    worker, so the restarts differed and the multimodal marginal likelihood
+    could land in a different local optimum: the two backends disagreed by up
+    to 9e-3 on Windows only (0.8.0 release PR #1391, run 37043762573).
+    """
+    x, y, y_std = _noisy_exponential()
+    x_eval = np.linspace(0.0, 1.0, 21)
+
+    state = np.random.get_state()
+    try:
+        np.random.seed(1)
+        mean_1, std_1, _, _ = fit_profile(x, y, y_std, x_eval, fitting_function="gp_sklearn")
+        np.random.seed(2)
+        mean_2, std_2, _, _ = fit_profile(x, y, y_std, x_eval, fitting_function="gp_sklearn")
+    finally:
+        np.random.set_state(state)
+
+    np.testing.assert_allclose(mean_1, mean_2, rtol=0, atol=0)
+    np.testing.assert_allclose(std_1, std_2, rtol=0, atol=0)
+
+
+def test_the_sklearn_backend_is_handed_an_explicit_random_state(monkeypatch):
+    """Pinned at the call as well: on data where every restart finds the same
+    optimum the bitwise test above cannot tell a seeded fit from a lucky one."""
+    import sklearn.gaussian_process as gaussian_process
+
+    seen = {}
+    original = gaussian_process.GaussianProcessRegressor
+
+    def recording(*args, **kwargs):
+        seen["random_state"] = kwargs.get("random_state")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(gaussian_process, "GaussianProcessRegressor", recording)
+    x, y, y_std = _noisy_exponential(n=12)
+    fit_profile(x, y, y_std, x, fitting_function="gp_sklearn")
+    assert seen.get("random_state") == 0, (
+        f"fit_profile must seed scikit-learn's restarts, got random_state={seen.get('random_state')!r}"
+    )
+
+    fit_profile(x, y, y_std, x, fitting_function="gp_sklearn", random_state=7)
+    assert seen["random_state"] == 7
+
+
 def test_the_noise_must_reach_the_kernel_in_normalized_units():
     """The convention bug the replacement exposed, pinned so it cannot return.
 

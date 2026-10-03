@@ -801,6 +801,8 @@ def fit_profile(
     gp_kernel=None,
     gp_anchor=None,
     n_restarts_optimizer=5,
+    *,
+    random_state=0,
 ):
     r"""Fit a 1-D profile with a selectable model and evaluate it on a grid.
 
@@ -839,6 +841,11 @@ def fit_profile(
         ``(x_anchor, y_anchor, y_std_anchor)`` extra points for the GP [n/a].
     n_restarts_optimizer : int, optional
         GP hyperparameter restarts; default 5 [-].
+    random_state : int, optional
+        Seed for the restart starting points of both GP backends; default 0.
+        Without it the ``'gp_sklearn'`` backend would draw its restarts from
+        numpy's global ``RandomState`` and the fit would depend on what ran
+        before it in the process [-].
 
     Returns
     -------
@@ -952,6 +959,12 @@ def fit_profile(
                 alpha=alpha,
                 normalize_y=True,
                 n_restarts_optimizer=n_restarts_optimizer,
+                # Without this scikit-learn seeds its restarts from numpy's
+                # global RandomState, so the chosen local optimum of the
+                # multimodal marginal likelihood depended on whatever ran
+                # earlier in the process (cold review 0.8.0: Windows-only
+                # disagreement with the scipy backend, which seeds itself).
+                random_state=random_state,
             )
             gp.fit(x_gp[:, None], y_gp)
             y_eval, y_std_eval = gp.predict(x_eval[:, None], return_std=True)
@@ -975,7 +988,9 @@ def fit_profile(
         # re-running the hyperparameter search, which is what the sklearn branch
         # gets for free by handing back a fitted estimator's predict.
         gp_state = _gp_train(
-            x_gp, y_gp, y_std_gp, n_restarts_optimizer=n_restarts_optimizer
+            x_gp, y_gp, y_std_gp,
+            n_restarts_optimizer=n_restarts_optimizer,
+            random_state=random_state,
         )
         y_eval, y_std_eval = _gp_evaluate(gp_state, x_eval)
 
@@ -1035,6 +1050,7 @@ def fit_profile(
             gp_kernel=gp_kernel,
             gp_anchor=None,  # anchor in squared space would need special handling; keep simple
             n_restarts_optimizer=n_restarts_optimizer,
+            random_state=random_state,
         )
 
         # back to y-space
