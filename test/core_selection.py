@@ -237,6 +237,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_impurity_charge_states.py",
     "test_process_impurity.py",
     "test_vest_core_profiles_policy.py",
+    "test_zeff_projection.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
