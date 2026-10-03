@@ -855,6 +855,38 @@ _register(Boundary(
     notes="Evaluated by vaft.formula.stability.greenwald_density; coefficients are not restated here.",
 ))
 
+_GREENWALD_FRACTION = BoundaryQuantity(
+    "greenwald_fraction", "f_G", "-",
+    "Line-averaged electron density over the Greenwald density I_p/(pi a^2).",
+)
+
+_register(Boundary(
+    key="greenwald_fraction_unity",
+    family="density_limit",
+    target=_GREENWALD_FRACTION,
+    inputs=(),
+    form="threshold",
+    coefficient=1.0,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="density_limit",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "the 'greenwald' limit written as a fraction: f_G = n_e,line / n_G with n_G = I_p/(pi a^2)",
+            "empirical operational limit: f_G > 1 is reached (e.g. with peaked profiles) and is not a disruption criterion",
+        ),
+    ),
+    sources=(
+        BoundarySource("M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27", equation="Eq. (1.3), p. R28",
+                       doi="10.1088/0741-3335/44/8/201",
+                       note="n_G = I_P/(pi a^2), line-averaged density in 1e20 m^-3; the limit is n/n_G = 1"),
+    ),
+    notes="Same limit as 'greenwald', on the fraction axis.",
+))
+
 _MURAKAMI_PARAMETER = BoundaryQuantity(
     "murakami_parameter", r"\bar n_e R/B_T", "1e19 m^-2 T^-1",
     "Line-averaged electron density times geometric major radius over the vacuum toroidal field there.",

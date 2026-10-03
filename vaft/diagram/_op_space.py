@@ -68,10 +68,7 @@ AXIS_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
         _registered("freidberg_2008_kink_qstar"),
         _registered("freidberg_2008_kink_qstar", "elongation"),
         _registered("freidberg_2008_kink_current"),
-        _b.BoundaryQuantity(
-            "greenwald_fraction", "f_G", "-",
-            "Line-averaged electron density over the Greenwald density I_p/(pi a^2).",
-        ),
+        _registered("greenwald_fraction_unity"),
         _b.BoundaryQuantity(
             "normalized_current", "I_p/(a B_T)", "MA m^-1 T^-1",
             "Plasma current over minor radius times vacuum toroidal field (Troyon's I_N up to mu0).",
@@ -199,8 +196,9 @@ _register(OperationalProjection(
     title="Greenwald fraction against loss power",
     x=_q("loss_power"),
     y=_q("greenwald_fraction"),
-    default_boundaries=(),
-    assumptions=("f_G = 1 is a reference level, not a registered boundary on this plane",),
+    default_boundaries=("greenwald_fraction_unity",),
+    references=("M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27",),
+    assumptions=("f_G uses the line-averaged density and n_G = I_p/(pi a^2)",),
 ))
 
 

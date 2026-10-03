@@ -353,3 +353,69 @@ def test_marker_shapes_keep_their_group_across_subsets():
     _, ax2 = operational_space_population(sub, "hugill", marker="efit_quality", color="efit_quality")
     for label in ("efit_quality=good", "efit_quality=admissible"):
         assert _legend_marker(ax, label) == _legend_marker(ax2, label)
+
+
+# --- inline boundary style, trajectories, category colours (#1456) -------------------------------------
+
+
+def test_inline_style_names_the_limit_its_side_and_its_basis():
+    t = _hugill_table()
+    _, ax = operational_space_population(t, "hugill", boundary_style="inline")
+    labels = ax.get_legend_handles_labels()[1] + [p.get_label() for p in ax.get_legend().get_patches()]
+    legend = " ".join(text.get_text() for text in ax.get_legend().get_texts())
+    assert "Greenwald/Hugill limit" in legend and "Unstable (Empirical)" in legend.replace("\n  ", " ")
+    texts = [t_.get_text().strip() for t_ in ax.texts]
+    assert "Greenwald/Hugill limit" in texts and texts.count("Stable") == 1
+    assert labels   # the legend holds the boundary patches
+
+
+def test_inline_label_follows_the_line_in_display_coordinates():
+    t = _hugill_table()
+    fig, ax = operational_space_population(t, "hugill", boundary_style="inline", boundaries=["greenwald_hugill"])
+    fig.canvas.draw()
+    curve = ax.vaft_overlay.curves[0]
+    label = next(t_ for t_ in ax.texts if t_.get_text().strip() == "Greenwald/Hugill limit")
+    p = ax.transData.transform(np.c_[curve.x[[0, -1]], curve.y[[0, -1]]])
+    expected = np.degrees(np.arctan2(*(p[1] - p[0])[::-1]))
+    assert label.get_rotation() == pytest.approx(expected % 360, abs=1.0)
+
+
+def test_regime_thresholds_name_their_regimes_not_instability():
+    t = pd.DataFrame({"line_average_density": [0.05, 0.1, 0.2], "loss_power": [0.2, 0.5, 0.8],
+                      "toroidal_field": 0.17, "plasma_surface_area": 4.7})
+    t.attrs["units"] = {"line_average_density": "1e20 m^-3", "loss_power": "MW", "toroidal_field": "T",
+                        "plasma_surface_area": "m^2"}
+    _, ax = operational_space_population(t, "lh_threshold", boundary_style="inline", boundaries=["martin_2008_lh"])
+    legend = " ".join(text.get_text() for text in ax.get_legend().get_texts())
+    assert "L-mode" in legend and "Unstable" not in legend
+    assert "H-mode accessible" in [t_.get_text() for t_ in ax.texts]
+
+
+def test_shade_style_is_unchanged_by_default():
+    _, ax = operational_space_population(_hugill_table(), "hugill")
+    assert not [t_ for t_ in ax.texts if t_.get_text() == "Stable"]
+    assert "greenwald_hugill" in " ".join(ax.get_legend_handles_labels()[1])
+
+
+def test_trajectories_run_in_time_order_with_shrinking_markers():
+    t = _hugill_table()
+    t["time_efit_s"] = np.linspace(0.30, 0.33, len(t))
+    traj = t.iloc[[5, 1, 3]]          # given out of order
+    _, ax = operational_space_population(t, "hugill", trajectories={"Shot A": traj})
+    path = next(c for c in ax.collections if c.get_label() == "Shot A")
+    order = traj.sort_values("time_efit_s")
+    np.testing.assert_allclose(path.get_offsets()[:, 0], order["murakami_parameter"])
+    sizes = path.get_sizes()
+    assert np.all(np.diff(sizes) < 0)
+
+
+def test_category_colors_replace_palette_slots_but_not_missing_grey():
+    from matplotlib.colors import to_rgb
+    from vaft.plot.operational_space import MISSING_COLOR
+
+    t = _hugill_table()
+    t["verdict"] = ["Stable", "unknown", "Unstable"] * 10
+    _, ax = operational_space_population(t, "hugill", color="verdict", legend_keys=False,
+                                         category_colors={"Stable": "#8fd18f", "unknown": "#ff0000"})
+    assert _legend_colour(ax, "Stable") == tuple(np.round(to_rgb("#8fd18f"), 3))
+    assert _legend_colour(ax, "unknown") == tuple(np.round(to_rgb(MISSING_COLOR), 3))

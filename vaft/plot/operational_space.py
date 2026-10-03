@@ -45,6 +45,25 @@ MISSING_COLOR = "#b8b7ae"
 #: categorical values that mean "no data", drawn in MISSING_COLOR
 MISSING_LABELS = frozenset({"unknown", "not available"})
 BOUNDARY_COLORS = ("#1a1a19", "#a3442b", "#2f6f4f", "#5b4a9e")
+#: Edge colours of representative-discharge trajectories, in order.
+TRAJECTORY_COLORS = ("#1a1a19", "#5b2a9e", "#a3442b")
+#: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
+BOUNDARY_NAMES = {
+    "freidberg_2008_kink_qstar": "External kink limit",
+    "freidberg_2008_kink_current": "External kink current limit",
+    "troyon": "Troyon limit",
+    "wesson_1989_jet_li_qpsi_lower": "Kink / double-tearing limit",
+    "wesson_1989_jet_li_qpsi_upper": "Density-limit disruptions",
+    "cheng_1987_li_qa_lower": "Ideal external kink",
+    "cheng_1987_li_qa_upper": "Resistive kink",
+    "cheng_1987_qa_min": "q(a) = 2",
+    "low_q": "Low-q limit",
+    "greenwald_hugill": "Greenwald/Hugill limit",
+    "murakami_hugill": "Murakami limit",
+    "greenwald_fraction_unity": "Greenwald limit",
+    "martin_2008_lh": "L-H threshold (Martin 2008)",
+    "takizuka_2004_lh": "L-H threshold (Takizuka 2004)",
+}
 
 
 def _projection(projection) -> OperationalProjection:
@@ -165,6 +184,152 @@ def _boundary_label(curve: _b.BoundaryCurve) -> str:
     return textwrap.fill(curve.key + (f" ({fixed})" if fixed else ""), width=44, subsequent_indent="  ")
 
 
+def _basis_word(entry) -> str:
+    """Empirical, Analytical or Numerical, from the registered ``basis``."""
+    basis = entry.basis
+    if basis.endswith("numerical"):
+        return "Numerical"
+    if "empirical" in basis:
+        return "Empirical"
+    return "Analytical"
+
+
+def _side_word(entry) -> str:
+    """What lies on the forbidden side: a regime threshold names its source regime, a limit is "Unstable"."""
+    if entry.target_regime:
+        return (entry.source_regime or "below threshold").replace("_", "-")
+    return "Unstable"
+
+
+def _allowed_word(entry) -> str:
+    if entry.target_regime:
+        return entry.target_regime.replace("_", "-") + " accessible"
+    return "Stable"
+
+
+def _math(symbol: str) -> str:
+    """A registry symbol (``kappa_a``, ``B_T``, ``|I_p|``) as mathtext."""
+    text = re.sub(r"(?<![\\A-Za-z])(beta|kappa|delta|epsilon|psi|rho|mu)(?![A-Za-z])", r"\\\1", symbol)
+    text = re.sub(r"_([A-Za-z0-9]+)", r"_{\1}", text)
+    return f"${text}$"
+
+
+def _inline_legend_label(curve: _b.BoundaryCurve) -> str:
+    """``{name} ({fixed inputs}) {Unstable} ({Empirical|Analytical|Numerical})``."""
+    entry = _b.get_boundary(curve.key)
+
+    def symbol(name):
+        try:
+            return _math(entry.input(name).symbol)
+        except (KeyError, AttributeError):
+            return name
+
+    fixed = ", ".join(f"{symbol(k)}={v:.3g}" for k, v in curve.fixed.items())
+    text = BOUNDARY_NAMES.get(curve.key, curve.key) + (f" ({fixed})" if fixed else "")
+    return textwrap.fill(f"{text} {_side_word(entry)} ({_basis_word(entry)})", width=46, subsequent_indent="  ")
+
+
+def _unstable_direction(side: str) -> Tuple[float, float]:
+    return {"below": (0.0, 1.0), "above": (0.0, -1.0), "left": (1.0, 0.0), "right": (-1.0, 0.0)}[side]
+
+
+def _label_along(ax, curve: _b.BoundaryCurve, text: str, color: str, where: float = 0.6):
+    """The boundary's name written along it, on its forbidden side; None when the curve is not in view."""
+    xlo, xhi = sorted(ax.get_xlim())
+    ylo, yhi = sorted(ax.get_ylim())
+    x, y = np.asarray(curve.x, float), np.asarray(curve.y, float)
+    inside = np.isfinite(x) & np.isfinite(y) & (x >= xlo) & (x <= xhi) & (y >= ylo) & (y <= yhi)
+    idx = np.flatnonzero(inside)
+    if idx.size < 2:
+        return None
+    pts = ax.transData.transform(np.c_[x[idx], y[idx]])
+    arc = np.r_[0.0, np.cumsum(np.hypot(*np.diff(pts, axis=0).T))]
+    if arc[-1] <= 0:
+        return None
+    seg = np.diff(pts, axis=0)
+    steep = np.abs(np.degrees(np.arctan2(np.abs(seg[:, 1]), np.abs(seg[:, 0])))) > 60.0
+    target = int(np.clip(np.searchsorted(arc, where * arc[-1]), 1, idx.size - 1))
+    usable = np.flatnonzero(~steep & (np.hypot(*seg.T) > 0)) + 1   # segment k ends at point k + 1
+    # a saw-tooth's vertical edges are poor places for a name: use the nearest gentler segment if there is one
+    j = int(usable[np.argmin(np.abs(arc[usable] - arc[target]))]) if usable.size and steep.mean() < 0.9 else target
+    d_disp = pts[j] - pts[j - 1]
+    d_data = np.array([x[idx[j]] - x[idx[j - 1]], y[idx[j]] - y[idx[j - 1]]])
+    anchor = (0.5 * (x[idx[j]] + x[idx[j - 1]]), 0.5 * (y[idx[j]] + y[idx[j - 1]]))
+    moving = np.hypot(*seg.T) > 0.5   # ignore sub-pixel steps
+    rises = np.sign(seg[moving, 1])
+    rises = rises[rises != 0]
+    if rises.size and np.count_nonzero(np.diff(rises)) > 2:   # it turns back and forth more than twice
+        # a zig-zag (a saw-tooth boundary): follow its overall direction rather than one short tooth, and sit
+        # beyond its extreme on the forbidden side, clear of the teeth
+        d_disp = pts[-1] - pts[0]
+        d_data = np.array([x[idx[-1]] - x[idx[0]], y[idx[-1]] - y[idx[0]]])
+        side = curve.allowed_side
+        anchor = (float(np.median(x[idx])), float(np.min(y[idx]) if side == "above" else np.max(y[idx])) if side in (
+            "above", "below") else float(np.median(y[idx])))
+        if side in ("left", "right"):
+            anchor = (float(np.max(x[idx]) if side == "left" else np.min(x[idx])), anchor[1])
+    if d_disp[0] < 0 or (d_disp[0] == 0 and d_disp[1] < 0):   # keep the text upright
+        d_disp, d_data = -d_disp, -d_data
+    angle_disp = np.degrees(np.arctan2(d_disp[1], d_disp[0]))
+    up = np.array([-np.sin(np.radians(angle_disp)), np.cos(np.radians(angle_disp))])
+    va = "bottom" if float(np.dot(up, _unstable_direction(curve.allowed_side))) >= 0 else "top"
+    # the angle is given in data coordinates and turned with the axes, so a later resize keeps it on the line
+    return ax.text(anchor[0], anchor[1], " " + text + " ",
+                   rotation=float(np.degrees(np.arctan2(d_data[1], d_data[0]))), transform_rotates_text=True,
+                   rotation_mode="anchor", ha="center", va=va, color=color, fontsize="small", zorder=4,
+                   clip_on=True, bbox=dict(boxstyle="square,pad=0.15", facecolor="white", edgecolor="none",
+                                           alpha=0.75))
+
+
+def _allowed_mask(curve: _b.BoundaryCurve, px: np.ndarray, py: np.ndarray) -> np.ndarray:
+    """Which points lie on the boundary's allowed side; False where the curve does not reach."""
+    x, y = np.asarray(curve.x, float), np.asarray(curve.y, float)
+    ok = np.isfinite(x) & np.isfinite(y)
+    x, y = x[ok], y[ok]
+    if x.size < 2:
+        return np.zeros(px.shape, bool)
+    if curve.allowed_side in ("below", "above"):
+        order = np.argsort(x)
+        level = np.interp(px, x[order], y[order], left=np.nan, right=np.nan)
+        if np.ptp(x) == 0:
+            return np.zeros(px.shape, bool)
+        return (py < level) if curve.allowed_side == "below" else (py > level)
+    order = np.argsort(y)
+    level = np.interp(py, y[order], x[order], left=np.nan, right=np.nan)
+    if np.ptp(y) == 0:
+        return np.zeros(px.shape, bool)
+    return (px < level) if curve.allowed_side == "left" else (px > level)
+
+
+def _label_allowed_zone(ax, curves, xs: np.ndarray, ys: np.ndarray, text: str):
+    """One label in the zone every drawn boundary allows, where it is farthest from the data."""
+    if not curves:
+        return None
+    (xlo, xhi), (ylo, yhi) = ax.get_xlim(), ax.get_ylim()
+    u, v = np.meshgrid(np.linspace(0.1, 0.9, 33), np.linspace(0.08, 0.92, 33))
+    px, py = xlo + u.ravel() * (xhi - xlo), ylo + v.ravel() * (yhi - ylo)
+    allowed = np.ones(px.shape, bool)
+    for curve in curves:
+        allowed &= _allowed_mask(curve, px, py)
+    if not allowed.any():
+        return None
+    cand = np.c_[u.ravel(), v.ravel()][allowed]
+    others = [np.c_[(xs - xlo) / (xhi - xlo), (ys - ylo) / (yhi - ylo)]] if len(xs) else []
+    for curve in curves:
+        cx, cy = np.asarray(curve.x, float), np.asarray(curve.y, float)
+        ok = np.isfinite(cx) & np.isfinite(cy)
+        others.append(np.c_[(cx[ok] - xlo) / (xhi - xlo), (cy[ok] - ylo) / (yhi - ylo)])
+    others = np.vstack(others) if others else np.empty((0, 2))
+    if len(others):
+        # an anisotropic distance: the label is wider than tall
+        d = np.hypot((cand[:, None, 0] - others[None, :, 0]) / 0.18, (cand[:, None, 1] - others[None, :, 1]) / 0.06)
+        best = cand[int(np.argmax(d.min(axis=1)))]
+    else:
+        best = cand[len(cand) // 2]
+    return ax.text(best[0], best[1], text, transform=ax.transAxes, ha="center", va="center", fontsize="medium",
+                   style="italic", color="#2f6f4f", zorder=4)
+
+
 def _applicability_warnings(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tuple[str, str]):
     """Where the plotted states or the fixed inputs leave the boundary's declared fitted ranges."""
     entry = _b.get_boundary(curve.key)
@@ -186,18 +351,43 @@ def _applicability_warnings(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: T
         yield f"boundary {curve.key!r} applies to: {machine}"
 
 
-def _shade_forbidden(ax, curve: _b.BoundaryCurve, color: str) -> None:
+def _shade_forbidden(ax, curve: _b.BoundaryCurve, color: str, hatch: Optional[str] = None) -> None:
     xlo, xhi = ax.get_xlim()
     ylo, yhi = ax.get_ylim()
     x, y = curve.x, curve.y
+    if hatch:
+        from matplotlib.colors import to_rgba
+        kw = dict(facecolor=to_rgba(color, 0.05), edgecolor=to_rgba(color, 0.28), hatch=hatch, linewidth=0, zorder=0)
+    else:
+        kw = dict(color=color, alpha=0.06, linewidth=0, zorder=0)
     if curve.allowed_side == "below":
-        ax.fill_between(x, y, yhi, color=color, alpha=0.06, linewidth=0, zorder=0)
+        ax.fill_between(x, y, yhi, **kw)
     elif curve.allowed_side == "above":
-        ax.fill_between(x, ylo, y, color=color, alpha=0.06, linewidth=0, zorder=0)
+        ax.fill_between(x, ylo, y, **kw)
     elif curve.allowed_side == "left":
-        ax.fill_betweenx(y, x, xhi, color=color, alpha=0.06, linewidth=0, zorder=0)
+        ax.fill_betweenx(y, x, xhi, **kw)
     elif curve.allowed_side == "right":
-        ax.fill_betweenx(y, xlo, x, color=color, alpha=0.06, linewidth=0, zorder=0)
+        ax.fill_betweenx(y, xlo, x, **kw)
+
+
+def _draw_trajectories(ax, trajectories, x: str, y: str, time: str, colour_of) -> None:
+    """Each discharge's states joined in time order; markers shrink with time and an arrow ends the path."""
+    for k, (label, sub) in enumerate(trajectories.items()):
+        if time not in sub.columns:
+            raise KeyError(f"trajectory {label!r} has no time column {time!r}")
+        t = sub.assign(_x=_finite(sub, x), _y=_finite(sub, y)).sort_values(time)
+        t = t[np.isfinite(t["_x"]) & np.isfinite(t["_y"])]
+        if t.empty:
+            continue
+        edge = TRAJECTORY_COLORS[k % len(TRAJECTORY_COLORS)]
+        sizes = np.linspace(110.0, 22.0, len(t)) if len(t) > 1 else np.array([60.0])
+        ax.plot(t["_x"], t["_y"], color=edge, linewidth=1.0, zorder=5)
+        ax.scatter(t["_x"], t["_y"], s=sizes, c=[colour_of(r) for _, r in t.iterrows()], edgecolors=edge,
+                   linewidths=1.6, zorder=6, label=str(label))
+        if len(t) > 1:
+            ax.annotate("", xy=(t["_x"].iloc[-1], t["_y"].iloc[-1]), xytext=(t["_x"].iloc[-2], t["_y"].iloc[-2]),
+                        arrowprops=dict(arrowstyle="-|>", color=edge, linewidth=1.2, shrinkA=0, shrinkB=4),
+                        zorder=7)
 
 
 def operational_space_population(table: pd.DataFrame, projection, *, x: Optional[str] = None,
@@ -209,7 +399,11 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                                  color_limits: Optional[Tuple[float, float]] = None,
                                  x_range: Optional[Tuple[float, float]] = None,
                                  y_range: Optional[Tuple[float, float]] = None,
-                                 title: Optional[str] = None, ax=None, show: bool = False):
+                                 title: Optional[str] = None, boundary_style: str = "shade",
+                                 trajectories: Optional[Mapping[str, pd.DataFrame]] = None,
+                                 time_column: str = "time_efit_s", legend_keys: bool = True,
+                                 marker_size: float = 34.0, category_colors: Optional[Mapping[str, str]] = None,
+                                 ax=None, show: bool = False):
     """Scatter a population on a canonical operational-space projection.
 
     Parameters
@@ -245,6 +439,26 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         boundary is visible. Default: the data span.
     title : str, optional
         Axes title; defaults to the projection's title.
+    boundary_style : {"shade", "inline"}
+        ``"shade"`` tints each forbidden side and lists the boundary keys in
+        the legend. ``"inline"`` hatches the forbidden side, writes each
+        boundary's name along it, puts one "Stable" label in the zone every
+        boundary allows, and gives each boundary a legend patch
+        ``{name} ({fixed inputs}) Unstable ({Empirical|Analytical|Numerical})``;
+        a regime threshold names its regimes instead.
+    trajectories : mapping of str to pandas.DataFrame, optional
+        Representative discharges, legend label to their states. Each is drawn
+        in ``time_column`` order with markers that shrink with time and an
+        arrow on the last step; markers take the ``color`` column's colours.
+    time_column : str
+        Time column of the trajectories.
+    legend_keys : bool
+        Legend entries as ``column=value``; False shows the value alone.
+    marker_size : float
+        Population marker area [pt^2].
+    category_colors : mapping of str to colour, optional
+        Colours for named categories of a categorical ``color`` column,
+        replacing their palette slots (for example stable in green).
     ax : matplotlib.axes.Axes, optional
         Target axes.
     show : bool
@@ -257,6 +471,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     """
     import matplotlib.pyplot as plt
 
+    if boundary_style not in ("shade", "inline"):
+        raise ValueError(f"boundary_style must be 'shade' or 'inline', not {boundary_style!r}")
     proj = _projection(projection)
     x = x or proj.x.name
     y = y or proj.y.name
@@ -311,6 +527,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         for name in palette:   # missing data is grey in every figure, never a palette colour
             if name in MISSING_LABELS:
                 palette[name] = MISSING_COLOR
+            elif category_colors and name in category_colors:
+                palette[name] = category_colors[name]
 
     mappable = None
     for gi, (name, mask) in enumerate(groups):
@@ -324,15 +542,16 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             col = [palette[c] for c in cats[mask]]
         else:
             col = CATEGORICAL[0]
-        kw = dict(marker=shape, s=34, linewidths=1.1, zorder=3)
+        kw = dict(marker=shape, s=marker_size, linewidths=1.1, zorder=3)
         if open_marker:
             kw.update(facecolors="none", edgecolors=col)
         else:
             kw.update(c=col if isinstance(col, str) else np.asarray(col), edgecolors="white", linewidths=0.4)
-        sc = ax.scatter(xs[mask], ys[mask], label=(f"{marker}={name}" if name is not None and color is None else None),
+        key = (lambda column, value: f"{column}={value}") if legend_keys else (lambda column, value: str(value))
+        sc = ax.scatter(xs[mask], ys[mask], label=(key(marker, name) if name is not None and color is None else None),
                         **kw)
         if name is not None and color is not None:  # shape legend in neutral grey; colour has its own entries
-            ax.scatter([], [], marker=shape, s=30, label=f"{marker}={name}",
+            ax.scatter([], [], marker=shape, s=30, label=key(marker, name),
                        **({"facecolors": "none", "edgecolors": "#6b6b66"} if open_marker else {"c": "#6b6b66"}))
         if numeric_color and not open_marker:
             mappable = sc
@@ -349,7 +568,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         fig.colorbar(sm, ax=ax, label=color, extend=extend)
     if color is not None and not numeric_color:
         for name, c in palette.items():
-            ax.scatter([], [], color=c, marker="o", s=30, label=f"{color}={name}")
+            ax.scatter([], [], color=c, marker="o", s=30,
+                       label=f"{color}={name}" if legend_keys else str(name))
 
     if x_range is not None:
         ax.set_xlim(x_range)
@@ -373,12 +593,38 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                     warnings.warn(f"boundary {curve.key!r} at {axis} = {level:.3g} lies outside the plotted "
                                   f"range {lim[0]:.3g}..{lim[1]:.3g} and is not in view", stacklevel=2)
                 xlim, ylim = (lim, ylim) if axis == "x" else (xlim, lim)
+    inline = boundary_style == "inline"
+    patches = []
     for i, curve in enumerate(plan.curves):
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
-        ax.plot(curve.x, curve.y, color=c, linewidth=1.6, label=_boundary_label(curve), zorder=2)
-        _shade_forbidden(ax, curve, c)
+        ax.plot(curve.x, curve.y, color=c, linewidth=1.6, label=None if inline else _boundary_label(curve), zorder=2)
+        _shade_forbidden(ax, curve, c, hatch="////" if inline else None)
+        if inline:
+            from matplotlib.colors import to_rgba
+            from matplotlib.patches import Patch
+            patches.append(Patch(facecolor=to_rgba(c, 0.05), edgecolor=c, hatch="////", linewidth=1.0,
+                                 label=_inline_legend_label(curve)))
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    if inline and plan.curves:
+        for i, curve in enumerate(plan.curves):
+            _label_along(ax, curve, BOUNDARY_NAMES.get(curve.key, curve.key), BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)])
+        words = {_allowed_word(_b.get_boundary(curve.key)) for curve in plan.curves}
+        _label_allowed_zone(ax, plan.curves, xs, ys, " / ".join(sorted(words)))
+    if trajectories:
+        def colour_of(row):
+            if color is None:
+                return CATEGORICAL[0]
+            value = row[color]
+            if numeric_color:
+                value = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+                return colormap(norm(value)) if np.isfinite(value) else MISSING_COLOR
+            name = "unknown" if pd.isna(value) else str(value)
+            return palette.get(name, MISSING_COLOR)
+
+        _draw_trajectories(ax, trajectories, x, y, time_column, colour_of)
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
     for curve in plan.curves:
         for message in _applicability_warnings(curve, rows, (x, y)):
             warnings.warn(message, stacklevel=2)
@@ -388,9 +634,13 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     ax.set_xlabel(_label(proj.x, x))
     ax.set_ylabel(_label(proj.y, y))
     ax.set_title(title if title is not None else proj.title)
-    handles, _ = ax.get_legend_handles_labels()
-    if handles:
-        ax.legend(fontsize="x-small", frameon=False, loc="best")
+    handles, labels_ = ax.get_legend_handles_labels()
+    handles, labels_ = handles + patches, labels_ + [p.get_label() for p in patches]
+    if handles and inline:
+        ax.legend(handles, labels_, fontsize="x-small", frameon=False, loc="upper left", bbox_to_anchor=(1.02, 1.0),
+                  borderaxespad=0.0)
+    elif handles:
+        ax.legend(handles, labels_, fontsize="x-small", frameon=False, loc="best")
     ax.vaft_overlay = plan
     if show:
         plt.show()
