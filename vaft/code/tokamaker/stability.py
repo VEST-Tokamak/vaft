@@ -54,6 +54,12 @@ _NO_ARPACK_MESSAGE = (
 
 
 def _require_vessel(config: TokaMakerConfig, what: str) -> None:
+    if config.vessel_currents:
+        raise ValueError(
+            f"{what} needs resistive vessel conductor regions; "
+            "vessel_currents=True meshes them as fixed-current coils. "
+            "Use vessel_currents=False."
+        )
     if not config.include_vessel:
         raise ValueError(
             f"{what} requires vessel conductor regions: set "
