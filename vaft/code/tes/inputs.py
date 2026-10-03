@@ -306,6 +306,10 @@ def _legacy_pf_rows(ods: Any, time: float) -> list[tuple]:
     remaining 8 PF coils into 1 upper + 1 lower each (36 sub-coils, grouped
     1..18 with two elements per group).
     """
+    from vaft.machine_mapping.pf_active import require_acquired_pf_currents
+
+    # A circuit published as NaN was not acquired (#1568); never solve with it.
+    require_acquired_pf_currents(ods, None, "TES's coil currents")
     PF = ods["pf_active"]
     pf_time = PF["time"]
     rows: list[tuple] = []
@@ -412,6 +416,10 @@ def _element_pf_rows(ods: Any, time: float, lumped: Sequence[str] = ()) -> list[
     whole). Coils in series (VEST PF9/PF10) are still separate groups here. TES caps a group at 10 rows; the VEST shaping coils
     sit at R >= 0.71 m, far enough from the plasma for one filament per half.
     """
+    from vaft.machine_mapping.pf_active import require_acquired_pf_currents
+
+    # A circuit published as NaN was not acquired (#1568); never solve with it.
+    require_acquired_pf_currents(ods, None, "TES's coil currents")
     PF = ods["pf_active"]
     pf_time = np.asarray(PF["time"], dtype=float)
     by_name = _coil_index_by_name(PF)

@@ -196,6 +196,10 @@ def _coil_currents_from_ods(
         # coils omitted from the mapping default to 0 A inside TokaMaker
         return explicit
 
+    from vaft.machine_mapping.pf_active import require_acquired_pf_currents
+
+    # A circuit published as NaN was not acquired (#1568); never solve with it.
+    require_acquired_pf_currents(ods, None, "TokaMaker's coil currents")
     pf = ods["pf_active"]
     pf_time = np.asarray(pf["time"], dtype=float)
     by_coil: dict[str, float] = {}
@@ -224,6 +228,31 @@ def _coil_currents_from_ods(
             + ", ".join(sorted(missing))
             + ". Supply TokaMakerConfig.coil_currents explicitly."
         )
+    return currents
+
+
+def _vessel_loop_currents(ods: Any, geometry: dict, time: float) -> dict[str, dict[int, float]]:
+    """pf_passive loop currents [A] at ``time``, grouped by vessel region.
+
+    These are the eddy-stage wall currents EFIT (``VCURRT``) and TES take as
+    fixed inputs; ``vessel_currents`` imposes the same ones on TokaMaker.
+    """
+    # `in` first: reading a missing ODS path creates it.
+    if "pf_passive.time" not in ods:
+        raise ValueError(
+            "vessel_currents=True needs time-dependent pf_passive loop currents "
+            "(the eddy stage product); this ODS has none."
+        )
+    loop_time = np.asarray(ods["pf_passive.time"], dtype=float)
+    currents: dict[str, dict[int, float]] = {}
+    for region, entry in geometry["vessel"].items():
+        currents[region] = {}
+        for loop in entry["loops"]:
+            path = f"pf_passive.loop.{loop['index']}.current"
+            if path not in ods:
+                raise ValueError(f"vessel_currents=True: {path} is missing")
+            data = np.asarray(ods[path], dtype=float)
+            currents[region][int(loop["index"])] = float(np.interp(time, loop_time, data))
     return currents
 
 
@@ -257,6 +286,14 @@ def prepare_tokamaker_inputs(ods: Any, config: TokaMakerConfig) -> TokaMakerInpu
     targets = _resolve_targets(ods, config, time)
     f0 = _f0_from_ods(ods, config, time)
     coil_currents = _coil_currents_from_ods(ods, config, geometry, time)
+    vessel_loop_currents: dict[str, dict[int, float]] = {}
+    if config.vessel_currents:
+        if not config.include_vessel:
+            raise ValueError("vessel_currents=True requires include_vessel=True")
+        vessel_loop_currents = _vessel_loop_currents(ods, geometry, time)
+        # each vessel region is a one-turn coil driven at 1 A; its current
+        # density distribution carries the actual loop currents
+        coil_currents.update({region: 1.0 for region in vessel_loop_currents})
     mesh_file, mesh_exists = resolve_mesh_file(geometry, config)
 
     geometry_file = workdir / "geometry.json"
@@ -274,6 +311,7 @@ def prepare_tokamaker_inputs(ods: Any, config: TokaMakerConfig) -> TokaMakerInpu
         time=time,
         ods=ods,
         files=(geometry_file,),
+        vessel_loop_currents=vessel_loop_currents,
     )
 
 
@@ -330,6 +368,11 @@ def prepare_tokamaker_evolution_inputs(
     the evolution grid. ``evolve_vacuum=True`` skips plasma targets entirely
     (``vac_solve`` mode for plasma-free windows).
     """
+    if config.vessel_currents:
+        raise ValueError(
+            "vessel_currents=True imposes fixed wall currents for a static solve; "
+            "quasi-static evolution solves its own wall currents and needs conductor regions. Use vessel_currents=False here."
+        )
     if not config.include_vessel:
         raise ValueError(
             "Quasi-static evolution models wall eddy currents and requires "

@@ -70,7 +70,8 @@ def parse_stats_sidecar(path: Path) -> dict[str, Any]:
             scalars[key] = stats[key]
     for key in ("converged", "coil_currents_A", "targets", "f0", "cocos",
                 "o_point", "diverted", "lim_point", "active_x_point",
-                "lcfs_inside_wall", "lcfs_wall_excursion_m", "error", "shot", "time_s"):
+                "lcfs_inside_wall", "lcfs_wall_excursion_m",
+                "vessel_currents_A", "vessel_current_total_A", "error", "shot", "time_s"):
         if key in payload:
             scalars[key] = payload[key]
     return scalars

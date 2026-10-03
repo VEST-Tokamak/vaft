@@ -12,7 +12,15 @@
     successive $z$: shear rotates them, $k_x = k_y\\hat s z$;
 ``ballooning_eigenfunction``
     the most unstable localised eigenmode of the $s$-$\\alpha$ equation on the
-    extended angle, against the non-localised top mode of a stable surface.
+    extended angle, against the non-localised top mode of a stable surface;
+``ballooning_transit_map``
+    the extended angle tied to the cross-section, one poloidal circle per
+    transit;
+``ballooning_boundary_conditions``
+    decay on the covering space against a flux tube's sheared parallel join;
+``field_aligned_xpoint_limitation``
+    straight-field-line angle lines crowding into the X-point of the diverted
+    toy equilibrium, where $q$ diverges.
 
 The physics is :mod:`vaft.formula.stability` (``field_line_label``,
 ``ballooning_radial_wavenumber``, ``s_alpha_ballooning_eigenmode``) on the
@@ -35,6 +43,19 @@ from ._scene import Arrow, Label, Marker, Polyline, Scene
 
 #: unstable and stable (s, alpha) of the eigenfunction figure: first-stability boundary at s = 1 lies near 0.6
 UNSTABLE, STABLE = (1.0, 1.2), (1.0, 0.3)
+
+
+def _count(value, name: str, low: int, high: int) -> int:
+    """``value`` as an int in ``[low, high]``; numpy integers pass, bool does not."""
+    import operator
+
+    try:
+        n = operator.index(value) if not isinstance(value, bool) else None
+    except TypeError:
+        n = None
+    if n is None or not low <= n <= high:
+        raise ValueError(f"{name} must be an integer from {low} to {high}, not {value!r}")
+    return n
 
 
 def _check_labels(labels) -> bool:
@@ -289,3 +310,243 @@ def ballooning_eigenfunction(*, labels: bool = True) -> Diagram:
               "there and decays" if labels else ""),
     )
     return Diagram("ballooning_eigenfunction", scene, model=chart)
+
+
+# ---------------------------------------------------------------------------
+# #1075 remainder: transits, boundary conditions, the X-point limit
+# ---------------------------------------------------------------------------
+
+
+def _amplitude_text(a: float) -> str:
+    if abs(a) >= 0.01:
+        return f"${a:.2f}$"
+    mantissa, exponent = f"{a:.1e}".split("e")
+    return f"${mantissa}\\times10^{{{int(exponent)}}}$"
+
+
+def ballooning_transit_map(*, transits: int = 2, labels: bool = True) -> Diagram:
+    r"""Where the extended angle is in the cross-section: one poloidal circle per transit.
+
+    Top, the unstable eigenfunction of ``ballooning_eigenfunction``
+    ($(s, \alpha) = (1, 1.2)$) on $|\theta| \le (2\,\mathrm{transits} + 1)\pi$.
+    Below, one poloidal cross-section per transit $k$, centred under
+    $\theta = 2\pi k$: the field line crosses the outboard midplane (bad
+    curvature, filled) at $\theta = 2\pi k$ and the inboard one (good
+    curvature, open) at $2\pi k \pm \pi$. The number by each outboard point is
+    $F(2\pi k)$: the same geometric point, visited again on every transit,
+    carries less of the mode each time -- why the mode "balloons" on the
+    outboard side of one transit.
+    """
+    labels = _check_labels(labels)
+    transits = _count(transits, "transits", 1, 3)
+    # the box must reach past the drawn range: its Dirichlet ends are a numerical condition, not the mode
+    _, th, F = s_alpha_ballooning_eigenmode(*UNSTABLE, theta_max=max(6.0, 2.0 * transits + 2.0) * math.pi)
+    F = F / np.max(np.abs(F))
+    half = (2 * transits + 1)
+    keep = np.abs(th) <= half * math.pi
+    x = th[keep] / math.pi
+    chart = Chart(x_range=(-float(half), float(half)), y_range=(-0.1, 1.15))
+    chart.curves["unstable"] = np.stack([x, F[keep]], -1)
+    ticks = [float(k) for k in range(-half, half + 1)]
+    scene = render_chart(
+        chart, x_label="extended angle $\\theta/\\pi$", y_label="$F(\\theta)$",
+        curve_styles={"unstable": "boundary"}, region_text={},
+        x_ticks=ticks, x_tick_text=[f"${int(t)}$" for t in ticks], y_ticks=[0.0, 0.5, 1.0])
+    items: List = list(scene.items)
+    ks = list(range(-transits, transits + 1))
+    amplitude = {k: float(np.interp(2.0 * k * math.pi, th, F)) for k in ks}
+    rad, y0 = 0.62, -3.0
+    for k in ks:
+        cx = float(chart.to_cm(np.array([2.0 * k, 0.0]))[0])
+        t = np.linspace(0.0, 2.0 * math.pi, 73)
+        items.append(Polyline.of(np.stack([cx + rad * np.cos(t), y0 + rad * np.sin(t)], -1), "lcfs",
+                                 role="cross_section", closed=True))
+        items.append(Marker((cx + rad, y0), "o", "star", role="outboard"))
+        items.append(Polyline.of([(cx - rad - 0.08, y0 - 0.08), (cx - rad + 0.08, y0 + 0.08)], "surface",
+                                 role="inboard"))
+        if labels:
+            items += [Label((cx, y0 - rad - 0.1), f"$k = {k}$", "small label", anchor="north", role="transit"),
+                      Label((cx, y0 - rad - 0.65), _amplitude_text(amplitude[k]), "small label", anchor="north",
+                            role="amplitude")]
+    if labels:
+        items += [Label((chart.to_cm(np.array([0.0, 1.0]))[0] + 0.3, 6.9),
+                        "unstable $(s, \\alpha) = (1, 1.2)$", "small label", anchor="west", role="title"),
+                  Label((-0.3, y0 - rad - 0.65), "$F(2\\pi k)$", "small label", anchor="north east",
+                        role="amplitude"),
+                  Label((4.5, y0 - 2.1), "filled: outboard midplane (bad curvature) at $\\theta = 2\\pi k$, "
+                        "one circle per poloidal transit $k$; tick: inboard at $2\\pi k \\pm \\pi$", "note", anchor="north",
+                        role="note")]
+    return Diagram("ballooning_transit_map", Scene(tuple(items)),
+                   model={"transits": tuple(ks), "amplitude": amplitude, "unstable": UNSTABLE})
+
+
+def ballooning_boundary_conditions(*, shear: float = 1.0, labels: bool = True) -> Diagram:
+    r"""Two ways to close the field line: decay on the covering space, or a sheared parallel join.
+
+    Left, the ballooning representation: the eigenfunction lives on the
+    extended angle $\theta \in (-\infty, \infty)$, the covering space of the
+    periodic poloidal angle, and the boundary condition is decay,
+    $F \to 0$ as $|\theta| \to \infty$ (the unstable mode of
+    ``ballooning_eigenfunction``). Right, a flux-tube box of finite parallel
+    length: its two ends are the same poloidal position, joined after
+    following the line once round. Magnetic shear connects the two pictures:
+    a mode with $k_y$ has $k_x = k_y\hat s\theta$ (``ballooning_radial_wavenumber``),
+    so the end it rejoins has a shifted $k_x$ -- the twist-and-shift
+    condition, named here and not derived.
+    """
+    labels = _check_labels(labels)
+    if isinstance(shear, bool) or not isinstance(shear, (int, float, np.floating, np.integer)) \
+            or not 0.1 <= float(shear) <= 3.0:
+        raise ValueError(f"shear must be a number from 0.1 to 3, not {shear!r}")
+    shear = float(shear)
+    _, th, F = s_alpha_ballooning_eigenmode(*UNSTABLE)
+    F = F / np.max(np.abs(F))
+    chart = Chart(x_range=(-6.0, 6.0), y_range=(-0.1, 1.15))
+    chart.curves["unstable"] = np.stack([th / math.pi, F], -1)
+    ticks = [-6.0, -4.0, -2.0, 0.0, 2.0, 4.0, 6.0]
+    scene = render_chart(chart, x_label="extended angle $\\theta/\\pi$", y_label="$F(\\theta)$",
+                         curve_styles={"unstable": "boundary"}, region_text={}, x_ticks=ticks,
+                         x_tick_text=[f"${int(t)}$" for t in ticks], y_ticks=[0.0, 1.0])
+    items: List = list(scene.transformed(scale=0.7).items)
+    for side in (-1, 1):
+        x = 0.7 * float(chart.to_cm(np.array([5.0 * side, 0.0]))[0])
+        items.append(Arrow((x, 0.75), (x + side * 0.9, 0.75), "connector", role="decay"))
+    # the flux tube: a box along z, both ends drawn, joined by a curved return with a shifted end
+    bx, by, length, width = 9.6, 0.6, 5.0, 1.6
+    items += [Polyline.of([(bx, by), (bx + length, by), (bx + length, by + width), (bx, by + width)], "inset frame",
+                          role="flux_tube", closed=True)]
+    for f in (0.25, 0.5, 0.75):
+        y = by + f * width
+        items.append(Polyline.of([(bx, y), (bx + length, y + 0.25 * shear * (f - 0.5))], "field line",
+                                 role="field_line"))
+    t = np.linspace(0.0, math.pi, 50)
+    arc = np.stack([bx + length / 2 + (length / 2 + 0.25) * np.cos(t), by + width + 0.2 + 1.1 * np.sin(t)], -1)
+    items.append(Polyline.of(arc, "angle arc", role="parallel_join"))
+    k_x = float(ballooning_radial_wavenumber(1.0, shear, 2.0 * math.pi))
+    if labels:
+        items += [Label((0.7 * 4.5, 0.7 * 6.5 + 0.6), "ballooning representation", "label", anchor="south",
+                        role="title"),
+                  Label((bx + length / 2, 4.3), "flux tube (local)", "label", anchor="south", role="title"),
+                  Label((0.7 * 4.5, 0.7 * 6.5 + 0.1), "decay on the covering space: $F \\to 0$ as "
+                        "$|\\theta| \\to \\infty$", "small label", anchor="south", role="decay"),
+                  Label((bx + length / 2, by + width + 1.4), "ends joined after one poloidal turn",
+                        "small label", anchor="south", role="parallel_join"),
+                  Label((bx, by - 0.15), "$z = -\\pi$", "small label", anchor="north", role="ends"),
+                  Label((bx + length, by - 0.15), "$z = +\\pi$", "small label", anchor="north", role="ends"),
+                  Label((bx + length / 2, by - 0.75),
+                        f"shear: $k_x = k_y\\hat s\\theta$, so after one turn $k_x/k_y = {k_x:.1f}$",
+                        "small label", anchor="north", role="shear"),
+                  Label((bx + length / 2, by - 1.35), "rejoining with shifted $k_x$: twist-and-shift "
+                        "(not derived here)", "small label", anchor="north", role="twist_and_shift"),
+                  Label((7.4, -1.9), f"$\\hat s = {shear:g}$; the eigenfunction is the unstable "
+                        "$s$-$\\alpha$ mode at $(1, 1.2)$", "note", anchor="north", role="note")]
+    return Diagram("ballooning_boundary_conditions", Scene(tuple(items)),
+                   model={"shear": shear, "kx_after_one_turn": k_x, "unstable": UNSTABLE})
+
+
+def _straight_field_line_points(model: dict, psi_n: float, n_theta: int, near=None):
+    """Points of equal straight-field-line angle on the closed surface $\\psi_N$, and $\\oint dl/(R|\\nabla\\psi|)$.
+
+    With $F$ constant (toy), $d\\theta^*/dl \\propto 1/(R^2B_p) = 1/(R|\\nabla\\psi|)$; the loop
+    integral is proportional to $q$. Starts at the outboard midplane, runs counter-clockwise.
+    ``near = (point, radius)`` also returns the fraction of $\\theta^*$ spent within ``radius`` of ``point``.
+    """
+    from scipy.interpolate import RectBivariateSpline
+
+    from ._gs_equilibrium import _GRID_R, _GRID_Z, _encloses, _lines
+
+    spline = RectBivariateSpline(_GRID_R, _GRID_Z, model["psi"])
+    level = model["psi_axis"] - psi_n * (model["psi_axis"] - model["psi_boundary"])
+    line = next(c for c in _lines(model["psi"], level) if _encloses(c, model["axis"]))
+    line = line[:-1]
+    x = line[:, 0] - model["axis"][0]
+    y = line[:, 1] - model["axis"][1]
+    if np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y) < 0:  # make it counter-clockwise
+        line = line[::-1]
+        x, y = x[::-1], y[::-1]
+    start = int(np.argmin(np.abs(y) + 10.0 * (x < 0)))
+    line = np.roll(line, -start, axis=0)
+    closed = np.vstack([line, line[:1]])
+    mid = 0.5 * (closed[1:] + closed[:-1])
+    dl = np.hypot(*np.diff(closed, axis=0).T)
+    grad = np.hypot(spline(mid[:, 0], mid[:, 1], dx=1, grid=False), spline(mid[:, 0], mid[:, 1], dy=1, grid=False))
+    w = dl / (mid[:, 0] * grad)
+    cum = np.r_[0.0, np.cumsum(w)]
+    targets = np.linspace(0.0, cum[-1], n_theta, endpoint=False)
+    pts = np.stack([np.interp(targets, cum, closed[:, 0]), np.interp(targets, cum, closed[:, 1])], -1)
+    if near is not None:
+        point, radius = near
+        close = np.hypot(mid[:, 0] - point[0], mid[:, 1] - point[1]) < radius
+        return pts, float(cum[-1]), float(np.sum(w[close]) / cum[-1])
+    return pts, float(cum[-1])
+
+
+#: surfaces of the X-point figure: core to just inside the separatrix
+_XPOINT_SURFACES = (0.15, 0.3, 0.45, 0.6, 0.75, 0.87, 0.95, 0.985, 0.996, 0.999)
+
+
+def field_aligned_xpoint_limitation(*, n_theta: int = 24, labels: bool = True) -> Diagram:
+    r"""Why field-aligned and flux coordinates fail at the X-point, on the diverted toy equilibrium.
+
+    Left, lines of constant straight-field-line angle $\theta^*$ across the
+    closed surfaces of ``flux_model("diverted")`` ($n_\theta$ equal steps;
+    with $F$ constant $d\theta^*/dl \propto 1/(R^2B_p)$). In the core they
+    are evenly spread; towards the separatrix, where $B_p \to 0$ at the
+    X-point, $\theta^*$ is spent almost entirely near the X-point, so the
+    coordinate lines crowd into it and the cells elsewhere stretch -- a
+    strongly distorted metric. Outside the separatrix the field lines are
+    open (SOL, private flux): there is no poloidal angle at all, and
+    X-point-adapted or divertor coordinates are used instead. Right,
+    $q \propto \oint dl/(R^2B_p)$ relative to its value at $\psi_N = 0.5$,
+    diverging logarithmically as $\psi_N \to 1$ (cf. ``sfl_coordinate_validity``).
+    """
+    labels = _check_labels(labels)
+    n_theta = _count(n_theta, "n_theta", 8, 64)
+    from ._gs_equilibrium import _cm, _surfaces, flux_model, lcfs
+
+    model = flux_model("diverted")
+    o = (0.0, 0.0)
+    points, loops = [], []
+    for psi_n in _XPOINT_SURFACES:
+        pts, loop = _straight_field_line_points(model, psi_n, n_theta)
+        points.append(pts)
+        loops.append(loop)
+    _, loop_half = _straight_field_line_points(model, 0.5, n_theta)
+    items: List = [Polyline.of(_cm(p, o), "surface", role="flux_surface", closed=True) for p in points]
+    items += [it for it in _surfaces(model, o) if it.role == "open_flux"]
+    stack = np.stack(points)  # surface, theta, (R, Z)
+    for j in range(n_theta):
+        items.append(Polyline.of(_cm(stack[:, j, :], o), "mesh", role="theta_line"))
+    boundary = lcfs(model)
+    items += [Polyline.of(_cm(boundary, o), "separatrix", role="separatrix", closed=True),
+              Marker(tuple(_cm(model["x_point"], o)), "x", "xpoint", role="x_point"),
+              Marker(tuple(_cm(model["axis"], o)), "o", "opoint", role="axis")]
+    q_rel = np.array(loops) / loop_half
+    chart = Chart(x_range=(0.0, 1.0), y_range=(0.0, float(math.ceil(q_rel[-1] + 0.5))))
+    chart.curves["q"] = np.stack([np.array(_XPOINT_SURFACES), q_rel], -1)
+    q_scene = render_chart(chart, x_label="$\\psi_N$", y_label="$q / q(0.5)$", curve_styles={"q": "boundary"},
+                           region_text={}, x_ticks=[0.0, 0.5, 1.0],
+                           y_ticks=[float(v) for v in range(0, int(chart.y_range[1]) + 1)])
+    offset, scale = (7.6, 0.2), 0.55
+    items += list(q_scene.transformed(scale=scale, offset=offset).items)
+    # the fraction of the theta* range spent within 0.15 m of the X-point on the outermost surface
+    *_, near = _straight_field_line_points(model, _XPOINT_SURFACES[-1], n_theta, near=(model["x_point"], 0.15))
+    if labels:
+        xl = 5.6
+        items += [Label((3.3, 4.6), "closed surfaces: $\\theta^*$ lines", "label", anchor="south", role="title"),
+                  Polyline.of([tuple(_cm(points[1][n_theta // 2], o)), (0.3, 3.6)], "leader line",
+                              role="leader:core"),
+                  Label((0.25, 3.6), "core: evenly spread", "small label", anchor="east", role="core"),
+                  Polyline.of([tuple(_cm(model["x_point"], o) + [0.15, 0.0]), (xl, -2.6)], "leader line",
+                              role="leader:x_point"),
+                  Label((xl, -2.6), f"$B_p \\to 0$: {100 * near:.0f}\\% of $\\theta^*$ within 15 cm",
+                        "small label", anchor="west", role="x_point"),
+                  Label((xl, -3.2), "open lines: no $\\theta$; X-point-adapted coordinates", "small label",
+                        anchor="west", role="open_flux"),
+                  Label((offset[0] + scale * 4.5, offset[1] + scale * 6.5 + 0.9), "$q$ diverges at the separatrix",
+                        "label", anchor="south", role="title"),
+                  Label((5.0, -4.6), "Toy flux (\\texttt{flux\\_model}), $F$ constant: $d\\theta^*/dl \\propto "
+                        "1/(R^2B_p)$", "note", anchor="north", role="note")]
+    return Diagram("field_aligned_xpoint_limitation", Scene(tuple(items)),
+                   model={"psi_n": _XPOINT_SURFACES, "q_relative": tuple(float(v) for v in q_rel),
+                          "fraction_near_x_point": near, "n_theta": n_theta})
