@@ -689,8 +689,8 @@
     },
     "impurity_profile_charge_state_fraction": {
       "call": "vaft.omas.plot_impurity_profile_charge_state_fraction(vaft.omas.load(vaft.data.sample(48224)))",
-      "model_sha256": "3ce294456824e30e760764ea50e213e9551725e79aa3147ac977a846cd1c7d0a",
-      "png_sha256": "f6cb9503c3eaf1d7f927e248ad6cc385765eb79eb1a201c51b2afbaf9d07742e",
+      "model_sha256": "b5b1fd8cc156198dbb80a18cf1a9dd528342ed7bde844e06e70c16d0f73b950a",
+      "png_sha256": "049926623fcd113348e89294fb1457786512180c8c6ff3dbc2605a0222573be4",
       "renderer_sha256": "b61890362a04e710b1127e0a07adb310120abd10ab3dfa4258a46d3e913063ff",
       "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
       "shot": 48224,
@@ -698,8 +698,8 @@
     },
     "impurity_profile_composition": {
       "call": "vaft.omas.plot_impurity_profile_composition(vaft.omas.load(vaft.data.sample(48224)))",
-      "model_sha256": "8b729047db340fba9dd5f4ffe8ee3dc015824d245828decc4d2702b0e5207c2b",
-      "png_sha256": "938fcb0c33eb5816f8b78fac9805758bf3d4bb7ed39933a2c2afb72daacfc35a",
+      "model_sha256": "e01ffca61241b38956dd668aa3cea2a59f972e332a28de25f2fb0b4916cd641d",
+      "png_sha256": "bd2762d99b5cc22dbb3af2461470e53d73aa9f47ac34fc04034ef1512fca6adc",
       "renderer_sha256": "b61890362a04e710b1127e0a07adb310120abd10ab3dfa4258a46d3e913063ff",
       "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
       "shot": 48224,

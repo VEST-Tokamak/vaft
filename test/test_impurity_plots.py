@@ -123,7 +123,7 @@ def test_the_composition_is_the_process_layer_result_on_the_slice_named_by_time(
     np.testing.assert_allclose(moments.series[0].y, expected.mean_charge[:, 0])
     np.testing.assert_allclose(reduced.series[0].y, expected.effective_charge)
     np.testing.assert_allclose(fractions.series[0].y, expected.dilution_fraction)
-    assert "model-inferred" in model.suptitle and "VEST preset" in model.suptitle
+    assert "(model)" in model.suptitle and "VEST preset" in model.suptitle
     assert "310.00 ms" in model.suptitle
     labels = [s.label for s in zeff.series]
     assert labels[:2] == ["<Z_eff>_ne = 2", "fully stripped at Z_eff = 2"]
@@ -132,17 +132,17 @@ def test_the_composition_is_the_process_layer_result_on_the_slice_named_by_time(
 
 def test_points_too_young_for_coronal_charge_states_are_marked():
     young = _extract("impurity_profile_composition", _ods(), plasma_age_s=1e-7)
-    marks = [s for s in young.models[0].series if s.label == "not coronal"]
+    marks = [s for s in young.models[0].series if s.label.startswith("not coronal at")]
     assert marks and marks[0].style["marker"] == "x"
-    assert "not yet coronal" in young.suptitle
+    assert marks[0].x[0] == RHO[0] and marks[0].x[-1] == RHO[-1]   # the whole young span
     old = _extract("impurity_profile_composition", _ods(), plasma_age_s=10.0)
-    assert not [s for s in old.models[0].series if s.label == "not coronal"]
+    assert not [s for s in old.models[0].series if s.label.startswith("not coronal")]
 
 
 def test_without_a_plasma_age_the_coronal_check_is_not_drawn_and_transient_is_refused():
     model = _extract("impurity_profile_composition", _ods())
-    assert "coronal validity not checked" in model.suptitle
-    assert not [s for s in model.models[0].series if s.label == "not coronal"]
+    assert "coronal check not drawn" in model.models[1].title
+    assert not [s for s in model.models[0].series if s.label.startswith("not coronal")]
     with pytest.raises(ValueError, match="plasma_age_s"):
         _extract("impurity_profile_composition", _ods(), ionization="transient")
 
@@ -151,7 +151,7 @@ def test_transient_ionization_draws_the_coronal_reference_beside_the_mean_charge
     model = _extract("impurity_profile_composition", _ods(), ionization="transient", plasma_age_s=1e-3)
     labels = [s.label for s in model.models[1].series]
     assert "<Z>_C coronal" in labels and "<Z>_O coronal" in labels
-    assert "transient charge states" in model.suptitle
+    assert model.models[0].title.startswith("transient charge states")
 
 
 def test_a_stored_zeff_is_overlaid_under_its_own_origin():
@@ -171,6 +171,7 @@ def test_a_caller_composition_and_target_are_used_and_stated():
                      target_zeff=1.5, normalizations=("axis",))
     assert model.models[0].series[0].y[0] == pytest.approx(1.5)
     assert "C:O = 2:1 (caller)" in model.suptitle
+    assert "Z_eff(0) = 1.5" in model.models[0].title
 
 
 def test_the_composition_does_not_write_into_the_ods():
@@ -183,7 +184,8 @@ def test_the_composition_does_not_write_into_the_ods():
 
 def test_charge_state_fractions_sum_to_one_per_element():
     model = _extract("impurity_profile_charge_state_fraction", _ods())
-    assert [panel.title for panel in model.models] == ["C, coronal", "O, coronal"]
+    assert model.models[0].title.startswith("C, coronal; no plasma age")
+    assert model.models[1].title == "O, coronal"
     for panel, z_n in zip(model.models, (6, 8)):
         assert len(panel.series) == z_n + 1
         np.testing.assert_allclose(np.sum([s.y for s in panel.series], axis=0), 1.0, atol=1e-9)
@@ -206,4 +208,4 @@ def test_the_plasma_age_defaults_to_the_onset_the_diagnostics_give():
         onset = plasma_timing(ods).onset
     model = _extract("impurity_profile_composition", ods)
     t = float(ods["core_profiles.profiles_1d.0.time"])
-    assert f"plasma age {(t - onset) * 1e3:.1f} ms" in model.suptitle
+    assert model.models[1].title.startswith(f"plasma age {(t - onset) * 1e3:.1f} ms")

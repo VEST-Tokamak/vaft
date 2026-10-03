@@ -6041,19 +6041,33 @@ def _impurity_available(ods: Any) -> str | None:
 
 def _age_text(inputs: Mapping[str, Any]) -> str:
     if inputs["age"] is None:
-        return f"no plasma age ({inputs['age_source']}): coronal validity not checked"
+        return f"no plasma age ({inputs['age_source']}): coronal check not drawn"
     return f"plasma age {inputs['age'] * 1e3:.1f} ms ({inputs['age_source']})"
 
 
+#: At most this many markers per curve flag the points that are not coronal:
+#: a Thomson-fitted grid has ~100 points, and a cross on each buries the curve.
+_NOT_CORONAL_MARKERS = 25
+
+
 def _not_coronal(rho: np.ndarray, y: np.ndarray, result: Any, label: str) -> list[Series]:
-    """Markers on the points whose plasma is too young for the coronal charge states."""
+    """Markers on the points whose plasma is too young for the coronal charge states.
+
+    Every such point is flagged, thinned evenly to :data:`_NOT_CORONAL_MARKERS`
+    so the curve stays readable; the first and last of each run are kept so
+    the flagged span is not shortened.
+    """
     if result.coronal_valid is None:
         return []
     bad = ~np.asarray(result.coronal_valid, dtype=bool) & np.isfinite(y)
     if not bad.any():
         return []
-    return [Series(x=rho[bad], y=y[bad], label=label,
-                   style={"marker": "x", "linestyle": "none", "color": "emphasis:alert"})]
+    where = np.flatnonzero(bad)
+    stride = max(1, int(np.ceil(where.size / _NOT_CORONAL_MARKERS)))
+    edges = where[np.r_[True, np.diff(where) > 1] | np.r_[np.diff(where) > 1, True]]
+    keep = np.union1d(where[::stride], edges)
+    return [Series(x=rho[keep], y=y[keep], label=label,
+                   style={"marker": "x", "markersize": 4, "linestyle": "none", "color": "emphasis:alert"})]
 
 
 def _build_impurity_composition(ods: Any, **options: Any) -> Panels:
@@ -6097,9 +6111,12 @@ def _build_impurity_composition(ods: Any, **options: Any) -> Panels:
         label, style = _ZEFF_ORIGIN_LABELS[stored[2]]
         zeff_traces.append(Series(x=stored[0], y=stored[1], label=f"stored ({label})",
                                   style={**style, "linestyle": ":"}))
-    zeff_traces += _not_coronal(rho, primary.zeff, primary, "not coronal")
+    young = "" if inputs["age"] is None else f"not coronal at {inputs['age'] * 1e3:.1f} ms"
+    zeff_traces += _not_coronal(rho, primary.zeff, primary, young)
     zeff_panel = Profile1D(series=tuple(zeff_traces), coordinate_label="rho_tor_norm",
-                           y_label="Z_eff", y_unit="")
+                           y_label="Z_eff", y_unit="",
+                           title=f"{ionization} charge states; {rule(asked[0])}: "
+                                 f"n_s/n_e = {primary.scale:.3g} w_s")
 
     moments: list[Series] = []
     for k, element in enumerate(primary.elements):
@@ -6112,9 +6129,9 @@ def _build_impurity_composition(ods: Any, **options: Any) -> Panels:
                                   label=f"<Z>_{element} coronal", style={"color": colour, "linestyle": "--"}))
         moments.append(Series(x=rho, y=np.full(rho.size, float(z_n)), label=f"{element}{z_n}+ fully stripped",
                               style={"color": colour, "linestyle": ":", "lw": 1.0}))
-        moments += _not_coronal(rho, primary.mean_charge[:, k], primary, "not coronal" if k == 0 else "")
+        moments += _not_coronal(rho, primary.mean_charge[:, k], primary, young if k == 0 else "")
     moment_panel = Profile1D(series=tuple(moments), coordinate_label="rho_tor_norm",
-                             y_label="<Z>", y_unit="")
+                             y_label="<Z>", y_unit="", title=_age_text(inputs))
 
     reduced = Profile1D(
         series=(Series(x=rho, y=primary.effective_charge, label="Z_I,eff = S2/S1",
@@ -6130,10 +6147,11 @@ def _build_impurity_composition(ods: Any, **options: Any) -> Panels:
                                y_label="n / n_e", y_unit="")
     return Panels(
         models=(zeff_panel, moment_panel, reduced, fraction_panel), ncols=1, share_x=True,
-        suptitle=(f"Impurity composition, model-inferred, {_slice_title_time(inputs['time'])}\n"
-                  f"{inputs['composition']}; {ionization} charge states; {rule(asked[0])}: "
-                  f"n_s/n_e = {primary.scale:.3g} w_s\n{_age_text(inputs)}"
-                  + ("; x marks points not yet coronal" if primary.coronal_valid is not None else "")),
+        # One line: the renderer anchors a suptitle above the top axes and a
+        # second line would grow off the canvas; the details sit in the
+        # panel titles, which the layout makes room for.
+        suptitle=(f"Impurity composition (model): {inputs['composition']}, "
+                  f"{_slice_title_time(inputs['time'])}"),
     )
 
 
@@ -6158,11 +6176,11 @@ def _build_impurity_charge_states(ods: Any, **options: Any) -> Panels:
         )
         panels.append(Profile1D(series=traces, coordinate_label="rho_tor_norm",
                                 y_label="f_q", y_unit="",
-                                title=f"{element}, {inputs['ionization']}"))
+                                title=f"{element}, {inputs['ionization']}"
+                                      + ("" if k else f"; {_age_text(inputs)}")))
     return Panels(
         models=tuple(panels), ncols=1, share_x=True, share_y=True,
-        suptitle=(f"Charge-state fractions, model-inferred from T_e, n_e, "
-                  f"{_slice_title_time(inputs['time'])}\n{_age_text(inputs)}"),
+        suptitle=f"Charge-state fractions (model from T_e, n_e), {_slice_title_time(inputs['time'])}",
     )
 
 
