@@ -56,6 +56,7 @@ from .recipes import (
     SPECTROGRAM_METHODS,
     SPECTROGRAM_PARAMETERS,
     _coordinate_options,
+    coordinate_default_for,
     abscissa_options,
     field_options_for,
     overlay_options_for,
@@ -88,7 +89,15 @@ from .recipes import (
     missing_required_path,
 )
 
-__all__ = ["describe_by_ids", "describe_entries", "INTERACTION", "INTERACTION_ENTRY_POINTS", "OVERVIEW_CONTENTS", "ANALYSIS_METHODS"]
+__all__ = [
+    "describe_by_ids",
+    "describe_entries",
+    "sequence_values",
+    "INTERACTION",
+    "INTERACTION_ENTRY_POINTS",
+    "OVERVIEW_CONTENTS",
+    "ANALYSIS_METHODS",
+]
 
 #: Interaction modes a plot offers (issue #261 sections 14-17).  A static
 #: summary is the baseline; a time-navigable entry point appears beside it.
@@ -286,6 +295,17 @@ def _declare(record: PlotCapability) -> PlotCapability:
         updates["computation"] = {
             "backend": recipe.backend, "reason": recipe.reason, "reads": tuple(recipe.reads),
         }
+        if recipe.coordinates is not None:
+            options = tuple(recipe.coordinates.options)
+            updates["coordinates"] = {
+                "default": coordinate_default_for(record.name), "options": options, "declared": options,
+            }
+        if recipe.choices:
+            updates["choices"] = {
+                option: {"default": choice.default, "options": tuple(choice.options),
+                         **({"applies_to": dict(choice.applies_to)} if choice.applies_to else {})}
+                for option, choice in recipe.choices.items()
+            }
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")
@@ -451,7 +471,9 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             updates["abscissa"] = _abscissa_block(record, recipe, ods)
         elif isinstance(recipe, ChannelProfileRecipe):
             updates.update(_channel_facts(record, recipe, ods))
-            updates["times"] = _times_block(ods, recipe)
+            updates["times"] = _times_block(
+                [(lbl, obj) for lbl, obj in entries if per_entry[str(lbl)]], recipe,
+            )
         elif isinstance(recipe, ProfileRecipe):
             # Profiles take the same sign policy (issue #307); the catalog has
             # to say which default a profile applies, or a caller cannot know
@@ -885,16 +907,43 @@ def _abscissa_is_stored(ods: Any, entry: Any) -> bool:
     return False
 
 
-def _times_block(ods: Any, recipe: Any) -> dict[str, Any]:
-    """The stored time axis a spatial plot samples: start, stop, count."""
-    from .recipes import _first_time
+def _times_block(entries: Sequence[tuple[str, Any]], recipe: Any) -> dict[str, Any]:
+    """The stored time axis a spatial plot samples, and its ``time_index`` control when it has one.
+
+    ``start``/``stop``/``count`` span every channel of every entry, not the
+    first one's.  ``option="time_index"`` is offered only when, in every
+    entry, every channel with data shares one grid and the entries' grids
+    are the same length (issue #1380): an index then names one sample for
+    the whole array of every shot, and ``selected`` is the middle sample the
+    static call draws.  Otherwise ``shared`` is ``False`` and ``time=``
+    remains the way to choose an instant.
+    """
+    from .recipes import _first_time, channel_profile_axis
 
     container = _container_of(recipe.y_path, "{i}")
-    for index in range(_count(ods, container)):
-        axis = _first_time(ods, recipe.time_paths, i=index)
-        if axis is not None and axis.size:
-            return {"start": float(axis.min()), "stop": float(axis.max()), "count": int(axis.size)}
-    return {}
+    axes = [channel_profile_axis(ods, recipe) for _, ods in entries]
+    if axes and all(axis is not None and axis.size for axis in axes):
+        sizes = {int(axis.size) for axis in axes}
+        block = {
+            "start": min(float(axis.min()) for axis in axes),
+            "stop": max(float(axis.max()) for axis in axes),
+            "count": max(sizes),
+            "shared": len(sizes) == 1,
+        }
+        if len(sizes) == 1 and block["count"] > 1:
+            block.update(option="time_index", selected=block["count"] // 2)
+        return block
+    starts, stops, counts = [], [], []
+    for _, ods in entries:
+        for index in range(_count(ods, container)):
+            axis = _first_time(ods, recipe.time_paths, i=index)
+            if axis is not None and axis.size:
+                starts.append(float(axis.min()))
+                stops.append(float(axis.max()))
+                counts.append(int(axis.size))
+    if not counts:
+        return {}
+    return {"start": min(starts), "stop": max(stops), "count": max(counts), "shared": False}
 
 
 def _camera_frame_stamps(ods: Any, channel: int = 0, detector: int = 0) -> list[float] | None:
@@ -959,6 +1008,17 @@ def sequence_values(
         return "time", "s", values
     if option == "time_index" and name in ("vacuum_field", "vacuum_field_midplane"):
         return "time", "s", np.asarray(_array(ods, "pf_active.time"), dtype=float)
+    if option == "time_index" and isinstance(RECIPES.get(name), ChannelProfileRecipe):
+        from .recipes import _resolve_selection, _selection_option, channel_profile_axis
+
+        recipe = RECIPES[name]
+        indices = _resolve_selection(
+            ods, recipe.y_path, _selection_option(dict(options)), fallbacks=recipe.fallback_y_paths,
+        )
+        shared = channel_profile_axis(ods, recipe, indices)
+        if shared is None:
+            raise ValueError(f"{name}: the selected channels do not share one time base")
+        return "time", "s", shared
     if option == "frame_index" and name.startswith("camera_visible_image"):
         channel, detector = int(options.get("channel", 0)), int(options.get("detector", 0))
         stamps = _camera_frame_stamps(ods, channel, detector)

@@ -112,9 +112,14 @@ def _paths(tmp_path: Path, layout: str = "filedb"):
 
 
 def _kfile_command(stdout: str) -> str:
-    """The k-file stage's printed shell command, up to its log redirect."""
+    """The k-file stage's printed shell command, up to its log redirect.
+
+    Whitespace is collapsed: Snakemake 7 prints a ``{param}`` substitution
+    with the template's indentation around it (``--preset  statistical_891``),
+    Snakemake 9 does not, and the assertions are about the words.
+    """
     start = stdout.index("generate_kfile.py")
-    return stdout[start:stdout.index(">", start)]
+    return " ".join(stdout[start:stdout.index(">", start)].split())
 
 
 def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
@@ -125,18 +130,20 @@ def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
     command = _kfile_command(preset.stdout)
     assert "--preset statistical_891" in command
     assert "--npprime" not in command  # the constraints stage still takes its own
-    routine = _dry_run(tmp_path, target, extra=["-p"])
-    assert routine.returncode == 0, routine.stderr[-3000:]
-    command = _kfile_command(routine.stdout)
-    assert "--npprime 2 --nffprime 2" in command and "--preset" not in command
+    # Naming nothing is the library default (statistical_891 since 2026-10-01):
+    # no basis and no preset flag; generate_kfile.py records the default itself.
+    default = _dry_run(tmp_path, target, extra=["-p"])
+    assert default.returncode == 0, default.stderr[-3000:]
+    command = _kfile_command(default.stdout)
+    assert "--preset" not in command and "--npprime" not in command
 
 
-def test_naming_the_routine_preset_is_the_routine_path(tmp_path):
+def test_the_routine_preset_is_an_explicit_opt_out(tmp_path):
     target = [_paths(tmp_path).kfile_manifest(SHOT)]
     result = _dry_run(tmp_path, target, extra=["-p", "--config", 'efit={"preset": "routine"}'])
     assert result.returncode == 0, result.stderr[-3000:]
     command = _kfile_command(result.stdout)
-    assert "--npprime 2 --nffprime 2" in command and "--preset" not in command
+    assert "--preset routine" in command and "--npprime" not in command
 
 
 def test_an_unknown_efit_preset_fails_the_run_before_any_job(tmp_path):
@@ -192,6 +199,60 @@ def test_the_full_target_set_resolves_once_preflight_has_run(tmp_path):
     assert result.returncode == 0, result.stderr[-3000:]
     assert "build_gpec_ideal" in result.stdout
     assert "plot_mhd_linear" in result.stdout
+
+
+def _preflight_done(tmp_path):
+    paths = _paths(tmp_path)
+    raw_dump = Path(paths.raw_dump(SHOT))
+    raw_dump.parent.mkdir(parents=True, exist_ok=True)
+    raw_dump.write_bytes(b"")
+    Path(paths.raw_manifest(SHOT)).write_text("{}", encoding="utf-8")
+    eligible = Path(paths.preflight_eligible())
+    eligible.parent.mkdir(parents=True, exist_ok=True)
+    eligible.write_text(json.dumps({"eligible_shots": [SHOT]}), encoding="utf-8")
+    Path(paths.preflight_excluded()).write_text(json.dumps({"excluded_shots": []}), encoding="utf-8")
+
+
+def test_a_stage_scope_narrows_rule_all(tmp_path):
+    """`stages: [raw, diagnostics, eddy]` asks for nothing of EFIT and after (#58).
+
+    Not even the constraint step, which refuses a vacuum shot by failing: a
+    scope that left it in would still fail every vacuum shot.
+    """
+    _preflight_done(tmp_path)
+
+    result = _dry_run(tmp_path, extra=["--config", "stages=[raw,diagnostics,eddy]"])
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    for rule in ("generate_diagnostics_ods", "generate_eddy_ods",
+                 "replicate_diagnostics_to_hsds", "replicate_eddy_to_hsds", "plot_eddy"):
+        assert rule in result.stdout, rule
+    for rule in ("generate_constraints_ods", "generate_kfile", "run_efit_reconstruction",
+                 "replicate_efit_to_hsds", "run_chease", "plot_mhd_linear", "build_gpec_ideal"):
+        assert rule not in result.stdout, rule
+
+
+def test_a_stability_scope_runs_only_its_own_gpec_cells(tmp_path):
+    """`mhd_linear` without `gpec_ideal` must not run the ideal-GPEC solver (cold review)."""
+    _preflight_done(tmp_path)
+
+    result = _dry_run(tmp_path, extra=["-p", "--config",
+                                       "stages=[raw,diagnostics,eddy,efit,chease,mhd_linear]"])
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "plot_mhd_linear" in result.stdout
+    assert "build_gpec_ideal" not in result.stdout
+    assert "product=ideal-gpec" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("stages", "message"),
+    [("[raw,diagnostic]", "Unknown stage"), ("[raw,diagnostics,efit]", "but not 'eddy'")],
+)
+def test_a_stage_scope_that_cannot_be_run_fails_before_any_job(tmp_path, stages, message):
+    result = _dry_run(tmp_path, extra=["--config", f"stages={stages}"])
+    assert result.returncode != 0
+    assert message in result.stdout + result.stderr
 
 
 # --------------------------------------------------------------------------- #

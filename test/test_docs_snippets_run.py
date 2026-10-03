@@ -367,10 +367,13 @@ def test_signature_markers_mean_what_they_say():
 
 
 #: Fences that run everywhere except on native Windows, where a platform
-#: limitation outside VAFT stops them.  Keyed by (page, line); the entry is the
-#: limitation, so a fix upstream can retire it.
-WINDOWS_LIMITATIONS: dict[tuple[str, int], str] = {
-    ("README.ko.md", 261): (
+#: limitation outside VAFT stops them.  Keyed by (page, a line the fence's
+#: source contains) rather than by line number: prose added above a fence
+#: (the #1090 README diagrams moved this one from 261 to 276) must not turn
+#: a documented limitation back into a red leg.  The entry is the limitation,
+#: so a fix upstream can retire it.
+WINDOWS_LIMITATIONS: dict[tuple[str, str], str] = {
+    ("README.ko.md", 'vaft.imas.save(ods, "./shot")'): (
         "imas_core cannot close the HDF5 entry it just wrote on Windows "
         "(al_close_pulse, ALBackendException); the same limitation is why "
         "vaft.imas scratch cleanup is best-effort there (0.6.2 notes)"
@@ -378,11 +381,20 @@ WINDOWS_LIMITATIONS: dict[tuple[str, int], str] = {
 }
 
 
+def _windows_limitation(fence: dict) -> str | None:
+    lines = {line.strip() for line in fence["source"].splitlines()}
+    for (page, marker), reason in WINDOWS_LIMITATIONS.items():
+        if fence["page"] == page and marker in lines:
+            return reason
+    return None
+
+
 @pytest.mark.parametrize("fence", _executed(), ids=lambda f: f"{f['page']}:{f['line']}")
 def test_the_snippet_runs_offline_on_the_packaged_sample(fence, outcomes):
     key = (fence["page"], fence["line"])
-    if os.name == "nt" and key in WINDOWS_LIMITATIONS:
-        pytest.xfail(WINDOWS_LIMITATIONS[key])
+    limitation = _windows_limitation(fence)
+    if os.name == "nt" and limitation is not None:
+        pytest.xfail(limitation)
     assert key in outcomes, f"{key} was never reached by the runner"
     failure = outcomes[key]
     assert failure is None, (
@@ -393,3 +405,14 @@ def test_the_snippet_runs_offline_on_the_packaged_sample(fence, outcomes):
         "    <!-- docs-snippet: skip <class> (<reason>) -->\n"
         f"classes: {', '.join(sorted(SKIP_CLASSES))}"
     )
+
+
+def test_every_windows_limitation_names_a_fence_that_exists():
+    """A limitation entry keyed to a line of code that no fence carries any
+    more would silently stop excusing anything; keep the table honest."""
+    fences = _executed()
+    for (page, marker), _reason in WINDOWS_LIMITATIONS.items():
+        assert any(
+            f["page"] == page and marker in {l.strip() for l in f["source"].splitlines()} for f in fences
+        ), f"{page}: no executed fence contains {marker!r}"
+

@@ -64,6 +64,7 @@ OMAS_BOUND = frozenset({
     "passive_structure_overview_wall_time", "passive_structure_overview_wall_reduction",
     "passive_structure_field_wall_reduction", "neoclassical_profile_bootstrap_current",
     "equilibrium_field_psi_vacuum", "vacuum_field", "summary_time_power_balance",
+    "summary_time_resistive_zeff",
     "camera_visible_image", "camera_visible_image_frame", "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line", "camera_visible_image_fluctuation",
     "camera_visible_image_mhd_power", "equilibrium_overview",
@@ -73,6 +74,10 @@ OMAS_BOUND = frozenset({
     # issue #952: the kinetic profile fits call the vaft.process.profile mappers
     # and fitters, which subscript the ODS.
     "thomson_scattering_profile_fit", "charge_exchange_profile_fit",
+    # issue #551: radial_coordinate_map selects and adapts the equilibrium
+    # slice with ODS item access (as_equilibrium).
+    "electron_temperature_profile_gradient", "electron_density_profile_gradient",
+    "ion_temperature_profile_gradient",
 })
 
 #: Recorded reads that are not the plot's input, per plot, with the reason.

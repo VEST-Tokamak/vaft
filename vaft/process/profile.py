@@ -2737,6 +2737,8 @@ def core_profiles(
         ods[f'{base}.electrons.temperature'] = T_e_recon
 
     # single main ion H+ with n_i ~= n_e (quasi-neutrality, no impurity dilution).
+    # Known limitation: with impurities n_i,tot < n_e (f_i ~0.83-0.9 at Z_eff
+    # ~1.7-2), so pressure_thermal below overstates the ion share at fixed Ti.
     # Write the ion block only when there IS an ion fit, or when electrons are
     # present and the Ti=Te fallback is enabled. With ti_te_fallback=False a slice
     # with no ion measurement stays electron-only -- no phantom ni / Ti / velocity.
@@ -3343,8 +3345,8 @@ def pedestal_top(
        available, fallback 0.85 otherwise, and every reduction records which
        method produced it.
     .. [EPED] The seven-parameter model and its parameter box are ported from
-       the pedestal-fitting study in ``hsyun_GPEC``
-       (``sample/transp_example/pedestal_fitting.ipynb``).  The older
+       the legacy implementation's pedestal-fitting study
+       (``transp_example/pedestal_fitting.ipynb``).  The older
        ``kinetic_analysis.ped_fitting`` modified tanh is deliberately not
        carried over.  Its slope term multiplies the tanh across the whole
        domain, so the curve runs away in both directions -- with that

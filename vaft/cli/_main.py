@@ -24,6 +24,7 @@ _COMMANDS = {
     "pipeline-worker": (".pipeline_worker", "poll VEST SQL and run the routine pipeline on new shots"),
     "help": (".help", "what VAFT can do: topics, defaults and setup status"),
     "setup": (".setup", "report or prepare the runtime environment (never scientific settings)"),
+    "mcp": (".mcp", "serve read-only VAFT discovery tools to an MCP client over stdio"),
 }
 
 
@@ -52,12 +53,16 @@ def _tolerate_unencodable_output() -> None:
     locale still reads it) and only the error handler changes, so an
     unencodable glyph becomes ``?`` instead of a crash.
     """
+    lenient = {"replace", "backslashreplace", "namereplace", "xmlcharrefreplace", "ignore"}
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is None:
             continue
         encoding = (getattr(stream, "encoding", None) or "").replace("-", "").lower()
-        if encoding != "utf8" and getattr(stream, "errors", None) == "strict":
+        # "surrogateescape" (what a Windows pipe carries) is not lenient: it
+        # only round-trips undecodable input bytes and still raises on a glyph
+        # the codec lacks, which is how the release's Windows leg found this.
+        if encoding != "utf8" and getattr(stream, "errors", None) not in lenient:
             reconfigure(errors="replace")
 
 

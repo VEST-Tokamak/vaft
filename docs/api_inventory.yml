@@ -54,64 +54,14 @@ pages:
   - slug: cli
     title: vaft.cli
     modules: [vaft.cli]
+  - slug: mcp
+    title: vaft.mcp
+    modules: [vaft.mcp]
 
 # Public-looking modules that declare no `__all__`, so publish nothing yet.
 # Declaring `__all__` in one of them publishes it: remove it from this list.
 undeclared:
-  - vaft.code.base
-  - vaft.code.efit.kfile
-  - vaft.code.efit.legacy
-  - vaft.code.efit.magnetic
-  - vaft.code.gacode.inputs
-  - vaft.code.gacode.neo.inputs
-  - vaft.code.gacode.neo.outputs
-  - vaft.code.gacode.neo.runner
-  - vaft.code.genray.config
-  - vaft.code.nice.config
-  - vaft.code.nice.diagnostics
-  - vaft.code.nice.geometry
-  - vaft.code.nice.inputs
-  - vaft.code.nice.outputs
-  - vaft.code.nice.response
-  - vaft.code.nice.runner
-  - vaft.code.nice.study
-  - vaft.code.nice.validate_reference
-  - vaft.code.nubeam.config
-  - vaft.code.nubeam.inputs
-  - vaft.code.nubeam.outputs
-  - vaft.code.nubeam.runner
-  - vaft.code.snakemake
-  - vaft.code.tes.config
-  - vaft.code.tes.inputs
-  - vaft.code.tes.outputs
-  - vaft.code.tes.runner
-  - vaft.code.tes.scan
-  - vaft.code.tokamaker.config
-  - vaft.code.tokamaker.evolve
-  - vaft.code.tokamaker.free_boundary
-  - vaft.code.tokamaker.geometry
-  - vaft.code.tokamaker.inputs
-  - vaft.code.tokamaker.mesh
-  - vaft.code.tokamaker.outputs
-  - vaft.code.tokamaker.runner
-  - vaft.code.tokamaker.scan
-  - vaft.code.tokamaker.stability
-  - vaft.code.tokamaker.topology
-  - vaft.code.tokamaker.vessel
-  - vaft.database.h5image
-  - vaft.database.ids
-  - vaft.database.lazy_common
-  - vaft.database.ods
-  - vaft.database.product_migration
-  - vaft.database.raw
-  - vaft.database.staging
-  - vaft.database.transport
-  - vaft.database.utils
   - vaft.diagram.build
-  - vaft.omas.formula_wrapper
-  - vaft.omas.general
-  - vaft.omas.process_wrapper
-  - vaft.omas.update
   - vaft.plot.analysis
   - vaft.plot.backend
   - vaft.plot.backend.convention

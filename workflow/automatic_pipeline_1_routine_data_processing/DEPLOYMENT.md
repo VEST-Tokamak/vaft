@@ -633,21 +633,26 @@ PY
 | Provenance | `"source": "main"`, `"remote_uri": "hdf5://main/39915/"`, a `product_sha256` |
 | Manifest | unchanged — it describes production, not replication |
 
-> **Per-shot folders must be provisioned. This is settled, not open.** HSDS does
-> not auto-create them: `hsload` fails with
-> `Domain: hdf5://main/39915/dataset_description.h5 not found` until the folder
-> exists. Provision one shot with `hstouch -o "$OWNER" /main/39915/`, or a whole
-> range with the script below. It is idempotent — `hstouch` opens with `mode='x'`
-> and refuses an existing folder, which the script counts rather than treats as
-> an error.
+> **Per-shot folders are created by the writer.** `hsload` does not create a
+> missing folder -- it fails with
+> `Domain: hdf5://main/39915/dataset_description.h5 not found` -- so every
+> write path (`save_ods`, the native IDS writer, replication) now creates
+> `/<source>/<shot>/` itself under the shot's master lock, right before its
+> first upload (`vaft.database.utils.ensure_shot_folder`). An existing folder
+> costs one GET and is never touched; a second host losing the create race
+> (409) counts as success. Checked against this deployment on 2026-10-01 as
+> `admin` with h5pyd 0.24.0: the folder is created, a repeat is a no-op, and
+> `hsload` into it succeeds.
+>
+> The folder is owned by the writing account, so that account needs create
+> permission in the source folder -- `admin`, the production writer, has it.
+> A writer without it gets an error naming the `hstouch` that provisions the
+> shot. `provision_hsds_shots.sh` still does that for a range, and is now only
+> needed for a writer without create permission:
 >
 > ```bash
 > ./provision_hsds_shots.sh main 39000 45000
-> ./provision_hsds_shots.sh chease-mhd-stability 39000 45000
 > ```
->
-> A shot needs a folder in **every** source it replicates into, so a full
-> backfill is one call per source.
 
 ### Then prove the merge preserves what was already there
 
@@ -819,7 +824,7 @@ the corrective updaters' one-time bootstrap of their shot registry, which opens
 - [ ] Every canonical product is under its declared container — `migrate-products` reports `pending: 0` and `--verify-shape` reports no failures
 - [ ] A second stage did not hide the first — `external_h5_links` lists both
 - [ ] A rerun reused the record — no upload
-- [ ] Per-shot folder behaviour recorded — auto-created, or `hstouch` needed
+- [ ] A new shot's folder was created by its first write — no `hstouch`
 - [ ] `/public/` unchanged throughout — entry count and modified timestamp
 
 ---
@@ -848,6 +853,20 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   stops the worker instead of silently creating a new state file under a literal `${...}` directory.
 - **The worker reproduces Snakemake's config merge.** Snakemake merges `pipeline_config` over the
   workflow's own `config.yaml`, and the worker checks and harvests against that same merged result.
+- **`stages` narrows what the worker runs and judges.** Omitted, every run requests `rule all`, the
+  whole pipeline. `stages: [raw, diagnostics, eddy]` requests only those stages' products, plots and
+  replication records, and the shot's verdict is taken from those alone: the constraint and k-file
+  steps, EFIT, CHEASE and stability are never scheduled. A vacuum shot (below the constraint stage's
+  15 kA) then ends `completed` instead of failing every run until `gave_up`. `raw` is always in;
+  a stage whose upstream is left out is refused at start-up. The worker writes the list into each
+  run's config as `stages`, so a manual run can use the same key. This is a decision made before the
+  run; a stage that runs and declines a shot is #205's skip semantics.
+  - Optional branches outside the stage chain (IMPA with `impa.enable: true`) are not scoped; they
+    depend only on raw and are never part of the shot's verdict.
+  - Set the scope only here, not as `--config stages=...` in `extra_args`: Snakemake would see it
+    and the harvester would not.
+  - Widening `stages` later does not revisit shots already concluded under the narrower scope;
+    `vaft pipeline-worker retry --shot N` (or a batch run) brings them up to the new scope.
 - **`first_shot` is where the worker's responsibility starts.** Shots below it belong to batch
   regeneration and the worker never looks at them.
 
@@ -874,9 +893,8 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    verdicts is final.
 
 4. **Run.** One `snakemake` process runs in this directory with `--keep-going --rerun-incomplete
-   --scheduler greedy --resources hsds=1`.
-   - `hsds=1` stops replications from overlapping, which is the #913 master-link race. A worker
-     batch of a few shots is exactly the case where that race occurs.
+   --scheduler greedy`. HSDS concurrency is the pipeline config's `hsds.concurrency`; replications of
+     one shot no longer race for its `master.h5` (#913, section 11).
    - A manual run holding the directory lock makes the worker **busy**: it tries again next cycle
      and does not count an attempt.
    - The worker runs `--unlock` only when no live Snakemake process is working in the workflow
@@ -890,7 +908,7 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    | Shot state | Meaning |
    | --- | --- |
    | `completed` | Every declared product succeeded. |
-   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. |
+   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. A solver stage that finished `no_output` by design -- EFIT ran and no slice survived, CHEASE had nothing to refine or every slice failed, or the stage is switched off -- has its replication recorded `skipped`, so the shot's other stages stay published and the shot is not retried. `no_output` because the executable is missing, an input is missing or the stage errored still fails, and so does `no_output` over IDS an earlier run already published to the shot (retire those first). |
    | `excluded` | The classifier, the raw preflight or an operator ruled the shot out. |
    | `failed` | A declared product is missing. The shot is retried on the next cycle, and Snakemake rebuilds only what is missing. |
    | `gave_up` | The shot has used `max_attempts` runs and waits for an operator. |
@@ -956,3 +974,62 @@ vaft pipeline-worker run --once              # a single cycle, e.g. to test a co
   watermark is not detected.
 - **Monitoring.** Monitoring code (#1347) reads the same file through
   `vaft.database.worker.read_worker_state`.
+
+---
+
+## 11. One writer per shot master (#913)
+
+Every HSDS write of a shot replaces its `master.h5` with the stored master plus the write's own IDS.
+Before #913 two overlapping writes of one shot both read the old master, and whichever replaced it
+last dropped the other's links. On 2026-09-17 this hid six IDS of shots 39241 and 39620 behind
+replication records that said `passed: true`.
+
+The write path now does two things:
+
+- **Holds a per-shot lock** across the read, merge and replace. Replication holds it from the
+  capture of the previous master through its safety-net merge. Every VAFT writer on this host is
+  covered: the routine pipeline, the corrective updaters, the new-shot worker and the maintenance
+  repairs. Different shots never wait for each other. The lock files live in `$VAFT_HSDS_LOCK_DIR`,
+  default `/tmp/vaft-hsds-locks`. The location is deliberately fixed rather than `$TMPDIR`, so that
+  two writers always meet at the same lock. If that directory exists but this account cannot create
+  files in it (made by another account without `chmod 1777`), the writer locks in a per-user
+  directory under the temp root instead and warns once, naming both directories: its writes are then
+  serialized only against this account's. Fix the mode, or point `$VAFT_HSDS_LOCK_DIR` at a shared
+  directory for every writer. Do not give the worker's service unit `PrivateTmp=yes` without doing
+  the same: a private `/tmp` is a lock no manual updater on the host shares.
+- **Re-reads the stored master immediately before replacing it**, so a link added in the meantime is
+  kept. This also applies to a plain `vaft.database.save`, which used to replace the master with one
+  naming only its own IDS.
+
+What it does **not** cover:
+
+- writers on another host;
+- `hsload` run by hand;
+- Windows, where the lock is a no-op; the first write of a process warns (`RuntimeWarning`) that it is not enforced there.
+
+The re-read narrows those windows; it cannot close them.
+
+With the race gone, `hsds.concurrency` can go back above 1. The new-shot worker no longer forces
+`--resources hsds=1`.
+
+### Audit and repair
+
+```bash
+vaft maintenance audit-masters --shots 39000-48916 --report audit.json          # read-only
+vaft maintenance audit-masters --shots 39241 39620 43245 44148 --apply          # relink
+```
+
+Each unlinked file is downloaded and read before it is judged. Each shot is reported as one of:
+
+| Status | Meaning |
+| --- | --- |
+| `complete` | The master links every stored IDS file. |
+| `links_missing` | Files are stored that the master does not link. `--apply` relinks them, under the shot's lock. |
+| `stubs_unlinked` | The only files the master does not link hold no value at all -- every leaf an IMAS fill, every array of structures empty. Nothing is hidden, and `--apply` leaves them unlinked. 39240, 43245, 44148, 44453 and 44604 are like this: an empty `equilibrium.h5`. |
+| `nan_only_unlinked` | The only files the master does not link carry no value but are not empty: their arrays are shaped and hold NaN throughout (a fit that failed, stored as computed). They are listed under `nan_only`; `--apply` leaves them unlinked, so look at the stage that wrote them. |
+| `no_master` | Files are stored but there is no master. Nothing can be copied from it, so re-replicate the shot. |
+| `absent` | No such shot folder, or one holding only derived images. |
+| `unreadable` | Listing or reading failed. The error is in the report. |
+
+The command exits non-zero while any shot is `links_missing`, `no_master` or `unreadable`; `stubs_unlinked` and `nan_only_unlinked` are not failures (`--apply` has nothing to do for them). A `links_missing` shot can carry stubs too -- the report lists them under `stubs`, and `--apply` links only the files under `missing`.
+

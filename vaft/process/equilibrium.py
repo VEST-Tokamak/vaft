@@ -2792,8 +2792,19 @@ def _enclosing_segment(
     A level can return several disconnected segments -- the confined surface,
     private-flux lobes, scrape-off branches clipped by the grid. Longest-wins
     picks the wrong one often enough to matter (up to every level on a limited
-    VEST slice), so the segment enclosing the magnetic axis wins outright and
-    length only breaks ties among those.
+    VEST slice), so the segment enclosing the magnetic axis wins outright.
+
+    Enclosing the axis is not enough on its own. Outside a limited plasma psi
+    turns back, so a level just inside the boundary can also trace an *open*
+    branch that runs from grid edge to grid edge round the whole plasma; closed
+    by the chord between its ends, that polygon contains the axis too, and it is
+    longer than the real surface. Picking it put a 10 m^3 "surface" at psi_N
+    0.875-0.94 on late, low-current EFIT slices and inflated ``li_3`` up to 10x
+    and ``beta_normal`` up to 4x (issue #1462). So closed segments are preferred
+    over open ones, and among those left the innermost -- the smallest enclosed
+    area -- wins: flux surfaces nest, so any other enclosing contour at the same
+    level lies outside the plasma. Length only ranks segments when none
+    encloses the axis.
 
     ``min_points`` is applied *after* that choice, never before it. Screening on
     size first lets a large scrape-off branch outlive the small contour that is
@@ -2814,9 +2825,27 @@ def _enclosing_segment(
             if _MplPath(np.column_stack([r_closed, z_closed])).contains_point(axis_rz):
                 enclosing.append((r_seg, z_seg))
         if enclosing:
-            candidates = enclosing
+            closed = [segment for segment in enclosing if _is_closed_segment(*segment)]
+            candidates = closed or enclosing
+            chosen = min(candidates, key=lambda segment: _segment_area(*segment))
+            return chosen if chosen[0].size >= min_points else None
     chosen = max(candidates, key=lambda segment: segment[0].size)
     return chosen if chosen[0].size >= min_points else None
+
+
+def _is_closed_segment(r_seg: np.ndarray, z_seg: np.ndarray) -> bool:
+    """Whether a traced segment returns to its start, rather than ending on the grid edge."""
+    length = float(np.sum(np.hypot(np.diff(r_seg), np.diff(z_seg))))
+    gap = float(np.hypot(r_seg[0] - r_seg[-1], z_seg[0] - z_seg[-1]))
+    return gap <= 1e-3 * length
+
+
+def _segment_area(r_seg: np.ndarray, z_seg: np.ndarray) -> float:
+    """Shoelace area of a segment, closed by the chord between its ends."""
+    r_closed, z_closed = _closed_contour(r_seg, z_seg)
+    return 0.5 * abs(
+        float(np.dot(r_closed, np.roll(z_closed, 1)) - np.dot(z_closed, np.roll(r_closed, 1)))
+    )
 
 
 #: Every profile :func:`flux_surface_quantities` returns.
@@ -4995,8 +5024,8 @@ def resistive_layer_parameters(
     n_e,
     psi_norm_kinetic=None,
     ion_mass_amu=1.0,
-    z_eff=2.0,
-    ln_lambda=17.0,
+    z_eff=None,
+    ln_lambda=None,
     m_range=None,
 ):
     """Resistivity and mass density at each rational surface of a toroidal mode.
@@ -5026,10 +5055,14 @@ def resistive_layer_parameters(
     ion_mass_amu : float, optional
         Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default,
         which is what VEST runs [-].
-    z_eff : float, optional
-        Effective ion charge, passed to the Spitzer resistivity [-].
-    ln_lambda : float, optional
-        Coulomb logarithm, passed to the Spitzer resistivity [-].
+    z_eff : float
+        Effective ion charge, passed to the Spitzer resistivity. Omitting it
+        is deprecated (#1188): it falls back to 2 with a ``FutureWarning``
+        and will raise in 0.9 [-].
+    ln_lambda : float
+        Coulomb logarithm, passed to the Spitzer resistivity. Omitting it is
+        deprecated (#1188): it falls back to 17 with a ``FutureWarning`` and
+        will raise in 0.9 [-].
     m_range : tuple of int, optional
         Forwarded to :func:`find_rational_surfaces` [-].
 
@@ -5096,6 +5129,22 @@ def resistive_layer_parameters(
 
     if float(ion_mass_amu) <= 0.0:
         raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+    if z_eff is None or ln_lambda is None:
+        # Warned here, not in resistive_layer_at, so the warning names the
+        # caller's line rather than this module.
+        import warnings
+
+        missing = [name for name, value in (("z_eff", z_eff), ("ln_lambda", ln_lambda))
+                   if value is None]
+        warnings.warn(
+            f"resistive_layer_parameters called without {', '.join(missing)}; the hidden "
+            "fallbacks z_eff=2, ln_lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        z_eff = 2.0 if z_eff is None else z_eff
+        ln_lambda = 17.0 if ln_lambda is None else ln_lambda
 
     surfaces = find_rational_surfaces(psi_norm, q, n, m_range=m_range)
     return {
@@ -5119,8 +5168,8 @@ def resistive_layer_at(
     t_e,
     n_e,
     ion_mass_amu=1.0,
-    z_eff=2.0,
-    ln_lambda=17.0,
+    z_eff=None,
+    ln_lambda=None,
 ):
     """Resistivity and mass density at flux surfaces someone else located.
 
@@ -5142,10 +5191,12 @@ def resistive_layer_at(
         Electron density [m^-3].
     ion_mass_amu : float, optional
         Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default [-].
-    z_eff : float, optional
-        Effective ion charge [-].
-    ln_lambda : float, optional
-        Coulomb logarithm [-].
+    z_eff : float
+        Effective ion charge; omitting it is deprecated as in
+        :func:`resistive_layer_parameters` (#1188) [-].
+    ln_lambda : float
+        Coulomb logarithm; omitting it is deprecated as in
+        :func:`resistive_layer_parameters` (#1188) [-].
 
     Returns
     -------
@@ -5189,6 +5240,20 @@ def resistive_layer_at(
 
     if float(ion_mass_amu) <= 0.0:
         raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+    if z_eff is None or ln_lambda is None:
+        import warnings
+
+        missing = [name for name, value in (("z_eff", z_eff), ("ln_lambda", ln_lambda))
+                   if value is None]
+        warnings.warn(
+            f"resistive_layer_at called without {', '.join(missing)}; the hidden "
+            "fallbacks z_eff=2, ln_lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        z_eff = 2.0 if z_eff is None else z_eff
+        ln_lambda = 17.0 if ln_lambda is None else ln_lambda
 
     coordinate = _np.asarray(psi_norm, dtype=float)
     t_e = _np.asarray(t_e, dtype=float)

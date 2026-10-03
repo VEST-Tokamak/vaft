@@ -531,6 +531,11 @@ class Animation:
         }
         if self._encoder is not None:
             data["encoder"] = dict(self._encoder)
+            if "fps_effective" in self._encoder:
+                # The container could not store the requested rate exactly (a
+                # GIF delay is whole centiseconds): say what the file plays at.
+                data["presentation"]["fps_effective"] = self._encoder["fps_effective"]
+                data["presentation"]["duration_effective"] = len(self) / self._encoder["fps_effective"]
         return data
 
     # -- output ----------------------------------------------------------------
@@ -721,9 +726,12 @@ def _write_gif(frames: Iterator[np.ndarray], path: Path, *, fps: float) -> dict[
     """Pillow's GIF writer.
 
     A GIF stores each delay in centiseconds, so ``1/fps`` is rounded to 10 ms
-    (and browsers slow delays under 20 ms down).  Pillow merges identical
-    consecutive frames into one frame shown for their summed delay: playback
-    is unchanged, and the sidecar records how many frames the file holds.
+    (and browsers slow delays under 20 ms down): ``fps=30`` plays at 33.3
+    and ``fps=60`` at 50.  The rate the file actually plays at is returned
+    as ``fps_effective`` so the sidecar can state it beside the request.
+    Pillow merges identical consecutive frames into one frame shown for
+    their summed delay: playback is unchanged, and the sidecar records how
+    many frames the file holds.
     """
     from PIL import Image
 
@@ -745,7 +753,7 @@ def _write_gif(frames: Iterator[np.ndarray], path: Path, *, fps: float) -> dict[
     with Image.open(path) as written:
         stored = int(getattr(written, "n_frames", 1))
     return {"container": "gif", "codec": "gif", "frame_delay_ms": delay, "frames": count,
-            "frames_stored": stored}
+            "frames_stored": stored, "fps_effective": 1000.0 / delay}
 
 
 def _jsonable(value: Any) -> Any:

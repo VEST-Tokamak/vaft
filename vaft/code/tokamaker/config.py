@@ -92,6 +92,31 @@ class TokaMakerConfig:
     # None -> read from ods['wall'] limiter outline.
     # Otherwise an explicit (r_array, z_array) polygon.
     limiter: Optional[tuple[Sequence[float], Sequence[float]]] = None
+    # Limiter nodes in mesh cells reaching above |Z| = lim_zmax [m] are not
+    # candidate limiting points (OFT ``settings.lim_zmax``). The VEST vessel
+    # continues past the main-chamber neck (|Z| ~ 0.6 m) into upper and lower
+    # chambers up to |Z| = 1.185 m. With the default PF state, the chamber
+    # corners at (0.1337, +-1.185) carry the most-interior wall flux. TokaMaker
+    # then takes that flux as the boundary although the corner is not
+    # magnetically connected to the core: on 39915 @ 325 ms the "LCFS" stands
+    # 6 cm clear of every wall point instead of resting on the inboard limiter
+    # (issue #1469). X-point detection, hence diverted states, is unaffected.
+    # The cut is by height, so it also removes the upper part of the neck
+    # (the inboard slant from Z = 0.575 m, the (0.6, 0.6) corner);
+    # ``neck_limiter_zmax`` puts those faces back as explicit points.
+    # None -> every limiter node is a candidate (OFT default).
+    lim_zmax: Optional[float] = 0.6
+    # Wall faces from one mesh cell below lim_zmax up to this height [m] are
+    # handed to TokaMaker as explicit limiter points (OFT
+    # ``settings.limiter_file``), sampled every dx_plasma along the limiter
+    # polygon. On VEST that is the inboard slant up to (0.1337, +-0.728) and
+    # the R = 0.6 m chamber wall up to |Z| = 0.73, plus the outboard step at
+    # |Z| = 0.585-0.6: it lies below lim_zmax, but the cut is per cell (a cell
+    # with any node above lim_zmax loses all its nodes), so its mesh nodes are
+    # not guaranteed to survive and are covered explicitly. A plasma pushed
+    # upward then rests on the neck or the step instead of passing them.
+    # None (or <= lim_zmax) adds no points.
+    neck_limiter_zmax: Optional[float] = 0.73
     # None -> interpolate pf_active coil currents [A] at ``time``.
     # Otherwise an explicit {coil_name: amps} mapping (names as in the geometry).
     coil_currents: Optional[Mapping[str, float]] = None
@@ -165,6 +190,9 @@ class TokaMakerConfig:
     # --- gEQDSK output ---
     eqdsk_nr: int = 129
     eqdsk_nz: int = 129
+    # Padding used to trace the boundary robustly. The g-file boundary is
+    # extrapolated back to the true LCFS (``truncate_eq=False``), so RBBBS/ZBBBS
+    # touch the limiter of a limited plasma instead of being the 99% surface.
     eqdsk_lcfs_pad: float = 0.01
     # COCOS 2 matches the VEST EFIT g-files and the ascending-psi assumption in
     # vaft.data.eqdsk (TokaMaker's own default is 7; only 2 and 7 are accepted).
@@ -271,3 +299,14 @@ class TokaMakerStabilityResult:
     @property
     def ok(self) -> bool:
         return self.returncode == 0
+
+
+__all__ = [
+    "TokaMakerConfig",
+    "TokaMakerInputs",
+    "TokaMakerResult",
+    "TokaMakerEvolutionInputs",
+    "TokaMakerStepRecord",
+    "TokaMakerEvolutionResult",
+    "TokaMakerStabilityResult",
+]

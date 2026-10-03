@@ -49,11 +49,53 @@ def _dcon_cell(case, mode: int = 1) -> Path:
     return cell
 
 
-def _complete_dcon(case, mode: int = 1, *, optional: bool = False) -> Path:
-    """A DCON cell holding what ideal GPEC needs from it."""
+#: What a prepared DCON cell's ``equil.in`` says, reduced to the two lines the
+#: staging reads.  A real one is 25 keys long; this is the group name, the
+#: equilibrium it names, and nothing else, so a test that breaks here is about
+#: the staging rather than about the template.
+EQUIL_IN_TEXT = """&EQUIL_CONTROL
+    eq_type='efit'
+    eq_filename="{name}"
+/
+"""
+
+
+def _valid_dcon_netcdf(path: Path, *, n: int) -> None:
+    """The minimum ``dcon_output_n<n>.nc`` ``validate_dcon_result`` accepts."""
+    import xarray as xr
+
+    xr.Dataset(
+        {"W_t_eigenvalue": (("mode", "i"), [[-0.3, 0.0]])},
+        coords={"i": [0, 1], "mode": [1]},
+        attrs={"mlow": -2, "mhigh": 0, "mpert": 3, "mband": 0, "n": n},
+    ).to_netcdf(path / f"dcon_output_n{n}.nc")
+
+
+def _equilibrium_inputs(cell: Path, case) -> None:
+    """``equil.in`` and the g-file it names, in a cell built by hand."""
+    (cell / "equil.in").write_text(
+        EQUIL_IN_TEXT.format(name=case.geqdsk.name), encoding="utf-8"
+    )
+    (cell / case.geqdsk.name).write_text(GFILE_TEXT, encoding="utf-8")
+
+
+def _complete_dcon(
+    case, mode: int = 1, *, optional: bool = False, equilibrium: bool = True
+) -> Path:
+    """A DCON cell holding what ideal GPEC needs from it.
+
+    ``equil.in`` and the g-file it names included: GPEC opens ``equil.in`` in its
+    own working directory and stops the program without it, so a cell without one
+    is not a cell ideal GPEC can run in.
+    """
     cell = _dcon_cell(case, mode)
     (cell / "euler.bin").write_bytes(b"euler")
     (cell / "psi_in.bin").write_bytes(b"psi")
+    if equilibrium:
+        (cell / "equil.in").write_text(
+            EQUIL_IN_TEXT.format(name=case.geqdsk.name), encoding="utf-8"
+        )
+        (cell / case.geqdsk.name).write_text(GFILE_TEXT, encoding="utf-8")
     if optional:
         (cell / "vacuum.bin").write_bytes(b"vac")
         (cell / "globalsol.bin").write_bytes(b"gal")
@@ -68,7 +110,9 @@ def test_the_required_products_are_brought_to_the_cell(case, tmp_path):
     run_dir = tmp_path / "gpec_cell"
     staged = stage_dcon_products(dcon, run_dir)
 
-    assert [p.name for p in staged] == ["euler.bin", "psi_in.bin"]
+    assert [p.name for p in staged] == [
+        "euler.bin", "psi_in.bin", "equil.in", case.geqdsk.name
+    ]
     assert (run_dir / "euler.bin").read_bytes() == b"euler"
     assert (run_dir / "psi_in.bin").read_bytes() == b"psi"
 
@@ -84,19 +128,72 @@ def test_the_optional_products_are_brought_when_dcon_made_them(case, tmp_path):
     assert required == ["euler.bin", "psi_in.bin"]
     assert optional == ["vacuum.bin", "globalsol.bin"]
 
+    equilibrium = ["equil.in", case.geqdsk.name]
     without = stage_dcon_products(_complete_dcon(case), tmp_path / "a")
-    assert [p.name for p in without] == required
+    assert [p.name for p in without] == required + equilibrium
 
     with_optional = stage_dcon_products(
         _complete_dcon(case, optional=True), tmp_path / "b"
     )
-    assert [p.name for p in with_optional] == required + optional
+    assert [p.name for p in with_optional] == required + optional + equilibrium
 
 
 def test_a_missing_required_product_names_it(case, tmp_path):
     dcon = _dcon_cell(case)
     (dcon / "euler.bin").write_bytes(b"euler")  # psi_in.bin absent
     with pytest.raises(FileNotFoundError, match="psi_in.bin"):
+        stage_dcon_products(dcon, tmp_path / "gpec_cell")
+
+
+def test_a_missing_equil_in_is_refused_before_gpec_starts(case, tmp_path):
+    """Named here rather than by GPEC four minutes in.
+
+    GPEC's own report is ``PROGRAM STOP => Can't open input file equil.in``, from
+    a process whose DCON had already succeeded and whose cell holds every binary
+    it needs -- so the file it asks for looks like something the suite never had
+    rather than something it did not bring over.
+    """
+    dcon = _complete_dcon(case, equilibrium=False)
+    with pytest.raises(FileNotFoundError, match="equil.in"):
+        stage_dcon_products(dcon, tmp_path / "gpec_cell")
+
+
+def test_the_equilibrium_the_namelist_names_is_staged_with_it(case, tmp_path):
+    """Because the name in it is relative to whichever directory reads it.
+
+    The DCON cell holds the g-file under a bare filename and ``equil.in`` names
+    it that way, so copying the namelist alone would leave GPEC resolving it
+    against its own empty cell.
+    """
+    dcon = _complete_dcon(case)
+    run_dir = tmp_path / "gpec_cell"
+    stage_dcon_products(dcon, run_dir)
+
+    assert (run_dir / "equil.in").read_bytes() == (dcon / "equil.in").read_bytes()
+    assert (run_dir / case.geqdsk.name).read_text(encoding="utf-8") == GFILE_TEXT
+
+
+def test_an_absolute_equilibrium_name_is_left_alone(case, tmp_path):
+    """Nothing to bring over: it resolves the same from either directory."""
+    dcon = _complete_dcon(case)
+    elsewhere = tmp_path / "shared" / "g039915.00325"
+    elsewhere.parent.mkdir(parents=True, exist_ok=True)
+    elsewhere.write_text(GFILE_TEXT, encoding="utf-8")
+    (dcon / "equil.in").write_text(
+        EQUIL_IN_TEXT.format(name=str(elsewhere)), encoding="utf-8"
+    )
+    (dcon / case.geqdsk.name).unlink()
+
+    run_dir = tmp_path / "gpec_cell"
+    staged = stage_dcon_products(dcon, run_dir)
+    assert [p.name for p in staged] == ["euler.bin", "psi_in.bin", "equil.in"]
+    assert not (run_dir / case.geqdsk.name).exists()
+
+
+def test_a_relative_equilibrium_that_is_not_there_names_itself(case, tmp_path):
+    dcon = _complete_dcon(case)
+    (dcon / case.geqdsk.name).unlink()
+    with pytest.raises(FileNotFoundError, match=case.geqdsk.name):
         stage_dcon_products(dcon, tmp_path / "gpec_cell")
 
 
@@ -227,6 +324,7 @@ def test_dcon_products_from_a_separate_work_tree_are_staged_too(case, monkeypatc
     dcon_cell.mkdir(parents=True)
     (dcon_cell / "euler.bin").write_bytes(b"euler")
     (dcon_cell / "psi_in.bin").write_bytes(b"psi")
+    _equilibrium_inputs(dcon_cell, case)
 
     inputs = gpec.GPECCaseInputs(
         shot=case.shot, time_ms=case.time_ms, geqdsk=case.geqdsk,
@@ -252,6 +350,7 @@ def test_two_modes_get_their_own_products(case, monkeypatch, tmp_path):
         cell = _dcon_cell(case, mode)
         (cell / "euler.bin").write_bytes(payload)
         (cell / "psi_in.bin").write_bytes(b"psi")
+        _equilibrium_inputs(cell, case)
 
     # The stub only writes n=1 outputs, so only that mode can complete; the
     # point here is which euler.bin each cell received.
@@ -275,3 +374,77 @@ def test_an_incomplete_dcon_result_is_still_refused_before_staging(case, monkeyp
     assert "invalid DCON result" in record.reason
     run_dir = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
     assert not (run_dir / "euler.bin").exists()
+
+
+def test_a_dcon_cell_without_equil_in_is_skipped_rather_than_raising(
+    case, monkeypatch, tmp_path
+):
+    """Under ``run_mode="auto"`` every other missing prerequisite here is a skip.
+
+    ``equil.in`` is an *input*, so ``validate_dcon_result`` -- which judges whether
+    DCON finished -- does not look for it, and a cell prepared by something other
+    than this suite may not have one. Staging it is therefore the first step that
+    can fail on an otherwise complete DCON result, and it must fail the same way
+    the others do.
+    """
+    # The run never reaches the executable (the missing equil.in is refused at
+    # staging), so the portable stub suffices; the POSIX handshake script the
+    # other tests use is not launchable on the Windows leg and the executable
+    # check would raise PermissionError before the check under test.
+    home = tmp_path / "gpec_home"
+    write_launchable_stub(home / "bin" / "gpec")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(home))
+
+    dcon = _complete_dcon(case, equilibrium=False)
+    _valid_dcon_netcdf(dcon, n=1)
+    config = gpec.GPECSuiteConfig(modules=("gpec",), modes=(1,), run_mode="auto")
+    result = gpec.run_gpec_suite_case(case, config)
+
+    (record,) = result.records
+    assert record.status == "skipped"
+    assert "equil.in" in record.reason
+
+
+def test_strict_raises_for_a_dcon_cell_without_equil_in(case, monkeypatch, tmp_path):
+    # The run never reaches the executable (the missing equil.in is refused at
+    # staging), so the portable stub suffices; the POSIX handshake script the
+    # other tests use is not launchable on the Windows leg and the executable
+    # check would raise PermissionError before the check under test.
+    home = tmp_path / "gpec_home"
+    write_launchable_stub(home / "bin" / "gpec")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(home))
+
+    dcon = _complete_dcon(case, equilibrium=False)
+    _valid_dcon_netcdf(dcon, n=1)
+    config = gpec.GPECSuiteConfig(
+        modules=("gpec",), modes=(1,), run_mode="strict", gpec_home=home
+    )
+    with pytest.raises(FileNotFoundError, match="equil.in"):
+        gpec.run_gpec_suite_case(case, config)
+
+
+def test_a_relative_name_that_resolves_onto_the_source_stages_nothing(case, tmp_path):
+    """And above all does not delete the equilibrium.
+
+    ``equil.in`` names the g-file relative to whichever cell reads it, and a
+    relative name can resolve to the same file from both: ``../../<g-file>`` in a
+    GPEC cell beside the DCON cell is the DCON cell's own. Unlinking the
+    destination first then deleted the equilibrium, and the link that followed
+    failed with its source already gone -- a staging step destroying what it
+    stages.
+    """
+    dcon = _complete_dcon(case)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    # One level above both cells, which is what makes the same relative name
+    # resolve onto one file from either -- the per-module layout's own shape.
+    shared = dcon.parents[1] / "shared.geqdsk"
+    shared.write_text(GFILE_TEXT, encoding="utf-8")
+    relative = os.path.relpath(shared, dcon)
+    assert relative == os.path.relpath(shared, run_dir)
+    (dcon / "equil.in").write_text(EQUIL_IN_TEXT.format(name=relative), encoding="utf-8")
+
+    staged = stage_dcon_products(dcon, run_dir)
+
+    assert shared.read_text(encoding="utf-8") == GFILE_TEXT
+    assert [p.name for p in staged] == ["euler.bin", "psi_in.bin", "equil.in"]

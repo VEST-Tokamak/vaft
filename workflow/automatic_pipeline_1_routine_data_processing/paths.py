@@ -124,6 +124,49 @@ _PRODUCT_MODULES = {
 }
 
 
+#: The per-shot stages ``rule all`` can request, and the one each needs first.
+#: ``raw`` is the root: every shot is dumped and preflighted whatever the scope.
+SHOT_STAGES = ("raw", "diagnostics", "eddy", "efit", "chease", "mhd_linear", "gpec_ideal")
+_STAGE_UPSTREAM = {
+    "diagnostics": "raw",
+    "eddy": "diagnostics",
+    # The constraint and k-file steps belong to `efit`: they exist only to feed it.
+    "efit": "eddy",
+    "chease": "efit",
+    "mhd_linear": "chease",
+    "gpec_ideal": "chease",
+}
+
+
+def stage_scope(value) -> frozenset[str] | None:
+    """The stages a run requests, from the configuration's ``stages`` key.
+
+    ``None`` (the key absent) is the whole routine pipeline. A list narrows
+    ``rule all`` -- and the new-shot worker's verdict -- to those stages: a stage
+    outside it is never scheduled and never judged, so a vacuum shot run with
+    ``[raw, diagnostics, eddy]`` does not fail at a constraint stage it was
+    never asked for. This is scope, decided before a run; a stage that runs and
+    declines a shot is #205's skip semantics, not this.
+
+    ``raw`` is always included. A stage whose upstream is left out is refused
+    rather than silently pulling that upstream in unjudged.
+    """
+    if value is None:
+        return None
+    names = [value] if isinstance(value, str) else list(value)
+    unknown = sorted({str(name) for name in names} - set(SHOT_STAGES))
+    if unknown:
+        raise ValueError(
+            f"Unknown stage(s) in stages: {', '.join(unknown)}; expected some of {', '.join(SHOT_STAGES)}"
+        )
+    scope = {str(name) for name in names} | {"raw"}
+    for stage in SHOT_STAGES:
+        upstream = _STAGE_UPSTREAM.get(stage)
+        if stage in scope and upstream is not None and upstream not in scope:
+            raise ValueError(f"stages includes {stage!r} but not {upstream!r}, which it needs")
+    return frozenset(scope)
+
+
 def solver_module(product: str) -> str:
     """The executable key that produces `product`.
 
@@ -900,7 +943,9 @@ __all__ = [
     "LAYOUTS",
     "SHIPPED_DCON_EDGE_TREATMENT",
     "SHOT_FIRST",
+    "SHOT_STAGES",
     "PipelinePaths",
     "solver_module",
     "stability_product",
+    "stage_scope",
 ]

@@ -40,6 +40,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     },
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon")},
+    **{f"li_qa_{r}.svg": ("li_qa", {"reference": r}) for r in ("wesson_1989", "cheng_1987")},
     # single-particle motion
     **{f"{name}.svg": (name, {}) for name in ("exb_drift", "curvature_drift", "magnetization_current",
                                               "toroidal_drift")},
@@ -184,6 +185,16 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "experiment_modeling_theory_data_network_equilibrium.svg": ("experiment_modeling_theory_data_network",
                                                                 {"communication": "equilibrium"}),
     "human_ai_interface.svg": ("human_ai_interface", {}),
+    # the machine and research archive since 2012 (#497)
+    "machine_research_archive.svg": ("machine_research_archive", {}),
+    "tokamak_top_view.svg": ("tokamak_top_view", {}),
+    "cocos_orientation.svg": ("cocos_orientation", {}),
+    "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),
+    "machine_and_equilibrium_geometry.svg": ("machine_and_equilibrium_geometry", {}),
+    "structured_rz_grid.svg": ("structured_rz_grid", {}),
+    "geometry_to_mesh.svg": ("geometry_to_mesh", {}),
+    "logical_to_physical_mapping.svg": ("logical_to_physical_mapping", {}),
+    "physical_to_flux_mapping.svg": ("physical_to_flux_mapping", {}),
 }
 
 

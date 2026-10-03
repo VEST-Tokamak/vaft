@@ -26,7 +26,7 @@ from ... import compat
 from ...compat import is_executable
 from .._executables import ExecutableNotLaunchable, missing_home_message
 from .._launch import with_stack_limit
-from ..execution import ExecutionRequest, ResourceRequest, resolve_backend
+from ..execution import ExecutionRequest, ResourceRequest, resolve_backend, timeout_reason
 from .slice_name import (
     decode_time_suffix,
     split_slice_file_name,
@@ -77,8 +77,10 @@ class EFITConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     args: Sequence[str] = ()
     timeout: Optional[float] = None
-    npprime: int = 2
-    nffprime: int = 2
+    #: Historical basis overrides; ``None`` takes the typed profile's (the
+    #: working (2,1) basis by default).
+    npprime: Optional[int] = None
+    nffprime: Optional[int] = None
     stack_size_kb: Optional[int] = 32768
     profile: EFITProfileConfig | None = None
     initialization: EFITInitializationConfig = field(
@@ -106,15 +108,17 @@ class EFITConfig:
     def __post_init__(self) -> None:
         for name in ("npprime", "nffprime"):
             value = getattr(self, name)
+            if value is None:
+                continue
             if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
                 raise ValueError(f"{name} must be a positive integer")
             object.__setattr__(self, name, int(value))
         if self.profile is not None:
-            if self.npprime not in (2, self.profile.kppcur):
+            if self.npprime not in (None, self.profile.kppcur):
                 raise ValueError(
                     "npprime conflicts with profile.kppcur; use the typed profile only"
                 )
-            if self.nffprime not in (2, self.profile.kffcur):
+            if self.nffprime not in (None, self.profile.kffcur):
                 raise ValueError(
                     "nffprime conflicts with profile.kffcur; use the typed profile only"
                 )
@@ -151,9 +155,10 @@ class EFITConfig:
         The historical ``npprime`` and ``nffprime`` fields are honored when a
         typed profile configuration was not supplied.
         """
+        default = EFITProfileConfig()
         profile = self.profile or EFITProfileConfig(
-            kppcur=self.npprime,
-            kffcur=self.nffprime,
+            kppcur=default.kppcur if self.npprime is None else self.npprime,
+            kffcur=default.kffcur if self.nffprime is None else self.nffprime,
         )
         return EFITScientificConfig(
             profile=profile,
@@ -384,6 +389,25 @@ def _write_efit_configuration_manifest(
         encoding="utf-8",
     )
     return destination
+
+
+#: What a collection stamps as ``scientific_sha256`` when the k-files'
+#: configuration was not recorded: never a guessed hash.
+UNRECORDED_SCIENTIFIC_SHA256 = "unrecorded"
+
+
+def unrecorded_efit_configuration(config: EFITConfig) -> dict[str, Any]:
+    """The configuration record of a collection over k-files nobody recorded.
+
+    The execution part is ``config``'s; the scientific part is absent and its
+    hash says ``unrecorded``, because the scientific block an ``EFITConfig``
+    carries by default is today's default, not the one that built the k-files
+    (a pre-switch workdir, or one written from ``--config`` or a legacy basis).
+    """
+    resolved = resolved_efit_configuration(config)
+    resolved["scientific"] = None
+    resolved["scientific_sha256"] = UNRECORDED_SCIENTIFIC_SHA256
+    return resolved
 
 
 def _efit_workdir(config: EFITConfig | None = None, workdir: str | Path | None = None) -> Path:
@@ -853,11 +877,15 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
         stderr = completed.stderr
         (workdir / "run_efit.out").write_text(stdout, encoding="utf-8")
         (workdir / "run_efit.err").write_text(stderr, encoding="utf-8")
+        # Which limit stopped it (time, memory, or a queue wait that never
+        # started it) is the backend's runtime_status; keep it, and word the
+        # reason the way every other adapter does.
+        limit_reason = timeout_reason("EFIT", completed, config.timeout)
         result = collect_efit_outputs(
             workdir,
             config,
-            runtime_status="timeout",
-            runtime_reason=f"EFIT timed out after {config.timeout} seconds",
+            runtime_status=completed.runtime_status,
+            runtime_reason=limit_reason,
             executable=executable,
             expected_kfiles=inputs.kfiles,
             diagnostics_dir=diagnostics_dir,
@@ -869,7 +897,7 @@ def run_efit(inputs: EFITInputs, config: EFITConfig) -> EFITResult:
             pre_run_output_fingerprints=pre_run_output_fingerprints,
         )
         result.status = "failed"
-        result.reason = f"EFIT timed out after {config.timeout} seconds"
+        result.reason = limit_reason
         result.stdout = stdout
         result.stderr = stderr
         return result
@@ -988,10 +1016,21 @@ def _constraint_snapshot(ods: Any, index: int) -> dict[str, Any]:
         "diamagnetic_flux",
     ):
         root = f"equilibrium.time_slice.{index}.constraints.{family}"
+        # Reading a missing OMAS path creates it: an absent family (a shot with
+        # no PF-current constraint) would gain an empty array of structures,
+        # which the IMAS writer then refuses ("Trying to set struct array field
+        # pf_current with non-struct-array"), so the product never replicates.
+        if root not in ods:
+            continue
         try:
             node = ods[root]
         except Exception:
             continue
+        # An array of structures (probes, loops, PF) is read across its
+        # elements; a structure (Ip, diamagnetic flux) by its own leaves.  Only
+        # leaves that exist are read, for the same reason as above.
+        keys = list(node.keys())
+        is_array = bool(keys) and all(isinstance(key, int) for key in keys)
         for path in (
             "measured",
             "measured_error_upper",
@@ -1000,14 +1039,17 @@ def _constraint_snapshot(ods: Any, index: int) -> dict[str, Any]:
             "chi_squared",
         ):
             try:
-                value = node[path]
+                if is_array:
+                    if path not in node[keys[0]]:
+                        continue
+                    value = node[f":.{path}"]
+                else:
+                    if path not in node:
+                        continue
+                    value = node[path]
                 result[f"{family}.{path}"] = np.asarray(value).tolist()
             except Exception:
-                try:
-                    value = node[f":.{path}"]
-                    result[f"{family}.{path}"] = np.asarray(value).tolist()
-                except Exception:
-                    pass
+                pass
     return result
 
 
@@ -1095,13 +1137,24 @@ def collect_efit_outputs(
     pre_run_output_fingerprints: Mapping[
         str, tuple[int, int, int, int, str]
     ] | None = None,
+    configuration: Mapping[str, Any] | None = None,
 ) -> EFITResult:
-    """Collect EFIT files and assign independent status to every attempted slice."""
+    """Collect EFIT files and assign independent status to every attempted slice.
+
+    Every slice status records the run's resolved configuration.  It is
+    ``config``'s unless ``configuration`` says otherwise -- the caller's own
+    record when it knows better than ``config`` what built the k-files, e.g.
+    :func:`unrecorded_efit_configuration` for a re-collect over k-files whose
+    configuration was never recorded.
+    """
     base = _efit_workdir(config, workdir)
     shot = config.shot if config is not None else None
-    result_configuration = (
-        resolved_efit_configuration(config) if config is not None else {}
-    )
+    if configuration is not None:
+        result_configuration = dict(configuration)
+    else:
+        result_configuration = (
+            resolved_efit_configuration(config) if config is not None else {}
+        )
     if result_configuration and executed_kfiles:
         execution = result_configuration["execution"]
         execution["executed_kfiles"] = [
@@ -1529,3 +1582,21 @@ def gfile_to_omas(self, ods=None, time_index=0, profile_index=0, allow_derived_d
         profile_index=profile_index,
         allow_derived_data=allow_derived_data,
     )
+
+
+__all__ = [
+    "EFIT_EXEC_ENV",
+    "EFIT_HOME_ENV",
+    "EFIT_HOME_EXECUTABLE",
+    "EFITConfig",
+    "EFITInputs",
+    "EFITResult",
+    "resolved_efit_configuration",
+    "unrecorded_efit_configuration",
+    "UNRECORDED_SCIENTIFIC_SHA256",
+    "find_efit_executable",
+    "prepare_efit_inputs",
+    "run_efit",
+    "collect_efit_outputs",
+    "gfile_to_omas",
+]

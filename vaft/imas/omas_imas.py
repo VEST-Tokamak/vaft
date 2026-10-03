@@ -41,6 +41,7 @@ from omas.omas_core import (
 )
 from omas.omas_utils import _extra_structures
 
+from ..compat import user_home
 from .code_parameters import entry_safe_code_parameters
 
 # The low-level bridge VAFT calls and the guide documents.  Not listed: the
@@ -1399,7 +1400,7 @@ def browse_imas(
     """
     user = _resolve_user(user)
     if user_imasdbdir is None:
-        user_imasdbdir = os.sep.join([os.environ["HOME"], "public", "imasdb"])
+        user_imasdbdir = os.sep.join([str(user_home()), "public", "imasdb"])
 
     # if no users are specified, find all users
     if user is None:

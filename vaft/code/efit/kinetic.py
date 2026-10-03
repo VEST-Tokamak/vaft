@@ -122,6 +122,14 @@ def _resolve_ti_te_ratio(ti_te_ratio, ti_te_ratio_sigma=None, *, ods=None, shot=
     is the estimator the earlier, superseded value was derived with).  A float
     is used as-is.  ``ti_te_ratio_sigma=None`` falls back to the policy sigma.
 
+    Known limitation: the total pressure built from it is
+    ``n_e T_e (1 + Ti/Te)``, i.e. ``n_i = n_e`` (no impurity dilution).  The
+    physical form is ``p_e (1 + f_i Ti/Te)`` with ``f_i = n_i,tot/n_e <= 1``;
+    at Z_eff ~ 1.7-2 (resistive estimates, C6+) ``f_i`` is ~0.83-0.9, so
+    every ion-pressure uncertainty is currently folded into this ratio.
+    Treat 1.0 +/- 0.5 and alternatives as sensitivity variants until a
+    dilution-aware prior exists.
+
     The policy is read through :mod:`vaft.machine_mapping`; the processing
     layer holds no VEST number (issue #420).
     """
@@ -223,7 +231,8 @@ class KineticEFITConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     timeout: Optional[float] = None
     # Named EFIT configuration (vaft.code.efit.PRESETS) for the base magnetic
-    # kfile when it is built from the ODS; None is the routine (2,2) kfile.
+    # kfile when it is built from the ODS; None is the default configuration
+    # (statistical_891 since 2026-10-01).
     efit_preset: Optional[str] = None
 
 
@@ -974,11 +983,9 @@ def prepare_kinetic_efit_inputs(
         if config.efit_preset:
             from .presets import efit_preset
 
-            preset = efit_preset(config.efit_preset)
-            floored, _ = preset.prepare_constraints(ods)
-            generate_kfile(floored, shot, save_dir=str(workdir), config=preset.scientific)
+            generate_kfile(ods, shot, save_dir=str(workdir), config=efit_preset(config.efit_preset).scientific)
         else:
-            generate_kfile(ods, shot, 2, 2, save_dir=str(workdir))
+            generate_kfile(ods, shot, save_dir=str(workdir))
         kfiles = _find_outputs(workdir, "k", shot)
         base_kfile = _select_kfile(kfiles, config.time_ms)
         base_text = Path(base_kfile).read_text(encoding="utf-8") if base_kfile is not None else ""

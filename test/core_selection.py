@@ -64,6 +64,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_catalog.py",
     "test_help.py",
     "test_hsds_configure.py",
+    "test_mcp_server.py",
+    "test_mcp_tools.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
     "test_plot_submodule.py",
@@ -103,13 +105,17 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plot_taxonomy.py",
     "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",
+    "test_selection_validity.py",
     "test_spectrogram_methods.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
+    # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
+    # limit far below it, and a ledger with a fake MemAvailable.
     "test_code_execution.py",
     "test_code_resources.py",
+    "test_memory_gate.py",
     "test_process_tree.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
@@ -163,6 +169,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
     "test_formula_boundaries.py",
+    # Operational-space projections (#1425): a boundary is drawn only on its
+    # own quantities; the population renderer reads tables, never ODS.
+    "test_li_qa.py",
+    "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
@@ -192,6 +202,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_sfl_coordinates.py",
     "test_diagram_sfl_coordinates_part2.py",
     "test_diagram_slab_parity.py",
+    "test_diagram_spatial.py",
     "test_diagram_spectroscopy.py",
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
@@ -200,12 +211,25 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
+    # The per-shot master lock (#913): an in-memory HSDS, ~4 s of threads.
+    "test_hsds_master_lock.py",
     "test_pipeline_worker.py",
-    # Stability atlas (lane N): real DCON output (two trimmed netCDF files)
-    # read back through the reader and the edge classifier, and the #141 scan
-    # driver's template patching. No solver runs.
+    # Stability atlas (lane N): real DCON/RDCON output (trimmed netCDF files)
+    # read back through the readers, the edge classifier and the ntms mapping,
+    # and the #141 scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
+    "test_gpec_rdcon_criteria.py",
+    "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
+    # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
+    # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
+    "test_kinetic_state.py",
+    # Transport atlas (lane T): the shared transport-state resolver on the packaged
+    # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
+    # reg05 fixture, and the routine driver with a fake runner. No solver runs.
+    # The atlas renderers draw synthetic tables only.
+    "test_plot_transport_atlas.py",
+    "test_transport_state.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

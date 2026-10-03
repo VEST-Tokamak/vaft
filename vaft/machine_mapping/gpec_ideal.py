@@ -97,8 +97,28 @@ def _write_spectral_field(entry: ODS, profile, jacobian: str) -> Optional[dict[s
     Follows the convention :func:`vaft.machine_mapping.mhd_linear` already
     established for DCON's eigenfunction: a private ``grid_type.index``,
     because the IMAS identifier's Fourier grid types (14/24/34/44) name the
-    straight-field-line, equal-arc and polar angles only, and this run solved
-    in ``jacobian`` coordinates.
+    straight-field-line, equal-arc and polar angles only, and GPEC's output
+    basis is none of the three.
+
+    **The basis is labelled with what GPEC wrote, not with what it solved in.**
+    ``jac_type`` (the *solver's* coordinates, passed in as ``jacobian`` and
+    used for the real-space mesh, which really is on DCON's own angle) and
+    ``jac_out`` (the coordinates the spectral output is decomposed in) are
+    separate namelist entries and routinely differ: on GPEC's DIII-D example the
+    run solves in ``hamada`` and writes ``Jbgradpsi`` with
+    ``jacobian = "boozer"``. So the label comes from the variable's own
+    ``jacobian`` attribute, and a file that carries none says ``unrecorded``
+    rather than borrowing the working jacobian -- "the run did not say" and "the
+    run said this" being different statements.
+
+    What this does *not* affect: the resonant quantities derived from this
+    array. At a rational surface the resonant harmonic's phase is the same in
+    every straight-field-line system, because a transformation between two of
+    them changes ``m theta - n zeta`` by ``(m - nq) f`` and ``m = nq`` there --
+    which is why GPEC can report ``Phi_res`` without naming a jacobian, and why
+    the mislabelling fixed here did not move ``w_isl``, ``arg(Phi_res)`` or the
+    island widths. It is a consumer reading any *other* harmonic out of this
+    basis that was being told the wrong angle.
     """
     field = profile.extras.get(_SPECTRAL_FIELD)
     if field is None or profile.psi_n is None or profile.m_out is None:
@@ -120,15 +140,23 @@ def _write_spectral_field(entry: ODS, profile, jacobian: str) -> Optional[dict[s
     # against. Measured, a stride of 7 moves the derived Delta from 1.0070 to
     # 1.0153 of GPEC's own.
 
+    # jac_out, from the variable itself; jac_type (`jacobian`) is the solver's
+    # and belongs to the real-space mesh, not to this harmonic basis.
+    basis = profile.jacobians.get(_SPECTRAL_FIELD, "") or "unrecorded"
     plasma = entry["plasma"]
     plasma["grid_type"]["index"] = _HAMADA_FOURIER_GRID_INDEX
-    plasma["grid_type"]["name"] = "inverse_psi_hamada_fourier"
+    plasma["grid_type"]["name"] = (
+        f"inverse_psi_{basis}_fourier" if basis != "unrecorded"
+        else "inverse_psi_fourier"
+    )
     plasma["grid_type"]["description"] = (
         f"Normalized poloidal flux as the radial label (dim1) and Fourier modes "
-        f"in the {jacobian} poloidal angle (dim2). Private index because the "
-        f"IMAS identifier's Fourier grid types (14/24/34/44) name the "
-        f"straight-field-line, equal-arc and polar angles only, and GPEC solved "
-        f"this case in {jacobian} coordinates."
+        f"in the {basis} poloidal angle (dim2), which is the jac_out GPEC wrote "
+        f"{_SPECTRAL_FIELD} in and not necessarily the jac_type it solved in "
+        f"({jacobian or 'unrecorded'}; the real-space mesh is on that one). "
+        f"Private index because the IMAS identifier's Fourier grid types "
+        f"(14/24/34/44) name the straight-field-line, equal-arc and polar "
+        f"angles only."
     )
     plasma["grid"]["dim1"] = psi_n
     plasma["grid"]["dim2"] = m
@@ -150,7 +178,8 @@ def _write_spectral_field(entry: ODS, profile, jacobian: str) -> Optional[dict[s
     return {
         "radial_points": int(psi_n.size),
         "harmonics": int(m.size),
-        "jacobian": jacobian,
+        "jacobian": basis,
+        "solver_jacobian": jacobian,
     }
 
 
@@ -300,11 +329,14 @@ def _write_mode_entry(
         fragment += (
             f'<spectral_field variable="{_SPECTRAL_FIELD}"'
             f' jacobian="{escape(str(spectral["jacobian"]))}"'
+            f' solver_jacobian="{escape(str(spectral["solver_jacobian"]))}"'
             f' radial_points="{spectral["radial_points"]}"'
             f' harmonics="{spectral["harmonics"]}"'
             ' units="T" note="Jacobian-weighted contravariant psi component on the'
-            ' output harmonic basis; the full-resolution array and the cylindrical'
-            ' (R, z) field stay in the gpec_ideal_native_n&lt;mode&gt;.json sidecar"/>'
+            ' output harmonic basis. jacobian is GPEC jac_out, read from the'
+            ' variable itself; solver_jacobian is jac_type, which the real-space'
+            ' mesh is on. The full-resolution array and the cylindrical (R, z)'
+            ' field stay in the gpec_ideal_native_n&lt;mode&gt;.json sidecar"/>'
         )
     if mesh is not None:
         fragment += (
@@ -341,6 +373,15 @@ def _rational_surface_geometry(profile, n_tor: int, chi1: Optional[float]) -> Op
     ``GPEC/gpec/gpvacuum.f`` builds by calling the VACUUM code, and nothing
     downstream can rebuild it. These are a handful of calibration numbers per
     run -- not the resonant table, which stays in the sidecar.
+
+    ``w_isl_v`` and ``Phi_res_v`` are here for the same reason the geometric
+    factor is: they cannot be rebuilt downstream. The IDS carries one spectral
+    field, the *total* one, so a consumer can derive the total resonant flux and
+    island width and has nothing at all for the vacuum pair -- and the vacuum
+    pair is the one a Poincare trace can follow, because an ideal response
+    shields the resonant field the total harmonic is derived from. Two floats
+    and a complex number per surface, read from GPEC rather than derived, which
+    is what the ``source`` attribute says.
     """
     from vaft.process.perturbation import resonant_geometric_factor
 
@@ -361,17 +402,34 @@ def _rational_surface_geometry(profile, n_tor: int, chi1: Optional[float]) -> Op
         # Without it the jump cannot be scaled, and a consumer reading this
         # block would have to go back to the control file for one number.
         return None
+    # GPEC's own vacuum pair, per surface, NaN where the run wrote none: the
+    # row shape stays fixed so a reader never has to branch on which attributes
+    # are present.
+    blank = np.full(psi.size, np.nan)
+    width_v = (np.asarray(profile.w_isl_v, dtype=float)
+               if profile.w_isl_v is not None else blank)
+    flux_v = (np.asarray(profile.Phi_res_v, dtype=complex)
+              if profile.Phi_res_v is not None else blank.astype(complex))
+    if width_v.size != psi.size or flux_v.size != psi.size:
+        width_v, flux_v = blank, blank.astype(complex)
     rows = "".join(
         f'<surface psi_n="{float(p)!r}" q="{float(qq)!r}" dq_dpsi_n="{float(d)!r}"'
-        f' area="{float(a)!r}" geometric_factor="{float(g)!r}"/>'
-        for p, qq, d, a, g in zip(psi, q, dq, area, factor)
+        f' area="{float(a)!r}" geometric_factor="{float(g)!r}"'
+        f' w_isl_v="{float(wv)!r}"'
+        f' phi_res_v_real="{float(fv.real)!r}" phi_res_v_imag="{float(fv.imag)!r}"/>'
+        for p, qq, d, a, g, wv, fv in zip(psi, q, dq, area, factor, width_v, flux_v)
     )
     return (
         f'<rational_surfaces chi1="{float(chi1)!r}"'
-        ' units="psi_n, -, -, m^2, T"'
+        ' units="psi_n: psi_n; q: -; dq_dpsi_n: -; area: m^2;'
+        ' geometric_factor: T; w_isl_v: psi_n; phi_res_v: T"'
         ' note="equilibrium geometry for the resonant derivation; chi1 is  d(chi)/d(psi_N), the flux normalisation the jump is scaled by;'
         ' geometric_factor is -n*Phi_res/Delta, which absorbs the vacuum'
-        ' surface inductance and cannot be rebuilt downstream">'
+        ' surface inductance and cannot be rebuilt downstream"'
+        ' source="w_isl_v and phi_res_v are GPEC&apos;s own vacuum resonant'
+        ' quantities, read from the profile output rather than derived: the IDS'
+        ' carries the total spectral field only, so nothing downstream can'
+        ' rebuild the vacuum pair">'
         f"{rows}</rational_surfaces>"
     )
 

@@ -156,7 +156,7 @@ checker = _load_checker()
 #: own README, reference cases and validation notes. This is not the axis
 #: #225's flatness rule is about -- that one forbids splitting the *bootstrap*
 #: by platform or by role, which is what a student would have to navigate.
-EXTERNAL_CODE_DIRECTORIES = ("gacode", "genray", "nubeam")
+EXTERNAL_CODE_DIRECTORIES = ("gacode", "genray", "nubeam", "tes")
 
 
 def test_install_directory_is_flat_and_complete():
@@ -720,6 +720,11 @@ def fake_conda(tmp_path, monkeypatch):
     log.touch()
     monkeypatch.setenv("PATH", f"{binary}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("FAKE_CONDA_LOG", str(log))
+    # The suite is normally run from inside `conda activate vaft`, which is
+    # exactly what the uninstaller's active-environment guard refuses. Start
+    # from no activation; a test that exercises the guard sets it explicitly.
+    for name in ("CONDA_DEFAULT_ENV", "CONDA_PREFIX"):
+        monkeypatch.delenv(name, raising=False)
     return log
 
 
@@ -3036,3 +3041,54 @@ def test_external_code_checkers_never_use_the_locale_encoding(name):
         )
         if text_mode:
             assert "encoding" in keywords, f"install/{name}:{node.lineno}: {called}() without encoding="
+
+
+_STACK_FUNCTION = re.compile(r"^raise_stack_limit\(\) \{\n.*?^\}\n", re.S | re.M)
+
+
+def _raise_stack_limit(*, soft: int, hard: int, want: int = 65536):
+    """Run install_efit.sh's raise_stack_limit in a shell whose limits are set first.
+
+    Lowering the hard limit inside the subprocess is what any account may do,
+    so the macOS case (hard limit 65520 KB, below the 65536 KB ask) is
+    reproduced on every POSIX runner rather than only on a Mac.
+    """
+    text = (INSTALL / "install_efit.sh").read_text(encoding="utf-8")
+    match = _STACK_FUNCTION.search(text)
+    assert match, "install_efit.sh no longer defines raise_stack_limit()"
+    harness = (
+        "set -euo pipefail\nIFS=$'\\n\\t'\n"
+        "note() { printf '==> %s\\n' \"$*\"; }\n"
+        + match.group(0)
+        + f"ulimit -S -s {soft}\nulimit -H -s {hard}\n"
+        f"if raise_stack_limit {want}; then status=0; else status=$?; fi\n"
+        'printf \'limit=%s status=%s\\n\' "$(ulimit -s)" "$status"\n'
+    )
+    return subprocess.run([BASH, "-c", harness], capture_output=True, text=True, timeout=60)
+
+
+@requires_bash
+@pytest.mark.skipif(os.name == "nt", reason="ulimit is a POSIX shell builtin")
+def test_efit_installer_takes_the_hard_stack_limit_when_the_ask_exceeds_it():
+    """Cold review 0.8.0 delta-absorb-13-infra F2.
+
+    macOS caps the stack hard limit at 65520 KB. The installer asked for
+    exactly 65536 KB, the raise failed, and EFIT's ctest ran at the 8 MB
+    default, where its automatic arrays segfault: a good build was recorded
+    as a failed acceptance. The adapter already falls back to the hard limit;
+    the installer now does the same and says so.
+    """
+    completed = _raise_stack_limit(soft=8192, hard=16384)
+    assert completed.returncode == 0, completed.stderr
+    assert "limit=16384 status=0" in completed.stdout
+    assert "raised it to the hard limit 16384 KB" in completed.stdout
+
+    # When the ask fits under the hard limit it is taken as before, silently.
+    # (The hard limits used here stay under macOS's 65520 KB cap, which no
+    # account may raise, so the harness itself can always set them.)
+    completed = _raise_stack_limit(soft=8192, hard=49152, want=32768)
+    assert "limit=32768 status=0" in completed.stdout and "hard limit" not in completed.stdout
+
+    # Already enough: nothing to do, nothing said.
+    completed = _raise_stack_limit(soft=32768, hard=49152, want=16384)
+    assert "limit=32768 status=0" in completed.stdout and "==>" not in completed.stdout

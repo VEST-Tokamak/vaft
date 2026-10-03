@@ -13,6 +13,96 @@ from .fluctuation import (
     fluctuation_bandwidths,
     vertical_position_history,
 )
+from . import formula_wrapper as _formula_wrapper
+from . import general as _general
+from . import process_wrapper as _process_wrapper
+from . import sample as _sample
+from . import update as _update
+
+# Before the submodules above declared ``__all__`` (#1382), their star imports
+# also bound every VAFT function they had imported themselves, so these names
+# have always been reachable as ``vaft.omas.<name>``.  They stay bound here, but
+# they are not published by this package: each belongs to the module that
+# defines it, and ``from vaft.omas import *`` no longer binds them.  The
+# ``omas``, NumPy, SciPy, typing and standard-library names the submodules
+# imported (and their ``logger`` and the ``vaft`` module) are not kept.
+from vaft.compat import trapz_compat
+from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+from vaft.formula.constants import MU0
+from vaft.formula.equilibrium import (
+    bremsstrahlung_power_density_from_n_e_T_e_Z_eff,
+    bremsstrahlung_power_density_from_T_e_p_Z_eff,
+    confinement_factor_ITER89P,
+    confinement_time_from_engineering_parameters,
+    confinement_time_from_P_loss_W_th,
+    cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e,
+    elongation_from_RZ_boundary,
+    heating_power_from_p_ohm_p_aux,
+    inductive_voltage_from_dW_magdt_I_p,
+    inverse_aspect_ratio_from_a_R,
+    kinetic_energy_from_beta_p_B_pa_V_p,
+    loop_voltage_from_total_flux,
+    loss_power_from_p_heat_dWdt_p_rad,
+    magnetic_energy_from_li_B_pa_V_p,
+    magnetic_shear,
+    normalize_psi,
+    ohmic_heating_power_from_I_p_V_res,
+    poloidal_field_factor,
+    spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
+    stored_energy_from_p_V,
+)
+from vaft.formula.virial import (
+    virial_alpha_approx_from_kappa,
+    virial_beta_p_from_volume,
+    virial_beta_pd_from_S_mu_rt,
+    virial_bongard_from_S_alpha_mu,
+    virial_closure_denominators,
+    virial_full_123_from_S_alpha_rt,
+    virial_identity_residuals,
+    virial_lao_from_S_alpha_mu_rt,
+    virial_li_from_volume,
+    virial_muihat_from_Bt_R0_dphi,
+    virial_normalized_residual,
+    virial_pair_12_from_S_mu_rt,
+    virial_pair_13_from_S_alpha_mu,
+    virial_pair_23_from_S_alpha_mu_rt,
+    virial_residual_rms,
+)
+from vaft.process.atomic import compute_line_radiation_power_series
+from vaft.process.camera_geometry import (
+    project_points,
+    sweep_toroidal,
+    toroidal_ring,
+    trajectory_world_points,
+)
+from vaft.process.electromagnetics import (
+    calc_grid,
+    compute_br_bz_phi,
+    compute_impedance_matrices,
+    compute_response_matrix,
+    compute_vacuum_fields_1d,
+    solve_eddy_currents,
+)
+from vaft.process.equilibrium import (
+    calculate_average_boundary_poloidal_field,
+    calculate_diamagnetism,
+    calculate_reconstructed_diamagnetic_flux,
+    computed_diamagnetism_from_phi,
+    efit_virial_volume_integrals,
+    extract_flux_surface_contours,
+    fractional_cell_weights_from_boundary,
+    make_equilibrium_field_interpolator,
+    parallel_current_from_toroidal,
+    poloidal_field_at_boundary,
+    prepare_boundary_for_shafranov,
+    psi_to_rz,
+    shafranov_integrals,
+    trace_field_line,
+    virial_alpha_conformal_annulus,
+    virial_alpha_thin_annulus,
+    volume_average,
+)
+from vaft.process.numerical import time_derivative
 
 #: Plotting adapters live in ``.plotting`` and are resolved lazily so that
 #: importing ``vaft.omas`` does not pull in Matplotlib.
@@ -191,126 +281,31 @@ def to_equilibrium(ods, *, time_index=0, profile_index=0, convention=None):
         ods, time_index=time_index, profile_index=profile_index, convention=convention
     )
 
-#: What ``vaft.omas`` publishes: the wrapper, update, sample and helper functions
-#: its star-imported submodules define, plus the reference and comparison exports
+#: What ``vaft.omas`` publishes: everything its star-imported submodules
+#: publish (each declares its own ``__all__`` since #1382), the functions
+#: defined or imported by name here, and the reference and comparison exports
 #: resolved by ``__getattr__``.  The plotting adapters are published by
-#: ``vaft.omas.plotting.__all__`` (they are lazy here) and every other name the
-#: star imports drag in -- ``ODS``, ``np``, the ``vaft.process`` and
-#: ``vaft.formula`` functions the wrappers call -- stays reachable as an
-#: attribute but is not this package's API.  The generated API reference reads
-#: this list (cold review 0.8.0 docs-and-tutorials F4); a new public function
-#: of a wrapper module is added here (test/test_docs_omas_surface.py).
+#: ``vaft.omas.plotting.__all__`` and stay out of this list so that
+#: ``from vaft.omas import *`` does not load Matplotlib.  Every other name bound
+#: here -- the ``vaft.process`` and ``vaft.formula`` functions imported above --
+#: stays reachable as an attribute but is not this package's API.  The generated
+#: API reference reads this list (cold review 0.8.0 docs-and-tutorials F4;
+#: test/test_docs_omas_surface.py).
 __all__ = [
-    "ArtifactVerification",
-    "ComparisonEntry",
-    "DifferenceKind",
+    *_general.__all__,
+    *_process_wrapper.__all__,
+    *_formula_wrapper.__all__,
+    *_update.__all__,
+    *_sample.__all__,
     "NULL_FIELD_THRESHOLD_T",
-    "ODSComparison",
-    "ParityClassification",
-    "ReferenceManifestError",
-    "Tolerance",
-    "TolerancePolicy",
-    "ToleranceRule",
-    "VerticalPositionHistory",
-    "camera_projection_for",
-    "change_time_convention",
-    "classify_shot",
-    "clear_vacuum_field_cache",
-    "combine_ods",
-    "compare_ods",
-    "compute_bremsstrahlung_power",
-    "compute_camera_visible_efit_overlay",
-    "compute_camera_visible_field_line_overlay",
-    "compute_camera_visible_vacuum_field_lines",
-    "compute_confiment_time_paramters",
-    "compute_connection_length_map_ods",
-    "compute_core_profile_2d",
-    "compute_core_profile_psi",
-    "compute_decay_index_ods",
-    "compute_diamagnetic_flux_measured_vs_computed",
-    "compute_diamagnetism",
-    "compute_eddy_currents",
-    "compute_ejiri_mirror_proxy_ods",
-    "compute_field_line_trace",
-    "compute_grad_shafranov_residual",
-    "compute_grid_ods",
-    "compute_grid_response_ods",
-    "compute_impedance_matrices_ods",
-    "compute_magnetic_energy",
-    "compute_magnetic_shear",
-    "compute_null_ods",
-    "compute_ohmic_heating_power_from_core_profiles",
-    "compute_parallel_current_from_toroidal",
-    "compute_point_response_matrices_ods",
-    "compute_point_response_ods",
-    "compute_point_vacuum_fields_ods",
-    "compute_power_balance",
-    "compute_prefill_pressure_ods",
-    "compute_reconstructed_diamagnetic_flux",
-    "compute_romero_flux_balance_ods",
-    "compute_startup_loop_voltage_ods",
-    "compute_startup_proxies_ods",
-    "compute_tau_E_engineering_parameters",
-    "compute_tau_E_exp",
-    "compute_tau_E_scaling",
-    "compute_vacuum_field_map",
-    "compute_vacuum_midplane_profiles_ods",
-    "compute_virial_equilibrium_quantities_ods",
-    "compute_voltage_consumption",
-    "compute_volume_averaged_pressure",
-    "compute_wall_mode_basis_ods",
-    "ensure_em_coupling",
-    "equilibrium_psi_to_weber",
-    "find_breakdown_onset",
-    "find_bt",
-    "find_chamber_boundary",
-    "find_ip_onset",
-    "find_major_radius",
-    "find_matching_time_indices",
-    "find_max_ip",
-    "find_pf_active_onset",
-    "find_pulse_duration",
-    "find_shotclass",
-    "find_shotnumber",
-    "find_vloop_onset",
-    "fluctuation_bandwidths",
-    "load",
-    "load_omas_json",
-    "load_reference_manifest",
-    "load_tolerance_policy",
-    "odc_or_ods_check",
-    "ods_cocos",
-    "print_info",
-    "resolve_reference_major_radius",
-    "sample_equilibria",
-    "sample_gfile",
-    "sample_ods",
-    "save",
-    "set_ods_cocos",
-    "sha256_file",
-    "shift_time",
-    "signal_time",
     "startup_summary",
-    "to_equilibrium",
-    "update_core_profiles_global_quantities_volume_average",
-    "update_equilibrium_boundary",
-    "update_equilibrium_constraints_diamagnetic_flux",
-    "update_equilibrium_coordinates",
-    "update_equilibrium_derived_profiles",
-    "update_equilibrium_global_quantities_area",
-    "update_equilibrium_global_quantities_beta_li",
-    "update_equilibrium_global_quantities_q_min",
-    "update_equilibrium_global_quantities_volume",
-    "update_equilibrium_profiles_1d_geometry",
-    "update_equilibrium_profiles_1d_j_tor",
-    "update_equilibrium_profiles_1d_normalized_psi",
-    "update_equilibrium_profiles_1d_radial_coordinates",
-    "update_equilibrium_profiles_1d_toroidal_flux",
-    "update_equilibrium_profiles_2d_b_field",
-    "update_equilibrium_profiles_2d_j_tor",
-    "update_equilibrium_profiles_2d_sfl_coordinates",
-    "update_equilibrium_stored_energy",
-    "verify_reference_artifacts",
+    "VerticalPositionHistory",
+    "fluctuation_bandwidths",
     "vertical_position_history",
-    "write_comparison_reports",
+    "load_omas_json",
+    "load",
+    "save",
+    "to_equilibrium",
+    *sorted(_REFERENCE_EXPORTS),
+    *sorted(_COMPARISON_EXPORTS),
 ]

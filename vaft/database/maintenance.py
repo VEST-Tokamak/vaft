@@ -29,6 +29,16 @@ logger = logging.getLogger(__name__)
 _PROBE_NODES = ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe")
 
 __all__ = [
+    "MASTER_ABSENT",
+    "MASTER_COMPLETE",
+    "MASTER_LINKS_MISSING",
+    "MASTER_STUBS_UNLINKED",
+    "MASTER_NAN_ONLY_UNLINKED",
+    "MASTER_MISSING",
+    "MASTER_REPAIRED",
+    "MASTER_UNREADABLE",
+    "audit_master_link",
+    "audit_master_links",
     "ImpaResidue",
     "ImpaStripError",
     "ImpaStripWriteError",
@@ -171,7 +181,11 @@ def strip_impa_from_source(
         return report
 
     _strip(ods, residue)
-    with tempfile.TemporaryDirectory(prefix="vaft-strip-impa-") as workdir:
+    from ._master_lock import shot_master_lock
+
+    # The capture, the write and the safety-net merge under one hold of the
+    # shot's master lock, as replication does (#913).
+    with shot_master_lock(name, shot), tempfile.TemporaryDirectory(prefix="vaft-strip-impa-") as workdir:
         previous_master = _fetch_remote_master(
             name, shot, Path(workdir) / "master.previous.h5"
         )
@@ -223,3 +237,83 @@ def strip_impa_from_shots(
                 }
             )
     return reports
+
+
+#: Per-shot verdicts of :func:`audit_master_links`.
+MASTER_COMPLETE = "complete"
+MASTER_LINKS_MISSING = "links_missing"
+MASTER_STUBS_UNLINKED = "stubs_unlinked"
+MASTER_NAN_ONLY_UNLINKED = "nan_only_unlinked"
+MASTER_REPAIRED = "repaired"
+MASTER_ABSENT = "absent"
+MASTER_MISSING = "no_master"
+MASTER_UNREADABLE = "unreadable"
+
+
+def audit_master_link(shot: int, *, source: str | None = None, repair: bool = False) -> dict[str, Any]:
+    """Does the shot's ``master.h5`` link every IDS file stored beside it (#913)?
+
+    ``links_missing`` is the state concurrent writers of one shot used to
+    leave: the files are on HSDS but a reader resolving the shot from its
+    master cannot see them. With ``repair`` they are relinked
+    (:func:`vaft.database.replication.unlinked_remote_files`, under the shot's
+    master lock) and the verdict is ``repaired``.
+
+    An unlinked file that holds no value at all is a stub, not hidden data
+    (:func:`vaft.database.replication.ids_file_content`). It is listed under
+    ``stubs``, never relinked, and alone it makes the verdict
+    ``stubs_unlinked``: the master is right not to name it. One whose arrays
+    are shaped but hold only NaN is listed under ``nan_only``, is not relinked
+    either, and makes the verdict ``nan_only_unlinked`` when nothing is
+    hidden: it is not an empty file, and an operator should look at what
+    wrote it.
+    """
+    from .replication import (
+        _remote_canonical_files,
+        _remote_entries,
+        classify_unlinked_remote_files,
+    )
+
+    name = _sources.resolve(source, writable=repair)
+    shot = int(shot)
+    report: dict[str, Any] = {
+        "shot": shot, "source": name, "missing": [], "stubs": [], "nan_only": [], "status": None
+    }
+    try:
+        entries = _remote_entries(name, shot)
+        files = _remote_canonical_files(entries)
+        if not entries:
+            report["status"] = MASTER_ABSENT
+        elif "master.h5" not in entries and not files:
+            # Derived .h5image.h5 files and no canonical IDS: nothing readable
+            # was ever published here, and nothing is hidden.
+            report["status"] = MASTER_ABSENT
+            report["note"] = "only derived images: " + ", ".join(entries)
+        elif "master.h5" not in entries:
+            # Nothing to copy a link's shape from; a re-replication writes one.
+            report["status"] = MASTER_MISSING
+            report["missing"] = list(files)
+        else:
+            unlinked = classify_unlinked_remote_files(name, shot, repair=repair)
+            report["missing"] = list(unlinked.hidden)
+            report["stubs"] = list(unlinked.stubs)
+            report["nan_only"] = list(unlinked.nan_only)
+            if unlinked.hidden:
+                report["status"] = MASTER_REPAIRED if repair else MASTER_LINKS_MISSING
+            elif unlinked.nan_only:
+                report["status"] = MASTER_NAN_ONLY_UNLINKED
+            elif unlinked.stubs:
+                report["status"] = MASTER_STUBS_UNLINKED
+            else:
+                report["status"] = MASTER_COMPLETE
+    except Exception as error:  # noqa: BLE001 - one bad shot must not stop the audit
+        report["status"] = MASTER_UNREADABLE
+        report["error"] = f"{type(error).__name__}: {error}"
+    return report
+
+
+def audit_master_links(
+    shots: Iterable[int], *, source: str | None = None, repair: bool = False
+) -> list[dict[str, Any]]:
+    """Run :func:`audit_master_link` over many shots."""
+    return [audit_master_link(shot, source=source, repair=repair) for shot in shots]

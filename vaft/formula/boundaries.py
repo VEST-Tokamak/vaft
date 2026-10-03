@@ -76,6 +76,8 @@ __all__ = [
     "evaluate_boundary",
     "evaluate_window",
     "boundary_curve",
+    "threshold_curve",
+    "same_quantity",
     "get_boundary",
     "list_boundaries",
     "hugill_coordinates",
@@ -608,6 +610,85 @@ def boundary_curve(boundary: Boundary, sweep: str, values, swap_axes: bool = Fal
                              allowed_side=side, fixed=fixed)
     return BoundaryCurve(key=boundary.key, x=x, y=y, x_quantity=x_quantity, y_quantity=boundary.target,
                          allowed_side=boundary.allowed_side, fixed=fixed)
+
+
+def same_quantity(a: BoundaryQuantity, b: BoundaryQuantity) -> bool:
+    r"""Whether two quantities are the same physical quantity in the same unit.
+
+    Parameters
+    ----------
+    a, b : BoundaryQuantity
+        The quantities to compare [-].
+
+    Returns
+    -------
+    bool
+        ``True`` when both ``name`` (the identity) and ``unit`` match. The
+        symbol and the free-text definition are not compared [-].
+
+    Convention
+    ----------
+    Identity is the ``name``: ``edge_safety_factor`` ($q_\psi$),
+    ``edge_safety_factor_95`` ($q_{95}$) and ``inverse_cylindrical_q`` are
+    different quantities even where their values are close. A boundary may be
+    drawn on an axis only when this returns ``True`` for that axis (#1425).
+    """
+    return a.name == b.name and a.unit == b.unit
+
+
+def threshold_curve(boundary: Boundary, axis: BoundaryQuantity, values, target_axis: str = "y") -> BoundaryCurve:
+    r"""A threshold boundary drawn as a straight line across a 2-D projection.
+
+    $$\text{target} = C \quad\text{for every value of the other axis}$$
+
+    Parameters
+    ----------
+    boundary : Boundary
+        A ``"threshold"`` boundary, for example ``"murakami_hugill"`` [-].
+    axis : BoundaryQuantity
+        The quantity on the other axis, which the threshold does not depend on [-].
+    values : array_like
+        Sample points along that axis, in its declared unit [varies].
+    target_axis : str
+        ``"y"`` draws a horizontal line (target on y); ``"x"`` a vertical one [-].
+
+    Returns
+    -------
+    BoundaryCurve
+        The line, carrying both quantities and the permitted side: ``"below"``
+        / ``"above"`` for a horizontal line, ``"left"`` / ``"right"`` for a
+        vertical one [-].
+
+    Raises
+    ------
+    TypeError
+        ``boundary`` is not a threshold, or ``values`` is not 1-D.
+    ValueError
+        ``target_axis`` is neither ``"x"`` nor ``"y"``, or ``axis`` is the
+        boundary's own target.
+
+    Convention
+    ----------
+    :func:`boundary_curve` sweeps one of a boundary's inputs, and a threshold
+    has none, so this is its counterpart. The value is the registered
+    coefficient; nothing is restated.
+    """
+    if boundary.form != "threshold":
+        raise TypeError(f"boundary {boundary.key!r} is a {boundary.form!r}, not a threshold; use boundary_curve")
+    if target_axis not in ("x", "y"):
+        raise ValueError(f"target_axis must be 'x' or 'y', not {target_axis!r}")
+    if same_quantity(axis, boundary.target):
+        raise ValueError(f"the other axis cannot be the threshold's own target {boundary.target.name!r}")
+    v = np.atleast_1d(np.asarray(values, dtype=float))
+    if v.ndim != 1:
+        raise TypeError("values must be a 1-D sequence")
+    level = np.full(v.shape, float(boundary_value(boundary)))
+    if target_axis == "x":
+        side = {"below": "left", "above": "right"}[boundary.allowed_side]
+        return BoundaryCurve(key=boundary.key, x=level, y=v, x_quantity=boundary.target, y_quantity=axis,
+                             allowed_side=side)
+    return BoundaryCurve(key=boundary.key, x=v, y=level, x_quantity=axis, y_quantity=boundary.target,
+                         allowed_side=boundary.allowed_side)
 
 
 def hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p):
@@ -1275,4 +1356,243 @@ _register(Boundary(
           "A VEST-like device (A ~ 1.7, B_T ~ 0.15 T; the repo's own values, not from these papers) lies "
           "inside the fitted aspect-ratio range but below the field and size of the fitted data: treat "
           "the ratio as indicative only.",
+))
+
+
+# ------------------------------------------------------------------
+# Internal inductance - edge q (#1422)
+# ------------------------------------------------------------------
+#
+# Two different objects, kept apart on purpose:
+#
+# * Wesson et al. 1989, Fig. 6 (p. 645): the JET *empirical* l_i-q_psi operating
+#   space. The lower boundary (labelled "Empirical stability boundary") is the
+#   stability boundary for rotating MHD modes during the current rise, with the
+#   kink and double-tearing region below it; the upper boundary is where
+#   density-limit disruptions occur. l_i = 2/(mu0^2 R I^2) int B_theta^2 dtau
+#   over the plasma volume (p. 645), and the x axis is q_psi, "the actual value
+#   of q at the plasma edge" (p. 642).
+# * Cheng, Furth and Boozer 1987, Fig. 4 (p. 357): the *theoretical* domain of
+#   MHD-stable current profiles of a pressureless straight cylinder without a
+#   conducting wall, for q(0) = 1.01, computed for m, n <= 20 (p. 352). The
+#   lower (jig-saw) bound is mainly ideal external kinks, the upper bound
+#   low-order resistive kinks, mainly m/n = 2/1 and 3/2 (p. 354). The figure
+#   plots l_i/2; the tables below are l_i.
+#
+# The vertices were digitized for #1422 from 600-dpi renders of the published
+# pages, with the axes calibrated on the printed tick marks. For Cheng Fig. 4
+# the printed closed form MAX(l_i/2) = [1 + 2 ln(q(a)/q(0))]/4 is recovered to
+# within 0.01 in l_i/2, which bounds the digitization error. The earlier
+# vaft.formula.stability.empirical_li_qa arrays are the same Wesson lower
+# boundary (within ~0.03); its "Fig. 5" attribution was wrong (Fig. 5 is the
+# Hugill diagram).
+
+_LI3 = BoundaryQuantity(
+    "internal_inductance_li3", "l_i(3)", "-",
+    "2 int B_p^2 dV / (mu0^2 I_p^2 R): the IMAS DD global_quantities.li_3 form. Wesson 1989 (p. 645) uses "
+    "this form with R the plasma major radius; the DD uses the reference major radius R_0. l_i(3) scales as "
+    "1/R, so the two differ by R_geo/R_0 where those differ (a few percent on VEST, r0 = 0.4 m); carry the "
+    "radius used alongside the value.",
+)
+_LI_CYLINDER = BoundaryQuantity(
+    "internal_inductance_cylinder", "l_i", "-",
+    "Internal inductance of a straight circular cylinder, 2 int_0^a B_theta^2 r dr / (a^2 B_theta(a)^2). "
+    "Equal to the l_i(3) form in the cylinder limit; a toroidal l_i is not this quantity.",
+)
+_Q_A_CYLINDER = BoundaryQuantity(
+    "cylinder_edge_safety_factor", "q(a)", "-",
+    "Edge safety factor of the straight-cylinder model of Cheng et al. 1987, q(a) = a B_z / (R B_theta(a)) "
+    "with the periodicity length 2 pi R; neither q_psi, q95 nor the shaped q_cyl of a toroidal plasma.",
+)
+
+#: Wesson 1989 Fig. 6 lower boundary: at each integer q_psi, l_i(3) at the top and
+#: bottom of the vertical edge of the tooth; between integers the boundary rises
+#: linearly from bottom(n) to top(n + 1).
+_WESSON_1989_TEETH = (
+    # q_psi, top, bottom
+    (2.0, 0.956, 0.687),
+    (3.0, 0.931, 0.609),
+    (4.0, 0.883, 0.492),
+    (5.0, 0.715, 0.430),
+    (6.0, 0.700, 0.338),
+    (7.0, 0.674, 0.294),
+    (8.0, 0.678, 0.298),
+    (9.0, 0.674, 0.294),
+    (10.0, 0.678, 0.295),
+)
+#: Wesson 1989 Fig. 6 upper boundary (density-limit disruptions), l_i(3) against q_psi.
+_WESSON_1989_UPPER = (
+    (2.0, 0.954), (2.5, 1.029), (3.0, 1.111), (3.5, 1.190), (4.0, 1.261), (4.5, 1.324), (5.0, 1.393),
+    (5.5, 1.460), (6.0, 1.523), (6.5, 1.584), (7.0, 1.630), (7.5, 1.677), (8.0, 1.722), (8.5, 1.760),
+    (9.0, 1.798), (9.5, 1.834), (10.0, 1.866),
+)
+#: Cheng 1987 Fig. 4 lower (jig-saw) bound, l_i/2 as printed: (q(a), top, bottom) as above.
+#: Beyond q(a) = 6 the bound is a slowly rising curve, given by _CHENG_1987_LOWER_TAIL.
+_CHENG_1987_TEETH = (
+    (2.0, 0.545, 0.345),
+    (3.0, 0.505, 0.355),
+    (4.0, 0.489, 0.355),
+    (5.0, 0.465, 0.413),
+    (6.0, 0.457, 0.442),
+)
+_CHENG_1987_LOWER_TAIL = (
+    (6.0, 0.442), (6.25, 0.444), (6.5, 0.448), (6.75, 0.451), (7.0, 0.455), (7.25, 0.457), (7.5, 0.460),
+    (7.75, 0.462),
+)
+#: Cheng 1987 Fig. 4 upper bound (low-order resistive kinks), l_i/2 against q(a).
+_CHENG_1987_UPPER = (
+    (2.0, 0.545), (2.25, 0.588), (2.5, 0.628), (2.75, 0.665), (3.0, 0.699), (3.25, 0.731), (3.5, 0.760),
+    (3.75, 0.788), (4.0, 0.814), (4.25, 0.840), (4.5, 0.865), (4.75, 0.890), (5.0, 0.914), (5.25, 0.937),
+    (5.5, 0.960), (5.75, 0.981), (6.0, 1.001), (6.25, 1.021), (6.5, 1.039), (6.75, 1.056), (7.0, 1.072),
+    (7.25, 1.088), (7.5, 1.103), (7.75, 1.116),
+)
+
+
+def _sawtooth(q, teeth, tail=None):
+    """Piecewise-linear jig-saw: on [n, n+1) from bottom(n) up to top(n+1); NaN outside the drawn range."""
+    q = np.asarray(q, dtype=float)
+    out = np.full(q.shape, np.nan)
+    for (q0, _, bottom), (q1, top, _) in zip(teeth[:-1], teeth[1:]):
+        inside = (q >= q0) & (q < q1)
+        out[inside] = bottom + (top - bottom) * (q[inside] - q0) / (q1 - q0)
+    q_last, top_last, bottom_last = teeth[-1]
+    if tail is None:  # the last vertical edge, like every other one, takes its bottom value at q itself
+        out[q == q_last] = bottom_last if bottom_last is not None else top_last
+    else:
+        tq, tv = np.array(tail).T
+        inside = (q >= tq[0]) & (q <= tq[-1])
+        out[inside] = np.interp(q[inside], tq, tv)
+    return out
+
+
+def _tabulated(q, table):
+    q = np.asarray(q, dtype=float)
+    tq, tv = np.array(table).T
+    return np.where((q >= tq[0]) & (q <= tq[-1]), np.interp(q, tq, tv), np.nan)
+
+
+_WESSON_SOURCE = BoundarySource(
+    "J. A. Wesson et al., Nucl. Fusion 29 (1989) 641", equation="Fig. 6 and l_i definition, p. 645",
+    doi="10.1088/0029-5515/29/4/009",
+    note="digitized from the published figure (#1422); axes q_psi and l_i = 2 int B_theta^2 dtau/(mu0^2 R I^2)",
+)
+_WESSON_APPLICABILITY = dict(
+    machine_class="JET (conventional aspect ratio, R = 3 m), 1985-88 operation",
+    ranges={"edge_safety_factor": (2.0, 10.0)},
+    assumptions=(
+        "empirical JET operating boundary, not a stability calculation",
+        "x is q_psi at the plasma edge, not q95 and not the cylindrical q_c of the Hugill diagram",
+        "transfer to spherical tokamaks is untested: low aspect ratio changes both q_psi and l_i at fixed profile",
+    ),
+)
+
+_register(Boundary(
+    key="wesson_1989_jet_li_qpsi_lower",
+    family="li_q",
+    target=_LI3,
+    inputs=(_EDGE_Q_MHD,),
+    form="function",
+    function=lambda edge_safety_factor: _sawtooth(edge_safety_factor, _WESSON_1989_TEETH),
+    allowed_side="above",
+    hardness="soft",
+    origin="reproduced",
+    basis="empirical",
+    event="mhd_instability",
+    branch="lower",
+    applicability=Applicability(**_WESSON_APPLICABILITY),
+    sources=(_WESSON_SOURCE,),
+    notes="'Empirical stability boundary': rotating MHD modes during the current rise; below it is the kink "
+          "and double tearing region. Same boundary as the legacy stability.empirical_li_qa arrays.",
+))
+
+_register(Boundary(
+    key="wesson_1989_jet_li_qpsi_upper",
+    family="li_q",
+    target=_LI3,
+    inputs=(_EDGE_Q_MHD,),
+    form="function",
+    function=lambda edge_safety_factor: _tabulated(edge_safety_factor, _WESSON_1989_UPPER),
+    allowed_side="below",
+    hardness="soft",
+    origin="reproduced",
+    basis="empirical",
+    event="disruption",
+    branch="upper",
+    applicability=Applicability(**_WESSON_APPLICABILITY),
+    sources=(_WESSON_SOURCE,),
+    notes="Upper boundary of Fig. 6: the region where major (density-limit) disruptions occur.",
+))
+
+_CHENG_SOURCE = BoundarySource(
+    "C. Z. Cheng, H. P. Furth and A. H. Boozer, Plasma Phys. Control. Fusion 29 (1987) 351",
+    equation="Fig. 4, p. 357 (plots l_i/2); bound origins p. 354; m, n <= 20 p. 352",
+    doi="10.1088/0741-3335/29/3/006",
+    note="digitized from the published figure (#1422); stored as l_i = 2 x the plotted l_i/2",
+)
+_CHENG_APPLICABILITY = dict(
+    machine_class="theory: pressureless straight circular cylinder, no conducting wall",
+    ranges={"cylinder_edge_safety_factor": (2.0, 7.75)},
+    assumptions=(
+        "q(0) = 1.01; for q(0) >= 1 no stable profile exists below q(a) = 2",
+        "modes up to m, n = 20 examined; a conducting wall relaxes the lower bound but barely moves the upper",
+        "toroidicity, finite beta and a separatrix are not included (p. 366)",
+    ),
+)
+
+_register(Boundary(
+    key="cheng_1987_li_qa_lower",
+    family="li_q",
+    target=_LI_CYLINDER,
+    inputs=(_Q_A_CYLINDER,),
+    form="function",
+    function=lambda cylinder_edge_safety_factor: 2.0 * _sawtooth(
+        cylinder_edge_safety_factor, _CHENG_1987_TEETH, _CHENG_1987_LOWER_TAIL),
+    allowed_side="above",
+    hardness="hard",
+    origin="reproduced",
+    basis="ideal_mhd_numerical",
+    event="external_kink",
+    branch="lower",
+    applicability=Applicability(**_CHENG_APPLICABILITY),
+    sources=(_CHENG_SOURCE,),
+    notes="Jig-saw lower bound of the MHD-stable domain, mainly ideal external kinks.",
+))
+
+_register(Boundary(
+    key="cheng_1987_li_qa_upper",
+    family="li_q",
+    target=_LI_CYLINDER,
+    inputs=(_Q_A_CYLINDER,),
+    form="function",
+    function=lambda cylinder_edge_safety_factor: 2.0 * _tabulated(cylinder_edge_safety_factor, _CHENG_1987_UPPER),
+    allowed_side="below",
+    hardness="hard",
+    origin="reproduced",
+    basis="resistive_mhd_numerical",
+    event="resistive_kink",
+    branch="upper",
+    applicability=Applicability(**_CHENG_APPLICABILITY),
+    sources=(_CHENG_SOURCE,),
+    notes="Upper bound of the MHD-stable domain, low-order resistive kinks (mainly m/n = 2/1 and 3/2).",
+))
+
+_register(Boundary(
+    key="cheng_1987_qa_min",
+    family="li_q",
+    target=_Q_A_CYLINDER,
+    inputs=(),
+    form="threshold",
+    coefficient=2.0,
+    allowed_side="above",
+    hardness="hard",
+    origin="published",
+    basis="theoretical",
+    event="external_kink",
+    applicability=Applicability(**{**_CHENG_APPLICABILITY, "ranges": {}}),
+    sources=(BoundarySource(
+        "C. Z. Cheng, H. P. Furth and A. H. Boozer, Plasma Phys. Control. Fusion 29 (1987) 351",
+        equation="p. 354 ('For q(0) = 1, there can be no stability when q(a) < 2'); left edge of Fig. 4",
+        doi="10.1088/0741-3335/29/3/006",
+    ),),
+    notes="The left edge of the stable domain for q(0) >= 1. On the cylinder's q(a), not q_psi (that is 'low_q').",
 ))

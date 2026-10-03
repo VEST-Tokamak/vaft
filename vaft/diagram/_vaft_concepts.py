@@ -28,7 +28,10 @@
     IMAS equilibrium as a tokamak example;
 ``human_ai_interface``
     human researchers and AI agents collaborating through shared interfaces
-    on one backend.
+    on one backend;
+``machine_research_archive``
+    machine history, the research carried out on VEST and research knowledge
+    since 2012, feeding a living archive that new research builds on (#497).
 
 These are conceptual, capability-level diagrams: no storage backend,
 endpoint, path or module name appears in them (implementation diagrams are
@@ -802,3 +805,90 @@ def human_ai_interface(*, labels: bool = True) -> Diagram:
                    model={"actors": ("human", "agent"), "interfaces": tuple(k for k, *_ in INTERFACES),
                           "planned": tuple(k for k, *_, p in INTERFACES if p), "backend": ("framework", "repository"),
                           "edges": tuple(edges)})
+
+
+#: the three tracks of the archive, in no particular chronology: what each accumulates
+ARCHIVE_TRACKS: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
+    ("machine", "Machine history", ("geometry & hardware revisions", "diagnostic additions",
+                                    "calibration changes", "operation & maintenance logs")),
+    ("studies", "Research on VEST", ("spherical-torus operation", "diagnostic development",
+                                     "start-up, heating & current drive", "disruptions & transient MHD",
+                                     "equilibrium reconstruction", "confinement & operational limits")),
+    ("research", "Research knowledge", ("experimental procedures", "reconstruction & modelling workflows",
+                                        "documentation & tutorials", "reference datasets & notebooks",
+                                        "publications & reproducible analyses")),
+)
+
+
+def machine_research_archive(*, labels: bool = True) -> Diagram:
+    r"""The machine and research archive: VEST's institutional and scientific memory since 2012.
+
+    Three tracks run from the start of VEST operation in 2012 to today:
+    machine history (geometry and hardware revisions, diagnostic additions,
+    calibration changes, operation and maintenance logs); the research
+    actually carried out on VEST, after the README's "Research historically
+    performed on VEST" (spherical-torus operation, diagnostic development,
+    start-up, heating and current drive, disruptions and transient MHD,
+    equilibrium reconstruction, confinement and operational limits); and
+    research knowledge (procedures, reconstruction and modelling workflows,
+    documentation and tutorials, reference datasets and notebooks,
+    publications and reproducible analyses). All three feed one living
+    research archive, which is not the end of the pipeline: new analyses,
+    workflows and research build on it and extend every track. No dates are
+    drawn beyond the start of operation; the figure shows what accumulates,
+    not when.
+    """
+    labels = _check_labels(labels)
+    items: List = []
+    edges: List = []
+    x0, x1 = 0.0, 17.5
+    track_y = {"machine": 6.55, "studies": 3.6, "research": 0.65}
+    for key, title, entries in ARCHIVE_TRACKS:
+        y = track_y[key]
+        items += band(x0, x1, y - 1.3, y + 1.3, role=f"track:{key}")
+        items.append(Label((x0 + 0.2, y + 1.0), "\\textbf{" + escape_latex(title) + "}", "concept plain",
+                           anchor="north west", role=f"track:{key}"))
+        n = len(entries)
+        w = (x1 - x0 - 0.6 - (n - 1) * 0.25) / n
+        for i, text in enumerate(entries):
+            b = box(x0 + 0.3 + 0.5 * w + i * (w + 0.25), y - 0.3, w, 1.45, text, style="concept leaf",
+                    role=f"entry:{key}:{i}")
+            items += list(b.items)
+    archive = box(x1 + 2.9, track_y["studies"], 3.6, 2.4,
+                  "\\textbf{Living research archive}\\\\[3pt]{\\small machine and research memory, kept usable}",
+                  style="concept strong", role="node:archive", latex=True)
+    items += list(archive.items)
+    for key, y in track_y.items():  # every track ends in the one archive
+        bx, by = archive.boundary_point((x1, y))
+        sx, sy = x1 + 0.08, y
+        length = math.hypot(bx - sx, by - sy)
+        end = (float(bx - 0.08 * (bx - sx) / length), float(by - 0.08 * (by - sy) / length))
+        items.append(Arrow((sx, sy), end, "connector", role=f"edge:track:{key}->archive"))
+        _record(edges, f"track:{key}", "archive", "forward")
+    research = box(archive.x, -2.0, 3.6, 1.0, "New analyses, workflows & research", role="node:next")
+    items += list(research.items)
+    _down_or_up(items, edges, archive, research, "archive", "next")
+    # the archive is an input: new work extends every track
+    y_back = -2.0
+    xl = x0 - 0.8
+    items.append(Polyline.of([(research.x - 0.5 * research.width - 0.08, y_back), (xl, y_back), (xl, track_y["machine"]),
+                              (x0 - 0.08, track_y["machine"])], "connector feedback", role="edge:next->track:machine"))
+    _record(edges, "next", "track:machine", "feedback")
+    for key in ("studies", "research"):
+        items.append(Arrow((xl, track_y[key]), (x0 - 0.08, track_y[key]), "connector feedback",
+                           role=f"edge:next->track:{key}"))
+        _record(edges, "next", f"track:{key}", "feedback")
+    items.append(Label((0.5 * (xl + research.x - 0.5 * research.width), y_back - 0.1),
+                       "new shots and studies extend every track", "concept annotation", anchor="north",
+                       role="feedback_label"))
+    items += [Arrow((x0, -0.85), (x1, -0.85), "connector line,->", role="time"),
+              Label((x0, -0.95), "2012: VEST operation begins", "concept annotation", anchor="north west",
+                    role="time"),
+              Label((x1, -0.95), "today", "concept annotation", anchor="north east", role="time")]
+    if labels:
+        items.append(Label((0.5 * (xl + archive.x + 1.8), -3.0), "A living research archive, not a file store: "
+                           "what VEST has learned stays usable for verification, comparison and study",
+                           "note", anchor="north", role="note"))
+    return Diagram("machine_research_archive", Scene(tuple(items)),
+                   model={"tracks": tuple(k for k, _, _ in ARCHIVE_TRACKS),
+                          "entries": {k: e for k, _, e in ARCHIVE_TRACKS}, "edges": tuple(edges), "start": 2012})

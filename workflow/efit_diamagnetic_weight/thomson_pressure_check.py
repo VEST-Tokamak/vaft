@@ -63,7 +63,14 @@ KEY = "independent_validation.thomson_pressure"
 #: Beyond this the electron pressure alone is so far above the reconstructed
 #: total that no unmeasured ion population can close the gap.  ln(3) is a
 #: threefold disagreement; the registry's own fail threshold is ln(2).
+#: This is the LOWER side (reconstruction below p_e, #386).  It is not the
+#: physical ceiling: with no fast ions, T_i <= T_e and n_i <= n_e the total is
+#: at most 2 p_e, which ``workflow/efit_uncertainty_calibration/criteria.py``
+#: grades as its own physical-consistency verdict (band [1, 2] p_e).
 DECISIVE_LOG_RATIO = math.log(3.0)
+#: The upper side, counted for the report only: the reconstructed total above
+#: 2 p_e, more than any thermal ion population can carry.
+UPPER_SIDE_LOG_RATIO = -math.log(2.0)
 
 
 def thomson_diagnostics(shot: int, data_root: Path | None = None):
@@ -172,6 +179,7 @@ def summarize(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             "median_log_ratio": None,
             "median_sum_ratio": None,
             "decisive_slices": 0,
+            "upper_side_slices": 0,
         }
     median = float(np.median(ratios))
     return {
@@ -184,10 +192,22 @@ def summarize(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "max_sum_ratio": math.exp(float(ratios.max())),
         # Only an excess is decisive: a shortfall could be unmeasured ions.
         "decisive_slices": int(np.count_nonzero(ratios >= DECISIVE_LOG_RATIO)),
+        # Reported, not part of the verdict: the reconstruction above 2 p_e.
+        "upper_side_slices": int(np.count_nonzero(ratios < UPPER_SIDE_LOG_RATIO)),
     }
 
 
 def verdict(summary: Mapping[str, Any]) -> str:
+    text = _lower_side_verdict(summary)
+    upper = summary.get("upper_side_slices", 0)
+    if upper:
+        text += (f"; separately, the reconstructed total exceeds 2x the electron "
+                 f"pressure on {upper} of {summary['compared']} slices, more than any "
+                 "thermal ion population can carry (criteria.py physical-consistency band)")
+    return text
+
+
+def _lower_side_verdict(summary: Mapping[str, Any]) -> str:
     if not summary["compared"]:
         return (
             "no reconstruction fell within tolerance of a Thomson sample, so "

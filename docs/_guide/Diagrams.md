@@ -73,25 +73,36 @@ which has no closed form, is a schematic, and the figure says so.
 ```python
 vaft.diagram.peeling_ballooning()
 vaft.diagram.s_alpha_ballooning(s_max=1.5, alpha_max=3.5)
-vaft.diagram.hugill(elongation=1.0, q_limit=2.0)          # no size parameter: R, a, B cancel
-vaft.diagram.troyon(beta_N_max=2.8, aspect_ratio=3.0, elongation=1.7)
+vaft.diagram.hugill(elongation=1.0)                       # no size parameter: R, a, B cancel
+vaft.diagram.troyon(aspect_ratio=3.0, elongation=1.7)      # registered Troyon limit, ~2.76
+vaft.diagram.li_qa(reference="wesson_1989")                # JET empirical l_i-q_psi space
+vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-stable l_i-q(a) domain
 ```
 
 | | |
 | --- | --- |
 | ![peeling-ballooning]({{ '/assets/diagrams/peeling_ballooning.svg' | relative_url }}) | ![s-alpha]({{ '/assets/diagrams/s_alpha_ballooning.svg' | relative_url }}) |
 | ![Hugill]({{ '/assets/diagrams/hugill.svg' | relative_url }}) | ![Troyon]({{ '/assets/diagrams/troyon.svg' | relative_url }}) |
+| ![l_i-q Wesson]({{ '/assets/diagrams/li_qa_wesson_1989.svg' | relative_url }}) | ![l_i-q Cheng]({{ '/assets/diagrams/li_qa_cheng_1987.svg' | relative_url }}) |
 
 | Diagram | Question it answers | Axes | Boundaries |
 | --- | --- | --- | --- |
 | Peeling–ballooning | Which edge instability limits the pedestal? | $\alpha_\mathrm{max}$, $J_{B,\mathrm{max}}$ (arbitrary units) | **Schematic.** Two linear margins joined by a smooth maximum. The ★, where the peeling and ballooning limits meet (typical ELM onset), is computed where the two margins are equal |
 | $s$–$\alpha$ | How does shear set the ballooning limit, and where is second stability? | $\alpha$, $s$ | The first and second stability boundaries come from `s_alpha_marginal_alpha`, which applies Newcomb's criterion to the Connor–Hastie–Taylor equation. The dashed line is the $0.6\,s$ approximation of `ballooning_stability_criterion`. Not resolved below $s \approx 0.05$ |
-| Hugill | Where are the density and low-$q$ disruption limits? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The Greenwald line comes from `greenwald_density` and `q_cyl_from_B_R_epsilon_kappa_I`. Its slope depends only on $\kappa_a$: $50\kappa_a/\pi$. The low-$q$ limit is $q_\mathrm{cyl} = q_\mathrm{limit}$ |
-| Troyon | How much pressure can the current hold? | $I_p/(aB_T)$, $\beta_T$ | The beta limit is the line on which `beta_N_from_beta_a_B0_Ip` equals $\beta_{N,\max}$. The low-$q$ cutoff comes from `q_cyl_from_B_R_epsilon_kappa_I` |
+| Hugill | Where is the density limit? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The registered `greenwald_hugill` line (slope $\pi/50\kappa_a$ in $1/q_\mathrm{cyl}$ against $\bar n_e R/B_T$) and `murakami_hugill` ($\bar n_e R/B_T = 1$). The registered `low_q` is on the equilibrium $q_\psi$, not $q_\mathrm{cyl}$, so it is not drawn; `q_limit=` adds a dashed *reference* $q_\mathrm{cyl}$ line |
+| $l_i$–$q$ | Where do current-profile peaking and edge q allow stable operation? | Wesson: $q_\psi$, $l_i(3)$. Cheng: cylinder $q(a)$, $l_i$ | Two separate references, never mixed. Wesson 1989 Fig. 6: the JET *empirical* boundaries (kink and double tearing below, density-limit disruptions above), with the registered `low_q` closing $q_\psi = 2$. Cheng 1987 Fig. 4: the *theoretical* MHD-stable domain of a cylinder with $q(0) = 1.01$ (ideal kink below, resistive kinks above), plotted as $l_i$ rather than $l_i/2$ |
+| Troyon | How much pressure can the current hold? | $I_p/(aB_T)$, $\beta_T$ | The registered `troyon` limit, $\beta_N \le 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$. `beta_N_max=` draws a what-if value and the note says so; `q_limit=` adds a dashed reference $q_\mathrm{cyl}$ cutoff |
 
-These charts show the *boundaries* of an operating space. For how measured discharges are projected
-onto the same axes, see #944 (operational-space projections) and #636 (Hugill and Greenwald
-analysis).
+These charts show the *boundaries* of an operating space. Each one reads its lines from
+`vaft.formula.boundaries` through a canonical projection (#1425), and a population of measured or
+modelled states goes on the same projection with
+`vaft.plot.operational_space.operational_space_population(table, "hugill")`. Table columns are named
+by quantity identity (`murakami_parameter`, `inverse_cylindrical_q`, `normalized_beta`, …) with
+units in `table.attrs["units"]`. A boundary is drawn only when both plotted columns are exactly the
+projection's quantities in its units: a `q95` column never carries a $q_\psi$ or $q_\mathrm{cyl}$
+boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fraction_power`,
+`li_qa_wesson`, `li_qa_cheng`. See
+#944 and #636.
 
 ## Single-particle motion
 
@@ -1160,6 +1171,7 @@ vaft.diagram.scientific_infrastructure_principles()
 vaft.diagram.machine_agnostic_architecture()
 vaft.diagram.experiment_modeling_theory_data_network()   # "point_to_point", "common_model", "equilibrium"
 vaft.diagram.human_ai_interface()
+vaft.diagram.machine_research_archive()
 ```
 
 | Diagram | Concept |
@@ -1173,6 +1185,7 @@ vaft.diagram.human_ai_interface()
 | `machine_agnostic_architecture` | Theory, experiment, modelling and simulation, and data-driven methods share one scientific framework and one Common Data Model (IMAS), which holds design, experimental and simulation data and is stored in the IMAS database. Machine-specific data access and mapping absorbs device differences, so the same architecture serves existing fusion experiments and future devices and reactor concepts. No device is named |
 | `experiment_modeling_theory_data_network` | A three-step argument for a common data model. Point to point needs $N(N-1)/2$ pairwise adapters, and a new mode needs $N-1$ more. The Common Data Model (IMAS) needs $N$ adapters, and a new mode needs one. The IMAS equilibrium IDS, a standardized equilibrium representation, then serves as a tokamak example with representative routes and references |
 | `human_ai_interface` | Three layers: actors, shared access interfaces and one backend. Human researchers and AI agents collaborate through the Python API, CLI, GUI, repository and docs, and MCP (planned). The interface layer reaches the framework and the IMAS database through one common connection |
+| `machine_research_archive` | VEST's institutional and scientific memory since 2012: machine history, research on VEST and research knowledge feed one living archive, which new analyses and research build on. No dates are drawn beyond the start of operation |
 
 ![The four pillars of VAFT]({{ '/assets/diagrams/vaft_four_pillars.svg' | relative_url }})
 ![Research-learning cycle]({{ '/assets/diagrams/fusion_science_knowledge_lifecycle.svg' | relative_url }})
@@ -1185,6 +1198,7 @@ vaft.diagram.human_ai_interface()
 ![With a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network.svg' | relative_url }})
 ![The IMAS equilibrium as a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network_equilibrium.svg' | relative_url }})
 ![Human-AI collaborative access]({{ '/assets/diagrams/human_ai_interface.svg' | relative_url }})
+![Machine and research archive]({{ '/assets/diagrams/machine_research_archive.svg' | relative_url }})
 
 The pillar names are the four README sections.
 The diagrams are built from the concept primitives in `vaft.diagram._concept`: `box`, `connector`, `band`,
@@ -1255,6 +1269,61 @@ prediction with the processed measurement, and control acts on the experiment.
 The vocabulary and the example placements are data in `vaft.diagram._modeling_schema`: the axis stations,
 `ModelDescriptor`, `ModelCoupling` and the coupling types. They are kept apart from the drawing so that
 documentation and provenance tooling can reuse them. They are not a stable public API yet.
+
+## Spatial vocabulary: coordinates, geometry, meshes, mappings and topology
+
+Concept-oriented schematics of the spatial ideas VAFT works with, organised by the concept rather than
+by a code: a structured grid or a logical mapping is drawn as the numerical idea several equilibrium,
+transport and MHD codes share. They need no shot data; `vaft.plot` draws a particular equilibrium,
+mesh or field. `vaft.diagram._spatial.SPATIAL_FAMILIES` files every builder below by family.
+
+```python
+vaft.diagram.tokamak_top_view(cocos=11)
+vaft.diagram.cocos_orientation(11)                 # one panel
+vaft.diagram.cocos_orientation(range(1, 9))        # one panel per index, one scale
+vaft.diagram.machine_and_equilibrium_geometry()
+vaft.diagram.structured_rz_grid(n_r=13, n_z=21)
+vaft.diagram.geometry_to_mesh()
+vaft.diagram.logical_to_physical_mapping()
+vaft.diagram.physical_to_flux_mapping()
+```
+
+| Family | Concept | Builder |
+| --- | --- | --- |
+| coordinate | cylindrical $(R, \phi, Z)$ and toroidal $(r, \theta, \phi)$ | `tokamak_torus`, `tokamak_top_view` |
+| coordinate | COCOS orientation, generic: $\phi$, $B_\phi$ and $I_p$ (on the magnetic axis) in or out of the page, the sense of $\theta$, the direction $\psi$ increases and its unit; titled by the index and $(\sigma_{B_p}, \sigma_{R\phi Z}, \sigma_{\rho\theta\phi}, \psi)$ | `cocos_orientation` (signs from `vaft.data.cocos.cocos_spec`); coordinate choice against COCOS: `coordinates_vs_cocos` |
+| coordinate | flux coordinates $(\psi, \theta, \phi)$ and poloidal angles | `flux_coordinates`, `poloidal_angle_comparison` |
+| geometry | machine geometry (wall, limiter, coils, passive structure) against equilibrium geometry (axis, surfaces, separatrix, X-point) | `machine_and_equilibrium_geometry` |
+| geometry | limited and diverted equilibria; shaping | `limiter_and_diverted_topologies`, `shaping_family` |
+| mesh | structured $(R, Z)$ grid with the plasma boundary between nodes | `structured_rz_grid` |
+| mesh | unstructured mesh with region-dependent resolution | `geometry_to_mesh` |
+| mesh | flux-aligned grid; logical $(\xi, \eta) \mapsto (R, Z)$ | `logical_to_physical_mapping`, `sfl_coordinate_grids` |
+| mapping | measurement at $(R, Z)$ → $\psi$ → $\psi_N$ → $\rho_{\mathrm{tor},N}$ → profile coordinate | `physical_to_flux_mapping` |
+| mapping | geometry → regions → mesh | `geometry_to_mesh` |
+| topology | nested flux surfaces | `flux_surfaces` |
+| topology | X-point and separatrix | `x_point`, `separatrix_lobes` |
+| topology | magnetic island, stochastic layer | `magnetic_island`, `stochastic_layer` |
+
+Conventions shared by every figure: $R$ to the right and $Z$ up in the poloidal plane; $\odot$ out of and
+$\otimes$ into the page; the magnetic axis is a filled blue dot, an X-point a cross; the LCFS a black
+line, the separatrix blue; the computational boundary dashed; the machine (vessel, limiter, coils) in
+black outline, faint where it is shown only for reference; regions shaded plasma blue, vacuum green,
+conductor grey; measurements red (outboard) and orange (inboard). The machine and the flux are the toy
+free-boundary model of the Grad–Shafranov diagrams, not any device. The sense of $\theta$ differs on
+purpose: the `cocos_orientation` panels draw it as the index fixes it (COCOS 11, $\sigma_{R\phi Z} = +1$
+and $\sigma_{\rho\theta\phi} = +1$ with $\phi$ into the page, puts $\theta$ clockwise in the $(R, Z)$ plane
+as drawn), while the torus, mesh and mapping figures (`tokamak_torus`, `logical_to_physical_mapping`,
+`sfl_coordinate_grids`) are convention-free sketches that use the mathematical angle, counter-clockwise
+from the outboard midplane.
+
+![Top view]({{ '/assets/diagrams/tokamak_top_view.svg' | relative_url }})
+![COCOS orientation]({{ '/assets/diagrams/cocos_orientation.svg' | relative_url }})
+![COCOS 1 to 8]({{ '/assets/diagrams/cocos_orientation_1_to_8.svg' | relative_url }})
+![Machine and equilibrium geometry]({{ '/assets/diagrams/machine_and_equilibrium_geometry.svg' | relative_url }})
+![Structured R-Z grid]({{ '/assets/diagrams/structured_rz_grid.svg' | relative_url }})
+![Geometry to mesh]({{ '/assets/diagrams/geometry_to_mesh.svg' | relative_url }})
+![Logical to physical mapping]({{ '/assets/diagrams/logical_to_physical_mapping.svg' | relative_url }})
+![Physical to flux mapping]({{ '/assets/diagrams/physical_to_flux_mapping.svg' | relative_url }})
 
 ## Using the committed assets
 

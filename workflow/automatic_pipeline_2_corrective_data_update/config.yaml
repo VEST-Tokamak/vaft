@@ -21,8 +21,9 @@ kinetic:
   # Empty resolves the binary from $EFIT / $EFITHOME.
   executable: ""
   # Named EFIT configuration (vaft.code.efit.PRESETS) for the base magnetic
-  # kfile the pressure block is added to; empty is the routine (2,2) one. Use
-  # the preset the magnetic EFIT product was built with (efit.preset there).
+  # kfile the pressure block is added to; empty is the default (statistical_891),
+  # `routine` the legacy one. Use the preset the magnetic EFIT product was built
+  # with (efit.preset there).
   efit_preset: ""
 
 hsds:
