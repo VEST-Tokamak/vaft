@@ -72,6 +72,7 @@ flowchart TD
 | `vaft.validation` | Scientific assessment: benchmarks, comparisons, regression evidence | | [API]({{ site.baseurl }}/reference/api/validation/) |
 | `vaft.cli` | Command-line workflows over the library APIs | | [API]({{ site.baseurl }}/reference/api/cli/) |
 | `vaft.mcp` | Local, read-only MCP server over the discovery APIs, for agent clients (`vaft[mcp]`) | [MCP server]({{ site.baseurl }}/reference/mcp/) | [API]({{ site.baseurl }}/reference/api/mcp/) |
+| `vaft.gui` | Optional browser GUI over the plot catalog and interactive controls (`vaft[gui]`) | [Browser GUI]({{ site.baseurl }}/workflows/gui/) | [API]({{ site.baseurl }}/reference/api/gui/) |
 | `vaft`, `vaft.compat`, `vaft.ods_access`, `vaft.spectroscopy` | Top level and small utilities | | [API]({{ site.baseurl }}/reference/api/core/) |
 
 Everything in an ODS is in **IMAS SI units**: seconds, amperes, tesla, weber, m$^{-3}$, and eV or J
