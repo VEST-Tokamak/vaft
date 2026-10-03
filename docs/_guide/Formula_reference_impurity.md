@@ -1,7 +1,7 @@
 ---
 title: "Formula reference: impurity"
 author: VEST team
-date: 2026-10-03 12:00
+date: 2026-10-02 12:00
 category: guide
 layout: post
 permalink: /reference/formula/impurity/
