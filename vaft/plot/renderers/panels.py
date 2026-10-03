@@ -55,6 +55,8 @@ __all__ = [
     "equilibrium_time_beta",
     "equilibrium_time_virial",
     "impa_overview",
+    "impurity_profile_charge_state_fraction",
+    "impurity_profile_composition",
     "interferometer_overview",
     "limiter_current_time",
     "magnetics_overview",
@@ -646,6 +648,67 @@ def summary_time_resistive_zeff(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Resistive Z_eff history: Romero voltages, observed vs model R_p, window estimate."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="core_profiles",
+    subject="impurity",
+    view="profile",
+    quantity="composition",
+    description=(
+        "Radial Z_eff, mean charges, reduced impurity charge and dilution from the slice's "
+        "T_e and n_e through atomic-data charge states, for a stated elemental composition."
+    ),
+    # equilibrium: the volume of the n_e-weighted mean; magnetics,
+    # spectrometer_uv, summary: the plasma onset the age is measured from.
+    ids=("core_profiles", "equilibrium", "magnetics", "spectrometer_uv", "summary"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+        # n_e in either spelling, which the recipe's `available` predicate checks.
+    ),
+    optional_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.density_thermal",
+        "core_profiles.profiles_1d.{i}.electrons.density",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "equilibrium.time_slice.{i}.profiles_1d.volume",
+        "magnetics.ip.0.data",
+    ),
+)
+def impurity_profile_composition(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Radial Z_eff, <Z>, Z_I,eff and dilution from T_e, n_e through ADF11 charge states."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="core_profiles",
+    subject="impurity",
+    view="profile",
+    quantity="charge_state_fraction",
+    description="Charge-state fractions f_q(rho) of each impurity element from the slice's T_e and n_e.",
+    # equilibrium: the volume of the n_e-weighted mean; magnetics,
+    # spectrometer_uv, summary: the plasma onset the age is measured from.
+    ids=("core_profiles", "equilibrium", "magnetics", "spectrometer_uv", "summary"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+        # n_e in either spelling, which the recipe's `available` predicate checks.
+    ),
+    optional_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.density_thermal",
+        "core_profiles.profiles_1d.{i}.electrons.density",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "equilibrium.time_slice.{i}.profiles_1d.volume",
+        "magnetics.ip.0.data",
+    ),
+)
+def impurity_profile_charge_state_fraction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Charge-state fractions f_q(rho) of each impurity element."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

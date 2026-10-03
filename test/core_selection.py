@@ -236,6 +236,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
     "test_process_impurity.py",
+    # #1565 Sec. 8: the impurity composition and stored Z_eff plots, on
+    # synthetic ADF11 tables (no network). Under 10 s.
+    "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
     # The gate's own contract.
     "test_core_selection.py",

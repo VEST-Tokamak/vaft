@@ -129,6 +129,10 @@ _SUBJECTS = (
     # Neoclassical transport: the analytic models and the drift-kinetic solver
     # that answer the same question, which is why the plot compares them.
     Subject("neoclassical", "model", ("bootstrap_current",)),
+    # Impurity composition: elements spread over charge states by atomic data
+    # from T_e, n_e -- a model of what the plasma holds, not a measurement of it
+    # (#1565).  The stored Z_eff stays a core_profiles quantity.
+    Subject("impurity", "model", ("impurities",)),
     Subject("nbi", "machine", ("neutral_beam", "nubeam")),
     Subject("ec_launchers", "machine", ("ech", "ecrh", "electron_cyclotron")),
     Subject("chease", "code"),
