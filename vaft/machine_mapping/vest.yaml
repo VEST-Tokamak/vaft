@@ -1749,6 +1749,38 @@ equilibrium_regime:
       been observed to produce one -- shot 46742 was checked and its eight
       converged slices are all IN. Nothing here claims VEST diverts.
 
+# How an edge safety factor is estimated for a shot with no equilibrium
+# (#1583). Pipeline policy like `equilibrium_regime`, outside the `0:` / shot
+# overrides: read by vaft.machine_mapping.edge_q_estimate.
+edge_q_estimate:
+  # vaft.formula.equilibrium.estimated_q95's `scaling` and `configuration`.
+  scaling: start
+  configuration: limiter
+  status: measured
+  provenance: >-
+    #1580 evaluated each analytic edge-q proxy on the boundary shape of the
+    133 Tier A EFIT equilibria and divided by the equilibrium q95 (median,
+    IQR): START scaling of Akers et al. NF 40 (2000) 1223 0.99 (0.95-1.03),
+    ITER guideline of Post et al. (1991) 1.35, Menard q* 0.41, Freidberg q*
+    0.38. VEST is limited (equilibrium_regime.topology: every reference
+    reconstruction is IN), so C = 1.0.
+
+  # The shape used when a shot has no equilibrium and the caller gives none.
+  # Every estimate made with it says so in its provenance.
+  default_shape:
+    minor_radius: 0.274
+    major_radius: 0.379
+    elongation: 1.51
+    triangularity: 0.30
+    # assumed: for the shot it stands in for, nothing measured this shape.
+    status: assumed
+    provenance: >-
+      Mean last-closed-surface shape of the Tier A magnetics equilibria
+      (notebooks/conference_operational_space_atlas.ipynb, #1580): a = 0.274
+      m, R_geo = 0.379 m (A = 1.38), kappa = 1.51, delta = 0.30. A cohort
+      mean: a single shot's shape can differ, so an estimate made with it
+      carries the shape's spread on top of the scaling's.
+
 # Like `diagnostics_time_policies` and `plasma_timing` this is pipeline policy,
 # outside the `0:` / shot overrides.
 efit_coilset:
