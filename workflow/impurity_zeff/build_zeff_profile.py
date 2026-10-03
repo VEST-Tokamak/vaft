@@ -186,8 +186,10 @@ def build(filedb: Path, atlas: Path, out: Path, *, tolerance: float, cache_dir: 
             except Exception as exc:  # noqa: BLE001 -- recorded per state
                 states.append({**row, "status": "error", "reason": f"{type(exc).__name__}: {exc}"[:200]})
                 continue
+            from vaft.process.impurity import _radial_weights
+
             valid = np.isfinite(result.zeff)
-            weight = ne * (dv if dv is not None else rho)
+            weight = ne * _radial_weights(rho, ne, dv)[0]      # the normalization's own weights
             m = valid & np.isfinite(weight)
             first = int(np.flatnonzero(valid)[0])
             row.update(
