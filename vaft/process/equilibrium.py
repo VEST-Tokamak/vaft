@@ -131,6 +131,7 @@ __all__ = [
     "RationalSurfaceRoot",
     "RATIONAL_SURFACE_PRESENT",
     "RATIONAL_SURFACE_ABSENT",
+    "RATIONAL_SURFACE_RTOL",
     "StraightFieldLineMap",
     "lab_to_straight_field_line",
     "pest_angle_from_jacobian_angle",
@@ -5473,6 +5474,11 @@ def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
     }
 
 
+#: Relative tolerance below which ``|q| - q_target`` counts as zero in
+#: :func:`rational_surfaces`: far above float rounding, far below any physical
+#: difference in q.
+RATIONAL_SURFACE_RTOL = 1e-9
+
 #: ``RationalSurface.status`` of a requested value the profile reaches.
 RATIONAL_SURFACE_PRESENT = "present"
 #: ``RationalSurface.status`` of a requested value the profile never reaches.
@@ -5624,7 +5630,10 @@ def rational_surfaces(psi_norm, q, *, q_targets=(), resonances=(), rho_tor_norm=
     -----------
     Linear interpolation, with the accuracy :func:`find_rational_surfaces`
     quantifies; interpolate ``q`` onto a finer grid first if that is not
-    enough. Nothing is extrapolated: a value the profile reaches only beyond
+    enough. A sample within a relative ``1e-9`` of the value
+    (``RATIONAL_SURFACE_RTOL``) is taken to equal it, so rounding noise on a
+    ``|q|`` that hovers at the value yields one root, not one per sign flip.
+    Nothing is extrapolated: a value the profile reaches only beyond
     its last finite sample is reported absent. A ``q`` flat at the value over
     an interval yields one root, at its start. Roots are not associated across
     time slices; each slice is resolved on its own.
@@ -5670,7 +5679,12 @@ def rational_surfaces(psi_norm, q, *, q_targets=(), resonances=(), rho_tor_norm=
         found: list[tuple[float, float | None]] = []
         for start, stop in runs:
             x = psi_norm[start:stop]
-            for index, weight in _target_crossings(magnitude[start:stop] - value):
+            residual = magnitude[start:stop] - value
+            # Rounding noise is not a crossing: |q| within RATIONAL_SURFACE_RTOL
+            # of the value is the value, so a q hovering at it is one flat
+            # stretch (one root, at its start), not a root per noise flip.
+            residual[np.abs(residual) <= RATIONAL_SURFACE_RTOL * value] = 0.0
+            for index, weight in _target_crossings(residual):
                 if weight:
                     position = float(x[index] + weight * (x[index + 1] - x[index]))
                 else:

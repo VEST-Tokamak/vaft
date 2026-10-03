@@ -336,3 +336,60 @@ def test_discovery_lists_the_overlay_for_declaring_plots_only(ods):
         "rational_q", "resonances")
     assert catalog["equilibrium_profile_q"].annotations
     assert not catalog["wall_geometry_poloidal"].annotations
+
+
+# --- cold-review follow-ups ------------------------------------------------------
+
+
+def test_rounding_noise_at_the_target_is_one_root_not_many():
+    psi = np.linspace(0.0, 1.0, 41)
+    q = np.where(psi < 0.3, 1.0 + psi / 0.3, 2.0)
+    q = np.where(psi > 0.7, 2.0 + (psi - 0.7), q)
+    flat = (psi >= 0.3) & (psi <= 0.7)
+    q[flat] += 1e-12 * (-1.0) ** np.arange(np.count_nonzero(flat))
+    (surface,) = rational_surfaces(psi, q, q_targets=[2.0])
+    assert [r.psi_norm for r in surface.roots] == pytest.approx([0.3])
+
+
+def test_a_degenerate_slice_warns_and_draws_the_base_view(ods):
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    matplotlib.use("Agg")
+    with pytest.warns(UserWarning, match="equilibrium slice 8"):
+        vo.plot_equilibrium_profile_q(ods, time_slice=8, rational_q=[2])
+    with pytest.warns(UserWarning, match="equilibrium slice 8"):
+        model = vo.extract_equilibrium_field_psi(ods, time_slice=8, rational_q=[2])
+    assert not _rational_layers(model) and model.metadata == {}
+    plt.close("all")
+
+
+def test_each_overlay_records_its_psi_normalisation(ods):
+    field = vo.extract_equilibrium_field_psi(ods, time_slice=0, rational_q=[5.0])
+    profile = vo.extract_equilibrium_profile_q(ods, time_slice=0, coordinate="psi_norm", rational_q=[5.0])
+    assert field.metadata["rational_surfaces"]["psi_norm_reference"] == "global"
+    assert profile.metadata["rational_surfaces"]["psi_norm_reference"] == "profile_ends"
+
+
+def test_the_absent_surface_warning_points_at_the_caller(ods):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        vo.extract_equilibrium_field_psi(ods, time_slice=0, rational_q=[50.0])
+    (warning,) = [w for w in caught if "does not occur" in str(w.message)]
+    assert warning.filename == __file__
+
+
+def test_targets_that_print_alike_get_distinct_labels(ods):
+    model = vo.extract_equilibrium_profile_q(ods, time_slice=0, rational_q=[5.0, 5.0000001])
+    labels = [s["label"] for s in model.metadata["rational_surfaces"]["surfaces"]]
+    assert len(set(labels)) == 2
+
+
+def test_discovery_names_every_input_the_overlay_reads(ods):
+    catalog = {record.name: record for record in vo.available_plots(ods)}
+    field_reads = catalog["equilibrium_field_psi"].annotations["rational_surfaces"]["reads"]
+    for leaf in ("global_quantities.psi_axis", "global_quantities.psi_boundary", "boundary.outline.r",
+                 "global_quantities.magnetic_axis.r", "profiles_1d.rho_tor_norm", "profiles_1d.phi"):
+        assert f"equilibrium.time_slice.{{i}}.{leaf}" in field_reads
+    assert "core_profiles.profiles_1d.{i}.time" in R.rational_surface_reads("electron_temperature_profile")
+    assert "core_profiles.profiles_1d.{i}.time" not in field_reads

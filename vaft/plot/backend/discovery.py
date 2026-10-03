@@ -53,6 +53,7 @@ from .recipes import (
     entry_supports,
     RATIONAL_SURFACE_OPTIONS,
     RATIONAL_SURFACE_PLOTS,
+    rational_surface_reads,
     CAMERA_OVERLAYS,
     ChannelProfileRecipe,
     SPECTROGRAM_METHODS,
@@ -314,8 +315,7 @@ def _declare(record: PlotCapability) -> PlotCapability:
         updates["annotations"] = {
             "rational_surfaces": {
                 "options": RATIONAL_SURFACE_OPTIONS,
-                "reads": ("equilibrium.time_slice.{i}.profiles_1d.q",
-                          "equilibrium.time_slice.{i}.profiles_1d.psi"),
+                "reads": rational_surface_reads(record.name),
             },
         }
     unit = getattr(recipe, "y_unit", None)
