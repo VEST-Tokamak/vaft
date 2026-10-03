@@ -991,7 +991,12 @@ The write path now does two things:
   covered: the routine pipeline, the corrective updaters, the new-shot worker and the maintenance
   repairs. Different shots never wait for each other. The lock files live in `$VAFT_HSDS_LOCK_DIR`,
   default `/tmp/vaft-hsds-locks`. The location is deliberately fixed rather than `$TMPDIR`, so that
-  two writers always meet at the same lock.
+  two writers always meet at the same lock. If that directory exists but this account cannot create
+  files in it (made by another account without `chmod 1777`), the writer locks in a per-user
+  directory under the temp root instead and warns once, naming both directories: its writes are then
+  serialized only against this account's. Fix the mode, or point `$VAFT_HSDS_LOCK_DIR` at a shared
+  directory for every writer. Do not give the worker's service unit `PrivateTmp=yes` without doing
+  the same: a private `/tmp` is a lock no manual updater on the host shares.
 - **Re-reads the stored master immediately before replacing it**, so a link added in the meantime is
   kept. This also applies to a plain `vaft.database.save`, which used to replace the master with one
   naming only its own IDS.
@@ -1000,7 +1005,7 @@ What it does **not** cover:
 
 - writers on another host;
 - `hsload` run by hand;
-- Windows, where the lock is a no-op.
+- Windows, where the lock is a no-op; the first write of a process warns (`RuntimeWarning`) that it is not enforced there.
 
 The re-read narrows those windows; it cannot close them.
 
@@ -1014,15 +1019,17 @@ vaft maintenance audit-masters --shots 39000-48916 --report audit.json          
 vaft maintenance audit-masters --shots 39241 39620 43245 44148 --apply          # relink
 ```
 
-Each shot is reported as one of:
+Each unlinked file is downloaded and read before it is judged. Each shot is reported as one of:
 
 | Status | Meaning |
 | --- | --- |
 | `complete` | The master links every stored IDS file. |
 | `links_missing` | Files are stored that the master does not link. `--apply` relinks them, under the shot's lock. |
+| `stubs_unlinked` | The only files the master does not link hold no value at all -- every leaf an IMAS fill, every array of structures empty. Nothing is hidden, and `--apply` leaves them unlinked. 39240, 43245, 44148, 44453 and 44604 are like this: an empty `equilibrium.h5`. |
+| `nan_only_unlinked` | The only files the master does not link carry no value but are not empty: their arrays are shaped and hold NaN throughout (a fit that failed, stored as computed). They are listed under `nan_only`; `--apply` leaves them unlinked, so look at the stage that wrote them. |
 | `no_master` | Files are stored but there is no master. Nothing can be copied from it, so re-replicate the shot. |
 | `absent` | No such shot folder, or one holding only derived images. |
 | `unreadable` | Listing or reading failed. The error is in the report. |
 
-The command exits non-zero while any shot is `links_missing`, `no_master` or `unreadable`.
+The command exits non-zero while any shot is `links_missing`, `no_master` or `unreadable`; `stubs_unlinked` and `nan_only_unlinked` are not failures (`--apply` has nothing to do for them). A `links_missing` shot can carry stubs too -- the report lists them under `stubs`, and `--apply` links only the files under `missing`.
 

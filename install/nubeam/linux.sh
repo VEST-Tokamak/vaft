@@ -647,7 +647,10 @@ stage_nubeam_cpp_replacement() {
       die "the substituted nubeam.cpp needs $symbol, which the installed PSPLINE does not define"
   done
 
-  ar r "$libdir/libnubeam.a" "$objdir/nubeam.o"
+  # -U, as windows.sh does: Ubuntu's binutils writes deterministic archives,
+  # which stamp every member 1970, so make would find nubeam.o older than the
+  # in-tree .cpp and recompile the one file that cannot compile.
+  ar rU "$libdir/libnubeam.a" "$objdir/nubeam.o"
   ranlib "$libdir/libnubeam.a"
   # Make compares the archive member against the .cpp, so the member has to be
   # the newer of the two for make to accept it.

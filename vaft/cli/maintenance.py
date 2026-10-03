@@ -40,6 +40,12 @@ def _audit_masters(args: argparse.Namespace) -> int:
         if report["status"] in ("complete", "absent"):
             continue
         detail = report.get("error") or ", ".join(report["missing"]) or report.get("note", "")
+        stubs = report.get("stubs") or []
+        if stubs:
+            detail = "; ".join(filter(None, [detail, "empty stubs, left unlinked: " + ", ".join(stubs)]))
+        nan_only = report.get("nan_only") or []
+        if nan_only:
+            detail = "; ".join(filter(None, [detail, "NaN-only, left unlinked: " + ", ".join(nan_only)]))
         print(f"shot {report['shot']}: {report['status']}: {detail}")
     counts = Counter(report["status"] for report in reports)
     print(", ".join(f"{status} {count}" for status, count in sorted(counts.items()))

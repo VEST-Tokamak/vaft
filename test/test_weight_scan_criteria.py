@@ -87,15 +87,43 @@ def test_the_virial_check_is_indeterminate_near_the_pair_13_singularity(criteria
     assert criteria.virial(record)["status"] == "fail"  # ln(0.2/0.9) beyond ln 2
 
 
-@pytest.mark.parametrize("p_e_over_p_recon, status", [(0.5, "pass"), (1.0, "pass"), (0.3, "fail"), (1.5, "fail")])
-def test_the_thomson_band_is_p_e_to_three_p_e(criteria, p_e_over_p_recon, status):
-    record = _good_record(thomson={"log_ratio": math.log(p_e_over_p_recon)})
+@pytest.mark.parametrize("p_over_p_e, status", [(1.0, "pass"), (1.5, "pass"), (2.0, "pass"),
+                                               (2.5, "fail"), (3.0, "fail"), (0.8, "fail")])
+def test_the_thomson_band_is_p_e_to_two_p_e(criteria, p_over_p_e, status):
+    """No fast ions, T_i <= T_e and n_i <= n_e: 1 <= p/p_e <= 2 (criteria v2)."""
+    record = _good_record(thomson={"log_ratio": math.log(1.0 / p_over_p_e)})
     assert criteria.thomson(record)["status"] == status
+
+
+def test_a_thomson_fail_is_reported_beside_good_never_inside_it(criteria):
+    """A numerically sound fit inconsistent with Thomson stays good, flagged inconsistent."""
+    result = criteria.evaluate(_good_record(thomson={"log_ratio": math.log(1.0 / 2.7)}))
+    assert result["verdicts"]["thomson"]["status"] == "fail"
+    assert result["good"] is True and result["physically_consistent"] is False
+    assert result["criteria_version"] == 2
+    consistent = criteria.evaluate(_good_record(thomson={"log_ratio": math.log(1.0 / 1.8)}))
+    assert consistent["good"] is True and consistent["physically_consistent"] is True
+    assert "thomson" not in criteria.FIT_QUALITY and criteria.PHYSICAL_CONSISTENCY == ("thomson",)
+
+
+def test_slice_labels_keep_the_fit_label_and_flag_consistency_separately(criteria):
+    records = [
+        {**_good_record(thomson={"log_ratio": math.log(1.0 / 2.7)}), "setting": "a", "shot": 1, "time_ms": 300},
+        {**_good_record(thomson={"log_ratio": math.log(1.0 / 1.5)}), "setting": "b", "shot": 1, "time_ms": 300},
+        {**_good_record(thomson={"log_ratio": math.log(1.0 / 2.7)}), "setting": "a", "shot": 2, "time_ms": 300},
+        {**_good_record(thomson=None), "setting": "a", "shot": 3, "time_ms": 300},
+    ]
+    labels = {row["shot"]: row for row in criteria.slice_labels(records)}
+    assert [labels[s]["label"] for s in (1, 2, 3)] == ["good", "good", "good"]
+    assert labels[1]["consistent"] == ["b"] and labels[1]["inconsistent"] == ["a"]
+    assert labels[2]["consistent"] == [] and labels[2]["inconsistent"] == ["a"]
+    assert labels[3]["consistent"] == [] and labels[3]["inconsistent"] == []
 
 
 def test_thomson_is_not_available_off_the_samples_and_never_counts_against(criteria):
     result = criteria.evaluate(_good_record(thomson=None))
     assert result["verdicts"]["thomson"]["status"] == "not_available" and result["good"]
+    assert result["physically_consistent"] is None
 
 
 def test_summarize_counts_good_slices_per_setting(criteria):
@@ -178,8 +206,10 @@ def test_slice_labels_name_the_unreconstructible_slices(criteria):
     routine = dict(_good_record(), shot=1, time_ms=11, setting="routine")
     thomson_fail = dict(_good_record(thomson={"log_ratio": -2.0}), shot=1, time_ms=12)
     labels = criteria.slice_labels([good, negative, routine, thomson_fail])
+    # criteria v2: a Thomson fail leaves the fit label alone and is flagged beside it
     assert [(x["time_ms"], x["label"]) for x in labels] == [
-        (10, "good"), (11, "unreconstructible"), (12, "admissible")]
+        (10, "good"), (11, "unreconstructible"), (12, "good")]
+    assert labels[2]["inconsistent"] == ["s"] and labels[0]["consistent"] == ["s"]
     # the routine is reported, never counted towards the label
     assert labels[1]["routine"] == "pass"
 

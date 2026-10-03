@@ -64,6 +64,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_catalog.py",
     "test_help.py",
     "test_hsds_configure.py",
+    "test_mcp_server.py",
+    "test_mcp_tools.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
     "test_plot_submodule.py",
@@ -103,6 +105,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plot_taxonomy.py",
     "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",
+    "test_selection_validity.py",
     "test_spectrogram_methods.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
@@ -168,6 +171,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_boundaries.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
+    "test_li_qa.py",
     "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
@@ -198,6 +202,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_sfl_coordinates.py",
     "test_diagram_sfl_coordinates_part2.py",
     "test_diagram_slab_parity.py",
+    "test_diagram_spatial.py",
     "test_diagram_spectroscopy.py",
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",

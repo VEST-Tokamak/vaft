@@ -111,6 +111,14 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
+    # match -> scan -> minimise; nominal -> perturbed re-fits
+    "smooth_local_polynomial",
+    "observed_resistance",
+    "model_resistance",
+    "infer_resistive_zeff",
+    "per_slice_resistive_zeff",
+    "resistive_zeff_sensitivity",
     # transport_state (#1428): times -> Ti hierarchy -> geometry -> composition/convert
     "resolve_transport_state",
     # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
@@ -271,6 +279,11 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
+    # the parallel (not perpendicular) Spitzer coefficient; <J.B>, not j_tor
+    "observed_resistance",
+    "parallel_conductivity",
+    "model_resistance",
     # transport_state (#1435): a positive flux runs down the gradient, as the TGLF/NEO mappers
     "classical_heat_fluxes",
     # transport_state (#1426): a run surface's input must not depend on the gap fill

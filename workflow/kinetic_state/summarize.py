@@ -3,10 +3,11 @@
 Reads ``state.csv`` (and the analysis JSONs, for the #1414 cross-check) and
 writes ``summary.json`` plus ``figures/pressure_consistency.{png,pdf}``.
 
-Every statistic is split by EFIT quality because criteria.py's ``good`` is
-gated on the Thomson bound ``p_e <= p <= 3 p_e``: on ``good`` rows ``R_sum``
-lies in [1, 3] by construction, so only ``admissible`` rows show the free
-distribution.
+Every statistic is split by EFIT quality.  Since criteria version 2
+(2026-10-02) ``good`` is fit quality only and is no longer gated on Thomson,
+so ``R_sum`` is free on both; the physical band ``1 <= p/p_e <= 2`` (no fast
+ions, ``T_i <= T_e``, ``n_i <= n_e``) is shown and counted, never selected on.
+Atlases built under version 1 gated ``good`` rows on ``[1, 3]``.
 
 Usage::
 
@@ -40,7 +41,8 @@ def _stats(values: Iterable[float]) -> dict[str, Any]:
         return {"n": 0}
     q1, median, q3 = np.percentile(finite, [25, 50, 75])
     return {"n": int(finite.size), "median": float(median), "q1": float(q1), "q3": float(q3),
-            "below_1": int(np.sum(finite < 1.0)), "above_3": int(np.sum(finite > 3.0))}
+            "below_1": int(np.sum(finite < 1.0)), "above_2": int(np.sum(finite > 2.0)),
+            "above_3": int(np.sum(finite > 3.0))}
 
 
 def _kinetic_reference(path: Path | None) -> dict[str, Any] | None:
@@ -93,24 +95,30 @@ def figure(rows: Sequence[dict[str, str]], out: Path) -> list[Path]:
 
     matched = [r for r in rows if r["ts_status"] == "matched"]
     colours = {"good": "#2166ac", "admissible": "#e08214"}
-    fig, (left, right) = plt.subplots(1, 2, figsize=(10.5, 4.2), constrained_layout=True)
-    left.axhspan(1.0, 3.0, color="0.92", zorder=0, label="criteria band (workflow, not a bound)")
-    left.axhline(1.0, color="0.3", lw=0.8, ls="--")
-    for quality in ("admissible", "good"):
-        for lineage, marker, face in (("magnetics", "o", None), ("electron_kinetic", "s", "none")):
-            group = [r for r in matched if r["efit_lineage"] == lineage and r["efit_quality"] == quality]
-            if not group:
-                continue
-            x = [_f(r["ip_measured_a"]) / 1e3 for r in group]
-            y = [_f(r["r_sum"]) for r in group]
-            left.scatter(x, y, s=22, marker=marker, edgecolors=colours[quality],
-                         facecolors=colours[quality] if face is None else face,
-                         label=f"{'magnetics-only' if lineage == 'magnetics' else 'electron-kinetic'} · {quality}")
-    left.set_xlabel("measured $I_p$ [kA]")
+    fig, (left, middle, right) = plt.subplots(1, 3, figsize=(15.0, 4.4), constrained_layout=True)
+    # #1430 keeps the two validation roles apart: magnetics-only is held-out
+    # validation, electron-kinetic is fit consistency (Thomson was fitted).
+    panels = ((left, "magnetics", "o", "Magnetics-only EFIT (held out)"),
+              (middle, "electron_kinetic", "s", r"Electron-kinetic EFIT ($T_i=T_e$, TS fitted)"))
+    for axes, lineage, marker, title in panels:
+        axes.axhspan(1.0, 2.0, color="0.92", zorder=0, label="physical band: 1 \u2264 p/p$_e$ \u2264 2")
+        axes.axhline(1.0, color="0.3", lw=0.8, ls="--", label="$p=p_e$")
+        for quality in ("admissible", "good"):
+            group = [r for r in matched if r["efit_lineage"] == lineage and r["efit_quality"] == quality
+                     and math.isfinite(_f(r["r_sum"])) and _f(r["r_sum"]) > 0]  # what a log axis can draw
+            if group:
+                axes.scatter([_f(r["ip_measured_a"]) / 1e3 for r in group], [_f(r["r_sum"]) for r in group],
+                             s=22, marker=marker, color=colours[quality], label=f"{quality} ({len(group)})")
+        axes.set_xlabel("measured $I_p$ [kA]")
+        axes.set_yscale("log")
+        axes.set_title(title)
+        axes.legend(fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=2, frameon=False)
     left.set_ylabel(r"$R_\mathrm{sum}=\sum p_\mathrm{EFIT}/\sum p_{e,\mathrm{TS}}$")
-    left.set_yscale("log")
-    left.set_title("Pressure consistency at Thomson channels")
-    left.legend(fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.16), ncol=3, frameon=False)
+    values = [_f(r["r_sum"]) for r in matched]
+    values = [v for v in values if math.isfinite(v) and v > 0]
+    if values:
+        for axes in (left, middle):
+            axes.set_ylim(min(min(values), 1.0) / 1.15, max(values) * 1.15)
 
     kinetic = {(r["shot"], r["time_efit_s"]): r for r in matched if r["efit_lineage"] == "electron_kinetic"}
     pairs = [(m, kinetic[(m["shot"], m["time_efit_s"])]) for m in matched
@@ -134,14 +142,15 @@ def figure(rows: Sequence[dict[str, str]], out: Path) -> list[Path]:
     right.legend(fontsize=7, loc="upper left")
     from matplotlib.ticker import FixedLocator, NullLocator, ScalarFormatter
 
-    ticks = [0.5, 0.7, 1, 1.5, 2, 3, 5, 7, 10]
-    for axis in (left.yaxis, right.xaxis, right.yaxis):
+    ticks = [0.1, 0.2, 0.3, 0.5, 0.7, 1, 1.5, 2, 3, 5, 7, 10, 20, 30, 50, 100]
+    for axis in (left.yaxis, middle.yaxis, right.xaxis, right.yaxis):
         axis.set_major_locator(FixedLocator(ticks))
         axis.set_minor_locator(NullLocator())
         axis.set_major_formatter(ScalarFormatter())
-    fig.text(0.01, -0.10, "#1331 Tier A, statistical_891. Good slices are gated on the criteria band, "
-             "so their magnetics-only R lies in [1, 3] by construction. Kinetic markers: square = own "
-             "admissibility passes, x = fails.", fontsize=7)
+    fig.text(0.01, -0.12, "#1331 Tier A, statistical_891. Colour is the criteria-v2 fit quality of the magnetics slice "
+             "at that (shot, t); electron-kinetic rows inherit it. The shaded band is the physical-consistency "
+             "check, not a selection. Right panel only: square = the kinetic fit's own admissibility passes, "
+             "x = fails.", fontsize=7)
     out.mkdir(parents=True, exist_ok=True)
     paths = [out / "pressure_consistency.png", out / "pressure_consistency.pdf"]
     for path in paths:

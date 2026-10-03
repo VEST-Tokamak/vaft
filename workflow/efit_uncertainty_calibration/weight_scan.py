@@ -3,8 +3,10 @@
 Every constraint time of the reference shots is reconstructed under each
 setting -- profile basis, probe/loop sigma and now the diamagnetic sigma
 (#1196 corrected its sign) -- and every slice is judged by ``criteria.py``:
-admissibility, per-family chi-square, virial beta_p, Grad-Shafranov residual,
-and the Thomson pressure band where Thomson exists (39915).
+admissibility, per-family chi-square, virial beta_p and Grad-Shafranov
+residual decide ``good``; the Thomson pressure band, where Thomson exists, is
+reported beside it as physical consistency and never decides ``good`` or a
+setting (criteria v2).
 
 The contract is the calibration's: one EFIT call per slice in an emptied
 workdir, every non-reference run from the same initialization fingerprint, no
@@ -604,7 +606,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "schema_version": SCHEMA, "stage": args.stage,
         "run_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "toolchain": toolchain_identities(ctx["resolved"]), "tables": ctx["tables"],
-        "criteria": criteria.CRITERIA, "workers": args.workers,
+        "criteria": criteria.CRITERIA, "criteria_version": criteria.CRITERIA_VERSION, "workers": args.workers,
     }
     if args.stage in (3, 4):
         bases = [tuple(int(k) for k in pair.split(",")) for pair in args.bases.split(";")] if args.bases else None

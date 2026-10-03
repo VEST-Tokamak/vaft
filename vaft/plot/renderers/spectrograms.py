@@ -42,12 +42,18 @@ def render_spectrogram(
             "Adapters such as vaft.omas.plot_* build the model from data objects."
         )
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
+    # A grid that reserved a colorbar cell beside this panel hands it over, so
+    # the mesh keeps the width of the panels it is aligned with (#1467).
+    colorbar_axes = style.pop("colorbar_ax", None)
 
     style.setdefault("shading", "auto")
     style.setdefault("cmap", model.cmap)
     mesh = axes.pcolormesh(model.time, model.frequency, model.magnitude, **style)
     if colorbar:
-        figure.colorbar(mesh, ax=axes, label=model.value_label)
+        if colorbar_axes is not None:
+            figure.colorbar(mesh, cax=colorbar_axes, label=model.value_label)
+        else:
+            figure.colorbar(mesh, ax=axes, label=model.value_label)
 
     axes.set_xlabel(model.x_label)
     axes.set_ylabel(model.y_label)

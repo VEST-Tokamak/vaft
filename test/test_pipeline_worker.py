@@ -83,7 +83,9 @@ class FakeRunner:
     stage's manifest ``no_output`` (every slice a solver verdict),
     ``"preflight"`` writes raw and a preflight exclusion, ``"efit_no_output"``
     marks EFIT and CHEASE ``no_output`` with ``skipped`` replication records,
-    ``"vacuum"`` writes raw, diagnostics and eddy only and fails the run.
+    ``"vacuum"`` writes raw, diagnostics and eddy only and fails the run,
+    ``"efit_fault"`` marks EFIT and CHEASE ``no_output`` for a reason replication refuses
+    (no replication record, the run fails).
     """
 
     def __init__(self, harvester: PipelineHarvester, source: FakeSource | None = None):
@@ -126,6 +128,12 @@ class FakeRunner:
                 targets, failed = [], True
             elif behaviour == "blocked":  # raw done, preflight never ran
                 targets, failed = targets[:1], True
+            elif behaviour == "efit_fault":
+                # replicate_stage raised on the `no_output` reason, so the
+                # replicate rule failed and left no record behind.
+                targets = [t for t in targets
+                           if not (t.stage in ("efit", "chease") and t.kind == "replication")]
+                failed = True
             for target in targets:
                 status = "success"
                 if behaviour == "skipped" and target.stage == "efit":
@@ -140,6 +148,8 @@ class FakeRunner:
                 elif behaviour == "efit_no_output" and target.stage in ("efit", "chease"):
                     # What replicate_stage records for a stage that produced nothing.
                     status = "skipped" if target.kind == "replication" else "no_output"
+                elif behaviour == "efit_fault" and target.stage in ("efit", "chease"):
+                    status = "no_output"
                 payload = {"state": status} if target.kind == "replication" else {"status": status}
                 if target.stage == "raw" and target.kind == "manifest" and self.source is not None:
                     # What the dump holds: SQL's inventory at run time.
@@ -481,6 +491,30 @@ def test_a_scope_the_workflow_cannot_run_stops_the_harvester(stages, message):
     with pytest.raises(ValueError, match=message):
         PipelineHarvester({"base_dir": "/tmp/x", "layout": "filedb", "stages": stages},
                           workflow_dir=WORKFLOW, environment={})
+
+
+def test_an_efit_no_output_that_replication_refuses_is_failed_and_retried(setup, tmp_path):
+    """cold review 0.8.0 delta-absorb-14 infra F1: an EFIT that wrote g-files
+    and still ended ``no_output`` is a fault; ``replicate_stage`` raises, no
+    replication record exists, and the worker counts the attempt and retries
+    instead of parking the shot as partial."""
+    _, make_worker, _ = setup
+    pipeline_path = tmp_path / "pipeline.yaml"
+    pipeline = yaml.safe_load(pipeline_path.read_text(encoding="utf-8"))
+    pipeline["hsds"] = {"replicate": True}
+    pipeline_path.write_text(yaml.safe_dump(pipeline), encoding="utf-8")
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    runner.script[101] = ["efit_fault", "ok"]
+
+    settle_cycles(worker)
+    row = worker.state.shot(101)
+    assert row["state"] == S.FAILED and row["attempts"] == 1
+    assert "efit (replication)=missing" in row["reason"]
+    worker.run_cycle()
+    assert worker.state.shot(101)["state"] == S.COMPLETED
+    assert [plan.full_shots for plan in runner.plans] == [(101,), (101,)]
 
 
 def test_a_chease_run_of_solver_verdicts_is_partial_not_retried(setup):

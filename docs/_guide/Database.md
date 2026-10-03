@@ -260,8 +260,9 @@ beside it, and a reader resolves the shot through those links. Each write theref
 master with the stored one plus its own IDS. It re-reads the stored master immediately before
 replacing it, and holds a per-shot lock while it does (issue #913). Two writes of one shot on the same
 host can no longer drop each other's links, and different shots never wait for each other. The lock
-lives in `$VAFT_HSDS_LOCK_DIR` (default `/tmp/vaft-hsds-locks`). It does not reach writers on other
-hosts or tools that bypass VAFT. `vaft maintenance audit-masters --shots FIRST-LAST [--apply]` finds,
+lives in `$VAFT_HSDS_LOCK_DIR` (default `/tmp/vaft-hsds-locks`); if this account cannot create files
+there, the writer locks in a per-user directory under the temp root and warns once. It does not
+reach writers on other hosts or tools that bypass VAFT. `vaft maintenance audit-masters --shots FIRST-LAST [--apply]` finds,
 and relinks, files a master does not name.
 
 ## Native IMAS IDS objects
