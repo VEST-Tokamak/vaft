@@ -161,10 +161,6 @@ def _legacy_pf_filter(values: np.ndarray, processing: dict) -> np.ndarray:
     return ndimage.uniform_filter1d(filtered, size=min(int(filter_config["smoothing_window"]), values.size))
 
 
-#: IMAS ``validity`` for a coil current that was not acquired: invalid, do not use.
-UNACQUIRED_VALIDITY = -2
-
-
 def vfit_pf(
     shot: int,
     geometry_root: str | Path | None = None,
@@ -177,9 +173,7 @@ def vfit_pf(
     required circuit is never zero-filled (#44). The diagnostics stage, which
     only publishes them, uses :func:`vfit_pf_acquired` instead (#1568).
     """
-    reference_time, pf_data, unacquired = vfit_pf_acquired(shot, raw_source=raw_source)
-    if unacquired:
-        raise next(iter(unacquired.values()))
+    reference_time, pf_data, _ = _read_pf_circuits(shot, raw_source=raw_source, strict=True)
     return reference_time, pf_data
 
 
@@ -199,6 +193,15 @@ def vfit_pf_acquired(
 
     Raises if no declared circuit was acquired at all: there is no time base.
     """
+    return _read_pf_circuits(shot, raw_source=raw_source, strict=False)
+
+
+def _read_pf_circuits(
+    shot: int,
+    *,
+    raw_source: raw_db.RawSource | None,
+    strict: bool,
+) -> tuple[np.ndarray, list[np.ndarray], dict[int, raw_db.RawSignalUnavailableError]]:
     processing = resolve_vest_diagnostic(shot, "pf_active")["processing"]
     coil_codes = coil_field_code_by_index(shot)
     coil_gains = _coil_gain_by_index(shot)
@@ -232,6 +235,10 @@ def vfit_pf_acquired(
             )
         except raw_db.RawSignalUnavailableError as error:
             if field_code not in optional_codes:
+                if strict:
+                    # The strict contract: the first (lowest-field) empty
+                    # required channel raises before anything else is read.
+                    raise
                 missing_required[field_code] = error
                 continue
             unacquired.add(field_code)
@@ -368,43 +375,55 @@ def vfit_pf_active_dynamic(
         # filtfilt) on the source grid, so this projection is band-limited.
         current = np.interp(time_axis, waveform_time, pf_data[coil_index])
         set_path(ods, f"pf_active.coil.{coil_index}.current.time", time_axis)
+        # An unrecorded required circuit (#1568) is published as NaN, the only
+        # marker that survives IMAS/HSDS: `pf_active.coil.current` has no
+        # validity node in the DD, so a flag would be dropped on replication.
         set_path(ods, f"pf_active.coil.{coil_index}.current.data", current)
-        if coil_index in unacquired:
-            # NaN data and an IMAS "invalid" flag: the other circuits are
-            # published; every computation refuses this one (#1568).
-            set_path(ods, f"pf_active.coil.{coil_index}.current.validity", UNACQUIRED_VALIDITY)
 
 
 def unacquired_pf_coils(ods: object) -> list[str]:
-    """Names (or ``coil.<i>``) of the PF circuits marked not acquired (#1568)."""
+    """Names (or ``coil.<i>``) of the PF circuits whose current is not all finite.
+
+    The diagnostics stage publishes a required circuit whose channel was empty
+    as NaN (#1568). NaN is the marker rather than a flag because it is the one
+    that survives the IMAS/HSDS round trip, and because it is what would
+    actually corrupt a computation that used it.
+    """
     names: list[str] = []
     if "pf_active.coil" not in ods:
         return names
     for index in range(len(ods["pf_active.coil"])):
-        validity_path = f"pf_active.coil.{index}.current.validity"
-        if validity_path in ods and int(ods[validity_path]) == UNACQUIRED_VALIDITY:
+        data_path = f"pf_active.coil.{index}.current.data"
+        if data_path not in ods:
+            continue
+        if not np.all(np.isfinite(np.asarray(ods[data_path], dtype=float))):
             name_path = f"pf_active.coil.{index}.name"
             names.append(str(ods[name_path]) if name_path in ods else f"coil.{index}")
     return names
 
 
-def require_acquired_pf_currents(ods: object, shot: int, consumer: str) -> None:
-    """Refuse to compute with PF currents when a required circuit was not acquired.
+def require_acquired_pf_currents(ods: object, shot: int | None, consumer: str) -> None:
+    """Refuse to compute with PF currents when a circuit was not acquired.
 
     A missing drive current makes every induced or fitted current wrong, and a
-    zero would hide that (#44); the diagnostics product keeps such a coil as
-    NaN with validity -2 instead of dropping the IDS (#1568), so each consumer
-    of the currents checks here and fails naming the coil.
+    zero would hide that (#44). The diagnostics product keeps such a coil as
+    NaN instead of dropping the IDS (#1568), so each consumer of the currents
+    checks here and fails naming the coil. ``shot`` is ``None`` for a caller
+    that has no shot to name (a code adapter given an ODS); it then raises
+    ``ValueError`` rather than :class:`~vaft.database.raw.RawSignalUnavailableError`.
     """
     missing = unacquired_pf_coils(ods)
-    if missing:
-        raise raw_db.RawSignalUnavailableError(
-            shot,
-            "pf_active",
-            f"{', '.join(missing)} current was not acquired (validity -2); "
-            f"{consumer} needs every driven PF circuit",
-            signal_name="PF active coil current",
-        )
+    if not missing:
+        return
+    reason = (
+        f"{', '.join(missing)} current was not acquired (NaN in pf_active); "
+        f"{consumer} needs every driven PF circuit"
+    )
+    if shot is None:
+        raise ValueError(reason)
+    raise raw_db.RawSignalUnavailableError(
+        int(shot), "pf_active", reason, signal_name="PF active coil current"
+    )
 
 
 def vfit_pf_active_for_shot(
@@ -461,7 +480,6 @@ __all__ = [
     "pf_active_from_raw_database",
     "pf_geometry_version_for_shot",
     "resolve_geometry_asset",
-    "UNACQUIRED_VALIDITY",
     "require_acquired_pf_currents",
     "unacquired_pf_coils",
     "vfit_pf",

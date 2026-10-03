@@ -828,7 +828,7 @@ def build_diagnostics_ods(
     unacquired_pf = unacquired_pf_coils(ods)
     if unacquired_pf and statuses["pf_active"]["status"] != "unavailable":
         # Published without the circuits whose channel was empty (#1568):
-        # they carry NaN and validity -2, and eddy/EFIT refuse the shot.
+        # they carry NaN, and eddy/EFIT refuse the shot.
         statuses["pf_active"]["status"] = "partial"
         statuses["pf_active"]["unacquired_channels"] = unacquired_pf
     grids["pf_active"] = policy_grid("pf_active")
@@ -1064,6 +1064,10 @@ def build_diagnostics_ods(
                 + [
                     f"magnetics:{signal}"
                     for signal in statuses.get("magnetics", {}).get("signals_left_out", {})
+                ]
+                + [
+                    f"pf_active:{coil}"
+                    for coil in statuses.get("pf_active", {}).get("unacquired_channels", [])
                 ]
             ),
             "repaired": [],
