@@ -57,6 +57,7 @@ def test_surfaces_are_matched_by_mode_number_not_position(bench):
     s = _out([M[i] for i in order], [PSI[i] for i in order], BASE[np.ix_(order, order)])
     row, surfaces = bench.compare_pair((r, r), (s, s))
     assert row["status"] == "PASS" and all(x["relative_difference"] == 0 for x in surfaces)
+    assert row["frobenius_plain"] == pytest.approx(0)  # the submatrices are aligned by m, not by index
 
 
 def test_codes_that_are_not_internally_converged_are_unresolved_not_disagreeing(bench):
@@ -77,7 +78,7 @@ def test_converged_but_different_codes_disagree(bench):
 def test_a_missing_run_is_a_solver_failure(bench):
     out = _out(M, PSI, BASE)
     row, surfaces = bench.compare_pair((None, None), (out, out))
-    assert row["status"] == "SOLVER_FAILURE" and row["failed"] == "rdcon" and surfaces == []
+    assert row["status"] == "SOLVER_FAILURE" and row["failed"] == "rdcon_mpsi256;rdcon_mpsi512" and surfaces == []
 
 
 def test_different_surface_sets_are_partially_comparable(bench):
@@ -91,3 +92,57 @@ def test_like_for_like_stride_variants_match_rdcon_truncation(bench):
     for variant in bench.STRIDE_VARIANTS:
         assert variant.patches["stride.in"] == {"delta_mhigh": 16}
     assert {v.patches["equil.in"]["mpsi"] for v in bench.STRIDE_VARIANTS} == {256, 512}
+
+
+def test_pass_needs_every_common_surface_converged(bench):
+    r256 = _out(M, PSI, BASE)
+    r512 = _out(M, PSI, np.diag([-10.0, 200.0, -300.0]))  # only m=3 converged in RDCON
+    s_ = _out(M, PSI, np.diag([-10.0, -2000.0, 300.0]))
+    row, _ = bench.compare_pair((r256, r512), (s_, s_))
+    assert row["n_both_converged"] == 1 and row["status"] == "PARTIALLY_COMPARABLE"
+
+
+def test_a_missing_check_run_is_a_failure_not_non_convergence(bench):
+    out = _out(M, PSI, BASE)
+    row, _ = bench.compare_pair((out, None), (out, out))
+    assert row["status"] == "SOLVER_FAILURE" and row["failed"] == "rdcon_mpsi512"
+
+
+def test_same_m_at_a_different_surface_is_not_matched(bench):
+    r = _out(M, PSI, BASE)
+    s_ = _out(M, [0.4, 0.62, 0.8], BASE)  # m=4 sits elsewhere in STRIDE
+    row, surfaces = bench.compare_pair((r, r), (s_, s_))
+    assert row["n_common"] == 2 and [x["m"] for x in surfaces] == [3, 5]
+
+
+def test_duplicate_m_on_two_surfaces_is_kept_apart(bench):
+    m, psi = [3, 3, 4], [0.3, 0.7, 0.8]
+    out = _out(m, psi, np.diag([-1.0, -2.0, -3.0]))
+    row, surfaces = bench.compare_pair((out, out), (out, out))
+    assert row["n_common"] == 3 and sorted(x["delta_prime_rdcon"] for x in surfaces) == [-3.0, -2.0, -1.0]
+
+
+def test_unconverged_noise_cannot_fake_a_convention_mismatch(bench):
+    # Large entries tied to the unconverged m=5 make the *full* matrices look
+    # transposed (r[0,2] == s[2,0]); the converged m=3,4 block matches as is.
+    r_matrix = BASE.copy(); r_matrix[0, 2] = 1e6
+    s_matrix = BASE.copy(); s_matrix[2, 0] = 1e6
+    r256 = _out(M, PSI, r_matrix)
+    r512 = _out(M, PSI, np.diag([-10.0, -20.0, 500.0]))  # m=5 flips sign: unconverged in RDCON
+    s_ = _out(M, PSI, s_matrix)
+    row, _ = bench.compare_pair((r256, r512), (s_, s_))
+    assert row["frobenius_transpose"] < row["frobenius_plain"] / 2  # the full matrix alone would mislead
+    assert row["status"] != "CONVENTION_MISMATCH"
+
+
+def test_no_surfaces_at_all_is_not_applicable(bench):
+    empty = _out([], [], np.zeros((0, 0)))
+    row, _ = bench.compare_pair((empty, empty), (empty, empty))
+    assert row["status"] == "NOT_APPLICABLE"
+
+
+def test_truncation_match_is_recorded(bench):
+    out = _out(M, PSI, BASE)
+    other = _out(M, PSI, BASE); other.mhigh = 22
+    row, _ = bench.compare_pair((out, out), (other, other))
+    assert row["truncation_match"] is False

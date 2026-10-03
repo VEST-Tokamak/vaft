@@ -22,10 +22,20 @@ Per pair:
   consistent in its own code (the atlas heuristic, ``DELTA_PRIME_RTOL``).
 * Matrix metric on the common surfaces, at mpsi 256:
   ``||M_r - M_s||_F / max(||M_s||_F, eps)``, also against ``M_s^T`` and
-  ``M_s^H``. If a transposed or conjugated form fits clearly better, the
-  pair is a convention mismatch, not a disagreement.
-* Status (#143): PASS, CONVENTION_MISMATCH, NUMERICALLY_UNRESOLVED,
-  PARTIALLY_COMPARABLE, PHYSICS_DISAGREEMENT, SOLVER_FAILURE.
+  ``M_s^H``. The convention audit uses the surfaces converged in both codes
+  only, so unresolved entries cannot fake a mismatch. It tests transpose and
+  conjugate transpose only; an overall sign flip would show as near-zero
+  sign agreement, and a normalization factor is not tested.
+* Per surface, the real parts of the diagonal Δ′ are compared (the quantity
+  the atlas and ``ntms.deltaw`` carry); imaginary parts are only in the
+  Frobenius metric.
+* Status (#143): PASS (every common surface converged in both codes and all
+  agree), PARTIALLY_COMPARABLE (the converged surfaces agree but not every
+  surface is converged in both, or the surface sets differ),
+  CONVENTION_MISMATCH, NUMERICALLY_UNRESOLVED (no surface converged in both),
+  PHYSICS_DISAGREEMENT (a converged surface disagrees), SOLVER_FAILURE (any of
+  the four runs is missing or failed; ``failed`` names them), NOT_APPLICABLE
+  (no rational surface in either code).
 
 ``AGREEMENT_RTOL`` reuses the atlas heuristic (20 %, the median mpsi 256/512
 change of #141's mid-radius surfaces). It is not an independently derived
@@ -51,8 +61,11 @@ from run_batch import gfile_name, job_backend, slice_label  # noqa: E402
 from scan_controls import Equilibrium, Variant, collect, materialize_templates, preflight, run_job  # noqa: E402
 from select_slices import read as read_slices  # noqa: E402
 
-#: Heuristic, shared with the atlas (see module docstring).
+#: Heuristic, shared with the atlas (see module docstring): codes agree on a surface.
 AGREEMENT_RTOL = DELTA_PRIME_RTOL
+#: Heuristic: a code is internally converged on a surface when mpsi 256 and 512
+#: agree in sign and within this relative change (the atlas rule).
+SELF_CONSISTENCY_RTOL = DELTA_PRIME_RTOL
 #: A transposed/conjugated form must beat the plain comparison by this factor
 #: to be called a convention mismatch.
 CONVENTION_GAIN = 2.0
@@ -71,27 +84,36 @@ def _matrix(result: Optional[dict], solver: str):
     return read_pest3_matching_output(Path(result["run_dir"]), solver=solver, mode=int(result["n"]))
 
 
-def _surfaces(out) -> dict[int, tuple[int, float, complex]]:
-    """{m: (index, psi_n, diagonal Δ′)} of one run."""
-    if out is None or out.m is None or out.Delta_prime is None:
-        return {}
-    return {
-        int(m): (i, float(out.psi_n_rational[i]), complex(out.Delta_prime[i, i]))
-        for i, m in enumerate(out.m)
-        if out.psi_n_rational is not None
-    }
+def _surfaces(out) -> list[tuple[int, int, float, complex]]:
+    """[(index, m, psi_n, diagonal Δ′)] of one run. The same m can occur twice with non-monotonic q."""
+    if out is None or out.m is None or out.Delta_prime is None or out.psi_n_rational is None:
+        return []
+    return [
+        (i, int(m), float(out.psi_n_rational[i]), complex(out.Delta_prime[i, i])) for i, m in enumerate(out.m)
+    ]
+
+
+def _find(surfaces: list, m: int, psi: float) -> Optional[tuple]:
+    """The surface with this m at this ψ_N (within ``SURFACE_PSI_TOL``), or None."""
+    hits = [s for s in surfaces if s[1] == m and abs(s[2] - psi) <= SURFACE_PSI_TOL]
+    return min(hits, key=lambda s: abs(s[2] - psi)) if hits else None
 
 
 def _consistent(a: Optional[complex], b: Optional[complex]) -> Optional[bool]:
     if a is None or b is None:
         return None
     a, b = a.real, b.real
-    return bool(np.sign(a) == np.sign(b) and abs(a - b) / max(abs(a), abs(b), 1e-12) <= AGREEMENT_RTOL)
+    return bool(np.sign(a) == np.sign(b) and abs(a - b) / max(abs(a), abs(b), 1e-12) <= SELF_CONSISTENCY_RTOL)
 
 
-def common_surfaces(r: dict, s: dict) -> list[int]:
-    """Mode numbers present in both runs at the same ψ_N."""
-    return sorted(m for m in r if m in s and abs(r[m][1] - s[m][1]) <= SURFACE_PSI_TOL)
+def common_surfaces(r: list, s: list) -> list[tuple[tuple, tuple]]:
+    """Pairs (RDCON surface, STRIDE surface) with the same m at the same ψ_N, ordered by ψ_N."""
+    pairs = []
+    for surface in r:
+        partner = _find(s, surface[1], surface[2])
+        if partner is not None:
+            pairs.append((surface, partner))
+    return sorted(pairs, key=lambda p: p[0][2])
 
 
 def frobenius(mr: np.ndarray, ms: np.ndarray) -> dict[str, float]:
@@ -109,9 +131,14 @@ def compare_pair(rdcon: tuple, stride: tuple) -> tuple[dict, list[dict]]:
     r256, r512 = rdcon
     s256, s512 = stride
     row: dict[str, Any] = {}
-    if r256 is None or s256 is None:
+    missing = [
+        name
+        for name, out in (("rdcon_mpsi256", r256), ("rdcon_mpsi512", r512), ("stride_mpsi256", s256), ("stride_mpsi512", s512))
+        if out is None
+    ]
+    if missing:
         row["status"] = "SOLVER_FAILURE"
-        row["failed"] = ";".join(name for name, out in (("rdcon", r256), ("stride", s256)) if out is None)
+        row["failed"] = ";".join(missing)
         return row, []
     sr, sr512, ss, ss512 = _surfaces(r256), _surfaces(r512), _surfaces(s256), _surfaces(s512)
     common = common_surfaces(sr, ss)
@@ -122,18 +149,22 @@ def compare_pair(rdcon: tuple, stride: tuple) -> tuple[dict, list[dict]]:
             "n_common": len(common),
             "rdcon_mlow_mhigh": f"{r256.mlow}..{r256.mhigh}",
             "stride_mlow_mhigh": f"{s256.mlow}..{s256.mhigh}",
+            "truncation_match": bool((r256.mlow, r256.mhigh) == (s256.mlow, s256.mhigh)),
         }
     )
     surfaces = []
-    for m in common:
-        dr, ds = sr[m][2], ss[m][2]
-        r_ok = _consistent(dr, sr512.get(m, (None, None, None))[2])
-        s_ok = _consistent(ds, ss512.get(m, (None, None, None))[2])
+    for r_surface, s_surface in common:
+        _, m, psi, dr = r_surface
+        ds = s_surface[3]
+        r_check = _find(sr512, m, psi)
+        s_check = _find(ss512, m, s_surface[2])
+        r_ok = _consistent(dr, None if r_check is None else r_check[3])
+        s_ok = _consistent(ds, None if s_check is None else s_check[3])
         rel = abs(dr.real - ds.real) / max(abs(dr.real), abs(ds.real), 1e-12)
         surfaces.append(
             {
                 "m": m,
-                "psi_n": sr[m][1],
+                "psi_n": psi,
                 "delta_prime_rdcon": dr.real,
                 "delta_prime_stride": ds.real,
                 "relative_difference": rel,
@@ -153,17 +184,18 @@ def compare_pair(rdcon: tuple, stride: tuple) -> tuple[dict, list[dict]]:
             "n_sign_agree_converged": sum(s["sign_agreement"] for s in converged),
         }
     )
+
+    def distances(subset: list[tuple[tuple, tuple]]) -> dict[str, float]:
+        ir = [p[0][0] for p in subset]
+        js = [p[1][0] for p in subset]
+        return frobenius(np.asarray(r256.Delta_prime)[np.ix_(ir, ir)], np.asarray(s256.Delta_prime)[np.ix_(js, js)])
+
     if common:
-        ir = [sr[m][0] for m in common]
-        js = [ss[m][0] for m in common]
-        f = frobenius(np.asarray(r256.Delta_prime)[np.ix_(ir, ir)], np.asarray(s256.Delta_prime)[np.ix_(js, js)])
-        row.update({f"frobenius_{k}": v for k, v in f.items()})
-        if converged:
-            ic = [sr[s["m"]][0] for s in converged]
-            jc = [ss[s["m"]][0] for s in converged]
-            row["frobenius_converged"] = frobenius(
-                np.asarray(r256.Delta_prime)[np.ix_(ic, ic)], np.asarray(s256.Delta_prime)[np.ix_(jc, jc)]
-            )["plain"]
+        row.update({f"frobenius_{k}": v for k, v in distances(common).items()})
+        both = [pair for pair, s_ in zip(common, surfaces) if s_["both_converged"]]
+        if both:
+            row.update({f"frobenius_converged_{k}": v for k, v in distances(both).items()})
+            row["frobenius_converged"] = row["frobenius_converged_plain"]  # name used before the review
     row["status"] = pair_status(row)
     return row, surfaces
 
@@ -171,22 +203,21 @@ def compare_pair(rdcon: tuple, stride: tuple) -> tuple[dict, list[dict]]:
 def pair_status(row: dict) -> str:
     if row.get("status") == "SOLVER_FAILURE":
         return "SOLVER_FAILURE"
+    if not row.get("rdcon_msing") and not row.get("stride_msing"):
+        return "NOT_APPLICABLE"
     if not row.get("n_common"):
         return "PARTIALLY_COMPARABLE"
-    plain = row["frobenius_plain"]
-    best_other = min(row["frobenius_transpose"], row["frobenius_conjugate_transpose"])
-    if best_other * CONVENTION_GAIN < plain:
-        return "CONVENTION_MISMATCH"
     if not row["n_both_converged"]:
         return "NUMERICALLY_UNRESOLVED"
-    if row["n_common"] < max(row["rdcon_msing"], row["stride_msing"]):
-        partial = True
-    else:
-        partial = False
-    agree = row["n_agree_converged"] == row["n_both_converged"]
-    if agree:
-        return "PARTIALLY_COMPARABLE" if partial else "PASS"
-    return "PHYSICS_DISAGREEMENT"
+    # The convention audit uses only surfaces both codes resolve.
+    plain = row["frobenius_converged_plain"]
+    best_other = min(row["frobenius_converged_transpose"], row["frobenius_converged_conjugate_transpose"])
+    if best_other * CONVENTION_GAIN < plain:
+        return "CONVENTION_MISMATCH"
+    if row["n_agree_converged"] < row["n_both_converged"]:
+        return "PHYSICS_DISAGREEMENT"
+    complete = row["n_both_converged"] == row["n_common"] == max(row["rdcon_msing"], row["stride_msing"])
+    return "PASS" if complete else "PARTIALLY_COMPARABLE"
 
 
 def run(args) -> int:
@@ -211,10 +242,13 @@ def run(args) -> int:
             ): (eq, v, n, base)
             for eq, v, n, base in jobs
         }  # fmt: skip
+        failed = 0
         for done, future in enumerate(as_completed(futures), 1):
             eq, v, n, base = futures[future]
             result = collect(future, eq, v, n)
+            failed += result["status"] in ("failed", "error")
             print(f"[{done}/{len(jobs)}] {base.name} {eq.label} {v.name} n={n}: {result['status']}", flush=True)
+    print(f"{failed} of {len(jobs)} jobs failed; compare reports them as SOLVER_FAILURE", flush=True)
     return 0
 
 
