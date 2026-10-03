@@ -137,3 +137,12 @@ def test_the_ods_round_trips(mapped, tmp_path):
 def test_every_tglf_audit_class_is_declared():
     kinds = {"exact", "unit", "coordinate", "derived", "convention", "unsupported"}
     assert {kind for kind, _ in gk.TGLF_MAPPING_AUDIT.values()} <= kinds
+
+
+def test_ky_resolved_fluxes_sum_to_the_totals(mapped):
+    local, parameters, outputs, ods, _ = mapped
+    nl = "gyrokinetics_local.non_linear"
+    per_ky = ods[f"{nl}.fluxes_2d_k_x_sum.energy_phi_potential"]
+    assert per_ky.shape == (3, outputs.ky_spectrum.size)
+    assert per_ky.sum(axis=1) == pytest.approx(ods[f"{nl}.fluxes_1d.energy_phi_potential"])
+    assert ods[f"{nl}.binormal_wavevector_norm"].size == outputs.ky_spectrum.size

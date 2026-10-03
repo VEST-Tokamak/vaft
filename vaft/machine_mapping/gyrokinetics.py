@@ -131,6 +131,9 @@ MAPPING_AUDIT: Mapping[str, tuple[str, str]] = {
         "unsupported", "quasilinear weight amplitude normalisation not reproduced"),
     "non_linear.fluxes_1d.{particles,energy}_*": (
         "unit", "time-averaged GB flux * RMAJ**2 * b_gs2**2 / (2 sqrt 2), per field"),
+    "non_linear.fluxes_2d_k_x_sum.{particles,energy}_*": (
+        "unit", "the same time average per toroidal mode (ky), on "
+        "non_linear.binormal_wavevector_norm"),
     "non_linear.fluxes_1d.momentum_*": (
         "unsupported", "CGYRO's toroidal momentum flux is not split parallel/perpendicular"),
 }
@@ -449,6 +452,14 @@ def _write_nonlinear(ods, base, outputs, factors, n_field, window, put, skipped)
             average[:, 0, f] * factors["flux"])
         put(f"non_linear.fluxes_1d.energy_{_FIELD_DD[f]}",
             average[:, 1, f] * factors["flux"])
+    # ky-resolved: the same time average without the sum over toroidal modes,
+    # (species, moment, field, n); n is the binormal axis already written below.
+    per_mode = integrate(outputs.flux[..., mask], t[mask], axis=-1) / (t[mask][-1] - t[mask][0])
+    for f in range(min(n_field, per_mode.shape[2])):
+        put(f"non_linear.fluxes_2d_k_x_sum.particles_{_FIELD_DD[f]}",
+            per_mode[:, 0, f, :] * factors["flux"])
+        put(f"non_linear.fluxes_2d_k_x_sum.energy_{_FIELD_DD[f]}",
+            per_mode[:, 1, f, :] * factors["flux"])
     put("non_linear.time_norm", t * factors["time"])
     put("non_linear.time_interval_norm", np.asarray(window, dtype=float) * factors["time"])
     if outputs.ky is not None:
@@ -497,6 +508,10 @@ TGLF_MAPPING_AUDIT: Mapping[str, tuple[str, str]] = {
     "non_linear.fluxes_1d.{particles,energy}_<field>": (
         "unit", "sum over ky of sum_flux_spectrum per field (saturated quasilinear flux), "
         "GB flux * RMAJ**2 * b_gs2**2 / (2 sqrt 2) -- the same rescaling as CGYRO"),
+    "non_linear.fluxes_2d_k_x_sum.{particles,energy}_<field>": (
+        "derived", "sum_flux_spectrum per ky bin (TGLF's ky-integration weight x flux, so "
+        "the bins sum to the total), on non_linear.binormal_wavevector_norm; the same "
+        "GB rescaling"),
     "non_linear.fluxes_1d.momentum_*": (
         "unsupported", "TGLF's toroidal/parallel stresses are not the DD's parallel/"
         "perpendicular momentum split"),
@@ -617,7 +632,8 @@ def gyrokinetics_local_from_tglf(
         zs = np.asarray(local.zs, dtype=float)
         electron = int(np.flatnonzero(zs < 0)[0])
         order = [i for i in range(zs.size) if i != electron] + [electron]
-        totals = np.nansum(spectrum, axis=2)[order]
+        per_ky = spectrum[order]                       # (species, field, ky, quantity)
+        totals = np.nansum(per_ky, axis=2)
         # Field slots are named from the run's own flags, not by position: TGLF writes
         # fields 1..jflds, so with USE_BPAR but not USE_BPER slot 2 is not B_parallel.
         use_bper = bool(parameters.get("USE_BPER", False))
@@ -631,6 +647,12 @@ def gyrokinetics_local_from_tglf(
         for f, name in enumerate(names[: totals.shape[1]]):
             put(f"non_linear.fluxes_1d.particles_{name}", totals[:, f, 0] * factors["flux"])
             put(f"non_linear.fluxes_1d.energy_{name}", totals[:, f, 1] * factors["flux"])
+            put(f"non_linear.fluxes_2d_k_x_sum.particles_{name}",
+                per_ky[:, f, :, 0] * factors["flux"])
+            put(f"non_linear.fluxes_2d_k_x_sum.energy_{name}",
+                per_ky[:, f, :, 1] * factors["flux"])
+        if ky is not None:
+            put("non_linear.binormal_wavevector_norm", np.asarray(ky, dtype=float) * factors["wavenumber"])
         skipped.append("non_linear.fluxes_1d.momentum_*: "
                        + TGLF_MAPPING_AUDIT["non_linear.fluxes_1d.momentum_*"][1])
     skipped.append("fluctuation spectra: "
