@@ -17,7 +17,8 @@ from pathlib import Path
 
 os.environ.setdefault("MPLCONFIGDIR", tempfile.mkdtemp(prefix="vaft-mpl-"))
 
-from vaft.omas.vest_upstream import build_eddy_ods, write_stage_product
+from vaft.machine_mapping.pf_active import UnacquiredPFCircuitError
+from vaft.omas.vest_upstream import build_eddy_ods, eddy_no_output_product, write_stage_product
 
 
 LOGGER = logging.getLogger("vaft.generate_eddy_ods")
@@ -46,15 +47,28 @@ def main() -> int:
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
     LOGGER.info("Generating eddy ODS for shot %s from %s", args.shot, args.diagnostics_ods)
-    ods, manifest = build_eddy_ods(
-        shot=args.shot,
-        diagnostics_ods=args.diagnostics_ods,
-        static_ods=args.static_ods,
-        filament_r=_csv_floats(args.filament_r),
-        filament_z=_csv_floats(args.filament_z),
-        filament_fraction=_csv_floats(args.filament_fraction),
-        dt_sub=args.dt_sub,
-    )
+    try:
+        ods, manifest = build_eddy_ods(
+            shot=args.shot,
+            diagnostics_ods=args.diagnostics_ods,
+            static_ods=args.static_ods,
+            filament_r=_csv_floats(args.filament_r),
+            filament_z=_csv_floats(args.filament_z),
+            filament_fraction=_csv_floats(args.filament_fraction),
+            dt_sub=args.dt_sub,
+        )
+    except UnacquiredPFCircuitError as error:
+        # A PF circuit the solve needs was never recorded for this shot
+        # (#1568): a property of the data, recorded as the result. Every other
+        # missing input -- a whole diagnostics component unavailable, which
+        # can be a configuration fault -- still fails the rule.
+        LOGGER.warning("shot %s: eddy has no output: %s", args.shot, error)
+        ods, manifest = eddy_no_output_product(
+            shot=args.shot,
+            diagnostics_ods=args.diagnostics_ods,
+            static_ods=args.static_ods,
+            reason=error.reason,
+        )
 
     write_stage_product(ods, manifest, output=args.output, metadata=args.metadata)
     LOGGER.info("Eddy ODS saved to %s", args.output)
