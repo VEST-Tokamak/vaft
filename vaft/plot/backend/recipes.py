@@ -6194,12 +6194,20 @@ def _build_impurity_charge_states(ods: Any, **options: Any) -> Panels:
     from vaft.process.impurity import charge_state_moments
 
     inputs = _impurity_inputs(ods, options)
-    rho = inputs["rho"]
+    rho, te, ne = inputs["rho"], inputs["te"], inputs["ne"]
+    # The atomic data refuse a non-positive or non-finite T_e or n_e (a fitted
+    # edge often reaches zero); those points are left undefined, as the
+    # composition resolver leaves them.
+    valid = np.isfinite(te) & np.isfinite(ne) & (te > 0.0) & (ne > 0.0)
+    if not valid.any():
+        raise ValueError(f"{inputs['base']} has no point with positive, finite T_e and n_e")
     panels = []
     for k, element in enumerate(inputs["weights"]):
-        fractions = np.asarray(charge_state_moments(
-            element, inputs["te"], inputs["ne"], ionization=inputs["ionization"], age_s=inputs["age"],
+        solved = np.asarray(charge_state_moments(
+            element, te[valid], ne[valid], ionization=inputs["ionization"], age_s=inputs["age"],
             tables=inputs["tables"], cache_dir=inputs["cache_dir"])["fractions"], dtype=float)
+        fractions = np.full((rho.size, solved.shape[-1]), np.nan)
+        fractions[valid] = solved
         traces = tuple(
             Series(x=rho, y=fractions[:, q], label=f"{element}{q}+" if q else f"{element}0",
                    style={"color": palette(q)})

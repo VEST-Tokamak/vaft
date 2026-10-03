@@ -260,3 +260,13 @@ def test_without_time_the_first_slice_that_can_be_drawn_is_drawn():
     model = _extract("core_profiles_profile_zeff", ods)
     np.testing.assert_allclose(model.series[0].y, 3.0)
     assert model.metadata["time"] == pytest.approx(0.310)
+
+
+def test_charge_state_fractions_leave_a_zero_density_edge_undefined():
+    ods = _ods()
+    ods["core_profiles.profiles_1d.0.electrons.density_thermal"] = np.r_[_ne(0)[:-1], 0.0]
+    model = _extract("impurity_profile_charge_state_fraction", ods)
+    for panel in model.models:
+        stacked = np.array([s.y for s in panel.series])
+        assert np.all(np.isnan(stacked[:, -1]))
+        np.testing.assert_allclose(stacked[:, :-1].sum(axis=0), 1.0, atol=1e-9)
