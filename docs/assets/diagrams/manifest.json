@@ -402,12 +402,12 @@
     },
     "li_qa_cheng_1987.svg": {
       "call": "vaft.diagram.li_qa(reference='cheng_1987')",
-      "source_sha256": "d67c10837449b0c609883066794f730f203c50e43551a8ac2a340f652ffe7c53",
+      "source_sha256": "549962403b4d396872c0578c5392012eb99eb8458d5a65df6714a9d53a94d6b4",
       "svg_sha256": "4cb3338f2463412dae266ba878045d9cd451f568fb97f2da7cc808a7fbf5bf91"
     },
     "li_qa_wesson_1989.svg": {
       "call": "vaft.diagram.li_qa(reference='wesson_1989')",
-      "source_sha256": "ae670417aa376d22492a4d9cc123c50f7913052f7e1793ff90e487f0d43a7f78",
+      "source_sha256": "f8c10b12cad051ab08132d4065dba0157d20358b796ec47c3226b682cdbadb4f",
       "svg_sha256": "0ccee0cea25362a2f3814282f6bcec1b6a5d9d8fd090492aa976c36b3b7b532f"
     },
     "limiter_and_diverted_topologies.svg": {
