@@ -227,11 +227,14 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
-    # the recorded flux-loop fault boundaries (vest.yaml reads only), and the
-    # plasma-current Rogowski verdict on synthetic records.
+    # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
+    # only), the plasma-current Rogowski verdict and the TF excursion repair on
+    # synthetic records.
     "test_class_shot_checklist.py",
+    "test_diagnostic_faults.py",
     "test_flux_loop_known_faults.py",
     "test_plasma_current_quality.py",
+    "test_tf_excursion_repair.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

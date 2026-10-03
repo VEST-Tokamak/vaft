@@ -210,6 +210,26 @@ def pf_drift_row(shot: int) -> dict[str, Any]:
     return {"drift_A": drift, "worst": {"coil": worst[0], "drift_A": worst[1]}}
 
 
+def recorded_faults_row(shot: int) -> list[dict[str, Any]]:
+    """The vest.yaml ``diagnostic_faults`` records in force on *shot* (#1543)."""
+    from vaft.machine_mapping.diagnostic_faults import known_diagnostic_faults
+
+    return [
+        {"ids": f["ids"], "label": f["label"], "kind": f["kind"]} for f in known_diagnostic_faults(shot)
+    ]
+
+
+def tf_repair_row(shot: int) -> dict[str, Any]:
+    """TF-current excursions the mapper repairs on *shot*, from raw (#1543)."""
+    from vaft.machine_mapping.tf import vfit_tf_current_detailed
+
+    _time, _current, intervals = vfit_tf_current_detailed(shot)
+    return {
+        "repaired_ms": round(sum(end - start for start, end in intervals) * 1e3, 1),
+        "intervals": [[round(start, 4), round(end, 4)] for start, end in intervals],
+    }
+
+
 def flags_for(row: dict[str, Any]) -> list[str]:
     flags: list[str] = []
     ip = row.get("ip", {})
@@ -237,6 +257,10 @@ def flags_for(row: dict[str, Any]) -> list[str]:
     fs = row.get("filterscope", {})
     if fs.get("clamped_tail_ms", 0.0) > PROVISIONAL["filterscope_clamp_ms"]:
         flags.append("filterscope_tail_clamped")
+    if row.get("tf", {}).get("repaired_ms", 0.0) > 0.0:
+        flags.append("tf_excursion_repaired")
+    for fault in row.get("recorded_faults", ()):
+        flags.append(f"recorded:{fault['ids']}:{fault['label']}:{fault['kind']}")
     return flags
 
 
@@ -253,9 +277,11 @@ def check_shot(shot: int, *, filedb: Path, raw: bool) -> dict[str, Any]:
             "rogowski": rogowski_row(ods),
             "magnetics": magnetics_row(ods),
             "filterscope": filterscope_row(ods),
+            "recorded_faults": recorded_faults_row(shot),
         }
         if raw:
             row["pf"] = pf_drift_row(shot)
+            row["tf"] = tf_repair_row(shot)
     except Exception as error:  # a shot that cannot be judged is part of the answer
         LOGGER.exception("shot %s", shot)
         return {"shot": shot, "status": "error", "error": f"{type(error).__name__}: {error}"[:300]}

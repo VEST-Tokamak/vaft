@@ -118,3 +118,20 @@ def test_shot_ranges_parse_in_order_without_repeats(module):
 
 def test_an_absent_product_is_a_row_not_an_error(module, tmp_path):
     assert module.check_shot(1, filedb=tmp_path, raw=False) == {"shot": 1, "status": "absent"}
+
+
+def test_recorded_faults_and_tf_repairs_become_flags(module):
+    row = {
+        "ip": module.plasma_current_row(_ods()),
+        "rogowski": {"plasma_rogowski_validity": 0, "tf_rogowski_validity": 0, "diamagnetic_flux": True},
+        "magnetics": {"families": {}},
+        "filterscope": {"clamped_tail_ms": 0.0},
+        "tf": {"repaired_ms": 25.0, "intervals": [[0.3002, 0.3259]]},
+        "recorded_faults": [{"ids": "spectrometer_uv", "label": "H-gamma_4340", "kind": "railed"}],
+    }
+    assert module.flags_for(row) == ["tf_excursion_repaired", "recorded:spectrometer_uv:H-gamma_4340:railed"]
+
+
+def test_the_class_era_carries_its_recorded_faults(module):
+    labels = {fault["label"] for fault in module.recorded_faults_row(48224)}
+    assert {"H-gamma_4340", "H-beta_4861", "OV_629", "PKR-251 Main Gauge"} <= labels

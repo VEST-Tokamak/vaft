@@ -332,6 +332,22 @@
         taps: 26
         baseline_samples: 1000
         smoothing_window: 50
+        # Acquisition excursions of the TF current (issue #1543): the trace
+        # leaves its 12 kA plateau by -15/+25 kA from plasma termination to
+        # ~0.326 s on 48238-48269, 46250, 46500 -- impossible for a circuit
+        # with an L/R of seconds -- and drags BTOR with it. Detection on the
+        # calibrated raw samples: healthy shots never reach a 15 % departure
+        # of the 1 ms median from the 60 ms median (raw noise is ~13 % rms,
+        # max 1 ms departure < 15 %); the faulty ones exceed it for 22-25 ms.
+        excursion_repair:
+          enabled: true
+          window: [0.25, 0.40]
+          trend_window_s: 0.060
+          detect_window_s: 0.001
+          core_fraction: 0.15
+          extend_fraction: 0.05
+          margin_s: 0.001
+          min_plateau: 2000.0
       output:
         turns: 24
         reference_radius: 0.4
@@ -1661,6 +1677,51 @@ impa:
     max_normalized_rmse: 0.15
     pitch_tolerance: 0.015
 
+
+# Recorded faults of diagnostics that have no IMAS validity node (issue #1543),
+# read by vaft.machine_mapping.diagnostic_faults.known_diagnostic_faults. A
+# record documents; it does not alter a mapped value. Each entry is pinned by
+# IDS node, label and raw field against the mapper's own channel table.
+# from_shot/to_shot are inclusive. Boundaries come from raw-signal scans:
+# where the shots between the last good and the first bad one carry no plasma
+# (nothing to judge), the record starts at the first shot after the last good.
+diagnostic_faults:
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.2
+    label: H-gamma_4340
+    field: 138
+    from_shot: 46993
+    kind: railed
+    reason: "Raw input pinned at -5 V (stored +5 V) for the whole record from 46993 (2025-10-29; 46991 last good, 46992 not recorded); still railed on the 2026 class shots"
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.1
+    label: H-beta_4861
+    field: 141
+    from_shot: 46677
+    to_shot: 47414
+    kind: no_signal
+    reason: "No light: field 141 correlates ~0.99 with field 143 and ~0 with every other line, std ~0.01 V (common pickup on an unconnected input). 46676 last good, 46685 first confirmed; 47382 last confirmed, 47415 good again"
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.1
+    label: H-beta_4861
+    field: 141
+    from_shot: 47616
+    kind: no_signal
+    reason: "No light again after the 47415-47615 window (47615 last good, 47618 first confirmed); same signature as 46677-47414"
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.6
+    label: OV_629
+    field: 143
+    from_shot: 46677
+    kind: no_signal
+    reason: "No light: field 143 correlates ~0.99 with field 141 and ~0 with every other line from 46685 on (46676 last good); the label itself is also questioned in #569"
+  - ids: barometry
+    node: gauge.0
+    label: PKR-251 Main Gauge
+    field: 12
+    from_shot: 46993
+    kind: calibration_unverified
+    reason: "Gauge output stepped down by ~1.05 V at 46993 (pre-fill median 3.25 V -> 2.20 V, max 4.12 V -> 3.39 V) with a noisier signal path; through 2.4*10^(1.667 V - 11.46) every pressure since reads ~40x lower and the pre-fill ~3e-8 Torr. Gauge replacement or offset not yet confirmed by operations"
 
 diagnostics_time_policies:
   default: analysis
