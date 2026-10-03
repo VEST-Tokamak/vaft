@@ -1,5 +1,10 @@
 {
   "diagrams": {
+    "ballooning_boundary_conditions.svg": {
+      "call": "vaft.diagram.ballooning_boundary_conditions()",
+      "source_sha256": "490d44bd8ed372919826311be927722df23294cd9fc4627f4e477350b8a0fb02",
+      "svg_sha256": "fd355de7309560d744b1a1d9bd355b1209d7932dcae4f7d952f8b71269c0728f"
+    },
     "ballooning_curvature_drive.svg": {
       "call": "vaft.diagram.ballooning_curvature_drive()",
       "source_sha256": "092eb34963832bd04357a4ea84b5af523eb6bd7486c197b2f1b2bbf45598e8f9",
@@ -19,6 +24,11 @@
       "call": "vaft.diagram.ballooning_newcomb_test()",
       "source_sha256": "35854ec9769be41a8290e1e32fb55a746c1a0e6862e1204042c74282dffe26b5",
       "svg_sha256": "6cc53255ce8f8d062929c9b937d25dfde8653d7eba9c774216ad378caa630e8f"
+    },
+    "ballooning_transit_map.svg": {
+      "call": "vaft.diagram.ballooning_transit_map()",
+      "source_sha256": "a39aeeae747bff5dc410a7a274673ac32b548182f159d8e12fd89b9d795ae55b",
+      "svg_sha256": "33f8cf3ba193857e2f2e675a955a5aa33b99cbf502402fa30ab3f27f0ef752ec"
     },
     "ballooning_workflow.svg": {
       "call": "vaft.diagram.ballooning_workflow()",
@@ -234,6 +244,11 @@
       "call": "vaft.diagram.field_aligned_basis()",
       "source_sha256": "556e9ef69bbb3749ed3c12e334e5328f289a2dd5836cfc9af4f5ce87cceadb94",
       "svg_sha256": "885857853830aa614e07b53e9a621467c0accf81fa87c0de7dfb49dae428c5e3"
+    },
+    "field_aligned_xpoint_limitation.svg": {
+      "call": "vaft.diagram.field_aligned_xpoint_limitation()",
+      "source_sha256": "ece0b542ae53741c55f6e3e67fd2fbdd26e6cce3b2d44521c2e47dc6e1a6878d",
+      "svg_sha256": "b93412fbe861397691771d7f0efee794cc5f3e74d0da8809bb68c27cdbf76db3"
     },
     "field_line_action_angle.svg": {
       "call": "vaft.diagram.field_line_action_angle()",

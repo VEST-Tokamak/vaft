@@ -20,6 +20,7 @@ the plot and the boundary off, with the reason in a warning and in
 from __future__ import annotations
 
 import re
+import textwrap
 import warnings
 from typing import Mapping, Optional, Sequence, Tuple, Union
 
@@ -41,6 +42,8 @@ __all__ = ["operational_space_population", "population_overlay"]
 CATEGORICAL = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7")
 MARKERS = ("o", "s", "^", "D", "v", "P", "X")
 MISSING_COLOR = "#b8b7ae"
+#: categorical values that mean "no data", drawn in MISSING_COLOR
+MISSING_LABELS = frozenset({"unknown", "not available"})
 BOUNDARY_COLORS = ("#1a1a19", "#a3442b", "#2f6f4f", "#5b4a9e")
 
 
@@ -149,9 +152,17 @@ def _label(quantity: _b.BoundaryQuantity, column: str) -> str:
 
 
 def _boundary_label(curve: _b.BoundaryCurve) -> str:
-    """Key and fixed inputs; the full citation stays on the registered entry."""
-    fixed = ", ".join(f"{k} = {v:.3g}" for k, v in curve.fixed.items())
-    return curve.key + (f" ({fixed})" if fixed else "")
+    """Key and fixed inputs by their symbols, wrapped; the full citation stays on the registered entry."""
+    entry = _b.get_boundary(curve.key)
+
+    def symbol(name):
+        try:
+            return entry.input(name).symbol
+        except (KeyError, AttributeError):
+            return name
+
+    fixed = ", ".join(f"{symbol(k)}={v:.3g}" for k, v in curve.fixed.items())
+    return textwrap.fill(curve.key + (f" ({fixed})" if fixed else ""), width=44, subsequent_indent="  ")
 
 
 def _applicability_warnings(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tuple[str, str]):
@@ -265,7 +276,12 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     groups = [(None, np.ones(len(rows), bool))]
     if marker:
         labels = rows[marker].astype(object).where(rows[marker].notna(), "unknown").astype(str)
-        groups = [(name, (labels == name).to_numpy()) for name in pd.unique(labels)]
+        # like the colours, shapes follow the whole table's order, so a group keeps its shape in every panel
+        whole_m = table[marker].astype(object).where(table[marker].notna(), "unknown").astype(str)
+        order_m = ([str(c) for c in table[marker].cat.categories]
+                   if isinstance(table[marker].dtype, pd.CategoricalDtype) else list(pd.unique(whole_m)))
+        order_m += [c for c in pd.unique(labels) if c not in order_m]
+        groups = [(name, (labels == name).to_numpy()) for name in order_m]
     hollow = {str(h) for h in hollow}
 
     numeric_color = (color is not None and pd.api.types.is_numeric_dtype(rows[color])
@@ -281,7 +297,20 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         colormap = plt.get_cmap(cmap).with_extremes(bad=MISSING_COLOR)  # a missing colour value stays visible
     elif color is not None:
         cats = rows[color].astype(object).where(rows[color].notna(), "unknown").astype(str)
-        palette = {name: CATEGORICAL[i % len(CATEGORICAL)] for i, name in enumerate(pd.unique(cats))}
+        # a fixed order, so one category keeps its colour across figures: a pandas Categorical's own
+        # categories, otherwise sorted; categories absent from these rows still hold their slot
+        # the order comes from the whole table, not the rows this panel can plot, so a category keeps its
+        # slot in every panel of a figure
+        whole = table[color].astype(object).where(table[color].notna(), "unknown").astype(str)
+        order = ([str(c) for c in table[color].cat.categories] if isinstance(table[color].dtype, pd.CategoricalDtype)
+                 else sorted(pd.unique(whole)))
+        order += [c for c in sorted(pd.unique(cats)) if c not in order]
+        palette = {name: CATEGORICAL[i % len(CATEGORICAL)] for i, name in enumerate(order) if name in set(cats)}
+        slots = {name: i for i, name in enumerate(order)}
+        palette = {name: CATEGORICAL[slots[name] % len(CATEGORICAL)] for name in palette}
+        for name in palette:   # missing data is grey in every figure, never a palette colour
+            if name in MISSING_LABELS:
+                palette[name] = MISSING_COLOR
 
     mappable = None
     for gi, (name, mask) in enumerate(groups):

@@ -57,7 +57,7 @@ def _plain(value: Any) -> Any:
 
 #: Keywords that shape the whole figure, set on ``compose(...)``, never on a cell.
 FIGURE_LEVEL_OPTIONS = frozenset({
-    "format", "theme", "figsize", "save_path", "row_heights", "ax", "show", "backend",
+    "format", "theme", "figsize", "figure_options", "save_path", "row_heights", "ax", "show", "backend",
     "interactive", "animation", "fps", "duration", "interval_ms", "controls", "interaction_backend",
 })
 
@@ -403,7 +403,7 @@ def build_composition(
 
 
 #: Presentation keywords the Matplotlib panels renderer takes for the figure.
-FIGURE_OPTIONS = ("format", "theme", "figsize")
+FIGURE_OPTIONS = ("format", "theme", "figsize", "figure_options")
 
 
 def render_composition(
@@ -432,8 +432,11 @@ def render_composition(
             f"a composed figure takes {', '.join(FIGURE_OPTIONS)}; plot options belong "
             f"to its cells (got {', '.join(unknown)})"
         )
+    from vaft.plot.figure_options import as_figure_options, figure_options_scope
+
     backend = resolve_render_backend(backend)
     model = build_composition(composition, entries, namespace=namespace, subject=subject)
+    figure_options = as_figure_options(presentation.pop("figure_options", None))
     given = {key: value for key, value in presentation.items() if value is not None}
     if backend == "plotly":
         if given:
@@ -446,7 +449,20 @@ def render_composition(
             raise NotImplementedError(
                 f"backend='plotly' cannot draw this composition (no Plotly rendering for {', '.join(missing)})"
             )
-        return PLOTLY_MODELS[type(model)].render(model, show=show)
+        figure = PLOTLY_MODELS[type(model)].render(model, show=False)
+        if figure_options:
+            figure_options.apply_plotly(figure)
+        if show:
+            figure.show()
+        return figure
     from vaft.plot.renderers.panels import render_panels
 
-    return render_panels(model, show=show, **given)
+    with figure_options_scope(figure_options):
+        result = render_panels(model, show=False, **given)
+    if figure_options:
+        figure_options.apply(result[0])
+    if show:
+        import matplotlib.pyplot as plt
+
+        plt.show()
+    return result
