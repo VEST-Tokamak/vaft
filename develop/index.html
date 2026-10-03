@@ -280,7 +280,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>77a490b</code>. What is described
+  <code>6dc0eaf</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -408,11 +408,11 @@ comparison and study.</li>
 
 <h2 id="architecture">Architecture</h2>
 
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>VEST Data Analysis Platform
-├── Automated Pipeline (Snakemake)     ── experiment → postprocessing → simulation
-├── IMAS Database (OMAS-HSDS)          ── per-shot HDF5 storage via REST API
-└── VAFT Library                       ── data access, mapping, processing, visualization
-</code></pre></div></div>
+<p><img src="/vaft/develop/assets/diagrams/vest_data_platform_overview.svg" alt="The VEST data platform in five stages" /></p>
+
+<p>Experiment, experimental data processing, a per-shot database shared by reconstruction and simulation,
+and access and analysis with VAFT. The reference view, with every section’s content, is on
+<a href="/vaft/develop/reference/diagrams/#the-vest-data-platform">Diagrams</a>.</p>
 
 <h3 id="available-imas-idss-in-the-vest-database">Available IMAS IDSs in the VEST database</h3>
 
@@ -699,7 +699,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-03 14:12:58 +0000"
+        "time": "2026-10-03 14:28:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

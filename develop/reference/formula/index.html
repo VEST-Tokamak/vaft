@@ -282,7 +282,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>77a490b</code>. What is described
+  <code>6dc0eaf</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -435,7 +435,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="boundaries">
     <td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td>
-    <td><code>vaft.formula.boundaries</code></td><td>10</td><td>Operational boundaries from the literature: one data model for density, transition and stability limits.</td>
+    <td><code>vaft.formula.boundaries</code></td><td>13</td><td>Operational boundaries from the literature: one data model for density, transition and stability limits.</td>
   </tr>
   </tbody>
 </table>
@@ -498,7 +498,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 382 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 385 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -1308,6 +1308,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="boundary_value boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#boundary_value"><code>boundary_value</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Value of a boundary’s target quantity at the given inputs.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_kink_coordinates boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#cylindrical_kink_coordinates"><code>cylindrical_kink_coordinates</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Menard’s cylindrical safety factor, $q^* = \pi a^2 B_{T0}(1+\kappa^2)/(\mu_0 R_0 I_P)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="evaluate_boundary boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#evaluate_boundary"><code>evaluate_boundary</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Distance and side of an operating value relative to a boundary.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="evaluate_window boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#evaluate_window"><code>evaluate_window</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Position of an operating value relative to an access window.
@@ -1316,11 +1318,15 @@ which documents the conventions and cites every entry.</p>
 </td></tr>
   <tr data-ref-row="hugill_coordinates boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#hugill_coordinates"><code>hugill_coordinates</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="iter_q95_coordinates boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#iter_q95_coordinates"><code>iter_q95_coordinates</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>The ITER design-guideline $q_{95}$ estimate from global shape, $q_{95} \approx q_* f(\epsilon)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="kink_coordinates boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#kink_coordinates"><code>kink_coordinates</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Freidberg’s kink safety factor of an elongated tokamak, $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I)$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="list_boundaries boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#list_boundaries"><code>list_boundaries</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Keys of the registered boundaries, optionally restricted to one family.
 </td></tr>
   <tr data-ref-row="same_quantity boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#same_quantity"><code>same_quantity</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Whether two quantities are the same physical quantity in the same unit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="start_q95_coordinates boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#start_q95_coordinates"><code>start_q95_coordinates</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>The START low-aspect-ratio $q_{95}$ estimate of Akers et al. (2000) from global shape.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="threshold_curve boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#threshold_curve"><code>threshold_curve</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>A threshold boundary drawn as a straight line across a 2-D projection.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -1588,7 +1594,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-03 14:12:58 +0000"
+        "time": "2026-10-03 14:28:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
