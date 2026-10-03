@@ -45,7 +45,9 @@ from vaft.machine_mapping.magnetics import (
 )
 from vaft.machine_mapping.pf_active import (
     PF_COIL_COUNT,
+    require_acquired_pf_currents,
     resolve_geometry_asset,
+    unacquired_pf_coils,
     vfit_pf_active_dynamic,
     vfit_pf_active_static,
 )
@@ -823,6 +825,12 @@ def build_diagnostics_ods(
         ),
         disabled_channels=_disabled_pf_coils(shot),
     )
+    unacquired_pf = unacquired_pf_coils(ods)
+    if unacquired_pf and statuses["pf_active"]["status"] != "unavailable":
+        # Published without the circuits whose channel was empty (#1568):
+        # they carry NaN, and eddy/EFIT refuse the shot.
+        statuses["pf_active"]["status"] = "partial"
+        statuses["pf_active"]["unacquired_channels"] = unacquired_pf
     grids["pf_active"] = policy_grid("pf_active")
     uv_policy = policies["spectrometer_uv"]
     run_component(
@@ -1056,6 +1064,10 @@ def build_diagnostics_ods(
                 + [
                     f"magnetics:{signal}"
                     for signal in statuses.get("magnetics", {}).get("signals_left_out", {})
+                ]
+                + [
+                    f"pf_active:{coil}"
+                    for coil in statuses.get("pf_active", {}).get("unacquired_channels", [])
                 ]
             ),
             "repaired": [],
@@ -1318,6 +1330,9 @@ def build_eddy_ods(
             "diagnostics ODS is missing " + ", ".join(missing),
             signal_name="eddy-current constraints",
         )
+
+    # A coil kept as not-acquired (#1568) would drive the vessel with NaN.
+    require_acquired_pf_currents(diagnostics, int(shot), "the eddy-current solve")
 
     ods = diagnostics
     _copy_ids(ods, static, ("wall", "pf_passive", "em_coupling"))

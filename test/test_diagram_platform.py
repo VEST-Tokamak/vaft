@@ -41,7 +41,7 @@ def test_the_issue_acceptance_content():
     assert P.EXPERIMENTAL_PROCESSING == ("Machine Model & History", "Signal Processing", "Quality & Validation",
                                          "Fault & Anomaly Detection", "Shot Classification", "Event Detection")
     assert P.RECONSTRUCTION == ("Eddy Current Model", "Magnetic EFIT", "Profile Fitting",
-                                "Kinetic Parameter Inference", "Kinetic EFIT")
+                                "Plasma Parameter Inference", "Kinetic EFIT")
     assert P.DERIVED_PHYSICS == ("Vacuum Field Proxies", "MHD Parameters", "Synthetic Diagnostics",
                                  "Coordinate Conversion", "Power Balance")
     assert list(P.SIMULATION) == ["Equilibrium", "Stability", "3D Response & Topology", "Transport"]

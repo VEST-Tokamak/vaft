@@ -872,8 +872,8 @@
     },
     "vest_data_platform.svg": {
       "call": "vaft.diagram.vest_data_platform()",
-      "source_sha256": "1effeae40ee87ce4814574db7a33743d595081dbe1379bf7d58b7212b2f84833",
-      "svg_sha256": "7932a4f3f27ba2554cf918928905e8fc1125a3845287ccd1a36695221aebbcdf"
+      "source_sha256": "fc7be5717b809c053083c4db333a26d328483a0ef5bff8480985e295db3475d3",
+      "svg_sha256": "31f26302c83e8966b06f5e636712b1928b7f8044e000c5a4735de95b3739c7b7"
     },
     "vest_data_platform_overview.svg": {
       "call": "vaft.diagram.vest_data_platform_overview()",

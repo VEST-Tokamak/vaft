@@ -50,7 +50,7 @@ DATABASE_LAYOUT: Tuple[Tuple[str, ...], ...] = (
 
 #: above: inference of the experimental plasma state, then quantities derived from it
 RECONSTRUCTION: Tuple[str, ...] = ("Eddy Current Model", "Magnetic EFIT", "Profile Fitting",
-                                   "Kinetic Parameter Inference", "Kinetic EFIT")
+                                   "Plasma Parameter Inference", "Kinetic EFIT")
 DERIVED_PHYSICS: Tuple[str, ...] = ("Vacuum Field Proxies", "MHD Parameters", "Synthetic Diagnostics",
                                     "Coordinate Conversion", "Power Balance")
 

@@ -1240,7 +1240,7 @@ vaft.diagram.vest_data_platform_overview()  # five stages, for papers and slides
 | --- | --- |
 | Experimental data processing | Machine Model & History, Signal Processing, Quality & Validation, Fault & Anomaly Detection, Shot Classification, Event Detection |
 | Database | `{shot}/`: `master.h5`; experimental files; reconstructed state; physics products; each group open-ended |
-| Reconstruction & physics inference | Reconstruction (Eddy Current Model, Magnetic EFIT, Profile Fitting, Kinetic Parameter Inference, Kinetic EFIT); Derived Physics (Vacuum Field Proxies, MHD Parameters, Synthetic Diagnostics, Coordinate Conversion, Power Balance) |
+| Reconstruction & physics inference | Reconstruction (Eddy Current Model, Magnetic EFIT, Profile Fitting, Plasma Parameter Inference, Kinetic EFIT); Derived Physics (Vacuum Field Proxies, MHD Parameters, Synthetic Diagnostics, Coordinate Conversion, Power Balance) |
 | Simulation | Each entry is the concept, with its code or model authors beneath. Equilibrium: Fixed Boundary (CHEASE), Free Boundary (TokaMaker), Analytic GS (Solov'ev · Guazzotto & Freidberg). Stability: Ideal (DCON), Resistive (RDCON). 3D Response & Topology: Plasma Response (GPEC), Field-Line Following (FLARE). Transport: Classical (Braginskii), Neoclassical (NEO / Sauter & Redl), Turbulent (TGLF / CGYRO) |
 | Access & analysis | Python API, CLI, GUI, MCP, Documentation; Data Access · Search · Visualization · Comparison · Statistics · Export · Tutorials · Research Archive |
 
