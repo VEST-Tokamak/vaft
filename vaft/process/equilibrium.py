@@ -126,6 +126,12 @@ __all__ = [
     "calculate_diamagnetism",
     "calculate_q_profile_from_psi",
     "find_rational_surfaces",
+    "rational_surfaces",
+    "RationalSurface",
+    "RationalSurfaceRoot",
+    "RATIONAL_SURFACE_PRESENT",
+    "RATIONAL_SURFACE_ABSENT",
+    "RATIONAL_SURFACE_RTOL",
     "StraightFieldLineMap",
     "lab_to_straight_field_line",
     "pest_angle_from_jacobian_angle",
@@ -5306,6 +5312,36 @@ def resistive_layer_at(
     }
 
 
+def _target_crossings(residual: np.ndarray) -> list[tuple[int, float]]:
+    """Where a sampled residual vanishes, as ``(left node, fraction to the next)``.
+
+    The shared bracketing of :func:`find_rational_surfaces` and
+    :func:`rational_surfaces`. ``residual`` is finite and sampled on an
+    increasing coordinate; a crossing between nodes ``i`` and ``i + 1`` is
+    returned as ``(i, w)`` with ``0 < w < 1`` the linear-interpolation weight,
+    a root sitting exactly on node ``i`` as ``(i, 0.0)``.
+
+    Exact zeros are roots in their own right, and are taken first: a root
+    sitting on a node otherwise shows up as two sign changes, +1 -> 0 and
+    0 -> -1, that interpolate to the same point, and a residual flat at zero
+    over an interval shows up as one at each end of it. Either way it is one
+    surface, and counting it twice would double its weight in every reduction
+    downstream.
+    """
+    zero = residual == 0.0
+    crossings = [
+        (int(index), 0.0)
+        for index in np.nonzero(zero)[0]
+        if index == 0 or not zero[index - 1]
+    ]
+    for index in np.nonzero(np.diff(np.sign(residual)) != 0)[0]:
+        if zero[index] or zero[index + 1]:
+            continue  # already taken, as the zero itself
+        span = residual[index + 1] - residual[index]
+        crossings.append((int(index), float(-residual[index] / span)))
+    return crossings
+
+
 def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
     """Where a toroidal mode resonates: the surfaces with q = m / n.
 
@@ -5420,27 +5456,11 @@ def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
     positions: list[float] = []
     for m in range(lo, hi + 1):
         target = m / order
-        residual = q - target
-        # Exact zeros are roots in their own right, and are taken first: a
-        # root sitting on a node otherwise shows up as two sign changes,
-        # +1 -> 0 and 0 -> -1, that interpolate to the same point, and a q
-        # flat at m/n over an interval shows up as one at each end of it.
-        # Either way it is one surface, and counting it twice would double its
-        # weight in every reduction downstream.
-        zero = residual == 0.0
         crossings = [
-            float(psi_norm[index])
-            for index in np.nonzero(zero)[0]
-            if index == 0 or not zero[index - 1]
+            float(psi_norm[index] + weight * (psi_norm[index + 1] - psi_norm[index]))
+            if weight else float(psi_norm[index])
+            for index, weight in _target_crossings(q - target)
         ]
-        for index in np.nonzero(np.diff(np.sign(residual)) != 0)[0]:
-            if zero[index] or zero[index + 1]:
-                continue  # already taken, as the zero itself
-            span = residual[index + 1] - residual[index]
-            weight = -residual[index] / span
-            crossings.append(
-                float(psi_norm[index] + weight * (psi_norm[index + 1] - psi_norm[index]))
-            )
         for crossing in crossings:
             modes.append(m)
             q_rational.append(target)
@@ -5452,6 +5472,252 @@ def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
         "q_rational": np.asarray(q_rational, dtype=float)[outward],
         "psi_n_rational": np.asarray(positions, dtype=float)[outward],
     }
+
+
+#: Relative tolerance below which ``|q| - q_target`` counts as zero in
+#: :func:`rational_surfaces`: far above float rounding, far below any physical
+#: difference in q.
+RATIONAL_SURFACE_RTOL = 1e-9
+
+#: ``RationalSurface.status`` of a requested value the profile reaches.
+RATIONAL_SURFACE_PRESENT = "present"
+#: ``RationalSurface.status`` of a requested value the profile never reaches.
+RATIONAL_SURFACE_ABSENT = "absent"
+
+
+@dataclass(frozen=True)
+class RationalSurfaceRoot:
+    """One flux surface where ``|q|`` equals a requested value.
+
+    ``psi_norm`` is where the crossing was found; ``rho_pol_norm`` is its
+    square root (``None`` for a crossing below the axis value, where the root
+    is not real); ``rho_tor_norm`` is read off the toroidal coordinate the
+    caller supplied on the same grid, and is ``None`` when none was -- it is
+    never rebuilt from ``psi_norm``. ``root_index`` counts outward from 0.
+    """
+
+    psi_norm: float
+    rho_pol_norm: float | None
+    rho_tor_norm: float | None
+    root_index: int
+
+
+@dataclass(frozen=True)
+class RationalSurface:
+    """Every surface of one requested rational value, and who asked for it.
+
+    ``q_target`` is the value searched for. ``harmonics`` are the ``(m, n)``
+    requests that reduce to it -- ``(2, 1)`` and ``(4, 2)`` both name
+    ``q = 2`` and share this one record -- and ``requested_q`` is whether it
+    was also asked for as a plain value. ``status`` is
+    :data:`RATIONAL_SURFACE_PRESENT` with at least one root, or
+    :data:`RATIONAL_SURFACE_ABSENT` with none: an absent surface is said, never
+    placed. ``roots`` run outward. ``method`` names how the roots were located.
+    """
+
+    q_target: float
+    harmonics: tuple[tuple[int, int], ...]
+    requested_q: bool
+    status: str
+    roots: tuple[RationalSurfaceRoot, ...]
+    method: str = "linear interpolation of |q| - q_target between bracketing samples"
+
+    @property
+    def present(self) -> bool:
+        """Whether the profile reaches ``q_target`` anywhere."""
+        return self.status == RATIONAL_SURFACE_PRESENT
+
+
+def _rational_targets(q_targets, resonances) -> list[tuple[float, bool, list[tuple[int, int]]]]:
+    """``(q_target, requested as a value, harmonics)`` per distinct value, ascending."""
+    from fractions import Fraction
+
+    merged: dict[Fraction, tuple[float, list[bool], list[tuple[int, int]]]] = {}
+
+    def slot(key: Fraction, value: float):
+        return merged.setdefault(key, (value, [False], []))
+
+    for raw in q_targets:
+        value = float(raw)
+        if not np.isfinite(value) or value <= 0.0:
+            raise ValueError(
+                f"q_targets holds {raw!r}; a rational value is a positive finite |q|"
+            )
+        # A float request meets an (m, n) one on the same key when they are the
+        # same number to 12 digits, so q = 2.0 and (2, 1) are one surface.
+        key = Fraction(value).limit_denominator(10**6)
+        if abs(float(key) - value) > 1e-12 * value:
+            key = Fraction(value)
+        slot(key, value)[1][0] = True
+    for pair in resonances:
+        try:
+            m, n = pair
+        except (TypeError, ValueError):
+            raise ValueError(f"resonances holds {pair!r}; each entry is an (m, n) pair") from None
+        if m != int(m) or n != int(n):
+            raise ValueError(f"resonance {pair!r} is not a pair of whole mode numbers")
+        m, n = int(m), int(n)
+        if m == 0 or n == 0:
+            raise ValueError(f"resonance ({m}, {n}) has q = m/n zero or undefined")
+        key = Fraction(abs(m), abs(n))
+        entry = slot(key, float(key))
+        if (m, n) not in entry[2]:
+            entry[2].append((m, n))
+    return [
+        (merged[key][0], merged[key][1][0], merged[key][2])
+        for key in sorted(merged)
+    ]
+
+
+def rational_surfaces(psi_norm, q, *, q_targets=(), resonances=(), rho_tor_norm=None):
+    """Every flux surface where the safety factor takes a requested rational value.
+
+    The one place a ``q_target -> radius`` question is answered: the 2-D and
+    1-D rational-surface overlays of :mod:`vaft.plot` and any mode analysis
+    that needs ``q = m/n`` read their locations from here. Requests come as
+    plain values (``q_targets``) or as magnetic harmonics (``resonances``);
+    harmonics with the same ``m/n`` share one surface. Every crossing is
+    returned, so a reversed-shear profile reports both of its ``q = 2``
+    surfaces.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Normalized poloidal flux, increasing over its finite samples [-].
+    q : array_like
+        Safety factor on ``psi_norm``, of either sign [-].
+    q_targets : iterable of float, optional
+        Rational values to locate, compared with ``|q|`` [-].
+    resonances : iterable of (int, int), optional
+        Magnetic harmonics ``(m, n)``, each locating ``|q| = |m/n|`` [-].
+    rho_tor_norm : array_like, optional
+        An authentic normalized toroidal-flux radius on the same grid; the
+        roots carry no toroidal radius without it [-].
+
+    Returns
+    -------
+    tuple of RationalSurface
+        One record per distinct requested value, ascending in ``q_target``,
+        each holding its harmonics, its status and its roots ordered outward [-].
+
+    Raises
+    ------
+    ValueError
+        Nothing is requested, a request is not a positive value or a whole
+        non-zero ``(m, n)``, the arrays are not one-dimensional and of equal
+        length, fewer than two samples are finite, or ``psi_norm`` does not
+        increase.
+
+    Processing steps
+    ----------------
+    1. Merge the requests into distinct values of ``|q|``, keeping which
+       harmonics named each.
+    2. Split the profile into runs of finite samples; a gap is never bridged.
+    3. In each run, take every node where ``|q|`` equals the value and every
+       bracket where ``|q| - q_target`` changes sign, interpolated linearly
+       (the bracketing of :func:`find_rational_surfaces`).
+    4. Map each root to ``rho_pol_norm = sqrt(psi_norm)`` and, when given, to
+       ``rho_tor_norm`` by the same interpolation weight.
+
+    Convention
+    ----------
+    Resonance is ``|q| = |m/n|``: the sign the source's COCOS gives ``q``
+    (``sgn(Ip) sgn(B0)`` in the 11 family) never decides whether a surface
+    exists. ``rho_pol_norm`` is ``sqrt(psi_norm)``; ``rho_tor_norm`` is never
+    derived from ``psi_norm`` here, since the two agree only for a flat ``q``.
+
+    Limitations
+    -----------
+    Linear interpolation, with the accuracy :func:`find_rational_surfaces`
+    quantifies; interpolate ``q`` onto a finer grid first if that is not
+    enough. A sample within a relative ``1e-9`` of the value
+    (``RATIONAL_SURFACE_RTOL``) is taken to equal it, so rounding noise on a
+    ``|q|`` that hovers at the value yields one root, not one per sign flip.
+    Nothing is extrapolated: a value the profile reaches only beyond
+    its last finite sample is reported absent. A ``q`` flat at the value over
+    an interval yields one root, at its start. Roots are not associated across
+    time slices; each slice is resolved on its own.
+
+    Applicability
+    -------------
+    Machine-independent. Any equilibrium profile on an increasing flux grid.
+
+    Provenance
+    ----------
+    .. [1] :func:`find_rational_surfaces` for the bracketing, which this shares
+       rather than repeats; issue #506 for the request and record semantics.
+    """
+    targets = _rational_targets(tuple(q_targets), tuple(resonances))
+    if not targets:
+        raise ValueError("nothing requested: pass q_targets= and/or resonances=")
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    q = np.asarray(q, dtype=float)
+    rho_tor = None if rho_tor_norm is None else np.asarray(rho_tor_norm, dtype=float)
+    if psi_norm.ndim != 1 or q.ndim != 1 or (rho_tor is not None and rho_tor.ndim != 1):
+        raise ValueError("psi_norm, q and rho_tor_norm are one-dimensional profiles")
+    if psi_norm.shape != q.shape or (rho_tor is not None and rho_tor.shape != q.shape):
+        raise ValueError(
+            f"{psi_norm.size} coordinate points against {q.size} q values"
+            + ("" if rho_tor is None else f" and {rho_tor.size} rho_tor_norm values")
+        )
+    finite = np.isfinite(psi_norm) & np.isfinite(q)
+    if np.count_nonzero(finite) < 2:
+        raise ValueError("need at least two finite samples to find a crossing")
+    if not np.all(np.diff(psi_norm[finite]) > 0):
+        raise ValueError(
+            "psi_norm must increase; a crossing is located by interpolation and a "
+            "non-monotonic coordinate would place it ambiguously"
+        )
+    magnitude = np.abs(q)
+    # Runs of consecutive finite samples: a crossing is only ever interpolated
+    # between two neighbours that both exist.
+    edges = np.flatnonzero(np.diff(np.concatenate(([0], finite.astype(int), [0]))))
+    runs = [(int(start), int(stop)) for start, stop in zip(edges[::2], edges[1::2]) if stop - start >= 1]
+
+    surfaces: list[RationalSurface] = []
+    for value, requested_q, harmonics in targets:
+        found: list[tuple[float, float | None]] = []
+        for start, stop in runs:
+            x = psi_norm[start:stop]
+            residual = magnitude[start:stop] - value
+            # Rounding noise is not a crossing: |q| within RATIONAL_SURFACE_RTOL
+            # of the value is the value, so a q hovering at it is one flat
+            # stretch (one root, at its start), not a root per noise flip.
+            residual[np.abs(residual) <= RATIONAL_SURFACE_RTOL * value] = 0.0
+            for index, weight in _target_crossings(residual):
+                if weight:
+                    position = float(x[index] + weight * (x[index + 1] - x[index]))
+                else:
+                    position = float(x[index])
+                toroidal = None
+                if rho_tor is not None:
+                    left = rho_tor[start + index]
+                    right = rho_tor[start + index + 1] if weight else left
+                    if np.isfinite(left) and np.isfinite(right):
+                        toroidal = float(left + weight * (right - left))
+                found.append((position, toroidal))
+        found.sort(key=lambda item: item[0])
+        unique: list[tuple[float, float | None]] = []
+        for position, toroidal in found:
+            if not unique or position != unique[-1][0]:
+                unique.append((position, toroidal))
+        roots = tuple(
+            RationalSurfaceRoot(
+                psi_norm=position,
+                rho_pol_norm=float(np.sqrt(position)) if position >= 0.0 else None,
+                rho_tor_norm=toroidal,
+                root_index=index,
+            )
+            for index, (position, toroidal) in enumerate(unique)
+        )
+        surfaces.append(RationalSurface(
+            q_target=float(value),
+            harmonics=tuple(harmonics),
+            requested_q=requested_q,
+            status=RATIONAL_SURFACE_PRESENT if roots else RATIONAL_SURFACE_ABSENT,
+            roots=roots,
+        ))
+    return tuple(surfaces)
 
 
 def straight_field_line_tables(

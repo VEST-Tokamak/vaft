@@ -154,6 +154,10 @@ class PlotCapability:
     #: ``gradient_coordinate``, ``reference_length`` and ``convention`` of a
     #: profile gradient view.
     choices: Mapping[str, Any] = field(default_factory=dict)
+    #: Optional overlays drawn on request (issue #506), by name: ``options``
+    #: (the keywords that ask for it) and ``reads`` (the extra DD inputs), e.g.
+    #: the ``rational_q=``/``resonances=`` surfaces of an equilibrium view.
+    annotations: Mapping[str, Any] = field(default_factory=dict)
     #: The controls ``plot_*(..., interactive=True)`` offers for this input
     #: (instance level, issue #480), in offer order.
     controls: tuple[str, ...] = ()
@@ -583,6 +587,8 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         notes.append("coordinates: " + " | ".join(
             f"{name} (default)" if name == default else name for name in record.coordinates["options"]
         ))
+    for name, block in (record.annotations or {}).items():
+        notes.append(f"{name}: " + ", ".join(f"{option}=" for option in block.get("options") or ()))
     for option, block in (record.choices or {}).items():
         default = block.get("default")
         notes.append(f"{option}: " + " | ".join(
@@ -660,6 +666,8 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             lines.append(
                 f"{what}: {block.get('default')} by default; " + " | ".join(block["options"])
             )
+    for name, block in (record.annotations or {}).items():
+        lines.append(f"{name}: on request, " + ", ".join(f"{option}=" for option in block.get("options") or ()))
     for option, block in (record.choices or {}).items():
         lines.append(
             f"{option}: {block.get('default') or 'none'} by default; " + " | ".join(map(str, block.get("options") or ()))
