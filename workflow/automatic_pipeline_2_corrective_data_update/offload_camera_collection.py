@@ -73,6 +73,10 @@ PLAN_NAME = "offload_plan.tsv"
 VARIANTS_NAME = "variants_review.tsv"
 MANIFEST_NAME = "offload_manifest.tsv"
 PURGED_NAME = "offloaded_mcf.tsv"
+#: Shots the server held before this collection was first offloaded. Only
+#: these count as "already on the server": a directory a dropped push left
+#: half-written must stay in the push set, not turn into keep_server.
+BASELINE_NAME = "server_baseline.txt"
 
 PLAN_FIELDS = (
     "tag", "shot", "variant", "converted", "bmp_n", "bmp_bytes", "zst_bytes",
@@ -236,10 +240,16 @@ def _variant_rows(collect: Path, plan: list[dict]) -> list[dict]:
 
 
 def cmd_plan(args: argparse.Namespace, remote: Remote) -> int:
-    listing = remote.run(f"ls {shlex.quote(remote.legacy)}")
-    server_shots = {name for name in listing.split() if name.isdigit()}
-    plan = classify(args.collect, server_shots)
     out = _out_dir(args)
+    baseline = out / BASELINE_NAME
+    if not baseline.exists():
+        listing = remote.run(f"ls {shlex.quote(remote.legacy)}")
+        baseline.write_text(
+            "\n".join(sorted(name for name in listing.split() if name.isdigit())) + "\n",
+            encoding="utf-8",
+        )
+    server_shots = set(baseline.read_text(encoding="utf-8").split())
+    plan = classify(args.collect, server_shots)
     _write_tsv(out / PLAN_NAME, PLAN_FIELDS, plan)
 
     variants = _variant_rows(args.collect, plan)
@@ -274,12 +284,15 @@ def cmd_plan(args: argparse.Namespace, remote: Remote) -> int:
 # push
 # ---------------------------------------------------------------------------
 
+# No --partial: with --ignore-existing, a truncated file left at its final name
+# by an interrupted transfer would never be replaced. Without it rsync discards
+# the partial temp file and the next push resends the whole file.
 def _rsync(remote: Remote, source: Path, files: list[str], dest: str, *, dry_run: bool) -> None:
     with tempfile.NamedTemporaryFile("w", suffix=".lst", delete=False) as handle:
         handle.write("\n".join(files) + "\n")
         list_path = handle.name
     command = [
-        "rsync", "-rlt", "--partial", "--ignore-existing", "--chmod=Du=rwx,Fu=rw",
+        "rsync", "-rlt", "--ignore-existing", "--chmod=Du=rwx,Fu=rw",
         "--exclude=._*", "--exclude=Thumbs.db", f"--files-from={list_path}",
         "-e", remote.rsync_shell(), "--info=stats1",
     ]
@@ -331,7 +344,7 @@ def _sha256(path: Path, chunk: int = 8 << 20) -> str:
 def _remote_sizes(remote: Remote, tags: list[str]) -> dict[str, dict[str, int]]:
     script = (
         f"cd {shlex.quote(remote.legacy)} && while read t; do "
-        "[ -d \"$t\" ] && find \"$t\" -maxdepth 1 -type f ! -name '._*' -printf '%h/%f\\t%s\\n'; "
+        "if [ -d \"$t\" ]; then find \"$t\" -maxdepth 1 -type f ! -name '._*' -printf '%h/%f\\t%s\\n'; fi; "
         "done"
     )
     out: dict[str, dict[str, int]] = {}
@@ -444,6 +457,16 @@ def cmd_purge(args: argparse.Namespace, remote: Remote) -> int:
             LOGGER.warning("skip %s: size changed since verification", row["file"])
             continue
         targets.append((row, path))
+    if args.execute:
+        # Re-hash: a same-size rewrite after verification must not be deleted
+        # on the strength of the old file's checksum.
+        rehashed = []
+        for row, path in targets:
+            if _sha256(path) == row["sha256"]:
+                rehashed.append((row, path))
+            else:
+                LOGGER.warning("skip %s: content changed since verification", row["file"])
+        targets = rehashed
 
     total = sum(path.stat().st_size for _, path in targets)
     LOGGER.info("%d verified containers, %.1f GB%s", len(targets), total / 1e9,

@@ -238,11 +238,15 @@ def _parse_gx8_header(path: Path, lines: Sequence[str]) -> CameraHeaderInfo:
         )
 
     exposure_time_s: float | None = None
-    shutter_text = values.get("Shutter_SRC_Speed") or values.get("Shutter_Speed")
+    shutter_key = "Shutter_SRC_Speed" if "Shutter_SRC_Speed" in values else "Shutter_Speed"
+    shutter_text = values.get(shutter_key)
     if shutter_text is not None:
         shutter_match = _GX8_SHUTTER_PATTERN.match(shutter_text)
         if shutter_match is not None:
-            speed = float(shutter_match.group(1)) * (1e3 if shutter_match.group(2) else 1.0)
+            try:
+                speed = float(shutter_match.group(1)) * (1e3 if shutter_match.group(2) else 1.0)
+            except ValueError:
+                speed = 0.0
             if speed > 0:
                 exposure_time_s = 1.0 / speed
 
@@ -251,7 +255,7 @@ def _parse_gx8_header(path: Path, lines: Sequence[str]) -> CameraHeaderInfo:
         end_time_ms=bottom_frame / frame_rate * 1000.0,
         total_frames=bottom_frame - top_frame + 1,
         exposure_time_s=exposure_time_s,
-        exposure_source=f"GX-8 header Shutter_SRC_Speed {shutter_text!r} as 1/speed",
+        exposure_source=f"GX-8 header {shutter_key} {shutter_text!r} as 1/speed",
     )
 
 
