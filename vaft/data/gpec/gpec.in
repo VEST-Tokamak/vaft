@@ -56,7 +56,10 @@
    singcoup_flag=f          ! Calculate coupling of each m to resonant surfaces
    singfld_flag=t           ! Output of resonant surface quantities (flux,current,etc.)
    vsingfld_flag=t          ! Output of vacuum resonant surface quantities
-   singthresh_flag=f       ! Calculate Callen resonant field penetration threshold (requires kinetic profiles from pentrc.in)
+   singthresh_flag=f        ! Calculate SLAYER's and Callen's resonant field penetration thresholds (requires kinetic profiles from pentrc.in)
+   singthresh_callen_flag=f ! Callen's critical island width alone (w_isl_v_crit). Forced true by singthresh_flag
+   singthresh_slayer_flag=f ! SLAYER's critical resonant field alone (Phi_res_crit). Forced true by singthresh_flag
+   singthresh_slayer_inpr=5.0 ! Magnetic Prandtl number Pm = nu/eta (tau_R/tau_V) SLAYER runs at, not its inverse (slayer/gslayer.f:86 takes tau_v = tau_r/inpr). GPEC's own default (gpec/gpec.f:161); read only when a threshold flag is on, and IdealGPECOptions then requires it explicitly
 
    pmodb_flag=f             ! Outputs delta-B_Lagrangian
    xbnormal_flag=t          ! Outputs normal displacement and field in plasma

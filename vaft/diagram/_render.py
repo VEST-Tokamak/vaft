@@ -97,6 +97,15 @@ def _tikz_lines(items):
         yield f"\\fill[{run_style}] " + " ".join(run) + ";"
 
 
+#: What :meth:`Diagram.save` writes, by suffix: what the file is, and the tools it needs on PATH.
+#: The documentation lists these formats on every diagram (``vaft.diagram.docs_catalog``).
+SAVE_FORMATS = {
+    ".svg": ("rendered vector image, the canonical artifact", _TOOLS),
+    ".tex": ("the complete TikZ document, the text source", ()),
+    ".pdf": ("vector PDF", ("pdflatex",)),
+}
+
+
 def tikz_document(scene: Scene) -> str:
     """The complete, compilable LaTeX document for ``scene``."""
     body = "\n".join(_tikz_lines(scene.items))
@@ -320,17 +329,20 @@ class Diagram:
         return self.svg
 
     def save(self, path: Union[str, Path]) -> Path:
-        """Write the diagram as ``.svg`` (canonical), ``.tex`` or ``.pdf``."""
+        """Write the diagram in one of :data:`SAVE_FORMATS`: ``.svg`` (canonical), ``.tex`` or ``.pdf``."""
         path = Path(path)
         suffix = path.suffix.lower()
+        if suffix not in SAVE_FORMATS:
+            raise ValueError(f"cannot save a diagram as {suffix or 'a file with no suffix'!r}; "
+                             f"use {', '.join(list(SAVE_FORMATS)[:-1])} or {list(SAVE_FORMATS)[-1]}")
         if suffix == ".svg":
             path.write_text(self.svg, encoding="utf-8", newline="\n")
         elif suffix == ".tex":
             path.write_text(self.tikz, encoding="utf-8", newline="\n")
         elif suffix == ".pdf":
             render_pdf(self.tikz, path)
-        else:
-            raise ValueError(f"cannot save a diagram as {suffix or 'a file with no suffix'!r}; use .svg, .tex or .pdf")
+        else:  # a suffix added to SAVE_FORMATS without a writer here
+            raise NotImplementedError(f"Diagram.save has no writer for {suffix!r}")
         return path
 
     def __repr__(self) -> str:

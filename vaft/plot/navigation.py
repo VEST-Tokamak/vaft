@@ -211,7 +211,9 @@ class ControlState:
         options: dict[str, Any] = {}
         for control in self._controls:
             value = self._values.get(control.name)
-            if control.group == "style" or value is None or value == "none" or value == ():
+            if control.group == "style" or value is None or value == ():
+                continue
+            if value == "none" and not getattr(control, "keeps_none", False):
                 continue
             if not self._applies(control):
                 continue

@@ -150,14 +150,41 @@ vaft.omas.plot_equilibrium_time_beta_t(ods)
 $H_\alpha$, $B_z$ and $R_{\rm major}$ into one 3×2 figure — the fastest way to see whether a beta
 excursion coincides with a disruption.
 
-The empirical $(q_a, l_i)$ disruption boundary from the JET survey (Wesson *et al.*, Nucl. Fusion
-**29**, 1989) is available for overlaying on that space:
+## Internal inductance against edge q
 
-<!-- docs-snippet: skip fragment (placeholder name qa is never defined on the page) -->
+Two literature pictures look alike on this plane and are different objects (#1422):
+
+| | Wesson *et al.* 1989, Fig. 6 | Cheng, Furth & Boozer 1987, Fig. 4 |
+| --- | --- | --- |
+| Kind | **empirical** JET operating space (1985–88) | **theoretical** domain of MHD-stable current profiles |
+| x | $q_\psi$, the equilibrium q at the edge | $q(a)$ of a straight cylinder |
+| y | $l_i = 2\int B_\theta^2\,d\tau/(\mu_0^2 R I^2)$, the $l_i(3)$ form | cylinder $l_i$ (the paper plots $l_i/2$) |
+| Lower boundary | rotating MHD modes during the current rise; kink and double tearing below | ideal external kink (jig-saw), $q(0) = 1.01$, no wall |
+| Upper boundary | density-limit disruptions | low-order resistive kinks (2/1, 3/2) |
+| Registered keys | `wesson_1989_jet_li_qpsi_lower`, `wesson_1989_jet_li_qpsi_upper` (+ `low_q` at $q_\psi = 2$) | `cheng_1987_li_qa_lower`, `cheng_1987_li_qa_upper`, `cheng_1987_qa_min` |
+
+What $l_i$ measures: the peaking of the current profile, through the poloidal-field energy inside
+the plasma normalised to the edge field. It does not fix the profile shape; many $j(r)$ give one
+$l_i$. Edge $q$ and $l_i$ together bound where the current gradient sits relative to the low-order
+rational surfaces, which is why both limits are drawn on this plane. Both papers are for
+conventional aspect ratio. At VEST aspect ratio, $q_\psi$, $q_{95}$ and the cylinder $q(a)$ differ
+substantially, and so do the $l_i$ conventions. A Wesson line is drawn only on a $q_\psi$ axis
+with $l_i(3)$, and a Cheng line only on the cylinder quantities. Neither is drawn on $q_{95}$.
+
+<!-- docs-snippet: skip fragment (table is a placeholder for a canonical state table) -->
 ```python
-qa_ref, li_ref = vaft.formula.empirical_li_qa()          # 18 surveyed points
-li             = vaft.formula.li_from_qa_empirical(qa)   # piecewise-linear interpolation
+import vaft
+vaft.diagram.li_qa(reference="wesson_1989")      # empirical JET boundaries
+vaft.diagram.li_qa(reference="cheng_1987")       # theoretical stable domain
+from vaft.plot.operational_space import operational_space_population
+fig, ax = operational_space_population(table, "li_qa_wesson")   # columns edge_safety_factor, internal_inductance_li3
 ```
+
+Both curves were digitized at 600 dpi from the published figures, with the axes calibrated on the
+printed ticks. For Cheng, the printed closed form $\max(l_i/2) = [1 + 2\ln(q(a)/q(0))]/4$ is
+recovered to 0.01. The older `vaft.formula.empirical_li_qa()` arrays are the Wesson **lower**
+boundary of Fig. 6 (not Fig. 5, which is the Hugill diagram) and agree with the audit to about
+0.03. Prefer the registered entries.
 
 ---
 

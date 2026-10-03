@@ -42,7 +42,8 @@ def main() -> int:
     parser.add_argument("--encoding", default="raw6", help="Pressure-point encoding: raw6, raw5 or spline.")
     parser.add_argument("--run", default=1, type=int, help="Dataset run number.")
     parser.add_argument("--efit-preset", default="",
-                        help="Named EFIT configuration for the base magnetic kfile; empty is the routine one.")
+                        help="Named EFIT configuration (vaft.code.efit.PRESETS) for the base magnetic kfile; "
+                             "empty is the library default (statistical_891), routine the legacy one.")
     args = parser.parse_args()
 
     logging.basicConfig(

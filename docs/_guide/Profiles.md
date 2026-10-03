@@ -448,6 +448,55 @@ vaft.omas.plot_charge_exchange_profile_ion_temperature(ods)   # measured Ti vers
 vaft.omas.plot_charge_exchange_time_ion_temperature(ods)      # per-channel Ti history
 ```
 
+### Normalized gradients
+
+`plot_electron_temperature_profile_gradient`, `plot_electron_density_profile_gradient` and
+`plot_ion_temperature_profile_gradient` draw $-L\,d\ln f/dx_g$ of the stored `core_profiles` slice
+(#551). The builder calls `vaft.process.profile_gradients.profile_gradient` once, and the renderer
+only draws the result. Four options keep the choices apart:
+
+| option | default | meaning |
+| --- | --- | --- |
+| `coordinate` | `rho_tor_norm` | the abscissa, any `RADIAL_COORDINATES` name |
+| `gradient_coordinate` | `r_minor` | what the derivative is taken with respect to |
+| `reference_length` | `a_minor` | the length multiplying it; `"none"` gives the dimensional $-d\ln f/dr$ in m$^{-1}$ |
+| `convention` | none | `tglf` or `cgyro`, which resolve the two above to `r_minor` and `a_minor` |
+
+The default is therefore $a/L$, and the axis label is generated from the resolved record:
+$a/L_{T_i}$, $R_0/L_{T_i}$ for `R_major_axis`, or $-\partial\ln T_i/\partial r$ [m$^{-1}$] for
+`"none"`.
+
+```python
+import vaft
+
+ods = vaft.omas.load(vaft.data.sample(48224))
+vaft.omas.plot_ion_temperature_profile_gradient(ods, coordinate="rho_tor_norm", convention="tglf")
+model = vaft.omas.extract_ion_temperature_profile_gradient(ods, reference_length="R_major_axis")
+model.y_label                                  # '$R_0/L_{T_i}$'
+model.metadata["mathematical_definition"]      # '-R_0 * d(log(T_i)) / d(r_minor)'
+model.to_xarray().attrs["metadata"]            # the same record, as JSON text
+```
+
+The profile is paired with the equilibrium slice at its own time, never by index. Its grid is
+read from `grid.psi` (normalized by that slice's axis and boundary flux), else `grid.rho_pol_norm`,
+else `grid.rho_tor_norm`, and the record names the one used. A stored `grid.rho_tor_norm` is used
+only when it equals the slice's own `profiles_1d.rho_tor_norm`, is not the $\sqrt{\psi_N}$ proxy, and
+lies within `RHO_TOR_GRID_TOLERANCE` (0.05) of the map's $q$-integrated $\rho_{tor,N}$; the check is
+recorded in `profile_grid_check`. Samples with $f \le 0$ or a non-finite value at either end of the
+profile are left out and counted by side and cause in `excluded_points` and in the title.
+Everything else is refused with its reason:
+
+* an equilibrium that is not at the profile's time;
+* a non-positive value inside the profile;
+* a point outside the map's support;
+* `gs2`, `gkw`, `gene` and `L_ref`, which need run settings a plot option cannot carry. For
+  these, call `profile_gradient` with `metadata=`;
+* a flux-label `gradient_coordinate` with a reference length (pass `reference_length="none"`);
+* an explicit `reference_length=None`, which `profile_gradient` reads as `"none"`.
+
+Choosing a convention in the interactive controls stops the `gradient_coordinate` and
+`reference_length` controls from being sent, since the preset resolves both.
+
 ## Kinetic-profile files
 
 `vaft.data.kinetic_profiles` is the container the kinetic-profile file formats read into and write
@@ -679,15 +728,16 @@ flux map it returns.
 
 ### Named configurations (presets)
 
-`vaft.code.efit.PRESETS` names complete EFIT configurations: the scientific configuration written into the k-file, plus the sigma floor applied to the constraints first.
+`vaft.code.efit.PRESETS` names complete EFIT configurations: the scientific configuration written into the k-file, sigma floor included.
+Since 2026-10-01 the defaults of `EFITScientificConfig` *are* the #891 working setting, so a run that names no configuration writes it (`vaft.code.efit.DEFAULT_PRESET == "statistical_891"`).
 
 | preset | what it is |
 | --- | --- |
-| `routine` | The production configuration: legacy weights, a (2,2) basis, EFIT's own termination. Selecting it is the same as selecting nothing. |
-| `statistical_891` | The #891 working setting. Statistical σ with a 2 % floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1). |
+| `statistical_891` (default) | The #891 working setting. Statistical σ with a 2 % probe/loop floor, probes ×3.62 and loops ×2.15 over their stored σ, the diamagnetic flux fitted at ×16, Ip σ 20 %, KPPCUR 2 / KFFCUR 1, and exit on ψ convergence alone (ERRMIN 1e-4, SAICON out of reach, NXITER 1, MXITER 514). |
+| `routine` | The legacy configuration, the default before 2026-10-01: legacy weights, a (2,2) basis, EFIT's own termination, 100 iterations, no floor. It gave βp ≈ 0 on the reference slices; keep it for reproducing old results. |
 
-A preset floors the constraints before the k-file is written; `prepare_constraints` returns the
-floored copy and what it changed, per slice and family:
+`generate_kfile` applies the configured floor to a copy of the constraints, so the product itself is
+never changed. `prepare_constraints` shows what the floor does, per slice and family:
 
 ```python
 from vaft.code.efit import efit_preset
@@ -698,22 +748,32 @@ constraints, floor_changes = preset.prepare_constraints(ods)   # a floored copy 
 floor_changes[0]   # {'slice': 0, 'family': 'bpol_probe', 'floor': ..., 'raised': ..., 'fitted': ...}
 ```
 
-The k-file is then written from the floored copy with the preset's scientific configuration:
+Writing the k-files needs no configuration for the default; the legacy one is named:
 
 <!-- docs-snippet: skip needs-data (generate_kfile reads the k-file inputs generate_constraints_ods records under equilibrium.code.parameters, which the packaged sample lacks) -->
 ```python
 from vaft.code.efit import generate_kfile
 
-generate_kfile(constraints, 39915, save_dir="efit-run", config=preset.scientific)
+generate_kfile(ods, 39915, save_dir="efit-run")                                       # statistical_891
+generate_kfile(ods, 39915, save_dir="efit-legacy", config=efit_preset("routine").scientific)
 ```
 
+`routine_profile_config()`, `routine_numerics_config()`, `routine_constraint_config()` and
+`routine_scientific_config()` in `vaft.code.efit.config` build the legacy pieces one at a time.
+The legacy configuration is selected only by name: a positional `npprime`/`nffprime` on
+`generate_kfile` without a `config` (deprecated; it warns once) and `EFITConfig.npprime`/`nffprime`
+both mean the same thing, a basis override on the configuration otherwise in force -- the default
+when nothing else is named. To run the legacy configuration with another basis, pass
+`routine_scientific_config(profile=routine_profile_config(kppcur=..., kffcur=...))`; to run it
+through `prepare_efit_inputs`, pass its `profile`, `initialization`, `numerics` and `constraints`.
+
 **Selecting a preset in the pipelines.**
-- **Pipeline 1:** `efit.preset` in `config.yaml` selects it. The k-file stage then writes `efit_preset.json` beside its manifest, and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`).
-- **Pipeline 2:** `kinetic.efit_preset` builds the kinetic lineages' base magnetic k-file with the same preset (`KineticEFITConfig.efit_preset`).
+- **Pipeline 1:** `efit.preset` in `config.yaml` is empty for the default and `routine` for the legacy configuration. The k-file stage always writes `efit_preset.json` beside its manifest, and the EFIT product carries that record under `code.parameters` (`efit_collection.efit_preset`). `vaft.database.summary` reports it as `efit_configuration` (`name@sha12`, or `unrecorded` for products written before the record existed).
+- **Pipeline 2:** `kinetic.efit_preset` builds the kinetic lineages' base magnetic k-file the same way (`KineticEFITConfig.efit_preset`).
 
-A preset run writes the same product paths as a routine one, so give it its own `base_dir`.
+A `routine` run writes the same product paths as a default one, so give it its own `base_dir`.
 
-`statistical_891` allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot's slices in one EFIT call. So raise `efit.timeout`: 3600 s held for the #1331 Tier A campaign, while 600 s timed out 26 of 33 shots.
+The default allows up to 514 iterations (routine: 100). A slice that never converges runs to that cap, and pipeline 1 runs all of a shot's slices in one EFIT call, so `efit.timeout` is 3600 s: 600 s timed out 26 of 33 shots in the #1331 Tier A campaign.
 
 `statistical_891` was calibrated on 39915's flat-top. The weight-study README (`workflow/efit_uncertainty_calibration`) records how.
 

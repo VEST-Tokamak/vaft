@@ -224,9 +224,13 @@ def main():
     if args.efit_executable:
         from vaft.code.efit import (
             EFITConfig,
-            EFITConstraintConfig,
             prepare_efit_inputs,
             run_efit,
+        )
+        from vaft.code.efit.config import (
+            routine_constraint_config,
+            routine_numerics_config,
+            routine_profile_config,
         )
 
         try:
@@ -236,7 +240,11 @@ def main():
                 workdir=args.native_dir / "efit-exact",
                 timeout=60,
                 args=("129",),
-                constraints=EFITConstraintConfig(
+                # The routine profile and numerics this reference was recorded
+                # with, and its own constraint choices on top of the routine ones.
+                profile=routine_profile_config(),
+                numerics=routine_numerics_config(),
+                constraints=routine_constraint_config(
                     uncertainty_mode="standard_deviation",
                     use_diamagnetic_flux=False,
                     wall_current_mode="measured",
@@ -302,6 +310,11 @@ def main():
         }
     write_study_report(args.report_dir / "overall.json", overall)
     collect_report(args.native_dir, args.report_dir, repo)
+
+
+__all__ = [
+    "main",
+]
 
 
 if __name__ == "__main__":

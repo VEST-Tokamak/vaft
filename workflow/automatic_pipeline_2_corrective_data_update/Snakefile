@@ -46,10 +46,8 @@ KINETIC_CONFIG = config.get("kinetic", {})
 KINETIC_ENCODING = KINETIC_CONFIG.get("encoding", "raw6")
 KINETIC_EXECUTABLE = KINETIC_CONFIG.get("executable", "")
 # Named EFIT configuration for the base magnetic kfile (vaft.code.efit.PRESETS);
-# empty is the routine one. Checked here so a typo fails the DAG.
+# empty is the library default (statistical_891), `routine` the legacy one. Checked here so a typo fails the DAG.
 KINETIC_EFIT_PRESET = KINETIC_CONFIG.get("efit_preset") or ""
-if KINETIC_EFIT_PRESET == "routine":  # the routine path itself, as in pipeline 1
-    KINETIC_EFIT_PRESET = ""
 if KINETIC_EFIT_PRESET:
     from vaft.code.efit import efit_preset as _efit_preset
     _efit_preset(KINETIC_EFIT_PRESET)

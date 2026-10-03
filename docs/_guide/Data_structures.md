@@ -21,6 +21,12 @@ VAFT stores **every** VEST shot — raw diagnostics, processed signals, equilibr
 [IMAS](https://imas.iter.org/) data model. There is no VEST-specific container format: if you know the IMAS
 Data Dictionary, you already know how to read VEST data.
 
+The standard representation complements the native scientific artifacts (gEQDSK files, solver
+outputs, camera and diagnostic files); it does not replace them. Native artifacts are stored alongside
+the IMAS database:
+
+![Interoperability layers]({{ site.baseurl }}/assets/diagrams/interoperability_layers.svg)
+
 Two libraries are involved, and it is worth keeping them straight.
 
 | | **IMAS** | **OMAS** |

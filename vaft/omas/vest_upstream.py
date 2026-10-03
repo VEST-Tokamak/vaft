@@ -2036,22 +2036,17 @@ def kinetic_efit_parameters(stage: str, efit_preset: str | None) -> str:
 
     Names the preset that built the base k-file and, as the top-level
     ``uncertainty_model`` that :func:`vaft.omas.efit_quality.constraint_uncertainty_model`
-    reads, the uncertainty model its constraints were fitted under -- the
-    routine scientific configuration's when no preset was named, since that is
-    what :func:`vaft.code.efit.kinetic.prepare_kinetic_efit_inputs` builds the
-    k-file with then.
+    reads, the uncertainty model its constraints were fitted under.  No preset
+    named is the default (``DEFAULT_PRESET``), which is what
+    :func:`vaft.code.efit.kinetic.prepare_kinetic_efit_inputs` builds the
+    k-file with then, so it is recorded by that name.
     """
-    from vaft.code.efit.config import EFITScientificConfig
+    from vaft.code.efit.presets import DEFAULT_PRESET
+    from vaft.code.efit.presets import efit_preset as _efit_preset
 
-    record = None
-    if efit_preset:
-        from vaft.code.efit.presets import efit_preset as _efit_preset
-
-        preset = _efit_preset(efit_preset)
-        record = preset.record()
-        scientific = preset.scientific
-    else:
-        scientific = EFITScientificConfig()
+    preset = _efit_preset(efit_preset or DEFAULT_PRESET)
+    record = preset.record()
+    scientific = preset.scientific
     return json.dumps(
         {
             "kinetic_efit": {"stage": stage, "efit_preset": record},
@@ -2204,11 +2199,12 @@ def build_kinetic_efit_ods(
         "efit_product": str(efit_product),
     }
     manifest["configuration"]["encoding"] = encoding
-    if efit_preset:
-        # Only when set, so a routine manifest is what it was before presets.
-        from vaft.code.efit.presets import efit_preset as _efit_preset
+    # Always: a product names the configuration that built it, the default
+    # included (DEFAULT_PRESET when none was named).
+    from vaft.code.efit.presets import DEFAULT_PRESET
+    from vaft.code.efit.presets import efit_preset as _efit_preset
 
-        manifest["configuration"]["efit_preset"] = _efit_preset(efit_preset).record()
+    manifest["configuration"]["efit_preset"] = _efit_preset(efit_preset or DEFAULT_PRESET).record()
 
     out = ODS(consistency_check=False)
     dataset_description(

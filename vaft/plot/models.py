@@ -283,11 +283,17 @@ class Profile1D(ViewModel):
     display: "DisplaySpec | None" = None
     #: Vertical markers in the abscissa's coordinate (issue #479).
     reference_lines: tuple["ReferenceLine", ...] = ()
+    #: How a derived profile was formed, as plain JSON-serialisable values: a
+    #: profile gradient carries the resolved record of
+    #: :func:`vaft.process.profile_gradients.profile_gradient` here (issue
+    #: #551).  ``to_xarray`` writes it to the ``metadata`` attribute.
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(
             self, "series", _as_series_tuple(self.series, where="Profile1D.series")
         )
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
         if self.x_limits is not None:
             object.__setattr__(
                 self, "x_limits", (float(self.x_limits[0]), float(self.x_limits[1]))
@@ -995,6 +1001,15 @@ class Panels(ViewModel):
     #: entries come from the first panel, so the panels must agree; a figure
     #: whose panels show different quantities wants its per-panel legends.
     share_legend: bool = False
+    #: Axis links between panels, as ``(axis, slots)`` with ``axis`` ``"x"`` or
+    #: ``"y"`` and ``slots`` the panel indices that zoom and pan together
+    #: (issue #1467).  Unlike ``share_x``, which ties a whole regular grid, a
+    #: link names exactly the panels that share a coordinate -- the stacked
+    #: time traces of a composed figure, not the R-Z map beside them.
+    links: tuple[tuple[str, tuple[int, ...]], ...] = ()
+    #: Mark the panels ``(a)``, ``(b)``, ... in slot order, the way a
+    #: publication figure refers to them.
+    panel_labels: bool = False
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")
@@ -1037,6 +1052,20 @@ class Panels(ViewModel):
                         f"{nrows}x{ncols} grid"
                     )
             object.__setattr__(self, "spans", spans)
+        links = []
+        for link in self.links:
+            axis, slots = link
+            slots = tuple(int(slot) for slot in slots)
+            if axis not in ("x", "y"):
+                raise ValueError(f"Panels.links axis must be 'x' or 'y'; got {axis!r}")
+            if len(set(slots)) < 2:
+                raise ValueError(f"Panels.links entry {link!r} links fewer than two panels")
+            if any(slot < 0 or slot >= occupied for slot in slots):
+                raise ValueError(f"Panels.links entry {link!r} names a panel outside 0..{occupied - 1}")
+            if any(isinstance(models[slot], Geometry3DLayers) for slot in slots):
+                raise ValueError("Panels.links cannot link a 3-D scene, which has no x/y axes")
+            links.append((axis, slots))
+        object.__setattr__(self, "links", tuple(links))
         object.__setattr__(self, "nrows", nrows)
         object.__setattr__(self, "ncols", ncols)
 

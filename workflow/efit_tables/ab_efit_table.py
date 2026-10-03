@@ -11,7 +11,7 @@ one constraints ODS is built from the eddy product (with table A's
 k-files for arm B are written from a copy whose ``INPUT_DIR``/``TABLE_DIR``
 are rewritten, and the tool refuses to run if the two k-file sets differ in
 any other line.  One ``efit`` executable, resolved once from ``EFITHOME``,
-runs both arms with ``EFITScientificConfig()``.  Per slice it reports
+runs both arms with ``routine_scientific_config()``.  Per slice it reports
 convergence, chi-square, iterations and the final GS error from the log,
 axis and boundary from the g-file, and the a-file scalars, and sets both arms
 beside the stored pipeline reference a/g-files for the same shot.
@@ -37,7 +37,7 @@ import numpy as np
 from vaft.database.composition import compose_stage_products
 
 from vaft.code.efit import generate_constraints_ods, parse_iteration_history
-from vaft.code.efit.config import EFITScientificConfig
+from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
 from vaft.code.efit.efund import table_identity
 from vaft.code.efit.slice_name import split_slice_file_name
 from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, resolved_efit_configuration, run_efit
@@ -185,8 +185,10 @@ def run_arm(name: str, source, *, shot: int, times: list[float], table_dir: str,
         shot=shot,
         times=list(times),
         args=("129",),
-        npprime=scientific.profile.kppcur,
-        nffprime=scientific.profile.kffcur,
+        profile=scientific.profile,
+        initialization=scientific.initialization,
+        numerics=scientific.numerics,
+        constraints=scientific.constraints,
         stack_size_kb=stack_size_kb,
         provenance={"arm": name, "table_dir": table_dir},
     )
@@ -369,7 +371,7 @@ def main(argv: list[str] | None = None) -> int:
     constraints_seconds = _clock.perf_counter() - started
     print(f"constraints built in {constraints_seconds:.0f} s")
 
-    scientific = EFITScientificConfig()
+    scientific = routine_scientific_config()
     arms = []
     for name, table_dir in (("A", table_a), ("B", table_b)):
         print(f"arm {name}: {table_dir}")

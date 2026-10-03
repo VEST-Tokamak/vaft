@@ -16,7 +16,11 @@ Classification rules (``axis_z`` = magnetic-axis height, fallback 0):
 - active nulls above and below ``axis_z``  -> ``DOUBLE_NULL``;
 - active nulls on one side only            -> ``UPPER/LOWER_SINGLE_NULL``;
 - no active null but one within ``near_null_band`` -> ``NEAR_NULL``;
-- otherwise                                -> ``LIMITED``;
+- otherwise, LCFS within ``contact_tolerance`` of the limiter -> ``LIMITED``;
+- otherwise                                -> ``AMBIGUOUS``: neither a null
+  nor the wall sets the boundary, so the contour is not a self-consistent
+  free-boundary LCFS (a flux-inset export, or a limiter that is not the one
+  the solver used);
 - an upstream failure (unreadable source, no LCFS) -> ``UNKNOWN`` with the
   reason preserved — a scan records it instead of raising.
 """
@@ -52,6 +56,7 @@ class LimiterContact:
     wall_r: float             # nearest wall point [m]
     wall_z: float
     distance: float           # [m]; ~0 for a truly limited plasma
+    side: str = "unknown"     # inboard / outboard / top / bottom, seen from the magnetic axis
 
 
 @dataclass
@@ -65,6 +70,7 @@ class TopologyReport:
     limiter_contact: Optional[LimiterContact] = None
     active_tolerance: float = 0.0
     near_null_band: float = 0.0
+    contact_tolerance: Optional[float] = None        # [m]; LCFS-wall distance that counts as contact
     reason: Optional[str] = None
     representation: Any = field(default=None, repr=False, compare=False)
 
@@ -77,6 +83,7 @@ class TopologyReport:
                 "wall_r": self.limiter_contact.wall_r,
                 "wall_z": self.limiter_contact.wall_z,
                 "distance": self.limiter_contact.distance,
+                "side": self.limiter_contact.side,
             }
         return {
             "topology": self.topology.value,
@@ -86,6 +93,7 @@ class TopologyReport:
             "limiter_contact": contact,
             "active_tolerance": self.active_tolerance,
             "near_null_band": self.near_null_band,
+            "contact_tolerance": self.contact_tolerance,
             "reason": self.reason,
         }
 
@@ -116,11 +124,22 @@ def _min_distance_to_polyline(
         float(wall[0]), float(wall[1]))
 
 
+def _contact_side(r: float, z: float, axis: Optional[tuple[float, float]]) -> str:
+    """Which side of the plasma the contact sits on, seen from the axis."""
+    if axis is None:
+        return "unknown"
+    dr, dz = r - axis[0], z - axis[1]
+    if abs(dr) >= abs(dz):
+        return "inboard" if dr < 0.0 else "outboard"
+    return "top" if dz > 0.0 else "bottom"
+
+
 def classify_boundary(
     source: Any,
     *,
     active_tolerance: float = 2.0e-3,
     near_null_band: float = 5.0e-2,
+    contact_tolerance: Optional[float] = None,
     time_index: int = 0,
     gap_angles: Mapping[str, float] | None = None,
 ) -> TopologyReport:
@@ -130,6 +149,14 @@ def classify_boundary(
     (g-file path, GEQDSK, ODS, EquilibriumData, ...). Never raises: unreadable
     or descriptor-less equilibria come back as ``UNKNOWN`` with a reason, so a
     scan can record the state and continue.
+
+    ``contact_tolerance`` [m] is how close the LCFS must come to the limiter to
+    count as limited. The default is ``max(finest grid cell, 2 % of the minor
+    radius)``. That is tighter than the #65 descriptor rule (3 of the coarsest
+    cells) on purpose: a solver's exported boundary (gEQDSK RBBBS) rests on the
+    wall to within its own trace, while a 129-point gEQDSK spanning the VEST
+    chambers has 2 cm Z cells, and 3 of those would call a plasma 6 cm off the
+    wall limited.
     """
     from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
 
@@ -177,6 +204,42 @@ def classify_boundary(
 
     reason = representation.reason
     lcfs = representation.lcfs
+    limiter = representation.limiter
+    axis_rz = (float(axis[0]), float(axis[1])) if axis is not None else None
+
+    # The closest approach is measured for every non-diverted state: whether
+    # the wall actually sets the boundary is part of the classification.
+    limiter_contact = None
+    if (
+        lcfs is not None
+        and limiter is not None
+        and len(lcfs.r) >= 1
+        and len(limiter.r) >= 2
+    ):
+        try:
+            distance, plasma_pt, wall_pt = _min_distance_to_polyline(
+                lcfs.r, lcfs.z, limiter.r, limiter.z
+            )
+            limiter_contact = LimiterContact(
+                r=plasma_pt[0], z=plasma_pt[1],
+                wall_r=wall_pt[0], wall_z=wall_pt[1],
+                distance=distance,
+                side=_contact_side(plasma_pt[0], plasma_pt[1], axis_rz),
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            _log.warning("Limiter-contact search failed: %s", exc)
+
+    if contact_tolerance is None and lcfs is not None and len(lcfs.r) >= 1:
+        minor_radius = 0.5 * float(np.max(lcfs.r) - np.min(lcfs.r))
+        contact_tolerance = 0.02 * minor_radius
+        steps = [
+            np.abs(np.diff(np.asarray(grid, dtype=float)))
+            for grid in (equilibrium.r, equilibrium.z)
+            if grid is not None and np.size(grid) >= 2
+        ]
+        if steps:
+            contact_tolerance = max(float(min(np.min(step) for step in steps)), contact_tolerance)
+
     if lcfs is None:
         topology = ScanTopology.UNKNOWN
         reason = reason or "no LCFS contour available"
@@ -192,29 +255,20 @@ def classify_boundary(
             topology = ScanTopology.LOWER_SINGLE_NULL
         elif null_margin is not None and null_margin <= near_null_band:
             topology = ScanTopology.NEAR_NULL
-        else:
+        elif limiter_contact is None:
+            topology = ScanTopology.AMBIGUOUS
+            reason = "no active X-point and no limiter contour to confirm a limited boundary"
+        elif limiter_contact.distance <= contact_tolerance:
             topology = ScanTopology.LIMITED
-
-    limiter_contact = None
-    limiter = representation.limiter
-    if (
-        topology in (ScanTopology.LIMITED, ScanTopology.NEAR_NULL)
-        and lcfs is not None
-        and limiter is not None
-        and len(lcfs.r) >= 1
-        and len(limiter.r) >= 2
-    ):
-        try:
-            distance, plasma_pt, wall_pt = _min_distance_to_polyline(
-                lcfs.r, lcfs.z, limiter.r, limiter.z
+        else:
+            topology = ScanTopology.AMBIGUOUS
+            reason = (
+                f"no active X-point, yet the LCFS stands {limiter_contact.distance:.4g} m "
+                f"clear of the limiter (contact needs {contact_tolerance:.4g} m), so "
+                "neither a null nor the wall sets this boundary"
             )
-            limiter_contact = LimiterContact(
-                r=plasma_pt[0], z=plasma_pt[1],
-                wall_r=wall_pt[0], wall_z=wall_pt[1],
-                distance=distance,
-            )
-        except Exception as exc:  # pragma: no cover - defensive
-            _log.warning("Limiter-contact search failed: %s", exc)
+    if topology not in (ScanTopology.LIMITED, ScanTopology.NEAR_NULL, ScanTopology.AMBIGUOUS):
+        limiter_contact = None
 
     return TopologyReport(
         topology=topology,
@@ -224,6 +278,15 @@ def classify_boundary(
         limiter_contact=limiter_contact,
         active_tolerance=active_tolerance,
         near_null_band=near_null_band,
+        contact_tolerance=contact_tolerance,
         reason=reason,
         representation=representation,
     )
+
+
+__all__ = [
+    "ScanTopology",
+    "LimiterContact",
+    "TopologyReport",
+    "classify_boundary",
+]

@@ -63,6 +63,54 @@ def require_source_exists(source: str) -> None:
         raise
 
 
+class ShotFolderError(OSError):
+    """Raised when a shot's HSDS folder is missing and could not be created."""
+
+
+def ensure_shot_folder(source: str, shot: int) -> None:
+    """Create ``/{source}/{shot}/`` on its first write, as the writing account.
+
+    ``hsload`` does not create a missing folder, so every shot used to need an
+    ``hstouch`` before its first replication (``provision_hsds_shots.sh``). The
+    writer now makes it itself, right before its first upload.
+
+    h5pyd's ``mode="x"`` creates only on a 404/410 and otherwise just opens, so
+    an existing folder costs one GET and is never touched. Two hosts creating the
+    same new shot at once is the one race: the loser's PUT is refused (409) and
+    the folder it wanted is there, which is success. A path that exists as a
+    *domain* (``hstouch /main/123`` without the trailing slash) is refused --
+    every later upload into it would fail as if it were a permissions problem.
+    """
+    path = f"/{source}/{int(shot)}/"
+    try:
+        folder = h5pyd.Folder(path, mode="x")
+    except OSError as exc:
+        status = exc.args[0] if exc.args else None
+        if status == 409:
+            folder = h5pyd.Folder(path, mode="r")
+        elif status == 403:
+            raise ShotFolderError(
+                403,
+                f"HSDS refused to create {path}: this account may not create "
+                f"folders in /{source}/. Have an administrator grant it create "
+                f"permission there, or provision the shot with "
+                f"`hstouch -o <owner> {path}`.",
+            ) from exc
+        else:
+            raise
+    kind = getattr(folder, "_obj_class", "folder")
+    close = getattr(folder, "close", None)
+    if close is not None:
+        close()
+    if kind != "folder":
+        raise ShotFolderError(
+            409,
+            f"{path} exists as an HDF5 domain, not a folder; it was created "
+            f"without the trailing slash and must be deleted and recreated "
+            f"with `hstouch -o <owner> {path}`.",
+        )
+
+
 def processed_registry_uri(
     source: Optional[str] = None, *, writable: bool = False
 ) -> str:
