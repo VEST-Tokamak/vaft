@@ -37,7 +37,14 @@ __all__ = [
     "ReferenceSlope",
     "Series",
     "Spectrogram",
+    "STATUSES",
+    "Table",
+    "TableCell",
+    "TableColumn",
+    "TextItem",
     "TextPanel",
+    "TextSection",
+    "TextSummary",
     "ViewModel",
     "as_model_array",
 ]
@@ -1078,3 +1085,272 @@ class Panels(ViewModel):
         from ._xarray import panels_datatree
 
         return panels_datatree(self, **attrs)
+
+
+# ---------------------------------------------------------------------------
+# Non-graphical views: tables and text summaries (issue #1180)
+# ---------------------------------------------------------------------------
+
+#: The classification a table cell or a summary item may carry.  A status is
+#: what the builder concluded -- never a colour; a renderer that draws colour
+#: maps it through the intent vocabulary, and the plain-text forms print it.
+#: ``""`` is "no classification".
+STATUSES = ("", "pass", "warn", "fail", "info")
+
+#: What a :class:`TableColumn` holds: ``text`` (a label or a word, shown as
+#: stored), ``value`` (a number with a unit, formatted by the renderer through
+#: the display policy) or ``status`` (the cell's :data:`STATUSES` entry).
+COLUMN_KINDS = ("text", "value", "status")
+
+#: Where a ``value`` column states its unit: ``inline`` beside each number,
+#: ``column`` in a separate ``Unit`` column next to it, ``header`` once in the
+#: header (only when every cell of the column shows the same unit; otherwise
+#: the renderer falls back to ``inline``).
+UNIT_PLACEMENTS = ("inline", "column", "header")
+
+
+def _cell_scalar(value: Any, *, where: str) -> Any:
+    """A cell value as a plain Python scalar: number, bool, str or ``None``."""
+    _reject_data_objects(value, where=where)
+    if value is None or isinstance(value, (bool, str)):
+        return value
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, np.ndarray):
+        if value.size != 1:
+            raise ValueError(f"{where} holds one value; got an array of shape {value.shape}")
+        value = value.ravel()[0].item()
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float):
+        return float(value)
+    raise TypeError(
+        f"{where} must be a number, a bool, a string or None; got {type(value).__name__}"
+    )
+
+
+def _check_status(status: Any, *, where: str) -> str:
+    status = str(status or "")
+    if status not in STATUSES:
+        raise ValueError(f"{where} must be one of {STATUSES}; got {status!r}")
+    return status
+
+
+@dataclass(frozen=True)
+class TableCell:
+    """One structured value: what it is, in which unit, and how it is judged.
+
+    ``value`` stays a number (or a bool, a word, or ``None`` for "not
+    available") -- nothing is formatted here.  ``unit`` is the *stored*
+    (canonical IMAS) unit; the renderer converts it to the display unit the
+    policy of :mod:`vaft.plot.display` chooses for ``subject``/``quantity``
+    (``A`` -> ``kA``; a beta's convention by its taxonomy ``quantity``), or to
+    ``display_unit`` when the builder fixed one.  ``format`` is a Python
+    format specification for the displayed number (``".4g"`` when empty).
+    ``status`` is a :data:`STATUSES` classification; ``note`` an annotation
+    the plain-text forms list beneath the table.
+    """
+
+    value: Any = None
+    unit: str = ""
+    subject: str = ""
+    quantity: str = ""
+    display_unit: str | None = None
+    format: str = ""
+    status: str = ""
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "value", _cell_scalar(self.value, where="TableCell.value"))
+        for name in ("unit", "subject", "quantity", "format", "note"):
+            object.__setattr__(self, name, str(getattr(self, name) or ""))
+        if self.display_unit is not None:
+            object.__setattr__(self, "display_unit", str(self.display_unit))
+        object.__setattr__(self, "status", _check_status(self.status, where="TableCell.status"))
+
+    @property
+    def missing(self) -> bool:
+        """Whether there is no value to show (``None`` or a non-finite number)."""
+        value = self.value
+        return value is None or (isinstance(value, float) and not np.isfinite(value))
+
+
+def _as_cell(value: Any, *, where: str) -> TableCell:
+    return value if isinstance(value, TableCell) else TableCell(value)
+
+
+@dataclass(frozen=True)
+class TableColumn:
+    """One column of a :class:`Table`: its header, its kind and its alignment.
+
+    ``align`` is ``"left"``, ``"right"`` or ``"center"``; empty means right
+    for numbers and left otherwise.  ``units`` places a ``value`` column's
+    unit (:data:`UNIT_PLACEMENTS`).
+    """
+
+    name: str
+    kind: str = "text"
+    align: str = ""
+    units: str = "inline"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "name", str(self.name))
+        if self.kind not in COLUMN_KINDS:
+            raise ValueError(f"TableColumn.kind must be one of {COLUMN_KINDS}; got {self.kind!r}")
+        if self.align not in ("", "left", "right", "center"):
+            raise ValueError(f"TableColumn.align must be left, right or center; got {self.align!r}")
+        if self.units not in UNIT_PLACEMENTS:
+            raise ValueError(f"TableColumn.units must be one of {UNIT_PLACEMENTS}; got {self.units!r}")
+
+
+@dataclass(frozen=True)
+class Table(ViewModel):
+    """A table of structured values -- a scientific view, not a serialisation.
+
+    ``rows`` are tuples of :class:`TableCell`, one per column, in the order
+    they are shown (a bare value is wrapped into a cell).  ``missing`` is what
+    a cell without a value reads as.  ``caption`` follows the table;
+    ``notes`` are statements about the whole table, listed after the cells'
+    own notes.  The model holds no formatted text: see
+    :func:`vaft.plot.render_table`.
+    """
+
+    columns: tuple[TableColumn, ...]
+    rows: tuple[tuple[TableCell, ...], ...]
+    title: str = ""
+    caption: str = ""
+    notes: tuple[str, ...] = ()
+    missing: str = "—"
+
+    def __post_init__(self) -> None:
+        _reject_data_objects(self.rows, where="Table.rows")
+        columns = tuple(
+            column if isinstance(column, TableColumn) else TableColumn(str(column))
+            for column in self.columns
+        )
+        if not columns:
+            raise ValueError("Table.columns must name at least one column")
+        rows = []
+        for number, row in enumerate(self.rows):
+            if isinstance(row, (str, bytes)) or not isinstance(row, Sequence):
+                raise TypeError(f"Table.rows[{number}] must be a sequence of cells")
+            cells = tuple(_as_cell(cell, where=f"Table.rows[{number}]") for cell in row)
+            if len(cells) != len(columns):
+                raise ValueError(
+                    f"Table.rows[{number}] has {len(cells)} cells for {len(columns)} columns"
+                )
+            rows.append(cells)
+        object.__setattr__(self, "columns", columns)
+        object.__setattr__(self, "rows", tuple(rows))
+        object.__setattr__(self, "title", str(self.title))
+        object.__setattr__(self, "caption", str(self.caption))
+        object.__setattr__(self, "notes", tuple(str(note) for note in self.notes))
+        object.__setattr__(self, "missing", str(self.missing))
+
+    def column(self, name: str) -> tuple[TableCell, ...]:
+        """The cells of the column headed ``name``, in row order."""
+        for index, column in enumerate(self.columns):
+            if column.name == name:
+                return tuple(row[index] for row in self.rows)
+        raise KeyError(f"no column named {name!r}; columns: {[c.name for c in self.columns]}")
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """One variable per column on a ``row`` dimension, raw values and stored units; see :mod:`vaft.plot._xarray`."""
+        from ._xarray import table_dataset
+
+        return table_dataset(self, **attrs)
+
+
+@dataclass(frozen=True)
+class TextItem:
+    """One line of a :class:`TextSection`: a labelled value, or a statement.
+
+    With a ``label`` it is a key-value quantity, ``value``/``unit``/
+    ``subject``/``quantity``/``display_unit``/``format`` meaning what they
+    mean on :class:`TableCell`.  Without one, ``value`` is a short statement
+    shown as written.
+    """
+
+    label: str = ""
+    value: Any = None
+    unit: str = ""
+    subject: str = ""
+    quantity: str = ""
+    display_unit: str | None = None
+    format: str = ""
+    status: str = ""
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "value", _cell_scalar(self.value, where="TextItem.value"))
+        for name in ("label", "unit", "subject", "quantity", "format", "note"):
+            object.__setattr__(self, name, str(getattr(self, name) or ""))
+        if self.display_unit is not None:
+            object.__setattr__(self, "display_unit", str(self.display_unit))
+        object.__setattr__(self, "status", _check_status(self.status, where="TextItem.status"))
+
+    @property
+    def missing(self) -> bool:
+        value = self.value
+        return value is None or (isinstance(value, float) and not np.isfinite(value))
+
+    @property
+    def is_statement(self) -> bool:
+        return not self.label
+
+
+@dataclass(frozen=True)
+class TextSection:
+    """A named group of :class:`TextItem` lines; a bare string is a statement."""
+
+    title: str
+    items: tuple[TextItem, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "title", str(self.title))
+        items = tuple(
+            item if isinstance(item, TextItem) else TextItem(value=str(item))
+            for item in self.items
+        )
+        object.__setattr__(self, "items", items)
+
+
+@dataclass(frozen=True)
+class TextSummary(ViewModel):
+    """A standalone text summary in named sections (issue #1180).
+
+    Distinct from :class:`TextPanel`, which is text placed inside a figure:
+    a summary is the whole presentation, printed in a terminal, shown in a
+    notebook or written to a report by :func:`vaft.plot.render_text_summary`.
+    ``missing`` is what an item without a value reads as.
+    """
+
+    sections: tuple[TextSection, ...]
+    title: str = ""
+    caption: str = ""
+    missing: str = "not stored"
+
+    def __post_init__(self) -> None:
+        _reject_data_objects(self.sections, where="TextSummary.sections")
+        sections = tuple(self.sections)
+        if not all(isinstance(section, TextSection) for section in sections):
+            raise TypeError("TextSummary.sections must be TextSection instances")
+        object.__setattr__(self, "sections", sections)
+        object.__setattr__(self, "title", str(self.title))
+        object.__setattr__(self, "caption", str(self.caption))
+        object.__setattr__(self, "missing", str(self.missing))
+
+    def section(self, title: str) -> TextSection:
+        """The section titled ``title``."""
+        for section in self.sections:
+            if section.title == title:
+                return section
+        raise KeyError(f"no section titled {title!r}; sections: {[s.title for s in self.sections]}")
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """One ``item`` dimension: section, label, raw value and stored unit; see :mod:`vaft.plot._xarray`."""
+        from ._xarray import text_summary_dataset
+
+        return text_summary_dataset(self, **attrs)

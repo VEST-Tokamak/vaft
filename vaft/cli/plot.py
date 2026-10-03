@@ -8,7 +8,9 @@ samples or local files instead.  ``--compose`` draws a
 ``--figure-options`` set the presentation (#689, #1421), and ``--request``
 replays a whole :class:`vaft.plot.PlotRequest` -- the command the GUI and
 ``PlotRequest.to_cli()`` write.  ``--list`` prints what a shot can plot
-without downloading it.  Nothing heavier than ``argparse`` is imported
+without downloading it.  A table or text view (issue #1180) is printed to
+stdout instead of opening a window, and ``--out x.txt|x.md|x.html`` writes
+the matching export.  Nothing heavier than ``argparse`` is imported
 before the arguments are parsed, so ``vaft plot --help`` works in a bare
 install.
 """
@@ -32,7 +34,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--sample", action="append", type=int, help="packaged sample shot, offline (repeat for several)")
     parser.add_argument("--file", action="append", help="local ODS/IMAS/GEQDSK file (repeat for several)")
     parser.add_argument("--source", help="HSDS source (default: main)")
-    parser.add_argument("--out", help="write the figure here (format by extension) instead of showing it")
+    parser.add_argument(
+        "--out",
+        help="write the figure here (format by extension) instead of showing it; "
+             "a table/text view writes .txt, .md or .html (without --out it is printed)",
+    )
     parser.add_argument("--no-lazy", action="store_true", help="stage the declared IDS instead of lazy reads")
     parser.add_argument(
         "--option", action="append", default=[], metavar="KEY=VALUE",
@@ -125,7 +131,15 @@ def _request_from(args: argparse.Namespace, options: dict[str, Any], parser: arg
 
 
 def _write(result: Any, out: str) -> str:
-    """Save what a request drew to ``out``: HTML for Plotly, the extension's format otherwise."""
+    """Save what a request drew to ``out``: HTML for Plotly, the extension's format otherwise.
+
+    A table or text view (issue #1180) is text: ``.txt``, ``.md`` or ``.html``
+    writes the matching export.
+    """
+    from vaft.plot.renderers.tables import TextView
+
+    if isinstance(result, TextView):
+        return result.save(out)
     if hasattr(result, "write_html"):
         if not out.lower().endswith((".html", ".htm")):
             raise ValueError(f"backend='plotly' writes HTML; give --out a .html path, not {out!r}")

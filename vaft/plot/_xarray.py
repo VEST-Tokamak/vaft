@@ -342,3 +342,63 @@ def panels_datatree(model: Any, **extra: Any) -> Any:
     )
     root = xr.Dataset(attrs=attrs)
     return xr.DataTree.from_dict({"/": root, **{f"/{name}": ds for name, ds in children.items()}})
+
+
+# ---------------------------------------------------------------------------
+# non-graphical views (issue #1180)
+# ---------------------------------------------------------------------------
+
+
+def _object_array(values: Sequence[Any]) -> np.ndarray:
+    out = np.empty(len(values), dtype=object)
+    for index, value in enumerate(values):
+        out[index] = value
+    return out
+
+
+def table_dataset(model: Any, **extra: Any) -> "xr.Dataset":
+    """A :class:`~vaft.plot.models.Table` as one variable per column on a ``row`` dimension.
+
+    Values are the raw stored ones (object dtype: a column may mix numbers
+    and words); each variable's ``units`` attribute lists the cells' stored
+    units as JSON and ``status`` their classifications, so nothing the
+    model holds is lost and nothing is formatted.
+    """
+    xr = _xr()
+    data_vars = {}
+    for index, column in enumerate(model.columns):
+        cells = [row[index] for row in model.rows]
+        data_vars[f"column_{index:02d}"] = (
+            ("row",),
+            _object_array([cell.value for cell in cells]),
+            {
+                "name": column.name,
+                "kind": column.kind,
+                "units": _plain([cell.unit for cell in cells]),
+                "status": _plain([cell.status for cell in cells]),
+                "note": _plain([cell.note for cell in cells]),
+            },
+        )
+    ds = xr.Dataset(data_vars, coords={"row": np.arange(len(model.rows))})
+    ds.attrs.update(dataset_attrs(model, "title", "caption", "notes", "missing", **extra))
+    return ds
+
+
+def text_summary_dataset(model: Any, **extra: Any) -> "xr.Dataset":
+    """A :class:`~vaft.plot.models.TextSummary` flattened onto one ``item`` dimension."""
+    xr = _xr()
+    items = [(section.title, item) for section in model.sections for item in section.items]
+    ds = xr.Dataset(
+        {
+            "value": (("item",), _object_array([item.value for _, item in items])),
+            "unit": (("item",), _object_array([item.unit for _, item in items])),
+            "status": (("item",), _object_array([item.status for _, item in items])),
+        },
+        coords={
+            "item": np.arange(len(items)),
+            "section": (("item",), _object_array([title for title, _ in items])),
+            "label": (("item",), _object_array([item.label for _, item in items])),
+        },
+    )
+    ds.attrs.update(dataset_attrs(model, "title", "caption", "missing", **extra))
+    return ds

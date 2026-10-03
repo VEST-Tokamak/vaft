@@ -705,7 +705,7 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             f"orientation: {record.orientation['default']} by default; "
             + " | ".join(record.orientation.get("options", ()))
         )
-    lines.append("backends: " + " | ".join(record.backends))
+    lines.append("backends: " + (" | ".join(record.backends) or "none -- presented as text"))
     if record.sources:
         lines.append("sources: " + ", ".join(record.sources))
     if record.interaction:

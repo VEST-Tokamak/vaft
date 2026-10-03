@@ -141,6 +141,12 @@ def controls_for(
     adds the rendering library, off by
     default because changing it replaces the figure object.
     """
+    from .registry import NON_GRAPHICAL_VIEWS
+
+    if getattr(record, "view", "") in NON_GRAPHICAL_VIEWS:
+        # A table or text view (issue #1180) is presented as text; there is
+        # no figure for a control to redraw, so interactive=True is refused.
+        return ()
     controls: list[ControlSpec] = []
     controls.extend(_member_controls(record))
     controls.extend(_slice_controls(record))

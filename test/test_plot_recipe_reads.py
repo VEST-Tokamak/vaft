@@ -58,6 +58,8 @@ NEUTRAL = frozenset({
     # issue #1099: the FLARE connection-length map reads plasma_initiation
     # through the accessor only.
     "field_line_topology_field_connection_length",
+    # issue #1180: the fit-quality table reads vaft.omas.efit_quality's metrics.
+    "equilibrium_table_fit_quality",
 })
 OMAS_BOUND = frozenset({
     "passive_structure_geometry_wall_mode",
@@ -68,6 +70,8 @@ OMAS_BOUND = frozenset({
     "camera_visible_image", "camera_visible_image_frame", "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line", "camera_visible_image_fluctuation",
     "camera_visible_image_mhd_power", "equilibrium_overview",
+    # issue #1180: the slice summaries derive what a g-file omits as the overview does.
+    "equilibrium_table_summary", "equilibrium_text_summary",
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
     # issue #888: the startup views solve vessel currents on a private copy.
     "startup_proxies_time", "vacuum_field_midplane", "camera_visible_image_vacuum_field_line",
