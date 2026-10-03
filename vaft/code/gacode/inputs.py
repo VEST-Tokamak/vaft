@@ -873,18 +873,22 @@ def prepare_gacode_profile(
             "record": record,
         }
         if len(charges) > 1:
-            # Several species: NEO, TGLF and CGYRO read the list, so the column
-            # must agree with it -- the #803 contradiction, without impurity=.
+            # Several species: NEO, TGLF and CGYRO read the list, so a column a
+            # composition writer derived or assumed must agree with it -- the #803
+            # contradiction, without impurity=.  A measured (or unlabelled) column
+            # is independent of the list and is only compared, never refused.
             stacked = np.vstack(densities)
-            species_value = float(np.nanmean(
-                np.sum(stacked * np.asarray(charges)[:, None] ** 2, axis=0) / (ne / DENSITY_SCALE)
-            ))
-            column_value = float(np.nanmean(z_eff_profile))
+            species_profile = np.sum(stacked * np.asarray(charges)[:, None] ** 2, axis=0) / (ne / DENSITY_SCALE)
+            common = np.isfinite(z_eff_profile) & np.isfinite(species_profile)
+            species_value = float(np.mean(species_profile[common])) if common.any() else float("nan")
+            column_value = float(np.mean(z_eff_profile[common])) if common.any() else float("nan")
             provenance["z_eff"]["species_value"] = species_value
-            if abs(column_value - species_value) > 1e-3:
+            if origin in ("assumed", "derived", "inferred") and not (
+                common.any() and abs(column_value - species_value) <= 1e-3 * max(1.0, abs(species_value))
+            ):
                 raise ProfileConversionError(
-                    f"{profile_prefix}.zeff averages {column_value:.4g} but the ion species "
-                    f"list gives {species_value:.4g}. Writing both would put a column in "
+                    f"{profile_prefix}.zeff ({origin}) averages {column_value:.4g} but the ion "
+                    f"species list gives {species_value:.4g}. Writing both would put a column in "
                     "input.gacode that contradicts the species NEO, TGLF and CGYRO read; "
                     "make the zeff profile and the ion list agree."
                 )

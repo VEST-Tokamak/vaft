@@ -934,11 +934,19 @@ def _write_slice(ods: Any, resolved: ResolvedImpurityComposition, time: Optional
         raise ValueError("this composition is measured in core_profiles already; nothing to write")
     if resolved.kind not in _WRITE_ORIGIN:
         raise ValueError(f"cannot write a composition of kind {resolved.kind!r}")
+    if time is not None and resolved.time is not None and abs(float(time) - float(resolved.time)) > tolerance:
+        raise ValueError(
+            f"the composition was resolved at t = {resolved.time:g} s; writing it into the slice "
+            f"at t = {float(time):g} s would pair one slice's composition with another's data"
+        )
     target = resolved.time if time is None else time
     index = _slice_index(ods, target, tolerance)
     if index is None:
         raise ValueError(f"no core_profiles slice within {tolerance:g} s of t = {target!r}")
     base = f"core_profiles.profiles_1d.{index}"
+    stored, _ = _ods_impurities(ods, index)
+    if stored is not None and stored["origin"] == "measured":
+        raise ValueError(f"{base} carries an ion composition labelled measured; it is never overwritten")
     ne = _get(ods, f"{base}.electrons.density_thermal")
     if ne is None:
         ne = _get(ods, f"{base}.electrons.density")
@@ -959,9 +967,34 @@ def _on_grid(values: Any, resolved: ResolvedImpurityComposition, rho: Optional[n
         return array.copy()
     if resolved.rho is None or rho is None:
         raise ValueError("a resolved profile on another grid needs both rho grids to be interpolated")
+    source = np.asarray(resolved.rho, dtype=float)
+    if not (np.all(np.isfinite(source)) and np.all(np.diff(source) > 0.0)):
+        raise ValueError("the resolved rho grid must be finite and increasing to be interpolated")
     columns = array.reshape(array.shape[0], -1)
-    out = np.column_stack([np.interp(rho, resolved.rho, column, left=np.nan, right=np.nan) for column in columns.T])
+    # inside the resolved range only; beyond it the point is undefined and filled below
+    out = np.column_stack([np.interp(rho, source, column, left=np.nan, right=np.nan) for column in columns.T])
     return out.reshape((n,) + array.shape[1:])
+
+
+def _fill_undefined(values: np.ndarray, rho: Optional[np.ndarray]) -> tuple[np.ndarray, int]:
+    """Fill NaN points of a per-rho array (rho on axis 0) from its finite neighbours.
+
+    Linear in rho between defined points and constant beyond the outermost
+    one -- a density is never written as NaN over a stored finite value.
+    Returns the filled array and how many points were filled.
+    """
+    out = np.array(values, dtype=float, copy=True)
+    flat = out.reshape(out.shape[0], -1)
+    undefined = ~np.all(np.isfinite(flat), axis=1)
+    if not undefined.any():
+        return out, 0
+    if undefined.all():
+        raise ValueError("the resolved composition is undefined at every point of the slice")
+    x = np.arange(flat.shape[0], dtype=float) if rho is None else np.asarray(rho, dtype=float)
+    good = ~undefined
+    for column in range(flat.shape[1]):
+        flat[undefined, column] = np.interp(x[undefined], x[good], flat[good, column])
+    return out, int(np.count_nonzero(undefined))
 
 
 def _record(resolved: ResolvedImpurityComposition, quantity: str, method: Optional[str]) -> str:
@@ -1030,8 +1063,12 @@ def populate_zeff_profile(
     base = f"core_profiles.profiles_1d.{index}"
     if "measured" in resolved.zeff_source:
         return work  # the slice already carries the measured profile it was closed at
-    work[f"{base}.zeff"] = _on_grid(resolved.zeff, resolved, rho, ne.size)
-    work[f"{base}.zeff_fit.parameters"] = _record(resolved, "zeff", method)
+    if composition_record_origin(_get(work, f"{base}.zeff_fit.parameters")) == "measured":
+        raise ValueError(f"{base}.zeff is labelled measured; it is never overwritten")
+    zeff, filled = _fill_undefined(_on_grid(resolved.zeff, resolved, rho, ne.size), rho)
+    work[f"{base}.zeff"] = zeff
+    record = _record(resolved, "zeff", method)
+    work[f"{base}.zeff_fit.parameters"] = record + (f"; filled_points={filled}" if filled else "")
     return work
 
 
@@ -1072,8 +1109,10 @@ def populate_impurity_profiles(
     Raises
     ------
     ValueError
-        A measured composition, no slice at the time, no electron density, or
-        a stored main ion that is not hydrogenic.
+        A measured composition (resolved or stored in the target slice), a
+        ``time`` that is not the resolved composition's, no slice at the time,
+        no electron density, a stored main ion that is not hydrogenic, or two
+        stored hydrogenic ions.
 
     Processing steps
     ----------------
@@ -1083,10 +1122,14 @@ def populate_impurity_profiles(
        impurity entry.
     3. Write the main ion's diluted density and each impurity's
        ``n_e * n_s/n_e`` (a profile composition is interpolated in rho).
-    4. Give each impurity the main ion's temperature and its
-       ``temperature_fit.parameters`` record unchanged, so a Ti reader
-       classifies every ion alike; label each density ``origin=...``.
-    5. Optionally write ``zeff`` (:func:`populate_zeff_profile`).
+    4. Give each impurity the main ion's temperature, its
+       ``temperature_fit.parameters`` record unchanged (so a Ti reader
+       classifies every ion alike) and its toroidal rotation; label each
+       density ``origin=...``.  A point where the composition is undefined
+       is filled from its neighbours in rho and counted (``filled_points``).
+    5. Write ``zeff`` (:func:`populate_zeff_profile`), or, with
+       ``write_zeff=False``, drop a non-measured ``zeff`` that the new species
+       list would contradict.
 
     Input semantics
     ---------------
@@ -1112,7 +1155,10 @@ def populate_impurity_profiles(
 
     Limitations
     -----------
-    A non-hydrogenic main ion is refused.  Only this slice is written.
+    A non-hydrogenic main ion is refused.  Only this slice is written.  The
+    impurities' copied temperature record reads as whatever the main ion's
+    says (measured, assumed or inferred): equal temperatures are an
+    assumption noted only in the density record.
 
     Provenance
     ----------
@@ -1124,26 +1170,30 @@ def populate_impurity_profiles(
     base = f"core_profiles.profiles_1d.{index}"
     from vaft.ods_access import path_count
 
-    main_node = None
+    if not _hydrogenic(_element_table()[resolved.main_ion][0]):
+        raise ValueError(f"only a hydrogenic main ion is written, not {resolved.main_ion!r}")
+    hydrogenic, others = [], []
     for k in range(path_count(work, f"{base}.ion")):
         z_n = _get(work, f"{base}.ion.{k}.element.0.z_n")
-        if _hydrogenic(z_n):
-            main_node = copy.deepcopy(work[f"{base}.ion.{k}"])
-            break
+        (hydrogenic if _hydrogenic(z_n) else others).append(k)
+    if len(hydrogenic) > 1:
+        raise ValueError(f"{base} stores {len(hydrogenic)} hydrogenic ions; one main ion is written, not a mix")
+    if others and not hydrogenic:
+        raise ValueError(f"{base} stores ions but no hydrogenic main ion; a non-hydrogenic main ion is refused")
+    main_node = copy.deepcopy(work[f"{base}.ion.{hydrogenic[0]}"]) if hydrogenic else None
     if "ion" in work[base].keys():
-        # also a malformed non-array ``ion`` leaf: the campaign FileDB products
-        # store ``profiles_1d.N.ion`` as a bare float, which cannot take entries
+        # also a malformed non-array ``ion`` leaf: vaft.omas.load gives the campaign
+        # FileDB products a bare NaN ``profiles_1d.N.ion``, which cannot take entries
         del work[f"{base}.ion"]
-    if resolved.main_ion != "H":
-        raise ValueError("only a hydrogenic main ion is written")
-    fractions = _on_grid(resolved.impurity_fractions, resolved, rho, ne.size)
-    main_fraction = _on_grid(resolved.main_ion_fraction, resolved, rho, ne.size)
-    main_label = "H+"
+    fractions, filled = _fill_undefined(_on_grid(resolved.impurity_fractions, resolved, rho, ne.size), rho)
+    main_fraction, _ = _fill_undefined(_on_grid(resolved.main_ion_fraction, resolved, rho, ne.size), rho)
+    fill_note = f"; filled_points={filled}" if filled else ""
     if main_node is not None:
         work[f"{base}.ion.0"] = main_node
-        main_label = _get(work, f"{base}.ion.0.label") or main_label
+        if "density_fit" in work[f"{base}.ion.0"].keys():
+            del work[f"{base}.ion.0.density_fit"]   # its measured/reconstructed arrays describe the old density
     else:
-        work[f"{base}.ion.0.label"] = main_label
+        work[f"{base}.ion.0.label"] = "H+"
         work[f"{base}.ion.0.z_ion"] = 1.0
         work[f"{base}.ion.0.element.0.z_n"] = 1.0
         work[f"{base}.ion.0.element.0.a"] = float(_element_table()["H"][1])
@@ -1151,9 +1201,10 @@ def populate_impurity_profiles(
     main_density = ne * main_fraction
     work[f"{base}.ion.0.density"] = main_density
     work[f"{base}.ion.0.density_thermal"] = main_density
-    work[f"{base}.ion.0.density_fit.parameters"] = _record(resolved, "main_ion_density", method)
+    work[f"{base}.ion.0.density_fit.parameters"] = _record(resolved, "main_ion_density", method) + fill_note
     temperature = _get(work, f"{base}.ion.0.temperature")
     t_record = _get(work, f"{base}.ion.0.temperature_fit.parameters")
+    rotation = _get(work, f"{base}.ion.0.velocity.toroidal")
     for j, item in enumerate(resolved.species, start=1):
         ion = f"{base}.ion.{j}"
         work[f"{ion}.label"] = item.label
@@ -1164,11 +1215,21 @@ def populate_impurity_profiles(
         density = ne * fractions[:, j - 1]
         work[f"{ion}.density"] = density
         work[f"{ion}.density_thermal"] = density
-        work[f"{ion}.density_fit.parameters"] = _record(resolved, "impurity_density", method) + "; temperature=main_ion"
+        work[f"{ion}.density_fit.parameters"] = (
+            _record(resolved, "impurity_density", method) + "; temperature=main_ion; rotation=main_ion" + fill_note
+        )
         if temperature is not None:
             work[f"{ion}.temperature"] = np.asarray(temperature, dtype=float)
             if t_record is not None:
                 work[f"{ion}.temperature_fit.parameters"] = t_record
+        if rotation is not None:
+            work[f"{ion}.velocity.toroidal"] = np.asarray(rotation, dtype=float)
+    if not write_zeff and _get(work, f"{base}.zeff") is not None:
+        if composition_record_origin(_get(work, f"{base}.zeff_fit.parameters")) != "measured":
+            # a stale zeff beside the new species list would contradict it
+            del work[f"{base}.zeff"]
+            if "zeff_fit" in work[base].keys():
+                del work[f"{base}.zeff_fit"]
     if write_zeff:
         work = populate_zeff_profile(work, resolved, time=time, tolerance=tolerance, method=method)
     return work

@@ -379,3 +379,99 @@ def test_a_malformed_scalar_ion_leaf_is_replaced_not_fatal():
     r = resolve_impurity_composition(ods, machine_preset="vest")
     out = populate_impurity_profiles(ods, r)
     assert [out[f"core_profiles.profiles_1d.0.ion.{k}.label"] for k in range(3)] == ["H+", "C6+", "O8+"]
+
+
+# --- Stage C cold-review findings --------------------------------------------------------
+
+
+def test_a_slice_s_own_measured_zeff_is_never_overwritten():
+    from vaft.process.impurity import populate_impurity_profiles
+
+    ods = _ods(zeff=1.7, zeff_record=composition_record_text("measured", "x"))
+    r = resolve_impurity_composition(ods, machine_preset="vest", use_measured_zeff=False)
+    with pytest.raises(ValueError, match="never overwritten"):
+        populate_impurity_profiles(ods, r)
+
+
+def test_a_slice_s_own_measured_ions_are_never_overwritten():
+    from vaft.process.impurity import populate_impurity_profiles
+
+    ods = _ods(ions=_lane_k_like(composition_record_text("measured", "x")))
+    r = resolve_impurity_composition(None, machine_preset="vest")
+    with pytest.raises(ValueError, match="never overwritten"):
+        populate_impurity_profiles(ods, r, time=0.3)
+
+
+def test_the_write_time_must_be_the_resolved_time():
+    from vaft.process.impurity import populate_impurity_profiles
+
+    ods = _ods(times=(0.30, 0.31))
+    r = resolve_impurity_composition(ods, time=0.30, machine_preset="vest")
+    with pytest.raises(ValueError, match="resolved at"):
+        populate_impurity_profiles(ods, r, time=0.31)
+
+
+def test_non_hydrogenic_or_mixed_main_ions_are_refused_and_deuterium_is_not():
+    from vaft.process.impurity import populate_impurity_profiles
+
+    helium = _ods(ions=(("He2+", 2.0, 2.0, 4.0026, 0.45, None),))
+    with pytest.raises(ValueError, match="no hydrogenic main ion"):
+        populate_impurity_profiles(helium, resolve_impurity_composition(None, machine_preset="vest"), time=0.3)
+    mixed = _ods(ions=(("H+", 1.0, 1.0, 1.008, 0.5, None), ("D+", 1.0, 1.0, 2.014, 0.5, None)))
+    with pytest.raises(ValueError, match="2 hydrogenic"):
+        populate_impurity_profiles(mixed, resolve_impurity_composition(None, machine_preset="vest"), time=0.3)
+    c = composition_from_fractions(["C"], [1], [6], target_zeff=2.0, main_ion="D")
+    out = populate_impurity_profiles(_ods(), resolve_impurity_composition(None, composition=c), time=0.3)
+    assert out["core_profiles.profiles_1d.0.ion.1.label"] == "C6+"
+
+
+def test_undefined_points_are_filled_not_written_as_nan():
+    from vaft.process.impurity import populate_impurity_profiles
+
+    profile = np.array([2.0, 1.9, 1.8, 1.6, np.nan])
+    ods = _ods(ions=(("H+", 1.0, 1.0, 1.008, 1.0, None),), zeff=profile,
+               zeff_record=composition_record_text("measured", "x"))
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    out = populate_impurity_profiles(ods, r)
+    for k in range(3):
+        assert np.all(np.isfinite(out[f"core_profiles.profiles_1d.0.ion.{k}.density_thermal"]))
+    assert "filled_points=1" in out["core_profiles.profiles_1d.0.ion.1.density_fit.parameters"]
+    # the measured zeff (NaN edge included) is left as it was
+    np.testing.assert_array_equal(out["core_profiles.profiles_1d.0.zeff"], profile)
+
+
+def test_rotation_is_carried_so_gacode_keeps_vtor():
+    from vaft.process.impurity import populate_impurity_profiles
+
+    ods = _ods(ions=(("H+", 1.0, 1.0, 1.008, 1.0, None),))
+    ods["core_profiles.profiles_1d.0.ion.0.velocity.toroidal"] = 1e4 * (1 - RHO)
+    out = populate_impurity_profiles(ods, resolve_impurity_composition(ods, machine_preset="vest"))
+    np.testing.assert_allclose(out["core_profiles.profiles_1d.0.ion.2.velocity.toroidal"], 1e4 * (1 - RHO))
+
+
+def test_without_write_zeff_a_stale_zeff_is_dropped():
+    from vaft.process.impurity import populate_impurity_profiles
+
+    ods = _ods(ions=(("H+", 1.0, 1.0, 1.008, 1.0, None),), zeff=1.2)
+    out = populate_impurity_profiles(ods, resolve_impurity_composition(ods, machine_preset="vest"), write_zeff=False)
+    assert "zeff" not in out["core_profiles.profiles_1d.0"].keys()
+
+
+def test_gacode_compares_but_does_not_refuse_an_independent_measured_zeff(sample_48224):
+    import copy as _copy
+
+    from vaft.code.gacode.inputs import prepare_gacode_profile
+
+    ods = _copy.deepcopy(sample_48224)
+    base = "core_profiles.profiles_1d.0"
+    ne = np.asarray(ods[f"{base}.electrons.density_thermal"], dtype=float)
+    ods[f"{base}.ion.0.density_thermal"] = 0.8 * ne
+    ods[f"{base}.ion.0.density"] = 0.8 * ne
+    for key, value in (("label", "C6+"), ("z_ion", 6.0), ("element.0.z_n", 6.0), ("element.0.a", 12.011)):
+        ods[f"{base}.ion.1.{key}"] = value
+    ods[f"{base}.ion.1.density_thermal"] = ne / 30
+    ods[f"{base}.ion.1.temperature"] = np.asarray(ods[f"{base}.ion.0.temperature"])
+    ods[f"{base}.zeff"] = np.full(ne.shape, 2.004)          # unlabelled: an independent measurement
+    profile = prepare_gacode_profile(ods, time=0.3, rho_max=0.95, z_eff=None, impurity=None)
+    assert profile.provenance["z_eff"]["kind"] == "measured"
+    assert profile.provenance["z_eff"]["species_value"] == pytest.approx(2.0, abs=1e-6)
