@@ -26,6 +26,9 @@ sections:
       - id: automated-pipelines
         title: Automated pipelines
         url: /workflows/automated-pipelines/
+      - id: gui
+        title: Browser GUI
+        url: /workflows/gui/
   - id: reference
     title: Library and data reference
     items:

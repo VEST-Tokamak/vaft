@@ -3813,7 +3813,14 @@ LLOYD_MARGIN_THRESHOLD = (1.0,)
 
 
 def _vacuum_map_time(ods: Any, time: float | None, time_index: int | None) -> float:
-    """The instant a vacuum map is drawn at: an index, a time, or the default."""
+    """The instant a vacuum map is drawn at: an index, a time, or the default.
+
+    ``time=`` is a continuous instant (the coil currents are interpolated to
+    it); ``time_index=`` names a stored PF sample.  Given together they would
+    compete, so the pair is refused (issue #1380).
+    """
+    if time_index is not None and time is not None:
+        raise ValueError("vacuum maps take one of time=, time_index=; got time=, time_index=")
     if time_index is not None:
         base = _array(ods, "pf_active.time")
         if base is None or len(base) == 0:
