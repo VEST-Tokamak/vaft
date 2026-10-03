@@ -12,7 +12,10 @@ nothing else:
   lumped per surface (:func:`vaft.process.impurity.surface_composition_profile`).
 
 The first two isolate "add oxygen at the same Z_eff"; the last two "real charge
-states and the dilution they imply".  Lane T's driver functions are imported
+states and the dilution they imply" -- at a matched n_e-weighted *mean* Z_eff, so
+the local Z_eff of ``co_openadas`` differs by a few per cent from 2, and its lumped
+impurity density carries the gradient of <Z> (charge density is kept); both are
+reported per surface.  Lane T's driver functions are imported
 (``workflow/transport_atlas/run_tglf.py``) -- enumeration, configuration, the
 runner and its cache -- and the spectral descriptors come from its atlas builder,
 so every number is defined as in the transport atlas.
@@ -56,6 +59,16 @@ def _module(relative: str, name: str):
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _assert_checkout() -> None:
+    """Refuse to run when ``vaft`` resolves outside this checkout (the worktree import trap)."""
+    import vaft
+
+    location = Path(vaft.__file__).resolve()
+    if ROOT not in location.parents:
+        raise SystemExit(f"vaft resolves to {location}, not this checkout ({ROOT}); put it first on PYTHONPATH")
+    from vaft.process.impurity import surface_composition_profile  # noqa: F401 -- fail loudly, not per surface
 
 
 def _labels(states_csv: Path, qualities: tuple[str, ...]) -> dict[tuple[int, int], str]:
@@ -133,6 +146,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
+    _assert_checkout()
+    names = [f"r{value:.2f}" for value in (args.surfaces or [])]
+    if len(set(names)) != len(names):
+        parser.error(f"surfaces {args.surfaces} collide in their r{{:.2f}} workdir names")
 
     lane_t = _module("workflow/transport_atlas/run_tglf.py", "lane_t_run_tglf")
     atlas = _module("workflow/transport_atlas/build_atlas.py", "lane_t_build_atlas")
@@ -224,12 +241,19 @@ def main(argv: Optional[list[str]] = None) -> int:
             row.update(zeff_local=local["zeff"], species="/".join(local["species"]),
                        main_ion_as=local["as"][1] if len(local["as"]) > 1 else None,
                        a_over_lne=local["a_over_ln"][0], a_over_lte=local["a_over_lt"][0],
+                       a_over_ln_impurity_max=max(local["a_over_ln"][2:]) if len(local["a_over_ln"]) > 2 else None,
+                       z_impurity=json.dumps(notes.get("lumped_charge")) if notes and "lumped_charge" in notes else None,
+                       ionization=(notes or {}).get("ionization", "fixed_charge"),
+                       plasma_age_s=(notes or {}).get("plasma_age_s"),
                        betae=local["betae"], xnue=local["xnue"], notes=json.dumps(notes, default=float))
             record = results.get(job["workdir"])
             row["status"] = "dry_run" if record is None else record["status"]
             outputs = Path(job["workdir"]) / "outputs.json"
             if record is not None and record["status"] == "solved" and outputs.is_file():
-                row.update(atlas.spectral_descriptors(TglfOutputs.read_json(outputs)))
+                try:
+                    row.update(atlas.spectral_descriptors(TglfOutputs.read_json(outputs)))
+                except Exception as exc:  # noqa: BLE001 -- one unreadable output, not the table
+                    row.update(status="unreadable", reason=f"{type(exc).__name__}: {exc}"[:200])
         rows.append(row)
 
     columns = sorted({k for r in rows for k in r}, key=lambda c: (
@@ -241,7 +265,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     pairs: dict[tuple, dict] = {}
     measures = ("q_tot_gb", "qe_gb", "qi_gb", "gamma_e_gb", "gamma_max", "ky_at_gamma_max",
-                "gamma_max_ion_scale", "zeff_local", "main_ion_as")
+                "gamma_max_ion_scale", "zeff_local", "main_ion_as", "a_over_ln_impurity_max",
+                "z_impurity", "ionization", "plasma_age_s")
     for r in rows:
         if r.get("case") not in CASES or r.get("status") != "solved":
             continue
@@ -271,6 +296,11 @@ def main(argv: Optional[list[str]] = None) -> int:
                 "argv": sys.argv, "vaft": vaft.__file__, "vaft_git": lane_t._git_sha(ROOT),
                 "gacode_revision": revision, "tglf_config": tglf_config, "tglf_parameters": parameters,
                 "cases": args.cases, "states": len(enumerated), "jobs": len(jobs),
+                "resolver": {"function": "resolve_transport_state", "arguments": "defaults (ti_te_ratio=policy, "
+                             "rho_max=0.95, no inferred Ti, FileDB core_profiles)",
+                             "note": "c6_zeff2 equals the Lane T atlas input only for an atlas made with these defaults"},
+                "comparison": "co_openadas is matched to an n_e-weighted MEAN Z_eff of 2, not the local Z_eff; "
+                              "zeff_local, the impurity a/Ln and the lumped charges are columns of the tables",
                 "status_counts": {s: sum(1 for r in rows if r.get("status") == s) for s in {r.get("status") for r in rows}}}
     (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1, default=str) + "\n")
     print(json.dumps({k: manifest[k] for k in ("states", "jobs", "status_counts")}))

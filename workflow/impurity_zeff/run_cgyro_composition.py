@@ -96,9 +96,17 @@ def main(argv: Optional[list[str]] = None) -> int:
             continue
         age = ages.get((key.shot, key.time_ms))
         for r_over_a in args.surfaces:
-            profiles, notes = tglf_composition.variants(state, r_over_a, age)
+            try:
+                profiles, notes = tglf_composition.variants(state, r_over_a, age)
+            except Exception as exc:  # noqa: BLE001 -- one surface, not the allocation
+                print(f"{key} r/a={r_over_a}: composition failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+                continue
             for case in args.cases:
-                local = prepare_cgyro_input(profiles[case], r_over_a)
+                try:
+                    local = prepare_cgyro_input(profiles[case], r_over_a)
+                except ValueError as exc:
+                    print(f"{key} {case} r/a={r_over_a}: {exc}", file=sys.stderr)
+                    continue
                 absent = local.tglf.check_tglf_requirements()
                 if absent:
                     print(f"{key} {case} r/a={r_over_a}: lacks {absent}", file=sys.stderr)
