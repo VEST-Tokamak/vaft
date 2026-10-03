@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines ten extras (nine optional-dependency groups plus `dev`); none is needed for the first result on this page:
+The project defines eleven extras (ten optional-dependency groups plus `dev`); none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
@@ -52,7 +52,8 @@ The project defines ten extras (nine optional-dependency groups plus `dev`); non
 | `video` | PyAV (av) | writing `.mp4`/`.webm` from `plot_*(..., animation=True)` and its inline notebook preview; `.gif` export needs no extra (#1050) |
 | `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
 | `mcp` | mcp (the Model Context Protocol SDK) | `python -m vaft.mcp` / `vaft mcp`: the local, read-only MCP server for agent clients ([MCP server]({{ site.baseurl }}/reference/mcp/)); `import vaft` never needs it |
-| `dev` | pytest, pytest-xdist, pre-commit, the two runtimes above, PyAV and the MCP SDK | running the test suite and contributing |
+| `gui` | panel | `vaft gui`: the browser GUI, locally or through SSH port forwarding ([Browser GUI]({{ site.baseurl }}/workflows/gui/)) |
+| `dev` | pytest, pytest-xdist, pre-commit, the two runtimes above, PyAV, the MCP SDK and panel | running the test suite and contributing |
 
 ```bash
 python -m pip install -e ".[dev]"            # development tooling

@@ -255,6 +255,10 @@ def prepare_nice_inputs(ods: Any, config: NiceConfig) -> NiceInputs:
         )
     )
 
+    from vaft.machine_mapping.pf_active import require_acquired_pf_currents
+
+    # A circuit published as NaN was not acquired (#1568); never solve with it.
+    require_acquired_pf_currents(ods, None, "NICE's conductor currents")
     conductors = list(geometry["pf_active"])
     conductor_currents = []
     for entry in conductors:
