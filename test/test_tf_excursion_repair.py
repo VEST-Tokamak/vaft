@@ -65,3 +65,14 @@ def test_a_disabled_repair_returns_the_record_unchanged(config):
     repaired, intervals = repair_tf_excursions(TIME, measured, config | {"enabled": False})
     assert intervals == []
     np.testing.assert_array_equal(repaired, measured)
+
+
+def test_a_burst_whose_median_dips_back_mid_way_is_repaired_as_one(config):
+    """48625: the 1 ms median returns near the trend inside the burst for ~2 ms."""
+    true, measured = _tf()
+    measured[(TIME > 0.280) & (TIME < 0.2840)] += 120000.0
+    measured[(TIME > 0.2862) & (TIME < 0.302)] += 120000.0
+    repaired, intervals = repair_tf_excursions(TIME, measured, config)
+    assert len(intervals) == 1
+    span = (TIME > 0.280) & (TIME < 0.302)
+    assert np.max(np.abs(repaired[span] - true[span])) < 0.5 * 12000.0

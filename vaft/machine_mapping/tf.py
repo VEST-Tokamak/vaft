@@ -71,7 +71,8 @@ def repair_tf_excursions(
     Inside ``repair["window"]`` a sample is an excursion when its
     ``detect_window_s`` median departs from the slow trend by more than
     ``core_fraction`` of the plateau; the region grows while the departure
-    stays above ``extend_fraction``, plus ``margin_s`` either side.  The trend
+    stays above ``extend_fraction``, plus ``margin_s`` either side, and runs
+    closer than ``merge_gap_s`` are joined.  The trend
     is a ``trend_window_s`` running median, re-derived once with the first
     pass's excursions bridged so that they cannot bias it.  Excursion samples
     are then replaced by a straight line fitted to the good samples within
@@ -95,6 +96,7 @@ def repair_tf_excursions(
     if not window.any():
         return values, []
     margin = int(round(float(repair["margin_s"]) / dt))
+    merge_gap = int(round(float(repair.get("merge_gap_s", 0.0)) / dt))
 
     def detect(trend: np.ndarray) -> tuple[np.ndarray, float]:
         plateau = float(np.median(trend[window]))
@@ -107,6 +109,13 @@ def repair_tf_excursions(
         for first, stop in _runs(candidate):
             if core[first:stop].any():
                 bad[max(first - margin, 0):min(stop + margin, values.size)] = True
+        # Inside a burst the 1 ms median can pass back through the trend for a
+        # moment; a gap shorter than ``merge_gap_s`` between two repaired runs
+        # is part of the same excursion (48625 kept a +130 kA spike otherwise).
+        runs = _runs(bad)
+        for (_, stop), (first, _) in zip(runs, runs[1:]):
+            if first - stop < merge_gap:
+                bad[stop:first] = True
         return bad, plateau
 
     bad, _ = detect(median_filter(values, size=trend_size, mode="nearest"))
