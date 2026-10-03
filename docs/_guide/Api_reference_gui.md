@@ -1,7 +1,7 @@
 ---
 title: "API: vaft.gui"
 author: VEST team
-date: 2026-10-03 10:00
+date: 2026-09-30 10:00
 category: guide
 layout: post
 permalink: /reference/api/gui/
