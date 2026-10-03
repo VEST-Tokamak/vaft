@@ -178,7 +178,9 @@ def _label(quantity: _b.BoundaryQuantity, column: str) -> str:
     from vaft.plot.display import unit_markup
 
     # "1e19 m^-2 T^-1" reads as 10^19 m^-2 T^-1, typeset like every other vaft.plot axis
-    unit = "" if quantity.unit == "-" else f" [{unit_markup(_POWER_OF_TEN.sub(r'10^\1', quantity.unit))}]"
+    # computed outside the f-string: a backslash inside one is a SyntaxError before Python 3.12
+    unit_text = _POWER_OF_TEN.sub(r"10^\1", quantity.unit)
+    unit = "" if quantity.unit == "-" else f" [{unit_markup(unit_text)}]"
     return f"${symbol}${unit}"
 
 
@@ -478,7 +480,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         a regime threshold names its regimes instead.
     trajectories : mapping of str to pandas.DataFrame, optional
         Representative discharges, legend label to their states. Each is drawn
-        in ``time_column`` order with markers that shrink with time and an
+        in ``time_column`` order at one marker size, joined by a line, with an
         arrow on the last step; markers take the ``color`` column's colours.
     time_column : str
         Time column of the trajectories.

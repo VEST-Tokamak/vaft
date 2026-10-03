@@ -478,3 +478,27 @@ def test_ip_bt_carries_every_current_limit_as_a_line_in_the_field():
     assert ops.placement("q95_li", "iter_1991_q95_min").kind == "vertical"
     # the estimate and the equilibrium q95 are different quantities
     assert not ops.placement("q95_li", "iter_1991_q95_estimate_min").drawable
+
+
+def test_axis_units_are_typeset_with_powers_of_ten():
+    from vaft.plot.operational_space import _label
+    q = ops.AXIS_QUANTITIES["murakami_parameter"]
+    assert _label(q, q.name).endswith("[10$^{19}$ m$^{-2}$ T$^{-1}$]")
+
+
+def test_a_saw_tooth_boundary_is_named_along_its_overall_direction():
+    t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 15, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
+    _, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0, 18), y_range=(0, 2))
+    label = next(t_ for t_ in ax.texts if t_.get_text().strip() == "Kink / double-tearing limit")
+    assert abs(label.get_rotation() % 180) < 20 or abs(label.get_rotation() % 180) > 160   # near horizontal
+    assert label.get_position()[1] <= 0.35   # below the teeth, on the forbidden side
+
+
+def test_current_limits_validate_their_geometry():
+    for key, extra in (("menard_2004_qstar_current", {}), ("iter_1991_q95_current", {"triangularity": 0.3})):
+        with pytest.raises(ValueError):
+            B.boundary_value(B.get_boundary(key), minor_radius=-0.3, major_radius=0.4, toroidal_field=0.17,
+                             elongation=1.5, **extra)
+    with pytest.raises(ValueError):
+        B.boundary_value(B.get_boundary("iter_1991_q95_current"), minor_radius=0.45, major_radius=0.4,
+                         toroidal_field=0.17, elongation=1.5, triangularity=0.3)

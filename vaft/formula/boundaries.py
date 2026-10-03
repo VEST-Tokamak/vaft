@@ -1861,6 +1861,28 @@ def cylindrical_kink_coordinates(a, R0, B0, kappa, I_p):
     return _scalar_or_array(q)
 
 
+def _finite_field(toroidal_field):
+    """|B_T|; zero is allowed (a current limit is a line through the origin of the I_p-B_T plane)."""
+    b = np.abs(np.asarray(toroidal_field, dtype=float))
+    if np.any(np.isinf(b)):
+        raise ValueError("toroidal_field must be finite where it is given")
+    return b
+
+
+def _menard_current(minor_radius, major_radius, toroidal_field, elongation):
+    g = _positive_geometry(a=minor_radius, R0=major_radius, kappa=elongation)
+    b = _finite_field(toroidal_field)
+    return np.pi * g["a"] ** 2 * b * (1.0 + g["kappa"] ** 2) / (MU0 * g["R0"]) * 1e-6
+
+
+def _iter_current(minor_radius, major_radius, toroidal_field, elongation, triangularity, q95=2.1):
+    g = _positive_geometry(a=minor_radius, R0=major_radius, kappa=elongation)
+    b = _finite_field(toroidal_field)
+    if np.any(np.isfinite(g["a"] / g["R0"]) & (g["a"] / g["R0"] >= 1.0)):
+        raise ValueError("a must be smaller than R0")
+    return _iter_q95_per_ma(g["a"], g["R0"], b, g["kappa"], np.asarray(triangularity, dtype=float)) / q95
+
+
 def _iter_q95_per_ma(a, R0, B0, kappa, delta):
     """q95 * I_p[MA] of the ITER guideline formula (Post et al. 1991, Table 1-2)."""
     eps = a / R0
@@ -1885,9 +1907,9 @@ def iter_q95_coordinates(a, R0, B0, kappa, delta, I_p):
     B0 : float or np.ndarray
         Vacuum toroidal field at ``R0``; its sign is dropped [T].
     kappa : float or np.ndarray
-        Elongation [-].
+        Elongation of the 95 % flux surface, kappa_95 [-].
     delta : float or np.ndarray
-        Triangularity; may be zero or negative [-].
+        Triangularity of the 95 % flux surface, delta_95; may be zero or negative [-].
     I_p : float or np.ndarray
         Plasma current; its sign is dropped [MA].
 
@@ -1904,6 +1926,9 @@ def iter_q95_coordinates(a, R0, B0, kappa, delta, I_p):
 
     Convention
     ----------
+    The formula is calibrated on the 95 % flux-surface shape ($\kappa_{95}$,
+    $\delta_{95}$); fed the last-closed-surface $\kappa$ and $\delta$, which are larger,
+    it over-estimates $q_{95}$ (for the ITER design point by about 27 %).
     A fit for conventional aspect ratio used for ITER design; at a spherical
     tokamak's $A \approx 1.3$ it is an extrapolation and over-estimates $q_{95}$
     (Akers et al. 2000 give a START-based correction, not registered here). It is an
@@ -1920,6 +1945,8 @@ def iter_q95_coordinates(a, R0, B0, kappa, delta, I_p):
     if np.any(np.isfinite(g["a"] / g["R0"]) & (g["a"] / g["R0"] >= 1.0)):
         raise ValueError("a must be smaller than R0")
     d = np.asarray(delta, dtype=float)
+    if np.any(np.isinf(d)):
+        raise ValueError("delta must be finite where it is given")
     current = np.abs(np.asarray(I_p, dtype=float))
     with np.errstate(divide="ignore"):
         q = _iter_q95_per_ma(g["a"], g["R0"], g["B0"], g["kappa"], d) / current
@@ -1958,9 +1985,7 @@ _register(Boundary(
     target=_PLASMA_CURRENT_MA,
     inputs=(_MINOR_RADIUS, _MAJOR_RADIUS, _TOROIDAL_FIELD, _ELONGATION),
     form="function",
-    function=lambda minor_radius, major_radius, toroidal_field, elongation: (
-        np.pi * np.asarray(minor_radius, dtype=float) ** 2 * np.abs(np.asarray(toroidal_field, dtype=float))
-        * (1.0 + np.asarray(elongation, dtype=float) ** 2) / (MU0 * np.asarray(major_radius, dtype=float)) * 1e-6),
+    function=_menard_current,
     allowed_side="below",
     hardness="hard",
     origin="derived",
@@ -1968,7 +1993,8 @@ _register(Boundary(
     event="external_kink",
     applicability=Applicability(
         machine_class="tokamak including spherical tokamaks",
-        assumptions=("'menard_2004_qstar_min' (q* >= 1) written as a maximum current through Menard's q*",),
+        assumptions=("'menard_2004_qstar_min' (q* >= 1) written as a maximum current through Menard's q*",
+                     "Menard's scans cover A = 1.6-3.3; below A = 1.6 it is an extrapolation"),
     ),
     sources=(_MENARD_2004_SOURCE,),
     notes="I_max = pi a^2 B_T0 (1 + kappa^2)/(mu0 R0); the q* = 1 limit as a current.",
@@ -2028,10 +2054,7 @@ _register(Boundary(
     target=_PLASMA_CURRENT_MA,
     inputs=(_MINOR_RADIUS, _MAJOR_RADIUS, _TOROIDAL_FIELD, _ELONGATION, _TRIANGULARITY),
     form="function",
-    function=lambda minor_radius, major_radius, toroidal_field, elongation, triangularity: _iter_q95_per_ma(
-        np.asarray(minor_radius, dtype=float), np.asarray(major_radius, dtype=float),
-        np.abs(np.asarray(toroidal_field, dtype=float)), np.asarray(elongation, dtype=float),
-        np.asarray(triangularity, dtype=float)) / 2.1,
+    function=_iter_current,
     allowed_side="below",
     hardness="soft",
     origin="derived",
@@ -2040,7 +2063,8 @@ _register(Boundary(
     applicability=Applicability(
         machine_class="tokamak",
         assumptions=("'iter_1991_q95_estimate_min' (q95 >= 2.1) written as a maximum current through the "
-                     "guideline formula", "conventional aspect ratio; extrapolated at A ~ 1.3"),
+                     "guideline formula", "conventional aspect ratio; extrapolated at A ~ 1.3",
+                     "the formula takes the 95 % surface kappa and delta; LCFS values raise the current limit"),
     ),
     sources=(_POST_1991_SOURCE,),
     notes="I_max [MA] = 5 a^2 B/R [1 + kappa^2(1 + 2 delta^2 - 1.2 delta^3)]/2 (1.17 - 0.65 eps)/(1 - eps^2)^2 / 2.1.",
