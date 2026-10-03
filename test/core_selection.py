@@ -98,6 +98,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_line_abscissa.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_panels_suptitle_placement.py",
     "test_plot_3d_contract.py",
     "test_plot_contract.py",
     "test_plot_intent.py",
