@@ -127,6 +127,16 @@ def test_local_state_marks_provenance_kinds():
     state = gkplot.tglf_local_state(tglf_local())
     assert [s["name"] for s in state["species"]] == ["e", "H+", "C6+"]
     assert state["scalars"]["ExB shear"] is None
+    assert state["provenance"]["ExB shear"] == "unavailable"
+    assert state["provenance"]["q"] is None or state["provenance"]["q"] != "unavailable"
     figure, axes = gkplot.plot_local_state(state)
     text = axes[1].texts[0].get_text()
-    assert "ExB shear" in text and "unavailable" in text
+    exb = [line for line in text.splitlines() if line.startswith("ExB shear")][0]
+    assert "[unavailable]" in exb and "solver default" in exb
+
+
+def test_flux_contributors_refuse_species_that_do_not_exist():
+    run = collect_tglf_outputs(_SAT0)
+    for bad in ((5,), (0,), (-1,)):
+        with pytest.raises(ValueError, match="outside"):
+            gkplot.tglf_flux_contributors(run, species=bad)

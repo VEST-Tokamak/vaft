@@ -111,7 +111,9 @@ class TglfOutputs:
     nsts_crossphase_spectrum
         ``(species, ky, mode)`` density-temperature cross phase per species [rad].
     ql_flux_spectrum
-        ``(species, field, mode, ky, 5)`` quasilinear *weights* per mode, quantities
+        ``(species, field, mode, ky, 5)`` quasilinear *weights* per mode, on the same
+        absolute field axis as :attr:`sum_flux_spectrum` (``phi, a_par, b_par``; a field
+        the run did not include is NaN), quantities
         :data:`FLUX_SPECTRUM_QUANTITIES` (``write_tglf_QL_flux_spectrum``). These are
         not fluxes: the saturated flux is weight x intensity, which
         :attr:`sum_flux_spectrum` already carries.
@@ -219,6 +221,10 @@ class TglfOutputs:
     def to_dict(self) -> dict[str, Any]:
         def encode(value: Any) -> Any:
             if isinstance(value, np.ndarray):
+                # NaN marks an absent field; strict JSON has no NaN, so it travels as null
+                # and comes back as NaN (np.asarray(None, float) is nan).
+                if value.dtype.kind == "f" and np.isnan(value).any():
+                    return {"__array__": np.where(np.isnan(value), None, value).tolist()}
                 return {"__array__": value.tolist()}
             if isinstance(value, Mapping):
                 return {str(k): encode(v) for k, v in value.items()}
@@ -247,7 +253,7 @@ class TglfOutputs:
         def decode(value: Any) -> Any:
             if isinstance(value, Mapping):
                 if "__array__" in value:
-                    return np.asarray(value["__array__"], dtype=float)
+                    return np.asarray(value["__array__"], dtype=float)  # null -> nan
                 return {str(k): decode(v) for k, v in value.items()}
             return value
 
@@ -261,7 +267,7 @@ class TglfOutputs:
     def write_json(self, path: str | Path) -> Path:
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(self.to_dict(), indent=1), encoding="utf-8")
+        target.write_text(json.dumps(self.to_dict(), indent=1, allow_nan=False), encoding="utf-8")
         return target
 
     @classmethod
@@ -400,6 +406,18 @@ def _parse_field_spectrum(directory: Path, nky: Optional[int]) -> Optional[np.nd
     return out
 
 
+def _field_flags(directory: Path) -> Optional[tuple[bool, bool]]:
+    """``(a_par present, b_par present)`` from ``out.tglf.field_spectrum``'s header."""
+    path = directory / "out.tglf.field_spectrum"
+    if not path.is_file():
+        return None
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if ("a_par_yes" not in text and "a_par_no" not in text) or (
+            "b_par_yes" not in text and "b_par_no" not in text):
+        return None
+    return "a_par_yes" in text, "b_par_yes" in text
+
+
 def _species_rows(count: int, per_species: int, n_species: Optional[int]) -> Optional[tuple[int, ...]]:
     """Which TGLF species a species-major block covers: ``1..ns`` or ``2..ns``."""
     if n_species is None or per_species <= 0 or count % per_species:
@@ -479,7 +497,7 @@ def _parse_ql_flux_spectrum(
     limits = _header_numbers(path, "index limits")
     if not limits or len(limits) != 5 or limits[0] != 5 or limits[3] != nky:
         return None, None
-    _, _, nfield, _, nmodes = limits
+    _, ns_header, nfield, _, nmodes = limits
     blocks: dict[tuple[int, int, int], list[list[float]]] = {}
     species_field: Optional[tuple[int, int]] = None
     current: Optional[tuple[int, int, int]] = None
@@ -502,11 +520,26 @@ def _parse_ql_flux_spectrum(
     if not blocks:
         return None, None
     species = tuple(sorted({key[0] for key in blocks}))
-    if any(len(rows) != nky for rows in blocks.values()) or len(blocks) != len(species) * nfield * nmodes:
+    if (any(len(rows) != nky for rows in blocks.values())
+            or len(blocks) != len(species) * nfield * nmodes
+            or len(species) not in (ns_header, ns_header - 1)
+            or any(not 1 <= fld <= nfield or not 1 <= mode <= nmodes for _, fld, mode in blocks)):
         return None, None
-    out = np.full((len(species), nfield, nmodes, nky, 5), np.nan)
+    # The QL writer numbers fields compactly (jflds = 1 + USE_BPER + USE_BPAR), unlike
+    # sum_flux which numbers them by position; map them onto the absolute
+    # (phi, a_par, b_par) slots so both arrays share one field axis.
+    flags = _field_flags(directory)
+    if flags is None:
+        if nfield == 2:
+            return None, None      # phi + (a_par or b_par): ambiguous without the flags
+        slots = list(range(nfield))
+    else:
+        slots = [0] + ([1] if flags[0] else []) + ([2] if flags[1] else [])
+        if len(slots) != nfield:
+            return None, None
+    out = np.full((len(species), max(slots) + 1, nmodes, nky, 5), np.nan)
     for (spec, fld, mode), rows in blocks.items():
-        out[species.index(spec), fld - 1, mode - 1] = np.asarray(rows, dtype=float)
+        out[species.index(spec), slots[fld - 1], mode - 1] = np.asarray(rows, dtype=float)
     return out, species
 
 
@@ -622,12 +655,18 @@ def collect_tglf_outputs(workdir: str | Path) -> Optional[TglfOutputs]:
     nky = None if ky is None else int(ky.size)
     intensity, intensity_species = _parse_intensity_spectrum(directory, n_species, nky)
     ql_flux, ql_species = _parse_ql_flux_spectrum(directory, nky)
+    sum_flux = _parse_sum_flux_spectrum(directory, n_species, nky)
+    flags = _field_flags(directory)
+    if sum_flux is not None and flags is not None and sum_flux.shape[1] == 3 and not flags[0]:
+        # sum_flux numbers fields by position: with B_par but not A_par it writes an
+        # all-zero A_par slot TGLF never computed -- absent, so NaN.
+        sum_flux[:, 1] = np.nan
     return TglfOutputs(
         directory=str(directory),
         gbflux=_parse_gbflux(directory, n_species),
         ky_spectrum=ky,
         eigenvalue_spectrum=_parse_eigenvalue_spectrum(directory, nky),
-        sum_flux_spectrum=_parse_sum_flux_spectrum(directory, n_species, nky),
+        sum_flux_spectrum=sum_flux,
         field_spectrum=_parse_field_spectrum(directory, nky),
         intensity_spectrum=intensity,
         density_spectrum=_parse_amplitude_spectrum(directory, "density_spectrum", nky),

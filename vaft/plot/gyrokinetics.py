@@ -347,15 +347,26 @@ def tglf_flux_contributors(
         raise ValueError("this TGLF run carries no sum_flux_spectrum")
     q = FLUX_SPECTRUM_QUANTITIES.index(quantity)
     nfield = spectrum.shape[1]
+    count = spectrum.shape[0]
     series: dict[str, dict[str, np.ndarray]] = {}
     for spec in species:
         if spec == "e":
             block, name = spectrum[0:1], "e"
         elif spec == "i":
+            if count < 2:
+                raise ValueError("this run has no ion species")
             block, name = spectrum[1:], "i"
         else:
-            block, name = spectrum[int(spec) - 1:int(spec)], f"s{int(spec)}"
-        fields = {FLUX_SPECTRUM_FIELDS[f]: block[:, f, :, q].sum(axis=0) for f in range(nfield)}
+            index = int(spec)
+            if not 1 <= index <= count:
+                raise ValueError(f"species index {spec!r} is outside 1..{count} (TGLF order)")
+            block, name = spectrum[index - 1:index], f"s{index}"
+        fields = {}
+        for f in range(nfield):
+            values = block[:, f, :, q]
+            if np.all(np.isnan(values)):
+                continue          # a field the run did not include: absent, not zero
+            fields[FLUX_SPECTRUM_FIELDS[f]] = values.sum(axis=0)
         fields["total"] = sum(fields.values())
         series[name] = fields
     return {"ky": np.asarray(outputs.ky_spectrum, dtype=float), "series": series,
@@ -366,9 +377,10 @@ def tglf_local_state(local: Any) -> dict[str, Any]:
     """The local input TGLF was given, with each value's provenance kind.
 
     ``local`` is a :class:`~vaft.code.gacode.tglf.inputs.TGLFInput`. Returns
-    ``{"species": [{name, a/L_n, a/L_T, n/n_e, T/T_e}], "scalars": {...},
-    "provenance": {key: kind}}``; kinds come from the input's own provenance record
-    (``derived``, ``unavailable``, ``caller_supplied``, ...), never guessed.
+    ``{"species": [{name, a_over_Ln, a_over_LT, n_over_ne, T_over_Te}], "scalars":
+    {...}, "provenance": {scalar label: kind}}``; kinds come from the input's own
+    provenance record (``derived``, ``unavailable``, ``caller_supplied``, ...), falling
+    back to the record of the whole projection (``source``), never guessed.
     """
     species = []
     for index, name in enumerate(local.names or [f"s{i + 1}" for i in range(local.n_species)]):
@@ -385,7 +397,14 @@ def tglf_local_state(local: Any) -> dict[str, Any]:
         "Z_eff": float(local.zeff),
         "ExB shear": None if local.vexb_shear is None else float(local.vexb_shear),
     }
-    provenance = {key: dict(value).get("kind") for key, value in (local.provenance or {}).items()}
+    records = {key: dict(value).get("kind") for key, value in (local.provenance or {}).items()}
+    # Every scalar gets a kind: its own record when the input has one, otherwise the
+    # input's overall source kind (the projection that produced all local values).
+    keys = {"r/a": "rho", "R0/a": "rmaj_loc", "q": "q_loc", "s": "q_prime_loc",
+            "kappa": "kappa_loc", "delta": "delta_loc", "beta_e": "betae",
+            "nu_ee a/c_s": "xnue", "Z_eff": "zeff", "ExB shear": "vexb_shear"}
+    default = records.get("source")
+    provenance = {label: records.get(keys[label], default) for label in scalars}
     return {"species": species, "scalars": scalars, "provenance": provenance}
 
 
@@ -607,11 +626,15 @@ def plot_local_state(
     left.legend(fontsize="small")
     left.set_ylabel("normalised gradient")
     kinds = state.get("provenance") or {}
-    lookup = {"ExB shear": "vexb_shear", "delta": "delta_loc", "Z_eff": "zeff"}
     rows = []
     for key, value in state["scalars"].items():
-        text = "unavailable" if value is None else (f"{value:.4g}" if isinstance(value, float) else str(value))
-        kind = kinds.get(lookup.get(key, key))
+        if value is None:
+            # The solver still ran with its default (zero for the ExB shear); the tag
+            # says nobody measured it.
+            text = "0 (solver default)"
+        else:
+            text = f"{value:.4g}" if isinstance(value, float) else str(value)
+        kind = kinds.get(key)
         rows.append((key, f"{text}  [{kind}]" if kind else text))
     _text_table(right, rows, title="local state")
     if title:

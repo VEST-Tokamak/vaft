@@ -117,3 +117,34 @@ def test_a_file_that_does_not_match_its_writer_is_refused(tmp_path):
     (target / "out.tglf.field_spectrum").write_text("\n".join(lines[:-3]) + "\n")
     run = collect_tglf_outputs(target)
     assert run.field_spectrum is None and run.intensity_spectrum is not None
+
+
+def test_ql_weights_share_the_absolute_field_axis(sat2):
+    """The QL writer counts fields compactly, sum_flux by position; both are stored on
+    (phi, a_par, b_par) so index 1 is A_parallel in both."""
+    assert sat2.ql_flux_spectrum.shape[1] == sat2.sum_flux_spectrum.shape[1] == 2
+
+
+def test_a_b_par_only_run_does_not_label_b_par_as_a_par(tmp_path):
+    """USE_BPER=F, USE_BPAR=T: QL has 2 compact fields (phi, b_par); they must land in
+    slots 0 and 2, and sum_flux's unwritten A_par slot must be NaN."""
+    target = tmp_path / "run"
+    target.mkdir()
+    for path in SAT2.iterdir():
+        (target / path.name).write_bytes(path.read_bytes())
+    text = (target / "out.tglf.field_spectrum").read_text()
+    (target / "out.tglf.field_spectrum").write_text(
+        text.replace("a_par_yes", "a_par_no").replace("b_par_no", "b_par_yes"))
+    run = collect_tglf_outputs(target)
+    assert run.ql_flux_spectrum.shape[1] == 3
+    assert np.all(np.isnan(run.ql_flux_spectrum[:, 1]))
+    assert np.all(np.isfinite(run.ql_flux_spectrum[:, 2]))
+
+
+def test_json_is_strict_and_nan_survives_as_absent(sat0, tmp_path):
+    import json
+
+    path = sat0.write_json(tmp_path / "out.json")
+    json.loads(path.read_text(), parse_constant=lambda c: (_ for _ in ()).throw(ValueError(c)))
+    back = TglfOutputs.read_json(path)
+    assert np.all(np.isnan(back.field_spectrum[..., 2]))

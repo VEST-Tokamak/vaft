@@ -34,7 +34,7 @@ local calculation, not a radial collection of them.
 
 Each family has two layers:
 
-- **Native** (`vaft.plot.gyrokinetics`). These are solver diagnostics in GACODE units: $k_y\rho_s$, $\gamma$ and $\omega$ in $c_s/a$, $\omega$ with the ion diamagnetic direction negative. Matched TGLF–CGYRO validation uses this layer, because both codes share the normalization.
+- **Native** (`vaft.plot.gyrokinetics`). These are solver diagnostics in GACODE units: $k_y\rho_s$, $\gamma$ and $\omega$ in $c_s/a$, $\omega$ with the ion diamagnetic direction negative. That is TGLF's own sign. CGYRO's native sign depends on the field orientation, so it is converted using the ion direction CGYRO reports for each run (`CgyroOutputs.frequency_ion_negative`). On the #1482 surfaces the two codes agree on the branch at 78 of 82 converged points. Matched TGLF–CGYRO validation uses this layer, because both codes share the normalization.
 - **Standardized**. These are registered plots that read the IMAS IDS in its GKDB normalization: `binormal_wavevector_norm`, `growth_rate_norm`, lengths in units of $R_0$, $v_{th,ref}=\sqrt{2T_e/m_D}$.
 
 A native quantity is never fed to a standardized plot, nor the reverse. Conversions live in the mapping layer (`vaft.machine_mapping.gyrokinetics.conversion_factors`), not in renderers.
