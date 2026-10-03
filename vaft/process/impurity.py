@@ -1130,7 +1130,9 @@ def populate_impurity_profiles(
         if _hydrogenic(z_n):
             main_node = copy.deepcopy(work[f"{base}.ion.{k}"])
             break
-    if path_count(work, f"{base}.ion"):
+    if "ion" in work[base].keys():
+        # also a malformed non-array ``ion`` leaf: the campaign FileDB products
+        # store ``profiles_1d.N.ion`` as a bare float, which cannot take entries
         del work[f"{base}.ion"]
     if resolved.main_ion != "H":
         raise ValueError("only a hydrogenic main ion is written")

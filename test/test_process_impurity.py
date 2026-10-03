@@ -368,3 +368,14 @@ def test_gacode_refuses_a_zeff_column_that_contradicts_the_species(sample_48224)
     out["core_profiles.profiles_1d.0.zeff"] = np.full_like(np.asarray(out["core_profiles.profiles_1d.0.zeff"]), 2.5)
     with pytest.raises(ProfileConversionError, match="contradicts the species"):
         prepare_gacode_profile(out, time=0.3, rho_max=0.95, z_eff=None, impurity=None)
+
+
+def test_a_malformed_scalar_ion_leaf_is_replaced_not_fatal():
+    """Campaign FileDB core_profiles store profiles_1d.N.ion as a bare float (found on Tier A)."""
+    from vaft.process.impurity import populate_impurity_profiles
+
+    ods = _ods()
+    ods["core_profiles.profiles_1d.0"].setraw("ion", float("nan"))
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    out = populate_impurity_profiles(ods, r)
+    assert [out[f"core_profiles.profiles_1d.0.ion.{k}.label"] for k in range(3)] == ["H+", "C6+", "O8+"]
