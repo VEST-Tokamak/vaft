@@ -282,7 +282,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b15430a</code>. What is described
+  <code>b879375</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -313,7 +313,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.boundaries</code>:
-<strong>9</strong> public functions. Each entry is what
+<strong>10</strong> public functions. Each entry is what
 <code>vaft.formula.describe("boundaries.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -353,7 +353,7 @@ margin lies on the boundary.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 9 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 10 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="boundary_curve"><td><a href="#boundary_curve"><code>boundary_curve</code></a></td><td>A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.
@@ -367,6 +367,8 @@ margin lies on the boundary.</p>
   <tr data-ref-row="get_boundary"><td><a href="#get_boundary"><code>get_boundary</code></a></td><td>A registered boundary or window by key.
 </td></tr>
   <tr data-ref-row="hugill_coordinates"><td><a href="#hugill_coordinates"><code>hugill_coordinates</code></a></td><td>Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="kink_coordinates"><td><a href="#kink_coordinates"><code>kink_coordinates</code></a></td><td>Freidberg’s kink safety factor of an elongated tokamak, $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I)$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="list_boundaries"><td><a href="#list_boundaries"><code>list_boundaries</code></a></td><td>Keys of the registered boundaries, optionally restricted to one family.
 </td></tr>
@@ -385,10 +387,10 @@ margin lies on the boundary.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boundary_curve"><code>boundary_curve</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="boundary_curve" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/formula/boundaries.py#L557-L612" title="vaft/formula/boundaries.py, lines 557–612 at b15430a">source</a>
+<a class="ref-source" data-source="boundary_curve" href="https://github.com/VEST-Tokamak/vaft/blob/b879375853c0293ecebed40ea83ba9bdcb73370b/vaft/formula/boundaries.py#L558-L613" title="vaft/formula/boundaries.py, lines 558–613 at b879375">source</a>
 </header>
     <pre class="ref-signature"><code>boundary_curve(boundary, sweep, values, swap_axes=False, **fixed)</code></pre>
-    <details class="ref-code" data-source-code="boundary_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 557–612</span></summary>
+    <details class="ref-code" data-source-code="boundary_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 558–613</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">boundary_curve</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="n">sweep</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">swap_axes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">fixed</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoundaryCurve</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.
@@ -498,10 +500,10 @@ With <code class="language-plaintext highlighter-rouge">swap_axes</code> the tar
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#boundary_value"><code>boundary_value</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="boundary_value" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/formula/boundaries.py#L375-L413" title="vaft/formula/boundaries.py, lines 375–413 at b15430a">source</a>
+<a class="ref-source" data-source="boundary_value" href="https://github.com/VEST-Tokamak/vaft/blob/b879375853c0293ecebed40ea83ba9bdcb73370b/vaft/formula/boundaries.py#L376-L414" title="vaft/formula/boundaries.py, lines 376–414 at b879375">source</a>
 </header>
     <pre class="ref-signature"><code>boundary_value(boundary, **inputs)</code></pre>
-    <details class="ref-code" data-source-code="boundary_value"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 375–413</span></summary>
+    <details class="ref-code" data-source-code="boundary_value"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 376–414</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">boundary_value</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Value of a boundary</span><span class="sh">'</span><span class="s">s target quantity at the given inputs.
@@ -594,7 +596,7 @@ boundary declared in MA converts first.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_boundary"><code>evaluate_boundary</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="evaluate_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/formula/boundaries.py#L427-L510" title="vaft/formula/boundaries.py, lines 427–510 at b15430a">source</a>
+<a class="ref-source" data-source="evaluate_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/b879375853c0293ecebed40ea83ba9bdcb73370b/vaft/formula/boundaries.py#L428-L511" title="vaft/formula/boundaries.py, lines 428–511 at b879375">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_boundary(boundary, operating_value, **inputs)</code></pre>
 
@@ -658,10 +660,10 @@ interpreting it is left to the caller.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evaluate_window"><code>evaluate_window</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="evaluate_window" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/formula/boundaries.py#L513-L554" title="vaft/formula/boundaries.py, lines 513–554 at b15430a">source</a>
+<a class="ref-source" data-source="evaluate_window" href="https://github.com/VEST-Tokamak/vaft/blob/b879375853c0293ecebed40ea83ba9bdcb73370b/vaft/formula/boundaries.py#L514-L555" title="vaft/formula/boundaries.py, lines 514–555 at b879375">source</a>
 </header>
     <pre class="ref-signature"><code>evaluate_window(window, operating_value, **inputs)</code></pre>
-    <details class="ref-code" data-source-code="evaluate_window"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 513–554</span></summary>
+    <details class="ref-code" data-source-code="evaluate_window"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 514–555</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">evaluate_window</span><span class="p">(</span><span class="n">window</span><span class="p">:</span> <span class="n">BoundaryWindow</span><span class="p">,</span> <span class="n">operating_value</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowEvaluation</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Position of an operating value relative to an access window.
@@ -749,10 +751,10 @@ the inputs it declares.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#get_boundary"><code>get_boundary</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="get_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/formula/boundaries.py#L770-L791" title="vaft/formula/boundaries.py, lines 770–791 at b15430a">source</a>
+<a class="ref-source" data-source="get_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/b879375853c0293ecebed40ea83ba9bdcb73370b/vaft/formula/boundaries.py#L771-L792" title="vaft/formula/boundaries.py, lines 771–792 at b879375">source</a>
 </header>
     <pre class="ref-signature"><code>get_boundary(key)</code></pre>
-    <details class="ref-code" data-source-code="get_boundary"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 770–791</span></summary>
+    <details class="ref-code" data-source-code="get_boundary"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 771–792</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">get_boundary</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
     <span class="sh">"""</span><span class="s">A registered boundary or window by key.
@@ -808,10 +810,10 @@ the inputs it declares.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#hugill_coordinates"><code>hugill_coordinates</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="hugill_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/formula/boundaries.py#L694-L753" title="vaft/formula/boundaries.py, lines 694–753 at b15430a">source</a>
+<a class="ref-source" data-source="hugill_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/b879375853c0293ecebed40ea83ba9bdcb73370b/vaft/formula/boundaries.py#L695-L754" title="vaft/formula/boundaries.py, lines 695–754 at b879375">source</a>
 </header>
     <pre class="ref-signature"><code>hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p)</code></pre>
-    <details class="ref-code" data-source-code="hugill_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 694–753</span></summary>
+    <details class="ref-code" data-source-code="hugill_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 695–754</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hugill_coordinates</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">R_geo</span><span class="p">,</span> <span class="n">B_t</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">kappa_a</span><span class="p">,</span> <span class="n">I_p</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
@@ -937,14 +939,133 @@ without cropping.</p>
 
   </section>
 
+  <section class="ref-entry" id="kink_coordinates" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#kink_coordinates"><code>kink_coordinates</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="kink_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/b879375853c0293ecebed40ea83ba9bdcb73370b/vaft/formula/boundaries.py#L1633-L1682" title="vaft/formula/boundaries.py, lines 1633–1682 at b879375">source</a>
+</header>
+    <pre class="ref-signature"><code>kink_coordinates(a, R0, B0, kappa, I_p)</code></pre>
+    <details class="ref-code" data-source-code="kink_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 1633–1682</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">kink_coordinates</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">I_p</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Freidberg</span><span class="sh">'</span><span class="s">s kink safety factor of an elongated tokamak, $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I)$.
+
+    $$q_* = \frac{2\pi a^2 \kappa B_0}{\mu_0 R_0 I_p} = \frac{5\,a^2\kappa B_0}{R_0\,I_p[\mathrm{MA}]}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    float or np.ndarray
+        Kink safety factor $q_*$ of Eq. (13.160), NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation.
+
+    Convention
+    ----------
+    Eq. (13.160) is the $G(\kappa) \approx 1$ form of Eq. (13.158), the definition with
+    which the kink limit ``</span><span class="sh">"</span><span class="s">freidberg_2008_kink_qstar</span><span class="sh">"</span><span class="s">`` (Eq. 13.162) is stated. It is
+    not ``vaft.formula.equilibrium.kink_safety_factor`` (#1524). A zero current maps to
+    an infinite $q_*$.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Plasma Physics and Fusion Energy*, Cambridge University
+           Press (2008), Eqs. (13.158)-(13.160), p. 405.
+    </span><span class="sh">"""</span>
+    <span class="n">a_arr</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">B_abs</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)),</span> <span class="n">kappa</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">((</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">,</span> <span class="n">a_arr</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">,</span> <span class="n">R</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">B0</span><span class="sh">"</span><span class="p">,</span> <span class="n">B_abs</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">kappa</span><span class="sh">"</span><span class="p">,</span> <span class="n">k</span><span class="p">)):</span>
+        <span class="c1"># NaN propagates (a population table has gaps); a finite non-positive value or an infinity is an error
+</span>        <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isinf</span><span class="p">(</span><span class="n">value</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="p">(</span><span class="n">value</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s"> must be positive and finite where it is given</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span> <span class="o">*</span> <span class="mf">1e6</span>
+    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">a_arr</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">k</span> <span class="o">*</span> <span class="n">B_abs</span> <span class="o">/</span> <span class="p">(</span><span class="n">MU0</span> <span class="o">*</span> <span class="n">R</span> <span class="o">*</span> <span class="n">current</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">q</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Freidberg’s kink safety factor of an elongated tokamak, $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I)$.</p>
+
+\[q_* = \frac{2\pi a^2 \kappa B_0}{\mu_0 R_0 I_p} = \frac{5\,a^2\kappa B_0}{R_0\,I_p[\mathrm{MA}]}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>a</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Major radius.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R0</code>; its sign is dropped.</p>
+</td></tr>
+  <tr><td><code>kappa</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Elongation.</p>
+</td></tr>
+  <tr><td><code>I_p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">MA</td><td><p>Plasma current; its sign is dropped.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Kink safety factor $q_*$ of Eq. (13.160), NaN where an input is NaN.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Eq. (13.160) is the $G(\kappa) \approx 1$ form of Eq. (13.158), the definition with
+which the kink limit <code class="language-plaintext highlighter-rouge">"freidberg_2008_kink_qstar"</code> (Eq. 13.162) is stated. It is
+not <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.kink_safety_factor</code> (#1524). A zero current maps to
+an infinite $q_*$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A finite non-positive (or infinite) minor radius, major radius, field magnitude or elongation.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. P. Freidberg, <em>Plasma Physics and Fusion Energy</em>, Cambridge University Press (2008), Eqs. (13.158)-(13.160), p. 405.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="list_boundaries" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#list_boundaries"><code>list_boundaries</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="list_boundaries" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/formula/boundaries.py#L794-L810" title="vaft/formula/boundaries.py, lines 794–810 at b15430a">source</a>
+<a class="ref-source" data-source="list_boundaries" href="https://github.com/VEST-Tokamak/vaft/blob/b879375853c0293ecebed40ea83ba9bdcb73370b/vaft/formula/boundaries.py#L795-L811" title="vaft/formula/boundaries.py, lines 795–811 at b879375">source</a>
 </header>
     <pre class="ref-signature"><code>list_boundaries(family=None)</code></pre>
-    <details class="ref-code" data-source-code="list_boundaries"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 794–810</span></summary>
+    <details class="ref-code" data-source-code="list_boundaries"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 795–811</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">list_boundaries</span><span class="p">(</span><span class="n">family</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Keys of the registered boundaries, optionally restricted to one family.
@@ -987,10 +1108,10 @@ without cropping.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#same_quantity"><code>same_quantity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="same_quantity" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/formula/boundaries.py#L615-L636" title="vaft/formula/boundaries.py, lines 615–636 at b15430a">source</a>
+<a class="ref-source" data-source="same_quantity" href="https://github.com/VEST-Tokamak/vaft/blob/b879375853c0293ecebed40ea83ba9bdcb73370b/vaft/formula/boundaries.py#L616-L637" title="vaft/formula/boundaries.py, lines 616–637 at b879375">source</a>
 </header>
     <pre class="ref-signature"><code>same_quantity(a, b)</code></pre>
-    <details class="ref-code" data-source-code="same_quantity"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 615–636</span></summary>
+    <details class="ref-code" data-source-code="same_quantity"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 616–637</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">same_quantity</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">BoundaryQuantity</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">BoundaryQuantity</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Whether two quantities are the same physical quantity in the same unit.
@@ -1048,10 +1169,10 @@ drawn on an axis only when this returns <code class="language-plaintext highligh
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#threshold_curve"><code>threshold_curve</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="threshold_curve" href="https://github.com/VEST-Tokamak/vaft/blob/b15430ad06e41a6d8e2b36b5920878bf6d735b60/vaft/formula/boundaries.py#L639-L691" title="vaft/formula/boundaries.py, lines 639–691 at b15430a">source</a>
+<a class="ref-source" data-source="threshold_curve" href="https://github.com/VEST-Tokamak/vaft/blob/b879375853c0293ecebed40ea83ba9bdcb73370b/vaft/formula/boundaries.py#L640-L692" title="vaft/formula/boundaries.py, lines 640–692 at b879375">source</a>
 </header>
     <pre class="ref-signature"><code>threshold_curve(boundary, axis, values, target_axis=&#39;y&#39;)</code></pre>
-    <details class="ref-code" data-source-code="threshold_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 639–691</span></summary>
+    <details class="ref-code" data-source-code="threshold_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 640–692</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">threshold_curve</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="n">axis</span><span class="p">:</span> <span class="n">BoundaryQuantity</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">target_axis</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">y</span><span class="sh">"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoundaryCurve</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">A threshold boundary drawn as a straight line across a 2-D projection.
@@ -1373,7 +1494,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-03 09:23:38 +0000"
+        "time": "2026-10-03 10:19:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
