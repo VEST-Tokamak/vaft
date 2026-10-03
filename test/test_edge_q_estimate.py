@@ -8,7 +8,6 @@ import pytest
 from vaft.formula import boundaries as B
 from vaft.formula.equilibrium import (
     estimated_q95,
-    normalized_plasma_current,
     q_star_cylindrical,
     q_star_kink,
 )
@@ -124,6 +123,7 @@ def test_without_an_equilibrium_the_default_shape_is_named(sample):
     assert result.source == "magnetics"
     assert "vest.yaml:edge_q_estimate.default_shape" in result.shape_source
     assert "default_shape" in result.provenance
+    assert "cohort mean, not this shot's" in result.provenance
     assert result.current_source == "magnetics.ip.0"
     finite = np.isfinite(result.estimated_q95)
     assert finite.any()
@@ -147,13 +147,27 @@ def test_the_other_proxies_keep_their_own_names_and_values(sample):
     result = edge_q_estimate(sample, scaling="iter")
     assert result.label == "q95 (ITER estimate)"
     a, R, kappa = (result.shape[k] for k in ("minor_radius", "major_radius", "elongation"))
+    B, I_MA = result.toroidal_field, np.abs(result.plasma_current) * 1e-6
     ok = np.isfinite(result.estimated_q95)
-    np.testing.assert_allclose(result.q_star_kink[ok],
-                               q_star_kink(a, R, result.toroidal_field, kappa, result.plasma_current)[ok])
-    np.testing.assert_allclose(result.normalized_current[ok],
-                               np.abs(normalized_plasma_current(result.plasma_current, R, a,
-                                                                result.toroidal_field))[ok])
+    # Written out from the sources, not through the functions under test:
+    # Menard q* = 2.5 a^2 B (1 + kappa^2)/(R I[MA]), Freidberg q* = 5 a^2 kappa B/(R I[MA]).
+    np.testing.assert_allclose(result.q_star_cylindrical[ok],
+                               (2.5 * a**2 * B * (1 + kappa**2) / (R * I_MA))[ok], rtol=1e-6)
+    np.testing.assert_allclose(result.q_star_kink[ok], (5.0 * a**2 * kappa * B / (R * I_MA))[ok], rtol=1e-6)
+    np.testing.assert_allclose(result.normalized_current[ok], (I_MA / (a * B))[ok], rtol=1e-12)
     assert not hasattr(result, "q_a")
+
+
+def test_auto_falls_back_to_magnetics_when_the_equilibrium_cannot_run(sample):
+    import copy
+
+    from vaft.omas.edge_q import edge_q_estimate
+
+    ods = copy.deepcopy(sample)
+    del ods["equilibrium.vacuum_toroidal_field"]
+    assert edge_q_estimate(ods).source == "magnetics"
+    with pytest.raises(ValueError, match="vacuum_toroidal_field"):
+        edge_q_estimate(ods, source="equilibrium")
 
 
 # ------------------------------------------------------------------
@@ -181,14 +195,18 @@ def test_the_estimate_is_labelled_and_the_equilibrium_q95_overlaid(sample):
     model = vomas.extract_summary_time_estimated_q95(sample)
     labels = [series.label for series in model.series]
     assert model.title.startswith("q95 (START estimate)")
-    assert labels[0].startswith("q95 (START estimate)")
+    assert model.y_label == "q95 (START estimate)"
+    # auto draws the full-shot magnetics trace, the equilibrium slices overlay it
+    assert labels[0] == "q95 (START estimate), from magnetics, default shape"
     assert "q95 (equilibrium)" in labels
+    equilibrium = vomas.extract_summary_time_estimated_q95(sample, estimate_from="equilibrium")
+    assert equilibrium.series[0].label == "q95 (START estimate), from equilibrium"
 
 
 def test_without_an_equilibrium_the_legend_says_default_shape(sample):
     import vaft.omas as vomas
 
-    model = vomas.extract_summary_time_estimated_q95(sample, estimate_from="magnetics", scaling="iter")
+    model = vomas.extract_summary_time_estimated_q95(sample, estimate_from="magnetics", q95_scaling="iter")
     assert model.series[0].label == "q95 (ITER estimate), from magnetics, default shape"
 
 
@@ -203,3 +221,15 @@ def test_the_renderer_returns_figure_and_axes(sample):
         figure, axes = getattr(vomas, f"plot_{name}")(sample)
         assert axes.get_ylabel()
         plt.close(figure)
+
+
+@pytest.mark.parametrize("option, value", [
+    ("estimate_from", "magnetics"), ("estimate_shape", {"minor_radius": 0.3}),
+    ("q95_scaling", "iter"), ("start_configuration", "limiter"),
+])
+def test_only_the_edge_q_views_take_the_edge_q_options(option, value):
+    from vaft.plot.backend.options import validate_options
+
+    validate_options("summary_time_estimated_q95", {option: value})
+    with pytest.raises(ValueError, match=option):
+        validate_options("equilibrium_time_q95", {option: value})

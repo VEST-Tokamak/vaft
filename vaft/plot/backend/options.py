@@ -202,13 +202,15 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "code preset resolving gradient_coordinate and reference_length"),
         # Edge-q estimates (issue #1583): where shape and current come from, the
         # stand-in shape, and the q95 scaling; the defaults are vest.yaml's.
+        # Only the summary_time_* edge-q views take them (DECLARED_ONLY_OPTIONS).
         OptionSpec("estimate_from", "choice", "recipes.EDGE_Q_SOURCES",
-                   "shape and current from the equilibrium, the magnetics, or auto"),
-        OptionSpec("shape", description="{minor_radius, major_radius, elongation, triangularity} replacing "
-                                        "the equilibrium's or the machine default shape"),
-        OptionSpec("scaling", "choice", "recipes.Q95_SCALINGS", "q95 estimate: START (Akers 2000) or ITER (Post 1991)"),
-        OptionSpec("configuration", "choice", "recipes.START_CONFIGURATIONS",
-                   "START scaling C: limiter (1.0) or double_null (0.77)"),
+                   "edge-q estimate: auto (the full-shot magnetics trace when present), equilibrium or magnetics"),
+        OptionSpec("estimate_shape", description="edge-q estimate: {minor_radius, major_radius, elongation, "
+                                                 "triangularity} replacing the equilibrium's or the default shape"),
+        OptionSpec("q95_scaling", "choice", "recipes.Q95_SCALINGS",
+                   "edge-q estimate: START (Akers 2000) or ITER (Post 1991)"),
+        OptionSpec("start_configuration", "choice", "recipes.START_CONFIGURATIONS",
+                   "edge-q estimate: START scaling C, limiter (1.0) or double_null (0.77)"),
     )
 
 
@@ -220,7 +222,11 @@ EXTRACTION_OPTIONS: frozenset[str] = frozenset(OPTION_SCHEMA)
 
 #: Options only a computed view that declares them takes (issue #551).  Any
 #: other plot refuses them by name, exactly as it refuses an unknown option.
-DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({"gradient_coordinate", "reference_length", "convention"})
+DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
+    "gradient_coordinate", "reference_length", "convention",
+    # issue #1583: the edge-q views' choices.
+    "estimate_from", "q95_scaling", "start_configuration",
+})
 
 #: Options an adapter passes on internally (besides leading-underscore keys);
 #: never offered, never refused.
@@ -318,6 +324,13 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
 
             if name in recipes.RECIPES and not recipes.takes_time_range(name):
                 raise ValueError(recipes.no_time_range_option_message(name))
+        if key == "estimate_shape":
+            # Not a choice, so it cannot be declared through a recipe's choices:
+            # only the edge-q views read it (issue #1583).
+            from . import recipes
+
+            if name not in recipes.EDGE_Q_VIEWS:
+                raise ValueError(f"{name!r} takes no estimate_shape=; only the edge-q summary_time_* views do")
         if key == "members" and _plot_scoped_choices(name, key) is None:
             raise ValueError(
                 f"{name!r} is not a panel composite and takes no members=; "

@@ -14550,37 +14550,49 @@ _EDGE_Q_READS = (
 
 
 def _edge_q_available(ods: Any) -> str | None:
-    """Why ``ods`` has neither an equilibrium nor a magnetics current to estimate from."""
-    if _count(ods, "equilibrium.time_slice") > 0 and _has(ods, "equilibrium.vacuum_toroidal_field.b0"):
+    """Why ``ods`` has neither an equilibrium nor a magnetics current to estimate from.
+
+    The same predicates :func:`vaft.omas.edge_q.edge_q_estimate` chooses its
+    source by, so discovery never advertises an input the builder then refuses.
+    """
+    from vaft.omas.edge_q import _equilibrium_usable, _magnetics_usable
+
+    if _equilibrium_usable(ods) or _magnetics_usable(ods):
         return None
-    if _has(ods, "magnetics.ip.0.data") and (
-        _has(ods, "tf.b_field_tor_vacuum_r.data") or _has(ods, "equilibrium.vacuum_toroidal_field.b0")
-    ):
-        return None
-    return "needs equilibrium time slices, or magnetics.ip with the tf field"
+    return ("needs equilibrium slices with a boundary, equilibrium.time and the vacuum field, "
+            "or magnetics.ip with the tf field")
 
 
 def _build_edge_q_time(entries: Sequence[tuple[str, Any]], *, _plot_name: str, **options: Any) -> LineSeries:
     """One edge-q proxy against time, every entry overlaid, provenance in the legend.
 
-    ``estimate_from=`` (its ``source=``), ``shape=``, ``scaling=`` and ``configuration=`` go to
-    :func:`vaft.omas.edge_q.edge_q_estimate`; the scaling and the stand-in shape
-    default to the machine description. On the estimated-q95 view each entry's
-    equilibrium q95 is overlaid as markers where the ODS has one.
+    ``estimate_from=``, ``estimate_shape=``, ``q95_scaling=`` and
+    ``start_configuration=`` are :func:`vaft.omas.edge_q.edge_q_estimate`'s
+    ``source``, ``shape``, ``scaling`` and ``configuration``; the scaling and the
+    stand-in shape default to the machine description. ``estimate_from="auto"``
+    (the default) draws the full-shot magnetics trace when the ODS has one, else
+    the equilibrium slices. On the estimated-q95 view each entry's equilibrium
+    q95 is overlaid as markers where the ODS has one.
     """
     from vaft.omas.edge_q import edge_q_estimate
 
     key, quantity_label, unit = EDGE_Q_VIEWS[_plot_name]
     window = _range_option(options, "time_range")
-    kwargs = {name: options[name] for name in ("shape", "scaling", "configuration") if options.get(name) is not None}
-    if options.get("estimate_from") is not None:
-        kwargs["source"] = options["estimate_from"]
+    from vaft.omas.edge_q import _magnetics_usable
+
+    kwargs = {argument: options[option] for option, argument in (
+        ("estimate_shape", "shape"), ("q95_scaling", "scaling"), ("start_configuration", "configuration"))
+        if options.get(option) is not None}
+    source = options.get("estimate_from") or "auto"
     several = len(entries) > 1
     series: list[Series] = []
     estimates: list[Series] = []
     titles: set[str] = set()
     for position, (label, ods) in enumerate(entries):
-        result = edge_q_estimate(ods, **kwargs)
+        # The plot's "auto" is the full-shot magnetics trace when there is one:
+        # the equilibrium slices then overlay it as the check (issue #1583).
+        resolved = ("magnetics" if _magnetics_usable(ods) else "equilibrium") if source == "auto" else source
+        result = edge_q_estimate(ods, source=resolved, **kwargs)
         name = result.label if key == "estimated_q95" else quantity_label
         titles.add(name)
         time = np.asarray(result.time, dtype=float)
@@ -14602,7 +14614,7 @@ def _build_edge_q_time(entries: Sequence[tuple[str, Any]], *, _plot_name: str, *
                                  entry=str(label),
                                  style={"marker": "o", "linestyle": "none", **style}))
     heading = titles.pop() if len(titles) == 1 else "q95 (estimate)"
-    y_label = "q95" if key == "estimated_q95" else heading
+    y_label = heading
     shot = _entry_shot(entries)
     title = options.get("title") or (f"{heading} #{shot}" if shot else heading)
     return LineSeries(
@@ -14628,4 +14640,9 @@ for _name in EDGE_Q_VIEWS:
         backend=NEUTRAL,
         multi_entry=True,
         windowed=True,
+        choices={
+            "estimate_from": ChoiceDeclaration("auto", EDGE_Q_SOURCES),
+            "q95_scaling": ChoiceDeclaration(None, Q95_SCALINGS),
+            "start_configuration": ChoiceDeclaration(None, START_CONFIGURATIONS),
+        },
     )

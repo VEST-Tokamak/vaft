@@ -1772,7 +1772,8 @@ edge_q_estimate:
     major_radius: 0.379
     elongation: 1.51
     triangularity: 0.30
-    status: measured
+    # assumed: for the shot it stands in for, nothing measured this shape.
+    status: assumed
     provenance: >-
       Mean last-closed-surface shape of the Tier A magnetics equilibria
       (notebooks/conference_operational_space_atlas.ipynb, #1580): a = 0.274

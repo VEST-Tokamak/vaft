@@ -141,16 +141,40 @@ def _equilibrium_q95(ods: Any) -> tuple[Optional[np.ndarray], Optional[np.ndarra
     return _as_array(time)[:n], q
 
 
-def _has_equilibrium_shape(ods: Any) -> bool:
+def _equilibrium_usable(ods: Any) -> bool:
+    """Whether ``source="equilibrium"`` can run: slices with a boundary, a time base and the vacuum field."""
     n = path_count(ods, "equilibrium.time_slice")
-    return n > 0 and any(_slice_shape(ods, i) is not None for i in range(n))
+    if n == 0 or any(path_value(ods, path) is None for path in (
+            "equilibrium.time", "equilibrium.vacuum_toroidal_field.r0", "equilibrium.vacuum_toroidal_field.b0")):
+        return False
+    return any(_slice_shape(ods, i) is not None for i in range(n))
+
+
+def _magnetics_usable(ods: Any) -> bool:
+    """Whether ``source="magnetics"`` can run: a measured current and a toroidal field."""
+    return path_value(ods, "magnetics.ip.0.data") is not None and (
+        path_value(ods, "tf.b_field_tor_vacuum_r.data") is not None
+        or path_value(ods, "equilibrium.vacuum_toroidal_field.b0") is not None)
+
+
+def _per_slice(values: Any, n: int, what: str) -> np.ndarray:
+    """``values`` on the ``n`` equilibrium slices: one per slice, or one for all."""
+    arr = _as_array(values)
+    if arr.size == 1:
+        return np.full(n, arr[0])
+    if arr.size < n:
+        raise ValueError(f"{what} has {arr.size} values for {n} equilibrium slices")
+    return arr[:n]
 
 
 def _from_equilibrium(ods: Any, shape: Optional[Mapping[str, Any]]):
     n = path_count(ods, "equilibrium.time_slice")
     if n == 0:
         raise ValueError("source='equilibrium' needs equilibrium.time_slice")
-    time = _as_array(path_value(ods, "equilibrium.time"))[:n]
+    eq_time = path_value(ods, "equilibrium.time")
+    if eq_time is None:
+        raise ValueError("source='equilibrium' needs equilibrium.time")
+    time = _per_slice(eq_time, n, "equilibrium.time")
     if shape is not None:
         fixed = _caller_shape(shape)
         slices = [fixed] * n
@@ -166,7 +190,7 @@ def _from_equilibrium(ods: Any, shape: Optional[Mapping[str, Any]]):
     b0 = path_value(ods, "equilibrium.vacuum_toroidal_field.b0")
     if r0 is None or b0 is None:
         raise ValueError("source='equilibrium' needs equilibrium.vacuum_toroidal_field.r0 and b0")
-    rb = float(r0) * _as_array(b0)[:n]
+    rb = float(r0) * _per_slice(b0, n, "equilibrium.vacuum_toroidal_field.b0")
     field = rb / shapes["major_radius"]
     return (time, ip, field, shapes, shape_source, "equilibrium.time_slice[:].global_quantities.ip",
             "equilibrium.vacuum_toroidal_field (R0 B0 / R_geo)")
@@ -197,8 +221,10 @@ def _from_magnetics(ods: Any, shape: Optional[Mapping[str, Any]], policy: Any):
 
     tf_time = path_value(ods, "tf.time")
     rb = path_value(ods, "tf.b_field_tor_vacuum_r.data")
-    if tf_time is not None and rb is not None and np.size(tf_time) == np.size(rb):
+    if tf_time is not None and rb is not None:
         tf_t, rb_arr = _as_array(tf_time), _as_array(rb)
+        if tf_t.size != rb_arr.size:
+            raise ValueError(f"tf.b_field_tor_vacuum_r has {rb_arr.size} samples on a {tf_t.size}-sample time base")
         rb_at = np.interp(time, tf_t, rb_arr, left=np.nan, right=np.nan)
         field_source = "tf.b_field_tor_vacuum_r (R B / R_geo)"
     else:
@@ -231,7 +257,8 @@ def edge_q_estimate(
         One discharge.
     source : {"auto", "equilibrium", "magnetics"}
         Where shape and current come from. ``"auto"`` takes the equilibrium when
-        a time slice has a boundary, else the magnetics.
+        a time slice has a boundary and the time base and vacuum field it needs,
+        else the magnetics.
     shape : mapping, optional
         ``minor_radius`` [m], ``major_radius`` (geometric centre) [m],
         ``elongation`` and ``triangularity``, overriding the equilibrium's or
@@ -272,7 +299,7 @@ def edge_q_estimate(
 
     resolved = source
     if source == "auto":
-        resolved = "equilibrium" if _has_equilibrium_shape(ods) else "magnetics"
+        resolved = "equilibrium" if _equilibrium_usable(ods) else "magnetics"
     if resolved == "equilibrium":
         parts = _from_equilibrium(ods, shape)
     else:
@@ -290,7 +317,7 @@ def edge_q_estimate(
 
     notes = []
     if resolved == "magnetics" and shape is None:
-        notes.append(f"default shape status: {policy.status['default_shape']}")
+        notes.append(f"stand-in shape status: {policy.status['default_shape']} (a cohort mean, not this shot's)")
     eq_time, eq_q95 = _equilibrium_q95(ods)
     return EdgeQEstimate(
         time=time,
