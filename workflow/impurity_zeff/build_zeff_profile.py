@@ -65,6 +65,7 @@ STATE_COLUMNS = {
     "z_i_eff_axis": "reduced impurity charge S2/S1 on axis", "dilution_axis": "1 - n_H/n_e on axis",
     "mean_z_C_axis": "<Z> of carbon on axis", "mean_z_O_axis": "<Z> of oxygen on axis",
     "te_axis_eV": "T_e at the innermost point [eV]", "not_coronal_fraction": "share of points not coronal at the plasma age",
+    "weighting": "volume weights of the n_e-weighted mean (EFIT dV, or rho drho when the slice has no volume)",
 }
 
 
@@ -194,6 +195,7 @@ def build(filedb: Path, atlas: Path, out: Path, *, tolerance: float, cache_dir: 
             first = int(np.flatnonzero(valid)[0])
             row.update(
                 status="ok", reason="", scale=result.scale,
+                weighting="EFIT dV" if dv is not None else "rho drho (no EFIT volume)",
                 n_C_over_ne=float(result.elemental_fractions[first, result.elements.index("C")]),
                 n_O_over_ne=float(result.elemental_fractions[first, result.elements.index("O")]),
                 zeff_axis=float(result.zeff[first]),
