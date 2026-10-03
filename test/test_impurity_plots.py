@@ -76,8 +76,6 @@ def test_the_stored_zeff_is_labelled_by_the_origin_its_record_states(record, exp
     (series,) = model.series
     assert series.label == f"Z_eff ({expected})"
     assert expected in model.title
-    if record is None or "measured" not in record.split(";")[0]:
-        assert "(measured)" not in series.label
     np.testing.assert_allclose(series.y, 2.0)
 
 
@@ -126,7 +124,7 @@ def test_the_composition_is_the_process_layer_result_on_the_slice_named_by_time(
     assert "(model)" in model.suptitle and "VEST preset" in model.suptitle
     assert "310.00 ms" in model.suptitle
     labels = [s.label for s in zeff.series]
-    assert labels[:2] == ["<Z_eff>_ne = 2", "fully stripped at Z_eff = 2"]
+    assert labels[:2] == ["<Z_eff>_ne = 2 (equilibrium dV)", "fully stripped at Z_eff = 2"]
     assert any("C6+ fully stripped" == s.label for s in moments.series)
 
 
@@ -171,7 +169,7 @@ def test_a_caller_composition_and_target_are_used_and_stated():
                      target_zeff=1.5, normalizations=("axis",))
     assert model.models[0].series[0].y[0] == pytest.approx(1.5)
     assert "C:O = 2:1 (caller)" in model.suptitle
-    assert "Z_eff(0) = 1.5" in model.models[0].title
+    assert "Z_eff(rho=0.00) = 1.5" in model.models[0].title
 
 
 def test_the_composition_does_not_write_into_the_ods():
@@ -209,3 +207,56 @@ def test_the_plasma_age_defaults_to_the_onset_the_diagnostics_give():
     model = _extract("impurity_profile_composition", ods)
     t = float(ods["core_profiles.profiles_1d.0.time"])
     assert model.models[1].title.startswith(f"plasma age {(t - onset) * 1e3:.1f} ms")
+
+
+def test_without_an_equilibrium_volume_the_label_says_the_stand_in_was_used():
+    for ods in (_ods(), _degenerate_volume(_ods(equilibrium=True))):
+        label = _extract("impurity_profile_composition", ods).models[0].series[0].label
+        assert label == "<Z_eff>_ne = 2 (rho drho stand-in, no equilibrium V at this time)"
+
+
+def _degenerate_volume(ods):
+    for k in range(len(TIMES)):
+        ods[f"equilibrium.time_slice.{k}.profiles_1d.volume"] = np.zeros(RHO.size)
+    return ods
+
+
+def test_the_axis_rule_names_the_point_it_closed_at():
+    ods = _ods()
+    ods["core_profiles.profiles_1d.0.electrons.temperature"] = np.r_[np.nan, _te(0)[1:]]
+    model = _extract("impurity_profile_composition", ods, normalizations=("axis", "axis"))
+    assert model.models[0].series[0].label == "Z_eff(rho=0.10) = 2"
+    assert [s.label for s in model.models[0].series].count("Z_eff(rho=0.10) = 2") == 1   # deduplicated
+
+
+def test_charge_state_fractions_do_not_depend_on_the_normalization_target():
+    low = _extract("impurity_profile_charge_state_fraction", _ods())
+    high = _extract("impurity_profile_charge_state_fraction", _ods(), target_zeff=10.0)
+    for a, b in zip(low.models, high.models):
+        for sa, sb in zip(a.series, b.series):
+            np.testing.assert_array_equal(sa.y, sb.y)
+
+
+def test_not_coronal_markers_are_thinned_on_a_dense_grid_but_keep_the_span():
+    from vaft.plot.backend.recipes import _NOT_CORONAL_MARKERS
+
+    rho = np.linspace(0.0, 1.0, 101)
+    ods = ODS()
+    ods["core_profiles.time"] = np.array([0.3])
+    ods["core_profiles.profiles_1d.0.time"] = 0.3
+    ods["core_profiles.profiles_1d.0.grid.rho_tor_norm"] = rho
+    ods["core_profiles.profiles_1d.0.electrons.temperature"] = 300.0 * (1.0 - 0.95 * rho**2)
+    ods["core_profiles.profiles_1d.0.electrons.density_thermal"] = 1.5e19 * (1.0 - 0.7 * rho**2)
+    model = _extract("impurity_profile_composition", ods, plasma_age_s=1e-7)
+    (marks,) = [s for s in model.models[0].series if s.label.startswith("not coronal at")]
+    assert 2 <= marks.x.size <= _NOT_CORONAL_MARKERS + 2
+    assert marks.x[0] == rho[0] and marks.x[-1] == rho[-1]
+    assert np.all(np.diff(marks.x) > 0)
+
+
+def test_without_time_the_first_slice_that_can_be_drawn_is_drawn():
+    ods = _ods(zeff=2.0, record="origin=assumed; method=x")
+    del ods["core_profiles.profiles_1d.0.zeff"]
+    model = _extract("core_profiles_profile_zeff", ods)
+    np.testing.assert_allclose(model.series[0].y, 3.0)
+    assert model.metadata["time"] == pytest.approx(0.310)

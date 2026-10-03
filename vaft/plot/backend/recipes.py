@@ -5822,11 +5822,17 @@ _ZEFF_ORIGIN_LABELS = {
 }
 
 
-def _core_profiles_slice(ods: Any, options: Mapping[str, Any]) -> tuple[int, str, float]:
-    """``(index, base path, time)`` of the core_profiles slice ``time_slice=`` names (default 0)."""
+def _core_profiles_slice(ods: Any, options: Mapping[str, Any], qualifies: Any = None) -> tuple[int, str, float]:
+    """``(index, base path, time)`` of the core_profiles slice ``time_slice=`` names.
+
+    Without one, the first slice ``qualifies(ods, base)`` accepts -- the slice
+    the recipe's ``available`` predicate found -- else slice 0.
+    """
     total = _count(ods, "core_profiles.profiles_1d")
     raw = options.get("time_slice")
     index = 0 if raw is None else int(raw)
+    if raw is None and qualifies is not None:
+        index = next((i for i in range(total) if qualifies(ods, f"core_profiles.profiles_1d.{i}")), 0)
     if not 0 <= index < total:
         raise ValueError(f"time_slice={raw!r} is outside the {total} stored core_profiles slices")
     times = slice_times(ods, "core_profiles.profiles_1d")
@@ -5858,10 +5864,14 @@ def _stored_zeff(ods: Any, base: str) -> tuple[np.ndarray, np.ndarray, str | Non
     return rho, zeff, composition_record_origin(record), record
 
 
+def _has_stored_zeff(ods: Any, base: str) -> bool:
+    return _stored_zeff(ods, base) is not None
+
+
 def _zeff_profile_available(ods: Any) -> str | None:
     """Why no slice can draw its stored Z_eff (zeff on its own rho grid), or ``None``."""
     for index in range(_count(ods, "core_profiles.profiles_1d")):
-        if _stored_zeff(ods, f"core_profiles.profiles_1d.{index}") is not None:
+        if _has_stored_zeff(ods, f"core_profiles.profiles_1d.{index}"):
             return None
     return "core_profiles.profiles_1d.{i}.zeff on a grid.rho_tor_norm of the same length"
 
@@ -5875,7 +5885,7 @@ def _build_zeff_profile(ods: Any, **options: Any) -> Profile1D:
     inferred profile says so, and one without a record says that instead of
     passing for a measurement.
     """
-    _, base, t = _core_profiles_slice(ods, options)
+    _, base, t = _core_profiles_slice(ods, options, _has_stored_zeff)
     stored = _stored_zeff(ods, base)
     if stored is None:
         raise ValueError(f"{base} carries no zeff on a grid.rho_tor_norm of the same length")
@@ -5953,7 +5963,10 @@ def _volume_weights_at(ods: Any, t: float, rho: np.ndarray) -> np.ndarray | None
     order = np.argsort(rho_eq[ok])
     edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
     v = np.interp(edges, rho_eq[ok][order], volume[ok][order])
-    return np.clip(np.diff(v), 0.0, None)
+    dv = np.clip(np.diff(v), 0.0, None)
+    # A constant or zero V(rho) weighs nothing; the caller then says the
+    # stand-in is used rather than the resolver failing on a NaN amplitude.
+    return dv if np.sum(dv) > 0.0 else None
 
 
 def _plasma_age(ods: Any, t: float, options: Mapping[str, Any]) -> tuple[float | None, str]:
@@ -5988,12 +6001,8 @@ def _plasma_age(ods: Any, t: float, options: Mapping[str, Any]) -> tuple[float |
 
 def _impurity_inputs(ods: Any, options: Mapping[str, Any]) -> dict[str, Any]:
     """Everything the composition views resolve from the slice and the options, once."""
-    _, base, t = _core_profiles_slice(ods, options)
-    rho = _array(ods, f"{base}.grid.rho_tor_norm")
-    te = _array(ods, f"{base}.electrons.temperature")
-    ne = _array(ods, f"{base}.electrons.density_thermal")
-    if ne is None:
-        ne = _array(ods, f"{base}.electrons.density")
+    _, base, t = _core_profiles_slice(ods, options, _has_kinetic_profiles)
+    rho, te, ne = _kinetic_profiles(ods, base)
     missing = [name for name, value in (("grid.rho_tor_norm", rho), ("electrons.temperature", te),
                                         ("electrons.density_thermal (or density)", ne)) if value is None]
     if missing:
@@ -6028,15 +6037,26 @@ def _radial_composition(inputs: Mapping[str, Any], normalization: str) -> Any:
     )
 
 
+def _kinetic_profiles(ods: Any, base: str) -> tuple[Any, Any, Any]:
+    """``(rho, T_e, n_e)`` of one slice, n_e in either spelling; ``None`` for what is absent."""
+    ne = _array(ods, f"{base}.electrons.density_thermal")
+    if ne is None:
+        ne = _array(ods, f"{base}.electrons.density")
+    return _array(ods, f"{base}.grid.rho_tor_norm"), _array(ods, f"{base}.electrons.temperature"), ne
+
+
+def _has_kinetic_profiles(ods: Any, base: str) -> bool:
+    rho, te, ne = _kinetic_profiles(ods, base)
+    return rho is not None and te is not None and ne is not None and rho.shape == te.shape == ne.shape
+
+
 def _impurity_available(ods: Any) -> str | None:
-    """Why no slice holds the T_e and n_e (either spelling) the charge states need, or ``None``."""
+    """Why no slice holds rho, T_e and n_e (either spelling) of one length, or ``None``."""
     for index in range(_count(ods, "core_profiles.profiles_1d")):
-        base = f"core_profiles.profiles_1d.{index}"
-        if _array(ods, f"{base}.electrons.temperature") is not None and any(
-            _array(ods, f"{base}.electrons.{leaf}") is not None for leaf in ("density_thermal", "density")
-        ):
+        if _has_kinetic_profiles(ods, f"core_profiles.profiles_1d.{index}"):
             return None
-    return "core_profiles.profiles_1d.{i}.electrons.temperature with electrons.density_thermal (or density)"
+    return ("core_profiles.profiles_1d.{i}.electrons.temperature and electrons.density_thermal "
+            "(or density) on a grid.rho_tor_norm of the same length")
 
 
 def _age_text(inputs: Mapping[str, Any]) -> str:
@@ -6084,7 +6104,7 @@ def _build_impurity_composition(ods: Any, **options: Any) -> Panels:
     """
     inputs = _impurity_inputs(ods, options)
     asked = options.get("normalizations") or ("ne_weighted_mean", "fixed")
-    asked = (asked,) if isinstance(asked, str) else tuple(asked)
+    asked = (asked,) if isinstance(asked, str) else tuple(dict.fromkeys(asked))
     unknown = [name for name in asked if name not in IMPURITY_NORMALIZATIONS]
     if unknown:
         raise ValueError(f"normalizations must be drawn from {IMPURITY_NORMALIZATIONS}; got {unknown!r}")
@@ -6098,24 +6118,32 @@ def _build_impurity_composition(ods: Any, **options: Any) -> Panels:
     rho, ionization = inputs["rho"], inputs["ionization"]
     target = inputs["target"]
 
-    def rule(name: str) -> str:
-        return {"ne_weighted_mean": f"<Z_eff>_ne = {target:g}", "axis": f"Z_eff(0) = {target:g}",
-                "fixed": f"fully stripped at Z_eff = {target:g}"}[name]
+    weighting = ("equilibrium dV" if inputs["volume_weights"] is not None
+                 else "rho drho stand-in, no equilibrium V at this time")
 
-    zeff_traces = [Series(x=rho, y=primary.zeff, label=rule(asked[0]), style={"color": palette(0), "lw": 1.8})]
+    def rule(name: str, result: Any) -> str:
+        """What the normalization closed, stated as the resolver closed it."""
+        if name == "ne_weighted_mean":
+            return f"<Z_eff>_ne = {target:g} ({weighting})"
+        if name == "axis":
+            return f"Z_eff(rho={result.normalization.get('at_rho', float('nan')):.2f}) = {target:g}"
+        return f"fully stripped at Z_eff = {target:g}"
+
+    zeff_traces = [Series(x=rho, y=primary.zeff, label=rule(asked[0], primary),
+                          style={"color": palette(0), "lw": 1.8})]
     for k, (name, result) in enumerate(others, start=1):
-        zeff_traces.append(Series(x=rho, y=result.zeff, label=rule(name),
+        zeff_traces.append(Series(x=rho, y=result.zeff, label=rule(name, result),
                                   style={"color": palette(k), "linestyle": "--"}))
     stored = _stored_zeff(ods, inputs["base"])
     if stored is not None:
         label, style = _ZEFF_ORIGIN_LABELS[stored[2]]
         zeff_traces.append(Series(x=stored[0], y=stored[1], label=f"stored ({label})",
                                   style={**style, "linestyle": ":"}))
-    young = "" if inputs["age"] is None else f"not coronal at {inputs['age'] * 1e3:.1f} ms"
+    young = "" if inputs["age"] is None else f"not coronal at {inputs['age'] * 1e3:.3g} ms"
     zeff_traces += _not_coronal(rho, primary.zeff, primary, young)
     zeff_panel = Profile1D(series=tuple(zeff_traces), coordinate_label="rho_tor_norm",
                            y_label="Z_eff", y_unit="",
-                           title=f"{ionization} charge states; {rule(asked[0])}: "
+                           title=f"{ionization} charge states; {rule(asked[0], primary).split(' (')[0]}: "
                                  f"n_s/n_e = {primary.scale:.3g} w_s")
 
     moments: list[Series] = []
@@ -6159,16 +6187,19 @@ def _build_impurity_charge_states(ods: Any, **options: Any) -> Panels:
     """Charge-state fractions f_q(rho) of each element, one panel per element.
 
     The distribution depends on T_e, n_e and -- for ``ionization="transient"``
-    -- the plasma age only, not on how the elements are normalised, so the
-    composition is resolved under the ``fixed`` rule, which no target can
-    make unreachable.
+    -- the plasma age only, not on how much of each element there is, so it is
+    taken from :func:`vaft.process.impurity.charge_state_moments` per element
+    and no normalization (or its target) can make it fail.
     """
+    from vaft.process.impurity import charge_state_moments
+
     inputs = _impurity_inputs(ods, options)
-    result = _radial_composition(inputs, "fixed")
     rho = inputs["rho"]
     panels = []
-    for k, element in enumerate(result.elements):
-        fractions = np.asarray(result.charge_state_fractions[k], dtype=float)
+    for k, element in enumerate(inputs["weights"]):
+        fractions = np.asarray(charge_state_moments(
+            element, inputs["te"], inputs["ne"], ionization=inputs["ionization"], age_s=inputs["age"],
+            tables=inputs["tables"], cache_dir=inputs["cache_dir"])["fractions"], dtype=float)
         traces = tuple(
             Series(x=rho, y=fractions[:, q], label=f"{element}{q}+" if q else f"{element}0",
                    style={"color": palette(q)})
