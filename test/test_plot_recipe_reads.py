@@ -45,6 +45,10 @@ NEUTRAL = frozenset({
     "mhd_linear_profile_chirikov", "mhd_linear_field_spectrum",
     "mhd_linear_spectrum_b_field_perturbed", "mhd_linear_geometry_island",
     "coil_3d_profile_current", "coil_3d_spectrum_current",
+    # #1565: accessor reads only; the plasma onset comes from
+    # vaft.omas.plasma_timing, which reads through vaft.ods_access.
+    "core_profiles_profile_zeff", "impurity_profile_composition",
+    "impurity_profile_charge_state_fraction",
     # Built on vaft.omas helpers that read through vaft.ods_access, which
     # dispatches to the registered accessor: native on an IMAS entry too.
     "pf_plasma_geometry_poloidal",

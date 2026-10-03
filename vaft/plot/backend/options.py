@@ -71,6 +71,17 @@ def _specs() -> tuple[OptionSpec, ...]:
                                "on a time axis or refused -- never accepted and ignored"),
         OptionSpec("conductivity_model", "choice", "recipes.ZEFF_CONDUCTIVITY_MODELS",
                    "parallel conductivity model of the resistive Z_eff view (#1214)"),
+        # Impurity composition views (#1565 Sec. 8).
+        OptionSpec("normalizations", "multi", "recipes.IMPURITY_NORMALIZATIONS",
+                   "how the elemental densities are scaled; the first drives the moment panels"),
+        OptionSpec("ionization", "choice", "recipes.IMPURITY_IONIZATIONS",
+                   "charge-state model: coronal, or transient at the plasma age"),
+        OptionSpec("plasma_age_s", "float",
+                   description="time since the plasma onset in seconds; default from plasma_timing"),
+        OptionSpec("impurity_model", description="'vest' (the vest.yaml preset) or {element: relative density}"),
+        OptionSpec("target_zeff", "float", description="Z_eff the normalization rule closes at"),
+        OptionSpec("adf11_tables", description="{element: (acd, scd)} ADF11 tables overriding OPEN-ADAS"),
+        OptionSpec("adf11_cache_dir", "str", description="directory OPEN-ADAS ADF11 files are cached in"),
         OptionSpec("smooth", "float", description="rolling-median window in seconds applied to line traces"),
         # A dense time base is indexed, not chosen from a list: the vacuum map
         # runs over the PF samples, thousands of them, where time_slice= names
