@@ -388,6 +388,72 @@ def mean_charge_from_charge_state_densities(n_z, axis=-1):
     return float(mean) if np.ndim(mean) == 0 else mean
 
 
+def mean_square_charge_from_charge_state_densities(n_z, axis=-1):
+    r"""Mean square charge of one element over its charge states.
+
+    $$\langle Z^2\rangle = \sum_j j^2 f_j = \frac{\sum_j j^2\,n_j}{\sum_j n_j},
+      \qquad f_j = \frac{n_j}{\sum_k n_k}$$
+
+    Parameters
+    ----------
+    n_z : array-like
+        Density of each charge state along ``axis``, ordered neutral first, so
+        that index $j$ is charge $j$; finite and non-negative [m^-3].
+    axis : int, optional
+        Axis that runs over the charge states [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Mean square charge, with ``axis`` removed [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density, or a slice whose densities sum to
+        zero, which has no charge distribution to average.
+
+    Convention
+    ----------
+    **Index is charge, neutral first**, as in
+    :func:`mean_charge_from_charge_state_densities`.  An element of density
+    $n_I$ contributes $n_I\langle Z^2\rangle$ to $Z_\mathrm{eff} n_e$ and
+    $n_I\langle Z\rangle$ to quasi-neutrality; $\langle Z^2\rangle -
+    \langle Z\rangle^2$ is the charge-state variance that collapsing onto the
+    mean charge would drop.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25 (impurity charge states).
+
+    See Also
+    --------
+    mean_charge_from_charge_state_densities
+    fractional_abundances
+    z_eff_from_n_s_Z_s
+    """
+    density = np.asarray(n_z, dtype=float)
+    if density.ndim == 0:
+        raise ValueError("n_z needs at least one charge state along axis")
+    try:
+        axis = normalize_axis_index(axis, density.ndim)
+    except (IndexError, np.exceptions.AxisError) as exc:  # numpy raises AxisError, an IndexError subclass
+        raise ValueError(f"axis {axis} is out of range for a {density.ndim}-D n_z") from exc
+    if density.shape[axis] == 0:
+        raise ValueError("n_z needs at least one charge state along axis")
+    if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+        raise ValueError("n_z must be finite and non-negative")
+    total = np.sum(density, axis=axis)
+    if np.any(total <= 0.0):
+        raise ValueError("a charge-state distribution with zero total density has no mean square charge")
+    shape = [1] * density.ndim
+    shape[axis] = density.shape[axis]
+    charge = np.arange(density.shape[axis], dtype=float).reshape(shape)
+    mean = np.sum(charge**2 * density, axis=axis) / total
+    return float(mean) if np.ndim(mean) == 0 else mean
+
+
 def z_eff_from_n_s_Z_s(n_s, Z_s, n_e=None):
     r"""Effective charge of a mixture of ion species.
 
@@ -654,6 +720,7 @@ __all__ = [
     "interpolate_adf11",
     "line_cooling_coefficient",
     "mean_charge_from_charge_state_densities",
+    "mean_square_charge_from_charge_state_densities",
     "z_eff_from_n_s_Z_s",
     "impurity_fraction_from_effective_charge",
     "hydrogenic_energy_level",
