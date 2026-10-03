@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from vaft.plot.backends import renderer_for, resolve_render_backend
-from vaft.plot.registry import get_spec
+from vaft.plot.registry import NON_GRAPHICAL_VIEWS, get_spec
 
 from .options import split_options, validate_options
 from .recipes import (
@@ -20,7 +20,13 @@ from .recipes import (
     missing_required_path,
 )
 
-__all__ = ["STATE_SELECTORS", "frame_renderers", "refuse_when_unsupported", "render_entries"]
+__all__ = [
+    "STATE_SELECTORS",
+    "frame_renderers",
+    "refuse_when_unsupported",
+    "render_entries",
+    "render_text_view",
+]
 
 #: Keywords that each pick one state of a time-resolved plot (issue #1380).
 STATE_SELECTORS = ("time", "time_slice", "time_index", "frame_index")
@@ -64,8 +70,14 @@ def render_entries(
     :class:`vaft.plot._animation.Animation` with ``save("x.mp4")``;
     ``fps=``/``duration=`` set the playback, never the physics.
     """
-    backend = resolve_render_backend(backend)
     spec = get_spec(name)
+    if spec.view in NON_GRAPHICAL_VIEWS:
+        return render_text_view(
+            spec, entries, ax=ax, show=show, backend=backend, namespace=namespace,
+            subject=subject, interactive=interactive, animation=animation,
+            controls=controls, interaction_backend=interaction_backend, **options,
+        )
+    backend = resolve_render_backend(backend)
     if animation:
         if interactive:
             raise TypeError(
@@ -128,6 +140,61 @@ def render_entries(
 
         plt.show()
     return result
+
+
+def render_text_view(
+    spec: Any,
+    entries: Sequence[tuple[str, Any]],
+    *,
+    ax: Any = None,
+    show: bool = False,
+    backend: str | None = None,
+    namespace: str = "vaft.omas",
+    subject: str = "ods",
+    interactive: bool = False,
+    animation: bool = False,
+    controls: str | Sequence[str] = "auto",
+    interaction_backend: str = "auto",
+    **options: Any,
+) -> Any:
+    """A ``table`` or ``text`` view (issue #1180): the model, presented as text.
+
+    The model is built exactly as for a figure; the renderer returns a
+    :class:`vaft.plot.renderers.tables.TextView` instead of ``(Figure, Axes)``
+    -- printed when ``show=True``.  The keywords that only mean something to
+    a drawn figure are refused by name rather than ignored: ``ax=``,
+    ``format=``, ``theme=``, ``figure_options=``, ``backend="plotly"``, the
+    interaction switches and any renderer style keyword.
+    """
+    kind = f"plot_{spec.stem} is a {spec.view} view and returns text, not a figure"
+    refused = []
+    if ax is not None:
+        refused.append("ax=")
+    if backend not in (None, "matplotlib"):
+        refused.append(f"backend={backend!r}")
+    for key in ("format", "theme", "figure_options"):
+        if options.get(key) not in (None, "", "none"):
+            refused.append(f"{key}=")
+    if interactive:
+        refused.append("interactive=True")
+    if animation:
+        refused.append("animation=True")
+    if controls != "auto" or interaction_backend != "auto":
+        refused.append("controls=/interaction_backend=")
+    options = {k: v for k, v in options.items() if k not in ("format", "theme", "figure_options")}
+    extraction, style = split_options(options)
+    refused += [f"{key}=" for key in sorted(style)]
+    if refused:
+        raise TypeError(
+            f"{kind}; {', '.join(refused)} "
+            f"{'applies' if len(refused) == 1 else 'apply'} to drawn figures only "
+            "(Matplotlib/Plotly presentation). Print it, or export it with "
+            ".text(), .markdown() or .html()."
+        )
+    validate_options(spec.name, extraction)
+    refuse_when_unsupported(spec.name, entries, namespace=namespace, subject=subject)
+    model = build_model(spec.name, entries, **extraction)
+    return spec.renderer(model, show=show)
 
 
 def _render_interactive(
