@@ -1754,3 +1754,294 @@ _register(Boundary(
     notes="Rises by 4/3 from kappa = 1 to 2. The printed Eq. (7) of Yun et al., PPCF 67 (2025) 115021 does not "
           "reproduce its own Fig. 8(b); this relation does (#1524).",
 ))
+
+
+# ------------------------------------------------------------------
+# Edge-q proxies from global shape and engineering parameters (#1456)
+# ------------------------------------------------------------------
+#
+# Two families, kept apart (they are different quantities and neither is q_a):
+#
+# * Menard's cylindrical safety factor (Phys. Plasmas 11 (2004) 639, PPPL-3908 preprint p. 9, after
+#   D'Ippolito et al., Phys. Fluids 21 (1978) 1600): q* = eps (1 + kappa^2) pi a B_T0 / (mu0 I_P)
+#   = pi a^2 B_T0 (1 + kappa^2) / (mu0 R0 I_P), the (1 + kappa^2)/2 form of Freidberg Eq. (13.171).
+#   In Menard's low-aspect-ratio ideal no-wall scans, <beta_N> degrades below q* = 2 and no stable
+#   case is found below q* = 1.
+# * The ITER design-guideline q95 (Post et al., ITER Physics, ITER Documentation Series No. 21, IAEA
+#   1991, Table 1-2, after Uckan, ITER Physics Design Guidelines, IAEA/ITER/DS-10, 1990, p. 10):
+#   q_psi(95%) ~ q_* f(eps), with q_* = (5 a^2 B / R I)[1 + kappa^2 (1 + 2 delta^2 - 1.2 delta^3)]/2 and
+#   f(eps) = (1.17 - 0.65 eps)/(1 - eps^2)^2; guideline q95 >= 3.0 (baseline) | 2.1 (extended
+#   performance) for kappa < 2. A conventional-aspect-ratio fit: at VEST's A ~ 1.3 it is an
+#   extrapolation (Akers et al., NF 40 (2000) 1223, give a START-based ST correction, not registered
+#   here until its coefficients are read from the paper).
+
+_KINK_Q_STAR_CYL = BoundaryQuantity(
+    "kink_safety_factor_cylindrical", "q^*", "-",
+    "Menard et al. (2004) cylindrical safety factor pi a^2 B_T0 (1 + kappa^2)/(mu0 R0 I_P) "
+    "(Freidberg Eq. 13.171). Not q95, not q_a, not Freidberg's Eq. (13.160).",
+)
+_Q95 = BoundaryQuantity("edge_safety_factor_95", "q95", "-", "Safety factor at the 95 % flux surface.")
+_Q95_ITER_ESTIMATE = BoundaryQuantity(
+    "edge_safety_factor_95_estimate_iter", "q_{95,ITER}", "-",
+    "q95 from the ITER design-guideline formula (Post et al. 1991, Table 1-2) evaluated on global shape "
+    "and engineering parameters; an estimate, not an equilibrium q95.",
+)
+_TRIANGULARITY = BoundaryQuantity("triangularity", "delta", "-", "Plasma triangularity (average of upper and lower).")
+_MENARD_2004_SOURCE = BoundarySource(
+    "J. E. Menard et al., Phys. Plasmas 11 (2004) 639 (preprint PPPL-3908)",
+    equation="p. 9 of PPPL-3908: q* = eps (1 + kappa^2) pi a B_T0 / mu0 I_P; Fig. 3d",
+    doi="10.1063/1.1640623",
+    note="after D'Ippolito, Freidberg, Goedbloed and Rem, Phys. Fluids 21 (1978) 1600",
+)
+_POST_1991_SOURCE = BoundarySource(
+    "D. E. Post et al., ITER Physics, ITER Documentation Series No. 21, IAEA, Vienna (1991)",
+    equation="Table 1-2 (Summary of ITER physics guidelines): q_psi(95%) ~ q_* f(eps)",
+    note="after N. A. Uckan and ITER Physics Group, ITER Physics Design Guidelines: 1989, IAEA/ITER/DS-10 (1990), "
+         "p. 10; '(x | y)' is (baseline performance | extended performance)",
+)
+
+
+def _positive_geometry(**values):
+    out = {}
+    for name, value in values.items():
+        arr = np.asarray(value, dtype=float)
+        if np.any(np.isinf(arr)) or np.any(np.isfinite(arr) & ~(arr > 0)):
+            raise ValueError(f"{name} must be positive and finite where it is given")
+        out[name] = arr
+    return out
+
+
+def cylindrical_kink_coordinates(a, R0, B0, kappa, I_p):
+    r"""Menard's cylindrical safety factor, $q^* = \pi a^2 B_{T0}(1+\kappa^2)/(\mu_0 R_0 I_P)$.
+
+    $$q^* = \epsilon\,(1+\kappa^2)\,\frac{\pi a B_{T0}}{\mu_0 I_P}
+          = \frac{\pi a^2 B_{T0}\,(1+\kappa^2)}{\mu_0 R_0 I_P}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    float or np.ndarray
+        Cylindrical safety factor $q^*$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation.
+
+    Convention
+    ----------
+    A global, shape-weighted proxy of the edge safety factor, not $q_a$ or $q_{95}$:
+    Menard et al. use it because $q(1)$ and $q(0.95)$ at the current limit vary by a
+    factor two with aspect ratio and shape while $q^*$ does not. It is the
+    $(1+\kappa^2)/2$ form of Freidberg Eq. (13.171), and differs from Freidberg's
+    Eq. (13.160) (``kink_coordinates``) by the factor $(1+\kappa^2)/(2\kappa)$.
+
+    References
+    ----------
+    .. [1] J. E. Menard et al., Phys. Plasmas 11 (2004) 639; preprint PPPL-3908, p. 9.
+    .. [2] D. A. D'Ippolito, J. P. Freidberg, J. P. Goedbloed and J. Rem, Phys. Fluids 21 (1978) 1600.
+    """
+    g = _positive_geometry(a=a, R0=R0, B0=np.abs(np.asarray(B0, dtype=float)), kappa=kappa)
+    current = np.abs(np.asarray(I_p, dtype=float)) * 1e6
+    with np.errstate(divide="ignore"):
+        q = np.pi * g["a"] ** 2 * g["B0"] * (1.0 + g["kappa"] ** 2) / (MU0 * g["R0"] * current)
+    return _scalar_or_array(q)
+
+
+def _iter_q95_per_ma(a, R0, B0, kappa, delta):
+    """q95 * I_p[MA] of the ITER guideline formula (Post et al. 1991, Table 1-2)."""
+    eps = a / R0
+    shape = (1.0 + kappa**2 * (1.0 + 2.0 * delta**2 - 1.2 * delta**3)) / 2.0
+    geometry = (1.17 - 0.65 * eps) / (1.0 - eps**2) ** 2
+    return 5.0 * a**2 * B0 / R0 * shape * geometry
+
+
+def iter_q95_coordinates(a, R0, B0, kappa, delta, I_p):
+    r"""The ITER design-guideline $q_{95}$ estimate from global shape, $q_{95} \approx q_* f(\epsilon)$.
+
+    $$q_{95} \approx \frac{5a^2B}{R\,I_p[\mathrm{MA}]}\,
+      \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\,\frac{1.17-0.65\epsilon}{(1-\epsilon^2)^2},
+      \qquad \epsilon = a/R$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    delta : float or np.ndarray
+        Triangularity; may be zero or negative [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    float or np.ndarray
+        Estimated $q_{95}$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation, or $a \ge R_0$.
+
+    Convention
+    ----------
+    A fit for conventional aspect ratio used for ITER design; at a spherical
+    tokamak's $A \approx 1.3$ it is an extrapolation and over-estimates $q_{95}$
+    (Akers et al. 2000 give a START-based correction, not registered here). It is an
+    estimate from global parameters, not an equilibrium $q_{95}$.
+
+    References
+    ----------
+    .. [1] D. E. Post et al., *ITER Physics*, ITER Documentation Series No. 21, IAEA (1991),
+           Table 1-2.
+    .. [2] N. A. Uckan and ITER Physics Group, *ITER Physics Design Guidelines: 1989*,
+           IAEA/ITER/DS-10, IAEA (1990), p. 10.
+    """
+    g = _positive_geometry(a=a, R0=R0, B0=np.abs(np.asarray(B0, dtype=float)), kappa=kappa)
+    if np.any(np.isfinite(g["a"] / g["R0"]) & (g["a"] / g["R0"] >= 1.0)):
+        raise ValueError("a must be smaller than R0")
+    d = np.asarray(delta, dtype=float)
+    current = np.abs(np.asarray(I_p, dtype=float))
+    with np.errstate(divide="ignore"):
+        q = _iter_q95_per_ma(g["a"], g["R0"], g["B0"], g["kappa"], d) / current
+    return _scalar_or_array(q)
+
+
+__all__ += ["cylindrical_kink_coordinates", "iter_q95_coordinates"]
+
+_register(Boundary(
+    key="menard_2004_qstar_min",
+    family="current_limit",
+    target=_KINK_Q_STAR_CYL,
+    inputs=(),
+    form="threshold",
+    coefficient=1.0,
+    allowed_side="above",
+    hardness="hard",
+    origin="published",
+    basis="ideal_mhd_numerical",
+    event="external_kink",
+    applicability=Applicability(
+        machine_class="tokamak including spherical tokamaks",
+        ranges={},
+        assumptions=(
+            "ideal MHD, no wall, high bootstrap fraction equilibria at A = 1.6-3.3 (NSTX-like shapes)",
+            "'no stable cases are found with q* below 1'; <beta_N> already degrades below q* = 2",
+        ),
+    ),
+    sources=(_MENARD_2004_SOURCE,),
+    notes="The current limit on Menard's q*; the beta_N degradation below q* = 2 is a softer, beta-dependent bound.",
+))
+
+_register(Boundary(
+    key="menard_2004_qstar_current",
+    family="current_limit",
+    target=_PLASMA_CURRENT_MA,
+    inputs=(_MINOR_RADIUS, _MAJOR_RADIUS, _TOROIDAL_FIELD, _ELONGATION),
+    form="function",
+    function=lambda minor_radius, major_radius, toroidal_field, elongation: (
+        np.pi * np.asarray(minor_radius, dtype=float) ** 2 * np.abs(np.asarray(toroidal_field, dtype=float))
+        * (1.0 + np.asarray(elongation, dtype=float) ** 2) / (MU0 * np.asarray(major_radius, dtype=float)) * 1e-6),
+    allowed_side="below",
+    hardness="hard",
+    origin="derived",
+    basis="ideal_mhd_numerical",
+    event="external_kink",
+    applicability=Applicability(
+        machine_class="tokamak including spherical tokamaks",
+        assumptions=("'menard_2004_qstar_min' (q* >= 1) written as a maximum current through Menard's q*",),
+    ),
+    sources=(_MENARD_2004_SOURCE,),
+    notes="I_max = pi a^2 B_T0 (1 + kappa^2)/(mu0 R0); the q* = 1 limit as a current.",
+))
+
+_register(Boundary(
+    key="iter_1991_q95_min",
+    family="current_limit",
+    target=_Q95,
+    inputs=(),
+    form="threshold",
+    coefficient=2.1,
+    allowed_side="above",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="tokamak",
+        ranges={},
+        assumptions=(
+            "ITER design guideline for kappa = b/a < 2: q95 >= 3.0 (baseline) | 2.1 (extended performance)",
+            "conventional aspect ratio (ITER A = 3); a design margin, not a measured stability limit",
+        ),
+    ),
+    sources=(_POST_1991_SOURCE,),
+    notes="The extended-performance value; the baseline guideline is 3.0.",
+))
+
+_register(Boundary(
+    key="iter_1991_q95_estimate_min",
+    family="current_limit",
+    target=_Q95_ITER_ESTIMATE,
+    inputs=(),
+    form="threshold",
+    coefficient=2.1,
+    allowed_side="above",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="tokamak",
+        ranges={},
+        assumptions=(
+            "the same guideline applied to the guideline's own q95 formula, as the ITER design does",
+            "conventional aspect ratio; at A ~ 1.3 both the formula and the limit are extrapolated",
+        ),
+    ),
+    sources=(_POST_1991_SOURCE,),
+    notes="'iter_1991_q95_min' on the estimate of 'iter_q95_coordinates'.",
+))
+
+_register(Boundary(
+    key="iter_1991_q95_current",
+    family="current_limit",
+    target=_PLASMA_CURRENT_MA,
+    inputs=(_MINOR_RADIUS, _MAJOR_RADIUS, _TOROIDAL_FIELD, _ELONGATION, _TRIANGULARITY),
+    form="function",
+    function=lambda minor_radius, major_radius, toroidal_field, elongation, triangularity: _iter_q95_per_ma(
+        np.asarray(minor_radius, dtype=float), np.asarray(major_radius, dtype=float),
+        np.abs(np.asarray(toroidal_field, dtype=float)), np.asarray(elongation, dtype=float),
+        np.asarray(triangularity, dtype=float)) / 2.1,
+    allowed_side="below",
+    hardness="soft",
+    origin="derived",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=("'iter_1991_q95_estimate_min' (q95 >= 2.1) written as a maximum current through the "
+                     "guideline formula", "conventional aspect ratio; extrapolated at A ~ 1.3"),
+    ),
+    sources=(_POST_1991_SOURCE,),
+    notes="I_max [MA] = 5 a^2 B/R [1 + kappa^2(1 + 2 delta^2 - 1.2 delta^3)]/2 (1.17 - 0.65 eps)/(1 - eps^2)^2 / 2.1.",
+))

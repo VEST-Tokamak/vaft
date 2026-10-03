@@ -51,7 +51,7 @@ TRAJECTORY_COLORS = ("#1a1a19", "#5b2a9e", "#a3442b")
 #: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
 BOUNDARY_NAMES = {
     "freidberg_2008_kink_qstar": "External kink limit",
-    "freidberg_2008_kink_current": "External kink current limit",
+    "freidberg_2008_kink_current": "Freidberg kink current limit",
     "troyon": "Troyon limit",
     "wesson_1989_jet_li_qpsi_lower": "Kink / double-tearing limit",
     "wesson_1989_jet_li_qpsi_upper": "Density-limit disruptions",
@@ -64,6 +64,11 @@ BOUNDARY_NAMES = {
     "greenwald_fraction_unity": "Greenwald limit",
     "martin_2008_lh": "L-H threshold (Martin 2008)",
     "takizuka_2004_lh": "L-H threshold (Takizuka 2004)",
+    "menard_2004_qstar_min": "Menard current limit",
+    "menard_2004_qstar_current": "Menard current limit (q* = 1)",
+    "iter_1991_q95_min": "ITER q95 guideline",
+    "iter_1991_q95_estimate_min": "ITER q95 guideline",
+    "iter_1991_q95_current": "ITER q95 = 2.1",
 }
 
 
@@ -618,16 +623,19 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                               units=units, x_range=ax.get_xlim() if len(xs) else None,
                               y_range=ax.get_ylim() if len(ys) else None)
     xlim, ylim = ax.get_xlim(), ax.get_ylim()
-    # a threshold just outside the data span is still part of the picture: widen to show it
+    # a threshold just outside the data span is still part of the picture: widen to show it. Inline, the name
+    # is written on the far side of the line, so leave room for it there too (also when the line is in view
+    # but close to the edge)
+    margin = 0.12 if boundary_style == "inline" else 0.05
     for curve in plan.curves:
         for values, lim, axis in ((curve.x, xlim, "x"), (curve.y, ylim, "y")):
             if values.size and np.ptp(values) == 0:
                 level = float(values[0])
                 span = lim[1] - lim[0]
-                if lim[1] < level <= lim[1] + 3.0 * span:
-                    lim = (lim[0], level + 0.05 * (level - lim[0]))
-                elif lim[0] - 3.0 * span <= level < lim[0]:
-                    lim = (level - 0.05 * (lim[1] - level), lim[1])
+                if lim[1] - margin * (level - lim[0]) < level <= lim[1] + 3.0 * span and level > lim[0]:
+                    lim = (lim[0], max(lim[1], level + margin * (level - lim[0])))
+                elif lim[0] - 3.0 * span <= level < lim[0] + margin * (lim[1] - level) and level < lim[1]:
+                    lim = (min(lim[0], level - margin * (lim[1] - level)), lim[1])
                 elif not lim[0] <= level <= lim[1]:
                     warnings.warn(f"boundary {curve.key!r} at {axis} = {level:.3g} lies outside the plotted "
                                   f"range {lim[0]:.3g}..{lim[1]:.3g} and is not in view", stacklevel=2)

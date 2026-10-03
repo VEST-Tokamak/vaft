@@ -69,6 +69,9 @@ AXIS_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
         _registered("freidberg_2008_kink_qstar", "elongation"),
         _registered("freidberg_2008_kink_current"),
         _registered("greenwald_fraction_unity"),
+        _registered("freidberg_2008_kink_current", "toroidal_field"),
+        _registered("menard_2004_qstar_min"),
+        _registered("iter_1991_q95_estimate_min"),
         _b.BoundaryQuantity(
             "normalized_current", "I_p/(a B_T)", "MA m^-1 T^-1",
             "Plasma current over minor radius times vacuum toroidal field (Troyon's I_N up to mu0).",
@@ -184,10 +187,11 @@ _register(OperationalProjection(
     title="Internal inductance against q95",
     x=_q("edge_safety_factor_95"),
     y=_q("internal_inductance_li3"),
-    default_boundaries=(),
+    default_boundaries=("iter_1991_q95_min",),
+    references=("D. E. Post et al., ITER Physics, ITER Documentation Series No. 21 (1991), Table 1-2",),
     assumptions=(
-        "no registered boundary is defined on q95 and li_3; low_q (q_psi) and the li-q_a "
-        "literature boundaries use other q and li definitions and are not drawn here",
+        "the ITER design guideline q95 >= 2.1 (extended performance) is the only registered limit on q95; "
+        "low_q (q_psi) and the li-q_a literature boundaries use other q and li definitions and are not drawn here",
     ),
 ))
 
@@ -244,6 +248,43 @@ _register(OperationalProjection(
         "q* is Freidberg's Eq. (13.160), 2 pi a^2 kappa B0/(mu0 R0 I); the limit (1 + kappa)/2 is drawn at one "
         "elongation, so pass the kappa it should represent (the largest kappa is the most restrictive line)",
     ),
+))
+
+_register(OperationalProjection(
+    key="ip_bt",
+    title="Plasma current against toroidal field",
+    x=_q("toroidal_field"),
+    y=_q("plasma_current"),
+    default_boundaries=("freidberg_2008_kink_current", "menard_2004_qstar_current", "iter_1991_q95_current"),
+    references=("PPCF 67 (2025) 115021, Fig. 6(b) (engineering operational space)",
+                "J. P. Freidberg, Plasma Physics and Fusion Energy (2007), Eq. (13.163)",
+                "J. E. Menard et al., Phys. Plasmas 11 (2004) 639",
+                "D. E. Post et al., ITER Physics, ITER Documentation Series No. 21 (1991), Table 1-2"),
+    assumptions=(
+        "every limit is a current at fixed shape: pass the minor radius, major radius, elongation and "
+        "triangularity it should represent (a mean shape for a shot database)",
+    ),
+))
+
+_register(OperationalProjection(
+    key="qstar_cyl_in",
+    title="Cylindrical safety factor against normalized current",
+    x=_q("normalized_current"),
+    y=_q("kink_safety_factor_cylindrical"),
+    default_boundaries=("menard_2004_qstar_min",),
+    references=("J. E. Menard et al., Phys. Plasmas 11 (2004) 639",),
+    assumptions=("q* = pi a^2 B_T0 (1 + kappa^2)/(mu0 R0 I_P), Menard's definition; not Freidberg's Eq. (13.160)",),
+))
+
+_register(OperationalProjection(
+    key="q95_estimate_in",
+    title="ITER-guideline q95 estimate against normalized current",
+    x=_q("normalized_current"),
+    y=_q("edge_safety_factor_95_estimate_iter"),
+    default_boundaries=("iter_1991_q95_estimate_min",),
+    references=("D. E. Post et al., ITER Physics, ITER Documentation Series No. 21 (1991), Table 1-2",),
+    assumptions=("q95 from the guideline formula on global shape; conventional-aspect-ratio fit, extrapolated "
+                 "at A ~ 1.3",),
 ))
 
 _register(OperationalProjection(

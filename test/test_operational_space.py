@@ -70,7 +70,7 @@ def test_threshold_curve_draws_a_registered_threshold_on_either_axis():
 def test_every_projection_default_is_drawable_on_its_own_axes():
     for key in ops.list_projections():
         proj = ops.get_projection(key)
-        fixed = {"area_elongation": 1.6, "elongation": 1.6, "minor_radius": 0.25, "major_radius": 0.4,
+        fixed = {"area_elongation": 1.6, "elongation": 1.6, "minor_radius": 0.25, "major_radius": 0.4, "triangularity": 0.3,
                  "toroidal_field": 0.17, "plasma_surface_area": 4.0, "plasma_current": 0.1, "aspect_ratio": 1.6,
                  "effective_charge": 2.0}
         plan = ops.overlay_plan(proj, x_range=(0.0, 5.0), y_range=(0.0, 1.0), fixed=fixed)
@@ -360,7 +360,7 @@ def test_marker_shapes_keep_their_group_across_subsets():
 
 def test_inline_style_names_the_limit_its_side_and_its_basis():
     t = _hugill_table()
-    _, ax = operational_space_population(t, "hugill", boundary_style="inline")
+    _, ax = operational_space_population(t, "hugill", boundary_style="inline", boundaries=["greenwald_hugill"])
     labels = ax.get_legend_handles_labels()[1] + [p.get_label() for p in ax.get_legend().get_patches()]
     legend = " ".join(text.get_text() for text in ax.get_legend().get_texts())
     assert "Greenwald/Hugill limit" in legend and "Unstable (Empirical)" in legend.replace("\n  ", " ")
@@ -426,7 +426,10 @@ def test_a_widened_threshold_is_shaded_on_its_forbidden_side():
     t = pd.DataFrame({"loss_power": [0.1, 0.5, 1.0], "greenwald_fraction": [0.2, 0.4, 0.6]})
     t.attrs["units"] = {"loss_power": "MW"}
     _, ax = operational_space_population(t, "greenwald_fraction_power", boundary_style="inline")
-    assert ax.get_ylim()[1] > 1.0
+    lo, hi = ax.get_ylim()
+    assert hi >= 1.0 + 0.11 * (1.0 - lo)   # room above the line for its name
+    label = next(t_ for t_ in ax.texts if t_.get_text().strip() == "Greenwald limit")
+    assert label.get_position()[1] == pytest.approx(1.0) and label.get_va() == "bottom"
     fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
     ys = np.concatenate([p.vertices[:, 1] for c in fills for p in c.get_paths()])
     assert ys.min() >= 1.0 - 1e-9
@@ -438,3 +441,40 @@ def test_format_sizes_the_canvas_and_is_refused_beside_a_callers_axes():
     _, ax0 = plt.subplots()
     with pytest.raises(TypeError):
         operational_space_population(_hugill_table(), "hugill", format="screen", ax=ax0)
+
+
+# --- edge-q proxies from global shape (#1456) ---------------------------------------------------------
+
+
+def test_menard_qstar_is_freidbergs_with_the_1_plus_kappa_squared_shape_factor():
+    for kappa in (1.2, 1.6, 2.0):
+        ratio = B.cylindrical_kink_coordinates(0.3, 0.4, 0.17, kappa, 0.1) / B.kink_coordinates(0.3, 0.4, 0.17, kappa, 0.1)
+        assert ratio == pytest.approx((1 + kappa**2) / (2 * kappa))
+
+
+def test_iter_q95_formula_reproduces_the_iter_design_point():
+    # R = 6.2 m, a = 2.0 m, B = 5.3 T, 15 MA, kappa95 = 1.7, delta95 = 0.33: the ITER q95 = 3 design point
+    assert B.iter_q95_coordinates(2.0, 6.2, 5.3, 1.7, 0.33, 15.0) == pytest.approx(3.0, abs=0.01)
+    with pytest.raises(ValueError):
+        B.iter_q95_coordinates(0.5, 0.4, 0.17, 1.5, 0.3, 0.1)   # a >= R0
+    assert np.isnan(B.iter_q95_coordinates(np.nan, 0.4, 0.17, 1.5, 0.3, 0.1))
+
+
+def test_shape_current_limits_are_the_q_limits_written_as_currents():
+    shape = dict(minor_radius=0.27, major_radius=0.38, elongation=1.5, triangularity=0.3)
+    bt = 0.17
+    i_iter = B.boundary_value(B.get_boundary("iter_1991_q95_current"), toroidal_field=bt, **shape)
+    assert B.iter_q95_coordinates(0.27, 0.38, bt, 1.5, 0.3, i_iter) == pytest.approx(2.1)
+    i_menard = B.boundary_value(B.get_boundary("menard_2004_qstar_current"), toroidal_field=bt,
+                                **{k: v for k, v in shape.items() if k != "triangularity"})
+    assert B.cylindrical_kink_coordinates(0.27, 0.38, bt, 1.5, i_menard) == pytest.approx(1.0)
+
+
+def test_ip_bt_carries_every_current_limit_as_a_line_in_the_field():
+    fixed = {"minor_radius": 0.27, "major_radius": 0.38, "elongation": 1.5, "triangularity": 0.3}
+    for key in ops.get_projection("ip_bt").default_boundaries:
+        place = ops.placement("ip_bt", key, fixed)
+        assert place.drawable and place.kind == "curve" and place.sweep == "toroidal_field"
+    assert ops.placement("q95_li", "iter_1991_q95_min").kind == "vertical"
+    # the estimate and the equilibrium q95 are different quantities
+    assert not ops.placement("q95_li", "iter_1991_q95_estimate_min").drawable
