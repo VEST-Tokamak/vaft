@@ -528,7 +528,9 @@ def _ods_impurities(ods: Any, index: int) -> Optional[dict[str, Any]]:
         origins.append(composition_record_origin(_get(ods, f"{ion}.density_fit.parameters")))
     if not species:
         return None
-    fractions = np.stack([np.broadcast_to(d, ne.shape) / ne for d in densities], axis=-1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        safe_ne = np.where(np.isfinite(ne) & (ne > 0.0), ne, np.nan)
+        fractions = np.stack([np.broadcast_to(d, ne.shape) / safe_ne for d in densities], axis=-1)
     distinct = set(origins)
     origin = origins[0] if len(distinct) == 1 else "mixed"
     return {"species": tuple(species), "fractions": fractions,
@@ -580,34 +582,63 @@ def _close(composition: ImpurityComposition, target, *, kind: str, source: str, 
 
 def _finish(species, main_ion, main_charge, fractions, zeff, *, kind, source, zeff_source, rho, time,
             resistive, candidates, provenance) -> ResolvedImpurityComposition:
+    """Moments, reduction and dilution of resolved fractions; undefined points stay NaN.
+
+    A stored profile is undefined where ``n_e`` is zero or missing (the edge
+    point of a fitted profile is often exactly zero): ``n_s/n_e`` there is
+    NaN, and so is everything formed from it, rather than an error for the
+    whole slice or a number made up for that point.
+    """
     charges = np.array([s.charge_state for s in species], dtype=float)
     masses = np.array([s.mass for s in species], dtype=float)
-    total = np.sum(fractions, axis=-1, keepdims=True)
-    with np.errstate(invalid="ignore", divide="ignore"):
-        weights = np.where(total > 0.0, fractions / np.where(total > 0.0, total, 1.0), 1.0 / len(species))
-    moments = impurity_mixture_moments(weights, charges, masses)
-    main = main_ion_density_from_species(1.0, fractions, charges, main_charge)
-    if zeff is None:
-        zeff = main_charge**2 * np.asarray(main) + np.sum(fractions * charges**2, axis=-1)
-    if np.all(np.sum(fractions, axis=-1) > 0.0):
-        effective = reduce_impurity_mixture(fractions, charges, masses)
-        eff_charge, eff_fraction, eff_mass = effective.charge, effective.density, effective.mass
-    else:  # a target of exactly Z_m: no impurity anywhere, the pseudo-impurity is the mixture's own
-        eff_charge = np.asarray(moments.S2) / np.asarray(moments.S1)
-        eff_fraction = np.zeros_like(np.asarray(eff_charge))
-        eff_mass = np.asarray(moments.A_bar) * np.asarray(moments.S2) / np.asarray(moments.S1) ** 2
+    fractions = np.asarray(fractions, dtype=float)
+    shape = fractions.shape[:-1]
+    valid = np.all(np.isfinite(fractions), axis=-1) & (np.sum(fractions, axis=-1) > 0.0)
+    flat = fractions.reshape(-1, fractions.shape[-1])
+    ok = valid.reshape(-1)
 
-    def scalar(value):
+    def blank():
+        return np.full(ok.shape, np.nan)
+
+    weights = np.full(flat.shape, np.nan)
+    s1, s2, a_bar, main = blank(), blank(), blank(), blank()
+    eff_charge, eff_fraction, eff_mass = blank(), blank(), blank()
+    if ok.any():
+        sub = flat[ok]
+        w = sub / np.sum(sub, axis=-1, keepdims=True)
+        weights[ok] = w
+        moments = impurity_mixture_moments(w, charges, masses)
+        s1[ok], s2[ok], a_bar[ok] = moments.S1, moments.S2, moments.A_bar
+        main[ok] = main_ion_density_from_species(1.0, sub, charges, main_charge)
+        effective = reduce_impurity_mixture(sub, charges, masses)
+        eff_charge[ok], eff_fraction[ok], eff_mass[ok] = effective.charge, effective.density, effective.mass
+    no_impurity = ~ok & np.all(np.isfinite(flat), axis=-1)
+    if no_impurity.any():  # a target of exactly Z_m: no impurity, the pseudo-impurity is the mixture's own
+        uniform = np.full(len(species), 1.0 / len(species))
+        weights[no_impurity] = uniform
+        moments = impurity_mixture_moments(uniform, charges, masses)
+        s1[no_impurity], s2[no_impurity], a_bar[no_impurity] = moments.S1, moments.S2, moments.A_bar
+        main[no_impurity] = 1.0 / main_charge
+        eff_charge[no_impurity] = moments.S2 / moments.S1
+        eff_fraction[no_impurity] = 0.0
+        eff_mass[no_impurity] = moments.A_bar * moments.S2 / moments.S1**2
+    if zeff is None:
+        zeff = main_charge**2 * main + np.nansum(flat * charges**2, axis=-1)
+        zeff = np.where(np.isfinite(main), zeff, np.nan)
+
+    def shaped(value):
         array = np.asarray(value, dtype=float)
+        if array.size == ok.size and array.shape != shape:
+            array = array.reshape(shape)
         return float(array) if array.ndim == 0 else array
 
     return ResolvedImpurityComposition(
         kind=kind, source=source, species=tuple(species), main_ion=main_ion,
-        weights=np.asarray(weights, dtype=float), impurity_fractions=np.asarray(fractions, dtype=float),
-        main_ion_fraction=scalar(main), zeff=scalar(zeff), zeff_source=zeff_source,
-        S1=scalar(moments.S1), S2=scalar(moments.S2), A_bar=scalar(moments.A_bar),
-        effective_charge=scalar(eff_charge), effective_fraction=scalar(eff_fraction),
-        effective_mass=scalar(eff_mass), dilution_fraction=scalar(1.0 - np.asarray(main)),
+        weights=weights.reshape(fractions.shape), impurity_fractions=fractions,
+        main_ion_fraction=shaped(main), zeff=shaped(zeff), zeff_source=zeff_source,
+        S1=shaped(s1), S2=shaped(s2), A_bar=shaped(a_bar),
+        effective_charge=shaped(eff_charge), effective_fraction=shaped(eff_fraction),
+        effective_mass=shaped(eff_mass), dilution_fraction=shaped(1.0 - main),
         rho=rho, time=time, resistive_zeff=resistive, candidates=tuple(candidates),
         provenance=dict(provenance),
     )

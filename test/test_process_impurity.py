@@ -116,6 +116,19 @@ def test_an_unlabelled_stored_composition_yields_to_the_caller_but_beats_the_pre
     assert {c["source"]: c["outcome"] for c in r.candidates}["machine_preset"] == "outranked"
 
 
+def test_a_zero_edge_density_leaves_that_point_undefined_not_the_slice():
+    """Lane K's fitted profiles reach n_e = 0 exactly at rho = 1 (found on Tier A, 39906)."""
+    ods = _ods(ions=_lane_k_like())
+    for path in ("electrons.density_thermal", "ion.0.density_thermal", "ion.1.density_thermal"):
+        values = np.array(ods[f"core_profiles.profiles_1d.0.{path}"], dtype=float)
+        values[-1] = 0.0
+        ods[f"core_profiles.profiles_1d.0.{path}"] = values
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    assert np.isnan(r.zeff[-1]) and np.isnan(r.dilution_fraction[-1])
+    np.testing.assert_allclose(r.zeff[:-1], 2.0)
+    np.testing.assert_allclose(r.effective_charge[:-1], 6.0)
+
+
 def test_a_stored_derived_composition_is_derived():
     ods = _ods(ions=_lane_k_like(composition_record_text("derived", "openadas_coronal")))
     assert resolve_impurity_composition(ods, machine_preset="vest").kind == "derived"
