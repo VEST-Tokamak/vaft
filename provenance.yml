@@ -1,5 +1,5 @@
 schema_version: 1
-generated_at: '2026-10-03T08:15:59+00:00'
+generated_at: '2026-10-03T09:00:51+00:00'
 generator: docs/build.py
 site:
   url: https://vest-tokamak.github.io
@@ -20,9 +20,9 @@ tracks:
   development:
     prefix: /develop/
     baseurl: /vaft/develop
-    ref: e2d2da04fc8d41d0ecfb947c0e043a1b3719188a
-    commit: e2d2da04fc8d41d0ecfb947c0e043a1b3719188a
-    commit_date: '2026-10-03T17:05:52+09:00'
+    ref: 22dfd60bcddf3b033c67c7cad73494958d1fd77f
+    commit: 22dfd60bcddf3b033c67c7cad73494958d1fd77f
+    commit_date: '2026-10-03T17:51:44+09:00'
     vaft_version: 0.7.1
     pages: 115
     generated:

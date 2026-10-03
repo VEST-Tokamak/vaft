@@ -276,7 +276,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>e2d2da0</code>. What is described
+  <code>22dfd60</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1269,20 +1269,32 @@ $k_x = k_y\hat s\theta$ (<code class="language-plaintext highlighter-rouge">ball
 its phase fronts rotate: the sheared slab’s $k_x(z) = k_{x0} + k_y\hat s z$, seen in the tokamak. The binormal
 period stays fixed, so the spacing across the fronts shrinks as $1/\sqrt{1+\hat s^2\theta^2}$; that growth of
 $k_\perp$ is the $(1+\Lambda^2)$ of line bending and inertia.</li>
-  <li><code class="language-plaintext highlighter-rouge">ballooning_eigenfunction</code> solves the $s$-$\alpha$ equation with inertia on the extended angle
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">ballooning_eigenfunction</code> solves the $s$-$\alpha$ equation with inertia on the extended angle
 (<code class="language-plaintext highlighter-rouge">s_alpha_ballooning_eigenmode</code>). An unstable surface has a mode peaked at the outboard midplane (bad
-curvature) that decays within a few transits; a stable surface has only the continuum.</li>
+curvature) that decays within a few transits; a stable surface has only the continuum.</p>
+  </li>
+  <li><code class="language-plaintext highlighter-rouge">ballooning_transit_map</code> ties the extended angle to the cross-section: one poloidal circle per transit $k$,
+under $\theta = 2\pi k$, its outboard point (bad curvature) labelled with $F(2\pi k)$. The same point,
+revisited on every transit, carries less of the mode each time.</li>
+  <li><code class="language-plaintext highlighter-rouge">ballooning_boundary_conditions</code> puts the two ways of closing the field line side by side. The ballooning
+representation requires decay on the covering space, $F \to 0$ as $|\theta| \to \infty$. A flux tube joins
+its ends after one poloidal turn, and because $k_x = k_y\hat s\theta$ the rejoined end has a shifted $k_x$:
+twist and shift, named and not derived.</li>
+  <li><code class="language-plaintext highlighter-rouge">field_aligned_xpoint_limitation</code> draws lines of constant straight-field-line angle $\theta^<em>$
+($d\theta^</em>/dl \propto 1/(R^2B_p)$) on the diverted toy equilibrium of the Grad–Shafranov diagrams. They are
+evenly spread in the core and crowd into the X-point near the separatrix, where $B_p \to 0$ and
+$q \propto \oint dl/(R^2B_p)$ diverges; outside it the lines are open and X-point-adapted coordinates take
+over. See also <code class="language-plaintext highlighter-rouge">sfl_coordinate_validity</code> (#1074).</li>
 </ul>
-
-<p>Boundary conditions differ between the two pictures. The ballooning representation requires decay on the
-extended angle, while flux-tube codes join the sheared ends of the box (twist and shift, not derived here).
-Near an X-point $B_p \to 0$ and $q \to \infty$, so ordinary field-aligned coordinates distort; see
-<code class="language-plaintext highlighter-rouge">sfl_coordinate_validity</code> (#1074) and X-point-adapted coordinates for the edge.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">field_aligned_basis</span><span class="p">(</span><span class="n">q</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">flux_tube_patch</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">magnetic_shear_field_aligned</span><span class="p">(</span><span class="n">shear</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">ballooning_eigenfunction</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">ballooning_transit_map</span><span class="p">(</span><span class="n">transits</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">ballooning_boundary_conditions</span><span class="p">(</span><span class="n">shear</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">field_aligned_xpoint_limitation</span><span class="p">(</span><span class="n">n_theta</span><span class="o">=</span><span class="mi">24</span><span class="p">)</span>
 </code></pre></div></div>
 
 <table>
@@ -1300,7 +1312,10 @@ Near an X-point $B_p \to 0$ and $q \to \infty$, so ordinary field-aligned coordi
   </tbody>
 </table>
 
-<p><img src="/vaft/develop/assets/diagrams/flux_tube_patch.svg" alt="flux tube" /></p>
+<p><img src="/vaft/develop/assets/diagrams/flux_tube_patch.svg" alt="flux tube" />
+<img src="/vaft/develop/assets/diagrams/ballooning_transit_map.svg" alt="transits" />
+<img src="/vaft/develop/assets/diagrams/ballooning_boundary_conditions.svg" alt="boundary conditions" />
+<img src="/vaft/develop/assets/diagrams/field_aligned_xpoint_limitation.svg" alt="X-point limitation" /></p>
 
 <p><img src="/vaft/develop/assets/diagrams/magnetic_shear_field_aligned.svg" alt="shear" /></p>
 
@@ -3044,7 +3059,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-03 08:15:21 +0000"
+        "time": "2026-10-03 09:00:13 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
