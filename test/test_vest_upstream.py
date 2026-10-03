@@ -997,3 +997,51 @@ def test_langmuir_unfiltered_counts_reach_the_manifest(tmp_path, monkeypatch):
     assert "#915" in langmuir["anti_alias"]["policy"]
     assert langmuir["anti_alias"]["unfiltered"] == {"mid": {"n_e": counts, "t_e": counts}}
     json.dumps(manifest)  # the manifest is written as JSON
+
+
+def test_one_unrecorded_pf_channel_keeps_the_other_circuits(tmp_path):
+    """#1568: PF5's field 5 was not recorded on 48644-48760; PF1/PF2/PF6/PF9/10 were."""
+    shot = 48700
+    raw = tmp_path / "raw.json.gz"
+    samples = (np.sin(np.linspace(0.0, 20.0, 1200)) + np.linspace(0.0, 0.2, 1200)).tolist()
+    _write_raw_dump(raw, shot, {field: samples for field in (4, 59, 62, 65)})
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json")
+
+    ods, diagnostics_manifest = build_diagnostics_ods(
+        shot=shot, raw_source=raw, static_ods=static_path, tstart=0.26, tend=0.27, dt=4e-5,
+    )
+
+    pf_status = diagnostics_manifest["channel_status"]["pf_active"]
+    assert pf_status["status"] == "partial"
+    assert pf_status["unacquired_channels"] == ["PF5"]
+    assert "pf_active:PF5" in diagnostics_manifest["quality_summary"]["missing"]
+    assert np.all(np.isnan(ods["pf_active.coil.4.current.data"]))
+    assert np.all(np.isfinite(ods["pf_active.coil.0.current.data"]))
+
+
+def test_eddy_refuses_a_diagnostics_product_with_an_unrecorded_pf_coil(tmp_path):
+    shot = 48700
+    static_path = tmp_path / "static.json"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json")
+    diagnostics = ODS(consistency_check=False)
+    time = np.linspace(0.0, 0.01, 50)
+    diagnostics["pf_active"] = copy.deepcopy(static["pf_active"])
+    diagnostics["pf_active.time"] = time
+    for coil_index in range(len(diagnostics["pf_active.coil"])):
+        diagnostics[f"pf_active.coil.{coil_index}.current.time"] = time
+        diagnostics[f"pf_active.coil.{coil_index}.current.data"] = (
+            np.full_like(time, np.nan) if coil_index == 4 else np.zeros_like(time)
+        )
+    diagnostics["magnetics.ip.0.time"] = time
+    diagnostics["magnetics.ip.0.data"] = 1e4 * np.sin(np.linspace(0.0, 1.0, 50))
+    diagnostics_path = tmp_path / "diagnostics.json"
+    save_ods(diagnostics, diagnostics_path)
+
+    with pytest.raises(raw_db.RawSignalUnavailableError, match="PF5 current was not acquired"):
+        build_eddy_ods(
+            shot=shot, diagnostics_ods=diagnostics_path, static_ods=static_path,
+            filament_r=[0.35], filament_z=[0.0], filament_fraction=[1.0], dt_sub=5e-5,
+        )
