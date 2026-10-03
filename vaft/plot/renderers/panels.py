@@ -660,7 +660,9 @@ def summary_time_resistive_zeff(
         "Radial Z_eff, mean charges, reduced impurity charge and dilution from the slice's "
         "T_e and n_e through atomic-data charge states, for a stated elemental composition."
     ),
-    ids=("core_profiles",),
+    # equilibrium: the volume of the n_e-weighted mean; magnetics,
+    # spectrometer_uv, summary: the plasma onset the age is measured from.
+    ids=("core_profiles", "equilibrium", "magnetics", "spectrometer_uv", "summary"),
     required_paths=(
         "core_profiles.profiles_1d.{i}.electrons.temperature",
         "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
@@ -687,7 +689,9 @@ def impurity_profile_composition(
     view="profile",
     quantity="charge_state_fraction",
     description="Charge-state fractions f_q(rho) of each impurity element from the slice's T_e and n_e.",
-    ids=("core_profiles",),
+    # equilibrium: the volume of the n_e-weighted mean; magnetics,
+    # spectrometer_uv, summary: the plasma onset the age is measured from.
+    ids=("core_profiles", "equilibrium", "magnetics", "spectrometer_uv", "summary"),
     required_paths=(
         "core_profiles.profiles_1d.{i}.electrons.temperature",
         "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
