@@ -67,6 +67,37 @@ The **scientific coordinate is not the playback time**:
 - `fps=` or `duration=` sets only how fast the frames are shown.
 - Each frame's physical time is written to `movie.metadata` and to the `camera.mp4.json` sidecar.
 
+### Moving through a sequence
+
+Every plot with more than one state to show describes how to move through them in one record,
+`vaft.omas.available_plots(ods).find(name).sequence`. Its shape is the same for all three
+kinds of storage:
+
+| `kind` | `option` (picks one state) | Example | States |
+| --- | --- | --- | --- |
+| `samples` | `time_index` | PF programme of `vacuum_field`; shared magnetics grid of `*_spatial_*` | every sample index |
+| `frames` | `frame_index` | the stored frames of `camera_visible_image*` | every frame index |
+| `stored` | `time_slice` | the stored equilibrium reconstructions of a profile or 2-D map | the usable slices only |
+
+The record holds the following:
+
+- `states`: the values `option` accepts.
+- `selected`: the state the static call draws, which is where a slider starts.
+- `coordinate`/`unit`/`start`/`stop`: what the states mean.
+
+The storage keywords keep their meaning, and navigation is the same for all of them:
+
+- **One selector at a time.** `time=` picks an instant: it snaps to the nearest stored frame,
+  sample or slice. The exception is `vacuum_field`, which computes the field at that instant from
+  the PF programme. Combining `time=` with an index keyword is refused instead of one silently winning.
+- **One state set for everyone.** The `interactive=True` slider and `animation=True` both move
+  through exactly `states`.
+- **Labels are times, not indices.** Each state's physical value comes from the data, never from the
+  index alone, so a frame or slider label is the time that state was recorded.
+- **Usability is not validity.** A state that exists but whose data are flagged remains in the
+  sequence, and `validity=` decides how its flags are drawn. Only a state that cannot be drawn at
+  all, such as an unusable equilibrium slice, is left out.
+
 The **output suffix picks the writer**, and no backend name appears in the call:
 
 - `.mp4`/`.webm` need the optional `vaft[video]` extra (PyAV).
