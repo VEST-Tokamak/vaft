@@ -175,8 +175,9 @@ def _cell_texts(model: Table) -> tuple[list[str], list[list[str]], list[str], li
     A ``value`` column with ``units="column"`` gains a ``Unit`` column beside
     it; ``units="header"`` moves a column's single display unit into its
     header (``Value [kA]``), falling back to ``inline`` when the cells do not
-    agree.  Cell notes are numbered in row-major order, each text once; the
-    marker follows the cell, or its unit when the unit has a column.
+    agree.  Cell notes are marked in row-major order, each text once, by a
+    symbol right after the cell's value (:func:`note_marker`) -- never in a
+    unit column, where it would read as a unit.
     """
     note_numbers: dict[str, int] = {}
     formatted = [[format_quantity(cell) for cell in row] for row in model.rows]
@@ -208,12 +209,7 @@ def _cell_texts(model: Table) -> tuple[list[str], list[list[str]], list[str], li
             column = model.columns[index]
             text, unit = formatted[r][index]
             if part == "unit":
-                # A note's marker follows the unit, so the numbers stay aligned.
-                shown = unit if text is not None else ""
-                if cell.note:
-                    number = note_numbers.setdefault(cell.note, len(note_numbers) + 1)
-                    shown = f"{shown} [{number}]".lstrip()
-                texts.append(shown)
+                texts.append(unit if text is not None else "")
                 continue
             if column.kind == "status":
                 shown = STATUS_LABELS[cell.status]
@@ -227,12 +223,11 @@ def _cell_texts(model: Table) -> tuple[list[str], list[list[str]], list[str], li
                 shown = f"{text} {unit}".rstrip() if unit else text
             else:
                 shown = text
-            if cell.note and not (column.kind == "value" and column.units == "column"):
-                number = note_numbers.setdefault(cell.note, len(note_numbers) + 1)
-                shown = f"{shown} [{number}]"
+            if cell.note:
+                shown = f"{shown}{note_marker(note_numbers, cell.note)}"
             texts.append(shown)
         rows.append(texts)
-    notes = [f"[{number}] {note}" for note, number in note_numbers.items()]
+    notes = [f"{_marker(number)} {note}" for note, number in note_numbers.items()]
     return headers, rows, aligns, notes + list(model.notes)
 
 
@@ -252,6 +247,8 @@ class RenderedTable(TextView):
     def text(self) -> str:
         """Fixed-width columns, a rule under the header, the caption and notes after."""
         headers, rows, aligns, notes = _cell_texts(self.model)
+        headers = [_one_line(header) for header in headers]
+        rows = [[_one_line(cell) for cell in row] for row in rows]
         widths = [max([len(header)] + [len(row[i]) for row in rows]) for i, header in enumerate(headers)]
         lines: list[str] = []
         if self.model.title:
@@ -329,7 +326,32 @@ class RenderedTable(TextView):
 
 
 def _markdown_escape(text: str) -> str:
-    return text.replace("\\", "\\\\").replace("|", "\\|")
+    """``text`` safe inside a Markdown table cell or line.
+
+    Backslash and ``|`` are escaped, ``&``, ``<`` and ``>`` become entities
+    (so no cell is read as HTML), and a line break becomes ``<br>``.
+    """
+    text = text.replace("\\", "\\\\").replace("|", "\\|")
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return text.replace("\r\n", "\n").replace("\n", "<br>")
+
+
+def _one_line(text: str) -> str:
+    """``text`` on one line, for the fixed-width form whose columns must align."""
+    return " ".join(text.replace("\r\n", "\n").split("\n"))
+
+
+#: The note markers, in order; past them a note is marked ``[n]``.
+_MARKERS = ("*", "†", "‡", "§", "¶")
+
+
+def _marker(number: int) -> str:
+    return _MARKERS[number - 1] if number <= len(_MARKERS) else f"[{number}]"
+
+
+def note_marker(numbers: dict[str, int], note: str) -> str:
+    """The marker of ``note``, numbering it on first sight."""
+    return _marker(numbers.setdefault(note, len(numbers) + 1))
 
 
 # -- text summaries -----------------------------------------------------------
@@ -345,7 +367,7 @@ def _item_text(item: TextItem, missing: str, notes: dict[str, int]) -> str:
     if item.status:
         text = f"{text} [{STATUS_LABELS[item.status]}]"
     if item.note:
-        text = f"{text} [{notes.setdefault(item.note, len(notes) + 1)}]"
+        text = f"{text}{note_marker(notes, item.note)}"
     return text
 
 
@@ -356,7 +378,7 @@ def _summary_texts(model: TextSummary) -> tuple[list[tuple[str, list[tuple[TextI
         (section.title, [(item, _item_text(item, model.missing, notes)) for item in section.items])
         for section in model.sections
     ]
-    return sections, [f"[{number}] {note}" for note, number in notes.items()]
+    return sections, [f"{_marker(number)} {note}" for note, number in notes.items()]
 
 
 class RenderedTextSummary(TextView):
@@ -377,10 +399,11 @@ class RenderedTextSummary(TextView):
             lines += [title, "-" * len(title)]
             width = max((len(item.label) for item, _ in items if not item.is_statement), default=0)
             for item, value in items:
+                value = _one_line(value)
                 if item.is_statement:
                     lines.append(f"  - {value}")
                 else:
-                    lines.append(f"  {item.label.ljust(width)}  {value}".rstrip())
+                    lines.append(f"  {_one_line(item.label).ljust(width)}  {value}".rstrip())
         if model.caption:
             lines += ["", model.caption]
         if notes:

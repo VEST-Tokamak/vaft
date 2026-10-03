@@ -87,6 +87,9 @@ def test_models_keep_structured_values_not_strings():
     assert table.rows[3][1].missing
     assert TableCell(np.float64(2.5)).value == 2.5 and type(TableCell(np.int64(3)).value) is int
     assert TableCell(float("nan")).missing
+    # An infinite value is a value, shown as such, not "not stored".
+    assert not TableCell(float("inf")).missing
+    assert format_quantity(TableCell(float("-inf"), unit="A", subject="equilibrium")) == ("-inf", "kA")
 
 
 def test_models_validate_their_shape_and_vocabulary():
@@ -113,12 +116,52 @@ def test_text_summary_is_not_a_text_panel():
     assert vaft.plot.TextSummary is TextSummary and vaft.plot.Table is Table
 
 
-def test_models_round_trip_to_xarray():
+def _netcdf_round_trip(ds, path):
+    xr = pytest.importorskip("xarray")
+    try:
+        ds.to_netcdf(path)
+    except ValueError as error:  # pragma: no cover - no netCDF engine installed
+        if "engine" in str(error):
+            pytest.skip(str(error))
+        raise
+    with xr.open_dataset(path) as back:
+        return back.load()
+
+
+def test_models_round_trip_to_xarray_and_netcdf(tmp_path):
+    import json
+
     ds = _table().to_xarray(plot_name="x")
     assert ds.attrs["model"] == "Table" and ds.attrs["plot_name"] == "x"
-    assert list(ds["column_01"].values) == [172_400.0, 0.05089, 3.21, None]
-    summary = TextSummary(sections=(TextSection("A", (TextItem("x", 1.0, unit="m"),)),))
-    assert list(summary.to_xarray()["unit"].values) == ["m"]
+    back = _netcdf_round_trip(ds, tmp_path / "table.nc")
+    numbers = back["column_01"].values
+    assert numbers[:3].tolist() == [172_400.0, 0.05089, 3.21] and np.isnan(numbers[3])
+    assert list(back["column_00_text"].values) == ["Ip", "beta_N", "q_95", "W_mhd"]
+    assert json.loads(back["column_01"].attrs["unit"]) == ["A", "", "", "J"]
+    assert json.loads(back["column_01"].attrs["quantity"])[1] == "beta_n"
+    assert json.loads(back["column_02"].attrs["status"]) == ["pass", "warn", "", "fail"]
+    assert json.loads(back["column_02"].attrs["note"])[3] == "energy not stored"
+    assert json.loads(back["column_01"].attrs["value_kind"]) == ["number", "number", "number", "missing"]
+
+
+def test_a_real_text_summary_writes_to_netcdf_losslessly(sample, tmp_path):
+    import json
+
+    model = _quiet(vaft.omas.plot_equilibrium_text_summary, sample).model
+    back = _netcdf_round_trip(model.to_xarray(), tmp_path / "summary.nc")
+    items = [(s.title, i) for s in model.sections for i in s.items]
+    kinds = json.loads(back["value"].attrs["value_kind"])
+    for position, (title, item) in enumerate(items):
+        assert back["section"].values[position] == title and back["label"].values[position] == item.label
+        assert back["unit"].values[position] == item.unit
+        if kinds[position] in ("number", "int"):
+            assert back["value"].values[position] == pytest.approx(item.value)
+        elif kinds[position] == "text":
+            assert back["text"].values[position] == item.value
+    assert json.loads(back["value"].attrs["note"]) == [item.note for _, item in items]
+    assert json.loads(back["value"].attrs["display_unit"]) == [item.display_unit for _, item in items]
+    table = _quiet(vaft.omas.extract_equilibrium_table_summary, sample)
+    assert _netcdf_round_trip(table.to_xarray(), tmp_path / "t.nc")["column_01"].size == len(table.rows)
 
 
 # ---------------------------------------------------------------------------
@@ -142,15 +185,15 @@ def test_a_table_renders_deterministic_text():
         "Example",
         "",
         "Quantity       Value  Unit      Check",
-        "--------  ----------  --------  --------",
+        "--------  ----------  --------  -----",
         "Ip             172.4  kA        PASS",
         "beta_N       0.05089  %·m·T/MA  WARN",
         "q_95            3.21",
-        "W_mhd     not stored            FAIL [1]",
+        "W_mhd     not stored            FAIL*",
         "",
         "A caption.",
         "",
-        "[1] energy not stored",
+        "* energy not stored",
     ])
     rendered = render_table(_table())
     assert isinstance(rendered, RenderedTable) and isinstance(rendered, TextView)
@@ -216,10 +259,10 @@ def test_a_text_summary_renders_sections():
         "-------",
         "  Ip     78.58 kA",
         "  W_mhd  not stored",
-        "  li_3   0.5 [1]",
+        "  li_3   0.5*",
         "  - a statement",
         "",
-        "[1] derived",
+        "* derived",
     ])
     assert "- **Ip:** 78.58 kA" in rendered.markdown()
     assert "<h4>Globals</h4>" in rendered.html()
@@ -504,3 +547,59 @@ def test_a_composed_figure_refuses_a_table_cell():
 
     with pytest.raises(ValueError, match="presented as text"):
         FigureCell("equilibrium_table_summary")
+
+
+def test_a_derived_note_never_lands_in_the_unit_column(sample):
+    table = _quiet(vaft.omas.plot_equilibrium_table_summary, sample)
+    headers, rows, _aligns, notes = __import__(
+        "vaft.plot.renderers.tables", fromlist=["_cell_texts"]
+    )._cell_texts(table.model)
+    unit = headers.index("Unit")
+    assert all("*" not in row[unit] and "[" not in row[unit] for row in rows)
+    beta_p = next(row for row in rows if row[0] == "beta_p")
+    assert beta_p[1].endswith("*") and beta_p[unit] == ""
+    assert notes[0].startswith("* not stored in the slice")
+
+
+def test_markdown_html_and_text_escape_what_a_cell_holds():
+    table = Table(
+        columns=(TableColumn("a|b"), TableColumn("v", kind="value")),
+        rows=(("x < y & z > w", TableCell(1.0)), ("two\nlines", TableCell(2.0))),
+    )
+    rendered = render_table(table)
+    markdown = rendered.markdown()
+    assert "| a\\|b | v |" in markdown
+    assert "| x &lt; y &amp; z &gt; w | 1 |" in markdown
+    assert "| two<br>lines | 2 |" in markdown
+    html = rendered.html()
+    assert "x &lt; y &amp; z &gt; w" in html and "<td style=\"text-align: left\">x <" not in html
+    lines = rendered.text().splitlines()
+    assert lines[3] == "two lines".ljust(len("x < y & z > w")) + "  2"
+    assert len({len(line) for line in lines[:4]}) == 1
+
+
+@pytest.mark.parametrize("units", ["Wb/rad", "auto"])
+def test_units_put_psi_where_the_overview_puts_it(sample, units):
+    from vaft.omas._plot_recipes import build_model, normalize_entries
+
+    overview = _quiet(build_model, "equilibrium_overview", normalize_entries(sample), units=units)
+    panel = next(member for member in overview.models if isinstance(member, TextPanel))
+    lines = {line.split()[0]: line for line in panel.lines}
+    table = _quiet(vaft.omas.extract_equilibrium_table_summary, sample, units=units)
+    summary = _quiet(vaft.omas.extract_equilibrium_text_summary, sample, units=units)
+    globals_ = {item.label: item for item in summary.section("Global quantities").items}
+    for row in table.rows:
+        label = row[0].value
+        if not label.startswith("psi"):
+            continue
+        text, unit = format_quantity(row[1])
+        assert lines[label].split()[1:] == [text, unit]
+        assert format_quantity(globals_[label]) == (text, unit)
+    if units == "Wb/rad":
+        assert format_quantity(dict((r[0].value, r[1]) for r in table.rows)["psi_axis"])[1] == "Wb/rad"
+
+
+def test_time_selects_the_same_slice_in_the_fit_quality_table_and_figure(sample):
+    table = _quiet(vaft.omas.extract_equilibrium_table_fit_quality, sample, time=0.3195)
+    figure = _quiet(vaft.omas.extract_equilibrium_overview_fit_quality, sample, time=0.3195)
+    assert table.title == figure.suptitle

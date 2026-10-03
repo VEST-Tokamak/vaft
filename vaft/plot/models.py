@@ -1172,9 +1172,13 @@ class TableCell:
 
     @property
     def missing(self) -> bool:
-        """Whether there is no value to show (``None`` or a non-finite number)."""
+        """Whether there is no value to show: ``None`` or NaN.
+
+        An infinite value is a value -- it is shown as ``inf``/``-inf`` --
+        not an absent one.
+        """
         value = self.value
-        return value is None or (isinstance(value, float) and not np.isfinite(value))
+        return value is None or (isinstance(value, float) and np.isnan(value))
 
 
 def _as_cell(value: Any, *, where: str) -> TableCell:
@@ -1293,8 +1297,9 @@ class TextItem:
 
     @property
     def missing(self) -> bool:
+        """``None`` or NaN; an infinite value is shown as ``inf``/``-inf``."""
         value = self.value
-        return value is None or (isinstance(value, float) and not np.isfinite(value))
+        return value is None or (isinstance(value, float) and np.isnan(value))
 
     @property
     def is_statement(self) -> bool:

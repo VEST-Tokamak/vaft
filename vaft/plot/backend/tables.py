@@ -31,8 +31,10 @@ from .recipes import (
     OWN_TIME,
     RECIPES,
     CallableRecipe,
+    _array,
     _count,
     _derived_profiles_for,
+    _flux_display,
     _efit_suptitle,
     _get,
     _require_slices,
@@ -88,11 +90,30 @@ def slice_boundary_cells(ods: Any, index: int, derived: Any = None) -> list[tupl
     return cells
 
 
-def _global_cells_with_provenance(ods: Any, index: int, derived: Any) -> list[tuple[str, TableCell]]:
+def _psi_display(ods: Any, index: int, units: Any) -> Any:
+    """The flux display ``units=`` asks for, resolved as ``equilibrium_overview`` resolves it.
+
+    ``None`` keeps the stored convention's default; an explicit unit or
+    ``"auto"`` (judged on the slice's own psi map, as the overview's map is)
+    goes through the same :func:`~vaft.plot.backend.recipes._flux_display`,
+    so the table states psi in the unit the overview's panel does.
+    """
+    if units is None:
+        return None
+    from .convention import psi_convention
+
+    data = _array(ods, f"equilibrium.time_slice.{index}.profiles_2d.0.psi")
+    return _flux_display(ods, index, units, convention=psi_convention(ods, index), data=data)
+
+
+def _global_cells_with_provenance(
+    ods: Any, index: int, derived: Any, units: Any = None
+) -> list[tuple[str, TableCell]]:
     """The slice's global quantities, each derived one carrying :data:`_DERIVED_NOTE`."""
-    stored = dict(slice_global_cells(ods, index))
+    flux_display = _psi_display(ods, index, units)
+    stored = dict(slice_global_cells(ods, index, flux_display=flux_display))
     cells = []
-    for label, cell in slice_global_cells(ods, index, derived):
+    for label, cell in slice_global_cells(ods, index, derived, flux_display=flux_display):
         if stored[label].missing and not cell.missing:
             cell = TableCell(
                 cell.value, unit=cell.unit, subject=cell.subject, quantity=cell.quantity,
@@ -130,7 +151,7 @@ def _build_equilibrium_table_summary(ods: Any, **options: Any) -> Table:
     index, time_value, reason, total, pulse = _selected_slice(ods, options)
     derived, _ = _derived_profiles_for(ods, index)
     rows = [
-        (TableCell(label), cell) for label, cell in _global_cells_with_provenance(ods, index, derived)
+        (TableCell(label), cell) for label, cell in _global_cells_with_provenance(ods, index, derived, options.get("units"))
     ]
     return Table(
         columns=(TableColumn("Quantity"), TableColumn("Value", kind="value", units="column")),
@@ -169,7 +190,7 @@ def _build_equilibrium_text_summary(ods: Any, **options: Any) -> TextSummary:
     return TextSummary(
         sections=(
             TextSection("Slice", tuple(identity)),
-            TextSection("Global quantities", items(_global_cells_with_provenance(ods, index, derived))),
+            TextSection("Global quantities", items(_global_cells_with_provenance(ods, index, derived, options.get("units")))),
             TextSection("Shape", items(slice_boundary_cells(ods, index, derived))),
         ),
         title=options.get("title") or _slice_title(pulse, time_value, index, total, reason),
