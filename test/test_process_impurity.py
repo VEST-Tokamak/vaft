@@ -169,7 +169,12 @@ def test_resistive_zeff_is_carried_never_used():
 
 def test_slices_are_matched_by_time():
     ods = _ods(ions=_lane_k_like(composition_record_text("measured", "x")), times=(0.30, 0.31))
-    assert resolve_impurity_composition(ods, time=0.3101, machine_preset="vest").time == pytest.approx(0.31)
+    ods["core_profiles.profiles_1d.1.ion.1.density_thermal"] = NE / 60   # slice 1 differs
+    early = resolve_impurity_composition(ods, time=0.2999, machine_preset="vest")
+    late = resolve_impurity_composition(ods, time=0.3101, machine_preset="vest")
+    assert (early.time, late.time) == (pytest.approx(0.30), pytest.approx(0.31))
+    np.testing.assert_allclose(early.impurity_fractions[..., 0], 1 / 30)
+    np.testing.assert_allclose(late.impurity_fractions[..., 0], 1 / 60)
     with pytest.raises(ValueError, match="pass the time"):
         resolve_impurity_composition(ods, machine_preset="vest")
     far = resolve_impurity_composition(ods, time=0.5, machine_preset="vest")
@@ -217,3 +222,59 @@ def test_record_grammar_round_trips():
     assert composition_record_origin(None) is None
     with pytest.raises(ValueError):
         composition_record_text("guessed", "x")
+
+
+# --- review findings (cold review, PR 1) -----------------------------------------------
+
+
+def test_each_slice_s_own_time_decides_over_a_stale_homogeneous_vector():
+    ods = _ods(ions=_lane_k_like(composition_record_text("measured", "x")), times=(0.30, 0.31))
+    ods["core_profiles.time"] = np.array([0.30])          # stale, one entry for two slices
+    ods["core_profiles.profiles_1d.1.ion.1.density_thermal"] = NE / 60
+    r = resolve_impurity_composition(ods, time=0.31, machine_preset="vest")
+    assert r.kind == "measured" and r.time == pytest.approx(0.31)
+    np.testing.assert_allclose(r.impurity_fractions[..., 0], 1 / 60)
+
+
+def test_a_measured_zeff_outranks_a_stored_assumed_composition():
+    profile = 1.5 + 0.5 * RHO
+    ods = _ods(ions=_lane_k_like(), zeff=profile, zeff_record=composition_record_text("measured", "x"))
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    assert r.kind == "derived" and "measured" in r.zeff_source
+    np.testing.assert_allclose(r.zeff, profile)
+    assert [s.label for s in r.species] == ["C6+"]
+    np.testing.assert_allclose(r.impurity_fractions[..., 0], (profile - 1) / 30)
+
+
+def test_bad_points_in_a_measured_zeff_are_undefined_not_fatal():
+    profile = np.array([2.0, np.nan, 0.95, 9.0, 1.5])
+    ods = _ods(zeff=profile, zeff_record=composition_record_text("measured", "x"))
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    assert r.provenance["undefined_points"] == 3
+    np.testing.assert_allclose(r.zeff[[0, 4]], [2.0, 1.5])
+    assert np.all(np.isnan(r.zeff[1:4])) and np.all(np.isnan(r.impurity_fractions[1:4]))
+
+
+def test_negative_or_overcharged_stored_points_are_undefined():
+    ods = _ods(ions=_lane_k_like())
+    carbon = np.full(RHO.shape, 1 / 30)
+    carbon[1] = -1e-4          # a fitted density dipping below zero
+    carbon[2] = 0.5            # more impurity charge than electrons
+    ods["core_profiles.profiles_1d.0.ion.1.density_thermal"] = carbon * NE
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    assert np.all(np.isnan(r.zeff[[1, 2]])) and np.all(np.isnan(r.dilution_fraction[[1, 2]]))
+    np.testing.assert_allclose(r.zeff[[0, 3, 4]], 2.0)
+
+
+def test_every_stored_ion_is_visited_not_scanned_until_a_gap():
+    ods = _ods(ions=_lane_k_like(composition_record_text("measured", "x")))
+    del ods["core_profiles.profiles_1d.0.ion.0.label"]    # ion.0: hydrogen with no label, no z_ion
+    del ods["core_profiles.profiles_1d.0.ion.0.z_ion"]
+    assert resolve_impurity_composition(ods, machine_preset="vest").kind == "measured"
+
+
+def test_a_stored_slice_without_a_hydrogenic_main_ion_is_skipped_with_its_reason():
+    helium = (("He2+", 2.0, 2.0, 4.0026, 0.45, None), ("C6+", 6.0, 6.0, 12.011, 0.01, None))
+    r = resolve_impurity_composition(_ods(ions=helium), machine_preset="vest")
+    assert r.kind == "assumed" and "impurity_model" in r.source
+    assert any("hydrogenic" in c.get("reason", "") for c in r.candidates)

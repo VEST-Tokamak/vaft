@@ -394,9 +394,10 @@ def expand_effective_impurity(density, charge, weights, charges, mass=None, mass
     Raises
     ------
     ValueError
-        Invalid input, a negative density, or a pseudo-impurity whose charge
-        (or mass) is not the one this composition reduces to -- then no
-        species densities reproduce both its charge and $Z^2$ moments.
+        Invalid input, a negative density, ``mass`` without ``masses``, or a
+        pseudo-impurity whose charge (or mass) is not the one this composition
+        reduces to -- then no species densities reproduce both its charge and
+        $Z^2$ moments.
 
     Assumptions
     -----------
@@ -425,7 +426,9 @@ def expand_effective_impurity(density, charge, weights, charges, mass=None, mass
             "charge is not the effective charge S2/S1 of this composition; "
             "no species densities keep both its charge and Z^2 moments"
         )
-    if mass is not None and moments.A_bar is not None:
+    if mass is not None and moments.A_bar is None:
+        raise ValueError("mass can only be checked against the species masses; pass masses too")
+    if mass is not None:
         expected = np.asarray(moments.A_bar) * s2 / s1**2
         if not np.allclose(_finite(mass, "mass"), expected, rtol=1.0e-6, atol=0.0):
             raise ValueError("mass is not the effective mass A_bar S2/S1^2 of this composition")

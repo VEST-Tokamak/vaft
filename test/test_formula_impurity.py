@@ -88,6 +88,8 @@ def test_expand_refuses_a_charge_the_composition_does_not_reduce_to():
         expand_effective_impurity(0.02, 6.0, CO_W, CO_Z)
     with pytest.raises(ValueError, match="effective mass"):
         expand_effective_impurity(0.02, 50 / 7, CO_W, CO_Z, mass=12.0, masses=CO_A)
+    with pytest.raises(ValueError, match="pass masses"):
+        expand_effective_impurity(0.02, 50 / 7, CO_W, CO_Z, mass=14.0)
 
 
 # --- arbitrary mixtures, main-ion charge, profiles ----------------------------

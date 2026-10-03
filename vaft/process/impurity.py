@@ -169,6 +169,8 @@ class ImpurityComposition:
             if not math.isfinite(target) or target < 1.0:
                 raise ValueError(f"target_zeff must be finite and at least 1, got {self.target_zeff!r}")
             object.__setattr__(self, "target_zeff", target)
+        if self.reduction != "preserve_charge_z2_mass":
+            raise ValueError(f"reduction must be 'preserve_charge_z2_mass', got {self.reduction!r}")
         if self.status not in COMPOSITION_KINDS:
             raise ValueError(f"status must be one of {COMPOSITION_KINDS}, got {self.status!r}")
         object.__setattr__(self, "species", species)
@@ -473,53 +475,90 @@ def _get(ods: Any, path: str) -> Any:
 
 
 def _slice_index(ods: Any, time: Optional[float], tolerance: float) -> Optional[int]:
+    """The ``profiles_1d`` slice nearest ``time``, by each slice's own time.
+
+    ``profiles_1d.k.time`` decides; ``core_profiles.time`` only fills a slice
+    that carries none, and only when it has one entry per slice -- a stale or
+    longer homogeneous vector must not point the match at the wrong slice or
+    past the array.
+    """
     from vaft.ods_access import path_count
 
     count = path_count(ods, "core_profiles.profiles_1d")
     if count == 0:
         return None
-    times = _get(ods, "core_profiles.time")
-    if times is None:
-        times = [_get(ods, f"core_profiles.profiles_1d.{k}.time") for k in range(count)]
-    times = np.array([np.nan if t is None else float(t) for t in np.atleast_1d(times)], dtype=float)
+    own = [_get(ods, f"core_profiles.profiles_1d.{k}.time") for k in range(count)]
+    homogeneous = _get(ods, "core_profiles.time")
+    homogeneous = None if homogeneous is None else np.atleast_1d(np.asarray(homogeneous, dtype=float))
+    if homogeneous is not None and homogeneous.size != count:
+        homogeneous = None
+    times = np.array([
+        float(t) if t is not None else (homogeneous[k] if homogeneous is not None else np.nan)
+        for k, t in enumerate(own)
+    ], dtype=float)
     if time is None:
         if count == 1:
             return 0
         raise ValueError("core_profiles holds several slices; pass the time to read")
-    finite = np.isfinite(times)
-    if not finite.any():
+    if not np.isfinite(times).any():
         return None
     index = int(np.nanargmin(np.abs(times - float(time))))
     return index if abs(times[index] - float(time)) <= tolerance else None
 
 
-def _ods_impurities(ods: Any, index: int) -> Optional[dict[str, Any]]:
-    """Impurity ions of one ``core_profiles`` slice, their fractions and how they are labelled."""
+def _slice_time(ods: Any, index: int) -> Optional[float]:
+    own = _get(ods, f"core_profiles.profiles_1d.{index}.time")
+    if own is not None:
+        return float(own)
+    times = _get(ods, "core_profiles.time")
+    return None if times is None else float(np.atleast_1d(times)[index])
+
+
+def _hydrogenic(z_n: Any) -> bool:
+    return z_n is not None and int(round(float(z_n))) == 1
+
+
+def _ods_impurities(ods: Any, index: int) -> tuple[Optional[dict[str, Any]], Optional[str]]:
+    """Impurity ions of one ``core_profiles`` slice, their fractions and labels, or why there are none.
+
+    Every ``ion[]`` entry is visited (counted, not scanned until a gap).  The
+    main ion is the hydrogen isotopes; a slice whose ions are not hydrogenic
+    plus impurities is refused rather than read with a hydrogen main ion it
+    does not have.
+    """
+    from vaft.ods_access import path_count
+
     base = f"core_profiles.profiles_1d.{index}"
+    n_ions = path_count(ods, f"{base}.ion")
+    if n_ions == 0:
+        return None, None
     ne = _get(ods, f"{base}.electrons.density_thermal")
     if ne is None:
         ne = _get(ods, f"{base}.electrons.density")
-    rho = _get(ods, f"{base}.grid.rho_tor_norm")
     if ne is None:
-        return None
+        return None, "ion densities stored but no electron density to divide by"
     ne = np.asarray(ne, dtype=float)
+    rho = _get(ods, f"{base}.grid.rho_tor_norm")
     table = _element_table()
-    species, densities, origins = [], [], []
-    k = 0
-    while _get(ods, f"{base}.ion.{k}.label") is not None or _get(ods, f"{base}.ion.{k}.z_ion") is not None:
+    by_charge = {z: sym for sym, (z, _) in table.items() if sym not in ("D", "T")}
+    species, densities, origins, skipped = [], [], [], []
+    has_main = False
+    for k in range(n_ions):
         ion = f"{base}.ion.{k}"
         z_n = _get(ods, f"{ion}.element.0.z_n")
-        z_ion = _get(ods, f"{ion}.z_ion")
-        k += 1
-        if z_n is None or float(z_n) <= 1.0:
-            continue  # the main ion (hydrogen isotopes)
-        element = next((sym for sym, (z, _) in table.items() if z == int(round(float(z_n))) and sym not in "DT"), None)
-        if element is None or z_ion is None:
+        if _hydrogenic(z_n):
+            has_main = True
             continue
+        z_ion = _get(ods, f"{ion}.z_ion")
         density = _get(ods, f"{ion}.density_thermal")
         if density is None:
             density = _get(ods, f"{ion}.density")
-        if density is None:
+        if z_n is None or z_ion is None or density is None:
+            skipped.append(f"ion.{k}: missing {'element.0.z_n' if z_n is None else 'z_ion' if z_ion is None else 'density'}")
+            continue
+        element = by_charge.get(int(round(float(z_n))))
+        if element is None:
+            skipped.append(f"ion.{k}: unknown element z_n={z_n}")
             continue
         mass = _get(ods, f"{ion}.element.0.a")
         species.append(ImpuritySpecies(element=element, charge_state=float(z_ion),
@@ -527,14 +566,16 @@ def _ods_impurities(ods: Any, index: int) -> Optional[dict[str, Any]]:
         densities.append(np.asarray(density, dtype=float))
         origins.append(composition_record_origin(_get(ods, f"{ion}.density_fit.parameters")))
     if not species:
-        return None
+        return None, "; ".join(skipped) or None
+    if not has_main:
+        return None, "no hydrogenic main ion among the stored ions; a non-hydrogenic main ion is not read"
     with np.errstate(invalid="ignore", divide="ignore"):
         safe_ne = np.where(np.isfinite(ne) & (ne > 0.0), ne, np.nan)
         fractions = np.stack([np.broadcast_to(d, ne.shape) / safe_ne for d in densities], axis=-1)
     distinct = set(origins)
     origin = origins[0] if len(distinct) == 1 else "mixed"
-    return {"species": tuple(species), "fractions": fractions,
-            "rho": None if rho is None else np.asarray(rho, dtype=float), "origin": origin}
+    return ({"species": tuple(species), "fractions": fractions, "skipped": skipped,
+             "rho": None if rho is None else np.asarray(rho, dtype=float), "origin": origin}, None)
 
 
 def _ods_measured_zeff(ods: Any, index: int) -> Optional[tuple[np.ndarray, Optional[np.ndarray]]]:
@@ -567,16 +608,41 @@ def _resistive_record(value: Any) -> Optional[dict[str, Any]]:
 # --- the resolver -----------------------------------------------------------------------
 
 
-def _close(composition: ImpurityComposition, target, *, kind: str, source: str, zeff_source: str,
-           rho, time, resistive, candidates, provenance) -> ResolvedImpurityComposition:
-    weights = composition.weights
-    charges = composition.charges
-    solution = solve_impurity_mixture_for_target_zeff(
-        target, weights, charges, main_ion_charge=composition.main_ion_charge
-    )
-    return _finish(composition.species, composition.main_ion, composition.main_ion_charge,
-                   np.asarray(solution.impurity_fractions, dtype=float), target, kind=kind,
-                   source=source, zeff_source=zeff_source, rho=rho, time=time, resistive=resistive,
+def _close(species, main_ion, main_charge, weights, target, *, kind, source, zeff_source, rho, time,
+           resistive, candidates, provenance) -> ResolvedImpurityComposition:
+    """Close relative weights at a target Z_eff by quasi-neutrality.
+
+    A scalar target outside the reachable interval is an error.  A profile
+    target (a measured Z_eff) is closed point by point: a point that is not
+    finite or lies outside ``[Z_m, S2/S1]`` is left undefined (NaN) and
+    counted in the provenance, rather than failing the slice.
+    """
+    charges = np.array([s.charge_state for s in species], dtype=float)
+    target = np.asarray(target, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    provenance = dict(provenance)
+    if target.ndim == 0 and weights.ndim == 1:
+        solution = solve_impurity_mixture_for_target_zeff(target, weights, charges, main_ion_charge=main_charge)
+        fractions = np.asarray(solution.impurity_fractions, dtype=float)
+    else:
+        shape = np.broadcast_shapes(target.shape, weights.shape[:-1])
+        t = np.broadcast_to(target, shape).reshape(-1)
+        w = np.broadcast_to(weights, shape + weights.shape[-1:]).reshape(-1, weights.shape[-1])
+        with np.errstate(invalid="ignore", divide="ignore"):
+            s1, s2 = w @ charges, w @ charges**2
+            ok = (np.isfinite(t) & np.all(np.isfinite(w), axis=-1) & np.all(w >= 0.0, axis=-1)
+                  & (s1 > 0.0) & (s2 - main_charge * s1 > 0.0)
+                  & (t >= main_charge - 1e-9) & (t <= s2 / s1 * (1.0 + 1e-9)))
+        flat = np.full(w.shape, np.nan)
+        if ok.any():
+            flat[ok] = solve_impurity_mixture_for_target_zeff(
+                t[ok], w[ok], charges, main_ion_charge=main_charge
+            ).impurity_fractions
+        fractions = flat.reshape(shape + weights.shape[-1:])
+        target = np.where(ok, t, np.nan).reshape(shape)
+        provenance["undefined_points"] = int(np.count_nonzero(~ok))
+    return _finish(species, main_ion, main_charge, fractions, target, kind=kind, source=source,
+                   zeff_source=zeff_source, rho=rho, time=time, resistive=resistive,
                    candidates=candidates, provenance=provenance)
 
 
@@ -584,24 +650,30 @@ def _finish(species, main_ion, main_charge, fractions, zeff, *, kind, source, ze
             resistive, candidates, provenance) -> ResolvedImpurityComposition:
     """Moments, reduction and dilution of resolved fractions; undefined points stay NaN.
 
-    A stored profile is undefined where ``n_e`` is zero or missing (the edge
-    point of a fitted profile is often exactly zero): ``n_s/n_e`` there is
-    NaN, and so is everything formed from it, rather than an error for the
+    A point is undefined where ``n_e`` is zero or missing (the edge point of
+    a fitted profile is often exactly zero), where a stored fraction is
+    negative, or where the impurities carry more charge than there are
+    electrons: everything formed there is NaN, rather than an error for the
     whole slice or a number made up for that point.
     """
     charges = np.array([s.charge_state for s in species], dtype=float)
     masses = np.array([s.mass for s in species], dtype=float)
     fractions = np.asarray(fractions, dtype=float)
     shape = fractions.shape[:-1]
-    valid = np.all(np.isfinite(fractions), axis=-1) & (np.sum(fractions, axis=-1) > 0.0)
     flat = fractions.reshape(-1, fractions.shape[-1])
-    ok = valid.reshape(-1)
+    with np.errstate(invalid="ignore"):
+        defined = np.all(np.isfinite(flat), axis=-1) & np.all(flat >= 0.0, axis=-1)
+        main = np.where(defined, (1.0 - flat @ charges) / main_charge, np.nan)
+        defined &= main >= -1e-12
+    main = np.where(defined, np.clip(main, 0.0, None), np.nan)
+    ok = defined & (np.sum(np.where(defined[:, None], flat, 0.0), axis=-1) > 0.0)
+    no_impurity = defined & ~ok
 
     def blank():
         return np.full(ok.shape, np.nan)
 
     weights = np.full(flat.shape, np.nan)
-    s1, s2, a_bar, main = blank(), blank(), blank(), blank()
+    s1, s2, a_bar = blank(), blank(), blank()
     eff_charge, eff_fraction, eff_mass = blank(), blank(), blank()
     if ok.any():
         sub = flat[ok]
@@ -609,22 +681,19 @@ def _finish(species, main_ion, main_charge, fractions, zeff, *, kind, source, ze
         weights[ok] = w
         moments = impurity_mixture_moments(w, charges, masses)
         s1[ok], s2[ok], a_bar[ok] = moments.S1, moments.S2, moments.A_bar
-        main[ok] = main_ion_density_from_species(1.0, sub, charges, main_charge)
         effective = reduce_impurity_mixture(sub, charges, masses)
         eff_charge[ok], eff_fraction[ok], eff_mass[ok] = effective.charge, effective.density, effective.mass
-    no_impurity = ~ok & np.all(np.isfinite(flat), axis=-1)
     if no_impurity.any():  # a target of exactly Z_m: no impurity, the pseudo-impurity is the mixture's own
         uniform = np.full(len(species), 1.0 / len(species))
         weights[no_impurity] = uniform
         moments = impurity_mixture_moments(uniform, charges, masses)
         s1[no_impurity], s2[no_impurity], a_bar[no_impurity] = moments.S1, moments.S2, moments.A_bar
-        main[no_impurity] = 1.0 / main_charge
         eff_charge[no_impurity] = moments.S2 / moments.S1
         eff_fraction[no_impurity] = 0.0
         eff_mass[no_impurity] = moments.A_bar * moments.S2 / moments.S1**2
     if zeff is None:
-        zeff = main_charge**2 * main + np.nansum(flat * charges**2, axis=-1)
-        zeff = np.where(np.isfinite(main), zeff, np.nan)
+        with np.errstate(invalid="ignore"):
+            zeff = np.where(defined, main_charge**2 * main + flat @ charges**2, np.nan)
 
     def shaped(value):
         array = np.asarray(value, dtype=float)
@@ -711,9 +780,12 @@ def resolve_impurity_composition(
        explicit argument; else the derived argument, or stored ions labelled
        derived/inferred; else stored ions labelled assumed or unlabelled;
        else the machine preset.
-    3. A stored composition is used as stored (its fractions per rho); any
-       other is closed by quasi-neutrality at the measured Z_eff profile when
-       there is one and ``use_measured_zeff``, else at its own target.
+    3. A stored composition labelled measured is used as stored.  Any other
+       is closed by quasi-neutrality at the measured Z_eff profile when there
+       is one and ``use_measured_zeff`` (a stored one keeps its relative
+       weights per rho), else at its own target (a stored one: as stored).
+       A measured-Z_eff point outside ``[Z_m, S2/S1]`` or not finite is left
+       undefined and counted in ``provenance["undefined_points"]``.
     4. Reduce to the pseudo-impurity and form the dilution.
 
     Convention
@@ -732,7 +804,9 @@ def resolve_impurity_composition(
     Limitations
     -----------
     Charge states are fixed per species; a radially varying charge-state
-    distribution enters as a ``derived`` composition (#1565 Sec. 8).
+    distribution enters as a ``derived`` composition (#1565 Sec. 8).  A stored
+    composition is read only with a hydrogenic main ion; a slice whose ions
+    are not hydrogen isotopes plus impurities is skipped with its reason.
 
     Provenance
     ----------
@@ -749,13 +823,12 @@ def resolve_impurity_composition(
             candidates.append({"source": "core_profiles", "outcome": "skipped",
                                "reason": "no slice within tolerance of the requested time"})
         else:
-            slice_time = _get(ods, f"core_profiles.profiles_1d.{index}.time")
-            if slice_time is None:
-                times = _get(ods, "core_profiles.time")
-                slice_time = None if times is None else float(np.atleast_1d(times)[index])
-            stored = _ods_impurities(ods, index)
+            slice_time = _slice_time(ods, index)
+            stored, why = _ods_impurities(ods, index)
+            if why is not None:
+                candidates.append({"source": "core_profiles.ion", "outcome": "skipped", "reason": why})
             measured_zeff = _ods_measured_zeff(ods, index) if use_measured_zeff else None
-    common = {"time": None if slice_time is None else float(slice_time), "resistive": resistive}
+    common = {"time": slice_time, "resistive": resistive}
 
     arguments = [("explicit", composition), ("derived", derived), ("machine_preset", machine_preset)]
 
@@ -766,13 +839,30 @@ def resolve_impurity_composition(
                                    "outcome": "chosen" if label == chosen_label else "outranked"})
 
     def from_store(kind: str) -> ResolvedImpurityComposition:
-        candidates.append({"source": "core_profiles.ion", "outcome": "chosen",
-                           "origin": stored["origin"] or "unlabelled"})
+        label = stored["origin"] or "unlabelled"
+        candidates.append({"source": "core_profiles.ion", "outcome": "chosen", "origin": label})
         note_arguments(None)
+        record = {"method": "stored ion densities"}
+        if stored["skipped"]:
+            record["skipped_ions"] = list(stored["skipped"])
+        if kind != "measured" and measured_zeff is not None:
+            # measured outranks a stored derived or assumed composition: keep its
+            # relative weights per rho, close them at the measured Z_eff
+            target, rho = measured_zeff
+            if np.shape(target) == stored["fractions"].shape[:-1]:
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    weights = stored["fractions"] / np.sum(stored["fractions"], axis=-1, keepdims=True)
+                record.update(method="stored relative weights closed at the measured Z_eff",
+                              stored_origin=label)
+                return _close(stored["species"], "H", 1.0, weights, target, kind="derived",
+                              source=f"core_profiles.ion ({label}) closed at measured core_profiles.zeff",
+                              zeff_source="core_profiles.zeff (origin=measured)", rho=rho,
+                              candidates=candidates, provenance=record, **common)
+            candidates.append({"source": "core_profiles.zeff", "outcome": "skipped",
+                               "reason": "measured Z_eff is not on the ion-density grid"})
         return _finish(stored["species"], "H", 1.0, stored["fractions"], None, kind=kind,
-                       source=f"core_profiles.ion (origin={stored['origin'] or 'unlabelled'})",
-                       zeff_source="species", rho=stored["rho"], candidates=candidates,
-                       provenance={"method": "stored ion densities"}, **common)
+                       source=f"core_profiles.ion (origin={label})", zeff_source="species",
+                       rho=stored["rho"], candidates=candidates, provenance=record, **common)
 
     origin = None if stored is None else stored["origin"]
     if origin == "measured":
@@ -800,15 +890,16 @@ def resolve_impurity_composition(
 
     provenance = {"method": "quasi-neutral closure at the target Z_eff",
                   "composition_status": chosen.status, "input_record": dict(chosen.input_record)}
+    closing = (chosen.species, chosen.main_ion, chosen.main_ion_charge, chosen.weights)
     if measured_zeff is not None:
         target, rho = measured_zeff
         provenance["target_zeff_replaced"] = chosen.target_zeff
-        return _close(chosen, target, kind="derived", source=f"{source} closed at measured core_profiles.zeff",
+        return _close(*closing, target, kind="derived", source=f"{source} closed at measured core_profiles.zeff",
                       zeff_source="core_profiles.zeff (origin=measured)", rho=rho,
                       candidates=candidates, provenance=provenance, **common)
     if chosen.target_zeff is None:
         raise ValueError(f"the {kind} composition has no target_zeff and no measured Z_eff is available")
-    return _close(chosen, chosen.target_zeff, kind=kind, source=source,
+    return _close(*closing, chosen.target_zeff, kind=kind, source=source,
                   zeff_source=f"target_zeff of the {kind} composition", rho=None,
                   candidates=candidates, provenance=provenance, **common)
 
