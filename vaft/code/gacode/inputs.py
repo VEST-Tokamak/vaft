@@ -856,7 +856,38 @@ def prepare_gacode_profile(
                 )
     elif effective_charge is not None:
         z_eff_profile = _interpolate(profile_rho, effective_charge, rho)
-        provenance["z_eff"] = {"kind": "measured", "source": f"{profile_prefix}.zeff"}
+        # The record beside the column says how it is known (#1565): a zeff the
+        # composition writer derived or assumed is not a measurement.  Unlabelled
+        # keeps the reading it always had.
+        from vaft.ods_access import path_value
+        from vaft.process.impurity import composition_record_origin
+
+        record = path_value(ods, f"{profile_prefix}.zeff_fit.parameters", None)
+        record = None if record is None else str(record)
+        origin = composition_record_origin(record)
+        provenance["z_eff"] = {
+            "kind": {"assumed": "policy_assumption", "derived": "derived",
+                     "inferred": "derived", "measured": "measured", None: "measured"}.get(origin, "derived"),
+            "source": f"{profile_prefix}.zeff",
+            "origin": origin or "unlabelled",
+            "record": record,
+        }
+        if len(charges) > 1:
+            # Several species: NEO, TGLF and CGYRO read the list, so the column
+            # must agree with it -- the #803 contradiction, without impurity=.
+            stacked = np.vstack(densities)
+            species_value = float(np.nanmean(
+                np.sum(stacked * np.asarray(charges)[:, None] ** 2, axis=0) / (ne / DENSITY_SCALE)
+            ))
+            column_value = float(np.nanmean(z_eff_profile))
+            provenance["z_eff"]["species_value"] = species_value
+            if abs(column_value - species_value) > 1e-3:
+                raise ProfileConversionError(
+                    f"{profile_prefix}.zeff averages {column_value:.4g} but the ion species "
+                    f"list gives {species_value:.4g}. Writing both would put a column in "
+                    "input.gacode that contradicts the species NEO, TGLF and CGYRO read; "
+                    "make the zeff profile and the ion list agree."
+                )
     elif z_eff is not None:
         z_eff_profile = np.full(rho.size, float(z_eff))
         provenance["z_eff"] = {"kind": "caller_supplied", "value": float(z_eff)}

@@ -278,3 +278,93 @@ def test_a_stored_slice_without_a_hydrogenic_main_ion_is_skipped_with_its_reason
     r = resolve_impurity_composition(_ods(ions=helium), machine_preset="vest")
     assert r.kind == "assumed" and "impurity_model" in r.source
     assert any("hydrogenic" in c.get("reason", "") for c in r.candidates)
+
+
+# --- Stage C: writing core_profiles -------------------------------------------------------
+
+SAMPLE_48224 = __import__("pathlib").Path(__file__).resolve().parent.parent / "vaft/data/kineticEfit/ods_48224_300ms.json"
+
+
+@pytest.fixture(scope="module")
+def sample_48224():
+    from omas import load_omas_json
+
+    return load_omas_json(str(SAMPLE_48224), consistency_check=False)
+
+
+def test_populate_writes_the_species_list_and_a_flat_zeff():
+    from vaft.process.impurity import populate_impurity_profiles
+
+    ods = _ods(ions=(("H+", 1.0, 1.0, 1.008, 1.0, None),))
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    out = populate_impurity_profiles(ods, r)
+    base = "core_profiles.profiles_1d.0"
+    assert [out[f"{base}.ion.{k}.label"] for k in range(3)] == ["H+", "C6+", "O8+"]
+    assert [out[f"{base}.ion.{k}.z_ion"] for k in range(3)] == [1.0, 6.0, 8.0]
+    assert [out[f"{base}.ion.{k}.element.0.z_n"] for k in range(3)] == [1.0, 6.0, 8.0]
+    n = [np.asarray(out[f"{base}.ion.{k}.density_thermal"]) for k in range(3)]
+    np.testing.assert_allclose(n[1] / NE, 1 / 86)
+    np.testing.assert_allclose(n[0] + 6 * n[1] + 8 * n[2], NE, rtol=1e-12)       # quasi-neutral
+    np.testing.assert_allclose(out[f"{base}.zeff"], 2.0)
+    assert composition_record_origin(out[f"{base}.zeff_fit.parameters"]) == "assumed"
+    assert composition_record_origin(out[f"{base}.ion.1.density_fit.parameters"]) == "assumed"
+    # the source is untouched
+    assert len(ods[f"{base}.ion"]) == 1 and "zeff" not in ods[base]
+
+
+def test_a_written_composition_reads_back_as_assumed_and_never_as_a_target():
+    from vaft.process.impurity import populate_impurity_profiles
+
+    ods = _ods(ions=(("H+", 1.0, 1.0, 1.008, 1.0, None),))
+    out = populate_impurity_profiles(ods, resolve_impurity_composition(ods, machine_preset="vest"))
+    again = resolve_impurity_composition(out, machine_preset="vest")
+    assert again.kind == "assumed" and "origin=assumed" in again.source
+    np.testing.assert_allclose(again.zeff, 2.0)
+    explicit = composition_from_fractions(["C"], [1], [6], target_zeff=1.5)
+    assert resolve_impurity_composition(out, composition=explicit).zeff == pytest.approx(1.5)
+
+
+def test_a_measured_composition_is_never_rewritten():
+    from vaft.process.impurity import populate_impurity_profiles
+
+    ods = _ods(ions=_lane_k_like(composition_record_text("measured", "x")))
+    with pytest.raises(ValueError, match="measured"):
+        populate_impurity_profiles(ods, resolve_impurity_composition(ods, machine_preset="vest"))
+
+
+def test_impurities_share_the_main_ion_temperature_and_its_record(sample_48224):
+    from vaft.process.impurity import populate_impurity_profiles
+
+    r = resolve_impurity_composition(sample_48224, time=0.3, machine_preset="vest", shot=48224)
+    out = populate_impurity_profiles(sample_48224, r)
+    base = "core_profiles.profiles_1d.0"
+    main_t = np.asarray(out[f"{base}.ion.0.temperature"])
+    for k in (1, 2):
+        np.testing.assert_allclose(out[f"{base}.ion.{k}.temperature"], main_t)
+    record = sample_48224[f"{base}.ion.0.temperature_fit.parameters"] if "parameters" in sample_48224[f"{base}.ion.0.temperature_fit"] else None
+    if record is not None:
+        assert out[f"{base}.ion.1.temperature_fit.parameters"] == record
+
+
+def test_gacode_reads_the_written_species_and_labels_the_zeff(sample_48224):
+    from vaft.code.gacode.inputs import prepare_gacode_profile
+    from vaft.process.impurity import populate_impurity_profiles
+
+    r = resolve_impurity_composition(sample_48224, time=0.3, machine_preset="vest", shot=48224)
+    out = populate_impurity_profiles(sample_48224, r)
+    profile = prepare_gacode_profile(out, time=0.3, rho_max=0.95, z_eff=None, impurity=None)
+    assert profile.provenance["z_eff"]["kind"] == "policy_assumption"
+    assert profile.provenance["z_eff"]["origin"] == "assumed"
+    assert profile.provenance["z_eff"]["species_value"] == pytest.approx(2.0, abs=1e-6)
+    assert list(profile.z) == [1.0, 6.0, 8.0]
+
+
+def test_gacode_refuses_a_zeff_column_that_contradicts_the_species(sample_48224):
+    from vaft.code.gacode.inputs import ProfileConversionError, prepare_gacode_profile
+    from vaft.process.impurity import populate_impurity_profiles
+
+    r = resolve_impurity_composition(sample_48224, time=0.3, machine_preset="vest", shot=48224)
+    out = populate_impurity_profiles(sample_48224, r)
+    out["core_profiles.profiles_1d.0.zeff"] = np.full_like(np.asarray(out["core_profiles.profiles_1d.0.zeff"]), 2.5)
+    with pytest.raises(ProfileConversionError, match="contradicts the species"):
+        prepare_gacode_profile(out, time=0.3, rho_max=0.95, z_eff=None, impurity=None)
