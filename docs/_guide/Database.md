@@ -20,6 +20,32 @@ related:
 `vaft.database` is the I/O layer of VAFT. It has **two independent back-ends**, and knowing which one
 you are talking to explains almost every argument on this page:
 
+## Cross-shot parameter history
+
+Canonical summary tables include `shot` and `pulse_time_begin`, followed by
+the preset's quantities. The acquisition timestamp comes from
+`dataset_description.pulse_time_begin`; older shots may have no timestamp.
+
+```python
+import vaft
+
+df = vaft.database.summary((38000, 46000), preset="shot_overview")
+fig, ax = vaft.plot.plot_parameter_history(
+    df, y="max_ip_kA", secondary_x="date"
+)
+
+# Show elapsed calendar time geometrically, with shot labels above it.
+fig, ax = vaft.plot.plot_parameter_history(
+    df, y="max_ip_kA", x="date", secondary_x="shot"
+)
+```
+
+Shot number and acquisition time are different campaign coordinates. The
+secondary axis labels recorded observations; it does not assume a globally
+linear transformation between shot and date. Date-primary plots omit rows
+without acquisition timestamps. Summaries with several rows per shot retain
+every row; select the desired time slices in the DataFrame before plotting.
+
 | Back-end | Module | What a shot looks like | What you get back |
 | --- | --- | --- | --- |
 | **HSDS** — remote IMAS HDF5 store | `vaft.database.ods`, `vaft.database.ids`, `vaft.database.utils` | a *folder* `hdf5://{directory}/{shot}/` holding `master.h5` plus one `<ids_name>.h5` per IDS | an OMAS `ODS`, or a native IMAS `IDSToplevel` |
