@@ -36,21 +36,46 @@ sources:
     processing: geometry selection
     value_kind: mapped
     geometry_compatibility: reference
-  kinetic:
+  thomson_scattering:
     source_shot: 48224
     source_artifact: samples/48224/omas.json.gz
     source_sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7
     ids:
     - thomson_scattering
+    source_time: native 0.298–0.307 s
+    processing: copied from the 48224 kinetic subset without refitting
+    value_kind: measured local n_e and T_e
+    geometry_compatibility: 48224 positions projected on 39915 geometry reference
+  charge_exchange:
+    source_shot: 48224
+    source_artifact: samples/48224/omas.json.gz
+    source_sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7
+    ids:
     - charge_exchange
+    source_time: native 0.297–0.301 s
+    processing: copied from the 48224 kinetic subset without refitting
+    value_kind: measured local impurity-ion T_i and V_phi
+    geometry_compatibility: 48224 positions projected on 39915 geometry reference
+  core_profiles:
+    source_shot: 48224
+    source_artifact: samples/48224/omas.json.gz
+    source_sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7
+    ids:
     - core_profiles
+    source_time: profile slice at 0.300 s
+    processing: copied together with its 48224 measurements and equilibrium
+    value_kind: fitted n_e, T_e, T_i and V_phi
+    geometry_compatibility: 48224 PF era 2507; not a 39915 machine profile
+  equilibrium:
+    source_shot: 48224
+    source_artifact: samples/48224/omas.json.gz
+    source_sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7
+    ids:
     - equilibrium
-    source_time: Thomson 0.298–0.307 s; equilibrium/core_profiles near 0.300 s; CX
-      native time retained
-    processing: copied together without refitting or time alignment
-    value_kind: measured; fitted/reconstructed
-    geometry_compatibility: 2507 PF era; equilibrium must not be presented as the
-      39915 machine configuration
+    source_time: reconstruction slice at 0.300 s
+    processing: copied together with the 48224 kinetic subset
+    value_kind: reconstructed equilibrium
+    geometry_compatibility: 48224 PF era 2507; never overlay as the 39915 equilibrium
   interferometer_94ghz:
     source_shot: 47230
     source_artifact: legacy/47230_056789_LID_1_100.mat

@@ -160,7 +160,7 @@ def unified_diagnostics_manifest() -> dict:
     import hashlib
 
     root = data_path("unified/vest_diagnostics")
-    with (root / "manifest.yaml").open("r", encoding="utf-8") as handle:
+    with require_repository_sample(root / "manifest.yaml").open("r", encoding="utf-8") as handle:
         manifest = yaml.safe_load(handle)
     if (
         manifest.get("schema_version") != 1

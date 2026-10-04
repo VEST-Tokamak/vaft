@@ -23,10 +23,11 @@ def test_fixture_contract_and_source_identity(fixture_data):
     assert "shot" not in manifest
     assert "dataset_description.data_entry.pulse" not in ods
     assert "Cross-shot composite" in ods["dataset_description.ids_properties.comment"]
-    assert manifest["sources"]["kinetic"]["source_shot"] == 48224
-    assert set(manifest["sources"]["kinetic"]["ids"]) == {
+    kinetic = {name for name, record in manifest["sources"].items() if record["source_shot"] == 48224}
+    assert kinetic == {
         "thomson_scattering", "charge_exchange", "core_profiles", "equilibrium"
     }
+    assert manifest["sources"]["core_profiles"]["value_kind"].startswith("fitted")
     assert manifest["sources"]["langmuir_probes"]["source_shot"] == 42699
     assert manifest["sources"]["soft_x_rays"]["source_shot"] == 45531
 
