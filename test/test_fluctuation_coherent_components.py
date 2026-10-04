@@ -69,6 +69,21 @@ def test_degenerate_leading_pair_has_no_unique_participation():
     assert np.isnan(components.phase[0, 0]).all()
 
 
+def test_zero_loading_has_no_phase_and_insufficient_averages_have_no_fraction():
+    result = _matrix()
+    matrix = result.matrix.copy()
+    matrix[0, 0] = np.array([[1, 0.8, 0], [0.8, 1, 0], [0, 0, 1]])
+    components = coherent_components(replace(result, matrix=matrix), reference="ref")
+    assert components.participation[0, 0, 2] == pytest.approx(0)
+    assert np.isnan(components.phase[0, 0, 2])
+    shared = result.shared_segments.copy()
+    shared[0, 0] = 3  # Three records require at least four independent averages.
+    insufficient = coherent_components(replace(result, shared_segments=shared),
+                                       reference="ref")
+    assert np.isnan(insufficient.coherent_fraction[0, 0])
+    assert not insufficient.component_defined[0, 0]
+
+
 def test_independent_component_reduces_dominant_fraction():
     fs = 40_000
     time = np.arange(16_000) / fs

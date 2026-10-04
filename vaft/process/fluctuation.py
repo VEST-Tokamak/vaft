@@ -999,7 +999,8 @@ class CoherentComponents:
     diagnostics participate. Eigenvector columns follow the same order and
     use the maximum-amplitude entry as a positive-real phase gauge.
     Participation is ``abs(dominant_eigenvector)**2`` and sums to one over
-    available diagnostics when the leading eigenvalue is distinct. ``phase``
+    available diagnostics when the leading eigenvalue is distinct and enough
+    independent segments were averaged. ``phase``
     is each diagnostic relative to the requested reference, in radians.
     """
 
@@ -1061,8 +1062,9 @@ def coherent_components(
     eigenvector's phase at i relative to the reference is
     ``angle(u_i conj(u_ref))``. Its squared magnitudes sum to one; they are
     dimensionless loadings, not physical signal amplitudes. The fraction is
-    the leading eigenvalue divided by the trace and has an independent-signal
-    baseline near ``1/N`` for N similarly powered diagnostics.
+    the leading eigenvalue divided by the trace. Finite-sample eigenvalue
+    spread raises this fraction above ``1/N`` even for independent signals;
+    it needs an appropriate null model before physical interpretation.
 
     Defaults
     --------
@@ -1072,13 +1074,16 @@ def coherent_components(
     Applicability
     -------------
     Machine-independent. Inputs must already be selected scalar diagnostics;
-    one diagnostic supplies no cross-diagnostic coherence claim.
+    one diagnostic supplies no cross-diagnostic coherence claim. At least
+    N+1 independent averaged segments are required for N valid diagnostics
+    before leading-component metrics are reported.
 
     Limitations
     -----------
     A large leading component alone does not identify a physical MHD mode.
     Relative phase is undefined when the reference is missing or its loading
-    is numerically zero. Distinct spectral components may exchange rank over
+    is numerically zero, or when an individual diagnostic's loading vanishes.
+    Distinct spectral components may exchange rank over
     time or frequency; no component tracking is inferred.
 
     Provenance
@@ -1133,7 +1138,7 @@ def coherent_components(
             eigenvalues[row, column, :active.size] = values
             eigenvectors[row, column][np.ix_(active, np.arange(active.size))] = vectors
             total = float(np.sum(values))
-            if total <= 0:
+            if total <= 0 or result.shared_segments[row, column] <= active.size:
                 continue
             dominant_power[row, column] = values[0]
             coherent_fraction[row, column] = values[0] / total
@@ -1145,7 +1150,10 @@ def coherent_components(
             if reference_index in active:
                 ref = leading[np.flatnonzero(active == reference_index)[0]]
                 if np.abs(ref) > 1e-12:
-                    phase[row, column, active] = np.angle(leading * np.conj(ref))
+                    phase_valid = np.abs(leading) > 1e-12
+                    phase[row, column, active[phase_valid]] = np.angle(
+                        leading[phase_valid] * np.conj(ref)
+                    )
 
     return CoherentComponents(
         time=result.time, frequency=result.frequency, names=result.names,
