@@ -1357,7 +1357,7 @@ def cross_spectrogram(
                 if not np.all(covered):
                     raise ValueError(
                         f"{name}: anti-alias filter did not cover every source sample; "
-                        "a shorter or finite uninterrupted record is required"
+                        "a longer finite uninterrupted record is required"
                     )
             else:
                 values = resample_to_time(
