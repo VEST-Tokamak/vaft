@@ -1523,8 +1523,9 @@ def cross_spectral_matrix(
     1. Align every record on the overlapping interval, with anti-aliasing for
        rate reductions and mask propagation for missing/short filtered spans.
     2. Compute identically windowed one-sided FFTs in non-overlapping segments.
-    3. At each frequency and output time, average outer products only over
-       segments finite for every participating record.
+    3. At each frequency and output time, select the largest set of records
+       sharing at least two finite segments and average only over that set's
+       jointly finite segments.
     4. Keep raw densities and apply the requested explicit normalization.
 
     Convention
@@ -1590,8 +1591,11 @@ def cross_spectral_matrix(
     stop = min(float(item[0][-1]) for item in native)
     if not start < stop:
         raise ValueError("records do not overlap in time")
-    grid = start + np.arange(int(np.floor((stop - start) * fs + 1e-9)) + 1) / fs
-    grid = grid[grid <= stop]
+    # Round a nearly integral sample count in sample units before constructing
+    # the grid. Otherwise 399.99999999999994 loses the valid 400th sample.
+    grid = start + np.arange(int(np.floor((stop - start) * fs + 1e-6)) + 1) / fs
+    if grid[-1] > stop:
+        grid[-1] = stop
     if grid.size < outer:
         raise ValueError(f"common interval has {grid.size} samples; {outer} required")
     fs = 1 / float(np.median(np.diff(grid)))
@@ -1700,8 +1704,25 @@ def cross_spectral_matrix(
                     samples = scipy_signal.detrend(samples, type=detrend)
                 coeff[index, part] = np.fft.rfft(samples * taper)[keep]
         for row, hz in enumerate(frequency):
-            eligible = np.flatnonzero((hz <= limits_array * (1 + 1e-12)) &
-                                      (finite.sum(axis=1) >= 2))
+            candidates = np.flatnonzero((hz <= limits_array * (1 + 1e-12)) &
+                                            (finite.sum(axis=1) >= 2))
+            if not candidates.size:
+                continue
+            # Any feasible set shares at least one pair of inner segments.
+            # Enumerating segment pairs finds the largest such record set
+            # without exponential search over record subsets. Ties prefer
+            # more jointly finite segments, then the earliest segment pair.
+            eligible = np.empty(0, dtype=int)
+            best_joint = -1
+            for first_part in range(averages - 1):
+                for second_part in range(first_part + 1, averages):
+                    subset = candidates[finite[candidates, first_part] &
+                                        finite[candidates, second_part]]
+                    if subset.size < eligible.size or not subset.size:
+                        continue
+                    subset_joint = int(np.all(finite[subset], axis=0).sum())
+                    if (subset.size, subset_joint) > (eligible.size, best_joint):
+                        eligible, best_joint = subset, subset_joint
             if not eligible.size:
                 continue
             joint = np.all(finite[eligible], axis=0)

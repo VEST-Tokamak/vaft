@@ -137,6 +137,34 @@ def test_missing_time_block_excludes_only_affected_windows():
     assert result.valid[peak, -1].all()
 
 
+def test_disjoint_partial_records_do_not_erase_fully_observed_pair():
+    time = np.arange(800) / 40_000
+    tone = np.sin(2 * np.pi * 2_000 * time)
+    first_half = tone.copy()
+    first_half[400:800] = np.nan
+    second_half = tone.copy()
+    second_half[:400] = np.nan
+    result = cross_spectral_matrix([
+        _record("x", time, tone), _record("y", time, tone),
+        _record("first", time, first_half), _record("second", time, second_half),
+    ], nperseg=100)
+    peak = int(np.argmin(abs(result.frequency - 2_000)))
+    assert result.valid[peak, 0, 0]
+    assert result.valid[peak, 0, 1]
+    assert np.isfinite(result.raw_csd[peak, 0, 0, 1])
+    assert result.shared_segments[peak, 0] >= 2
+    assert result.valid[peak, 0, 2] != result.valid[peak, 0, 3]
+
+
+def test_exactly_one_outer_window_keeps_last_sample():
+    time = np.arange(400) / 100_000
+    signal = np.sin(2 * np.pi * 2_000 * time)
+    result = cross_spectral_matrix([_record("x", time, signal)],
+                                   nperseg=100, segments_per_window=4)
+    assert result.time.size == 1
+    assert result.time_range[1] == pytest.approx(time[-1])
+
+
 def test_nonoverlap_and_short_record_fail_explicitly():
     time = np.arange(100) / 40_000
     with pytest.raises(ValueError, match="required"):
