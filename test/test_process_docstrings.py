@@ -282,6 +282,8 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # #1608: COCOS source profiles versus full-weber Green response orientation.
+    "fit_free_boundary_coils",
     # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
     # the parallel (not perpendicular) Spitzer coefficient; <J.B>, not j_tor
     "observed_resistance",
