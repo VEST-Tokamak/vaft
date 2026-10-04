@@ -42,6 +42,8 @@ class DiagnosticSelection:
     diagnostic: str
     channel: int | str | None = None
     emission: str | None = None
+    quantity: str | None = None
+    energy_band: int | None = None
     region: tuple[int, int, int, int] | None = None
     detector: int = 0
     component_time: Any = None
@@ -62,7 +64,7 @@ class SelectedDiagnostics:
 
 _SCALAR_PATHS = {
     "mirnov": ("magnetics.b_field_pol_probe", ("field",), "T"),
-    "soft_x_rays": ("soft_x_rays.channel", ("brightness", "power"), "a.u."),
+    "soft_x_rays": ("soft_x_rays.channel", ("brightness", "power"), None),
     "interferometer": ("interferometer.channel", ("n_e_line",), "m^-2"),
 }
 
@@ -87,18 +89,52 @@ def _stored_scalar(ods: Any, selection: DiagnosticSelection):
     diagnostic = selection.diagnostic
     container, leaves, default_units = _SCALAR_PATHS[diagnostic]
     index = _selected_channel(ods, container, selection.channel)
+    if diagnostic != "soft_x_rays" and (selection.quantity is not None or selection.energy_band is not None):
+        raise ValueError("quantity and energy_band select soft X-ray records only")
+    if selection.energy_band is not None and (
+        isinstance(selection.energy_band, (bool, np.bool_))
+        or not isinstance(selection.energy_band, (int, np.integer))
+        or selection.energy_band < 0
+    ):
+        raise ValueError("energy_band must be a nonnegative integer")
+    if diagnostic == "soft_x_rays" and selection.quantity is not None:
+        if selection.quantity not in leaves:
+            raise ValueError("SXR quantity must be 'brightness' or 'power'")
+        leaves = (selection.quantity,)
     for leaf in leaves:
         base = f"{container}.{index}.{leaf}"
         data = path_value(ods, f"{base}.data")
         if data is None:
             continue
-        values = np.asarray(data, dtype=float).reshape(-1)
         time = path_value(ods, f"{base}.time")
         if time is None:
             time = path_value(ods, f"{container.rsplit('.', 1)[0]}.time")
-        if time is None or np.size(time) != values.size:
+        if time is None:
             raise ValueError(f"{base}: matching stored time axis is required")
-        return np.asarray(time, dtype=float).reshape(-1), values, base, default_units
+        time = np.asarray(time, dtype=float).reshape(-1)
+        values = np.asarray(data, dtype=float)
+        if diagnostic == "soft_x_rays" and values.ndim == 2:
+            band = selection.energy_band
+            if values.shape[1] == time.size and values.shape[0] != time.size:
+                axis = 0  # IMAS: (energy_band, time)
+            elif values.shape[0] == time.size and values.shape[1] != time.size:
+                axis = 1  # older VEST: (time, energy_band)
+            else:
+                raise ValueError(f"{base}: energy-band and time axes are ambiguous")
+            n_bands = values.shape[axis]
+            if band is None and n_bands != 1:
+                raise ValueError(f"{base}: select energy_band from 0 to {n_bands - 1}")
+            band = 0 if band is None else int(band)
+            if not 0 <= band < n_bands:
+                raise ValueError(f"{base}: energy_band {band} is out of range")
+            values = values[band] if axis == 0 else values[:, band]
+            base = f"{base}:energy_band{band}"
+        elif diagnostic == "soft_x_rays" and selection.energy_band not in (None, 0):
+            raise ValueError(f"{base}: one-dimensional signal has only energy_band 0")
+        values = values.reshape(-1)
+        if time.size != values.size:
+            raise ValueError(f"{base}: matching stored time axis is required")
+        return time, values, base, default_units
     if diagnostic == "mirnov":
         raise ValueError(
             f"{container}.{index}: integrated/calibrated field is required; "
@@ -194,7 +230,7 @@ def _uv_scalar(ods: Any, selection: DiagnosticSelection):
     if data is None or time is None or np.size(data) != np.size(time):
         raise ValueError(f"{base}: intensity and matching time are required")
     return (np.asarray(time, dtype=float).reshape(-1),
-            np.asarray(data, dtype=float).reshape(-1), f"{base}:{label}", "a.u.")
+            np.asarray(data, dtype=float).reshape(-1), f"{base}:{label}", None)
 
 
 def select_fluctuation_records(
@@ -203,8 +239,10 @@ def select_fluctuation_records(
     """Read one explicitly chosen scalar representative per diagnostic.
 
     Stored Mirnov field is used only after calibration/integration. SXR uses a
-    chosen chord, interferometry its line-integrated density, camera a stated
-    ROI or externally prepared temporal component, and UV one emission label.
+    chosen chord, quantity and energy band; interferometry its line-integrated
+    density; camera a stated ROI or externally prepared temporal component;
+    and UV one emission label. SXR and UV require explicit ``units`` because
+    calibrated IMAS values and legacy VEST proxy signals may differ.
     Multiple channels never enter one diagnostic's matrix slot implicitly.
     The returned ``sources`` preserve channel, ROI, or line selection; the
     records retain units and declared usable bandwidth for spectral analysis.
@@ -231,8 +269,14 @@ def select_fluctuation_records(
             raise ValueError(f"unsupported diagnostic {item.diagnostic!r}")
         if time.size != data.size or time.size < 2:
             raise ValueError(f"{source}: at least two paired samples are required")
+        record_units = item.units or units
+        if record_units is None:
+            raise ValueError(
+                f"{source}: specify units explicitly; calibrated IMAS values and "
+                "legacy proxy signals may use different units"
+            )
         records.append(FluctuationRecord(
-            item.diagnostic, time, data, item.units or units,
+            item.diagnostic, time, data, record_units,
             item.usable_bandwidth_hz, source,
         ))
         sources.append(source)

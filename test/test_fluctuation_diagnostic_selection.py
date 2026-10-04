@@ -51,11 +51,11 @@ def _ods():
 def test_one_explicit_record_per_diagnostic_with_source_provenance():
     selections = [
         DiagnosticSelection("mirnov", channel="M1"),
-        DiagnosticSelection("soft_x_rays", channel=0),
+        DiagnosticSelection("soft_x_rays", channel=0, units="V"),
         DiagnosticSelection("interferometer", channel="I1"),
         DiagnosticSelection("camera_visible", channel=0, region=(0, 2, 1, 3),
                             background_frames=3),
-        DiagnosticSelection("spectrometer_uv", emission="H-alpha_6563"),
+        DiagnosticSelection("spectrometer_uv", emission="H-alpha_6563", units="count/s"),
     ]
     result = select_fluctuation_records(_ods(), selections)
     assert tuple(record.name for record in result.records) == tuple(
@@ -92,7 +92,7 @@ def test_camera_temporal_component_and_uv_emission_identity():
     np.testing.assert_array_equal(component.records[0].data, np.arange(8))
     assert "first SVD score" in component.sources[0]
     line = select_fluctuation_records(ods, [DiagnosticSelection(
-        "spectrometer_uv", emission="CIII", channel=0
+        "spectrometer_uv", emission="CIII", channel=0, units="count/s"
     )])
     assert "CIII_4650" in line.sources[0]
     with pytest.raises(ValueError, match="provenance label"):
@@ -102,6 +102,36 @@ def test_camera_temporal_component_and_uv_emission_identity():
     with pytest.raises(ValueError, match="exceeds frame shape"):
         select_fluctuation_records(ods, [DiagnosticSelection(
             "camera_visible", channel=0, region=(0, 2, 1, 9)
+        )])
+
+
+def test_sxr_multiband_and_quantity_selection_keep_declared_units():
+    ods = _ods()
+    channel = ods["soft_x_rays"]["channel"][0]
+    channel["brightness"]["data"] = np.stack([np.arange(8.), 2 * np.arange(8.)])
+    channel["power"] = {"time": channel["brightness"]["time"],
+                        "data": 3 * np.arange(8.)}
+    with pytest.raises(ValueError, match="select energy_band"):
+        select_fluctuation_records(ods, [DiagnosticSelection(
+            "soft_x_rays", channel=0, units="W.m^-2.sr^-1"
+        )])
+    selected = select_fluctuation_records(ods, [DiagnosticSelection(
+        "soft_x_rays", channel=0, energy_band=1, units="W.m^-2.sr^-1"
+    )])
+    np.testing.assert_array_equal(selected.records[0].data, 2 * np.arange(8.))
+    assert "energy_band1" in selected.sources[0]
+    assert selected.records[0].units == "W.m^-2.sr^-1"
+    power = select_fluctuation_records(ods, [DiagnosticSelection(
+        "soft_x_rays", channel=0, quantity="power", units="W"
+    )])
+    np.testing.assert_array_equal(power.records[0].data, 3 * np.arange(8.))
+    with pytest.raises(ValueError, match="specify units explicitly"):
+        select_fluctuation_records(ods, [DiagnosticSelection(
+            "soft_x_rays", channel=0, quantity="power"
+        )])
+    with pytest.raises(ValueError, match="specify units explicitly"):
+        select_fluctuation_records(ods, [DiagnosticSelection(
+            "spectrometer_uv", emission="H-alpha_6563"
         )])
 
 
@@ -118,7 +148,7 @@ def test_canonical_maps_keep_time_frequency_mask_and_units():
 
     selected = select_fluctuation_records(_ods(), [
         DiagnosticSelection("mirnov", channel=0),
-        DiagnosticSelection("soft_x_rays", channel=0),
+        DiagnosticSelection("soft_x_rays", channel=0, units="V"),
     ])
     assert len(selected.records) == 2
     from vaft.process.fluctuation import FluctuationRecord
