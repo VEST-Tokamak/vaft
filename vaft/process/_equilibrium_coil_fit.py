@@ -108,6 +108,7 @@ def _boundary_points(eq: EquilibriumData, count: int) -> tuple[np.ndarray, np.nd
     if distance[-1] <= 0 or np.count_nonzero(unique) < 4:
         raise ValueError("LCFS has zero length or too few distinct points")
     samples = np.linspace(0.0, distance[-1], count, endpoint=False)
+    # anti-alias: these interpolate geometry over arc length, not time samples.
     points = np.column_stack((np.interp(samples, distance[unique], points[unique, 0]),
                               np.interp(samples, distance[unique], points[unique, 1])))
     # A central difference at each regular sample gives the surface tangent.
@@ -137,6 +138,7 @@ def _plasma_filaments(eq: EquilibriumData, samples_per_axis: int) -> tuple[np.nd
         raise ValueError("psi_1d profile coordinates must be distinct")
     rr, zz = np.meshgrid(r, z, indexing="ij")
     fraction = fractional_cell_weights_from_boundary(r, z, eq.lcfs.r, eq.lcfs.z, samples_per_axis)
+    # anti-alias: source profiles interpolate in poloidal flux, not time.
     pp = np.interp(psi, profile_psi[order], np.asarray(eq.pprime)[order])
     ffp = np.interp(psi, profile_psi[order], np.asarray(eq.ffprime)[order])
     # COCOS 11 stores full Wb, while the Grad-Shafranov source uses flux per
@@ -233,9 +235,10 @@ def fit_free_boundary_coils(
 
     Defaults
     --------
-    Omitted flux and field weights divide by the target flux span and peak
-    plasma boundary field. The current scale defaults to |Ip|/number of
-    circuits. No hardware current limits are inferred from geometry.
+    As a numerical convenience, omitted flux and field weights divide by the
+    target flux span and peak plasma boundary field, and the current scale
+    defaults to |Ip|/number of circuits. No hardware current limits are
+    inferred from geometry.
 
     Convention
     ----------
