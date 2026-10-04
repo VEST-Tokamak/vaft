@@ -1634,6 +1634,8 @@ def cross_spectral_matrix(
                 times, values, grid, anti_alias=True, extrapolate="error",
                 return_filter_mask=True,
             )
+            # anti-alias: this interpolates only the logical FIR coverage mask;
+            # physical signal samples were already filtered by resample_to_time.
             coverage = np.interp(grid, times, covered.astype(float)) >= 1 - 1e-12
             projected[~coverage] = np.nan
             operation = "anti_alias_resample"
