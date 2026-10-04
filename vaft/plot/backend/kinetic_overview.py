@@ -7,6 +7,8 @@ import numpy as np
 from vaft.plot.backend.access import array, count, get
 from vaft.plot.models import Panels, Profile1D, Series
 
+__all__ = []  # Extraction details are private; the registered plot is public.
+
 
 COORDINATES = ("R", "r_major", "psi_norm", "rho_pol_norm", "rho_tor_norm")
 _LABELS = {

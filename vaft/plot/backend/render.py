@@ -97,7 +97,7 @@ def render_entries(
             spec, entries, options, backend=backend, controls=controls,
             interaction_backend=interaction_backend, show=show, ax=ax,
         )
-    model = _mark_cross_shot(build_model(name, entries, **options), entries)
+    model = _mark_cross_shot(name, build_model(name, entries, **options), entries)
     # A layout other than overlay arranges the same traces into a Panels model;
     # renderer_for hands such a model to the panels renderer, so the return
     # shape follows the layout (issue #260) and no renderer knows about layouts.
@@ -131,7 +131,7 @@ def render_entries(
     return result
 
 
-def _mark_cross_shot(model: Any, entries: Sequence[tuple[str, Any]]) -> Any:
+def _mark_cross_shot(name: str, model: Any, entries: Sequence[tuple[str, Any]]) -> Any:
     """Make a cross-shot fixture unmistakable on any static plot it produces."""
     from vaft.plot.backend.access import get
     from vaft.plot.models import Panels
@@ -148,9 +148,14 @@ def _mark_cross_shot(model: Any, entries: Sequence[tuple[str, Any]]) -> Any:
     notice = "Cross-shot composite — not a physical VEST discharge"
     if notice in title:
         return model
+    if name == "machine_geometry_poloidal":
+        context = "Other-shot diagnostic coordinates projected onto geometry reference shot 39915"
+    elif name.startswith("equilibrium_"):
+        context = "Equilibrium: source shot 48224, PF era 2507; fixture machine geometry reference: shot 39915"
+    else:
+        context = "Fixture machine geometry reference: shot 39915; source IDS retains its own coordinates"
     return replace(model, **{field: (
-        f"{title}\n{notice}\nOther-shot diagnostic coordinates projected "
-        "onto geometry reference shot 39915"
+        f"{title}\n{notice}\n{context}"
     )})
 
 
@@ -261,7 +266,7 @@ def frame_renderers(
 
     def build(chosen: Mapping[str, Any]) -> Any:
         return _mark_cross_shot(
-            build_model(spec.name, entries, **{**fixed, **hints, **chosen}), entries
+            spec.name, build_model(spec.name, entries, **{**fixed, **hints, **chosen}), entries
         )
 
     def draw(model: Any, **kwargs: Any) -> Any:

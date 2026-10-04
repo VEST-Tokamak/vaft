@@ -13706,13 +13706,21 @@ del _name, _diagnostic
 
 from .kinetic_overview import COORDINATES as KINETIC_OVERVIEW_COORDINATES, build_kinetic_overview
 
+
+def _kinetic_overview_available(ods: Any) -> str | None:
+    if any(_count(ods, path) for path in (
+        "thomson_scattering.channel", "charge_exchange.channel", "core_profiles.profiles_1d"
+    )):
+        return None
+    if _count(ods, "langmuir_probes.embedded"):
+        return "only Langmuir edge points are present; use coordinate='R'"
+    return "no local kinetic diagnostic or core profile is present"
+
+
 RECIPES["kinetic_overview_profiles"] = CallableRecipe(
     builder=build_kinetic_overview,
     description="Measured and fitted local n_e, T_e, T_i and V_phi profiles in four panels.",
-    available=lambda ods: None if any(_count(ods, f"{family}.{container}") for family, container in (
-        ("thomson_scattering", "channel"), ("charge_exchange", "channel"),
-        ("core_profiles", "profiles_1d"), ("langmuir_probes", "embedded"),
-    )) else "no local kinetic diagnostic or core profile is present",
+    available=_kinetic_overview_available,
     reads=(*_PROFILE_FIT_READS["thomson_scattering"],
            *_PROFILE_FIT_READS["charge_exchange"],
            *_PROFILE_FIT_EQUILIBRIUM_READS,
