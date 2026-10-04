@@ -97,3 +97,13 @@ def test_zero_power_has_undefined_coherence_and_phase():
                                np.sin(2 * np.pi * 2_000 * time))
     assert np.isnan(result.coherence).all()
     assert np.isnan(result.phase).all()
+
+
+def test_short_fast_record_cannot_claim_anti_alias_filtering():
+    fast = np.arange(240) / 120_000
+    slow = np.arange(80) / 40_000
+    x = np.sin(2 * np.pi * 38_000 * fast)
+    y = np.sin(2 * np.pi * 2_000 * slow)
+    with pytest.warns(RuntimeWarning, match="leaving it unfiltered"):
+        with pytest.raises(ValueError, match="anti-alias filter did not cover"):
+            cross_spectrogram(fast, x, slow, y, nperseg=20)

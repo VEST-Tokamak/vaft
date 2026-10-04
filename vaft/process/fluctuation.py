@@ -1188,23 +1188,95 @@ def cross_spectrogram(
 ) -> CrossSpectrogram:
     """Time-resolved cross-spectrum, coherence and y-relative-to-x phase.
 
-    Each output time is the centre of a complete outer window containing
-    ``segments_per_window`` *non-overlapping* Welch segments. The default uses
-    four 256-sample segments and advances by half an outer window. Averaging
-    before forming coherence is essential: one STFT outer product by itself
-    would yield coherence one at every nonzero bin, even for unrelated noise.
+    Parameters
+    ----------
+    time_x : array_like
+        Uniform time axis of the phase-reference record [s].
+    x : array_like
+        First scalar signal [units_x].
+    time_y : array_like
+        Uniform time axis of the second record [s].
+    y : array_like
+        Second scalar signal [units_y].
+    sample_rate : float, optional
+        Rate of a common grid over the overlapping interval [Hz].
+    common_time : array_like, optional
+        Explicit uniform common grid, overriding ``sample_rate`` [s].
+    bandwidth_x_hz : float, optional
+        Physically usable upper bandwidth of x; defaults to its Nyquist [Hz].
+    bandwidth_y_hz : float, optional
+        Physically usable upper bandwidth of y; defaults to its Nyquist [Hz].
+    frequency_range : tuple of float, optional
+        Inclusive output band, defaulting to the full common usable band [Hz].
+    nperseg : int, optional
+        Samples in one Welch segment [-].
+    segments_per_window : int, optional
+        Non-overlapping Welch segments averaged in each output window [-].
+    window_step_samples : int, optional
+        Output-window advance, defaulting to half an outer window [-].
+    window : str, optional
+        SciPy spectral window name [-].
+    detrend : str or bool, optional
+        Detrending passed to SciPy Welch and CSD [-].
+    units_x : str, optional
+        Caller-supplied physical unit label for x [-].
+    units_y : str, optional
+        Caller-supplied physical unit label for y [-].
 
-    ``bandwidth_x_hz`` and ``bandwidth_y_hz`` describe each record's *usable*
-    physical bandwidth. If omitted, its native Nyquist is used only as a
-    sampling ceiling and ``bandwidth_source`` records ``"nyquist_only"``.
-    ``frequency_range`` selects an inclusive output band in Hz; it may not
-    exceed either input's declared/sampling limit or the anti-alias passband.
-    No diagnostic transfer function is inferred or corrected here.
+    Returns
+    -------
+    CrossSpectrogram
+        One-sided auto and cross spectral densities, magnitude-squared
+        coherence, relative phase and alignment/bandwidth provenance [-].
 
-    The complex density follows :func:`cross_spectrum`: ``conj(X) * Y`` and
-    one-sided SciPy Welch scaling. A delayed y has negative phase. Coherence
-    and phase are NaN where an auto-spectrum is zero or non-finite. The input
-    must contain at least one complete outer window; shorter inputs raise.
+    Raises
+    ------
+    ValueError
+        Invalid axes, bandwidth or averaging parameters; non-overlapping or
+        too-short records; or incomplete anti-alias filtering.
+
+    Processing steps
+    ----------------
+    1. Validate both records and align their overlapping time interval.
+    2. Filter before rate reduction, refusing incomplete filter coverage.
+    3. For each complete output window, average non-overlapping Welch segments
+       before deriving coherence and phase from the averaged densities.
+    4. Restrict output to the common declared or sampling-limited bandwidth.
+
+    Convention
+    ----------
+    The CSD uses ``conj(X) * Y`` as :func:`cross_spectrum` does, so a delayed y
+    has negative phase. Coherence and phase are NaN at zero auto power. The
+    output time is the centre of each complete window in the input timebase.
+    An omitted bandwidth means only a Nyquist ceiling is known; the result
+    records ``"nyquist_only"`` and makes no diagnostic response claim.
+
+    Defaults
+    --------
+    A numerical convenience: four non-overlapping 256-sample inner segments
+    provide a genuine average;
+    outer windows advance by half their length. One STFT outer product alone
+    would give coherence one even for unrelated noise. After rate reduction,
+    the reported ceiling is conservatively 0.7 of target Nyquist, below the
+    resampler's FIR cutoff at 0.8 of target Nyquist.
+
+    Applicability
+    -------------
+    Machine-independent. Transfer functions and diagnostic selection remain
+    the caller's responsibility.
+
+    Limitations
+    -----------
+    Window duration trades time resolution for frequency resolution. Nyquist
+    does not establish the sensor's physical bandwidth; supply it when known.
+    Adjacent output windows share data, so their estimates are correlated.
+
+    Provenance
+    ----------
+    .. [1] :func:`scipy.signal.welch` and :func:`scipy.signal.csd` provide the
+       one-sided Welch density scaling for every output window.
+    .. [2] :func:`vaft.process.signal_processing.resample_to_time` provides
+       anti-aliased rate reduction and its filter-coverage mask.
     """
     time_x, values_x, fs_x = _uniform_record(time_x, x, "x")
     time_y, values_y, fs_y = _uniform_record(time_y, y, "y")
@@ -1277,10 +1349,21 @@ def cross_spectrogram(
         reducing, limits, sources,
     ):
         if name in resampled:
-            values = resample_to_time(
-                source_time, values, grid, anti_alias=reduction,
-                extrapolate="error",
-            )
+            if reduction:
+                values, covered = resample_to_time(
+                    source_time, values, grid, anti_alias=True,
+                    extrapolate="error", return_filter_mask=True,
+                )
+                if not np.all(covered):
+                    raise ValueError(
+                        f"{name}: anti-alias filter did not cover every source sample; "
+                        "a shorter or finite uninterrupted record is required"
+                    )
+            else:
+                values = resample_to_time(
+                    source_time, values, grid, anti_alias=False,
+                    extrapolate="error",
+                )
             operation = "anti_alias_resample" if reduction else "interpolate"
         else:
             # A native-grid record may only need cropping to the overlap.
