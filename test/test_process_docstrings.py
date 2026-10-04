@@ -226,6 +226,7 @@ PIPELINE = frozenset({
     # fluctuation / transients (#1005): common grid then Welch; floor, runs, path;
     # crossings then rate; trend, window, noise, threshold
     "cross_spectrum",
+    "cross_spectrogram",
     "track_dominant_frequency",
     "current_quench",
     "current_spike",
@@ -591,6 +592,7 @@ CONVENTION_SENSITIVE = frozenset({
     # fluctuation / transients (#1005): the phase is y relative to x, the ridge
     # floor is relative to the map, and the current is measured on its magnitude.
     "cross_spectrum",
+    "cross_spectrogram",
     "track_dominant_frequency",
     "current_quench",
     "current_spike",
