@@ -264,6 +264,24 @@ def _safe_get(container, key: str, default=np.nan):
         return default
 
 
+def _pulse_time_begin(ods) -> str | None:
+    """Return the recorded acquisition time as ISO 8601 text, if usable.
+
+    Keep its timezone offset, when present.  Shot numbers and numeric values
+    are not timestamps and must never be interpreted as epoch offsets.
+    """
+    value = _safe_get(ods, "dataset_description.pulse_time_begin", None)
+    if value is None or isinstance(value, (bool, int, float, np.number)):
+        return None
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="replace")
+    try:
+        parsed = pd.Timestamp(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return None if pd.isna(parsed) else parsed.isoformat()
+
+
 def _as_float(value) -> float:
     try:
         array = np.asarray(value, dtype=float)
@@ -1343,9 +1361,14 @@ def extract_shot_overview(ods, shot: int) -> list[dict]:
     ]
 
 
+def _summary_columns(columns: tuple[str, ...]) -> tuple[str, ...]:
+    """Add shot-level acquisition metadata without changing extractor schemas."""
+    return ("shot", "pulse_time_begin", *(column for column in columns if column != "shot"))
+
+
 PRESETS = {
     "equilibrium_global": SummaryPreset(
-        columns=EQUILIBRIUM_GLOBAL_COLUMNS,
+        columns=_summary_columns(EQUILIBRIUM_GLOBAL_COLUMNS),
         paths=EQUILIBRIUM_GLOBAL_PATHS,
         key_columns=("shot", "eq_index", "time_s"),
         replace_groups=("shot",),
@@ -1353,7 +1376,7 @@ PRESETS = {
         extractor=extract_equilibrium_global,
     ),
     "core_profiles": SummaryPreset(
-        columns=CORE_PROFILES_COLUMNS,
+        columns=_summary_columns(CORE_PROFILES_COLUMNS),
         paths=CORE_PROFILES_PATHS,
         key_columns=("shot", "cp_index", "time_s"),
         replace_groups=("shot",),
@@ -1361,7 +1384,7 @@ PRESETS = {
         extractor=extract_core_profiles,
     ),
     "volume_averaged": SummaryPreset(
-        columns=VOLUME_AVERAGED_COLUMNS,
+        columns=_summary_columns(VOLUME_AVERAGED_COLUMNS),
         paths=VOLUME_AVERAGED_PATHS,
         key_columns=("shot", "cp_index", "time_core_s"),
         replace_groups=("shot",),
@@ -1369,7 +1392,7 @@ PRESETS = {
         extractor=extract_volume_averaged,
     ),
     "efit_magnetic_reliability": SummaryPreset(
-        columns=EFIT_RELIABILITY_COLUMNS,
+        columns=_summary_columns(EFIT_RELIABILITY_COLUMNS),
         paths=("equilibrium",),
         key_columns=("shot", "eq_index", "measurement_type", "measurement_index"),
         replace_groups=("shot",),
@@ -1383,7 +1406,7 @@ PRESETS = {
         extractor=extract_efit_magnetic_reliability,
     ),
     "efit_kinetic_reliability": SummaryPreset(
-        columns=EFIT_RELIABILITY_COLUMNS,
+        columns=_summary_columns(EFIT_RELIABILITY_COLUMNS),
         paths=("equilibrium",),
         key_columns=("shot", "eq_index", "measurement_type", "measurement_index"),
         replace_groups=("shot",),
@@ -1397,7 +1420,7 @@ PRESETS = {
         extractor=extract_efit_kinetic_reliability,
     ),
     "efit_reliability": SummaryPreset(
-        columns=EFIT_RELIABILITY_COLUMNS,
+        columns=_summary_columns(EFIT_RELIABILITY_COLUMNS),
         paths=("equilibrium",),
         key_columns=("shot", "eq_index", "measurement_type", "measurement_index"),
         replace_groups=("shot",),
@@ -1411,7 +1434,7 @@ PRESETS = {
         extractor=extract_efit_magnetic_reliability,
     ),
     "neoclassical": SummaryPreset(
-        columns=NEOCLASSICAL_COLUMNS,
+        columns=_summary_columns(NEOCLASSICAL_COLUMNS),
         paths=NEOCLASSICAL_PATHS,
         key_columns=("shot", "cp_index"),
         replace_groups=("shot",),
@@ -1419,7 +1442,7 @@ PRESETS = {
         extractor=extract_neoclassical,
     ),
     "shot_overview": SummaryPreset(
-        columns=SHOT_OVERVIEW_COLUMNS,
+        columns=_summary_columns(SHOT_OVERVIEW_COLUMNS),
         paths=("spectrometer_uv", "magnetics", "tf", "barometry", "dataset_description"),
         key_columns=("shot",),
         replace_groups=("shot",),
@@ -1484,8 +1507,25 @@ def summary(
 
     for shot in shots:
         try:
-            with open_shot(shot, source=source, paths=list(definition.paths)) as ods:
-                rows = definition.extractor(ods, shot)
+            paths = list(definition.paths)
+            if "pulse_time_begin" in definition.columns and "dataset_description" not in paths:
+                paths.append("dataset_description")
+            try:
+                with open_shot(shot, source=source, paths=paths) as ods:
+                    rows = definition.extractor(ods, shot)
+                    pulse_time_begin = _pulse_time_begin(ods)
+            except FileNotFoundError as exc:
+                # Older archives can lack dataset_description altogether. Its
+                # absence must not erase otherwise valid summary quantities.
+                if "dataset_description" not in str(exc) or "dataset_description" not in paths:
+                    raise
+                remaining_paths = [path for path in paths if path != "dataset_description"]
+                with open_shot(shot, source=source, paths=remaining_paths) as ods:
+                    rows = definition.extractor(ods, shot)
+                pulse_time_begin = None
+            if "pulse_time_begin" in definition.columns:
+                for row in rows:
+                    row["pulse_time_begin"] = pulse_time_begin
             if not rows:
                 logger.warning(
                     "Shot %s: preset %s produced no rows; skipping", shot, preset
