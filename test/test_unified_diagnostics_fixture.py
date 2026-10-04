@@ -36,6 +36,9 @@ def test_time_axes_are_kept_separate(fixture_data):
     assert len(ods["equilibrium.time_slice"]) == 1
     assert float(ods["core_profiles.time"][0]) == pytest.approx(0.3, abs=0.003)
     assert 0.35 <= float(ods["langmuir_probes.embedded.0.time"][0]) < 0.46
+    assert len(ods["langmuir_probes.embedded.0.t_e.validity_timed"]) == len(
+        ods["langmuir_probes.embedded.0.time"]
+    )
     horizontal = np.asarray(ods["interferometer.channel.0.n_e_line.time"])
     vertical = np.asarray(ods["interferometer.channel.1.n_e_line.time"])
     assert len(horizontal) <= 192 and len(vertical) <= 192

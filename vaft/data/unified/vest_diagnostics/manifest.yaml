@@ -11,8 +11,8 @@ geometry_reference:
     operation was not simultaneous.
 artifact:
   path: omas.json.gz
-  sha256: 8600e5f2b96c46da0c499b486f0fbe29275de77dcb84292a6a84bb54eea878a9
-  size: 977175
+  sha256: 57ae280f1b6b7f60ae82565a2dcb9cbda8c31090b367ed34fa495e9f7f338290
+  size: 969663
 sources:
   machine_geometry:
     source_shot: 39915

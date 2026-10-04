@@ -102,7 +102,9 @@ def main() -> None:
         for signal in ("n_e", "t_e"):
             _slice_signal(probe[signal], indices)
             if "validity_timed" in probe[signal]:
-                _slice_signal(probe[signal]["validity_timed"], indices)
+                probe[signal]["validity_timed"] = [
+                    probe[signal]["validity_timed"][index] for index in indices
+                ]
     fixture["langmuir_probes"] = probes
 
     channels = copy.deepcopy(sxr["soft_x_rays"]["channel"][:2])
