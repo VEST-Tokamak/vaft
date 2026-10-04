@@ -851,7 +851,12 @@ DEFAULT_POLOIDAL_OVERLAYS = ("coils", "wall")
 
 #: What the composed machine view may draw.  It has no field of its own, so
 #: no boundary or axis; the diagnostics it places are one name.
-MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
+MACHINE_DIAGNOSTICS = (
+    "magnetics", "thomson_scattering", "charge_exchange", "soft_x_rays",
+    "interferometer", "langmuir_probes",
+)
+MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics", *MACHINE_DIAGNOSTICS)
+DEFAULT_MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
 
 
 @dataclass(frozen=True)
@@ -3321,9 +3326,10 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     input supports is drawn when the caller names nothing (issue #483).
     """
     names = (
-        MACHINE_OVERLAYS if options.get("overlay") is None
+        DEFAULT_MACHINE_OVERLAYS if options.get("overlay") is None
         else _overlay_option(options, MACHINE_OVERLAYS)
     )
+    names = tuple(dict.fromkeys((*names, *(MACHINE_DIAGNOSTICS if "diagnostics" in names else ()))))
     layers: list[GeometryLayer] = list(_wall_layers(ods)) if "wall" in names else []
     # Coils and passive structure are drawn as sets: the composed view names
     # the machine's parts, not 950 loops and 400 coil turns one by one.
@@ -3331,23 +3337,29 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
         layers.extend(_build_passive_structure_geometry(ods).layers)
     if "coils" in names and entry_supports(ods, "pf_coil_geometry_poloidal"):
         layers.extend(_build_pf_coil_geometry(ods, collective=True).layers)
-    for member in () if "diagnostics" not in names else (
-        "magnetics_geometry_poloidal",
-        "thomson_scattering_geometry_poloidal",
-        "charge_exchange_geometry_poloidal",
+    for family, member in (
+        ("magnetics", "magnetics_geometry_poloidal"),
+        ("thomson_scattering", "thomson_scattering_geometry_poloidal"),
+        ("charge_exchange", "charge_exchange_geometry_poloidal"),
     ):
+        if family not in names:
+            continue
         if not entry_supports(ods, member):
             continue
         layers.extend(_build_geometry(
             ods, RECIPES[member], **{k: v for k, v in options.items() if k != "overlay"}
         ).layers)
-    if "diagnostics" in names and entry_supports(ods, "soft_x_rays_geometry_lines_of_sight"):
+    if "soft_x_rays" in names and entry_supports(ods, "soft_x_rays_geometry_lines_of_sight"):
         layers.extend(
             _build_lines_of_sight(
                 ods, label_channels=False, include_wall=False,
                 **{k: v for k, v in options.items() if k != "overlay"},
             ).layers
         )
+    if "interferometer" in names:
+        layers.extend(_interferometer_poloidal_layers(ods))
+    if "langmuir_probes" in names:
+        layers.extend(_langmuir_poloidal_layers(ods))
     if not layers:
         raise ValueError(
             "none of the poloidal machine geometry IDS (wall, pf_active, "
@@ -3355,6 +3367,50 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
             "soft_x_rays) are present"
         )
     return GeometryLayers(layers=tuple(layers), title="Machine Cross-section")
+
+
+def _interferometer_poloidal_layers(ods: Any) -> list[GeometryLayer]:
+    """Keep reflected three-point chords as paths, never local density points."""
+    layers = []
+    for index in range(_count(ods, "interferometer.channel")):
+        prefix = f"interferometer.channel.{index}.line_of_sight"
+        points = []
+        for endpoint in ("first_point", "second_point", "third_point"):
+            r = _get(ods, f"{prefix}.{endpoint}.r")
+            z = _get(ods, f"{prefix}.{endpoint}.z")
+            if r is None or z is None:
+                if endpoint == "third_point":
+                    break
+                points = []
+                break
+            points.append((float(r), float(z)))
+        if len(points) < 2:
+            continue
+        layers.append(GeometryLayer(
+            r=np.asarray([point[0] for point in points]),
+            z=np.asarray([point[1] for point in points]),
+            kind="polyline", label="Interferometer LOS" if not layers else "",
+            style={"color": palette(4), "linestyle": "--", "lw": 0.9},
+        ))
+    return layers
+
+
+def _langmuir_poloidal_layers(ods: Any) -> list[GeometryLayer]:
+    """Draw only probes with explicit mapped R and Z locations."""
+    points = []
+    for index in range(_count(ods, "langmuir_probes.embedded")):
+        prefix = f"langmuir_probes.embedded.{index}.position"
+        r, z = _get(ods, f"{prefix}.r"), _get(ods, f"{prefix}.z")
+        if r is not None and z is not None:
+            points.append((float(r), float(z)))
+    if not points:
+        return []
+    return [GeometryLayer(
+        r=np.asarray([point[0] for point in points]),
+        z=np.asarray([point[1] for point in points]),
+        kind="points", label="Triple Langmuir probes",
+        style={"color": palette(5), "marker": "^", "markersize": 5},
+    )]
 
 
 def _boundary_extent(ods: Any, time_slice: int) -> tuple[float, float] | None:
@@ -5376,7 +5432,7 @@ RECIPES["neoclassical_profile_bootstrap_current"] = CallableRecipe(
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
     description="Wall, coils, passive structure and diagnostic positions composed.",
-    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *RECIPES["soft_x_rays_geometry_lines_of_sight"].reads),
+    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *RECIPES["soft_x_rays_geometry_lines_of_sight"].reads, *(f"interferometer.channel.{{i}}.line_of_sight.{point}.{coord}" for point in ("first_point", "second_point", "third_point") for coord in ("r", "z")), "langmuir_probes.embedded.{i}.position.r", "langmuir_probes.embedded.{i}.position.z"),
     backend=NEUTRAL,
 )
 RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
@@ -8612,7 +8668,7 @@ def overlay_options_for(name: str) -> tuple[str, ...] | None:
 def overlay_defaults_for(name: str) -> tuple[str, ...]:
     """What plot ``name`` draws over itself when the caller names nothing."""
     if name == "machine_geometry_poloidal":
-        return MACHINE_OVERLAYS
+        return DEFAULT_MACHINE_OVERLAYS
     recipe = RECIPES.get(name)
     if isinstance(recipe, FieldRecipe):
         return DEFAULT_POLOIDAL_OVERLAYS + (("boundary", "axis") if recipe.boundary_paths else ())
@@ -13646,6 +13702,38 @@ for _name, _diagnostic in _PROFILE_FIT_DIAGNOSTIC.items():
         coordinates=CoordinateDeclaration("psi_norm", PROFILE_FIT_COORDINATES),
     )
 del _name, _diagnostic
+
+
+from .kinetic_overview import COORDINATES as KINETIC_OVERVIEW_COORDINATES, build_kinetic_overview
+
+RECIPES["kinetic_overview_profiles"] = CallableRecipe(
+    builder=build_kinetic_overview,
+    description="Measured and fitted local n_e, T_e, T_i and V_phi profiles in four panels.",
+    available=lambda ods: None if any(_count(ods, f"{family}.{container}") for family, container in (
+        ("thomson_scattering", "channel"), ("charge_exchange", "channel"),
+        ("core_profiles", "profiles_1d"), ("langmuir_probes", "embedded"),
+    )) else "no local kinetic diagnostic or core profile is present",
+    reads=(*_PROFILE_FIT_READS["thomson_scattering"],
+           *_PROFILE_FIT_READS["charge_exchange"],
+           *_PROFILE_FIT_EQUILIBRIUM_READS,
+           "core_profiles.time", "core_profiles.profiles_1d.{i}.grid.psi",
+           "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
+           "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+           "core_profiles.profiles_1d.{i}.electrons.density",
+           "core_profiles.profiles_1d.{i}.electrons.temperature",
+           "core_profiles.profiles_1d.{i}.ion.{j}.temperature",
+           "core_profiles.profiles_1d.{i}.ion.{j}.velocity.toroidal",
+           "langmuir_probes.embedded.{i}.position.r",
+           "langmuir_probes.embedded.{i}.time",
+           "langmuir_probes.embedded.{i}.n_e.data",
+           "langmuir_probes.embedded.{i}.n_e.validity_timed",
+           "langmuir_probes.embedded.{i}.t_e.data",
+           "langmuir_probes.embedded.{i}.t_e.validity_timed",
+           "dataset_description.ids_properties.comment"),
+    backend=OMAS_BOUND,
+    reason="vaft.process.profile.equilibrium_mapping_points maps local positions through the input equilibrium",
+    coordinates=CoordinateDeclaration("rho_tor_norm", KINETIC_OVERVIEW_COORDINATES),
+)
 
 
 # ---------------------------------------------------------------------------

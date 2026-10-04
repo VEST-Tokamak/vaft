@@ -298,6 +298,7 @@ from .renderers.panels import (
     core_profiles_time_volume_averaged,
     current_overview,
     diagnostics_overview,
+    kinetic_overview_profiles,
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,

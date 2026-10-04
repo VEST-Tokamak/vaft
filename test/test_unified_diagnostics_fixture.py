@@ -57,3 +57,70 @@ def test_chords_remain_chords_and_probes_remain_local(fixture_data):
     assert "position.r" in ods["langmuir_probes.embedded.0"]
     assert len(ods["thomson_scattering.channel"]) > 0
     assert len(ods["charge_exchange.channel"]) > 0
+
+
+def test_machine_view_keeps_diagnostic_geometry_distinct(fixture_data):
+    from vaft.plot.backend.recipes import _build_machine_poloidal
+
+    _, ods = fixture_data
+    model = _build_machine_poloidal(
+        ods, overlay=("interferometer", "langmuir_probes", "soft_x_rays")
+    )
+    interferometer = [layer for layer in model.layers if layer.label == "Interferometer LOS"]
+    langmuir = [layer for layer in model.layers if layer.label == "Triple Langmuir probes"]
+    sxr = [layer for layer in model.layers if layer.label == "Soft X-ray LOS"]
+    assert len(interferometer) == 1
+    assert interferometer[0].kind == "polyline"
+    assert len(interferometer[0].r) == 3  # reflected 94 GHz chord
+    assert len(langmuir) == 1 and langmuir[0].kind == "points"
+    assert len(langmuir[0].r) == len(ods["langmuir_probes.embedded"])
+    assert len(sxr) == 1 and sxr[0].kind == "polyline"
+    assert not any(layer.label == "B-field Probes" for layer in model.layers)
+
+
+def test_kinetic_overview_keeps_local_measurement_meanings(fixture_data):
+    from vaft.plot.backend.recipes import build_model
+
+    _, ods = fixture_data
+    panels = build_model("kinetic_overview_profiles", [("fixture", ods)])
+    assert [panel.title for panel in panels.models] == ["n_e", "T_e", "T_i", "V_phi"]
+    assert "Cross-shot composite" in panels.suptitle
+    assert "shot 48224 equilibrium" in panels.suptitle
+    assert "shot 39915" in panels.suptitle
+    assert all(panel.series for panel in panels.models)
+    assert all(
+        "interferometer" not in series.label.lower() and "soft x-ray" not in series.label.lower()
+        for panel in panels.models for series in panel.series
+    )
+    assert {series.role for series in panels.models[0].series} == {"measurement", "reconstruction"}
+    assert all("shot 48224" in series.label for panel in panels.models for series in panel.series)
+
+    radius_panels = build_model("kinetic_overview_profiles", [("fixture", ods)], coordinate="R")
+    assert {series.role for series in radius_panels.models[0].series} == {"measurement", "derived"}
+    assert not any(series.role == "reconstruction" for panel in radius_panels.models for series in panel.series)
+    assert "shot 42699" in radius_panels.models[0].series[-1].label
+
+
+def test_kinetic_overview_renders_through_both_adapters(fixture_data):
+    import matplotlib.pyplot as plt
+    import vaft.omas
+    import vaft.imas
+    from pathlib import Path
+
+    _, ods = fixture_data
+    figure, axes = vaft.omas.plot_kinetic_overview_profiles(ods)
+    assert len(figure.axes) == 4
+    assert "Cross-shot composite" in figure._suptitle.get_text()
+    plt.close(figure)
+    figure, axes = vaft.omas.plot_machine_geometry_poloidal(ods)
+    assert "projected onto geometry reference shot 39915" in axes.get_title()
+    labels = [text for axis in figure.axes for text in axis.get_legend_handles_labels()[1]]
+    assert "Interferometer LOS" in labels
+    plt.close(figure)
+
+    fixture_path = Path(__file__).parents[1] / "vaft/data/unified/vest_diagnostics/omas.json.gz"
+    with vaft.imas.load(fixture_path) as source:
+        figure, axes = vaft.imas.plot_kinetic_overview_profiles(source)
+        assert len(figure.axes) == 4
+        assert "Cross-shot composite" in figure._suptitle.get_text()
+        plt.close(figure)
