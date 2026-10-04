@@ -6631,4 +6631,7 @@ def integrate_romero_closure(
     }
 
 
-from ._equilibrium_coil_fit import CoilFitResult, fit_free_boundary_coils  # noqa: E402,F401
+try:  # pragma: no branch - direct source-file imports have no package context
+    from ._equilibrium_coil_fit import CoilFitResult, fit_free_boundary_coils  # noqa: E402,F401
+except ImportError:
+    from vaft.process._equilibrium_coil_fit import CoilFitResult, fit_free_boundary_coils  # noqa: E402,F401

@@ -8,9 +8,14 @@ passive vessel currents are zero in this free-space model.
 
 The target is converted to COCOS 11. `J_phi = -2π(R p' + FF'/(μ0 R))` is
 integrated over fractional LCFS grid cells, producing ring currents in A.
-The exact Green kernels used by `compute_point_response_matrices` evaluate
-plasma self-field and grouped signed-turn PF responses. Circuit variables
-are physical A; no filament-turn current is exposed as a circuit current.
+The COCOS 11 target has `Br=+∂ψ/∂Z/(2πR)` and `Bz=-∂ψ/∂R/(2πR)`;
+the ring Green flux has the opposite derivative orientation. Returned flux
+components use the Green orientation, with an arbitrary additive gauge, while
+the fitted physical fields follow the target orientation. The exact kernels
+used by `compute_point_response_matrices` evaluate plasma self-field and
+grouped signed-turn PF responses. Finite coil rectangles use a 3×3 area
+quadrature of the same kernels. Circuit variables are physical A; no
+filament-turn current is exposed as a circuit current.
 
 The objective uses the difference in full-weber flux from the first LCFS
 sample, avoiding an arbitrary flux offset. `flux_normal` also fits `B·n=0`
@@ -22,9 +27,12 @@ individual terms. `current_bounds` maps circuit names to `(min_A,max_A)`;
 omitted bounds are unbounded. The result includes physical residuals, weighted
 matrix singular values/rank/condition number, regularization norm, active
 bounds, integrated `Ip`, optimizer status and acceptance status. Acceptance
-requires the requested residual tolerances and an integrated plasma current
-within 5% of the declared `Ip` when present. A regularized rank-deficient fit
-may be accepted for its field fit; its rank and condition remain explicit.
+checks both RMS and maximum relative flux residuals (defaults 2% and 4%),
+field residuals, and an integrated plasma current within 5% of declared `Ip`.
+It also requires finite caller-supplied bounds for every PF circuit: without
+machine current ratings, a good numerical field fit is `bounds_unverified`,
+not certified as physically realizable. A regularized rank-deficient fit may
+be accepted under bounds for its field fit; rank and condition remain explicit.
 
 ## Reproduce the small cases
 
@@ -41,18 +49,20 @@ The JSON output contains fitted currents and all primary diagnostics. The
 following values were measured on 2026-10-04; small platform differences in
 contour extraction and numerical quadrature are expected.
 
-| Family | Topology | Integrated/target Ip | RMS flux/span | RMS Bn (T) | Max saddle component (T) | Condition |
+| Family | Topology | Integrated/target Ip | RMS/max flux/span | RMS Bn (T) | Max saddle component (T) | Condition |
 |---|---|---:|---:|---:|---:|---:|
-| Solov'ev/CF | limited | 0.9929 | 0.0038 | 0.0016 | — | 1.12e8 |
-| Solov'ev/CF | lower single null | 0.9911 | 0.0440 | 0.0047 | 0.0030 | 9.30e7 |
-| Solov'ev/CF | double null | 0.9863 | 0.0064 | 0.0021 | 0.0038 | 1.28e8 |
-| Guazzotto–Freidberg Part 1 | limited | 0.9996 | 0.0014 | 0.0001 | — | 1.67e10 |
-| Guazzotto–Freidberg Part 1 | lower single null | 0.9996 | 0.0105 | 0.0004 | 0.0002 | 8.31e9 |
-| Guazzotto–Freidberg Part 1 | double null | 0.9996 | 0.0013 | 0.0001 | 0.0001 | 7.49e9 |
+| Solov'ev/CF | limited | 0.9929 | 0.0038 / 0.0081 | 0.0016 | — | 1.13e8 |
+| Solov'ev/CF | lower single null | 0.9911 | 0.0440 / 0.1135 | 0.0047 | 0.0030 | 9.31e7 |
+| Solov'ev/CF | double null | 0.9863 | 0.0064 / 0.0153 | 0.0021 | 0.0038 | 1.28e8 |
+| Guazzotto–Freidberg Part 1 | limited | 0.9996 | 0.0014 / 0.0028 | 0.0001 | — | 1.67e10 |
+| Guazzotto–Freidberg Part 1 | lower single null | 0.9996 | 0.0105 / 0.0230 | 0.0004 | 0.0002 | 8.31e9 |
+| Guazzotto–Freidberg Part 1 | double null | 0.9996 | 0.0013 / 0.0031 | 0.0001 | 0.0001 | 7.50e9 |
 
-The Solov'ev lower-single-null case exceeds the default 2% flux acceptance
-threshold with this coil geometry. The large condition numbers show that
-individual currents are sensitive even where the boundary fit is good.
+The Solov'ev lower-single-null case exceeds the default flux thresholds with
+this coil geometry. None of these reference runs supplies hardware current
+bounds, so their physical current feasibility remains unverified. The large
+condition numbers show that individual currents are sensitive even where the
+boundary fit is good.
 Physical field and later free-boundary closure comparisons are the validation
 targets; matching another inverse method's current vector is not required.
 

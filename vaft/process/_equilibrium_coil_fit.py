@@ -2,7 +2,11 @@
 
 The Green functions use full weber and positive right-handed toroidal current.
 The input equilibrium is converted to COCOS 11 before its plasma current is
-integrated; all returned fluxes are full weber and circuit currents are ampere.
+integrated. COCOS 11's physical poloidal field is the *negative* derivative
+orientation of this Green flux, so the returned plasma/coil flux arrays use
+the Green orientation and are not an absolute COCOS-11 psi map. Relative
+boundary flux constraints are invariant under this sign/gauge distinction.
+Circuit currents are ampere.
 Passive conductors are open circuits in this static free-space calculation.
 """
 
@@ -18,7 +22,6 @@ from scipy.optimize import lsq_linear
 from vaft.data.equilibrium import EquilibriumData
 from vaft.process.electromagnetics import compute_point_response_matrices
 from vaft.process._equilibrium_parametric import convert_cocos
-from vaft.process.equilibrium import fractional_cell_weights_from_boundary
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,7 @@ class CoilFitResult:
     condition_number: float
     regularization_norm: float
     active_bounds: tuple[str, ...]
+    bounds_complete: bool
     integrated_ip_A: float
     plasma_current_rel_error: float | None
     optimizer_success: bool
@@ -72,12 +76,21 @@ def _coil_sources(machine: Any) -> tuple[tuple[str, ...], np.ndarray, np.ndarray
             element = coil[f"element.{element_index}"]
             geometry = element["geometry.rectangle"]
             r, z, turn = float(geometry["r"]), float(geometry["z"]), float(element["turns_with_sign"])
-            if not np.isfinite([r, z, turn]).all() or r <= 0:
+            width = float(geometry.get("width", 0.0))
+            height = float(geometry.get("height", 0.0))
+            if not np.isfinite([r, z, turn, width, height]).all() or r - width / 2 <= 0 or width < 0 or height < 0:
                 raise ValueError(f"invalid element geometry or turns in {name}")
-            rs.append(r)
-            zs.append(z)
-            turns.append(turn)
-            groups.append(index)
+            # Uniform current density over a finite winding rectangle.  The
+            # existing exact ring kernels are evaluated at Gauss points; an
+            # element without dimensions retains the legacy ideal filament.
+            nodes_r, weights_r = np.polynomial.legendre.leggauss(3) if width else (np.array([0.0]), np.array([2.0]))
+            nodes_z, weights_z = np.polynomial.legendre.leggauss(3) if height else (np.array([0.0]), np.array([2.0]))
+            for nr, wr in zip(nodes_r, weights_r):
+                for nz, wz in zip(nodes_z, weights_z):
+                    rs.append(r + width * nr / 2.0)
+                    zs.append(z + height * nz / 2.0)
+                    turns.append(turn * wr * wz / 4.0)
+                    groups.append(index)
     if not rs or any(not np.any(np.asarray(turns)[np.asarray(groups) == i]) for i in range(len(names))):
         raise ValueError("every PF circuit needs at least one nonzero-turn element")
     return tuple(names), np.asarray(rs), np.asarray(zs), np.asarray(turns), np.asarray(groups)
@@ -107,6 +120,8 @@ def _boundary_points(eq: EquilibriumData, count: int) -> tuple[np.ndarray, np.nd
 
 
 def _plasma_filaments(eq: EquilibriumData, samples_per_axis: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    from vaft.process.equilibrium import fractional_cell_weights_from_boundary
+
     if any(value is None for value in (eq.r, eq.z, eq.psi, eq.psi_1d, eq.pprime, eq.ffprime)):
         raise ValueError("R/Z/psi grid and psi_1d/pprime/ffprime profiles are required")
     r, z, psi = np.asarray(eq.r), np.asarray(eq.z), np.asarray(eq.psi)
@@ -125,7 +140,10 @@ def _plasma_filaments(eq: EquilibriumData, samples_per_axis: int) -> tuple[np.nd
     pp = np.interp(psi, profile_psi[order], np.asarray(eq.pprime)[order])
     ffp = np.interp(psi, profile_psi[order], np.asarray(eq.ffprime)[order])
     # COCOS 11 stores full Wb, while the Grad-Shafranov source uses flux per
-    # radian.  Both stored derivatives therefore need a factor of 2*pi.
+    # radian. Both stored derivatives therefore need a factor of 2*pi. Its
+    # B_R=+dpsi/dZ/(2*pi*R), B_Z=-dpsi/dR/(2*pi*R) orientation is opposite
+    # the ring Green flux derivative; the minus sign yields positive Green
+    # ring current for the supplied positive-Ip analytic examples.
     # dR*dZ converts current density into the current of each toroidal ring.
     jphi = -2.0 * np.pi * (rr * pp + ffp / (MU0 * rr))
     current = jphi * np.gradient(r)[:, None] * np.gradient(z)[None, :] * fraction
@@ -157,25 +175,96 @@ def fit_free_boundary_coils(
     current_scale_A: float | None = None,
     samples_per_axis: int = 5,
     flux_tolerance: float = 0.02,
+    max_flux_tolerance: float = 0.04,
     field_tolerance_T: float = 0.01,
     ip_tolerance: float = 0.05,
 ) -> CoilFitResult:
     """Fit physical PF circuit currents to a prescribed LCFS in free space.
 
-    ``method='flux'`` fits relative full-weber flux. ``'flux_normal'`` also
-    fits B dot n on regular LCFS samples. Explicit X-points always receive
-    separate Br=Bz=0 rows. ``flux_weight`` [1/Wb] and ``field_weight`` [1/T]
-    scale the objective; omitted weights normalize by target flux span and
-    characteristic plasma field. ``regularization`` penalizes current divided
-    by ``current_scale_A`` (default |Ip|/number of circuits). Bounds are A.
-    ``accepted`` additionally checks physical residual tolerances and rank;
-    inspect diagnostics even when the optimizer reports success.
+    ``flux_normal`` adds B dot n to relative-flux rows. Prescribed X-points
+    always use separate Br=Bz=0 rows rather than a singular tangent.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData
+        Target with a closed LCFS, grid, source profiles and declared COCOS [-].
+    machine : ODS-like
+        Machine ``pf_active`` element rectangles and signed turns [-].
+    method : str, optional
+        ``flux`` or ``flux_normal`` [-].
+    boundary_samples : int, optional
+        Number of equally spaced LCFS points [-].
+    x_points : sequence, optional
+        Prescribed saddle coordinates as ``(R,Z)`` pairs [m].
+    regularization : float, optional
+        Tikhonov coefficient on scaled circuit currents [-].
+    current_penalties : mapping, optional
+        Nonnegative penalty multiplier for each named circuit [-].
+    current_bounds : mapping, optional
+        Per-circuit lower and upper physical currents [A].
+    flux_weight : float, optional
+        Objective multiplier for relative flux [1/Wb].
+    field_weight : float, optional
+        Objective multiplier for normal and saddle fields [1/T].
+    current_scale_A : float, optional
+        Current dividing the regularization variables [A].
+    samples_per_axis : int, optional
+        Subsamples per plasma-cell axis for LCFS area weights [-].
+    flux_tolerance : float, optional
+        Acceptance limit for RMS relative flux divided by target span [-].
+    max_flux_tolerance : float, optional
+        Acceptance limit for maximum relative flux divided by target span [-].
+    field_tolerance_T : float, optional
+        Acceptance limit for RMS normal and maximum saddle field [T].
+    ip_tolerance : float, optional
+        Acceptance limit for integrated versus declared plasma current [-].
+
+    Returns
+    -------
+    CoilFitResult
+        Currents, separate plasma/coil fields, residuals and diagnostics [-].
+
+    Processing steps
+    ----------------
+    Convert the source profiles to COCOS 11, integrate toroidal plasma current
+    inside fractional LCFS cells, and evaluate exact ring Green responses for
+    the plasma and signed-turn PF rectangles. Assemble weighted boundary and
+    saddle rows, then solve bounded, optionally regularized least squares.
+
+    Defaults
+    --------
+    Omitted flux and field weights divide by the target flux span and peak
+    plasma boundary field. The current scale defaults to |Ip|/number of
+    circuits. No hardware current limits are inferred from geometry.
+
+    Convention
+    ----------
+    All flux responses are full weber in the Green orientation; COCOS 11
+    target psi has the opposite field-derivative orientation. Circuit currents
+    are A in the signed-turn ``pf_active`` convention. Relative flux discards
+    the additive gauge. ``accepted`` requires both residual limits and finite
+    caller-supplied bounds for every circuit.
+
+    Applicability
+    -------------
+    Machine-independent. Axisymmetric free-space coils and static equilibria.
+
+    Limitations
+    -----------
+    Passive currents, iron, surface-current sheets and toroidal flow are not
+    modeled. Highly conditioned current vectors need hardware bounds and
+    later free-boundary closure for a physical interpretation.
+
+    Provenance
+    ----------
+    .. [1] Exact kernels in :mod:`vaft.process.electromagnetics` and the
+       COCOS-aware source profiles in :class:`vaft.data.equilibrium.EquilibriumData`.
     """
     if method not in ("flux", "flux_normal"):
         raise ValueError("method must be 'flux' or 'flux_normal'")
     if regularization < 0 or not np.isfinite(regularization):
         raise ValueError("regularization must be finite and nonnegative")
-    tolerances = (flux_tolerance, field_tolerance_T, ip_tolerance)
+    tolerances = (flux_tolerance, max_flux_tolerance, field_tolerance_T, ip_tolerance)
     if not np.isfinite(tolerances).all() or any(value < 0 for value in tolerances):
         raise ValueError("residual tolerances must be finite and nonnegative")
     if equilibrium.convention.contradicted:
@@ -257,6 +346,7 @@ def fit_free_boundary_coils(
     bounds = current_bounds or {}
     if set(bounds) - set(names):
         raise ValueError(f"unknown current bounds: {sorted(set(bounds) - set(names))}")
+    bounds_complete = set(bounds) == set(names) and all(np.isfinite(bounds[k]).all() for k in names)
     lower = np.array([bounds.get(k, (-np.inf, np.inf))[0] for k in names], dtype=float) / scale
     upper = np.array([bounds.get(k, (-np.inf, np.inf))[1] for k in names], dtype=float) / scale
     if np.any(lower >= upper) or np.isnan(lower).any() or np.isnan(upper).any():
@@ -276,10 +366,11 @@ def fit_free_boundary_coils(
     active = tuple(k for i, k in enumerate(names) if np.isclose(currents[i], lower[i] * scale, atol=1e-6, rtol=0)
                    or np.isclose(currents[i], upper[i] * scale, atol=1e-6, rtol=0))
     ip_error = (abs(float(np.sum(pi)) / eq.ip - 1.0) if eq.ip else None)
-    accepted = bool(solved.success and (rank == len(names) or regularization > 0) and rms_flux <= flux_tolerance
-                    and (rms_normal is None or rms_normal <= field_tolerance_T)
-                    and (max_saddle is None or max_saddle <= field_tolerance_T)
-                    and (ip_error is None or ip_error <= ip_tolerance))
+    field_ok = (rms_normal is None or rms_normal <= field_tolerance_T)
+    saddle_ok = (max_saddle is None or max_saddle <= field_tolerance_T)
+    residual_ok = (rms_flux <= flux_tolerance and max_flux <= max_flux_tolerance
+                   and field_ok and saddle_ok and (ip_error is None or ip_error <= ip_tolerance))
+    accepted = bool(solved.success and bounds_complete and (rank == len(names) or regularization > 0) and residual_ok)
     return CoilFitResult(
         names, dict(zip(names, map(float, currents))), points, xp,
         plasma_psi, coil_psi @ currents, plasma_br, plasma_bz,
@@ -287,7 +378,9 @@ def fit_free_boundary_coils(
         {"relative_flux_Wb": flux_residual, "normal_field_T": normal_residual,
          "saddle_field_T": saddle_residual},
         rms_flux, max_flux, rms_normal, max_saddle, sv, rank, condition,
-        float(regularization * np.linalg.norm(penalties * solved.x)), active,
+        float(regularization * np.linalg.norm(penalties * solved.x)), active, bounds_complete,
         float(np.sum(pi)), ip_error, bool(solved.success), accepted,
-        "accepted" if accepted else ("optimizer_failed" if not solved.success else "residual_or_conditioning"),
+        ("accepted" if accepted else "optimizer_failed" if not solved.success else
+         "residual_or_conditioning" if not residual_ok or (rank < len(names) and not regularization)
+         else "bounds_unverified"),
     )

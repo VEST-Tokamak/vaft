@@ -6,7 +6,10 @@ import numpy as np
 import pytest
 from dataclasses import replace
 from omas import ODS
+from scipy.interpolate import RectBivariateSpline
 
+from vaft.formula.green import green_psi_exact
+from vaft.process._equilibrium_coil_fit import _coil_sources
 from vaft.process.equilibrium import (
     convert_cocos,
     find_stationary_points,
@@ -95,7 +98,20 @@ def test_flux_gauge_cocos_and_bounds():
                                       current_penalties={"PF2": 2.0})
     assert abs(bounded.currents_A["PF1"]) <= 10.0 + 1e-6
     assert "PF1" in bounded.active_bounds
+    assert not bounded.bounds_complete and not bounded.accepted
     assert bounded.regularization_norm > 0
+
+
+def test_acceptance_checks_max_flux_and_complete_bounds():
+    eq = _guazzotto("lower_single_null")
+    machine = _machine()
+    bounds = {f"PF{i + 1}": (-1e7, 1e7) for i in range(8)}
+    fit = fit_free_boundary_coils(eq, machine, boundary_samples=32,
+                                  current_bounds=bounds, max_flux_tolerance=.01)
+    assert fit.bounds_complete and fit.optimizer_success
+    assert fit.rms_relative_flux < .02 < .04
+    assert fit.max_relative_flux > .01
+    assert not fit.accepted and fit.status == "residual_or_conditioning"
 
 
 def test_bad_inputs_fail_before_the_inverse_solve():
@@ -127,3 +143,41 @@ def test_guazzotto_surface_current_cannot_be_silently_lost():
     unsupported = replace(eq, metadata={**eq.metadata, "model": model})
     with pytest.raises(ValueError, match="surface-current or flow"):
         fit_free_boundary_coils(unsupported, _machine())
+
+
+def test_finite_rectangle_response_matches_high_order_area_integral():
+    machine = ODS(consistency_check=False)
+    machine["pf_active.coil.0.name"] = "PF1"
+    base = "pf_active.coil.0.element.0"
+    machine[f"{base}.geometry.rectangle.r"] = .3
+    machine[f"{base}.geometry.rectangle.z"] = 0.0
+    machine[f"{base}.geometry.rectangle.width"] = .16
+    machine[f"{base}.geometry.rectangle.height"] = .12
+    machine[f"{base}.turns_with_sign"] = -10.0
+    names, rs, zs, turns, groups = _coil_sources(machine)
+    assert names == ("PF1",) and len(rs) == 9 and np.all(groups == 0)
+    assert np.sum(turns) == pytest.approx(-10.0)
+    response = float(np.sum(green_psi_exact(.65, .21, rs, zs) * turns))
+    nodes, weights = np.polynomial.legendre.leggauss(12)
+    fine_r = (.3 + .08 * nodes[:, None]) * np.ones((1, 12))
+    fine_z = np.ones((12, 1)) * (.06 * nodes[None, :])
+    reference = float(np.sum(green_psi_exact(.65, .21, fine_r, fine_z)
+                             * (-10.0) * weights[:, None] * weights[None, :] / 4.0))
+    assert response == pytest.approx(reference, rel=2e-5)
+
+
+def test_fitted_field_matches_independent_cocos_target_gradient():
+    eq = solovev_example(resolution=65)
+    fit = fit_free_boundary_coils(eq, _machine(), method="flux_normal",
+                                  boundary_samples=48, regularization=1e-5)
+    r, z = fit.boundary_points_m.T
+    spline = RectBivariateSpline(eq.r, eq.z, eq.psi)
+    # COCOS 11 field orientation is opposite a positive ring Green-flux
+    # derivative. This compares the final physical field with the analytic
+    # target map rather than just rechecking the fitter's own residual.
+    target_br = spline.ev(r, z, dx=0, dy=1) / (2 * np.pi * r)
+    target_bz = -spline.ev(r, z, dx=1, dy=0) / (2 * np.pi * r)
+    fitted_br = fit.plasma_br_T[:len(r)] + fit.coil_br_T[:len(r)]
+    fitted_bz = fit.plasma_bz_T[:len(r)] + fit.coil_bz_T[:len(r)]
+    error = np.sqrt(np.mean((target_br - fitted_br)**2 + (target_bz - fitted_bz)**2))
+    assert error / np.hypot(target_br, target_bz).max() < .03

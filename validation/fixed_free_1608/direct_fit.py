@@ -54,7 +54,8 @@ def main() -> None:
                 "max_saddle_field_T": fit.max_saddle_field_T,
                 "rank": fit.rank, "condition_number": fit.condition_number,
                 "regularization_norm": fit.regularization_norm,
-                "active_bounds": fit.active_bounds, "status": fit.status,
+                "active_bounds": fit.active_bounds,
+                "bounds_complete": fit.bounds_complete, "status": fit.status,
             })
     print(json.dumps(records, indent=2))
 
