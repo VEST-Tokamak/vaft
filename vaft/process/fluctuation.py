@@ -1652,7 +1652,7 @@ def cross_spectral_matrix(
     sample_rate: float | None = None,
     frequency_range: tuple[float, float] | None = None,
     nperseg: int = 256,
-    segments_per_window: int = 4,
+    segments_per_window: int | None = None,
     window_step_samples: int | None = None,
     normalization: str = "psd",
     user_scales: Mapping[str, float] | None = None,
@@ -1672,7 +1672,8 @@ def cross_spectral_matrix(
     nperseg : int, optional
         Samples in each inner Welch segment [-].
     segments_per_window : int, optional
-        Non-overlapping inner segments per output time [-].
+        Non-overlapping inner segments per output time; defaults to the larger
+        of four and one more than the selected diagnostic count [-].
     window_step_samples : int, optional
         Output-window advance, defaulting to half an outer window [-].
     normalization : {"none", "variance", "psd", "user"}, optional
@@ -1716,8 +1717,10 @@ def cross_spectral_matrix(
 
     Defaults
     --------
-    The numerical convenience of four non-overlapping 256-sample segments
-    matches :func:`cross_spectrogram`. The default ``"psd"`` normalization
+    The numerical convenience of at least four non-overlapping 256-sample
+    segments matches :func:`cross_spectrogram`; for N diagnostics the default
+    uses at least N+1 segments so the sample matrix is not rank deficient by
+    construction. The default ``"psd"`` normalization
     divides each entry by the geometric mean of its auto PSDs, giving a
     dimensionless correlation matrix with unit diagonal where power is nonzero.
     The raw physical-unit matrix is always retained separately.
@@ -1751,8 +1754,8 @@ def cross_spectral_matrix(
     if detrend not in ("constant", "linear", False):
         raise ValueError("detrend must be 'constant', 'linear' or False")
     segment = int(nperseg)
-    averages = int(segments_per_window)
-    if segment != nperseg or segment < 2 or averages != segments_per_window or averages < 2:
+    averages = max(4, len(selected) + 1) if segments_per_window is None else int(segments_per_window)
+    if segment != nperseg or segment < 2 or (segments_per_window is not None and averages != segments_per_window) or averages < 2:
         raise ValueError("nperseg and segments_per_window must be integers >= 2")
     outer = segment * averages
     step = outer // 2 if window_step_samples is None else int(window_step_samples)

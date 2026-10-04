@@ -102,6 +102,22 @@ def test_independent_component_reduces_dominant_fraction():
     assert np.nanmedian(components.participation[peak, :, 2]) < 0.2
 
 
+def test_five_coherent_diagnostics_work_with_default_averaging():
+    fs = 40_000
+    time = np.arange(8_000) / fs
+    records = [FluctuationRecord(f"d{index}", time,
+               np.sin(2 * np.pi * 2_000 * time + 0.2 * index))
+               for index in range(5)]
+    result = cross_spectral_matrix(records, nperseg=200)
+    components = coherent_components(result, reference="d0")
+    peak = int(np.argmin(abs(result.frequency - 2_000)))
+    assert result.segments_per_window == 6
+    assert components.component_defined[peak].all()
+    assert np.nanmedian(components.coherent_fraction[peak]) > 0.99
+    short = cross_spectral_matrix(records, nperseg=200, segments_per_window=4)
+    assert np.isnan(coherent_components(short, reference="d0").coherent_fraction).all()
+
+
 def test_requires_psd_normalization_and_known_reference():
     result = _matrix()
     with pytest.raises(ValueError, match="PSD normalization"):
