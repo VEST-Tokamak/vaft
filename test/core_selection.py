@@ -210,6 +210,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
+    "test_diagram_workflows.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
     # The per-shot master lock (#913): an in-memory HSDS, ~4 s of threads.
     "test_hsds_master_lock.py",
