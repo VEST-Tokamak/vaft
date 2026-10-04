@@ -165,6 +165,35 @@ def test_exactly_one_outer_window_keeps_last_sample():
     assert result.time_range[1] == pytest.approx(time[-1])
 
 
+def test_zero_power_keeps_raw_zero_but_masks_undefined_psd_normalization():
+    time = np.arange(800) / 40_000
+    tone = np.sin(2 * np.pi * 2_000 * time)
+    result = cross_spectral_matrix([_record("off", time, np.zeros_like(time)),
+                                    _record("tone", time, tone)], nperseg=100)
+    peak = int(np.argmin(abs(result.frequency - 2_000)))
+    assert result.raw_valid[peak, 0].all()
+    assert result.raw_csd[peak, 0, 0, 0] == 0
+    assert result.raw_csd[peak, 0, 0, 1] == 0
+    assert not result.valid[peak, 0, 0]
+    assert result.valid[peak, 0, 1]
+    assert np.isnan(result.matrix[peak, 0, 0, :]).all()
+
+
+def test_variance_normalization_masks_missing_record_without_losing_pair():
+    time = np.arange(800) / 40_000
+    tone = np.sin(2 * np.pi * 2_000 * time)
+    result = cross_spectral_matrix([
+        _record("x", time, tone), _record("missing", time, np.full(time.size, np.nan)),
+        _record("y", time, tone),
+    ], nperseg=100, normalization="variance")
+    peak = int(np.argmin(abs(result.frequency - 2_000)))
+    assert result.valid[peak, 0, 0]
+    assert not result.valid[peak, 0, 1]
+    assert result.valid[peak, 0, 2]
+    assert np.isnan(result.normalization_scales[1])
+    assert np.isfinite(result.matrix[peak, 0, 0, 2])
+
+
 def test_nonoverlap_and_short_record_fail_explicitly():
     time = np.arange(100) / 40_000
     with pytest.raises(ValueError, match="required"):

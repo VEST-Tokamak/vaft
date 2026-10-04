@@ -958,10 +958,11 @@ class CrossSpectralMatrix:
     """One-sided spectral matrices indexed by ``(frequency, time, i, j)``.
 
     ``raw_csd`` keeps the input units, with entry ``i,j`` in units_i*units_j/Hz.
-    ``matrix`` applies the selected normalization. ``valid`` is indexed by
-    ``(frequency, time, i)`` and is false outside a record's usable band or
-    where fewer than two shared, finite inner segments are available. Invalid
-    matrix entries are NaN, never zeros. ``S[i,j] = <X_i conj(X_j)>``, so
+    ``matrix`` applies the selected normalization. ``raw_valid`` and ``valid``
+    are indexed by ``(frequency, time, i)``: the latter also excludes zero-power
+    records for PSD normalization, while the raw matrix keeps their measured
+    zero entries. Unavailable entries are NaN, never filled with zeros.
+    ``S[i,j] = <X_i conj(X_j)>``, so
     ``angle(S[i,reference])`` is the phase of i relative to reference.
     """
 
@@ -971,6 +972,7 @@ class CrossSpectralMatrix:
     units: tuple[str, ...]
     raw_csd: np.ndarray
     matrix: np.ndarray
+    raw_valid: np.ndarray
     valid: np.ndarray
     shared_segments: np.ndarray
     normalization: str
@@ -1649,7 +1651,11 @@ def cross_spectral_matrix(
         ))
 
     if normalization == "variance":
-        scales = tuple(float(np.nanstd(values)) for values in aligned)
+        scales = tuple(
+            float(np.std(values[np.isfinite(values)]))
+            if np.any(np.isfinite(values)) else float("nan")
+            for values in aligned
+        )
     elif normalization == "user":
         if user_scales is None or set(user_scales) != set(names):
             raise ValueError("user_scales must have exactly one value per record")
@@ -1658,7 +1664,9 @@ def cross_spectral_matrix(
         scales = tuple(1.0 for _ in names)
     else:
         scales = None
-    if scales is not None and any(not np.isfinite(value) or value <= 0 for value in scales):
+    if normalization == "user" and any(
+        not np.isfinite(value) or value <= 0 for value in scales
+    ):
         raise ValueError("normalization scales must be positive and finite")
 
     frequency = np.fft.rfftfreq(segment, 1 / fs)
@@ -1682,6 +1690,7 @@ def cross_spectral_matrix(
     shape = (frequency.size, starts.size, count, count)
     raw = np.full(shape, complex(np.nan, np.nan))
     normalized = np.full(shape, complex(np.nan, np.nan))
+    raw_valid = np.zeros(shape[:3], dtype=bool)
     valid = np.zeros(shape[:3], dtype=bool)
     shared = np.zeros(shape[:2], dtype=int)
     taper = scipy_signal.get_window(window, segment, fftbins=True)
@@ -1731,6 +1740,9 @@ def cross_spectral_matrix(
                 continue
             z = coeff[eligible][:, joint, row]
             block = (z @ z.conj().T) * (density_scale[row] / n_joint)
+            raw[row, column][np.ix_(eligible, eligible)] = block
+            raw_valid[row, column, eligible] = True
+            shared[row, column] = n_joint
             if normalization == "psd":
                 powered = np.diag(block).real > 0
                 eligible = eligible[powered]
@@ -1742,17 +1754,22 @@ def cross_spectral_matrix(
                 scaled = block / denominator
             else:
                 factors = np.asarray(scales)[eligible]
+                usable = np.isfinite(factors) & (factors > 0)
+                eligible = eligible[usable]
+                block = block[np.ix_(usable, usable)]
+                factors = factors[usable]
+                if not eligible.size:
+                    continue
                 scaled = block / np.outer(factors, factors)
-            raw[row, column][np.ix_(eligible, eligible)] = block
             normalized[row, column][np.ix_(eligible, eligible)] = scaled
             valid[row, column, eligible] = True
-            shared[row, column] = n_joint
 
     centre_time = grid[starts] + (outer - 1) / (2 * fs)
     return CrossSpectralMatrix(
         time=centre_time, frequency=frequency, names=names,
         units=tuple(record.units for record in selected), raw_csd=raw,
-        matrix=normalized, valid=valid, shared_segments=shared,
+        matrix=normalized, raw_valid=raw_valid, valid=valid,
+        shared_segments=shared,
         normalization=normalization, normalization_scales=scales,
         sample_rate=float(fs), time_range=(float(grid[0]), float(grid[-1])),
         nperseg=segment, segments_per_window=averages, window_step_samples=step,
