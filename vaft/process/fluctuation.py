@@ -56,6 +56,7 @@ __all__ = [
     "CrossSpectrum",
     "CrossSpectrogram",
     "CrossSpectralMatrix",
+    "CoherentComponents",
     "ResamplingProvenance",
     "FluctuationRecord",
     "FluctuationSpectrogram",
@@ -70,6 +71,7 @@ __all__ = [
     "cross_spectrum",
     "cross_spectrogram",
     "cross_spectral_matrix",
+    "coherent_components",
     "find_spectral_break",
     "fit_power_law_spectrum",
     "track_dominant_frequency",
@@ -987,6 +989,171 @@ class CrossSpectralMatrix:
     window: str
     detrend: str | bool
     resampling: tuple[ResamplingProvenance, ...]
+
+
+@dataclass(frozen=True)
+class CoherentComponents:
+    """Eigensystem and dominant *spectral component*, without mode identification.
+
+    Eigenvalues are descending in the final axis, with NaN slots when fewer
+    diagnostics participate. Eigenvector columns follow the same order and
+    use the maximum-amplitude entry as a positive-real phase gauge.
+    Participation is ``abs(dominant_eigenvector)**2`` and sums to one over
+    available diagnostics when the leading eigenvalue is distinct. ``phase``
+    is each diagnostic relative to the requested reference, in radians.
+    """
+
+    time: np.ndarray
+    frequency: np.ndarray
+    names: tuple[str, ...]
+    reference: str
+    eigenvalues: np.ndarray
+    eigenvectors: np.ndarray
+    dominant_power: np.ndarray
+    coherent_fraction: np.ndarray
+    participation: np.ndarray
+    phase: np.ndarray
+    n_diagnostics: np.ndarray
+    component_defined: np.ndarray
+    normalization: str
+
+
+def coherent_components(
+    result: CrossSpectralMatrix,
+    *,
+    reference: str,
+    degeneracy_tolerance: float = 1e-6,
+) -> CoherentComponents:
+    """Decompose PSD-normalized matrices into coherent spectral components.
+
+    Parameters
+    ----------
+    result : CrossSpectralMatrix
+        Time-resolved matrix from :func:`cross_spectral_matrix` [-].
+    reference : str
+        Diagnostic whose phase is zero where its dominant loading is defined [-].
+    degeneracy_tolerance : float, optional
+        Relative leading-eigenvalue gap below which the dominant direction is
+        ambiguous [-].
+
+    Returns
+    -------
+    CoherentComponents
+        Descending eigensystem, leading spectral power and fraction, diagnostic
+        participation and reference-relative phase; invalid entries are NaN [-].
+
+    Raises
+    ------
+    ValueError
+        Non-PSD normalization, unknown reference or invalid tolerance.
+
+    Processing steps
+    ----------------
+    1. Extract each jointly valid normalized submatrix without replacing missing
+       diagnostic entries by zero.
+    2. Hermitian-diagonalize it and sort the eigenpairs by descending power.
+    3. Calculate leading power fraction and, only for a distinct leading
+       direction, normalized participation and reference-relative phase.
+
+    Convention
+    ----------
+    The spectral matrix has ``S[i,j] = <X_i conj(X_j)>``. The leading
+    eigenvector's phase at i relative to the reference is
+    ``angle(u_i conj(u_ref))``. Its squared magnitudes sum to one; they are
+    dimensionless loadings, not physical signal amplitudes. The fraction is
+    the leading eigenvalue divided by the trace and has an independent-signal
+    baseline near ``1/N`` for N similarly powered diagnostics.
+
+    Defaults
+    --------
+    The numerical convenience tolerance of ``1e-6`` only guards an ambiguous
+    eigenvector when the leading eigenvalues are effectively tied.
+
+    Applicability
+    -------------
+    Machine-independent. Inputs must already be selected scalar diagnostics;
+    one diagnostic supplies no cross-diagnostic coherence claim.
+
+    Limitations
+    -----------
+    A large leading component alone does not identify a physical MHD mode.
+    Relative phase is undefined when the reference is missing or its loading
+    is numerically zero. Distinct spectral components may exchange rank over
+    time or frequency; no component tracking is inferred.
+
+    Provenance
+    ----------
+    .. [1] Hermitian eigendecomposition of the PSD-normalized cross-spectral
+       matrix defined by :func:`cross_spectral_matrix`.
+    """
+    if not isinstance(result, CrossSpectralMatrix):
+        raise TypeError("result must be a CrossSpectralMatrix")
+    if result.normalization != "psd":
+        raise ValueError("coherent_components requires PSD normalization")
+    if reference not in result.names:
+        raise ValueError("reference must name a diagnostic in the matrix")
+    if not np.isfinite(degeneracy_tolerance) or not 0 <= degeneracy_tolerance < 1:
+        raise ValueError("degeneracy_tolerance must be finite and in [0, 1)")
+
+    matrix = np.asarray(result.matrix)
+    valid = np.asarray(result.valid)
+    n_freq, n_time, n_diag = valid.shape
+    if matrix.shape != (n_freq, n_time, n_diag, n_diag):
+        raise ValueError("matrix and validity shapes disagree")
+    eigenvalues = np.full((n_freq, n_time, n_diag), np.nan)
+    eigenvectors = np.full(matrix.shape, complex(np.nan, np.nan))
+    dominant_power = np.full((n_freq, n_time), np.nan)
+    coherent_fraction = np.full((n_freq, n_time), np.nan)
+    participation = np.full(valid.shape, np.nan)
+    phase = np.full(valid.shape, np.nan)
+    n_diagnostics = np.sum(valid, axis=-1)
+    component_defined = np.zeros((n_freq, n_time), dtype=bool)
+    reference_index = result.names.index(reference)
+
+    for row in range(n_freq):
+        for column in range(n_time):
+            active = np.flatnonzero(valid[row, column])
+            if active.size < 2:
+                continue
+            block = matrix[row, column][np.ix_(active, active)]
+            if not np.all(np.isfinite(block)):
+                raise ValueError("valid spectral submatrix contains nonfinite entries")
+            if not np.allclose(block, block.conj().T, rtol=1e-8, atol=1e-10):
+                raise ValueError("valid spectral submatrix must be Hermitian")
+            values, vectors = np.linalg.eigh((block + block.conj().T) / 2)
+            order = np.argsort(values)[::-1]
+            values, vectors = values[order], vectors[:, order]
+            scale = max(float(values[0]), 1.0)
+            if values[-1] < -1e-8 * scale:
+                raise ValueError("valid spectral submatrix must be positive semidefinite")
+            values = np.maximum(values, 0.0)
+            for index in range(active.size):
+                pivot = int(np.argmax(np.abs(vectors[:, index])))
+                vectors[:, index] *= np.exp(-1j * np.angle(vectors[pivot, index]))
+            eigenvalues[row, column, :active.size] = values
+            eigenvectors[row, column][np.ix_(active, np.arange(active.size))] = vectors
+            total = float(np.sum(values))
+            if total <= 0:
+                continue
+            dominant_power[row, column] = values[0]
+            coherent_fraction[row, column] = values[0] / total
+            if (values[0] - values[1]) <= degeneracy_tolerance * values[0]:
+                continue
+            component_defined[row, column] = True
+            leading = vectors[:, 0]
+            participation[row, column, active] = np.abs(leading) ** 2
+            if reference_index in active:
+                ref = leading[np.flatnonzero(active == reference_index)[0]]
+                if np.abs(ref) > 1e-12:
+                    phase[row, column, active] = np.angle(leading * np.conj(ref))
+
+    return CoherentComponents(
+        time=result.time, frequency=result.frequency, names=result.names,
+        reference=reference, eigenvalues=eigenvalues, eigenvectors=eigenvectors,
+        dominant_power=dominant_power, coherent_fraction=coherent_fraction,
+        participation=participation, phase=phase, n_diagnostics=n_diagnostics,
+        component_defined=component_defined, normalization=result.normalization,
+    )
 
 
 def _uniform_record(time, data, name: str) -> tuple[np.ndarray, np.ndarray, float]:
