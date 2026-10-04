@@ -168,9 +168,19 @@ def main() -> None:
             "interferometer_94ghz": _source(47230, "legacy/47230_056789_LID_1_100.mat", ["interferometer"], "native samples within 0.299–0.303 s", "vaft.machine_mapping.interferometer; one horizontal chord; sparse sample selection", "measured line-integrated density", "geometry projected on reference; no local density inference"),
             "interferometer_282ghz": _source(47230, "legacy/47230_ALL_LID_1_100.mat", ["interferometer"], "native samples within 0.299–0.303 s", "vaft.machine_mapping.interferometer; one vertical chord; sparse sample selection", "measured line-integrated density", "geometry projected on reference"),
             "langmuir_probes": _source(42699, "legacy/langmuir_probes_42699.json.gz", ["langmuir_probes"], "native samples within 0.35–0.46 s", "existing mapped triple-probe output; sparse sample selection", "derived local n_e and T_e", "positions projected on reference; shot-era compatibility to be checked before physical interpretation"),
-            "soft_x_rays": _source(45531, "samples/45531/omas.json.gz", ["soft_x_rays"], "native samples within 0.299–0.303 s", "existing mapped output; first two vertical chords; sparse sample selection", "measured chord brightness", "LOS projected on reference; no local temperature inference"),
+            "soft_x_rays": _source(45531, "samples/45531/omas.json.gz", ["soft_x_rays"], "native samples within 0.299–0.303 s", "existing mapped output; first two vertical chords; sparse sample selection", "relative calibrated SXR chord signal proxy (not absolute brightness)", "LOS projected on reference; no local temperature inference"),
         },
     }
+    for family in ("interferometer_94ghz", "interferometer_282ghz"):
+        manifest["sources"][family]["mapping_sources"] = [
+            {"path": path, "sha256": hashlib.sha256(
+                (ROOT.parents[1] / path).read_bytes()
+            ).hexdigest()}
+            for path in (
+                "vaft/machine_mapping/vest.yaml",
+                "vaft/machine_mapping/interferometer.py",
+            )
+        ]
     (OUTPUT / "manifest.yaml").write_text(yaml.safe_dump(manifest, sort_keys=False, allow_unicode=True), encoding="utf-8")
     print(f"{artifact}: {artifact.stat().st_size} bytes")
 

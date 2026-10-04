@@ -218,8 +218,6 @@ vaft = [
   "data/samples/*/manifest.yaml",
   "data/samples/39915/omas.json.gz",
   "data/samples/39915/imas.nc",
-  "data/unified/vest_diagnostics/manifest.yaml",
-  "data/unified/vest_diagnostics/omas.json.gz",
   # The authored TikZ template vaft.diagram renders every scene into.
   "diagram/templates/*.tex",
   # packaged pictures a diagram embeds (the VEST machine render, #1550)

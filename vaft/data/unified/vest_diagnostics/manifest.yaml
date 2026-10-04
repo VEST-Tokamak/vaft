@@ -62,6 +62,11 @@ sources:
       sample selection
     value_kind: measured line-integrated density
     geometry_compatibility: geometry projected on reference; no local density inference
+    mapping_sources:
+    - path: vaft/machine_mapping/vest.yaml
+      sha256: 78f8435086f7b5cdeb3a87c427a61d3cecb51aee782c108ab0e0c79460c3c71d
+    - path: vaft/machine_mapping/interferometer.py
+      sha256: c1b3497c2bcc16624931c9590fb0135d5eca485de2172c761a178d16d2a92baf
   interferometer_282ghz:
     source_shot: 47230
     source_artifact: legacy/47230_ALL_LID_1_100.mat
@@ -73,6 +78,11 @@ sources:
       selection
     value_kind: measured line-integrated density
     geometry_compatibility: geometry projected on reference
+    mapping_sources:
+    - path: vaft/machine_mapping/vest.yaml
+      sha256: 78f8435086f7b5cdeb3a87c427a61d3cecb51aee782c108ab0e0c79460c3c71d
+    - path: vaft/machine_mapping/interferometer.py
+      sha256: c1b3497c2bcc16624931c9590fb0135d5eca485de2172c761a178d16d2a92baf
   langmuir_probes:
     source_shot: 42699
     source_artifact: legacy/langmuir_probes_42699.json.gz
@@ -92,5 +102,5 @@ sources:
     - soft_x_rays
     source_time: native samples within 0.299–0.303 s
     processing: existing mapped output; first two vertical chords; sparse sample selection
-    value_kind: measured chord brightness
+    value_kind: relative calibrated SXR chord signal proxy (not absolute brightness)
     geometry_compatibility: LOS projected on reference; no local temperature inference
