@@ -946,13 +946,14 @@ class CrossSpectrogram:
 
 @dataclass(frozen=True)
 class FluctuationRecord:
-    """One named scalar input; the caller selects its diagnostic channel."""
+    """One named scalar input with optional channel/ROI selection provenance."""
 
     name: str
     time: np.ndarray
     data: np.ndarray
     units: str = "signal"
     usable_bandwidth_hz: float | None = None
+    source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -966,12 +967,14 @@ class CrossSpectralMatrix:
     zero entries. Unavailable entries are NaN, never filled with zeros.
     ``S[i,j] = <X_i conj(X_j)>``, so
     ``angle(S[i,reference])`` is the phase of i relative to reference.
+    ``sources`` preserves each caller-selected channel, ROI or component label.
     """
 
     time: np.ndarray
     frequency: np.ndarray
     names: tuple[str, ...]
     units: tuple[str, ...]
+    sources: tuple[str | None, ...]
     raw_csd: np.ndarray
     matrix: np.ndarray
     raw_valid: np.ndarray
@@ -1002,11 +1005,13 @@ class CoherentComponents:
     available diagnostics when the leading eigenvalue is distinct and enough
     independent segments were averaged. ``phase``
     is each diagnostic relative to the requested reference, in radians.
+    ``sources`` carries the original selection descriptions forward.
     """
 
     time: np.ndarray
     frequency: np.ndarray
     names: tuple[str, ...]
+    sources: tuple[str | None, ...]
     reference: str
     eigenvalues: np.ndarray
     eigenvectors: np.ndarray
@@ -1157,6 +1162,7 @@ def coherent_components(
 
     return CoherentComponents(
         time=result.time, frequency=result.frequency, names=result.names,
+        sources=result.sources,
         reference=reference, eigenvalues=eigenvalues, eigenvectors=eigenvectors,
         dominant_power=dominant_power, coherent_fraction=coherent_fraction,
         participation=participation, phase=phase, n_diagnostics=n_diagnostics,
@@ -1947,7 +1953,8 @@ def cross_spectral_matrix(
     centre_time = grid[starts] + (outer - 1) / (2 * fs)
     return CrossSpectralMatrix(
         time=centre_time, frequency=frequency, names=names,
-        units=tuple(record.units for record in selected), raw_csd=raw,
+        units=tuple(record.units for record in selected),
+        sources=tuple(record.source for record in selected), raw_csd=raw,
         matrix=normalized, raw_valid=raw_valid, valid=valid,
         shared_segments=shared,
         normalization=normalization, normalization_scales=scales,
