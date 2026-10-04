@@ -54,6 +54,8 @@ from scipy import signal as scipy_signal
 
 __all__ = [
     "CrossSpectrum",
+    "CrossSpectrogram",
+    "ResamplingProvenance",
     "FluctuationSpectrogram",
     "FluctuationSpectrum",
     "FrequencyTrack",
@@ -64,6 +66,7 @@ __all__ = [
     "compute_psd",
     "compute_spectrogram",
     "cross_spectrum",
+    "cross_spectrogram",
     "find_spectral_break",
     "fit_power_law_spectrum",
     "track_dominant_frequency",
@@ -878,6 +881,64 @@ class CrossSpectrum:
     resampled: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class ResamplingProvenance:
+    """How one input was placed on the common grid (rates and cutoffs in Hz)."""
+
+    record: str
+    source_rate: float
+    target_rate: float
+    operation: str
+    anti_alias_cutoff_hz: float | None
+    usable_bandwidth_hz: float
+    bandwidth_source: str
+
+
+@dataclass(frozen=True)
+class CrossSpectrogram:
+    """Locally Welch-averaged, one-sided pair spectra on the shot timebase.
+
+    Arrays have shape ``(frequency, time)``. ``csd = conj(X) * Y`` after
+    averaging, so ``phase`` is that of y relative to x, in radians. The auto
+    spectra have the input units squared per Hz; ``csd`` has x*y/Hz.
+    ``bandwidth_source`` distinguishes an explicitly declared usable band from
+    a sampling-only Nyquist ceiling, which does not establish sensor response.
+    """
+
+    time: np.ndarray
+    frequency: np.ndarray
+    csd: np.ndarray
+    coherence: np.ndarray
+    phase: np.ndarray
+    psd_x: np.ndarray
+    psd_y: np.ndarray
+    sample_rate: float
+    time_range: tuple[float, float]
+    nperseg: int
+    segments_per_window: int
+    window_step_samples: int
+    frequency_resolution_hz: float
+    window_duration_s: float
+    window: str
+    detrend: str | bool
+    common_bandwidth_hz: float
+    bandwidth_source: tuple[str, str]
+    units_x: str
+    units_y: str
+    resampling: tuple[ResamplingProvenance, ResamplingProvenance]
+
+    @property
+    def cross_spectral_density(self) -> np.ndarray:
+        """Descriptive alias for ``csd``."""
+        return self.csd
+
+    @property
+    def resampled(self) -> tuple[str, ...]:
+        """Names of inputs whose samples were projected onto another grid."""
+        return tuple(item.record for item in self.resampling
+                     if item.operation in ("anti_alias_resample", "interpolate"))
+
+
 def _uniform_record(time, data, name: str) -> tuple[np.ndarray, np.ndarray, float]:
     """Validate one record's axis, naming the record in the error."""
     try:
@@ -1103,6 +1164,177 @@ def cross_spectrum(
         nperseg=int(segment),
         noverlap=int(overlap),
         resampled=tuple(resampled),
+    )
+
+
+def cross_spectrogram(
+    time_x,
+    x,
+    time_y,
+    y,
+    *,
+    sample_rate: float | None = None,
+    common_time=None,
+    bandwidth_x_hz: float | None = None,
+    bandwidth_y_hz: float | None = None,
+    frequency_range: tuple[float, float] | None = None,
+    nperseg: int = 256,
+    segments_per_window: int = 4,
+    window_step_samples: int | None = None,
+    window: str = "hann",
+    detrend: str | bool = "constant",
+    units_x: str = "signal_x",
+    units_y: str = "signal_y",
+) -> CrossSpectrogram:
+    """Time-resolved cross-spectrum, coherence and y-relative-to-x phase.
+
+    Each output time is the centre of a complete outer window containing
+    ``segments_per_window`` *non-overlapping* Welch segments. The default uses
+    four 256-sample segments and advances by half an outer window. Averaging
+    before forming coherence is essential: one STFT outer product by itself
+    would yield coherence one at every nonzero bin, even for unrelated noise.
+
+    ``bandwidth_x_hz`` and ``bandwidth_y_hz`` describe each record's *usable*
+    physical bandwidth. If omitted, its native Nyquist is used only as a
+    sampling ceiling and ``bandwidth_source`` records ``"nyquist_only"``.
+    ``frequency_range`` selects an inclusive output band in Hz; it may not
+    exceed either input's declared/sampling limit or the anti-alias passband.
+    No diagnostic transfer function is inferred or corrected here.
+
+    The complex density follows :func:`cross_spectrum`: ``conj(X) * Y`` and
+    one-sided SciPy Welch scaling. A delayed y has negative phase. Coherence
+    and phase are NaN where an auto-spectrum is zero or non-finite. The input
+    must contain at least one complete outer window; shorter inputs raise.
+    """
+    time_x, values_x, fs_x = _uniform_record(time_x, x, "x")
+    time_y, values_y, fs_y = _uniform_record(time_y, y, "y")
+    if not np.all(np.isfinite(values_x)) or not np.all(np.isfinite(values_y)):
+        raise ValueError("cross_spectrogram requires finite signal values")
+    if sample_rate is not None and not (np.isfinite(sample_rate) and float(sample_rate) > 0):
+        raise ValueError("sample_rate must be positive and finite")
+    segment = int(nperseg)
+    averages = int(segments_per_window)
+    if segment != nperseg or segment < 2:
+        raise ValueError("nperseg must be an integer >= 2")
+    if averages != segments_per_window or averages < 2:
+        raise ValueError("segments_per_window must be an integer >= 2")
+    outer = segment * averages
+    step = outer // 2 if window_step_samples is None else int(window_step_samples)
+    if step < 1 or (window_step_samples is not None and step != window_step_samples):
+        raise ValueError("window_step_samples must be a positive integer")
+
+    grid, resampled = _common_grid(time_x, time_y, fs_x, fs_y, sample_rate, common_time)
+    if grid.size < outer:
+        raise ValueError(
+            f"common interval has {grid.size} samples; {outer} are required "
+            "for at least two averaged segments"
+        )
+    if grid[0] < max(time_x[0], time_y[0]) or grid[-1] > min(time_x[-1], time_y[-1]):
+        raise ValueError("common_time must lie within both input records")
+    fs = 1.0 / float(np.median(np.diff(grid)))
+
+    declared = (bandwidth_x_hz, bandwidth_y_hz)
+    native_rates = (fs_x, fs_y)
+    limits: list[float] = []
+    sources: list[str] = []
+    for name, value, source_fs in zip(("x", "y"), declared, native_rates):
+        if value is None:
+            limits.append(source_fs / 2)
+            sources.append("nyquist_only")
+        else:
+            limit = float(value)
+            if not np.isfinite(limit) or limit <= 0 or limit > source_fs / 2 * (1 + 1e-9):
+                raise ValueError(f"bandwidth_{name}_hz must be in (0, native Nyquist]")
+            limits.append(limit)
+            sources.append("declared")
+
+    # resample_to_time's FIR reaches -6 dB at 0.8 of target Nyquist and its
+    # stopband at Nyquist. Keep the reported band conservatively below that
+    # cutoff; the exact sensor/DAQ passband still needs caller metadata.
+    reducing = tuple(source_fs > fs * (1 + 1e-9) for source_fs in native_rates)
+    alias_passband = 0.7 * fs / 2 if any(reducing) else fs / 2
+    common_bandwidth = min(*limits, alias_passband)
+    if frequency_range is None:
+        lower, upper = 0.0, common_bandwidth
+    else:
+        if len(frequency_range) != 2:
+            raise ValueError("frequency_range must contain (low, high) in Hz")
+        lower, upper = (float(frequency_range[0]), float(frequency_range[1]))
+        if not np.isfinite(lower) or not np.isfinite(upper) or lower < 0 or lower >= upper:
+            raise ValueError("frequency_range must be finite, nonnegative and increasing")
+        if upper > common_bandwidth * (1 + 1e-9):
+            raise ValueError(
+                f"frequency_range ends at {upper:g} Hz above common usable "
+                f"bandwidth {common_bandwidth:g} Hz"
+            )
+
+    from vaft.process.signal_processing import resample_to_time
+
+    aligned: list[np.ndarray] = []
+    provenance: list[ResamplingProvenance] = []
+    for name, source_time, values, source_fs, reduction, limit, source in zip(
+        ("x", "y"), (time_x, time_y), (values_x, values_y), native_rates,
+        reducing, limits, sources,
+    ):
+        if name in resampled:
+            values = resample_to_time(
+                source_time, values, grid, anti_alias=reduction,
+                extrapolate="error",
+            )
+            operation = "anti_alias_resample" if reduction else "interpolate"
+        else:
+            # A native-grid record may only need cropping to the overlap.
+            first = int(np.searchsorted(source_time, grid[0], side="left"))
+            values = values[first:first + grid.size]
+            operation = "crop" if values.size != source_time.size else "identity"
+        if values.size != grid.size:
+            raise ValueError(f"{name}: alignment did not yield the common grid length")
+        aligned.append(values)
+        provenance.append(ResamplingProvenance(
+            record=name, source_rate=float(source_fs), target_rate=float(fs),
+            operation=operation,
+            anti_alias_cutoff_hz=float(0.8 * fs / 2) if reduction else None,
+            usable_bandwidth_hz=float(limit), bandwidth_source=source,
+        ))
+
+    starts = np.arange(0, grid.size - outer + 1, step, dtype=int)
+    frequency = np.fft.rfftfreq(segment, d=1 / fs)
+    keep = (frequency >= lower) & (frequency <= upper * (1 + 1e-12))
+    if not np.any(keep):
+        raise ValueError("frequency_range contains no bins at this frequency resolution")
+    output_frequency = frequency[keep]
+    shape = (output_frequency.size, starts.size)
+    psd_x = np.empty(shape)
+    psd_y = np.empty(shape)
+    csd = np.empty(shape, dtype=complex)
+    kwargs = dict(fs=fs, window=window, nperseg=segment, noverlap=0, detrend=detrend)
+    for column, start in enumerate(starts):
+        x_window = aligned[0][start:start + outer]
+        y_window = aligned[1][start:start + outer]
+        _, xx = scipy_signal.welch(x_window, **kwargs)
+        _, yy = scipy_signal.welch(y_window, **kwargs)
+        _, xy = scipy_signal.csd(x_window, y_window, **kwargs)
+        psd_x[:, column] = xx[keep]
+        psd_y[:, column] = yy[keep]
+        csd[:, column] = xy[keep]
+    denominator = psd_x * psd_y
+    coherence = np.full(shape, np.nan)
+    phase = np.full(shape, np.nan)
+    valid = np.isfinite(denominator) & (denominator > 0) & np.isfinite(csd)
+    coherence[valid] = np.clip(np.abs(csd[valid]) ** 2 / denominator[valid], 0, 1)
+    phase[valid] = np.angle(csd[valid])
+    centre_time = grid[starts] + (outer - 1) / (2 * fs)
+    return CrossSpectrogram(
+        time=centre_time, frequency=output_frequency, csd=csd,
+        coherence=coherence, phase=phase, psd_x=psd_x, psd_y=psd_y,
+        sample_rate=float(fs), time_range=(float(grid[0]), float(grid[-1])),
+        nperseg=segment, segments_per_window=averages, window_step_samples=step,
+        frequency_resolution_hz=float(fs / segment), window_duration_s=float(outer / fs),
+        window=window, detrend=detrend,
+        common_bandwidth_hz=float(common_bandwidth),
+        bandwidth_source=(sources[0], sources[1]),
+        units_x=units_x, units_y=units_y,
+        resampling=(provenance[0], provenance[1]),
     )
 
 
