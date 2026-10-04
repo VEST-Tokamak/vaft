@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Geometric approximations · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Cross-diagnostic fluctuation coherence · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/formula/geometry/" />
+            <link rel="prev" href="/vaft/develop/reference/process/resistive_zeff/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/formula/disruption/" />
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
         
     </head>
     <body>
@@ -169,7 +169,7 @@
                     </li>
                 
                     
-                    <li class="chapter active" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
                     
                         <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
                     </li>
@@ -274,7 +274,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Geometric approximations</a>
+                            <a href="." >Cross-diagnostic fluctuation coherence</a>
                         
                     </h1>
                 </div>
@@ -300,300 +300,165 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/Geometric_approximations">Geometric approximations</h1>
+                        <h1 id="/workflows/Fluctuation_coherence">Cross-diagnostic fluctuation coherence</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>The slab, cylindrical and toroidal reductions plasma theory uses, with geometry and ordering kept on separate axes; formulas in vaft.formula.geometry.</dd>
-    <dt>Prerequisites / inputs</dt><dd>None.</dd>
-    <dt>Expected result</dt><dd>For each approximation its coordinates, field, ordering, canonical formulas, what it keeps and drops, and how it connects to the next one.</dd>
+    <dt>Architecture position</dt><dd>Scalar diagnostic selection, time alignment, spectral matrix, and coherent-component decomposition.</dd>
+    <dt>Prerequisites / inputs</dt><dd>Calibrated or explicitly labelled scalar signals with stored time axes and usable bandwidth metadata.</dd>
+    <dt>Expected result</dt><dd>Time-resolved coherence, raw and normalized spectral matrices, component participation and relative phase.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p>Analytic tokamak theory seldom works in the real torus. It works in a slab, a cylinder or an expanded
-torus, and it carries a few coefficients over from the real equilibrium. This page sets out those
-reductions using the literature’s names. The formulas are in
-<a href="/vaft/develop/reference/formula/geometry/"><code class="language-plaintext highlighter-rouge">vaft.formula.geometry</code></a>.</p>
+<h1 id="cross-diagnostic-fluctuation-coherence">Cross-diagnostic fluctuation coherence</h1>
 
-<p>The toroidal parent geometry itself (flux surfaces, the Shafranov shift, shaping, $q$ as a winding
-number, and $\theta$ versus $\theta^*$) is drawn in the tokamak-geometry section of
-<a href="/vaft/develop/reference/diagrams/">Scientific diagrams</a>. How VAFT keeps coordinates,
-projections, representations, derived quantities and solver conventions of one real equilibrium
-apart is on <a href="/vaft/develop/reference/equilibrium-representations/">Equilibrium representations</a>.</p>
+<p>The <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/tutorial/04_fluctuation_diagnostics_for_plasma_perturbations_and_transient_events.ipynb">fluctuation tutorial</a>
+uses VEST shot 45531 to compare Mirnov, soft X-ray and H-alpha records. Its camera comparison uses
+<strong>shot 40600</strong>: no 45531 camera frames or interferometer record are supplied by that archive.
+Those missing diagnostics must not enter a 45531 matrix as zeros or as another shot’s signals.</p>
 
-<h2 id="two-axes-not-one-hierarchy">Two axes, not one hierarchy</h2>
+<p>The processing functions work on plain scalar records. <code class="language-plaintext highlighter-rouge">vaft.omas.select_fluctuation_records</code>
+extracts one explicitly named representative per diagnostic from an ODS or native IMAS entry;
+<code class="language-plaintext highlighter-rouge">vaft.process.fluctuation</code> aligns and analyses the resulting records; <code class="language-plaintext highlighter-rouge">vaft.plot</code> draws the maps.
+The selection API accepts Mirnov <strong>field</strong> only after calibration and integration of pickup
+voltage, a named SXR chord and explicit brightness/power energy band, an interferometer line
+integral, a camera ROI or a provenance-labelled temporal component, and a unique UV emission
+identity. SXR and UV units must be supplied because calibrated IMAS values and legacy proxy
+voltages/intensities differ. The selection source survives in every <code class="language-plaintext highlighter-rouge">FluctuationRecord</code>,
+<code class="language-plaintext highlighter-rouge">CrossSpectralMatrix</code>, and <code class="language-plaintext highlighter-rouge">CoherentComponents</code> result. One representative per diagnostic
+prevents a 52-chord array from receiving 52 times the weight of a single-channel diagnostic.</p>
 
-<p><em>Geometry</em> says what space the model lives in: slab, cylindrical or toroidal. <em>Ordering</em> says which
-scales are assumed small: local ($|x| \ll r$), large aspect ratio ($\epsilon = a/R_0 \ll 1$) or neither
-(global). The two are independent. A slab may carry $q$, $\hat s$, $R_0$ or a $1/R_0$ curvature
-inherited from a torus and still be a slab. Large aspect ratio is an ordering, not a geometry: some
-large-aspect-ratio theories stay toroidal.</p>
+<h2 id="estimation-and-units">Estimation and units</h2>
 
-<p><img src="/vaft/develop/assets/diagrams/geometry_ordering_map.svg" alt="geometry and ordering" /></p>
+<p>For two records, <code class="language-plaintext highlighter-rouge">cross_spectrogram</code> returns one-sided auto and cross spectral <strong>densities</strong>,
+magnitude-squared coherence and the phase of <strong>y relative to x</strong>. Each output time window
+averages at least two independent inner Fourier segments before dividing cross-power by the
+auto PSDs. A single outer product would make coherence identically one and has no such
+interpretation. The default averages four non-overlapping 256-sample inner segments; the outer
+window advances by half its length. State the segment count and frequency resolution alongside
+any coherence result.</p>
 
-<table>
-  <thead>
-    <tr>
-      <th>Representation</th>
-      <th>Geometry</th>
-      <th>Typical ordering</th>
-      <th>Retained</th>
-      <th>Neglected or parameterized</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>straight slab</td>
-      <td>slab</td>
-      <td>local</td>
-      <td>local gradients, wave propagation</td>
-      <td>curvature, magnetic shear</td>
-    </tr>
-    <tr>
-      <td>sheared slab</td>
-      <td>slab</td>
-      <td>local</td>
-      <td>local gradients, magnetic shear, resonance</td>
-      <td>global geometry; curvature unless added</td>
-    </tr>
-    <tr>
-      <td>curved slab</td>
-      <td>slab</td>
-      <td>local</td>
-      <td>shear plus a prescribed curvature, e.g. $1/R_0$</td>
-      <td>global toroidal geometry</td>
-    </tr>
-    <tr>
-      <td>cylindrical tokamak</td>
-      <td>cylindrical</td>
-      <td>large aspect ratio, leading order</td>
-      <td>radial structure, current profile, $q(r)$, rational surfaces</td>
-      <td>toroidicity, shaping</td>
-    </tr>
-    <tr>
-      <td>large-aspect-ratio torus</td>
-      <td>toroidal</td>
-      <td>$\epsilon \ll 1$</td>
-      <td>selected $O(\epsilon)$ toroidal corrections</td>
-      <td>higher orders in $\epsilon$</td>
-    </tr>
-    <tr>
-      <td>general axisymmetric torus</td>
-      <td>toroidal</td>
-      <td>global</td>
-      <td>shaping, curvature, toroidal coupling</td>
-      <td>nothing geometric</td>
-    </tr>
-  </tbody>
-</table>
+<p>For several records, the raw matrix has</p>
 
-<h2 id="conventions-used-throughout">Conventions used throughout</h2>
+\[S_{ij}(f,t)=\langle X_i(f,t)X_j^*(f,t)\rangle.\]
 
-<ul>
-  <li>Perturbations are $e^{i(m\theta - n\phi)}$, as in <code class="language-plaintext highlighter-rouge">vaft.formula.helical_phase</code>. Both mode numbers
-are positive and the helicity is in the minus sign.</li>
-  <li>$q$ is a magnitude, whatever sign a COCOS gives it. $\hat s$ keeps the sign of $d|q|/dr$:
-reversed shear ($\hat s &lt; 0$) flips the sign of $L_s$.</li>
-  <li>A torus is straightened at $R_0$ with $z = R_0\phi$ and $B_z \leftrightarrow B_\phi$. Along that $z$,
-the harmonic has wavenumber $-n/R_0$.</li>
-  <li>A sheared slab is $\mathbf B = B_0(\hat{\mathbf z} + (x/L_s)\hat{\mathbf y})$, with $z$ <strong>along the field
-at $x = 0$</strong> and $y$ the binormal in the surface. This field-aligned $z$ is not the straightened-torus
-$z = R_0\phi$.</li>
-  <li>The local slab of a surface $r_0$ is that frame, with $x = r - r_0$. There the harmonic has:
-    <ul>
-      <li>$k_y = m/r_0$;</li>
-      <li>$k_z = (m - nq_0)/(q_0R_0)$, which is zero on a rational surface;</li>
-      <li>$L_s$, which is <strong>signed</strong>: positive shear gives $L_s = -q_0R_0/\hat s &lt; 0$.</li>
-    </ul>
+<p>Its entry has units <code class="language-plaintext highlighter-rouge">(units_i × units_j)/Hz</code>. PSD normalization divides by
+$\sqrt{S_{ii}S_{jj}}$, yielding a dimensionless Hermitian matrix with unit diagonal where
+power is positive. Other explicit policies are <code class="language-plaintext highlighter-rouge">none</code>, whole-record <code class="language-plaintext highlighter-rouge">variance</code>, and <code class="language-plaintext highlighter-rouge">user</code> scales.
+The raw physical-unit matrix remains in <code class="language-plaintext highlighter-rouge">raw_csd</code>. The default averaging count grows to at least
+<code class="language-plaintext highlighter-rouge">N+1</code> inner segments for <code class="language-plaintext highlighter-rouge">N</code> selected diagnostics; fewer explicitly requested segments leave
+component metrics undefined when the sample matrix is rank deficient by construction.</p>
 
-    <p><code class="language-plaintext highlighter-rouge">local_slab_from_cylinder</code> returns $(k_y, L_s, k_z)$ in the order <code class="language-plaintext highlighter-rouge">sheared_slab_parallel_wavenumber</code>
-takes them. <code class="language-plaintext highlighter-rouge">shear_length_from_q_R0_s</code> returns the magnitude $qR_0/|\hat s|$.</p>
-  </li>
-</ul>
+<p>The dominant eigenvalue divided by the matrix trace is a <strong>leading spectral fraction</strong>, not a
+probability or a significance level. Finite averaging raises it above <code class="language-plaintext highlighter-rouge">1/N</code> even for independent
+signals. Compare a candidate with a null distribution using the same window, number of averages,
+diagnostic count and selection procedure. A tied leading eigenvalue has no unique eigenvector;
+participation and phase are then <code class="language-plaintext highlighter-rouge">NaN</code>. A missing diagnostic, out-of-band diagnostic, or zero
+loading also has undefined participation or phase, never an invented zero response.</p>
 
-<h2 id="straight-slab">Straight slab</h2>
+<h2 id="time-bandwidth-and-provenance">Time, bandwidth and provenance</h2>
 
-<ul>
-  <li><strong>Coordinates:</strong> $(x, y, z)$: radial, binormal, along $\mathbf B$.</li>
-  <li><strong>Field:</strong> $\mathbf B = B_0\hat{\mathbf z}$, uniform.</li>
-  <li><strong>Ordering:</strong> local. Gradients are taken over a region small against every equilibrium scale.</li>
-  <li><strong>Formula:</strong> $\tilde f \propto e^{i(k_xx + k_yy + k_zz)}$, and $k_\parallel = \mathbf k\cdot\mathbf B/B = k_z$
-(<code class="language-plaintext highlighter-rouge">slab_parallel_wavenumber</code>).</li>
-  <li><strong>Keeps:</strong> wave propagation and local density or temperature gradients.</li>
-  <li><strong>Drops:</strong> magnetic curvature and magnetic shear, unless they are added separately.</li>
-  <li><strong>Used for:</strong> drift waves, and local dispersion relations before shear or curvature enter.</li>
-</ul>
+<p>Records meet only on their common time interval. Rate reduction uses an anti-alias filter before
+projection onto the requested grid. Declare physical usable bandwidths where known; otherwise
+the result records <code class="language-plaintext highlighter-rouge">nyquist_only</code>, meaning the sampling ceiling is known but the sensor and
+analogue passband are not. A requested band above a declared limit or conservative anti-alias
+passband is rejected. Each record’s source rate, target rate, operation, filter cutoff and
+effective usable band are in <code class="language-plaintext highlighter-rouge">resampling</code>. The set of valid diagnostics can vary with frequency;
+the <code class="language-plaintext highlighter-rouge">valid</code> mask and <code class="language-plaintext highlighter-rouge">n_diagnostics</code> record that partial overlap.</p>
 
-<h2 id="sheared-slab">Sheared slab</h2>
+<p>The 25 kHz grid in the 45531 tutorial examines only 2–8 kHz. It cannot establish that its H-alpha
+record follows a 14 kHz branch: that frequency exceeds the grid’s 12.5 kHz Nyquist. The Mirnov
+record in the archive is pickup voltage (proportional to $dB/dt$), and its raw PSD is V²/Hz.
+Without a calibrated integration it is not a magnetic-field PSD in T²/Hz. PSD normalization
+supports dimensionless comparison but does not restore a physical field amplitude.</p>
 
-<ul>
-  <li><strong>Field:</strong> $\mathbf B = B_0(\hat{\mathbf z} + (x/L_s)\hat{\mathbf y})$ (<code class="language-plaintext highlighter-rouge">sheared_slab_field</code>), or equivalently
-$B_y(x) \simeq B_y’x$ near a resonant surface.</li>
-  <li><strong>Shear:</strong> $\hat s = (r/q)\,dq/dr$ (<code class="language-plaintext highlighter-rouge">vaft.formula.shear_from_r_q</code>). Under the local, large-aspect-ratio
-ordering, $|L_s| = qR_0/|\hat s|$ (<code class="language-plaintext highlighter-rouge">shear_length_from_q_R0_s</code>).</li>
-  <li><strong>Formula:</strong> $k_\parallel(x) \simeq k_z + k_y x/L_s$ (<code class="language-plaintext highlighter-rouge">sheared_slab_parallel_wavenumber</code>). The
-perturbation is field-aligned on one surface and $|k_\parallel|$ grows linearly away from it.</li>
-  <li><strong>Keeps:</strong> the resonance and its localisation.</li>
-  <li><strong>Drops:</strong> global geometry, and curvature unless it is added.</li>
-  <li><strong>Used for:</strong> the inner layer of tearing modes (FKR, Rutherford), drift waves with shear, and the
-local limits of gyrokinetics.</li>
-  <li><strong>Related configurations in the same frame:</strong> the reversing field of a Harris current sheet,
-$B_y = B_0\tanh(x/a)$ (<code class="language-plaintext highlighter-rouge">harris_sheet_field</code>, <code class="language-plaintext highlighter-rouge">harris_sheet_current_density</code>), whose centre is a
-sheared slab with $B_y’ = B_0/a$ and no guide field, and the current-free X-point
-$\psi = B’(x^2 - y^2)/2$ (<code class="language-plaintext highlighter-rouge">x_point_flux</code>). These configurations, not geometries, are drawn in the
-field-configuration section of the diagrams guide.</li>
-</ul>
-
-<h2 id="curved-slab">Curved slab</h2>
-
-<p>Curved slab is a <em>family</em> of local models, not one model. VAFT fixes no closure here: the curvature
-coefficient is whatever a particular model inherits from its parent torus.</p>
-
-<ul>
-  <li><strong>Coordinates and field:</strong> those of the straight or sheared slab.</li>
-  <li><strong>Curvature:</strong> toroidal curvature is added as a parameter, either an effective curvature
-$\boldsymbol\kappa = \mathbf b\cdot\nabla\mathbf b$ (typically $|\kappa| \simeq 1/R_0$ pointing to the major
-axis), or an effective gravity $g \sim v_{th}^2/R_0$.</li>
-  <li><strong>Ordering:</strong> local. The curvature is a constant coefficient over the region.</li>
-  <li><strong>Keeps:</strong> the interchange drive (the pressure gradient against the curvature) and the $\nabla B$ and
-curvature drifts.</li>
-  <li><strong>Drops:</strong> the poloidal variation of curvature (good and bad curvature sides), the geometry of the
-real flux surfaces, and toroidal mode coupling.</li>
-  <li><strong>Next more realistic model:</strong> a local toroidal (flux-tube) model, where $\kappa$ varies along the
-field line.</li>
-  <li><strong>Used for:</strong> interchange and Rayleigh–Taylor analogues, resistive-g modes, and reduced edge and SOL
-turbulence.</li>
-</ul>
-
-<h2 id="cylinder-screw-pinch-cylindrical-tokamak">Cylinder, screw pinch, cylindrical tokamak</h2>
-
-<ul>
-  <li><strong>Coordinates:</strong> $(r, \theta, z)$.</li>
-  <li><strong>Field:</strong> $\mathbf B = B_\theta(r)\hat{\boldsymbol\theta} + B_z(r)\hat{\mathbf z}$.</li>
-  <li><strong>Safety factor:</strong> $q(r) = rB_z/(R_0B_\theta)$ (<code class="language-plaintext highlighter-rouge">cylindrical_safety_factor_from_r_B</code>).</li>
-  <li><strong>Resonance:</strong> $k_\parallel = (m - nq)/(qR_0)$ (<code class="language-plaintext highlighter-rouge">cylindrical_parallel_wavenumber</code>), so
-$k_\parallel = 0 \Leftrightarrow q(r_s) = m/n$.</li>
-  <li><strong>The three are related but not synonyms:</strong>
-    <ul>
-      <li>A <em>straight cylinder</em> is only the coordinate system.</li>
-      <li>A <em>screw pinch</em> is a cylindrical equilibrium with both $B_\theta(r)$ and $B_z(r)$, so its field lines
-are helices. Pure $\theta$- and $z$-pinches are its limits.</li>
-      <li>A <em>cylindrical (straight) tokamak</em> is a screw pinch that is periodic in $z$ with length $2\pi R_0$
-and has $B_z \gg B_\theta$, both taken from a torus.</li>
-    </ul>
-  </li>
-  <li><strong>Keeps:</strong> radial structure, the current profile, $q(r)$ and rational surfaces.</li>
-  <li><strong>Drops:</strong> $1/R$ variation of $B_\phi$, toroidal curvature, inboard/outboard asymmetry, the Shafranov
-shift, toroidal coupling of harmonics, and shaping. The helical field lines are still curved, which is
-what drives Suydam interchange.</li>
-  <li><strong>Used for:</strong> Newcomb’s equation, the internal kink, the outer tearing problem and $\Delta’$.</li>
-</ul>
-
-<h2 id="large-aspect-ratio-ordering">Large-aspect-ratio ordering</h2>
-
-<p>For a circular torus $R = R_0 + r\cos\theta$, so</p>
-
-\[\frac{1}{R} = \frac{1}{R_0}\left[1 - \frac{r}{R_0}\cos\theta + O(\epsilon^2)\right],\qquad
-B_\phi = B_0\frac{R_0}{R} = B_0\left[1 - \frac{r}{R_0}\cos\theta + O(\epsilon^2)\right].\]
-
-<p>The second expression is <code class="language-plaintext highlighter-rouge">vaft.formula.vacuum_toroidal_field</code>.</p>
-
-<p><strong>Worked $O(\epsilon)$ example: toroidal coupling.</strong> Any factor of $1/R$ multiplying a harmonic
-$e^{im\theta}$ creates sidebands:</p>
-
-\[\frac{e^{im\theta}}{R} = \frac{1}{R_0}\left[e^{im\theta} - \frac{\epsilon}{2}\left(e^{i(m+1)\theta}
-+ e^{i(m-1)\theta}\right)\right] + O(\epsilon^2),\qquad \epsilon = r/R_0 .\]
-
-<p>So in a torus an $m/n$ perturbation drags along $(m \pm 1)/n$ components of relative size
-$\epsilon/2$. In a cylinder it cannot.</p>
-
-<p>The expansion is used in two different ways:</p>
-
-<ol>
-  <li><strong>Large-aspect-ratio toroidal model.</strong> It keeps selected $O(\epsilon)$ terms:
-    <ul>
-      <li>curvature;</li>
-      <li>inboard/outboard asymmetry;</li>
-      <li>coupling of $m$ to $m \pm 1$.</li>
-    </ul>
-
-    <p>It is still toroidal. It keeps the $O(\epsilon)$ curvature and $1/R$ terms and drops $O(\epsilon^2)$.
-The Shafranov shift enters at $O(\epsilon(\beta_p + l_i/2))$ relative to $a$. Shaping is outside the
-circular expansion used here, although shaped large-aspect-ratio models exist (for example Miller
-local equilibria). Typical uses are the $s$–$\alpha$ ballooning model, toroidal Alfvén gaps and
-neoclassical trapping.</p>
-  </li>
-  <li><strong>Cylindrical tokamak limit.</strong> It keeps only $O(1)$: $R \simeq R_0$, and the toroidal direction is
-straightened as $z = R_0\phi$. The cylindrical tokamak is the <strong>leading-order limit</strong> of the
-large-aspect-ratio expansion. It is not the same thing as large aspect ratio.</li>
-</ol>
-
-<h2 id="local-sheared-slab-reduction">Local sheared-slab reduction</h2>
-
-<p>Near a surface $r_0$, with $x = r - r_0$ and $|x| \ll r_0$, expand $q \simeq q_0 + q_0’x$ and take the
-field-aligned frame: $z$ along $\mathbf B(r_0)$, $y$ the binormal. The harmonic $e^{i(m\theta - n\phi)}$
-has there</p>
-
-\[k_y = \frac{m}{r_0},\qquad L_s = -\frac{q_0R_0}{\hat s},\qquad k_z = \frac{m - nq_0}{q_0R_0}\]
-
-<p>(<code class="language-plaintext highlighter-rouge">local_slab_from_cylinder</code>). Along the straightened torus the same harmonic has $-n/R_0$; along the
-field it has $k_z$. On a rational surface $q_0 = m/n$, so the resonance $q(r_s) = m/n$ becomes
-$k_\parallel(0) = k_z = 0$ and the shear becomes $k_\parallel’ = k_y/L_s = -k_y\hat s/(q_0R_0)$. The test
-suite checks that this slab reproduces the cylinder’s $k_\parallel$ to first order in $x$.</p>
-
-<p><img src="/vaft/develop/assets/diagrams/mode_number_mapping.svg" alt="mode-number mapping" /></p>
-
-<p>A local slab does <strong>not</strong> need a cylinder as an intermediate step. It can be expanded from a toroidal
-equilibrium directly. What defines it is locality relative to the equilibrium scale, not large
-aspect ratio. Turbulence and interchange models often keep toroidal coefficients in a slab, such as
-$|L_s| \simeq qR_0/|\hat s|$ and, in curved slabs, $\kappa \simeq 1/R_0$.</p>
-
-<h2 id="the-same-field-line-in-each-geometry">The same field line in each geometry</h2>
+<h2 id="what-the-result-says">What the result says</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Toroidal</th>
-      <th>Cylindrical</th>
-      <th>Sheared slab</th>
+      <th>Observation</th>
+      <th>Supported claim</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><img src="/vaft/develop/assets/diagrams/field_line_geometry_toroidal.svg" alt="torus" /></td>
-      <td><img src="/vaft/develop/assets/diagrams/field_line_geometry_cylindrical.svg" alt="cylinder" /></td>
-      <td><img src="/vaft/develop/assets/diagrams/field_line_geometry_slab.svg" alt="slab" /></td>
+      <td>Simultaneous onset</td>
+      <td>Activity shares a time; a common plasma evolution can cause it.</td>
+    </tr>
+    <tr>
+      <td>Same frequency</td>
+      <td>Records contain power in one band; separate sources can do that.</td>
+    </tr>
+    <tr>
+      <td>Pairwise coherence with stable phase</td>
+      <td>Two selected records maintain a spectral relation, subject to pickup and selection controls.</td>
+    </tr>
+    <tr>
+      <td>Dominant multi-diagnostic component</td>
+      <td>Selected records concentrate normalized spectral power in one direction, with measurable participation and relative phase.</td>
+    </tr>
+    <tr>
+      <td>Physical MHD mode identification</td>
+      <td>Needs spatial phase, mode-number and diagnostic transfer-function evidence beyond the spectral decomposition.</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="where-these-lead">Where these lead</h2>
+<p>Use the canonical maps <code class="language-plaintext highlighter-rouge">plot_cross_diagnostic_coherence_spectrogram</code>,
+<code class="language-plaintext highlighter-rouge">plot_multi_diagnostic_coherent_spectrogram</code>, <code class="language-plaintext highlighter-rouge">plot_multi_diagnostic_coherent_fraction</code>,
+<code class="language-plaintext highlighter-rouge">plot_multi_diagnostic_participation</code>, and <code class="language-plaintext highlighter-rouge">plot_multi_diagnostic_phase</code> to inspect these
+quantities on their recorded time and frequency coordinates. The phase map is in degrees, the
+process result in radians. The leading component is named a <em>dominant coherent spectral
+component</em> until independent spatial evidence supports a physical mode identification.</p>
 
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cylinder / screw pinch  -&gt; Newcomb equation, internal kink, outer tearing (Delta')
-cylinder -&gt; sheared slab -&gt; resistive inner layer: FKR, Rutherford, modified Rutherford
-straight / sheared / curved slab -&gt; drift waves, interchange, reduced edge turbulence, local gyrokinetics
-</code></pre></div></div>
+<h2 id="small-synthetic-check">Small synthetic check</h2>
 
-<p>The tearing diagrams (<code class="language-plaintext highlighter-rouge">rational_surface</code>, <code class="language-plaintext highlighter-rouge">delta_prime</code>, <code class="language-plaintext highlighter-rouge">tearing_layer_matching</code>) start from the
-cylinder and sheared slab described here. The current-sheet, X-point, reconnection and MHD-wave
-diagrams (<code class="language-plaintext highlighter-rouge">current_sheet</code>, <code class="language-plaintext highlighter-rouge">x_point</code>, <code class="language-plaintext highlighter-rouge">magnetic_reconnection</code>, <code class="language-plaintext highlighter-rouge">shear_alfven_wave</code>, <code class="language-plaintext highlighter-rouge">mhd_wave_family</code>)
-use the slab frame of this page. See <a href="/vaft/develop/reference/diagrams/">Scientific diagrams</a>.</p>
+<p>This demonstrates a known positive phase of y relative to x without relying on one discharge.
+The independent noise makes the averaged estimate meaningful; two signals on the same frequency
+alone would not establish coherent observation.</p>
 
-<h2 id="references">References</h2>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">vaft.process.fluctuation</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">FluctuationRecord</span><span class="p">,</span> <span class="n">coherent_components</span><span class="p">,</span> <span class="n">cross_spectral_matrix</span><span class="p">,</span>
+<span class="p">)</span>
 
-<ol>
-  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Ch. 3, 6 and 8.</li>
-  <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014), Ch. 9 and 11.</li>
-  <li>H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6 (1963) 459.</li>
-  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.</li>
-</ol>
+<span class="n">fs</span> <span class="o">=</span> <span class="mi">40_000</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="mi">8_000</span><span class="p">)</span> <span class="o">/</span> <span class="n">fs</span>
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="mi">1611</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="mi">2_000</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">rng</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">size</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="mi">2_000</span> <span class="o">*</span> <span class="n">t</span> <span class="o">+</span> <span class="mf">0.4</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">rng</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">t</span><span class="p">.</span><span class="n">size</span><span class="p">)</span>
+<span class="n">records</span> <span class="o">=</span> <span class="p">[</span><span class="nc">FluctuationRecord</span><span class="p">(</span><span class="sh">"</span><span class="s">reference</span><span class="sh">"</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="sh">"</span><span class="s">V</span><span class="sh">"</span><span class="p">),</span>
+           <span class="nc">FluctuationRecord</span><span class="p">(</span><span class="sh">"</span><span class="s">second</span><span class="sh">"</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="sh">"</span><span class="s">V</span><span class="sh">"</span><span class="p">)]</span>
+<span class="n">matrix</span> <span class="o">=</span> <span class="nf">cross_spectral_matrix</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">frequency_range</span><span class="o">=</span><span class="p">(</span><span class="mi">1_000</span><span class="p">,</span> <span class="mi">3_000</span><span class="p">))</span>
+<span class="n">component</span> <span class="o">=</span> <span class="nf">coherent_components</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="sh">"</span><span class="s">reference</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">at_2khz</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">argmin</span><span class="p">(</span><span class="nf">abs</span><span class="p">(</span><span class="n">component</span><span class="p">.</span><span class="n">frequency</span> <span class="o">-</span> <span class="mi">2_000</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">nanmedian</span><span class="p">(</span><span class="n">component</span><span class="p">.</span><span class="n">phase</span><span class="p">[</span><span class="n">at_2khz</span><span class="p">,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">]))</span>  <span class="c1"># approximately +0.4 rad
+</span></code></pre></div></div>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
   <h2 id="related-resources-title">Related resources</h2>
   <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="fluctuation-diagnostics">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/fluctuation_diagnostics_analysis.ipynb">Fluctuation diagnostics analysis</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
     
     
     <div class="related-resource-group" data-resource-kind="api">
@@ -601,14 +466,24 @@ use the slab frame of this page. See <a href="/vaft/develop/reference/diagrams/"
       <ul>
         
           
-          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
         
           
-          <li data-resource-id="diagram"><a href="/vaft/develop/reference/diagrams/"><code>vaft.diagram</code></a></li>
+          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/plot/"><code>vaft.plot</code></a></li>
         
       </ul>
     </div>
     
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+      </ul>
+    </div>
     
     
   </div>
@@ -670,13 +545,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/formula/geometry/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: geometry">
+                        <a href="/vaft/develop/reference/process/resistive_zeff/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: resistive_zeff">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/formula/disruption/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: disruption">
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -692,7 +567,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#two-axes-not-one-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Two axes, not one hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-used-throughout" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions used throughout</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#sheared-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sheared slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#curved-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Curved slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylinder-screw-pinch-cylindrical-tokamak" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylinder, screw pinch, cylindrical tokamak</a></li><li class="page-toc-item page-toc-level-2"><a href="#large-aspect-ratio-ordering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Large-aspect-ratio ordering</a></li><li class="page-toc-item page-toc-level-2"><a href="#local-sheared-slab-reduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local sheared-slab reduction</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-same-field-line-in-each-geometry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The same field line in each geometry</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-these-lead" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where these lead</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#estimation-and-units" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Estimation and units</a></li><li class="page-toc-item page-toc-level-2"><a href="#time-bandwidth-and-provenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Time, bandwidth and provenance</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-the-result-says" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What the result says</a></li><li class="page-toc-item page-toc-level-2"><a href="#small-synthetic-check" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Small synthetic check</a></li></ul>
     </nav>
 </aside>
 
@@ -708,11 +583,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Formula reference: disruption",
+            "title": "VEST diagnostics and data availability",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Formula_reference_disruption.md",
-            "ref": "_guide/Formula_reference_disruption.md",
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
             "articles": []
         },
         
@@ -804,8 +679,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Geometric_approximations.md",
-        "mtime": "2026-09-26 11:00:00 +0000",
+        "path": "_guide/Fluctuation_coherence.md",
+        "mtime": "2026-10-04 00:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
