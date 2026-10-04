@@ -196,7 +196,7 @@ def test_pylustrator_finishing_starts_first_and_only_in_the_text():
     import pathlib
 
     sources = pathlib.Path(vaft.plot.__file__).parent
-    assert not any("import pylustrator\n" in path.read_text() for path in sources.rglob("*.py")
+    assert not any("import pylustrator\n" in path.read_text(encoding="utf-8") for path in sources.rglob("*.py")
                    if path.name != "request.py"), "never imported by the library"
 
 
@@ -270,7 +270,7 @@ def test_inputs_and_flags_that_cannot_go_together(tmp_path):
     from vaft.cli.plot import main
 
     source = DataSource("file", pathlib.Path("a b/eq.json"))
-    assert source.values == ("a b/eq.json",)
+    assert source.values == (str(pathlib.Path("a b/eq.json")),), "the native path, separators and all"
     import numpy as np
 
     assert DataSource("sample", np.int64(39915)).values == (39915,)

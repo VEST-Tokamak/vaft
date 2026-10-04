@@ -190,6 +190,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "human_ai_interface.svg": ("human_ai_interface", {}),
     # the machine and research archive since 2012 (#497)
     "machine_research_archive.svg": ("machine_research_archive", {}),
+    # the VEST data platform: reference view and compact companion (#1550)
+    "vest_data_platform.svg": ("vest_data_platform", {}),
+    "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
     # the physics-workflow spine, level 2 below the platform overview (#1585)
     **{f"{name}.svg": (name, {}) for name in (
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",

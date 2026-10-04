@@ -205,8 +205,15 @@ def test_a_preset_after_individual_channels_is_applied(app):
     assert boxes.value == [] and state.as_options()["selection"] == wanted
 
 
-def test_figure_settings_reach_both_renderers(app):
-    app.xmin.value, app.xmax.value = 0.2, 0.6
+def _option(app, name, *values):
+    """Set the Figure Options form's widgets for field ``name``, as a reader would."""
+    for widget, value in zip(app.options_form.widgets[name], values):
+        widget.value = value
+
+
+def test_figure_options_reach_both_renderers(app):
+    _option(app, "xlim", 0.2, 0.6)
+    assert app.session.figure_options.xlim == (0.2, 0.6)
     assert list(app.interactive.object.layout.xaxis.range) == [0.2, 0.6]
     assert app.interactive.object.layout.uirevision.startswith("equilibrium_field_psi|")
     app.width.value = 640
@@ -214,20 +221,21 @@ def test_figure_settings_reach_both_renderers(app):
     app.plot.value = "plasma_current_time"
     xlim = [ax.get_xlim() for ax in app.session.figure.axes if ax.get_label() != "<colorbar>"]
     assert xlim and all(lim == (0.2, 0.6) for lim in xlim)
-    app.reset.clicks += 1
-    assert app.settings == gui_app.FigureSettings() and app.xmin.value is None
+    app.options_form.reset_button.clicks += 1
+    assert not app.session.figure_options and app.options_form.widgets["xlim"][0].value is None
     assert all(ax.get_xlim() != (0.2, 0.6) for ax in app.session.figure.axes)
+    app.width.value = None
     assert app.static.sizing_mode == "stretch_width"
 
 
 def test_an_impossible_limit_is_reported_not_applied(app):
-    app.xmin.value, app.xmax.value = 0.6, 0.6
-    assert app.alert.visible and "xmin must be below xmax" in app.alert.object
-    assert app.settings.xmax is None or app.settings.xmin != app.settings.xmax
+    _option(app, "xlim", 0.6, 0.6)
+    assert app.alert.visible and "low must be below high" in app.alert.object
+    assert app.session.figure_options.xlim == (0.6, None)
 
 
 def test_the_figure_downloads_as_the_matplotlib_rendering(app):
-    app.xmax.value = 0.33
+    _option(app, "xlim", None, 0.33)
     assert app.download.filename == "equilibrium_field_psi_sample_39915.png"
     png = app._export().getvalue()
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
@@ -261,20 +269,21 @@ def test_the_renderer_toggle_keeps_individual_channels_and_their_preset(app):
     assert state.as_options()["selection"] == state["selection"], "unticking returns to the preset"
 
 
-def test_a_figure_setting_keeps_the_controls_of_a_static_plot(app):
+def test_a_figure_option_keeps_the_controls_of_a_static_plot(app):
     app.plot.value = "plasma_current_time"
     unit = next(v for v in app.session.state.spec("yunit").options if v != app.session.state["yunit"])
     app.session.state.set("yunit", unit)
-    app.xmax.value = 0.33
+    _option(app, "xlim", None, 0.33)
     assert app.session.state["yunit"] == unit
     assert all(ax.get_xlim()[1] == 0.33 for ax in app.session.figure.axes)
 
 
 def test_a_log_axis_refuses_a_non_positive_limit_and_keeps_drawing(app):
-    app.ylog.value = True
-    app.ymin.value = 0.0
-    assert app.alert.visible and "positive ymin" in app.alert.object
-    assert app.settings.ymin is None
+    _option(app, "yscale", "log")
+    _option(app, "ylim", 0.0, None)
+    assert app.alert.visible and "positive ylim" in app.alert.object
+    assert app.session.figure_options.ylim is None, "the figure keeps the accepted options"
+    assert app.options_form.widgets["ylim"][0].value == 0.0, "the box keeps what was typed, to be corrected"
     state = app.session.state
     other = next(v for v in state.spec("time_slice").options if v != state["time_slice"])
     state.set("time_slice", other)
@@ -332,22 +341,24 @@ def test_serve_protects_a_shared_host(monkeypatch, capsys):
         gui_app.serve(auth="token")
 
 
-def test_settings_the_figure_refuses_are_rolled_back(app, monkeypatch):
-    kept = app.settings
-    real_apply = gui_app.FigureSettings.apply
+def test_options_the_figure_refuses_are_rolled_back(app, monkeypatch):
+    from vaft.plot import FigureOptions
 
-    def refuse(self, figure, renderer, **kwargs):
-        if self.xmax == 0.5:
+    kept = app.session.figure_options
+    real = FigureOptions.apply_plotly
+
+    def refuse(self, figure):
+        if self.xlim == (None, 0.5):
             raise ValueError("refused by the figure")
-        return real_apply(self, figure, renderer, **kwargs)
+        return real(self, figure)
 
-    monkeypatch.setattr(gui_app.FigureSettings, "apply", refuse)
-    assert app.apply_settings(gui_app.FigureSettings(xmax=0.5)) is False
-    assert app.settings == kept and "refused by the figure" in app.alert.object
+    monkeypatch.setattr(FigureOptions, "apply_plotly", refuse)
+    assert app.apply_options(FigureOptions(xlim=(None, 0.5))) is False
+    assert app.session.figure_options == kept and "refused by the figure" in app.alert.object
     state = app.session.state
     other = next(v for v in state.spec("time_slice").options if v != state["time_slice"])
     state.set("time_slice", other)
-    assert state["time_slice"] == other, "the plot is not frozen by the refused settings"
+    assert state["time_slice"] == other, "the plot is not frozen by the refused options"
 
 
 def test_file_paths_one_per_line_and_the_server_browser(app, tmp_path, monkeypatch):
@@ -533,12 +544,49 @@ def test_unticking_every_overlay_survives_a_redraw(app):
     assert app.session.state["overlay"] == ()
 
 
-def test_a_refused_setting_goes_back_out_of_its_box(app):
-    app.xmin.value = 0.5
-    app.xmax.value = 0.2
-    assert app.alert.visible and app.xmax.value is None and app.settings.xmin == 0.5
-    app.width.value = 600
-    assert app.settings.width == 600, "the next edit is not blocked by the refused value"
+def test_a_refused_option_stays_typed_but_blocks_no_other_edit(app):
+    _option(app, "xlim", 0.5, None)
+    _option(app, "xlim", 0.5, 0.2)
+    assert app.alert.visible and app.options_form.widgets["xlim"][1].value == 0.2, "kept as typed"
+    assert app.session.figure_options.xlim == (0.5, None)
+    _option(app, "title", "next")
+    assert app.session.figure_options.title == "next", "the next edit is not blocked by the refused value"
+    assert app.options_form.widgets["xlim"][1].value is None, "the refused value went back"
+
+
+def test_a_range_moves_past_its_other_end_low_first(app):
+    _option(app, "xlim", 0.0, 0.1)
+    _option(app, "xlim", 0.2)  # low past high: refused for now
+    assert app.alert.visible and app.session.figure_options.xlim == (0.0, 0.1)
+    _option(app, "xlim", 0.2, 0.3)
+    assert app.session.figure_options.xlim == (0.2, 0.3) and not app.alert.visible
+
+
+def test_reproduce_without_a_drawing_reports_instead_of_raising(app):
+    app._clear_plot(keep_selector=True)
+    app.session.close()
+    app.reproduce.text.value = "stale"
+    app.reproduce.python.clicks += 1
+    assert app.alert.visible and app.reproduce.text.value == "" and app.reproduce.copy.disabled
+
+
+def test_a_title_replaces_an_interactive_plots_own_title(app):
+    app.renderer.value = "matplotlib"
+    app.plot.value = "summary_time_voltage_consumption"
+    _option(app, "title", "My title")
+    figure = app.session.figure
+    texts = [t.get_text() for t in (figure._suptitle, *(s._suptitle for s in figure.subfigs)) if t is not None]
+    assert texts == ["My title"]
+
+
+def test_reloading_a_composition_without_its_plots_clears_the_screen(app):
+    app.mode.value = "compose"
+    app.composer.assign(["plasma_current_time"])
+    assert app.draw_composition()
+    app.session.grouped_plots = lambda: {}  # the new sources offer none of its plots
+    app.load(app.requested_sources())
+    assert app.session.composition is None and app.download.disabled
+    assert app.static.object is None and app.interactive.object is None
 
 
 def test_the_upload_widget_lets_go_of_the_bytes(app):
@@ -582,3 +630,90 @@ def test_the_page_loads_plotly_before_the_first_figure(monkeypatch):
     monkeypatch.setattr(pn, "extension", lambda *names, **kw: loaded.extend(names))
     gui_app.build_app(sample=39915, plot="plasma_current_time")
     assert "plotly" in loaded
+
+
+# --- Figure Options, reproduction and composition (#1421, #1467) ------------------
+
+
+def test_the_form_has_a_widget_for_every_option_and_reads_back_intent(app):
+    import dataclasses
+
+    from vaft.gui.options_form import SECTIONS
+    from vaft.plot import FigureOptions
+
+    names = {f.name for f in dataclasses.fields(FigureOptions)}
+    assert set(app.options_form.widgets) == names, "derived from the dataclass, nothing missing"
+    assert {name for section in SECTIONS.values() for name in section} <= names
+    assert app.options_form.value() == FigureOptions(), "untouched means inherited"
+    _option(app, "legend", "off")
+    _option(app, "font_family", "Arial, DejaVu Sans")
+    _option(app, "ylim", None, 5.0)
+    assert app.session.figure_options.to_dict() == {
+        "ylim": [None, 5.0], "legend": False, "font_family": ["Arial", "DejaVu Sans"],
+    }
+    app.options_form.reset_button.clicks += 1
+    assert not app.session.figure_options, "reset restores inheritance, not the resolved values"
+
+
+def test_copy_python_and_cli_reproduce_the_screen(app):
+    _option(app, "xlim", 0.30, 0.33)
+    app.reproduce.format.value = "single_column"
+    code = app.reproduce.write("python")
+    assert "format='single_column'" in code and "'xlim': [0.3, 0.33]" in code
+    assert "backend" not in code, "a format makes it a Matplotlib figure"
+    namespace: dict = {}
+    exec(code, namespace)
+    assert namespace["axes"].get_xlim() == pytest.approx((0.30, 0.33))
+    command = app.reproduce.write("cli")
+    assert command.startswith("vaft plot equilibrium_field_psi --sample 39915") and "--format single_column" in command
+    assert "pylustrator.start()" in app.reproduce.write("pylustrator") and not app.reproduce.copy.disabled
+    app.reproduce.format.value = "(inherited)"
+    assert "backend='plotly'" in app.reproduce.write("python"), "the interactive view reproduces as Plotly"
+
+
+def test_only_changed_controls_are_written(app):
+    request = app.session.request()
+    assert dict(request.options) == {}, "a control left at its default is the plot's default"
+    state = app.session.state
+    other = next(v for v in state.spec("time_slice").options if v != state["time_slice"])
+    state.set("time_slice", other)
+    assert dict(app.session.request().options) == {"time_slice": other}
+
+
+def test_options_act_on_redraws_a_control_triggers(app):
+    app.plot.value = "plasma_current_time"  # static: drawn by Matplotlib
+    base = app.session.figure.axes[0].get_lines()[0].get_linewidth()
+    _option(app, "line_scale", 2.0)
+    assert app.session.figure.axes[0].get_lines()[0].get_linewidth() == pytest.approx(2 * base)
+    state = app.session.state
+    unit = next(v for v in state.spec("yunit").options if v != state["yunit"])
+    widget = _widget(app, "Unit")
+    widget.value = unit
+    assert app.session.figure.axes[0].get_lines()[0].get_linewidth() == pytest.approx(2 * base), \
+        "a control change redraws under the options"
+
+
+def test_the_composer_draws_exports_and_reproduces_a_composition(app):
+    app.mode.value = "compose"
+    assert app.compose_box.visible and not app.plot_box.visible
+    app.composer.preset.value = "2 × 1"
+    app.composer.assign(["plasma_current_time", "equilibrium_profile_q"])
+    _option(app, "title", "stack")
+    assert app.draw_composition() and app.session.composition is not None
+    assert app.session.renderer == "matplotlib", "a cell without a Plotly rendering keeps it static"
+    figure = app.session.figure
+    assert len([a for a in figure.axes if a.get_label() != "<colorbar>"]) == 2
+    assert figure._suptitle.get_text() == "stack"
+    assert app.download.filename.startswith("composition_") and app._export().getvalue()[:4] == b"\x89PNG"
+    code = app.reproduce.write("python")
+    assert "FigureComposition.from_dict(" in code and "vaft.omas.compose(composition, data" in code
+    namespace: dict = {}
+    exec(code, namespace)
+    assert len(namespace["axes"]) == 2
+    app.composer.assign(["plasma_current_time", "plasma_current_time"])
+    assert app.draw_composition(), "a plot used twice gets distinct cell names"
+    app.composer.rows.value = 1
+    app.composer.cells[(0, 0)][2].value = 2  # a span over a cell the grid no longer has
+    assert not app.draw_composition() and "does not fit" in app.alert.object
+    app.mode.value = "plot"
+    assert app.session.composition is None and app.session.plot == app.plot.value

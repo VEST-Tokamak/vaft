@@ -6,6 +6,8 @@
 \documentclass[tikz,border=4pt]{standalone}
 \usepackage{amsmath}
 \usetikzlibrary{arrows.meta}
+% a packaged picture (vaft.diagram Image): dvisvgm's img special, drawn down from the box's top-left
+\newcommand{\vaftimage}[3]{\raisebox{0pt}[#2][0pt]{\makebox[#1][l]{\raisebox{#2}{\special{dvisvgm:img #1 #2 #3}}}}}
 % shrink content to a width only when it is wider (vaft.diagram workflow equations); a TikZ scale,
 % because dvisvgm does not apply graphicx's dvips scaling specials
 \newsavebox{\vaftfitbox}
@@ -153,6 +155,9 @@
   concept base/.style={draw=islanddark,line width=1.0pt,rounded corners=2pt,fill=absequil!14},
   concept actor/.style={draw=abskinetic!85,line width=1.0pt,rounded corners=6pt,fill=abskinetic!15},
   concept hub/.style={draw=islanddark,line width=1.3pt,rounded corners=10pt,fill=black!7},
+  concept frame/.style={draw=black!55,dashed,line width=1.2pt,rounded corners=6pt},
+  current ring/.style={draw=driftred!80!black,line width=0.9pt},
+  current ring back/.style={draw=driftred!30,line width=0.6pt},
   concept plain/.style={font=\normalsize,align=center,execute at begin node={\hyphenpenalty=10000}},
   concept annotation/.style={font=\small\itshape,text=black!60,align=center,execute at begin node={\hyphenpenalty=10000}},
   concept strong/.style={draw=islanddark,line width=1.8pt,rounded corners=4pt,fill=qblue!16},

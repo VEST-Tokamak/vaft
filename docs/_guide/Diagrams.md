@@ -1218,6 +1218,35 @@ The pillar names are the four README sections.
 The diagrams are built from the concept primitives in `vaft.diagram._concept`: `box`, `connector`, `band`,
 and `database`, a drum drawn as polylines. They use the `concept …` and `connector …` styles of the template.
 
+## The VEST data platform
+
+The VEST data platform as a database-centred scientific workflow (#1550), laid out as a cross about the
+database. The VEST machine, a CAD render packaged with `vaft.diagram` and embedded in the SVG, sits outside
+the platform server and feeds experimental data processing
+([the render]({{ '/assets/images/vest_machine.jpg' | relative_url }})). A per-shot directory is the hub: reconstruction and physics inference (above) and simulation
+(right) read from it and write back to it. Users reach it from below, and the whole runs on Windows,
+macOS and Linux, locally or on an HPC cluster. The content is declared in `vaft.diagram._platform`
+(`EXPERIMENTAL_PROCESSING`, `DATABASE_LAYOUT`, `RECONSTRUCTION`, `DERIVED_PHYSICS`, `SIMULATION`, `ACCESS`,
+`EXECUTION_*`), so the figure is updated by editing data. The database technology appears once, as a muted
+caption under its title (`DATABASE_TECHNOLOGY`: IMAS · HDF5 · HSDS); no other backend or workflow-engine names
+are drawn.
+
+```python
+vaft.diagram.vest_data_platform()           # the reference architecture view
+vaft.diagram.vest_data_platform_overview()  # five stages, for papers and slides
+```
+
+| Area | Content |
+| --- | --- |
+| Experimental data processing | Machine Model & History, Signal Processing, Quality & Validation, Fault & Anomaly Detection, Shot Classification, Event Detection |
+| Database | `{shot}/`: `master.h5`; experimental files; reconstructed state; physics products; each group open-ended |
+| Reconstruction & physics inference | Reconstruction (Eddy Current Model, Magnetic EFIT, Profile Fitting, Plasma Parameter Inference, Kinetic EFIT); Derived Physics (Vacuum Field Proxies, MHD Parameters, Synthetic Diagnostics, Coordinate Conversion, Power Balance) |
+| Simulation | Each entry is the concept, with its code or model authors beneath. Equilibrium: Fixed Boundary (CHEASE), Free Boundary (TokaMaker), Analytic GS (Solov'ev · Guazzotto & Freidberg). Stability: Ideal (DCON), Resistive (RDCON). 3D Response & Topology: Plasma Response (GPEC), Field-Line Following (FLARE). Transport: Classical (Braginskii), Neoclassical (NEO / Sauter & Redl), Turbulent (TGLF / CGYRO) |
+| Access & analysis | Python API, CLI, GUI, MCP, Documentation; Data Access · Search · Visualization · Comparison · Statistics · Export · Tutorials · Research Archive |
+
+![The VEST data platform]({{ '/assets/diagrams/vest_data_platform.svg' | relative_url }})
+![The VEST data platform in five stages]({{ '/assets/diagrams/vest_data_platform_overview.svg' | relative_url }})
+
 ## Integrated modeling: knowledge basis, realization, abstraction
 
 A single "analytic / numerical / empirical / data-driven" list mixes three independent questions. These

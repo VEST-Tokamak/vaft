@@ -385,3 +385,123 @@ def test_narrow_image_storage_covers_every_channel(tmp_path):
         stored = np.asarray(ods[f"camera_visible.channel.{channel}.detector.0.frame.0.image_raw"])
         assert stored.dtype == np.int32
         assert np.array_equal(stored, image)
+
+
+def _write_gx8_header(
+    shot_dir: Path,
+    shot: int,
+    *,
+    top_frame: int = 740,
+    bottom_frame: int = 742,
+    frame_rate: int = 2500,
+    shutter: str = "200k",
+) -> Path:
+    """A BatchConv2 re-export header, abridged from real shot 22360's.
+
+    ``BEGIN_TIME``/``END_TIME`` are left at the converter template's values on
+    purpose: they disagree with the frame numbers, as they do in the archive.
+    """
+    text = (
+        "ID: 5\n"
+        "Type: GX-8\n"
+        "CID: 1955\n"
+        f"TopFrame: {top_frame}\n"
+        f"BottomFrame: {bottom_frame}\n"
+        "Rec_Time: 19/05/07 21:52:26.567279\n"
+        "TriggerSelect: CENTER\n"
+        "TriggerValue: 0\n"
+        f"Frame_SRC_Rate: {frame_rate}\n"
+        "Frame_SRC_Size: 1024x1280\n"
+        f"Shutter_SRC_Speed: {shutter}\n"
+        "ShutterValueNumerator: 397486\n"
+        "ShutterValueDenominator: 1000000000\n"
+        "\n"
+        f"Frame_Rate: {frame_rate}\n"
+        f"Shutter_Speed: {shutter}\n"
+        "File Type : bmp\n"
+        f"Conversion Range : {top_frame}  -> {bottom_frame}\n"
+        "\n"
+        "[CONV_PARAM]\n"
+        f"BEGIN_FRAME={top_frame}\n"
+        f"END_FRAME={bottom_frame}\n"
+        "BEGIN_TIME=+0.280000\n"
+        "END_TIME=+0.340000\n"
+        f"FRAME_RATE={frame_rate}\n"
+    )
+    header_path = shot_dir / f"{shot}_bmp.txt"
+    header_path.write_text(text, encoding="utf-8")
+    return header_path
+
+
+def test_gx8_header_times_come_from_frame_numbers_not_the_template(tmp_path):
+    # The CONV_PARAM BEGIN_TIME/END_TIME (+0.28/+0.34 s) are template values;
+    # frames 740..742 at 2500 fps are 0.296..0.2968 s.
+    header = _parse_bmp_header(_write_gx8_header(tmp_path, SHOT))
+
+    assert header.total_frames == 3
+    assert header.start_time_ms == pytest.approx(296.0)
+    assert header.end_time_ms == pytest.approx(296.8)
+    assert header.exposure_time_s == pytest.approx(5e-6)
+
+
+@pytest.mark.parametrize(
+    "shutter, expected_s",
+    [("333k", 1 / 333e3), ("5k", 2e-4), ("100", 1e-2), ("OPEN", None), ("CUSTOM", None)],
+)
+def test_gx8_header_exposure_forms(tmp_path, shutter, expected_s):
+    header = _parse_bmp_header(_write_gx8_header(tmp_path, SHOT, shutter=shutter))
+
+    if expected_s is None:
+        assert header.exposure_time_s is None
+    else:
+        assert header.exposure_time_s == pytest.approx(expected_s)
+
+
+def test_gx8_header_agrees_with_the_original_layout_for_the_same_export(tmp_path):
+    # Shots 26151/26153/26155 exist in both layouts: TopFrame 700..850 at
+    # 2500 fps, ShutterSpeed 200k(5.0us).
+    original_dir = tmp_path / "original"
+    original_dir.mkdir()
+    reexport_dir = tmp_path / "reexport"
+    reexport_dir.mkdir()
+    original = _parse_bmp_header(
+        _write_header(
+            original_dir, SHOT, total_frames=151, start_time_ms=280.0, end_time_ms=340.0,
+            shutter_speed_line="ShutterSpeed: 200k(5.0us)\n",
+        )
+    )
+    reexport = _parse_bmp_header(
+        _write_gx8_header(reexport_dir, SHOT, top_frame=700, bottom_frame=850, shutter="200k")
+    )
+
+    assert reexport.total_frames == original.total_frames
+    assert reexport.start_time_ms == pytest.approx(original.start_time_ms)
+    assert reexport.end_time_ms == pytest.approx(original.end_time_ms)
+    assert reexport.exposure_time_s == pytest.approx(original.exposure_time_s)
+
+
+def test_gx8_header_without_frame_numbers_is_rejected(tmp_path):
+    header_path = _write_gx8_header(tmp_path, SHOT)
+    header_path.write_text(
+        header_path.read_text().replace("TopFrame: 740\n", ""), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="TopFrame"):
+        _parse_bmp_header(header_path)
+
+
+def test_camera_visible_reads_a_gx8_reexport_end_to_end(tmp_path):
+    shot_dir = tmp_path / str(SHOT)
+    shot_dir.mkdir()
+    _write_gx8_header(shot_dir, SHOT, top_frame=740, bottom_frame=744)
+    for index in range(5):
+        _write_frame(shot_dir, SHOT, index, bright=index == 2)
+
+    ods = ODS()
+    camera_visible(ods, SHOT, frame_dir=shot_dir)
+
+    frames = ods["camera_visible.channel.0.detector.0.frame"]
+    times = [frames[i]["time"] for i in range(len(frames))]
+    assert times == pytest.approx([0.296, 0.2964, 0.2968, 0.2972, 0.2976])
+    assert ods["camera_visible.channel.0.detector.0.exposure_time"] == pytest.approx(5e-6)
+    assert "Shutter_SRC_Speed" in ods["camera_visible.ids_properties.comment"]

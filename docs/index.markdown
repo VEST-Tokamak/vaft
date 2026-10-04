@@ -75,12 +75,11 @@ Four things, which together are what "framework" means here.
 
 ## Architecture
 
-```text
-VEST Data Analysis Platform
-├── Automated Pipeline (Snakemake)     ── experiment → postprocessing → simulation
-├── IMAS Database (OMAS-HSDS)          ── per-shot HDF5 storage via REST API
-└── VAFT Library                       ── data access, mapping, processing, visualization
-```
+![The VEST data platform in five stages]({{ site.baseurl }}/assets/diagrams/vest_data_platform_overview.svg)
+
+Experiment, experimental data processing, a per-shot database shared by reconstruction and simulation,
+and access and analysis with VAFT. The reference view, with every section's content, is on
+[Diagrams]({{ site.baseurl }}/reference/diagrams/#the-vest-data-platform).
 
 ### Available IMAS IDSs in the VEST database
 

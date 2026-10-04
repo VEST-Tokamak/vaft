@@ -93,7 +93,11 @@ vaft/
 
 Around the library sits the wider VEST data analysis platform: an automated **Snakemake** pipeline
 carrying each shot from experiment through post-processing to simulation, and the IMAS database
-itself. Both are described in [Pipelines]({{ site.baseurl }}/guide/Pipelines/); the per-module
+itself.
+
+![The VEST data platform]({{ site.baseurl }}/assets/diagrams/vest_data_platform.svg)
+
+Both are described in [Pipelines]({{ site.baseurl }}/guide/Pipelines/); the per-module
 surface is catalogued in the [API reference]({{ site.baseurl }}/guide/API_reference/).
 
 ## Citation

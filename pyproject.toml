@@ -220,6 +220,9 @@ vaft = [
   "data/samples/39915/imas.nc",
   # The authored TikZ template vaft.diagram renders every scene into.
   "diagram/templates/*.tex",
+  # packaged pictures a diagram embeds (the VEST machine render, #1550)
+  "diagram/images/*.jpg",
+  "diagram/images/*.png",
 ]
 
 [tool.uv.sources]
