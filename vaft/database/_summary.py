@@ -5,6 +5,7 @@ from __future__ import annotations
 from vaft.data.eqdsk import TWO_PI, ods_psi_to_wb_per_radian_factor
 
 from dataclasses import dataclass
+import hashlib
 import json
 import logging
 import os
@@ -167,6 +168,32 @@ NEOCLASSICAL_PATHS = (
     "core_profiles",
     "core_transport",
     "equilibrium",
+)
+
+
+# One row per canonical anomalous core_transport model and time slice. The
+# model index is part of the identity: two configurations must not be averaged
+# into one population simply because they predict flux at the same time.
+TURBULENT_TRANSPORT_COLUMNS = (
+    "shot",
+    "model_index",
+    "profile_index",
+    "time_s",
+    "source",
+    "model_name",
+    "code_name",
+    "code_version",
+    "configuration_status",
+    "configuration_sha256",
+    "rho_flux_min",
+    "rho_flux_max",
+    "points_on_grid",
+    "ion_count",
+    "q_e_points",
+    "q_i_points",
+    "q_e_peak_abs_W_m2",
+    "q_i_peak_abs_W_m2",
+    "gamma_e_peak_abs_m2_s",
 )
 
 VOLUME_AVERAGED_COLUMNS = (
@@ -706,6 +733,104 @@ def extract_neoclassical(ods, shot: int) -> list[dict]:
                 "has_core_transport": has_transport,
             }
         )
+    return rows
+
+
+def _flux_profile(ods, path: str, size: int | None = None) -> np.ndarray | None:
+    values = _stored_value(ods, path)
+    if values is None:
+        return None
+    try:
+        array = np.asarray(values, dtype=float).reshape(-1)
+    except (TypeError, ValueError):
+        return None
+    return array if size is None or array.size == size else None
+
+
+def _stored_value(ods, path: str):
+    """Read only a stored leaf; OMAS may return an empty node for a missing one."""
+    return _safe_get(ods, path, None) if path in ods else None
+
+
+def _peak_abs(values: np.ndarray | None) -> float:
+    if values is None or not np.isfinite(values).any():
+        return np.nan
+    return float(np.max(np.abs(values[np.isfinite(values)])))
+
+
+def extract_turbulent_transport(ods, shot: int) -> list[dict]:
+    """Summarize canonical anomalous ``core_transport`` fluxes by model and time.
+
+    The fluxes are the SI values already mapped by the authoritative producer;
+    neither solver files nor an atlas table is read here. No radial gap is
+    filled, and an incomplete ion species set has no fabricated total.
+    """
+    if "core_transport.model" not in ods:
+        return []
+    rows: list[dict] = []
+    for model_index in range(len(ods["core_transport.model"])):
+        prefix = f"core_transport.model.{model_index}"
+        if _as_float(_stored_value(ods, f"{prefix}.identifier.index")) != 6:
+            continue
+        profiles_path = f"{prefix}.profiles_1d"
+        if profiles_path not in ods:
+            continue
+        parameters = _stored_value(ods, f"{prefix}.code.parameters")
+        configuration = None if parameters is None else str(parameters)
+        config_hash = (
+            hashlib.sha256(configuration.encode("utf-8")).hexdigest()
+            if configuration else None
+        )
+        for profile_index in range(len(ods[profiles_path])):
+            base = f"{profiles_path}.{profile_index}"
+            time_s = _as_float(_stored_value(ods, f"{base}.time"))
+            grid = _flux_profile(ods, f"{base}.grid_flux.rho_tor_norm")
+            if not np.isfinite(time_s) or grid is None or not np.isfinite(grid).any():
+                continue
+            size = grid.size
+            q_e = _flux_profile(ods, f"{base}.electrons.energy.flux", size)
+            gamma_e = _flux_profile(ods, f"{base}.electrons.particles.flux", size)
+            valid_grid = np.isfinite(grid)
+            if q_e is not None:
+                q_e = np.where(valid_grid, q_e, np.nan)
+            if gamma_e is not None:
+                gamma_e = np.where(valid_grid, gamma_e, np.nan)
+            ions_path = f"{base}.ion"
+            ion_count = len(ods[ions_path]) if ions_path in ods else 0
+            ion_fluxes = [
+                _flux_profile(ods, f"{ions_path}.{index}.energy.flux", size)
+                for index in range(ion_count)
+            ]
+            ion_fluxes = [
+                None if flux is None else np.where(valid_grid, flux, np.nan)
+                for flux in ion_fluxes
+            ]
+            q_i = (
+                np.sum(np.vstack(ion_fluxes), axis=0)
+                if ion_count and all(flux is not None for flux in ion_fluxes)
+                else None
+            )
+            finite_grid = grid[np.isfinite(grid)]
+            rows.append({
+                "shot": int(shot),
+                "model_index": model_index,
+                "profile_index": profile_index,
+                "time_s": time_s,
+                "model_name": _stored_value(ods, f"{prefix}.identifier.name"),
+                "code_name": _stored_value(ods, f"{prefix}.code.name"),
+                "code_version": _stored_value(ods, f"{prefix}.code.version"),
+                "configuration_status": "recorded" if config_hash else "unrecorded",
+                "configuration_sha256": config_hash,
+                "rho_flux_min": float(np.min(finite_grid)),
+                "rho_flux_max": float(np.max(finite_grid)),
+                "points_on_grid": int(finite_grid.size),
+                "ion_count": ion_count,
+                "q_e_points": 0 if q_e is None else int(np.count_nonzero(np.isfinite(q_e))),
+                "q_i_points": 0 if q_i is None else int(np.count_nonzero(np.isfinite(q_i))),
+                "q_e_peak_abs_W_m2": _peak_abs(q_e),
+                "q_i_peak_abs_W_m2": _peak_abs(q_i),
+                "gamma_e_peak_abs_m2_s": _peak_abs(gamma_e),
+            })
     return rows
 
 
@@ -1441,6 +1566,14 @@ PRESETS = {
         sort_columns=("shot", "time_s", "cp_index"),
         extractor=extract_neoclassical,
     ),
+    "turbulent_transport": SummaryPreset(
+        columns=_summary_columns(TURBULENT_TRANSPORT_COLUMNS),
+        paths=("core_transport",),
+        key_columns=("shot", "model_index", "profile_index", "time_s"),
+        replace_groups=("shot",),
+        sort_columns=("shot", "time_s", "model_index", "profile_index"),
+        extractor=extract_turbulent_transport,
+    ),
     "shot_overview": SummaryPreset(
         columns=_summary_columns(SHOT_OVERVIEW_COLUMNS),
         paths=("spectrometer_uv", "magnetics", "tf", "barometry", "dataset_description"),
@@ -1534,6 +1667,9 @@ def summary(
             if "equilibrium_source" in definition.columns:
                 for row in rows:
                     row["equilibrium_source"] = source
+            if "source" in definition.columns:
+                for row in rows:
+                    row["source"] = source
             frames.append(pd.DataFrame(rows))
         except Exception as exc:
             logger.warning("Shot %s: preset %s failed; skipping: %s", shot, preset, exc)
@@ -1685,9 +1821,11 @@ __all__ = [
     "extract_core_profiles",
     "extract_efit_reliability",
     "extract_shot_overview",
+    "extract_turbulent_transport",
     "extract_volume_averaged",
     "get_summary_preset",
     "summary",
     "SHOT_OVERVIEW_COLUMNS",
+    "TURBULENT_TRANSPORT_COLUMNS",
     "VOLUME_AVERAGED_COLUMNS",
 ]

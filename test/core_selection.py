@@ -138,6 +138,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_public_profile.py",
     "test_public_transition.py",
     "test_shotlog.py",
+    "test_turbulent_transport_summary.py",
     # Packaging and documentation policy. Metadata reads; they catch the
     # breakage `package` cannot see until it is already building a wheel.
     "contracts/test_dependency_policy_matrix.py",

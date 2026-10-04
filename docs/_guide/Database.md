@@ -46,6 +46,31 @@ linear transformation between shot and date. Date-primary plots omit rows
 without acquisition timestamps. Summaries with several rows per shot retain
 every row; select the desired time slices in the DataFrame before plotting.
 
+## Transport summary hierarchy
+
+`equilibrium_global` and `core_profiles` describe their respective time
+slices. `neoclassical` currently summarizes bootstrap current from canonical
+`core_profiles`. `turbulent_transport` summarizes anomalous models already
+stored in canonical `core_transport`: one row per shot, model entry, and time
+slice. It reads no TGLF or CGYRO native output and does not combine models.
+
+```python
+transport = vaft.database.summary((39915, 39916), preset="turbulent_transport")
+transport[["shot", "time_s", "source", "model_index", "rho_flux_min",
+           "rho_flux_max", "q_e_peak_abs_W_m2", "q_i_peak_abs_W_m2"]]
+```
+
+The peak columns are maxima of the *absolute* mapped SI flux over finite
+`rho_tor_norm` grid points, not full radial profiles. `q_i` sums all recorded
+ion species at each point only when every ion flux is present; its point count
+then reports coverage. `configuration_sha256` distinguishes recorded model
+parameter text. A value of `unrecorded` means the canonical model lacks that
+configuration, so comparisons across settings need the upstream run record.
+Classical heat flux remains a resolved-state result without a standardized
+`core_transport` projection; it is not presented as a canonical preset yet.
+`power_balance` likewise awaits the stored-energy and loss-power definitions
+tracked in issues #1282 and #548.
+
 | Back-end | Module | What a shot looks like | What you get back |
 | --- | --- | --- | --- |
 | **HSDS** — remote IMAS HDF5 store | `vaft.database.ods`, `vaft.database.ids`, `vaft.database.utils` | a *folder* `hdf5://{directory}/{shot}/` holding `master.h5` plus one `<ids_name>.h5` per IDS | an OMAS `ODS`, or a native IMAS `IDSToplevel` |
