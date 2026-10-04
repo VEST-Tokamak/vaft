@@ -118,6 +118,8 @@ _MOMENT_EXPORTS = (
     "derive_current_moments",
 )
 
+_COIL_FIT_EXPORTS = ("CoilFitResult", "fit_free_boundary_coils")
+
 __all__ = [
     "FLUX_SURFACE_QUANTITIES",
     "MIN_ANNULUS_CELLS",
@@ -176,6 +178,7 @@ __all__ = [
     *_COMPACT_EXPORTS,
     *_GF_EXPORTS,
     *_MOMENT_EXPORTS,
+    *_COIL_FIT_EXPORTS,
 ]
 
 
@@ -6626,3 +6629,6 @@ def integrate_romero_closure(
         "V_C": v_b + relative,
         "V_R": r_p * (current - i_ni),
     }
+
+
+from ._equilibrium_coil_fit import CoilFitResult, fit_free_boundary_coils  # noqa: E402,F401
