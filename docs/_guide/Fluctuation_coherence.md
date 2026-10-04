@@ -1,7 +1,7 @@
 ---
 title: Cross-diagnostic fluctuation coherence
 author: VEST team
-date: 2026-10-05 00:00
+date: 2026-10-04 00:00
 category: guide
 layout: post
 permalink: /workflows/fluctuation-coherence/
