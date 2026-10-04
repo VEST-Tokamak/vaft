@@ -34,6 +34,8 @@ include vaft/data/legacy/langmuir_probe_positions.csv
 include vaft/data/samples/*/manifest.yaml
 include vaft/data/samples/39915/omas.json.gz
 include vaft/data/samples/39915/imas.nc
+include vaft/data/unified/vest_diagnostics/manifest.yaml
+include vaft/data/unified/vest_diagnostics/omas.json.gz
 include vaft/data/wheel_samples/39915/manifest.yaml
 include vaft/data/wheel_samples/39915/omas.json.gz
 include vaft/data/wheel_samples/39915/imas.nc

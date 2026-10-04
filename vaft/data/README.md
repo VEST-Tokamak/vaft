@@ -251,3 +251,20 @@ VEST SQL database to repair its 52 affected channels.) Data are verified
 bit-identical to the DB waveforms at dump time; reconstructed times agree with
 the DB's stored time strings to within the DB's own ~0.5 microsecond string
 quantization.
+## Unified diagnostic fixture
+
+`unified/vest_diagnostics/` contains a small, offline **cross-shot composite**;
+it is not a physical discharge and has no synthetic pulse number. Use
+`vaft.data.unified_diagnostics_manifest()` to inspect the source shot, artifact,
+time selection, processing, measurement type, and geometry compatibility for
+each family, then `vaft.data.unified_diagnostics_fixture()` to load the OMAS
+data. The bundled `omas.json.gz` is regenerated with
+`PYTHONPATH=. python workflow/reference_validation/build_unified_diagnostics.py`
+from the repository checkout; the source artifacts are not required to load it.
+
+The machine outline uses shot 39915 (PF geometry 1906, passive wall 1512).
+The kinetic subset, including its own equilibrium, is from shot 48224 (PF
+geometry 2507). Its equilibrium must not be interpreted as a reconstruction of
+the 39915 machine configuration. Interferometer and SXR values are chord
+measurements; neither is a local radial profile. Family time axes are retained
+independently, so plots comparing them must not imply simultaneous acquisition.

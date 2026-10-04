@@ -1,0 +1,96 @@
+schema_version: 1
+kind: cross-shot-diagnostic-fixture
+machine: VEST
+physical_discharge: false
+notice: Cross-shot composite fixture — not a physical VEST discharge
+geometry_reference:
+  source_shot: 39915
+  pf_geometry_version: '1906'
+  wall_geometry_version: '1512'
+  meaning: Other-shot diagnostic geometry is shown against this reference machine;
+    operation was not simultaneous.
+artifact:
+  path: omas.json.gz
+  sha256: 8600e5f2b96c46da0c499b486f0fbe29275de77dcb84292a6a84bb54eea878a9
+  size: 977175
+sources:
+  machine_geometry:
+    source_shot: 39915
+    source_artifact: samples/39915/omas.json.gz
+    source_sha256: 70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb
+    ids:
+    - wall
+    - pf_active
+    - pf_passive
+    source_time: static geometry
+    processing: copied, geometry only
+    value_kind: mapped
+    geometry_compatibility: reference
+  magnetics:
+    source_shot: 39915
+    source_artifact: samples/39915/omas.json.gz
+    source_sha256: 70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb
+    ids:
+    - magnetics
+    source_time: static sensor positions only
+    processing: geometry selection
+    value_kind: mapped
+    geometry_compatibility: reference
+  kinetic:
+    source_shot: 48224
+    source_artifact: samples/48224/omas.json.gz
+    source_sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7
+    ids:
+    - thomson_scattering
+    - charge_exchange
+    - core_profiles
+    - equilibrium
+    source_time: Thomson 0.298–0.307 s; equilibrium/core_profiles near 0.300 s; CX
+      native time retained
+    processing: copied together without refitting or time alignment
+    value_kind: measured; fitted/reconstructed
+    geometry_compatibility: 2507 PF era; equilibrium must not be presented as the
+      39915 machine configuration
+  interferometer_94ghz:
+    source_shot: 47230
+    source_artifact: legacy/47230_056789_LID_1_100.mat
+    source_sha256: d90a2c4970170625fbe2930d1c2266e38b0be27eef51d0759325192380149182
+    ids:
+    - interferometer
+    source_time: native samples within 0.299–0.303 s
+    processing: vaft.machine_mapping.interferometer; one horizontal chord; sparse
+      sample selection
+    value_kind: measured line-integrated density
+    geometry_compatibility: geometry projected on reference; no local density inference
+  interferometer_282ghz:
+    source_shot: 47230
+    source_artifact: legacy/47230_ALL_LID_1_100.mat
+    source_sha256: 9374e8b50f7718e9b959edce86bc1a454829388a0be1b3290c6b6a84b34b745a
+    ids:
+    - interferometer
+    source_time: native samples within 0.299–0.303 s
+    processing: vaft.machine_mapping.interferometer; one vertical chord; sparse sample
+      selection
+    value_kind: measured line-integrated density
+    geometry_compatibility: geometry projected on reference
+  langmuir_probes:
+    source_shot: 42699
+    source_artifact: legacy/langmuir_probes_42699.json.gz
+    source_sha256: 99d78ae5fbc7f8a03c476f6c33540a7e0f58212a788ff339d248f5cae792e3b8
+    ids:
+    - langmuir_probes
+    source_time: native samples within 0.35–0.46 s
+    processing: existing mapped triple-probe output; sparse sample selection
+    value_kind: derived local n_e and T_e
+    geometry_compatibility: positions projected on reference; shot-era compatibility
+      to be checked before physical interpretation
+  soft_x_rays:
+    source_shot: 45531
+    source_artifact: samples/45531/omas.json.gz
+    source_sha256: 41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f
+    ids:
+    - soft_x_rays
+    source_time: native samples within 0.299–0.303 s
+    processing: existing mapped output; first two vertical chords; sparse sample selection
+    value_kind: measured chord brightness
+    geometry_compatibility: LOS projected on reference; no local temperature inference
