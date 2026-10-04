@@ -32,8 +32,105 @@ __all__ = [
     "TYPICAL_PHENOMENON_BANDS",
     "cross_spectrum_model",
     "plot_cross_spectrum",
+    "plot_cross_diagnostic_coherence_spectrogram",
+    "plot_multi_diagnostic_coherent_spectrogram",
+    "plot_multi_diagnostic_coherent_fraction",
+    "plot_multi_diagnostic_participation",
+    "plot_multi_diagnostic_phase",
     "plot_fluctuation_frequency_coverage",
 ]
+
+
+def _fluctuation_map(
+    result: Any, values: Any, *, title: str, colorbar: str,
+    cmap: str, vmin: float | None = None, vmax: float | None = None,
+    ax: Any = None, show: bool = False,
+) -> tuple[Any, Any]:
+    """Render a masked frequency-by-time field on its recorded coordinates."""
+    from .style import finalize, resolve_axes
+
+    time = np.asarray(result.time, dtype=float)
+    frequency = np.asarray(result.frequency, dtype=float)
+    field = np.asarray(values, dtype=float)
+    if field.shape != (frequency.size, time.size):
+        raise ValueError("map must be (frequency, time) on the result coordinates")
+    if time.size < 2 or frequency.size < 2:
+        raise ValueError("a spectrogram plot needs at least two time and frequency bins")
+    figure, axes = resolve_axes(ax, figsize=(8.5, 4.2))
+    image = axes.pcolormesh(
+        time, frequency / 1e3, np.ma.masked_invalid(field),
+        shading="auto", cmap=cmap, vmin=vmin, vmax=vmax,
+    )
+    axes.set(xlabel="Time [s]", ylabel="Frequency [kHz]", title=title)
+    figure.colorbar(image, ax=axes, label=colorbar)
+    return finalize(figure, axes, show=show, tight_layout=ax is None)
+
+
+def plot_cross_diagnostic_coherence_spectrogram(
+    result: Any, *, ax: Any = None, show: bool = False,
+) -> tuple[Any, Any]:
+    """Time-resolved magnitude-squared coherence of two selected signals."""
+    return _fluctuation_map(
+        result, result.coherence, title="Cross-diagnostic coherence",
+        colorbar="Magnitude-squared coherence", cmap="viridis",
+        vmin=0, vmax=1, ax=ax, show=show,
+    )
+
+
+def plot_multi_diagnostic_coherent_spectrogram(
+    result: Any, *, ax: Any = None, show: bool = False,
+) -> tuple[Any, Any]:
+    """Leading PSD-normalized spectral eigenvalue, not a physical mode power."""
+    return _fluctuation_map(
+        result, result.dominant_power,
+        title="Dominant coherent spectral component (normalized)",
+        colorbar="Leading eigenvalue [dimensionless]", cmap="magma",
+        vmin=0, ax=ax, show=show,
+    )
+
+
+def plot_multi_diagnostic_coherent_fraction(
+    result: Any, *, ax: Any = None, show: bool = False,
+) -> tuple[Any, Any]:
+    """Leading fraction; finite-sample bias means it is not a mode test."""
+    return _fluctuation_map(
+        result, result.coherent_fraction,
+        title="Dominant spectral fraction (compare with a null model)",
+        colorbar="Leading fraction [dimensionless]", cmap="viridis",
+        vmin=0, vmax=1, ax=ax, show=show,
+    )
+
+
+def _diagnostic_index(result: Any, diagnostic: str) -> int:
+    if diagnostic not in result.names:
+        raise ValueError(f"diagnostic {diagnostic!r} is not in {result.names!r}")
+    return result.names.index(diagnostic)
+
+
+def plot_multi_diagnostic_participation(
+    result: Any, diagnostic: str, *, ax: Any = None, show: bool = False,
+) -> tuple[Any, Any]:
+    """Selected diagnostic's squared dominant-eigenvector loading, not amplitude."""
+    index = _diagnostic_index(result, diagnostic)
+    return _fluctuation_map(
+        result, result.participation[:, :, index],
+        title=f"{diagnostic}: dimensionless diagnostic participation",
+        colorbar="Squared loading [dimensionless]", cmap="viridis",
+        vmin=0, vmax=1, ax=ax, show=show,
+    )
+
+
+def plot_multi_diagnostic_phase(
+    result: Any, diagnostic: str, *, ax: Any = None, show: bool = False,
+) -> tuple[Any, Any]:
+    """Selected diagnostic's phase relative to the explicit reference, in degrees."""
+    index = _diagnostic_index(result, diagnostic)
+    return _fluctuation_map(
+        result, np.degrees(result.phase[:, :, index]),
+        title=f"{diagnostic} phase relative to {result.reference}",
+        colorbar="Relative phase [deg]", cmap="twilight",
+        vmin=-180, vmax=180, ax=ax, show=show,
+    )
 
 #: Typical observed frequency bands of common tokamak perturbations [Hz].
 #: Order of magnitude only (issue #1005 section 4): the numbers depend on the

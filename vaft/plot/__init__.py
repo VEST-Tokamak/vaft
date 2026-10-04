@@ -390,6 +390,11 @@ from .analytic import (
 from .fluctuation import (
     cross_spectrum_model,
     plot_cross_spectrum,
+    plot_cross_diagnostic_coherence_spectrogram,
+    plot_multi_diagnostic_coherent_spectrogram,
+    plot_multi_diagnostic_coherent_fraction,
+    plot_multi_diagnostic_participation,
+    plot_multi_diagnostic_phase,
     plot_fluctuation_frequency_coverage,
 )
 
@@ -450,6 +455,11 @@ _SUPPORT_EXPORTS = (
     "solovev_equilibrium_model",
     "cross_spectrum_model",
     "plot_cross_spectrum",
+    "plot_cross_diagnostic_coherence_spectrogram",
+    "plot_multi_diagnostic_coherent_spectrogram",
+    "plot_multi_diagnostic_coherent_fraction",
+    "plot_multi_diagnostic_participation",
+    "plot_multi_diagnostic_phase",
     "plot_fluctuation_frequency_coverage",
     "THEMES",
     "resolve_presentation",
