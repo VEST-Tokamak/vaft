@@ -44,6 +44,7 @@ class DiagnosticSelection:
     emission: str | None = None
     quantity: str | None = None
     energy_band: int | None = None
+    energy_axis: int | None = None
     region: tuple[int, int, int, int] | None = None
     detector: int = 0
     component_time: Any = None
@@ -89,15 +90,23 @@ def _stored_scalar(ods: Any, selection: DiagnosticSelection):
     diagnostic = selection.diagnostic
     container, leaves, default_units = _SCALAR_PATHS[diagnostic]
     index = _selected_channel(ods, container, selection.channel)
-    if diagnostic != "soft_x_rays" and (selection.quantity is not None or selection.energy_band is not None):
-        raise ValueError("quantity and energy_band select soft X-ray records only")
+    if diagnostic != "soft_x_rays" and any(
+        value is not None for value in (selection.quantity, selection.energy_band, selection.energy_axis)
+    ):
+        raise ValueError("quantity, energy_band and energy_axis select soft X-ray records only")
     if selection.energy_band is not None and (
         isinstance(selection.energy_band, (bool, np.bool_))
         or not isinstance(selection.energy_band, (int, np.integer))
         or selection.energy_band < 0
     ):
         raise ValueError("energy_band must be a nonnegative integer")
-    if diagnostic == "soft_x_rays" and selection.quantity is not None:
+    if selection.energy_axis is not None and (
+        isinstance(selection.energy_axis, (bool, np.bool_))
+        or not isinstance(selection.energy_axis, (int, np.integer))
+        or selection.energy_axis not in (0, 1)
+    ):
+        raise ValueError("energy_axis must be 0 or 1")
+    if diagnostic == "soft_x_rays":
         if selection.quantity not in leaves:
             raise ValueError("SXR quantity must be 'brightness' or 'power'")
         leaves = (selection.quantity,)
@@ -115,12 +124,16 @@ def _stored_scalar(ods: Any, selection: DiagnosticSelection):
         values = np.asarray(data, dtype=float)
         if diagnostic == "soft_x_rays" and values.ndim == 2:
             band = selection.energy_band
-            if values.shape[1] == time.size and values.shape[0] != time.size:
+            if selection.energy_axis is not None:
+                axis = selection.energy_axis
+                if values.shape[1 - axis] != time.size:
+                    raise ValueError(f"{base}: energy_axis disagrees with stored time")
+            elif values.shape[1] == time.size and values.shape[0] != time.size:
                 axis = 0  # IMAS: (energy_band, time)
             elif values.shape[0] == time.size and values.shape[1] != time.size:
                 axis = 1  # older VEST: (time, energy_band)
             else:
-                raise ValueError(f"{base}: energy-band and time axes are ambiguous")
+                raise ValueError(f"{base}: specify energy_axis for ambiguous shape")
             n_bands = values.shape[axis]
             if band is None and n_bands != 1:
                 raise ValueError(f"{base}: select energy_band from 0 to {n_bands - 1}")
@@ -156,6 +169,10 @@ def _camera_scalar(ods: Any, selection: DiagnosticSelection):
     if selection.region is None:
         raise ValueError("camera requires an explicit ROI or temporal component")
     channel = _selected_channel(ods, "camera_visible.channel", selection.channel)
+    if isinstance(selection.detector, (bool, np.bool_)) or not isinstance(
+        selection.detector, (int, np.integer)
+    ) or selection.detector < 0:
+        raise ValueError("camera detector must be a nonnegative integer")
     detector = int(selection.detector)
     prefix = f"camera_visible.channel.{channel}.detector.{detector}.frame"
     count = path_count(ods, prefix)
@@ -188,6 +205,12 @@ def _camera_scalar(ods: Any, selection: DiagnosticSelection):
         summed[index] = summed_region_signal(
             np.asarray(frame)[None, ...], region=region
         )[0]
+    if selection.background_frames is not None and (
+        isinstance(selection.background_frames, (bool, np.bool_))
+        or not isinstance(selection.background_frames, (int, np.integer))
+        or selection.background_frames < 1
+    ):
+        raise ValueError("background_frames must be a positive integer")
     background = (BACKGROUND_FRAMES_50KFPS if selection.background_frames is None
                   else int(selection.background_frames))
     signal = subtract_temporal_background(
@@ -239,7 +262,9 @@ def select_fluctuation_records(
     """Read one explicitly chosen scalar representative per diagnostic.
 
     Stored Mirnov field is used only after calibration/integration. SXR uses a
-    chosen chord, quantity and energy band; interferometry its line-integrated
+    chosen chord, explicit brightness/power quantity and energy band (with
+    ``energy_axis`` when array dimensions alone cannot identify the time axis);
+    interferometry its line-integrated
     density; camera a stated ROI or externally prepared temporal component;
     and UV one emission label. SXR and UV require explicit ``units`` because
     calibrated IMAS values and legacy VEST proxy signals may differ.
