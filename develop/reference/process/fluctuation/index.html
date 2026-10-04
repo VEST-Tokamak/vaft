@@ -282,7 +282,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b7ba743</code>. What is described
+  <code>1998aca</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -313,7 +313,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.fluctuation</code>:
-<strong>8</strong> public functions. Each entry is what
+<strong>9</strong> public functions. Each entry is what
 <code>vaft.process.describe("fluctuation.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -364,7 +364,7 @@ two-regime mode is selected by which argument is supplied, never guessed.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 9 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="analyze_fluctuation_spectrum"><td><a href="#analyze_fluctuation_spectrum"><code>analyze_fluctuation_spectrum</code></a></td><td>Run the spectral chain on one signal: density, then whatever else was asked for.
@@ -374,6 +374,8 @@ two-regime mode is selected by which argument is supplied, never guessed.</p>
   <tr data-ref-row="compute_psd"><td><a href="#compute_psd"><code>compute_psd</code></a></td><td>One-sided power spectral density by Welch’s method.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="compute_spectrogram"><td><a href="#compute_spectrogram"><code>compute_spectrogram</code></a></td><td>Short-time Fourier magnitude map of a fluctuation signal.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cross_spectrogram"><td><a href="#cross_spectrogram"><code>cross_spectrogram</code></a></td><td>Time-resolved cross-spectrum, coherence and y-relative-to-x phase.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cross_spectrum"><td><a href="#cross_spectrum"><code>cross_spectrum</code></a></td><td>Cross-spectral density, coherence and relative phase of two fluctuation records.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -394,7 +396,7 @@ two-regime mode is selected by which argument is supplied, never guessed.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#analyze_fluctuation_spectrum"><code>analyze_fluctuation_spectrum</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="analyze_fluctuation_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/b7ba743abbbec0e08a10cbc1cc95274d819503e6/vaft/process/fluctuation.py#L742-L846" title="vaft/process/fluctuation.py, lines 742–846 at b7ba743">source</a>
+<a class="ref-source" data-source="analyze_fluctuation_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/1998acaad0ca8b5734a6ee747d43216872a46fd6/vaft/process/fluctuation.py#L745-L849" title="vaft/process/fluctuation.py, lines 745–849 at 1998aca">source</a>
 </header>
     <pre class="ref-signature"><code>analyze_fluctuation_spectrum(time, data, *, fit_ranges=(), bands=None, ratios=None, break_frequency=None, search_range=None, break_fit_range=None, **psd_options)</code></pre>
 
@@ -474,10 +476,10 @@ limitation of the steps it runs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_band_power"><code>compute_band_power</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="compute_band_power" href="https://github.com/VEST-Tokamak/vaft/blob/b7ba743abbbec0e08a10cbc1cc95274d819503e6/vaft/process/fluctuation.py#L548-L625" title="vaft/process/fluctuation.py, lines 548–625 at b7ba743">source</a>
+<a class="ref-source" data-source="compute_band_power" href="https://github.com/VEST-Tokamak/vaft/blob/1998acaad0ca8b5734a6ee747d43216872a46fd6/vaft/process/fluctuation.py#L551-L628" title="vaft/process/fluctuation.py, lines 551–628 at 1998aca">source</a>
 </header>
     <pre class="ref-signature"><code>compute_band_power(frequency, psd, bands, *, ratios=None)</code></pre>
-    <details class="ref-code" data-source-code="compute_band_power"><summary>Show source <span class="ref-note">vaft/process/fluctuation.py, lines 548–625</span></summary>
+    <details class="ref-code" data-source-code="compute_band_power"><summary>Show source <span class="ref-note">vaft/process/fluctuation.py, lines 551–628</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">compute_band_power</span><span class="p">(</span>
     <span class="n">frequency</span><span class="p">,</span>
@@ -620,7 +622,7 @@ these are powers, not densities.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_psd"><code>compute_psd</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="compute_psd" href="https://github.com/VEST-Tokamak/vaft/blob/b7ba743abbbec0e08a10cbc1cc95274d819503e6/vaft/process/fluctuation.py#L194-L277" title="vaft/process/fluctuation.py, lines 194–277 at b7ba743">source</a>
+<a class="ref-source" data-source="compute_psd" href="https://github.com/VEST-Tokamak/vaft/blob/1998acaad0ca8b5734a6ee747d43216872a46fd6/vaft/process/fluctuation.py#L197-L280" title="vaft/process/fluctuation.py, lines 197–280 at 1998aca">source</a>
 </header>
     <pre class="ref-signature"><code>compute_psd(time, data, *, sample_rate=None, window=&#39;hann&#39;, nperseg=None, noverlap=None, detrend=&#39;constant&#39;, units=&#39;signal**2/Hz&#39;)</code></pre>
 
@@ -705,7 +707,7 @@ interpolating one silently changes the spectrum it is being asked about.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_spectrogram"><code>compute_spectrogram</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="compute_spectrogram" href="https://github.com/VEST-Tokamak/vaft/blob/b7ba743abbbec0e08a10cbc1cc95274d819503e6/vaft/process/fluctuation.py#L628-L739" title="vaft/process/fluctuation.py, lines 628–739 at b7ba743">source</a>
+<a class="ref-source" data-source="compute_spectrogram" href="https://github.com/VEST-Tokamak/vaft/blob/1998acaad0ca8b5734a6ee747d43216872a46fd6/vaft/process/fluctuation.py#L631-L742" title="vaft/process/fluctuation.py, lines 631–742 at 1998aca">source</a>
 </header>
     <pre class="ref-signature"><code>compute_spectrogram(time, data, *, sample_rate=None, nperseg=None, window_duration=None, overlap=0.5, window=&#39;hann&#39;, detrend=&#39;constant&#39;)</code></pre>
 
@@ -781,11 +783,129 @@ get deterministic behaviour at the edges.</p>
 
   </section>
 
+  <section class="ref-entry" id="cross_spectrogram" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cross_spectrogram"><code>cross_spectrogram</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="cross_spectrogram" href="https://github.com/VEST-Tokamak/vaft/blob/1998acaad0ca8b5734a6ee747d43216872a46fd6/vaft/process/fluctuation.py#L1170-L1421" title="vaft/process/fluctuation.py, lines 1170–1421 at 1998aca">source</a>
+</header>
+    <pre class="ref-signature"><code>cross_spectrogram(time_x, x, time_y, y, *, sample_rate=None, common_time=None, bandwidth_x_hz=None, bandwidth_y_hz=None, frequency_range=None, nperseg=256, segments_per_window=4, window_step_samples=None, window=&#39;hann&#39;, detrend=&#39;constant&#39;, units_x=&#39;signal_x&#39;, units_y=&#39;signal_y&#39;)</code></pre>
+
+    <p>Time-resolved cross-spectrum, coherence and y-relative-to-x phase.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time_x</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Uniform time axis of the phase-reference record.</p>
+</td></tr>
+  <tr><td><code>x</code></td><td class="ref-type">array_like</td><td class="ref-unit">units_x</td><td><p>First scalar signal.</p>
+</td></tr>
+  <tr><td><code>time_y</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Uniform time axis of the second record.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td class="ref-type">array_like</td><td class="ref-unit">units_y</td><td><p>Second scalar signal.</p>
+</td></tr>
+  <tr><td><code>sample_rate</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Rate of a common grid over the overlapping interval.</p>
+</td></tr>
+  <tr><td><code>common_time</code></td><td class="ref-type">array_like, optional</td><td class="ref-unit">s</td><td><p>Explicit uniform common grid, overriding <code class="language-plaintext highlighter-rouge">sample_rate</code>.</p>
+</td></tr>
+  <tr><td><code>bandwidth_x_hz</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Physically usable upper bandwidth of x; defaults to its Nyquist.</p>
+</td></tr>
+  <tr><td><code>bandwidth_y_hz</code></td><td class="ref-type">float, optional</td><td class="ref-unit">Hz</td><td><p>Physically usable upper bandwidth of y; defaults to its Nyquist.</p>
+</td></tr>
+  <tr><td><code>frequency_range</code></td><td class="ref-type">tuple of float, optional</td><td class="ref-unit">Hz</td><td><p>Inclusive output band, defaulting to the full common usable band.</p>
+</td></tr>
+  <tr><td><code>nperseg</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Samples in one Welch segment.</p>
+</td></tr>
+  <tr><td><code>segments_per_window</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Non-overlapping Welch segments averaged in each output window.</p>
+</td></tr>
+  <tr><td><code>window_step_samples</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Output-window advance, defaulting to half an outer window.</p>
+</td></tr>
+  <tr><td><code>window</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>SciPy spectral window name.</p>
+</td></tr>
+  <tr><td><code>detrend</code></td><td class="ref-type">str or bool, optional</td><td class="ref-unit">-</td><td><p>Detrending passed to SciPy Welch and CSD.</p>
+</td></tr>
+  <tr><td><code>units_x</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Caller-supplied physical unit label for x.</p>
+</td></tr>
+  <tr><td><code>units_y</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Caller-supplied physical unit label for y.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">CrossSpectrogram</td><td class="ref-unit">-</td><td><p>One-sided auto and cross spectral densities, magnitude-squared coherence, relative phase and alignment/bandwidth provenance.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The CSD uses <code class="language-plaintext highlighter-rouge">conj(X) * Y</code> as <code class="language-plaintext highlighter-rouge">cross_spectrum</code> does, so a delayed y
+has negative phase. Coherence and phase are NaN at zero auto power. The
+output time is the centre of each complete window in the input timebase.
+An omitted bandwidth means only a Nyquist ceiling is known; the result
+records <code class="language-plaintext highlighter-rouge">"nyquist_only"</code> and makes no diagnostic response claim.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Invalid axes, bandwidth or averaging parameters; non-overlapping or too-short records; or incomplete anti-alias filtering.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Validate both records and align their overlapping time interval.</li>
+        <li>Filter before rate reduction, refusing incomplete filter coverage.</li>
+        <li>For each complete output window, average non-overlapping Welch segments
+before deriving coherence and phase from the averaged densities.</li>
+        <li>Restrict output to the common declared or sampling-limited bandwidth.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>A numerical convenience: four non-overlapping 256-sample inner segments
+provide a genuine average;
+outer windows advance by half their length. One STFT outer product alone
+would give coherence one even for unrelated noise. After rate reduction,
+the reported ceiling is conservatively 0.7 of target Nyquist, below the
+resampler’s FIR cutoff at 0.8 of target Nyquist.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Transfer functions and diagnostic selection remain
+the caller’s responsibility.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Window duration trades time resolution for frequency resolution. Nyquist
+does not establish the sensor’s physical bandwidth; supply it when known.
+Adjacent output windows share data, so their estimates are correlated.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li><code class="language-plaintext highlighter-rouge">scipy.signal.welch</code> and <code class="language-plaintext highlighter-rouge">scipy.signal.csd</code> provide the one-sided Welch density scaling for every output window.
+</li>
+  <li><code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.resample_to_time</code> provides anti-aliased rate reduction and its filter-coverage mask.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="cross_spectrum" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cross_spectrum"><code>cross_spectrum</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cross_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/b7ba743abbbec0e08a10cbc1cc95274d819503e6/vaft/process/fluctuation.py#L939-L1106" title="vaft/process/fluctuation.py, lines 939–1106 at b7ba743">source</a>
+<a class="ref-source" data-source="cross_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/1998acaad0ca8b5734a6ee747d43216872a46fd6/vaft/process/fluctuation.py#L1000-L1167" title="vaft/process/fluctuation.py, lines 1000–1167 at 1998aca">source</a>
 </header>
     <pre class="ref-signature"><code>cross_spectrum(time_x, x, time_y, y, *, sample_rate=None, nperseg=None, noverlap=None, window=&#39;hann&#39;, detrend=&#39;constant&#39;, common_time=None)</code></pre>
 
@@ -905,7 +1025,7 @@ the phase is not: a pickup coil’s derivative adds <code class="language-plaint
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#find_spectral_break"><code>find_spectral_break</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="find_spectral_break" href="https://github.com/VEST-Tokamak/vaft/blob/b7ba743abbbec0e08a10cbc1cc95274d819503e6/vaft/process/fluctuation.py#L410-L545" title="vaft/process/fluctuation.py, lines 410–545 at b7ba743">source</a>
+<a class="ref-source" data-source="find_spectral_break" href="https://github.com/VEST-Tokamak/vaft/blob/1998acaad0ca8b5734a6ee747d43216872a46fd6/vaft/process/fluctuation.py#L413-L548" title="vaft/process/fluctuation.py, lines 413–548 at 1998aca">source</a>
 </header>
     <pre class="ref-signature"><code>find_spectral_break(frequency, psd, *, fit_range, break_frequency=None, search_range=None, n_candidates=64)</code></pre>
 
@@ -994,7 +1114,7 @@ Inherits the log-space caveats of the single-regime fit.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_power_law_spectrum"><code>fit_power_law_spectrum</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="fit_power_law_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/b7ba743abbbec0e08a10cbc1cc95274d819503e6/vaft/process/fluctuation.py#L292-L387" title="vaft/process/fluctuation.py, lines 292–387 at b7ba743">source</a>
+<a class="ref-source" data-source="fit_power_law_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/1998acaad0ca8b5734a6ee747d43216872a46fd6/vaft/process/fluctuation.py#L295-L390" title="vaft/process/fluctuation.py, lines 295–390 at 1998aca">source</a>
 </header>
     <pre class="ref-signature"><code>fit_power_law_spectrum(frequency, psd, *, f_range)</code></pre>
 
@@ -1071,7 +1191,7 @@ decades is dominated by the sparse high-frequency end.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#track_dominant_frequency"><code>track_dominant_frequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="track_dominant_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/b7ba743abbbec0e08a10cbc1cc95274d819503e6/vaft/process/fluctuation.py#L1178-L1302" title="vaft/process/fluctuation.py, lines 1178–1302 at b7ba743">source</a>
+<a class="ref-source" data-source="track_dominant_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/1998acaad0ca8b5734a6ee747d43216872a46fd6/vaft/process/fluctuation.py#L1493-L1617" title="vaft/process/fluctuation.py, lines 1493–1617 at 1998aca">source</a>
 </header>
     <pre class="ref-signature"><code>track_dominant_frequency(spectrogram, *, search_range, max_jump=None, floor_ratio=0.05)</code></pre>
 
@@ -1384,7 +1504,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-03 15:35:02 +0000"
+        "time": "2026-10-04 13:11:19 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
