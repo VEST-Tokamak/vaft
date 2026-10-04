@@ -227,6 +227,7 @@ PIPELINE = frozenset({
     # crossings then rate; trend, window, noise, threshold
     "cross_spectrum",
     "cross_spectrogram",
+    "cross_spectral_matrix",
     "track_dominant_frequency",
     "current_quench",
     "current_spike",
@@ -593,6 +594,7 @@ CONVENTION_SENSITIVE = frozenset({
     # floor is relative to the map, and the current is measured on its magnitude.
     "cross_spectrum",
     "cross_spectrogram",
+    "cross_spectral_matrix",
     "track_dominant_frequency",
     "current_quench",
     "current_spike",

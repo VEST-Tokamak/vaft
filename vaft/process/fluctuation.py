@@ -55,7 +55,9 @@ from scipy import signal as scipy_signal
 __all__ = [
     "CrossSpectrum",
     "CrossSpectrogram",
+    "CrossSpectralMatrix",
     "ResamplingProvenance",
+    "FluctuationRecord",
     "FluctuationSpectrogram",
     "FluctuationSpectrum",
     "FrequencyTrack",
@@ -67,6 +69,7 @@ __all__ = [
     "compute_spectrogram",
     "cross_spectrum",
     "cross_spectrogram",
+    "cross_spectral_matrix",
     "find_spectral_break",
     "fit_power_law_spectrum",
     "track_dominant_frequency",
@@ -939,6 +942,53 @@ class CrossSpectrogram:
                      if item.operation in ("anti_alias_resample", "interpolate"))
 
 
+@dataclass(frozen=True)
+class FluctuationRecord:
+    """One named scalar input; the caller selects its diagnostic channel."""
+
+    name: str
+    time: np.ndarray
+    data: np.ndarray
+    units: str = "signal"
+    usable_bandwidth_hz: float | None = None
+
+
+@dataclass(frozen=True)
+class CrossSpectralMatrix:
+    """One-sided spectral matrices indexed by ``(frequency, time, i, j)``.
+
+    ``raw_csd`` keeps the input units, with entry ``i,j`` in units_i*units_j/Hz.
+    ``matrix`` applies the selected normalization. ``raw_valid`` and ``valid``
+    are indexed by ``(frequency, time, i)``: the latter also excludes zero-power
+    records for PSD normalization, while the raw matrix keeps their measured
+    zero entries. Unavailable entries are NaN, never filled with zeros.
+    ``S[i,j] = <X_i conj(X_j)>``, so
+    ``angle(S[i,reference])`` is the phase of i relative to reference.
+    """
+
+    time: np.ndarray
+    frequency: np.ndarray
+    names: tuple[str, ...]
+    units: tuple[str, ...]
+    raw_csd: np.ndarray
+    matrix: np.ndarray
+    raw_valid: np.ndarray
+    valid: np.ndarray
+    shared_segments: np.ndarray
+    normalization: str
+    normalization_scales: tuple[float, ...] | None
+    sample_rate: float
+    time_range: tuple[float, float]
+    nperseg: int
+    segments_per_window: int
+    window_step_samples: int
+    frequency_resolution_hz: float
+    window_duration_s: float
+    window: str
+    detrend: str | bool
+    resampling: tuple[ResamplingProvenance, ...]
+
+
 def _uniform_record(time, data, name: str) -> tuple[np.ndarray, np.ndarray, float]:
     """Validate one record's axis, naming the record in the error."""
     try:
@@ -1418,6 +1468,315 @@ def cross_spectrogram(
         bandwidth_source=(sources[0], sources[1]),
         units_x=units_x, units_y=units_y,
         resampling=(provenance[0], provenance[1]),
+    )
+
+
+def cross_spectral_matrix(
+    records: Sequence[FluctuationRecord],
+    *,
+    sample_rate: float | None = None,
+    frequency_range: tuple[float, float] | None = None,
+    nperseg: int = 256,
+    segments_per_window: int = 4,
+    window_step_samples: int | None = None,
+    normalization: str = "psd",
+    user_scales: Mapping[str, float] | None = None,
+    window: str = "hann",
+    detrend: str | bool = "constant",
+) -> CrossSpectralMatrix:
+    """Estimate an arbitrary-N time-resolved cross-spectral matrix.
+
+    Parameters
+    ----------
+    records : sequence of FluctuationRecord
+        Named scalar records, each with its own time, units and usable band [-].
+    sample_rate : float, optional
+        Common-grid rate; defaults to the fastest native rate [Hz].
+    frequency_range : tuple of float, optional
+        Inclusive output band; defaults to all usable bins [Hz].
+    nperseg : int, optional
+        Samples in each inner Welch segment [-].
+    segments_per_window : int, optional
+        Non-overlapping inner segments per output time [-].
+    window_step_samples : int, optional
+        Output-window advance, defaulting to half an outer window [-].
+    normalization : {"none", "variance", "psd", "user"}, optional
+        Explicit scaling policy; ``"psd"`` gives a dimensionless matrix [-].
+    user_scales : mapping, optional
+        Positive per-record amplitude scales, required for ``"user"`` [record units].
+    window : str, optional
+        SciPy window name [-].
+    detrend : str or bool, optional
+        ``"constant"``, ``"linear"`` or ``False`` for each inner segment [-].
+
+    Returns
+    -------
+    CrossSpectralMatrix
+        Raw and normalized matrices, validity masks, coordinates, units,
+        averaging and resampling provenance [-].
+
+    Raises
+    ------
+    ValueError
+        Invalid records, bands, normalization or grid, or too few common samples.
+
+    Processing steps
+    ----------------
+    1. Align every record on the overlapping interval, with anti-aliasing for
+       rate reductions and mask propagation for missing/short filtered spans.
+    2. Compute identically windowed one-sided FFTs in non-overlapping segments.
+    3. At each frequency and output time, select the largest set of records
+       sharing at least two finite segments and average only over that set's
+       jointly finite segments.
+    4. Keep raw densities and apply the requested explicit normalization.
+
+    Convention
+    ----------
+    ``S[i,j] = mean(X_i * conj(X_j))`` is Hermitian positive semidefinite.
+    Thus ``angle(S[i,reference])`` matches :func:`cross_spectrum`'s phase of
+    i relative to the reference. A record above its declared usable bandwidth,
+    or above native Nyquist when no physical band was declared, is unavailable
+    rather than zero. A single available record remains a 1x1 spectrum but
+    supplies no evidence of cross-diagnostic coherence.
+
+    Defaults
+    --------
+    The numerical convenience of four non-overlapping 256-sample segments
+    matches :func:`cross_spectrogram`. The default ``"psd"`` normalization
+    divides each entry by the geometric mean of its auto PSDs, giving a
+    dimensionless correlation matrix with unit diagonal where power is nonzero.
+    The raw physical-unit matrix is always retained separately.
+
+    Applicability
+    -------------
+    Machine-independent. Diagnostic selection and transfer functions belong
+    upstream; no input gets extra weight merely for having more channels.
+
+    Limitations
+    -----------
+    Upsampling cannot recover frequencies above a record's native bandwidth.
+    A missing physical bandwidth is reported as ``"nyquist_only"`` in the
+    provenance. If the available records lack two jointly finite segments at
+    a bin, that bin is unavailable; it is not filled with zeros.
+
+    Provenance
+    ----------
+    .. [1] Welch's one-sided density scaling as in :func:`scipy.signal.csd`.
+    .. [2] :func:`vaft.process.signal_processing.resample_to_time` provides
+       anti-aliased rate reduction and filter-coverage masks.
+    """
+    selected = tuple(records)
+    if not selected or any(not isinstance(record, FluctuationRecord) for record in selected):
+        raise ValueError("records must contain FluctuationRecord objects")
+    names = tuple(record.name for record in selected)
+    if any(not isinstance(name, str) or not name for name in names) or len(set(names)) != len(names):
+        raise ValueError("record names must be nonempty and unique")
+    if normalization not in ("none", "variance", "psd", "user"):
+        raise ValueError("normalization must be none, variance, psd or user")
+    if detrend not in ("constant", "linear", False):
+        raise ValueError("detrend must be 'constant', 'linear' or False")
+    segment = int(nperseg)
+    averages = int(segments_per_window)
+    if segment != nperseg or segment < 2 or averages != segments_per_window or averages < 2:
+        raise ValueError("nperseg and segments_per_window must be integers >= 2")
+    outer = segment * averages
+    step = outer // 2 if window_step_samples is None else int(window_step_samples)
+    if step < 1 or (window_step_samples is not None and step != window_step_samples):
+        raise ValueError("window_step_samples must be a positive integer")
+
+    native = [_uniform_record(record.time, record.data, record.name) for record in selected]
+    native_rates = [item[2] for item in native]
+    fs = max(native_rates) if sample_rate is None else float(sample_rate)
+    if not np.isfinite(fs) or fs <= 0:
+        raise ValueError("sample_rate must be positive and finite")
+    start = max(float(item[0][0]) for item in native)
+    stop = min(float(item[0][-1]) for item in native)
+    if not start < stop:
+        raise ValueError("records do not overlap in time")
+    # Round a nearly integral sample count in sample units before constructing
+    # the grid. Otherwise 399.99999999999994 loses the valid 400th sample.
+    grid = start + np.arange(int(np.floor((stop - start) * fs + 1e-6)) + 1) / fs
+    if grid[-1] > stop:
+        grid[-1] = stop
+    if grid.size < outer:
+        raise ValueError(f"common interval has {grid.size} samples; {outer} required")
+    fs = 1 / float(np.median(np.diff(grid)))
+
+    from vaft.process.signal_processing import resample_to_time
+
+    aligned: list[np.ndarray] = []
+    provenance: list[ResamplingProvenance] = []
+    limits: list[float] = []
+    for record, (times, values, source_fs) in zip(selected, native):
+        declared = record.usable_bandwidth_hz
+        if declared is None:
+            limit = source_fs / 2
+            source = "nyquist_only"
+        else:
+            limit = float(declared)
+            if not np.isfinite(limit) or limit <= 0 or limit > source_fs / 2 * (1 + 1e-9):
+                raise ValueError(f"{record.name}: usable bandwidth must be within native Nyquist")
+            source = "declared"
+        reducing = source_fs > fs * (1 + 1e-9)
+        if reducing:
+            limit = min(limit, 0.7 * fs / 2)
+        limits.append(float(limit))
+        first = int(np.searchsorted(times, grid[0], side="left"))
+        native_slice = times[first:first + grid.size]
+        same = native_slice.size == grid.size and np.allclose(
+            native_slice, grid, rtol=0, atol=1e-3 / fs
+        )
+        if same:
+            projected = values[first:first + grid.size].copy()
+            operation = "crop" if projected.size != values.size else "identity"
+        elif reducing:
+            projected, covered = resample_to_time(
+                times, values, grid, anti_alias=True, extrapolate="error",
+                return_filter_mask=True,
+            )
+            # anti-alias: this interpolates only the logical FIR coverage mask;
+            # physical signal samples were already filtered by resample_to_time.
+            coverage = np.interp(grid, times, covered.astype(float)) >= 1 - 1e-12
+            projected[~coverage] = np.nan
+            operation = "anti_alias_resample"
+        else:
+            projected = resample_to_time(
+                times, values, grid, anti_alias=False, extrapolate="error"
+            )
+            operation = "interpolate"
+        aligned.append(projected)
+        provenance.append(ResamplingProvenance(
+            record=record.name, source_rate=float(source_fs), target_rate=float(fs),
+            operation=operation,
+            anti_alias_cutoff_hz=float(0.8 * fs / 2) if reducing else None,
+            usable_bandwidth_hz=float(limit), bandwidth_source=source,
+        ))
+
+    if normalization == "variance":
+        scales = tuple(
+            float(np.std(values[np.isfinite(values)]))
+            if np.any(np.isfinite(values)) else float("nan")
+            for values in aligned
+        )
+    elif normalization == "user":
+        if user_scales is None or set(user_scales) != set(names):
+            raise ValueError("user_scales must have exactly one value per record")
+        scales = tuple(float(user_scales[name]) for name in names)
+    elif normalization == "none":
+        scales = tuple(1.0 for _ in names)
+    else:
+        scales = None
+    if normalization == "user" and any(
+        not np.isfinite(value) or value <= 0 for value in scales
+    ):
+        raise ValueError("normalization scales must be positive and finite")
+
+    frequency = np.fft.rfftfreq(segment, 1 / fs)
+    max_band = min(fs / 2, max(limits))
+    if frequency_range is None:
+        lower, upper = 0.0, max_band
+    else:
+        if len(frequency_range) != 2:
+            raise ValueError("frequency_range must contain (low, high) in Hz")
+        lower, upper = map(float, frequency_range)
+        if not np.isfinite(lower) or not np.isfinite(upper) or lower < 0 or lower >= upper:
+            raise ValueError("frequency_range must be finite, nonnegative and increasing")
+        if upper > max_band * (1 + 1e-9):
+            raise ValueError("frequency_range exceeds all available record bandwidths")
+    keep = (frequency >= lower) & (frequency <= upper * (1 + 1e-12))
+    frequency = frequency[keep]
+    if not frequency.size:
+        raise ValueError("frequency_range contains no bins at this resolution")
+    starts = np.arange(0, grid.size - outer + 1, step, dtype=int)
+    count = len(selected)
+    shape = (frequency.size, starts.size, count, count)
+    raw = np.full(shape, complex(np.nan, np.nan))
+    normalized = np.full(shape, complex(np.nan, np.nan))
+    raw_valid = np.zeros(shape[:3], dtype=bool)
+    valid = np.zeros(shape[:3], dtype=bool)
+    shared = np.zeros(shape[:2], dtype=int)
+    taper = scipy_signal.get_window(window, segment, fftbins=True)
+    one_sided = np.full(frequency.size, 2.0)
+    one_sided[frequency == 0] = 1.0
+    if segment % 2 == 0:
+        one_sided[np.isclose(frequency, fs / 2)] = 1.0
+    density_scale = one_sided / (fs * float(np.sum(taper ** 2)))
+    stack = np.stack(aligned)
+    limits_array = np.asarray(limits)
+
+    for column, offset in enumerate(starts):
+        slices = stack[:, offset:offset + outer].reshape(count, averages, segment)
+        finite = np.all(np.isfinite(slices), axis=-1)
+        coeff = np.zeros((count, averages, frequency.size), dtype=complex)
+        for index in range(count):
+            for part in np.flatnonzero(finite[index]):
+                samples = slices[index, part]
+                if detrend is not False:
+                    samples = scipy_signal.detrend(samples, type=detrend)
+                coeff[index, part] = np.fft.rfft(samples * taper)[keep]
+        for row, hz in enumerate(frequency):
+            candidates = np.flatnonzero((hz <= limits_array * (1 + 1e-12)) &
+                                            (finite.sum(axis=1) >= 2))
+            if not candidates.size:
+                continue
+            # Any feasible set shares at least one pair of inner segments.
+            # Enumerating segment pairs finds the largest such record set
+            # without exponential search over record subsets. Ties prefer
+            # more jointly finite segments, then the earliest segment pair.
+            eligible = np.empty(0, dtype=int)
+            best_joint = -1
+            for first_part in range(averages - 1):
+                for second_part in range(first_part + 1, averages):
+                    subset = candidates[finite[candidates, first_part] &
+                                        finite[candidates, second_part]]
+                    if subset.size < eligible.size or not subset.size:
+                        continue
+                    subset_joint = int(np.all(finite[subset], axis=0).sum())
+                    if (subset.size, subset_joint) > (eligible.size, best_joint):
+                        eligible, best_joint = subset, subset_joint
+            if not eligible.size:
+                continue
+            joint = np.all(finite[eligible], axis=0)
+            n_joint = int(np.sum(joint))
+            if n_joint < 2:
+                continue
+            z = coeff[eligible][:, joint, row]
+            block = (z @ z.conj().T) * (density_scale[row] / n_joint)
+            raw[row, column][np.ix_(eligible, eligible)] = block
+            raw_valid[row, column, eligible] = True
+            shared[row, column] = n_joint
+            if normalization == "psd":
+                powered = np.diag(block).real > 0
+                eligible = eligible[powered]
+                block = block[np.ix_(powered, powered)]
+                if not eligible.size:
+                    continue
+                denominator = np.sqrt(np.outer(np.diag(block).real,
+                                               np.diag(block).real))
+                scaled = block / denominator
+            else:
+                factors = np.asarray(scales)[eligible]
+                usable = np.isfinite(factors) & (factors > 0)
+                eligible = eligible[usable]
+                block = block[np.ix_(usable, usable)]
+                factors = factors[usable]
+                if not eligible.size:
+                    continue
+                scaled = block / np.outer(factors, factors)
+            normalized[row, column][np.ix_(eligible, eligible)] = scaled
+            valid[row, column, eligible] = True
+
+    centre_time = grid[starts] + (outer - 1) / (2 * fs)
+    return CrossSpectralMatrix(
+        time=centre_time, frequency=frequency, names=names,
+        units=tuple(record.units for record in selected), raw_csd=raw,
+        matrix=normalized, raw_valid=raw_valid, valid=valid,
+        shared_segments=shared,
+        normalization=normalization, normalization_scales=scales,
+        sample_rate=float(fs), time_range=(float(grid[0]), float(grid[-1])),
+        nperseg=segment, segments_per_window=averages, window_step_samples=step,
+        frequency_resolution_hz=float(fs / segment), window_duration_s=float(outer / fs),
+        window=window, detrend=detrend, resampling=tuple(provenance),
     )
 
 
