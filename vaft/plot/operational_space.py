@@ -330,8 +330,11 @@ def _allowed_mask(curve: _b.BoundaryCurve, px: np.ndarray, py: np.ndarray) -> np
     return (px < level) if curve.allowed_side == "left" else (px > level)
 
 
-def _label_allowed_zone(ax, curves, xs: np.ndarray, ys: np.ndarray, text: str):
-    """One label in the zone every drawn boundary allows, where it is farthest from the data."""
+def _label_allowed_zone(ax, curves, xs: np.ndarray, ys: np.ndarray, text: str, avoid=()):
+    """One label in the zone every drawn limit allows, farthest from the data and from every drawn line.
+
+    ``avoid`` holds further curves (reference lines) the label must keep clear of without bounding the zone.
+    """
     if not curves:
         return None
     (xlo, xhi), (ylo, yhi) = ax.get_xlim(), ax.get_ylim()
@@ -344,7 +347,7 @@ def _label_allowed_zone(ax, curves, xs: np.ndarray, ys: np.ndarray, text: str):
         return None
     cand = np.c_[u.ravel(), v.ravel()][allowed]
     others = [np.c_[(xs - xlo) / (xhi - xlo), (ys - ylo) / (yhi - ylo)]] if len(xs) else []
-    for curve in curves:
+    for curve in tuple(curves) + tuple(avoid):
         cx, cy = np.asarray(curve.x, float), np.asarray(curve.y, float)
         ok = np.isfinite(cx) & np.isfinite(cy)
         others.append(np.c_[(cx[ok] - xlo) / (xhi - xlo), (cy[ok] - ylo) / (yhi - ylo)])
@@ -682,7 +685,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         limits = [curve for curve in plan.curves if curve.key not in REFERENCE_ONLY]
         words = {_allowed_word(_b.get_boundary(curve.key)) for curve in limits}
         if limits:
-            _label_allowed_zone(ax, limits, xs, ys, " / ".join(sorted(words)))
+            _label_allowed_zone(ax, limits, xs, ys, " / ".join(sorted(words)),
+                                avoid=[curve for curve in plan.curves if curve.key in REFERENCE_ONLY])
     if trajectories:
         def colour_of(row):
             if color is None:

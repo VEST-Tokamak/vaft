@@ -530,3 +530,8 @@ def test_a_derived_boundary_says_derived_and_murakami_is_a_historical_reference(
     # one hatched forbidden side (Greenwald), none for the reference
     hatched = [c for c in ax.collections if getattr(c, "get_hatch", lambda: None)()]
     assert len(hatched) == 1
+    # the "Stable" label keeps clear of the reference line (Murakami at x = 1)
+    stable = next(t_ for t_ in ax.texts if t_.get_text() == "Stable")
+    x_stable = ax.transAxes.transform(stable.get_position())[0]
+    x_line = ax.transData.transform((1.0, 0.0))[0]
+    assert abs(x_stable - x_line) > 0.08 * ax.get_window_extent().width
