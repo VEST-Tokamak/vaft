@@ -288,7 +288,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>dc3a3ba</code>. What is described
+  <code>a1481e5</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -319,7 +319,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.impurity</code>:
-<strong>5</strong> public functions. Each entry is what
+<strong>7</strong> public functions. Each entry is what
 <code>vaft.process.describe("impurity.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -371,7 +371,7 @@ composition (#1566).</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 5 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="composition_from_fractions"><td><a href="#composition_from_fractions"><code>composition_from_fractions</code></a></td><td>An impurity composition from parallel lists of elements, relative fractions and charge states.
@@ -382,6 +382,10 @@ composition (#1566).</p>
 </td></tr>
   <tr data-ref-row="composition_record_text"><td><a href="#composition_record_text"><code>composition_record_text</code></a></td><td>The record a writer stores beside a composition or Z_eff it put into <code class="language-plaintext highlighter-rouge">core_profiles</code>.
 </td></tr>
+  <tr data-ref-row="populate_impurity_profiles"><td><a href="#populate_impurity_profiles"><code>populate_impurity_profiles</code></a></td><td>A copy of <code class="language-plaintext highlighter-rouge">ods</code> whose <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries the resolved ion composition.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="populate_zeff_profile"><td><a href="#populate_zeff_profile"><code>populate_zeff_profile</code></a></td><td>A copy of <code class="language-plaintext highlighter-rouge">ods</code> whose <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries the resolved Z_eff(rho).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="resolve_impurity_composition"><td><a href="#resolve_impurity_composition"><code>resolve_impurity_composition</code></a></td><td>Resolve the impurity composition that applies, close it at its Z_eff and reduce it.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
@@ -395,10 +399,10 @@ composition (#1566).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#composition_from_fractions"><code>composition_from_fractions</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="composition_from_fractions" href="https://github.com/VEST-Tokamak/vaft/blob/dc3a3ba74e0215eddc57a1438a7527a6b27cf7dc/vaft/process/impurity.py#L280-L347" title="vaft/process/impurity.py, lines 280–347 at dc3a3ba">source</a>
+<a class="ref-source" data-source="composition_from_fractions" href="https://github.com/VEST-Tokamak/vaft/blob/a1481e5a7a9f4859bdf2a623a54c1081e39e7fac/vaft/process/impurity.py#L283-L350" title="vaft/process/impurity.py, lines 283–350 at a1481e5">source</a>
 </header>
     <pre class="ref-signature"><code>composition_from_fractions(elements, fractions, charge_states, *, target_zeff, masses=None, main_ion=&#39;H&#39;, status=&#39;explicit&#39;, source=&#39;caller&#39;)</code></pre>
-    <details class="ref-code" data-source-code="composition_from_fractions"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 280–347</span></summary>
+    <details class="ref-code" data-source-code="composition_from_fractions"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 283–350</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">composition_from_fractions</span><span class="p">(</span>
     <span class="n">elements</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
@@ -527,10 +531,10 @@ charge state of each species is stated, never read off the atomic number.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#composition_from_model"><code>composition_from_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="composition_from_model" href="https://github.com/VEST-Tokamak/vaft/blob/dc3a3ba74e0215eddc57a1438a7527a6b27cf7dc/vaft/process/impurity.py#L350-L397" title="vaft/process/impurity.py, lines 350–397 at dc3a3ba">source</a>
+<a class="ref-source" data-source="composition_from_model" href="https://github.com/VEST-Tokamak/vaft/blob/a1481e5a7a9f4859bdf2a623a54c1081e39e7fac/vaft/process/impurity.py#L353-L400" title="vaft/process/impurity.py, lines 353–400 at a1481e5">source</a>
 </header>
     <pre class="ref-signature"><code>composition_from_model(model, *, source=None)</code></pre>
-    <details class="ref-code" data-source-code="composition_from_model"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 350–397</span></summary>
+    <details class="ref-code" data-source-code="composition_from_model"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 353–400</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">composition_from_model</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ImpurityComposition</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">An impurity composition from a parsed machine ``impurity_model`` record.
@@ -623,10 +627,10 @@ charge state of each species is stated, never read off the atomic number.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#composition_record_origin"><code>composition_record_origin</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="composition_record_origin" href="https://github.com/VEST-Tokamak/vaft/blob/dc3a3ba74e0215eddc57a1438a7527a6b27cf7dc/vaft/process/impurity.py#L439-L465" title="vaft/process/impurity.py, lines 439–465 at dc3a3ba">source</a>
+<a class="ref-source" data-source="composition_record_origin" href="https://github.com/VEST-Tokamak/vaft/blob/a1481e5a7a9f4859bdf2a623a54c1081e39e7fac/vaft/process/impurity.py#L442-L468" title="vaft/process/impurity.py, lines 442–468 at a1481e5">source</a>
 </header>
     <pre class="ref-signature"><code>composition_record_origin(record)</code></pre>
-    <details class="ref-code" data-source-code="composition_record_origin"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 439–465</span></summary>
+    <details class="ref-code" data-source-code="composition_record_origin"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 442–468</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">composition_record_origin</span><span class="p">(</span><span class="n">record</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">The ``origin`` a composition record states, or ``None`` when it states none.
@@ -688,10 +692,10 @@ charge state of each species is stated, never read off the atomic number.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#composition_record_text"><code>composition_record_text</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="composition_record_text" href="https://github.com/VEST-Tokamak/vaft/blob/dc3a3ba74e0215eddc57a1438a7527a6b27cf7dc/vaft/process/impurity.py#L403-L436" title="vaft/process/impurity.py, lines 403–436 at dc3a3ba">source</a>
+<a class="ref-source" data-source="composition_record_text" href="https://github.com/VEST-Tokamak/vaft/blob/a1481e5a7a9f4859bdf2a623a54c1081e39e7fac/vaft/process/impurity.py#L406-L439" title="vaft/process/impurity.py, lines 406–439 at a1481e5">source</a>
 </header>
     <pre class="ref-signature"><code>composition_record_text(origin, method, **fields)</code></pre>
-    <details class="ref-code" data-source-code="composition_record_text"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 403–436</span></summary>
+    <details class="ref-code" data-source-code="composition_record_text"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 406–439</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">composition_record_text</span><span class="p">(</span><span class="n">origin</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">The record a writer stores beside a composition or Z_eff it put into ``core_profiles``.
@@ -766,11 +770,254 @@ charge state of each species is stated, never read off the atomic number.</p>
 
   </section>
 
+  <section class="ref-entry" id="populate_impurity_profiles" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#populate_impurity_profiles"><code>populate_impurity_profiles</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="populate_impurity_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/a1481e5a7a9f4859bdf2a623a54c1081e39e7fac/vaft/process/impurity.py#L1077-L1237" title="vaft/process/impurity.py, lines 1077–1237 at a1481e5">source</a>
+</header>
+    <pre class="ref-signature"><code>populate_impurity_profiles(ods, resolved, *, time=None, tolerance=0.0005, method=None, write_zeff=True)</code></pre>
+
+    <p>A copy of <code class="language-plaintext highlighter-rouge">ods</code> whose <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries the resolved ion composition.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>Source; never modified.</p>
+</td></tr>
+  <tr><td><code>resolved</code></td><td class="ref-type">ResolvedImpurityComposition</td><td class="ref-unit">any</td><td><p>From <code class="language-plaintext highlighter-rouge">resolve_impurity_composition</code>; not of kind <code class="language-plaintext highlighter-rouge">measured</code>.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Slice time; default the resolved composition’s own.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Largest <code class="language-plaintext highlighter-rouge">|t_slice - time|</code> accepted.</p>
+</td></tr>
+  <tr><td><code>method</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">method=</code> field of the records; default <code class="language-plaintext highlighter-rouge">&lt;kind&gt;_composition</code>.</p>
+</td></tr>
+  <tr><td><code>write_zeff</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Also write <code class="language-plaintext highlighter-rouge">zeff</code> through <code class="language-plaintext highlighter-rouge">populate_zeff_profile</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>A deep copy whose slice <code class="language-plaintext highlighter-rouge">ion[]</code> is the hydrogenic main ion (density diluted to <code class="language-plaintext highlighter-rouge">n_e (1 - sum Z_s n_s/n_e) / Z_m</code>) followed by one entry per impurity species (<code class="language-plaintext highlighter-rouge">label</code>, <code class="language-plaintext highlighter-rouge">z_ion</code>, <code class="language-plaintext highlighter-rouge">element.0.z_n/a</code>, <code class="language-plaintext highlighter-rouge">density</code>, <code class="language-plaintext highlighter-rouge">density_thermal</code>, <code class="language-plaintext highlighter-rouge">density_fit.parameters</code>).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">origin=assumed</code> for an explicit or preset composition, <code class="language-plaintext highlighter-rouge">derived</code> for
+one computed from other data (atomic data, a measured Z_eff), in the
+grammar <code class="language-plaintext highlighter-rouge">composition_record_origin</code> reads.  Impurities share the
+main ion’s temperature: an assumption, recorded in the density record as
+<code class="language-plaintext highlighter-rouge">temperature=main_ion</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A measured composition (resolved or stored in the target slice), a <code class="language-plaintext highlighter-rouge">time</code> that is not the resolved composition’s, no slice at the time, no electron density, a stored main ion that is not hydrogenic, or two stored hydrogenic ions.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Match the slice by time and read <code class="language-plaintext highlighter-rouge">n_e</code> and its rho grid.</li>
+        <li>Keep the existing hydrogenic main ion entry whole (temperature,
+velocity and their records) or create <code class="language-plaintext highlighter-rouge">H+</code>; drop every stored
+impurity entry.</li>
+        <li>Write the main ion’s diluted density and each impurity’s
+<code class="language-plaintext highlighter-rouge">n_e * n_s/n_e</code> (a profile composition is interpolated in rho).</li>
+        <li>Give each impurity the main ion’s temperature, its
+<code class="language-plaintext highlighter-rouge">temperature_fit.parameters</code> record unchanged (so a Ti reader
+classifies every ion alike) and its toroidal rotation; label each
+density <code class="language-plaintext highlighter-rouge">origin=...</code>.  A point where the composition is undefined
+is filled from its neighbours in rho and counted (<code class="language-plaintext highlighter-rouge">filled_points</code>).</li>
+        <li>Write <code class="language-plaintext highlighter-rouge">zeff</code> (<code class="language-plaintext highlighter-rouge">populate_zeff_profile</code>), or, with
+<code class="language-plaintext highlighter-rouge">write_zeff=False</code>, drop a non-measured <code class="language-plaintext highlighter-rouge">zeff</code> that the new species
+list would contradict.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p>A <code class="language-plaintext highlighter-rouge">core_profiles</code> slice with an electron density, and a composition
+resolved independently of it (preset, explicit, derived).</p>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>The same slice with an explicit species list: assumed or derived, never
+measured, as each record says.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A non-hydrogenic main ion is refused.  Only this slice is written.  The
+impurities’ copied temperature record reads as whatever the main ion’s
+says (measured, assumed or inferred): equal temperatures are an
+assumption noted only in the density record.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1565 Sec. 5 (core_profiles ion[] and zeff from the resolved composition), Lane K #1454 (origin records on core_profiles).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="populate_zeff_profile" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#populate_zeff_profile"><code>populate_zeff_profile</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="populate_zeff_profile" href="https://github.com/VEST-Tokamak/vaft/blob/a1481e5a7a9f4859bdf2a623a54c1081e39e7fac/vaft/process/impurity.py#L1011-L1074" title="vaft/process/impurity.py, lines 1011–1074 at a1481e5">source</a>
+</header>
+    <pre class="ref-signature"><code>populate_zeff_profile(ods, resolved, *, time=None, tolerance=0.0005, method=None)</code></pre>
+    <details class="ref-code" data-source-code="populate_zeff_profile"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 1011–1074</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">populate_zeff_profile</span><span class="p">(</span>
+    <span class="n">ods</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">resolved</span><span class="p">:</span> <span class="n">ResolvedImpurityComposition</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5e-4</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">A copy of ``ods`` whose ``core_profiles`` slice carries the resolved Z_eff(rho).
+
+    Parameters
+    ----------
+    ods : ODS
+        Source; never modified [any].
+    resolved : ResolvedImpurityComposition
+        From :func:`resolve_impurity_composition`; not of kind ``measured`` [any].
+    time : float, optional
+        Slice time; default the resolved composition</span><span class="sh">'</span><span class="s">s own [s].
+    tolerance : float, optional
+        Largest ``|t_slice - time|`` accepted [s].
+    method : str, optional
+        ``method=`` field of the record; default ``&lt;kind&gt;_composition`` [-].
+
+    Returns
+    -------
+    ODS
+        A deep copy with ``profiles_1d.zeff`` and ``profiles_1d.zeff_fit.parameters``
+        (``origin=assumed|derived; method=...``) written [any].
+
+    Raises
+    ------
+    ValueError
+        A measured composition (already in ``core_profiles``), no slice at the
+        time, or no electron density.
+
+    Convention
+    ----------
+    The record</span><span class="sh">'</span><span class="s">s ``origin`` is ``assumed`` for an explicit or preset
+    composition (Z_eff is then the assumed target) and ``derived`` for one
+    computed from other data; :func:`resolve_impurity_composition` never reads
+    either back as a measured target.  A measured ``zeff`` is never
+    overwritten: a composition closed at it is left with the slice</span><span class="sh">'</span><span class="s">s own
+    measured profile and record.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #1565 Sec. 5 (core_profiles.zeff from the resolved composition).
+    </span><span class="sh">"""</span>
+    <span class="n">work</span> <span class="o">=</span> <span class="n">copy</span><span class="p">.</span><span class="nf">deepcopy</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+    <span class="n">index</span><span class="p">,</span> <span class="n">ne</span><span class="p">,</span> <span class="n">rho</span> <span class="o">=</span> <span class="nf">_write_slice</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">resolved</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">core_profiles.profiles_1d.</span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="sh">"</span>
+    <span class="k">if</span> <span class="sh">"</span><span class="s">measured</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">resolved</span><span class="p">.</span><span class="n">zeff_source</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">work</span>  <span class="c1"># the slice already carries the measured profile it was closed at
+</span>    <span class="k">if</span> <span class="nf">composition_record_origin</span><span class="p">(</span><span class="nf">_get</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s">.zeff_fit.parameters</span><span class="sh">"</span><span class="p">))</span> <span class="o">==</span> <span class="sh">"</span><span class="s">measured</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s">.zeff is labelled measured; it is never overwritten</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">zeff</span><span class="p">,</span> <span class="n">filled</span> <span class="o">=</span> <span class="nf">_fill_undefined</span><span class="p">(</span><span class="nf">_on_grid</span><span class="p">(</span><span class="n">resolved</span><span class="p">.</span><span class="n">zeff</span><span class="p">,</span> <span class="n">resolved</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">ne</span><span class="p">.</span><span class="n">size</span><span class="p">),</span> <span class="n">rho</span><span class="p">)</span>
+    <span class="n">work</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s">.zeff</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">zeff</span>
+    <span class="n">record</span> <span class="o">=</span> <span class="nf">_record</span><span class="p">(</span><span class="n">resolved</span><span class="p">,</span> <span class="sh">"</span><span class="s">zeff</span><span class="sh">"</span><span class="p">,</span> <span class="n">method</span><span class="p">)</span>
+    <span class="n">work</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s">.zeff_fit.parameters</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">record</span> <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">; filled_points=</span><span class="si">{</span><span class="n">filled</span><span class="si">}</span><span class="sh">"</span> <span class="k">if</span> <span class="n">filled</span> <span class="k">else</span> <span class="sh">""</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">work</span></code></pre></figure>
+
+</details>
+
+    <p>A copy of <code class="language-plaintext highlighter-rouge">ods</code> whose <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries the resolved Z_eff(rho).</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>Source; never modified.</p>
+</td></tr>
+  <tr><td><code>resolved</code></td><td class="ref-type">ResolvedImpurityComposition</td><td class="ref-unit">any</td><td><p>From <code class="language-plaintext highlighter-rouge">resolve_impurity_composition</code>; not of kind <code class="language-plaintext highlighter-rouge">measured</code>.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Slice time; default the resolved composition’s own.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Largest <code class="language-plaintext highlighter-rouge">|t_slice - time|</code> accepted.</p>
+</td></tr>
+  <tr><td><code>method</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">method=</code> field of the record; default <code class="language-plaintext highlighter-rouge">&lt;kind&gt;_composition</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>A deep copy with <code class="language-plaintext highlighter-rouge">profiles_1d.zeff</code> and <code class="language-plaintext highlighter-rouge">profiles_1d.zeff_fit.parameters</code> (<code class="language-plaintext highlighter-rouge">origin=assumed|derived; method=...</code>) written.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The record’s <code class="language-plaintext highlighter-rouge">origin</code> is <code class="language-plaintext highlighter-rouge">assumed</code> for an explicit or preset
+composition (Z_eff is then the assumed target) and <code class="language-plaintext highlighter-rouge">derived</code> for one
+computed from other data; <code class="language-plaintext highlighter-rouge">resolve_impurity_composition</code> never reads
+either back as a measured target.  A measured <code class="language-plaintext highlighter-rouge">zeff</code> is never
+overwritten: a composition closed at it is left with the slice’s own
+measured profile and record.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A measured composition (already in <code class="language-plaintext highlighter-rouge">core_profiles</code>), no slice at the time, or no electron density.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1565 Sec. 5 (core_profiles.zeff from the resolved composition).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="resolve_impurity_composition" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_impurity_composition"><code>resolve_impurity_composition</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resolve_impurity_composition" href="https://github.com/VEST-Tokamak/vaft/blob/dc3a3ba74e0215eddc57a1438a7527a6b27cf7dc/vaft/process/impurity.py#L716-L904" title="vaft/process/impurity.py, lines 716–904 at dc3a3ba">source</a>
+<a class="ref-source" data-source="resolve_impurity_composition" href="https://github.com/VEST-Tokamak/vaft/blob/a1481e5a7a9f4859bdf2a623a54c1081e39e7fac/vaft/process/impurity.py#L719-L907" title="vaft/process/impurity.py, lines 719–907 at a1481e5">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_impurity_composition(ods=None, *, time=None, tolerance=0.0005, composition=None, derived=None, machine_preset=None, shot=None, use_measured_zeff=True, resistive_zeff=None, info_file=None)</code></pre>
 
@@ -1091,7 +1338,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-05 17:32:55 +0000"
+        "time": "2026-10-05 17:47:45 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
