@@ -314,7 +314,7 @@ VEST_TIER_A_SELECTIONS = MappingProxyType({
     "sensitivity": MappingProxyType({"ip_min": 30e3, "max_dwdt_fraction": 0.5, "max_ip_change_per_tau": 0.05}),
 })
 
-#: First shot of the second Tier A block (429xx-430xx).  That block is 2.7x denser
+#: First shot of the second Tier A block (429xx-430xx).  That block is 1.6x denser
 #: and 84 % of its Thomson-matched slices are Thomson-inconsistent (p_EFIT > 2 p_e,
 #: criteria v2, #1521), where the magnetics-EFIT stored energy runs high; callers
 #: that pool the blocks should carry ``tier_a_block`` (#1490).
@@ -387,12 +387,12 @@ def load_vest_tier_a_confinement(
     * ``attrs`` carries units and descriptions for the canonical columns only;
       the extension columns are described in
       ``workflow/confinement_scaling/README.md``.
-    * The 429xx-430xx block is 2.7x denser, and most of its Thomson-matched
-      slices are Thomson-inconsistent (criteria v2, #1521), where the
-      magnetics-EFIT stored energy runs high. Whether a block-wide bias remains
-      once density is accounted for is not decided by Tier A: only 5 of its
-      429xx slices are Thomson-consistent (#1490). Keep ``tier_a_block`` when
-      pooling.
+    * The 429xx-430xx block is 1.6x denser (2.7x in the primary selection),
+      and most of its Thomson-matched slices are Thomson-inconsistent
+      (criteria v2, #1521), where the magnetics-EFIT stored energy runs high.
+      Whether a block-wide bias remains once density is accounted for is not
+      decided by Tier A: only 5 of its slices are Thomson-consistent (#1490).
+      Keep ``tier_a_block`` when pooling.
     """
     import json
     from pathlib import Path
