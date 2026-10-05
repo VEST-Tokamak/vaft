@@ -642,13 +642,14 @@ def test_st_and_conventional_hugill_axes_are_never_substituted():
     assert ops.placement("hugill_st", "murakami_hugill").kind == "vertical"   # the x axis is shared
 
 
-def test_sykes_boundary_is_supported_for_a_spherical_tokamak_and_murakami_stays_a_reference():
+def test_sykes_boundary_covers_spherical_tokamaks_and_murakami_stays_a_reference():
     x, y = B.hugill_coordinates_st(np.linspace(5, 30, 20), 0.38, 0.17, 0.27, 1.5, np.linspace(0.05, 0.25, 20))
     t = pd.DataFrame({"murakami_parameter": x, "inverse_cylindrical_q_st": y, "elongation": 1.5})
     t.attrs["units"] = {"murakami_parameter": "1e19 m^-2 T^-1"}
     t.attrs["machine_class"] = "spherical_tokamak"
     _, ax = operational_space_population(t, "hugill_st", boundary_style="inline")
-    assert ax.vaft_applicability["sykes_2000_st_hugill"][0] == "SUPPORTED"
+    status, reasons = ax.vaft_applicability["sykes_2000_st_hugill"]
+    assert status == "UNASSESSED" and "covers the plotted machines" in reasons[-1]   # MAST class, no range given
     legend = " ".join(t_.get_text() for t_ in ax.get_legend().get_texts()).replace("\n  ", " ")
     assert "historical conventional-tokamak reference" in legend and "Hugill limit (Sykes 2000, MAST)" in legend
 
@@ -660,3 +661,18 @@ def test_st_hugill_diagram_curves_are_the_registered_boundaries():
     expected = B.boundary_value(B.get_boundary("sykes_2000_st_hugill"), inverse_cylindrical_q_st=xy[:, 1], elongation=1.8)
     np.testing.assert_allclose(xy[:, 0], expected)
     assert chart.parameters["boundaries"] == ("sykes_2000_st_hugill", "greenwald_hugill_st", "murakami_hugill")
+
+
+def test_murakami_is_a_dashed_reference_on_the_st_plane_in_the_default_style_too():
+    x, y = B.hugill_coordinates_st(np.linspace(5, 30, 20), 0.38, 0.17, 0.27, 1.5, np.linspace(0.05, 0.25, 20))
+    t = pd.DataFrame({"murakami_parameter": x, "inverse_cylindrical_q_st": y, "elongation": 1.5})
+    t.attrs["units"] = {"murakami_parameter": "1e19 m^-2 T^-1"}
+    _, ax = operational_space_population(t, "hugill_st")   # shade style, no machine class
+    murakami = [line for line in ax.get_lines() if line.get_linestyle() == "--"]
+    assert len(murakami) == 1 and "reference only" in murakami[0].get_label()
+    fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
+    xs = np.concatenate([p.vertices[:, 0] for c in fills for p in c.get_paths()])
+    assert not np.any(np.isclose(xs, 1.0) & (xs < 1.0 + 1e-9))   # nothing shaded from Murakami's x = 1 rightwards
+    # the conventional Hugill plane keeps Murakami as a shaded limit for a conventional population
+    _, ax2 = operational_space_population(_hugill_table(), "hugill")
+    assert not [line for line in ax2.get_lines() if line.get_linestyle() == "--"]
