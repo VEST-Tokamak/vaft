@@ -63,6 +63,7 @@ _SUBMODULES = {
     "transport_state": ".transport_state",
     "confinement": ".confinement",
     "impurity": ".impurity",
+    "mhd_stability": ".mhd_stability",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -120,6 +121,9 @@ _IMPORT_ORDER = (
     # One resolved impurity composition behind every Z_eff (#1565); nothing it
     # exports collides.
     "impurity",
+    # DCON local-criterion and edge-scan post-processing from the ODS payload
+    # (#940); nothing it exports collides.
+    "mhd_stability",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
