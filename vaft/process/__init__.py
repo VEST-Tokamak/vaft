@@ -62,6 +62,7 @@ _SUBMODULES = {
     "resistive_zeff": ".resistive_zeff",
     "transport_state": ".transport_state",
     "confinement": ".confinement",
+    "impurity": ".impurity",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -116,6 +117,9 @@ _IMPORT_ORDER = (
     # Confinement power balance and slice qualification (#548); nothing it
     # exports collides.
     "confinement",
+    # One resolved impurity composition behind every Z_eff (#1565); nothing it
+    # exports collides.
+    "impurity",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

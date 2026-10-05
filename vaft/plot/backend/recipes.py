@@ -855,8 +855,45 @@ MACHINE_DIAGNOSTICS = (
     "magnetics", "thomson_scattering", "charge_exchange", "soft_x_rays",
     "interferometer", "langmuir_probes",
 )
-MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics", *MACHINE_DIAGNOSTICS)
+MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics", *MACHINE_DIAGNOSTICS,
+                    "coils_non_axisymmetric", "ec_launchers", "nbi")
 DEFAULT_MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
+
+
+def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
+                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
+    """Use one source registry for selected families in composed machine plots."""
+    from vaft.plot.machine_geometry import machine_geometry_view
+
+    chosen = options.get("geometry_families")
+    if chosen is not None:
+        families = (chosen,) if isinstance(chosen, str) else tuple(chosen)
+    geometry_data = options.get("geometry_data", ods)
+    manifest = options.get("geometry_manifest")
+    if geometry_data is not ods and manifest is None:
+        raise ValueError("separate geometry_data requires geometry_manifest provenance")
+    return machine_geometry_view(
+        geometry_data, view, families=families, manifest=manifest,
+        axis_length=float(options.get("axis_length", 0.25)),
+    )
+
+
+def _machine_view_title(base: str, shared: GeometryLayers | Geometry3DLayers) -> str:
+    return base + shared.title.removeprefix("Machine geometry")
+
+
+def _exclude_crossshot_equilibrium(ods: Any, options: Mapping[str, Any]) -> bool:
+    """Do not put a foreign-shot equilibrium in the fixture's machine context."""
+    manifest = options.get("geometry_manifest") or {}
+    if options.get("geometry_data", ods) is not ods:
+        return False
+    if manifest.get("kind") != "cross-shot-diagnostic-fixture":
+        comment = _get(ods, "dataset_description.ids_properties.comment")
+        return isinstance(comment, str) and "Cross-shot composite fixture" in comment
+    reference = manifest.get("geometry_reference", {}).get("source_shot")
+    sources = [source for source in manifest.get("sources", {}).values()
+               if "equilibrium" in source.get("ids", ())]
+    return len(sources) != 1 or sources[0].get("source_shot") != reference
 
 
 @dataclass(frozen=True)
@@ -1167,7 +1204,26 @@ def _topview_reads() -> tuple[str, ...]:
             reads += [f"{container}.{{i}}.position.{{j}}.r", f"{container}.{{i}}.position.{{j}}.phi"]
         else:
             reads += [f"{container}.{{i}}.position.r", f"{container}.{{i}}.position.phi"]
-    return tuple(reads)
+    # The shared machine-space registry reads these IDS paths for all views.
+    for container in ("thomson_scattering.channel", "charge_exchange.channel", "langmuir_probes.embedded"):
+        for suffix in ("position", "position.0"):
+            for coordinate in ("r", "z", "phi"):
+                reads += [f"{container}.{{i}}.{suffix}.{coordinate}",
+                          f"{container}.{{i}}.{suffix}.{coordinate}.data"]
+        reads.append(f"{container}.{{i}}.name")
+    for container in ("interferometer.channel", "soft_x_rays.channel"):
+        for endpoint in ("first_point", "second_point", "third_point"):
+            for coordinate in ("r", "z", "phi"):
+                reads.append(f"{container}.{{i}}.line_of_sight.{endpoint}.{coordinate}")
+        reads += [f"{container}.{{i}}.name", f"{container}.{{i}}.identifier"]
+    for coordinate in ("r", "z", "phi"):
+        reads += [f"ec_launchers.beam.{{i}}.launching_position.{coordinate}",
+                  f"ec_launchers.beam.{{i}}.launching_position.{coordinate}.data",
+                  f"nbi.unit.{{i}}.beamlets_group.{{j}}.position.{coordinate}"]
+    reads += ["ec_launchers.beam.{i}.steering_angle_pol", "ec_launchers.beam.{i}.steering_angle_tor",
+              "ec_launchers.beam.{i}.name", "nbi.unit.{i}.name",
+              "dataset_description.data_entry.machine", "dataset_description.data_entry.pulse"]
+    return tuple(dict.fromkeys(reads))
 
 
 #: The EFIT constraint families vaft.omas.efit_quality reads, per slice.
@@ -3337,72 +3393,56 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
         layers.extend(_build_passive_structure_geometry(ods).layers)
     if "coils" in names and entry_supports(ods, "pf_coil_geometry_poloidal"):
         layers.extend(_build_pf_coil_geometry(ods, collective=True).layers)
-    for family, member in (
-        ("magnetics", "magnetics_geometry_poloidal"),
-        ("thomson_scattering", "thomson_scattering_geometry_poloidal"),
-        ("charge_exchange", "charge_exchange_geometry_poloidal"),
-    ):
-        if family not in names:
-            continue
-        if not entry_supports(ods, member):
-            continue
+    if "magnetics" in names and entry_supports(ods, "magnetics_geometry_poloidal"):
         layers.extend(_build_geometry(
-            ods, RECIPES[member], **{k: v for k, v in options.items() if k != "overlay"}
+            ods, RECIPES["magnetics_geometry_poloidal"],
+            **{k: v for k, v in options.items() if k != "overlay"},
         ).layers)
-    if "soft_x_rays" in names and entry_supports(ods, "soft_x_rays_geometry_lines_of_sight"):
-        layers.extend(
-            _build_lines_of_sight(
-                ods, label_channels=False, include_wall=False,
-                **{k: v for k, v in options.items() if k != "overlay"},
-            ).layers
-        )
-    if "interferometer" in names:
-        layers.extend(_interferometer_poloidal_layers(ods))
-    if "langmuir_probes" in names:
-        layers.extend(_langmuir_poloidal_layers(ods))
+    from vaft.plot.machine_geometry import MACHINE_GEOMETRY_FAMILIES
+
+    selected = tuple(family for family in MACHINE_GEOMETRY_FAMILIES
+                     if family in names or (options.get("overlay") is None and
+                                            family in ("coils_non_axisymmetric", "ec_launchers", "nbi"))
+                     or (family == "coils_non_axisymmetric" and "coils" in names))
+    shared = _shared_machine_view(ods, "rz", options, selected)
+    layers.extend(shared.layers)
     if not layers:
         raise ValueError(
             "none of the poloidal machine geometry IDS (wall, pf_active, "
             "pf_passive, magnetics, thomson_scattering, charge_exchange, "
             "soft_x_rays) are present"
         )
-    return GeometryLayers(layers=tuple(layers), title="Machine Cross-section")
+    return GeometryLayers(layers=tuple(layers), title=_machine_view_title("Machine Cross-section", shared))
 
 
 def _interferometer_poloidal_layers(ods: Any) -> list[GeometryLayer]:
     """Keep reflected three-point chords as paths, never local density points."""
+    return _shared_los_poloidal_layers(
+        ods, "interferometer", "Interferometer LOS",
+        {"color": palette(4), "linestyle": "--", "lw": 0.9},
+    )
+
+
+def _shared_los_poloidal_layers(
+    ods: Any, family: str, label: str, style: Mapping[str, Any]
+) -> list[GeometryLayer]:
+    """Project stored Cartesian LOS legs into R-Z, preserving reflections."""
+    from vaft.plot.machine_geometry import machine_geometry_registry, project_machine_geometry
+
     layers = []
-    for index in range(_count(ods, "interferometer.channel")):
-        prefix = f"interferometer.channel.{index}.line_of_sight"
-        points = []
-        for endpoint in ("first_point", "second_point", "third_point"):
-            r = _get(ods, f"{prefix}.{endpoint}.r")
-            z = _get(ods, f"{prefix}.{endpoint}.z")
-            if r is None or z is None:
-                if endpoint == "third_point":
-                    break
-                points = []
-                break
-            points.append((float(r), float(z)))
-        if len(points) < 2:
-            continue
-        layers.append(GeometryLayer(
-            r=np.asarray([point[0] for point in points]),
-            z=np.asarray([point[1] for point in points]),
-            kind="polyline", label="Interferometer LOS" if not layers else "",
-            style={"color": palette(4), "linestyle": "--", "lw": 0.9},
-        ))
+    for record in machine_geometry_registry(ods, families=(family,)):
+        layer = project_machine_geometry(record, "rz")
+        if layer is not None:
+            layers.append(replace(layer, label=label if not layers else "", style=style))
     return layers
 
 
 def _langmuir_poloidal_layers(ods: Any) -> list[GeometryLayer]:
     """Draw only probes with explicit mapped R and Z locations."""
-    points = []
-    for index in range(_count(ods, "langmuir_probes.embedded")):
-        prefix = f"langmuir_probes.embedded.{index}.position"
-        r, z = _get(ods, f"{prefix}.r"), _get(ods, f"{prefix}.z")
-        if r is not None and z is not None:
-            points.append((float(r), float(z)))
+    from vaft.plot.machine_geometry import machine_geometry_registry
+
+    points = [(float(record.r[0]), float(record.z[0]))
+              for record in machine_geometry_registry(ods, families=("langmuir_probes",))]
     if not points:
         return []
     return [GeometryLayer(
@@ -3462,8 +3502,15 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
         radius = _get(ods, f"{base}.r")
         if radius is None:
             continue
-        phi = _get(ods, f"{base}.phi", 0.0)
-        positions.append((float(radius), float(phi or 0.0)))
+        phi = _get(ods, f"{base}.phi")
+        if phi is None:
+            continue
+        try:
+            location = (float(radius), float(phi))
+        except (TypeError, ValueError):
+            continue
+        if np.isfinite(location).all():
+            positions.append(location)
     return positions
 
 
@@ -3481,18 +3528,8 @@ _TOPVIEW_DIAGNOSTICS: tuple[tuple[str, str, str, dict], ...] = (
      {"marker": "x", "markersize": 4, "color": palette(1)}),
     ("magnetics.b_field_tor_probe", "B-tor probes", "points",
      {"marker": "+", "markersize": 5, "color": palette(2)}),
-    ("thomson_scattering.channel", "Thomson scattering", "points",
-     {"marker": "o", "markersize": 3, "color": palette(3)}),
-    ("charge_exchange.channel", "Charge exchange", "points",
-     {"marker": "d", "markersize": 3, "color": palette(4)}),
-    ("langmuir_probes.embedded", "Langmuir probes", "points",
-     {"marker": "v", "markersize": 3, "color": palette(5)}),
     ("barometry.gauge", "Pressure gauges", "points",
      {"marker": "p", "markersize": 4, "color": palette(6)}),
-    ("interferometer.channel", "Interferometer", "segments",
-     {"color": palette(0), "lw": 0.8}),
-    ("soft_x_rays.channel", "Soft X-ray LOS", "segments",
-     {"color": palette(7), "lw": 0.6}),
     ("bolometer.channel", "Bolometer LOS", "segments",
      {"color": palette(8), "lw": 0.6}),
     ("spectrometer_uv.channel", "UV spectrometer LOS", "segments",
@@ -3568,54 +3605,36 @@ def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
             ys.append(position[0] * np.sin(position[1]))
         if xs:
             layers.append(GeometryLayer(r=xs, z=ys, kind="points", label=label, style=style))
+    from vaft.plot.machine_geometry import machine_geometry_registry, project_machine_geometry
+
+    shared = machine_geometry_registry(ods, families=(
+        "thomson_scattering", "charge_exchange", "langmuir_probes",
+        "interferometer", "soft_x_rays",
+    ))
+    seen: set[str] = set()
+    labels = {"thomson_scattering": "Thomson scattering", "charge_exchange": "Charge exchange",
+              "langmuir_probes": "Langmuir probes", "interferometer": "Interferometer",
+              "soft_x_rays": "Soft X-ray LOS"}
+    for record in shared:
+        layer = project_machine_geometry(record, "top")
+        if layer is None:
+            continue
+        name = record.family
+        layers.append(replace(layer, label=labels[name] if name not in seen else ""))
+        seen.add(name)
     return layers
 
 
-def _first_finite(value: Any) -> float | None:
-    """The first finite sample of a scalar or a time trace, else ``None``.
-
-    EC launching positions are time traces in the DD (antenna positions are
-    read through their ``.data``); a fixed launcher repeats one value, and the
-    top view draws where it sits.
-    """
+def _static_topview_scalar(value: Any) -> float | None:
+    """A finite static coordinate; changing traces need an explicit time."""
     if value is None:
         return None
     samples = np.asarray(value, dtype=float).reshape(-1)
-    samples = samples[np.isfinite(samples)]
-    return float(samples[0]) if samples.size else None
-
-
-#: Length of the drawn initial EC launch direction [m].
-_EC_RAY_LENGTH = 0.25
-
-
-def _ec_launch_ray_topview(ods: Any, index: int, radius: float, phi: float) -> GeometryLayer | None:
-    """The initial straight launch direction of EC beam ``index`` in the top view.
-
-    The wave vector follows the DD 3.41 steering definitions
-    ``angle_pol = atan2(-k_Z, -k_R)`` and ``angle_tor = arcsin(k_phi/k)``.
-    """
-    base = f"ec_launchers.beam.{index}"
-    angle_pol = _first_finite(_get(ods, f"{base}.steering_angle_pol"))
-    angle_tor = _first_finite(_get(ods, f"{base}.steering_angle_tor"))
-    if angle_pol is None or angle_tor is None:
-        return None
-    k_r = -np.cos(angle_pol) * np.cos(angle_tor)
-    k_phi = np.sin(angle_tor)
-    x0, y0 = radius * np.cos(phi), radius * np.sin(phi)
-    dx = k_r * np.cos(phi) - k_phi * np.sin(phi)
-    dy = k_r * np.sin(phi) + k_phi * np.cos(phi)
-    return GeometryLayer(
-        r=[x0, x0 + _EC_RAY_LENGTH * dx],
-        z=[y0, y0 + _EC_RAY_LENGTH * dy],
-        kind="polyline",
-        label=f"EC launch direction {index}",
-        style={"lw": 1.2, "linestyle": "--"},
-    )
+    return float(samples[0]) if samples.size and np.isfinite(samples).all() and np.all(samples == samples[0]) else None
 
 
 def _build_machine_topview(
-    ods: Any, *, time_slice: int = 0, **_: Any
+    ods: Any, *, time_slice: int = 0, **options: Any
 ) -> GeometryLayers:
     """Compose the machine and plasma extent with launcher and pellet geometry."""
     layers: list[GeometryLayer] = []
@@ -3635,48 +3654,32 @@ def _build_machine_topview(
                     style={"color": "feature:wall", "lw": 1.0},
                 )
             )
-    if _has(ods, "equilibrium"):
+    if _has(ods, "equilibrium") and not _exclude_crossshot_equilibrium(ods, options):
         try:
             layers.extend(_build_equilibrium_topview(ods, time_slice=time_slice).layers)
         except ValueError:
             pass
-    for container, r_path, label, style in (
-        (
-            "lh_antennas.antenna",
-            # DD 3.41 stores antenna positions as signals (`.data` + `.time`).
-            "lh_antennas.antenna.{i}.position.r.data",
-            "LH antenna",
-            {"marker": "s"},
-        ),
-        (
-            "ec_launchers.beam",
-            "ec_launchers.beam.{i}.launching_position.r",
-            "EC launcher",
-            {"marker": "^"},
-        ),
-    ):
-        for index in range(_count(ods, container)):
-            radius = _first_finite(_get(ods, r_path.format(i=index)))
-            stored_phi = _get(ods, r_path.format(i=index).replace(".r", ".phi"))
-            # No phi at all keeps the old 12 o'clock default; a phi that is
-            # stored but never finite is unknown, and nothing is drawn.
-            phi = 0.0 if stored_phi is None else _first_finite(stored_phi)
-            if radius is None or phi is None:
-                continue
-            layers.append(
-                GeometryLayer(
-                    r=[radius * np.cos(phi)],
-                    z=[radius * np.sin(phi)],
-                    kind="points",
-                    label=f"{label} {index}",
-                    style=style,
-                )
-            )
-            if container == "ec_launchers.beam":
-                ray = _ec_launch_ray_topview(ods, index, radius, phi)
-                if ray is not None:
-                    layers.append(ray)
-    layers.extend(_topview_diagnostic_layers(ods))
+    # DD 3.41 stores LH positions as signals. A changing location needs a
+    # selected time, so the timeless top view accepts only constant traces.
+    for index in range(_count(ods, "lh_antennas.antenna")):
+        base = f"lh_antennas.antenna.{index}.position"
+        radius = _static_topview_scalar(_get(ods, f"{base}.r.data"))
+        phi = _static_topview_scalar(_get(ods, f"{base}.phi.data"))
+        if radius is not None and phi is not None:
+            layers.append(GeometryLayer(
+                r=[radius * np.cos(phi)], z=[radius * np.sin(phi)],
+                kind="points", label=f"LH antenna {index}", style={"marker": "s"},
+            ))
+    configured = any(options.get(key) is not None for key in
+                     ("geometry_data", "geometry_manifest", "geometry_families"))
+    if not configured:
+        layers.extend(_topview_diagnostic_layers(ods))
+    families = ("ec_launchers", "nbi", "coils_non_axisymmetric") if not configured else (
+        "thomson_scattering", "charge_exchange", "langmuir_probes",
+        "interferometer", "soft_x_rays", "coils_non_axisymmetric", "ec_launchers", "nbi",
+    )
+    shared = _shared_machine_view(ods, "top", options, families)
+    layers.extend(shared.layers)
     for index, (radius, phi) in enumerate(_pellet_positions(ods, time_slice)):
         layers.append(
             GeometryLayer(
@@ -3697,7 +3700,7 @@ def _build_machine_topview(
         layers=tuple(layers),
         x_label="x [m]",
         y_label="y [m]",
-        title="Machine Top View",
+        title=_machine_view_title("Machine Top View", shared),
     )
 
 
@@ -4807,10 +4810,25 @@ def _diagnostic_layers_3d(ods: Any) -> list[Geometry3DLayer]:
             layers.append(Geometry3DLayer(
                 x=x, y=y, z=height, kind="points", label=label, style=style, group=group,
             ))
+    from vaft.plot.machine_geometry import machine_geometry_registry, project_machine_geometry
+
+    shared = machine_geometry_registry(ods, families=(
+        "thomson_scattering", "charge_exchange", "langmuir_probes",
+        "interferometer", "soft_x_rays",
+    ))
+    seen: set[str] = set()
+    for index, record in enumerate(shared):
+        layer = project_machine_geometry(record, "3d")
+        if layer is None:
+            continue
+        name = record.family
+        layers.append(replace(layer, label=f"{name} [{record.semantic}]" if name not in seen else "",
+                              group=f"diagnostics/{name}/{index}"))
+        seen.add(name)
     return layers
 
 
-def _build_machine_3d(ods: Any, *, time_slice: int = 0, **_: Any) -> Geometry3DLayers:
+def _build_machine_3d(ods: Any, *, time_slice: int = 0, **options: Any) -> Geometry3DLayers:
     """Compose the machine in 3-D: wall and plasma cuts, coils, diagnostics.
 
     Axisymmetric parts are a wireframe -- the poloidal outline at four
@@ -4844,7 +4862,9 @@ def _build_machine_3d(ods: Any, *, time_slice: int = 0, **_: Any) -> Geometry3DL
                 group=f"machine/pf_active/{str(name).replace('/', '-')}/{part}",
             ))
             labelled_pf = True
-    if _count(ods, "coils_non_axisymmetric.coil"):
+    configured = any(options.get(key) is not None for key in
+                     ("geometry_data", "geometry_manifest", "geometry_families"))
+    if not configured and _count(ods, "coils_non_axisymmetric.coil"):
         # The composed scene is drawable without the coils, but a coil set
         # the dedicated coil_3d_geometry3d view refuses must not vanish from
         # it silently: the exported scene would simply lack them.
@@ -4857,20 +4877,29 @@ def _build_machine_3d(ods: Any, *, time_slice: int = 0, **_: Any) -> Geometry3DL
             )
         else:
             layers.extend(replace(layer, group=f"machine/{layer.group}") for layer in coils.layers)
-    boundary_r = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
-    boundary_z = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
+    boundary_r = None if _exclude_crossshot_equilibrium(ods, options) else _array(
+        ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
+    boundary_z = None if _exclude_crossshot_equilibrium(ods, options) else _array(
+        ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
     if boundary_r is not None and boundary_z is not None and boundary_r.size == boundary_z.size > 2:
         layers.extend(_outline_cuts_3d(
             boundary_r, boundary_z, label="Plasma boundary", group="equilibrium/boundary",
             style={"color": "feature:boundary", "lw": 1.0, "linestyle": "--"},
         ))
-    layers.extend(_diagnostic_layers_3d(ods))
+    if not configured:
+        layers.extend(_diagnostic_layers_3d(ods))
+    families = ("ec_launchers", "nbi") if not configured else (
+        "thomson_scattering", "charge_exchange", "langmuir_probes",
+        "interferometer", "soft_x_rays", "coils_non_axisymmetric", "ec_launchers", "nbi",
+    )
+    shared = _shared_machine_view(ods, "3d", options, families)
+    layers.extend(shared.layers)
     if not layers:
         raise ValueError(
             "none of the machine geometry IDS (wall, pf_active, coils_non_axisymmetric, "
             "equilibrium boundary, diagnostics with r/phi/z) are present"
         )
-    return Geometry3DLayers(layers=tuple(layers), title="Machine Geometry (3D)")
+    return Geometry3DLayers(layers=tuple(layers), title=_machine_view_title("Machine Geometry (3D)", shared))
 
 
 def _machine_3d_reads() -> tuple[str, ...]:
@@ -5432,7 +5461,7 @@ RECIPES["neoclassical_profile_bootstrap_current"] = CallableRecipe(
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
     description="Wall, coils, passive structure and diagnostic positions composed.",
-    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *RECIPES["soft_x_rays_geometry_lines_of_sight"].reads, *(f"interferometer.channel.{{i}}.line_of_sight.{point}.{coord}" for point in ("first_point", "second_point", "third_point") for coord in ("r", "z")), "langmuir_probes.embedded.{i}.position.r", "langmuir_probes.embedded.{i}.position.z"),
+    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, *_COIL_3D_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *_topview_reads()),
     backend=NEUTRAL,
 )
 RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
@@ -5444,7 +5473,7 @@ RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
 RECIPES["machine_geometry_topview"] = CallableRecipe(
     builder=_build_machine_topview,
     description="Plasma extent plus launcher and antenna positions in the top view.",
-    reads=(*_WALL_LIMITER_READS, *_WALL_VESSEL_READS, "equilibrium.time_slice.{i}.boundary.outline.r", "lh_antennas.antenna.{i}.position.r.data", "lh_antennas.antenna.{i}.position.phi.data", "ec_launchers.beam.{i}.launching_position.r", "ec_launchers.beam.{i}.launching_position.phi", "ec_launchers.beam.{i}.steering_angle_pol", "ec_launchers.beam.{i}.steering_angle_tor", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.phi", *_topview_reads()),
+    reads=(*_WALL_LIMITER_READS, *_WALL_VESSEL_READS, *_COIL_3D_READS, "equilibrium.time_slice.{i}.boundary.outline.r", "lh_antennas.antenna.{i}.position.r.data", "lh_antennas.antenna.{i}.position.phi.data", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.phi", *_topview_reads()),
     backend=NEUTRAL,
 )
 RECIPES["equilibrium_field_psi_vacuum"] = CallableRecipe(
@@ -5930,7 +5959,9 @@ def _efit_overlay_layers(
 
 #: What may be drawn over a camera frame (issue #261 section 18), and the
 #: projection methods that map machine geometry into its pixels (section 20).
-CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line")
+from vaft.plot.machine_geometry import MACHINE_GEOMETRY_FAMILIES
+
+CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line", "machine_geometry") + MACHINE_GEOMETRY_FAMILIES
 
 #: Where a vacuum field line is seeded when ``seeds=`` names none [m]: VEST's
 #: startup reference point, the one ``startup_proxies_time`` reads.
@@ -6043,6 +6074,30 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
                 "no dataset_description.data_entry.pulse; pass shot= or a CameraProjection"
             )
         projection = _projection_option(options, shot)
+        selected_families = tuple(name for name in overlays if name in MACHINE_GEOMETRY_FAMILIES)
+        if "machine_geometry" in overlays or selected_families:
+            from vaft.plot.machine_geometry import machine_geometry_view
+
+            geometry_data = options.get("geometry_data", ods)
+            geometry_manifest = options.get("geometry_manifest")
+            if geometry_data is not ods and geometry_manifest is None:
+                raise ValueError("separate geometry_data requires geometry_manifest provenance")
+            if geometry_manifest is not None and geometry_data is ods and geometry_manifest.get("kind") == "cross-shot-diagnostic-fixture":
+                raise ValueError("cross-shot geometry_manifest requires geometry_data= for the fixture")
+            family_option = options.get("geometry_families")
+            families = (None if family_option is None else
+                        (family_option,) if isinstance(family_option, str) else tuple(family_option))
+            if "machine_geometry" not in overlays:
+                if families is not None:
+                    raise ValueError("geometry_families requires overlay='machine_geometry'; use overlay family names directly otherwise")
+                families = selected_families
+            geometry = machine_geometry_view(
+                geometry_data, "camera", families=families,
+                manifest=geometry_manifest, projection=projection,
+                axis_length=float(options.get("axis_length", 0.25)),
+            )
+            layers.extend(geometry.layers)
+            notes.append("machine geometry")
         if "wall" in overlays or "equilibrium" in overlays:
             sweep = options.get("theta_deg_range")
             geometry = compute_camera_visible_efit_overlay(
@@ -6097,6 +6152,10 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
         f"{channel_name} frame {idx} @ t={resolved_time:.4f}s"
         + (f" -- shot {shot}: {'; '.join(notes)}" if notes else ""),
     )
+    geometry_manifest = options.get("geometry_manifest")
+    if ("machine_geometry" in overlays or any(name in MACHINE_GEOMETRY_FAMILIES for name in overlays)) and geometry_manifest and geometry_manifest.get("kind") == "cross-shot-diagnostic-fixture":
+        reference = geometry_manifest["geometry_reference"]["source_shot"]
+        title += f"\nCross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
     return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
 
 

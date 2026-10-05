@@ -284,7 +284,8 @@ def test_camera_overlays_belong_to_the_image_entry_point():
     # The view's own entry point declares its overlays (#261 G·5); the
     # presets beneath it advertise none.
     image = vaft.omas.available_plots(query="camera_visible").find("camera_visible_image")
-    assert image.overlays == ("wall", "equilibrium", "field_line", "vacuum_field_line")
+    from vaft.plot.backend.recipes import CAMERA_OVERLAYS
+    assert image.overlays == CAMERA_OVERLAYS
     assert image.projection == {"methods": ("calibrated",)}
     frame = vaft.omas.available_plots(query="camera_visible").find("camera_visible_image_frame")
     assert frame.overlays == () and frame.projection == {}
