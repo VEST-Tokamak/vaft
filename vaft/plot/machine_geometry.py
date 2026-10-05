@@ -86,7 +86,7 @@ _POINTS = {
 _LOS = {"interferometer": "interferometer.channel", "soft_x_rays": "soft_x_rays.channel"}
 MACHINE_GEOMETRY_FAMILIES = (*_POINTS, *_LOS, "coils_non_axisymmetric", "ec_launchers", "nbi")
 _FAMILY_LABELS = {
-    "thomson_scattering": "Thomson stored sites (R-Z)",
+    "thomson_scattering": "Thomson channel sites",
     "charge_exchange": "CX measurement sites",
     "langmuir_probes": "Langmuir sites",
     "interferometer": "Interferometer LOS",
@@ -262,6 +262,48 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
                         positions.extend([start, end])
                         previous = end
                     add(family, base, "coil_path", positions, str(get(data, f"{coil}.name", f"coil {index}")))
+    # The current VEST Thomson mapper writes the port-map phi at each channel
+    # but DD 3.41 has no laser-chord leaf. Attach its explicit source chord to
+    # an ordinary shot only when two stored channel positions independently
+    # agree with that mapper. A generic TS IDS or unmapped/old sample cannot
+    # silently acquire VEST toroidal coordinates.
+    manifest_has_laser = any(entry.get("family") == "thomson_scattering" and entry.get("semantic") == "trajectory"
+                             for entry in (manifest or {}).get("geometry_records", ()))
+    if "thomson_scattering" in selected and not manifest_has_laser:
+        machine = get(data, "dataset_description.data_entry.machine")
+        shot = get(data, "dataset_description.data_entry.pulse")
+        try:
+            source_shot = int(shot) if shot is not None else None
+        except (TypeError, ValueError):
+            source_shot = None
+        if str(machine).upper() == "VEST" and source_shot is not None and source_shot > 0:
+            from vaft.machine_mapping.thomson_scattering import laser_chord_positions, scattering_volume_phi
+
+            sites = [record for record in records if record.family == "thomson_scattering"
+                     and record.semantic == "point" and record.phi is not None]
+            agrees = len(sites) >= 2 and len({float(site.r[0]) for site in sites}) >= 2
+            for site in sites:
+                try:
+                    mapped_phi = scattering_volume_phi(float(site.r[0]))
+                except ValueError:
+                    agrees = False
+                    break
+                agrees &= bool(np.isclose(site.z[0], 0.0, atol=1e-12, rtol=0)
+                               and np.isclose(np.angle(np.exp(1j * (site.phi[0] - mapped_phi))),
+                                              0.0, atol=1e-10, rtol=0))
+            if agrees:
+                positions = laser_chord_positions()
+                r, z, phi = zip(*positions)
+                records.append(MachineGeometry(
+                    "thomson_scattering", "trajectory", r, z, phi,
+                    "Thomson laser port chord (derived; not as-built)",
+                    "vaft.machine_mapping.thomson_scattering.laser_chord_positions",
+                    json.dumps({"sources": {"thomson_port_map": {
+                        "source_shot": source_shot, "source_artifact": "vaft/machine_mapping/thomson_scattering.py",
+                        "value_kind": "derived port-map geometry; not surveyed as-built",
+                    }}, "derivation": "8MM10 entry to 1MM10 dump; 0.803 m port-flange radius; verified against stored channel phi"},
+                               sort_keys=True),
+                ))
     # These paths have no suitable standard IDS leaf in DD 3.41. The manifest
     # contains source-mapper outputs with explicit derivation and source hashes,
     # not a renderer-side reconstruction of a plotted shape.
@@ -350,7 +392,7 @@ def machine_geometry_view(data: Any, view: str, *, families: tuple[str, ...] | N
         raise ValueError("camera view requires a calibrated CameraProjection")
     records = machine_geometry_registry(data, families=families, manifest=manifest)
     layers = []
-    labelled: set[tuple[str, bool]] = set()
+    labelled: set[tuple[str, str, bool]] = set()
     for index, record in enumerate(records):
         layer = project_machine_geometry(
             record, view, projection=projection, axis_length=axis_length,
@@ -364,10 +406,21 @@ def machine_geometry_view(data: Any, view: str, *, families: tuple[str, ...] | N
             style["marker"] = "x" if "derived" in record.label.lower() else "o"
         elif record.semantic in {"trajectory", "directed_axis"}:
             style["linestyle"] = "--"
-        derived_thomson = (record.family == "thomson_scattering"
-                           and record.source_path.startswith("manifest.geometry_records"))
-        key = (record.family, derived_thomson)
-        name = "Thomson derived laser / sites" if derived_thomson else _FAMILY_LABELS[record.family]
+        derived_thomson = (record.family == "thomson_scattering" and
+                           (record.source_path.startswith("manifest.geometry_records") or
+                            record.source_path.startswith("vaft.machine_mapping.thomson_scattering.")))
+        key = (record.family, record.semantic, derived_thomson)
+        if derived_thomson:
+            name = ("Thomson derived laser chord" if record.semantic == "trajectory"
+                    else "Thomson derived scattering sites")
+        elif record.family == "ec_launchers":
+            name = ("EC launch axis (provisional CAD)" if record.semantic == "directed_axis"
+                    else "EC launch position (provisional CAD)")
+        elif record.family == "nbi":
+            name = ("NBI model beam axis" if record.semantic == "directed_axis"
+                    else "NBI model source")
+        else:
+            name = _FAMILY_LABELS[record.family]
         label = name if key not in labelled else ""
         labelled.add(key)
         if view == "3d":

@@ -61,6 +61,16 @@ shared by all four views; unsupported families raise and unavailable
 coordinates are omitted. Missing Z still permits a top view if R and phi are
 stored, while 3-D and camera require all three coordinates. An unknown phi
 allows stored R-Z vertices to be shown as points without drawing a chord.
+The composed public `machine_geometry_poloidal`, `machine_geometry_topview`,
+and `machine_geometry3d` plots accept the same `geometry_manifest=` and
+`geometry_families=` options, so the fixture's derived geometry and notice
+appear alongside their machine context. They may use `geometry_data=` when
+that geometry is supplied separately from the plotted machine IDS.
+
+For an ordinary VEST shot, the registry adds the derived Thomson laser port
+chord only when the IDS has a real source shot and at least two stored
+scattering locations with toroidal angles matching the VEST mapper. An
+unmapped or inconsistent Thomson IDS keeps only its stored coordinates.
 
 The canonical `plot_camera_visible_image(..., overlay="machine_geometry",
 geometry_data=fixture, geometry_manifest=manifest, geometry_families=(...))`

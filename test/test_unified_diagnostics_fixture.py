@@ -67,8 +67,8 @@ def test_machine_view_keeps_diagnostic_geometry_distinct(fixture_data):
         ods, overlay=("interferometer", "langmuir_probes", "soft_x_rays")
     )
     interferometer = [layer for layer in model.layers if layer.label == "Interferometer LOS"]
-    langmuir = [layer for layer in model.layers if layer.label == "Triple Langmuir probes"]
-    sxr = [layer for layer in model.layers if layer.label == "Soft X-ray LOS"]
+    langmuir = [layer for layer in model.layers if layer.label == "Langmuir sites"]
+    sxr = [layer for layer in model.layers if layer.label == "SXR LOS"]
     assert len(interferometer) == 1
     assert interferometer[0].kind == "polyline"
     # The three stored corners remain on the sampled Cartesian LOS, including
@@ -78,7 +78,7 @@ def test_machine_view_keeps_diagnostic_geometry_distinct(fixture_data):
         ods["interferometer.channel.0.line_of_sight.second_point.r"]
     )
     assert len(langmuir) == 1 and langmuir[0].kind == "points"
-    assert len(langmuir[0].r) == len(ods["langmuir_probes.embedded"])
+    assert sum(layer.kind == "points" for layer in model.layers) == len(ods["langmuir_probes.embedded"])
     assert len(sxr) == 1 and sxr[0].kind == "polyline"
     assert not any(layer.label == "B-field Probes" for layer in model.layers)
 

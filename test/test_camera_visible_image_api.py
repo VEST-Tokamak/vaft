@@ -116,6 +116,9 @@ def test_cross_shot_machine_family_overlay_uses_shared_projection(shot):
     with pytest.raises(ValueError, match="requires geometry_data"):
         build_model("camera_visible_image", normalize_entries(shot),
                     overlay="machine_geometry", geometry_manifest=manifest)
+    with pytest.raises(ValueError, match="requires geometry_manifest"):
+        build_model("camera_visible_image", normalize_entries(shot),
+                    overlay=families, geometry_data=geometry_data)
     figure, axes = vaft.omas.plot_camera_visible_image(
         shot, overlay="machine_geometry", geometry_data=geometry_data,
         geometry_manifest=manifest, geometry_families=families,
