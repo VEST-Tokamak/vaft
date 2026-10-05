@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Browser GUI · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Gyrokinetic plotting · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/computational-layers/" />
+            <link rel="prev" href="/vaft/develop/reference/process/impurity/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/api/gui/" />
+            <link rel="next" href="/vaft/develop/workflows/fluctuation-coherence/" />
         
     </head>
     <body>
@@ -129,7 +129,7 @@
                     </li>
                 
                     
-                    <li class="chapter active" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
                     
                         <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
                     </li>
@@ -181,7 +181,7 @@
                     </li>
                 
                     
-                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    <li class="chapter active" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
                     
                         <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
                     </li>
@@ -280,7 +280,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Browser GUI</a>
+                            <a href="." >Gyrokinetic plotting</a>
                         
                     </h1>
                 </div>
@@ -306,136 +306,277 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/workflows/GUI">Browser GUI</h1>
+                        <h1 id="/reference/Gyrokinetic_plotting">Gyrokinetic plotting</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>An optional Panel application over the same loading, discovery and plotting APIs a notebook uses.</dd>
-    <dt>Prerequisites / inputs</dt><dd>VAFT installed with the `gui` extra; a browser on the machine you sit at.</dd>
-    <dt>Expected result</dt><dd>The plot browser at http://localhost:5006, locally or through a forwarded port.</dd>
-    <dt>Status</dt><dd>Experimental reference application (#1086); workspaces follow the GUI roadmap (#1359).</dd>
+    <dt>Architecture position</dt><dd>Two plot families (local gyrokinetic, radial turbulent transport), two layers (native solver units, standardized IMAS units), and the audit that decides which solver quantity reaches a portable plot. MITIM's TGLF plotting is used as a feature benchmark only.</dd>
+    <dt>Prerequisites / inputs</dt><dd>A TGLF or CGYRO run (native views), or a gyrokinetics_local / core_transport ODS (standardized views).</dd>
+    <dt>Expected result</dt><dd>For every quantity a turbulence analysis inspects, where it comes from, how it is normalized, whether it has an IMAS home, and which VAFT plot draws it.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p><code class="language-plaintext highlighter-rouge">vaft gui</code> serves a small browser application: pick a data source, pick one of the plots VAFT
-can draw from it, and change that plot’s controls. It is a presentation layer, not a separate
-analysis tool. The plot list comes from <code class="language-plaintext highlighter-rouge">vaft.omas.available_plots</code>, the controls from the
-plot’s capability record, and every drawing from <code class="language-plaintext highlighter-rouge">vaft.omas.render_plot</code>, so what the GUI
-shows is what the same calls give in a notebook.</p>
+<p>After a local gyrokinetic or reduced turbulent-transport calculation, a plasma physicist
+inspects the same few things: linear growth rates and frequencies, where in $k_y$ the flux
+is carried and by which field, the fluctuation amplitudes and cross phases, the mode
+structure, and the local plasma state that produced all of it. Then they look at the
+fluxes as radial profiles and compare models. This page maps those quantities onto VAFT
+(issue #1591). MITIM’s <code class="language-plaintext highlighter-rouge">TGLF.plot</code> answers the same questions and is used here as a
+<em>benchmark</em> of what is worth showing. MITIM is not imported, and its layout is not copied.</p>
 
-<p>The application runs where VAFT and the data are, and the browser only displays it. The same
-command therefore works on a workstation, on a remote server over SSH, and on a cluster node,
-with no X11 or remote desktop.</p>
+<h2 id="two-families-two-layers">Two families, two layers</h2>
 
-<h2 id="install">Install</h2>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>local gyrokinetic</th>
+      <th>radial turbulent transport</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>scientific object</td>
+      <td>one flux tube: (shot, time, surface, solver)</td>
+      <td>fluxes vs $\rho_{tor,N}$ for one time slice</td>
+    </tr>
+    <tr>
+      <td>IMAS home</td>
+      <td><code class="language-plaintext highlighter-rouge">gyrokinetics_local</code> (one simulation per IDS)</td>
+      <td><code class="language-plaintext highlighter-rouge">core_transport.model[:]</code> (anomalous, index 6)</td>
+    </tr>
+    <tr>
+      <td>typical views</td>
+      <td>$\gamma(k_y)$, $\omega(k_y)$, flux spectra, field contributors, eigenfunctions, local state</td>
+      <td>$Q_e(\rho)$, $Q_i(\rho)$, $\Gamma_s(\rho)$, model-to-model comparison</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Panel is an optional dependency:</p>
+<p>The two families are kept separate on purpose. A <code class="language-plaintext highlighter-rouge">gyrokinetics_local</code> IDS describes <em>one</em>
+local calculation, not a radial collection of them.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> pip <span class="nb">install</span> <span class="nt">-e</span> <span class="s2">".[gui]"</span>
-</code></pre></div></div>
-
-<p>Without it, <code class="language-plaintext highlighter-rouge">import vaft</code> and every other workflow are unaffected; <code class="language-plaintext highlighter-rouge">vaft gui</code> stops with a
-message naming the extra.</p>
-
-<h2 id="run-locally">Run locally</h2>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft gui                          <span class="c"># first packaged sample, opens a browser</span>
-vaft gui <span class="nt">--sample</span> 39915 41524     <span class="c"># two samples, compared on each plot</span>
-vaft gui <span class="nt">--file</span> equilibrium.json
-vaft gui <span class="nt">--shot</span> 39915 41524       <span class="c"># database shots (needs HSDS read access)</span>
-vaft gui <span class="nt">--plot</span> equilibrium_field_psi <span class="nt">--port</span> 5010
-</code></pre></div></div>
-
-<p>The page shows the source picker and the plot selector in the sidebar, the plot’s controls
-beneath them, and the figure in the main area. Slices, channels, units and overlays appear
-only for plots that offer them. A value a plot cannot draw leaves the previous figure on screen
-and shows the reason above it.</p>
+<p>Each family has two layers:</p>
 
 <ul>
-  <li><strong>Files.</strong> Type server paths (one per line), pick them with <strong>Browse server files</strong> (the files
-of the machine the GUI runs on), or upload them from your own computer. Uploads are copied to a
-temporary folder on the server for the session (at most 512 MB per upload); select an IMAS
-entry’s <code class="language-plaintext highlighter-rouge">master.h5</code> together with its per-IDS files to upload the entry.</li>
-  <li><strong>Database shots.</strong> Nothing is downloaded up front. Loading a shot lists the IDS it stores
-(<code class="language-plaintext highlighter-rouge">vaft.database.stored_ids</code>) and judges the plots from that list; each plot then fetches only the
-IDS it reads, the first time it is drawn, and keeps them in memory for every later plot and
-control change. The status line names the IDS in memory, and <strong>Load chosen IDS</strong> fetches IDS
-ahead of any plot. Reading needs HSDS read access to the shot’s per-IDS domains.</li>
-  <li><strong>Several shots.</strong> Pick several samples, or type several database shots (<code class="language-plaintext highlighter-rouge">39915, 41524</code>); every
-plot then draws them together, labelled by shot.</li>
-  <li><strong>Interactive or static.</strong> Plots that have a Plotly rendering open interactive: box zoom, pan,
-scroll zoom, hover read-out, spike lines, and drawing tools to mark lines, regions and shapes.
-Zoom survives a change of slice or unit. <strong>Static</strong> switches to the Matplotlib image, and the
-choice is remembered for the next plot.</li>
-  <li><strong>Playback.</strong> A plot with a slice or time control – equilibrium slices, camera frames – gets a
-player beneath it: play, pause, step, loop, and the frame interval. Each frame is the plot
-redrawn on the server with every other control as chosen, so a frame that cannot be drawn is
-reported and skipped. Writing the sequence to a video file is not part of the GUI yet (#1049/#1050).</li>
-  <li><strong>Figure.</strong> Width and height in pixels, axis limits and log scales; empty fields stay automatic.</li>
-  <li><strong>Export.</strong> Downloads the current plot as PNG, SVG or PDF at the chosen DPI. The file is the
-Matplotlib rendering with the controls and figure settings on screen, whichever renderer is shown.</li>
+  <li><strong>Native</strong> (<code class="language-plaintext highlighter-rouge">vaft.plot.gyrokinetics</code>). These are solver diagnostics in GACODE units: $k_y\rho_s$, $\gamma$ and $\omega$ in $c_s/a$, $\omega$ with the ion diamagnetic direction negative. That is TGLF’s own sign. CGYRO’s native sign depends on the field orientation, so it is converted using the ion direction CGYRO reports for each run (<code class="language-plaintext highlighter-rouge">CgyroOutputs.frequency_ion_negative</code>). On the #1482 surfaces the two codes agree on the branch at 78 of 82 converged points. Matched TGLF–CGYRO validation uses this layer, because both codes share the normalization.</li>
+  <li><strong>Standardized</strong>. These are registered plots that read the IMAS IDS in its GKDB normalization: <code class="language-plaintext highlighter-rouge">binormal_wavevector_norm</code>, <code class="language-plaintext highlighter-rouge">growth_rate_norm</code>, lengths in units of $R_0$, $v_{th,ref}=\sqrt{2T_e/m_D}$.</li>
 </ul>
 
-<p>Loading a source computes its plot catalog, which takes a few seconds the first time.</p>
+<p>A native quantity is never fed to a standardized plot, nor the reverse. Conversions live in the mapping layer (<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.gyrokinetics.conversion_factors</code>), not in renderers.</p>
 
-<h2 id="run-on-a-remote-host-over-ssh">Run on a remote host over SSH</h2>
+<h2 id="linear-quasilinear-and-nonlinear-coverage">Linear, quasilinear and nonlinear coverage</h2>
 
-<p>The server binds to <code class="language-plaintext highlighter-rouge">127.0.0.1</code> by default, so it is not reachable from other machines. Forward
-the port instead:</p>
+<table>
+  <thead>
+    <tr>
+      <th>output</th>
+      <th>TGLF (quasilinear)</th>
+      <th>CGYRO linear</th>
+      <th>CGYRO nonlinear</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\gamma, \omega$ vs $k_y$</td>
+      <td>all <code class="language-plaintext highlighter-rouge">NMODES</code> per $k_y$</td>
+      <td>one converged eigenvalue per run</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>flux spectrum by field</td>
+      <td>saturated <code class="language-plaintext highlighter-rouge">sum_flux_spectrum</code></td>
+      <td>quasilinear weights only</td>
+      <td>time-averaged <code class="language-plaintext highlighter-rouge">ky_flux</code></td>
+    </tr>
+    <tr>
+      <td>fluctuation amplitudes, cross phase</td>
+      <td>model spectra</td>
+      <td>—</td>
+      <td>from <code class="language-plaintext highlighter-rouge">kxky_*</code> (not yet parsed)</td>
+    </tr>
+    <tr>
+      <td>eigenfunction</td>
+      <td><code class="language-plaintext highlighter-rouge">wavefunction</code> (single-$k_y$ run, not parsed)</td>
+      <td>ballooning $\phi$, $A_\parallel$</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>validity</td>
+      <td>preset family (SAT rule couples the linear model)</td>
+      <td>converged / max-time / decayed</td>
+      <td>saturation window, locality QA</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh <span class="nt">-L</span> 5006:localhost:5006 user@server
-vaft gui <span class="nt">--no-show</span>            <span class="c"># on the server</span>
-</code></pre></div></div>
+<p><strong>TGLF’s presets couple the linear model to the saturation rule.</strong> SAT0 runs with <code class="language-plaintext highlighter-rouge">XNU_MODEL=2</code>. SAT2/3 switch to <code class="language-plaintext highlighter-rouge">XNU_MODEL=3</code> and <code class="language-plaintext highlighter-rouge">WDIA_TRAPPED=1</code> (<code class="language-plaintext highlighter-rouge">tglf_startup.f90</code>). So “TGLF linear” always names its preset family.</p>
 
-<p>Then open <a href="http://localhost:5006">http://localhost:5006</a> on your own machine. <code class="language-plaintext highlighter-rouge">vaft gui</code> does not try to open a browser
-when it runs inside an SSH session. Keep the local port equal to the server’s: the page’s
-connection is only accepted from <code class="language-plaintext highlighter-rouge">localhost:&lt;port&gt;</code> of the server. To forward to another local
-port, name it: <code class="language-plaintext highlighter-rouge">ssh -L 8080:localhost:5006 ...</code> with <code class="language-plaintext highlighter-rouge">vaft gui --allow-websocket-origin localhost:8080</code>.</p>
+<p><code class="language-plaintext highlighter-rouge">UNITS=CGYRO</code> (forced for SAT2/3) only moves where TGLF places the $k_y$ grid (<code class="language-plaintext highlighter-rouge">ky_factor = grad_r0</code>). Reported $k_y$ and $\gamma$ keep the same normalization, and spectra from the two families overlay correctly.</p>
 
-<p>Under SSH the page asks for a password, which <code class="language-plaintext highlighter-rouge">vaft gui</code> prints when it starts (any user name is
-accepted). Set <code class="language-plaintext highlighter-rouge">VAFT_GUI_PASSWORD</code> to choose it yourself; see <a href="#access">Access</a> for why.</p>
+<h2 id="coverage-matrix-mitim-benchmark--vaft">Coverage matrix: MITIM benchmark → VAFT</h2>
 
-<h2 id="run-in-vs-code-remote-ssh">Run in VS Code Remote-SSH</h2>
+<p>Native source: the parsed field of <code class="language-plaintext highlighter-rouge">TglfOutputs</code> / <code class="language-plaintext highlighter-rouge">CgyroOutputs</code>. IMAS class follows the mapping audit (<code class="language-plaintext highlighter-rouge">MAPPING_AUDIT</code>): exact, unit, coordinate, derived, convention, unsupported.</p>
 
-<p>Run <code class="language-plaintext highlighter-rouge">vaft gui</code> in the VS Code terminal of the remote window. VS Code detects the port and
-forwards it; open it from the notification or the <strong>Ports</strong> panel. If VS Code forwards to a
-different local port because 5006 is taken on your machine, the page stays blank: restart with
-<code class="language-plaintext highlighter-rouge">--allow-websocket-origin localhost:&lt;that port&gt;</code>, or pick a free <code class="language-plaintext highlighter-rouge">--port</code> on both ends.</p>
+<table>
+  <thead>
+    <tr>
+      <th>MITIM tab</th>
+      <th>quantity</th>
+      <th>native source</th>
+      <th>IMAS home</th>
+      <th>class</th>
+      <th>VAFT plot</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Summary</td>
+      <td>$\gamma(k_y)$, $\omega(k_y)$</td>
+      <td><code class="language-plaintext highlighter-rouge">growth_rate</code>, <code class="language-plaintext highlighter-rouge">frequency</code> (TGLF, all modes); CGYRO final eigenvalue</td>
+      <td><code class="language-plaintext highlighter-rouge">linear.wavevector[:].eigenmode[:].growth_rate_norm</code> / <code class="language-plaintext highlighter-rouge">frequency_norm</code></td>
+      <td>unit / convention (CGYRO mapped)</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_linear_spectrum</code>; standardized <code class="language-plaintext highlighter-rouge">gyrokinetics_spectrum_growth_rate</code> / <code class="language-plaintext highlighter-rouge">_frequency</code> (#1591 PR-C)</td>
+    </tr>
+    <tr>
+      <td>Summary</td>
+      <td>$\gamma/k$ view</td>
+      <td>derived from the spectrum</td>
+      <td>—</td>
+      <td>reduced diagnostic</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_mixing_length_proxy</code> (explicit $\gamma/k_y^2$ at $k_x=0$ or $\gamma/k_y$)</td>
+    </tr>
+    <tr>
+      <td>Summary</td>
+      <td>$\delta T_e$, $\delta n_e$ amplitudes</td>
+      <td><code class="language-plaintext highlighter-rouge">temperature_spectrum</code>, <code class="language-plaintext highlighter-rouge">density_spectrum</code></td>
+      <td>none audited</td>
+      <td>unsupported</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_fluctuation_spectra</code></td>
+    </tr>
+    <tr>
+      <td>Summary</td>
+      <td>$n_e$–$T_e$ cross phase</td>
+      <td><code class="language-plaintext highlighter-rouge">nete_crossphase_spectrum</code></td>
+      <td>none audited</td>
+      <td>unsupported</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_fluctuation_spectra</code></td>
+    </tr>
+    <tr>
+      <td>Summary</td>
+      <td>$Q_e, Q_i, \Gamma_e$ spectra</td>
+      <td><code class="language-plaintext highlighter-rouge">sum_flux_spectrum</code> (TGLF); <code class="language-plaintext highlighter-rouge">flux</code> (CGYRO NL)</td>
+      <td><code class="language-plaintext highlighter-rouge">non_linear.fluxes_1d</code> per field (totals only)</td>
+      <td>unit (CGYRO mapped)</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_flux_ky_spectrum</code>, <code class="language-plaintext highlighter-rouge">plot_flux_contributors</code>; standardized <code class="language-plaintext highlighter-rouge">gyrokinetics_spectrum_flux</code></td>
+    </tr>
+    <tr>
+      <td>Summary / Exp. Fluxes</td>
+      <td>$Q_e(r), Q_i(r), \Gamma_e(r)$</td>
+      <td><code class="language-plaintext highlighter-rouge">gbflux</code> × gyro-Bohm unit</td>
+      <td><code class="language-plaintext highlighter-rouge">core_transport.model[:].profiles_1d</code></td>
+      <td>unit (TGLF, CGYRO mapped)</td>
+      <td>standardized <code class="language-plaintext highlighter-rouge">turbulent_transport_profile_energy_flux</code> / <code class="language-plaintext highlighter-rouge">_particle_flux</code></td>
+    </tr>
+    <tr>
+      <td>Contributors</td>
+      <td>flux by field ($\phi$, $A_\parallel$, $B_\parallel$)</td>
+      <td><code class="language-plaintext highlighter-rouge">sum_flux_spectrum[:, field]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">non_linear.fluxes_1d.*_&lt;field&gt;</code></td>
+      <td>unit</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_flux_contributors</code> (only fields the solver wrote; no ES/EM by difference)</td>
+    </tr>
+    <tr>
+      <td>Spectra</td>
+      <td>intensities per species and mode</td>
+      <td><code class="language-plaintext highlighter-rouge">intensity_spectrum</code></td>
+      <td>none audited</td>
+      <td>unsupported</td>
+      <td>parsed; not drawn yet</td>
+    </tr>
+    <tr>
+      <td>Fields: $\phi$ / $A_\parallel$ / $B_\parallel$</td>
+      <td>field intensity spectra</td>
+      <td><code class="language-plaintext highlighter-rouge">field_spectrum</code></td>
+      <td>none audited</td>
+      <td>unsupported</td>
+      <td>parsed; not drawn yet</td>
+    </tr>
+    <tr>
+      <td>Fields</td>
+      <td>QL weights per mode</td>
+      <td><code class="language-plaintext highlighter-rouge">ql_flux_spectrum</code></td>
+      <td><code class="language-plaintext highlighter-rouge">linear_weights</code></td>
+      <td>unsupported (amplitude normalization)</td>
+      <td>parsed; never labelled as a flux</td>
+    </tr>
+    <tr>
+      <td>Model Details</td>
+      <td>Gaussian width, spectral shift, $\langle p_0\rangle$</td>
+      <td><code class="language-plaintext highlighter-rouge">width_spectrum</code>, <code class="language-plaintext highlighter-rouge">spectral_shift_spectrum</code>, <code class="language-plaintext highlighter-rouge">ave_p0_spectrum</code></td>
+      <td>—</td>
+      <td>solver-native</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_model_details</code></td>
+    </tr>
+    <tr>
+      <td>SAT Parameters</td>
+      <td>SAT scalars, geometry factors</td>
+      <td><code class="language-plaintext highlighter-rouge">saturation_parameters</code></td>
+      <td><code class="language-plaintext highlighter-rouge">code.parameters</code></td>
+      <td>provenance</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_saturation_parameters</code></td>
+    </tr>
+    <tr>
+      <td>WF @ ky</td>
+      <td>eigenfunction</td>
+      <td>CGYRO <code class="language-plaintext highlighter-rouge">ballooning</code>; TGLF <code class="language-plaintext highlighter-rouge">wavefunction</code> (not parsed)</td>
+      <td><code class="language-plaintext highlighter-rouge">eigenmode[:].fields.*_perturbed_norm</code></td>
+      <td>convention ($\phi$ mapped, $A_\parallel$ native)</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_eigenfunction</code>; standardized <code class="language-plaintext highlighter-rouge">gyrokinetics_profile_eigenfunction</code></td>
+    </tr>
+    <tr>
+      <td>Input Plasma</td>
+      <td>species gradients, $q$, $s$, $\kappa$, $\beta$, $\nu$</td>
+      <td><code class="language-plaintext highlighter-rouge">TGLFInput</code>, <code class="language-plaintext highlighter-rouge">CGYROInput</code></td>
+      <td><code class="language-plaintext highlighter-rouge">species[:]</code>, <code class="language-plaintext highlighter-rouge">flux_surface</code>, <code class="language-plaintext highlighter-rouge">species_all</code></td>
+      <td>exact / unit</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_local_state</code> (with provenance kinds)</td>
+    </tr>
+    <tr>
+      <td>Input Controls</td>
+      <td>solver settings</td>
+      <td><code class="language-plaintext highlighter-rouge">input.tglf.gen</code>, <code class="language-plaintext highlighter-rouge">input.cgyro.gen</code></td>
+      <td><code class="language-plaintext highlighter-rouge">code.parameters</code></td>
+      <td>provenance</td>
+      <td>not plotted</td>
+    </tr>
+    <tr>
+      <td>Simple / Fluctuations / Normalization</td>
+      <td>SI fluxes, synthetic diagnostics</td>
+      <td>need <code class="language-plaintext highlighter-rouge">input.gacode</code> normalization</td>
+      <td>—</td>
+      <td>—</td>
+      <td>out of first scope</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="run-on-a-cluster-node">Run on a cluster node</h2>
+<h2 id="comparing-solvers">Comparing solvers</h2>
 
-<p>Start the GUI on a compute node (inside an interactive allocation), then tunnel to that node
-through the login node. The tunnel must end on the compute node itself, because the server
-listens only on that node’s loopback:</p>
+<p>An overlay does not prove that two runs are matched. A comparison is meaningful only when both runs share:</p>
+<ul>
+  <li>the plasma state and surface;</li>
+  <li>species, geometry and field model;</li>
+  <li>normalization and frequency sign convention.</li>
+</ul>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># on the compute node</span>
-vaft gui <span class="nt">--no-show</span> <span class="nt">--port</span> 5006
+<p>In VAFT, CGYRO’s input is a renaming of the TGLF local input, so a TGLF–CGYRO native comparison satisfies this by construction. The standardized views check the same conditions against each IDS’s own metadata, and they mark a mismatch on the figure instead of overlaying silently.</p>
 
-<span class="c"># on your machine</span>
-ssh <span class="nt">-J</span> user@login-node <span class="nt">-L</span> 5006:localhost:5006 user@&lt;compute-node&gt;
-</code></pre></div></div>
+<h2 id="what-stays-outside-plotting">What stays outside plotting</h2>
 
-<p>If compute nodes do not accept SSH from the login node, ask the site how interactive jobs expose
-ports; do not bind <code class="language-plaintext highlighter-rouge">--address 0.0.0.0</code> on a shared cluster.</p>
-
-<h2 id="access">Access</h2>
-
-<p>Loopback keeps other <em>machines</em> out, not other <em>users</em>: on a login or compute node shared with
-others, anyone logged in to that node can connect to <code class="language-plaintext highlighter-rouge">127.0.0.1:5006</code>. The application reads
-files and database data with your permissions, so <code class="language-plaintext highlighter-rouge">vaft gui</code> protects it with a password whenever
-it runs under SSH or binds another address (<code class="language-plaintext highlighter-rouge">--auth auto</code>, the default). Use <code class="language-plaintext highlighter-rouge">--auth password</code> to
-require it locally too, and <code class="language-plaintext highlighter-rouge">--auth none</code> only on a machine nobody else uses.</p>
-
-<p>Binding another address (<code class="language-plaintext highlighter-rouge">--address 0.0.0.0</code>) also prints a warning: the connection is not
-encrypted. Multi-user deployment is a separate concern from this page, and belongs with the
-database portal (#960).</p>
-
-<h2 id="what-comes-next">What comes next</h2>
-
-<p>The browser application is Track A of the GUI roadmap (#1359). An application shell and a
-fuller plot explorer follow, then workspaces for routine diagnostics, equilibrium,
-fluctuations and stability, operational space, start-up and pipeline monitoring.</p>
+<p>Descriptors such as $\gamma_{max}$, the $k_y$ of the flux peak, $f_e$ and $f_{EM}$ are computed in the analysis layer (<code class="language-plaintext highlighter-rouge">workflow/transport_atlas</code>, <code class="language-plaintext highlighter-rouge">vaft.process</code>) and only drawn here. The plot layer infers no turbulence-mode labels (ITG, TEM, ETG, KBM, MTM).</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -448,30 +589,17 @@ fluctuations and stability, operational space, start-up and pipeline monitoring.
       <ul>
         
           
-          <li data-resource-id="omas"><a href="/vaft/develop/reference/api/omas/"><code>vaft.omas</code></a></li>
-        
-          
-          <li data-resource-id="database"><a href="/vaft/develop/reference/api/database/"><code>vaft.database</code></a></li>
-        
-          
           <li data-resource-id="plot"><a href="/vaft/develop/reference/api/plot/"><code>vaft.plot</code></a></li>
         
+          
+          <li data-resource-id="code"><a href="/vaft/develop/reference/api/code/"><code>vaft.code</code></a></li>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/machine-mapping/"><code>vaft.machine_mapping</code></a></li>
+        
       </ul>
     </div>
     
-    
-    <div class="related-resource-group" data-resource-kind="data-sources">
-      <h3>Input data</h3>
-      <ul>
-        
-          
-          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
-        
-          
-          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
-        
-      </ul>
-    </div>
     
     
   </div>
@@ -533,13 +661,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/computational-layers/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Computational layers">
+                        <a href="/vaft/develop/reference/process/impurity/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: impurity">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/api/gui/" class="navigation navigation-next navigation-unique" aria-label="Next page: API: vaft.gui">
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" class="navigation navigation-next navigation-unique" aria-label="Next page: Cross-diagnostic fluctuation coherence">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -555,7 +683,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#two-families-two-layers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Two families, two layers</a></li><li class="page-toc-item page-toc-level-2"><a href="#linear-quasilinear-and-nonlinear-coverage" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Linear, quasilinear and nonlinear coverage</a></li><li class="page-toc-item page-toc-level-2"><a href="#coverage-matrix-mitim-benchmark--vaft" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coverage matrix: MITIM benchmark → VAFT</a></li><li class="page-toc-item page-toc-level-2"><a href="#comparing-solvers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Comparing solvers</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-stays-outside-plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What stays outside plotting</a></li></ul>
     </nav>
 </aside>
 
@@ -571,11 +699,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "API: vaft.gui",
+            "title": "Cross-diagnostic fluctuation coherence",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Api_reference_gui.md",
-            "ref": "_guide/Api_reference_gui.md",
+            "path": "_guide/Fluctuation_coherence.md",
+            "ref": "_guide/Fluctuation_coherence.md",
             "articles": []
         },
         
@@ -667,8 +795,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/GUI.md",
-        "mtime": "2026-09-30 09:00:00 +0000",
+        "path": "_guide/Gyrokinetic_plotting.md",
+        "mtime": "2026-10-03 12:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
