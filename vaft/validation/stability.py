@@ -23,7 +23,9 @@ numerical health and physical interpretation are reported separately.
 
 Rules, not invented tolerances (#142):
 
-* ``dcon_energies``: the least-stable energies must exist and be finite.
+* ``dcon_energies``: the least-stable energies must exist and be finite. With
+  ``vac_flag`` off (DCON's default when ``dcon.in`` omits it) DCON computes no
+  free-boundary energies, so this and the checks built on W_t are not requested.
 * ``dcon_imaginary_part``: W_t is an eigenvalue of a Hermitian matrix and must
   be real. ``warn`` when its imaginary part exceeds its real part, because the
   sign of the real part then no longer decides anything.
@@ -36,9 +38,11 @@ Rules, not invented tolerances (#142):
   unknown namelist is missing evidence (``not_available``); ``fail`` on a
   missing or non-finite value where it was evaluated.
 * ``dcon_edge``: DCON's own control flow (``dcon.F:250-262``). The requested
-  ``psiedge`` must agree with whether an edge scan exists, and a truncated run
-  must sit at the scan's peak of Re dW_edge, taken over the filled part of the
-  scan as ``dcon.F:253`` does.
+  ``psiedge`` (DCON's default 1.0 when ``dcon.in`` omits it) must agree with
+  whether an edge scan exists, and a truncated run must sit at the scan's peak
+  of Re dW_edge, searched as ``dcon.F:253`` does: from ``pre_edge`` on
+  (:meth:`~vaft.code.gpec.DconEdgeScan.peak_search_start`), over filled
+  entries only.
 * ``dcon_resolution``: the sign of W_t at two equilibrium resolutions. A
   disagreement is ``indeterminate`` (the sign is not resolved), not a failure
   of the run.
@@ -49,7 +53,8 @@ Rules, not invented tolerances (#142):
   the solver's q profile grid is a ``warn``.
 * ``matching_resolution``: per-surface Δ′ at two resolutions of the same solver
   and n. Surfaces pair by m and by ψ_N within 1e-3 (a matching heuristic: the
-  rational surface moves with the grid, not by more). The 20 % bound is the
+  rational surface moves with the grid, not by more), one to one; a surface
+  found at only one resolution counts as unmatched. The 20 % bound is the
   atlas heuristic, the median change of #141's mid-radius surfaces, and is
   labelled as such. ``pass`` only when every surface is consistent;
   ``indeterminate`` otherwise, and when either run's Δ′ matrix is unusable.
@@ -185,6 +190,8 @@ def _dcon_imaginary_part(out: Any) -> dict[str, Any]:
     w = out.total1
     if not _finite(w):
         return _result(ValidationStatus.NOT_AVAILABLE, reason="no finite W_t")
+    if w == 0:
+        return _result(ValidationStatus.INDETERMINATE, reason="W_t is exactly zero")
     ratio = abs(w.imag) / abs(w.real) if w.real else math.inf
     return _result(ValidationStatus.WARN if ratio > 1 else ValidationStatus.PASS, imag_over_real=ratio)
 
@@ -229,38 +236,61 @@ def _dcon_local_criteria(out: Any) -> dict[str, Any]:
                    missing_or_nonfinite=problems, **fields)
 
 
+#: DCON's own defaults (dcon_mod.f:64,121,124), used when dcon.in exists but omits the key.
+_DCON_DEFAULT_PSIEDGE = 1.0
+_DCON_DEFAULT_NPERQ_EDGE = 20
+
+
+def _namelist_known(out: Any) -> bool:
+    return out.evaluation is not None and out.evaluation.source == "dcon.in"
+
+
+def _vacuum_requested(out: Any) -> Optional[bool]:
+    """``vac_flag`` from the run's namelist (DCON default off); None when unknown."""
+    if not _namelist_known(out):
+        return None
+    return bool(out.evaluation.vac_flag)
+
+
 def _dcon_edge(out: Any) -> dict[str, Any]:
     # edge_treatment is derived from the scan's presence, so the check that means
     # something is against what the namelist *asked* for. DCON scans when
-    # psiedge < psilim (sing.f:224); a truncated run's psilim is the post-peak
-    # value, which is never below the scan's start, so the comparison uses the
-    # scan itself there.
+    # psiedge < psilim (sing.f:224). The original psilim is overwritten in a
+    # truncated run, but it is never below the scan's last point.
     treatment = out.edge_treatment
     scan = out.edge_scan
-    requested = None if out.evaluation is None else out.evaluation.psiedge
+    requested = None
+    if _namelist_known(out):
+        requested = out.evaluation.psiedge if out.evaluation.psiedge is not None else _DCON_DEFAULT_PSIEDGE
     fields = {"edge_treatment": treatment, "requested_psiedge": requested}
+    if requested is None or out.psilim is None:
+        return _result(ValidationStatus.NOT_AVAILABLE, reason="requested psiedge or psilim unknown", **fields)
     if scan is None:
-        if requested is None or out.psilim is None:
-            return _result(ValidationStatus.NOT_AVAILABLE, reason="requested psiedge or psilim unknown", **fields)
         asked_scan = requested < float(out.psilim)
         return _result(ValidationStatus.FAIL if asked_scan else ValidationStatus.PASS,
                        psilim=float(out.psilim), **fields)
     psi = np.asarray(scan.psi_n, dtype=float)
     dw = np.real(np.asarray(scan.dW))
-    # dcon.F:253 takes MAXLOC over dw_edge(pre_edge:i_edge), the filled entries;
-    # unfilled ones keep psi_edge = 0 (sing.f:232).
-    filled = psi >= requested if requested is not None else psi > 0
-    if out.psilim is None or not filled.any():
-        return _result(ValidationStatus.FAIL, reason="truncated run without a usable edge scan", **fields)
-    if requested is not None and requested >= float(psi[filled].max()):
+    if not psi.size or requested >= float(np.nanmax(psi)):
         return _result(ValidationStatus.FAIL, reason="edge scan present although psiedge asked for none", **fields)
-    index = np.flatnonzero(filled)[int(np.argmax(dw[filled]))]
+    if out.q is None or out.psi_n is None or int(getattr(out, "n_tor", 0) or 0) <= 0:
+        return _result(ValidationStatus.NOT_AVAILABLE, reason="no q profile or n to place the peak search", **fields)
+    # dcon.F:253 searches dw_edge(pre_edge:i_edge): past the pre-edge entries
+    # (sing.f:226-238) and over filled entries only (unfilled keep psi_edge = 0).
+    nperq = out.evaluation.nperq_edge or _DCON_DEFAULT_NPERQ_EDGE
+    q_at_psiedge = float(np.interp(requested, np.asarray(out.psi_n, float), np.asarray(out.q, float)))
+    first = scan.peak_search_start(q_at_psiedge, int(out.n_tor), nperq)
+    searched = (np.arange(psi.size) >= first) & (psi > 0) & np.isfinite(dw)
+    if not searched.any():
+        return _result(ValidationStatus.FAIL, reason="truncated run without a usable edge scan", **fields)
+    index = np.flatnonzero(searched)[int(np.argmax(dw[searched]))]
     peak = float(psi[index])
     at_peak = math.isclose(peak, float(out.psilim), rel_tol=0, abs_tol=1e-9)
     return _result(
         ValidationStatus.PASS if at_peak else ValidationStatus.FAIL,
         psilim=float(out.psilim),
         psi_n_at_dW_peak=peak,
+        peak_search_start=first,
         **fields,
     )
 
@@ -339,21 +369,27 @@ def _matching_resolution(out: Any, check: Any) -> dict[str, Any]:
     primary = out.delta_prime_diagonal()
     other = check.delta_prime_diagonal()
     consistent = inconsistent = unmatched = 0
+    claimed: set[int] = set()
     for row in primary:
-        partner = next(
-            (o for o in other if o["m"] == row["m"] and o["psi_n"] is not None and row["psi_n"] is not None
+        partner_index = next(
+            (j for j, o in enumerate(other) if j not in claimed and o["m"] == row["m"]
+             and o["psi_n"] is not None and row["psi_n"] is not None
              and abs(o["psi_n"] - row["psi_n"]) <= SURFACE_MATCH_PSI_ATOL),
             None,
         )
-        if partner is None:
+        if partner_index is None:
             unmatched += 1
             continue
+        claimed.add(partner_index)
+        partner = other[partner_index]
         a, b = row["delta_prime_real"], partner["delta_prime_real"]
         rel = abs(a - b) / max(abs(a), abs(b), 1e-12)
         if np.sign(a) == np.sign(b) and rel <= SELF_CONSISTENCY_RTOL:
             consistent += 1
         else:
             inconsistent += 1
+    # A surface found at only one resolution is as unresolved as one that moved.
+    unmatched += len(other) - len(claimed)
     if not primary:
         status = ValidationStatus.NOT_AVAILABLE
     elif inconsistent or unmatched:
@@ -392,14 +428,16 @@ def validate_stability(
         {"schema_version": 1, "status": ..., "summary": {"dcon": ..., "matching": ...},
          "verification": {"dcon_energies": {"status": ..., ...}, ...}}
     """
+    energies_off = dcon is not None and _vacuum_requested(dcon) is False
+    off = _not_requested("vac_flag is off: DCON computed no free-boundary energies")
     dcon_checks = (
         {
-            "dcon_energies": _dcon_energies(dcon),
-            "dcon_imaginary_part": _dcon_imaginary_part(dcon),
-            "dcon_hermiticity": _dcon_hermiticity(dcon),
+            "dcon_energies": dict(off) if energies_off else _dcon_energies(dcon),
+            "dcon_imaginary_part": dict(off) if energies_off else _dcon_imaginary_part(dcon),
+            "dcon_hermiticity": dict(off) if energies_off else _dcon_hermiticity(dcon),
             "dcon_local_criteria": _dcon_local_criteria(dcon),
             "dcon_edge": _dcon_edge(dcon),
-            "dcon_resolution": _dcon_resolution(dcon, dcon_check),
+            "dcon_resolution": dict(off) if energies_off else _dcon_resolution(dcon, dcon_check),
         }
         if dcon is not None
         else {name: _not_requested("no DCON run given") for name in (

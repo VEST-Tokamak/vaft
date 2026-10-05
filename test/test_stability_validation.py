@@ -143,8 +143,32 @@ def test_the_requested_psiedge_must_agree_with_the_edge_scan(full, truncated):
     edge = lambda out: validate_stability(dcon=out)["verification"]["dcon_edge"]
     asked = dataclasses.replace(full, evaluation=dataclasses.replace(full.evaluation, psiedge=0.95))
     assert edge(asked)["status"] == FAIL  # truncation asked for, none happened
-    unasked = dataclasses.replace(truncated, evaluation=dataclasses.replace(truncated.evaluation, psiedge=1.0))
-    assert edge(unasked)["status"] == FAIL  # a scan nobody asked for
+    unasked = edge(dataclasses.replace(truncated, evaluation=dataclasses.replace(truncated.evaluation, psiedge=1.0)))
+    assert unasked["status"] == FAIL and unasked["reason"] == "edge scan present although psiedge asked for none"
+
+
+def test_the_peak_search_skips_the_pre_edge_entries_as_dcon_does(truncated):
+    # sing.f:226-238 on this run: q(0.95) = 8.807, nominal grid 8 + i/20, so the
+    # first 17 entries are pre-edge; they are filled but never searched.
+    edge = validate_stability(dcon=truncated)["verification"]["dcon_edge"]
+    assert edge["status"] == PASS and edge["peak_search_start"] == 17
+    dw = np.asarray(truncated.edge_scan.dW).copy()
+    dw[0] = 10 * abs(dw.real).max()  # a pre-edge entry above the true peak
+    raised = dataclasses.replace(truncated, edge_scan=dataclasses.replace(truncated.edge_scan, dW=dw))
+    assert validate_stability(dcon=raised)["verification"]["dcon_edge"]["status"] == PASS
+
+
+def test_vac_flag_off_means_no_energies_were_requested(full):
+    off = dataclasses.replace(full, evaluation=dataclasses.replace(full.evaluation, vac_flag=False),
+                              W_t_eigenvalue=None, W_p_eigenvalue=None, W_v_eigenvalue=None)
+    checks = validate_stability(dcon=off)["verification"]
+    assert all(checks[name]["requested"] is False for name in
+               ("dcon_energies", "dcon_imaginary_part", "dcon_hermiticity", "dcon_resolution"))
+
+
+def test_an_exactly_zero_w_t_is_indeterminate(full):
+    zero = dataclasses.replace(full, W_t_eigenvalue=np.zeros_like(np.asarray(full.W_t_eigenvalue)))
+    assert validate_stability(dcon=zero)["verification"]["dcon_imaginary_part"]["status"] == INDETERMINATE
 
 
 def test_resolution_sign_agreement(full):
@@ -192,6 +216,12 @@ def test_matching_resolution_survives_a_misshapen_delta_prime(rdcon):
     misshapen = dataclasses.replace(rdcon, Delta_prime=np.asarray(rdcon.Delta_prime)[:-1])
     check = validate_stability(matching=rdcon, matching_check=misshapen)["verification"]["matching_resolution"]
     assert check["status"] == INDETERMINATE and check["unusable"] == ["check"]
+    # A surface found only in the check run is unresolved, not ignored.
+    fewer = dataclasses.replace(rdcon, m=np.asarray(rdcon.m)[:-1], q_rational=np.asarray(rdcon.q_rational)[:-1],
+                                psi_n_rational=np.asarray(rdcon.psi_n_rational)[:-1],
+                                Delta_prime=np.asarray(rdcon.Delta_prime)[:-1, :-1])
+    one_sided = validate_stability(matching=fewer, matching_check=rdcon)["verification"]["matching_resolution"]
+    assert one_sided["status"] == INDETERMINATE and one_sided["unmatched"] == 1
     other_n = dataclasses.replace(rdcon, n_tor=rdcon.n_tor + 1)
     assert validate_stability(matching=rdcon, matching_check=other_n)["verification"]["matching_resolution"]["status"] == FAIL
 
