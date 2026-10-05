@@ -369,6 +369,11 @@ class GPECLimitStop(subprocess.TimeoutExpired):
         self.reason = reason
 
     @property
+    def never_started(self) -> bool:
+        """True for a launch the backend never admitted (``queue_timeout``)."""
+        return self.execution.runtime_status == RUNTIME_QUEUE_TIMEOUT
+
+    @property
     def is_time_limit(self) -> bool:
         """True for a plain time limit; False for a memory stop or a never-admitted launch."""
         return self.execution.runtime_status not in (RUNTIME_MEMORY_LIMIT, RUNTIME_QUEUE_TIMEOUT)

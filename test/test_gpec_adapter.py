@@ -363,6 +363,51 @@ def test_timeout_with_truncated_outputs_is_not_reported_as_success(monkeypatch, 
     assert "failed verification" in record.reason
 
 
+@pytest.mark.parametrize(
+    ("runtime_status", "expected_status", "expected_reason"),
+    [
+        # Never admitted: the core files are an earlier run's, never a success.
+        ("queue_timeout", "failed", "it never started"),
+        # Stopped by memory after writing them: verified, they still count.
+        ("memory_limit", "completed", "its outputs had already materialized"),
+    ],
+)
+def test_the_outputs_materialized_carve_out_and_limit_stops(
+    monkeypatch, tmp_path, case, runtime_status, expected_status, expected_reason
+):
+    from vaft.code.execution import ExecutionResult, timeout_reason
+
+    write_launchable_stub(tmp_path / "gpec/bin/gpec")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    config = gpec.GPECSuiteConfig(modules=("gpec",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+    dcon_dir = gpec._module_dir(case.workdir, case.time_ms, "dcon", 1, geqdsk=case.geqdsk)
+    dcon_dir.mkdir(parents=True, exist_ok=True)
+    (dcon_dir / "euler.bin").write_bytes(b"")
+    (dcon_dir / "psi_in.bin").write_bytes(b"")
+    (dcon_dir / "equil.in").write_text(
+        f'&EQUIL_CONTROL\n    eq_filename="{case.geqdsk.name}"\n/\n', encoding="utf-8"
+    )
+    (dcon_dir / case.geqdsk.name).write_text(GFILE_TEXT, encoding="utf-8")
+    _write_valid_dcon_netcdf(dcon_dir, n=1)
+    for name in ("gpec_control_output_n1.nc", "gpec_profile_output_n1.nc", "gpec_cylindrical_output_n1.nc"):
+        (run_dir / name).write_bytes(b"present")
+    # Outputs that pass verification, so only the stop kind decides.
+    monkeypatch.setattr(type(gpec.SOLVERS["gpec"]), "check_success", lambda self, run_dir, mode: (True, ""))
+    execution = ExecutionResult(returncode=None, timed_out=True, runtime_status=runtime_status,
+                                waited_for="memory" if runtime_status == "queue_timeout" else "",
+                                peak_rss_mb=5000.0 if runtime_status == "memory_limit" else None, elapsed_s=30.0)
+
+    def _stop(*args, **kwargs):
+        raise gpec.rt.GPECLimitStop(["gpec"], 30.0, execution, timeout_reason("gpec", execution, None))
+
+    monkeypatch.setattr(gpec.rt, "run_subprocess", _stop)
+    (record,) = gpec.run_gpec_suite_case(case, config).records
+    assert record.status == expected_status
+    assert expected_reason in record.reason
+
+
 def _write_valid_dcon_netcdf(path, *, n):
     import xarray as xr
 
