@@ -192,3 +192,68 @@ These coarse runs quantify the source discrepancy introduced by table and
 mesh discretization. They are not free-boundary closure results. All fits
 remain `bounds_unverified`; physical boundary/global comparison and final
 convergence tolerances are established in the remaining stages.
+
+## Stage 4: true fixed-current free-boundary closure
+
+`vaft.code.tokamaker.fixed_to_free(target, machine, new_workdir,
+fit_backend="direct" | "tokamaker_vfixed", config=..., fit_options=...)`
+retains the inverse fit, prescribed physical currents, realized native currents,
+forward convergence/error and an independent `compare_equilibria` report in
+`closure.json`. The default uses canonical source tables. No isoflux, saddle,
+VSC or coil optimization is enabled during this forward solve. A converged
+solver does not upgrade an unaccepted inverse fit to hardware feasibility or
+certify the shape error. Coil halves use the adapter's bounding rectangles;
+the inverse uses individual finite winding rectangles.
+
+The initial current density is sampled from the target volume sources on native
+nodes, then `vac_solve(rhs_source=Jphi)` assembles and solves that source on the
+native mesh. This is a starting state, not a fixed boundary constraint; the
+nonlinear solve subsequently determines its own LCFS. No direct plasma Green
+integration enters native fitting or initialization. `init_psi(curr_source=...)`
+is inappropriate here: that argument is an already assembled FE load vector.
+
+Two convention corrections emerged from native closure:
+
+* **`get_vfixed()` conversion is +2π**, rather than the -2π used in stage 2.
+  The native FEM flux and VAFT ring flux have the same orientation. The native
+  mathematical `eval_green` kernel instead has the opposite sign. An isolated
+  1 A winding check gives FEM flux `7.4490813e-8 Wb/rad` at `(0.4,0)`,
+  exact finite-winding flux `4.6812407e-7 Wb`, and `eval_green=-7.4507006e-8`.
+  The +2π FEM conversion agrees within 0.019%. Stage-2/3 residual magnitudes
+  remain valid, but their native-route current vectors have the wrong sign and
+  are superseded by this correction.
+* Closure exports **native COCOS 7**, then converts the parsed record to COCOS
+  11 for comparison. OFT's COCOS-2 exporter flips flux and its derivatives while
+  retaining the COCOS-7 Ip/F signs; treating that output as a full coordinate
+  conversion gives reversed canonical Ip. The closure bridge consequently uses
+  COCOS 7 even when the general forward config defaults to COCOS 2.
+
+Reproduce the isolated server benchmark:
+
+```bash
+PYTHONPATH=. python validation/fixed_free_1608/closure.py --workdir new_closure --dx .04
+PYTHONPATH=. python validation/fixed_free_1608/vacuum_response.py \
+  --mesh new_closure/solovev_direct/free/vest_gs_mesh_<hash>.h5
+```
+
+The synthetic machine has twelve independent 1-turn 20 mm windings, complete
+±200 kA bounds and regularization `1e-5`. Its rectangular limiter touches the
+inboard target LCFS, and differs from the LCFS elsewhere. This is a numerical
+reference geometry, not VEST hardware qualification. Runs used the existing
+server OFT v26.9 runtime in isolated `vaft-1608-closure.roju1O/densityseed`.
+
+| Family / route | Fit RMS / max relative flux | LCFS RMS / max [mm] | Axis [mm] | Outcome |
+| --- | --- | --- | --- | --- |
+| Solov'ev / direct | 0.008284 / 0.023189 | 2.942 / 6.146 | 1.933 | converged, limited |
+| Solov'ev / native | 0.006930 / 0.018140 | 2.406 / 6.160 | 2.683 | converged, limited |
+| Guazzotto–Freidberg ν=0.5 / direct | see `summary.json` | unavailable | unavailable | target normalization failed |
+| Guazzotto–Freidberg ν=0.5 / native | see `summary.json` | unavailable | unavailable | target normalization failed |
+
+Solov'ev realized currents differ by less than `4e-12 A`; canonical Ip matches
+100 kA. Shared-definition beta_p, virial li, thermal energy and volume are
+reported with their definitions. Target q95 is unavailable because the analytic
+record lacks a q table; the report preserves that reason instead of inventing a
+comparison. These are coarse reference results, not final acceptance tolerances.
+Guazzotto pure-pressure ν=1 also failed native closure at dx=0.04 and 0.02; fixed
+boundary solves and linear fits succeed. Its free-boundary normalization remains
+a validation requirement for the subsequent refinement/final-case stages.

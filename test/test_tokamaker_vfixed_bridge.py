@@ -34,7 +34,7 @@ def test_native_vfixed_flux_conversion_gauge_and_bounds():
     truth = np.array([1234., -876.])
     # Independent of the direct path's plasma-field target construction:
     # get_vfixed is the vacuum flux, in OFT's per-radian orientation.
-    vfixed = -(response @ truth) / (2 * np.pi)
+    vfixed = (response @ truth) / (2 * np.pi)
     bounds = {"PF1": (-2000., 2000.), "PF2": (-2000., 2000.)}
     fit = fit_vfixed_samples(points, vfixed, _machine(), flux_scale_Wb=.01,
                               current_bounds=bounds)
@@ -65,7 +65,7 @@ def test_vfixed_input_and_rank_diagnostics():
                            current_bounds={"missing": (-1, 1)})
 
 
-def test_oft_green_orientation_if_installed():
+def test_oft_mathematical_green_orientation_is_not_fem_flux_if_installed():
     util = pytest.importorskip("OpenFUSIONToolkit.TokaMaker.util")
     points = np.array([[.4, -.1], [.4, .0], [.4, .1]])
     source = np.array([.8, .4])

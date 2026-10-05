@@ -50,6 +50,7 @@ from .inputs import (
 from .mesh import build_tokamaker_mesh
 from .runner import run_tokamaker
 from .bridge import VFixedFitResult, fit_vfixed_samples, fit_free_boundary_coils_vfixed
+from .closure import FixedToFreeResult, compare_equilibria, fixed_to_free
 from .profiles import TokaMakerProfiles, equilibrium_to_tokamaker_profiles
 from .evolve import run_tokamaker_evolution
 from .stability import run_tokamaker_vertical_stability, run_tokamaker_wall_eigenmodes
@@ -89,6 +90,9 @@ __all__ = [
     "VFixedFitResult",
     "fit_vfixed_samples",
     "fit_free_boundary_coils_vfixed",
+    "FixedToFreeResult",
+    "compare_equilibria",
+    "fixed_to_free",
     "TokaMakerProfiles",
     "equilibrium_to_tokamaker_profiles",
     "run_tokamaker_evolution",

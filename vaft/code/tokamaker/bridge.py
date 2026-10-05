@@ -3,8 +3,9 @@
 ``get_vfixed`` supplies the required *external* flux after a fixed-boundary
 Grad-Shafranov solve. No plasma filament integration or target vacuum field
 from the direct fitter enters this route. OFT's flux is per radian and its
-Green orientation is opposite VAFT's full-weber ring response; multiply the
-OFT samples by ``-2*pi`` before fitting VAFT coil responses.
+FEM flux has the same orientation as VAFT's full-weber ring response; multiply
+the samples by ``2*pi``. The mathematical ``eval_green`` kernel has the opposite
+sign to the FEM vacuum flux and must not define this conversion.
 """
 
 from __future__ import annotations
@@ -107,8 +108,9 @@ def fit_vfixed_samples(
 
     Convention
     ----------
-    OFT ``get_vfixed`` and ``eval_green`` use Wb/rad; VAFT's exact ring Green
-    kernel uses full Wb with opposite sign. The fitted currents are physical
+    OFT ``get_vfixed`` uses the FEM vacuum-flux orientation in Wb/rad;
+    multiply by +2*pi for the VAFT full-Wb ring response. ``eval_green``
+    instead has the negative mathematical Green-kernel orientation. The fitted currents are physical
     amperes in the ``pf_active.turns_with_sign`` convention.
 
     Applicability
@@ -141,7 +143,7 @@ def fit_vfixed_samples(
     response, _, _ = _response(points, cr, cz, turns, groups, len(names))
     if not np.isfinite(response).all():
         raise ValueError("nonfinite PF response; check coil separation from sample points")
-    required = -2.0 * np.pi * vfixed
+    required = 2.0 * np.pi * vfixed
     a = response[1:] - response[0]
     b = required[1:] - required[0]
     sv = np.linalg.svd(a * current_scale_A / flux_scale_Wb, compute_uv=False)
