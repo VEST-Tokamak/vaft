@@ -401,7 +401,7 @@ def test_a_constant_profile_is_the_scalar(model):
     assert scalar.zeff_profile == "constant" and profile.zeff_profile == "prescribed profile"
 
 
-@pytest.mark.parametrize("model", ["spitzer_nrl", "sauter", "redl"])
+@pytest.mark.parametrize("model", ["spitzer_nrl", "sauter_spitzer", "sauter", "redl"])
 def test_a_profile_is_applied_surface_by_surface(model):
     """Each surface's conductivity is the scalar answer at that surface's charge."""
     state = _state()
@@ -450,3 +450,15 @@ def test_the_inference_still_fits_one_scalar():
                                   bounds=(1.0, 6.0), weights="uniform")
     assert np.ndim(result.zeff) == 0
     assert result.model["zeff_profile"] == "constant over radius and window"
+
+
+def test_a_numpy_scalar_is_a_constant_charge_and_a_profile_is_not_aliased():
+    state = _state()
+    scalar = model_resistance(state, np.float64(2.0), model="redl", ln_lambda=15.0)
+    assert isinstance(scalar.z_eff, float) and scalar.zeff_profile == "constant"
+    zero_d = model_resistance(state, np.array(2.0), model="redl", ln_lambda=15.0)
+    assert isinstance(zero_d.z_eff, float)
+    z = np.full(state.psi_norm.size, 2.0)
+    profile = model_resistance(state, z, model="redl", ln_lambda=15.0)
+    z[:] = 5.0
+    assert np.all(profile.z_eff == 2.0)

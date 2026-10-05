@@ -676,7 +676,8 @@ def _zeff_input(state: FluxSurfaceState, z_eff) -> tuple[Any, str]:
         if not z >= 1.0:
             raise ValueError(f"z_eff must be at least 1, got {z_eff!r}")
         return z, "constant"
-    z = np.asarray(z_eff, dtype=float).reshape(-1)
+    # A copy: the frozen ModelResistance must not alias the caller's array.
+    z = np.array(z_eff, dtype=float).reshape(-1)
     if z.size != state.psi_norm.size:
         raise ValueError(
             f"a Z_eff profile has {z.size} values; the state has {state.psi_norm.size} "
