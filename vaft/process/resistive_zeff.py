@@ -48,8 +48,16 @@ parallel current is never replaced by ``j_tor`` -- they differ at VEST
 aspect ratio (#1214 Sec. 7.2).
 
 **One scalar, not a profile.**  A single global resistance constrains a
-single amplitude; ``Z_eff`` is held constant across radius and across the
-inference window (#1214 Sec. 10).
+single amplitude; the *inferred* ``Z_eff`` is held constant across radius and
+across the inference window (#1214 Sec. 10).  The forward model accepts a
+prescribed profile ``Z_eff(psi)`` -- one from an impurity model, say (#1566)
+-- to project it onto the resistance; it is never fitted.
+
+**Plasma current from the reconstruction.**  ``I_p`` in ``R_p = V_R/I_p``
+and in the flux-surface state is the equilibrium's ``global_quantities.ip``,
+not the Rogowski: the current that normalises ``<J.B>`` and the one that
+divides ``V_R`` are then the same number (#1514).  On Tier A they differ
+from the Rogowski by 5-10 %.
 """
 
 from __future__ import annotations
@@ -326,10 +334,12 @@ class TabulatedConductivity:
     rtol: float = 1e-3
 
     def __call__(self, state: "FluxSurfaceState", z_eff: float, ln_lambda_profile) -> np.ndarray:
-        if abs(float(z_eff) - self.z_eff) > self.rtol * self.z_eff:
+        requested = np.asarray(z_eff, dtype=float)
+        if np.any(np.abs(requested - self.z_eff) > self.rtol * self.z_eff):
+            shown = f"{float(requested):g}" if requested.ndim == 0 else "a Z_eff profile"
             raise ValueError(
                 f"{self.name} was computed at Z_eff = {self.z_eff:g} and cannot be "
-                f"evaluated at {float(z_eff):g}; rerun it with that species list"
+                f"evaluated at {shown}; rerun it with that species list"
             )
         grid = np.asarray(self.psi_norm, dtype=float)
         if state.psi_norm.min() < grid.min() - 1e-9 or state.psi_norm.max() > grid.max() + 1e-9:
@@ -347,7 +357,8 @@ class ModelResistance:
     """The plasma resistance a conductivity model predicts for one state and Z_eff."""
 
     time: float
-    z_eff: float
+    #: A float for a constant charge, an array on the state's surfaces for a profile.
+    z_eff: Union[float, np.ndarray]
     conductivity_model: str
     ln_lambda: str
     bootstrap_model: str
@@ -355,6 +366,8 @@ class ModelResistance:
     P_ohm_per_I2: float
     sigma_parallel: np.ndarray
     provenance: Mapping[str, Any]
+    #: ``"constant"`` or ``"prescribed profile"``.
+    zeff_profile: str = "constant"
 
 
 @dataclass(frozen=True)
@@ -652,9 +665,31 @@ def _ln_lambda_profile(state: FluxSurfaceState, ln_lambda) -> tuple[np.ndarray, 
     return np.full(state.psi_norm.size, value), f"{value:g}"
 
 
+def _zeff_input(state: FluxSurfaceState, z_eff) -> tuple[Any, str]:
+    """``(z, label)``: a float for a constant charge, an array for a profile.
+
+    A scalar stays a Python float so the constant-charge path is unchanged
+    bit for bit; a profile must lie on ``state.psi_norm`` (#1566).
+    """
+    if np.ndim(z_eff) == 0:
+        z = float(z_eff)
+        if not z >= 1.0:
+            raise ValueError(f"z_eff must be at least 1, got {z_eff!r}")
+        return z, "constant"
+    z = np.asarray(z_eff, dtype=float).reshape(-1)
+    if z.size != state.psi_norm.size:
+        raise ValueError(
+            f"a Z_eff profile has {z.size} values; the state has {state.psi_norm.size} "
+            "surfaces -- give it on state.psi_norm (restrict both together)"
+        )
+    if not np.all(np.isfinite(z)) or np.any(z < 1.0):
+        raise ValueError("every value of a Z_eff profile must be finite and at least 1")
+    return z, "prescribed profile"
+
+
 def parallel_conductivity(
     state: FluxSurfaceState,
-    z_eff: float,
+    z_eff: Union[float, np.ndarray],
     *,
     model: Union[str, Callable],
     ln_lambda: Union[float, str],
@@ -665,8 +700,10 @@ def parallel_conductivity(
     ----------
     state : FluxSurfaceState
         Electron profiles and geometry on a flux grid [any].
-    z_eff : float
-        Effective charge, constant across radius; at least 1 [-].
+    z_eff : float or array_like
+        Effective charge: one value for a constant charge, or a profile with
+        one value per surface of ``state.psi_norm`` (#1566); at least 1
+        everywhere [-].
     model : str or callable
         ``"spitzer_nrl"`` (``1/eta_par`` of the NRL Formulary, linear in Z),
         ``"sauter_spitzer"`` (Sauter's Spitzer with N(Z)), ``"sauter"`` or
@@ -685,8 +722,8 @@ def parallel_conductivity(
     Raises
     ------
     ValueError
-        ``z_eff`` below 1, an unknown model name, or a non-positive
-        ``ln_lambda`` [-].
+        ``z_eff`` below 1, a profile whose length is not the state's, an
+        unknown model name, or a non-positive ``ln_lambda`` [-].
 
     Convention
     ----------
@@ -722,9 +759,7 @@ def parallel_conductivity(
         trapped_particle_fraction,
     )
 
-    z = float(z_eff)
-    if not z >= 1.0:
-        raise ValueError(f"z_eff must be at least 1, got {z_eff!r}")
+    z, _ = _zeff_input(state, z_eff)
     lnl, _ = _ln_lambda_profile(state, ln_lambda)
     if callable(model):
         return np.asarray(model(state, z, lnl), dtype=float)
@@ -747,7 +782,8 @@ def parallel_conductivity(
     if np.any(off):
         nu[off] = np.asarray(
             electron_collisionality_sauter(
-                state.n_e[off], state.T_e[off], state.q[off], major[off], eps[off], z, lnl[off]
+                state.n_e[off], state.T_e[off], state.q[off], major[off], eps[off],
+                z if np.ndim(z) == 0 else z[off], lnl[off]
             ),
             dtype=float,
         )
@@ -757,7 +793,7 @@ def parallel_conductivity(
 
 def model_resistance(
     state: FluxSurfaceState,
-    z_eff: float,
+    z_eff: Union[float, np.ndarray],
     *,
     model: Union[str, Callable],
     ln_lambda: Union[float, str],
@@ -769,8 +805,10 @@ def model_resistance(
     state : FluxSurfaceState
         One slice: profiles, ``<J.B>``, ``<B^2>``, enclosed volume and the
         optional bootstrap ``<J_bs.B>`` [any].
-    z_eff : float
-        Effective charge, constant across radius [-].
+    z_eff : float or array_like
+        Effective charge, constant or a profile on ``state.psi_norm``, as in
+        :func:`parallel_conductivity`.  A profile is a forward input only:
+        :func:`infer_resistive_zeff` still fits one scalar (#1214 Sec. 10) [-].
     model : str or callable
         Conductivity model, as in :func:`parallel_conductivity` [any].
     ln_lambda : float or str
@@ -824,7 +862,8 @@ def model_resistance(
     """
     from scipy.integrate import trapezoid
 
-    sigma = parallel_conductivity(state, z_eff, model=model, ln_lambda=ln_lambda)
+    z, z_label = _zeff_input(state, z_eff)
+    sigma = parallel_conductivity(state, z, model=model, ln_lambda=ln_lambda)
     _, lnl_label = _ln_lambda_profile(state, ln_lambda)
     jb = state.j_dot_b
     jbs = state.j_bootstrap_dot_b if state.j_bootstrap_dot_b is not None else 0.0
@@ -834,7 +873,7 @@ def model_resistance(
     per_i2 = power / state.I_p**2
     name = model if isinstance(model, str) else getattr(model, "name", getattr(model, "__name__", "custom"))
     return ModelResistance(
-        time=float(state.time), z_eff=float(z_eff), conductivity_model=str(name),
+        time=float(state.time), z_eff=z, zeff_profile=z_label, conductivity_model=str(name),
         ln_lambda=lnl_label, bootstrap_model=state.bootstrap_model,
         R_p=per_i2, P_ohm_per_I2=per_i2, sigma_parallel=sigma,
         provenance={"power": "int <E.B><J.B>/<B^2> dV", **dict(state.source)},

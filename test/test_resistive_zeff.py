@@ -385,3 +385,68 @@ def test_the_parameters_variant_warns_at_the_callers_line():
                                    n_e=np.full(32, 1e19))
     deprecations = [w for w in caught if issubclass(w.category, FutureWarning)]
     assert deprecations and deprecations[0].filename == __file__
+
+
+# --- prescribed Z_eff profiles in the forward model (#1566) ----------------------------
+
+
+@pytest.mark.parametrize("model", ["spitzer_nrl", "sauter_spitzer", "sauter", "redl"])
+def test_a_constant_profile_is_the_scalar(model):
+    state = _state()
+    flat = np.full(state.psi_norm.size, 2.3)
+    scalar = model_resistance(state, 2.3, model=model, ln_lambda="sauter")
+    profile = model_resistance(state, flat, model=model, ln_lambda="sauter")
+    assert profile.R_p == pytest.approx(scalar.R_p, rel=1e-12)
+    np.testing.assert_allclose(profile.sigma_parallel, scalar.sigma_parallel, rtol=1e-12)
+    assert scalar.zeff_profile == "constant" and profile.zeff_profile == "prescribed profile"
+
+
+@pytest.mark.parametrize("model", ["spitzer_nrl", "sauter", "redl"])
+def test_a_profile_is_applied_surface_by_surface(model):
+    """Each surface's conductivity is the scalar answer at that surface's charge."""
+    state = _state()
+    z = 1.2 + 2.0 * state.psi_norm  # impurities concentrated at the edge
+    sigma = parallel_conductivity(state, z, model=model, ln_lambda="sauter")
+    for k in (0, 20, 40, 80):
+        at_k = parallel_conductivity(state, float(z[k]), model=model, ln_lambda="sauter")[k]
+        assert sigma[k] == pytest.approx(at_k, rel=1e-12)
+
+
+def test_an_edge_heavy_profile_sits_between_its_bounds():
+    state = _state()
+    z = 1.2 + 2.0 * state.psi_norm
+    r = model_resistance(state, z, model="redl", ln_lambda="sauter").R_p
+    lo = model_resistance(state, 1.2, model="redl", ln_lambda="sauter").R_p
+    hi = model_resistance(state, 3.2, model="redl", ln_lambda="sauter").R_p
+    assert lo < r < hi
+
+
+def test_a_profile_of_the_wrong_length_or_below_one_is_refused():
+    state = _state()
+    with pytest.raises(ValueError, match="surfaces"):
+        parallel_conductivity(state, np.full(5, 2.0), model="redl", ln_lambda=15.0)
+    bad = np.full(state.psi_norm.size, 2.0)
+    bad[3] = 0.9
+    with pytest.raises(ValueError, match="at least 1"):
+        model_resistance(state, bad, model="redl", ln_lambda=15.0)
+
+
+def test_a_tabulated_conductivity_accepts_only_its_own_charge_as_a_profile():
+    state = _state()
+    sigma = parallel_conductivity(state, 1.0, model="sauter", ln_lambda=15.0)
+    table = TabulatedConductivity("table", state.psi_norm, sigma, z_eff=1.0)
+    same = model_resistance(state, np.ones(state.psi_norm.size), model=table, ln_lambda=15.0)
+    assert same.R_p == pytest.approx(
+        model_resistance(state, 1.0, model="sauter", ln_lambda=15.0).R_p, rel=1e-12)
+    with pytest.raises(ValueError, match="profile"):
+        model_resistance(state, 1.0 + state.psi_norm, model=table, ln_lambda=15.0)
+
+
+def test_the_inference_still_fits_one_scalar():
+    states = [_state(time=0.005)]
+    r_true = model_resistance(states[0], 2.0, model="redl", ln_lambda="sauter").R_p
+    observed = observed_resistance(_flat_top(r_true), I_ni=0.0, smoothing=Smoothing("none"))
+    result = infer_resistive_zeff(observed, states, model="redl", ln_lambda="sauter",
+                                  bounds=(1.0, 6.0), weights="uniform")
+    assert np.ndim(result.zeff) == 0
+    assert result.model["zeff_profile"] == "constant over radius and window"
