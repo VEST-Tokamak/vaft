@@ -19,6 +19,37 @@ from vaft.process.equilibrium import (
 )
 
 
+def acceptance_failures(record):
+    """Evaluate the documented coarse-grid frozen-current benchmark gates."""
+    failures = []
+    if record.get('error'):
+        return [record['error']]
+    if record.get('verification_status') != 'converged':
+        failures.append('frozen-current solve did not converge')
+    comparison = record.get('verified_comparison') or {}
+    lcfs = comparison.get('lcfs') or {}
+    native = comparison.get('native_boundary') or {}
+    globals_ = comparison.get('globals') or {}
+    checks = (
+        ('LCFS max > 12 mm', lcfs.get('max_distance_m'), .012),
+        ('axis displacement > 2 mm', comparison.get('axis_displacement_m'), .002),
+        ('active X displacement > 0.5 mm',
+         max(native.get('matched_displacements_m') or [0.]), .0005),
+        ('absolute q95 difference > 0.06',
+         (globals_.get('q95_field_integral') or {}).get('difference'), .06),
+        ('absolute Ip difference > 15 A',
+         (globals_.get('Ip_A') or {}).get('difference'), 15.),
+    )
+    for label, value, limit in checks:
+        if value is None or not np.isfinite(value) or abs(value) > limit:
+            failures.append(label)
+    if native.get('topology') != record.get('topology'):
+        failures.append('native X-point topology mismatch')
+    if native.get('unmatched_target') or native.get('unmatched_solved'):
+        failures.append('native active X-point count mismatch')
+    return failures
+
+
 def target_case(family: str, topology: str, *, pedestal: float = 0.,
                 nu: float = .5, resolution: int = 65):
     """Construct the named analytic target with the same VEST-scale R0/B0."""
@@ -76,15 +107,21 @@ def main():
     records = []
     for family in args.families:
         for topology in args.topologies:
-            target = target_case(family, topology, pedestal=args.current_pedestal if family == 'guazzotto_pedestal' else 0.,
-                                 nu=args.nu,
-                                 resolution=args.resolution)
-            target, machine, wall = machine_case(target, topology)
+            try:
+                target = target_case(family, topology,
+                                     pedestal=args.current_pedestal if family == 'guazzotto_pedestal' else 0.,
+                                     nu=args.nu, resolution=args.resolution)
+                target, machine, wall = machine_case(target, topology)
+                target_error = None
+            except Exception as exc:
+                target_error = f'{type(exc).__name__}: {exc}'
             for backend in args.backends:
                 name = f'{family}_{topology}_{backend}'
                 record = {'family': family, 'topology': topology, 'backend': backend,
                           'dx_plasma_m': args.dx, 'target_grid': args.resolution}
                 try:
+                    if target_error:
+                        raise ValueError(f'target construction failed: {target_error}')
                     cfg = TokaMakerConfig(profile_mode='equilibrium', dx_plasma=args.dx,
                                           dx_vacuum=.08, dx_coil=.02, limiter=wall,
                                           lim_zmax=None, neck_limiter_zmax=None, nthreads=2)
@@ -113,11 +150,16 @@ def main():
                                   verification_error=result.verified_free.error if result.verified_free else None)
                 except Exception as exc:
                     record['error'] = f'{type(exc).__name__}: {exc}'
+                if not args.no_refinement:
+                    record['acceptance_failures'] = acceptance_failures(record)
+                    record['accepted'] = not record['acceptance_failures']
                 records.append(record)
                 (args.workdir/'summary.json').write_text(json.dumps(records, indent=2))
                 print(json.dumps({key: record.get(key) for key in (
                     'family', 'topology', 'backend', 'fit_status', 'initial_status',
                     'refinement_status', 'verification_status', 'error')}), flush=True)
+    if any(record.get('error') or record.get('acceptance_failures') for record in records):
+        raise SystemExit(1)
 
 
 if __name__ == '__main__':

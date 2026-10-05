@@ -7,6 +7,7 @@ import pytest
 
 from vaft.code.tokamaker import TokaMakerConfig, compare_equilibria, fixed_to_free
 from vaft.code.tokamaker import closure
+from vaft.code.tokamaker.runner import _native_active_x_points
 from vaft.code.tokamaker.config import TokaMakerResult
 from vaft.data.equilibrium import Contour
 from vaft.process.equilibrium import convert_cocos, solovev_example
@@ -100,8 +101,28 @@ def test_native_saddle_diagnostics_restore_double_null_when_gridded_export_misse
     gridded = replace(target, limiter=None)
     result = closure._native_boundary_comparison(target, gridded, {
         'diverted': True, 'native_active_x_points_m': saddles,
-        'native_x_flux_tolerance_fraction': .01,
+        'native_x_flux_tolerance_fraction': 1e-4,
     })
     assert result['native_boundary']['topology'] == 'double_null'
     assert result['native_boundary']['unmatched_target'] == 0
     assert result['native_boundary']['matched_displacements_m'] == pytest.approx([0., 0.])
+
+
+def test_native_topology_rejects_flux_offset_or_unmatched_extra_saddle():
+    target = solovev_example('single_null', resolution=65)
+    active = [x for x in closure.derive_boundary_representation(target).x_points if x.active]
+    lower = [active[0].r, active[0].z]
+    upper = [lower[0], -lower[1]]
+    flux = SimpleNamespace(eval=lambda point: np.array([0.005 if point[1] > 0 else 0.]))
+    gs = SimpleNamespace(get_xpoints=lambda: (np.array([lower, upper]), True),
+                         lim_point=np.array(lower), get_field_eval=lambda _: flux,
+                         get_stats=lambda: {'dflux': 1.})
+    sidecar = _native_active_x_points(gs)
+    assert sidecar['native_active_x_points_m'] == [lower]
+    result = closure._native_boundary_comparison(target, target, {
+        **sidecar, 'diverted': True})
+    assert result['native_boundary']['topology'] == 'lower_single_null'
+    extra = closure._native_boundary_comparison(target, target, {
+        **sidecar, 'diverted': True, 'native_active_x_points_m': [lower, upper]})
+    assert extra['native_boundary']['topology'] == 'ambiguous'
+    assert extra['native_boundary']['unmatched_solved'] == 1

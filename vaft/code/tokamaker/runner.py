@@ -323,10 +323,10 @@ def _native_active_x_points(mygs) -> dict[str, Any]:
     for point in points:
         residual = abs(float(np.asarray(field.eval(point)).ravel()[0]) - reference_psi) / span
         all_points.append({"rz_m": point.tolist(), "relative_boundary_flux_residual": residual})
-        if np.isfinite(residual) and residual <= .01:
+        if np.isfinite(residual) and residual <= 1e-4:
             active.append(point.tolist())
     return {"native_active_x_points_m": active, "native_all_x_points": all_points,
-            "native_x_flux_tolerance_fraction": .01}
+            "native_x_flux_tolerance_fraction": 1e-4}
 
 
 def _initial_current_density(equilibrium, points):

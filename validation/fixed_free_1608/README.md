@@ -366,7 +366,11 @@ not VEST hardware ratings.
 | Guazzotto pure pressure limited | accepted / accepted | failed / failed | 0.31 / 0.31 | limited |
 
 Every refined and subsequent frozen-current solve in this matrix converged.
-The native FE active-saddle classification matches all diverted targets;
+The native FE saddle check requires flux agreement within 0.01% of the active
+boundary, one-to-one matching to the target active X-points within 10 mm, and
+the expected count and upper/lower placement. A mismatch is marked ambiguous
+rather than promoted to double null. It checks X-point candidates, not a
+separatrix trace. The checked native classification matches all diverted targets;
 gridded 129×129 g-files can miss a narrow X-point, so both gridded and native
 topology diagnostics are retained. The maximum native X-point displacement is
 0.186 mm for Solov'ev, 0.011 mm for Guazzotto Part 1, and 0.033 mm for the
@@ -388,6 +392,12 @@ guarantees, are justified by the measured discretization study:
 | Native active X displacement | 0.5 mm | 0.186 mm |
 | Absolute q95 field-integral difference | 0.06 | 0.043 |
 | Absolute Ip difference | 15 A | 9.25 A |
+
+The matrix command evaluates these gates per case in `summary.json` and exits
+nonzero if any generated target, native solve, metric, X-point match or gate
+fails. It retains all case records even after a failure. The initial inverse
+fit acceptance and initial fixed-current closure are reported independently;
+they are not silently counted as final frozen-current gate failures or passes.
 
 For the direct plasma-field integration at target grids 33, 65 and 97,
 Solov'ev RMS relative flux decreases `0.00458 → 0.00343 → 0.00211` and

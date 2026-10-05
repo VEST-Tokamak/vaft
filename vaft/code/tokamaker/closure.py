@@ -145,16 +145,22 @@ def _native_boundary_comparison(target: EquilibriumData, solved: EquilibriumData
         matched = distances[i, j].tolist()
     axis_z = target.magnetic_axis[1] if target.magnetic_axis else 0.
     below, above = np.any(native[:, 1] < axis_z), np.any(native[:, 1] > axis_z)
-    topology = ('double_null' if below and above else 'lower_single_null' if below else
-                'upper_single_null' if above else 'limited' if not sidecar.get('diverted') else 'ambiguous')
+    unmatched = len(target_x) != len(native) or any(distance > .01 for distance in matched)
+    if unmatched:
+        topology = 'ambiguous'
+        reason = 'native flux-coincident saddles do not match target active X-points within 10 mm'
+    else:
+        topology = ('double_null' if below and above else 'lower_single_null' if below else
+                    'upper_single_null' if above else 'limited' if not sidecar.get('diverted') else 'ambiguous')
+        reason = sidecar.get('native_x_points_reason')
     comparison['native_boundary'] = {
-        'source': 'native FE saddle flux relative to active boundary, before g-file gridding',
+        'source': 'native FE flux-coincident saddles matched to target active X-points, before g-file gridding',
         'topology': topology, 'active_x_points_m': native.tolist(),
         'matched_displacements_m': matched,
         'unmatched_target': len(target_x)-len(matched),
         'unmatched_solved': len(native)-len(matched),
         'flux_tolerance_fraction': sidecar.get('native_x_flux_tolerance_fraction'),
-        'reason': sidecar.get('native_x_points_reason'),
+        'target_match_tolerance_m': .01, 'reason': reason,
     }
     return comparison
 
