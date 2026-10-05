@@ -281,9 +281,13 @@ def equilibrium_quality_crosswalk(table) -> list[dict[str, Any]]:
             counts[f"{g}|{s}"] = counts.get(f"{g}|{s}", 0) + 1
         decided = [(g, s) for g, s in zip(pairs[column], pairs[study])
                    if g in ("pass", "fail", "warn") and s in ("pass", "fail")]
+        # ``warn`` has no study counterpart: agreement is reported both ways.
         agree = sum((g == "fail") == (s == "fail") for g, s in decided)
+        agree_strict = sum((g in ("fail", "warn")) == (s == "fail") for g, s in decided)
         out.append({"generic": generic, "study": study, "available": True, "rows": int(len(pairs)),
-                    "decided": len(decided), "agreement": (agree / len(decided)) if decided else math.nan,
+                    "decided": len(decided),
+                    "agreement": (agree / len(decided)) if decided else math.nan,
+                    "agreement_warn_as_fail": (agree_strict / len(decided)) if decided else math.nan,
                     "counts": counts})
     return out
 

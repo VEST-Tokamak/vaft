@@ -97,6 +97,9 @@ def test_the_crosswalk_compares_only_where_both_layers_answered(criteria):
     entry = walk["verification.convergence"]
     assert entry["decided"] == 2 and entry["agreement"] == pytest.approx(0.5)
     assert entry["counts"] == {"pass|pass": 1, "pass|fail": 1}
+    table["validation.verification.convergence"] = ["pass", "warn"]  # warn has no study counterpart
+    entry = {row["generic"]: row for row in eq.equilibrium_quality_crosswalk(table)}["verification.convergence"]
+    assert entry["agreement"] == pytest.approx(0.5) and entry["agreement_warn_as_fail"] == pytest.approx(1.0)
 
 
 def test_efit_evidence_columns_reuse_the_existing_layers():
