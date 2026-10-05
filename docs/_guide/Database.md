@@ -56,16 +56,21 @@ slice. It reads no TGLF or CGYRO native output and does not combine models.
 
 ```python
 transport = vaft.database.summary((39915, 39916), preset="turbulent_transport")
-transport[["shot", "time_s", "source", "model_index", "rho_flux_min",
-           "rho_flux_max", "q_e_peak_abs_W_m2", "q_i_peak_abs_W_m2"]]
+transport[["shot", "time_s", "source", "model_index", "rho_grid_min",
+           "rho_grid_max", "q_e_peak_abs_W_m2", "q_i_peak_abs_W_m2"]]
 ```
 
 The peak columns are maxima of the *absolute* mapped SI flux over finite
-`rho_tor_norm` grid points, not full radial profiles. `q_i` sums all recorded
-ion species at each point only when every ion flux is present; its point count
-then reports coverage. `configuration_sha256` distinguishes recorded model
-parameter text. A value of `unrecorded` means the canonical model lacks that
-configuration, so comparisons across settings need the upstream run record.
+`rho_tor_norm` grid points, not full radial profiles. `rho_grid_min/max`
+describe the stored grid; `rho_q_e_min/max` and `rho_q_i_min/max` describe the
+finite coverage of each heat-flux channel. `q_i` sums all recorded ion species
+at each point only when every ion flux is present. `parameters_text_sha256`
+identifies exact stored `model.code.parameters` text, when present; it is not a
+configuration-equivalence key because the text can include state-specific
+provenance. `configuration_status=not_standardized` makes that limit explicit.
+The current TGLF mapper reuses its anomalous model slot and does not persist
+SAT/field settings there, so comparisons across settings need the upstream
+run record until that mapping contract is extended.
 Classical heat flux remains a resolved-state result without a standardized
 `core_transport` projection; it is not presented as a canonical preset yet.
 `power_balance` likewise awaits the stored-energy and loss-power definitions

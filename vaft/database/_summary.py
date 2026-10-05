@@ -184,13 +184,17 @@ TURBULENT_TRANSPORT_COLUMNS = (
     "code_name",
     "code_version",
     "configuration_status",
-    "configuration_sha256",
-    "rho_flux_min",
-    "rho_flux_max",
+    "parameters_text_sha256",
+    "rho_grid_min",
+    "rho_grid_max",
     "points_on_grid",
     "ion_count",
     "q_e_points",
     "q_i_points",
+    "rho_q_e_min",
+    "rho_q_e_max",
+    "rho_q_i_min",
+    "rho_q_i_max",
     "q_e_peak_abs_W_m2",
     "q_i_peak_abs_W_m2",
     "gamma_e_peak_abs_m2_s",
@@ -758,6 +762,15 @@ def _peak_abs(values: np.ndarray | None) -> float:
     return float(np.max(np.abs(values[np.isfinite(values)])))
 
 
+def _rho_coverage(grid: np.ndarray, values: np.ndarray | None) -> tuple[float, float]:
+    if values is None:
+        return np.nan, np.nan
+    covered = grid[np.isfinite(grid) & np.isfinite(values)]
+    if not covered.size:
+        return np.nan, np.nan
+    return float(np.min(covered)), float(np.max(covered))
+
+
 def extract_turbulent_transport(ods, shot: int) -> list[dict]:
     """Summarize canonical anomalous ``core_transport`` fluxes by model and time.
 
@@ -777,7 +790,7 @@ def extract_turbulent_transport(ods, shot: int) -> list[dict]:
             continue
         parameters = _stored_value(ods, f"{prefix}.code.parameters")
         configuration = None if parameters is None else str(parameters)
-        config_hash = (
+        parameters_hash = (
             hashlib.sha256(configuration.encode("utf-8")).hexdigest()
             if configuration else None
         )
@@ -811,6 +824,8 @@ def extract_turbulent_transport(ods, shot: int) -> list[dict]:
                 else None
             )
             finite_grid = grid[np.isfinite(grid)]
+            rho_q_e_min, rho_q_e_max = _rho_coverage(grid, q_e)
+            rho_q_i_min, rho_q_i_max = _rho_coverage(grid, q_i)
             rows.append({
                 "shot": int(shot),
                 "model_index": model_index,
@@ -819,14 +834,20 @@ def extract_turbulent_transport(ods, shot: int) -> list[dict]:
                 "model_name": _stored_value(ods, f"{prefix}.identifier.name"),
                 "code_name": _stored_value(ods, f"{prefix}.code.name"),
                 "code_version": _stored_value(ods, f"{prefix}.code.version"),
-                "configuration_status": "recorded" if config_hash else "unrecorded",
-                "configuration_sha256": config_hash,
-                "rho_flux_min": float(np.min(finite_grid)),
-                "rho_flux_max": float(np.max(finite_grid)),
+                # code.parameters has no standardized configuration-only
+                # schema: it may also contain state identity or static notes.
+                "configuration_status": "not_standardized",
+                "parameters_text_sha256": parameters_hash,
+                "rho_grid_min": float(np.min(finite_grid)),
+                "rho_grid_max": float(np.max(finite_grid)),
                 "points_on_grid": int(finite_grid.size),
                 "ion_count": ion_count,
                 "q_e_points": 0 if q_e is None else int(np.count_nonzero(np.isfinite(q_e))),
                 "q_i_points": 0 if q_i is None else int(np.count_nonzero(np.isfinite(q_i))),
+                "rho_q_e_min": rho_q_e_min,
+                "rho_q_e_max": rho_q_e_max,
+                "rho_q_i_min": rho_q_i_min,
+                "rho_q_i_max": rho_q_i_max,
                 "q_e_peak_abs_W_m2": _peak_abs(q_e),
                 "q_i_peak_abs_W_m2": _peak_abs(q_i),
                 "gamma_e_peak_abs_m2_s": _peak_abs(gamma_e),
@@ -1569,9 +1590,9 @@ PRESETS = {
     "turbulent_transport": SummaryPreset(
         columns=_summary_columns(TURBULENT_TRANSPORT_COLUMNS),
         paths=("core_transport",),
-        key_columns=("shot", "model_index", "profile_index", "time_s"),
-        replace_groups=("shot",),
-        sort_columns=("shot", "time_s", "model_index", "profile_index"),
+        key_columns=("source", "shot", "model_index", "profile_index", "time_s"),
+        replace_groups=("source", "shot"),
+        sort_columns=("source", "shot", "time_s", "model_index", "profile_index"),
         extractor=extract_turbulent_transport,
     ),
     "shot_overview": SummaryPreset(

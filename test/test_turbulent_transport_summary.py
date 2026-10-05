@@ -40,12 +40,14 @@ def test_extract_separates_models_and_time_slices():
     assert [(row["model_index"], row["profile_index"], row["time_s"]) for row in rows] == [
         (0, 0, 0.3), (0, 1, 0.4), (1, 0, 0.3)
     ]
-    assert rows[0]["configuration_sha256"] != rows[2]["configuration_sha256"]
-    assert rows[0]["configuration_status"] == "recorded"
+    assert rows[0]["parameters_text_sha256"] != rows[2]["parameters_text_sha256"]
+    assert rows[0]["configuration_status"] == "not_standardized"
     assert rows[0]["q_e_peak_abs_W_m2"] == 4.0
     assert rows[0]["q_i_peak_abs_W_m2"] == 3.5
     assert rows[0]["gamma_e_peak_abs_m2_s"] == 4.0
-    assert rows[1]["rho_flux_min"] == 0.4
+    assert rows[1]["rho_grid_min"] == 0.4
+    assert rows[1]["rho_q_e_min"] == 0.4
+    assert np.isnan(rows[1]["rho_q_i_min"])
     assert np.isnan(rows[1]["q_i_peak_abs_W_m2"])
 
 
@@ -59,8 +61,11 @@ def test_partial_grid_and_missing_ion_flux_do_not_create_a_false_total():
     assert row["points_on_grid"] == 2
     assert row["q_e_points"] == 2
     assert row["q_e_peak_abs_W_m2"] == 2.0
+    assert row["rho_q_e_min"] == 0.3
+    assert row["rho_q_e_max"] == 0.8
     assert row["q_i_points"] == 0
     assert np.isnan(row["q_i_peak_abs_W_m2"])
+    assert np.isnan(row["rho_q_i_min"])
 
 
 def test_unrecorded_configuration_is_not_guessed_from_code_name():
@@ -68,8 +73,8 @@ def test_unrecorded_configuration_is_not_guessed_from_code_name():
     del ods["core_transport.model.0.code.parameters"]
     row = _summary.extract_turbulent_transport(ods, 42)[0]
     assert row["code_name"] == "TGLF"
-    assert row["configuration_status"] == "unrecorded"
-    assert row["configuration_sha256"] is None
+    assert row["configuration_status"] == "not_standardized"
+    assert row["parameters_text_sha256"] is None
 
 
 def test_summary_adds_source_and_shot_timestamp_and_exports(monkeypatch, tmp_path):
@@ -92,5 +97,15 @@ def test_summary_adds_source_and_shot_timestamp_and_exports(monkeypatch, tmp_pat
     database.export_summary(result, path)
     restored = pd.read_csv(path)
     assert len(restored) == 3
-    assert restored["configuration_sha256"].nunique() == 2
+    assert restored["parameters_text_sha256"].nunique() == 2
     assert pd.Timestamp(restored.loc[0, "pulse_time_begin"]) == pd.Timestamp("2024-05-01T12:30:00")
+
+    definition = database.get_summary_preset("turbulent_transport")
+    other_source = result.assign(source="other")
+    database.export_summary(
+        other_source, path, mode="upsert",
+        key_columns=definition.key_columns, replace_groups=definition.replace_groups,
+    )
+    combined = pd.read_csv(path)
+    assert len(combined) == 6
+    assert set(combined["source"]) == {"public", "other"}
