@@ -103,12 +103,15 @@ def test_kinetic_overview_keeps_local_measurement_meanings(fixture_data):
 
 def test_probe_only_overview_uses_major_radius_without_invention(fixture_data):
     from omas import ODS
+    import vaft.omas
     from vaft.plot.backend.recipes import build_model, missing_required_path
 
     _, ods = fixture_data
     probe_only = ODS(consistency_check=False)
     probe_only["langmuir_probes"] = ods["langmuir_probes"]
     assert missing_required_path(probe_only, "kinetic_overview_profiles") is None
+    discovered = vaft.omas.available_plots(probe_only, query="kinetic", available_only=True)
+    assert any(record.name == "kinetic_overview_profiles" for record in discovered)
     model = build_model("kinetic_overview_profiles", [("probe", probe_only)])
     assert [len(panel.series) for panel in model.models] == [1, 1, 0, 0]
     assert all(panel.coordinate_label == "Major radius R [m]" for panel in model.models)
