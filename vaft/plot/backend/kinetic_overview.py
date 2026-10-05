@@ -10,7 +10,7 @@ from vaft.plot.models import Panels, Profile1D, Series
 __all__ = []  # Extraction details are private; the registered plot is public.
 
 
-COORDINATES = ("R", "r_major", "psi_norm", "rho_pol_norm", "rho_tor_norm")
+COORDINATES = ("auto", "R", "r_major", "psi_norm", "rho_pol_norm", "rho_tor_norm")
 _LABELS = {
     "R": "Major radius R [m]",
     "r_major": "Major radius R [m]",
@@ -170,10 +170,18 @@ def _langmuir_points(ods, signal: str, label: str) -> Series | None:
                   style={"marker": "^", "linestyle": "none"})
 
 
-def build_kinetic_overview(ods, *, coordinate: str = "rho_tor_norm", **options) -> Panels:
+def build_kinetic_overview(ods, *, coordinate: str = "auto", **options) -> Panels:
     """Build four local-profile panels; omit unavailable and nonlocal sources."""
     if coordinate not in COORDINATES:
         raise ValueError(f"coordinate must be one of {', '.join(COORDINATES)}")
+    if coordinate == "auto":
+        coordinate = (
+            "rho_tor_norm" if count(ods, "core_profiles.profiles_1d")
+            or (count(ods, "equilibrium.time_slice") and (
+                count(ods, "thomson_scattering.channel")
+                or count(ods, "charge_exchange.channel")
+            )) else "R"
+        )
     if any(options.get(key) is not None for key in ("time", "time_index", "time_slice")):
         raise ValueError("kinetic overview has diagnostic-specific times; select a source plot to choose its time")
     composite = _is_composite(ods)

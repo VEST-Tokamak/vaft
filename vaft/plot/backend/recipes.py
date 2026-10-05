@@ -13709,11 +13709,10 @@ from .kinetic_overview import COORDINATES as KINETIC_OVERVIEW_COORDINATES, build
 
 def _kinetic_overview_available(ods: Any) -> str | None:
     if any(_count(ods, path) for path in (
-        "thomson_scattering.channel", "charge_exchange.channel", "core_profiles.profiles_1d"
+        "thomson_scattering.channel", "charge_exchange.channel", "core_profiles.profiles_1d",
+        "langmuir_probes.embedded",
     )):
         return None
-    if _count(ods, "langmuir_probes.embedded"):
-        return "only Langmuir edge points are present; use coordinate='R'"
     return "no local kinetic diagnostic or core profile is present"
 
 
@@ -13740,7 +13739,7 @@ RECIPES["kinetic_overview_profiles"] = CallableRecipe(
            "dataset_description.ids_properties.comment"),
     backend=OMAS_BOUND,
     reason="vaft.process.profile.equilibrium_mapping_points maps local positions through the input equilibrium",
-    coordinates=CoordinateDeclaration("rho_tor_norm", KINETIC_OVERVIEW_COORDINATES),
+    coordinates=CoordinateDeclaration("auto", KINETIC_OVERVIEW_COORDINATES),
 )
 
 
