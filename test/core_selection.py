@@ -175,7 +175,10 @@ CORE_MODULES: tuple[str, ...] = (
     # checked against its source's numbers and its permitted side. Pure NumPy.
     "test_formula_boundaries.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
-    # own quantities; the population renderer reads tables, never ODS.
+    # own quantities; the population renderer reads tables, never ODS. The
+    # equilibrium-state adapter (#1620) builds those tables from the packaged
+    # VEST sample and must give the atlas base table's numbers, ~10 s.
+    "test_equilibrium_state.py",
     "test_li_qa.py",
     "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
