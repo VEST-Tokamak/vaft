@@ -190,6 +190,9 @@ def equilibrium_quality_table(records: Iterable[Mapping[str, Any]], *, criteria:
     frame = pd.DataFrame(rows)
     if frame.empty:
         return pd.DataFrame(columns=columns)
+    # Three-valued (True / False / None): kept as Python objects, so an
+    # all-judged column does not become numpy booleans that `is True` misses.
+    frame["physically_consistent"] = pd.Series([row["physically_consistent"] for row in rows], dtype=object)
     return frame[columns + [c for c in frame.columns if c not in columns]]
 
 
