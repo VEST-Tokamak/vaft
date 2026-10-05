@@ -882,6 +882,17 @@ def _machine_view_title(base: str, shared: GeometryLayers | Geometry3DLayers) ->
     return base + shared.title.removeprefix("Machine geometry")
 
 
+def _exclude_crossshot_equilibrium(ods: Any, options: Mapping[str, Any]) -> bool:
+    """Do not put a foreign-shot equilibrium in the fixture's machine context."""
+    manifest = options.get("geometry_manifest") or {}
+    if manifest.get("kind") != "cross-shot-diagnostic-fixture" or options.get("geometry_data", ods) is not ods:
+        return False
+    reference = manifest.get("geometry_reference", {}).get("source_shot")
+    sources = [source for source in manifest.get("sources", {}).values()
+               if "equilibrium" in source.get("ids", ())]
+    return len(sources) != 1 or sources[0].get("source_shot") != reference
+
+
 @dataclass(frozen=True)
 class SpectrogramRecipe:
     """How to read a ``Spectrogram`` from an ODS."""
@@ -3640,7 +3651,7 @@ def _build_machine_topview(
                     style={"color": "feature:wall", "lw": 1.0},
                 )
             )
-    if _has(ods, "equilibrium"):
+    if _has(ods, "equilibrium") and not _exclude_crossshot_equilibrium(ods, options):
         try:
             layers.extend(_build_equilibrium_topview(ods, time_slice=time_slice).layers)
         except ValueError:
@@ -4863,8 +4874,10 @@ def _build_machine_3d(ods: Any, *, time_slice: int = 0, **options: Any) -> Geome
             )
         else:
             layers.extend(replace(layer, group=f"machine/{layer.group}") for layer in coils.layers)
-    boundary_r = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
-    boundary_z = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
+    boundary_r = None if _exclude_crossshot_equilibrium(ods, options) else _array(
+        ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
+    boundary_z = None if _exclude_crossshot_equilibrium(ods, options) else _array(
+        ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
     if boundary_r is not None and boundary_z is not None and boundary_r.size == boundary_z.size > 2:
         layers.extend(_outline_cuts_3d(
             boundary_r, boundary_z, label="Plasma boundary", group="equilibrium/boundary",

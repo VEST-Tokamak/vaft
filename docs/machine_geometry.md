@@ -70,7 +70,11 @@ that geometry is supplied separately from the plotted machine IDS.
 For an ordinary VEST shot, the registry adds the derived Thomson laser port
 chord only when the IDS has a real source shot and at least two stored
 scattering locations with toroidal angles matching the VEST mapper. An
-unmapped or inconsistent Thomson IDS keeps only its stored coordinates.
+unmapped or inconsistent Thomson IDS keeps only its stored coordinates. The
+shot identifies the channel data used for that check; the static port-map
+geometry has an unverified era and is not attributed to the discharge.
+When the cross-shot fixture's equilibrium comes from a different shot than
+its geometry reference, composed top and 3-D views omit that equilibrium.
 
 The canonical `plot_camera_visible_image(..., overlay="machine_geometry",
 geometry_data=fixture, geometry_manifest=manifest, geometry_families=(...))`

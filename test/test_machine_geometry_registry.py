@@ -170,6 +170,8 @@ def test_four_views_share_family_selection_and_composite_notice():
             assert any("Interferometer LOS" in layer.label for layer in model.layers)
         else:
             assert any("NBI model" in layer.label for layer in model.layers)
+            if view == "rz":
+                assert any("3-D coil filament (R-Z projection)" in layer.label for layer in model.layers)
     with pytest.raises(ValueError, match="calibrated"):
         machine_geometry_view(data, "camera", families=selected, manifest=manifest)
     assert not machine_geometry_view(data, "top", families=("langmuir_probes",),
@@ -244,7 +246,8 @@ def test_vest_mapped_thomson_chord_requires_matching_stored_phi_and_source_shot(
     laser, = (record for record in records if record.semantic == "trajectory")
     np.testing.assert_allclose(np.column_stack((laser.r, laser.z, laser.phi)), laser_chord_positions())
     provenance = json.loads(laser.provenance_json)
-    assert provenance["sources"]["thomson_port_map"]["source_shot"] == 48224
+    assert provenance["data_shot"] == 48224
+    assert "source_shot" not in provenance["sources"]["thomson_port_map"]
     assert "not surveyed" in provenance["sources"]["thomson_port_map"]["value_kind"]
     set_path(data, "thomson_scattering.channel.0.position.phi", 0.0)
     assert all(record.semantic != "trajectory" for record in machine_geometry_registry(data, families=("thomson_scattering",)))
@@ -264,6 +267,10 @@ def test_public_machine_views_use_fixture_registry_and_composite_notice():
                              geometry_families=families)
         shared = machine_geometry_view(data, view, manifest=manifest, families=families)
         assert "Cross-shot composite" in public.title
+        if view == "top":
+            assert not any("Plasma" in layer.label for layer in public.layers)
+        if view == "3d":
+            assert not any(layer.group == "equilibrium/boundary" for layer in public.layers)
         labelled = [layer for layer in public.layers if layer.label in {item.label for item in shared.layers if item.label}]
         assert len(labelled) == len([item for item in shared.layers if item.label])
         for layer, expected in zip(labelled, (item for item in shared.layers if item.label)):

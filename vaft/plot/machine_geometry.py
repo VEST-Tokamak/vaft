@@ -298,8 +298,9 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
                     "thomson_scattering", "trajectory", r, z, phi,
                     "Thomson laser port chord (derived; not as-built)",
                     "vaft.machine_mapping.thomson_scattering.laser_chord_positions",
-                    json.dumps({"sources": {"thomson_port_map": {
-                        "source_shot": source_shot, "source_artifact": "vaft/machine_mapping/thomson_scattering.py",
+                    json.dumps({"data_shot": source_shot, "sources": {"thomson_port_map": {
+                        "source_artifact": "vaft/machine_mapping/thomson_scattering.py",
+                        "geometry_era": "unverified static port-map model",
                         "value_kind": "derived port-map geometry; not surveyed as-built",
                     }}, "derivation": "8MM10 entry to 1MM10 dump; 0.803 m port-flange radius; verified against stored channel phi"},
                                sort_keys=True),
@@ -419,6 +420,8 @@ def machine_geometry_view(data: Any, view: str, *, families: tuple[str, ...] | N
         elif record.family == "nbi":
             name = ("NBI model beam axis" if record.semantic == "directed_axis"
                     else "NBI model source")
+        elif record.family == "coils_non_axisymmetric" and view == "rz":
+            name = "3-D coil filament (R-Z projection)"
         else:
             name = _FAMILY_LABELS[record.family]
         label = name if key not in labelled else ""
