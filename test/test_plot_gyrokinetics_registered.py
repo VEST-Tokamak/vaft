@@ -137,3 +137,25 @@ def test_an_unconverged_initial_value_mode_is_not_drawn_unless_asked():
     assert np.nanmax(np.concatenate([s.y for s in default.series])) < 50.0
     asked = build_model("gyrokinetics_spectrum_growth_rate", entries, include_unconverged=True)
     assert np.nanmax(np.concatenate([s.y for s in asked.series])) == pytest.approx(50.0)
+
+
+def test_labels_name_the_run_once(gk):
+    """An entry label that already names the run is not repeated, and inside the
+    overview (whose suptitle names the run) a lone mode carries no label at all."""
+    model = build_model("gyrokinetics_spectrum_growth_rate", [("CGYRO", gk), ("run B", copy.deepcopy(gk))])
+    assert [s.label for s in model.series] == ["CGYRO EM", "run B CGYRO EM"]
+    overview = build_model("gyrokinetics_overview", normalize_entries(gk))
+    assert overview.models[0].series[0].label == ""
+    assert [s.label for s in overview.models[2].series] == ["Z=1", "Z=6", "e"]
+
+
+def test_the_flux_axis_stops_where_the_flux_has_fallen_off(gk):
+    wide = copy.deepcopy(gk)
+    nl = "gyrokinetics_local.non_linear"
+    ky = np.array([0.2, 0.4, 0.8, 1.6, 10.0, 40.0])
+    wide[f"{nl}.binormal_wavevector_norm"] = ky
+    wide[f"{nl}.fluxes_2d_k_x_sum.energy_phi_potential"] = np.outer([1.0, 0.6, 0.3], [1, 2, 1, 0.5, 0, 0])
+    del wide[f"{nl}.fluxes_2d_k_x_sum.particles_phi_potential"]
+    model = build_model("gyrokinetics_spectrum_energy_flux", normalize_entries(wide))
+    assert model.x_limits == pytest.approx((0.0, 1.76))
+    assert model.series[0].x[-1] == 40.0          # display range only, nothing dropped

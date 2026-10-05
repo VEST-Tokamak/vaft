@@ -12,8 +12,10 @@ read, from products that already exist (nothing is run):
 - ``core_transport`` from TGLF, one ODS per SAT rule across the surfaces, through Lane
   T's :func:`~vaft.machine_mapping.turbulence.core_transport_from_tglf`.
 
-The local inputs are rebuilt from the state exactly as ``run_linear.py`` builds them,
-and a TGLF run whose ``states.jsonl`` names a different ``state_identity`` is refused.
+The local inputs are rebuilt from the state exactly as ``run_linear.py`` builds them.
+A TGLF run is used only when its own ``input.tglf`` carries the same local numbers
+(geometry, gradients, temperature ratios, beta, collisionality; ``INPUT_RTOL``) -- the
+state hash alone is not compared, because it also changes with the resolver version.
 
 Writes the ODS JSON files and the figures (``gyrokinetics_overview`` per surface for
 CGYRO and TGLF, a CGYRO-TGLF growth-rate overlay, ``turbulent_transport_overview``
@@ -29,6 +31,28 @@ from pathlib import Path
 from typing import Any, Optional
 
 TGLF_FIELD = {"es": "es", "em-aperp": "em-bper"}
+INPUT_RTOL = 1e-4
+_SCALARS = {"RMIN_LOC": "rmin_loc", "RMAJ_LOC": "rmaj_loc", "Q_LOC": "q_loc",
+            "Q_PRIME_LOC": "q_prime_loc", "KAPPA_LOC": "kappa_loc", "DELTA_LOC": "delta_loc",
+            "BETAE": "betae", "XNUE": "xnue", "ZEFF": "zeff"}
+_SPECIES = {"RLNS": "rlns", "RLTS": "rlts", "TAUS": "taus", "AS": "as_"}
+
+
+def input_mismatches(raw: dict[str, Any], local: Any) -> list[str]:
+    """Keys on which a run's ``input.tglf`` differs from the rebuilt local input."""
+    import numpy as np
+
+    out = [key for key, attr in _SCALARS.items()
+           if key in raw and not np.isclose(raw[key], float(getattr(local, attr)), rtol=INPUT_RTOL)]
+    ns = int(raw.get("NS", 0))
+    for key, attr in _SPECIES.items():
+        values = np.asarray(getattr(local, attr), dtype=float)
+        if ns != values.size:
+            out.append(f"NS ({ns} vs {values.size})")
+            break
+        out += [f"{key}_{i + 1}" for i in range(ns)
+                if not np.isclose(raw[f"{key}_{i + 1}"], values[i], rtol=INPUT_RTOL)]
+    return out
 
 
 def _run_linear_module():
@@ -79,19 +103,18 @@ def _state(rl, args):
     return key, state
 
 
-def _tglf_run(args, key, sat: int, field: str, r_over_a: float, identity: str) -> Optional[Path]:
-    root = args.sat_runs / f"{key.shot}-{round(key.time_efit_s * 1000)}-{key.efit_lineage}" \
-        / f"tglf-sat{sat}-{TGLF_FIELD[field]}"
-    states = root / "states.jsonl"
-    if not states.is_file():
+def _tglf_run(args, key, sat: int, field: str, r_over_a: float, local: Any) -> Optional[Path]:
+    """The #1482 run of this state, surface, SAT rule and field model, if its input is
+    the rebuilt local input; a run built from different numbers stops the example."""
+    ms = round(key.time_efit_s * 1000)
+    run = (args.sat_runs / f"{key.shot}-{ms}-{key.efit_lineage}" / f"tglf-sat{sat}-{TGLF_FIELD[field]}"
+           / str(key.shot) / key.efit_lineage / f"{ms:05d}" / f"r{r_over_a:.2f}")
+    if not (run / "out.tglf.gbflux").is_file():
         return None
-    for line in states.read_text().splitlines():
-        row = json.loads(line)
-        if row.get("state_identity") not in (None, identity):
-            raise SystemExit(f"{root}: built from state {row['state_identity']}, not {identity}")
-    run = root / str(key.shot) / key.efit_lineage / f"{round(key.time_efit_s * 1000):05d}" \
-        / f"r{r_over_a:.2f}"
-    return run if (run / "out.tglf.gbflux").is_file() else None
+    mismatches = input_mismatches(read_input_tglf(run / "input.tglf"), local)
+    if mismatches:
+        raise SystemExit(f"{run}: input.tglf differs from the rebuilt local input in {mismatches}")
+    return run
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -145,10 +168,10 @@ def main(argv: Optional[list[str]] = None) -> int:
             entry["cgyro_runs"] = len(runs)
 
         for sat in range(4):
-            run = _tglf_run(args, key, sat, args.field_model, r_over_a, state.identity)
+            run = _tglf_run(args, key, sat, args.field_model, r_over_a, local.tglf)
             if run is not None:
                 pairs[sat].append((local.tglf, collect_tglf_outputs(run)))
-        run = _tglf_run(args, key, args.tglf_sat, args.field_model, r_over_a, state.identity)
+        run = _tglf_run(args, key, args.tglf_sat, args.field_model, r_over_a, local.tglf)
         if run is not None:
             tglf = ODS()
             report = gyrokinetics_local_from_tglf(

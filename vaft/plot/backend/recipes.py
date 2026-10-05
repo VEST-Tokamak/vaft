@@ -5492,7 +5492,12 @@ def _gk_label(label: str, obj: Any) -> str:
     if field is not None:
         extras.append("EM" if int(field) else "ES")
     text = " ".join([str(code), *extras])
-    return f"{label}: {text}" if label else text
+    if not label:
+        return text
+    # a caller's label is kept and only what it does not already say is added
+    # ("CGYRO" -> "CGYRO EM", never "CGYRO: CGYRO EM")
+    missing = [token for token in text.split() if token not in label.split()]
+    return " ".join([label, *missing])
 
 
 def _gk_signature(obj: Any) -> dict[str, Any]:
@@ -5550,7 +5555,8 @@ def _gk_unconverged(obj: Any, mode: str) -> bool:
             and _get(obj, f"{mode}.growth_rate_tolerance") is None)
 
 
-def _gk_linear_series(label: str, obj: Any, leaf: str, *, include_unconverged: bool = False) -> list[Series]:
+def _gk_linear_series(label: str, obj: Any, leaf: str, *, include_unconverged: bool = False,
+                      short: bool = False) -> list[Series]:
     """One series per eigenmode index over ``linear.wavevector[:]``; absent modes are NaN.
 
     Unconverged initial-value modes are left out unless ``include_unconverged``."""
@@ -5571,13 +5577,16 @@ def _gk_linear_series(label: str, obj: Any, leaf: str, *, include_unconverged: b
                 values[k, m] = float(value)
     order = np.argsort(ky)
     name = _gk_label(label, obj)
+    drawn = [m for m in range(values.shape[1]) if not np.all(np.isnan(values[:, m]))]
     series = []
-    for m in range(values.shape[1]):
-        if np.all(np.isnan(values[:, m])):
-            continue
+    for m in drawn:
+        if short:   # inside an overview whose suptitle names the run
+            text = f"mode {m + 1}" if len(drawn) > 1 else ""
+        else:
+            text = name if m == 0 else f"{name} (mode {m + 1})"
         series.append(Series(
             x=ky[order], y=values[order, m],
-            label=name if m == 0 else f"{name} (mode {m + 1})",
+            label=text,
             style={} if m == 0 else {"linestyle": ":"},
         ))
     return series
@@ -5598,7 +5607,8 @@ def _gk_spectrum_available(leaf: str):
 def _build_gk_growth_rate(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
     include = bool(options.get("include_unconverged", False))
     series = [s for label, obj in _labelled(entries)
-              for s in _gk_linear_series(label, obj, "growth_rate_norm", include_unconverged=include)]
+              for s in _gk_linear_series(label, obj, "growth_rate_norm", include_unconverged=include,
+                                         short=bool(options.get("short_labels")))]
     if not series:
         raise ValueError(f"no converged {_GK}.linear growth rates in this input "
                          "(include_unconverged=True draws initial-value runs that reached none)")
@@ -5615,7 +5625,8 @@ def _build_gk_growth_rate(entries: Sequence[tuple[str, Any]], **options: Any) ->
 def _build_gk_frequency(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
     include = bool(options.get("include_unconverged", False))
     series = [s for label, obj in _labelled(entries)
-              for s in _gk_linear_series(label, obj, "frequency_norm", include_unconverged=include)]
+              for s in _gk_linear_series(label, obj, "frequency_norm", include_unconverged=include,
+                                         short=bool(options.get("short_labels")))]
     if not series:
         raise ValueError(f"no converged {_GK}.linear frequencies in this input")
     conventions = {_gk_parameter(obj, "frequency_sign_convention") for _label, obj in entries}
@@ -5656,6 +5667,9 @@ def _gk_flux_spectrum_available(quantity: str):
     return available
 
 
+_GK_FLUX_TAIL = 1e-2
+
+
 def _gk_flux_builder(quantity: str, y_label: str):
     def builder(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
         series = []
@@ -5674,14 +5688,27 @@ def _gk_flux_builder(quantity: str, y_label: str):
             name = _gk_label(label, obj)
             order = np.argsort(ky)
             for s in range(total.shape[0]):
+                species = _gk_species_label(obj, s)
                 series.append(Series(x=ky[order], y=total[s][order],
-                                     label=f"{name} {_gk_species_label(obj, s)}"))
+                                     label=species if options.get("short_labels") else f"{name} {species}"))
         if not series:
             raise ValueError(f"no ky-resolved {quantity} flux in this input")
         quasi = {_get(obj, f"{_GK}.non_linear.quasi_linear") for _label, obj in entries}
         kind = "quasilinear" if quasi == {1} else ("nonlinear" if quasi == {0} else "mixed QL/NL")
+        # Display range only: beyond the last k_y where any species carries at least
+        # _GK_FLUX_TAIL of its peak |flux| the curves are flat at zero (TGLF's grid
+        # reaches the ETG range); nothing is dropped from the model's series.
+        x_end = 0.0
+        for item in series:
+            y = np.abs(np.asarray(item.y, dtype=float))
+            peak = np.nanmax(y) if y.size else 0.0
+            if peak > 0:
+                x_end = max(x_end, float(np.max(np.asarray(item.x)[y >= _GK_FLUX_TAIL * peak])))
+        x_full = max(float(np.nanmax(item.x)) for item in series)
+        x_limits = (0.0, min(x_full, 1.1 * x_end)) if 0 < x_end < x_full else None
         return Profile1D(
             series=tuple(series),
+            x_limits=x_limits,
             coordinate_label=r"$k_y\rho_{ref}$",
             y_label=y_label + " per $k_y$",
             title=_gk_title(f"{_FLUX_WORD[quantity]} flux, {kind}", entries),
@@ -5754,13 +5781,13 @@ def _gk_local_state_lines(obj: Any) -> list[str]:
         ln = _get(obj, f"{base}.density_log_gradient_norm")
         lt = _get(obj, f"{base}.temperature_log_gradient_norm")
         if ln is not None and lt is not None:
-            gradients.append(f"{_gk_species_label(obj, s):>5s}  {float(ln):6.2f} {float(lt):6.2f}")
+            gradients.append(f"{_gk_species_label(obj, s):>4s} {float(ln):5.2f} {float(lt):5.2f}")
     if gradients:
-        lines += ["", "       R0/Ln  R0/LT", *gradients]
+        lines += ["", "    R0/Ln R0/LT", *gradients]
     code = _get(obj, f"{_GK}.code.name")
     if code:
-        lines.append(f"code: {code}" + (f" ({_get(obj, f'{_GK}.code.commit')})"
-                                        if _get(obj, f"{_GK}.code.commit") else ""))
+        commit = _get(obj, f"{_GK}.code.commit")
+        lines.append(f"code: {code}" + (f" {str(commit)[:7]}" if commit else ""))
     locality = _gk_parameter(obj, "locality_verdict")
     if locality:
         lines.append(f"locality: {locality}")
@@ -5772,10 +5799,12 @@ def _build_gk_overview(obj: Any, **options: Any) -> Panels:
     entries = [("", obj)]
     models: list[Any] = []
     for available, build in (
-        (_gk_spectrum_available("growth_rate_norm"), lambda: _build_gk_growth_rate(entries)),
-        (_gk_spectrum_available("frequency_norm"), lambda: _build_gk_frequency(entries)),
+        (_gk_spectrum_available("growth_rate_norm"),
+         lambda: _build_gk_growth_rate(entries, short_labels=True)),
+        (_gk_spectrum_available("frequency_norm"),
+         lambda: _build_gk_frequency(entries, short_labels=True)),
         (_gk_flux_spectrum_available("energy"),
-         lambda: _gk_flux_builder("energy", r"$Q/Q_{ref}$")(entries)),
+         lambda: _gk_flux_builder("energy", r"$Q/Q_{ref}$")(entries, short_labels=True)),
         (_gk_eigenfunction_available, lambda: _build_gk_eigenfunction(obj)),
     ):
         if available(obj) is None:
@@ -5941,14 +5970,16 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
                 if rho is None or electrons is None:
                     continue
                 code = _get(obj, f"core_transport.model.{m}.code.name") or f"model {m}"
-                name = f"{label}: {code}" if label else str(code)
-                series.append(Series(x=rho, y=electrons, label=f"{name} e"))
+                name = (label if str(code) in label else f"{label} ({code})") if label else str(code)
+                # one colour per model; electrons solid, ions dashed
+                color = f"C{sum(1 for item in series if item.label.endswith(' e')) % 10}"
+                series.append(Series(x=rho, y=electrons, label=f"{name} e", style={"color": color}))
                 ions = [_array(obj, f"{base}.ion.{i}.{quantity}.flux")
                         for i in range(_count(obj, f"{base}.ion"))]
                 ions = [v for v in ions if v is not None and v.shape == rho.shape]
                 if ions:
                     series.append(Series(x=rho, y=np.sum(ions, axis=0), label=f"{name} i",
-                                         style={"linestyle": "--"}))
+                                         style={"linestyle": "--", "color": color}))
         if not series:
             raise ValueError(f"no turbulent {quantity} flux profile in this input")
         return Profile1D(
