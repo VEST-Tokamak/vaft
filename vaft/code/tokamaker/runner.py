@@ -256,7 +256,14 @@ def _apply_vsc(mygs, config: TokaMakerConfig) -> None:
     mygs.set_coil_reg(reg_terms=[term])
 
 
-def _apply_profiles(oft, mygs, config: TokaMakerConfig) -> None:
+def _apply_profiles(oft, mygs, config: TokaMakerConfig, profiles=None) -> None:
+    if config.profile_mode != "power_law":
+        from .profiles import profiles_for_config
+        profiles = profiles if profiles is not None else profiles_for_config(config)
+        mygs.set_profiles(**profiles.solver_tables())
+        if not np.any(profiles.pprime):
+            mygs.pnorm = 0.0
+        return
     mygs.set_profiles(
         ffp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_f_a, config.alpha_f_b),
         pp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_p_a, config.alpha_p_b),
@@ -343,8 +350,13 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
         if vessel_totals:
             sidecar["vessel_currents_A"] = vessel_totals
             sidecar["vessel_current_total_A"] = float(sum(vessel_totals.values()))
-        mygs.set_targets(**inputs.targets)
-        _apply_profiles(oft, mygs, config)
+        from .profiles import profiles_for_config, profile_targets
+        profiles = profiles_for_config(config)
+        effective_targets = profile_targets(profiles, inputs.targets)
+        mygs.set_targets(**effective_targets)
+        _apply_profiles(oft, mygs, config, profiles)
+        sidecar["targets"] = effective_targets
+        sidecar["profile_mode"] = config.profile_mode
 
         mygs.init_psi(
             config.init_r0, config.init_z0, config.init_a0,
@@ -354,6 +366,9 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
 
         sidecar["converged"] = True
         sidecar["stats"] = mygs.get_stats()
+        if profiles is not None:
+            from .profiles import source_profile_diagnostics
+            sidecar["source_profiles"] = source_profile_diagnostics(mygs, profiles)
         # vessel regions run as 1 A coils; their real currents are vessel_currents_A
         sidecar["coil_currents_A"] = {
             name: value for name, value in dict(mygs.get_coil_currents()[0]).items()

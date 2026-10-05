@@ -276,6 +276,14 @@ def prepare_tokamaker_inputs(ods: Any, config: TokaMakerConfig) -> TokaMakerInpu
     The geometry dict is also written to ``workdir/geometry.json`` for
     provenance and offline inspection.
     """
+    from .profiles import profiles_for_config, profile_targets
+    profiles = profiles_for_config(config)
+    source_config = config
+    if config.profile_mode == "equilibrium":
+        eq = config.profile_equilibrium
+        source_config = replace(config, ip=config.ip if config.ip is not None else profiles.ip_A,
+                                f0=config.f0 if config.f0 is not None or config.bt0 is not None else
+                                (float(eq.r0 * eq.bt0) if eq.r0 is not None and eq.bt0 is not None else None))
     workdir = Path(config.workdir).expanduser()
     workdir.mkdir(parents=True, exist_ok=True)
 
@@ -283,8 +291,8 @@ def prepare_tokamaker_inputs(ods: Any, config: TokaMakerConfig) -> TokaMakerInpu
     time = _resolve_time(ods, config)
 
     geometry = tokamaker_geometry_from_ods(ods, config)
-    targets = _resolve_targets(ods, config, time)
-    f0 = _f0_from_ods(ods, config, time)
+    targets = profile_targets(profiles, _resolve_targets(ods, source_config, time))
+    f0 = _f0_from_ods(ods, source_config, time)
     coil_currents = _coil_currents_from_ods(ods, config, geometry, time)
     vessel_loop_currents: dict[str, dict[int, float]] = {}
     if config.vessel_currents:
@@ -368,6 +376,8 @@ def prepare_tokamaker_evolution_inputs(
     the evolution grid. ``evolve_vacuum=True`` skips plasma targets entirely
     (``vac_solve`` mode for plasma-free windows).
     """
+    if config.profile_mode != "power_law":
+        raise ValueError("tabulated static profile normalization is not supported for evolution")
     if config.vessel_currents:
         raise ValueError(
             "vessel_currents=True imposes fixed wall currents for a static solve; "

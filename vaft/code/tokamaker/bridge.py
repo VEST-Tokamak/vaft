@@ -205,7 +205,7 @@ def fit_free_boundary_coils_vfixed(
     workdir : path
         New empty directory for OFT working files and the samples [path].
     config : TokaMakerConfig, optional
-        Fixed solve resolution, order, threads and power-law profile shape [-].
+        Fixed solve resolution, order, threads and source profile mode [-].
     **fit_options : any
         Passed to :func:`fit_vfixed_samples` [-].
 
@@ -223,7 +223,7 @@ def fit_free_boundary_coils_vfixed(
     Defaults
     --------
     As a numerical convenience, the existing adapter's power-law profiles
-    are used. Equilibrium profile transfer is added in the next stage.
+    are used. ``profile_mode='equilibrium'`` selects the target source tables.
 
     Convention
     ----------
@@ -236,11 +236,12 @@ def fit_free_boundary_coils_vfixed(
 
     Limitations
     -----------
-    Until arbitrary-profile transfer is implemented, the fixed solve matches
-    the target boundary and Ip but uses power-law source *shape*. This is
-    explicitly a fixed-solver cross-check, not yet an analytic profile match.
+    Power-law mode matches the target boundary and Ip with the configured
+    source shape. Equilibrium mode uses target derivatives and relative axis
+    pressure. For zero FFprime, pressure fixes the source scale and plasma Ip
+    is an independent output rather than a second, redundant target.
     The installed OFT API permits only positive Ip targets; signed-current
-    orientation support is deferred to the profile-transfer stage.
+    orientation support requires explicit reflection of the solver inputs.
 
     Provenance
     ----------
@@ -273,9 +274,11 @@ def fit_free_boundary_coils_vfixed(
     if len(contour) < 3:
         raise ValueError("LCFS needs at least three distinct points")
     names = _coil_sources(machine)[0]
+    from .profiles import profiles_for_config, profile_targets
+    cfg = config or TokaMakerConfig()
+    profiles = profiles_for_config(cfg, eq)
     output = Path(workdir).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=False)
-    cfg = config or TokaMakerConfig()
     oft = import_oft()
     env = get_oft_env(cfg.nthreads)
     solver = oft.TokaMaker(env)
@@ -294,8 +297,8 @@ def fit_free_boundary_coils_vfixed(
         if cfg.nl_tol is not None:
             solver.settings.nl_tol = float(cfg.nl_tol)
         solver.setup(order=cfg.order, F0=float(cfg.f0 if cfg.f0 is not None else eq.r0 * eq.bt0))
-        solver.set_targets(Ip=float(eq.ip))
-        _apply_profiles(oft, solver, cfg)
+        solver.set_targets(**profile_targets(profiles, {"Ip": float(eq.ip)}))
+        _apply_profiles(oft, solver, cfg, profiles)
         radius = .5 * (float(np.max(contour[:, 0])) - float(np.min(contour[:, 0])))
         height = .5 * (float(np.max(contour[:, 1])) - float(np.min(contour[:, 1])))
         solver.init_psi(float(eq.magnetic_axis[0]), float(eq.magnetic_axis[1]), radius,
@@ -304,20 +307,25 @@ def fit_free_boundary_coils_vfixed(
         points, vfixed = solver.get_vfixed()
         points, vfixed = np.array(points, copy=True), np.array(vfixed, copy=True)
         stats = solver.get_stats()
+        if profiles is not None:
+            from .profiles import source_profile_diagnostics
+            source_diagnostics = source_profile_diagnostics(solver, profiles)
+        else:
+            source_diagnostics = None
     finally:
         solver.reset()
     np.savez(output / "vfixed_samples.npz", points_m=points, psi_per_rad=vfixed)
-    manifest = {"profile_mode": "power_law", "target_Ip_A": eq.ip,
+    manifest = {"profile_mode": cfg.profile_mode, "target_Ip_A": eq.ip,
                 "F0_T_m": cfg.f0 if cfg.f0 is not None else eq.r0 * eq.bt0,
                 "dx_plasma_m": cfg.dx_plasma, "order": cfg.order,
                 "source_shape": {"alpha_f_a": cfg.alpha_f_a, "alpha_f_b": cfg.alpha_f_b,
                                  "alpha_p_a": cfg.alpha_p_a, "alpha_p_b": cfg.alpha_p_b},
-                "fixed_stats": stats}
+                "fixed_stats": stats, "source_profiles": source_diagnostics}
     (output / "fixed_boundary.json").write_text(json.dumps(_json_safe(manifest), indent=2), encoding="utf-8")
     fit_options.setdefault("current_scale_A", abs(float(eq.ip)) / len(names))
     fit = fit_vfixed_samples(points, vfixed, machine, flux_scale_Wb=flux_scale,
                              **fit_options)
-    return VFixedFitResult(**{**fit.__dict__, "fixed_stats": stats, "fixed_profile_mode": "power_law"})
+    return VFixedFitResult(**{**fit.__dict__, "fixed_stats": stats, "fixed_profile_mode": cfg.profile_mode})
 
 
 __all__ = ["VFixedFitResult", "fit_vfixed_samples", "fit_free_boundary_coils_vfixed"]

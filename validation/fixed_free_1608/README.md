@@ -91,17 +91,17 @@ removes the additive gauge. The result preserves the required external flux,
 fitted external flux, RMS/max residuals, SVD, rank, condition, regularization
 cost, bound activity, and the native fixed-solve statistics.
 
-At this stage the fixed solve uses the adapter's existing **power-law source
+The stage-2 benchmark used the adapter's existing **power-law source
 shape**, with the target LCFS and Ip. `fixed_profile_mode="power_law"` records
 that distinction. Its vacuum field is an independent solver result, but its
 current vector is not yet a comparison of identical analytic profiles. Stage
-3 adds the target `pprime`/`ffprime` shape. Boundary-field and free-boundary
+3 below adds the target `pprime`/`ffprime` shape. Boundary-field and free-boundary
 closure comparisons follow that transfer; `accepted` here describes only the
 linear sample fit with complete finite caller-supplied bounds.
 The stage-2 fixed solve explicitly requires finite positive Ip after COCOS-11
 conversion, matching the installed OFT target API. Other signs fail before
 runtime initialization or creation of the output directory. Signed-current
-orientation handling is part of the next stage's profile conversion.
+orientation handling remains explicitly restricted by the native target API.
 
 The limited-family resolution comparison ran on vestserver, in the isolated
 directory `/home/user1/scratch/vaft-1608-vfixed.w1EylN`, using the existing
@@ -130,3 +130,65 @@ sensitivity, not attainable VEST currents. Two mesh sizes establish a small
 smoke comparison, not asymptotic convergence or final acceptance tolerances.
 Null-family solver coverage, matching analytic profiles, and closure remain
 in the later validation matrix.
+
+## Canonical and explicit source profiles (stage 3)
+
+`TokaMakerConfig.profile_mode` now supports `power_law` (unchanged default),
+`equilibrium`, and `explicit`. Forward input preparation uses
+`profile_equilibrium=eq` for canonical source shapes, Ip and vacuum F0;
+explicit scalar config overrides retain precedence. The native fixed bridge
+uses its target equilibrium when `profile_mode="equilibrium"`:
+
+```python
+from vaft.code.tokamaker import TokaMakerConfig, fit_free_boundary_coils_vfixed
+fit = fit_free_boundary_coils_vfixed(
+    eq, machine, "/tmp/new-fixed-profile-run",
+    config=TokaMakerConfig(profile_mode="equilibrium", dx_plasma=.035),
+    regularization=1e-5,
+)
+```
+
+`equilibrium_to_tokamaker_profiles(eq)` converts declared COCOS to 11, sorts
+profile coordinates into axis-to-edge `psi_n`, and multiplies both derivatives
+by `-2*pi` for native per-radian units. It does not perform another coordinate
+reversal: OFT's wrapper already reverses `psi_n` internally. The canonical
+profile derivative integral determines relative axis pressure; stored edge
+pressure is preserved as metadata. OFT sets the internal edge pressure to
+zero. Tables represent source shape; global Ip and relative axis pressure
+set amplitudes. `fixed_boundary.json` and the forward result sidecar record
+both requested and solver-realized native derivatives, rather than assuming
+that source amplitudes survived the nonlinear solve unchanged.
+
+Explicit tables contain `psi_n`, native per-radian `pprime` and `ffprime`, and
+`axis_pressure_Pa` in `config.profile_tables`. Both endpoints 0 and 1 are
+required, with finite, strictly increasing coordinates and matching arrays.
+For zero FFprime the pressure source has only one adjustable amplitude;
+pressure fixes it, and Ip is an independent output. For zero pprime the
+pressure normalization is zero. An incompatible `R0` or `Ip_ratio` target is
+rejected because OFT would give it precedence over pressure normalization.
+Negative/nonfinite canonical Ip fails explicitly, matching the native target
+API. COCOS 1/2/7/11/12/17, reversed table ordering, per-radian/full-weber
+conversion, negative-current rejection and Bt-sign independence of FFprime
+are tested. Tabulated normalization is currently static; evolution rejects
+it instead of silently changing its per-step current constraints.
+
+Four repeated solves ran in isolated vestserver directory
+`/home/user1/scratch/vaft-1608-profiles.dEcsUZ` using the existing OFT runtime:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=2 PYTHONPATH=. python \
+  validation/fixed_free_1608/vfixed_fit.py --workdir /tmp/new-profile-matrix \
+  --resolutions .05 .035 --profile-mode equilibrium
+```
+
+| Family | dx (m) | fixed/target Ip | pprime relative error | FFprime relative error | RMS/max fit flux/span |
+|---|---:|---:|---:|---:|---:|
+| Solov'ev limited | .050 | 1.000000 | .00840 | .01492 | .001888 / .004048 |
+| Solov'ev limited | .035 | 1.000000 | .00754 | .01192 | .001677 / .003410 |
+| Guazzotto Part 1 limited | .050 | .993389 | .00849 | zero exactly | .002230 / .005702 |
+| Guazzotto Part 1 limited | .035 | .995138 | .00162 | zero exactly | .001285 / .002814 |
+
+These coarse runs quantify the source discrepancy introduced by table and
+mesh discretization. They are not free-boundary closure results. All fits
+remain `bounds_unverified`; physical boundary/global comparison and final
+convergence tolerances are established in the remaining stages.

@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -90,6 +89,8 @@ def run_tokamaker_evolution(
     inputs: TokaMakerEvolutionInputs, config: TokaMakerConfig
 ) -> TokaMakerEvolutionResult:
     """March the quasi-static evolution and collect per-slice outputs."""
+    if config.profile_mode != "power_law":
+        raise ValueError("tabulated static profile normalization is not supported for evolution")
     oft = import_oft()
     env = get_oft_env(config.nthreads)
     base = inputs.base
