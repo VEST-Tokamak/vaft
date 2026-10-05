@@ -179,6 +179,31 @@ def unified_diagnostics_manifest() -> dict:
             )
         ):
             raise ValueError(f"Incomplete provenance for {name}")
+    for name, source in manifest.get("geometry_sources", {}).items():
+        if "source_shot" in source or not (
+            isinstance(source.get("model_reference_shot", source.get("source_model_key")), int)
+            and all(source.get(key) for key in (
+                "source_artifact", "source_sha256", "ids", "source_time",
+                "processing", "value_kind", "geometry_compatibility",
+            ))
+        ):
+            raise ValueError(f"Incomplete model geometry provenance for {name}")
+    source_keys = set(manifest.get("sources", {})) | set(manifest.get("geometry_sources", {}))
+    for index, record in enumerate(manifest.get("geometry_records", ())):
+        if (
+            "source_shot" in record
+            or not set(record.get("source_keys", ())) <= source_keys
+            or not record.get("source_keys")
+            or not all(record.get(key) for key in (
+                "family", "semantic", "label", "r_m", "z_m", "phi_rad",
+                "value_kind", "derivation",
+            ))
+        ):
+            raise ValueError(f"Invalid derived geometry record {index}")
+    for calibration in manifest.get("camera_calibration_reference", {}).get("assets", ()):
+        file_path = data_path(calibration["path"])
+        if hashlib.sha256(file_path.read_bytes()).hexdigest() != calibration["sha256"]:
+            raise ValueError("Camera calibration reference checksum mismatch")
     record = manifest["artifact"]
     artifact = root / record["path"]
     if artifact.stat().st_size != record["size"]:

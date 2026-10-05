@@ -68,7 +68,7 @@ def test_small_fixture_sources_and_reflected_chord():
     before = set(data.flat())
     records = machine_geometry_registry(data, manifest=manifest)
     assert set(data.flat()) == before
-    assert {record.family for record in records} == {"thomson_scattering", "charge_exchange", "langmuir_probes", "interferometer", "soft_x_rays"}
+    assert {record.family for record in records} == {"thomson_scattering", "charge_exchange", "langmuir_probes", "interferometer", "soft_x_rays", "coils_non_axisymmetric", "ec_launchers", "nbi"}
     chords = [record for record in records if record.family == "interferometer"]
     assert [record.r.size for record in chords] == [3, 2]
     assert [next(iter(json.loads(record.provenance_json)["sources"])) for record in chords] == [
@@ -84,6 +84,70 @@ def test_small_fixture_sources_and_reflected_chord():
     assert machine_geometry_registry({}, families=("interferometer",)) == ()
     with pytest.raises(ValueError, match="unsupported"):
         machine_geometry_registry({}, families=("gas_injection",))
+
+
+def test_fixture_derived_paths_and_sources_are_numerically_consistent():
+    import hashlib
+    from pathlib import Path
+    from vaft.data import unified_diagnostics_fixture, unified_diagnostics_manifest
+    from vaft.machine_mapping.ec_launchers import resolve_ec_launcher_geometry
+    from vaft.machine_mapping.coils_non_axisymmetric_geometry import load_vest_3d_coil_config
+    data = unified_diagnostics_fixture()
+    manifest = unified_diagnostics_manifest()
+    records = machine_geometry_registry(data, manifest=manifest)
+    laser, = (record for record in records if record.family == "thomson_scattering" and record.semantic == "trajectory")
+    sites = [record for record in records if record.family == "thomson_scattering" and "scattering site" in record.label]
+    assert len(sites) == 5
+    origin, end = laser.xyz[:, :2]
+    along = end - origin
+    for site in sites:
+        offset = site.xyz[0, :2] - origin
+        fraction = float(np.dot(offset, along) / np.dot(along, along))
+        assert 0 <= fraction <= 1
+        np.testing.assert_allclose(offset, fraction * along, atol=1e-12)
+        assert json.loads(site.provenance_json)["value_kind"].startswith("derived")
+
+    coil, = (record for record in records if record.family == "coils_non_axisymmetric")
+    original = load_vest_3d_coil_config(coil_sets=["MID"])["MID"].filaments[0].points_xyz
+    # Each stored element includes both endpoints; no simplified or fabricated loop.
+    np.testing.assert_allclose(coil.xyz[::2], original[:-1], atol=1e-12)
+    np.testing.assert_allclose(coil.xyz[1::2], original[1:], atol=1e-12)
+    assert json.loads(coil.provenance_json)["sources"]["coil_filament_model"]["model_reference_shot"] == 48226
+
+    ec = resolve_ec_launcher_geometry(39915)
+    ec_axis, = (record for record in records if record.family == "ec_launchers" and record.semantic == "directed_axis")
+    np.testing.assert_allclose([ec_axis.r[0], ec_axis.z[0], ec_axis.phi[0]], [ec["r"], ec["z"], ec["phi"]])
+    kr, kphi, kz = ec["direction"]
+    phi = ec["phi"]
+    np.testing.assert_allclose(ec_axis.direction_xyz, [kr * np.cos(phi) - kphi * np.sin(phi), kr * np.sin(phi) + kphi * np.cos(phi), kz])
+    assert "provisional" in json.loads(ec_axis.provenance_json)["value_kind"]
+
+    nbi_axis, = (record for record in records if record.family == "nbi" and record.semantic == "directed_axis")
+    nbi_source, = (record for record in records if record.family == "nbi" and record.semantic == "point")
+    np.testing.assert_allclose(nbi_axis.xyz[0], nbi_source.xyz[0])
+    assert nbi_axis.direction_xyz[2] == 0
+    nbi_provenance = json.loads(nbi_axis.provenance_json)
+    assert "source_shot" not in nbi_provenance["sources"]["nbi_model"]
+    assert "not as-built" in nbi_provenance["value_kind"]
+    # The model axis reaches the stated tangency radius and its velocity is
+    # clockwise. This checks direction independently of any renderer output.
+    xy = nbi_source.xyz[0, :2]
+    velocity = nbi_axis.direction_xyz[:2]
+    along = -np.dot(xy, velocity)
+    foot = xy + along * velocity
+    np.testing.assert_allclose(np.linalg.norm(foot), .22129, atol=1e-10)
+    assert xy[0] * velocity[1] - xy[1] * velocity[0] < 0
+    assert manifest["camera_calibration_reference"]["camera_shot"] == 39915
+    from vaft.omas.process_wrapper import camera_projection_for
+    camera = camera_projection_for(39915)
+    site = sites[0]
+    pixels, valid = camera.project(site.xyz * 100.0)
+    view = project_machine_geometry(site, "camera", projection=camera)
+    assert valid[0]
+    np.testing.assert_allclose([view.r[0], view.z[0]], pixels[0])
+    data_root = Path(__file__).parents[1] / "vaft/data"
+    for source in manifest["geometry_sources"].values():
+        assert hashlib.sha256((data_root / source["source_artifact"]).read_bytes()).hexdigest() == source["source_sha256"]
 
 
 def test_incomplete_reflection_is_omitted_not_downgraded_to_two_point_los():
