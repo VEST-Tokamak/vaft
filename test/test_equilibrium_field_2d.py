@@ -186,7 +186,11 @@ def test_a_style_that_needs_the_region_keeps_the_boundary(entries):
 
 
 def test_the_machine_view_takes_the_same_names(entries):
-    assert MACHINE_OVERLAYS == ("coils", "passive", "wall", "diagnostics")
+    assert MACHINE_OVERLAYS == (
+        "coils", "passive", "wall", "diagnostics", "magnetics",
+        "thomson_scattering", "charge_exchange", "soft_x_rays",
+        "interferometer", "langmuir_probes",
+    )
     everything = build_model("machine_geometry_poloidal", entries)
     wall_only = build_model("machine_geometry_poloidal", entries, overlay=("wall",))
     assert len(wall_only.layers) < len(everything.layers)

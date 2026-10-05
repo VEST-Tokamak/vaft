@@ -9,8 +9,11 @@ from .update import *
 from .sample import *
 from .startup_summary import NULL_FIELD_THRESHOLD_T, startup_summary
 from .fluctuation import (
+    DiagnosticSelection,
+    SelectedDiagnostics,
     VerticalPositionHistory,
     fluctuation_bandwidths,
+    select_fluctuation_records,
     vertical_position_history,
 )
 from . import formula_wrapper as _formula_wrapper
@@ -301,6 +304,9 @@ __all__ = [
     "startup_summary",
     "VerticalPositionHistory",
     "fluctuation_bandwidths",
+    "DiagnosticSelection",
+    "SelectedDiagnostics",
+    "select_fluctuation_records",
     "vertical_position_history",
     "load_omas_json",
     "load",

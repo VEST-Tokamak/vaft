@@ -132,6 +132,13 @@ accel = ["numba"]
 # Only vaft.mcp.server imports the SDK, inside build_server(): `import vaft` and
 # `import vaft.mcp` never need it. In [dev] too, so CI runs the stdio round trip.
 mcp = ["mcp>=1.26,<2"]
+# The browser GUI (`vaft gui`, vaft.gui; #1086, roadmap #1359). Panel serves it
+# to a browser, so the same command works locally, over SSH port forwarding
+# and on a cluster node without X11. It is a presentation layer over the public
+# APIs and no computational module imports it; vaft.gui imports Panel only when
+# an app is built. The rest of the HoloViz stack (HoloViews, hvPlot, Datashader)
+# is deliberately not pulled in until a concrete view needs it.
+gui = ["panel>=1.9"]
 dev = [
   "pytest",
   # so the surrogate's arithmetic check actually runs on the gate. CI installs
@@ -159,6 +166,8 @@ dev = [
   "mcp>=1.26,<2",
   "nbclient>=0.10",
   "nbformat>=5.10",
+  # so the GUI tests build the Panel app on the gate instead of skipping
+  "panel>=1.9",
 ]
 
 [project.urls]
@@ -211,6 +220,9 @@ vaft = [
   "data/samples/39915/imas.nc",
   # The authored TikZ template vaft.diagram renders every scene into.
   "diagram/templates/*.tex",
+  # packaged pictures a diagram embeds (the VEST machine render, #1550)
+  "diagram/images/*.jpg",
+  "diagram/images/*.png",
 ]
 
 [tool.uv.sources]

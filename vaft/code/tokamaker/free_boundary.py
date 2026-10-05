@@ -265,6 +265,11 @@ class FreeBoundaryScan:
         self.workdir = workdir
         self.classify_kwargs = dict(classify_kwargs)
 
+        if config.vessel_currents:
+            raise ValueError(
+                "free-boundary scans do not support vessel_currents=True yet: a static "
+                "scan point holds the wall current fixed while a coil changes (see #1535)."
+            )
         # Baseline inputs at config.time: measured coil currents + held targets.
         base_config = replace(config, workdir=workdir)
         self.base_inputs: TokaMakerInputs = prepare_tokamaker_inputs(ods, base_config)

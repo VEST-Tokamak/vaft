@@ -34,6 +34,9 @@ __all__ = [
     "get_projection",
     "list_projections",
     "overlay_plan",
+    "placement",
+    "Placement",
+    "IncompatibleBoundary",
     "requested_boundaries",
 ]
 
@@ -62,10 +65,14 @@ AXIS_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
         _registered("wesson_1989_jet_li_qpsi_lower"),
         _registered("cheng_1987_li_qa_lower"),
         _registered("cheng_1987_li_qa_lower", "cylinder_edge_safety_factor"),
-        _b.BoundaryQuantity(
-            "greenwald_fraction", "f_G", "-",
-            "Line-averaged electron density over the Greenwald density I_p/(pi a^2).",
-        ),
+        _registered("freidberg_2008_kink_qstar"),
+        _registered("freidberg_2008_kink_qstar", "elongation"),
+        _registered("freidberg_2008_kink_current"),
+        _registered("greenwald_fraction_unity"),
+        _registered("freidberg_2008_kink_current", "toroidal_field"),
+        _registered("menard_2004_qstar_min"),
+        _registered("iter_1991_q95_estimate_min"),
+        _registered("akers_2000_q95_estimate_min"),
         _b.BoundaryQuantity(
             "normalized_current", "I_p/(a B_T)", "MA m^-1 T^-1",
             "Plasma current over minor radius times vacuum toroidal field (Troyon's I_N up to mu0).",
@@ -86,18 +93,16 @@ def _q(name: str) -> _b.BoundaryQuantity:
 # Projections
 # ---------------------------------------------------------------------------
 
-#: An explicit transform: (boundary, x samples, y samples) -> BoundaryCurve.
-Transform = Callable[[_b.Boundary, np.ndarray, np.ndarray], _b.BoundaryCurve]
-
-
 @dataclass(frozen=True)
 class OperationalProjection:
     """A literature-defined 2-D operational space.
 
     ``x`` and ``y`` are exact quantity identities. ``default_boundaries`` are
     the registered keys drawn by default; each must be compatible with the
-    axes, directly or through a declared ``transforms`` entry. ``diagram`` is
-    the :mod:`vaft.diagram` builder for the reference picture, if any.
+    axes (see :func:`placement`). ``ratio`` is the quantity ``y/x`` when the
+    reference space reads it as a family of lines through the origin -- Troyon's
+    $\\beta_N = \\beta_T/I_N$ -- so a limit on it is a line through the origin.
+    ``diagram`` is the :mod:`vaft.diagram` builder for the reference picture, if any.
     """
 
     key: str
@@ -108,7 +113,7 @@ class OperationalProjection:
     references: Tuple[str, ...] = ()
     assumptions: Tuple[str, ...] = ()
     diagram: Optional[str] = None
-    transforms: Mapping[str, Transform] = field(default_factory=dict)
+    ratio: Optional[_b.BoundaryQuantity] = None
 
 
 @dataclass(frozen=True)
@@ -122,18 +127,6 @@ class OverlayPlan:
     @property
     def keys(self) -> Tuple[str, ...]:
         return tuple(c.key for c in self.curves)
-
-
-def _troyon_on_current_plane(boundary: _b.Boundary, x: np.ndarray, y: np.ndarray) -> _b.BoundaryCurve:
-    """beta_N <= C on the (I_p/(a B_T), beta_T) plane: beta_T = C * I_p/(a B_T).
-
-    This is the definition of beta_N (stability.beta_N_from_beta_a_B0_Ip:
-    beta_N = beta[%] a B / I[MA]); the coefficient is the registered one.
-    """
-    level = float(_b.boundary_value(boundary))
-    return _b.BoundaryCurve(key=boundary.key, x=x, y=level * x, x_quantity=_q("normalized_current"),
-                            y_quantity=_q("toroidal_beta"), allowed_side=boundary.allowed_side,
-                            fixed={"normalized_beta": level})
 
 
 _PROJECTIONS: Dict[str, OperationalProjection] = {}
@@ -173,11 +166,11 @@ _register(OperationalProjection(
     default_boundaries=("troyon",),
     references=("F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209, Fig. 10",),
     assumptions=(
-        "the beta_N threshold is drawn through the definition beta_T[%] = beta_N I_p/(a B_T)",
+        "beta_N = beta_T / (I_p/(a B_T)) is the ratio of the axes, so its threshold is a line through the origin",
         "Troyon's beta uses the total field; at low beta it is close to the toroidal beta on this axis",
     ),
     diagram="troyon",
-    transforms={"troyon": _troyon_on_current_plane},
+    ratio=_q("normalized_beta"),
 ))
 
 _register(OperationalProjection(
@@ -195,10 +188,11 @@ _register(OperationalProjection(
     title="Internal inductance against q95",
     x=_q("edge_safety_factor_95"),
     y=_q("internal_inductance_li3"),
-    default_boundaries=(),
+    default_boundaries=("iter_1991_q95_min",),
+    references=("D. E. Post et al., ITER Physics, ITER Documentation Series No. 21 (1991), Table 1-2",),
     assumptions=(
-        "no registered boundary is defined on q95 and li_3; low_q (q_psi) and the li-q_a "
-        "literature boundaries use other q and li definitions and are not drawn here",
+        "the ITER design guideline q95 >= 2.1 (extended performance) is the only registered limit on q95; "
+        "low_q (q_psi) and the li-q_a literature boundaries use other q and li definitions and are not drawn here",
     ),
 ))
 
@@ -207,8 +201,9 @@ _register(OperationalProjection(
     title="Greenwald fraction against loss power",
     x=_q("loss_power"),
     y=_q("greenwald_fraction"),
-    default_boundaries=(),
-    assumptions=("f_G = 1 is a reference level, not a registered boundary on this plane",),
+    default_boundaries=("greenwald_fraction_unity",),
+    references=("M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27",),
+    assumptions=("f_G uses the line-averaged density and n_G = I_p/(pi a^2)",),
 ))
 
 
@@ -243,6 +238,95 @@ _register(OperationalProjection(
 ))
 
 
+_register(OperationalProjection(
+    key="qstar_in",
+    title="Kink safety factor against normalized current",
+    x=_q("normalized_current"),
+    y=_q("kink_safety_factor_elliptic"),
+    default_boundaries=("freidberg_2008_kink_qstar",),
+    references=("J. P. Freidberg, Plasma Physics and Fusion Energy (2008), Eqs. (13.160) and (13.162)",),
+    assumptions=(
+        "q* is Freidberg's Eq. (13.160), 2 pi a^2 kappa B0/(mu0 R0 I); the limit (1 + kappa)/2 is drawn at one "
+        "elongation, so pass the kappa it should represent (the largest kappa is the most restrictive line)",
+    ),
+))
+
+_register(OperationalProjection(
+    key="ip_bt",
+    title="Plasma current against toroidal field",
+    x=_q("toroidal_field"),
+    y=_q("plasma_current"),
+    default_boundaries=("freidberg_2008_kink_current", "menard_2004_qstar_current", "iter_1991_q95_current",
+                        "akers_2000_q95_current"),
+    references=("PPCF 67 (2025) 115021, Fig. 6(b) (engineering operational space)",
+                "J. P. Freidberg, Plasma Physics and Fusion Energy (2007), Eq. (13.163)",
+                "J. E. Menard et al., Phys. Plasmas 11 (2004) 639",
+                "D. E. Post et al., ITER Physics, ITER Documentation Series No. 21 (1991), Table 1-2",
+                "R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1"),
+    assumptions=(
+        "every limit is a current at fixed shape: pass the minor radius, major radius, elongation and "
+        "triangularity it should represent (a mean shape for a shot database)",
+    ),
+))
+
+_register(OperationalProjection(
+    key="qstar_cyl_in",
+    title="Cylindrical safety factor against normalized current",
+    x=_q("normalized_current"),
+    y=_q("kink_safety_factor_cylindrical"),
+    default_boundaries=("menard_2004_qstar_min",),
+    references=("J. E. Menard et al., Phys. Plasmas 11 (2004) 639",),
+    assumptions=("q* = pi a^2 B_T0 (1 + kappa^2)/(mu0 R0 I_P), Menard's definition; not Freidberg's Eq. (13.160)",),
+))
+
+_register(OperationalProjection(
+    key="q95_estimate_in",
+    title="ITER-guideline q95 estimate against normalized current",
+    x=_q("normalized_current"),
+    y=_q("edge_safety_factor_95_estimate_iter"),
+    default_boundaries=("iter_1991_q95_estimate_min",),
+    references=("D. E. Post et al., ITER Physics, ITER Documentation Series No. 21 (1991), Table 1-2",),
+    assumptions=("q95 from the guideline formula on global shape; conventional-aspect-ratio fit, extrapolated "
+                 "at A ~ 1.3",),
+))
+
+_register(OperationalProjection(
+    key="q95_start_estimate_in",
+    title="START q95 estimate against normalized current",
+    x=_q("normalized_current"),
+    y=_q("edge_safety_factor_95_estimate_start"),
+    default_boundaries=("akers_2000_q95_estimate_min",),
+    references=("R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1",),
+    assumptions=("q95 from the START low-aspect-ratio scaling on global shape (limiter, C = 1.0)",),
+))
+
+_register(OperationalProjection(
+    key="ip_kappa",
+    title="Plasma current against elongation",
+    x=_q("elongation"),
+    y=_q("plasma_current"),
+    default_boundaries=("freidberg_2008_kink_current",),
+    references=("J. P. Freidberg, Plasma Physics and Fusion Energy (2008), Eq. (13.163)",),
+    assumptions=("the current limit is drawn for one a, R0 and B0 (the population median unless given)",),
+))
+
+_register(OperationalProjection(
+    key="lh_threshold",
+    title="Loss power against line-averaged density (L-H access)",
+    x=_registered("martin_2008_lh", "line_average_density"),
+    y=_q("loss_power"),
+    default_boundaries=("martin_2008_lh", "takizuka_2004_lh"),
+    references=("Y. R. Martin et al., J. Phys.: Conf. Ser. 123 (2008) 012033, Eq. 2",
+                "T. Takizuka et al., Plasma Phys. Control. Fusion 46 (2004) A227, Eq. 4"),
+    assumptions=(
+        "density in 1e20 m^-3, the unit of the Martin and Takizuka fits; the Ryter low-density minimum is stated "
+        "in 1e19 m^-3 and is therefore not drawn on this axis",
+        "the thresholds are drawn for one B_T, S, I_p, a, A and Z_eff (population median unless given); VEST lies "
+        "outside the fitted range of both",
+    ),
+))
+
+
 def get_projection(key: str) -> OperationalProjection:
     """A registered operational-space projection by key.
 
@@ -266,34 +350,124 @@ def list_projections() -> Tuple[str, ...]:
 # Overlay selection
 # ---------------------------------------------------------------------------
 
+class IncompatibleBoundary(ValueError):
+    """A registered boundary whose quantities are not a projection's axes (raised only by ``strict`` calls)."""
+
+
+@dataclass(frozen=True)
+class Placement:
+    """How a registered boundary sits on a projection, decided without sampling it.
+
+    ``kind`` is one of:
+    - ``"curve"``: swept along the other axis (``sweep``), the target on y or, with ``swap_axes``, on x;
+    - ``"horizontal"`` / ``"vertical"``: constant on y / x, either a threshold or a boundary whose
+      inputs are all off-axis and given in ``fixed``;
+    - ``"ratio"``: a limit on the projection's ``ratio`` quantity, a line through the origin;
+    - ``"incompatible"``: not drawable, with ``reason``.
+    ``needs`` lists the inputs that must be fixed to draw it.
+    """
+
+    key: str
+    kind: str
+    sweep: Optional[str] = None
+    swap_axes: bool = False
+    needs: Tuple[str, ...] = ()
+    reason: str = ""
+
+    @property
+    def drawable(self) -> bool:
+        return self.kind != "incompatible"
+
+
+def placement(projection: Union[str, OperationalProjection], boundary: Union[str, _b.Boundary],
+              fixed: Optional[Mapping[str, float]] = None, *, strict: bool = False) -> Placement:
+    """Classify a registered boundary on a projection by exact quantity identity (name and unit).
+
+    Parameters
+    ----------
+    projection : str or OperationalProjection
+        The projection, or its registry key.
+    boundary : str or Boundary
+        The boundary, or its registry key.
+    fixed : mapping, optional
+        Inputs supplied with fixed values. Without them a boundary that needs
+        them is ``incompatible`` with the reason saying which.
+    strict : bool
+        Raise :class:`IncompatibleBoundary` instead of returning an incompatible placement.
+
+    Returns
+    -------
+    Placement
+        Pure metadata; :func:`overlay_plan` samples it.
+    """
+    proj = get_projection(projection) if isinstance(projection, str) else projection
+    b = _b.get_boundary(boundary) if isinstance(boundary, str) else boundary
+    fixed = dict(fixed or {})
+
+    def refuse(reason):
+        if strict:
+            raise IncompatibleBoundary(f"boundary {b.key!r} on projection {proj.key!r}: {reason}")
+        return Placement(b.key, "incompatible", reason=reason)
+
+    if not isinstance(b, _b.Boundary):
+        return refuse("windows are not drawn as single curves")
+    # one name in two units (line_average_density is registered in 1e19 and 1e20 m^-3) is never mixed
+    plotted = {q.name: q.unit for q in (proj.x, proj.y, proj.ratio) if q is not None}
+    for q in (b.target, *b.inputs):
+        if q.name in plotted and q.unit != plotted[q.name]:
+            return refuse(f"gives {q.name} in {q.unit}; the projection plots it in {plotted[q.name]}")
+    off_axis = tuple(n for n in b.input_names)
+    if b.form == "threshold" or all(n in fixed for n in off_axis) and not any(
+            _b.same_quantity(q, a) for q in b.inputs for a in (proj.x, proj.y)):
+        needs = off_axis
+        if _b.same_quantity(b.target, proj.x):
+            return Placement(b.key, "vertical", needs=needs)
+        if _b.same_quantity(b.target, proj.y):
+            return Placement(b.key, "horizontal", needs=needs)
+        if proj.ratio is not None and _b.same_quantity(b.target, proj.ratio):
+            return Placement(b.key, "ratio", needs=needs)
+    for target_axis, sweep_axis, swap in ((proj.y, proj.x, False), (proj.x, proj.y, True)):
+        if not _b.same_quantity(b.target, target_axis):
+            continue
+        sweep = next((q.name for q in b.inputs if _b.same_quantity(q, sweep_axis)), None)
+        if sweep is None:
+            missing = [n for n in off_axis if n not in fixed]
+            return refuse(f"no input of {b.key} is the {sweep_axis.name} axis, and {missing} are not fixed")
+        needs = tuple(n for n in b.input_names if n != sweep)
+        missing = [n for n in needs if n not in fixed]
+        if missing:
+            return refuse(f"needs fixed input(s) {missing}")
+        return Placement(b.key, "curve", sweep=sweep, swap_axes=swap, needs=needs)
+    if proj.ratio is not None and _b.same_quantity(b.target, proj.ratio):
+        missing = [n for n in off_axis if n not in fixed]
+        if missing:
+            return refuse(f"needs fixed input(s) {missing}")
+        return refuse("a limit on the ratio must not depend on either axis, and this one does")
+    axes = ", ".join(q.name for q in (proj.x, proj.y))
+    return refuse(f"targets {b.target.name} [{b.target.unit}], which is neither axis ({axes})")
+
+
 def _curve(projection: OperationalProjection, boundary: _b.Boundary, xs: np.ndarray, ys: np.ndarray,
            fixed: Mapping[str, float]) -> Union[_b.BoundaryCurve, str]:
-    """The boundary on this projection, or the reason it cannot be drawn."""
+    """The boundary on this projection, sampled, or the reason it cannot be drawn."""
+    place = placement(projection, boundary, fixed)
+    if not place.drawable:
+        return place.reason
+    used = {n: float(fixed[n]) for n in place.needs}
+    if place.kind == "curve":
+        return _b.boundary_curve(boundary, place.sweep, ys if place.swap_axes else xs,
+                                 swap_axes=place.swap_axes, **used)
+    level = float(_b.boundary_value(boundary, **used))
     px, py = projection.x, projection.y
-    if boundary.key in projection.transforms:
-        return projection.transforms[boundary.key](boundary, xs, ys)
-    if boundary.form == "threshold":
-        if _b.same_quantity(boundary.target, px):
-            return _b.threshold_curve(boundary, py, ys, target_axis="x")
-        if _b.same_quantity(boundary.target, py):
-            return _b.threshold_curve(boundary, px, xs, target_axis="y")
-        return (f"targets {boundary.target.name} [{boundary.target.unit}], "
-                f"which is neither axis ({px.name}, {py.name})")
-    for target_on, sweep_axis, values, swap in (("y", px, xs, False), ("x", py, ys, True)):
-        target_axis = py if target_on == "y" else px
-        if not _b.same_quantity(boundary.target, target_axis):
-            continue
-        sweep = next((q.name for q in boundary.inputs if _b.same_quantity(q, sweep_axis)), None)
-        if sweep is None:
-            return f"no input of {boundary.key} is the {sweep_axis.name} axis"
-        needed = [n for n in boundary.input_names if n != sweep]
-        missing = [n for n in needed if n not in fixed]
-        if missing:
-            return f"needs fixed input(s) {missing}"
-        return _b.boundary_curve(boundary, sweep, values, swap_axes=swap,
-                                 **{n: float(fixed[n]) for n in needed})
-    return (f"targets {boundary.target.name} [{boundary.target.unit}], "
-            f"which is neither axis ({px.name}, {py.name})")
+    if place.kind == "ratio":   # y / x = level
+        return _b.BoundaryCurve(key=boundary.key, x=xs, y=level * xs, x_quantity=px, y_quantity=py,
+                                allowed_side=boundary.allowed_side, fixed={**used, boundary.target.name: level})
+    if place.kind == "horizontal":
+        return _b.BoundaryCurve(key=boundary.key, x=xs, y=np.full(xs.shape, level), x_quantity=px,
+                                y_quantity=boundary.target, allowed_side=boundary.allowed_side, fixed=used)
+    side = {"below": "left", "above": "right"}[boundary.allowed_side]
+    return _b.BoundaryCurve(key=boundary.key, x=np.full(ys.shape, level), y=ys, x_quantity=boundary.target,
+                            y_quantity=py, allowed_side=side, fixed=used)
 
 
 def requested_boundaries(projection: OperationalProjection,

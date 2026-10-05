@@ -257,9 +257,15 @@ def save_figure(figure: Figure, path: Any, *, close: bool = True, **savefig_kwar
     Callers outside :mod:`vaft.plot` use this instead of importing pyplot just to
     close a figure, which keeps rendering confined to this package.
     """
+    import matplotlib
+
     savefig_kwargs.setdefault("dpi", 300)
     savefig_kwargs.setdefault("bbox_inches", "tight")
-    figure.savefig(path, **savefig_kwargs)
+    # Vector output keeps its text as text: TrueType fonts embedded in a PDF
+    # (not Type 3 outlines) and SVG text left as text, which journals and
+    # editors expect (issue #1421).  Read when the file is written, so set here.
+    with matplotlib.rc_context({"pdf.fonttype": 42, "ps.fonttype": 42, "svg.fonttype": "none"}):
+        figure.savefig(path, **savefig_kwargs)
     if close:
         plt.close(figure)
     return path

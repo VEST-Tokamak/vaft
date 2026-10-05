@@ -853,6 +853,20 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   stops the worker instead of silently creating a new state file under a literal `${...}` directory.
 - **The worker reproduces Snakemake's config merge.** Snakemake merges `pipeline_config` over the
   workflow's own `config.yaml`, and the worker checks and harvests against that same merged result.
+- **`stages` narrows what the worker runs and judges.** Omitted, every run requests `rule all`, the
+  whole pipeline. `stages: [raw, diagnostics, eddy]` requests only those stages' products, plots and
+  replication records, and the shot's verdict is taken from those alone: the constraint and k-file
+  steps, EFIT, CHEASE and stability are never scheduled. A vacuum shot (below the constraint stage's
+  15 kA) then ends `completed` instead of failing every run until `gave_up`. `raw` is always in;
+  a stage whose upstream is left out is refused at start-up. The worker writes the list into each
+  run's config as `stages`, so a manual run can use the same key. This is a decision made before the
+  run; a stage that runs and declines a shot is #205's skip semantics.
+  - Optional branches outside the stage chain (IMPA with `impa.enable: true`) are not scoped; they
+    depend only on raw and are never part of the shot's verdict.
+  - Set the scope only here, not as `--config stages=...` in `extra_args`: Snakemake would see it
+    and the harvester would not.
+  - Widening `stages` later does not revisit shots already concluded under the narrower scope;
+    `vaft pipeline-worker retry --shot N` (or a batch run) brings them up to the new scope.
 - **`first_shot` is where the worker's responsibility starts.** Shots below it belong to batch
   regeneration and the worker never looks at them.
 
@@ -894,7 +908,7 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    | Shot state | Meaning |
    | --- | --- |
    | `completed` | Every declared product succeeded. |
-   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. A solver stage that finished `no_output` by design -- EFIT ran and no slice survived, CHEASE had nothing to refine or every slice failed, or the stage is switched off -- has its replication recorded `skipped`, so the shot's other stages stay published and the shot is not retried. `no_output` because the executable is missing, an input is missing or the stage errored still fails, and so does `no_output` over IDS an earlier run already published to the shot (retire those first). |
+   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. A solver stage that finished `no_output` by design -- EFIT ran and no slice survived, CHEASE had nothing to refine or every slice failed, or the stage is switched off -- has its replication recorded `skipped`, so the shot's other stages stay published and the shot is not retried. `no_output` because the executable is missing, an input is missing or the stage errored still fails, and so does `no_output` over IDS an earlier run already published to the shot (retire those first). An eddy stage whose shot has a PF circuit that was never recorded (#1568) records `no_output` the same way, with its validation-plot manifest `empty`; inside `stages: [raw, diagnostics, eddy]` the shot is `partial`, while an unscoped run still fails it at the EFIT constraint step, like a vacuum shot (#205). |
    | `excluded` | The classifier, the raw preflight or an operator ruled the shot out. |
    | `failed` | A declared product is missing. The shot is retried on the next cycle, and Snakemake rebuilds only what is missing. |
    | `gave_up` | The shot has used `max_attempts` runs and waits for an operator. |

@@ -253,3 +253,66 @@ def test_bbox_fallback_overlapping_a_neighbour_is_rejected():
     _add_loop(ods, 2, "WY", rc=0.16, zc=0.25, w=0.02, h=0.50)
     with pytest.raises(ValueError, match="bounding box"):
         vessel_segments_from_ods(ods, TokaMakerConfig(include_vessel=True))
+
+
+# --- imposed wall currents (#1534) ---------------------------------------------
+
+def test_every_loop_belongs_to_exactly_one_vessel_region():
+    ods = _build_ods()
+    regions = vessel_segments_from_ods(ods, TokaMakerConfig(include_vessel=True))
+
+    members = [loop["index"] for region in regions.values() for loop in region["loops"]]
+    assert sorted(members) == list(range(len(ods["pf_passive.loop"])))
+
+
+def _with_loop_currents(ods, amps):
+    ods["pf_passive.time"] = np.array([0.30, 0.35])
+    for i in range(len(ods["pf_passive.loop"])):
+        ods[f"pf_passive.loop.{i}.current"] = np.array([amps(i), amps(i)])
+    return ods
+
+
+def test_vessel_currents_group_the_loop_currents_by_region(tmp_path):
+    from vaft.code.tokamaker.inputs import _vessel_loop_currents
+
+    ods = _with_loop_currents(_build_ods(), lambda i: 100.0 + i)
+    config = TokaMakerConfig(include_vessel=True, vessel_currents=True)
+    geometry = {"vessel": vessel_segments_from_ods(ods, config)}
+
+    currents = _vessel_loop_currents(ods, geometry, 0.325)
+
+    flat = {index: amps for region in currents.values() for index, amps in region.items()}
+    assert flat == {i: pytest.approx(100.0 + i) for i in range(len(ods["pf_passive.loop"]))}
+
+
+def test_vessel_currents_need_loop_currents():
+    from vaft.code.tokamaker.inputs import _vessel_loop_currents
+
+    ods = _build_ods()
+    geometry = {"vessel": vessel_segments_from_ods(ods, TokaMakerConfig(include_vessel=True))}
+    with pytest.raises(ValueError, match="eddy stage"):
+        _vessel_loop_currents(ods, geometry, 0.325)
+
+
+def test_vessel_currents_get_their_own_mesh():
+    ods = _build_ods()
+    conductor = TokaMakerConfig(include_vessel=True)
+    coil = TokaMakerConfig(include_vessel=True, vessel_currents=True)
+    geometry = {"limiter": [[0.1, 0.0]], "coils": {}, "vessel": vessel_segments_from_ods(ods, conductor)}
+
+    assert geometry_signature(geometry, conductor) != geometry_signature(geometry, coil)
+
+
+@pytest.mark.parametrize("entry", ["evolution", "stability"])
+def test_time_dependent_entry_points_reject_vessel_currents(entry):
+    config = TokaMakerConfig(include_vessel=True, vessel_currents=True, evolve_times=(0.31, 0.32))
+    if entry == "evolution":
+        from vaft.code.tokamaker import prepare_tokamaker_evolution_inputs
+
+        with pytest.raises(ValueError, match="vessel_currents"):
+            prepare_tokamaker_evolution_inputs(_build_ods(), config)
+    else:
+        from vaft.code.tokamaker.stability import _require_vessel
+
+        with pytest.raises(ValueError, match="vessel_currents"):
+            _require_vessel(config, "eig_wall")

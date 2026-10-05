@@ -81,9 +81,22 @@ def build_efit_coil_currents(destination, source, *, coilset=None, window=None) 
         coilset = vest_efit_coilset_policy()
 
     by_name: dict[str, int] = {}
+    unacquired: list[str] = []
     for index in range(len(source["coil"])):
-        by_name[str(source[f"coil.{index}.name"])] = index
-    missing = sorted(set(coilset.source_circuit.values()) - set(by_name))
+        name = str(source[f"coil.{index}.name"])
+        by_name[name] = index
+        # Published as NaN when its channel was empty (#1568).
+        data_path = f"coil.{index}.current.data"
+        if data_path in source and not np.all(np.isfinite(np.asarray(source[data_path], dtype=float))):
+            unacquired.append(name)
+    driven = set(coilset.source_circuit.values())
+    if driven & set(unacquired):
+        raise ValueError(
+            "pf_active circuits EFIT's groups are driven by were not acquired: "
+            + ", ".join(sorted(driven & set(unacquired)))
+            + " (NaN current); refusing to fit with a missing drive current"
+        )
+    missing = sorted(driven - set(by_name))
     if missing:
         raise ValueError(
             "pf_active is missing the circuits EFIT's groups are driven by: "

@@ -106,7 +106,8 @@ def tokamak_top_view(*, cocos: int = 11, n_coils: int = 12, labels: bool = True)
     above, with $Z$ towards the reader). Representative, not any machine.
     """
     labels = _check_labels(labels)
-    if not (isinstance(n_coils, int) and 4 <= n_coils <= 24):
+    n_coils = _index(n_coils, "n_coils")
+    if not 4 <= n_coils <= 24:
         raise ValueError(f"n_coils must be an integer from 4 to 24, not {n_coils!r}")
     cocos = _index(cocos, "cocos")
     spec = cocos_spec(cocos)
@@ -368,7 +369,8 @@ def structured_rz_grid(*, n_r: int = 13, n_z: int = 21, labels: bool = True) -> 
     the plasma). Same toy flux as ``flux_model``.
     """
     labels = _check_labels(labels)
-    if not (isinstance(n_r, int) and isinstance(n_z, int) and 4 <= n_r <= 65 and 4 <= n_z <= 129):
+    n_r, n_z = _index(n_r, "n_r"), _index(n_z, "n_z")
+    if not (4 <= n_r <= 65 and 4 <= n_z <= 129):
         raise ValueError(f"n_r must be 4-65 and n_z 4-129 integers, not {n_r!r}, {n_z!r}")
     model = flux_model("diverted")
     boundary = lcfs(model)
@@ -583,10 +585,14 @@ def logical_to_physical_mapping(*, n_xi: int = 6, n_eta: int = 16, cell: Tuple[i
     poloidal rays ($\theta = 2\pi\eta$). The shaded cell is the same cell in
     both. $\eta = 0$ and $\eta = 1$ map to one ray (periodic), and $\xi = 0$
     collapses to the magnetic axis -- the coordinate singularity every
-    flux-aligned mesh has.
+    flux-aligned mesh has. $\theta$ here is the mathematical angle,
+    counter-clockwise from the outboard midplane (as in ``tokamak_torus``),
+    a convention-free sketch; the sense of $\theta$ a COCOS index fixes is
+    what ``cocos_orientation`` draws (clockwise for COCOS 11).
     """
     labels = _check_labels(labels)
-    if not (isinstance(n_xi, int) and isinstance(n_eta, int) and 2 <= n_xi <= 20 and 4 <= n_eta <= 64):
+    n_xi, n_eta = _index(n_xi, "n_xi"), _index(n_eta, "n_eta")
+    if not (2 <= n_xi <= 20 and 4 <= n_eta <= 64):
         raise ValueError(f"n_xi must be 2-20 and n_eta 4-64 integers, not {n_xi!r}, {n_eta!r}")
     if not (isinstance(cell, tuple) and len(cell) == 2):
         raise ValueError(f"cell must be an (i, j) pair, not {cell!r}")
@@ -665,7 +671,8 @@ def physical_to_flux_mapping(*, n_points: int = 11, labels: bool = True) -> Diag
     \sqrt{\Phi/\Phi_b}$ relabels $\psi_N$ again, through $q(\psi)$.
     """
     labels = _check_labels(labels)
-    if not (isinstance(n_points, int) and 4 <= n_points <= 40):
+    n_points = _index(n_points, "n_points")
+    if not 4 <= n_points <= 40:
         raise ValueError(f"n_points must be an integer from 4 to 40, not {n_points!r}")
     from scipy.interpolate import RectBivariateSpline
 

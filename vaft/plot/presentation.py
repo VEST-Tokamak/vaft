@@ -168,6 +168,10 @@ class Theme:
     #: alone cannot carry the distinction.  Anything not named keeps the
     #: default of :data:`vaft.plot.intent.DEFAULT_COLOURS`.
     intents: Mapping[str, Any] = field(default_factory=dict, hash=False, compare=False)
+    #: The MathText font set (``mathtext.fontset``) that matches the text
+    #: face, so ``$\\psi_N$`` in a label is set in the same family as the
+    #: words around it (issue #1421); ``None`` leaves Matplotlib's.
+    math_fontset: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "intents", MappingProxyType(dict(self.intents)))
@@ -235,17 +239,22 @@ THEMES: Mapping[str, Theme] = {
         "technical", font_family=("DejaVu Sans",), tick_direction="in",
         grid=True, grid_alpha=0.3, spines=("left", "right", "top", "bottom"),
         colors=_OKABE_ITO, line_pt=1.2, marker_pt=4.0, intents=_TECHNICAL_INTENTS,
+        math_fontset="dejavusans",
     ),
     "minimal": Theme(
         "minimal", font_family=("Helvetica", "Arial", "DejaVu Sans"), tick_direction="out",
         grid=False, grid_alpha=0.0, spines=("left", "bottom"),
         colors=_TOL_BRIGHT, line_pt=1.5, marker_pt=4.0, intents=_MINIMAL_INTENTS,
+        # Helvetica/Arial text with a sans-serif STIX for symbols and Greek;
+        # both ship with Matplotlib, so the fallback is deterministic.
+        math_fontset="stixsans",
     ),
     "monochrome": Theme(
         "monochrome", font_family=("DejaVu Sans",), tick_direction="in",
         grid=True, grid_alpha=0.2, spines=("left", "right", "top", "bottom"),
         colors=_MONO_GREYS, linestyles=_MONO_LINESTYLES, markers=_MONO_MARKERS,
         markevery=0.1, line_pt=1.2, marker_pt=4.0, intents=_MONOCHROME_INTENTS,
+        math_fontset="dejavusans",
     ),
 }
 
@@ -445,6 +454,8 @@ class Presentation:
                 "lines.linewidth": theme.line_pt * line_scale,
                 "lines.markersize": theme.marker_pt * marker_scale,
             })
+            if theme.math_fontset is not None:
+                rc["mathtext.fontset"] = theme.math_fontset
         elif fmt is not None:
             import matplotlib
 
@@ -810,9 +821,17 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
                 # the empty spellings a control or the CLI may pass mean it too.
                 format = DEFAULT_FORMAT
             presentation = resolve_presentation(format, theme, ax=ax, figsize=figsize)
+            from .figure_options import figure_options_rc
+
+            # Explicit figure options (#1421) layer over the format and theme:
+            # their type sizes and faces are entered inside the presentation
+            # context, so they win over it while the figure is drawn -- once,
+            # at the outermost renderer.
+            overrides = figure_options_rc()
             if presentation is None:
-                return render(model, *args, ax=ax, figsize=figsize, **kwargs)
-            with presentation.context():
+                with overrides:
+                    return render(model, *args, ax=ax, figsize=figsize, **kwargs)
+            with presentation.context(), overrides:
                 size = presentation.figsize(
                     model, figsize or default_figsize, colorbar=kwargs.get("colorbar"),
                 )
