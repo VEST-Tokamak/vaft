@@ -62,6 +62,34 @@ test('a public object links to its API page and its pinned source', async ({ pag
     .toHaveAttribute('href', /github\.com\/VEST-Tokamak\/vaft\/blob\/[0-9a-f]{40}\/vaft\/.+#L\d+-L\d+/);
 });
 
+test('clicking an API object keeps its module selected and highlights the object', async ({ page }) => {
+  await openExplorer(page, '#level=modules&focus=vaft.formula.geometry&api=show');
+  const id = await page.evaluate(() => {
+    const leaf = document.querySelector('.vg-root').vaftGraph.cy.nodes('.vg-api')[0];
+    leaf.emit('tap');
+    return leaf.id();
+  });
+  await expect(page.locator('.vg-title')).toHaveText('vaft.formula.geometry');
+  await expect(page.locator(`.vg-details [data-api="${id}"]`)).toHaveClass(/vg-highlight/);
+  const leaves = await page.evaluate(() => document.querySelector('.vg-root').vaftGraph.cy.nodes('.vg-api').length);
+  expect(leaves).toBeGreaterThan(0);
+});
+
+test('a module focus survives a round trip through the package level', async ({ page }) => {
+  await openExplorer(page, '#level=modules&focus=vaft.formula.geometry');
+  await page.locator('input[name="vg-level"][value="packages"]').check();
+  await expect(page.locator('.vg-title')).toHaveText('vaft.formula');
+  await page.locator('input[name="vg-level"][value="modules"]').check();
+  await expect(page.locator('.vg-title')).toHaveText('vaft.formula.geometry');
+});
+
+test('an ordinary in-page anchor does not reset the explorer', async ({ page }) => {
+  await openExplorer(page, '#level=modules&focus=vaft.formula.geometry');
+  await page.evaluate(() => { window.location.hash = 'some-heading'; });
+  await page.waitForTimeout(300);
+  await expect(page.locator('.vg-title')).toHaveText('vaft.formula.geometry');
+});
+
 test('without JavaScript the page still explains itself', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();

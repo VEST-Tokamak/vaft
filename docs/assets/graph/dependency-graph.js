@@ -85,8 +85,8 @@
         graph.data.nodes.forEach(function (node) {
           if (node.kind === 'external') return;
           var key = packageOf(node.id);
-          remap[node.id] = key;
           if (!layers[node.layer]) return;
+          remap[node.id] = key;
           var group = groups[key] = groups[key] || { id: key, layer: node.layer, count: 0 };
           group.count += 1;
         });
@@ -98,7 +98,7 @@
           if (source === target) return;
           var key = source + '→' + target;
           links[key] = links[key] || { source: source, target: target, kind: edge.kind, count: 0 };
-          links[key].count += 1;
+          links[key].count += (edge.lines || []).length || 1;
         });
         Object.keys(groups).sort().forEach(function (key) {
           var group = groups[key];
@@ -275,14 +275,15 @@
       var source = packageOf(edge.source);
       var target = edge.kind === 'external' ? edge.target : packageOf(edge.target);
       if (source === target) return;
-      if (source === id) deps[target] = (deps[target] || 0) + 1;
-      if (target === id && edge.kind === 'internal') dependents[source] = (dependents[source] || 0) + 1;
+      var statements = (edge.lines || []).length || 1;
+      if (source === id) deps[target] = (deps[target] || 0) + statements;
+      if (target === id && edge.kind === 'internal') dependents[source] = (dependents[source] || 0) + statements;
     });
     function counted(map) {
       var keys = Object.keys(map).sort();
       if (!keys.length) return '<p class="vg-meta">None.</p>';
       return '<ul class="vg-list">' + keys.map(function (key) {
-        return '<li>' + v.nodeButton(key) + ' <span class="vg-meta">' + plural(map[key], 'import') + '</span></li>';
+        return '<li>' + v.nodeButton(key) + ' <span class="vg-meta">' + plural(map[key], 'import statement') + '</span></li>';
       }).join('') + '</ul>';
     }
     var root = graph.nodes[id];

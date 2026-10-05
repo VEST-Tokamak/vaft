@@ -50,6 +50,11 @@ _PACKAGE = Path(__file__).resolve().parent
 _ROOT = _PACKAGE.parent
 OTHER_LAYER = "other"
 
+#: Standard-library top-level names that ``sys.stdlib_module_names`` lacks on some
+#: supported interpreter (``requires-python >=3.10``): added in a later release.
+#: Without them the external set would depend on which Python ran the generator.
+_LATER_STDLIB = frozenset({"tomllib", "annotationlib", "compression"})
+
 MISSING_GRIMP = (
     "VAFT architecture graph generation requires the optional 'architecture' dependency.\n"
     "\n"
@@ -172,6 +177,8 @@ def _api_nodes(api_snapshot: Mapping[str, Any]) -> tuple[list[dict], dict[str, s
         })
         if entry.get("page"):
             documented_modules.setdefault(entry["module"], entry["page"])
+    # Only from homed entries: api-package.html heads a module (#module-<name>) only when
+    # at least one object is documented there, so a module row alone has no anchor.
     nodes.sort(key=lambda node: node["id"])
     return nodes, documented_modules
 
@@ -195,7 +202,7 @@ def dependency_snapshot(
     graph = grimp.build_graph("vaft", include_external_packages=True, cache_dir=None)
     internal = sorted(name for name in graph.modules if name == "vaft" or name.startswith("vaft."))
     internal_set = set(internal)
-    stdlib = set(sys.stdlib_module_names)
+    stdlib = set(sys.stdlib_module_names) | _LATER_STDLIB
     external = sorted(name for name in graph.modules if name not in internal_set and name not in stdlib)
     external_set = set(external)
     packages = {name for name in internal if module_path(name).name == "__init__.py"}

@@ -120,7 +120,8 @@ def test_layers_are_the_package_hierarchy(snapshot):
 def test_externals_are_third_party_imports_only(snapshot):
     external = {node["id"] for node in snapshot["nodes"] if node["kind"] == "external"}
     assert "numpy" in external and "omas" in external
-    assert not external & set(sys.stdlib_module_names)
+    assert not external & (set(sys.stdlib_module_names) | dependency_graph._LATER_STDLIB)
+    assert not external & {"tomllib", "annotationlib"}  # stdlib on some supported Python
     # scientific codes are executables, never inferred from imports
     assert not external & {"efit", "chease", "gpec", "nubeam", "EFIT", "CHEASE"}
     assert all(not edge["target"].startswith("vaft") for edge in snapshot["edges"] if edge["kind"] == "external")
@@ -247,8 +248,10 @@ def test_the_json_endpoint_serves_every_field_the_adapter_reads():
     adapter = (DOCS / "assets" / "graph" / "dependency-graph.js").read_text(encoding="utf-8")
     for field in ("layers", "nodes", "edges", "cycles", "api", "provenance"):
         assert f"g.{field} | jsonify" in endpoint
-    assert "data." in adapter  # the adapter reads the served snapshot, not a hand-written copy
+    for field in ("layers", "nodes", "edges", "cycles", "api"):
+        assert re.search(rf"\bdata\.{field}\b", adapter), f"the adapter no longer reads {field}"
     assert "site.data.dependency_graph" in endpoint
+    assert "g.source" not in endpoint  # the build receipt is not served
 
 
 def test_the_generator_module_has_no_import_time_dependency_on_grimp():

@@ -45,7 +45,9 @@
     (window.location.hash || '').replace(/^#/, '').split('&').forEach(function (pair) {
       if (!pair) return;
       var bits = pair.split('=');
-      out[decodeURIComponent(bits[0])] = decodeURIComponent(bits.slice(1).join('=') || '');
+      try {
+        out[decodeURIComponent(bits[0])] = decodeURIComponent(bits.slice(1).join('=') || '');
+      } catch (error) { /* a malformed escape is not graph state */ }
     });
     return out;
   }
@@ -55,8 +57,10 @@
     keys.forEach(function (key) {
       var value = state[key];
       if (key === 'focus' && value) { parts.push('focus=' + encodeURIComponent(value)); return; }
-      if (value === undefined || value === null || value === '') return;
-      if (Array.isArray(value)) value = value.join(',');
+      if (value === undefined || value === null) return;
+      var list = Array.isArray(value);
+      if (list) value = value.join(',');
+      else if (value === '') return;
       var fallback = defaults[key];
       if (Array.isArray(fallback)) fallback = fallback.join(',');
       if (value === fallback) return;
@@ -115,6 +119,10 @@
         self.render();
         // a pasted link that differs only in its hash does not reload the page
         window.addEventListener('hashchange', function () {
+          // an ordinary in-page anchor (#some-heading) is not graph state
+          var keys = Object.keys(readHash());
+          var mine = self.hashKeys();
+          if (keys.length && !keys.some(function (key) { return mine.indexOf(key) !== -1; })) return;
           self.restore();
           self.render();
         });
@@ -200,9 +208,13 @@
     }).join('');
     var known = {};
     items.forEach(function (item) { known[item.id] = true; });
+    var lastSearch = '';
     function submit() {
       var query = search.value.trim();
-      if (!query) return;
+      // a datalist pick fires change and Enter both; search once
+      if (!query || query === lastSearch) return;
+      lastSearch = query;
+      window.setTimeout(function () { lastSearch = ''; }, 300);
       var target = known[query] ? query : null;
       if (!target) {
         var lower = query.toLowerCase();
@@ -302,7 +314,8 @@
       maxZoom: 4
     });
     this.cy.on('tap', 'node', function (event) {
-      self.select(event.target.id());
+      // through the adapter, so an API leaf selects its module with the object highlighted
+      self.focus(event.target.id());
     });
     this.cy.on('mouseover', 'node', function (event) {
       var node = event.target;
@@ -355,15 +368,18 @@
     var nodes = view.nodes, edges = view.edges;
     var known = {};
     nodes.forEach(function (node) { known[node.data.id] = true; });
-    if (this.state.focus && !known[this.state.focus]) this.state.focus = view.remap ? (view.remap[this.state.focus] || '') : '';
-    if (this.state.focus && known[this.state.focus]) {
-      var reduced = this.neighbourhood(nodes, edges, this.state.focus);
+    // The chosen focus stays in state (and the URL) across levels; what is drawn is
+    // its counterpart at this level (a module's package), or nothing when hidden.
+    var focus = this.state.focus;
+    if (focus && !known[focus]) focus = view.remap && known[view.remap[focus]] ? view.remap[focus] : '';
+    if (focus) {
+      var reduced = this.neighbourhood(nodes, edges, focus);
       nodes = reduced.nodes;
       edges = reduced.edges;
     }
     var message = view.message || '';
     var limit = view.limit || 0;
-    if (limit && nodes.length > limit && !this.state.focus) {
+    if (limit && nodes.length > limit && !focus) {
       this.cy.elements().remove();
       this.setStatus(nodes.length + ' nodes match these filters, more than this view draws at once (' + limit +
         '). Select a node with the search box, or narrow the filters.');
@@ -378,26 +394,21 @@
     this.cy.add(nodes.map(function (n) { return { group: 'nodes', data: n.data, classes: n.classes || '' }; }));
     this.cy.add(edges.map(function (e) { return { group: 'edges', data: e.data, classes: e.classes || '' }; }));
     this.cy.endBatch();
-    if (this.state.focus) this.cy.getElementById(this.state.focus).addClass('vg-focus');
+    if (focus) this.cy.getElementById(focus).addClass('vg-focus');
     var layout = view.layout || { name: 'cose', animate: false, randomize: false, nodeRepulsion: 9000, idealEdgeLength: 90 };
-    if (this.state.focus && view.focusLayout) layout = view.focusLayout(this.state.focus);
+    if (focus && view.focusLayout) layout = view.focusLayout(focus);
     this.cy.layout(layout).run();
     this.cy.fit(undefined, 30);
     // a handful of nodes would otherwise be blown up to fill the canvas
     if (this.cy.zoom() > 1.1) { this.cy.zoom(1.1); this.cy.center(); }
     this.updateCount(nodes.length, edges.length);
-    this.showDetails(this.state.focus);
+    this.showDetails(focus);
     writeHash(this.state, this.hashKeys(), this.defaults);
   };
 
   Viewer.prototype.updateCount = function (nodes, edges) {
     var count = this.root.querySelector('[data-vg-count]');
     if (count) count.textContent = nodes + ' nodes · ' + edges + ' edges shown';
-  };
-
-  Viewer.prototype.select = function (id) {
-    this.state.focus = id;
-    this.render();
   };
 
   Viewer.prototype.focus = function (id) {
