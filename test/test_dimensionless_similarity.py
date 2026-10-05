@@ -195,3 +195,77 @@ def test_the_similarity_plot_imports_no_ods_or_database_layer():
             "print(','.join(bad))")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == ""
+
+
+# --- cold-review regressions -------------------------------------------------------------
+
+
+@pytest.mark.parametrize("override", [{"y": "nu_star_sauter"}, {"x": "rho_star_verdoolaege_2021"}, {"color": "machine"}])
+def test_axes_and_colour_cannot_be_overridden(override):
+    t = _population()
+    t["nu_star_sauter"] = t["nu_star_verdoolaege_2021"] / 1.45
+    with pytest.raises(TypeError, match="fixes"):
+        dimensionless_similarity(t, "rho_star_nu_star", **override)
+
+
+def test_missing_group_column_is_named():
+    with pytest.raises(KeyError, match="group column"):
+        dimensionless_similarity(_population(), "rho_star_nu_star", group="nope")
+
+
+def test_reference_rows_are_validated_and_undrawable_ones_reported():
+    refs = pd.DataFrame({"label": ["bad"], "kind": ["bogus"], "source": ["s"],
+                         "rho_star_verdoolaege_2021": [2e-3], "nu_star_verdoolaege_2021": [0.05]})
+    with pytest.raises(ValueError, match="kind"):
+        dimensionless_similarity(_population(), "rho_star_nu_star", reference_table=refs)
+    refs["kind"] = ["design"]
+    refs["nu_star_verdoolaege_2021"] = [-1.0]
+    with pytest.warns(UserWarning, match="not drawn"):
+        fig, ax = dimensionless_similarity(_population(), "rho_star_nu_star", reference_table=refs)
+    assert [r[0] for r in ax.vaft_references] == ["ARC V3A"]
+    assert [r[0] for r in ax.vaft_skipped_references] == ["bad"]
+
+
+def test_reference_outside_a_given_range_is_skipped_with_a_warning():
+    with pytest.warns(UserWarning, match="ARC V3A"):
+        fig, ax = dimensionless_similarity(_population(), "rho_star_nu_star", x_range=(3e-3, 5e-2))
+    assert ax.vaft_references == () and ax.vaft_skipped_references[0][0] == "ARC V3A"
+
+
+def test_non_positive_range_on_a_log_axis_is_refused():
+    with pytest.raises(ValueError, match="log axis"):
+        dimensionless_similarity(_population(), "rho_star_nu_star", x_range=(0.0, 0.05))
+
+
+def test_all_unassessed_still_gives_valid_log_axes():
+    t = _population()
+    t["nu_star_verdoolaege_2021"] = np.nan
+    with pytest.warns(UserWarning, match="UNASSESSED"):
+        fig, ax = dimensionless_similarity(t, "rho_star_nu_star", references=False)
+    assert ax.vaft_exclusions.assessed == 0
+    assert min(ax.get_xlim()) > 0 and min(ax.get_ylim()) > 0
+
+
+def test_trajectory_states_without_positive_values_are_counted_not_clipped():
+    t = _population()
+    tr = t.iloc[:4].copy()
+    tr["time_efit_s"] = [0.30, 0.31, 0.32, 0.33]
+    tr.loc[tr.index[1], "nu_star_verdoolaege_2021"] = -1.0
+    with pytest.warns(UserWarning, match="trajectory shot"):
+        fig, ax = dimensionless_similarity(t, "rho_star_nu_star", trajectories={"shot": tr})
+    assert ax.vaft_exclusions.unassessed == {"trajectory shot": 1}
+    assert ax.vaft_exclusions.excluded == 1
+
+
+def test_reload_is_idempotent_and_troyon_source_is_the_registered_one():
+    import importlib
+
+    importlib.reload(sim)
+    assert set(sim.SIMILARITY_PROJECTIONS) <= set(ops.list_projections())
+    assert sim.TROYON_1984.doi and sim.TROYON_1984 == _troyon_source()
+
+
+def _troyon_source():
+    from vaft.formula import boundaries
+
+    return boundaries.get_boundary("troyon").sources[0]

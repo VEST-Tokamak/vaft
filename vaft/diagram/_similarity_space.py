@@ -54,9 +54,7 @@ VERDOOLAEGE_2021 = _b.BoundarySource(
     equation="Sec. 2.2.2, Eqs. (1a)-(1d)",
     doi="10.1088/1741-4326/abdb91",
 )
-TROYON_1984 = _b.BoundarySource(
-    citation="F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209",
-)
+TROYON_1984 = _b.get_boundary("troyon").sources[0]   # the registered Troyon source, DOI included
 LUCE_2008 = _b.BoundarySource(
     citation="T. C. Luce, C. C. Petty and J. G. Cordey, Plasma Phys. Control. Fusion 50 (2008) 043001",
     doi="10.1088/0741-3335/50/4/043001",
@@ -98,6 +96,10 @@ SIMILARITY_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
         ),
     )
 }
+_clash = {name for name, q in SIMILARITY_QUANTITIES.items()
+          if name in _op_space.AXIS_QUANTITIES and _op_space.AXIS_QUANTITIES[name] != q}
+if _clash:
+    raise ValueError(f"similarity quantities {sorted(_clash)} would redefine registered axis quantities")
 _op_space.AXIS_QUANTITIES.update(SIMILARITY_QUANTITIES)
 
 _RHO_STAR = AxisConvention(
@@ -117,7 +119,8 @@ _RHO_STAR = AxisConvention(
 _NU_STAR = AxisConvention(
     quantity="nu_star_verdoolaege_2021",
     expression="5e-11 lnL n B_t R_geo^2 epsilon^(1/2) kappa_a I_p^(-1) T^(-2), lnL = 30.9 - ln(n^(1/2)/T)",
-    species="ion-ion collisions over the trapped-ion bounce frequency; T_e = T_i assumed",
+    species=("ion-ion collision frequency nu_ii over the trapped-particle bounce frequency (Verdoolaege Eq. 1c "
+             "writes nu_ii); T_e = T_i assumed, and lnL is the NRL electron form"),
     radial_definition="whole plasma; Sauter's (R/a)^(3/2) q R form with q = q_cyl (Eq. 1d) substituted",
     averaging_definition=_VOLUME_AVERAGE,
     source=replace(VERDOOLAEGE_2021, equation="Sec. 2.2.2, Eqs. (1c) and (1d)"),
@@ -126,8 +129,9 @@ _NU_STAR = AxisConvention(
     formula=("vaft.formula.equilibrium.nu_star_from_n_T_B_R_epsilon_kappa_I "
              "(ln_lambda=None evaluates equilibrium.coulomb_logarithm_from_n_T, the same lnL)"),
     unresolved=(
-        "#353: this database form is 1.45 times Sauter's nu* with q_cyl; VAFT's default nu* is undecided, so "
-        "this axis accepts only this convention",
+        "#353: VAFT's own comparison (equilibrium.nu_star_from_n_T_B_R_epsilon_kappa_I) puts this form at 1.45 "
+        "times Sauter's electron nu*_e (Eq. 18b) with q = q_cyl; neither source states that ratio. VAFT's default "
+        "nu* is undecided, so this axis accepts only this convention",
     ),
 )
 _OMEGA_TAU = AxisConvention(
@@ -191,6 +195,9 @@ def _register(key, title, y, conventions, **meta):
         assumptions=tuple(f"{c.quantity}: {c.expression} ({_cite(c.source)})" for c in conventions),
         interpretation=ProjectionInterpretation(parameter_conventions=conventions, **{**_COMMON, **meta}),
     )
+    existing = _op_space._PROJECTIONS.get(key)
+    if existing is not None and existing == projection:   # a module reload re-registers the same projection
+        return existing
     names = {c.quantity for c in conventions}
     if names != {projection.x.name, projection.y.name}:
         raise ValueError(f"projection {key!r} needs exactly one convention per axis, has {sorted(names)}")

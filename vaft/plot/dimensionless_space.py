@@ -18,7 +18,7 @@ computed here.
 from __future__ import annotations
 
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -83,7 +83,14 @@ def _similarity_projection(projection) -> OperationalProjection:
     return proj
 
 
-def _check_columns(table: pd.DataFrame, proj: OperationalProjection, units: Optional[Mapping[str, str]]) -> None:
+#: Renderer arguments this wrapper fixes: the axes are the projection's quantities, and colour is ``group``.
+_FIXED_ARGUMENTS = ("x", "y", "color")
+
+
+def _check_columns(table: pd.DataFrame, proj: OperationalProjection, units: Optional[Mapping[str, str]],
+                   group: Optional[str] = None) -> None:
+    if group is not None and group not in table.columns:
+        raise KeyError(f"table has no group column {group!r}; columns are {list(table.columns)}")
     declared = dict(getattr(table, "attrs", {}).get("units", {}) or {})
     declared.update(units or {})
     for quantity in (proj.x, proj.y):
@@ -116,7 +123,7 @@ def _exclusions(table: pd.DataFrame, proj: OperationalProjection, group: Optiona
 
 
 def _reference_rows(proj: OperationalProjection, references, reference_table: Optional[pd.DataFrame]):
-    """``(label, x, y, kind, citation)`` for every reference point to draw."""
+    """``(label, x, y, kind, citation)`` for every requested reference point."""
     rows = []
     if references is True or references == "default":
         points: Sequence[ReferencePoint] = reference_points(proj)
@@ -132,11 +139,32 @@ def _reference_rows(proj: OperationalProjection, references, reference_table: Op
         if missing:
             raise KeyError(f"reference_table needs columns {needed}; missing {missing}")
         for _, r in reference_table.iterrows():
-            if not str(r["source"]).strip() or pd.isna(r["source"]):
+            if pd.isna(r["source"]) or not str(r["source"]).strip():
                 raise ValueError(f"reference {r['label']!r} has no source; every reference point needs one")
-            rows.append((str(r["label"]), float(r[proj.x.name]), float(r[proj.y.name]), str(r["kind"]),
+            if r["kind"] not in ("design", "experiment"):
+                raise ValueError(f"reference {r['label']!r} has kind {r['kind']!r}; use 'design' or 'experiment'")
+            rows.append((str(r["label"]), pd.to_numeric(r[proj.x.name], errors="coerce"),
+                         pd.to_numeric(r[proj.y.name], errors="coerce"), str(r["kind"]),
                          str(r["source"])))
     return rows
+
+
+def _on_axis(value, scale: str, limits) -> bool:
+    value = float(value)
+    return bool(np.isfinite(value) and (value > 0 or scale == "linear") and min(limits) <= value <= max(limits))
+
+
+def _check_range(given, scale: str, axis: str) -> None:
+    if given is not None and scale == "log" and min(given) <= 0:
+        raise ValueError(f"{axis}_range {tuple(given)} has a non-positive bound on a log axis")
+
+
+def _positive_states(frame: pd.DataFrame, proj: OperationalProjection) -> np.ndarray:
+    ok = np.ones(len(frame), bool)
+    for quantity in (proj.x, proj.y):
+        values = pd.to_numeric(frame[quantity.name], errors="coerce").to_numpy(float)
+        ok &= np.isfinite(values) & (values > 0)
+    return ok
 
 
 def _span(values, scale: str) -> Optional[Tuple[float, float]]:
@@ -206,24 +234,50 @@ def dimensionless_similarity(table: pd.DataFrame, projection: Union[str, Operati
         ``ax.vaft_interpretation`` holds the projection's
         :class:`~vaft.diagram._projection_interpretation.ProjectionInterpretation`,
         ``ax.vaft_exclusions`` the :class:`SimilarityExclusions`,
-        ``ax.vaft_references`` the drawn reference rows and
+        ``ax.vaft_references`` the drawn reference rows,
+        ``ax.vaft_skipped_references`` the requested ones that could not be drawn, and
         ``ax.vaft_unavailable_references`` the source's references that have
         no stated values.
 
     Raises
     ------
     KeyError
-        An axis column is absent (for example a nu* under another convention's name).
+        An axis or group column is absent (for example a nu* under another convention's name).
+    TypeError
+        ``x``, ``y`` or ``color`` is passed: the axes and the colour are fixed by the projection and ``group``.
     ValueError
-        The projection has no interpretation, a unit does not match, or a
-        reference has no source.
+        The projection has no interpretation, a unit does not match, a
+        reference has no source or an unknown kind, or a log axis gets a
+        non-positive range bound.
     """
     import matplotlib.pyplot as plt
 
     proj = _similarity_projection(projection)
-    _check_columns(table, proj, units)
+    fixed = [name for name in _FIXED_ARGUMENTS if name in population_kwargs]
+    if fixed:
+        raise TypeError(f"dimensionless_similarity fixes {fixed}: the axes are the projection's quantities "
+                        f"({proj.x.name}, {proj.y.name}) and the colour is group=")
+    _check_columns(table, proj, units, group)
     scales = tuple(scales or AXIS_SCALES.get(proj.key, ("linear", "linear")))
+    _check_range(x_range, scales[0], "x")
+    _check_range(y_range, scales[1], "y")
     ok, report = _exclusions(table, proj, group)
+    trajectories = population_kwargs.pop("trajectories", None)
+    if trajectories:   # a trajectory state without a positive axis value is unassessed too, not clipped
+        kept, extra = {}, {}
+        for label, frame in trajectories.items():
+            missing = [q.name for q in (proj.x, proj.y) if q.name not in frame.columns]
+            if missing:
+                raise KeyError(f"trajectory {label!r} has no column(s) {missing}")
+            good = _positive_states(frame, proj)
+            kept[label] = frame.loc[good]
+            if (~good).any():
+                extra[f"trajectory {label}"] = int((~good).sum())
+        trajectories = kept
+        if extra:
+            report = replace(report, unassessed={**report.unassessed, **extra},
+                             total=report.total + sum(len(f) for f in kept.values()) + sum(extra.values()),
+                             assessed=report.assessed + sum(len(f) for f in kept.values()))
     if report.excluded:
         warnings.warn(report.summary(), stacklevel=2)
     placed = table.copy()
@@ -234,6 +288,11 @@ def dimensionless_similarity(table: pd.DataFrame, projection: Union[str, Operati
         x_range = _span(list(placed[proj.x.name][ok]) + [r[1] for r in refs], scales[0])
     if y_range is None:
         y_range = _span(list(placed[proj.y.name][ok]) + [r[2] for r in refs], scales[1])
+    # nothing placeable at all: a positive default keeps a log axis valid, and the legend says why it is empty
+    x_range = x_range or ((1e-3, 1e-1) if scales[0] == "log" else None)
+    y_range = y_range or ((1e-2, 1e1) if scales[1] == "log" else None)
+    if trajectories:
+        population_kwargs["trajectories"] = trajectories
     fig, ax = operational_space_population(placed, proj, color=group, boundaries=boundaries, units=units,
                                            x_range=x_range, y_range=y_range, title=title, ax=ax, **population_kwargs)
     ax.set_xscale(scales[0])
@@ -242,10 +301,18 @@ def dimensionless_similarity(table: pd.DataFrame, projection: Union[str, Operati
         ax.set_xlim(x_range)
     if y_range is not None:
         ax.set_ylim(y_range)
-    drawn = []
+    drawn, shown, skipped = [], [], []
+    xlim, ylim = ax.get_xlim(), ax.get_ylim()
     for label, xv, yv, kind, citation in refs:
+        if not (_on_axis(xv, scales[0], xlim) and _on_axis(yv, scales[1], ylim)):
+            skipped.append((label, xv, yv))
+            continue
+        shown.append((label, xv, yv, kind, citation))
         drawn.append(ax.scatter([xv], [yv], label=f"{label} ({kind}; {citation.split(',')[0]})", **REFERENCE_MARKER))
         ax.annotate(label, (xv, yv), xytext=(5, 5), textcoords="offset points", fontsize="small")
+    for label, xv, yv in skipped:
+        warnings.warn(f"reference {label!r} at ({xv}, {yv}) is missing, not positive on a log axis, or outside "
+                      "the plotted range; it is not drawn", stacklevel=2)
     ax.set_xlabel(AXIS_LABELS.get(proj.x.name, ax.get_xlabel()))
     ax.set_ylabel(AXIS_LABELS.get(proj.y.name, ax.get_ylabel()))
     if report.excluded:   # the figure itself says who is missing, not only the warning
@@ -266,7 +333,8 @@ def dimensionless_similarity(table: pd.DataFrame, projection: Union[str, Operati
             ax.legend(handles, labels, fontsize="x-small", frameon=False, loc="best")
     ax.vaft_interpretation = proj.interpretation
     ax.vaft_exclusions = report
-    ax.vaft_references = tuple(refs)
+    ax.vaft_references = tuple(shown)
+    ax.vaft_skipped_references = tuple(skipped)
     ax.vaft_unavailable_references = UNAVAILABLE_REFERENCES
     if show:
         plt.show()
