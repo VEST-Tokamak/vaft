@@ -729,6 +729,10 @@
       "shot": 48224,
       "status": "rendered"
     },
+    "kinetic_overview_profiles": {
+      "status": "no_sample",
+      "reason": "cross-shot repository fixture is intentionally not assigned a packaged sample shot"
+    },
     "limiter_current_time": {
       "call": "vaft.omas.plot_limiter_current_time(vaft.omas.load(vaft.data.sample(39915)))",
       "model_sha256": "d71797921d0d1cafd89ceef94e692c28f762510ccf53acb637b7356158df37a9",

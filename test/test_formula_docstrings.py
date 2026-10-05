@@ -38,6 +38,12 @@ DEFINITIONAL = frozenset({
     "list_boundaries",
     # A change of coordinates onto the Hugill plane (#1068); q_cyl carries its own source.
     "hugill_coordinates",
+    # Freidberg's q* of an elongated tokamak, Eq. (13.160): a coordinate, its source is in the docstring.
+    "kink_coordinates",
+    # Menard's cylindrical q* and the ITER guideline q95 estimate: coordinates whose sources are in the docstrings.
+    "cylindrical_kink_coordinates",
+    "iter_q95_coordinates",
+    "start_q95_coordinates",
     # A parameterization with no physics of its own (#552).
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",

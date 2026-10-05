@@ -5,6 +5,7 @@ from __future__ import annotations
 from vaft.data.eqdsk import TWO_PI, ods_psi_to_wb_per_radian_factor
 
 from dataclasses import dataclass
+import hashlib
 import json
 import logging
 import os
@@ -169,6 +170,39 @@ NEOCLASSICAL_PATHS = (
     "equilibrium",
 )
 
+
+# One row per canonical anomalous core_transport model and time slice. The
+# model index is part of the identity: two configurations must not be averaged
+# into one population simply because they predict flux at the same time.
+TURBULENT_TRANSPORT_COLUMNS = (
+    "shot",
+    "model_index",
+    "profile_index",
+    "time_s",
+    "source",
+    "model_name",
+    "code_name",
+    "code_version",
+    "configuration_status",
+    "parameters_text_sha256",
+    "rho_grid_min",
+    "rho_grid_max",
+    "points_on_grid",
+    "ion_count",
+    "q_e_points",
+    "q_i_points",
+    "gamma_e_points",
+    "rho_q_e_min",
+    "rho_q_e_max",
+    "rho_q_i_min",
+    "rho_q_i_max",
+    "rho_gamma_e_min",
+    "rho_gamma_e_max",
+    "q_e_peak_abs_W_m2",
+    "q_i_peak_abs_W_m2",
+    "gamma_e_peak_abs_m2_s",
+)
+
 VOLUME_AVERAGED_COLUMNS = (
     "shot",
     "cp_index",
@@ -262,6 +296,24 @@ def _safe_get(container, key: str, default=np.nan):
         return container[key]
     except Exception:
         return default
+
+
+def _pulse_time_begin(ods) -> str | None:
+    """Return the recorded acquisition time as ISO 8601 text, if usable.
+
+    Keep its timezone offset, when present.  Shot numbers and numeric values
+    are not timestamps and must never be interpreted as epoch offsets.
+    """
+    value = _safe_get(ods, "dataset_description.pulse_time_begin", None)
+    if value is None or isinstance(value, (bool, int, float, np.number)):
+        return None
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="replace")
+    try:
+        parsed = pd.Timestamp(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return None if pd.isna(parsed) else parsed.isoformat()
 
 
 def _as_float(value) -> float:
@@ -688,6 +740,125 @@ def extract_neoclassical(ods, shot: int) -> list[dict]:
                 "has_core_transport": has_transport,
             }
         )
+    return rows
+
+
+def _flux_profile(ods, path: str, size: int | None = None) -> np.ndarray | None:
+    values = _stored_value(ods, path)
+    if values is None:
+        return None
+    try:
+        array = np.asarray(values, dtype=float).reshape(-1)
+    except (TypeError, ValueError):
+        return None
+    return array if size is None or array.size == size else None
+
+
+def _stored_value(ods, path: str):
+    """Read only a stored leaf; OMAS may return an empty node for a missing one."""
+    return _safe_get(ods, path, None) if path in ods else None
+
+
+def _peak_abs(values: np.ndarray | None) -> float:
+    if values is None or not np.isfinite(values).any():
+        return np.nan
+    return float(np.max(np.abs(values[np.isfinite(values)])))
+
+
+def _rho_coverage(grid: np.ndarray, values: np.ndarray | None) -> tuple[float, float]:
+    if values is None:
+        return np.nan, np.nan
+    covered = grid[np.isfinite(grid) & np.isfinite(values)]
+    if not covered.size:
+        return np.nan, np.nan
+    return float(np.min(covered)), float(np.max(covered))
+
+
+def extract_turbulent_transport(ods, shot: int) -> list[dict]:
+    """Summarize canonical anomalous ``core_transport`` fluxes by model and time.
+
+    The fluxes are the SI values already mapped by the authoritative producer;
+    neither solver files nor an atlas table is read here. No radial gap is
+    filled, and an incomplete ion species set has no fabricated total.
+    """
+    if "core_transport.model" not in ods:
+        return []
+    rows: list[dict] = []
+    for model_index in range(len(ods["core_transport.model"])):
+        prefix = f"core_transport.model.{model_index}"
+        if _as_float(_stored_value(ods, f"{prefix}.identifier.index")) != 6:
+            continue
+        profiles_path = f"{prefix}.profiles_1d"
+        if profiles_path not in ods:
+            continue
+        parameters = _stored_value(ods, f"{prefix}.code.parameters")
+        configuration = None if parameters is None else str(parameters)
+        parameters_hash = (
+            hashlib.sha256(configuration.encode("utf-8")).hexdigest()
+            if configuration else None
+        )
+        for profile_index in range(len(ods[profiles_path])):
+            base = f"{profiles_path}.{profile_index}"
+            time_s = _as_float(_stored_value(ods, f"{base}.time"))
+            grid = _flux_profile(ods, f"{base}.grid_flux.rho_tor_norm")
+            if not np.isfinite(time_s) or grid is None or not np.isfinite(grid).any():
+                continue
+            size = grid.size
+            q_e = _flux_profile(ods, f"{base}.electrons.energy.flux", size)
+            gamma_e = _flux_profile(ods, f"{base}.electrons.particles.flux", size)
+            valid_grid = np.isfinite(grid)
+            if q_e is not None:
+                q_e = np.where(valid_grid, q_e, np.nan)
+            if gamma_e is not None:
+                gamma_e = np.where(valid_grid, gamma_e, np.nan)
+            ions_path = f"{base}.ion"
+            ion_count = len(ods[ions_path]) if ions_path in ods else 0
+            ion_fluxes = [
+                _flux_profile(ods, f"{ions_path}.{index}.energy.flux", size)
+                for index in range(ion_count)
+            ]
+            ion_fluxes = [
+                None if flux is None else np.where(valid_grid, flux, np.nan)
+                for flux in ion_fluxes
+            ]
+            q_i = (
+                np.sum(np.vstack(ion_fluxes), axis=0)
+                if ion_count and all(flux is not None for flux in ion_fluxes)
+                else None
+            )
+            finite_grid = grid[np.isfinite(grid)]
+            rho_q_e_min, rho_q_e_max = _rho_coverage(grid, q_e)
+            rho_q_i_min, rho_q_i_max = _rho_coverage(grid, q_i)
+            rho_gamma_e_min, rho_gamma_e_max = _rho_coverage(grid, gamma_e)
+            rows.append({
+                "shot": int(shot),
+                "model_index": model_index,
+                "profile_index": profile_index,
+                "time_s": time_s,
+                "model_name": _stored_value(ods, f"{prefix}.identifier.name"),
+                "code_name": _stored_value(ods, f"{prefix}.code.name"),
+                "code_version": _stored_value(ods, f"{prefix}.code.version"),
+                # code.parameters has no standardized configuration-only
+                # schema: it may also contain state identity or static notes.
+                "configuration_status": "not_standardized",
+                "parameters_text_sha256": parameters_hash,
+                "rho_grid_min": float(np.min(finite_grid)),
+                "rho_grid_max": float(np.max(finite_grid)),
+                "points_on_grid": int(finite_grid.size),
+                "ion_count": ion_count,
+                "q_e_points": 0 if q_e is None else int(np.count_nonzero(np.isfinite(q_e))),
+                "q_i_points": 0 if q_i is None else int(np.count_nonzero(np.isfinite(q_i))),
+                "gamma_e_points": 0 if gamma_e is None else int(np.count_nonzero(np.isfinite(gamma_e))),
+                "rho_q_e_min": rho_q_e_min,
+                "rho_q_e_max": rho_q_e_max,
+                "rho_q_i_min": rho_q_i_min,
+                "rho_q_i_max": rho_q_i_max,
+                "rho_gamma_e_min": rho_gamma_e_min,
+                "rho_gamma_e_max": rho_gamma_e_max,
+                "q_e_peak_abs_W_m2": _peak_abs(q_e),
+                "q_i_peak_abs_W_m2": _peak_abs(q_i),
+                "gamma_e_peak_abs_m2_s": _peak_abs(gamma_e),
+            })
     return rows
 
 
@@ -1343,9 +1514,14 @@ def extract_shot_overview(ods, shot: int) -> list[dict]:
     ]
 
 
+def _summary_columns(columns: tuple[str, ...]) -> tuple[str, ...]:
+    """Add shot-level acquisition metadata without changing extractor schemas."""
+    return ("shot", "pulse_time_begin", *(column for column in columns if column != "shot"))
+
+
 PRESETS = {
     "equilibrium_global": SummaryPreset(
-        columns=EQUILIBRIUM_GLOBAL_COLUMNS,
+        columns=_summary_columns(EQUILIBRIUM_GLOBAL_COLUMNS),
         paths=EQUILIBRIUM_GLOBAL_PATHS,
         key_columns=("shot", "eq_index", "time_s"),
         replace_groups=("shot",),
@@ -1353,7 +1529,7 @@ PRESETS = {
         extractor=extract_equilibrium_global,
     ),
     "core_profiles": SummaryPreset(
-        columns=CORE_PROFILES_COLUMNS,
+        columns=_summary_columns(CORE_PROFILES_COLUMNS),
         paths=CORE_PROFILES_PATHS,
         key_columns=("shot", "cp_index", "time_s"),
         replace_groups=("shot",),
@@ -1361,7 +1537,7 @@ PRESETS = {
         extractor=extract_core_profiles,
     ),
     "volume_averaged": SummaryPreset(
-        columns=VOLUME_AVERAGED_COLUMNS,
+        columns=_summary_columns(VOLUME_AVERAGED_COLUMNS),
         paths=VOLUME_AVERAGED_PATHS,
         key_columns=("shot", "cp_index", "time_core_s"),
         replace_groups=("shot",),
@@ -1369,7 +1545,7 @@ PRESETS = {
         extractor=extract_volume_averaged,
     ),
     "efit_magnetic_reliability": SummaryPreset(
-        columns=EFIT_RELIABILITY_COLUMNS,
+        columns=_summary_columns(EFIT_RELIABILITY_COLUMNS),
         paths=("equilibrium",),
         key_columns=("shot", "eq_index", "measurement_type", "measurement_index"),
         replace_groups=("shot",),
@@ -1383,7 +1559,7 @@ PRESETS = {
         extractor=extract_efit_magnetic_reliability,
     ),
     "efit_kinetic_reliability": SummaryPreset(
-        columns=EFIT_RELIABILITY_COLUMNS,
+        columns=_summary_columns(EFIT_RELIABILITY_COLUMNS),
         paths=("equilibrium",),
         key_columns=("shot", "eq_index", "measurement_type", "measurement_index"),
         replace_groups=("shot",),
@@ -1397,7 +1573,7 @@ PRESETS = {
         extractor=extract_efit_kinetic_reliability,
     ),
     "efit_reliability": SummaryPreset(
-        columns=EFIT_RELIABILITY_COLUMNS,
+        columns=_summary_columns(EFIT_RELIABILITY_COLUMNS),
         paths=("equilibrium",),
         key_columns=("shot", "eq_index", "measurement_type", "measurement_index"),
         replace_groups=("shot",),
@@ -1411,15 +1587,23 @@ PRESETS = {
         extractor=extract_efit_magnetic_reliability,
     ),
     "neoclassical": SummaryPreset(
-        columns=NEOCLASSICAL_COLUMNS,
+        columns=_summary_columns(NEOCLASSICAL_COLUMNS),
         paths=NEOCLASSICAL_PATHS,
         key_columns=("shot", "cp_index"),
         replace_groups=("shot",),
         sort_columns=("shot", "time_s", "cp_index"),
         extractor=extract_neoclassical,
     ),
+    "turbulent_transport": SummaryPreset(
+        columns=_summary_columns(TURBULENT_TRANSPORT_COLUMNS),
+        paths=("core_transport",),
+        key_columns=("source", "shot", "model_index", "profile_index", "time_s"),
+        replace_groups=("source", "shot"),
+        sort_columns=("source", "shot", "time_s", "model_index", "profile_index"),
+        extractor=extract_turbulent_transport,
+    ),
     "shot_overview": SummaryPreset(
-        columns=SHOT_OVERVIEW_COLUMNS,
+        columns=_summary_columns(SHOT_OVERVIEW_COLUMNS),
         paths=("spectrometer_uv", "magnetics", "tf", "barometry", "dataset_description"),
         key_columns=("shot",),
         replace_groups=("shot",),
@@ -1484,8 +1668,25 @@ def summary(
 
     for shot in shots:
         try:
-            with open_shot(shot, source=source, paths=list(definition.paths)) as ods:
-                rows = definition.extractor(ods, shot)
+            paths = list(definition.paths)
+            if "pulse_time_begin" in definition.columns and "dataset_description" not in paths:
+                paths.append("dataset_description")
+            try:
+                with open_shot(shot, source=source, paths=paths) as ods:
+                    rows = definition.extractor(ods, shot)
+                    pulse_time_begin = _pulse_time_begin(ods)
+            except FileNotFoundError as exc:
+                # Older archives can lack dataset_description altogether. Its
+                # absence must not erase otherwise valid summary quantities.
+                if "dataset_description" not in str(exc) or "dataset_description" not in paths:
+                    raise
+                remaining_paths = [path for path in paths if path != "dataset_description"]
+                with open_shot(shot, source=source, paths=remaining_paths) as ods:
+                    rows = definition.extractor(ods, shot)
+                pulse_time_begin = None
+            if "pulse_time_begin" in definition.columns:
+                for row in rows:
+                    row["pulse_time_begin"] = pulse_time_begin
             if not rows:
                 logger.warning(
                     "Shot %s: preset %s produced no rows; skipping", shot, preset
@@ -1494,6 +1695,9 @@ def summary(
             if "equilibrium_source" in definition.columns:
                 for row in rows:
                     row["equilibrium_source"] = source
+            if "source" in definition.columns:
+                for row in rows:
+                    row["source"] = source
             frames.append(pd.DataFrame(rows))
         except Exception as exc:
             logger.warning("Shot %s: preset %s failed; skipping: %s", shot, preset, exc)
@@ -1645,9 +1849,11 @@ __all__ = [
     "extract_core_profiles",
     "extract_efit_reliability",
     "extract_shot_overview",
+    "extract_turbulent_transport",
     "extract_volume_averaged",
     "get_summary_preset",
     "summary",
     "SHOT_OVERVIEW_COLUMNS",
+    "TURBULENT_TRANSPORT_COLUMNS",
     "VOLUME_AVERAGED_COLUMNS",
 ]

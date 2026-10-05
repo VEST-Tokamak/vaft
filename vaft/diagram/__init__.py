@@ -34,7 +34,8 @@ modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 ``scientific_workflow``, ``interoperability_layers``,
 ``scientific_provenance_chain``, ``scientific_infrastructure_principles``,
 ``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``,
-``human_ai_interface`` and ``machine_research_archive``; the spatial
+``human_ai_interface`` and ``machine_research_archive``; the VEST data platform
+(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``.
@@ -193,6 +194,8 @@ __all__ = [
     "experiment_modeling_theory_data_network",
     "human_ai_interface",
     "machine_research_archive",
+    "vest_data_platform",
+    "vest_data_platform_overview",
     "tokamak_top_view",
     "cocos_orientation",
     "machine_and_equilibrium_geometry",
@@ -345,6 +348,8 @@ _LOCATIONS = {
     "experiment_modeling_theory_data_network": "._vaft_concepts",
     "human_ai_interface": "._vaft_concepts",
     "machine_research_archive": "._vaft_concepts",
+    "vest_data_platform": "._platform",
+    "vest_data_platform_overview": "._platform",
     "tokamak_top_view": "._spatial",
     "cocos_orientation": "._spatial",
     "machine_and_equilibrium_geometry": "._spatial",

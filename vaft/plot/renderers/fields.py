@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+from matplotlib.colors import LogNorm
 
 from typing import Any
 
@@ -70,12 +71,25 @@ def render_field_2d(
 
     levels = model.contour_levels
     contour_kwargs = {"cmap": cmap, **style}
+    if "norm" not in contour_kwargs and colorbar and model.colorbar:
+        # figure_options=FigureOptions(norm=...) (issue #1421): a contour set
+        # places its levels now, so the norm has to be known now too.  Only a
+        # map whose colours a colorbar explains takes it.
+        from ..figure_options import draw_norm
+
+        chosen = draw_norm(model.values)
+        if chosen is not None:
+            contour_kwargs["norm"] = chosen
+            if levels is None and isinstance(chosen, LogNorm):
+                # Linear levels would put every band in the top decade.
+                levels = _levels_under(chosen, model.values)
+            if levels is not None and model.extend == "neither":
+                # A clim narrower than the data must saturate, not leave holes.
+                contour_kwargs["extend"] = "both"
     if model.value_scale == "log" and "norm" not in contour_kwargs:
         # Both halves are needed: the norm spaces the colours and the levels
         # space the bands. A LogNorm with linear levels still puts every
         # band in the top decade, which is the thing a log scale is for.
-        from matplotlib.colors import LogNorm
-
         finite = model.values[np.isfinite(model.values)]
         if finite.size:
             low, high = float(finite.min()), float(finite.max())
@@ -130,6 +144,14 @@ def render_field_2d(
     if model.aspect_equal:
         axes.set_aspect("equal", adjustable="box")
     return finalize(figure, axes, show=show, tight_layout=ax is None)
+
+
+def _levels_under(norm: Any, values: Any, count: int = 24) -> Any:
+    """Contour levels spaced in decades over a log norm's range."""
+    low, high = norm.vmin, norm.vmax
+    if low is None or high is None or not high > low:
+        return None
+    return np.logspace(np.log10(low), np.log10(high), count)
 
 
 def _field_renderer(*, domain: str, subject: str, quantity: str, description: str,

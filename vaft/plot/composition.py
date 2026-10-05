@@ -465,6 +465,12 @@ def render_composition(
         return figure
     from vaft.plot.renderers.panels import render_panels
 
+    if figure_options.panel_labels is not None:
+        # The composition's own marks, at render time: one style, never doubled.
+        import dataclasses
+
+        model = dataclasses.replace(model, panel_labels=figure_options.panel_labels)
+        figure_options = dataclasses.replace(figure_options, panel_labels=None)
     with figure_options_scope(figure_options):
         result = render_panels(model, show=False, **given)
     if figure_options:

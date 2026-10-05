@@ -44,7 +44,7 @@ def _parser() -> argparse.ArgumentParser:
         "--option", action="append", default=[], metavar="KEY=VALUE",
         help="plot option, e.g. selection=all, time_slice=4, style=normalized (repeatable)",
     )
-    parser.add_argument("--format", help="presentation format: screen, single_column, double_column")
+    parser.add_argument("--format", help="presentation format: screen, single_column, double_column, slide, poster")
     parser.add_argument("--theme", help="presentation theme: technical, minimal, monochrome")
     parser.add_argument("--backend", choices=("matplotlib", "plotly"), help="drawing library (plotly writes .html)")
     parser.add_argument(
@@ -130,7 +130,7 @@ def _request_from(args: argparse.Namespace, options: dict[str, Any], parser: arg
     )
 
 
-def _write(result: Any, out: str) -> str:
+def _write(result: Any, out: str, figure_options: Any = None) -> str:
     """Save what a request drew to ``out``: HTML for Plotly, the extension's format otherwise.
 
     A table or text view (issue #1180) is text: ``.txt``, ``.md`` or ``.html``
@@ -147,7 +147,7 @@ def _write(result: Any, out: str) -> str:
         return out
     from vaft.plot import save_figure
 
-    return save_figure(result[0], out)
+    return save_figure(result[0], out, figure_options=figure_options)
 
 
 def main(argv: Iterable[str] | None = None) -> int:
@@ -163,7 +163,7 @@ def main(argv: Iterable[str] | None = None) -> int:
                 from vaft.plot.environment import use_non_interactive_backend
 
                 use_non_interactive_backend()
-                print(_write(request.render(), args.out))
+                print(_write(request.render(), args.out, request.figure_options))
             else:
                 request.render(show=True)
         except KeyboardInterrupt:

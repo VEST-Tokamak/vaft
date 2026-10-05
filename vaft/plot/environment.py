@@ -16,6 +16,8 @@ should use when the caller says ``backend="auto"``.  Nothing here draws.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 __all__ = [
@@ -24,6 +26,8 @@ __all__ = [
     "detect_environment",
     "default_interaction_backend",
     "use_non_interactive_backend",
+    "close_figure",
+    "close_new_figures_on_error",
 ]
 
 #: ``terminal`` -- plain Python; ``ipython`` -- an IPython terminal shell;
@@ -129,3 +133,33 @@ def use_non_interactive_backend() -> None:
     import matplotlib
 
     matplotlib.use("Agg", force=False)
+
+
+def close_figure(figure: object) -> None:
+    """Release a Matplotlib figure from pyplot's registry.
+
+    A figure made through ``pyplot`` stays alive until it is closed; a
+    long-running caller outside :mod:`vaft.plot` (the browser GUI) closes the
+    ones it is done with here, since only :mod:`vaft.plot` touches pyplot.
+    """
+    import matplotlib.pyplot as plt
+
+    plt.close(figure)
+
+
+@contextmanager
+def close_new_figures_on_error() -> Iterator[None]:
+    """Close every pyplot figure opened inside the block when the block raises.
+
+    A builder that fails after pyplot made its figure would otherwise leave it
+    registered for the life of the process.
+    """
+    import matplotlib.pyplot as plt
+
+    before = set(plt.get_fignums())
+    try:
+        yield
+    except BaseException:
+        for number in set(plt.get_fignums()) - before:
+            plt.close(number)
+        raise
