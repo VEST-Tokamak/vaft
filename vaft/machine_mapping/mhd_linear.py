@@ -590,7 +590,8 @@ def extract_dcon_stability(ods: ODS) -> list[dict[str, Any]]:
       not Joules) and ``W_t_spectrum`` etc. (complex arrays);
     * ``edge_treatment``, ``requested_psiedge``, ``psilim``, ``qlim`` and, for a
       truncated run, ``edge_scan`` (``psi_n``, ``q``, complex ``dW``);
-    * ``psi_n``, ``D_I``, ``D_R``, ``C_A`` (NaN where not evaluated),
+    * ``psi_n``, ``D_I``, ``D_R``, ``C_A`` (NaN where not evaluated), and
+      ``C_A_evaluated``, the per-surface mask of where ballooning ran,
       ``mercier_evaluated``, ``ballooning_evaluated``;
     * summaries: ``max_D_I`` / ``psi_n_at_max_D_I``, ``max_D_R`` /
       ``psi_n_at_max_D_R``, ``min_C_A`` / ``psi_n_at_min_C_A`` over evaluated
@@ -677,6 +678,7 @@ def _parse_dcon_fragment(solver: Any) -> dict[str, Any]:
     bal = None if criteria is None else _flag(criteria.get("bal_flag"))
     row["mercier_evaluated"] = mer
     row["ballooning_evaluated"] = None if bal is None or evaluated is None else (bal and bool(evaluated.any()))
+    row["C_A_evaluated"] = evaluated
 
     def extremum(values: Optional[np.ndarray], mask: Optional[np.ndarray], largest: bool):
         if values is None or psi is None or values.shape != psi.shape:

@@ -124,3 +124,72 @@ def test_edge_comparison(rows):
         dcon_edge_comparison(truncated, full)
     with pytest.raises(ValueError, match="different n"):
         dcon_edge_comparison(full, dict(truncated, n_tor=2))
+
+
+def _dcon_edge_scan_replay(q_of_psi, psiedge, qlim0, n_tor, steps, dw_of_psi):
+    """Replay sing.f:226-238 and ode.f ode_record_edge on a synthetic q(psi)."""
+    q_s = q_of_psi(psiedge)
+    q_start = int(q_s)
+    size = int(np.ceil((qlim0 - q_start) * n_tor * 20))
+    q_edge = q_start + np.arange(size) / (20 * n_tor)
+    pre_edge = int(np.count_nonzero(q_edge < q_s))  # 0-based start of the search
+    psi_edge = np.zeros(size)
+    dw = np.full(size, -1e300, dtype=complex)
+    i = 0
+    for p in steps:
+        qq = q_of_psi(p)
+        if qq > qlim0:  # DCON integrates to psilim, where q = qlim
+            break
+        if qq >= q_edge[i] and p >= psiedge:
+            dw[i], q_edge[i], psi_edge[i] = dw_of_psi(p), qq, p
+            i = min(i + 1, size - 1)
+    row = {"n_tor": n_tor, "requested_psiedge": psiedge, "psilim": None, "qlim": None,
+           "edge_scan": {"psi_n": psi_edge, "q": q_edge, "dW": dw}}
+    filled = psi_edge > 0
+    searched = np.flatnonzero(filled & (np.arange(size) >= pre_edge))
+    peak = searched[int(np.argmax(dw[searched].real))]
+    return row, pre_edge, float(psi_edge[peak])
+
+
+def _linear_q(q0, slope, psi0=0.95):
+    return lambda p: q0 + slope * (p - psi0)
+
+
+@pytest.mark.parametrize("q_psiedge", [2.9995, 2.5999, 3.4123])
+def test_peak_search_start_matches_dcon_near_integers_and_grid_points(q_psiedge):
+    # Coarse ODE steps, so the first filled entry sits past an integer (2.9995)
+    # or past a nominal grid point (2.5999 vs 2.60); dW falls outward, so the
+    # first searched entry is the peak and any start error shows.
+    q = _linear_q(q_psiedge, 30.0)
+    steps = np.arange(0.95003, 0.994, 0.00003)
+    row, pre_edge, dcon_peak = _dcon_edge_scan_replay(q, 0.95, 4.0, 1, steps, lambda p: complex(1.0 - p))
+    out = dcon_edge_scan(dict(row, psilim=dcon_peak))
+    assert out["q_edge_start"] == int(q_psiedge)
+    assert out["peak_search_start"] == pre_edge and out["peak_search_start_ambiguous"] is False
+    assert out["truncated_at_peak"] is True
+
+
+def test_unfilled_entries_are_skipped_and_pin_q_edge_start():
+    q = _linear_q(2.9995, 30.0)
+    steps = np.arange(0.95003, 0.9612, 0.00003)  # stop before the scan is full
+    row, pre_edge, dcon_peak = _dcon_edge_scan_replay(q, 0.95, 4.0, 1, steps, lambda p: complex(np.sin(40 * p)))
+    unfilled = int(np.count_nonzero(row["edge_scan"]["psi_n"] == 0))
+    assert unfilled > 0
+    out = dcon_edge_scan(dict(row, psilim=dcon_peak))
+    assert out["n_points"] == row["edge_scan"]["psi_n"].size - unfilled
+    assert out["q_edge_start"] == 2 and out["truncated_at_peak"] is True
+
+
+def test_an_edge_scan_without_n_raises(rows):
+    with pytest.raises(ValueError, match="n_tor"):
+        dcon_edge_scan(dict(rows["peak_dw_truncated"], n_tor=None))
+
+
+def test_ballooning_reads_only_evaluated_surfaces(rows):
+    row = rows["full_edge"]
+    ca = np.asarray(row["C_A"], dtype=float).copy()
+    mask = np.ones(ca.size, dtype=bool)
+    mask[:5] = False
+    ca[:5] = 0.0  # an old payload's unevaluated zeros
+    out = dcon_local_stability(dict(row, C_A=ca, C_A_evaluated=mask))["ballooning"]
+    assert out["n_evaluated"] == ca.size - 5 and out["zero_crossings"] == []

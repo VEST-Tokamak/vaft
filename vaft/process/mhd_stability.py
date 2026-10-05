@@ -169,7 +169,8 @@ def dcon_local_stability(row: Mapping[str, Any]) -> dict[str, Optional[dict[str,
     DCON's signs (``mercier.f``, ``bal.f``): ``D_I > 0`` Mercier unstable,
     ``D_R > 0`` resistive-interchange criterion unstable, ``C_A < 0`` high-n
     ideal ballooning unstable. ``C_A`` is read only where the payload marks it
-    evaluated: the NaN entries of an unevaluated surface are skipped, not zero.
+    evaluated (``C_A_evaluated``), so an unevaluated surface is skipped, not a
+    marginal zero, whether or not it was stored as NaN.
 
     Applicability
     -------------
@@ -178,7 +179,8 @@ def dcon_local_stability(row: Mapping[str, Any]) -> dict[str, Optional[dict[str,
     Limitations
     -----------
     The payload carries no per-surface mask for ``D_I``/``D_R``; ``mer_flag``
-    evaluates all of them, so the flag alone decides.
+    evaluates all of them, so the flag alone decides. A profile whose length
+    differs from ``psi_n`` is ``None``, as the payload's own summaries treat it.
 
     Provenance
     ----------
@@ -188,15 +190,19 @@ def dcon_local_stability(row: Mapping[str, Any]) -> dict[str, Optional[dict[str,
     flags = {"D_I": row.get("mercier_evaluated"), "D_R": row.get("mercier_evaluated"),
              "C_A": row.get("ballooning_evaluated")}
     names = {"D_I": "mercier", "D_R": "resistive_interchange", "C_A": "ballooning"}
+    masks = {"C_A": row.get("C_A_evaluated")}
     out: dict[str, Optional[dict[str, Any]]] = {}
     for criterion, name in names.items():
         values = row.get(criterion)
-        if flags[criterion] is not True or values is None or psi is None:
+        if flags[criterion] is not True or values is None or psi is None or np.size(values) != np.size(psi):
             out[name] = None
             continue
+        mask = masks.get(criterion)
+        if mask is not None and np.size(mask) != np.size(values):
+            mask = None
         side = DCON_UNSTABLE_SIDE[criterion]
         out[name] = {"criterion": criterion, "unstable_side": side,
-                     **criterion_intervals(psi, values, unstable_side=side)}
+                     **criterion_intervals(psi, values, unstable_side=side, evaluated=mask)}
     return out
 
 
@@ -221,7 +227,10 @@ def dcon_edge_scan(row: Mapping[str, Any]) -> Optional[dict[str, Any]]:
         ``zero_crossings_psi_n``: psi_N where Re dW_edge changes sign [-];
         ``negative_intervals``: psi_N intervals with Re dW_edge < 0 [-];
         ``n_points`` [-]; ``peak_search_start``: index of the first searched
-        entry [-].
+        entry [-]; ``peak_search_start_ambiguous``: whether a nominal grid
+        point lies so close to the estimated ``q(psiedge)`` that the payload
+        cannot pin the start to one entry [-];
+        ``q_edge_start``: DCON's ``qedgestart`` recovered from the scan [-].
 
     Convention
     ----------
@@ -241,10 +250,11 @@ def dcon_edge_scan(row: Mapping[str, Any]) -> Optional[dict[str, Any]]:
     Limitations
     -----------
     One scan per run; DCON keeps only the truncated solution's eigenvectors.
-    The payload has no q profile, so ``q(psiedge)`` is the q of the first
-    filled entry, one ODE step past psiedge; a nominal grid point inside that
-    step would shift ``pre_edge`` by one. ``nperq_edge`` is DCON's default 20,
-    which VAFT's templates never change.
+    The payload has no q profile, so ``q(psiedge)`` is extrapolated from the
+    first two filled entries; when a nominal grid point falls inside that first
+    ODE step the start is flagged ambiguous rather than guessed silently.
+    ``nperq_edge`` is DCON's default 20, which VAFT's templates never change.
+    Raises ``ValueError`` without a positive ``n_tor``.
 
     Provenance
     ----------
@@ -256,13 +266,13 @@ def dcon_edge_scan(row: Mapping[str, Any]) -> Optional[dict[str, Any]]:
     psi = np.asarray(scan["psi_n"], dtype=float)
     q = np.asarray(scan["q"], dtype=float)
     dw = np.asarray(scan["dW"])
-    filled = (psi > 0) & np.isfinite(np.real(dw))
     n_tor = row.get("n_tor")
-    if not filled.any() or not n_tor or n_tor <= 0:
+    if n_tor is None or int(n_tor) <= 0:
+        raise ValueError(f"an edge scan needs a positive n_tor, got {n_tor!r}")
+    filled = (psi > 0) & np.isfinite(np.real(dw))
+    if not filled.any():
         return None
-    q_at_psiedge = float(q[np.flatnonzero(filled)[0]])
-    nominal = int(q_at_psiedge) + np.arange(psi.size) / (DCON_NPERQ_EDGE * int(n_tor))
-    first = int(np.count_nonzero(nominal < q_at_psiedge))
+    first, ambiguous, q_edge_start = _peak_search_start(psi, q, filled, int(n_tor), row.get("requested_psiedge"))
     searched = filled & (np.arange(psi.size) >= first)
     if not searched.any():
         return None
@@ -280,7 +290,50 @@ def dcon_edge_scan(row: Mapping[str, Any]) -> Optional[dict[str, Any]]:
         "negative_intervals": signs["unstable_intervals"],
         "n_points": int(filled.sum()),
         "peak_search_start": first,
+        "peak_search_start_ambiguous": ambiguous,
+        "q_edge_start": q_edge_start,
     }
+
+
+def _peak_search_start(psi, q, filled, n_tor: int, requested_psiedge) -> tuple[int, bool, int]:
+    """DCON's ``pre_edge - 1`` (0-based), whether the payload pins it, and ``qedgestart``.
+
+    ``sing.f:226-238``: ``qedgestart = INT(q(psiedge))``, nominal grid
+    ``q_edge(i) = qedgestart + (i-1)/(nperq_edge*n)``, and ``pre_edge`` counts the
+    nominal points below ``q(psiedge)``. The payload has neither ``q(psiedge)``
+    nor ``qedgestart``, so both are recovered from the scan:
+
+    * ``qedgestart``: an unfilled entry keeps its nominal q exactly, so it is
+      ``q[i] - i*step``. With every entry filled, ``size_edge =
+      CEILING((qlim0 - qedgestart)*n*nperq_edge)`` and the last entry's q lies in
+      ``[qedgestart + (size-1)*step, qlim0]``, which pins the integer as
+      ``CEILING(q[-1] - size*step)``. Never ``INT`` of a filled q: the first filled
+      entry sits one ODE step past psiedge and can be across an integer.
+    * ``q(psiedge)``: linear extrapolation of the first two filled entries back
+      to the requested psiedge, kept within ``[qedgestart, q_first]``. When a
+      nominal point lies within a tenth of the first ODE step's q change of
+      that estimate, the payload cannot pin the start and the flag says so.
+    """
+    step = 1.0 / (DCON_NPERQ_EDGE * n_tor)
+    index = np.arange(psi.size)
+    unfilled = np.flatnonzero(~filled)
+    if unfilled.size:
+        q_edge_start = int(round(q[unfilled[0]] - unfilled[0] * step))
+    else:
+        q_edge_start = int(math.ceil(q[-1] - psi.size * step))
+    order = np.flatnonzero(filled)
+    q_first = float(q[order[0]])
+    q_estimate, tolerance = q_first, q_first - float(q_edge_start)
+    if requested_psiedge is not None and order.size >= 2 and psi[order[1]] > psi[order[0]]:
+        slope = (q[order[1]] - q[order[0]]) / (psi[order[1]] - psi[order[0]])
+        q_estimate = q_first + slope * (float(requested_psiedge) - psi[order[0]])
+        q_estimate = min(max(q_estimate, float(q_edge_start)), q_first)
+        # Extrapolating over less than one ODE step: trust it to a tenth of that step.
+        tolerance = 0.1 * abs(q[order[1]] - q[order[0]])
+    nominal = q_edge_start + index * step
+    start = int(np.count_nonzero(nominal < q_estimate))
+    ambiguous = bool(np.any(np.abs(nominal - q_estimate) < tolerance))
+    return start, ambiguous, q_edge_start
 
 
 def dcon_edge_comparison(full: Mapping[str, Any], truncated: Mapping[str, Any]) -> dict[str, Any]:
