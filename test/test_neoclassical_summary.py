@@ -78,7 +78,7 @@ def test_bootstrap_columns_are_unchanged():
 
 def _unmatched(row, status):
     assert row["transport_match_status"] == status
-    assert row["q_e_points"] == row["q_i_points"] == row["gamma_e_points"] == 0
+    assert all(np.isnan(row[c]) for c in ("q_e_points", "q_i_points", "gamma_e_points"))
     assert np.isnan(row["q_e_peak_abs_W_m2"]) and np.isnan(row["transport_model_index"])
     assert row["points_solved"] == 6           # the bootstrap row stays usable
 
@@ -178,3 +178,20 @@ def test_the_real_neo_product_matches_itself():
     assert row["transport_rho_grid_min"] >= row["rho_solved_min"] - 1e-9
     assert row["transport_rho_grid_max"] <= row["rho_solved_max"] + 1e-9
     assert manifest["time_s"] == pytest.approx(float(ods["core_transport.model.0.profiles_1d.0.time"]))
+
+
+def test_a_homogeneous_core_transport_time_base_is_used_when_the_slice_has_none():
+    ods = _product()
+    del ods["core_transport.model.0.profiles_1d.0.time"]
+    ods["core_transport.ids_properties.homogeneous_time"] = 1
+    ods["core_transport.time"] = np.array([0.3])
+    assert _row(ods)["transport_match_status"] == "matched"
+    ods["core_transport.ids_properties.homogeneous_time"] = 0
+    assert _row(ods)["transport_match_status"] == "no_slice_at_time"
+
+
+def test_a_model_name_without_a_version_takes_the_ids_revision():
+    ods = _product()
+    ods["core_transport.model.0.code.name"] = "NEO"
+    row = _row(ods)
+    assert row["transport_match_status"] == "matched" and row["transport_code_version"] == "b493397"

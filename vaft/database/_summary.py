@@ -723,10 +723,10 @@ def _neoclassical_transport(ods, time_s: float) -> dict:
     IDS (only the stage manifest carries ``state_sha256``), so the state is
     matched through time and producer, which is what this contract can see.
     """
+    # Unmatched rows leave every descriptor missing, counts included: a 0 count is a
+    # matched slice without that channel (an adiabatic-electron run), not "no slice".
     out: dict = {column: np.nan for column in NEOCLASSICAL_COLUMNS[
         NEOCLASSICAL_COLUMNS.index("transport_rho_grid_min"):]}
-    for column in ("q_e_points", "q_i_points", "gamma_e_points"):
-        out[column] = 0
     out.update(transport_model_index=np.nan, transport_profile_index=np.nan,
                transport_code_version=None)
     if not np.isfinite(time_s):
@@ -745,10 +745,23 @@ def _neoclassical_transport(ods, time_s: float) -> dict:
     prefix = f"core_transport.model.{model}"
     profiles_path = f"{prefix}.profiles_1d"
     slices = len(ods[profiles_path]) if profiles_path in ods else 0
+    # A slice's own time, else -- in a homogeneous IDS -- its entry of the shared
+    # core_transport.time, the same fallback the bootstrap side uses.
+    shared = None
+    if _as_float(_stored_value(ods, "core_transport.ids_properties.homogeneous_time")) == 1:
+        stored = _stored_value(ods, "core_transport.time")
+        if stored is not None:
+            shared = np.asarray(stored, dtype=float).reshape(-1)
+
+    def slice_time(index):
+        own = _as_float(_stored_value(ods, f"{profiles_path}.{index}.time"))
+        if np.isfinite(own) or shared is None or index >= shared.size:
+            return own
+        return float(shared[index])
+
     matches = [
         index for index in range(slices)
-        if abs(_as_float(_stored_value(ods, f"{profiles_path}.{index}.time")) - time_s)
-        <= _SLICE_TIME_TOLERANCE_S
+        if abs(slice_time(index) - time_s) <= _SLICE_TIME_TOLERANCE_S
     ]
     if not matches:
         return {**out, "transport_match_status": "no_slice_at_time"}
@@ -756,8 +769,11 @@ def _neoclassical_transport(ods, time_s: float) -> dict:
         return {**out, "transport_match_status": "ambiguous_slices"}
     bootstrap_name, bootstrap_version = _producer(ods, "core_profiles")
     flux_name, flux_version = _producer(ods, prefix)
+    ids_name, ids_version = _producer(ods, "core_transport")
     if flux_name is None:
-        flux_name, flux_version = _producer(ods, "core_transport")
+        flux_name, flux_version = ids_name, ids_version
+    elif flux_version is None and flux_name == ids_name:
+        flux_version = ids_version
     if (bootstrap_name != "NEO" or flux_name != "NEO"
             or (bootstrap_version and flux_version and bootstrap_version != flux_version)):
         return {**out, "transport_match_status": "producer_mismatch"}

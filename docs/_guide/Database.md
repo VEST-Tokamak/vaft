@@ -63,7 +63,8 @@ slice that corresponds to it (#1655):
 - **No fallbacks.** The first model and the nearest time are never chosen.
 - **Unmatched rows.** They keep their bootstrap columns.
 - **State identity.** The NEO mappers store no resolved-state identity in either IDS (only the stage manifest carries `state_sha256`), so the state is matched through time and producer.
-- **Source.** The `source` column records the occurrence. The preset key stays `(shot, cp_index)`, as before.
+- **Missing versus zero.** Unmatched rows leave every flux descriptor missing (NaN), point counts included; a 0 count means a matched slice without that channel.
+- **Source.** The `source` column records the occurrence. The preset key stays `(shot, cp_index)`, as before, so an upsert of tables from two sources into one file still replaces by `(shot, cp_index)`. Keep one file per source, or pass `key_columns` with `source` to `export_summary`.
 
 `turbulent_transport` summarizes anomalous models already
 stored in canonical `core_transport`: one row per shot, model entry, and time
