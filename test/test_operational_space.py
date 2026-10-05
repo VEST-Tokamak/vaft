@@ -576,3 +576,47 @@ def test_an_omitted_boundary_is_not_applicable():
     t = pd.DataFrame({"edge_safety_factor_95": [5.0, 6.0], "internal_inductance_li3": [0.5, 0.6]})
     _, ax = operational_space_population(t, "li_qa_wesson", x="edge_safety_factor_95")
     assert {s for s, _ in ax.vaft_applicability.values()} == {"NOT_APPLICABLE"}
+
+
+# --- spherical-tokamak Hugill diagram (#1602) ----------------------------------------------------
+
+
+def test_st_hugill_coordinates_put_the_greenwald_and_sykes_densities_on_their_lines():
+    a, R, bt, kappa, ip = 0.27, 0.38, 0.17, 1.5, 0.12
+    for density, key in ((10 * ip / (np.pi * a * a), "greenwald_hugill_st"),
+                         (10 * ip / (np.pi * a * a * kappa), "sykes_2000_st_hugill")):
+        x, y = B.hugill_coordinates_st(density, R, bt, a, kappa, ip)
+        line = B.boundary_value(B.get_boundary(key), inverse_cylindrical_q_st=y, elongation=kappa)
+        assert x == pytest.approx(float(line))
+    # the ST q_cyl is Menard's q*, and differs from the conventional Hugill q_cyl by (1 + kappa^2)/(2 kappa_a)
+    _, y_st = B.hugill_coordinates_st(1.0, R, bt, a, kappa, ip)
+    assert 1.0 / y_st == pytest.approx(B.cylindrical_kink_coordinates(a, R, bt, kappa, ip))
+    _, y_conv = B.hugill_coordinates(1.0, R, bt, a, kappa, ip)
+    assert y_conv / y_st == pytest.approx((1 + kappa**2) / (2 * kappa))
+
+
+def test_st_and_conventional_hugill_axes_are_never_substituted():
+    assert not ops.placement("hugill", "sykes_2000_st_hugill", {"elongation": 1.5}).drawable
+    assert not ops.placement("hugill", "greenwald_hugill_st", {"elongation": 1.5}).drawable
+    assert not ops.placement("hugill_st", "greenwald_hugill", {"area_elongation": 1.5}).drawable
+    assert ops.placement("hugill_st", "murakami_hugill").kind == "vertical"   # the x axis is shared
+
+
+def test_sykes_boundary_is_supported_for_a_spherical_tokamak_and_murakami_stays_a_reference():
+    x, y = B.hugill_coordinates_st(np.linspace(5, 30, 20), 0.38, 0.17, 0.27, 1.5, np.linspace(0.05, 0.25, 20))
+    t = pd.DataFrame({"murakami_parameter": x, "inverse_cylindrical_q_st": y, "elongation": 1.5})
+    t.attrs["units"] = {"murakami_parameter": "1e19 m^-2 T^-1"}
+    t.attrs["machine_class"] = "spherical_tokamak"
+    _, ax = operational_space_population(t, "hugill_st", boundary_style="inline")
+    assert ax.vaft_applicability["sykes_2000_st_hugill"][0] == "SUPPORTED"
+    legend = " ".join(t_.get_text() for t_ in ax.get_legend().get_texts()).replace("\n  ", " ")
+    assert "historical conventional-tokamak reference" in legend and "Hugill limit (Sykes 2000, MAST)" in legend
+
+
+def test_st_hugill_diagram_curves_are_the_registered_boundaries():
+    import vaft.diagram
+    chart = vaft.diagram.hugill_st(elongation=1.8).model
+    xy = chart.curves["hugill"]
+    expected = B.boundary_value(B.get_boundary("sykes_2000_st_hugill"), inverse_cylindrical_q_st=xy[:, 1], elongation=1.8)
+    np.testing.assert_allclose(xy[:, 0], expected)
+    assert chart.parameters["boundaries"] == ("sykes_2000_st_hugill", "greenwald_hugill_st", "murakami_hugill")

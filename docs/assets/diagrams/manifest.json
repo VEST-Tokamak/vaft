@@ -355,6 +355,11 @@
       "source_sha256": "d3e6b68972a37fc56072f467942817eccea370b27a60597c288338122b70c56b",
       "svg_sha256": "81433ebd873f70dd9a6293b7e31b5030a0ae092330d799fc92c0818e9103bba1"
     },
+    "hugill_st.svg": {
+      "call": "vaft.diagram.hugill_st()",
+      "source_sha256": "226d46728a6b76ea3e451c0d7aa917fa902cec7be8601e8e0f4d66c8de427fd2",
+      "svg_sha256": "7166bc2325bffd1e1ef601faa3eebcca44ef705c85728113065216837a9a01e0"
+    },
     "human_ai_interface.svg": {
       "call": "vaft.diagram.human_ai_interface()",
       "source_sha256": "cc0d6e59683c39f3b48f8b85f55dc6ee3bef7430b01374f9c1d35ea9c616b92a",

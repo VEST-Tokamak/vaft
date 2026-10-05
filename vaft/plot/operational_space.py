@@ -69,6 +69,8 @@ BOUNDARY_NAMES = {
     "cheng_1987_qa_min": "q(a) = 2",
     "low_q": "Low-q limit",
     "greenwald_hugill": "Greenwald/Hugill limit",
+    "greenwald_hugill_st": "Greenwald limit (ST coordinates)",
+    "sykes_2000_st_hugill": "Hugill limit (Sykes 2000, MAST)",
     "murakami_hugill": "Murakami (historical conventional-tokamak reference)",
     "greenwald_fraction_unity": "Greenwald limit",
     "martin_2008_lh": "L-H threshold (Martin 2008)",

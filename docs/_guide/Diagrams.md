@@ -74,6 +74,7 @@ which has no closed form, is a schematic, and the figure says so.
 vaft.diagram.peeling_ballooning()
 vaft.diagram.s_alpha_ballooning(s_max=1.5, alpha_max=3.5)
 vaft.diagram.hugill(elongation=1.0)                       # no size parameter: R, a, B cancel
+vaft.diagram.hugill_st(elongation=1.8)                   # spherical-tokamak q_cyl (Sykes et al. 2000, MAST)
 vaft.diagram.troyon(aspect_ratio=3.0, elongation=1.7)      # registered Troyon limit, ~2.76
 vaft.diagram.li_qa(reference="wesson_1989")                # JET empirical l_i-q_psi space
 vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-stable l_i-q(a) domain
@@ -90,6 +91,7 @@ vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-sta
 | Peeling–ballooning | Which edge instability limits the pedestal? | $\alpha_\mathrm{max}$, $J_{B,\mathrm{max}}$ (arbitrary units) | **Schematic.** Two linear margins joined by a smooth maximum. The ★, where the peeling and ballooning limits meet (typical ELM onset), is computed where the two margins are equal |
 | $s$–$\alpha$ | How does shear set the ballooning limit, and where is second stability? | $\alpha$, $s$ | The first and second stability boundaries come from `s_alpha_marginal_alpha`, which applies Newcomb's criterion to the Connor–Hastie–Taylor equation. The dashed line is the $0.6\,s$ approximation of `ballooning_stability_criterion`. Not resolved below $s \approx 0.05$ |
 | Hugill | Where is the density limit? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The registered `greenwald_hugill` line (slope $\pi/50\kappa_a$ in $1/q_\mathrm{cyl}$ against $\bar n_e R/B_T$) and `murakami_hugill` ($\bar n_e R/B_T = 1$). The registered `low_q` is on the equilibrium $q_\psi$, not $q_\mathrm{cyl}$, so it is not drawn; `q_limit=` adds a dashed *reference* $q_\mathrm{cyl}$ line |
+| Hugill (ST) | Where is the density limit in a spherical tokamak? | $\bar n_e R/B_T$, $1/q^{ST}_\mathrm{cyl}$ with $q^{ST}_\mathrm{cyl} = 2.5a^2(1+\kappa^2)B_T/(RI_p)$ | `vaft.diagram.hugill_st(elongation=1.8)`: the Hugill limit as Sykes et al. (2000, MAST) define it (`sykes_2000_st_hugill`) and the Greenwald limit on these axes (`greenwald_hugill_st`, derived); Murakami dashed as a historical conventional-tokamak reference. Not substitutable with the conventional `hugill` axes (#1602) |
 | $l_i$–$q$ | Where do current-profile peaking and edge q allow stable operation? | Wesson: $q_\psi$, $l_i(3)$. Cheng: cylinder $q(a)$, $l_i$ | Two separate references, never mixed. Wesson 1989 Fig. 6: the JET *empirical* boundaries (kink and double tearing below, density-limit disruptions above), with the registered `low_q` closing $q_\psi = 2$. Cheng 1987 Fig. 4: the *theoretical* MHD-stable domain of a cylinder with $q(0) = 1.01$ (ideal kink below, resistive kinks above), plotted as $l_i$ rather than $l_i/2$ |
 | Troyon | How much pressure can the current hold? | $I_p/(aB_T)$, $\beta_T$ | The registered `troyon` limit, $\beta_N \le 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$. `beta_N_max=` draws a what-if value and the note says so; `q_limit=` adds a dashed reference $q_\mathrm{cyl}$ cutoff |
 

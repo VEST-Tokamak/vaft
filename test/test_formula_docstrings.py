@@ -44,6 +44,8 @@ DEFINITIONAL = frozenset({
     "cylindrical_kink_coordinates",
     "iter_q95_coordinates",
     "start_q95_coordinates",
+    # The spherical-tokamak Hugill coordinates of Sykes et al. (2000), #1602; the source is in the docstring.
+    "hugill_coordinates_st",
     # A parameterization with no physics of its own (#552).
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
