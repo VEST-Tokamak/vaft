@@ -239,31 +239,37 @@ def beta_tor_from_beta_pol(beta_pol: float,
 # ------------------------------------------------------------------
 
 def empirical_li_qa():
-    r"""Surveyed $(q_a, l_i)$ operating points from the JET disruption study.
+    r"""Vertices of the JET empirical $l_i$-$q_\psi$ stability boundary (Wesson 1989, Fig. 6).
 
-    Eighteen $(q_a, l_i)$ pairs read from the JET operational diagram: at each
-    integer $q_a$ from 2 to 10, the upper and lower $l_i$ of the observed
-    operating band.
+    Eighteen $(q, l_i)$ pairs: at each integer $q$ from 2 to 10, the top and
+    then the bottom of the vertical edge of one tooth of the saw-tooth
+    "empirical stability boundary" -- the *lower* boundary of the JET operating
+    space, below which rotating kink and double-tearing modes grow during the
+    current rise.
 
     Returns
     -------
     qa : np.ndarray
-        Edge safety factor of each point [-].
+        Edge safety factor of each point; the paper's $q_\psi$ [-].
     li : np.ndarray
-        Internal inductance of each point [-].
+        Internal inductance of each point, $2\int B_\theta^2 d\tau/(\mu_0^2 R I^2)$ [-].
 
     Physical interpretation
     -----------------------
-    Low $q_a$ goes with high $l_i$ (a peaked current profile); above
-    $q_a \approx 6$ the lower branch saturates near $l_i \approx 0.3$ (flat
-    profile).  The band bounds the region where JET discharges avoided
-    disruptions in the $q_a$-$l_i$ plane.
+    Between integers the boundary rises linearly from one tooth's bottom to
+    the next tooth's top; each vertical drop sits at a rational edge $q$.
+    Above $q \approx 6$ the bottoms saturate near $l_i \approx 0.3$. The
+    *upper* boundary of Fig. 6 (density-limit disruptions) is not in these
+    arrays.
 
     Validity
     --------
-    Empirical fit.  Digitised from the JET survey of Wesson et al. [1]_
-    (ohmic and early NBI discharges, circular-to-D-shaped, 1985-1988); the
-    values are approximate readings of a published figure, not tabulated data.
+    Empirical fit. Approximate readings of a published figure (JET 1985-1988),
+    not tabulated data. A 2026 audit (#1422) re-digitized Fig. 6 at 600 dpi:
+    these values agree with it to about 0.03 in $l_i$. The registered
+    ``vaft.formula.boundaries`` entries ``wesson_1989_jet_li_qpsi_lower`` and
+    ``wesson_1989_jet_li_qpsi_upper`` carry the audited boundary with its
+    provenance and quantity identity; prefer them.
 
     Limitations
     -----------
@@ -273,7 +279,7 @@ def empirical_li_qa():
     References
     ----------
     .. [1] J. A. Wesson et al., "Disruptions in JET", Nucl. Fusion 29 (1989)
-           641, Fig. 5 ($l_i$-$q_a$ diagram).
+           641, Fig. 6, p. 645 ($l_i$-$q$ diagram; Fig. 5 is the Hugill diagram).
     """
     qa = np.array([2, 2, 3, 3, 4, 4, 5, 5, 6, 6,
                    7, 7, 8, 8, 9, 9, 10, 10])
@@ -312,7 +318,7 @@ def li_from_qa_empirical(qa: np.ndarray) -> np.ndarray:
 
     References
     ----------
-    .. [1] J. A. Wesson et al., Nucl. Fusion 29 (1989) 641, Fig. 5.
+    .. [1] J. A. Wesson et al., Nucl. Fusion 29 (1989) 641, Fig. 6 (lower boundary; see empirical_li_qa).
     """
     qa_ref, li_ref = empirical_li_qa()
     return np.interp(qa, qa_ref, li_ref)

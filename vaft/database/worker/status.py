@@ -140,6 +140,12 @@ class PipelineHarvester:
         self.stability_modules = [m for m in self.gpec_modules if m in _STABILITY_MODULES]
         hsds = config.get("hsds") or {}
         self.replicate = bool(hsds.get("replicate", False)) and self.paths.layout == module.FILEDB
+        #: The stages `rule all` requests (config ``stages``); ``None`` is all.
+        #: A stage outside it is never scheduled, so it is never judged either.
+        self.scope = module.stage_scope(config.get("stages"))
+
+    def in_scope(self, stage: str) -> bool:
+        return self.scope is None or stage in self.scope
 
     # -- targets -----------------------------------------------------------
     def raw_targets(self, shot: int) -> list[StageTarget]:
@@ -150,7 +156,10 @@ class PipelineHarvester:
         return [self.paths.raw_dump(shot), self.paths.raw_manifest(shot)]
 
     def targets(self, shot: int) -> list[StageTarget]:
-        """Every product ``rule all`` requests for an eligible shot."""
+        """Every product ``rule all`` requests for an eligible shot, within the stage scope."""
+        return [target for target in self._all_targets(shot) if self.in_scope(target.stage)]
+
+    def _all_targets(self, shot: int) -> list[StageTarget]:
         targets = self.raw_targets(shot)
         for stage in _STAGE_MANIFESTS:
             targets.append(

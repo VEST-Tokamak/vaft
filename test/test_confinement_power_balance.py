@@ -221,3 +221,110 @@ def test_builder_extension_columns_do_not_shadow_the_canonical_schema():
 
     build = _builder()
     assert not set(build.EXTENSION_UNITS) & set(CONFINEMENT_COLUMNS)
+
+
+def test_builder_keeps_p_ohm_and_r_p_for_a_single_labelled_slice():
+    """One labelled slice has no dli_3/dt or dW/dt, but P_OH = I_p V_res and R_p need no rate.
+
+    Before the fix the all-NaN dli_3/dt array was passed on, so V_ind, V_res,
+    P_OH and R_p were NaN as well (packaged 40324 row, cold review 0.8.0
+    delta-absorb-13 F1); only the rate-dependent columns may be NaN.
+    """
+    build = _builder()
+    t, ip, dip, v_loop, li3, r0, w = (np.array([0.312]), np.array([60e3]), np.array([1.5e6]),
+                                     np.array([2.5]), np.array([0.8]), 0.4, np.array([800.0]))
+    split, pb, ev, orientation = build.power_balance_series(
+        t, ip, dip, v_loop, li3, r0, w, dwdt_window_s=3e-3, rate_polyorder=1)
+    expected_v_ind = 0.5 * MU0 * r0 * li3 * dip  # l_i held fixed: no dli_3/dt term
+    assert split.v_ind == pytest.approx(expected_v_ind)
+    assert np.isfinite(split.v_res).all() and np.isfinite(split.r_p).all()
+    assert pb.p_ohmic == pytest.approx(ip * (v_loop - expected_v_ind))
+    assert np.isnan(pb.dwdt).all() and np.isnan(pb.p_net).all() and np.isnan(pb.tau_e_net).all()
+    assert orientation == 1.0
+    assert ev.ip_abs.shape == (1,)
+
+    # Two labelled slices further apart than the 3 ms window hold no rate either
+    # (4 of the 16 two-slice rows of the packaged table): P_OH stays, dW/dt is NaN.
+    args2 = (np.array([60e3, 62e3]), np.array([1.5e6, 1.4e6]), np.array([2.5, 2.4]),
+             np.array([0.8, 0.9]), r0, np.array([800.0, 900.0]))
+    split2, pb2, _, _ = build.power_balance_series(np.array([0.310, 0.312]), *args2,
+                                                   dwdt_window_s=3e-3, rate_polyorder=1)
+    np.testing.assert_allclose(split2.v_ind, 0.5 * MU0 * r0 * args2[3] * args2[1])
+    assert np.isfinite(pb2.p_ohmic).all() and np.isnan(pb2.dwdt).all() and np.isnan(pb2.tau_e_net).all()
+
+    # Two labelled slices inside the window take the rate path and keep the dli_3/dt term.
+    split3, pb3, _, _ = build.power_balance_series(np.array([0.310, 0.311]), *args2,
+                                                   dwdt_window_s=3e-3, rate_polyorder=1)
+    assert np.isfinite(pb3.dwdt).all() and np.isfinite(pb3.p_net).all()
+    np.testing.assert_allclose(split3.v_ind - 0.5 * MU0 * r0 * args2[3] * args2[1],
+                               0.25 * MU0 * r0 * args2[0] * 100.0)  # dli_3/dt = 0.1 per 1 ms
+
+
+def _lane_d_module(name):
+    import importlib.util
+    import pathlib
+
+    path = pathlib.Path(__file__).resolve().parents[1] / "workflow/confinement_scaling" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"lane_d_{name}", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_builder_decision_columns_use_the_primary_selection():
+    """accepted/selected in table.csv are the #1490 primary selection, the one every result quotes.
+
+    The builder used to apply the sensitivity thresholds (0.5 / 0.05) while the
+    README, fit.py and the notebooks call 0.20 / 1.0 the primary selection
+    (cold review 0.8.0 delta-absorb-13 F2). The README's numbers and the
+    packaged table's `selected` column must match the code.
+    """
+    import pathlib
+    import re
+
+    build = _builder()
+    fit = _lane_d_module("fit")
+    assert build.PRIMARY_THRESHOLDS == fit.SELECTIONS["primary"]
+    assert build.PRIMARY_THRESHOLDS != fit.SELECTIONS["sensitivity"]
+
+    readme = (pathlib.Path(__file__).resolve().parents[1] / "workflow/confinement_scaling/README.md").read_text(
+        encoding="utf-8")
+    pattern = r"^\| (primary|sensitivity) \| ≤ ([\d.]+) \| ≤ ([\d.]+) \| ≥ (\d+) kA \|$"
+    rows = {m[0]: m[1:] for m in re.findall(pattern, readme, re.M)}
+    for name, (ip_change, dwdt, ip_ka) in rows.items():
+        sel = fit.SELECTIONS[name]
+        assert float(ip_change) == sel["max_ip_change_per_tau"]
+        assert float(dwdt) == sel["max_dwdt_fraction"]
+        assert float(ip_ka) * 1e3 == sel["ip_min"]
+    assert set(rows) == {"primary", "sensitivity"}
+    assert "provisional" not in readme.split("## Slice quality")[1].split("## Run")[0]
+
+    import pandas as pd
+    from vaft.data import data_path
+
+    table = pd.read_csv(data_path("confinement/vest_tier_a_confinement.csv"))
+    primary = fit.select(table, fit.SELECTIONS["primary"])
+    np.testing.assert_array_equal(table["selected"].to_numpy(bool), primary)
+    np.testing.assert_array_equal(table["accepted"].to_numpy(bool), primary)
+    assert int(primary.sum()) == 59 and table.loc[primary, "shot"].nunique() == 19  # the quoted primary set
+
+
+def test_lane_d_text_io_never_uses_the_locale_encoding():
+    """Repository files are read and written as UTF-8 (cold review 0.8.0 delta-absorb-13 F5)."""
+    import json
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    sources = {p: p.read_text(encoding="utf-8") for p in (root / "workflow/confinement_scaling").glob("*.py")}
+    for name in ("confinement_time_scaling", "multi_machine_database_comparison", "tokamak_power_balance"):
+        nb = json.loads((root / "notebooks" / f"{name}.ipynb").read_text(encoding="utf-8"))
+        sources[root / "notebooks" / f"{name}.ipynb"] = "\n".join(
+            "".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code")
+    text_io = re.compile(r"(?<![\w.])open\(|\.read_text\(|\.write_text\(")
+    offenders = []
+    for path, text in sources.items():
+        for number, line in enumerate(text.splitlines(), 1):
+            if text_io.search(line) and "encoding=" not in line and '"rb"' not in line and "gzip" not in line:
+                offenders.append(f"{path.name}:{number}: {line.strip()}")
+    assert not offenders, "\n".join(offenders)
