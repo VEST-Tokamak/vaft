@@ -88,6 +88,7 @@ CORE_MODULES: tuple[str, ...] = (
     # be able to see.
     "test_gpec_island_geometry.py",
     "test_magnetic_island.py",
+    # Machine geometry: source vertices, unknown phi, camera units and mask.
     # Registry, taxonomy and display policy: the vocabulary the rest of the
     # package indexes itself by.
     "test_diagnostic_registry.py",
@@ -96,6 +97,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_equilibrium_field_2d.py",
     "test_layout_contract.py",
     "test_line_abscissa.py",
+    "test_machine_geometry_registry.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
     "test_parameter_history.py",
