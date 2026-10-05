@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -31,6 +31,11 @@ class FixedToFreeResult:
     current_max_change_A: float | None
     comparison: Mapping[str, Any]
     status: str
+    refined: TokaMakerResult | None = None
+    refined_comparison: Mapping[str, Any] = field(default_factory=dict)
+    refined_currents_A: Mapping[str, float] = field(default_factory=dict)
+    refinement_status: str | None = None
+    refinement_diagnostics: Mapping[str, Any] = field(default_factory=dict)
 
 
 def _distances(points, contour):
@@ -101,6 +106,7 @@ def fixed_to_free(
     target: EquilibriumData, machine: Any, workdir: str | Path, *,
     fit_backend: str = 'direct', config: TokaMakerConfig | None = None,
     fit_options: Mapping[str, Any] | None = None,
+    refine_shape: bool = False, refinement_options: Mapping[str, Any] | None = None,
 ) -> FixedToFreeResult:
     """Fit PF currents, hold them fixed and solve a true free-boundary equilibrium.
 
@@ -109,7 +115,12 @@ def fixed_to_free(
     solely from a native fixed-boundary solve. Only coil responses are shared.
     ``workdir`` must be new; inverse, forward and comparison artefacts are
     isolated there. Solver convergence is reported separately from fit
-    acceptance and closure accuracy. No shape constraints or VSC are applied.
+    acceptance and closure accuracy. Shape constraints are absent in the
+    initial solve. With ``refine_shape=True``, a separate native optimization
+    starts from fitted currents, requires complete finite bounds and preserves
+    the initial result. ``refinement_options`` controls isoflux samples, explicit
+    saddle points, native constraint weights and a scaled deviation penalty.
+    The refined result and status are separate; VSC is never applied.
 
     The adapter meshes bounding rectangles per coil half. This approximation
     is recorded in the manifest; compare against the inverse response from
@@ -135,6 +146,12 @@ def fixed_to_free(
     else:
         fit = fit_free_boundary_coils_vfixed(eq, machine, output / 'fixed', config=cfg, **options)
     currents = dict(fit.currents_A)
+    refinement = None
+    if refine_shape:
+        from .refinement import prepare_shape_refinement
+        refine_options = dict(refinement_options or {})
+        refine_options.setdefault('current_bounds', options.get('current_bounds', {}))
+        refinement = prepare_shape_refinement(eq, currents, **refine_options)
     points = eq.lcfs.points
     radius = np.ptp(points[:, 0]) / 2
     cfg = replace(cfg, workdir=output / 'free', profile_equilibrium=eq,
@@ -161,14 +178,53 @@ def fixed_to_free(
         except Exception as exc:
             comparison = {'error': str(exc)}
             status = 'comparison_failed'
+    refined = None
+    refined_comparison = {}
+    refined_currents = {}
+    refinement_status = None
+    refinement_diagnostics = {}
+    if refine_shape:
+        refine_cfg = replace(cfg, workdir=output / 'refined', mesh_file=inputs.mesh_file)
+        if forward.ok and 'error' not in comparison:
+            refine_cfg = replace(refine_cfg, init_equilibrium=solved)
+        refined_inputs = prepare_tokamaker_inputs(machine, refine_cfg)
+        refined = run_tokamaker(refined_inputs, refine_cfg, refinement=refinement)
+        refinement_status = 'solver_failed'
+        if refined.ok:
+            refined_currents = dict(refined.scalars.get('coil_currents_A', {}))
+            bounded = set(refined_currents) == set(currents) and all(
+                refinement.current_bounds_A[n][0] - 1e-6 <= value <= refinement.current_bounds_A[n][1] + 1e-6
+                for n, value in refined_currents.items())
+            refinement_status = 'converged' if bounded else 'bounds_violated'
+            if set(refined_currents) == set(currents):
+                changes = {n: refined_currents[n] - currents[n] for n in currents}
+                refinement_diagnostics = {
+                    'current_changes_A': changes,
+                    'max_current_change_A': max(abs(v) for v in changes.values()),
+                    'scaled_current_deviation_norm': float(np.linalg.norm(list(changes.values()))/refinement.current_scale_A),
+                    'active_bounds': [n for n, value in refined_currents.items() if any(
+                        np.isclose(value, bound, rtol=0, atol=1e-6) for bound in refinement.current_bounds_A[n])],
+                    'bounds_complete': True, 'currents_within_bounds': bool(bounded),
+                    'regularization': refinement.regularization, 'current_scale_A': refinement.current_scale_A,
+                }
+            try:
+                refined_eq = as_equilibrium(refined.gfile, convention=refine_cfg.eqdsk_cocos)
+                refined_comparison = compare_equilibria(eq, refined_eq)
+            except Exception as exc:
+                refined_comparison = {'error': str(exc)}
+                refinement_status = 'comparison_failed'
     manifest = {'fit_backend': fit_backend, 'fit_status': fit.status, 'fit_accepted': fit.accepted,
                 'fit': fit.__dict__, 'initial_currents_A': currents, 'realized_currents_A': realized,
                 'current_max_change_A': delta, 'status': status, 'forward_error': forward.error,
-                'comparison': comparison, 'free_boundary': True, 'refine_shape': False,
+                'comparison': comparison, 'free_boundary': True, 'refine_shape': refine_shape,
+                'refinement_status': refinement_status, 'refined_comparison': refined_comparison,
+                'refined_currents_A': refined_currents, 'refinement_diagnostics': refinement_diagnostics,
+                'refined_error': refined.error if refined else None,
                 'coil_mesh_model': 'bounding rectangle per winding half',
                 'profile_mode': cfg.profile_mode}
     (output / 'closure.json').write_text(json.dumps(_json_safe(manifest), indent=2), encoding='utf-8')
-    return FixedToFreeResult(fit_backend, fit, forward, currents, realized, delta, comparison, status)
+    return FixedToFreeResult(fit_backend, fit, forward, currents, realized, delta, comparison, status,
+                             refined, refined_comparison, refined_currents, refinement_status, refinement_diagnostics)
 
 
 __all__ = ['FixedToFreeResult', 'compare_equilibria', 'fixed_to_free']
