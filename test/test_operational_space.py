@@ -535,3 +535,44 @@ def test_a_derived_boundary_says_derived_and_murakami_is_a_historical_reference(
     x_stable = ax.transAxes.transform(stable.get_position())[0]
     x_line = ax.transData.transform((1.0, 0.0))[0]
     assert abs(x_stable - x_line) > 0.08 * ax.get_window_extent().width
+
+
+# --- applicability status (#1628, plotting side) -------------------------------------------------
+
+
+def _wesson_table(machine_class=None):
+    t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 15, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
+    if machine_class:
+        t.attrs["machine_class"] = machine_class
+    return t
+
+
+def test_a_conventional_boundary_is_outside_for_a_spherical_tokamak_population():
+    from vaft.plot.operational_space import APPLICABILITY_STATUSES
+    _, ax = operational_space_population(_wesson_table("spherical_tokamak"), "li_qa_wesson", boundary_style="inline",
+                                         x_range=(0, 18), y_range=(0, 2))
+    status, reasons = ax.vaft_applicability["wesson_1989_jet_li_qpsi_lower"]
+    assert status == "OUTSIDE" and status in APPLICABILITY_STATUSES
+    assert any(r.startswith("$q_\\psi$") and "outside 2-10" in r for r in reasons) and "calibrated on JET" in reasons
+    legend = " ".join(t_.get_text() for t_ in ax.get_legend().get_texts()).replace("\n  ", " ")
+    assert "[outside calibration:" in legend
+
+
+def test_without_a_machine_class_a_generic_boundary_is_unassessed():
+    _, ax = operational_space_population(_hugill_table(), "hugill", boundary_style="inline")
+    status, reasons = ax.vaft_applicability["greenwald_hugill"]
+    assert status == "UNASSESSED" and "no machine class" in reasons[0]
+
+
+def test_a_boundary_declared_for_spherical_tokamaks_is_supported_in_range():
+    t = pd.DataFrame({"normalized_current": [1.0, 2.0, 3.0], "kink_safety_factor_cylindrical": [4.0, 3.0, 2.0]})
+    t.attrs["units"] = {"normalized_current": "MA m^-1 T^-1"}
+    t.attrs["machine_class"] = "spherical_tokamak"
+    _, ax = operational_space_population(t, "qstar_cyl_in", boundary_style="inline")
+    assert ax.vaft_applicability["menard_2004_qstar_min"][0] == "SUPPORTED"
+
+
+def test_an_omitted_boundary_is_not_applicable():
+    t = pd.DataFrame({"edge_safety_factor_95": [5.0, 6.0], "internal_inductance_li3": [0.5, 0.6]})
+    _, ax = operational_space_population(t, "li_qa_wesson", x="edge_safety_factor_95")
+    assert {s for s, _ in ax.vaft_applicability.values()} == {"NOT_APPLICABLE"}
