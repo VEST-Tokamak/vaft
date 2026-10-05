@@ -523,7 +523,9 @@ def test_start_scaling_is_akers_f_of_A_on_the_iter_shaping_factor():
 def test_a_derived_boundary_says_derived_and_murakami_is_a_historical_reference():
     _, ax = operational_space_population(_hugill_table(), "hugill", boundary_style="inline")
     legend = " ".join(t_.get_text() for t_ in ax.get_legend().get_texts()).replace("\n  ", " ")
-    assert "Murakami (historical conventional-tokamak reference), reference only (Derived)" in legend
+    assert "Murakami (historical conventional-tokamak reference) (Derived)" in legend
+    along = [t_.get_text().strip() for t_ in ax.texts]
+    assert "Murakami (reference)" in along   # the long name stays in the legend, a short one fits the line
     assert "(Derived)" in legend and "(Empirical)" not in legend
     murakami = [line for line in ax.get_lines() if line.get_linestyle() == "--"]
     assert murakami, "the historical reference is a dashed line"

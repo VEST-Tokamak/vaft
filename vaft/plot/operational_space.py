@@ -52,6 +52,8 @@ TRAJECTORY_COLORS = ("#1a1a19", "#5b2a9e", "#a3442b")
 #: no part in the "Stable" zone. Murakami is a historical conventional-tokamak reference, not a limit for a
 #: spherical tokamak (#1602).
 REFERENCE_ONLY = frozenset({"murakami_hugill"})
+#: Shorter names written along a line in the inline style, where the legend's full name would not fit the curve.
+ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)"}
 #: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
 BOUNDARY_NAMES = {
     "freidberg_2008_kink_qstar": "External kink limit",
@@ -237,7 +239,7 @@ def _math(symbol: str) -> str:
 
 
 def _inline_legend_label(curve: _b.BoundaryCurve) -> str:
-    """``{name} ({fixed inputs}) {Unstable} ({Empirical|Analytical|Numerical})``."""
+    """``{name} ({fixed inputs}) {Unstable} ({Empirical|Analytical|Numerical|Derived})``."""
     entry = _b.get_boundary(curve.key)
 
     def symbol(name):
@@ -668,7 +670,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             from matplotlib.lines import Line2D
             entry = _b.get_boundary(curve.key)
             patches.append(Line2D([], [], color=c, linestyle="--", linewidth=1.6 * line_scale, label=textwrap.fill(
-                f"{BOUNDARY_NAMES.get(curve.key, curve.key)}, reference only ({_basis_word(entry)})",
+                f"{BOUNDARY_NAMES.get(curve.key, curve.key)} ({_basis_word(entry)})",
                 width=46, subsequent_indent="  ")))
             continue
         _shade_forbidden(ax, curve, c, hatch="////" if inline else None)
@@ -681,7 +683,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     ax.set_ylim(ylim)
     if inline and plan.curves:
         for i, curve in enumerate(plan.curves):
-            _label_along(ax, curve, BOUNDARY_NAMES.get(curve.key, curve.key), BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)])
+            name = ALONG_LINE_NAMES.get(curve.key, BOUNDARY_NAMES.get(curve.key, curve.key))
+            _label_along(ax, curve, name, BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)])
         limits = [curve for curve in plan.curves if curve.key not in REFERENCE_ONLY]
         words = {_allowed_word(_b.get_boundary(curve.key)) for curve in limits}
         if limits:
