@@ -57,6 +57,17 @@ def _command(config: MITIMConfig, python: str, *arguments: str) -> tuple[str, ..
     removes them; a value the caller set in ``config.env`` is passed explicitly.
     """
     explicit = [f"{key}={config.env[key]}" for key in ("PYTHONPATH", "PYTHONHOME") if key in config.env]
+    if "PYTHONPATH" not in config.env:
+        # GACODE's own launchers parse their inputs with pygacode, and VAFT's GACODE
+        # environment puts $GACODE_ROOT/f2py on PYTHONPATH for exactly that; without it
+        # the launcher's parse step fails silently and NEO writes no flux files (tdst,
+        # 2026-10-06). Those entries are GACODE's, not the caller's, so they stay.
+        from ..gacode._runtime import gacode_home
+
+        home = gacode_home(config.gacode)
+        if home is not None:
+            explicit.append("PYTHONPATH=" + os.pathsep.join(
+                [str(home / "f2py"), str(home / "f2py" / "pygacode")]))
     return ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME", *explicit, python, *arguments)
 
 

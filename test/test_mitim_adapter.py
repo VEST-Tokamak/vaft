@@ -256,7 +256,10 @@ def test_the_callers_pythonpath_never_reaches_the_mitim_interpreter(ready, profi
     assert "PYTHONPATH" not in environment and "PYTHONHOME" not in environment
     command = _command(bare, "/mitim/python", "driver.py")
     assert command[:5] == ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME")
-    assert not any(part.startswith("PYTHONPATH=") for part in command)
+    (path,) = [part for part in command if part.startswith("PYTHONPATH=")]
+    home = ready.gacode.home
+    assert path == "PYTHONPATH=" + os.pathsep.join([f"{home}/f2py", f"{home}/f2py/pygacode"])
+    assert "/caller/" not in path   # GACODE's f2py only, never the caller's entries
     assert "PYTHONPATH=" + ready.env["PYTHONPATH"] in _command(ready, "/mitim/python", "driver.py")
     # The probe drops it too: with the stub only on the caller's PYTHONPATH, MITIM is absent.
     monkeypatch.setenv("PYTHONPATH", ready.env["PYTHONPATH"])
