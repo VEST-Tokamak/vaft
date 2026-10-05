@@ -246,9 +246,63 @@ def finalize(
                     figure.tight_layout(pad=pad)
             except Exception:  # pragma: no cover - layout engines can refuse
                 pass
+        _contain_3d_axes(figure)
     if show:
         plt.show()
     return figure, axes
+
+
+#: Space kept between a 3-D view's outermost text and the canvas edge, in points.
+_3D_EDGE_PAD_PT = 3.0
+
+
+def _contain_3d_axes(figure: Figure, *, passes: int = 3) -> None:
+    """Pull every 3-D axes in so its tick and axis labels sit inside the canvas.
+
+    ``tight_layout`` measures a 3-D axes by its 2-D box, not by the text the
+    projection throws outside it, so the z label of a default machine view
+    hung 14-33 px past the right edge (issue #1317).  This measures what was
+    actually drawn -- the axes' tight bbox and its three axis labels -- and
+    shrinks the axes' position by the overflow on each side, a few passes,
+    because shrinking the cube also moves the labels.  2-D axes are left as
+    the layout put them.
+    """
+    from matplotlib.transforms import Bbox
+
+    three_d = [axis for axis in figure.axes if getattr(axis, "name", "") == "3d" and axis.get_visible()]
+    if not three_d:
+        return
+    pad = _3D_EDGE_PAD_PT * figure.dpi / 72.0
+    for _ in range(passes):
+        figure.canvas.draw()
+        renderer = figure.canvas.get_renderer()
+        frame = figure.bbox
+        moved = False
+        for axis in three_d:
+            extents = [axis.get_tightbbox(renderer)]
+            extents += [
+                label.get_window_extent(renderer)
+                for label in (axis.xaxis.label, axis.yaxis.label, axis.zaxis.label)
+                if label.get_text() and label.get_visible()
+            ]
+            drawn = Bbox.union([extent for extent in extents if extent is not None])
+            over = (
+                max(0.0, frame.x0 + pad - drawn.x0), max(0.0, frame.y0 + pad - drawn.y0),
+                max(0.0, drawn.x1 - (frame.x1 - pad)), max(0.0, drawn.y1 - (frame.y1 - pad)),
+            )
+            if not any(value > 0.5 for value in over):
+                continue
+            box = axis.get_position()
+            left, bottom, right, top = (
+                over[0] / frame.width, over[1] / frame.height, over[2] / frame.width, over[3] / frame.height,
+            )
+            width, height = box.width - left - right, box.height - bottom - top
+            if width <= 0.1 * box.width or height <= 0.1 * box.height:
+                continue  # nothing sensible left to shrink to; keep the layout's box
+            axis.set_position([box.x0 + left, box.y0 + bottom, width, height])
+            moved = True
+        if not moved:
+            return
 
 
 def save_figure(

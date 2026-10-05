@@ -259,3 +259,49 @@ class TestSpectrogramDefaultReachesTheModel:
         model = self._model(frequency_range=(1e3, 5e4))
         assert model.max_frequency is None
         assert model.frequency[-1] > 4.9e4
+
+
+# --- 3-D views keep their axis labels on the canvas (issue #1317) -------------
+
+def _inside(figure, text) -> bool:
+    figure.canvas.draw()
+    extent = text.get_window_extent(figure.canvas.get_renderer())
+    frame = figure.bbox
+    return (extent.x0 >= frame.x0 - 0.5 and extent.x1 <= frame.x1 + 0.5
+            and extent.y0 >= frame.y0 - 0.5 and extent.y1 <= frame.y1 + 0.5)
+
+
+def _helix():
+    from vaft.plot.models import Geometry3DLayer, Geometry3DLayers
+
+    t = np.linspace(0.0, 4.0 * np.pi, 200)
+    return Geometry3DLayers(
+        layers=(Geometry3DLayer(x=0.6 * np.cos(t), y=0.6 * np.sin(t), z=0.1 * t - 0.6, label="coil"),),
+        title="3-D scene",
+    )
+
+
+@pytest.mark.parametrize("fmt", [None, "screen", "single_column", "double_column", "legacy"])
+def test_a_3d_view_keeps_every_axis_label_on_the_canvas(fmt):
+    from vaft.plot.renderers.geometry import render_geometry_3d_layers
+
+    figure, axes = render_geometry_3d_layers(_helix(), **({} if fmt is None else {"format": fmt}))
+    for label in (axes.xaxis.label, axes.yaxis.label, axes.zaxis.label):
+        assert label.get_text() and _inside(figure, label), (fmt, label.get_text())
+
+
+def test_the_packaged_machine_scene_keeps_its_z_label():
+    import vaft
+
+    figure, axes = vaft.omas.plot_machine_geometry3d(vaft.omas.sample_ods())
+    assert _inside(figure, axes.zaxis.label)
+
+
+def test_a_callers_3d_axes_is_not_moved():
+    from vaft.plot.renderers.geometry import render_geometry_3d_layers
+
+    figure = plt.figure(figsize=(4, 4))
+    axes = figure.add_subplot(projection="3d")
+    before = axes.get_position().bounds
+    render_geometry_3d_layers(_helix(), ax=axes)
+    assert axes.get_position().bounds == before
