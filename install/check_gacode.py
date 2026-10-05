@@ -41,7 +41,8 @@ TITLE = "GACODE environment check"
 RERUN = "python install/check_gacode.py"
 PROJECT = "GACODE"
 
-#: Suite members VAFT can drive today. CGYRO is still issue #553.
+#: Suite members every installation must build. CGYRO has an adapter (#1354) but
+#: is an optional, MPI-heavy build, so its absence does not fail this check.
 CODES = ("neo", "tglf")
 
 #: What a GACODE checkout looks like.

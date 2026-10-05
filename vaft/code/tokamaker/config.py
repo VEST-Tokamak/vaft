@@ -71,8 +71,14 @@ class TokaMakerConfig:
     alpha_p_a: float = 4.0                    # P'  inner exponent
     alpha_p_b: float = 1.0                    # P'  outer exponent
     nprof: int = 40                           # sample count for the profile tables
+    profile_mode: str = "power_law"          # power_law | equilibrium | explicit
+    profile_equilibrium: Any = None           # canonical EquilibriumData for source shape/scales
+    # Explicit native per-radian pprime/ffprime, axis-to-edge psi_n, and
+    # relative axis_pressure_Pa; coordinates must span [0,1].
+    profile_tables: Optional[Mapping[str, Any]] = None
 
     # --- initial plasma guess for init_psi (R0, Z0, a, kappa, delta) ---
+    init_equilibrium: Any = None             # canonical volume-current seed; no fixed boundary constraint
     init_r0: float = 0.35
     init_z0: float = 0.00
     init_a0: float = 0.20
@@ -128,6 +134,13 @@ class TokaMakerConfig:
     # results physically unchanged — it only refines the mesh. The evolution
     # and stability entry points REQUIRE include_vessel=True.
     include_vessel: bool = False
+    # Impose the eddy-stage wall currents (pf_passive.loop.*.current at the
+    # case time) on the vessel in a STATIC solve, as EFIT (IVESEL=1) and TES
+    # (eddy=True) do (#1534). The vessel regions are then meshed as one-turn
+    # coils carrying the loop currents, distributed along the wall loop by
+    # loop, instead of conductors. Requires include_vessel; the evolution,
+    # stability and scan entry points need conductor regions and reject it.
+    vessel_currents: bool = False
     dx_conductor: float = 0.02                # per-region cap [m]; actual dx = clamp(thickness)
     dx_conductor_min: float = 0.004           # per-region floor [m] (thin-strip mesh cost guard)
     # SUS316LN; exactly reproduces the packaged pf_passive W2-W10 loop resistances
@@ -214,6 +227,9 @@ class TokaMakerInputs:
     time: float                               # seconds
     ods: Any = None
     files: tuple[Path, ...] = ()
+    # {vessel region: {pf_passive loop index: current [A] at ``time``}};
+    # filled only with TokaMakerConfig.vessel_currents
+    vessel_loop_currents: dict[str, dict[int, float]] = field(default_factory=dict)
 
 
 @dataclass

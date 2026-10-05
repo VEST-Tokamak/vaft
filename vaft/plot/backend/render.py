@@ -8,6 +8,7 @@ styling from extraction options -- is the same for every data model.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Mapping, Sequence
 
 from vaft.plot.backends import renderer_for, resolve_render_backend
@@ -83,17 +84,27 @@ def render_entries(
         return render_animation(spec, entries, options, backend=backend, show=show, ax=ax)
     validate_options(name, options)
     refuse_when_unsupported(name, entries, namespace=namespace, subject=subject)
+    from vaft.plot.figure_options import as_figure_options
+
+    figure_options = as_figure_options(options.pop("figure_options", None))
+    if figure_options and (interactive or animation):
+        raise TypeError(
+            "figure_options= applies to a drawn figure; interactive=True and animation=True "
+            "redraw their own and do not take it yet"
+        )
     if interactive:
         return _render_interactive(
             spec, entries, options, backend=backend, controls=controls,
             interaction_backend=interaction_backend, show=show, ax=ax,
         )
-    model = build_model(name, entries, **options)
+    model = _mark_cross_shot(name, build_model(name, entries, **options), entries)
     # A layout other than overlay arranges the same traces into a Panels model;
     # renderer_for hands such a model to the panels renderer, so the return
     # shape follows the layout (issue #260) and no renderer knows about layouts.
     renderer = renderer_for(spec, model, backend)
     _, style = split_options(options)
+    from vaft.plot.figure_options import figure_options_scope
+
     if backend == "plotly":
         if ax is not None:
             raise TypeError(
@@ -101,8 +112,51 @@ def render_entries(
                 "and returns it"
             )
         _refuse_presentation(style, "backend='plotly' does not apply them")
-        return renderer(model, show=show, **style)
-    return renderer(model, ax=ax, show=show, **style)
+        figure = renderer(model, show=False, **style)
+        if figure_options:
+            figure_options.apply_plotly(figure)
+        if show:
+            figure.show()
+        return figure
+    if not figure_options:
+        return renderer(model, ax=ax, show=show, **style)
+    with figure_options_scope(figure_options):
+        result = renderer(model, ax=ax, show=False, **style)
+    # A caller's own canvas keeps its other axes: edit only what was drawn.
+    figure_options.apply(result[0], None if ax is None else result[1])
+    if show:
+        import matplotlib.pyplot as plt
+
+        plt.show()
+    return result
+
+
+def _mark_cross_shot(name: str, model: Any, entries: Sequence[tuple[str, Any]]) -> Any:
+    """Make a cross-shot fixture unmistakable on any static plot it produces."""
+    from vaft.plot.backend.access import get
+    from vaft.plot.models import Panels
+
+    if not any(
+        "Cross-shot composite" in str(get(obj, "dataset_description.ids_properties.comment", ""))
+        for _, obj in entries
+    ):
+        return model
+    field = "suptitle" if isinstance(model, Panels) else "title"
+    if not hasattr(model, field):
+        return model
+    title = getattr(model, field)
+    notice = "Cross-shot composite — not a physical VEST discharge"
+    if notice in title:
+        return model
+    if name == "machine_geometry_poloidal":
+        context = "Other-shot diagnostic coordinates projected onto geometry reference shot 39915"
+    elif name.startswith("equilibrium_"):
+        context = "Equilibrium: source shot 48224, PF era 2507; fixture machine geometry reference: shot 39915"
+    else:
+        context = "Fixture machine geometry reference: shot 39915; source IDS retains its own coordinates"
+    return replace(model, **{field: (
+        f"{title}\n{notice}\n{context}"
+    )})
 
 
 def _render_interactive(
@@ -211,7 +265,9 @@ def frame_renderers(
     hints = {"validity": fixed_style["validity"]} if fixed_style.get("validity") is not None else {}
 
     def build(chosen: Mapping[str, Any]) -> Any:
-        return build_model(spec.name, entries, **{**fixed, **hints, **chosen})
+        return _mark_cross_shot(
+            spec.name, build_model(spec.name, entries, **{**fixed, **hints, **chosen}), entries
+        )
 
     def draw(model: Any, **kwargs: Any) -> Any:
         return renderer_for(spec, model, backend)(model, **{**fixed_style, **kwargs})

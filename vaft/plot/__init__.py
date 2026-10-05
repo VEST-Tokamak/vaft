@@ -183,6 +183,8 @@ from .models import (
     ViewModel,
 )
 from .composition import AxisLink, FigureCell, FigureComposition
+from .figure_options import FigureOptions
+from .request import DataSource, PlotRequest
 from .discovery import PlotCapability, PlotCatalog
 from .display import PSI_STYLES
 from .navigation import SliceNavigator
@@ -296,6 +298,7 @@ from .renderers.panels import (
     core_profiles_time_volume_averaged,
     current_overview,
     diagnostics_overview,
+    kinetic_overview_profiles,
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,
@@ -388,6 +391,11 @@ from .analytic import (
 from .fluctuation import (
     cross_spectrum_model,
     plot_cross_spectrum,
+    plot_cross_diagnostic_coherence_spectrogram,
+    plot_multi_diagnostic_coherent_spectrogram,
+    plot_multi_diagnostic_coherent_fraction,
+    plot_multi_diagnostic_participation,
+    plot_multi_diagnostic_phase,
     plot_fluctuation_frequency_coverage,
 )
 
@@ -398,8 +406,11 @@ _SUPPORT_EXPORTS = (
     "FORMATS",
     "PSI_STYLES",
     "AxisLink",
+    "DataSource",
     "FigureCell",
     "FigureComposition",
+    "FigureOptions",
+    "PlotRequest",
     "Geometry3DLayer",
     "Geometry3DLayers",
     "GeometryLayer",
@@ -445,6 +456,11 @@ _SUPPORT_EXPORTS = (
     "solovev_equilibrium_model",
     "cross_spectrum_model",
     "plot_cross_spectrum",
+    "plot_cross_diagnostic_coherence_spectrogram",
+    "plot_multi_diagnostic_coherent_spectrogram",
+    "plot_multi_diagnostic_coherent_fraction",
+    "plot_multi_diagnostic_participation",
+    "plot_multi_diagnostic_phase",
     "plot_fluctuation_frequency_coverage",
     "THEMES",
     "resolve_presentation",

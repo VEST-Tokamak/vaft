@@ -65,13 +65,18 @@ NOTHING_TO_REPLICATE_STATUSES = frozenset({"no_output"})
 #: ``no_output`` alone does not say *why*. The solver stage's own
 #: ``<stage>_status`` does, and only these reasons are "nothing to publish":
 #: the solver ran and no slice survived, there was no upstream equilibrium to
-#: refine, or the stage is switched off in the configuration. Anything else --
-#: an executable that is not there, a missing input, an error -- is a fault a
-#: person has to see, and still fails the replication.
+#: refine, the stage is switched off in the configuration, or (eddy) a PF
+#: circuit the solve needs was never recorded for the shot -- a property of the
+#: data that no rerun changes (#1568). Anything else -- an executable that is
+#: not there, any other missing input, an error -- is a fault a person has to
+#: see, and still fails the replication. In particular an EFIT
+#: ``completed: returncode=0; gfiles=N`` that still ended ``no_output`` wrote
+#: g-files that could not be read or converted: a fault, so it is not listed.
 _NOTHING_BY_DESIGN = re.compile(
-    r"^(completed"                  # EFIT ran: completed_no_gfiles / completed: ...
+    r"^(completed_no_gfiles\b"      # EFIT ran: no slice produced a g-file
     r"|failed: refined_gfiles=0\b"  # CHEASE ran: every slice a solver verdict
     r"|skipped: no EFIT gfiles\b"   # CHEASE: nothing upstream to refine
+    r"|skipped: required input unavailable\b"  # eddy: a PF circuit was never recorded (#1568)
     r"|skipped: \w+\.run=false\b)"   # switched off on purpose
 )
 
@@ -778,11 +783,47 @@ def replicate_stage(
         logger.info("shot %s %s not published to %s: %s", shot, name, source, reason)
         return record
 
+    def published_ids_retried() -> tuple[str, ...]:
+        """List what the shot already holds, retried like a write would be.
+
+        The listing is the one remote call on the skipped path. A busy or
+        refusing server is transient, not a verdict on the stage, so it is
+        tried ``attempts`` times and then recorded ``failed`` and raised as a
+        ReplicationError, the same bookkeeping as a failed publish; letting
+        the OSError escape left no record and no retry at all.
+        """
+        started_at = _now()
+        for attempt in range(1, max(1, attempts) + 1):
+            try:
+                return _published_ids(source, shot, entry.ids)
+            except OSError as exc:
+                logger.warning(
+                    "shot %s %s listing attempt %s/%s failed: %s",
+                    shot, name, attempt, attempts, exc,
+                )
+                if attempt < attempts:
+                    time.sleep(retry_delay)
+                    continue
+                record = ReplicationRecord(
+                    stage=name, shot=shot, source=source,
+                    remote_uri=f"hdf5://{source}/{shot}/", ids=entry.ids,
+                    occurrence=entry.occurrence,
+                    product_sha256=sha256_file(product_path) if product_path.exists() else "",
+                    state="failed", attempts=attempt, started_at=started_at,
+                    error=f"could not list hdf5://{source}/{shot}/: {exc}",
+                )
+                write_record(record, record_path)
+                raise ReplicationError(
+                    f"Could not list hdf5://{source}/{shot}/ for shot {shot} {name} "
+                    f"after {attempts} attempt(s): {exc}"
+                ) from exc
+        raise AssertionError("unreachable")  # pragma: no cover
+
     try:
         manifest = _read_manifest(manifest_path)
         nothing = _nothing_to_replicate(manifest, name)
         if nothing is not None:
-            stale = _published_ids(source, shot, entry.ids)
+            stale = published_ids_retried()
             if stale:
                 # Skipping would leave an earlier run's IDS on the shot,
                 # linked and read as current, under a record saying nothing

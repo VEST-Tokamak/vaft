@@ -19,8 +19,12 @@ import tempfile
 os.environ.setdefault("MPLCONFIGDIR", tempfile.mkdtemp(prefix="vaft-mpl-"))
 
 from vaft.omas.vest_upstream import sha256_file
-from vaft.database.composition import compose_stage_products
-from vaft.database.production_qa import STAGE_PLOT_COMPANIONS, render_stage_plots
+from vaft.database.composition import EddyNoOutputError, compose_stage_products
+from vaft.database.production_qa import (
+    STAGE_PLOT_COMPANIONS,
+    empty_stage_plot_manifest,
+    render_stage_plots,
+)
 
 
 LOGGER = logging.getLogger("vaft.generate_stage_plots")
@@ -116,11 +120,16 @@ def main() -> int:
                 "vaft.database.composition how to compose the new pairing "
                 "before declaring it."
             )
-        source, provenance = compose_stage_products(
-            diagnostics=companion,
-            eddy=args.input,
-            eddy_manifest=args.stage_manifest,
-        )
+        try:
+            source, provenance = compose_stage_products(
+                diagnostics=companion,
+                eddy=args.input,
+                eddy_manifest=args.stage_manifest,
+            )
+        except EddyNoOutputError as error:
+            # The eddy stage recorded that this shot has nothing to compute
+            # (#1568): no figures, and a manifest saying why.
+            return _write_manifest(args, empty_stage_plot_manifest(args.stage, error.reason))
         composed_with.append(
             {
                 "stage": "diagnostics",
@@ -138,6 +147,10 @@ def main() -> int:
         required_fields=_csv_ints(args.required_fields),
         stage_manifest=args.stage_manifest,
     )
+    return _write_manifest(args, manifest, composed_with)
+
+
+def _write_manifest(args, manifest, composed_with=()) -> int:
     if args.shot is not None:
         manifest["shot"] = int(args.shot)
     # Ties the persisted figures to the exact product they validate: the plot
