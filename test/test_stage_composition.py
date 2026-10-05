@@ -161,3 +161,22 @@ def test_composition_never_reads_a_manifest_in_the_locale_encoding():
 
     source = inspect.getsource(composition)
     assert not re.search(r"\.read_text\(\s*\)", source)
+
+
+def test_an_eddy_that_recorded_no_output_is_refused_by_name(tmp_path):
+    """#1568: composition names the eddy stage's reason instead of 'carries no pf_passive'."""
+    from vaft.database.composition import EddyNoOutputError
+
+    time = np.linspace(0.0, 0.01, 50)
+    diagnostics = _diagnostics(tmp_path, time)
+    empty = tmp_path / "eddy.json"
+    save_ods(ODS(consistency_check=False), empty)
+    manifest = tmp_path / "eddy-manifest.json"
+    manifest.write_text(json.dumps({
+        "stage": "eddy", "status": "no_output",
+        "eddy_status": "skipped: required input unavailable: PF5 current was not acquired",
+    }))
+
+    with pytest.raises(EddyNoOutputError, match="PF5 current was not acquired") as error:
+        compose_stage_products(diagnostics=diagnostics, eddy=empty, eddy_manifest=manifest)
+    assert isinstance(error.value, StageCompositionError)  # the constraint builder still fails

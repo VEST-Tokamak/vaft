@@ -306,3 +306,47 @@ def test_long_workdir_falls_back_to_a_short_limiter_file(tmp_path, monkeypatch):
     limiter_file = fake.settings_at_setup["limiter_file"]
     assert len(limiter_file) <= 200
     assert Path(limiter_file).read_text().split("\n")[0].isdigit()
+
+
+def test_vessel_distribution_carries_the_summed_loop_currents(monkeypatch):
+    # OFT spreads a coil's current as I * dist / area; at I = 1 A the region
+    # must carry the sum of its loop currents, mixed signs included (#1534)
+    from vaft.code.tokamaker import runner
+
+    # a 0.02 x 0.40 m strip, region id 7, cut into a grid of triangles
+    rs, zs = np.linspace(0.80, 0.82, 3), np.linspace(-0.2, 0.2, 21)
+    nodes = np.array([[r, z, 0.0] for z in zs for r in rs])
+    cells = []
+    for j in range(len(zs) - 1):
+        for i in range(len(rs) - 1):
+            a, b = j * len(rs) + i, j * len(rs) + i + 1
+            c, d = a + len(rs), b + len(rs)
+            cells += [[a, b, d], [a, d, c]]
+    cells = np.array(cells)
+    captured = {}
+    mygs = types.SimpleNamespace(
+        r=nodes, lc=cells, reg=np.full(len(cells), 7),
+        set_coil_current_dist=lambda name, dist: captured.setdefault(name, dist),
+    )
+    meshing = types.SimpleNamespace(load_gs_mesh=lambda path: (None, None, None, {"W1": {"reg_id": 7}}, {}))
+    monkeypatch.setattr(runner, "import_oft", lambda: types.SimpleNamespace(meshing=meshing))
+    loops = [{"index": k, "r": 0.81, "z": z} for k, z in enumerate((-0.15, -0.05, 0.05, 0.15))]
+    amps = {0: 300.0, 1: -100.0, 2: 250.0, 3: -50.0}
+    inputs = types.SimpleNamespace(
+        vessel_loop_currents={"W1": amps},
+        geometry={"vessel": {"W1": {"loops": loops}}},
+        mesh_file="mesh.h5",
+    )
+
+    totals = runner._apply_vessel_currents(mygs, inputs)
+
+    assert totals == {"W1": pytest.approx(400.0)}
+    dist = captured["W1"]
+    tri = nodes[cells][:, :, :2]
+    area = 0.5 * np.abs((tri[:, 1, 0] - tri[:, 0, 0]) * (tri[:, 2, 1] - tri[:, 0, 1])
+                        - (tri[:, 2, 0] - tri[:, 0, 0]) * (tri[:, 1, 1] - tri[:, 0, 1]))
+    carried = float(np.sum(dist[cells].mean(axis=1) * area)) / float(area.sum())   # I = 1 A
+    assert carried == pytest.approx(400.0, rel=0.05)
+    # the distribution follows the loops: negative where the negative loops sit
+    lower = nodes[:, 1] < -0.1
+    assert dist[lower].mean() > 0 and dist[(nodes[:, 1] > -0.1) & (nodes[:, 1] < 0.0)].mean() < 0
