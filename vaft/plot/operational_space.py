@@ -48,6 +48,10 @@ MISSING_LABELS = frozenset({"unknown", "not available"})
 BOUNDARY_COLORS = ("#1a1a19", "#a3442b", "#2f6f4f", "#5b4a9e")
 #: Edge colours of representative-discharge trajectories, in order.
 TRAJECTORY_COLORS = ("#1a1a19", "#5b2a9e", "#a3442b")
+#: Boundaries shown in the inline style as a dashed reference line, never as a limit: no hatched forbidden side,
+#: no part in the "Stable" zone. Murakami is a historical conventional-tokamak reference, not a limit for a
+#: spherical tokamak (#1602).
+REFERENCE_ONLY = frozenset({"murakami_hugill"})
 #: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
 BOUNDARY_NAMES = {
     "freidberg_2008_kink_qstar": "External kink limit",
@@ -60,7 +64,7 @@ BOUNDARY_NAMES = {
     "cheng_1987_qa_min": "q(a) = 2",
     "low_q": "Low-q limit",
     "greenwald_hugill": "Greenwald/Hugill limit",
-    "murakami_hugill": "Murakami limit",
+    "murakami_hugill": "Murakami (historical conventional-tokamak reference)",
     "greenwald_fraction_unity": "Greenwald limit",
     "martin_2008_lh": "L-H threshold (Martin 2008)",
     "takizuka_2004_lh": "L-H threshold (Takizuka 2004)",
@@ -201,7 +205,9 @@ def _boundary_label(curve: _b.BoundaryCurve) -> str:
 
 
 def _basis_word(entry) -> str:
-    """Empirical, Analytical or Numerical, from the registered ``basis``."""
+    """Derived (a registered relation re-expressed by VAFT), else Empirical, Analytical or Numerical from ``basis``."""
+    if entry.origin == "derived":
+        return "Derived"
     basis = entry.basis
     if basis.endswith("numerical"):
         return "Numerical"
@@ -652,8 +658,16 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     ax.set_ylim(ylim)
     for i, curve in enumerate(plan.curves):
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
-        ax.plot(curve.x, curve.y, color=c, linewidth=1.6 * line_scale, label=None if inline else _boundary_label(curve),
-                zorder=2)
+        reference = inline and curve.key in REFERENCE_ONLY
+        ax.plot(curve.x, curve.y, color=c, linewidth=1.6 * line_scale, linestyle="--" if reference else "-",
+                label=None if inline else _boundary_label(curve), zorder=2)
+        if reference:
+            from matplotlib.lines import Line2D
+            entry = _b.get_boundary(curve.key)
+            patches.append(Line2D([], [], color=c, linestyle="--", linewidth=1.6 * line_scale, label=textwrap.fill(
+                f"{BOUNDARY_NAMES.get(curve.key, curve.key)}, reference only ({_basis_word(entry)})",
+                width=46, subsequent_indent="  ")))
+            continue
         _shade_forbidden(ax, curve, c, hatch="////" if inline else None)
         if inline:
             from matplotlib.colors import to_rgba
@@ -665,8 +679,10 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     if inline and plan.curves:
         for i, curve in enumerate(plan.curves):
             _label_along(ax, curve, BOUNDARY_NAMES.get(curve.key, curve.key), BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)])
-        words = {_allowed_word(_b.get_boundary(curve.key)) for curve in plan.curves}
-        _label_allowed_zone(ax, plan.curves, xs, ys, " / ".join(sorted(words)))
+        limits = [curve for curve in plan.curves if curve.key not in REFERENCE_ONLY]
+        words = {_allowed_word(_b.get_boundary(curve.key)) for curve in limits}
+        if limits:
+            _label_allowed_zone(ax, limits, xs, ys, " / ".join(sorted(words)))
     if trajectories:
         def colour_of(row):
             if color is None:
