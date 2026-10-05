@@ -113,11 +113,14 @@ def population_figure(table: pd.DataFrame, *, max_groups: int = 4, figsize=(11.0
     from vaft.plot.population import confinement_population
 
     fig, axes = plt.subplots(1, 2, figsize=figsize, constrained_layout=True)
+    # VEST sits bottom left and the I_p panel's upper left is empty; the two panels
+    # draw the same series, so the P_loss panel, which has no empty corner, keeps none.
     for ax, x in zip(axes, ("i_p_A", "p_loss_W")):
         confinement_population(table, x=x, y="tau_e_th_s", by="population",
                                highlight=VEST_LABEL, max_groups=max_groups, ax=ax)
-        # VEST sits bottom left; the legend goes where the population leaves room.
         mark_thomson_inconsistent(ax, table, x, "tau_e_th_s", legend_loc="upper left")
+    if axes[1].get_legend() is not None:
+        axes[1].get_legend().remove()
     axes[0].set_title(r"$\tau_E$ against $I_p$")
     axes[1].set_title(r"$\tau_E$ against $P_{loss}$ (VEST: $P_{OH} - dW/dt$)")
     return fig, axes
@@ -159,11 +162,14 @@ def mark_thomson_inconsistent(ax, table: pd.DataFrame, x, y: str, *, legend_loc:
         return pd.to_numeric(table[v], errors="coerce").to_numpy(float) * scale
 
     xs, ys = values(x), values(y)
+    shown = mask & np.isfinite(xs) & np.isfinite(ys)
+    if not shown.any():
+        return
     size = 2.2 * float(matplotlib.rcParams["lines.markersize"]) ** 2
-    ax.scatter(xs[mask], ys[mask], s=size, facecolors="none", edgecolors="crimson",
-               linewidths=1.2, zorder=6, label=THOMSON_RING_LABEL)
+    ax.scatter(xs[shown], ys[shown], s=size, facecolors="none", edgecolors="crimson",
+               linewidths=1.2, zorder=6, label=f"{THOMSON_RING_LABEL} ({int(shown.sum())})")
     if ax.get_legend() is not None:
-        ax.legend(fontsize="x-small", markerscale=1.2, frameon=False, loc=legend_loc)
+        ax.legend(fontsize="x-small", markerscale=1.5, frameon=False, loc=legend_loc)
 
 
 def _grid(n: int, panel=(5.4, 5.0), figsize=None):
@@ -315,6 +321,8 @@ def slide_figures(table: pd.DataFrame, exponents: pd.DataFrame, *, theme: str = 
     from vaft.plot.presentation import resolve_presentation
 
     pres = resolve_presentation(fmt, theme)
+    if pres is None or pres.format is None:
+        raise ValueError(f"slide_figures needs a presentation format such as 'slide'; got {fmt!r}")
     width, ceiling = pres.format.width_in, pres.format.max_height_in
     with pres.context():
         return {
