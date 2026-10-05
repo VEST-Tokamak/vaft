@@ -116,9 +116,12 @@ CORE_MODULES: tuple[str, ...] = (
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
+    # The MITIM adapter (#1588) runs a stub mitim_tools in this interpreter:
+    # availability statuses, the per-run config, launch, timeout and discovery.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
+    "test_mitim_adapter.py",
     "test_process_tree.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and

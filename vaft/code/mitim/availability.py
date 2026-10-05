@@ -16,6 +16,8 @@ from typing import Any, Optional
 
 from .config import MITIM_PYTHON_ENV, SUPPORTED_MITIM_VERSIONS, MITIMConfig, mitim_user_config
 
+__all__ = ["PROBE", "STATUSES", "MITIMAvailability", "mitim_availability"]
+
 #: Statuses in the order the checks run; ``ready`` only when every check passed.
 STATUSES = (
     "configuration_missing",
@@ -36,6 +38,8 @@ try:
     out["version"] = getattr(mitim_tools, "__version__", None)
     root = getattr(mitim_tools, "__mitimroot__", None)
     out["root"] = None if root is None else str(root)
+    import os.path
+    out["templates"] = bool(root) and os.path.isfile(os.path.join(str(root), "templates", "input.neo.controls"))
     try:
         rev = subprocess.run(["git", "-C", out["root"], "rev-parse", "HEAD"],
                              capture_output=True, text=True, timeout=10)
@@ -157,6 +161,13 @@ def mitim_availability(config: MITIMConfig | None = None, *, timeout: float = 30
                   root=found.get("root"), portals=bool(found.get("portals")))
     if "import_error" in found:
         return MITIMAvailability("not_installed", found["import_error"], **common)
+    if not found.get("templates"):
+        # A wheel install leaves __mitimroot__ in site-packages, without templates/,
+        # and MITIM then fails on its first prep() (input.neo.controls).
+        return MITIMAvailability(
+            "not_installed",
+            f"MITIM at {found.get('root')} has no templates/: install it editable from a "
+            "checkout of the release tag (install/install_mitim.sh)", **common)
     if found.get("version") not in SUPPORTED_MITIM_VERSIONS:
         return MITIMAvailability(
             "unsupported_version",

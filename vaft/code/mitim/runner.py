@@ -20,6 +20,8 @@ from ..execution import ExecutionRequest, resolve_backend, timeout_reason
 from .availability import MITIMAvailability, mitim_availability
 from .config import MITIMConfig, MITIMResult, mitim_user_config
 
+__all__ = ["run_mitim_driver", "run_neo_smoke"]
+
 #: The GACODE members MITIM may call; each one's ``bin`` goes on ``PATH``.
 _GACODE_MEMBERS = ("neo", "tglf", "tgyro", "cgyro", "vgen")
 

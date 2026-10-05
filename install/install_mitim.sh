@@ -9,7 +9,8 @@
 # 3.10-3.12 and pulls tensorflow, botorch and torch, so it gets an environment of
 # its own and VAFT never imports it: vaft.code.mitim runs it through that
 # environment's interpreter. This script creates the environment, installs the
-# pinned release tag (never a moving branch), runs the availability probe from
+# pinned release tag (never a moving branch) editable from a clone of that tag,
+# runs the availability probe from
 # the MITIM side, and writes vaft-external-install.json beside it. VAFT never
 # clones or updates MITIM at run time.
 #
@@ -73,7 +74,18 @@ else
 fi
 
 "${INTERPRETER}" -m pip install -q --upgrade pip
-"${INTERPRETER}" -m pip install "MITIM @ git+${REPOSITORY}@v${VERSION}"
+# MITIM must run from its repository checkout: __mitimroot__ (two levels above
+# mitim_tools) has to hold templates/ (input.neo.controls, ...), which a wheel does
+# not ship. So the pinned tag is cloned here, at install time, and installed
+# editable. VAFT never clones or updates it at run time.
+SOURCE="${PREFIX}/MITIM-fusion"
+if [[ ! -d "${SOURCE}/.git" ]]; then
+  git clone -q --depth 1 --branch "v${VERSION}" "${REPOSITORY}" "${SOURCE}"
+fi
+"${INTERPRETER}" -m pip install -e "${SOURCE}"
+# PORTALS (mitim_tools.gacode_tools.utils) imports fortranformat, which MITIM 5.3.0
+# does not declare. Found on tdst once the user site was excluded (#1588).
+"${INTERPRETER}" -m pip install fortranformat
 
 REPORT="$(probe)"
 echo "${REPORT}"

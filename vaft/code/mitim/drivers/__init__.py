@@ -5,3 +5,5 @@ MITIM and the standard library only -- never VAFT. Each reads the JSON file
 named by its first argument and writes ``result.json`` beside itself, with
 ``status`` ``"ok"`` or ``"error"``.
 """
+
+__all__: list[str] = []

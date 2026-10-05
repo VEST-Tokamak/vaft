@@ -8,6 +8,8 @@ import sys
 import traceback
 from pathlib import Path
 
+__all__ = ["main"]
+
 
 def main(argument_file):
     args = json.loads(Path(argument_file).read_text())

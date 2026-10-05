@@ -25,6 +25,16 @@ if TYPE_CHECKING:
     from ..execution import ExecutionBackend
     from ..gacode._types import GACODEConfig
 
+__all__ = [
+    "MITIM_CODES",
+    "MITIM_PYTHON_ENV",
+    "SUPPORTED_MITIM_VERSIONS",
+    "VAFT_MACHINE",
+    "MITIMConfig",
+    "MITIMResult",
+    "mitim_user_config",
+]
+
 #: Environment variable naming the interpreter of the isolated MITIM environment.
 MITIM_PYTHON_ENV = "VAFT_MITIM_PYTHON"
 

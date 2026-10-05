@@ -55,7 +55,9 @@ def _stub_mitim(root: Path, *, version="5.3.0", portals=True) -> Path:
     package = root / "site"
     (package / "mitim_tools" / "gacode_tools").mkdir(parents=True)
     (package / "mitim_tools" / "__init__.py").write_text(
-        f"from pathlib import Path\n__version__ = {version!r}\n__mitimroot__ = Path(__file__).parent\n")
+        f"from pathlib import Path\n__version__ = {version!r}\n__mitimroot__ = Path(__file__).parents[1]\n")
+    (package / "templates").mkdir()
+    (package / "templates" / "input.neo.controls").write_text("")
     (package / "mitim_tools" / "gacode_tools" / "__init__.py").write_text("")
     (package / "mitim_tools" / "gacode_tools" / "NEOtools.py").write_text(NEOTOOLS)
     if portals:
@@ -224,3 +226,11 @@ def test_drivers_import_only_mitim_and_the_standard_library():
         assert "vaft" not in "".join(
             line for line in path.read_text().splitlines(True) if line.lstrip().startswith(("import", "from"))
         ), path.name
+
+
+def test_a_wheel_install_without_templates_is_not_installed(tmp_path, monkeypatch):
+    site = _stub_mitim(tmp_path)
+    (site / "templates" / "input.neo.controls").unlink()
+    monkeypatch.setenv("PYTHONPATH", str(site))
+    found = mitim.mitim_availability(mitim.MITIMConfig(python=sys.executable))
+    assert found.status == "not_installed" and "templates" in found.detail
