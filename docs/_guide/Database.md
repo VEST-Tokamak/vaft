@@ -20,6 +20,63 @@ related:
 `vaft.database` is the I/O layer of VAFT. It has **two independent back-ends**, and knowing which one
 you are talking to explains almost every argument on this page:
 
+## Cross-shot parameter history
+
+Canonical summary tables include `shot` and `pulse_time_begin`, followed by
+the preset's quantities. The acquisition timestamp comes from
+`dataset_description.pulse_time_begin`; older shots may have no timestamp.
+
+```python
+import vaft
+
+df = vaft.database.summary((38000, 46000), preset="shot_overview")
+fig, ax = vaft.plot.plot_parameter_history(
+    df, y="max_ip_kA", secondary_x="date"
+)
+
+# Show elapsed calendar time geometrically, with shot labels above it.
+fig, ax = vaft.plot.plot_parameter_history(
+    df, y="max_ip_kA", x="date", secondary_x="shot"
+)
+```
+
+Shot number and acquisition time are different campaign coordinates. The
+secondary axis labels recorded observations; it does not assume a globally
+linear transformation between shot and date. Date-primary plots omit rows
+without acquisition timestamps. Summaries with several rows per shot retain
+every row; select the desired time slices in the DataFrame before plotting.
+
+## Transport summary hierarchy
+
+`equilibrium_global` and `core_profiles` describe their respective time
+slices. `neoclassical` currently summarizes bootstrap current from canonical
+`core_profiles`. `turbulent_transport` summarizes anomalous models already
+stored in canonical `core_transport`: one row per shot, model entry, and time
+slice. It reads no TGLF or CGYRO native output and does not combine models.
+
+```python
+transport = vaft.database.summary((39915, 39916), preset="turbulent_transport")
+transport[["shot", "time_s", "source", "model_index", "rho_grid_min",
+           "rho_grid_max", "q_e_peak_abs_W_m2", "q_i_peak_abs_W_m2"]]
+```
+
+The peak columns are maxima of the *absolute* mapped SI flux over finite
+`rho_tor_norm` grid points, not full radial profiles. `rho_grid_min/max`
+describe the stored grid; `rho_q_e_min/max`, `rho_q_i_min/max`, and
+`rho_gamma_e_min/max` describe the finite coverage of each reported flux
+channel. Each channel also has a point count. `q_i` sums all recorded ion species
+at each point only when every ion flux is present. `parameters_text_sha256`
+identifies exact stored `model.code.parameters` text, when present; it is not a
+configuration-equivalence key because the text can include state-specific
+provenance. `configuration_status=not_standardized` makes that limit explicit.
+The current TGLF mapper reuses its anomalous model slot and does not persist
+SAT/field settings there, so comparisons across settings need the upstream
+run record until that mapping contract is extended.
+Classical heat flux remains a resolved-state result without a standardized
+`core_transport` projection; it is not presented as a canonical preset yet.
+`power_balance` likewise awaits the stored-energy and loss-power definitions
+tracked in issues #1282 and #548.
+
 | Back-end | Module | What a shot looks like | What you get back |
 | --- | --- | --- | --- |
 | **HSDS** — remote IMAS HDF5 store | `vaft.database.ods`, `vaft.database.ids`, `vaft.database.utils` | a *folder* `hdf5://{directory}/{shot}/` holding `master.h5` plus one `<ids_name>.h5` per IDS | an OMAS `ODS`, or a native IMAS `IDSToplevel` |

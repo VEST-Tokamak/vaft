@@ -1071,6 +1071,8 @@ _NOTHING_BY_DESIGN = [
     ("chease", "skipped: no EFIT gfiles; input_gfiles=0"),
     ("chease", "skipped: chease.run=false; input_gfiles=3"),
     ("chease", "failed: refined_gfiles=0; failed=3"),
+    # The shot's data lacks an eddy input: an unrecorded PF circuit (#1568).
+    ("eddy", "skipped: required input unavailable: PF5 current was not acquired (NaN in pf_active)"),
 ]
 _FAULTS = [
     ("efit", "skipped: EFIT executable unavailable: /opt/efit; kfiles=6"),

@@ -179,6 +179,66 @@ def _wall_check(mygs, limiter: Any, tolerance: float = 1.0e-3) -> dict[str, Any]
     return {"lcfs_inside_wall": inside, "lcfs_wall_excursion_m": float(excursion)}
 
 
+def _apply_vessel_currents(mygs, inputs) -> dict[str, float]:
+    """Impose the eddy-stage wall currents on the vessel coil regions (#1534).
+
+    Each vessel region is a one-turn coil driven at 1 A. OFT spreads a coil's
+    current as ``I * dist / area`` over the region, so the distribution is set
+    to ``J * area``. Each cell takes the current density of its nearest
+    pf_passive loop (the loop current over the mesh area that loop owns), and
+    each node the area-weighted density of the cells around it. The region
+    then carries the sum of its loop currents, distributed along the wall loop
+    by loop, and mixed-sign loops need no normalisation. Returns the total
+    current imposed per region [A].
+    """
+    if not inputs.vessel_loop_currents:
+        return {}
+    oft = import_oft()
+    coil_dict = oft.meshing.load_gs_mesh(str(inputs.mesh_file))[3]
+    r = np.asarray(mygs.r, dtype=float)[:, :2]
+    lc = np.asarray(mygs.lc, dtype=int)
+    reg = np.asarray(mygs.reg, dtype=int)
+    tri = r[lc]                                                    # (nc, 3, 2)
+    area = 0.5 * np.abs(
+        (tri[:, 1, 0] - tri[:, 0, 0]) * (tri[:, 2, 1] - tri[:, 0, 1])
+        - (tri[:, 2, 0] - tri[:, 0, 0]) * (tri[:, 1, 1] - tri[:, 0, 1])
+    )
+    centroid = tri.mean(axis=1)
+    totals: dict[str, float] = {}
+    for region, loop_currents in inputs.vessel_loop_currents.items():
+        cells = np.flatnonzero(reg == int(coil_dict[region]["reg_id"]))
+        loops = inputs.geometry["vessel"][region]["loops"]
+        centres = np.array([[loop["r"], loop["z"]] for loop in loops], dtype=float)
+        current = np.array([loop_currents[int(loop["index"])] for loop in loops], dtype=float)
+
+        def nearest(points: np.ndarray) -> np.ndarray:
+            d2 = ((points[:, None, :] - centres[None, :, :]) ** 2).sum(axis=2)
+            return np.argmin(d2, axis=1)
+
+        owner = nearest(centroid[cells])
+        owned_area = np.bincount(owner, weights=area[cells], minlength=len(loops))
+        density = np.divide(current, owned_area, out=np.zeros_like(current), where=owned_area > 0)
+        # a loop owning no cell (thinner than the mesh) hands its current to
+        # the nearest loop that does
+        has = np.flatnonzero(owned_area > 0)
+        for k in np.flatnonzero(owned_area <= 0):
+            j = has[np.argmin(((centres[has] - centres[k]) ** 2).sum(axis=1))]
+            density[j] += current[k] / owned_area[j]
+        region_area = float(area[cells].sum())
+        # a node takes the area-weighted density of the cells around it, so a
+        # node on the border of two loops does not hand one of them both sides
+        weight = np.zeros(r.shape[0])
+        value = np.zeros(r.shape[0])
+        cell_density = density[owner] * area[cells]
+        for corner in range(lc.shape[1]):
+            np.add.at(weight, lc[cells, corner], area[cells])
+            np.add.at(value, lc[cells, corner], cell_density)
+        dist = np.divide(value, weight, out=np.zeros_like(value), where=weight > 0) * region_area
+        mygs.set_coil_current_dist(region, dist)
+        totals[region] = float(current.sum())
+    return totals
+
+
 def _apply_vsc(mygs, config: TokaMakerConfig) -> None:
     """Wire the Vertical Stability Coil pair when ``config.vsc_coil`` is set.
 
@@ -196,7 +256,14 @@ def _apply_vsc(mygs, config: TokaMakerConfig) -> None:
     mygs.set_coil_reg(reg_terms=[term])
 
 
-def _apply_profiles(oft, mygs, config: TokaMakerConfig) -> None:
+def _apply_profiles(oft, mygs, config: TokaMakerConfig, profiles=None) -> None:
+    if config.profile_mode != "power_law":
+        from .profiles import profiles_for_config
+        profiles = profiles if profiles is not None else profiles_for_config(config)
+        mygs.set_profiles(**profiles.solver_tables())
+        if not np.any(profiles.pprime):
+            mygs.pnorm = 0.0
+        return
     mygs.set_profiles(
         ffp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_f_a, config.alpha_f_b),
         pp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_p_a, config.alpha_p_b),
@@ -239,7 +306,51 @@ def _boundary_state(mygs) -> dict[str, Any]:
     return state
 
 
-def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMakerResult:
+def _native_active_x_points(mygs) -> dict[str, Any]:
+    """Retain native FE saddles on the active boundary flux before g-file export."""
+    points, diverted = mygs.get_xpoints()
+    if not diverted or points is None:
+        return {"native_active_x_points_m": []}
+    points = np.asarray(points, dtype=float).reshape(-1, 2)
+    reference = np.asarray(mygs.lim_point, dtype=float).reshape(-1)[:2]
+    field = mygs.get_field_eval("psi")
+    reference_psi = float(np.asarray(field.eval(reference)).ravel()[0])
+    span = abs(float(mygs.get_stats().get("dflux", 1.)))
+    if not np.isfinite(span) or span <= 0:
+        return {"native_active_x_points_m": [], "native_x_points_reason": "invalid flux span"}
+    active = []
+    all_points = []
+    for point in points:
+        residual = abs(float(np.asarray(field.eval(point)).ravel()[0]) - reference_psi) / span
+        all_points.append({"rz_m": point.tolist(), "relative_boundary_flux_residual": residual})
+        if np.isfinite(residual) and residual <= 1e-4:
+            active.append(point.tolist())
+    return {"native_active_x_points_m": active, "native_all_x_points": all_points,
+            "native_x_flux_tolerance_fraction": 1e-4}
+
+
+def _initial_current_density(equilibrium, points):
+    """Physical Jphi [A/m²] seed on native nodes; no plasma Green integration."""
+    from matplotlib.path import Path as PolygonPath
+    from scipy.interpolate import RegularGridInterpolator
+    from vaft.process.equilibrium import convert_cocos
+    eq = convert_cocos(equilibrium, 11)
+    inside = PolygonPath(eq.lcfs.points).contains_points(points)
+    psi = RegularGridInterpolator((eq.r, eq.z), eq.psi, bounds_error=False,
+                                  fill_value=np.nan)(points[inside])
+    order = np.argsort(eq.psi_1d)
+    pp = np.interp(psi, eq.psi_1d[order], eq.pprime[order])
+    ffp = np.interp(psi, eq.psi_1d[order], eq.ffprime[order])
+    r = points[inside, 0]
+    current = np.zeros(len(points))
+    current[inside] = -2*np.pi*(r*pp + ffp/(4e-7*np.pi*r))
+    if not np.isfinite(current).all():
+        raise ValueError("initial equilibrium grid must cover its LCFS")
+    return current
+
+
+def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinement=None,
+                  verify_refinement: bool = False) -> TokaMakerResult:
     """Execute a forward solve and collect the produced outputs.
 
     Builds the mesh on a cache miss, then runs the canonical TokaMaker
@@ -249,6 +360,16 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
     solve is reported through ``result.ok``/``result.error`` rather than
     raised, mirroring the subprocess adapters.
     """
+    if verify_refinement and refinement is None:
+        raise ValueError("frozen verification requires shape refinement")
+    if refinement is not None:
+        if set(refinement.reference_currents_A) != set(inputs.coil_currents) or any(
+            abs(refinement.reference_currents_A[n] - inputs.coil_currents[n]) > 1e-6
+            for n in inputs.coil_currents
+        ):
+            raise ValueError("refinement reference currents must match prescribed initial PF circuits")
+        if config.vsc_coil or inputs.vessel_loop_currents:
+            raise ValueError("shape refinement requires no VSC or imposed vessel currents")
     oft = import_oft()
     env = get_oft_env(config.nthreads)
 
@@ -261,6 +382,8 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
 
     returncode = 1
     error = ""
+    verified_error = None
+    verified_dir = inputs.workdir / "verified_free"
     sidecar: dict[str, Any] = {
         "converged": False,
         "shot": shot,
@@ -276,26 +399,95 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
     mygs = oft.TokaMaker(env)
     try:
         _configure_tokamaker(oft, mygs, inputs, config)
+        mygs.settings.free_boundary = True
+        sidecar["free_boundary"] = True
         _apply_vsc(mygs, config)
 
         mygs.set_coil_currents(dict(inputs.coil_currents))
-        mygs.set_targets(**inputs.targets)
-        _apply_profiles(oft, mygs, config)
+        vessel_totals = _apply_vessel_currents(mygs, inputs)
+        if vessel_totals:
+            sidecar["vessel_currents_A"] = vessel_totals
+            sidecar["vessel_current_total_A"] = float(sum(vessel_totals.values()))
+        from .profiles import profiles_for_config, profile_targets
+        profiles = profiles_for_config(config)
+        effective_targets = profile_targets(profiles, inputs.targets)
+        mygs.set_targets(**effective_targets)
+        _apply_profiles(oft, mygs, config, profiles)
+        sidecar["targets"] = effective_targets
+        sidecar["profile_mode"] = config.profile_mode
 
-        mygs.init_psi(
-            config.init_r0, config.init_z0, config.init_a0,
-            config.init_kappa, config.init_delta,
-        )
+        # Pure-pressure normalization omits Ip during nonlinear iterations,
+        # but its initial uniform plasma must still have a physical amplitude.
+        seed_ip = profiles.ip_A if profiles is not None and "Ip" not in effective_targets else None
+        if seed_ip is not None:
+            mygs.set_targets(Ip=seed_ip)
+        if config.init_equilibrium is not None:
+            # curr_source in init_psi is an assembled FE load, not nodal J.
+            # vac_solve(rhs_source=...) integrates physical density natively.
+            seed = mygs.vac_solve(rhs_source=_initial_current_density(config.init_equilibrium, mygs.r[:, :2]))
+            psi = seed.get_psi(normalized=False) if hasattr(seed, "get_psi") else seed
+            mygs.set_psi(psi, update_bounds=True)
+        else:
+            mygs.init_psi(
+                config.init_r0, config.init_z0, config.init_a0,
+                config.init_kappa, config.init_delta,
+            )
+        if seed_ip is not None:
+            mygs.set_targets(**effective_targets)
+        if refinement is not None:
+            from .refinement import apply_shape_refinement
+            sidecar["shape_refinement"] = apply_shape_refinement(mygs, refinement)
         mygs.solve()
 
         sidecar["converged"] = True
         sidecar["stats"] = mygs.get_stats()
-        sidecar["coil_currents_A"] = dict(mygs.get_coil_currents()[0])
+        if profiles is not None:
+            from .profiles import source_profile_diagnostics
+            sidecar["source_profiles"] = source_profile_diagnostics(mygs, profiles)
+        # vessel regions run as 1 A coils; their real currents are vessel_currents_A
+        sidecar["coil_currents_A"] = {
+            name: value for name, value in dict(mygs.get_coil_currents()[0]).items()
+            if name not in inputs.vessel_loop_currents
+        }
         sidecar["o_point"] = mygs.o_point
         sidecar.update(_boundary_state(mygs))
         sidecar.update(_wall_check(mygs, inputs.geometry["limiter"]))
         _save_eqdsk(mygs, gpath, config, f"# {shot} {ctime}ms")
         returncode = 0
+        if verify_refinement:
+            # Keep the converged native FE state. Reconstructing it from a
+            # coarse g-file can select another free-boundary solution branch.
+            verified_dir.mkdir(parents=True, exist_ok=False)
+            currents = dict(sidecar["coil_currents_A"])
+            verified_sidecar = {key: sidecar[key] for key in ("shot", "time_s", "targets", "f0", "cocos")}
+            verified_sidecar.update(converged=False, free_boundary=True,
+                                    shape_constraints_cleared=True, coil_currents_A=currents)
+            try:
+                isoflux = getattr(mygs, "set_isoflux_constraints", None)
+                if isoflux is None:
+                    isoflux = mygs.set_isoflux
+                saddles = getattr(mygs, "set_saddle_constraints", None)
+                if saddles is None:
+                    saddles = mygs.set_saddles
+                isoflux(None)
+                saddles(None)
+                mygs.set_coil_currents(currents)
+                mygs.solve()
+                realized = dict(mygs.get_coil_currents()[0])
+                if set(realized) != set(currents) or any(
+                    abs(realized[name] - current) > 1e-6 for name, current in currents.items()
+                ):
+                    raise RuntimeError("PF currents changed during frozen verification")
+                verified_sidecar.update(converged=True, coil_currents_A=realized,
+                                        stats=mygs.get_stats(), o_point=mygs.o_point)
+                verified_sidecar.update(_boundary_state(mygs))
+                verified_sidecar.update(_native_active_x_points(mygs))
+                verified_sidecar.update(_wall_check(mygs, inputs.geometry["limiter"]))
+                _save_eqdsk(mygs, verified_dir / gpath.name, config, f"# {shot} {ctime}ms frozen")
+            except Exception as exc:
+                verified_error = str(exc)
+                verified_sidecar["error"] = verified_error
+            _write_sidecar(verified_dir, verified_sidecar)
     except Exception as exc:
         error = str(exc)
         sidecar["error"] = error
@@ -329,6 +521,16 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
         result.geqdsk = ()
         result.ods = None
         result.scalars.pop("_geqdsk_error", None)
+    if verify_refinement and verified_dir.is_dir():
+        verified = collect_tokamaker_outputs(verified_dir, config)
+        verified.returncode = 1 if verified_error else 0
+        verified.error = verified_error or ""
+        verified.mesh_file = result.mesh_file
+        if verified_error:
+            verified.gfile = None
+            verified.geqdsk = ()
+            verified.ods = None
+        result.verified_free = verified
     return result
 
 

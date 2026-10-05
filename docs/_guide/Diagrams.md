@@ -491,16 +491,27 @@ The resulting $(s, \alpha)$ stability diagram is `s_alpha_ballooning`.
   (`s_alpha_ballooning_eigenmode`). An unstable surface has a mode peaked at the outboard midplane (bad
   curvature) that decays within a few transits; a stable surface has only the continuum.
 
-Boundary conditions differ between the two pictures. The ballooning representation requires decay on the
-extended angle, while flux-tube codes join the sheared ends of the box (twist and shift, not derived here).
-Near an X-point $B_p \to 0$ and $q \to \infty$, so ordinary field-aligned coordinates distort; see
-`sfl_coordinate_validity` (#1074) and X-point-adapted coordinates for the edge.
+- `ballooning_transit_map` ties the extended angle to the cross-section: one poloidal circle per transit $k$,
+  under $\theta = 2\pi k$, its outboard point (bad curvature) labelled with $F(2\pi k)$. The same point,
+  revisited on every transit, carries less of the mode each time.
+- `ballooning_boundary_conditions` puts the two ways of closing the field line side by side. The ballooning
+  representation requires decay on the covering space, $F \to 0$ as $|\theta| \to \infty$. A flux tube joins
+  its ends after one poloidal turn, and because $k_x = k_y\hat s\theta$ the rejoined end has a shifted $k_x$:
+  twist and shift, named and not derived.
+- `field_aligned_xpoint_limitation` draws lines of constant straight-field-line angle $\theta^*$
+  ($d\theta^*/dl \propto 1/(R^2B_p)$) on the diverted toy equilibrium of the Grad–Shafranov diagrams. They are
+  evenly spread in the core and crowd into the X-point near the separatrix, where $B_p \to 0$ and
+  $q \propto \oint dl/(R^2B_p)$ diverges; outside it the lines are open and X-point-adapted coordinates take
+  over. See also `sfl_coordinate_validity` (#1074).
 
 ```python
 vaft.diagram.field_aligned_basis(q=2.5)
 vaft.diagram.flux_tube_patch()
 vaft.diagram.magnetic_shear_field_aligned(shear=1.0)
 vaft.diagram.ballooning_eigenfunction()
+vaft.diagram.ballooning_transit_map(transits=2)
+vaft.diagram.ballooning_boundary_conditions(shear=1.0)
+vaft.diagram.field_aligned_xpoint_limitation(n_theta=24)
 ```
 
 | | |
@@ -508,6 +519,9 @@ vaft.diagram.ballooning_eigenfunction()
 | ![basis]({{ '/assets/diagrams/field_aligned_basis.svg' | relative_url }}) | ![eigenfunction]({{ '/assets/diagrams/ballooning_eigenfunction.svg' | relative_url }}) |
 
 ![flux tube]({{ '/assets/diagrams/flux_tube_patch.svg' | relative_url }})
+![transits]({{ '/assets/diagrams/ballooning_transit_map.svg' | relative_url }})
+![boundary conditions]({{ '/assets/diagrams/ballooning_boundary_conditions.svg' | relative_url }})
+![X-point limitation]({{ '/assets/diagrams/field_aligned_xpoint_limitation.svg' | relative_url }})
 
 ![shear]({{ '/assets/diagrams/magnetic_shear_field_aligned.svg' | relative_url }})
 
@@ -1203,6 +1217,35 @@ vaft.diagram.machine_research_archive()
 The pillar names are the four README sections.
 The diagrams are built from the concept primitives in `vaft.diagram._concept`: `box`, `connector`, `band`,
 and `database`, a drum drawn as polylines. They use the `concept …` and `connector …` styles of the template.
+
+## The VEST data platform
+
+The VEST data platform as a database-centred scientific workflow (#1550), laid out as a cross about the
+database. The VEST machine, a CAD render packaged with `vaft.diagram` and embedded in the SVG, sits outside
+the platform server and feeds experimental data processing
+([the render]({{ '/assets/images/vest_machine.jpg' | relative_url }})). A per-shot directory is the hub: reconstruction and physics inference (above) and simulation
+(right) read from it and write back to it. Users reach it from below, and the whole runs on Windows,
+macOS and Linux, locally or on an HPC cluster. The content is declared in `vaft.diagram._platform`
+(`EXPERIMENTAL_PROCESSING`, `DATABASE_LAYOUT`, `RECONSTRUCTION`, `DERIVED_PHYSICS`, `SIMULATION`, `ACCESS`,
+`EXECUTION_*`), so the figure is updated by editing data. The database technology appears once, as a muted
+caption under its title (`DATABASE_TECHNOLOGY`: IMAS · HDF5 · HSDS); no other backend or workflow-engine names
+are drawn.
+
+```python
+vaft.diagram.vest_data_platform()           # the reference architecture view
+vaft.diagram.vest_data_platform_overview()  # five stages, for papers and slides
+```
+
+| Area | Content |
+| --- | --- |
+| Experimental data processing | Machine Model & History, Signal Processing, Quality & Validation, Fault & Anomaly Detection, Shot Classification, Event Detection |
+| Database | `{shot}/`: `master.h5`; experimental files; reconstructed state; physics products; each group open-ended |
+| Reconstruction & physics inference | Reconstruction (Eddy Current Model, Magnetic EFIT, Profile Fitting, Plasma Parameter Inference, Kinetic EFIT); Derived Physics (Vacuum Field Proxies, MHD Parameters, Synthetic Diagnostics, Coordinate Conversion, Power Balance) |
+| Simulation | Each entry is the concept, with its code or model authors beneath. Equilibrium: Fixed Boundary (CHEASE), Free Boundary (TokaMaker), Analytic GS (Solov'ev · Guazzotto & Freidberg). Stability: Ideal (DCON), Resistive (RDCON). 3D Response & Topology: Plasma Response (GPEC), Field-Line Following (FLARE). Transport: Classical (Braginskii), Neoclassical (NEO / Sauter & Redl), Turbulent (TGLF / CGYRO) |
+| Access & analysis | Python API, CLI, GUI, MCP, Documentation; Data Access · Search · Visualization · Comparison · Statistics · Export · Tutorials · Research Archive |
+
+![The VEST data platform]({{ '/assets/diagrams/vest_data_platform.svg' | relative_url }})
+![The VEST data platform in five stages]({{ '/assets/diagrams/vest_data_platform_overview.svg' | relative_url }})
 
 ## Integrated modeling: knowledge basis, realization, abstraction
 

@@ -251,15 +251,34 @@ def finalize(
     return figure, axes
 
 
-def save_figure(figure: Figure, path: Any, *, close: bool = True, **savefig_kwargs: Any):
+def save_figure(
+    figure: Figure, path: Any, *, close: bool = True, figure_options: Any = None, **savefig_kwargs: Any,
+):
     """Write ``figure`` to ``path`` and release it.
 
     Callers outside :mod:`vaft.plot` use this instead of importing pyplot just to
     close a figure, which keeps rendering confined to this package.
+    ``figure_options`` supplies the export fields of a
+    :class:`vaft.plot.FigureOptions` -- ``dpi`` and ``transparent`` -- the one
+    place they act (issue #1421); an explicit savefig keyword still wins.
     """
+    import matplotlib
+
+    if figure_options is not None:
+        from .figure_options import as_figure_options
+
+        export = as_figure_options(figure_options)
+        if export.dpi is not None:
+            savefig_kwargs.setdefault("dpi", export.dpi)
+        if export.transparent is not None:
+            savefig_kwargs.setdefault("transparent", export.transparent)
     savefig_kwargs.setdefault("dpi", 300)
     savefig_kwargs.setdefault("bbox_inches", "tight")
-    figure.savefig(path, **savefig_kwargs)
+    # Vector output keeps its text as text: TrueType fonts embedded in a PDF
+    # (not Type 3 outlines) and SVG text left as text, which journals and
+    # editors expect (issue #1421).  Read when the file is written, so set here.
+    with matplotlib.rc_context({"pdf.fonttype": 42, "ps.fonttype": 42, "svg.fonttype": "none"}):
+        figure.savefig(path, **savefig_kwargs)
     if close:
         plt.close(figure)
     return path

@@ -9,6 +9,7 @@ about TikZ, so a second renderer consumes the same scene.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, replace
 from typing import Tuple, Union
 
@@ -68,7 +69,28 @@ class Label:
     role: str = ""
 
 
-Item = Union[Polyline, Marker, Arrow, Label]
+@dataclass(frozen=True)
+class Image:
+    """A packaged raster picture (``vaft/diagram/images/<name>``) centred at ``at``, ``width`` x ``height`` cm.
+
+    For a physical object drawn from a photograph or CAD render rather than
+    from a model; the SVG embeds it, so the artifact stays self-contained.
+    """
+
+    at: Point
+    name: str
+    width: float
+    height: float
+    role: str = ""
+
+    def __post_init__(self):
+        if not re.fullmatch(r"[A-Za-z0-9_-]+\.(jpg|jpeg|png)", self.name):
+            raise ValueError(f"image name must be a plain .jpg/.jpeg/.png file name, not {self.name!r}")
+        if not (self.width > 0 and self.height > 0):
+            raise ValueError(f"image size must be positive, not {self.width} x {self.height}")
+
+
+Item = Union[Polyline, Marker, Arrow, Label, Image]
 
 
 def _map(item: Item, f) -> Item:
@@ -101,4 +123,9 @@ class Scene:
         def f(p):
             return (scale * p[0] + dx, scale * p[1] + dy)
 
-        return Scene(tuple(_map(item, f) for item in self.items))
+        def g(item):
+            if isinstance(item, Image):  # a picture scales with the scene, not only moves
+                return replace(item, at=f(item.at), width=scale * item.width, height=scale * item.height)
+            return _map(item, f)
+
+        return Scene(tuple(g(item) for item in self.items))

@@ -45,6 +45,7 @@ _SUBMODULES = {
     "pwi": ".pwi",
     "sol": ".sol",
     "boundaries": ".boundaries",
+    "impurity": ".impurity",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -78,6 +79,7 @@ _IMPORT_ORDER = (
     "pwi",
     "sol",
     "boundaries",
+    "impurity",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
