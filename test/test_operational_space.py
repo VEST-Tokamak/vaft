@@ -363,7 +363,7 @@ def test_inline_style_names_the_limit_its_side_and_its_basis():
     _, ax = operational_space_population(t, "hugill", boundary_style="inline", boundaries=["greenwald_hugill"])
     labels = ax.get_legend_handles_labels()[1] + [p.get_label() for p in ax.get_legend().get_patches()]
     legend = " ".join(text.get_text() for text in ax.get_legend().get_texts())
-    assert "Greenwald/Hugill limit" in legend and "Unstable (Empirical)" in legend.replace("\n  ", " ")
+    assert "Greenwald/Hugill limit" in legend and "Unstable (Derived)" in legend.replace("\n  ", " ")
     texts = [t_.get_text().strip() for t_ in ax.texts]
     assert "Greenwald/Hugill limit" in texts and texts.count("Stable") == 1
     assert labels   # the legend holds the boundary patches
@@ -518,3 +518,22 @@ def test_start_scaling_is_akers_f_of_A_on_the_iter_shaping_factor():
     i_lim = B.boundary_value(B.get_boundary("akers_2000_q95_current"), minor_radius=a, major_radius=R0,
                              toroidal_field=B0, elongation=kappa, triangularity=delta)
     assert B.start_q95_coordinates(a, R0, B0, kappa, delta, i_lim) == pytest.approx(2.1)
+
+
+def test_a_derived_boundary_says_derived_and_murakami_is_a_historical_reference():
+    _, ax = operational_space_population(_hugill_table(), "hugill", boundary_style="inline")
+    legend = " ".join(t_.get_text() for t_ in ax.get_legend().get_texts()).replace("\n  ", " ")
+    assert "Murakami (historical conventional-tokamak reference) (Derived)" in legend
+    along = [t_.get_text().strip() for t_ in ax.texts]
+    assert "Murakami (reference)" in along   # the long name stays in the legend, a short one fits the line
+    assert "(Derived)" in legend and "(Empirical)" not in legend
+    murakami = [line for line in ax.get_lines() if line.get_linestyle() == "--"]
+    assert murakami, "the historical reference is a dashed line"
+    # one hatched forbidden side (Greenwald), none for the reference
+    hatched = [c for c in ax.collections if getattr(c, "get_hatch", lambda: None)()]
+    assert len(hatched) == 1
+    # the "Stable" label keeps clear of the reference line (Murakami at x = 1)
+    stable = next(t_ for t_ in ax.texts if t_.get_text() == "Stable")
+    x_stable = ax.transAxes.transform(stable.get_position())[0]
+    x_line = ax.transData.transform((1.0, 0.0))[0]
+    assert abs(x_stable - x_line) > 0.08 * ax.get_window_extent().width
