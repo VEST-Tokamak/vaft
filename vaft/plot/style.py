@@ -246,7 +246,10 @@ def finalize(
                     figure.tight_layout(pad=pad)
             except Exception:  # pragma: no cover - layout engines can refuse
                 pass
-        _contain_3d_axes(figure)
+        try:
+            _contain_3d_axes(figure)
+        except Exception:  # pragma: no cover - a cosmetic step must never fail a render
+            pass
     if show:
         plt.show()
     return figure, axes
@@ -274,8 +277,10 @@ def _contain_3d_axes(figure: Figure, *, passes: int = 3) -> None:
         return
     pad = _3D_EDGE_PAD_PT * figure.dpi / 72.0
     for _ in range(passes):
-        figure.canvas.draw()
-        renderer = figure.canvas.get_renderer()
+        # A pdf/svg canvas, or a bare Figure's FigureCanvasBase, has no
+        # get_renderer(); the figure's own layout renderer works on all of them.
+        figure.draw_without_rendering()
+        renderer = figure._get_renderer()
         frame = figure.bbox
         moved = False
         for axis in three_d:
@@ -285,7 +290,10 @@ def _contain_3d_axes(figure: Figure, *, passes: int = 3) -> None:
                 for label in (axis.xaxis.label, axis.yaxis.label, axis.zaxis.label)
                 if label.get_text() and label.get_visible()
             ]
-            drawn = Bbox.union([extent for extent in extents if extent is not None])
+            extents = [extent for extent in extents if extent is not None]
+            if not extents:
+                continue
+            drawn = Bbox.union(extents)
             over = (
                 max(0.0, frame.x0 + pad - drawn.x0), max(0.0, frame.y0 + pad - drawn.y0),
                 max(0.0, drawn.x1 - (frame.x1 - pad)), max(0.0, drawn.y1 - (frame.y1 - pad)),

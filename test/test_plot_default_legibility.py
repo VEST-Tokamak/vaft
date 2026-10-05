@@ -264,8 +264,8 @@ class TestSpectrogramDefaultReachesTheModel:
 # --- 3-D views keep their axis labels on the canvas (issue #1317) -------------
 
 def _inside(figure, text) -> bool:
-    figure.canvas.draw()
-    extent = text.get_window_extent(figure.canvas.get_renderer())
+    figure.draw_without_rendering()
+    extent = text.get_window_extent(figure._get_renderer())
     frame = figure.bbox
     return (extent.x0 >= frame.x0 - 0.5 and extent.x1 <= frame.x1 + 0.5
             and extent.y0 >= frame.y0 - 0.5 and extent.y1 <= frame.y1 + 0.5)
@@ -305,3 +305,28 @@ def test_a_callers_3d_axes_is_not_moved():
     before = axes.get_position().bounds
     render_geometry_3d_layers(_helix(), ax=axes)
     assert axes.get_position().bounds == before
+
+
+@pytest.mark.parametrize("canvas", ["pdf", "svg", "base"])
+def test_a_3d_view_renders_on_a_non_agg_canvas(canvas):
+    """pdf/svg canvases and a bare Figure have no get_renderer(); the fit must still run."""
+    from matplotlib.figure import Figure
+
+    from vaft.plot.renderers.geometry import render_geometry_3d_layers
+    from vaft.plot.style import finalize
+
+    figure, axes = render_geometry_3d_layers(_helix(), format="screen")
+    if canvas == "pdf":
+        from matplotlib.backends.backend_pdf import FigureCanvasPdf as Canvas
+    elif canvas == "svg":
+        from matplotlib.backends.backend_svg import FigureCanvasSVG as Canvas
+    else:
+        from matplotlib.backend_bases import FigureCanvasBase as Canvas
+    Canvas(figure)
+    finalize(figure, axes)  # must not raise
+    bare = Figure(figsize=(4, 4))
+    bare_axes = bare.add_subplot(projection="3d")
+    bare_axes.plot([0, 1], [0, 1], [0, 1])
+    bare_axes.set_zlabel("z [m]")
+    finalize(bare, bare_axes)
+    assert _inside(bare, bare_axes.zaxis.label)
