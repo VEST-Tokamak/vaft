@@ -84,6 +84,8 @@ class FakeRunner:
     ``"preflight"`` writes raw and a preflight exclusion, ``"efit_no_output"``
     marks EFIT and CHEASE ``no_output`` with ``skipped`` replication records,
     ``"vacuum"`` writes raw, diagnostics and eddy only and fails the run,
+    ``"eddy_no_output"`` marks eddy ``no_output`` (its replication ``skipped``)
+    and fails everything after it,
     ``"efit_fault"`` marks EFIT and CHEASE ``no_output`` for a reason replication refuses
     (no replication record, the run fails).
     """
@@ -143,6 +145,14 @@ class FakeRunner:
                 elif behaviour == "vacuum" and target.stage not in ("raw", "diagnostics", "eddy"):
                     # The constraint step refuses a sub-15 kA shot by failing,
                     # so nothing from EFIT on is ever written (#205).
+                    failed = True
+                    continue
+                elif behaviour == "eddy_no_output" and target.stage == "eddy":
+                    # An unrecorded PF circuit (#1568): eddy records no_output
+                    # and replication records skipped.
+                    status = "skipped" if target.kind == "replication" else "no_output"
+                elif behaviour == "eddy_no_output" and target.stage not in ("raw", "diagnostics"):
+                    # Unscoped, the constraint step then fails on the eddy result.
                     failed = True
                     continue
                 elif behaviour == "efit_no_output" and target.stage in ("efit", "chease"):
@@ -515,6 +525,32 @@ def test_an_efit_no_output_that_replication_refuses_is_failed_and_retried(setup,
     worker.run_cycle()
     assert worker.state.shot(101)["state"] == S.COMPLETED
     assert [plan.full_shots for plan in runner.plans] == [(101,), (101,)]
+
+
+@pytest.mark.parametrize(
+    ("stages", "verdict"),
+    [(["raw", "diagnostics", "eddy"], S.PARTIAL), (None, S.FAILED)],
+)
+def test_an_eddy_with_an_unrecorded_pf_circuit(setup, tmp_path, stages, verdict):
+    """#1568: inside a diagnostics/eddy scope the shot is partial and not retried.
+
+    Unscoped, the EFIT constraint step refuses the eddy result, so the shot
+    still fails there -- like a vacuum shot (#205).
+    """
+    _, make_worker, _ = setup
+    _scope_pipeline(tmp_path, stages)
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    runner.script[101] = ["eddy_no_output", "eddy_no_output"]
+
+    settle_cycles(worker)
+    row = worker.state.shot(101)
+    assert row["state"] == verdict
+    if verdict == S.PARTIAL:
+        assert row["attempts"] == 0 and "eddy=no_output" in row["reason"]
+        worker.run_cycle()
+        assert len(runner.plans) == 1
 
 
 def test_a_chease_run_of_solver_verdicts_is_partial_not_retried(setup):
