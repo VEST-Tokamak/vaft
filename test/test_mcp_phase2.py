@@ -354,3 +354,18 @@ def test_exactly_one_dataset_is_named():
         tools.inspect_dataset()
     with pytest.raises(ValueError, match="exactly one"):
         tools.inspect_dataset(shot=39915, artifact="x")
+
+
+def test_stability_atlas_version_2_reads_the_same_way(atlas):
+    """Lane N's v2 (n = 1..6, raw / QA / physical layers) keeps the v1 spellings on disk."""
+    _write(atlas, "stability/atlas_n.csv",
+           "shot,time_efit_s,efit_lineage,efit_label,n_tor,ideal_unstable_full_edge,dcon_full_sign_class,"
+           "rdcon_qa_status,atlas_version\n"
+           "40331,0.324,magnetics-only,admissible,1,True,negative,RESOLVED,2\n"
+           "40331,0.324,magnetics-only,admissible,4,True,negative,NOT_APPLICABLE,2\n"
+           "39915,0.317,electron-kinetic,good,1,False,positive,RESOLVED,2\n")
+    result = tools.query_atlas_table("stability", where=[
+        {"column": "n_tor", "op": "==", "value": 1}, {"column": "ideal_unstable_full_edge", "op": "==", "value": True}])
+    assert [(r["shot"], r["efit_lineage"], r["efit_quality"]) for r in result["rows"]] == [
+        (40331, "magnetics", "admissible")]
+    assert result["provenance"]["atlas_version"] == ["2"]

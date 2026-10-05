@@ -12,7 +12,8 @@ Scenarios:
 
 1. ``equilibrium_39915``: equilibrium summary of shot 39915 (packaged sample, offline),
    q95 and beta_N at the slice nearest 0.320 s.
-2. ``stability_n1``: Tier A states ideal-unstable at n = 1 with the full edge (stability atlas).
+2. ``stability_n1``: Tier A states ideal-unstable at n = 1 with the full edge (stability atlas v2,
+   physical layer ``ideal_unstable_full_edge``).
 3. ``sat_spread``: surfaces whose total gyro-Bohm flux spreads most across TGLF SAT rules
    (transport sensitivity pairs).
 4. ``zeff``: resistive Z_eff windows with status ok, with their conductivity model.
@@ -41,7 +42,7 @@ SCENARIOS = {
         ("query_atlas_table", {
             "name": "stability",
             "where": [{"column": "n_tor", "op": "==", "value": 1},
-                      {"column": "ideal_stable_full_edge", "op": "==", "value": False}],
+                      {"column": "ideal_unstable_full_edge", "op": "==", "value": True}],
             "count_by": ["efit_lineage", "efit_quality"],
         }),
         ("query_atlas_table", {
