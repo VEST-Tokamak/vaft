@@ -24,6 +24,7 @@ class ShapeRefinement:
     current_scale_A: float = 1000.
     isoflux_weight: float = 1.
     saddle_weight: float = 1.
+    xpoint_flux_weight: float = 100.
 
     def __post_init__(self):
         for name, minimum in (('isoflux_points_m', 4), ('saddle_points_m', 0)):
@@ -39,7 +40,8 @@ class ShapeRefinement:
             if not np.any(np.all(boundary == saddle, axis=1)):
                 boundary = np.vstack((boundary, saddle))
         object.__setattr__(self, 'isoflux_points_m', boundary)
-        values = [self.regularization, self.current_scale_A, self.isoflux_weight, self.saddle_weight]
+        values = [self.regularization, self.current_scale_A, self.isoflux_weight,
+                  self.saddle_weight, self.xpoint_flux_weight]
         if not np.isfinite(values).all() or np.any(np.asarray(values) <= 0):
             raise ValueError('refinement controls must be finite positive')
         if not self.reference_currents_A or set(self.reference_currents_A) != set(self.current_bounds_A):
@@ -53,11 +55,13 @@ class ShapeRefinement:
 
 def prepare_shape_refinement(target, currents, *, current_bounds, boundary_samples=64,
                              x_points=None, regularization=1e-5, current_scale_A=1000.,
-                             isoflux_weight=1., saddle_weight=1.) -> ShapeRefinement:
+                             isoflux_weight=1., saddle_weight=1.,
+                             xpoint_flux_weight=100.) -> ShapeRefinement:
     """Resample LCFS by arc length and validate physical optimizer controls."""
     if boundary_samples < 4 or int(boundary_samples) != boundary_samples:
         raise ValueError('boundary_samples must be an integer >=4')
-    values = np.array([regularization, current_scale_A, isoflux_weight, saddle_weight])
+    values = np.array([regularization, current_scale_A, isoflux_weight,
+                       saddle_weight, xpoint_flux_weight])
     if not np.isfinite(values).all() or np.any(values <= 0):
         raise ValueError('refinement penalty, current scale and weights must be positive finite')
     if set(current_bounds) != set(currents):
@@ -89,13 +93,16 @@ def prepare_shape_refinement(target, currents, *, current_bounds, boundary_sampl
     if not np.isfinite(saddles).all() or np.any(saddles[:, 0] <= 0):
         raise ValueError('finite positive-R saddle points required')
     return ShapeRefinement(boundary, saddles, dict(currents), dict(current_bounds),
-                           regularization, current_scale_A, isoflux_weight, saddle_weight)
+                           regularization, current_scale_A, isoflux_weight,
+                           saddle_weight, xpoint_flux_weight)
 
 
 def apply_shape_refinement(solver, refinement: ShapeRefinement) -> dict[str, Any]:
     """Apply installed native API set_isoflux/set_saddles and physical bounds."""
-    solver.set_isoflux(refinement.isoflux_points_m,
-                       weights=np.full(len(refinement.isoflux_points_m), refinement.isoflux_weight))
+    weights = np.full(len(refinement.isoflux_points_m), refinement.isoflux_weight)
+    for saddle in refinement.saddle_points_m:
+        weights[np.all(refinement.isoflux_points_m == saddle, axis=1)] = refinement.xpoint_flux_weight
+    solver.set_isoflux(refinement.isoflux_points_m, weights=weights)
     if len(refinement.saddle_points_m):
         solver.set_saddles(refinement.saddle_points_m,
                           weights=np.full(len(refinement.saddle_points_m), refinement.saddle_weight))

@@ -570,6 +570,26 @@ def _render_raw_plot(entry: ValidationPlot, source: Any, context: Mapping[str, A
     return figure
 
 
+def empty_stage_plot_manifest(stage: str, reason: str) -> dict[str, Any]:
+    """The plot manifest of a stage that produced nothing to plot.
+
+    Same shape :func:`render_stage_plots` writes for an empty product: every
+    declared plot ``skipped`` with ``reason``, and ``status: empty``. Used when
+    the product cannot even be loaded for plotting -- an eddy stage that
+    recorded ``no_output`` has no passive currents to compose (#1568).
+    """
+    return {
+        "schema_version": 1,
+        "stage": stage,
+        "plots": [
+            {"name": entry.plot, "file": entry.filename, "status": "skipped", "reason": reason}
+            for entry in validation_plots(stage)
+        ],
+        "status": "empty",
+        "reason": reason,
+    }
+
+
 def render_stage_plots(
     stage: str,
     source: Any,

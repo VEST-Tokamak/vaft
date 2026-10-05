@@ -70,7 +70,7 @@ SWEEP = {
 }
 EXTENSION_UNITS = {
     "time_efit_s": "s", "efit_lineage": "", "efit_quality": "", "efit_product_sha256": "",
-    "ts_status": "", "paired_electron_kinetic": "", "ip_efit_A": "A", "dip_dt_A_s": "A/s",
+    "ts_status": "", "thomson_consistent": "", "paired_electron_kinetic": "", "ip_efit_A": "A", "dip_dt_A_s": "A/s",
     "v_loop_V": "V", "v_ind_V": "V", "v_res_V": "V", "r_p_ohm": "Ohm", "n_labelled_slices": "-", "w_kin_status": "", "li_3": "-", "beta_normal": "% m T/MA",
     "w_mhd_J": "J", "w_kin_J": "J", "w_e_ts_J": "J", "dwdt_W": "W", "p_ohm_W": "W", "p_net_W": "W",
     "p_rad_W": "W", "p_transport_W": "W", "tau_e_kin_s": "s",
@@ -464,6 +464,10 @@ def build(args) -> int:
                 "time_efit_s": t_state, "efit_lineage": "magnetics",
                 "efit_quality": state["efit_quality"], "efit_product_sha256": state["efit_product_sha256"],
                 "ts_status": state.get("ts_status", ""),
+                # Criteria v2 (#1521): Thomson consistency is a verdict beside fit
+                # quality (p within [1, 2] p_e), never part of efit_quality.
+                "thomson_consistent": {"true": True, "false": False, "1": True, "0": False}.get(
+                    str(state.get("thomson_consistent", "")).strip().lower(), np.nan),
                 "paired_electron_kinetic": key in kinetic_keys,
                 "assumptions": json.dumps(assumptions, sort_keys=True),
             })
