@@ -230,6 +230,9 @@ CONVENTION_SENSITIVE = frozenset({
     "local_slab_from_cylinder",
     "cylindrical_poloidal_field",
     "peaked_current_safety_factor",
+    "cylindrical_enclosed_current",
+    "cylindrical_poloidal_flux",
+    "cylindrical_internal_inductance",
     # single-particle motion: charge signs, vector orientation, half-step velocities
     "gyrofrequency",
     "larmor_radius",

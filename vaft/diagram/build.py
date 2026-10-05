@@ -107,6 +107,13 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("current_to_q_profile", "cylindrical_rational_surfaces",
                                               "cylindrical_mode_morphology", "internal_external_kink",
                                               "plasma_vacuum_wall", "cylindrical_tearing_outer")},
+    # current-profile and q topology: shapes, l_i, q landmarks, rational surfaces (#1604)
+    "current_profile_shapes.svg": ("current_profile_shapes", {}),
+    "q_profile_topologies.svg": ("q_profile_topologies", {}),
+    **{f"q_profile_landmarks_{p}.svg": ("q_profile_landmarks", {"profile": p})
+       for p in ("monotonic", "reversed_shear")},
+    **{f"rational_surface_topology_{p}.svg": ("rational_surface_topology", {"profile": p})
+       for p in ("monotonic", "reversed_shear")},
     # canonical field configurations, reconnection topology and ideal-MHD waves (#1063)
     **{f"slab_field_configuration_{k}.svg": ("slab_field_configuration", {"kind": k})
        for k in ("uniform", "sheared", "reversed", "guide")},

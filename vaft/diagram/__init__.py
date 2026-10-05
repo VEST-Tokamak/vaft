@@ -38,7 +38,9 @@ modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 (#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
-``logical_to_physical_mapping`` and ``physical_to_flux_mapping``.
+``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
+and q topology (#1604): ``current_profile_shapes``, ``q_profile_landmarks``,
+``q_profile_topologies`` and ``rational_surface_topology``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -127,6 +129,10 @@ __all__ = [
     "internal_external_kink",
     "plasma_vacuum_wall",
     "cylindrical_tearing_outer",
+    "current_profile_shapes",
+    "q_profile_landmarks",
+    "q_profile_topologies",
+    "rational_surface_topology",
     "slab_field_configuration",
     "current_sheet",
     "harris_sheet",
@@ -281,6 +287,10 @@ _LOCATIONS = {
     "internal_external_kink": "._cylindrical_modes",
     "plasma_vacuum_wall": "._cylindrical_modes",
     "cylindrical_tearing_outer": "._cylindrical_modes",
+    "current_profile_shapes": "._equilibrium_profiles",
+    "q_profile_landmarks": "._equilibrium_profiles",
+    "q_profile_topologies": "._equilibrium_profiles",
+    "rational_surface_topology": "._equilibrium_profiles",
     "slab_field_configuration": "._field_configurations",
     "current_sheet": "._field_configurations",
     "harris_sheet": "._field_configurations",

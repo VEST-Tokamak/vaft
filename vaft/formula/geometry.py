@@ -63,6 +63,9 @@ __all__ = [
     "cylindrical_parallel_wavenumber",
     "cylindrical_poloidal_field",
     "peaked_current_safety_factor",
+    "cylindrical_enclosed_current",
+    "cylindrical_poloidal_flux",
+    "cylindrical_internal_inductance",
     "local_slab_from_cylinder",
     "harris_sheet_field",
     "harris_sheet_current_density",
@@ -513,6 +516,175 @@ def peaked_current_safety_factor(x, q_a, nu):
     with np.errstate(invalid="ignore", divide="ignore"):
         result = np.where(x2 > 1e-12, q_a * x2 / np.where(denom > 0.0, denom, 1.0), q_a / (nu + 1.0))
     return float(result) if np.ndim(result) == 0 else result
+
+
+def _radial_grid(r) -> np.ndarray:
+    r = np.asarray(r, dtype=float)
+    if r.ndim != 1 or r.size < 2:
+        raise ValueError("r must be a 1-D grid of at least two radii")
+    if r[0] != 0.0 or np.any(np.diff(r) <= 0.0):
+        raise ValueError("r must start on the axis (r[0] = 0) and increase")
+    return r
+
+
+def _cumulative_trapezoid(y: np.ndarray, r: np.ndarray) -> np.ndarray:
+    return np.concatenate([[0.0], np.cumsum(0.5 * (y[1:] + y[:-1]) * np.diff(r))])
+
+
+def cylindrical_enclosed_current(r, j_z):
+    r"""Axial current inside each radius of a straight current column.
+
+    $$I(r) = 2\pi\int_0^r j_z(r')\,r'\,dr'$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid, starting at the axis and increasing [m].
+    j_z : np.ndarray
+        Axial current density on ``r`` [A/m^2].
+
+    Returns
+    -------
+    np.ndarray
+        $I(r)$ on ``r``; ``I[-1]`` is the total current $I_p$ [A].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0, or ``j_z`` differs in shape.
+
+    Convention
+    ----------
+    Positive along $+z$, the stand-in for the toroidal direction. Trapezoidal
+    in $r$, so the error is second order in the grid spacing.
+
+    Physical interpretation
+    -----------------------
+    Two current profiles with the same $I_p$ differ only in where the current
+    is enclosed; ``cylindrical_poloidal_field`` turns $I(r)$ into $B_\theta(r)$,
+    and that redistribution is what changes $q(r)$ and $l_i$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    """
+    r = _radial_grid(r)
+    j_z = np.asarray(j_z, dtype=float)
+    if j_z.shape != r.shape:
+        raise ValueError(f"j_z must have the shape of r, {r.shape}, not {j_z.shape}")
+    return 2.0 * np.pi * _cumulative_trapezoid(j_z * r, r)
+
+
+def cylindrical_poloidal_flux(r, B_theta, R0):
+    r"""Poloidal flux per radian of a straightened torus, zero on the axis.
+
+    $$\psi(r) = R_0\int_0^r B_\theta(r')\,dr'$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid, starting at the axis and increasing [m].
+    B_theta : np.ndarray
+        Poloidal field on ``r`` [T].
+    R0 : float
+        Major radius the torus is straightened at [m].
+
+    Returns
+    -------
+    np.ndarray
+        $\psi(r)$ on ``r`` [Wb/rad].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0, ``B_theta`` differs in shape
+        or ``R0`` is not positive.
+
+    Convention
+    ----------
+    Per radian (COCOS 11 style, no $2\pi$) and zero on the axis, so
+    $\psi_N = \psi/\psi(a)$ is the normalized poloidal flux of the cylinder;
+    it increases outward for a positive $B_\theta$. Trapezoidal in $r$.
+
+    Physical interpretation
+    -----------------------
+    $\psi_N$ is not $r/a$: where the current is enclosed sets how fast the
+    flux accumulates, so $q_{95} = q(\psi_N = 0.95)$ sits at a radius that
+    depends on the current profile.
+
+    Assumptions
+    -----------
+    Large aspect ratio: the poloidal flux through a ribbon of length
+    $2\pi R_0$, the $1/R$ variation of a real torus neglected.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    """
+    r = _radial_grid(r)
+    B_theta = np.asarray(B_theta, dtype=float)
+    if B_theta.shape != r.shape:
+        raise ValueError(f"B_theta must have the shape of r, {r.shape}, not {B_theta.shape}")
+    if float(R0) <= 0.0:
+        raise ValueError(f"R0 must be positive, not {R0!r}")
+    return float(R0) * _cumulative_trapezoid(B_theta, r)
+
+
+def cylindrical_internal_inductance(r, B_theta):
+    r"""Normalized internal inductance of a current column of radius $a$.
+
+    $$l_i = \frac{2}{a^2 B_\theta^2(a)}\int_0^a B_\theta^2\,r\,dr$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid from the axis to the boundary $a = $ ``r[-1]`` [m].
+    B_theta : np.ndarray
+        Poloidal field on ``r`` [T].
+
+    Returns
+    -------
+    float
+        $l_i = \langle B_\theta^2\rangle/B_\theta^2(a)$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0, ``B_theta`` differs in shape
+        or vanishes at the boundary.
+
+    Convention
+    ----------
+    The cylindrical $l_i$: the area-averaged $B_\theta^2$ over its boundary
+    value. A uniform current gives exactly $1/2$. Not the Lao/EFIT
+    ``virial_li_from_volume`` (normalised by the boundary-averaged $B_{pa}$
+    over the volume) nor the IMAS $l_{i,3}$, though all three reduce to it in
+    a large-aspect-ratio circular plasma.
+
+    Physical interpretation
+    -----------------------
+    Internal poloidal magnetic energy per $I_p^2$: at fixed $I_p$ a current
+    enclosed closer to the axis raises $B_\theta$ inside the column and so
+    $l_i$. It is a property of the whole $I(r)$, not a label of the profile
+    shape -- different profiles can share one $l_i$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.7.
+    .. [2] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Ch. 6.
+    """
+    r = _radial_grid(r)
+    B_theta = np.asarray(B_theta, dtype=float)
+    if B_theta.shape != r.shape:
+        raise ValueError(f"B_theta must have the shape of r, {r.shape}, not {B_theta.shape}")
+    if B_theta[-1] == 0.0:
+        raise ValueError("B_theta must not vanish at the boundary")
+    a = r[-1]
+    return float(2.0 * _cumulative_trapezoid(B_theta**2 * r, r)[-1] / (a * a * B_theta[-1] ** 2))
 
 
 def local_slab_from_cylinder(m_pol, n_tor, r_0, R0, q_0, s_hat) -> Tuple[float, float, float]:

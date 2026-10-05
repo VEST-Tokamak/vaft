@@ -188,6 +188,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_disruption.py",
     "test_diagram_divertor_footprint.py",
     "test_diagram_equilibrium_phenomena.py",
+    "test_diagram_equilibrium_profiles.py",
     "test_diagram_field_aligned.py",
     "test_diagram_field_configurations.py",
     "test_diagram_geometry.py",

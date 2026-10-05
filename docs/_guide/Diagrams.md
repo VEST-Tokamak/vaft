@@ -591,6 +591,49 @@ slab of `local_slab_from_cylinder`, and `resonant_layer_matching` couples severa
 The screw-pinch field line itself is `field_line_geometry("cylindrical")`, and the cylinder-vs-torus harmonic
 picture (independent $m$ vs toroidally coupled $m, m\pm1$) is `poloidal_harmonic_coupling`.
 
+## Current-profile and q topology
+
+What the shape of the current does to the poloidal field, the internal inductance and the safety
+factor, and how the shape of $q$ decides how many rational surfaces one $m/n$ has (#1604). All four
+diagrams use one reduced model: a straight cylinder whose current is peaked
+($j \propto (1 - x^2)^2$), broad ($1 - x^4$) or hollow / off-axis ($(0.1 + x^2)(1 - x^2)^{3/2}$), each
+normalized to the same $I_p$. The chain is `cylindrical_enclosed_current`, `cylindrical_poloidal_field`
+(Ampère), `cylindrical_safety_factor_from_r_B`, `cylindrical_poloidal_flux` (for $\psi_N$),
+`cylindrical_internal_inductance` and `shear_from_r_q`. The crossings come from
+`vaft.process.equilibrium.find_rational_surfaces`, the routine that finds them on a reconstructed $q$.
+These are concept figures, not equilibria and not stability results.
+
+```python
+vaft.diagram.current_profile_shapes()
+vaft.diagram.q_profile_topologies()
+vaft.diagram.q_profile_landmarks(profile="monotonic")         # or "reversed_shear"
+vaft.diagram.rational_surface_topology(profile="reversed_shear", m=2, n=1)
+```
+
+![current-profile shapes]({{ '/assets/diagrams/current_profile_shapes.svg' | relative_url }})
+
+![q topologies]({{ '/assets/diagrams/q_profile_topologies.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![q landmarks, monotonic]({{ '/assets/diagrams/q_profile_landmarks_monotonic.svg' | relative_url }}) | ![q landmarks, reversed shear]({{ '/assets/diagrams/q_profile_landmarks_reversed_shear.svg' | relative_url }}) |
+| ![one rational surface]({{ '/assets/diagrams/rational_surface_topology_monotonic.svg' | relative_url }}) | ![double rational surfaces]({{ '/assets/diagrams/rational_surface_topology_reversed_shear.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `current_profile_shapes` | $j(r) \to I(r) \to B_\theta(r) \to l_i$ at fixed $I_p$. Peaked, broad and hollow are shapes of the *current density*. $l_i$ is one number for the whole profile: a more centrally enclosed current tends to a larger $l_i$, but different profiles can share one $l_i$ |
+| `q_profile_topologies` | Peaked current gives a monotonic $q$, broad current a weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s < 0$ inside $q_{\min}$. Not every hollow current reverses the shear |
+| `q_profile_landmarks` | $q_0$ on axis; $q_{\min}$, equal to $q_0$ only when $q$ is monotonic; $q_{95} = q(\psi_N = 0.95)$, which is not at $r/a = 0.95$; $q_a$, the boundary value of a cylinder or limited plasma. In a diverted equilibrium $q \to \infty$ at the separatrix, so $q_{95}$ is quoted. None of these is the engineering $q_\mathrm{cyl}$ or $q^*$ |
+| `rational_surface_topology` | A monotonic $q$ crosses one $m/n$ once. A reversed-shear $q$ can cross it twice, $q(r_1) = q(r_2) = m/n$ with $r_1 < r_{\min} < r_2$: a *double-resonant configuration*. A double tearing mode is the instability in which tearing layers on the two surfaces couple, and only a stability calculation can say whether it grows |
+
+These diagrams sit upstream of the others. `current_to_q_profile` keeps the analytic peaked
+family $j \propto (1 - x^2)^\nu$ and `cylindrical_rational_surfaces` the monotonic surfaces of one $n$
+(#1072). `rational_surface` keeps the single-crossing definition, and `delta_prime` and
+`tearing_layer_matching` follow it (#1039). The $l_i$–$q$ diagrams of `li_qa` (#1603) are
+*operating spaces*: one scalar $l_i$ against one scalar edge $q$, from the literature. They are not
+plots of a current profile. The data-side counterparts are `vaft.plot.equilibrium_profile_j_tor` and
+`equilibrium_profile_q` (#1505).
+
 ## Field configurations, reconnection and MHD waves
 
 The canonical slab configurations, the topology of reconnection, and the linear ideal-MHD waves.
