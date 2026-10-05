@@ -264,8 +264,6 @@ def test_build_shell_serves_the_shell_with_the_first_source_drawn(monkeypatch, o
         for callback in onload:
             callback()
         assert shell.selection.value.sources == (Source("sample", 39915),)
-        with pytest.raises(KeyError, match="no workspace named 'nope'"):
-            gui_app.build_shell(sample=39915, workspace="nope")
     finally:
         shell.close()
 
@@ -291,3 +289,68 @@ def test_an_explorer_handed_over_already_loaded_is_published(monkeypatch, ods):
         assert shell.selection.value.sources == (Source("sample", 39915),)
     finally:
         shell.close()
+
+
+# -- cold-review cases ----------------------------------------------------------------
+def test_a_failed_open_leaves_the_selection_on_what_is_open_and_can_be_retried(shell):
+    shell.show("database")
+    database = shell.workspaces["database"]
+    explorer = shell.workspaces["plots"].app
+    before = explorer.session.sources
+    attempts = []
+
+    def fail(sources):
+        attempts.append(tuple(sources))
+        explorer.alert.object = "403 Forbidden"
+        return False
+
+    explorer.load = fail
+    database.shots.value = "41524"
+    assert database.open_shots()
+    assert shell.selection.value.sources == before, "the failed shots are not reported as open"
+    assert shell.alert.visible and "403" in shell.alert.object
+    shell.show("database")
+    assert database.open_shots() and len(attempts) == 2, "the same shots are tried again"
+
+
+def test_a_selection_returning_to_what_is_open_drops_the_pending_request(shell):
+    shell.show("database")
+    plots = shell.workspaces["plots"]
+    open_now = plots.app.session.sources
+    shell.selection.update(origin="elsewhere", sources=(Source("shot", 41524, "main"),))
+    shell.selection.update(origin="elsewhere", sources=open_now)
+    loads = []
+    plots.app.load = lambda sources: loads.append(sources) or True
+    shell.show("plots")
+    assert loads == []
+
+
+def test_build_shell_refuses_an_unknown_workspace_before_loading(monkeypatch):
+    built = []
+    monkeypatch.setattr(gui_app, "build_app", lambda **options: built.append(options))
+    with pytest.raises(KeyError, match="no workspace named 'nope'"):
+        gui_app.build_shell(sample=39915, workspace="nope")
+    assert built == []
+
+
+def test_a_silent_server_is_given_up_on(toys, monkeypatch):
+    import threading
+
+    release = threading.Event()
+    monkeypatch.setattr("vaft.database.utils.is_connect", lambda: release.wait(5))
+    shell = Shell(toys)
+    try:
+        assert shell.check_connection(timeout=0.05) == "no answer within 0.05 s"
+    finally:
+        release.set()
+
+
+def test_a_workspace_whose_layout_raises_is_reported(toys):
+    class _NoLayout(_Toy):
+        def main(self):
+            raise RuntimeError("no main")
+
+    toys.register(WorkspaceSpec("nolayout", "No layout", _NoLayout, order=4))
+    shell = Shell(toys)
+    shell.nav.value = "nolayout"
+    assert shell.active == "one" and shell.alert.object == "No layout: no main"

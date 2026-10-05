@@ -52,11 +52,20 @@ class PlotWorkspace:
         self.shell.selection.update(origin=self, **changes)
 
     def _on_selection(self, selection: Any, origin: Any) -> None:
-        if origin is self or not selection.sources or selection.sources == self.app.session.sources:
+        if origin is self or not selection.sources:
             return
-        # Opened when the reader comes here: loading a database shot is slow,
-        # and the reader may still be choosing.
-        self._pending = selection.sources
+        if selection.sources == self.app.session.sources:
+            self._pending = None  # back to what is open: nothing left to load
+            return
+        self.request(selection.sources)
+
+    def request(self, sources: Any) -> None:
+        """Open ``sources`` when the reader comes here (now, if this workspace is shown).
+
+        Loading a database shot is slow and the reader may still be choosing,
+        so a workspace in the background only remembers the request.
+        """
+        self._pending = tuple(sources)
         if self.shell.active == "plots":
             self.activate()
 
@@ -66,6 +75,8 @@ class PlotWorkspace:
             self.app.choose(pending)
             if not self.app.load(list(pending)):
                 self.shell.report(self.app.alert.object or "could not open the selection", where="Plots")
+                # The selection says what is open, and the failed request is not.
+                self._publish()
 
     # -- layout --------------------------------------------------------------------
     def sidebar(self) -> list[Any]:
@@ -204,10 +215,13 @@ class DatabaseWorkspace:
             return False
         self.shell.clear()
         namespace = self.namespace.value
-        self.shell.selection.update(
-            origin=self, namespace=namespace,
-            sources=tuple(Source("shot", shot, namespace) for shot in shots), time=None,
-        )
+        wanted = tuple(Source("shot", shot, namespace) for shot in shots)
+        plots = self.shell.workspace("plots")
+        self.shell.selection.update(origin=self, namespace=namespace, sources=wanted, time=None)
+        # Asked for directly as well: the same shots again (a retry after a
+        # failed load) change no selection and so notify nobody.
+        if wanted != plots.app.session.sources:
+            plots.request(wanted)
         self.shell.show("plots")
         return True
 

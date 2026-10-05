@@ -112,6 +112,8 @@ def _first_line(error: BaseException) -> str:
 
 #: What the status line says before anyone asked the database server.
 NOT_CHECKED = "not checked"
+#: Seconds the connection check waits for the database server.
+CONNECT_TIMEOUT = 10.0
 
 
 class Shell:
@@ -182,16 +184,18 @@ class Shell:
             return self.workspaces.get(name)
         try:
             workspace = self.workspace(name)
+            sidebar, main = list(workspace.sidebar()), list(workspace.main())
         except Exception as error:
-            # A workspace that cannot be built leaves the previous one on screen.
+            # A workspace that cannot be built or laid out leaves the previous
+            # one on screen.
             self.report(error, where=spec.title)
             if self.active is not None:
                 self.nav.value = self.active
             return None
         self.active = name
         self.hint.object = spec.description
-        self.sidebar_box.objects = list(workspace.sidebar())
-        self.main_box.objects = list(workspace.main())
+        self.sidebar_box.objects = sidebar
+        self.main_box.objects = main
         activate = getattr(workspace, "activate", None)
         if activate is not None:
             try:
@@ -218,14 +222,33 @@ class Shell:
         self.alert.visible = False
         self.alert.object = ""
 
-    def check_connection(self) -> str:
-        """Ask the database server whether it is ready; returns the state shown."""
-        try:
-            from vaft.database.utils import is_connect
+    def check_connection(self, timeout: float | None = None) -> str:
+        """Ask the database server whether it is ready; returns the state shown.
 
-            self.connection = "ready" if is_connect() else "not ready"
+        The question runs in a worker thread and is given up after
+        ``timeout`` seconds (:data:`CONNECT_TIMEOUT`): one session waiting on
+        an unreachable server must not hold every other session's page.
+        """
+        import logging
+        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import TimeoutError as Timeout
+
+        from vaft.database import utils
+
+        timeout = CONNECT_TIMEOUT if timeout is None else timeout
+        root = logging.getLogger()
+        level = root.level  # is_connect lowers the root logger; the server's is kept
+        pool = ThreadPoolExecutor(max_workers=1)
+        try:
+            ready = pool.submit(utils.is_connect).result(timeout=timeout)
+            self.connection = "ready" if ready else "not ready"
+        except Timeout:
+            self.connection = f"no answer within {timeout:g} s"
         except Exception as error:  # an unreachable or misconfigured server
             self.connection = f"unreachable ({_first_line(error)})"
+        finally:
+            pool.shutdown(wait=False)
+            root.setLevel(level)
         self._update_status()
         return self.connection
 
@@ -257,8 +280,15 @@ class Shell:
         )
 
     def close(self) -> None:
-        for workspace in self.workspaces.values():
+        """Close every built workspace, even when one of them fails to."""
+        workspaces, self.workspaces = list(self.workspaces.values()), {}
+        for workspace in workspaces:
             close = getattr(workspace, "close", None)
-            if close is not None:
+            if close is None:
+                continue
+            try:
                 close()
-        self.workspaces.clear()
+            except Exception:  # pragma: no cover - the others still get closed
+                import logging
+
+                logging.getLogger(__name__).exception("closing a GUI workspace failed")

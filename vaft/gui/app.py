@@ -756,9 +756,11 @@ def build_shell(*, workspace: str | None = None, **app_options: Any) -> Any:
     ``workspace`` is the workspace shown first (the plot explorer when
     ``None``).
     """
-    from .shell import Shell
+    from .shell import WORKSPACES, Shell
     from .workspaces import PlotWorkspace
 
+    if workspace is not None:
+        WORKSPACES.get(workspace)  # refused before anything is loaded
     app = build_app(**app_options)
     # The explorer is the one build_app primed with the source asked for.
     shell = Shell(initial="plots", factories={"plots": lambda shell: PlotWorkspace(shell, app)})
