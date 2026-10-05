@@ -5543,8 +5543,17 @@ def _gk_title(base: str, entries: Sequence[tuple[str, Any]]) -> str:
     return base + (f" — unmatched: {', '.join(mismatches)}" if mismatches else "")
 
 
-def _gk_linear_series(label: str, obj: Any, leaf: str) -> list[Series]:
-    """One series per eigenmode index over ``linear.wavevector[:]``; absent modes are NaN."""
+def _gk_unconverged(obj: Any, mode: str) -> bool:
+    """An initial-value eigenmode that reached no tolerance (``growth_rate_tolerance`` is
+    written only for a converged run): its last-step value is not an eigenvalue."""
+    return (_get(obj, f"{mode}.initial_value_run") == 1
+            and _get(obj, f"{mode}.growth_rate_tolerance") is None)
+
+
+def _gk_linear_series(label: str, obj: Any, leaf: str, *, include_unconverged: bool = False) -> list[Series]:
+    """One series per eigenmode index over ``linear.wavevector[:]``; absent modes are NaN.
+
+    Unconverged initial-value modes are left out unless ``include_unconverged``."""
     waves = _count(obj, f"{_GK}.linear.wavevector")
     if not waves:
         return []
@@ -5555,6 +5564,8 @@ def _gk_linear_series(label: str, obj: Any, leaf: str) -> list[Series]:
         wave = f"{_GK}.linear.wavevector.{k}"
         ky[k] = _get(obj, f"{wave}.binormal_wavevector_norm", np.nan)
         for m in range(_count(obj, f"{wave}.eigenmode")):
+            if not include_unconverged and _gk_unconverged(obj, f"{wave}.eigenmode.{m}"):
+                continue
             value = _get(obj, f"{wave}.eigenmode.{m}.{leaf}")
             if value is not None:
                 values[k, m] = float(value)
@@ -5575,17 +5586,22 @@ def _gk_linear_series(label: str, obj: Any, leaf: str) -> list[Series]:
 def _gk_spectrum_available(leaf: str):
     def available(obj: Any) -> str | None:
         for k in range(_count(obj, f"{_GK}.linear.wavevector")):
-            if _count(obj, f"{_GK}.linear.wavevector.{k}.eigenmode") and _has(
-                    obj, f"{_GK}.linear.wavevector.{k}.eigenmode.0.{leaf}"):
-                return None
-        return f"no {_GK}.linear eigenmode carries {leaf}"
+            wave = f"{_GK}.linear.wavevector.{k}"
+            for m in range(_count(obj, f"{wave}.eigenmode")):
+                mode = f"{wave}.eigenmode.{m}"
+                if _has(obj, f"{mode}.{leaf}") and not _gk_unconverged(obj, mode):
+                    return None
+        return f"no converged {_GK}.linear eigenmode carries {leaf}"
     return available
 
 
 def _build_gk_growth_rate(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
-    series = [s for label, obj in _labelled(entries) for s in _gk_linear_series(label, obj, "growth_rate_norm")]
+    include = bool(options.get("include_unconverged", False))
+    series = [s for label, obj in _labelled(entries)
+              for s in _gk_linear_series(label, obj, "growth_rate_norm", include_unconverged=include)]
     if not series:
-        raise ValueError(f"no {_GK}.linear growth rates in this input")
+        raise ValueError(f"no converged {_GK}.linear growth rates in this input "
+                         "(include_unconverged=True draws initial-value runs that reached none)")
     return Profile1D(
         series=tuple(series),
         coordinate_label=r"$k_y\rho_{ref}$",
@@ -5597,9 +5613,11 @@ def _build_gk_growth_rate(entries: Sequence[tuple[str, Any]], **options: Any) ->
 
 
 def _build_gk_frequency(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
-    series = [s for label, obj in _labelled(entries) for s in _gk_linear_series(label, obj, "frequency_norm")]
+    include = bool(options.get("include_unconverged", False))
+    series = [s for label, obj in _labelled(entries)
+              for s in _gk_linear_series(label, obj, "frequency_norm", include_unconverged=include)]
     if not series:
-        raise ValueError(f"no {_GK}.linear frequencies in this input")
+        raise ValueError(f"no converged {_GK}.linear frequencies in this input")
     conventions = {_gk_parameter(obj, "frequency_sign_convention") for _label, obj in entries}
     if conventions == {"ion_diamagnetic_negative"}:
         sign = "ion dia. < 0"
@@ -5690,13 +5708,13 @@ def _build_gk_eigenfunction(obj: Any, **options: Any) -> Profile1D:
     best, best_gamma = None, -np.inf
     for k in range(_count(obj, f"{_GK}.linear.wavevector")):
         mode = f"{_GK}.linear.wavevector.{k}.eigenmode.0"
-        if not _has(obj, f"{mode}.fields.phi_potential_perturbed_norm"):
+        if not _has(obj, f"{mode}.fields.phi_potential_perturbed_norm") or _gk_unconverged(obj, mode):
             continue
         gamma = _get(obj, f"{mode}.growth_rate_norm", -np.inf)
         if gamma is not None and float(gamma) > best_gamma:
             best, best_gamma = k, float(gamma)
     if best is None:
-        raise ValueError(f"no {_GK}.linear eigenmode carries a phi eigenfunction")
+        raise ValueError(f"no converged {_GK}.linear eigenmode carries a phi eigenfunction")
     mode = f"{_GK}.linear.wavevector.{best}.eigenmode.0"
     angle = _array(obj, f"{mode}.angle_pol")
     phi = np.asarray(_get(obj, f"{mode}.fields.phi_potential_perturbed_norm"), dtype=complex)
@@ -5795,7 +5813,9 @@ _GK_LINEAR_READS = (
 
 def _gk_eigen_reads(leaf: str) -> tuple[str, ...]:
     return (*_GK_COMMON_READS, *_GK_LINEAR_READS,
-            f"{_GK}.linear.wavevector.{{i}}.eigenmode.{{j}}.{leaf}")
+            f"{_GK}.linear.wavevector.{{i}}.eigenmode.{{j}}.{leaf}",
+            f"{_GK}.linear.wavevector.{{i}}.eigenmode.{{j}}.initial_value_run",
+            f"{_GK}.linear.wavevector.{{i}}.eigenmode.{{j}}.growth_rate_tolerance")
 
 
 def _gk_flux_reads(quantity: str) -> tuple[str, ...]:
@@ -5810,6 +5830,8 @@ _GK_EIGENFUNCTION_READS = (
     f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.angle_pol",
     f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.fields.phi_potential_perturbed_norm",
     f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.code.parameters",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.initial_value_run",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.growth_rate_tolerance",
 )
 
 RECIPES["gyrokinetics_spectrum_growth_rate"] = CallableRecipe(

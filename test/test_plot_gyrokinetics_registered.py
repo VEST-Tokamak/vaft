@@ -99,3 +99,41 @@ def test_the_omas_facades_draw_each_registered_plot(gk, transport):
 def test_an_input_without_the_ids_is_not_offered(transport, gk):
     assert missing_required_path(transport, "gyrokinetics_overview") is not None
     assert missing_required_path(gk, "turbulent_transport_overview") is not None
+
+
+def test_single_ky_runs_merge_into_one_scan_and_foreign_runs_are_refused():
+    import copy
+
+    from vaft.machine_mapping.gyrokinetics import merge_linear_scan
+
+    one = make_gyrokinetics_local(None)
+    two = copy.deepcopy(one)
+    wave = "gyrokinetics_local.linear.wavevector.0"
+    two[f"{wave}.binormal_wavevector_norm"] = one[f"{wave}.binormal_wavevector_norm"] / 2
+    merged = merge_linear_scan([one, two])
+    ky = [merged[f"gyrokinetics_local.linear.wavevector.{k}.binormal_wavevector_norm"]
+          for k in range(len(merged["gyrokinetics_local.linear.wavevector"]))]
+    assert ky == sorted(ky) and len(ky) == 2 * len(one["gyrokinetics_local.linear.wavevector"])
+    foreign = copy.deepcopy(two)
+    foreign["gyrokinetics_local.species.0.temperature_norm"] *= 1.1
+    with pytest.raises(ValueError, match="species.0.temperature_norm"):
+        merge_linear_scan([one, foreign])
+
+
+def test_an_unconverged_initial_value_mode_is_not_drawn_unless_asked():
+    """growth_rate_tolerance is written only for a converged run; a run stopped at
+    MAX_TIME holds a last-step value, not an eigenvalue (the ES low-ky points of #1484)."""
+    from vaft.machine_mapping.gyrokinetics import merge_linear_scan
+
+    one = make_gyrokinetics_local(None)
+    junk = copy.deepcopy(one)
+    wave = "gyrokinetics_local.linear.wavevector.0"
+    junk[f"{wave}.binormal_wavevector_norm"] = one[f"{wave}.binormal_wavevector_norm"] / 3
+    junk[f"{wave}.eigenmode.0.growth_rate_norm"] = 50.0
+    del junk[f"{wave}.eigenmode.0.growth_rate_tolerance"]
+    scan = merge_linear_scan([one, junk])
+    entries = normalize_entries(scan)
+    default = build_model("gyrokinetics_spectrum_growth_rate", entries)
+    assert np.nanmax(np.concatenate([s.y for s in default.series])) < 50.0
+    asked = build_model("gyrokinetics_spectrum_growth_rate", entries, include_unconverged=True)
+    assert np.nanmax(np.concatenate([s.y for s in asked.series])) == pytest.approx(50.0)

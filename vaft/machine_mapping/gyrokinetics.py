@@ -145,6 +145,7 @@ __all__ = [
     "core_transport_from_cgyro",
     "geometric_angle",
     "gyrokinetics_local_from_cgyro",
+    "merge_linear_scan",
 ]
 
 
@@ -540,3 +541,61 @@ def core_transport_from_cgyro(
         ods["core_transport.time"] = np.asarray([float(time)])
     skipped.append("momentum_tor: CGYRO's momentum moment is not mapped (no rotation)")
     return {"written": [base], "skipped": skipped}
+
+
+# -- linear k_y scans ---------------------------------------------------------------
+
+# Subtrees that differ between the single-k_y runs of one scan by construction.
+_SCAN_FREE = ("linear", "code", "ids_properties")
+
+
+def merge_linear_scan(odss: Iterable[ODS], *, rtol: float = 1e-9) -> ODS:
+    """Combine single-``k_y`` linear runs of one local problem into one IDS.
+
+    A linear ``k_y`` scan run as separate initial-value runs (one CGYRO run per
+    ``k_y``) is still one ``gyrokinetics_local`` simulation in the GKDB sense: one
+    plasma, many wavevectors. Every leaf outside ``linear``, ``code`` and
+    ``ids_properties`` -- species, flux surface, model flags, normalisation -- must
+    agree between the runs (to ``rtol``), or the runs are not one scan and a
+    ``ValueError`` names the first leaf that differs. Wavevectors are sorted by
+    ``binormal_wavevector_norm``; ``code`` and ``ids_properties`` come from the first
+    run.
+    """
+    import copy
+
+    odss = list(odss)
+    if not odss:
+        raise ValueError("no runs to merge")
+    first = odss[0][IDS]
+
+    def shared(ids: Any) -> dict[str, Any]:
+        return {path: value for path, value in ids.flat().items()
+                if path.split(".")[0] not in _SCAN_FREE}
+
+    reference = shared(first)
+    waves: list[tuple[float, Any]] = []
+    for position, ods in enumerate(odss):
+        ids = ods[IDS]
+        leaves = shared(ids)
+        if set(leaves) != set(reference):
+            extra = sorted(set(leaves) ^ set(reference))[0]
+            raise ValueError(f"run {position} is not part of the scan: {extra} is not in every run")
+        for path, value in leaves.items():
+            other = reference[path]
+            if isinstance(value, str) or isinstance(other, str):
+                same = value == other
+            else:
+                same = np.shape(value) == np.shape(other) and np.allclose(
+                    value, other, rtol=rtol, atol=0.0, equal_nan=True)
+            if not same:
+                raise ValueError(f"run {position} is not part of the scan: {path} differs")
+        for k in range(path_count(ods, f"{IDS}.linear.wavevector")):
+            wave = ids[f"linear.wavevector.{k}"]
+            waves.append((float(wave["binormal_wavevector_norm"]), wave))
+
+    merged = ODS()
+    merged[IDS] = copy.deepcopy(first)
+    del merged[f"{IDS}.linear.wavevector"]
+    for k, (_ky, wave) in enumerate(sorted(waves, key=lambda pair: pair[0])):
+        merged[f"{IDS}.linear.wavevector.{k}"] = copy.deepcopy(wave)
+    return merged
