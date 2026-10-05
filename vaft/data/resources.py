@@ -155,6 +155,47 @@ def sample(shot: int, representation: str = "omas") -> Path:
     return path
 
 
+def unified_diagnostics_manifest() -> dict:
+    """Validate and return the provenance contract for the VEST cross-shot fixture."""
+    import hashlib
+
+    root = data_path("unified/vest_diagnostics")
+    with require_repository_sample(root / "manifest.yaml").open("r", encoding="utf-8") as handle:
+        manifest = yaml.safe_load(handle)
+    if (
+        manifest.get("schema_version") != 1
+        or manifest.get("kind") != "cross-shot-diagnostic-fixture"
+        or manifest.get("physical_discharge") is not False
+        or manifest.get("machine") != "VEST"
+        or manifest.get("geometry_reference", {}).get("source_shot") != 39915
+        or "shot" in manifest
+    ):
+        raise ValueError("Invalid cross-shot diagnostic fixture contract")
+    for name, source in manifest.get("sources", {}).items():
+        if not isinstance(source.get("source_shot"), int) or not all(
+            source.get(key) for key in (
+                "source_artifact", "source_sha256", "ids", "source_time",
+                "processing", "value_kind", "geometry_compatibility",
+            )
+        ):
+            raise ValueError(f"Incomplete provenance for {name}")
+    record = manifest["artifact"]
+    artifact = root / record["path"]
+    if artifact.stat().st_size != record["size"]:
+        raise ValueError("Cross-shot diagnostic fixture size mismatch")
+    if hashlib.sha256(artifact.read_bytes()).hexdigest() != record["sha256"]:
+        raise ValueError("Cross-shot diagnostic fixture checksum mismatch")
+    return manifest
+
+
+def unified_diagnostics_fixture():
+    """Load the offline VEST cross-shot fixture as an OMAS ODS."""
+    from vaft.omas import load
+
+    manifest = unified_diagnostics_manifest()
+    return load(data_path("unified/vest_diagnostics") / manifest["artifact"]["path"])
+
+
 def sample_geqdsk(name: str = "efit/g039915.00319"):
     """Load one packaged GEQDSK sample as a :class:`vaft.data.eqdsk.GEQDSK`."""
     from .eqdsk import read_geqdsk

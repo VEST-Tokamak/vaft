@@ -13,8 +13,8 @@ where :mod:`vaft.plot` shows data and results. The boundary:
 
 Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
 island model) and the stability / operational-space charts
-``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill`` and
-``troyon``; single-particle motion: ``exb_drift``, ``curvature_drift``,
+``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``,
+``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); single-particle motion: ``exb_drift``, ``curvature_drift``,
 ``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
 of the island: ``rational_surface``, ``delta_prime`` and
 ``tearing_layer_matching``; 3-D perturbation harmonics:
@@ -34,7 +34,11 @@ modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 ``scientific_workflow``, ``interoperability_layers``,
 ``scientific_provenance_chain``, ``scientific_infrastructure_principles``,
 ``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``,
-``human_ai_interface`` and ``machine_research_archive``.
+``human_ai_interface`` and ``machine_research_archive``; the VEST data platform
+(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the spatial
+vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
+``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
+``logical_to_physical_mapping`` and ``physical_to_flux_mapping``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -55,6 +59,7 @@ __all__ = [
     "s_alpha_ballooning",
     "hugill",
     "troyon",
+    "li_qa",
     "exb_drift",
     "curvature_drift",
     "magnetization_current",
@@ -162,6 +167,9 @@ __all__ = [
     "flux_tube_patch",
     "magnetic_shear_field_aligned",
     "ballooning_eigenfunction",
+    "ballooning_transit_map",
+    "ballooning_boundary_conditions",
+    "field_aligned_xpoint_limitation",
     "field_line_action_angle",
     "sfl_coordinate_validity",
     "coordinates_vs_cocos",
@@ -186,6 +194,15 @@ __all__ = [
     "experiment_modeling_theory_data_network",
     "human_ai_interface",
     "machine_research_archive",
+    "vest_data_platform",
+    "vest_data_platform_overview",
+    "tokamak_top_view",
+    "cocos_orientation",
+    "machine_and_equilibrium_geometry",
+    "structured_rz_grid",
+    "geometry_to_mesh",
+    "logical_to_physical_mapping",
+    "physical_to_flux_mapping",
     "Diagram",
     "DiagramToolchainError",
 ]
@@ -196,6 +213,7 @@ _LOCATIONS = {
     "s_alpha_ballooning": "._stability_space",
     "hugill": "._stability_space",
     "troyon": "._stability_space",
+    "li_qa": "._li_qa",
     "exb_drift": "._particle_motion",
     "curvature_drift": "._particle_motion",
     "magnetization_current": "._particle_motion",
@@ -303,6 +321,9 @@ _LOCATIONS = {
     "flux_tube_patch": "._field_aligned",
     "magnetic_shear_field_aligned": "._field_aligned",
     "ballooning_eigenfunction": "._field_aligned",
+    "ballooning_transit_map": "._field_aligned",
+    "ballooning_boundary_conditions": "._field_aligned",
+    "field_aligned_xpoint_limitation": "._field_aligned",
     "field_line_action_angle": "._sfl_coordinates",
     "sfl_coordinate_validity": "._sfl_coordinates",
     "coordinates_vs_cocos": "._sfl_coordinates",
@@ -327,6 +348,15 @@ _LOCATIONS = {
     "experiment_modeling_theory_data_network": "._vaft_concepts",
     "human_ai_interface": "._vaft_concepts",
     "machine_research_archive": "._vaft_concepts",
+    "vest_data_platform": "._platform",
+    "vest_data_platform_overview": "._platform",
+    "tokamak_top_view": "._spatial",
+    "cocos_orientation": "._spatial",
+    "machine_and_equilibrium_geometry": "._spatial",
+    "structured_rz_grid": "._spatial",
+    "geometry_to_mesh": "._spatial",
+    "logical_to_physical_mapping": "._spatial",
+    "physical_to_flux_mapping": "._spatial",
     "Diagram": "._render",
     "DiagramToolchainError": "._render",
 }

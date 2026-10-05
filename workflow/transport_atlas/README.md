@@ -20,3 +20,32 @@ The shared resolver is `vaft.process.transport_state`:
 - **Geometry:** EFIT products carry no `r_inboard`/`r_outboard`, so these are derived from the 2-D flux map. Some products also lack shape profiles (#1458); for those, elongation and triangularity come from closed contours inside the boundary outline. `provenance.shape.kind` says which applies.
 
 Runs go on tdst (`lowpri-short`, GACODE `TDST_GNU`). The branch worktree sits on `PYTHONPATH` in front of the non-editable `vaft` env, and the wrapper asserts `vaft.__file__`. The inputs are a read-only subset of the campaign FileDB copied from vestserver. Results are copied back to `vestserver:~/runs/campaign/atlas/transport/`, never into the production FileDB. Pass `--mem-mb`: without `--mem`, tdst's default reserves the whole node for a one-core job.
+
+## Linear check against CGYRO (Lane Y, #1484)
+
+Lane Y ran linear CGYRO on the five #1482 sensitivity states at r/a 0.6/0.7/0.8, k_yρ_s 0.1–6, ES and EM. Both codes read the same resolved state (`state_identity`) and the same local input; TGLF was rerun single-k_y on it. The product is `vestserver:~/runs/campaign/atlas/gyrokinetic_linear/` (`linear.csv`, `linear_summary.csv`, `schema.json`). Only `cgyro_status == "converged"` is a growth rate; `max_time` means marginal and `decayed` means stable.
+
+**What it measures: the accuracy of TGLF's linear growth rate. It does not rank SAT rules.**
+- Every SAT rule saturates the same TGLF linear eigenvalues, so a linear error enters SAT0–3 alike.
+- Ranking the rules needs nonlinear CGYRO fluxes. That is Lane Y's next step, on 39916 and 39915 at r/a 0.8, where the SAT spread is largest.
+
+**Result (2026-10-03)**
+
+| quantity | value |
+|---|---|
+| CGYRO points (360) | 82 converged, 258 max_time, 14 decayed, 6 failed |
+| both codes unstable (converged CGYRO) | 77 points |
+| TGLF γ / CGYRO γ | median 1.9, IQR 1.5–3.0 |
+| median ratio by field model | ES 1.9 (38 points), EM 1.9 (39 points) |
+| same branch (sign of ω) | 75/77 |
+| CGYRO damped, TGLF unstable | 5 points, all 40330 |
+| strongly driven surfaces (39915/39916, r/a ≥ 0.7) | same branch, γ_max ratio 1.4–2.4; TGLF peaks at k_yρ_s 1.0, CGYRO at 0.6–0.8 |
+| weakly driven states (40330, all of 42962) | no converged CGYRO mode on most surfaces, so the comparison is inconclusive |
+
+Lane Y's summary (#1453/#1484) gives 82 points, a median of 1.8 and 78/82 branch agreement. That count includes the 5 points where CGYRO is damped; the ratio here uses only the points where both codes are unstable.
+
+Consequences for reading the atlas:
+- **Absolute fluxes.** Q/Q_GB is likely high on the driven surfaces under every SAT rule.
+- **Robust quantities.** The mode direction (`omega_dom_sign`, the mode-branch map) and the radial and inter-shot ordering are what the check supports.
+- **Weak surfaces.** Near-marginal surfaces stay near-marginal; their f_neo partition is not affected.
+- **Conventions.** In `linear_summary.csv`, `gamma_max_ratio` is CGYRO/TGLF, the inverse of the ratio quoted here. The EM field model is named `em-aperp`, which is the atlas's `em-bper`.

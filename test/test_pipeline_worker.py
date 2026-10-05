@@ -81,7 +81,11 @@ class FakeRunner:
     target with success, ``"fail"`` writes raw and diagnostics only,
     ``"skipped"`` marks EFIT skipped, ``"chease_no_output"`` marks the CHEASE
     stage's manifest ``no_output`` (every slice a solver verdict),
-    ``"preflight"`` writes raw and a preflight exclusion.
+    ``"preflight"`` writes raw and a preflight exclusion, ``"efit_no_output"``
+    marks EFIT and CHEASE ``no_output`` with ``skipped`` replication records,
+    ``"vacuum"`` writes raw, diagnostics and eddy only and fails the run,
+    ``"efit_fault"`` marks EFIT and CHEASE ``no_output`` for a reason replication refuses
+    (no replication record, the run fails).
     """
 
     def __init__(self, harvester: PipelineHarvester, source: FakeSource | None = None):
@@ -124,13 +128,29 @@ class FakeRunner:
                 targets, failed = [], True
             elif behaviour == "blocked":  # raw done, preflight never ran
                 targets, failed = targets[:1], True
+            elif behaviour == "efit_fault":
+                # replicate_stage raised on the `no_output` reason, so the
+                # replicate rule failed and left no record behind.
+                targets = [t for t in targets
+                           if not (t.stage in ("efit", "chease") and t.kind == "replication")]
+                failed = True
             for target in targets:
                 status = "success"
                 if behaviour == "skipped" and target.stage == "efit":
                     status = "skipped"
                 elif behaviour == "chease_no_output" and target.stage == "chease" and target.kind == "manifest":
                     status = "no_output"
-                payload = {"status": status}
+                elif behaviour == "vacuum" and target.stage not in ("raw", "diagnostics", "eddy"):
+                    # The constraint step refuses a sub-15 kA shot by failing,
+                    # so nothing from EFIT on is ever written (#205).
+                    failed = True
+                    continue
+                elif behaviour == "efit_no_output" and target.stage in ("efit", "chease"):
+                    # What replicate_stage records for a stage that produced nothing.
+                    status = "skipped" if target.kind == "replication" else "no_output"
+                elif behaviour == "efit_fault" and target.stage in ("efit", "chease"):
+                    status = "no_output"
+                payload = {"state": status} if target.kind == "replication" else {"status": status}
                 if target.stage == "raw" and target.kind == "manifest" and self.source is not None:
                     # What the dump holds: SQL's inventory at run time.
                     payload["inventory"] = {"field_codes": sorted(
@@ -359,6 +379,142 @@ def test_an_intentionally_empty_stage_is_partial_not_failed(setup):
     statuses = {(s["stage"], s["product"]): s["status"] for s in worker.state.stage_status(101)}
     assert statuses[("efit", "")] == "skipped"
     assert statuses[("diagnostics", "")] == "success"
+
+
+def test_a_shot_whose_efit_produced_nothing_is_partial_and_not_retried(setup, tmp_path):
+    """48940 (2026-10-02): EFIT ``no_output``, diagnostics and eddy published.
+
+    The EFIT and CHEASE replications record ``skipped``; the shot is partial,
+    costs no attempt, and the next cycle does not run it again.
+    """
+    _, make_worker, _ = setup
+    pipeline_path = tmp_path / "pipeline.yaml"
+    pipeline = yaml.safe_load(pipeline_path.read_text(encoding="utf-8"))
+    pipeline["hsds"] = {"replicate": True}
+    pipeline_path.write_text(yaml.safe_dump(pipeline), encoding="utf-8")
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    runner.script[101] = ["efit_no_output"]
+
+    settle_cycles(worker)
+    row = worker.state.shot(101)
+    assert row["state"] == S.PARTIAL and row["attempts"] == 0
+    statuses = {(s["stage"], s["product"], s["kind"]): s["status"] for s in worker.state.stage_status(101)}
+    assert statuses[("efit", "", "replication")] == "skipped"
+    assert statuses[("diagnostics", "", "replication")] == "success"
+    worker.run_cycle()
+    assert len(runner.plans) == 1
+
+
+def _scope_pipeline(tmp_path, stages):
+    """Turn replication on, and set the worker's stage scope, for this test's worker."""
+    import yaml as _yaml
+
+    pipeline_path = tmp_path / "pipeline.yaml"
+    pipeline = _yaml.safe_load(pipeline_path.read_text(encoding="utf-8"))
+    pipeline["hsds"] = {"replicate": True}
+    if stages is not None:
+        pipeline["stages"] = list(stages)
+    pipeline_path.write_text(_yaml.safe_dump(pipeline), encoding="utf-8")
+
+
+def test_a_vacuum_shot_fails_the_whole_pipeline(setup, tmp_path):
+    """Without a scope a vacuum shot never reaches EFIT and is retried until given up."""
+    _, make_worker, _ = setup
+    _scope_pipeline(tmp_path, None)
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    runner.script[101] = ["vacuum", "vacuum"]
+    settle_cycles(worker, 2)
+    assert worker.state.shot(101)["state"] == S.GAVE_UP
+
+
+def test_a_vacuum_shot_completes_inside_a_diagnostics_and_eddy_scope(setup, tmp_path):
+    """With ``stages: [raw, diagnostics, eddy]`` nothing from EFIT on is asked for or judged."""
+    _, make_worker, _ = setup
+    _scope_pipeline(tmp_path, ["raw", "diagnostics", "eddy"])
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    runner.script[101] = ["vacuum"]
+
+    settle_cycles(worker)
+    row = worker.state.shot(101)
+    assert row["state"] == S.COMPLETED and row["attempts"] == 0
+    stages = {s["stage"] for s in worker.state.stage_status(101)}
+    assert stages == {"raw", "diagnostics", "eddy"}
+    assert ("eddy", "", "replication") in {
+        (s["stage"], s["product"], s["kind"]) for s in worker.state.stage_status(101)
+    }
+    worker.run_cycle()
+    assert len(runner.plans) == 1
+
+
+def test_the_worker_scope_reaches_every_run_config(tmp_path):
+    from vaft.database.worker.config import load_pipeline_config
+
+    pipeline = tmp_path / "pipeline.yaml"
+    pipeline.write_text(yaml.safe_dump({"raw": {"mode": "sql"}, "stages": ["raw", "diagnostics"]}))
+    base = {
+        "state_db": "s.sqlite", "log_dir": "logs", "workflow_dir": str(WORKFLOW),
+        "pipeline_config": str(pipeline), "first_shot": 1, "poll_interval": 60,
+        "quiet_seconds": 600, "cores": 1, "snakemake_cmd": "snakemake",
+    }
+    unscoped = worker_config_from_mapping(base, base_dir=tmp_path)
+    assert unscoped.stages is None
+    assert load_pipeline_config(unscoped)["stages"] == ["raw", "diagnostics"]
+
+    scoped = worker_config_from_mapping({**base, "stages": ["raw", "diagnostics", "eddy"]}, base_dir=tmp_path)
+    assert load_pipeline_config(scoped)["stages"] == ["raw", "diagnostics", "eddy"]
+
+
+@pytest.mark.parametrize("stages", ["diagnostics", [], [1, 2], 5])
+def test_a_malformed_stage_scope_is_refused(tmp_path, stages):
+    from vaft.database.worker.config import WorkerConfigError
+
+    with pytest.raises(WorkerConfigError, match="stages"):
+        worker_config_from_mapping(
+            {"state_db": "s", "log_dir": "l", "workflow_dir": str(WORKFLOW), "pipeline_config": "p",
+             "first_shot": 1, "poll_interval": 60, "quiet_seconds": 600, "cores": 1,
+             "snakemake_cmd": "snakemake", "stages": stages},
+            base_dir=tmp_path,
+        )
+
+
+@pytest.mark.parametrize(
+    ("stages", "message"),
+    [(["raw", "diagnostic"], "Unknown stage"), (["raw", "efit"], "but not 'eddy'")],
+)
+def test_a_scope_the_workflow_cannot_run_stops_the_harvester(stages, message):
+    with pytest.raises(ValueError, match=message):
+        PipelineHarvester({"base_dir": "/tmp/x", "layout": "filedb", "stages": stages},
+                          workflow_dir=WORKFLOW, environment={})
+
+
+def test_an_efit_no_output_that_replication_refuses_is_failed_and_retried(setup, tmp_path):
+    """cold review 0.8.0 delta-absorb-14 infra F1: an EFIT that wrote g-files
+    and still ended ``no_output`` is a fault; ``replicate_stage`` raises, no
+    replication record exists, and the worker counts the attempt and retries
+    instead of parking the shot as partial."""
+    _, make_worker, _ = setup
+    pipeline_path = tmp_path / "pipeline.yaml"
+    pipeline = yaml.safe_load(pipeline_path.read_text(encoding="utf-8"))
+    pipeline["hsds"] = {"replicate": True}
+    pipeline_path.write_text(yaml.safe_dump(pipeline), encoding="utf-8")
+    source = FakeSource()
+    source.add(101)
+    worker, runner = make_worker(source=source)
+    runner.script[101] = ["efit_fault", "ok"]
+
+    settle_cycles(worker)
+    row = worker.state.shot(101)
+    assert row["state"] == S.FAILED and row["attempts"] == 1
+    assert "efit (replication)=missing" in row["reason"]
+    worker.run_cycle()
+    assert worker.state.shot(101)["state"] == S.COMPLETED
+    assert [plan.full_shots for plan in runner.plans] == [(101,), (101,)]
 
 
 def test_a_chease_run_of_solver_verdicts_is_partial_not_retried(setup):

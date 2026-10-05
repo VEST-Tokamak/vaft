@@ -64,6 +64,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_catalog.py",
     "test_help.py",
     "test_hsds_configure.py",
+    "test_mcp_server.py",
+    "test_mcp_tools.py",
     "test_plot_discovery.py",
     "test_plot_registry.py",
     "test_plot_submodule.py",
@@ -86,6 +88,7 @@ CORE_MODULES: tuple[str, ...] = (
     # be able to see.
     "test_gpec_island_geometry.py",
     "test_magnetic_island.py",
+    # Machine geometry: source vertices, unknown phi, camera units and mask.
     # Registry, taxonomy and display policy: the vocabulary the rest of the
     # package indexes itself by.
     "test_diagnostic_registry.py",
@@ -94,8 +97,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_equilibrium_field_2d.py",
     "test_layout_contract.py",
     "test_line_abscissa.py",
+    "test_machine_geometry_registry.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_parameter_history.py",
     "test_plot_3d_contract.py",
     "test_plot_contract.py",
     "test_plot_intent.py",
@@ -127,6 +132,7 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_models_uncertainty.py",
     "test_code_parameters_contract.py",
     "test_code_parameters_entry_payload.py",
+    "test_database_summary.py",
     "test_dataset_description.py",
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
@@ -134,6 +140,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_public_profile.py",
     "test_public_transition.py",
     "test_shotlog.py",
+    "test_turbulent_transport_summary.py",
     # Packaging and documentation policy. Metadata reads; they catch the
     # breakage `package` cannot see until it is already building a wheel.
     "contracts/test_dependency_policy_matrix.py",
@@ -169,6 +176,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_boundaries.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
+    "test_li_qa.py",
     "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
@@ -194,11 +202,13 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_mhd_waves.py",
     "test_diagram_nbi.py",
     "test_diagram_particle_motion.py",
+    "test_diagram_platform.py",
     "test_diagram_pwi.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
     "test_diagram_sfl_coordinates_part2.py",
     "test_diagram_slab_parity.py",
+    "test_diagram_spatial.py",
     "test_diagram_spectroscopy.py",
     "test_diagram_tearing.py",
     "test_diagram_tokamak_geometry.py",
@@ -215,8 +225,10 @@ CORE_MODULES: tuple[str, ...] = (
     # and the #141 scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
     "test_gpec_rdcon_criteria.py",
+    "test_mhd_linear_dcon_payload.py",
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
+    "test_stability_rdcon_stride_benchmark.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",

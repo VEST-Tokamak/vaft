@@ -40,6 +40,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     },
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon")},
+    **{f"li_qa_{r}.svg": ("li_qa", {"reference": r}) for r in ("wesson_1989", "cheng_1987")},
     # single-particle motion
     **{f"{name}.svg": (name, {}) for name in ("exb_drift", "curvature_drift", "magnetization_current",
                                               "toroidal_drift")},
@@ -148,6 +149,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # field-aligned coordinates, flux tubes, shear and the ballooning eigenfunction (#1075 part 2)
     **{f"{name}.svg": (name, {}) for name in ("field_aligned_basis", "flux_tube_patch",
                                               "magnetic_shear_field_aligned", "ballooning_eigenfunction")},
+    # transits, boundary conditions and the X-point limit (#1075 remainder)
+    **{f"{name}.svg": (name, {}) for name in ("ballooning_transit_map", "ballooning_boundary_conditions",
+                                              "field_aligned_xpoint_limitation")},
     # a toroidal mode number: the shift nu couples harmonics in every angle but PEST (#1074)
     "sfl_fourier_convergence_n2.svg": ("sfl_fourier_convergence", {"n": 2}),
     # SFL coordinates part 2: action-angle, validity near a separatrix, coordinates vs COCOS (#1074)
@@ -186,6 +190,17 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "human_ai_interface.svg": ("human_ai_interface", {}),
     # the machine and research archive since 2012 (#497)
     "machine_research_archive.svg": ("machine_research_archive", {}),
+    # the VEST data platform: reference view and compact companion (#1550)
+    "vest_data_platform.svg": ("vest_data_platform", {}),
+    "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
+    "tokamak_top_view.svg": ("tokamak_top_view", {}),
+    "cocos_orientation.svg": ("cocos_orientation", {}),
+    "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),
+    "machine_and_equilibrium_geometry.svg": ("machine_and_equilibrium_geometry", {}),
+    "structured_rz_grid.svg": ("structured_rz_grid", {}),
+    "geometry_to_mesh.svg": ("geometry_to_mesh", {}),
+    "logical_to_physical_mapping.svg": ("logical_to_physical_mapping", {}),
+    "physical_to_flux_mapping.svg": ("physical_to_flux_mapping", {}),
 }
 
 

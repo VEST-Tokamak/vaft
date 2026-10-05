@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines nine extras (eight optional-dependency groups plus `dev`); none is needed for the first result on this page:
+The project defines eleven extras (ten optional-dependency groups plus `dev`); none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
@@ -51,7 +51,9 @@ The project defines nine extras (eight optional-dependency groups plus `dev`); n
 | `jupyter3d` | k3d | `vaft.plot.k3d.to_k3d` and `coil_phase_explorer`: interactive 3-D scenes in Jupyter (#1087) |
 | `video` | PyAV (av) | writing `.mp4`/`.webm` from `plot_*(..., animation=True)` and its inline notebook preview; `.gif` export needs no extra (#1050) |
 | `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
-| `dev` | pytest, pytest-xdist, pre-commit, the two runtimes above and PyAV | running the test suite and contributing |
+| `mcp` | mcp (the Model Context Protocol SDK) | `python -m vaft.mcp` / `vaft mcp`: the local, read-only MCP server for agent clients ([MCP server]({{ site.baseurl }}/reference/mcp/)); `import vaft` never needs it |
+| `gui` | panel | `vaft gui`: the browser GUI, locally or through SSH port forwarding ([Browser GUI]({{ site.baseurl }}/workflows/gui/)) |
+| `dev` | pytest, pytest-xdist, pre-commit, the two runtimes above, PyAV, the MCP SDK and panel | running the test suite and contributing |
 
 ```bash
 python -m pip install -e ".[dev]"            # development tooling
