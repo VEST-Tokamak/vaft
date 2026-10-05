@@ -2,7 +2,7 @@
 
 The level-2 view below the platform overview (``vest_data_platform``): one
 :class:`WorkflowSpec` per derivation, inference or solver coupling, drawn by
-one renderer (:func:`render_workflow`) and tabulated by one function
+one renderer (:func:`_render_workflow`) and tabulated by one function
 (:func:`workflow_table`), so the figure, the documentation table and the tests
 read the same record.
 
@@ -245,7 +245,7 @@ def _node_text(node: Node, spec_status: str) -> str:
     return "\\\\[2pt]".join(lines)
 
 
-def render_workflow(spec: WorkflowSpec, *, labels: bool = True) -> Diagram:
+def _render_workflow(spec: WorkflowSpec, *, labels: bool = True) -> Diagram:
     """The workflow as a figure: rows top to bottom, assumptions from the left, equations in their node."""
     if not isinstance(labels, bool):
         raise ValueError(f"labels must be True or False, not {labels!r}")

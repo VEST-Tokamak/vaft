@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Dict
 
 from ._render import Diagram
-from ._workflow import Node as N, WorkflowSpec, render_workflow
+from ._workflow import Node as N, WorkflowSpec, _render_workflow
 
 _STATE = "vaft.process.transport_state.resolve_transport_state"
 _CP = "core_profiles.profiles_1d[:]"
@@ -123,7 +123,7 @@ _SPECS = (
             N("rp_model", "Model resistance", "derived", api="vaft.process.resistive_zeff.model_resistance",
               relation=r"R_p^{\mathrm{model}}(Z) = \frac{1}{I_p^2}\int \frac{\langle E\cdot B\rangle"
                        r"\langle J\cdot B\rangle}{\langle B^2\rangle}\,dV"),
-            N("bounds", "Fit bounds and weights", "prior", symbols=r"1 \le Z \le 8,\ \ w_t\ \mathrm{uniform}"),
+            N("bounds", "Fit bounds and weights", "prior", symbols=r"Z_{\min} \le Z \le Z_{\max}\ (\mathrm{caller\ set}),\ \ w_t\ \mathrm{uniform}"),
             N("fit", "Bounded scalar fit", "derived", api="vaft.process.resistive_zeff.infer_resistive_zeff",
               relation=r"\min_Z \sum_t w_t\,[V_R^{\mathrm{obs}} - R_p^{\mathrm{model}}(Z)(I_p - I_{\mathrm{ni}})]^2"),
             N("zeff", "Resistive Zeff (scalar)", "inferred",
@@ -191,7 +191,7 @@ _SPECS = (
             N("ts", "Thomson scattering", "measured", ids="thomson_scattering.channel[:].{t_e, n_e, position.r}",
               symbols=r"T_e \pm \sigma_{T_e},\ n_e \pm \sigma_{n_e}\ \mathrm{at}\ R_k"),
             N("ti", "Ion temperature", "measured", ids="charge_exchange.channel[:].ion[0].t_i",
-              symbols=r"T_i \pm \sigma_{T_i}\ (\mathrm{or}\ T_i = rT_e,\ \sigma_r = 0.5)"),
+              symbols=r"T_i \pm \sigma_{T_i}\qquad \mathrm{or}\ T_i = rT_e,\ r \pm \sigma_r\ \mathrm{from\ machine\ policy}"),
             N("mapping", "Major radius to normalized flux", "derived", ids=f"{_EQ}.profiles_2d[0].psi",
               symbols=r"\psi_N(R, Z{=}0)\ \mathrm{for\ the}\ T_i\ \mathrm{fit}"),
             N("pressure", "Kinetic pressure points", "derived", api="vaft.code.efit.kinetic_pressure_points",
@@ -201,7 +201,7 @@ _SPECS = (
             N("magnetic", "Magnetic constraints", "code_input", api="vaft.code.efit.generate_constraints_ods",
               symbols=r"y_k \pm \sigma_k"),
             N("kfile", "k-file with pressure block", "code_input", api="vaft.code.efit.inject_pressure_constraint",
-              symbols=r"\mathrm{KPRFIT}=1:\ (R_k, 0, p_k, \sigma_{p,k})"),
+              symbols=r"\mathrm{KPRFIT}=1:\ (R_k, 0, p_k, \sigma_{p,k})\qquad \mathrm{separatrix}\ p = 0 \pm 0.05\,p_{\max}"),
             N("efit", "EFIT inverse solve", "solver", api="vaft.code.efit.run_kinetic_efit"),
             N("equilibrium", "Kinetic equilibrium", "standardized", api="vaft.code.efit.run_kinetic_chain",
               ids=f"{_EQ}.{{profiles_1d.pressure, profiles_2d}}", symbols=r"\psi,\ p(\psi),\ q"),
@@ -469,7 +469,8 @@ _SPECS = (
         side=(("rotation", "state"), ("tglf_cfg", "tglf"), ("cgyro_cfg", "cgyro")),
         todos=("Rotation and ExB shear are zero in both projections (TGLF VEXB_SHEAR, CGYRO GAMMA_E, MACH): their "
                "derivation from data is not implemented (#553).",
-               "Squareness zeta is zero-filled; CGYRO does not receive Z_EFF.",
+               "Squareness zeta enters as 0 (VEST equilibria carry no squareness); Z_EFF is not written to "
+               "input.cgyro by design: CGYRO recomputes it from the species list (Z_EFF_METHOD=2).",
                "No implemented local-gyrokinetic validity criterion (rho*): compare_with_oracle checks only the "
                "input translation against CGYRO's own projection.",
                "No TGLF to gyrokinetics_local mapping."),
@@ -482,64 +483,64 @@ WORKFLOWS: Dict[str, WorkflowSpec] = {spec.key: spec for spec in _SPECS}
 
 def plasma_parameter_inference(*, labels: bool = True) -> Diagram:
     """Electron profiles and the equilibrium resolved into T_i, the species mix and the local state."""
-    return render_workflow(WORKFLOWS["plasma_parameter_inference"], labels=labels)
+    return _render_workflow(WORKFLOWS["plasma_parameter_inference"], labels=labels)
 
 
 def romero_transformer_balance(*, labels: bool = True) -> Diagram:
     """Plasma resistance from Romero's exact transformer balance."""
-    return render_workflow(WORKFLOWS["romero_transformer_balance"], labels=labels)
+    return _render_workflow(WORKFLOWS["romero_transformer_balance"], labels=labels)
 
 
 def resistive_zeff_inference(*, labels: bool = True) -> Diagram:
     """The resistively equivalent scalar Zeff a conductivity model needs to match the observed resistance."""
-    return render_workflow(WORKFLOWS["resistive_zeff_inference"], labels=labels)
+    return _render_workflow(WORKFLOWS["resistive_zeff_inference"], labels=labels)
 
 
 def magnetic_efit(*, labels: bool = True) -> Diagram:
     """Magnetic equilibrium reconstruction: a free-boundary inverse problem."""
-    return render_workflow(WORKFLOWS["magnetic_efit"], labels=labels)
+    return _render_workflow(WORKFLOWS["magnetic_efit"], labels=labels)
 
 
 def kinetic_efit(*, labels: bool = True) -> Diagram:
     """Kinetically constrained reconstruction: magnetic constraints plus kinetic pressure points."""
-    return render_workflow(WORKFLOWS["kinetic_efit"], labels=labels)
+    return _render_workflow(WORKFLOWS["kinetic_efit"], labels=labels)
 
 
 def analytic_mhd_equilibrium(*, labels: bool = True) -> Diagram:
     """Analytic MHD equilibria: forward generation and projection onto a Solov'ev basis."""
-    return render_workflow(WORKFLOWS["analytic_mhd_equilibrium"], labels=labels)
+    return _render_workflow(WORKFLOWS["analytic_mhd_equilibrium"], labels=labels)
 
 
 def chease_coupling(*, labels: bool = True) -> Diagram:
     """Fixed-boundary refinement with CHEASE, COCOS transform explicit."""
-    return render_workflow(WORKFLOWS["chease_coupling"], labels=labels)
+    return _render_workflow(WORKFLOWS["chease_coupling"], labels=labels)
 
 
 def tokamaker_coupling(*, labels: bool = True) -> Diagram:
     """Free-boundary equilibrium with TokaMaker."""
-    return render_workflow(WORKFLOWS["tokamaker_coupling"], labels=labels)
+    return _render_workflow(WORKFLOWS["tokamaker_coupling"], labels=labels)
 
 
 def dcon_rdcon_stability(*, labels: bool = True) -> Diagram:
     """Ideal and resistive MHD stability with DCON and RDCON."""
-    return render_workflow(WORKFLOWS["dcon_rdcon_stability"], labels=labels)
+    return _render_workflow(WORKFLOWS["dcon_rdcon_stability"], labels=labels)
 
 
 def gpec_plasma_response(*, labels: bool = True) -> Diagram:
     """The ideal plasma response to applied 3-D fields with GPEC."""
-    return render_workflow(WORKFLOWS["gpec_plasma_response"], labels=labels)
+    return _render_workflow(WORKFLOWS["gpec_plasma_response"], labels=labels)
 
 
 def flare_field_line_topology(*, labels: bool = True) -> Diagram:
     """Magnetic field-line topology with FLARE."""
-    return render_workflow(WORKFLOWS["flare_field_line_topology"], labels=labels)
+    return _render_workflow(WORKFLOWS["flare_field_line_topology"], labels=labels)
 
 
 def neo_neoclassical(*, labels: bool = True) -> Diagram:
     """Neoclassical transport: Sauter / Redl fits and NEO at one state."""
-    return render_workflow(WORKFLOWS["neo_neoclassical"], labels=labels)
+    return _render_workflow(WORKFLOWS["neo_neoclassical"], labels=labels)
 
 
 def tglf_cgyro_local_transport(*, labels: bool = True) -> Diagram:
     """Local turbulent transport: TGLF and CGYRO from one local state."""
-    return render_workflow(WORKFLOWS["tglf_cgyro_local_transport"], labels=labels)
+    return _render_workflow(WORKFLOWS["tglf_cgyro_local_transport"], labels=labels)

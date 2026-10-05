@@ -1472,7 +1472,7 @@ One scalar Zeff over a time window: the effective charge a chosen parallel-condu
 | Coulomb logarithm prescription | model choice / convention (enters Parallel conductivity) | $\ln\Lambda\ \mathrm{fixed\ or\ Sauter}$ |  |  |
 | Parallel conductivity | derived | $\sigma_\parallel(\rho; Z)$ | `vaft.process.resistive_zeff.parallel_conductivity` |  |
 | Model resistance | derived |  | `vaft.process.resistive_zeff.model_resistance` |  |
-| Fit bounds and weights | model assumption / prior (enters Bounded scalar fit) | $1 \le Z \le 8,\ \ w_t\ \mathrm{uniform}$ |  |  |
+| Fit bounds and weights | model assumption / prior (enters Bounded scalar fit) | $Z_{\min} \le Z \le Z_{\max}\ (\mathrm{caller\ set}),\ \ w_t\ \mathrm{uniform}$ |  |  |
 | Bounded scalar fit | derived |  | `vaft.process.resistive_zeff.infer_resistive_zeff` |  |
 | Resistive Zeff (scalar) | inferred | $Z_{\mathrm{eff}}^{\mathrm{res}} \pm \sigma_Z, \mathrm{residual\ rms},\ \mathrm{bound\ hit}$ |  | **IMAS mapping TODO:** CSV/JSON product; core_profiles.zeff untouched |
 
@@ -1517,12 +1517,12 @@ The magnetic constraints plus a kinetic pressure profile: Thomson T_e, n_e and a
 | Node | Kind | Variables | API | IDS |
 | --- | --- | --- | --- | --- |
 | Thomson scattering | measured | $T_e \pm \sigma_{T_e},\ n_e \pm \sigma_{n_e}\ \mathrm{at}\ R_k$ |  | `thomson_scattering.channel[:].{t_e, n_e, position.r}` |
-| Ion temperature | measured | $T_i \pm \sigma_{T_i}\ (\mathrm{or}\ T_i = rT_e,\ \sigma_r = 0.5)$ |  | `charge_exchange.channel[:].ion[0].t_i` |
+| Ion temperature | measured | $T_i \pm \sigma_{T_i}, \mathrm{or}\ T_i = rT_e,\ r \pm \sigma_r\ \mathrm{from\ machine\ policy}$ |  | `charge_exchange.channel[:].ion[0].t_i` |
 | Major radius to normalized flux | derived | $\psi_N(R, Z{=}0)\ \mathrm{for\ the}\ T_i\ \mathrm{fit}$ |  | `equilibrium.time_slice[:].profiles_2d[0].psi` |
 | Kinetic pressure points | derived |  | `vaft.code.efit.kinetic_pressure_points` |  |
 | Minimum pressure uncertainty | model assumption / prior (enters Kinetic pressure points) | $\sigma_p \ge 0.05\,p$ |  |  |
 | Magnetic constraints | code input | $y_k \pm \sigma_k$ | `vaft.code.efit.generate_constraints_ods` |  |
-| k-file with pressure block | code input | $\mathrm{KPRFIT}=1:\ (R_k, 0, p_k, \sigma_{p,k})$ | `vaft.code.efit.inject_pressure_constraint` |  |
+| k-file with pressure block | code input | $\mathrm{KPRFIT}=1:\ (R_k, 0, p_k, \sigma_{p,k}), \mathrm{separatrix}\ p = 0 \pm 0.05\,p_{\max}$ | `vaft.code.efit.inject_pressure_constraint` |  |
 | EFIT inverse solve | solver / model |  | `vaft.code.efit.run_kinetic_efit` |  |
 | Kinetic equilibrium | standardized IMAS | $\psi,\ p(\psi),\ q$ | `vaft.code.efit.run_kinetic_chain` | `equilibrium.time_slice[:].{profiles_1d.pressure, profiles_2d}` |
 
@@ -1705,7 +1705,7 @@ One local gyrokinetic state projected into TGLF (quasilinear) and CGYRO (local d
 Follow-up TODOs (implementation or IMAS mapping):
 
 - Rotation and ExB shear are zero in both projections (TGLF VEXB_SHEAR, CGYRO GAMMA_E, MACH): their derivation from data is not implemented (#553).
-- Squareness zeta is zero-filled; CGYRO does not receive Z_EFF.
+- Squareness zeta enters as 0 (VEST equilibria carry no squareness); Z_EFF is not written to input.cgyro by design: CGYRO recomputes it from the species list (Z_EFF_METHOD=2).
 - No implemented local-gyrokinetic validity criterion (rho*): compare_with_oracle checks only the input translation against CGYRO's own projection.
 - No TGLF to gyrokinetics_local mapping.
 

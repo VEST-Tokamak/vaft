@@ -180,7 +180,7 @@ def test_every_spec_is_a_builder_that_renders_deterministically(spec):
     with pytest.raises(ValueError):
         fn(labels="yes")
     # the builder is a thin wrapper: its spec, not its own drawing
-    assert "render_workflow(WORKFLOWS[" in inspect.getsource(fn)
+    assert "_render_workflow(WORKFLOWS[" in inspect.getsource(fn)
 
 
 @pytest.mark.parametrize("spec", SPECS, ids=lambda s: s.key)
