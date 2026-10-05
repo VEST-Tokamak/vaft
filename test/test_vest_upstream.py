@@ -1045,3 +1045,24 @@ def test_eddy_refuses_a_diagnostics_product_with_an_unrecorded_pf_coil(tmp_path)
             shot=shot, diagnostics_ods=diagnostics_path, static_ods=static_path,
             filament_r=[0.35], filament_z=[0.0], filament_fraction=[1.0], dt_sub=5e-5,
         )
+
+
+def test_an_eddy_with_no_input_is_a_recorded_result_not_a_failure(tmp_path):
+    """#1568: the routine stage writes no_output and why; build_eddy_ods still raises."""
+    from vaft.database.production_qa import empty_stage_plot_manifest
+    from vaft.omas.vest_upstream import EDDY_INPUT_UNAVAILABLE, eddy_no_output_product
+
+    diagnostics, static = tmp_path / "d.json", tmp_path / "s.json"
+    diagnostics.write_text("{}")
+    static.write_text("{}")
+    product, manifest = eddy_no_output_product(
+        shot=48700, diagnostics_ods=diagnostics, static_ods=static, reason="PF5 current was not acquired"
+    )
+    assert manifest["status"] == "no_output" and manifest["stage"] == "eddy"
+    assert manifest["eddy_status"].startswith(EDDY_INPUT_UNAVAILABLE)
+    assert "PF5" in manifest["eddy_status"]
+    assert "pf_passive" not in product
+
+    plots = empty_stage_plot_manifest("eddy", "PF5 current was not acquired")
+    assert plots["status"] == "empty" and plots["plots"]
+    assert all(row["status"] == "skipped" for row in plots["plots"])

@@ -17,14 +17,18 @@ go on which axes is the semantic layout's, issue #260):
     the base font and the scales of everything measured in points.  Presets
     ``screen``, ``single_column`` and ``double_column`` generalise the
     recurring physical constraints of scientific journals; no publisher is
-    named.
+    named.  ``slide`` and ``poster`` do the same for a projected 16:9 slide
+    and a printed poster panel, read from across a room (issue #1421).
 
 ``theme``
     which visual grammar is used: font family, tick direction, grid and
     spines, the colour cycle and, for a monochrome figure, the linestyle and
     marker cycles that carry the distinction colour would.  Accessibility is
     a baseline of every theme, not a theme of its own: both colour cycles
-    are colour-blind safe.
+    are colour-blind safe.  A theme names fonts in order of preference; the
+    first one installed is used, and when that is not the first a
+    :class:`FontFallbackWarning` says so once (Helvetica and Arial are
+    absent from a plain Linux host).  No font file ships with VAFT.
 
 ``format=None`` means :data:`DEFAULT_FORMAT` -- ``screen`` -- for a figure
 the renderer creates on its own (issue #712, the presentation contract's
@@ -68,6 +72,7 @@ __all__ = [
     "LEGACY_FORMAT",
     "FORMATS",
     "FigureFormat",
+    "FontFallbackWarning",
     "GEOMETRY",
     "GeometryPolicy",
     "Presentation",
@@ -76,6 +81,7 @@ __all__ = [
     "apply_axes_theme",
     "presented",
     "resolve_color",
+    "resolve_font_family",
     "resolve_presentation",
     "resolve_style",
     "rz_extent",
@@ -130,6 +136,22 @@ FORMATS: Mapping[str, FigureFormat] = {
         "double_column", width_in=7.0, max_height_in=9.0, base_font_pt=8.0,
         label_scale=1.0, tick_scale=0.9, title_scale=1.0, legend_scale=0.85,
         line_scale=0.85, marker_scale=0.85, panel_gap_pt=5.0, outer_pad_pt=2.0,
+    ),
+    # A figure that fills most of a 16:9 slide (13.33 x 7.5 in) under its
+    # title, read on a projector: 18 pt type -- the floor slide guidance gives
+    # for text read from the back of a room -- and lines and markers doubled
+    # so a trace survives the projector's contrast.
+    "slide": FigureFormat(
+        "slide", width_in=11.0, max_height_in=5.8, base_font_pt=18.0,
+        label_scale=1.0, tick_scale=0.85, title_scale=1.1, legend_scale=0.8,
+        line_scale=2.0, marker_scale=1.8, panel_gap_pt=14.0, outer_pad_pt=6.0,
+    ),
+    # One panel of a printed A0/A1 poster, about a third of its width (~30 cm),
+    # read from 1-2 m: 24 pt type and heavy lines.
+    "poster": FigureFormat(
+        "poster", width_in=12.0, max_height_in=14.0, base_font_pt=24.0,
+        label_scale=1.0, tick_scale=0.85, title_scale=1.1, legend_scale=0.8,
+        line_scale=2.5, marker_scale=2.2, panel_gap_pt=18.0, outer_pad_pt=8.0,
     ),
 }
 
@@ -241,8 +263,10 @@ THEMES: Mapping[str, Theme] = {
         colors=_OKABE_ITO, line_pt=1.2, marker_pt=4.0, intents=_TECHNICAL_INTENTS,
         math_fontset="dejavusans",
     ),
+    # Liberation Sans is the metric-compatible Arial most Linux hosts carry.
     "minimal": Theme(
-        "minimal", font_family=("Helvetica", "Arial", "DejaVu Sans"), tick_direction="out",
+        "minimal", font_family=("Helvetica", "Arial", "Liberation Sans", "DejaVu Sans"),
+        tick_direction="out",
         grid=False, grid_alpha=0.0, spines=("left", "bottom"),
         colors=_TOL_BRIGHT, line_pt=1.5, marker_pt=4.0, intents=_MINIMAL_INTENTS,
         # Helvetica/Arial text with a sans-serif STIX for symbols and Greek;
@@ -257,6 +281,46 @@ THEMES: Mapping[str, Theme] = {
         math_fontset="dejavusans",
     ),
 }
+
+
+class FontFallbackWarning(UserWarning):
+    """A theme's preferred font is not installed, and a later one stands in."""
+
+
+#: Matplotlib's own font: always installed with it, the last resort of every stack.
+_BUNDLED_FONT = "DejaVu Sans"
+_GENERIC_FAMILIES = frozenset({"serif", "sans-serif", "monospace", "cursive", "fantasy"})
+_WARNED_FALLBACKS: set[tuple[str, ...]] = set()
+
+
+def resolve_font_family(families: Any, *, warn: bool = True) -> list[str]:
+    """The installed part of a preference-ordered font stack, ending in DejaVu Sans.
+
+    Fonts that are not installed are dropped rather than handed to
+    Matplotlib, which logs a "findfont: Font family not found" line for each
+    on every text object (42 lines for one figure on a plain Linux host).
+    When the first preference is missing, a :class:`FontFallbackWarning`
+    names the font used instead -- once per stack per process, so a figure
+    loop does not repeat it.
+    """
+    from matplotlib import font_manager
+
+    stack = [families] if isinstance(families, str) else [str(f) for f in families]
+    installed = {entry.name for entry in font_manager.fontManager.ttflist}
+    kept = [name for name in stack if name in installed or name in _GENERIC_FAMILIES]
+    if _BUNDLED_FONT not in kept:
+        kept.append(_BUNDLED_FONT)
+    if warn and stack and kept[0] != stack[0] and tuple(stack) not in _WARNED_FALLBACKS:
+        import warnings
+
+        _WARNED_FALLBACKS.add(tuple(stack))
+        warnings.warn(
+            f"font {stack[0]!r} is not installed; using {kept[0]!r} "
+            f"(preference order {', '.join(stack)})",
+            FontFallbackWarning,
+            stacklevel=3,
+        )
+    return kept
 
 
 # ---------------------------------------------------------------------------
@@ -440,7 +504,7 @@ class Presentation:
         marker_scale = fmt.marker_scale if fmt is not None else 1.0
         if theme is not None:
             rc.update({
-                "font.family": list(theme.font_family),
+                "font.family": resolve_font_family(theme.font_family),
                 "xtick.direction": theme.tick_direction,
                 "ytick.direction": theme.tick_direction,
                 # The grid stays the renderer's decision (a contour map draws

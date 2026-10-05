@@ -88,6 +88,7 @@ CORE_MODULES: tuple[str, ...] = (
     # be able to see.
     "test_gpec_island_geometry.py",
     "test_magnetic_island.py",
+    # Machine geometry: source vertices, unknown phi, camera units and mask.
     # Registry, taxonomy and display policy: the vocabulary the rest of the
     # package indexes itself by.
     "test_diagnostic_registry.py",
@@ -96,6 +97,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_equilibrium_field_2d.py",
     "test_layout_contract.py",
     "test_line_abscissa.py",
+    "test_machine_geometry_registry.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
     "test_parameter_history.py",
@@ -237,6 +239,12 @@ CORE_MODULES: tuple[str, ...] = (
     # The atlas renderers draw synthetic tables only.
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
+    # Impurity composition (lane L, #1565): the mixture algebra against the
+    # issue's exact reference values, the precedence resolver on tiny ODSs, and
+    # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
+    "test_formula_impurity.py",
+    "test_process_impurity.py",
+    "test_vest_core_profiles_policy.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

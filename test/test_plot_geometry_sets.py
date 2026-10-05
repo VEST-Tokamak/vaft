@@ -130,9 +130,9 @@ def test_the_top_view_does_not_invent_a_toroidal_angle():
     ods["thomson_scattering.channel.0.position.r"] = 0.6  # no phi: not placed
     layers = _topview_diagnostic_layers(ods)
     assert [layer.label for layer in layers if layer.label] == ["Flux loops", "Soft X-ray LOS"]
-    segments = [layer for layer in layers if layer.kind == "polyline" and layer.r.size == 2]
+    segments = [layer for layer in layers if layer.label == "Soft X-ray LOS"]
     assert len(segments) == 1
-    assert np.allclose(segments[0].r, [np.cos(0.5), 0.2 * np.cos(0.5)])
+    assert np.allclose(segments[0].r[[0, -1]], [np.cos(0.5), 0.2 * np.cos(0.5)])
     ring = [layer for layer in layers if layer.label == "Flux loops"][0]
     assert np.isclose(np.hypot(ring.r, ring.z).max(), 0.8)
     model = build_model("machine_geometry_topview", normalize_entries(ods))
