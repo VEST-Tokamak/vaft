@@ -504,12 +504,19 @@ class LocalBackend:
 BACKEND_ENV = "VAFT_EXECUTION_BACKEND"
 
 
-def default_backend() -> ExecutionBackend:
-    """The backend ``$VAFT_EXECUTION_BACKEND`` selects: ``local`` (default) or ``slurm``.
+#: What ``$VAFT_EXECUTION_BACKEND`` may name.
+BACKEND_NAMES: tuple[str, ...] = ("local", "slurm", "remote")
 
-    ``slurm`` builds :meth:`vaft.code.slurm.SlurmBackend.from_environment`, so
-    a whole session or pipeline can move onto a cluster without touching any
-    adapter configuration.
+
+def default_backend() -> ExecutionBackend:
+    """The backend ``$VAFT_EXECUTION_BACKEND`` selects.
+
+    ``local`` (the default), ``slurm`` or ``remote``. ``slurm`` builds
+    :meth:`vaft.code.slurm.SlurmBackend.from_environment` for a cluster this
+    process can submit to directly; ``remote`` builds
+    :meth:`vaft.code.remote.RemoteSlurmBackend.from_environment` for one
+    reached over ssh. Either way a whole session or pipeline moves onto a
+    cluster without touching any adapter configuration.
     """
     name = os.environ.get(BACKEND_ENV, "").strip().lower()
     if name in ("", "local"):
@@ -518,7 +525,11 @@ def default_backend() -> ExecutionBackend:
         from .slurm import SlurmBackend
 
         return SlurmBackend.from_environment()
-    raise ValueError(f"{BACKEND_ENV} must be 'local' or 'slurm', got {name!r}")
+    if name == "remote":
+        from .remote import RemoteSlurmBackend
+
+        return RemoteSlurmBackend.from_environment()
+    raise ValueError(f"{BACKEND_ENV} must be one of {BACKEND_NAMES}, got {name!r}")
 
 
 def resolve_backend(config: Any = None) -> ExecutionBackend:
@@ -536,6 +547,7 @@ def resolve_backend(config: Any = None) -> ExecutionBackend:
 
 __all__ = [
     "BACKEND_ENV",
+    "BACKEND_NAMES",
     "RUNTIME_COMPLETED",
     "RUNTIME_MEMORY_LIMIT",
     "RUNTIME_QUEUE_TIMEOUT",
