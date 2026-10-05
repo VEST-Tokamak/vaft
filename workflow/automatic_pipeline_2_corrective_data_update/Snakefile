@@ -17,7 +17,13 @@
 import sys
 from pathlib import Path
 
-configfile: "config.yaml"
+# The workflow's own defaults, located by this Snakefile rather than by the
+# working directory: a bare "config.yaml" resolves against `--directory`, so a
+# run launched with `--directory <run dir> --configfile <run dir>/config.yaml`
+# re-read its own partial config and never loaded this one -- every unset key
+# fell back to a code default (efit.run false, no eddy filament, #1530).
+# Command-line `--configfile` files are deep-merged over these.
+configfile: str(Path(workflow.basedir) / "config.yaml")
 
 SCRIPT_DIR = Path(workflow.basedir)
 PIPELINE1_DIR = SCRIPT_DIR.parent / "automatic_pipeline_1_routine_data_processing"

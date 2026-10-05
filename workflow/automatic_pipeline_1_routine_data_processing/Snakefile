@@ -12,7 +12,13 @@ from pathlib import Path
 # --------------------------------------------------------------------------- #
 # 0) Configuration file
 # --------------------------------------------------------------------------- #
-configfile: "config.yaml"
+# The workflow's own defaults, located by this Snakefile rather than by the
+# working directory: a bare "config.yaml" resolves against `--directory`, so a
+# run launched with `--directory <run dir> --configfile <run dir>/config.yaml`
+# re-read its own partial config and never loaded this one -- every unset key
+# fell back to a code default (efit.run false, no eddy filament, #1530).
+# Command-line `--configfile` files are deep-merged over these.
+configfile: str(Path(workflow.basedir) / "config.yaml")
 
 
 _ENV_REFERENCE = re.compile(r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))")

@@ -53,7 +53,7 @@ pytestmark = [
 ]
 
 
-def _config(tmp_path: Path, layout: str = "filedb") -> Path:
+def _config(tmp_path: Path, layout: str = "filedb", overrides: dict | None = None) -> Path:
     config = tmp_path / "config.yaml"
     config.write_text(
         json.dumps(
@@ -68,6 +68,7 @@ def _config(tmp_path: Path, layout: str = "filedb") -> Path:
                 "hsds": {"replicate": layout == "filedb"},
                 "gpec": {"modules": ["dcon", "rdcon", "stride", "gpec"], "modes": [1, 2]},
                 "conda": None,
+                **(overrides or {}),
             }
         ),
         encoding="utf-8",
@@ -77,7 +78,7 @@ def _config(tmp_path: Path, layout: str = "filedb") -> Path:
 
 def _dry_run(
     tmp_path: Path, targets: list[str] | None = None, *, layout: str = "filedb",
-    extra: list[str] | None = None,
+    extra: list[str] | None = None, config_overrides: dict | None = None,
 ):
     # config.yaml interpolates these; a dry run never executes them.
     env = dict(os.environ)
@@ -87,7 +88,7 @@ def _dry_run(
         [
             sys.executable, "-m", "snakemake",
             "--snakefile", str(WORKFLOW / "Snakefile"),
-            "--configfile", str(_config(tmp_path, layout)),
+            "--configfile", str(_config(tmp_path, layout, config_overrides)),
             "--directory", str(tmp_path),
             "--cores", "1", "-n",
             # Targets before the options: `--config` takes every following
@@ -253,6 +254,55 @@ def test_a_stage_scope_that_cannot_be_run_fails_before_any_job(tmp_path, stages,
     result = _dry_run(tmp_path, extra=["--config", f"stages={stages}"])
     assert result.returncode != 0
     assert message in result.stdout + result.stderr
+
+
+def _shell_args(stdout: str, flag: str) -> set[str]:
+    import re
+
+    return set(re.findall(re.escape(flag) + r" +(\S*)", " ".join(stdout.split())))
+
+
+def test_a_run_directory_does_not_hide_the_workflow_config(tmp_path):
+    """#1530: `configfile: "config.yaml"` resolved against `--directory`.
+
+    A run launched with `--directory <run dir> --configfile <partial>` re-read
+    its own partial config and never loaded the workflow's, so EFIT ran with
+    `run=false`, `args 65`, and the eddy solve had no plasma filament. The
+    partial config here names neither section; the workflow defaults must win.
+    """
+    _preflight_done(tmp_path)
+
+    result = _dry_run(tmp_path, extra=["-p", "--config", "stages=[raw,diagnostics,eddy,efit]"])
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert _shell_args(result.stdout, "--filament-r") == {'"0.35,0.35,0.35"'}
+    assert _shell_args(result.stdout, "--filament-z") == {'"0.25,0.0,-0.25"'}
+    assert "true" in _shell_args(result.stdout, "--run")
+    assert "false" not in _shell_args(result.stdout, "--run")
+    assert _shell_args(result.stdout, "--args") == {'"129"'}
+    assert _shell_args(result.stdout, "--detect-broken") == {"true"}
+
+
+def test_the_run_config_still_overrides_the_workflow_config(tmp_path):
+    """The run's `--configfile` is merged over the workflow's, not under it.
+
+    The run config turns replication on (the workflow default is off) and
+    switches EFIT off; both reach the rules, and the EFIT keys it leaves out
+    still come from the workflow (a deep merge, not a replacement).
+    """
+    _preflight_done(tmp_path)
+
+    result = _dry_run(
+        tmp_path,
+        extra=["-p", "--config", "stages=[raw,diagnostics,eddy,efit]"],
+        config_overrides={"efit": {"run": False}},
+    )
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "replicate_eddy_to_hsds" in result.stdout
+    run_flags = _shell_args(result.stdout, "--run")
+    assert "false" in run_flags and "true" not in run_flags
+    assert _shell_args(result.stdout, "--args") == {'"129"'}
 
 
 # --------------------------------------------------------------------------- #
