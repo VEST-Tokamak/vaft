@@ -48,7 +48,17 @@ config.update(_expand_config_environment(config))
 # --------------------------------------------------------------------------- #
 SCRIPT_DIR = Path(workflow.basedir)
 sys.path.insert(0, str(SCRIPT_DIR))
-from paths import FILEDB, PipelinePaths, select_efit_table, solver_module, stability_product, stage_scope
+from paths import (
+    FILEDB,
+    PipelinePaths,
+    require_run_config_keys,
+    select_efit_table,
+    solver_module,
+    stability_product,
+    stage_scope,
+)
+
+require_run_config_keys(workflow)
 
 from vaft.database.sources import STAGE_REPLICATION, replicable_stages
 from vaft.omas.vest_upstream import machine_era_for_shot

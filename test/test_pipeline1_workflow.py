@@ -286,9 +286,9 @@ def test_a_run_directory_does_not_hide_the_workflow_config(tmp_path):
 def test_the_run_config_still_overrides_the_workflow_config(tmp_path):
     """The run's `--configfile` is merged over the workflow's, not under it.
 
-    The run config turns replication on (the workflow default is off) and
-    switches EFIT off; both reach the rules, and the EFIT keys it leaves out
-    still come from the workflow (a deep merge, not a replacement).
+    The run config switches EFIT off and that reaches the rules, while the EFIT
+    keys it leaves out (`args 129`) still come from the workflow: a deep merge,
+    not a replacement -- before #1530 they fell back to code defaults (`65`).
     """
     _preflight_done(tmp_path)
 
@@ -303,6 +303,25 @@ def test_the_run_config_still_overrides_the_workflow_config(tmp_path):
     run_flags = _shell_args(result.stdout, "--run")
     assert "false" in run_flags and "true" not in run_flags
     assert _shell_args(result.stdout, "--args") == {'"129"'}
+
+
+@pytest.mark.parametrize("missing", ["base_dir", "shots"])
+def test_a_run_config_must_say_where_and_which_shots(tmp_path, missing):
+    """Loading the workflow defaults must not turn a forgotten base_dir into a production write."""
+    payload = json.loads(_config(tmp_path).read_text(encoding="utf-8"))
+    payload.pop(missing)
+    partial = tmp_path / "partial.yaml"
+    partial.write_text(json.dumps(payload), encoding="utf-8")
+    env = dict(os.environ)
+    for name in ("VAFT_FILEDB_DIR", "VAFT_DATA_DIR", "EFIT", "CHEASE", "GPECHOME"):
+        env.setdefault(name, str(tmp_path / name.lower()))
+    result = subprocess.run(
+        [sys.executable, "-m", "snakemake", "--snakefile", str(WORKFLOW / "Snakefile"),
+         "--configfile", str(partial), "--directory", str(tmp_path), "--cores", "1", "-n"],
+        capture_output=True, text=True, env=env, cwd=WORKFLOW,
+    )
+    assert result.returncode != 0
+    assert f"does not set {missing}" in result.stdout + result.stderr
 
 
 # --------------------------------------------------------------------------- #
