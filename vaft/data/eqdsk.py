@@ -342,6 +342,20 @@ def from_equilibrium(equilibrium: Any) -> GEQDSK:
     return GEQDSK(mapping, metadata=_metadata(mapping, "equilibrium_data"))
 
 
+def _per_radian_case(case: str) -> str:
+    """A CASE text whose ``COCOS=`` token names the per-radian index this writer stores (#294).
+
+    :func:`from_omas` writes psi per radian; a token copied verbatim from a
+    weber-family comment (``COCOS=17``) would declare the other family over it,
+    and the next :func:`to_omas` would read the file 2*pi off.
+    """
+    import re
+
+    return re.sub(r"(COCOS\s*[=_-]?\s*)(\d{1,2})",
+                  lambda m: m.group(1) + (str(int(m.group(2)) - 10) if int(m.group(2)) > 10 else m.group(2)),
+                  case, flags=re.IGNORECASE)
+
+
 def _geqdsk_convention(geqdsk: GEQDSK) -> Any:
     """The g-file's convention record, or None when it cannot be read (conversion never fails on it)."""
     try:
@@ -350,6 +364,35 @@ def _geqdsk_convention(geqdsk: GEQDSK) -> Any:
         return as_equilibrium(geqdsk).convention
     except Exception:
         return None
+
+
+def _geqdsk_psi_per_radian(geqdsk: GEQDSK, convention: Any) -> bool | None:
+    """Whether the g-file stores psi per radian, from its data before its CASE token (#294).
+
+    A CASE ``COCOS=`` token the signs contradict does not decide the family: the
+    identification does whenever all its candidates fall on one side of 10 (a
+    stale token copied with the file must not rescale it by 2*pi, the same rule
+    :func:`_label_cocos` applies to the label).  When the signs abstain -- a
+    zero-current slice gives no identification -- the contour-``q`` probe, which
+    needs no ``ip``, decides.  None means undecidable.
+    """
+    if convention is not None:
+        if convention.contradicted:
+            families = {index < 10 for index in convention.identified}
+            if len(families) == 1:
+                return families.pop()
+        elif convention.psi_per_radian is not None:
+            return convention.psi_per_radian
+    try:
+        from vaft.process.cocos import identify_flux_exponent_from_q
+        from vaft.process.equilibrium import as_equilibrium
+
+        exponent = identify_flux_exponent_from_q(as_equilibrium(geqdsk)).exponent
+    except Exception:
+        exponent = None
+    if exponent is not None:
+        return exponent == 0
+    return convention.psi_per_radian if convention is not None else None
 
 
 def _label_cocos(geqdsk: GEQDSK, ods: Any, convention: Any = None) -> int | None:
@@ -1249,7 +1292,7 @@ def from_omas(
     psi_axis = float(psi_axis_raw) * psi_factor if psi_axis_raw is not None else float(np.nanmin(psi))
     psi_boundary = float(psi_boundary_raw) * psi_factor if psi_boundary_raw is not None else float(np.nanmax(psi))
     mapping: dict[str, Any] = {
-        "CASE": str(_path_get(ods, "equilibrium.ids_properties.comment", "VAFT GEQDSK")),
+        "CASE": _per_radian_case(str(_path_get(ods, "equilibrium.ids_properties.comment", "VAFT GEQDSK"))),
         "NW": nw,
         "NH": nh,
         "RDIM": float(np.max(r) - np.min(r)) if nw else 0.0,
@@ -1464,12 +1507,11 @@ def to_omas(
     # scaling that by 2*pi left the ODS (2*pi)^2 off its own family (#294). The
     # file's family comes from its convention: a declared index, else the
     # identification, whose Ampere probe separates the two families by 2*pi.
-    # Only an undecidable file falls back to the g-file's per-radian definition.
+    # A CASE token the data contradict does not decide it; only an undecidable
+    # file falls back to the g-file's per-radian definition.
     convention = _geqdsk_convention(item)
-    per_radian = convention.psi_per_radian if convention is not None else None
-    if per_radian is None:
-        per_radian = True
-    to_weber = TWO_PI if per_radian else 1.0
+    per_radian = _geqdsk_psi_per_radian(item, convention)
+    to_weber = TWO_PI if per_radian is not False else 1.0
     psi_1d = np.linspace(float(data["SIMAG"]), float(data["SIBRY"]), nw)
     psi_norm = (psi_1d - psi_1d[0]) / (psi_1d[-1] - psi_1d[0]) if nw > 1 and psi_1d[-1] != psi_1d[0] else np.zeros(nw)
 
