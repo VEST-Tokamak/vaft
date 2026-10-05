@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import re
 from typing import Any, Mapping
 
 import numpy as np
@@ -117,19 +118,31 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
         raise ValueError(f"unsupported geometry families: {sorted(unknown)}")
     records = []
 
-    def provenance(family: str) -> str:
+    def provenance(family: str, identifier: str) -> str:
         sources = {key: value for key, value in (manifest or {}).get("sources", {}).items()
                    if family in value.get("ids", [])}
+        if len(sources) > 1:
+            # The fixture has two interferometer artifacts under one IDS. Its
+            # channel identifier states the frequency; the source keys repeat
+            # it. With no unique match retain candidates, explicitly marked
+            # ambiguous, instead of attributing either artifact to the chord.
+            frequency = re.search(r"(\d+)\s*ghz", identifier.lower())
+            matching = {key: value for key, value in sources.items()
+                        if frequency and key.lower().endswith(f"_{frequency[1]}ghz")}
+            if len(matching) == 1:
+                sources = matching
         return json.dumps({"sources": sources, "geometry_reference": (manifest or {}).get("geometry_reference"),
                            "kind": (manifest or {}).get("kind"), "physical_discharge": (manifest or {}).get("physical_discharge"),
+                           "source_ambiguous": len(sources) > 1,
                            "ids_comment": str(get(data, f"{family}.ids_properties.comment", "")),
                            "ids_code_parameters": str(get(data, f"{family}.code.parameters", ""))}, sort_keys=True)
 
-    def add(family: str, path: str, semantic: str, positions: list, label: str) -> None:
+    def add(family: str, path: str, semantic: str, positions: list, label: str,
+            identifier: str = "") -> None:
         r, z, phi = zip(*positions)
         records.append(MachineGeometry(family, semantic, r, z,
                        None if any(value is None for value in phi) else phi,
-                       label, path, provenance(family)))
+                       label, path, provenance(family, identifier)))
 
     for family in selected:
         if family in _POINTS:
@@ -154,13 +167,15 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
                     continue
                 third_path = f"{path}.third_point"
                 third = _position(data, third_path)
-                if third is not None:
+                if third is not None and (third[2] is not None or all(point[2] is None for point in positions)):
                     positions.append(third)
                 elif has(data, third_path):
                     # An incomplete reflection point is not an absent point.
                     # Drawing only the first leg would silently change the LOS.
                     continue
-                add(family, path, "line_of_sight", positions, str(get(data, f"{base}.name", f"{family} {index}")))
+                add(family, path, "line_of_sight", positions,
+                    str(get(data, f"{base}.name", f"{family} {index}")),
+                    str(get(data, f"{base}.identifier", "")))
         else:
             for index in range(count(data, "coils_non_axisymmetric.coil")):
                 coil = f"coils_non_axisymmetric.coil.{index}"
@@ -193,7 +208,7 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
 
 def project_machine_geometry(record: MachineGeometry, view: str, *, projection: Any = None,
                              axis_length: float = 1.0, samples_per_segment: int = 32) -> GeometryLayer | Geometry3DLayer | None:
-    """Adapt source geometry to existing view models; None means unknown phi.
+    """Adapt source geometry to existing view models.
 
     CameraProjection consumes cm and supplies its own calibration validity mask.
     Invalid vertices become NaN gaps. LOS and axes are sampled in Cartesian
@@ -207,7 +222,12 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
     kind = "points" if record.semantic == "point" else "polyline"
     xyz = record.xyz
     if xyz is None:
-        return GeometryLayer(record.r, record.z, kind=kind, label=label) if view == "rz" else None
+        # Without phi, only the stored R-Z vertices are known. A line between
+        # them would assert a physical chord whose cylindrical projection is
+        # unknown, so mark vertices as points even when their source is a LOS.
+        return (GeometryLayer(record.r, record.z, kind="points",
+                              label=f"{label} (vertices; phi unknown)")
+                if view == "rz" else None)
     if record.semantic == "directed_axis":
         if not np.isfinite(axis_length) or axis_length <= 0:
             raise ValueError("axis_length must be finite and positive")

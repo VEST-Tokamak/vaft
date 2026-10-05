@@ -17,6 +17,10 @@ def test_cartesian_convention_and_unknown_phi():
     assert project_machine_geometry(unknown, "camera") is None
     np.testing.assert_equal(project_machine_geometry(unknown, "rz").r, [2])
     assert not point.r.flags.writeable
+    unknown_los = MachineGeometry("test", "line_of_sight", [1, 2], [0, 1])
+    rz_vertices = project_machine_geometry(unknown_los, "rz")
+    assert rz_vertices.kind == "points"
+    assert "phi unknown" in rz_vertices.label
 
 
 def test_los_is_cartesian_segment_not_linear_radius():
@@ -67,6 +71,9 @@ def test_small_fixture_sources_and_reflected_chord():
     assert {record.family for record in records} == {"thomson_scattering", "charge_exchange", "langmuir_probes", "interferometer", "soft_x_rays"}
     chords = [record for record in records if record.family == "interferometer"]
     assert [record.r.size for record in chords] == [3, 2]
+    assert [next(iter(json.loads(record.provenance_json)["sources"])) for record in chords] == [
+        "interferometer_94ghz", "interferometer_282ghz"
+    ]
     for record in records:
         provenance = json.loads(record.provenance_json)
         assert provenance["physical_discharge"] is False
@@ -77,6 +84,18 @@ def test_small_fixture_sources_and_reflected_chord():
     assert machine_geometry_registry({}, families=("interferometer",)) == ()
     with pytest.raises(ValueError, match="unsupported"):
         machine_geometry_registry({}, families=("gas_injection",))
+
+
+def test_incomplete_reflection_is_omitted_not_downgraded_to_two_point_los():
+    from vaft.ods_access import set_path
+    data = {}
+    for endpoint in ("first_point", "second_point", "third_point"):
+        base = f"interferometer.channel.0.line_of_sight.{endpoint}"
+        for coordinate, value in (("r", 1.0), ("z", 0.0)):
+            set_path(data, f"{base}.{coordinate}", value)
+        if endpoint != "third_point":
+            set_path(data, f"{base}.phi", 0.5)
+    assert machine_geometry_registry(data, families=("interferometer",)) == ()
 
 
 def test_native_imas_and_omas_coordinate_equivalence():

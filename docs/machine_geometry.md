@@ -16,6 +16,9 @@ IDS source path and JSON provenance. Pass the cross-shot fixture manifest to
 retain its source shots, artifact checksums, source times, processing histories,
 geometry reference and nonphysical-discharge flag. Without a manifest, source
 shots/eras remain unknown; stored IDS comments and code parameters are retained.
+If an IDS has several source artifacts, the channel identifier selects the
+matching frequency when unambiguous. Otherwise the record marks its source
+ambiguous and retains all candidates.
 
 `project_machine_geometry(record, view)` returns existing `GeometryLayer` or
 `Geometry3DLayer` models for `rz`, `top`, `3d` or `camera`. It returns `None` for
@@ -23,6 +26,8 @@ views requiring an unknown phi. Cartesian axes follow `X=R cos(phi)` and
 `Y=R sin(phi)`. Straight LOS legs are sampled in Cartesian space before
 projection; a reflected LOS retains every stored corner. Coil endpoints are
 retained, with gaps between discontinuous elements. No loop closure is invented.
+When phi is unknown, the R-Z view marks stored vertices as points and does not
+connect them into an unsupported projected chord.
 
 Camera projection requires the existing calibrated `CameraProjection` instance
 via `projection=`. The adapter converts metres to centimetres, calls its
