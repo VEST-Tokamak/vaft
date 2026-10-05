@@ -143,7 +143,7 @@ def run_mitim_driver(
 
 def run_neo_smoke(
     profile: Any,
-    rhos,
+    rho_tor_norm,
     workdir: str | Path,
     config: MITIMConfig | None = None,
     *,
@@ -154,9 +154,14 @@ def run_neo_smoke(
 
     ``profile`` is a :class:`~vaft.code.gacode._profiles.GACODEProfile` (e.g. from
     ``prepare_gacode_profile`` or a resolved transport state). It is written with
-    VAFT's writer, run by MITIM at ``rhos`` (r/a), and every NEO directory MITIM
+    VAFT's writer, run by MITIM at ``rho_tor_norm``, and every NEO directory MITIM
     produced is read back with VAFT's own :func:`collect_neo_outputs`, so the
     result discovery does not depend on MITIM's in-memory objects.
+
+    The radii are ``rho_tor_norm``, *not* the ``r/a`` VAFT's own TGLF/NEO adapters
+    take: MITIM's ``NEO(rhos=...)`` converts with ``r_is_rho=True``. On 48224,
+    ``rho_tor_norm`` 0.5 and 0.7 ran at ``r/a`` 0.575 and 0.789; each parsed
+    output carries the ``r_over_a`` NEO actually used.
 
     Returns
     -------
@@ -172,7 +177,8 @@ def run_neo_smoke(
         shutil.rmtree(folder)  # never read a previous run's NEO output as this run's
     input_path = write_input_gacode(profile, workdir / "input.gacode")
     arguments = {"input_gacode": str(input_path), "folder": str(folder),
-                 "rhos": [float(r) for r in rhos], "code_settings": code_settings,
+                 "rhos": [float(r) for r in rho_tor_norm], "rhos_coordinate": "rho_tor_norm",
+                 "code_settings": code_settings,
                  "input_gacode_sha256": _sha256(input_path)}
     result = run_mitim_driver("neo_smoke", arguments, workdir, config, availability=availability)
     outputs = []
