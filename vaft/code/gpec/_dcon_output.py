@@ -424,9 +424,27 @@ class DconEdgeScan:
         they sit in the file with ``psi_n >= psiedge`` but never take part in
         the truncation. Returns the 0-based ``pre_edge - 1``.
         """
-        q_start = int(q_at_psiedge)  # Fortran INT truncates; q > 0
-        nominal = q_start + np.arange(self.psi_n.size) / (nperq_edge * int(n_tor))
+        step = 1.0 / (nperq_edge * int(n_tor))
+        nominal = self.q_edge_start(n_tor, nperq_edge) + np.arange(self.psi_n.size) * step
         return int(np.count_nonzero(nominal < q_at_psiedge))
+
+    def q_edge_start(self, n_tor: int, nperq_edge: int = 20) -> int:
+        """DCON's ``qedgestart = INT(q(psiedge))``, recovered exactly from the scan.
+
+        An unfilled entry (``psi_n == 0``) keeps its nominal
+        ``qedgestart + i/(nperq_edge*n)``. With every entry filled,
+        ``size_edge = CEILING((qlim0 - qedgestart)*n*nperq_edge)`` puts the last
+        entry's q in ``[qedgestart + (size-1)*step, qlim0]``, which pins the
+        integer as ``CEILING(q[-1] - size*step)``. Taking ``INT`` of an
+        interpolated ``q(psiedge)`` instead is wrong by a whole unit when that
+        value lands just across an integer.
+        """
+        step = 1.0 / (nperq_edge * int(n_tor))
+        psi, q = np.asarray(self.psi_n, dtype=float), np.asarray(self.q, dtype=float)
+        unfilled = np.flatnonzero(psi <= 0)
+        if unfilled.size:
+            return int(round(q[unfilled[0]] - unfilled[0] * step))
+        return int(np.ceil(q[-1] - psi.size * step))
 
     def to_dict(self) -> dict[str, Any]:
         return {
