@@ -9,7 +9,8 @@
 analysis, or a ``weight_scan.py`` table).  With ``--filedb``, each row also
 gets the :mod:`vaft.omas.efit_quality` and ``validate_equilibrium`` columns of
 its slice, read from that shot's magnetic EFIT product and matched **by time**
-(never by position).  Writes ``cohort_table.csv``, ``summary.json`` (cohort
+(never by position), and only for the rows of the setting that made the product
+(``--product-setting``).  Writes ``cohort_table.csv``, ``summary.json`` (cohort
 counts, the rule x cohort census, the generic-validation crosswalk) and a
 manifest naming the inputs.
 """
@@ -54,8 +55,10 @@ def _load_ods(path: Path):
 class ProductEvidence:
     """Evidence columns for a row, from its shot's EFIT product, matched by time."""
 
-    def __init__(self, filedb: Path, tolerance_s: float = 2.0e-4):
-        self.filedb, self.tolerance_s, self.cache = filedb, tolerance_s, {}
+    def __init__(self, filedb: Path, setting: str, tolerance_s: float = 5.0e-4):
+        # The product holds ONE setting's reconstruction: evidence goes only to
+        # that setting's rows, never to another setting of the same slice.
+        self.filedb, self.setting, self.tolerance_s, self.cache = filedb, setting, tolerance_s, {}
 
     def product(self, shot: int):
         if shot not in self.cache:
@@ -67,6 +70,8 @@ class ProductEvidence:
     def __call__(self, row: dict[str, Any]) -> dict[str, Any]:
         from vaft.validation.equilibrium_quality import efit_evidence_columns
 
+        if row.get("setting") != self.setting:
+            return {"evidence_status": f"product is setting {self.setting!r}"}
         ods = self.product(row["shot"])
         if ods is None:
             return {"evidence_status": "no EFIT product"}
@@ -90,13 +95,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--records", type=Path, required=True)
     parser.add_argument("--filedb", type=Path, default=None)
+    parser.add_argument("--product-setting", default="statistical_891",
+                        help="the study setting the FileDB's magnetic EFIT products were made with")
     parser.add_argument("--criteria", type=Path, default=CRITERIA_PATH)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
 
     criteria = load_study_criteria(args.criteria)
     records = json.loads(args.records.read_text(encoding="utf-8"))["records"]
-    evidence = ProductEvidence(args.filedb.expanduser()) if args.filedb else None
+    evidence = ProductEvidence(args.filedb.expanduser(), args.product_setting) if args.filedb else None
     table = equilibrium_quality_table(records, criteria=criteria, evidence=evidence)
     args.output.mkdir(parents=True, exist_ok=True)
     table.to_csv(args.output / "cohort_table.csv", index=False)
@@ -110,7 +117,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     manifest = {"issue": 1644, "records": str(args.records), "records_sha256": _sha256(args.records),
                 "criteria": str(args.criteria), "criteria_sha256": _sha256(args.criteria),
                 "criteria_version": getattr(criteria, "CRITERIA_VERSION", None),
-                "filedb": None if args.filedb is None else str(args.filedb), "rows": int(len(table))}
+                "filedb": None if args.filedb is None else str(args.filedb),
+                "product_setting": args.product_setting if args.filedb else None, "rows": int(len(table))}
     (args.output / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
     cohorts = summary["summary"]["cohorts"]
     print(f"{len(table)} rows, {summary['summary']['slices']} slices: "

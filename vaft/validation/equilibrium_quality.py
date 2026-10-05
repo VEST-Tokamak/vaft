@@ -64,14 +64,20 @@ MEASUREMENT_RULES = (
 CRITERION_COLUMNS = ("admissible_status", "measurement_status", "virial_status",
                      "grad_shafranov_status", "thomson_status")
 #: Every verdict column the census reports, in the order of the issue's matrix.
-RULE_COLUMNS = (tuple(name for name, _ in ADMISSIBILITY_RULES) + tuple(name for name, _ in MEASUREMENT_RULES)
-                + ("virial_status", "grad_shafranov_status", "thomson_status"))
+FIT_QUALITY_RULES = (tuple(name for name, _ in ADMISSIBILITY_RULES) + tuple(name for name, _ in MEASUREMENT_RULES)
+                     + ("virial_status", "grad_shafranov_status"))
+#: The census matrix also shows Thomson, as its own dimension; the failure
+#: Pareto (what keeps a slice from ``good``) does not, because it never does.
+RULE_COLUMNS = FIT_QUALITY_RULES + ("thomson_status",)
+#: The production configuration's rows are reported, never counted towards a
+#: cohort (``criteria.slice_labels`` excludes them the same way).
+ROUTINE_SETTING = "routine"
 STATUSES = ("pass", "fail", "indeterminate", "not_available")
 
 
 def load_study_criteria(path: str | Path | None = None) -> ModuleType:
     """The #891/#1331 study criteria module, loaded from ``path`` (default: this checkout's)."""
-    path = Path(path) if path is not None else CRITERIA_PATH
+    path = (Path(path) if path is not None else CRITERIA_PATH).resolve()
     if not path.is_file():
         raise FileNotFoundError(
             f"study criteria not found at {path}: the classification policy is a workflow module "
@@ -201,28 +207,43 @@ def slice_cohorts(table) -> Any:
 
     The best setting is the first good one, else the first admissible one, else
     the first attempted (setting name order), so a slice is counted once with
-    the rule outcomes that earned -- or failed to earn -- its label.
+    the rule outcomes that earned -- or failed to earn -- its label.  The
+    ``routine`` setting's rows are left out, as the label leaves them out.
     """
     if table.empty:
         return table
-    rank = table.assign(_rank=(~table["setting_good"]).astype(int) * 2
-                        + (table["admissible_status"] != "pass").astype(int))
-    best = rank.sort_values(["shot", "time_s", "_rank", "setting"]).groupby(["shot", "time_s"], as_index=False).first()
-    return best.drop(columns="_rank")
+    study = table[table["setting"] != ROUTINE_SETTING]
+    rank = study.assign(_rank=(~study["setting_good"].astype(bool)).astype(int) * 2
+                        + (study["admissible_status"] != "pass").astype(int))
+    # Whole rows: groupby().first() would take each column's first non-null
+    # value and stitch cells of different settings into one row.
+    best = rank.sort_values(["shot", "time_s", "_rank", "setting"]).drop_duplicates(["shot", "time_s"])
+    return best.drop(columns="_rank").reset_index(drop=True)
 
 
 def equilibrium_quality_summary(table) -> dict[str, Any]:
-    """Slice counts per cohort, and Thomson consistency within each."""
+    """Slice counts per cohort, and Thomson consistency within each.
+
+    For ``good`` slices Thomson is judged over all good settings (any
+    consistent one makes the slice consistent); for the others, on the best
+    setting's row.
+    """
     slices = slice_cohorts(table)
     out: dict[str, Any] = {"slices": int(len(slices)), "rows": int(len(table)), "cohorts": {}}
     for cohort in COHORTS:
         group = slices[slices["quality_label"] == cohort] if len(slices) else slices
-        consistent = group["physically_consistent"] if len(group) else []
+        if cohort == "good":
+            # Over all good settings, as criteria.slice_labels reports it: a
+            # slice is consistent when any good setting is.
+            verdicts = [True if c else False if i else None
+                        for c, i in zip(group.get("consistent_settings", []), group.get("inconsistent_settings", []))]
+        else:
+            verdicts = list(group["physically_consistent"]) if len(group) else []
         out["cohorts"][cohort] = {
             "slices": int(len(group)),
-            "thomson_consistent": int(sum(value is True for value in consistent)),
-            "thomson_inconsistent": int(sum(value is False for value in consistent)),
-            "thomson_not_judged": int(sum(value is None or value != value for value in consistent)),
+            "thomson_consistent": int(sum(value is True for value in verdicts)),
+            "thomson_inconsistent": int(sum(value is False for value in verdicts)),
+            "thomson_not_judged": int(sum(value is None or value != value for value in verdicts)),
         }
     return out
 
@@ -230,8 +251,10 @@ def equilibrium_quality_summary(table) -> dict[str, Any]:
 def equilibrium_quality_failure_census(table) -> dict[str, Any]:
     """The rule × cohort matrix (status fractions) and a failure Pareto per cohort.
 
-    Each slice contributes its best setting's row (:func:`slice_cohorts`).  The
-    Pareto counts, among slices that are not good, how often each rule fails.
+    Each slice contributes its best setting's row (:func:`slice_cohorts`).
+    Fractions are over all of a cohort's slices, ``not_available`` included.
+    The Pareto counts, among slices that are not good, how often each
+    fit-quality rule fails; Thomson is in the matrix but not in the Pareto.
     """
     slices = slice_cohorts(table)
     matrix: dict[str, dict[str, dict[str, float]]] = {}
@@ -245,7 +268,7 @@ def equilibrium_quality_failure_census(table) -> dict[str, Any]:
     pareto = {}
     for cohort in ("admissible", "unreconstructible"):
         group = slices[slices["quality_label"] == cohort] if len(slices) else slices
-        counts = {rule: int((group[rule] == "fail").sum()) for rule in RULE_COLUMNS if len(group)}
+        counts = {rule: int((group[rule] == "fail").sum()) for rule in FIT_QUALITY_RULES if len(group)}
         pareto[cohort] = sorted(((rule, n) for rule, n in counts.items() if n), key=lambda item: -item[1])
     return {"matrix": matrix, "pareto": pareto, "slices": int(len(slices))}
 
@@ -310,20 +333,22 @@ def efit_evidence_columns(ods: Any, time_slice: int, *, diagnostics: Any = None,
 
     out: dict[str, Any] = {}
     fit = fit_quality_metrics(ods, time_slice=time_slice)
-    out["global_reduced_chi2"] = _finite(fit.get("chi_squared_reduced"))
-    out["uncertainty_model"] = fit.get("uncertainty_model")
+    # Evidence columns carry an ``evidence.`` prefix so they never overwrite
+    # a study record's raw metric of the same name (e.g. ``ip_z``).
+    out["evidence.global_reduced_chi2"] = _finite(fit.get("chi_squared_reduced"))
+    out["evidence.uncertainty_model"] = fit.get("uncertainty_model")
     for family, entry in (fit.get("families") or {}).items():
         for key in ("z_rms", "z_bias", "z_abs_max", "residual_rms_display"):
             if key in entry:
-                out[f"{family}_{key}"] = _finite(entry[key])
+                out[f"evidence.{family}_{key}"] = _finite(entry[key])
         fractions = entry.get("outlier_fraction") or {}
         if "gt_3sigma" in fractions:
-            out[f"{family}_outlier_fraction_3sigma"] = _finite(fractions["gt_3sigma"])
+            out[f"evidence.{family}_outlier_fraction_3sigma"] = _finite(fractions["gt_3sigma"])
     for family, entry in (fit.get("scalars") or {}).items():
-        out[f"{family}_z"] = _finite(entry.get("z"))
+        out[f"evidence.{family}_z"] = _finite(entry.get("z"))
     convergence = convergence_metrics(ods, time_slice=time_slice)
-    out["efit_accepted"] = (convergence.get("verdict") or {}).get("accepted")
-    out["efit_hit_iteration_cap"] = (convergence.get("iterations") or {}).get("hit_cap")
+    out["evidence.efit_accepted"] = (convergence.get("verdict") or {}).get("accepted")
+    out["evidence.efit_hit_iteration_cap"] = (convergence.get("iterations") or {}).get("hit_cap")
     report = validate_equilibrium(ods, diagnostics=diagnostics, kinetic_profiles=kinetic_profiles,
                                   time_slice=time_slice)
     for category, value in report.items():
@@ -339,6 +364,6 @@ def efit_evidence_columns(ods: Any, time_slice: int, *, diagnostics: Any = None,
 
 __all__: Sequence[str] = (
     "ADMISSIBILITY_RULES", "COHORTS", "CRITERIA_PATH", "CROSSWALK", "MEASUREMENT_RULES", "RULE_COLUMNS",
-    "STATUSES", "efit_evidence_columns", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
+    "FIT_QUALITY_RULES", "ROUTINE_SETTING", "STATUSES", "efit_evidence_columns", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
     "equilibrium_quality_summary", "equilibrium_quality_table", "load_study_criteria", "slice_cohorts",
 )

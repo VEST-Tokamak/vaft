@@ -106,8 +106,58 @@ def test_efit_evidence_columns_reuse_the_existing_layers():
     from vaft.omas.sample import sample_ods
 
     columns = eq.efit_evidence_columns(sample_ods(), 0)
-    assert "global_reduced_chi2" in columns and "uncertainty_model" in columns
+    assert "evidence.global_reduced_chi2" in columns and "evidence.uncertainty_model" in columns
+    # evidence never shares a name with a study column (e.g. the record's ip_z)
+    assert all(key.startswith(("evidence.", "validation.")) for key in columns)
     assert any(key.startswith("validation.diagnostic_fit.") for key in columns)
     assert any(key.startswith("validation.verification.") for key in columns)
     assert all(value in ("pass", "warn", "fail", "indeterminate", "not_available")
                for key, value in columns.items() if key.startswith("validation."))
+
+
+def test_routine_rows_are_reported_but_never_a_cohort_member(criteria):
+    records = [_record(setting="routine"), _record(setting="a", converged=False),
+               _record(shot=2, setting="routine")]
+    table = eq.equilibrium_quality_table(records, criteria=criteria)
+    assert set(table["setting"]) == {"routine", "a"}
+    slices = eq.slice_cohorts(table)
+    # the good routine does not lend its passing rules to the unreconstructible slice,
+    # and a routine-only slice is not a cohort member at all
+    assert list(slices["shot"]) == [1] and slices.iloc[0]["setting"] == "a"
+    assert slices.iloc[0]["rule_convergence"] == "fail"
+
+
+def test_the_best_row_is_taken_whole_not_stitched_from_settings(criteria):
+    records = [_record(setting="a", thomson=None),  # good, no Thomson there
+               _record(setting="b", thomson={"log_ratio": math.log(1 / 2.7)})]
+    slices = eq.slice_cohorts(eq.equilibrium_quality_table(records, criteria=criteria))
+    row = slices.iloc[0]
+    assert row["setting"] == "a" and row["physically_consistent"] is None
+    assert math.isnan(row["p_over_p_e_points"])  # not b's value
+
+
+def test_the_pareto_never_counts_thomson_as_what_blocks_good(criteria):
+    records = [_record(fit={**_record()["fit"], "probe_reduced_chi2": 9.0},
+                       thomson={"log_ratio": math.log(1 / 2.7)})]
+    census = eq.equilibrium_quality_failure_census(eq.equilibrium_quality_table(records, criteria=criteria))
+    assert dict(census["pareto"]["admissible"]) == {"rule_probe_fit": 1}
+    assert census["matrix"]["thomson_status"]["admissible"]["fail"] == pytest.approx(1.0)
+
+
+def test_an_ungraded_family_is_not_available_not_pass(criteria):
+    record = _record(fit={**_record()["fit"], "dia_n": 0})
+    row = eq.equilibrium_quality_table([record], criteria=criteria).iloc[0]
+    assert row["rule_dia_fit"] == "not_available" and row["rule_ip_fit"] == "pass"
+
+
+def test_product_evidence_goes_only_to_the_setting_that_made_the_product(tmp_path):
+    import importlib.util
+    from pathlib import Path
+
+    script = Path(eq.__file__).resolve().parents[2] / "workflow" / "equilibrium_quality" / "build_cohort_table.py"
+    spec = importlib.util.spec_from_file_location("build_cohort_table", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    evidence = module.ProductEvidence(tmp_path, "statistical_891")
+    assert "another" not in evidence({"shot": 1, "time_s": 0.3, "setting": "statistical_891"})["evidence_status"]
+    assert evidence({"shot": 1, "time_s": 0.3, "setting": "p1f1"})["evidence_status"].startswith("product is setting")
