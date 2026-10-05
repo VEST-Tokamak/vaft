@@ -48,8 +48,9 @@ SPHERICAL = ("NSTX", "MAST", "START")
 LABELS = {"H98y2": "IPB98(y,2)", "NSTX2006L": "NSTX 2006 L-mode", "NSTX2006H": "NSTX 2006 H-mode",
           "ITER89P": "ITER89-P (L-mode)", "Kurskiev2022": "Kurskiev 2022 (ST H-mode)"}
 LABELS.update(extra_scalings.LABELS)
-#: Every scaling vaft.formula carries (_SCALING_COEFS), plus the workflow-local ohmic
-#: and L-mode ones of extra_scalings.py: ohmic, then L-mode, then H-mode.
+#: Every confinement scaling vaft.formula carries: the _SCALING_COEFS power laws plus
+#: the ohmic and L-mode ones extra_scalings.py maps onto table columns (#670);
+#: ohmic, then L-mode, then H-mode.
 ALL_SCALINGS = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L", "ITER89P", "ITER97L", "NSTX2006L",
                 "H98y2", "NSTX2006H", "Kurskiev2022")
 

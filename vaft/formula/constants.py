@@ -10,8 +10,8 @@ fitted prefactors whose meaning is defined by the single function that uses
 each of them, documented there.
 
 The private ``_SCALING_COEFS`` table holds the engineering-unit confinement
-scalings (ITER89P, IPB98(y,2), the two NSTX 2006 fits and the Kurskiev 2022 ST
-fit).  Each entry carries its prefactor, exponents, target density definition,
+scalings (ITER89P, IPB98(y,2), ITER97-L, the two NSTX 2006 fits and the Kurskiev
+2022 ST fit).  Each entry carries its prefactor, exponents, target density definition,
 source reference and unit-convention notes; the table is read by
 :func:`vaft.formula.equilibrium.confinement_time_from_engineering_parameters`,
 which documents the conventions and cites every entry.
@@ -195,6 +195,26 @@ _SCALING_COEFS = {
         "implementation_note": (
             "Stored in the original published unit convention so that comparisons against H98(y,2) values "
             "from papers, databases, and plotting scripts remain direct."
+        ),
+    },
+
+    "ITER97L": {
+        "C": 0.023,
+        "exponents": {
+            "Ip_MA": 0.96,    # Plasma current [MA]
+            "Bt": 0.03,       # Toroidal magnetic field [T]
+            "R": 1.83,        # Major radius [m]
+            "epsilon": -0.06,  # Inverse aspect ratio a/R [-]
+            "kappa": 0.64,    # Elongation [-]
+            "n_19": 0.40,     # Line-averaged electron density [10^19 m^-3]
+            "Mi": 0.20,       # Effective ion mass number [amu]
+            "P_MW": -0.73,    # Loss power [MW]
+        },
+        "density_definition": "line_avg",
+        "reference": "S.M. Kaye et al., 1997, Nucl. Fusion 37 1303 (ITER97-L thermal L-mode scaling)",
+        "unit_convention_note": (
+            "Published in the fusion engineering convention: Ip[MA], n_e[1e19 m^-3], P[MW], R[m], B[T]. "
+            "Thermal confinement fitted to the hydrogenic L-mode standard dataset."
         ),
     },
 
