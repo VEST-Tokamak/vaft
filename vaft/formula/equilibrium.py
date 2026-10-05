@@ -4929,8 +4929,8 @@ def neo_alcator_confinement_time_from_n_a_R_q(
 
     Validity
     --------
-    Empirical fit for the linear ohmic confinement (LOC) regime, where $\tau_E$
-    rises with density.  Above the saturation density (SOC) the measured
+    Empirical fit.  It describes the linear ohmic confinement (LOC) regime,
+    where $\tau_E$ rises with density.  Above the saturation density (SOC) the measured
     $\tau_E$ stops rising and this scaling over-predicts it.
 
     Limitations
@@ -4990,13 +4990,13 @@ def goldston_l_mode_confinement_time_from_I_P_R_a_kappa(
     Convention
     ----------
     Strict SI in; only $R$ and $a$ are converted (m to cm), since the paper
-    already uses A and W.  This is Goldston's eq. (6) [1]_, the deuterium form;
-    the isotope factor $(M/1.5)^{1/2}$ of his eq. (7) is not applied.
+    already uses A and W.  This is Goldston's eq. (6) [1]_ without his isotope
+    factor $(A_i/1.5)^{1/2}$, i.e. evaluated at $A_i = 1.5$.
 
     Validity
     --------
-    Empirical fit to the auxiliary-heated L-mode database of 1984 (PDX, ISX-B,
-    ASDEX, Doublet III); no density dependence.
+    Empirical fit.  Regressed on the auxiliary-heated L-mode data of 1984
+    (PDX, ISX-B, ASDEX, Doublet III); no density dependence.
 
     Limitations
     -----------

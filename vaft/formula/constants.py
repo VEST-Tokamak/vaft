@@ -216,6 +216,12 @@ _SCALING_COEFS = {
             "Published in the fusion engineering convention: Ip[MA], n_e[1e19 m^-3], P[MW], R[m], B[T]. "
             "Thermal confinement fitted to the hydrogenic L-mode standard dataset."
         ),
+        "elongation_note": (
+            "Whether Kaye 1997 regressed on the boundary elongation b/a or the area elongation kappa_a is not "
+            "verified here; the value passed as kappa is used as supplied. Lane D's figures pass the boundary "
+            "elongation (workflow/confinement_scaling/extra_scalings.py); vaft.data.public.predict_confinement_time "
+            "passes kappa_area by default."
+        ),
     },
 
     "NSTX2006H": {
