@@ -71,7 +71,12 @@ def test_machine_view_keeps_diagnostic_geometry_distinct(fixture_data):
     sxr = [layer for layer in model.layers if layer.label == "Soft X-ray LOS"]
     assert len(interferometer) == 1
     assert interferometer[0].kind == "polyline"
-    assert len(interferometer[0].r) == 3  # reflected 94 GHz chord
+    # The three stored corners remain on the sampled Cartesian LOS, including
+    # its reflection. Sampling also preserves the true cylindrical R-Z curve.
+    assert len(interferometer[0].r) == 64
+    assert interferometer[0].r[31] == pytest.approx(
+        ods["interferometer.channel.0.line_of_sight.second_point.r"]
+    )
     assert len(langmuir) == 1 and langmuir[0].kind == "points"
     assert len(langmuir[0].r) == len(ods["langmuir_probes.embedded"])
     assert len(sxr) == 1 and sxr[0].kind == "polyline"

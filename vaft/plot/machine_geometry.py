@@ -7,6 +7,7 @@ any view. Missing phi is unknown: only the stored R-Z coordinates are usable.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from dataclasses import replace
 import json
 import re
 from typing import Any, Mapping
@@ -14,9 +15,10 @@ from typing import Any, Mapping
 import numpy as np
 
 from .backend.access import array, count, get, has
-from .models import Geometry3DLayer, GeometryLayer, as_model_array
+from .models import Geometry3DLayer, Geometry3DLayers, GeometryLayer, GeometryLayers, as_model_array
 
-__all__ = ["MachineGeometry", "machine_geometry_registry", "project_machine_geometry"]
+__all__ = ["MachineGeometry", "MACHINE_GEOMETRY_FAMILIES", "machine_geometry_registry",
+           "machine_geometry_view", "project_machine_geometry"]
 
 
 @dataclass(frozen=True)
@@ -82,25 +84,44 @@ _POINTS = {
     "langmuir_probes": "langmuir_probes.embedded",
 }
 _LOS = {"interferometer": "interferometer.channel", "soft_x_rays": "soft_x_rays.channel"}
+MACHINE_GEOMETRY_FAMILIES = (*_POINTS, *_LOS, "coils_non_axisymmetric", "ec_launchers", "nbi")
+_FAMILY_LABELS = {
+    "thomson_scattering": "Thomson stored sites (R-Z)",
+    "charge_exchange": "CX measurement sites",
+    "langmuir_probes": "Langmuir sites",
+    "interferometer": "Interferometer LOS",
+    "soft_x_rays": "SXR LOS",
+    "coils_non_axisymmetric": "3-D coil filament",
+    "ec_launchers": "EC provisional CAD",
+    "nbi": "NBI model geometry",
+}
 
 
 def _position(data: Any, path: str) -> tuple[float, float, float | None] | None:
     values = []
     for coordinate in ("r", "z", "phi"):
-        value = array(data, f"{path}.{coordinate}")
+        value = _static_scalar(data, f"{path}.{coordinate}")
         if value is None:
-            series = array(data, f"{path}.{coordinate}.data")
-            # A time-dependent coordinate is static only when every stored
-            # sample agrees. No shared fixture time or nearest slice is chosen.
-            if series is not None and np.isfinite(series).all() and np.all(series == series.ravel()[0]):
-                value = series.ravel()[:1]
-        if value is None or value.size != 1 or not np.isfinite(value).all():
             if coordinate == "phi":
                 values.append(None)
                 continue
+            if coordinate == "z":
+                values.append(float("nan"))
+                continue
             return None
-        values.append(float(value.ravel()[0]))
+        values.append(value)
     return tuple(values)
+
+
+def _static_scalar(data: Any, path: str) -> float | None:
+    """A finite scalar or constant time trace; varying traces need a time choice."""
+    value = array(data, path)
+    if value is None:
+        value = array(data, f"{path}.data")
+    if value is None or not np.isfinite(value).all():
+        return None
+    flat = value.ravel()
+    return float(flat[0]) if np.all(flat == flat[0]) else None
 
 
 def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = None,
@@ -112,9 +133,8 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
     Unknown families raise; mapped families with absent coordinates yield no
     record. Gas injection and CES LOS are intentionally not registered.
     """
-    supported = (*_POINTS, *_LOS, "coils_non_axisymmetric", "ec_launchers", "nbi")
-    selected = supported if families is None else families
-    unknown = set(selected) - set(supported)
+    selected = MACHINE_GEOMETRY_FAMILIES if families is None else families
+    unknown = set(selected) - set(MACHINE_GEOMETRY_FAMILIES)
     if unknown:
         raise ValueError(f"unsupported geometry families: {sorted(unknown)}")
     records = []
@@ -172,7 +192,9 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
                     continue
                 third_path = f"{path}.third_point"
                 third = _position(data, third_path)
-                if third is not None and (third[2] is not None or all(point[2] is None for point in positions)):
+                phi_complete = third is not None and (third[2] is not None or all(point[2] is None for point in positions))
+                z_complete = third is not None and (np.isfinite(third[1]) or all(not np.isfinite(point[1]) for point in positions))
+                if phi_complete and z_complete:
                     positions.append(third)
                 elif has(data, third_path):
                     # An incomplete reflection point is not an absent point.
@@ -181,6 +203,38 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
                 add(family, path, "line_of_sight", positions,
                     str(get(data, f"{base}.name", f"{family} {index}")),
                     str(get(data, f"{base}.identifier", "")))
+        elif family == "ec_launchers":
+            for index in range(count(data, "ec_launchers.beam")):
+                beam = f"ec_launchers.beam.{index}"
+                position = _position(data, f"{beam}.launching_position")
+                if position is None:
+                    continue
+                label = str(get(data, f"{beam}.name", f"EC beam {index}"))
+                add(family, f"{beam}.launching_position", "point", [position], label)
+                pol = _static_scalar(data, f"{beam}.steering_angle_pol")
+                tor = _static_scalar(data, f"{beam}.steering_angle_tor")
+                if position[2] is None or not np.isfinite(position[1]) or pol is None or tor is None:
+                    continue
+                phi = position[2]
+                kr, kphi, kz = (-np.cos(pol) * np.cos(tor), np.sin(tor),
+                                 -np.sin(pol) * np.cos(tor))
+                direction = [kr * np.cos(phi) - kphi * np.sin(phi),
+                             kr * np.sin(phi) + kphi * np.cos(phi), kz]
+                records.append(MachineGeometry(
+                    family, "directed_axis", [position[0]], [position[1]], [phi],
+                    f"{label} launch axis", f"{beam}.steering_angle_pol/tor",
+                    provenance(family, ""), direction,
+                ))
+        elif family == "nbi":
+            for unit in range(count(data, "nbi.unit")):
+                for group in range(count(data, f"nbi.unit.{unit}.beamlets_group")):
+                    position_path = f"nbi.unit.{unit}.beamlets_group.{group}.position"
+                    position = _position(data, position_path)
+                    if position is not None:
+                        add(family, position_path, "point", [position],
+                            str(get(data, f"nbi.unit.{unit}.name", f"NBI unit {unit}")))
+            # The IDS states tangency magnitude and injection sense but not
+            # aperture Z. Without that height there is no 3-D beam direction.
         elif family == "coils_non_axisymmetric":
             for index in range(count(data, "coils_non_axisymmetric.coil")):
                 coil = f"coils_non_axisymmetric.coil.{index}"
@@ -259,7 +313,9 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
         # unknown, so mark vertices as points even when their source is a LOS.
         return (GeometryLayer(record.r, record.z, kind="points",
                               label=f"{label} (vertices; phi unknown)")
-                if view == "rz" else None)
+                if view == "rz" and np.isfinite(record.z).all() else None)
+    if view in {"rz", "3d", "camera"} and not np.isfinite(record.z).all():
+        return None
     if record.semantic == "directed_axis":
         if not np.isfinite(axis_length) or axis_length <= 0:
             raise ValueError("axis_length must be finite and positive")
@@ -279,3 +335,57 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
     uv = np.array(uv, dtype=float, copy=True)
     uv[~np.asarray(valid, dtype=bool)] = np.nan
     return GeometryLayer(uv[:, 0], uv[:, 1], kind=kind, label=label)
+
+
+def machine_geometry_view(data: Any, view: str, *, families: tuple[str, ...] | None = None,
+                          manifest: Mapping[str, Any] | None = None, projection: Any = None,
+                          axis_length: float = 0.25, samples_per_segment: int = 32
+                          ) -> GeometryLayers | Geometry3DLayers:
+    """One family-selected view over the same immutable machine-space records.
+
+    Camera view requires an existing calibrated ``CameraProjection``. Source
+    data and manifest stay independent of renderer and presentation backend.
+    """
+    if view == "camera" and projection is None:
+        raise ValueError("camera view requires a calibrated CameraProjection")
+    records = machine_geometry_registry(data, families=families, manifest=manifest)
+    layers = []
+    labelled: set[tuple[str, bool]] = set()
+    for index, record in enumerate(records):
+        layer = project_machine_geometry(
+            record, view, projection=projection, axis_length=axis_length,
+            samples_per_segment=samples_per_segment,
+        )
+        if layer is None or (view == "camera" and not np.isfinite(layer.r).any()):
+            continue
+        position = MACHINE_GEOMETRY_FAMILIES.index(record.family)
+        style = {"color": f"C{position}"}
+        if record.semantic == "point":
+            style["marker"] = "x" if "derived" in record.label.lower() else "o"
+        elif record.semantic in {"trajectory", "directed_axis"}:
+            style["linestyle"] = "--"
+        derived_thomson = (record.family == "thomson_scattering"
+                           and record.source_path.startswith("manifest.geometry_records"))
+        key = (record.family, derived_thomson)
+        name = "Thomson derived laser / sites" if derived_thomson else _FAMILY_LABELS[record.family]
+        label = name if key not in labelled else ""
+        labelled.add(key)
+        if view == "3d":
+            layer = replace(layer, label=label, style=style,
+                            group=f"{record.family}/{record.semantic}/{index}")
+        else:
+            layer = replace(layer, label=label, style=style)
+        layers.append(layer)
+    notice = (manifest or {}).get("notice", "")
+    if (manifest or {}).get("kind") == "cross-shot-diagnostic-fixture":
+        reference = (manifest or {}).get("geometry_reference", {}).get("source_shot")
+        notice = f"Cross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
+    title = "Machine geometry" + (f"\n{notice}" if notice else "")
+    if view == "3d":
+        return Geometry3DLayers(tuple(layers), title=title)
+    axes = {"rz": ("R [m]", "Z [m]"), "top": ("X [m]", "Y [m]"),
+            "camera": ("u [px]", "v [px]")}
+    if view not in axes:
+        raise ValueError(f"unknown machine view: {view}")
+    return GeometryLayers(tuple(layers), x_label=axes[view][0],
+                          y_label=axes[view][1], title=title)

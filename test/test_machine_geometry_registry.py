@@ -4,7 +4,7 @@ import json
 import numpy as np
 import pytest
 
-from vaft.plot.machine_geometry import MachineGeometry, machine_geometry_registry, project_machine_geometry
+from vaft.plot.machine_geometry import MachineGeometry, machine_geometry_registry, machine_geometry_view, project_machine_geometry
 
 
 def test_cartesian_convention_and_unknown_phi():
@@ -150,6 +150,32 @@ def test_fixture_derived_paths_and_sources_are_numerically_consistent():
         assert hashlib.sha256((data_root / source["source_artifact"]).read_bytes()).hexdigest() == source["source_sha256"]
 
 
+def test_four_views_share_family_selection_and_composite_notice():
+    from vaft.data import unified_diagnostics_fixture, unified_diagnostics_manifest
+    from vaft.omas.process_wrapper import camera_projection_for
+    data = unified_diagnostics_fixture()
+    manifest = unified_diagnostics_manifest()
+    selected = ("thomson_scattering", "interferometer", "coils_non_axisymmetric", "nbi")
+    camera = camera_projection_for(39915)
+    for view in ("rz", "top", "3d", "camera"):
+        model = machine_geometry_view(data, view, families=selected, manifest=manifest,
+                                      projection=camera if view == "camera" else None)
+        assert "Cross-shot composite" in model.title
+        assert "shot 39915" in model.title
+        assert model.layers
+        if view == "3d":
+            assert {layer.group.split("/")[0] for layer in model.layers} == set(selected)
+        elif view == "camera":
+            assert any("Thomson derived laser / sites" in layer.label for layer in model.layers)
+            assert any("Interferometer LOS" in layer.label for layer in model.layers)
+        else:
+            assert any("NBI model geometry" in layer.label for layer in model.layers)
+    with pytest.raises(ValueError, match="calibrated"):
+        machine_geometry_view(data, "camera", families=selected, manifest=manifest)
+    assert not machine_geometry_view(data, "top", families=("langmuir_probes",),
+                                     manifest=manifest).layers
+
+
 def test_incomplete_reflection_is_omitted_not_downgraded_to_two_point_los():
     from vaft.ods_access import set_path
     data = {}
@@ -181,3 +207,23 @@ def test_native_imas_and_omas_coordinate_equivalence():
         b = project_machine_geometry(right, view)
         for coordinate in (("x", "y", "z") if view == "3d" else ("r", "z")):
             np.testing.assert_array_equal(getattr(a, coordinate), getattr(b, coordinate))
+
+
+def test_stored_ec_ids_keeps_real_phi_and_steering_without_time_guess():
+    from omas import ODS
+    from vaft.machine_mapping.ec_launchers import (
+        ec_launchers_geometry, ec_launchers_static, resolve_ec_launcher_geometry,
+    )
+    source = resolve_ec_launcher_geometry(39915)
+    data = ODS(consistency_check=False)
+    ec_launchers_static(data)
+    ec_launchers_geometry(data, source, [.1, .2, .3])
+    point, axis = machine_geometry_registry(data, families=("ec_launchers",))
+    assert point.semantic == "point" and axis.semantic == "directed_axis"
+    np.testing.assert_allclose(point.xyz[0], axis.xyz[0])
+    np.testing.assert_allclose(axis.direction_xyz, [-np.cos(source["phi"]), -np.sin(source["phi"]), 0])
+    # A moving launcher cannot be collapsed onto an arbitrary first sample.
+    data["ec_launchers.beam.0.launching_position.phi"] = [source["phi"], source["phi"] + .1, source["phi"]]
+    remaining, = machine_geometry_registry(data, families=("ec_launchers",))
+    assert remaining.semantic == "point" and remaining.phi is None
+    assert project_machine_geometry(remaining, "top") is None
