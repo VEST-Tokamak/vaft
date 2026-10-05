@@ -96,6 +96,7 @@ __all__ = [
     "scan_tes",
     "pentrc",
     "genray",
+    "mitim",
     "GENRAYConfig",
     "GENRAYInputs",
     "GENRAYResult",
@@ -355,6 +356,7 @@ def __getattr__(name: str):
         "pentrc",
         "nice",
         "genray",
+        "mitim",
     }:
         module = import_module(f".{name}", __name__)
         globals()[name] = module
