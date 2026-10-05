@@ -45,10 +45,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-SELECTIONS = {
-    "primary": {"ip_min": 30e3, "max_dwdt_fraction": 1.0, "max_ip_change_per_tau": 0.20},
-    "sensitivity": {"ip_min": 30e3, "max_dwdt_fraction": 0.5, "max_ip_change_per_tau": 0.05},
-}
+# One source for the thresholds: the loader in vaft.data.public applies the same ones.
+from vaft.data.public.vest_confinement import VEST_TIER_A_SELECTIONS as SELECTIONS
 BASE = {"i_p": "i_p_A", "b_t": "b_t_T", "p_net": "p_loss_W"}
 
 
@@ -174,7 +172,7 @@ def main(argv=None) -> int:
         "command": " ".join(sys.argv), "vaft_git": _git("rev-parse", "HEAD"),
         "vaft_dirty": bool(_git("status", "--porcelain")),
         "table": {"path": str(table_path), "sha256": hashlib.sha256(table_path.read_bytes()).hexdigest()},
-        "selections": SELECTIONS, "n_boot": args.n_boot, "bootstrap_seed": 548,
+        "selections": {k: dict(v) for k, v in SELECTIONS.items()}, "n_boot": args.n_boot, "bootstrap_seed": 548,
         "notes": ("coefficients are exponents (log_C is ln C in SI units); se_cluster/ci95 cluster by shot "
                   "(CR1, t with G-1 dof); boot95 is the shot bootstrap; loso_min/max the range over "
                   "leave-one-shot-out refits (least-squares fits only)"),
