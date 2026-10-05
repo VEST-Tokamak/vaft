@@ -4,11 +4,35 @@ Runs in the MITIM interpreter; imports MITIM and the standard library only.
 """
 
 import json
+import re
+import shutil
 import sys
 import traceback
 from pathlib import Path
 
 __all__ = ["main"]
+
+
+#: MITIM 5.3.0 runs every radius in one folder and suffixes each file with it,
+#: e.g. ``out.neo.transport_0.5000``.
+SUFFIXED = re.compile(r"^(?P<base>(?:out|input)\.neo(?:\.[A-Za-z0-9_]+?)?)_(?P<rho>\d+\.\d+)$")
+
+
+def split_by_radius(source, target):
+    """Copy each radius's files, unsuffixed, into ``target/rho_<value>/`` (one NEO run each)."""
+    source, target = Path(source), Path(target)
+    if target.exists():
+        shutil.rmtree(target)
+    radii = set()
+    for path in sorted(source.iterdir()) if source.is_dir() else ():
+        match = SUFFIXED.match(path.name)
+        if not match:
+            continue
+        directory = target / f"rho_{match['rho']}"
+        directory.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, directory / match["base"])
+        radii.add(str(directory))
+    return sorted(r for r in radii if (Path(r) / "out.neo.transport").is_file())
 
 
 def main(argument_file):
@@ -26,7 +50,7 @@ def main(argument_file):
             options["code_settings"] = args["code_settings"]
         neo.run(args.get("subfolder", "smoke/"), **options)
         neo.read(label="smoke")
-        runs = sorted({str(path.parent) for path in folder.rglob("out.neo.transport")})
+        runs = split_by_radius(folder / args.get("subfolder", "smoke/"), folder / "by_radius")
         out.update(status="ok" if runs else "error", run_directories=runs,
                    rhos=list(args["rhos"]))
         if not runs:

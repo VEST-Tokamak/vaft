@@ -39,11 +39,13 @@ class NEO:
             time.sleep(30)
         if mode == "raise":
             raise RuntimeError("stub NEO failure")
-        target = self.folder / subfolder / "rho_0"
+        # MITIM 5.3.0's layout: every radius in one folder, each file suffixed by it.
+        target = self.folder / subfolder
         target.mkdir(parents=True, exist_ok=True)
         if mode != "empty":
-            for path in Path(os.environ["STUB_NEO_RUN"]).iterdir():
-                shutil.copy(path, target / path.name)
+            for rho in self.rhos:
+                for path in Path(os.environ["STUB_NEO_RUN"]).iterdir():
+                    shutil.copy(path, target / f"{path.name}_{rho:.4f}")
         (self.folder / "seen_env.json").write_text(json.dumps(
             {"MITIM_CONFIG": os.environ.get("MITIM_CONFIG"), "PATH": os.environ.get("PATH")}))
     def read(self, label):
@@ -174,12 +176,13 @@ def profile():
 
 
 def test_the_smoke_run_writes_vafts_input_and_reads_neo_back(ready, profile, tmp_path):
-    result, outputs = mitim.run_neo_smoke(profile, [0.5], tmp_path / "run", ready)
+    result, outputs = mitim.run_neo_smoke(profile, [0.5, 0.7], tmp_path / "run", ready)
     assert result.ok and result.runtime_status == "completed", (result.stderr, result.result)
-    assert len(outputs) == 1 and outputs[0].transport is not None
+    assert [Path(d).name for d in result.result["run_directories"]] == ["rho_0.5000", "rho_0.7000"]
+    assert len(outputs) == 2 and all(out.transport is not None for out in outputs)
     record = json.loads((tmp_path / "run" / "record.json").read_text())
     assert record["mitim"]["version"] == "5.3.0"
-    assert record["arguments"]["rhos"] == [0.5]
+    assert record["arguments"]["rhos"] == [0.5, 0.7]
     assert len(record["arguments"]["input_gacode_sha256"]) == 64
     assert len(record["mitim_config_sha256"]) == 64
     seen = json.loads((tmp_path / "run" / "neo" / "seen_env.json").read_text())
