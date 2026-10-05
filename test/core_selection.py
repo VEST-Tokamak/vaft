@@ -235,7 +235,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Transport atlas (lane T): the shared transport-state resolver on the packaged
     # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
     # reg05 fixture, and the routine driver with a fake runner. No solver runs.
-    # The atlas renderers draw synthetic tables only.
+    # The atlas renderers draw synthetic tables only. The neoclassical summary's
+    # bootstrap <-> NEO flux correspondence (#1655) uses synthetic products plus the
+    # recorded 48224 NEO fixture run.
+    "test_neoclassical_summary.py",
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the

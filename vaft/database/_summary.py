@@ -162,7 +162,33 @@ NEOCLASSICAL_COLUMNS = (
     "points_solved",
     "b0_T",
     "has_core_transport",
+    # The NEO core_transport slice this bootstrap current corresponds to (#1655).
+    # Flux descriptors are filled only when ``transport_match_status`` is
+    # ``matched``; every other status names why there is no correspondence.
+    "source",
+    "transport_match_status",
+    "transport_model_index",
+    "transport_profile_index",
+    "transport_code_version",
+    "transport_rho_grid_min",
+    "transport_rho_grid_max",
+    "transport_ion_count",
+    "q_e_points",
+    "q_i_points",
+    "gamma_e_points",
+    "rho_q_e_min",
+    "rho_q_e_max",
+    "rho_q_i_min",
+    "rho_q_i_max",
+    "rho_gamma_e_min",
+    "rho_gamma_e_max",
+    "q_e_peak_abs_W_m2",
+    "q_i_peak_abs_W_m2",
+    "gamma_e_peak_abs_m2_s",
 )
+
+#: ``core_transport_identifier`` index of a neoclassical model (data dictionary).
+NEOCLASSICAL_MODEL_INDEX = 5
 
 NEOCLASSICAL_PATHS = (
     "core_profiles",
@@ -670,6 +696,89 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
     return rows
 
 
+def _producer(ods, prefix: str) -> tuple[str | None, str | None]:
+    name = _stored_value(ods, f"{prefix}.code.name")
+    version = _stored_value(ods, f"{prefix}.code.version")
+    return (None if name is None else str(name).strip().upper(),
+            None if version is None else str(version).strip())
+
+
+def _neoclassical_transport(ods, time_s: float) -> dict:
+    """The NEO core_transport slice that corresponds to one bootstrap slice (#1655).
+
+    The correspondence is unambiguous only when all of these hold, and every
+    failure is a named status rather than a fallback:
+
+    - the slice time is known (``bootstrap_time_unknown``);
+    - exactly one ``core_transport`` model is neoclassical, identifier 5
+      (``no_neoclassical_model`` / ``ambiguous_models``; never the first);
+    - exactly one of its slices is within 1 us of that time
+      (``no_slice_at_time`` / ``ambiguous_slices``; never the nearest);
+    - both products name NEO as producer with the same revision when both record
+      one (``producer_mismatch``). The flux producer is the model's ``code`` when
+      it has one, else the IDS's.
+
+    The ODS is one source occurrence of one shot, so source and shot hold by
+    construction. The NEO mappers store no resolved-state identity in either
+    IDS (only the stage manifest carries ``state_sha256``), so the state is
+    matched through time and producer, which is what this contract can see.
+    """
+    out: dict = {column: np.nan for column in NEOCLASSICAL_COLUMNS[
+        NEOCLASSICAL_COLUMNS.index("transport_rho_grid_min"):]}
+    for column in ("q_e_points", "q_i_points", "gamma_e_points"):
+        out[column] = 0
+    out.update(transport_model_index=np.nan, transport_profile_index=np.nan,
+               transport_code_version=None)
+    if not np.isfinite(time_s):
+        return {**out, "transport_match_status": "bootstrap_time_unknown"}
+    count = len(ods["core_transport.model"]) if "core_transport.model" in ods else 0
+    models = [
+        index for index in range(count)
+        if _as_float(_stored_value(ods, f"core_transport.model.{index}.identifier.index"))
+        == NEOCLASSICAL_MODEL_INDEX
+    ]
+    if not models:
+        return {**out, "transport_match_status": "no_neoclassical_model"}
+    if len(models) > 1:
+        return {**out, "transport_match_status": "ambiguous_models"}
+    model = models[0]
+    prefix = f"core_transport.model.{model}"
+    profiles_path = f"{prefix}.profiles_1d"
+    slices = len(ods[profiles_path]) if profiles_path in ods else 0
+    matches = [
+        index for index in range(slices)
+        if abs(_as_float(_stored_value(ods, f"{profiles_path}.{index}.time")) - time_s)
+        <= _SLICE_TIME_TOLERANCE_S
+    ]
+    if not matches:
+        return {**out, "transport_match_status": "no_slice_at_time"}
+    if len(matches) > 1:
+        return {**out, "transport_match_status": "ambiguous_slices"}
+    bootstrap_name, bootstrap_version = _producer(ods, "core_profiles")
+    flux_name, flux_version = _producer(ods, prefix)
+    if flux_name is None:
+        flux_name, flux_version = _producer(ods, "core_transport")
+    if (bootstrap_name != "NEO" or flux_name != "NEO"
+            or (bootstrap_version and flux_version and bootstrap_version != flux_version)):
+        return {**out, "transport_match_status": "producer_mismatch"}
+    base = f"{profiles_path}.{matches[0]}"
+    grid = _flux_profile(ods, f"{base}.grid_flux.rho_tor_norm")
+    if grid is None or not np.isfinite(grid).any():
+        return {**out, "transport_match_status": "no_flux_grid"}
+    descriptors = _flux_descriptors(ods, base, grid)
+    out.update({key: value for key, value in descriptors.items() if key in out})
+    out.update(
+        transport_match_status="matched",
+        transport_model_index=model,
+        transport_profile_index=matches[0],
+        transport_code_version=flux_version,
+        transport_rho_grid_min=descriptors["rho_grid_min"],
+        transport_rho_grid_max=descriptors["rho_grid_max"],
+        transport_ion_count=descriptors["ion_count"],
+    )
+    return out
+
+
 def extract_neoclassical(ods, shot: int) -> list[dict]:
     """Summarize a mapped neoclassical result, one row per core_profiles slice.
 
@@ -723,6 +832,10 @@ def extract_neoclassical(ods, shot: int) -> list[dict]:
             stamps = np.asarray(times, dtype=float).reshape(-1)
             if cp_index < stamps.size:
                 time_s = float(stamps[cp_index])
+        # The slice's own time, when stored, is what it was computed at; the
+        # homogeneous time base is the fallback the row has always reported.
+        slice_time = _as_float(_stored_value(ods, f"core_profiles.profiles_1d.{cp_index}.time"))
+        match_time = slice_time if np.isfinite(slice_time) else time_s
 
         peak = int(np.nanargmax(np.abs(np.where(solved, current, np.nan))))
         rows.append(
@@ -738,6 +851,7 @@ def extract_neoclassical(ods, shot: int) -> list[dict]:
                 "points_solved": int(np.count_nonzero(solved)),
                 "b0_T": b0,
                 "has_core_transport": has_transport,
+                **_neoclassical_transport(ods, match_time),
             }
         )
     return rows
@@ -774,6 +888,53 @@ def _rho_coverage(grid: np.ndarray, values: np.ndarray | None) -> tuple[float, f
     return float(np.min(covered)), float(np.max(covered))
 
 
+def _flux_descriptors(ods, base: str, grid: np.ndarray) -> dict:
+    """Point counts, finite coverage and |peak| of one core_transport slice's fluxes.
+
+    ``q_i`` sums every recorded ion species at each point only when each ion's flux
+    is present; no radial gap is filled and nothing outside the finite grid counts.
+    """
+    size = grid.size
+    valid_grid = np.isfinite(grid)
+
+    def flux(path):
+        values = _flux_profile(ods, path, size)
+        return None if values is None else np.where(valid_grid, values, np.nan)
+
+    q_e = flux(f"{base}.electrons.energy.flux")
+    gamma_e = flux(f"{base}.electrons.particles.flux")
+    ions_path = f"{base}.ion"
+    ion_count = len(ods[ions_path]) if ions_path in ods else 0
+    ion_fluxes = [flux(f"{ions_path}.{index}.energy.flux") for index in range(ion_count)]
+    q_i = (
+        np.sum(np.vstack(ion_fluxes), axis=0)
+        if ion_count and all(values is not None for values in ion_fluxes)
+        else None
+    )
+    finite_grid = grid[valid_grid]
+    rho_q_e_min, rho_q_e_max = _rho_coverage(grid, q_e)
+    rho_q_i_min, rho_q_i_max = _rho_coverage(grid, q_i)
+    rho_gamma_e_min, rho_gamma_e_max = _rho_coverage(grid, gamma_e)
+    return {
+        "rho_grid_min": float(np.min(finite_grid)),
+        "rho_grid_max": float(np.max(finite_grid)),
+        "points_on_grid": int(finite_grid.size),
+        "ion_count": ion_count,
+        "q_e_points": 0 if q_e is None else int(np.count_nonzero(np.isfinite(q_e))),
+        "q_i_points": 0 if q_i is None else int(np.count_nonzero(np.isfinite(q_i))),
+        "gamma_e_points": 0 if gamma_e is None else int(np.count_nonzero(np.isfinite(gamma_e))),
+        "rho_q_e_min": rho_q_e_min,
+        "rho_q_e_max": rho_q_e_max,
+        "rho_q_i_min": rho_q_i_min,
+        "rho_q_i_max": rho_q_i_max,
+        "rho_gamma_e_min": rho_gamma_e_min,
+        "rho_gamma_e_max": rho_gamma_e_max,
+        "q_e_peak_abs_W_m2": _peak_abs(q_e),
+        "q_i_peak_abs_W_m2": _peak_abs(q_i),
+        "gamma_e_peak_abs_m2_s": _peak_abs(gamma_e),
+    }
+
+
 def extract_turbulent_transport(ods, shot: int) -> list[dict]:
     """Summarize canonical anomalous ``core_transport`` fluxes by model and time.
 
@@ -803,33 +964,6 @@ def extract_turbulent_transport(ods, shot: int) -> list[dict]:
             grid = _flux_profile(ods, f"{base}.grid_flux.rho_tor_norm")
             if not np.isfinite(time_s) or grid is None or not np.isfinite(grid).any():
                 continue
-            size = grid.size
-            q_e = _flux_profile(ods, f"{base}.electrons.energy.flux", size)
-            gamma_e = _flux_profile(ods, f"{base}.electrons.particles.flux", size)
-            valid_grid = np.isfinite(grid)
-            if q_e is not None:
-                q_e = np.where(valid_grid, q_e, np.nan)
-            if gamma_e is not None:
-                gamma_e = np.where(valid_grid, gamma_e, np.nan)
-            ions_path = f"{base}.ion"
-            ion_count = len(ods[ions_path]) if ions_path in ods else 0
-            ion_fluxes = [
-                _flux_profile(ods, f"{ions_path}.{index}.energy.flux", size)
-                for index in range(ion_count)
-            ]
-            ion_fluxes = [
-                None if flux is None else np.where(valid_grid, flux, np.nan)
-                for flux in ion_fluxes
-            ]
-            q_i = (
-                np.sum(np.vstack(ion_fluxes), axis=0)
-                if ion_count and all(flux is not None for flux in ion_fluxes)
-                else None
-            )
-            finite_grid = grid[np.isfinite(grid)]
-            rho_q_e_min, rho_q_e_max = _rho_coverage(grid, q_e)
-            rho_q_i_min, rho_q_i_max = _rho_coverage(grid, q_i)
-            rho_gamma_e_min, rho_gamma_e_max = _rho_coverage(grid, gamma_e)
             rows.append({
                 "shot": int(shot),
                 "model_index": model_index,
@@ -842,22 +976,7 @@ def extract_turbulent_transport(ods, shot: int) -> list[dict]:
                 # schema: it may also contain state identity or static notes.
                 "configuration_status": "not_standardized",
                 "parameters_text_sha256": parameters_hash,
-                "rho_grid_min": float(np.min(finite_grid)),
-                "rho_grid_max": float(np.max(finite_grid)),
-                "points_on_grid": int(finite_grid.size),
-                "ion_count": ion_count,
-                "q_e_points": 0 if q_e is None else int(np.count_nonzero(np.isfinite(q_e))),
-                "q_i_points": 0 if q_i is None else int(np.count_nonzero(np.isfinite(q_i))),
-                "gamma_e_points": 0 if gamma_e is None else int(np.count_nonzero(np.isfinite(gamma_e))),
-                "rho_q_e_min": rho_q_e_min,
-                "rho_q_e_max": rho_q_e_max,
-                "rho_q_i_min": rho_q_i_min,
-                "rho_q_i_max": rho_q_i_max,
-                "rho_gamma_e_min": rho_gamma_e_min,
-                "rho_gamma_e_max": rho_gamma_e_max,
-                "q_e_peak_abs_W_m2": _peak_abs(q_e),
-                "q_i_peak_abs_W_m2": _peak_abs(q_i),
-                "gamma_e_peak_abs_m2_s": _peak_abs(gamma_e),
+                **_flux_descriptors(ods, base, grid),
             })
     return rows
 
