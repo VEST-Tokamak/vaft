@@ -246,8 +246,10 @@ CORE_MODULES: tuple[str, ...] = (
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
     "test_formula_impurity.py",
     "test_process_impurity.py",
-    "test_process_mhd_stability.py",
     "test_vest_core_profiles_policy.py",
+    # DCON local-criterion and edge-scan post-processing (lane N, #940) on the
+    # real #792 DCON fixtures mapped through mhd_linear. Under 10 s.
+    "test_process_mhd_stability.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
