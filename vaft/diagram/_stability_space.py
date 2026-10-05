@@ -310,19 +310,19 @@ def hugill_st(*, elongation: float = 1.8, labels: bool = True) -> Diagram:
     chart.curves["hugill"] = curves["sykes_2000_st_hugill"].xy
     chart.curves["murakami"] = curves["murakami_hugill"].xy
     styles = {"greenwald": "boundary", "hugill": "boundary", "murakami": "approx"}
-    x_h = float(_b.boundary_value(_b.get_boundary("sykes_2000_st_hugill"),
-                                  inverse_cylindrical_q_st=1.0 / _SIZING_Q, elongation=elongation))
     x_m = float(_b.boundary_value(_b.get_boundary("murakami_hugill")))
+    # each label in its own zone, clear of the three lines: below Hugill between Murakami and the Hugill line,
+    # the Hugill name between the Hugill and Greenwald lines, Greenwald beyond its line, Murakami right of x = 1
     chart.labels.update({
-        "accessible": (0.30 * x_h, 1.05 / _SIZING_Q),
-        "hugill": (0.62 * x_h, 0.42 / _SIZING_Q),
-        "density": (0.95 * x_q, 0.30 / _SIZING_Q),
-        "murakami": (x_m + 0.16 * x_q, 1.30 / _SIZING_Q),
+        "accessible": (0.26 * x_q, 0.84 / _SIZING_Q),
+        "hugill": (0.95 * x_q, 1.32 / _SIZING_Q),   # past the top end of the Hugill line, left of Greenwald
+        "density": (0.80 * x_q, 0.30 / _SIZING_Q),
+        "murakami": (x_m + 0.20 * x_q, 1.31 / _SIZING_Q),
     })
     text = {"accessible": "\\begin{tabular}{c}Below\\\\Hugill\\end{tabular}",
-            "hugill": "Hugill (Sykes 2000)",
-            "density": "Greenwald",
-            "murakami": "Murakami: conventional reference"}
+            "hugill": "Hugill",
+            "density": "Beyond Greenwald",
+            "murakami": "\\begin{tabular}{c}Murakami\\\\(reference)\\end{tabular}"}
     chart.parameters.update({"elongation": elongation, "boundaries": plan.keys})
     scene = _render_chart(
         chart,

@@ -523,7 +523,9 @@ def test_start_scaling_is_akers_f_of_A_on_the_iter_shaping_factor():
 def test_a_derived_boundary_says_derived_and_murakami_is_a_historical_reference():
     _, ax = operational_space_population(_hugill_table(), "hugill", boundary_style="inline")
     legend = " ".join(t_.get_text() for t_ in ax.get_legend().get_texts()).replace("\n  ", " ")
-    assert "Murakami (historical conventional-tokamak reference), reference only (Derived)" in legend
+    assert "Murakami (historical conventional-tokamak reference) (Derived)" in legend
+    along = [t_.get_text().strip() for t_ in ax.texts]
+    assert "Murakami (reference)" in along   # the long name stays in the legend, a short one fits the line
     assert "(Derived)" in legend and "(Empirical)" not in legend
     murakami = [line for line in ax.get_lines() if line.get_linestyle() == "--"]
     assert murakami, "the historical reference is a dashed line"
@@ -564,12 +566,50 @@ def test_without_a_machine_class_a_generic_boundary_is_unassessed():
     assert status == "UNASSESSED" and "no machine class" in reasons[0]
 
 
-def test_a_boundary_declared_for_spherical_tokamaks_is_supported_in_range():
-    t = pd.DataFrame({"normalized_current": [1.0, 2.0, 3.0], "kink_safety_factor_cylindrical": [4.0, 3.0, 2.0]})
+def test_a_class_that_covers_spherical_tokamaks_is_not_supported_without_a_tested_range():
+    t = pd.DataFrame({"normalized_current": [50.0, 80.0], "kink_safety_factor_cylindrical": [0.3, 0.2]})
     t.attrs["units"] = {"normalized_current": "MA m^-1 T^-1"}
     t.attrs["machine_class"] = "spherical_tokamak"
     _, ax = operational_space_population(t, "qstar_cyl_in", boundary_style="inline")
-    assert ax.vaft_applicability["menard_2004_qstar_min"][0] == "SUPPORTED"
+    status, reasons = ax.vaft_applicability["menard_2004_qstar_min"]
+    assert status == "UNASSESSED" and "no calibration range" in reasons[-1]   # Menard declares no range
+
+
+def test_supported_and_outside_on_a_declared_range(monkeypatch):
+    from dataclasses import replace
+    from vaft.plot.operational_space import applicability_status
+    entry = B.get_boundary("takizuka_2004_lh")   # its class covers spherical tokamaks; give it a test range
+    ranged = replace(entry, applicability=replace(entry.applicability, ranges={"line_average_density": (0.05, 0.5)}))
+    registry = dict(B._REGISTRY)
+    monkeypatch.setattr(B, "get_boundary", lambda key: ranged if key == entry.key else registry[key])
+    fixed = {"toroidal_field": 0.17, "plasma_current": 0.1, "minor_radius": 0.27, "aspect_ratio": 1.4,
+             "plasma_surface_area": 4.7, "effective_charge": 2.0}
+    curve = ops.overlay_plan("lh_threshold", ["takizuka_2004_lh"], x_range=(0.01, 0.6), y_range=(0, 1),
+                             fixed=fixed).curves[0]
+    axes = ("line_average_density", "loss_power")
+    inside = pd.DataFrame({"line_average_density": [0.1, 0.2]})
+    beyond = pd.DataFrame({"line_average_density": [0.1, 0.02]})
+    assert applicability_status(curve, inside, axes, "spherical_tokamak")[0] == "SUPPORTED"
+    status, reasons = applicability_status(curve, beyond, axes, "spherical_tokamak")
+    assert status == "OUTSIDE" and "1/2 outside 0.05-0.5" in reasons[0]
+    assert applicability_status(curve, inside.iloc[:0], axes, "spherical_tokamak")[0] == "UNASSESSED"   # no data
+    assert applicability_status(curve, inside, axes, None)[0] == "UNASSESSED"   # no machine class
+
+
+def test_jet_and_st_only_classes_exclude_each_others_populations():
+    from vaft.plot.operational_space import _machine_coverage
+    jet = "JET (conventional aspect ratio, R = 3 m), 1985-88 operation"
+    assert _machine_coverage(jet, "spherical_tokamak") is False
+    assert _machine_coverage(jet, "ST") is False
+    assert _machine_coverage(jet, "conventional_tokamak") is None   # a descriptive phrase is not coverage
+    assert _machine_coverage("spherical tokamak (START equilibria)", "conventional_tokamak") is False
+    assert _machine_coverage("tokamak including spherical tokamaks", "conventional_tokamak") is None
+
+
+def test_missing_inputs_are_unassessed_and_a_quantity_mismatch_is_not_applicable():
+    t = pd.DataFrame({"murakami_parameter": [1.0, 2.0], "inverse_cylindrical_q": [0.2, 0.3]})   # unit undeclared
+    _, ax = operational_space_population(t, "hugill")
+    assert {s for s, _ in ax.vaft_applicability.values()} == {"UNASSESSED"}
 
 
 def test_an_omitted_boundary_is_not_applicable():
@@ -602,13 +642,14 @@ def test_st_and_conventional_hugill_axes_are_never_substituted():
     assert ops.placement("hugill_st", "murakami_hugill").kind == "vertical"   # the x axis is shared
 
 
-def test_sykes_boundary_is_supported_for_a_spherical_tokamak_and_murakami_stays_a_reference():
+def test_sykes_boundary_covers_spherical_tokamaks_and_murakami_stays_a_reference():
     x, y = B.hugill_coordinates_st(np.linspace(5, 30, 20), 0.38, 0.17, 0.27, 1.5, np.linspace(0.05, 0.25, 20))
     t = pd.DataFrame({"murakami_parameter": x, "inverse_cylindrical_q_st": y, "elongation": 1.5})
     t.attrs["units"] = {"murakami_parameter": "1e19 m^-2 T^-1"}
     t.attrs["machine_class"] = "spherical_tokamak"
     _, ax = operational_space_population(t, "hugill_st", boundary_style="inline")
-    assert ax.vaft_applicability["sykes_2000_st_hugill"][0] == "SUPPORTED"
+    status, reasons = ax.vaft_applicability["sykes_2000_st_hugill"]
+    assert status == "UNASSESSED" and "covers the plotted machines" in reasons[-1]   # MAST class, no range given
     legend = " ".join(t_.get_text() for t_ in ax.get_legend().get_texts()).replace("\n  ", " ")
     assert "historical conventional-tokamak reference" in legend and "Hugill limit (Sykes 2000, MAST)" in legend
 
@@ -665,3 +706,18 @@ def test_the_cfb_diagram_fills_the_domain_and_labels_the_m1_edges():
     assert chart.curves["domain"][:, 0].max() <= 7.75 + 1e-9
     assert {f"m{m}" for m in (3, 4, 5, 6)} <= set(chart.labels)
     assert all(chart.labels[f"m{m}"][0] == m for m in (3, 4, 5, 6))   # at the integer-q(a) edges
+
+
+def test_murakami_is_a_dashed_reference_on_the_st_plane_in_the_default_style_too():
+    x, y = B.hugill_coordinates_st(np.linspace(5, 30, 20), 0.38, 0.17, 0.27, 1.5, np.linspace(0.05, 0.25, 20))
+    t = pd.DataFrame({"murakami_parameter": x, "inverse_cylindrical_q_st": y, "elongation": 1.5})
+    t.attrs["units"] = {"murakami_parameter": "1e19 m^-2 T^-1"}
+    _, ax = operational_space_population(t, "hugill_st")   # shade style, no machine class
+    murakami = [line for line in ax.get_lines() if line.get_linestyle() == "--"]
+    assert len(murakami) == 1 and "reference only" in murakami[0].get_label()
+    fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
+    xs = np.concatenate([p.vertices[:, 0] for c in fills for p in c.get_paths()])
+    assert not np.any(np.isclose(xs, 1.0) & (xs < 1.0 + 1e-9))   # nothing shaded from Murakami's x = 1 rightwards
+    # the conventional Hugill plane keeps Murakami as a shaded limit for a conventional population
+    _, ax2 = operational_space_population(_hugill_table(), "hugill")
+    assert not [line for line in ax2.get_lines() if line.get_linestyle() == "--"]

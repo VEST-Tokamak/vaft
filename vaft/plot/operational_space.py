@@ -70,6 +70,19 @@ SOURCE_ENDS = {
     "wesson_1989_jet_li_qpsi_upper": "JET Fig. 6 ends at $q_\\psi$ = 10",
     "cheng_1987_li_qa_upper": "Fig. 4 ends ($q(a)$ ~ 8): no upper-$q$ limit implied",
 }
+#: Projections on which a REFERENCE_ONLY boundary is a reference in every style, the default shaded one too:
+#: on the spherical-tokamak Hugill diagram Murakami must never read as a limit (#1602). The same holds for any
+#: population whose ``table.attrs["machine_class"]`` is a spherical tokamak.
+REFERENCE_PROJECTIONS = frozenset({"hugill_st"})
+
+
+def _is_spherical(machine_class: Optional[str]) -> bool:
+    text = (machine_class or "").lower().replace("_", " ")
+    return "spherical" in text or text.split()[:1] == ["st"]
+
+
+#: Shorter names written along a line in the inline style, where the legend's full name would not fit the curve.
+ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)"}
 #: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
 BOUNDARY_NAMES = {
     "freidberg_2008_kink_qstar": "External kink limit",
@@ -257,7 +270,7 @@ def _math(symbol: str) -> str:
 
 
 def _inline_legend_label(curve: _b.BoundaryCurve, suffix: str = "") -> str:
-    """``{name} ({fixed inputs}) {Unstable} ({Empirical|Analytical|Numerical})``."""
+    """``{name} ({fixed inputs}) {Unstable} ({Empirical|Analytical|Numerical|Derived})``."""
     entry = _b.get_boundary(curve.key)
 
     def symbol(name):
@@ -385,20 +398,23 @@ def _label_allowed_zone(ax, curves, xs: np.ndarray, ys: np.ndarray, text: str, a
 def _machine_coverage(declared: str, plotted: Optional[str]) -> Optional[bool]:
     """Whether a boundary's declared machine class covers the plotted machine class; None when undecidable.
 
-    Only what the registry states is used: a class that names spherical tokamaks covers them, one that names a
-    conventional aspect ratio or JET does not, and a generic "tokamak" leaves it undecided.
+    Only what the registry states is used. For a spherical-tokamak population, a class that names spherical
+    tokamaks covers it and one calibrated on a conventional machine (conventional aspect ratio, JET) excludes it.
+    For a conventional population, a class limited to spherical tokamaks excludes it. A generic "tokamak", or a
+    descriptive phrase, never counts as coverage: that is undecided.
     """
     if not plotted or not declared:
         return None
     declared, plotted = declared.lower(), plotted.lower().replace("_", " ")
-    if "spherical" in plotted:
+    spherical = "spherical" in plotted or plotted.split()[:1] == ["st"]
+    if spherical:
         if "spherical" in declared:
             return True
         if "conventional" in declared or "jet" in declared:
             return False
         return None
-    if "conventional" in plotted and "conventional" in declared:
-        return True
+    if "conventional" in plotted and "spherical" in declared and "including" not in declared:
+        return False
     return None
 
 
@@ -427,13 +443,17 @@ def applicability_status(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tupl
     -----
     OUTSIDE when a plotted value or a fixed input leaves a declared fitted
     range, or the declared machine class excludes the plotted one; SUPPORTED
-    when neither happens and the machine class is covered; UNASSESSED
-    otherwise (no machine class given, or the boundary's does not decide it).
+    only on evidence: the machine class is covered *and* at least one declared
+    calibration range was tested on the plotted values; UNASSESSED otherwise
+    (no machine class given, a class that does not decide it, or no range to
+    test). A boundary the projection omits is UNASSESSED when inputs are
+    missing and NOT_APPLICABLE when its quantities are not this plane's.
     """
     entry = _b.get_boundary(curve.key)
     reasons = []
     ranges = getattr(entry.applicability, "ranges", {}) or {}
     outside = False
+    checked = 0   # declared ranges actually tested on values
     for name, (lo, hi) in ranges.items():
         if name in curve.fixed:
             values = np.array([curve.fixed[name]])
@@ -441,7 +461,11 @@ def applicability_status(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tupl
             values = _finite(rows, name)
             values = values[np.isfinite(values)]
         else:
+            reasons.append(f"range of {name} not checked (neither plotted nor fixed)")
             continue
+        if values.size == 0:
+            continue
+        checked += 1
         beyond = (values < lo) | (values > hi)
         if beyond.any():
             outside = True
@@ -455,12 +479,25 @@ def applicability_status(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tupl
         # the class's first phrase ("JET (conventional ...), 1985-88" -> "JET"); the rest stays on the registry entry
         reasons.append("calibrated on " + declared.split("(")[0].split(",")[0].strip())
     if outside:
-        return "OUTSIDE", tuple(reasons)
+        return "OUTSIDE", tuple(r for r in reasons if "not checked" not in r)
+    if covered and checked:
+        # supported only on evidence: the class covers the population and a declared range was tested
+        return "SUPPORTED", tuple(reasons) or (f"inside {checked} declared calibration range(s)",)
     if covered:
-        return "SUPPORTED", tuple(reasons)
-    reasons.append("no machine class given for the plotted states" if not machine_class
-                   else f"declared class '{declared or 'none'}' does not decide {machine_class}")
+        reasons.append("its class covers the plotted machines, but no calibration range was declared or tested")
+    else:
+        reasons.append("no machine class given for the plotted states" if not machine_class
+                       else f"declared class '{declared or 'none'}' does not decide {machine_class}")
     return "UNASSESSED", tuple(reasons)
+
+
+#: Omission reasons that mean missing information (UNASSESSED), not a quantity that cannot be drawn here.
+_MISSING_INPUT_MARKERS = ("needs fixed input", "is not declared", "are not fixed")
+
+
+def _omission_status(reason: str) -> Tuple[str, Tuple[str, ...]]:
+    missing = any(marker in reason for marker in _MISSING_INPUT_MARKERS)
+    return ("UNASSESSED" if missing else "NOT_APPLICABLE"), (reason,)
 
 
 def _status_suffix(status: str, reasons: Sequence[str]) -> str:
@@ -835,7 +872,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     machine_class = (getattr(table, "attrs", {}) or {}).get("machine_class")
-    applicability = {key: ("NOT_APPLICABLE", (reason,)) for key, reason in plan.omitted}
+    applicability = {key: _omission_status(reason) for key, reason in plan.omitted}
     drawn = {curve.key: curve for curve in plan.curves}
     regions = {pair: text for pair, text in REGIONS.items() if inline and all(k in drawn for k in pair)}
     in_region = {k for pair in regions for k in pair}
@@ -843,15 +880,18 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
         applicability[curve.key] = applicability_status(curve, rows, (x, y), machine_class)
         suffix = _status_suffix(*applicability[curve.key])
-        reference = inline and curve.key in REFERENCE_ONLY
+        reference = curve.key in REFERENCE_ONLY and (
+            inline or proj.key in REFERENCE_PROJECTIONS or _is_spherical(machine_class))
         ax.plot(curve.x, curve.y, color=c, linewidth=1.6 * line_scale, linestyle="--" if reference else "-",
-                label=None if inline else _boundary_label(curve), zorder=2)
+                label=None if inline else (_boundary_label(curve) + (" (reference only)" if reference else "")),
+                zorder=2)
+        if reference and not inline:
+            continue   # a dashed line without a forbidden side
         if reference or curve.key in in_region:
             from matplotlib.lines import Line2D
             entry = _b.get_boundary(curve.key)
-            tail = ", reference only" if reference else ""
             patches.append(Line2D([], [], color=c, linestyle="--" if reference else "-", linewidth=1.6 * line_scale,
-                                  label=textwrap.fill(f"{BOUNDARY_NAMES.get(curve.key, curve.key)}{tail} "
+                                  label=textwrap.fill(f"{BOUNDARY_NAMES.get(curve.key, curve.key)} "
                                                       f"({_basis_word(entry)}){suffix}", width=46, subsequent_indent="  ")))
             continue
         _shade_forbidden(ax, curve, c, hatch="////" if inline else None)
@@ -891,7 +931,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                             fontsize="x-small", style="italic", color="0.35", zorder=4, annotation_clip=True)
     if inline and plan.curves:
         for i, curve in enumerate(plan.curves):
-            _label_along(ax, curve, BOUNDARY_NAMES.get(curve.key, curve.key), BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)])
+            name = ALONG_LINE_NAMES.get(curve.key, BOUNDARY_NAMES.get(curve.key, curve.key))
+            _label_along(ax, curve, name, BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)])
         limits = [curve for curve in plan.curves if curve.key not in REFERENCE_ONLY]
         words = {_allowed_word(_b.get_boundary(curve.key)) for curve in limits}
         if limits:
