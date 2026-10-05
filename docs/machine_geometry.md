@@ -5,7 +5,7 @@ extracts immutable source records through the existing OMAS/native IMAS path
 accessor. Optional `families` selects registered families. An unknown family
 raises; missing geometry in a registered family produces no record.
 
-This first stage registers Thomson and CES measurement sites, Langmuir sites,
+The registry includes Thomson and CES measurement sites, Langmuir sites,
 SXR and interferometer LOS, and stored non-axisymmetric conductor segments.
 CES sites do not define a CES LOS. Dynamic CES coordinates are accepted as static
 only when all stored samples agree. Unknown toroidal position remains unknown.
@@ -36,5 +36,20 @@ across those samples. Sampling resolution is a presentation control.
 
 The representation also supports explicit trajectories and unit Cartesian
 launch directions. `axis_length` only controls the displayed axis extent.
-Thomson chord and EC/NBI source mapping, canonical plot integration, and the
-fixture four-view atlas follow in separate PRs for issue #1610.
+The fixture manifest adds the mapper-derived Thomson 8MM10→1MM10 chord and
+five scattering sites. Those sites lie on the derived chord; the positions
+remain distinct from direct density and temperature measurements. It also
+carries the 39915-era provisional CAD EC origin/steering and the model-derived
+NBI source/beam axis. The NBI source and aperture heights are checked against
+`mdescr_VEST_190307.dat`; the axis is not an as-built hardware claim. The
+fixture includes one full MID coil sector using every conductor element from
+the packaged GPEC geometry. The MID reference model is labelled shot 48226;
+its projection on the fixture's 39915 machine does not imply simultaneous
+operation. The camera reference is a separate 39915 calibration asset pair;
+no camera frame is copied. CES LOS and gas injection remain absent.
+
+The geometry additions are model/mapper records in the manifest when DD 3.41
+has no appropriate source leaf. Every such record cites its source key,
+processing and source hashes. NBI's `source_model_key: 0` is a configuration
+key, not a physical VEST shot. Canonical plot integration and the four-view
+atlas follow in the next PR for issue #1610.

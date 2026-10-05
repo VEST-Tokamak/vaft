@@ -107,11 +107,12 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
                               manifest: Mapping[str, Any] | None = None) -> tuple[MachineGeometry, ...]:
     """Extract stored geometry without importing a renderer or mutating data.
 
-    ``manifest`` carries fixture provenance, not a replacement coordinate source.
+    ``manifest`` carries fixture provenance and explicit mapper-derived
+    geometry for paths that DD 3.41 cannot represent.
     Unknown families raise; mapped families with absent coordinates yield no
     record. Gas injection and CES LOS are intentionally not registered.
     """
-    supported = (*_POINTS, *_LOS, "coils_non_axisymmetric")
+    supported = (*_POINTS, *_LOS, "coils_non_axisymmetric", "ec_launchers", "nbi")
     selected = supported if families is None else families
     unknown = set(selected) - set(supported)
     if unknown:
@@ -119,7 +120,11 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
     records = []
 
     def provenance(family: str, identifier: str) -> str:
-        sources = {key: value for key, value in (manifest or {}).get("sources", {}).items()
+        source_catalog = {
+            **(manifest or {}).get("sources", {}),
+            **(manifest or {}).get("geometry_sources", {}),
+        }
+        sources = {key: value for key, value in source_catalog.items()
                    if family in value.get("ids", [])}
         if len(sources) > 1:
             # The fixture has two interferometer artifacts under one IDS. Its
@@ -176,7 +181,7 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
                 add(family, path, "line_of_sight", positions,
                     str(get(data, f"{base}.name", f"{family} {index}")),
                     str(get(data, f"{base}.identifier", "")))
-        else:
+        elif family == "coils_non_axisymmetric":
             for index in range(count(data, "coils_non_axisymmetric.coil")):
                 coil = f"coils_non_axisymmetric.coil.{index}"
                 for conductor in range(count(data, f"{coil}.conductor")):
@@ -203,6 +208,33 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
                         positions.extend([start, end])
                         previous = end
                     add(family, base, "coil_path", positions, str(get(data, f"{coil}.name", f"coil {index}")))
+    # These paths have no suitable standard IDS leaf in DD 3.41. The manifest
+    # contains source-mapper outputs with explicit derivation and source hashes,
+    # not a renderer-side reconstruction of a plotted shape.
+    for index, entry in enumerate((manifest or {}).get("geometry_records", ())):
+        family = entry["family"]
+        if family not in selected:
+            continue
+        source_catalog = {
+            **(manifest or {}).get("sources", {}),
+            **(manifest or {}).get("geometry_sources", {}),
+        }
+        sources = {key: source_catalog[key] for key in entry["source_keys"]}
+        source = {
+            "sources": sources,
+            "geometry_reference": (manifest or {}).get("geometry_reference"),
+            "physical_discharge": (manifest or {}).get("physical_discharge"),
+            "kind": (manifest or {}).get("kind"),
+            "derivation": entry["derivation"],
+            "value_kind": entry["value_kind"],
+        }
+        records.append(MachineGeometry(
+            family=family, semantic=entry["semantic"], r=entry["r_m"],
+            z=entry["z_m"], phi=entry["phi_rad"], label=entry["label"],
+            source_path=f"manifest.geometry_records.{index}",
+            provenance_json=json.dumps(source, sort_keys=True),
+            direction_xyz=entry.get("direction_xyz"),
+        ))
     return tuple(records)
 
 
