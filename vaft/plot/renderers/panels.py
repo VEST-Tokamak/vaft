@@ -44,6 +44,7 @@ __all__ = [
     "core_profiles_time_volume_averaged",
     "current_overview",
     "diagnostics_overview",
+    "kinetic_overview_profiles",
     "equilibrium_overview",
     "equilibrium_overview_constraint_coverage",
     "equilibrium_overview_constraints",
@@ -744,6 +745,20 @@ def diagnostics_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Fixed-shape time overview across the diagnostic subjects."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="diagnostics", subject="kinetic", view="overview", quantity="profiles",
+    description="Local n_e, T_e, T_i and V_phi from compatible diagnostics and core-profile fits.",
+    ids=("thomson_scattering", "charge_exchange", "langmuir_probes", "core_profiles", "equilibrium"),
+    required_paths=(),
+)
+def kinetic_overview_profiles(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Four cross-diagnostic kinetic profile panels."""
+    style.setdefault("figsize", (14.0, 7.0))
     return render_panels(model, ax=ax, show=show, **style)
 
 

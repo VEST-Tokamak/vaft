@@ -8,6 +8,7 @@ styling from extraction options -- is the same for every data model.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Mapping, Sequence
 
 from vaft.plot.backends import renderer_for, resolve_render_backend
@@ -96,7 +97,7 @@ def render_entries(
             spec, entries, options, backend=backend, controls=controls,
             interaction_backend=interaction_backend, show=show, ax=ax,
         )
-    model = build_model(name, entries, **options)
+    model = _mark_cross_shot(name, build_model(name, entries, **options), entries)
     # A layout other than overlay arranges the same traces into a Panels model;
     # renderer_for hands such a model to the panels renderer, so the return
     # shape follows the layout (issue #260) and no renderer knows about layouts.
@@ -149,6 +150,34 @@ def _panel_marks(figure_options: Any, model: Any) -> tuple[Any, Any]:
         dataclasses.replace(figure_options, panel_labels=None),
         dataclasses.replace(model, panel_labels=figure_options.panel_labels),
     )
+
+
+def _mark_cross_shot(name: str, model: Any, entries: Sequence[tuple[str, Any]]) -> Any:
+    """Make a cross-shot fixture unmistakable on any static plot it produces."""
+    from vaft.plot.backend.access import get
+    from vaft.plot.models import Panels
+
+    if not any(
+        "Cross-shot composite" in str(get(obj, "dataset_description.ids_properties.comment", ""))
+        for _, obj in entries
+    ):
+        return model
+    field = "suptitle" if isinstance(model, Panels) else "title"
+    if not hasattr(model, field):
+        return model
+    title = getattr(model, field)
+    notice = "Cross-shot composite — not a physical VEST discharge"
+    if notice in title:
+        return model
+    if name == "machine_geometry_poloidal":
+        context = "Other-shot diagnostic coordinates projected onto geometry reference shot 39915"
+    elif name.startswith("equilibrium_"):
+        context = "Equilibrium: source shot 48224, PF era 2507; fixture machine geometry reference: shot 39915"
+    else:
+        context = "Fixture machine geometry reference: shot 39915; source IDS retains its own coordinates"
+    return replace(model, **{field: (
+        f"{title}\n{notice}\n{context}"
+    )})
 
 
 def _render_interactive(
@@ -257,7 +286,9 @@ def frame_renderers(
     hints = {"validity": fixed_style["validity"]} if fixed_style.get("validity") is not None else {}
 
     def build(chosen: Mapping[str, Any]) -> Any:
-        return build_model(spec.name, entries, **{**fixed, **hints, **chosen})
+        return _mark_cross_shot(
+            spec.name, build_model(spec.name, entries, **{**fixed, **hints, **chosen}), entries
+        )
 
     def draw(model: Any, **kwargs: Any) -> Any:
         return renderer_for(spec, model, backend)(model, **{**fixed_style, **kwargs})

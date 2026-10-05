@@ -67,6 +67,7 @@ def _loop_rectangles(ods: Any) -> dict[str, list[dict[str, float]]]:
         rect = {
             "r_lo": float(r.min()), "r_hi": float(r.max()),
             "z_lo": float(z.min()), "z_hi": float(z.max()),
+            "index": i,
         }
         try:
             rect["resistivity"] = float(ods[f"pf_passive.loop.{i}.resistivity"])
@@ -370,12 +371,14 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
 
     named_clusters: dict[str, list[dict[str, float]]] = {}
     segment_of: dict[str, str] = {}
+    loops_of: dict[str, list[dict[str, float]]] = {}
     thickened: dict[str, float] = {}
     for segment in sorted(segments):
         if segment in excluded:
             continue
         clusters = _split_z_clusters(segments[segment])
         for cluster_index, cluster in enumerate(clusters):
+            original = cluster
             cluster, factor = _thicken_thin_strip(
                 cluster, float(config.vessel_min_thickness), float(config.vessel_gap)
             )
@@ -390,6 +393,14 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
                 region = f"{segment}_{cluster_index + 1}"
             named_clusters[region] = cluster
             segment_of[region] = segment
+            # every pf_passive loop of the region, at its own centre, taken
+            # before thickening/de-conflict can reshape or drop rectangles
+            loops_of[region] = [
+                {"index": int(rect["index"]),
+                 "r": 0.5 * (rect["r_lo"] + rect["r_hi"]),
+                 "z": 0.5 * (rect["z_lo"] + rect["z_hi"])}
+                for rect in sorted(original, key=lambda rect: rect["index"])
+            ]
             thickened[region] = factor
 
     named_clusters = _deconflict_clusters(named_clusters, config.vessel_gap)
@@ -433,6 +444,7 @@ def vessel_segments_from_ods(ods: Any, config: TokaMakerConfig) -> dict[str, dic
             "n_loops": len(cluster),
             "eta_ods_median": eta_ods_median,
             "thickness_factor": thickened[region],
+            "loops": loops_of[region],
         }
 
     if not regions:

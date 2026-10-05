@@ -179,6 +179,9 @@ def geometry_signature(geometry: dict, config: TokaMakerConfig) -> str:
         "include_vessel": config.include_vessel,
         "dx_conductor": config.dx_conductor,
     }
+    if config.vessel_currents:
+        # coil instead of conductor regions: a different mesh file
+        payload["vessel_currents"] = True
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(canonical.encode("utf-8")).hexdigest()[:10]
 

@@ -1,0 +1,346 @@
+schema_version: 1
+kind: cross-shot-diagnostic-fixture
+machine: VEST
+physical_discharge: false
+notice: Cross-shot composite fixture — not a physical VEST discharge
+geometry_reference:
+  source_shot: 39915
+  pf_geometry_version: '1906'
+  wall_geometry_version: '1512'
+  meaning: Other-shot diagnostic geometry is shown against this reference machine;
+    operation was not simultaneous.
+artifact:
+  path: omas.json.gz
+  sha256: e6f58b777e2d7d70f64d2a33153bb7c7a1c0cbc65356f61e069d148093f7c1a2
+  size: 971933
+sources:
+  machine_geometry:
+    source_shot: 39915
+    source_artifact: samples/39915/omas.json.gz
+    source_sha256: 70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb
+    ids:
+    - wall
+    - pf_active
+    - pf_passive
+    source_time: static geometry
+    processing: copied, geometry only
+    value_kind: mapped
+    geometry_compatibility: reference
+  magnetics:
+    source_shot: 39915
+    source_artifact: samples/39915/omas.json.gz
+    source_sha256: 70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb
+    ids:
+    - magnetics
+    source_time: static sensor positions only
+    processing: geometry selection
+    value_kind: mapped
+    geometry_compatibility: reference
+  thomson_scattering:
+    source_shot: 48224
+    source_artifact: samples/48224/omas.json.gz
+    source_sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7
+    ids:
+    - thomson_scattering
+    source_time: native 0.298–0.307 s
+    processing: copied from the 48224 kinetic subset without refitting
+    value_kind: measured local n_e and T_e
+    geometry_compatibility: 48224 positions projected on 39915 geometry reference
+    mapping_sources:
+    - path: vaft/machine_mapping/thomson_scattering.py
+      sha256: b171d7bd7cd7a6a55e2719b0e9e99115955f921e67dd2f16b0120743af527a7d
+    - path: vaft/machine_mapping/registry.py
+      sha256: d357992f5e6349ec7fff513ae52aae946ca796e922205989d40ea413c44dcf53
+  charge_exchange:
+    source_shot: 48224
+    source_artifact: samples/48224/omas.json.gz
+    source_sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7
+    ids:
+    - charge_exchange
+    source_time: native 0.297–0.301 s
+    processing: copied from the 48224 kinetic subset without refitting
+    value_kind: measured local impurity-ion T_i and V_phi
+    geometry_compatibility: 48224 positions projected on 39915 geometry reference
+  core_profiles:
+    source_shot: 48224
+    source_artifact: samples/48224/omas.json.gz
+    source_sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7
+    ids:
+    - core_profiles
+    source_time: profile slice at 0.300 s
+    processing: copied together with its 48224 measurements and equilibrium
+    value_kind: fitted n_e, T_e, T_i and V_phi
+    geometry_compatibility: 48224 PF era 2507; not a 39915 machine profile
+  equilibrium:
+    source_shot: 48224
+    source_artifact: samples/48224/omas.json.gz
+    source_sha256: 2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7
+    ids:
+    - equilibrium
+    source_time: reconstruction slice at 0.300 s
+    processing: copied together with the 48224 kinetic subset
+    value_kind: reconstructed equilibrium
+    geometry_compatibility: 48224 PF era 2507; never overlay as the 39915 equilibrium
+  interferometer_94ghz:
+    source_shot: 47230
+    source_artifact: legacy/47230_056789_LID_1_100.mat
+    source_sha256: d90a2c4970170625fbe2930d1c2266e38b0be27eef51d0759325192380149182
+    ids:
+    - interferometer
+    source_time: native samples within 0.299–0.303 s
+    processing: vaft.machine_mapping.interferometer; one horizontal chord; sparse
+      sample selection
+    value_kind: measured line-integrated density
+    geometry_compatibility: geometry projected on reference; no local density inference
+    mapping_sources:
+    - path: vaft/machine_mapping/vest.yaml
+      sha256: 78f8435086f7b5cdeb3a87c427a61d3cecb51aee782c108ab0e0c79460c3c71d
+    - path: vaft/machine_mapping/interferometer.py
+      sha256: c1b3497c2bcc16624931c9590fb0135d5eca485de2172c761a178d16d2a92baf
+  interferometer_282ghz:
+    source_shot: 47230
+    source_artifact: legacy/47230_ALL_LID_1_100.mat
+    source_sha256: 9374e8b50f7718e9b959edce86bc1a454829388a0be1b3290c6b6a84b34b745a
+    ids:
+    - interferometer
+    source_time: native samples within 0.299–0.303 s
+    processing: vaft.machine_mapping.interferometer; one vertical chord; sparse sample
+      selection
+    value_kind: measured line-integrated density
+    geometry_compatibility: geometry projected on reference
+    mapping_sources:
+    - path: vaft/machine_mapping/vest.yaml
+      sha256: 78f8435086f7b5cdeb3a87c427a61d3cecb51aee782c108ab0e0c79460c3c71d
+    - path: vaft/machine_mapping/interferometer.py
+      sha256: c1b3497c2bcc16624931c9590fb0135d5eca485de2172c761a178d16d2a92baf
+  langmuir_probes:
+    source_shot: 42699
+    source_artifact: legacy/langmuir_probes_42699.json.gz
+    source_sha256: 99d78ae5fbc7f8a03c476f6c33540a7e0f58212a788ff339d248f5cae792e3b8
+    ids:
+    - langmuir_probes
+    source_time: native samples within 0.35–0.46 s
+    processing: existing mapped triple-probe output; sparse sample selection
+    value_kind: derived local n_e and T_e
+    geometry_compatibility: positions projected on reference; shot-era compatibility
+      to be checked before physical interpretation
+  soft_x_rays:
+    source_shot: 45531
+    source_artifact: samples/45531/omas.json.gz
+    source_sha256: 41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f
+    ids:
+    - soft_x_rays
+    source_time: native samples within 0.299–0.303 s
+    processing: existing mapped output; first two vertical chords; sparse sample selection
+    value_kind: relative calibrated SXR chord signal proxy (not absolute brightness)
+    geometry_compatibility: LOS projected on reference; no local temperature inference
+  ec_launcher_geometry:
+    source_shot: 39915
+    source_artifact: vaft/machine_mapping/vest.yaml
+    source_sha256: 78f8435086f7b5cdeb3a87c427a61d3cecb51aee782c108ab0e0c79460c3c71d
+    ids:
+    - ec_launchers
+    source_time: static revision from shot 29500
+    processing: resolve_ec_launcher_geometry(39915); provisional CAD and port map
+    value_kind: provisional CAD-derived launch geometry; no power
+    geometry_compatibility: mapped geometry compatible with shot-39915 reference era
+    mapping_sources:
+    - path: vaft/machine_mapping/ec_launchers.py
+      sha256: e66874e47bf3423a69ec7a3054d3079f30a7aa4a2345d6e6e72f069592350b5a
+    - path: vaft/machine_mapping/registry.py
+      sha256: d357992f5e6349ec7fff513ae52aae946ca796e922205989d40ea413c44dcf53
+geometry_sources:
+  coil_filament_model:
+    source_artifact: gpec/vest_MID.dat
+    source_sha256: e718d7025b097daa155fa0d23e881299b8a02533cfd44596ba5ad09657ef5671
+    model_reference_shot: 48226
+    ids:
+    - coils_non_axisymmetric
+    source_time: static reference geometry
+    processing: coils_non_axisymmetric mapper; MID sector 1 only, exact conductor
+      endpoints
+    value_kind: mapped 3-D filament; excitation absent
+    geometry_compatibility: shot-48226 reference model projected on 39915 geometry;
+      no simultaneous operation claim
+    mapping_sources:
+    - path: vaft/machine_mapping/coils_non_axisymmetric.py
+      sha256: 173e7bf19c0f4916ff26dde5c7b270b6e0f59181ef9718cc02c4c8f1fb86d628
+  nbi_model:
+    source_artifact: nubeam/vest_case/mdescr_VEST_190307.dat
+    source_sha256: d31cf4796cb76dc0489a9213c6f8a6f9af050a57d67f421d362bc0f82f3fe1b3
+    source_model_key: 0
+    ids:
+    - nbi
+    source_time: static NUBEAM case model
+    processing: nbi mapper and vest.yaml, source/aperture heights checked against
+      mdescr
+    value_kind: model-derived; not as-built or discharge measurement
+    geometry_compatibility: model geometry projected on shot-39915 reference
+    mapping_sources:
+    - path: vaft/machine_mapping/nbi.py
+      sha256: 87767966eb01a27f571437823fe57888bfb491097747053313f718d22d71d830
+    - path: vaft/machine_mapping/vest.yaml
+      sha256: 78f8435086f7b5cdeb3a87c427a61d3cecb51aee782c108ab0e0c79460c3c71d
+    - path: vaft/machine_mapping/registry.py
+      sha256: d357992f5e6349ec7fff513ae52aae946ca796e922205989d40ea413c44dcf53
+geometry_records:
+- family: thomson_scattering
+  semantic: trajectory
+  label: Thomson laser 8MM10 to 1MM10 (derived port chord)
+  r_m:
+  - 0.803
+  - 0.803
+  z_m:
+  - 0.0
+  - 0.0
+  phi_rad:
+  - 2.0943951023931953
+  - 5.759586531581287
+  source_keys:
+  - thomson_scattering
+  value_kind: derived geometry; not surveyed as-built trajectory
+  derivation: thomson_scattering.py entry/dump ports, vest port map, 0.803 m port-flange
+    radius; midplane path
+- family: thomson_scattering
+  semantic: point
+  label: Thomson scattering site 1 (derived)
+  r_m:
+  - 0.475
+  z_m:
+  - 0.0
+  phi_rad:
+  - 1.9033329595179964
+  source_keys:
+  - thomson_scattering
+  value_kind: derived local scattering position; measurement values remain direct
+  derivation: thomson_scattering.scattering_volume_phi applied to stored channel 0
+    radius; port-flange chord, not survey
+- family: thomson_scattering
+  semantic: point
+  label: Thomson scattering site 2 (derived)
+  r_m:
+  - 0.425
+  z_m:
+  - 0.0
+  phi_rad:
+  - 1.8452334673303614
+  source_keys:
+  - thomson_scattering
+  value_kind: derived local scattering position; measurement values remain direct
+  derivation: thomson_scattering.scattering_volume_phi applied to stored channel 1
+    radius; port-flange chord, not survey
+- family: thomson_scattering
+  semantic: point
+  label: Thomson scattering site 3 (derived)
+  r_m:
+  - 0.37
+  z_m:
+  - 0.0
+  phi_rad:
+  - 1.7597465464329822
+  source_keys:
+  - thomson_scattering
+  value_kind: derived local scattering position; measurement values remain direct
+  derivation: thomson_scattering.scattering_volume_phi applied to stored channel 2
+    radius; port-flange chord, not survey
+- family: thomson_scattering
+  semantic: point
+  label: Thomson scattering site 4 (derived)
+  r_m:
+  - 0.31
+  z_m:
+  - 0.0
+  phi_rad:
+  - 1.6214133039240561
+  source_keys:
+  - thomson_scattering
+  value_kind: derived local scattering position; measurement values remain direct
+  derivation: thomson_scattering.scattering_volume_phi applied to stored channel 3
+    radius; port-flange chord, not survey
+- family: thomson_scattering
+  semantic: point
+  label: Thomson scattering site 5 (derived)
+  r_m:
+  - 0.255
+  z_m:
+  - 0.0
+  phi_rad:
+  - 1.4034199966920493
+  source_keys:
+  - thomson_scattering
+  value_kind: derived local scattering position; measurement values remain direct
+  derivation: thomson_scattering.scattering_volume_phi applied to stored channel 4
+    radius; port-flange chord, not survey
+- family: ec_launchers
+  semantic: point
+  label: EC 6 kW launch position (provisional CAD)
+  r_m:
+  - 0.8021
+  z_m:
+  - -0.36
+  phi_rad:
+  - 3.6651914291880923
+  source_keys:
+  - ec_launcher_geometry
+  value_kind: provisional CAD-derived geometry
+  derivation: 'resolve_ec_launcher_geometry(39915), port=5ML10, status=provisional,
+    revision={''context'': ''vest.yaml ec_launchers.beams.ech_6kw'', ''revision_index'':
+    0, ''revision_bounds'': {''from_shot'': 29500, ''to_shot'': None}}; no power implication'
+- family: ec_launchers
+  semantic: directed_axis
+  label: EC launch axis (provisional; displayed extent only)
+  r_m:
+  - 0.8021
+  z_m:
+  - -0.36
+  phi_rad:
+  - 3.6651914291880923
+  direction_xyz:
+  - 0.8660254037844386
+  - 0.5000000000000001
+  - 0.0
+  source_keys:
+  - ec_launcher_geometry
+  value_kind: provisional CAD-derived launch direction; not wave propagation/absorption
+  derivation: resolve_ec_launcher_geometry(39915) stored R/phi/Z direction rotated
+    to machine XYZ at stored launch phi
+- family: nbi
+  semantic: point
+  label: NBI B_001 source (NUBEAM model)
+  r_m:
+  - 2.6351749023146454
+  z_m:
+  - 0.0
+  phi_rad:
+  - 5.432180563405312
+  source_keys:
+  - nbi_model
+  value_kind: NUBEAM model-derived geometry, not as-built
+  derivation: nbi mapper source position from vest.yaml/mdescr model
+- family: nbi
+  semantic: directed_axis
+  label: NBI B_001 beam axis (NUBEAM model; displayed extent only)
+  r_m:
+  - 2.6351749023146454
+  z_m:
+  - 0.0
+  phi_rad:
+  - 5.432180563405312
+  direction_xyz:
+  - -0.7200442232069945
+  - 0.6939281782909785
+  - 0.0
+  source_keys:
+  - nbi_model
+  value_kind: NUBEAM model-derived beam direction, not as-built
+  derivation: nbi mapper source r/phi, model tangency radius and clockwise sense;
+    source Zbsc(1) and aperture Zbap(1) both 0 in mdescr_VEST_190307.dat
+camera_calibration_reference:
+  camera_shot: 39915
+  meaning: Calibration for geometric projection only; no camera frame copied or simultaneous
+    observation implied
+  assets:
+  - path: geometry/camera_visible/intrinsics.json
+    sha256: 85610fb8d537f3d642c88887db6977e0a2a7bed14b3adbdf5fb13ae6baa14b08
+  - path: geometry/camera_visible/pose_39915.json
+    sha256: 3e5c5357eb442e3a034eba801337910c6c26b2072f7e9d4972ed2d419da5909c
