@@ -282,7 +282,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c862d35</code>. What is described
+  <code>fe789b7</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -313,7 +313,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.atomic</code>:
-<strong>8</strong> public functions. Each entry is what
+<strong>9</strong> public functions. Each entry is what
 <code>vaft.formula.describe("atomic.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -329,7 +329,7 @@ charge-state fractions or cooling coefficients without depending on OMAS.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 9 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="fractional_abundances"><td><a href="#fractional_abundances"><code>fractional_abundances</code></a></td><td>Ionisation-equilibrium (coronal) fractional abundances from ACD and SCD tables.
@@ -346,6 +346,8 @@ charge-state fractions or cooling coefficients without depending on OMAS.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="mean_charge_from_charge_state_densities"><td><a href="#mean_charge_from_charge_state_densities"><code>mean_charge_from_charge_state_densities</code></a></td><td>Mean charge of one element over its charge states.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mean_square_charge_from_charge_state_densities"><td><a href="#mean_square_charge_from_charge_state_densities"><code>mean_square_charge_from_charge_state_densities</code></a></td><td>Mean square charge of one element over its charge states.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="z_eff_from_n_s_Z_s"><td><a href="#z_eff_from_n_s_Z_s"><code>z_eff_from_n_s_Z_s</code></a></td><td>Effective charge of a mixture of ion species.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
@@ -359,7 +361,7 @@ charge-state fractions or cooling coefficients without depending on OMAS.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fractional_abundances"><code>fractional_abundances</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="fractional_abundances" href="https://github.com/VEST-Tokamak/vaft/blob/c862d356ec0fd57c685974ab6fe9fe8011803ca9/vaft/formula/atomic.py#L143-L226" title="vaft/formula/atomic.py, lines 143–226 at c862d35">source</a>
+<a class="ref-source" data-source="fractional_abundances" href="https://github.com/VEST-Tokamak/vaft/blob/fe789b7730ec99feb25ddac276a1999e4fbac9ca/vaft/formula/atomic.py#L143-L226" title="vaft/formula/atomic.py, lines 143–226 at fe789b7">source</a>
 </header>
     <pre class="ref-signature"><code>fractional_abundances(ne_m3, te_eV, acd, scd)</code></pre>
 
@@ -439,10 +441,10 @@ models with an impurity transport solve).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#hydrogenic_energy_level"><code>hydrogenic_energy_level</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="hydrogenic_energy_level" href="https://github.com/VEST-Tokamak/vaft/blob/c862d356ec0fd57c685974ab6fe9fe8011803ca9/vaft/formula/atomic.py#L547-L598" title="vaft/formula/atomic.py, lines 547–598 at c862d35">source</a>
+<a class="ref-source" data-source="hydrogenic_energy_level" href="https://github.com/VEST-Tokamak/vaft/blob/fe789b7730ec99feb25ddac276a1999e4fbac9ca/vaft/formula/atomic.py#L613-L664" title="vaft/formula/atomic.py, lines 613–664 at fe789b7">source</a>
 </header>
     <pre class="ref-signature"><code>hydrogenic_energy_level(n, Z=1, mass_number=None)</code></pre>
-    <details class="ref-code" data-source-code="hydrogenic_energy_level"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 547–598</span></summary>
+    <details class="ref-code" data-source-code="hydrogenic_energy_level"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 613–664</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hydrogenic_energy_level</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mass_number</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Bohr energy of level $n$ of a one-electron ion, with the reduced-mass correction.
@@ -554,10 +556,10 @@ atomic data (ADF04).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#hydrogenic_transition_wavelength"><code>hydrogenic_transition_wavelength</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="hydrogenic_transition_wavelength" href="https://github.com/VEST-Tokamak/vaft/blob/c862d356ec0fd57c685974ab6fe9fe8011803ca9/vaft/formula/atomic.py#L601-L649" title="vaft/formula/atomic.py, lines 601–649 at c862d35">source</a>
+<a class="ref-source" data-source="hydrogenic_transition_wavelength" href="https://github.com/VEST-Tokamak/vaft/blob/fe789b7730ec99feb25ddac276a1999e4fbac9ca/vaft/formula/atomic.py#L667-L715" title="vaft/formula/atomic.py, lines 667–715 at fe789b7">source</a>
 </header>
     <pre class="ref-signature"><code>hydrogenic_transition_wavelength(n_upper, n_lower, Z=1, mass_number=None)</code></pre>
-    <details class="ref-code" data-source-code="hydrogenic_transition_wavelength"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 601–649</span></summary>
+    <details class="ref-code" data-source-code="hydrogenic_transition_wavelength"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 667–715</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hydrogenic_transition_wavelength</span><span class="p">(</span><span class="n">n_upper</span><span class="p">,</span> <span class="n">n_lower</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mass_number</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Vacuum wavelength of the $n_u \to n_l$ line of a one-electron ion (Rydberg formula).
@@ -673,10 +675,10 @@ H-alpha) is what separates H and D lines.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#impurity_fraction_from_effective_charge"><code>impurity_fraction_from_effective_charge</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="impurity_fraction_from_effective_charge" href="https://github.com/VEST-Tokamak/vaft/blob/c862d356ec0fd57c685974ab6fe9fe8011803ca9/vaft/formula/atomic.py#L466-L526" title="vaft/formula/atomic.py, lines 466–526 at c862d35">source</a>
+<a class="ref-source" data-source="impurity_fraction_from_effective_charge" href="https://github.com/VEST-Tokamak/vaft/blob/fe789b7730ec99feb25ddac276a1999e4fbac9ca/vaft/formula/atomic.py#L532-L592" title="vaft/formula/atomic.py, lines 532–592 at fe789b7">source</a>
 </header>
     <pre class="ref-signature"><code>impurity_fraction_from_effective_charge(z_eff, z_impurity)</code></pre>
-    <details class="ref-code" data-source-code="impurity_fraction_from_effective_charge"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 466–526</span></summary>
+    <details class="ref-code" data-source-code="impurity_fraction_from_effective_charge"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 532–592</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">impurity_fraction_from_effective_charge</span><span class="p">(</span><span class="n">z_eff</span><span class="p">,</span> <span class="n">z_impurity</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Impurity-to-electron density ratio that produces a given effective charge.
@@ -808,7 +810,7 @@ carbon but $1/5402$ for fully stripped tungsten.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#interpolate_adf11"><code>interpolate_adf11</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="interpolate_adf11" href="https://github.com/VEST-Tokamak/vaft/blob/c862d356ec0fd57c685974ab6fe9fe8011803ca9/vaft/formula/atomic.py#L55-L140" title="vaft/formula/atomic.py, lines 55–140 at c862d35">source</a>
+<a class="ref-source" data-source="interpolate_adf11" href="https://github.com/VEST-Tokamak/vaft/blob/fe789b7730ec99feb25ddac276a1999e4fbac9ca/vaft/formula/atomic.py#L55-L140" title="vaft/formula/atomic.py, lines 55–140 at fe789b7">source</a>
 </header>
     <pre class="ref-signature"><code>interpolate_adf11(table, ne_m3, te_eV, *, multiply_density=False)</code></pre>
 
@@ -892,7 +894,7 @@ physical and are not flagged.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#line_cooling_coefficient"><code>line_cooling_coefficient</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="line_cooling_coefficient" href="https://github.com/VEST-Tokamak/vaft/blob/c862d356ec0fd57c685974ab6fe9fe8011803ca9/vaft/formula/atomic.py#L241-L323" title="vaft/formula/atomic.py, lines 241–323 at c862d35">source</a>
+<a class="ref-source" data-source="line_cooling_coefficient" href="https://github.com/VEST-Tokamak/vaft/blob/fe789b7730ec99feb25ddac276a1999e4fbac9ca/vaft/formula/atomic.py#L241-L323" title="vaft/formula/atomic.py, lines 241–323 at fe789b7">source</a>
 </header>
     <pre class="ref-signature"><code>line_cooling_coefficient(species, ne_m3, te_eV, *, acd=None, scd=None, plt=None, cache_dir=None)</code></pre>
 
@@ -971,7 +973,7 @@ continuum (that is the separate PRB class).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#mean_charge_from_charge_state_densities"><code>mean_charge_from_charge_state_densities</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="mean_charge_from_charge_state_densities" href="https://github.com/VEST-Tokamak/vaft/blob/c862d356ec0fd57c685974ab6fe9fe8011803ca9/vaft/formula/atomic.py#L326-L388" title="vaft/formula/atomic.py, lines 326–388 at c862d35">source</a>
+<a class="ref-source" data-source="mean_charge_from_charge_state_densities" href="https://github.com/VEST-Tokamak/vaft/blob/fe789b7730ec99feb25ddac276a1999e4fbac9ca/vaft/formula/atomic.py#L326-L388" title="vaft/formula/atomic.py, lines 326–388 at fe789b7">source</a>
 </header>
     <pre class="ref-signature"><code>mean_charge_from_charge_state_densities(n_z, axis=-1)</code></pre>
     <details class="ref-code" data-source-code="mean_charge_from_charge_state_densities"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 326–388</span></summary>
@@ -1101,14 +1103,150 @@ z_eff_from_n_s_Z_s</p>
 
   </section>
 
+  <section class="ref-entry" id="mean_square_charge_from_charge_state_densities" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mean_square_charge_from_charge_state_densities"><code>mean_square_charge_from_charge_state_densities</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mean_square_charge_from_charge_state_densities" href="https://github.com/VEST-Tokamak/vaft/blob/fe789b7730ec99feb25ddac276a1999e4fbac9ca/vaft/formula/atomic.py#L391-L454" title="vaft/formula/atomic.py, lines 391–454 at fe789b7">source</a>
+</header>
+    <pre class="ref-signature"><code>mean_square_charge_from_charge_state_densities(n_z, axis=-1)</code></pre>
+    <details class="ref-code" data-source-code="mean_square_charge_from_charge_state_densities"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 391–454</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mean_square_charge_from_charge_state_densities</span><span class="p">(</span><span class="n">n_z</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Mean square charge of one element over its charge states.
+
+    $$\langle Z^2\rangle = \sum_j j^2 f_j = \frac{\sum_j j^2\,n_j}{\sum_j n_j},
+      \qquad f_j = \frac{n_j}{\sum_k n_k}$$
+
+    Parameters
+    ----------
+    n_z : array-like
+        Density of each charge state along ``axis``, ordered neutral first, so
+        that index $j$ is charge $j$; finite and non-negative [m^-3].
+    axis : int, optional
+        Axis that runs over the charge states [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Mean square charge, with ``axis`` removed [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density, or a slice whose densities sum to
+        zero, which has no charge distribution to average.
+
+    Convention
+    ----------
+    **Index is charge, neutral first**, as in
+    :func:`mean_charge_from_charge_state_densities`.  An element of density
+    $n_I$ contributes $n_I\langle Z^2\rangle$ to $Z_\mathrm{eff} n_e$ and
+    $n_I\langle Z\rangle$ to quasi-neutrality; $\langle Z^2\rangle -
+    \langle Z\rangle^2$ is the charge-state variance that collapsing onto the
+    mean charge would drop.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25 (impurity charge states).
+
+    See Also
+    --------
+    mean_charge_from_charge_state_densities
+    fractional_abundances
+    z_eff_from_n_s_Z_s
+    </span><span class="sh">"""</span>
+    <span class="n">density</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">n_z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">density</span><span class="p">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_z needs at least one charge state along axis</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">axis</span> <span class="o">=</span> <span class="nf">normalize_axis_index</span><span class="p">(</span><span class="n">axis</span><span class="p">,</span> <span class="n">density</span><span class="p">.</span><span class="n">ndim</span><span class="p">)</span>
+    <span class="nf">except </span><span class="p">(</span><span class="nb">IndexError</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">exceptions</span><span class="p">.</span><span class="n">AxisError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># numpy raises AxisError, an IndexError subclass
+</span>        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">axis </span><span class="si">{</span><span class="n">axis</span><span class="si">}</span><span class="s"> is out of range for a </span><span class="si">{</span><span class="n">density</span><span class="p">.</span><span class="n">ndim</span><span class="si">}</span><span class="s">-D n_z</span><span class="sh">"</span><span class="p">)</span> <span class="k">from</span> <span class="n">exc</span>
+    <span class="k">if</span> <span class="n">density</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_z needs at least one charge state along axis</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">density</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">density</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_z must be finite and non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">density</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">total</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">a charge-state distribution with zero total density has no mean square charge</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">density</span><span class="p">.</span><span class="n">ndim</span>
+    <span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">=</span> <span class="n">density</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span>
+    <span class="n">charge</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">density</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">charge</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">density</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">)</span> <span class="o">/</span> <span class="n">total</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">mean</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">mean</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">mean</span></code></pre></figure>
+
+</details>
+
+    <p>Mean square charge of one element over its charge states.</p>
+
+\[\langle Z^2\rangle = \sum_j j^2 f_j = \frac{\sum_j j^2\,n_j}{\sum_j n_j},
+  \qquad f_j = \frac{n_j}{\sum_k n_k}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_z</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Density of each charge state along <code class="language-plaintext highlighter-rouge">axis</code>, ordered neutral first, so that index $j$ is charge $j$; finite and non-negative.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Axis that runs over the charge states.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Mean square charge, with <code class="language-plaintext highlighter-rouge">axis</code> removed.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><strong>Index is charge, neutral first</strong>, as in
+<code class="language-plaintext highlighter-rouge">mean_charge_from_charge_state_densities</code>.  An element of density
+$n_I$ contributes $n_I\langle Z^2\rangle$ to $Z_\mathrm{eff} n_e$ and
+$n_I\langle Z\rangle$ to quasi-neutrality; $\langle Z^2\rangle -
+\langle Z\rangle^2$ is the charge-state variance that collapsing onto the
+mean charge would drop.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-finite or negative density, or a slice whose densities sum to zero, which has no charge distribution to average.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>See Also · References</summary>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>mean_charge_from_charge_state_densities
+fractional_abundances
+z_eff_from_n_s_Z_s</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25 (impurity charge states).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="z_eff_from_n_s_Z_s" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#z_eff_from_n_s_Z_s"><code>z_eff_from_n_s_Z_s</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="z_eff_from_n_s_Z_s" href="https://github.com/VEST-Tokamak/vaft/blob/c862d356ec0fd57c685974ab6fe9fe8011803ca9/vaft/formula/atomic.py#L391-L463" title="vaft/formula/atomic.py, lines 391–463 at c862d35">source</a>
+<a class="ref-source" data-source="z_eff_from_n_s_Z_s" href="https://github.com/VEST-Tokamak/vaft/blob/fe789b7730ec99feb25ddac276a1999e4fbac9ca/vaft/formula/atomic.py#L457-L529" title="vaft/formula/atomic.py, lines 457–529 at fe789b7">source</a>
 </header>
     <pre class="ref-signature"><code>z_eff_from_n_s_Z_s(n_s, Z_s, n_e=None)</code></pre>
-    <details class="ref-code" data-source-code="z_eff_from_n_s_Z_s"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 391–463</span></summary>
+    <details class="ref-code" data-source-code="z_eff_from_n_s_Z_s"><summary>Show source <span class="ref-note">vaft/formula/atomic.py, lines 457–529</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">z_eff_from_n_s_Z_s</span><span class="p">(</span><span class="n">n_s</span><span class="p">,</span> <span class="n">Z_s</span><span class="p">,</span> <span class="n">n_e</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Effective charge of a mixture of ion species.
@@ -1472,7 +1610,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-05 14:39:56 +0000"
+        "time": "2026-10-05 17:03:48 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

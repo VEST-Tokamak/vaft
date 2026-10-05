@@ -282,7 +282,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c862d35</code>. What is described
+  <code>fe789b7</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -903,8 +903,8 @@ adapter call can later run through a scheduler without its scientific API changi
       <td><code class="language-plaintext highlighter-rouge">ntasks</code>, <code class="language-plaintext highlighter-rouge">threads_per_task</code>, <code class="language-plaintext highlighter-rouge">memory_mb</code>; the local backend applies only the thread count</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">ExecutionBackend</code>, <code class="language-plaintext highlighter-rouge">LocalBackend</code>, <code class="language-plaintext highlighter-rouge">SlurmBackend</code>, <code class="language-plaintext highlighter-rouge">resolve_backend</code></td>
-      <td>the protocol, the local and Slurm implementations, and the config lookup (falls back to <code class="language-plaintext highlighter-rouge">$VAFT_EXECUTION_BACKEND</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">ExecutionBackend</code>, <code class="language-plaintext highlighter-rouge">LocalBackend</code>, <code class="language-plaintext highlighter-rouge">SlurmBackend</code>, <code class="language-plaintext highlighter-rouge">RemoteHost</code>, <code class="language-plaintext highlighter-rouge">RemoteSlurmBackend</code>, <code class="language-plaintext highlighter-rouge">resolve_backend</code></td>
+      <td>the protocol, the local, Slurm and ssh+Slurm implementations, and the config lookup (falls back to <code class="language-plaintext highlighter-rouge">$VAFT_EXECUTION_BACKEND</code>: <code class="language-plaintext highlighter-rouge">local</code>, <code class="language-plaintext highlighter-rouge">slurm</code> or <code class="language-plaintext highlighter-rouge">remote</code>)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ExecutableNotLaunchable</code></td>
@@ -1150,6 +1150,69 @@ compute nodes share. The backend does not check this.</p>
 names no backend onto Slurm. Placement comes from <code class="language-plaintext highlighter-rouge">VAFT_SLURM_PARTITION</code>, <code class="language-plaintext highlighter-rouge">VAFT_SLURM_ACCOUNT</code>,
 <code class="language-plaintext highlighter-rouge">VAFT_SLURM_QOS</code>, <code class="language-plaintext highlighter-rouge">VAFT_SLURM_MODE</code> and <code class="language-plaintext highlighter-rouge">VAFT_SLURM_MAX_WAIT</code>. This setting also queues short runs
 such as EFUND or a single EFIT slice, so prefer an explicit <code class="language-plaintext highlighter-rouge">backend=</code> for those.</p>
+
+<h3 id="running-on-a-cluster-over-ssh">Running on a cluster over ssh</h3>
+
+<p><code class="language-plaintext highlighter-rouge">SlurmBackend</code> submits from a host that can run <code class="language-plaintext highlighter-rouge">sbatch</code> itself. When the machine that prepares a
+case is not the machine that can run it – a laptop holding the inputs, a cluster holding the build
+– <code class="language-plaintext highlighter-rouge">RemoteSlurmBackend</code> does the same job over ssh:</p>
+
+<!-- docs-snippet: skip needs-external-code (runs an external code on a remote cluster) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code</span> <span class="kn">import</span> <span class="n">RemoteHost</span><span class="p">,</span> <span class="n">RemoteSlurmBackend</span>
+<span class="kn">from</span> <span class="n">vaft.code.gpec</span> <span class="kn">import</span> <span class="n">GPECSuiteConfig</span>
+
+<span class="n">host</span> <span class="o">=</span> <span class="nc">RemoteHost</span><span class="p">(</span>
+    <span class="n">host</span><span class="o">=</span><span class="sh">"</span><span class="s">login.example.org</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">user</span><span class="o">=</span><span class="sh">"</span><span class="s">me</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">work_root</span><span class="o">=</span><span class="sh">"</span><span class="s">/scratch/me/vaft</span><span class="sh">"</span><span class="p">,</span>
+    <span class="c1"># Ordered local -&gt; remote prefix pairs; the first match at a path boundary wins.
+</span>    <span class="n">path_maps</span><span class="o">=</span><span class="p">((</span><span class="sh">"</span><span class="s">/opt/gpec</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">/apps/gpec/1.4</span><span class="sh">"</span><span class="p">),),</span>
+    <span class="n">setup_lines</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">module purge</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">module load gpec/1.4</span><span class="sh">"</span><span class="p">),</span>
+    <span class="n">fetch</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">*.nc</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">*.out</span><span class="sh">"</span><span class="p">),</span>          <span class="c1"># "all" (default), "none", or glob patterns
+</span><span class="p">)</span>
+<span class="n">config</span> <span class="o">=</span> <span class="nc">GPECSuiteConfig</span><span class="p">(</span>
+    <span class="n">timeout</span><span class="o">=</span><span class="mi">7200</span><span class="p">,</span>
+    <span class="n">backend</span><span class="o">=</span><span class="nc">RemoteSlurmBackend</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">partition</span><span class="o">=</span><span class="sh">"</span><span class="s">short</span><span class="sh">"</span><span class="p">,</span> <span class="n">account</span><span class="o">=</span><span class="sh">"</span><span class="s">fusion</span><span class="sh">"</span><span class="p">,</span> <span class="n">max_wait</span><span class="o">=</span><span class="mi">43200</span><span class="p">),</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p>One <code class="language-plaintext highlighter-rouge">run</code> rsyncs the working directory up, writes the same job script <code class="language-plaintext highlighter-rouge">SlurmBackend</code> writes (with
+<code class="language-plaintext highlighter-rouge">setup_lines</code> in front), submits it with <code class="language-plaintext highlighter-rouge">ssh … sbatch --parsable --no-requeue</code>, polls <code class="language-plaintext highlighter-rouge">squeue</code> and
+then <code class="language-plaintext highlighter-rouge">sacct</code> over ssh with a growing interval, and rsyncs back what the fetch policy names. The
+result is the one a local run returns: the same timeout and <code class="language-plaintext highlighter-rouge">queue_timeout</code> statuses, the same
+<code class="language-plaintext highlighter-rouge">ExecutableNotLaunchable</code> for a refused submission, and <code class="language-plaintext highlighter-rouge">run_s</code> taken from the scheduler’s start and
+end stamps. <code class="language-plaintext highlighter-rouge">KeyboardInterrupt</code>, <code class="language-plaintext highlighter-rouge">SIGTERM</code> and <code class="language-plaintext highlighter-rouge">SIGHUP</code> <code class="language-plaintext highlighter-rouge">scancel</code> the job and are then raised again.</p>
+
+<p><strong>Paths.</strong> The two machines share no filesystem, so the working directory, <code class="language-plaintext highlighter-rouge">log_path</code>, every
+<code class="language-plaintext highlighter-rouge">command</code> argument (<code class="language-plaintext highlighter-rouge">--home=/opt/gpec</code> included) and every path-valued <code class="language-plaintext highlighter-rouge">env</code> entry go through
+<code class="language-plaintext highlighter-rouge">path_maps</code>. A working directory that no pair covers is staged into a fresh directory under
+<code class="language-plaintext highlighter-rouge">work_root</code>. A prefix matches only at a path boundary, so <code class="language-plaintext highlighter-rouge">/data/runs2</code> is not under <code class="language-plaintext highlighter-rouge">/data/runs</code>.</p>
+
+<p><strong>Environment.</strong> <code class="language-plaintext highlighter-rouge">--export=ALL</code> carries the <em>host’s</em> ssh environment, not the laptop’s, which is the
+point: the job’s search paths come from the host’s login environment and from <code class="language-plaintext highlighter-rouge">setup_lines</code>. Only
+the request’s own entries travel, path-translated, and the ones whose value describes the submitting
+machine never do – <code class="language-plaintext highlighter-rouge">PATH</code>, <code class="language-plaintext highlighter-rouge">LD_LIBRARY_PATH</code>, <code class="language-plaintext highlighter-rouge">DYLD_*</code>, <code class="language-plaintext highlighter-rouge">PYTHONPATH</code>, <code class="language-plaintext highlighter-rouge">HOME</code>, <code class="language-plaintext highlighter-rouge">TMPDIR</code>, the locale
+and the loaded-module state (<code class="language-plaintext highlighter-rouge">vaft.code.remote.UNFORWARDED_ENVIRONMENT</code>). A macOS <code class="language-plaintext highlighter-rouge">PATH</code> on a Linux
+compute node would shadow exactly what the modules just set up.</p>
+
+<p><strong>What comes back, and what stays.</strong> The job log and the scratch directory always come back; the
+fetch policy governs the rest of the working directory, so a run with tens of GB of output can
+leave it on the cluster and bring back an extract. The host’s copy is kept by default
+(<code class="language-plaintext highlighter-rouge">keep_remote=True</code>) because it is usually the only full copy; <code class="language-plaintext highlighter-rouge">keep_remote=False</code> removes it after
+the fetch, and only ever a directory the backend staged under <code class="language-plaintext highlighter-rouge">work_root</code>.</p>
+
+<p><strong>Credentials.</strong> None are handled here. <code class="language-plaintext highlighter-rouge">ssh</code> always runs with <code class="language-plaintext highlighter-rouge">BatchMode=yes</code>, so a host that would
+prompt fails at once instead of blocking a batch; keys and agents are yours to arrange. Pass extra
+ssh arguments through <code class="language-plaintext highlighter-rouge">ssh_options</code>, and a key file through <code class="language-plaintext highlighter-rouge">identity_file</code>.</p>
+
+<p><strong>Switching everything at once.</strong> <code class="language-plaintext highlighter-rouge">VAFT_EXECUTION_BACKEND=remote</code> builds the backend from
+<code class="language-plaintext highlighter-rouge">VAFT_REMOTE_HOST</code>, <code class="language-plaintext highlighter-rouge">VAFT_REMOTE_WORK_ROOT</code> (both required), <code class="language-plaintext highlighter-rouge">VAFT_REMOTE_USER</code>,
+<code class="language-plaintext highlighter-rouge">VAFT_REMOTE_PORT</code>, <code class="language-plaintext highlighter-rouge">VAFT_REMOTE_IDENTITY</code>, <code class="language-plaintext highlighter-rouge">VAFT_REMOTE_SSH_OPTIONS</code>, <code class="language-plaintext highlighter-rouge">VAFT_REMOTE_PATH_MAPS</code>
+(<code class="language-plaintext highlighter-rouge">local=remote</code> pairs, comma separated), <code class="language-plaintext highlighter-rouge">VAFT_REMOTE_SETUP</code> (<code class="language-plaintext highlighter-rouge">;</code> separated), <code class="language-plaintext highlighter-rouge">VAFT_REMOTE_FETCH</code>
+and <code class="language-plaintext highlighter-rouge">VAFT_REMOTE_KEEP</code>, plus the same <code class="language-plaintext highlighter-rouge">VAFT_SLURM_PARTITION</code>, <code class="language-plaintext highlighter-rouge">VAFT_SLURM_ACCOUNT</code>,
+<code class="language-plaintext highlighter-rouge">VAFT_SLURM_QOS</code> and <code class="language-plaintext highlighter-rouge">VAFT_SLURM_MAX_WAIT</code> a local submission reads. Every call then costs at least
+two ssh round trips and two rsyncs, so keep short runs (EFUND, one EFIT slice) on an explicit local
+<code class="language-plaintext highlighter-rouge">backend=</code>.</p>
 
 <h3 id="in-process-memory-guard">In-process memory guard</h3>
 
@@ -1611,7 +1674,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ access</a></li><li class="page-toc-item page-toc-level-2"><a href="#sample-data-works-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sample data (works offline)</a></li><li class="page-toc-item page-toc-level-2"><a href="#shot-introspection--general" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot introspection — general</a></li><li class="page-toc-item page-toc-level-2"><a href="#derived-quantities--process_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantities — process_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-scalings--formula_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics scalings — formula_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#in-place-enrichment--update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-place enrichment — update</a></li><li class="page-toc-item page-toc-level-2"><a href="#execution-backends" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Execution backends</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#running-under-slurm" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running under Slurm</a></li><li class="page-toc-item page-toc-level-3"><a href="#in-process-memory-guard" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-process memory guard</a></li></ul></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ access</a></li><li class="page-toc-item page-toc-level-2"><a href="#sample-data-works-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sample data (works offline)</a></li><li class="page-toc-item page-toc-level-2"><a href="#shot-introspection--general" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot introspection — general</a></li><li class="page-toc-item page-toc-level-2"><a href="#derived-quantities--process_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantities — process_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-scalings--formula_wrapper" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics scalings — formula_wrapper</a></li><li class="page-toc-item page-toc-level-2"><a href="#in-place-enrichment--update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-place enrichment — update</a></li><li class="page-toc-item page-toc-level-2"><a href="#execution-backends" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Execution backends</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#running-under-slurm" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running under Slurm</a></li><li class="page-toc-item page-toc-level-3"><a href="#running-on-a-cluster-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running on a cluster over ssh</a></li><li class="page-toc-item page-toc-level-3"><a href="#in-process-memory-guard" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">In-process memory guard</a></li></ul></li></ul>
     </nav>
 </aside>
 
@@ -1729,7 +1792,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-05 14:39:56 +0000"
+        "time": "2026-10-05 17:03:48 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

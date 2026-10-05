@@ -282,7 +282,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>c862d35</code>. What is described
+  <code>fe789b7</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -371,7 +371,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="atomic">
     <td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td>
-    <td><code>vaft.formula.atomic</code></td><td>8</td><td>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11.</td>
+    <td><code>vaft.formula.atomic</code></td><td>9</td><td>Atomic equilibrium and line-radiation formulae backed by OPEN-ADAS ADF11.</td>
   </tr>
   <tr id="statistics">
     <td><a href="/vaft/develop/reference/formula/statistics/">statistics</a></td>
@@ -437,6 +437,10 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
     <td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td>
     <td><code>vaft.formula.boundaries</code></td><td>13</td><td>Operational boundaries from the literature: one data model for density, transition and stability limits.</td>
   </tr>
+  <tr id="impurity">
+    <td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td>
+    <td><code>vaft.formula.impurity</code></td><td>9</td><td>Impurity-mixture algebra: moments, target-Z_eff densities, the reduced pseudo-impurity and main-ion dilution.</td>
+  </tr>
   </tbody>
 </table>
 
@@ -498,7 +502,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 385 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 395 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -926,6 +930,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="mean_charge_from_charge_state_densities atomic"><td><a href="/vaft/develop/reference/formula/atomic/#mean_charge_from_charge_state_densities"><code>mean_charge_from_charge_state_densities</code></a></td><td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td><td>Mean charge of one element over its charge states.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mean_square_charge_from_charge_state_densities atomic"><td><a href="/vaft/develop/reference/formula/atomic/#mean_square_charge_from_charge_state_densities"><code>mean_square_charge_from_charge_state_densities</code></a></td><td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td><td>Mean square charge of one element over its charge states.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="z_eff_from_n_s_Z_s atomic"><td><a href="/vaft/develop/reference/formula/atomic/#z_eff_from_n_s_Z_s"><code>z_eff_from_n_s_Z_s</code></a></td><td><a href="/vaft/develop/reference/formula/atomic/">atomic</a></td><td>Effective charge of a mixture of ion species.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="bias_standard_error statistics"><td><a href="/vaft/develop/reference/formula/statistics/#bias_standard_error"><code>bias_standard_error</code></a></td><td><a href="/vaft/develop/reference/formula/statistics/">statistics</a></td><td>Standard error of the mean of $n$ unit-variance samples, $1/\sqrt{n}$.
@@ -1330,6 +1336,24 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="threshold_curve boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#threshold_curve"><code>threshold_curve</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>A threshold boundary drawn as a straight line across a 2-D projection.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="dilution_fraction_from_species impurity"><td><a href="/vaft/develop/reference/formula/impurity/#dilution_fraction_from_species"><code>dilution_fraction_from_species</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>Main-ion dilution from an explicit impurity species list.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="dilution_fraction_from_zeff impurity"><td><a href="/vaft/develop/reference/formula/impurity/#dilution_fraction_from_zeff"><code>dilution_fraction_from_zeff</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>Main-ion dilution from Z_eff and one effective impurity charge.
+</td></tr>
+  <tr data-ref-row="expand_effective_impurity impurity"><td><a href="/vaft/develop/reference/formula/impurity/#expand_effective_impurity"><code>expand_effective_impurity</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>Species densities of a known relative composition behind a pseudo-impurity.
+</td></tr>
+  <tr data-ref-row="impurity_mixture_moments impurity"><td><a href="/vaft/develop/reference/formula/impurity/#impurity_mixture_moments"><code>impurity_mixture_moments</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>Charge and mass moments of a normalised impurity mixture.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="main_ion_density_from_species impurity"><td><a href="/vaft/develop/reference/formula/impurity/#main_ion_density_from_species"><code>main_ion_density_from_species</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>Main-ion density that keeps a plasma with these impurities quasi-neutral.
+</td></tr>
+  <tr data-ref-row="main_ion_density_from_zeff impurity"><td><a href="/vaft/develop/reference/formula/impurity/#main_ion_density_from_zeff"><code>main_ion_density_from_zeff</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>Main-ion density from n_e, Z_eff and one effective impurity charge.
+</td></tr>
+  <tr data-ref-row="main_ion_fraction_from_zeff impurity"><td><a href="/vaft/develop/reference/formula/impurity/#main_ion_fraction_from_zeff"><code>main_ion_fraction_from_zeff</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>Main-ion fraction of the electron density from Z_eff and one effective impurity charge.
+</td></tr>
+  <tr data-ref-row="reduce_impurity_mixture impurity"><td><a href="/vaft/develop/reference/formula/impurity/#reduce_impurity_mixture"><code>reduce_impurity_mixture</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>The single pseudo-impurity that keeps a mixture’s charge, Z^2 and mass moments.
+</td></tr>
+  <tr data-ref-row="solve_impurity_mixture_for_target_zeff impurity"><td><a href="/vaft/develop/reference/formula/impurity/#solve_impurity_mixture_for_target_zeff"><code>solve_impurity_mixture_for_target_zeff</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>Impurity and main-ion density fractions that give a target effective charge.
+</td></tr>
   </tbody>
 </table></div>
 <p class="ref-filter-empty" hidden="">No formula matches.</p>
@@ -1594,7 +1618,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-05 14:39:56 +0000"
+        "time": "2026-10-05 17:03:48 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
