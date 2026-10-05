@@ -40,7 +40,8 @@ def test_the_spine_reads_from_inference_through_reconstruction_to_transport():
     assert list(WORKFLOWS) == [
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
         "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
-        "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport"]
+        "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport",
+        "parameter_inference_overview", "parameter_inference_dependency_graph"]
 
 
 @pytest.mark.parametrize("spec", SPECS, ids=lambda s: s.key)
@@ -204,3 +205,15 @@ def test_specs_refuse_inconsistent_structure():
         W.WorkflowSpec("k", "T", "f", "implemented", (node,), (("a",),), (("a", "b", ""),))  # unknown edge end
     with pytest.raises(ValueError):
         W.Node("y", "Y", "solver", api="code.efit.run")  # not a vaft path
+
+
+def test_inference_figures_draw_only_implemented_closures_and_name_no_code():
+    assert "synthetic" in W.KINDS and "synthetic" not in W.SIDE_KINDS  # the grammar keeps synthetic apart
+    overview = WORKFLOWS["parameter_inference_overview"]
+    assert {overview.node(k).kind for k in ("thermo", "composition", "resistive")} == {"inferred"}
+    graph = WORKFLOWS["parameter_inference_dependency_graph"]
+    for spec in (overview, graph):
+        assert all(n.api for n in spec.nodes if n.kind == "inferred")  # nothing future is drawn
+        drawn = " ".join(f"{n.label} {n.symbols or ''}" for n in spec.nodes).lower()
+        assert not any(code in drawn for code in ("tglf", "cgyro", "neo", "chease", "efit"))
+    assert graph.node("gamma").kind == "prior"  # gamma_E = 0 is an assumption, not an inference (#553)

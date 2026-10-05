@@ -198,6 +198,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
         "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
         "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport")},
+    # plasma parameter inference: architecture and provenance (#1601)
+    "parameter_inference_overview.svg": ("parameter_inference_overview", {}),
+    "parameter_inference_dependency_graph.svg": ("parameter_inference_dependency_graph", {}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),

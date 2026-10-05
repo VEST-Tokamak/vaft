@@ -1383,6 +1383,7 @@ unsupported capability. Node style says how a quantity was obtained:
 | reconstructed | the solution of an inverse problem |
 | derived | computed deterministically from existing state |
 | inferred | estimated with a model, prior or closure |
+| synthetic (assumption-completed) | completed from an equilibrium and explicit assumptions with no kinetic data; never a measurement |
 | model assumption / prior | an assumed value or prior the result depends on; drawn entering from the side |
 | model choice / convention | a model choice or convention (basis, sign, conductivity model, mode numbers); drawn from the side |
 | machine geometry / static data | static machine data: geometry, Green tables, circuits; drawn from the side |
@@ -1409,6 +1410,8 @@ vaft.diagram.gpec_plasma_response()
 vaft.diagram.flare_field_line_topology()
 vaft.diagram.neo_neoclassical()
 vaft.diagram.tglf_cgyro_local_transport()
+vaft.diagram.parameter_inference_overview()
+vaft.diagram.parameter_inference_dependency_graph()
 ```
 
 ### Plasma parameter inference: ion temperature and species
@@ -1708,6 +1711,52 @@ Follow-up TODOs (implementation or IMAS mapping):
 - Squareness zeta enters as 0 (VEST equilibria carry no squareness); Z_EFF is not written to input.cgyro by design: CGYRO recomputes it from the species list (Z_EFF_METHOD=2).
 - No implemented local-gyrokinetic validity criterion (rho*): compare_with_oracle checks only the input translation against CGYRO's own projection.
 - No TGLF to gyrokinetics_local mapping.
+
+### Plasma parameter inference: completing the plasma state
+
+Where inference sits: diagnostics and the equilibrium give a reconstructed but incomplete state; explicit assumptions and the closures VAFT implements complete it, and every completed quantity keeps its origin on the way to simulation.
+
+![Plasma parameter inference: completing the plasma state]({{ '/assets/diagrams/parameter_inference_overview.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Kinetic diagnostics | measured | $T_e,\ n_e,\ T_i^{\mathrm{CX}}\ \mathrm{at}\ (R, Z)$ |  | `{thomson_scattering.channel[:], charge_exchange.channel[:]}` |
+| Magnetic equilibrium | reconstructed | $p_{\mathrm{eq}}(\psi),\ q,\ \langle j\cdot B\rangle,\ \mathrm{geometry}$ |  | `equilibrium.time_slice[:].profiles_1d` |
+| Reconstructed plasma state | reconstructed | $T_e(\rho),\ n_e(\rho)\ (\mathrm{fitted}), p_{\mathrm{eq}}(\rho),\ q(\rho)$ |  | `core_profiles.profiles_1d[:].electrons` |
+| Closure assumptions | model assumption / prior (enters Reconstructed plasma state) | $\mathrm{common}\ T_i,\ \mathrm{composition},\ Z_{\mathrm{eff}}, \mathrm{conductivity\ model},\ \ln\Lambda$ |  |  |
+| Thermodynamic closure | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Composition closure | inferred |  | `vaft.process.impurity.resolve_impurity_composition` |  |
+| Resistive closure | inferred | $V_R^{\mathrm{obs}} \to Z_{\mathrm{eff}}^{\mathrm{res}}\ (\mathrm{scalar})$ | `vaft.process.resistive_zeff.infer_resistive_zeff` |  |
+| Completed plasma state | derived | $n_e, T_e, T_i, n_s, Z_{\mathrm{eff}}, \mathrm{each\ with\ origin=\ldots;\ method=\ldots}$ |  | `core_profiles.profiles_1d[:].{electrons, ion[:], zeff}` |
+| Simulation-ready | code input | $\mathrm{every\ input\ quantity\ with\ its\ origin}$ |  |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive closure) is in progress in Lane L / Lane Z (#1565, #1566, PR #1659) and is not on develop.
+- Rotation, E_r and the ExB shear are not inferred: downstream codes receive gamma_E = 0 as an explicit assumption (#553).
+- Provenance is recorded per quantity where it exists (core_profiles origin=...; method=... records for composition, the T_i result's origin/method fields); there is no single runtime provenance object, by design (#1601 is documentation-first).
+
+### Inferred quantities depend on inferred quantities
+
+Provenance propagates: a composition assumption fixes the ion densities, which set the pressure-partition T_i, whose gradients reach the gyrokinetic input beside an assumed zero ExB shear. Every link below the measurements carries the assumptions above it.
+
+![Inferred quantities depend on inferred quantities]({{ '/assets/diagrams/parameter_inference_dependency_graph.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Electron profiles | measured | $T_e(\rho),\ n_e(\rho)$ |  | `core_profiles.profiles_1d[:].electrons.{temperature, density_thermal}` |
+| Equilibrium pressure | reconstructed | $p_{\mathrm{eq}}(\psi)\ \ (\mathrm{independent\ lineage})$ |  | `equilibrium.time_slice[:].profiles_1d.pressure` |
+| Composition source | model assumption / prior (enters Ion densities) | $\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}$ |  |  |
+| Ion densities | derived |  | `vaft.process.impurity.resolve_impurity_composition` |  |
+| Pressure-partition ion temperature | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Ion pressure | derived | $p_i(\rho),\ dp_i/dr$ |  |  |
+| Normalized gradients | derived | $a/L_{T_i},\ a/L_{n_i},\ T_i/T_e$ | `vaft.code.gacode.tglf.prepare_tglf_input` |  |
+| ExB shear | model assumption / prior (enters Gyrokinetic input) | $\gamma_E = 0\ \ (\mathrm{assumed})$ |  |  |
+| Gyrokinetic input | code input | $\mathrm{local\ state\ with\ origins}$ | `vaft.code.gacode.cgyro.prepare_cgyro_input` |  |
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic input as an assumption, and force balance is future scope.
 
 ## Using the committed assets
 

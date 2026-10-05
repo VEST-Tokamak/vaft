@@ -475,6 +475,87 @@ _SPECS = (
                "input translation against CGYRO's own projection.",
                "No TGLF to gyrokinetics_local mapping."),
     ),
+    # ------------------------------------------------------------------ plasma parameter inference (#1601)
+    WorkflowSpec(
+        key="parameter_inference_overview", title="Plasma parameter inference: completing the plasma state",
+        family="parameter_inference", status="implemented",
+        summary="Where inference sits: diagnostics and the equilibrium give a reconstructed but incomplete "
+                "state; explicit assumptions and the closures VAFT implements complete it, and every completed "
+                "quantity keeps its origin on the way to simulation.",
+        nodes=(
+            N("diagnostics", "Kinetic diagnostics", "measured",
+              ids="{thomson_scattering.channel[:], charge_exchange.channel[:]}",
+              symbols=r"T_e,\ n_e,\ T_i^{\mathrm{CX}}\ \mathrm{at}\ (R, Z)"),
+            N("eq", "Magnetic equilibrium", "reconstructed", ids=f"{_EQ}.profiles_1d",
+              symbols=r"p_{\mathrm{eq}}(\psi),\ q,\ \langle j\cdot B\rangle,\ \mathrm{geometry}"),
+            N("reconstructed", "Reconstructed plasma state", "reconstructed", ids=f"{_CP}.electrons",
+              symbols=r"T_e(\rho),\ n_e(\rho)\ (\mathrm{fitted})\qquad p_{\mathrm{eq}}(\rho),\ q(\rho)"),
+            N("assumptions", "Closure assumptions", "prior",
+              symbols=r"\mathrm{common}\ T_i,\ \mathrm{composition},\ Z_{\mathrm{eff}}\qquad "
+                      r"\mathrm{conductivity\ model},\ \ln\Lambda"),
+            N("thermo", "Thermodynamic closure", "inferred",
+              api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
+              relation=r"p_{\mathrm{eq}} = e\,n_e T_e + e\sum_s n_s T_i\qquad T_i = \frac{p_{\mathrm{eq}} - e n_e T_e}"
+                       r"{e f n_e}"),
+            N("composition", "Composition closure", "inferred",
+              api="vaft.process.impurity.resolve_impurity_composition",
+              relation=r"n_e = \sum_s Z_s n_s\qquad Z_{\mathrm{eff}} = \frac{\sum_s Z_s^2 n_s}{n_e}"),
+            N("resistive", "Resistive closure", "inferred", api="vaft.process.resistive_zeff.infer_resistive_zeff",
+              symbols=r"V_R^{\mathrm{obs}} \to Z_{\mathrm{eff}}^{\mathrm{res}}\ (\mathrm{scalar})"),
+            N("state", "Completed plasma state", "derived", ids=f"{_CP}.{{electrons, ion[:], zeff}}",
+              symbols=r"n_e, T_e, T_i, n_s, Z_{\mathrm{eff}}\qquad \mathrm{each\ with\ origin=\ldots;\ method=\ldots}"),
+            N("simulation", "Simulation-ready", "code_input",
+              symbols=r"\mathrm{every\ input\ quantity\ with\ its\ origin}"),
+        ),
+        rows=(("diagnostics", "eq"), ("reconstructed",), ("thermo", "composition", "resistive"), ("state",),
+              ("simulation",)),
+        edges=(("diagnostics", "reconstructed", ""), ("eq", "reconstructed", "mapping"),
+               ("reconstructed", "thermo", ""), ("reconstructed", "composition", ""),
+               ("reconstructed", "resistive", ""), ("thermo", "state", ""), ("composition", "state", ""),
+               ("resistive", "state", ""), ("state", "simulation", "")),
+        side=(("assumptions", "reconstructed"),),
+        todos=("Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive "
+               "closure) is in progress in Lane L / Lane Z (#1565, #1566, PR #1659) and is not on develop.",
+               "Rotation, E_r and the ExB shear are not inferred: downstream codes receive gamma_E = 0 as an "
+               "explicit assumption (#553).",
+               "Provenance is recorded per quantity where it exists (core_profiles origin=...; method=... records "
+               "for composition, the T_i result's origin/method fields); there is no single runtime provenance "
+               "object, by design (#1601 is documentation-first)."),
+    ),
+    WorkflowSpec(
+        key="parameter_inference_dependency_graph", title="Inferred quantities depend on inferred quantities",
+        family="parameter_inference", status="implemented",
+        summary="Provenance propagates: a composition assumption fixes the ion densities, which set the "
+                "pressure-partition T_i, whose gradients reach the gyrokinetic input beside an assumed zero ExB "
+                "shear. Every link below the measurements carries the assumptions above it.",
+        nodes=(
+            N("te_ne", "Electron profiles", "measured", ids=f"{_CP}.electrons.{{temperature, density_thermal}}",
+              symbols=r"T_e(\rho),\ n_e(\rho)"),
+            N("eq", "Equilibrium pressure", "reconstructed", ids=f"{_EQ}.profiles_1d.pressure",
+              symbols=r"p_{\mathrm{eq}}(\psi)\ \ (\mathrm{independent\ lineage})"),
+            N("composition", "Composition source", "prior",
+              symbols=r"\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}"),
+            N("ions", "Ion densities", "derived", api="vaft.process.impurity.resolve_impurity_composition",
+              equation="vaft.formula.impurity.main_ion_density_from_species"),
+            N("ti", "Pressure-partition ion temperature", "inferred",
+              api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
+              relation=r"T_i = \frac{p_{\mathrm{eq}}}{e f n_e} - \frac{T_e}{f}\qquad \sigma_{T_i}\ \mathrm{propagated};"
+                       r"\ p_i \le \sigma_{p_i}\ \mathrm{flagged,\ never\ filled}"),
+            N("pi", "Ion pressure", "derived", equation="vaft.formula.equilibrium.ion_pressure",
+              symbols=r"p_i(\rho),\ dp_i/dr"),
+            N("gradients", "Normalized gradients", "derived", api="vaft.code.gacode.tglf.prepare_tglf_input",
+              symbols=r"a/L_{T_i},\ a/L_{n_i},\ T_i/T_e"),
+            N("gamma", "ExB shear", "prior", symbols=r"\gamma_E = 0\ \ (\mathrm{assumed})"),
+            N("gk", "Gyrokinetic input", "code_input", api="vaft.code.gacode.cgyro.prepare_cgyro_input",
+              symbols=r"\mathrm{local\ state\ with\ origins}"),
+        ),
+        rows=(("te_ne", "eq"), ("ions",), ("ti",), ("pi",), ("gradients",), ("gk",)),
+        edges=(("te_ne", "ions", ""), ("eq", "ti", ""), ("ions", "ti", "with electron profiles"),
+               ("ti", "pi", ""), ("pi", "gradients", ""), ("gradients", "gk", "")),
+        side=(("composition", "ions"), ("gamma", "gk")),
+        todos=("E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic "
+               "input as an assumption, and force balance is future scope.",),
+    ),
 )
 
 #: every spine workflow, by key, in reading order
@@ -544,3 +625,13 @@ def neo_neoclassical(*, labels: bool = True) -> Diagram:
 def tglf_cgyro_local_transport(*, labels: bool = True) -> Diagram:
     """Local turbulent transport: TGLF and CGYRO from one local state."""
     return _render_workflow(WORKFLOWS["tglf_cgyro_local_transport"], labels=labels)
+
+
+def parameter_inference_overview(*, labels: bool = True) -> Diagram:
+    """Where plasma parameter inference sits between reconstruction and simulation (#1601)."""
+    return _render_workflow(WORKFLOWS["parameter_inference_overview"], labels=labels)
+
+
+def parameter_inference_dependency_graph(*, labels: bool = True) -> Diagram:
+    """How provenance propagates through inferred plasma parameters (#1601)."""
+    return _render_workflow(WORKFLOWS["parameter_inference_dependency_graph"], labels=labels)

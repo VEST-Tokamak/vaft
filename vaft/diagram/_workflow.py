@@ -7,10 +7,12 @@ one renderer (:func:`_render_workflow`) and tabulated by one function
 read the same record.
 
 Every node has a :data:`KINDS` value saying how the quantity was obtained --
-measured, reconstructed, derived, inferred, assumed (a policy or closure the
-user or machine supplies), code input, solver, native result, standardized --
-and the kind sets its style. Assumptions are drawn entering from the left, so
-they never read as observations. Equations come only from ``vaft.formula``
+measured, reconstructed, derived, inferred, synthetic (completed from explicit
+assumptions, never measured), model assumption / prior, model choice /
+convention, machine geometry / static data, code input, solver, native result,
+standardized IMAS -- and the kind sets its style. Priors, conventions and
+machine data (:data:`SIDE_KINDS`) enter a step from the side, so they never
+read as observations. Equations come only from ``vaft.formula``
 through :func:`vaft.diagram._equations.formula_equation`; a node names the
 function, never restates the physics. Each node may name the public API that
 implements it (``api``) and the IMAS IDS it reads or writes (``ids``); the
@@ -32,11 +34,12 @@ from ._render import Diagram
 from ._scene import Label, Polyline, Scene
 
 #: how a quantity was obtained, in reading order; each has one style
-KINDS: Tuple[str, ...] = ("measured", "reconstructed", "derived", "inferred", "prior", "convention", "machine",
-                          "code_input", "solver", "native_result", "standardized")
+KINDS: Tuple[str, ...] = ("measured", "reconstructed", "derived", "inferred", "synthetic", "prior", "convention",
+                          "machine", "code_input", "solver", "native_result", "standardized")
 KIND_LABEL: Dict[str, str] = {
     "measured": "measured", "reconstructed": "reconstructed", "derived": "derived", "inferred": "inferred",
-    "prior": "model assumption / prior", "convention": "model choice / convention",
+    "synthetic": "synthetic (assumption-completed)", "prior": "model assumption / prior",
+    "convention": "model choice / convention",
     "machine": "machine geometry / static data", "code_input": "code input", "solver": "solver / model",
     "native_result": "native result", "standardized": "standardized IMAS",
 }
