@@ -282,7 +282,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>600edc3</code>. What is described
+  <code>7d28566</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -339,6 +339,36 @@ secondary axis labels recorded observations; it does not assume a globally
 linear transformation between shot and date. Date-primary plots omit rows
 without acquisition timestamps. Summaries with several rows per shot retain
 every row; select the desired time slices in the DataFrame before plotting.</p>
+
+<h2 id="transport-summary-hierarchy">Transport summary hierarchy</h2>
+
+<p><code class="language-plaintext highlighter-rouge">equilibrium_global</code> and <code class="language-plaintext highlighter-rouge">core_profiles</code> describe their respective time
+slices. <code class="language-plaintext highlighter-rouge">neoclassical</code> currently summarizes bootstrap current from canonical
+<code class="language-plaintext highlighter-rouge">core_profiles</code>. <code class="language-plaintext highlighter-rouge">turbulent_transport</code> summarizes anomalous models already
+stored in canonical <code class="language-plaintext highlighter-rouge">core_transport</code>: one row per shot, model entry, and time
+slice. It reads no TGLF or CGYRO native output and does not combine models.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">transport</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">summary</span><span class="p">((</span><span class="mi">39915</span><span class="p">,</span> <span class="mi">39916</span><span class="p">),</span> <span class="n">preset</span><span class="o">=</span><span class="sh">"</span><span class="s">turbulent_transport</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">transport</span><span class="p">[[</span><span class="sh">"</span><span class="s">shot</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">time_s</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">source</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">model_index</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rho_grid_min</span><span class="sh">"</span><span class="p">,</span>
+           <span class="sh">"</span><span class="s">rho_grid_max</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">q_e_peak_abs_W_m2</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">q_i_peak_abs_W_m2</span><span class="sh">"</span><span class="p">]]</span>
+</code></pre></div></div>
+
+<p>The peak columns are maxima of the <em>absolute</em> mapped SI flux over finite
+<code class="language-plaintext highlighter-rouge">rho_tor_norm</code> grid points, not full radial profiles. <code class="language-plaintext highlighter-rouge">rho_grid_min/max</code>
+describe the stored grid; <code class="language-plaintext highlighter-rouge">rho_q_e_min/max</code>, <code class="language-plaintext highlighter-rouge">rho_q_i_min/max</code>, and
+<code class="language-plaintext highlighter-rouge">rho_gamma_e_min/max</code> describe the finite coverage of each reported flux
+channel. Each channel also has a point count. <code class="language-plaintext highlighter-rouge">q_i</code> sums all recorded ion species
+at each point only when every ion flux is present. <code class="language-plaintext highlighter-rouge">parameters_text_sha256</code>
+identifies exact stored <code class="language-plaintext highlighter-rouge">model.code.parameters</code> text, when present; it is not a
+configuration-equivalence key because the text can include state-specific
+provenance. <code class="language-plaintext highlighter-rouge">configuration_status=not_standardized</code> makes that limit explicit.
+The current TGLF mapper reuses its anomalous model slot and does not persist
+SAT/field settings there, so comparisons across settings need the upstream
+run record until that mapping contract is extended.
+Classical heat flux remains a resolved-state result without a standardized
+<code class="language-plaintext highlighter-rouge">core_transport</code> projection; it is not presented as a canonical preset yet.
+<code class="language-plaintext highlighter-rouge">power_balance</code> likewise awaits the stored-energy and loss-power definitions
+tracked in issues #1282 and #548.</p>
 
 <table>
   <thead>
@@ -1148,7 +1178,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#cross-shot-parameter-history" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cross-shot parameter history</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-flat-namespace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The flat namespace</a></li><li class="page-toc-item page-toc-level-2"><a href="#connecting-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Connecting to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#listing-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Listing shots</a></li><li class="page-toc-item page-toc-level-2"><a href="#eager-and-lazy-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Eager and lazy HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#local-omas-imas-and-filedb-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local OMAS, IMAS, and FileDB paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting-a-shot-as-local-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting a shot as local files</a></li><li class="page-toc-item page-toc-level-2"><a href="#saving-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Saving to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#native-imas-ids-objects" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Native IMAS IDS objects</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#which-load-is-which" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which load is which</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-signals-mysql" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ signals (MySQL)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#finding-field-codes-and-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Finding field codes and shots</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-range-and-timing-rules" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot-range and timing rules</a></li><li class="page-toc-item page-toc-level-3"><a href="#processing-new-shots-automatically" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Processing new shots automatically</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#working-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Working offline</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-to-go-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where to go next</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#cross-shot-parameter-history" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cross-shot parameter history</a></li><li class="page-toc-item page-toc-level-2"><a href="#transport-summary-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transport summary hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-flat-namespace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The flat namespace</a></li><li class="page-toc-item page-toc-level-2"><a href="#connecting-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Connecting to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#listing-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Listing shots</a></li><li class="page-toc-item page-toc-level-2"><a href="#eager-and-lazy-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Eager and lazy HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#local-omas-imas-and-filedb-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local OMAS, IMAS, and FileDB paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting-a-shot-as-local-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting a shot as local files</a></li><li class="page-toc-item page-toc-level-2"><a href="#saving-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Saving to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#native-imas-ids-objects" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Native IMAS IDS objects</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#which-load-is-which" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which load is which</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-signals-mysql" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ signals (MySQL)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#finding-field-codes-and-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Finding field codes and shots</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-range-and-timing-rules" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot-range and timing rules</a></li><li class="page-toc-item page-toc-level-3"><a href="#processing-new-shots-automatically" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Processing new shots automatically</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#working-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Working offline</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-to-go-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where to go next</a></li></ul>
     </nav>
 </aside>
 
@@ -1266,7 +1296,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-05 06:38:53 +0000"
+        "time": "2026-10-05 06:48:18 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
