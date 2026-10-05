@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import numpy as np
 
 from omas import ODS
 
@@ -27,6 +28,7 @@ def main() -> None:
     parser.add_argument("--resolutions", type=float, nargs="+", default=[.05])
     parser.add_argument("--families", nargs="+", default=["solovev", "guazzotto_freidberg"])
     parser.add_argument("--topologies", nargs="+", default=["limited"])
+    parser.add_argument("--profile-mode", choices=["power_law", "equilibrium"], default="power_law")
     args = parser.parse_args()
     args.workdir.mkdir(parents=True, exist_ok=False)
     machine = ODS(consistency_check=False)
@@ -49,10 +51,11 @@ def main() -> None:
             for dx in args.resolutions:
                 case = args.workdir / f"{family}_{topology}_dx{dx:g}"
                 fit = fit_free_boundary_coils_vfixed(
-                    eq, machine, case, config=TokaMakerConfig(dx_plasma=dx, order=2),
+                    eq, machine, case, config=TokaMakerConfig(dx_plasma=dx, order=2,
+                                                            profile_mode=args.profile_mode),
                     regularization=1e-5)
                 record = {"family": family, "topology": topology, "dx_plasma_m": dx,
-                          "profile_mode": "power_law", "target_Ip_A": eq.ip,
+                          "profile_mode": args.profile_mode, "target_Ip_A": eq.ip,
                           "fixed_Ip_A": float(fit.fixed_stats["Ip"]),
                           "samples": len(fit.boundary_points_m), "currents_A": fit.currents_A,
                           "rms_relative_flux": fit.rms_relative_flux,
@@ -60,6 +63,15 @@ def main() -> None:
                           "rank": fit.rank, "condition_number": fit.condition_number,
                           "regularization_norm": fit.regularization_norm,
                           "bounds_complete": fit.bounds_complete, "status": fit.status}
+                source = json.loads((case / "fixed_boundary.json").read_text())["source_profiles"]
+                if source is not None:
+                    for name in ("pprime", "ffprime"):
+                        requested = np.asarray(source[f"requested_native_{name}"])
+                        realized = np.asarray(source[f"realized_native_{name}"])
+                        record[f"{name}_relative_error"] = (float(np.linalg.norm(realized - requested) /
+                                                                   np.linalg.norm(requested))
+                                                             if np.any(requested) else None)
+                        record[f"{name}_max_absolute_error"] = float(np.max(np.abs(realized - requested)))
                 records.append(record)
                 (args.workdir / "summary.json").write_text(json.dumps(records, indent=2), encoding="utf-8")
                 print(json.dumps(record), flush=True)

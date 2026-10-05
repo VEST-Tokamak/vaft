@@ -202,8 +202,10 @@ def run_tokamaker_vertical_stability(
         _configure_tokamaker(oft, mygs, inputs, config)
         _apply_vsc(mygs, config)
         mygs.set_coil_currents(dict(inputs.coil_currents))
-        mygs.set_targets(**inputs.targets)
-        _apply_profiles(oft, mygs, config)
+        from .profiles import profiles_for_config, profile_targets
+        profiles = profiles_for_config(config)
+        mygs.set_targets(**profile_targets(profiles, inputs.targets))
+        _apply_profiles(oft, mygs, config, profiles)
         mygs.init_psi(
             config.init_r0, config.init_z0, config.init_a0,
             config.init_kappa, config.init_delta,
