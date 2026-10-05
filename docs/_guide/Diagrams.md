@@ -104,6 +104,29 @@ boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fra
 `li_qa_wesson`, `li_qa_cheng`. See
 #944 and #636.
 
+### Dimensionless similarity spaces
+
+The limit diagrams above ask whether a state crosses a boundary. A similarity space asks where a state sits relative to other machines and to reactor designs, and which extrapolation separates them. In $\nu_*$–$\rho_*$, $\rho_*$ is the size / finite-gyroradius direction ($1/\rho_*$ is roughly the number of ion gyroradii across the minor radius) and $\nu_*$ the collisionality direction ($1/\nu_*$ is roughly the number of trapped-ion bounce orbits before a collision). $\beta_N$–$\rho_*$ splits MHD-normalised pressure from machine scale. $\Omega_{ci}\tau_{E,\mathrm{th}}$–$\rho_*$ splits confinement time, counted in gyro-orbits, from size. All three come from the ARC physics-basis comparison (Hillesheim et al., *J. Plasma Phys.* 92 (2026) E69, Fig. 6). They are zero-dimensional and draw no boundary by default (Luce, Petty and Cordey, *PPCF* 50 (2008) 043001, explain why these coordinates separate transport mechanisms).
+
+| Projection | Question it answers | Axes (exact quantity) |
+| --- | --- | --- |
+| `rho_star_nu_star` | Is the extrapolation in size, in collisionality, or both? | `rho_star_verdoolaege_2021`, `nu_star_verdoolaege_2021` |
+| `rho_star_beta_n` | How much is pressure, how much is scale? | `rho_star_verdoolaege_2021`, `normalized_beta` |
+| `rho_star_omega_ci_tau_e` | Size against confinement time in gyro-orbits | `rho_star_verdoolaege_2021`, `omega_ci_tau_e_th` |
+
+The $\rho_*$ and $\nu_*$ axes follow the ITPA confinement-database convention, Verdoolaege et al., *Nucl. Fusion* 61 (2021) 076006, Eqs. (1a) and (1c), which Hillesheim et al. use. $n$ and $T$ are volume averages with $T_e = T_i$. The functions that evaluate them are `rho_star_from_M_T_B_R_epsilon`, `nu_star_from_n_T_B_R_epsilon_kappa_I` and `omega_i_tau_E_from_B_tau_E_M` in `vaft.formula.equilibrium`. VAFT has other $\nu_*$ and $\rho_*$ definitions (issue 353): Sauter's local $\nu_*$, pedestal $\nu^*_e$, edge and separatrix collisionalities. Each is a different quantity, so it cannot be drawn on these axes. A missing input leaves the state *unassessed*: it is counted per group, in a warning and in the legend, and is never estimated. Each projection carries its meaning as metadata:
+
+```python
+from vaft.diagram import _op_space
+from vaft.plot.dimensionless_space import dimensionless_similarity
+
+print(_op_space.get_projection("rho_star_nu_star").interpretation.describe())
+fig, ax = dimensionless_similarity(table, "rho_star_nu_star", group="machine")   # ARC V3A overlaid
+ax.vaft_exclusions.summary()
+```
+
+The only built-in reference point is ARC V3A ($\beta_N = 1.8$, $\rho_* = 0.0017$, $\nu_* = 0.031$, $\Omega_{ci}\tau_{E,\mathrm{th}} = 4.1\times10^8$), the values Hillesheim et al. state in Sec. 4. Their SPARC, ITER and EU-DEMO points appear only as plotted markers, so they are not digitised. Pass such points as `reference_table=` with a `source` column. See #1624.
+
 ## Single-particle motion
 
 Gyration and guiding-centre drifts, drawn in the island family's style and 3-D camera. Every orbit
