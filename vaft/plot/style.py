@@ -271,14 +271,27 @@ def _place_suptitle(figure: Figure, pad: float | None) -> None:
     suptitle.set_verticalalignment("top")
 
 
-def save_figure(figure: Figure, path: Any, *, close: bool = True, **savefig_kwargs: Any):
+def save_figure(
+    figure: Figure, path: Any, *, close: bool = True, figure_options: Any = None, **savefig_kwargs: Any,
+):
     """Write ``figure`` to ``path`` and release it.
 
     Callers outside :mod:`vaft.plot` use this instead of importing pyplot just to
     close a figure, which keeps rendering confined to this package.
+    ``figure_options`` supplies the export fields of a
+    :class:`vaft.plot.FigureOptions` -- ``dpi`` and ``transparent`` -- the one
+    place they act (issue #1421); an explicit savefig keyword still wins.
     """
     import matplotlib
 
+    if figure_options is not None:
+        from .figure_options import as_figure_options
+
+        export = as_figure_options(figure_options)
+        if export.dpi is not None:
+            savefig_kwargs.setdefault("dpi", export.dpi)
+        if export.transparent is not None:
+            savefig_kwargs.setdefault("transparent", export.transparent)
     savefig_kwargs.setdefault("dpi", 300)
     savefig_kwargs.setdefault("bbox_inches", "tight")
     # Vector output keeps its text as text: TrueType fonts embedded in a PDF

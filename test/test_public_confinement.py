@@ -407,3 +407,60 @@ def test_the_subpackage_survives_the_sdist_prune_of_vaft_data():
     manifest = (Path(__file__).resolve().parents[1] / "MANIFEST.in").read_text(encoding="utf-8")
     assert "include vaft/data/public/*.py" in manifest
     assert not any(Path(__file__).resolve().parents[1].joinpath("vaft/data/public").glob("*.csv"))
+
+
+# --- lane D Tier A loader (#548) ---------------------------------------------
+
+
+def test_tier_a_loader_selections_and_schema():
+    from vaft.data import public
+    from vaft.data.public.schema import CONFINEMENT_COLUMNS
+
+    primary = public.load_vest_tier_a_confinement()
+    assert list(primary.columns[: len(CONFINEMENT_COLUMNS)]) == list(CONFINEMENT_COLUMNS)
+    assert (len(primary), primary["shot"].nunique()) == (59, 19)
+    assert primary["selected"].all() and (primary["tau_e_th_s"] > 0).all()
+    assert set(primary["tier_a_block"]) == {"399xx-403xx", "429xx-430xx"}
+    assert primary["n_e_definition"].str.startswith("z = 0 chord").all()
+    every = public.load_vest_tier_a_confinement(None)
+    assert len(every) == 133 and int(every["selected"].sum()) == 59
+    strict = public.load_vest_tier_a_confinement("sensitivity")
+    assert (len(strict), strict["shot"].nunique()) == (14, 4)
+    with pytest.raises(ValueError, match="selection"):
+        public.load_vest_tier_a_confinement("nope")
+
+
+def test_tier_a_loader_matches_the_process_layer_decision():
+    """The loader's inline rules are the ones vaft.process.confinement applies."""
+    import numpy as np
+    import pandas as pd
+
+    from vaft.data import data_path
+    from vaft.data.public.vest_confinement import VEST_TIER_A_SELECTIONS, _tier_a_selected
+    from vaft.process.confinement import ConfinementSliceEvidence, confinement_slice_decision
+
+    table = pd.read_csv(data_path("confinement/vest_tier_a_confinement.csv"))
+    for thresholds in VEST_TIER_A_SELECTIONS.values():
+        evidence = ConfinementSliceEvidence(
+            ip_abs=table["i_p_A"].abs().to_numpy(float), ip_rate=table["ip_rate_1_s"].to_numpy(float),
+            ip_change_per_tau=table["ip_change_per_tau"].to_numpy(float),
+            dwdt_fraction=table["dwdt_fraction"].to_numpy(float),
+            finite=table["rule_finite"].astype("boolean").fillna(False).to_numpy(bool))
+        decided = confinement_slice_decision(evidence, **thresholds)["accepted"]
+        decided &= (table["quality_status"] == "evaluated").to_numpy() & (table["tau_e_th_s"] > 0).to_numpy()
+        np.testing.assert_array_equal(_tier_a_selected(table, thresholds).to_numpy(), decided)
+
+
+def test_tier_a_loader_reads_an_atlas_table_and_rejects_a_foreign_one(tmp_path):
+    import pandas as pd
+
+    from vaft.data import data_path, public
+
+    table = pd.read_csv(data_path("confinement/vest_tier_a_confinement.csv"))
+    copy = tmp_path / "table.csv"
+    table.to_csv(copy, index=False)          # no manifest beside it: definitions stay absent
+    loaded = public.load_vest_tier_a_confinement(path=copy)
+    assert len(loaded) == 59 and loaded["n_e_definition"].isna().all()
+    table.drop(columns=["dwdt_fraction"]).to_csv(copy, index=False)
+    with pytest.raises(ValueError, match="slice-evidence"):
+        public.load_vest_tier_a_confinement(path=copy)

@@ -39,7 +39,7 @@ def _panels(suptitle: str, count: int, ncols: int) -> Panels:
     [(3, 1, (6.5, 5.2)), (12, 3, (9.0, 14.0)), (2, 2, (8.0, 3.0))],
     ids=["stack", "tall-grid", "short-row"],
 )
-@pytest.mark.parametrize("format", [None, "screen", "single_column", "double_column"])
+@pytest.mark.parametrize("format", [None, "screen", "single_column", "double_column", "slide", "poster"])
 def test_the_suptitle_lies_inside_the_figure_and_above_the_panels(suptitle, count, ncols, figsize, format):
     kwargs = {"format": format} if format is not None else {"figsize": figsize}
     figure, axes = render_panels(_panels(suptitle, count, ncols), **kwargs)

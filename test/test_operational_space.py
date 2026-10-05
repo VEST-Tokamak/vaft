@@ -70,7 +70,7 @@ def test_threshold_curve_draws_a_registered_threshold_on_either_axis():
 def test_every_projection_default_is_drawable_on_its_own_axes():
     for key in ops.list_projections():
         proj = ops.get_projection(key)
-        fixed = {"area_elongation": 1.6, "elongation": 1.6, "minor_radius": 0.25, "major_radius": 0.4,
+        fixed = {"area_elongation": 1.6, "elongation": 1.6, "minor_radius": 0.25, "major_radius": 0.4, "triangularity": 0.3,
                  "toroidal_field": 0.17, "plasma_surface_area": 4.0, "plasma_current": 0.1, "aspect_ratio": 1.6,
                  "effective_charge": 2.0}
         plan = ops.overlay_plan(proj, x_range=(0.0, 5.0), y_range=(0.0, 1.0), fixed=fixed)
@@ -353,3 +353,187 @@ def test_marker_shapes_keep_their_group_across_subsets():
     _, ax2 = operational_space_population(sub, "hugill", marker="efit_quality", color="efit_quality")
     for label in ("efit_quality=good", "efit_quality=admissible"):
         assert _legend_marker(ax, label) == _legend_marker(ax2, label)
+
+
+# --- inline boundary style, trajectories, category colours (#1456) -------------------------------------
+
+
+def test_inline_style_names_the_limit_its_side_and_its_basis():
+    t = _hugill_table()
+    _, ax = operational_space_population(t, "hugill", boundary_style="inline", boundaries=["greenwald_hugill"])
+    labels = ax.get_legend_handles_labels()[1] + [p.get_label() for p in ax.get_legend().get_patches()]
+    legend = " ".join(text.get_text() for text in ax.get_legend().get_texts())
+    assert "Greenwald/Hugill limit" in legend and "Unstable (Derived)" in legend.replace("\n  ", " ")
+    texts = [t_.get_text().strip() for t_ in ax.texts]
+    assert "Greenwald/Hugill limit" in texts and texts.count("Stable") == 1
+    assert labels   # the legend holds the boundary patches
+
+
+def test_inline_label_follows_the_line_in_display_coordinates():
+    t = _hugill_table()
+    fig, ax = operational_space_population(t, "hugill", boundary_style="inline", boundaries=["greenwald_hugill"])
+    fig.canvas.draw()
+    curve = ax.vaft_overlay.curves[0]
+    label = next(t_ for t_ in ax.texts if t_.get_text().strip() == "Greenwald/Hugill limit")
+    p = ax.transData.transform(np.c_[curve.x[[0, -1]], curve.y[[0, -1]]])
+    expected = np.degrees(np.arctan2(*(p[1] - p[0])[::-1]))
+    assert label.get_rotation() == pytest.approx(expected % 360, abs=1.0)
+
+
+def test_regime_thresholds_name_their_regimes_not_instability():
+    t = pd.DataFrame({"line_average_density": [0.05, 0.1, 0.2], "loss_power": [0.2, 0.5, 0.8],
+                      "toroidal_field": 0.17, "plasma_surface_area": 4.7})
+    t.attrs["units"] = {"line_average_density": "1e20 m^-3", "loss_power": "MW", "toroidal_field": "T",
+                        "plasma_surface_area": "m^2"}
+    _, ax = operational_space_population(t, "lh_threshold", boundary_style="inline", boundaries=["martin_2008_lh"])
+    legend = " ".join(text.get_text() for text in ax.get_legend().get_texts())
+    assert "L-mode" in legend and "Unstable" not in legend
+    assert "H-mode accessible" in [t_.get_text() for t_ in ax.texts]
+
+
+def test_shade_style_is_unchanged_by_default():
+    _, ax = operational_space_population(_hugill_table(), "hugill")
+    assert not [t_ for t_ in ax.texts if t_.get_text() == "Stable"]
+    assert "greenwald_hugill" in " ".join(ax.get_legend_handles_labels()[1])
+
+
+def test_trajectories_run_in_time_order_with_one_marker_size():
+    t = _hugill_table()
+    t["time_efit_s"] = np.linspace(0.30, 0.33, len(t))
+    traj = t.iloc[[5, 1, 3]]          # given out of order
+    _, ax = operational_space_population(t, "hugill", trajectories={"Shot A": traj})
+    path = next(c for c in ax.collections if c.get_label() == "Shot A")
+    order = traj.sort_values("time_efit_s")
+    np.testing.assert_allclose(path.get_offsets()[:, 0], order["murakami_parameter"])
+    sizes = path.get_sizes()
+    assert np.ptp(sizes) == 0 and sizes[0] > 0
+
+
+def test_category_colors_replace_palette_slots_but_not_missing_grey():
+    from matplotlib.colors import to_rgb
+    from vaft.plot.operational_space import MISSING_COLOR
+
+    t = _hugill_table()
+    t["verdict"] = ["Stable", "unknown", "Unstable"] * 10
+    _, ax = operational_space_population(t, "hugill", color="verdict", legend_keys=False,
+                                         category_colors={"Stable": "#8fd18f", "unknown": "#ff0000"})
+    assert _legend_colour(ax, "Stable") == tuple(np.round(to_rgb("#8fd18f"), 3))
+    assert _legend_colour(ax, "unknown") == tuple(np.round(to_rgb(MISSING_COLOR), 3))
+
+
+def test_a_widened_threshold_is_shaded_on_its_forbidden_side():
+    """f_G = 1 above every state: the hatch is above the line, not between it and the old axis top."""
+    t = pd.DataFrame({"loss_power": [0.1, 0.5, 1.0], "greenwald_fraction": [0.2, 0.4, 0.6]})
+    t.attrs["units"] = {"loss_power": "MW"}
+    _, ax = operational_space_population(t, "greenwald_fraction_power", boundary_style="inline")
+    lo, hi = ax.get_ylim()
+    assert hi >= 1.0 + 0.11 * (1.0 - lo)   # room above the line for its name
+    label = next(t_ for t_ in ax.texts if t_.get_text().strip() == "Greenwald limit")
+    assert label.get_position()[1] == pytest.approx(1.0) and label.get_va() == "bottom"
+    fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
+    ys = np.concatenate([p.vertices[:, 1] for c in fills for p in c.get_paths()])
+    assert ys.min() >= 1.0 - 1e-9
+
+
+def test_format_sizes_the_canvas_and_is_refused_beside_a_callers_axes():
+    fig, _ = operational_space_population(_hugill_table(), "hugill", format="double_column", theme="technical")
+    assert fig.get_size_inches()[0] == pytest.approx(7.0)
+    _, ax0 = plt.subplots()
+    with pytest.raises(TypeError):
+        operational_space_population(_hugill_table(), "hugill", format="screen", ax=ax0)
+
+
+# --- edge-q proxies from global shape (#1456) ---------------------------------------------------------
+
+
+def test_menard_qstar_is_freidbergs_with_the_1_plus_kappa_squared_shape_factor():
+    for kappa in (1.2, 1.6, 2.0):
+        ratio = B.cylindrical_kink_coordinates(0.3, 0.4, 0.17, kappa, 0.1) / B.kink_coordinates(0.3, 0.4, 0.17, kappa, 0.1)
+        assert ratio == pytest.approx((1 + kappa**2) / (2 * kappa))
+
+
+def test_iter_q95_formula_reproduces_the_iter_design_point():
+    # R = 6.2 m, a = 2.0 m, B = 5.3 T, 15 MA, kappa95 = 1.7, delta95 = 0.33: the ITER q95 = 3 design point
+    assert B.iter_q95_coordinates(2.0, 6.2, 5.3, 1.7, 0.33, 15.0) == pytest.approx(3.0, abs=0.01)
+    with pytest.raises(ValueError):
+        B.iter_q95_coordinates(0.5, 0.4, 0.17, 1.5, 0.3, 0.1)   # a >= R0
+    assert np.isnan(B.iter_q95_coordinates(np.nan, 0.4, 0.17, 1.5, 0.3, 0.1))
+
+
+def test_shape_current_limits_are_the_q_limits_written_as_currents():
+    shape = dict(minor_radius=0.27, major_radius=0.38, elongation=1.5, triangularity=0.3)
+    bt = 0.17
+    i_iter = B.boundary_value(B.get_boundary("iter_1991_q95_current"), toroidal_field=bt, **shape)
+    assert B.iter_q95_coordinates(0.27, 0.38, bt, 1.5, 0.3, i_iter) == pytest.approx(2.1)
+    i_menard = B.boundary_value(B.get_boundary("menard_2004_qstar_current"), toroidal_field=bt,
+                                **{k: v for k, v in shape.items() if k != "triangularity"})
+    assert B.cylindrical_kink_coordinates(0.27, 0.38, bt, 1.5, i_menard) == pytest.approx(1.0)
+
+
+def test_ip_bt_carries_every_current_limit_as_a_line_in_the_field():
+    fixed = {"minor_radius": 0.27, "major_radius": 0.38, "elongation": 1.5, "triangularity": 0.3}
+    for key in ops.get_projection("ip_bt").default_boundaries:
+        place = ops.placement("ip_bt", key, fixed)
+        assert place.drawable and place.kind == "curve" and place.sweep == "toroidal_field"
+    assert ops.placement("q95_li", "iter_1991_q95_min").kind == "vertical"
+    # the estimate and the equilibrium q95 are different quantities
+    assert not ops.placement("q95_li", "iter_1991_q95_estimate_min").drawable
+
+
+def test_axis_units_are_typeset_with_powers_of_ten():
+    from vaft.plot.operational_space import _label
+    q = ops.AXIS_QUANTITIES["murakami_parameter"]
+    assert _label(q, q.name).endswith("[10$^{19}$ m$^{-2}$ T$^{-1}$]")
+
+
+def test_a_saw_tooth_boundary_is_named_along_its_overall_direction():
+    t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 15, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
+    _, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0, 18), y_range=(0, 2))
+    label = next(t_ for t_ in ax.texts if t_.get_text().strip() == "Kink / double-tearing limit")
+    assert abs(label.get_rotation() % 180) < 20 or abs(label.get_rotation() % 180) > 160   # near horizontal
+    assert label.get_position()[1] <= 0.35   # below the teeth, on the forbidden side
+
+
+def test_current_limits_validate_their_geometry():
+    for key, extra in (("menard_2004_qstar_current", {}), ("iter_1991_q95_current", {"triangularity": 0.3})):
+        with pytest.raises(ValueError):
+            B.boundary_value(B.get_boundary(key), minor_radius=-0.3, major_radius=0.4, toroidal_field=0.17,
+                             elongation=1.5, **extra)
+    with pytest.raises(ValueError):
+        B.boundary_value(B.get_boundary("iter_1991_q95_current"), minor_radius=0.45, major_radius=0.4,
+                         toroidal_field=0.17, elongation=1.5, triangularity=0.3)
+
+
+def test_start_scaling_is_akers_f_of_A_on_the_iter_shaping_factor():
+    a, R0, B0, kappa, delta, ip = 0.27, 0.38, 0.17, 1.5, 0.3, 0.1
+    A = R0 / a
+    f_start = 1.17 * np.sqrt(A / (A - 1.0))
+    f_iter = (1.17 - 0.65 / A) / (1.0 - 1.0 / A**2) ** 2
+    ratio = B.start_q95_coordinates(a, R0, B0, kappa, delta, ip) / B.iter_q95_coordinates(a, R0, B0, kappa, delta, ip)
+    assert ratio == pytest.approx(f_start / f_iter)
+    dnd = B.start_q95_coordinates(a, R0, B0, kappa, delta, ip, configuration="double_null")
+    assert dnd / B.start_q95_coordinates(a, R0, B0, kappa, delta, ip) == pytest.approx(0.77)
+    with pytest.raises(ValueError):
+        B.start_q95_coordinates(a, R0, B0, kappa, delta, ip, configuration="diverted")
+    i_lim = B.boundary_value(B.get_boundary("akers_2000_q95_current"), minor_radius=a, major_radius=R0,
+                             toroidal_field=B0, elongation=kappa, triangularity=delta)
+    assert B.start_q95_coordinates(a, R0, B0, kappa, delta, i_lim) == pytest.approx(2.1)
+
+
+def test_a_derived_boundary_says_derived_and_murakami_is_a_historical_reference():
+    _, ax = operational_space_population(_hugill_table(), "hugill", boundary_style="inline")
+    legend = " ".join(t_.get_text() for t_ in ax.get_legend().get_texts()).replace("\n  ", " ")
+    assert "Murakami (historical conventional-tokamak reference) (Derived)" in legend
+    along = [t_.get_text().strip() for t_ in ax.texts]
+    assert "Murakami (reference)" in along   # the long name stays in the legend, a short one fits the line
+    assert "(Derived)" in legend and "(Empirical)" not in legend
+    murakami = [line for line in ax.get_lines() if line.get_linestyle() == "--"]
+    assert murakami, "the historical reference is a dashed line"
+    # one hatched forbidden side (Greenwald), none for the reference
+    hatched = [c for c in ax.collections if getattr(c, "get_hatch", lambda: None)()]
+    assert len(hatched) == 1
+    # the "Stable" label keeps clear of the reference line (Murakami at x = 1)
+    stable = next(t_ for t_ in ax.texts if t_.get_text() == "Stable")
+    x_stable = ax.transAxes.transform(stable.get_position())[0]
+    x_line = ax.transData.transform((1.0, 0.0))[0]
+    assert abs(x_stable - x_line) > 0.08 * ax.get_window_extent().width
