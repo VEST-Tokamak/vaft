@@ -612,7 +612,7 @@
     },
     "profile_propagation_oblique.svg": {
       "call": "vaft.diagram.profile_propagation(theta=1.0471975511965976)",
-      "source_sha256": "55274217cae7a21e887662f34af02334544f630c0daea1b3fe67fab09ec8a42f",
+      "source_sha256": "cdbdd10e0c555b5d4e3b0d70453091d5c02cdfcfbd4bf6b0a6d2e977299ea1b3",
       "svg_sha256": "773afc467906c073b8efa611e2b7e0f548033a77a91db7d2c401abc67ce644d1"
     },
     "rational_surface.svg": {
@@ -622,22 +622,22 @@
     },
     "refractive_index_vs_X.svg": {
       "call": "vaft.diagram.refractive_index_vs_X()",
-      "source_sha256": "966ada119a61c222a87b30ef87ab9a2ecf2d6334478a8bdc70789dc3196ec6ff",
+      "source_sha256": "f8bf9c70f419e01de69c9a72ae7b98f9bec78e604baa23823bb846aef5e3c087",
       "svg_sha256": "4953f624b2d62ff41664cf040beb171e530a7cb51cdcb9aaf275eeae2da740b9"
     },
     "refractive_index_vs_X_oblique.svg": {
       "call": "vaft.diagram.refractive_index_vs_X(theta=1.0471975511965976)",
-      "source_sha256": "3683eba1206dd067398ce91340ea0b6601d7e8dbf4df911fd83b2085bd98fc6c",
+      "source_sha256": "56d08577e45385180ff4d1ce9116975afd8a6028f04b6899326de5b3759162c8",
       "svg_sha256": "2f73a0856f42dbb57a19d19fdd21f5c54af3d9ab824ca190b60e7088c56b4993"
     },
     "refractive_index_vs_Y.svg": {
       "call": "vaft.diagram.refractive_index_vs_Y()",
-      "source_sha256": "f9417a9e9fa60f0229b80bab59811b72f079ea35e6fa269bff149a5b3fbd65e5",
+      "source_sha256": "9b384c9dff495f74aceacd81359212d8b907361db73ec05cabf40dca500dfd6e",
       "svg_sha256": "e4ddd8f5b3d561af47c4c246b988d48706cb02b0bf5934a9fddbfe0672bc5215"
     },
     "refractive_index_vs_Y_oblique.svg": {
       "call": "vaft.diagram.refractive_index_vs_Y(theta=1.0471975511965976)",
-      "source_sha256": "bad86a93355c21000978fbade26ca98f43ba663632f99f25f02caca0a94573a6",
+      "source_sha256": "cc2b8f1572f5ffd36bf1358719de7b2dbb68cbc8c9efa24d1a16fbfbfb16df2e",
       "svg_sha256": "1a36a277d8faad53efe707616efc085a87c80c683691b451d3abe75ba15399dc"
     },
     "resonant_layer_matching.svg": {
@@ -932,12 +932,12 @@
     },
     "wave_dispersion_omega_k.svg": {
       "call": "vaft.diagram.wave_dispersion_omega_k()",
-      "source_sha256": "e4b326d5ace655c824a8244de924368e9bad5bb34e515f12e5a62023cd6f4fc8",
+      "source_sha256": "3b6919e368027d217e252772cc942a95560cc7cbe04e9e30d5d06706667e444c",
       "svg_sha256": "5f123dafb55de037ab387761466d6c39ddef3344c6e6113a5ee42b55809e3ed1"
     },
     "wave_dispersion_omega_k_oblique.svg": {
       "call": "vaft.diagram.wave_dispersion_omega_k(theta=1.0471975511965976)",
-      "source_sha256": "ea3838cc681b21d99b1b4a8805fed9569a9ad9fa8c48d93b03f701f84843fa73",
+      "source_sha256": "852700131e7da1c1349b8c94df9e1da79b0807679087ca7b4a991588a768857a",
       "svg_sha256": "01f996c27239e1c5fb5354970fcc4684e9833d89f4353ec3e506fa44f2364dd2"
     },
     "x_mode_dispersion.svg": {
