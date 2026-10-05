@@ -672,15 +672,45 @@ def test_the_pair_shows_both_references_on_their_own_planes_and_keeps_the_data()
     t.attrs["machine_class"] = "spherical_tokamak"
     fig, axs = li_qa_pair(t)
     assert axs[0].vaft_overlay.projection == "li_qa_wesson" and axs[1].vaft_overlay.projection == "li_qa_cheng"
-    # the data beyond Wesson's q_psi = 10 stay on the plot
-    offsets = np.concatenate([c.get_offsets() for c in axs[0].collections if hasattr(c, "get_offsets")])
-    assert offsets[:, 0].max() == pytest.approx(17.0)
+    # the data beyond Wesson's q_psi = 10 stay inside the axes, not just in the scatter
+    assert axs[0].get_xlim()[1] >= 17.0
     # the CFB panel never receives the q_psi population
     assert not any(len(c.get_offsets()) for c in axs[1].collections if type(c).__name__ == "PathCollection")
     legend = " ".join(t_.get_text() for t_ in axs[1].get_legend().get_texts()).replace("\n  ", " ")
     assert "Cheng-Furth-Boozer 1987 stable domain" in legend and "(Theoretical)" in legend
     legend0 = " ".join(t_.get_text() for t_ in axs[0].get_legend().get_texts()).replace("\n  ", " ")
     assert "(Empirical)" in legend0
+
+
+def test_the_pair_widens_each_panel_to_its_data():
+    from vaft.plot.operational_space import li_qa_pair
+    t = pd.DataFrame({"edge_safety_factor": [5.0, 25.0], "internal_inductance_li3": [0.5, 2.4],
+                      "cylinder_edge_safety_factor": [3.0, 12.0], "internal_inductance_cylinder": [0.6, 0.9]})
+    fig, axs = li_qa_pair(t)
+    assert axs[0].get_xlim()[1] >= 25.0 and axs[0].get_ylim()[1] >= 2.4
+    assert axs[1].get_xlim()[1] >= 12.0
+    # the CFB panel gets the population when the table has the cylinder quantities
+    assert sum(len(c.get_offsets()) for c in axs[1].collections if type(c).__name__ == "PathCollection") == 2
+
+
+def test_the_pair_treats_all_nan_cylinder_columns_as_absent_and_draws_a_cylinder_only_table():
+    from vaft.plot.operational_space import li_qa_pair
+    t = pd.DataFrame({"edge_safety_factor": [5.0, 8.0], "internal_inductance_li3": [0.5, 0.7],
+                      "cylinder_edge_safety_factor": [np.nan, np.nan], "internal_inductance_cylinder": [np.nan, np.nan]})
+    _, axs = li_qa_pair(t)
+    assert any("reference only" in t_.get_text() for t_ in axs[1].texts)
+    cyl = pd.DataFrame({"cylinder_edge_safety_factor": [3.0, 4.0], "internal_inductance_cylinder": [0.6, 0.8]})
+    _, axs = li_qa_pair(cyl)
+    assert any("reference only" in t_.get_text() for t_ in axs[0].texts)
+
+
+def test_a_source_end_note_marks_the_registered_end_and_only_inside_the_axes():
+    t = pd.DataFrame({"edge_safety_factor": [4.0, 6.0], "internal_inductance_li3": [0.6, 0.8]})
+    _, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0, 8), y_range=(0, 2))
+    assert not [t_ for t_ in ax.texts if "ends at" in t_.get_text()]   # the axes stop before q_psi = 10
+    _, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0, 14), y_range=(0, 2))
+    notes = [t_ for t_ in ax.texts if "ends at" in t_.get_text()]
+    assert len(notes) == 1 and notes[0].get_text().endswith("= 10") and notes[0].xy[0] == pytest.approx(10.0)
 
 
 def test_the_cfb_domain_stops_where_its_source_figure_ends():
@@ -691,8 +721,9 @@ def test_the_cfb_domain_stops_where_its_source_figure_ends():
     fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
     xs = np.concatenate([p.vertices[:, 0] for c in fills for p in c.get_paths()])
     assert xs.max() <= 7.75 + 1e-9   # no fill (stable or unstable) beyond q(a) = 7.75
-    notes = [t_.get_text() for t_ in ax.texts if "Fig. 4 ends" in t_.get_text()]
-    assert notes and "no upper-$q$ limit implied" in notes[0]
+    notes = [t_ for t_ in ax.texts if "Fig. 4 ends" in t_.get_text()]
+    assert notes and "no upper-$q$ limit implied" in notes[0].get_text()
+    assert notes[0].xy[0] == pytest.approx(7.75)   # at the registered end, not the last sampled point
 
 
 def test_cfb_bounds_are_never_drawn_on_the_q_psi_plane():

@@ -422,8 +422,8 @@
     },
     "li_qa_cheng_1987.svg": {
       "call": "vaft.diagram.li_qa(reference='cheng_1987')",
-      "source_sha256": "1f3a106a32175fb2b1aaa8ad250770ca32a384e786b691be4edeecab9163b129",
-      "svg_sha256": "5201d2a86c0ea96132fa9862ca99cd0a22bf554f968fe88257f2ad065a13d469"
+      "source_sha256": "15beed16225e3df1c20b15f621f4a35ae242dc65f6513a2e656625bc0c6ae5e9",
+      "svg_sha256": "037aafe1688c3307301ce7ad7a1c8e6fcc4dc7dc4441b424254eabfa30b0385a"
     },
     "li_qa_wesson_1989.svg": {
       "call": "vaft.diagram.li_qa(reference='wesson_1989')",

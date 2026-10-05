@@ -64,12 +64,15 @@ REGIONS = {
     ("cheng_1987_li_qa_lower", "cheng_1987_li_qa_upper"):
         "Cheng-Furth-Boozer 1987 stable domain (theory: q(0) = 1.01, pressureless straight cylinder, no shell)",
 }
-#: Where a source figure ends: annotated at the curve's last drawn point, so that the end of a literature
-#: reference is not read as a limit and the data beyond it stay on the plot (#1603).
+#: Where a source figure ends: annotated at the registered end of the boundary's x range (its
+#: ``Applicability.ranges``), and only when that end is inside the axes, so that the end of a literature
+#: reference is not read as a limit and the data beyond it stay on the plot (#1603). ``{end}`` is that end.
 SOURCE_ENDS = {
-    "wesson_1989_jet_li_qpsi_upper": "JET Fig. 6 ends at $q_\\psi$ = 10",
-    "cheng_1987_li_qa_upper": "Fig. 4 ends ($q(a)$ ~ 8): no upper-$q$ limit implied",
+    "wesson_1989_jet_li_qpsi_upper": "JET Fig. 6 ends at $q_\\psi$ = {end}",
+    "cheng_1987_li_qa_upper": "Fig. 4 ends at $q(a)$ = {end}: no upper-$q$ limit implied",
 }
+#: Fill of a theoretical permissible domain (REGIONS), shared by the plot and its legend patch.
+REGION_FILL = ("#1baf7a", 0.16)
 #: Projections on which a REFERENCE_ONLY boundary is a reference in every style, the default shaded one too:
 #: on the spherical-tokamak Hugill diagram Murakami must never read as a limit (#1602). The same holds for any
 #: population whose ``table.attrs["machine_class"]`` is a spherical tokamak.
@@ -91,7 +94,7 @@ BOUNDARY_NAMES = {
     "wesson_1989_jet_li_qpsi_lower": "Kink / double-tearing limit",
     "wesson_1989_jet_li_qpsi_upper": "Density-limit disruptions",
     "cheng_1987_li_qa_lower": "Lower: ideal external kink",
-    "cheng_1987_li_qa_upper": "Upper: resistive kink (2/1, 3/2)",
+    "cheng_1987_li_qa_upper": "Upper: low-order resistive kink (mainly 2/1, 3/2)",
     "cheng_1987_qa_min": "q(a) = 2",
     "low_q": "Low-q limit",
     "greenwald_hugill": "Greenwald/Hugill limit",
@@ -577,8 +580,8 @@ def _draw_trajectories(ax, trajectories, x: str, y: str, time: str, colour_of, s
                         zorder=7)
 
 
-def li_qa_pair(table: pd.DataFrame, *, x_range: Optional[Tuple[float, float]] = (0.0, 18.0),
-               y_range: Optional[Tuple[float, float]] = (0.0, 2.0), format: Optional[str] = None,
+def li_qa_pair(table: pd.DataFrame, *, x_range: Optional[Tuple[float, float]] = None,
+               y_range: Optional[Tuple[float, float]] = None, format: Optional[str] = None,
                theme: Optional[str] = None, show: bool = False, **kwargs):
     """The empirical (Wesson 1989, JET) and theoretical (Cheng-Furth-Boozer 1987) l_i-q references side by side.
 
@@ -594,14 +597,17 @@ def li_qa_pair(table: pd.DataFrame, *, x_range: Optional[Tuple[float, float]] = 
     table : pandas.DataFrame
         Population, columns named by quantity identity.
     x_range, y_range : (float, float), optional
-        Limits of the Wesson panel; the data are not cut to the references.
+        Limits of the Wesson panel. By default each panel spans its reference
+        (Wesson: q_psi 0-18, l_i 0-2; CFB: q(a) 1-9, l_i 0.2-2.6) widened to
+        every finite data point, so the data are never cut to a reference.
     format, theme : str, optional
         Presentation format and theme of :mod:`vaft.plot.presentation`.
     show : bool
         Call ``plt.show()``.
     **kwargs
-        Passed to :func:`operational_space_population` for the Wesson panel
-        (``color``, ``marker``, ``category_colors``, ...).
+        Passed to :func:`operational_space_population` for both panels
+        (``color``, ``marker``, ``category_colors``, ...). A table without the
+        Wesson columns leaves the left panel as a reference only.
 
     Returns
     -------
@@ -616,17 +622,30 @@ def li_qa_pair(table: pd.DataFrame, *, x_range: Optional[Tuple[float, float]] = 
     with pres.context():
         width = pres.format.width_in
         fig, axs = plt.subplots(1, 2, figsize=(width, min(0.45 * width, pres.format.max_height_in)))
-        operational_space_population(table, "li_qa_wesson", boundary_style="inline", x_range=x_range,
-                                     y_range=y_range, ax=axs[0], legend_keys=False,
-                                     title="Empirical: Wesson 1989 (JET)", **kwargs)
-        cylinder = {"cylinder_edge_safety_factor", "internal_inductance_cylinder"}
-        data = table if cylinder <= set(table.columns) else pd.DataFrame({c: pd.Series(dtype=float) for c in cylinder})
-        operational_space_population(data, "li_qa_cheng", boundary_style="inline", x_range=(1.0, 9.0),
-                                     y_range=(0.2, 2.6), ax=axs[1], legend_keys=False,
-                                     title="Theoretical: Cheng, Furth and Boozer 1987")
-        if data is not table:
-            axs[1].text(0.97, 0.03, "no cylinder q(a), l_i for these states: reference only", transform=axs[1].transAxes,
-                        ha="right", va="bottom", fontsize="x-small", style="italic", color="0.35")
+        panels = (("li_qa_wesson", ("edge_safety_factor", "internal_inductance_li3"), (0.0, 18.0), (0.0, 2.0),
+                   "Empirical: Wesson 1989 (JET)", "no $q_\\psi$, $l_i(3)$ for these states: reference only"),
+                  ("li_qa_cheng", ("cylinder_edge_safety_factor", "internal_inductance_cylinder"), (1.0, 9.0),
+                   (0.2, 2.6), "Theoretical: Cheng, Furth and Boozer 1987",
+                   "no cylinder $q(a)$, $l_i$ for these states: reference only"))
+        for ax, (proj, cols, x_ref, y_ref, title, empty_note) in zip(axs, panels):
+            values = [pd.to_numeric(table[c], errors="coerce") if c in table.columns else None for c in cols]
+            finite = (values[0].notna() & values[1].notna()
+                      & np.isfinite(values[0]) & np.isfinite(values[1])) if all(v is not None for v in values) else None
+            has_data = finite is not None and bool(finite.any())
+            data = table if has_data else pd.DataFrame({c: pd.Series(dtype=float) for c in cols})
+            if has_data and proj == "li_qa_wesson" and (x_range is not None or y_range is not None):
+                xr, yr = x_range or x_ref, y_range or y_ref   # explicit limits are the caller's
+            else:
+                xr, yr = x_ref, y_ref
+                if has_data:   # widen the reference span to every finite data point: the data are never cut
+                    xs_, ys_ = values[0][finite], values[1][finite]
+                    xr = (min(xr[0], float(xs_.min())), max(xr[1], 1.05 * float(xs_.max())))
+                    yr = (min(yr[0], float(ys_.min())), max(yr[1], 1.05 * float(ys_.max())))
+            operational_space_population(data, proj, boundary_style="inline", x_range=xr, y_range=yr, ax=ax,
+                                         legend_keys=False, title=title, **(kwargs if has_data else {}))
+            if not has_data:
+                ax.text(0.97, 0.03, empty_note, transform=ax.transAxes, ha="right", va="bottom", fontsize="x-small",
+                        style="italic", color="0.35")
         for ax in axs:   # the legends go under their panels, so the two panels keep their width
             legend = ax.get_legend()
             if legend is not None:
@@ -901,6 +920,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             patches.append(Patch(facecolor=to_rgba(c, 0.05), edgecolor=c, hatch="////", linewidth=1.0,
                                  label=_inline_legend_label(curve, suffix)))
     for (lower_key, upper_key), text in regions.items():
+        from matplotlib.colors import to_rgba
         from matplotlib.patches import Patch
         lower, upper = drawn[lower_key], drawn[upper_key]
         ok = np.isfinite(lower.x) & np.isfinite(lower.y)
@@ -912,8 +932,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         uy = np.interp(lx, np.asarray(upper.x)[uok][order], np.asarray(upper.y)[uok][order], left=np.nan, right=np.nan)
         span = np.isfinite(uy) & (uy >= ly)
         # only where the source draws both bounds: no fill beyond the figure's end
-        ax.fill_between(lx, ly, uy, where=span, color="#1baf7a", alpha=0.16, linewidth=0, zorder=0)
-        patches.append(Patch(facecolor=(0.106, 0.686, 0.478, 0.16), edgecolor="none",
+        ax.fill_between(lx, ly, uy, where=span, color=REGION_FILL[0], alpha=REGION_FILL[1], linewidth=0, zorder=0)
+        patches.append(Patch(facecolor=to_rgba(*REGION_FILL), edgecolor="none",
                              label=textwrap.fill(text + " (Theoretical)", width=46, subsequent_indent="  ")))
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
@@ -921,11 +941,22 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         for curve in plan.curves:
             note = SOURCE_ENDS.get(curve.key)
             ok = np.isfinite(curve.x) & np.isfinite(curve.y)
-            if note is None or not ok.any():
+            entry = _b.get_boundary(curve.key)
+            ranges = dict(entry.applicability.ranges) if entry.applicability is not None else {}
+            if note is None or not ok.any() or proj.x.name not in ranges:
                 continue
-            x_end, y_end = float(np.asarray(curve.x)[ok][-1]), float(np.asarray(curve.y)[ok][-1])
+            # the registered end of the source, not the last sampled point (which is the view edge when the
+            # axes stop short of the source)
+            x_end = float(ranges[proj.x.name][1])
+            cx, cy = np.asarray(curve.x, dtype=float)[ok], np.asarray(curve.y, dtype=float)[ok]
+            order = np.argsort(cx)
+            cx, cy = cx[order], cy[order]
             (x0, x1), (y0, y1) = sorted(ax.get_xlim()), sorted(ax.get_ylim())
-            if x0 <= x_end <= x1 and y0 <= y_end <= y1:
+            if not (x0 <= x_end <= x1) or x_end > cx[-1] + 0.01 * (x1 - x0):
+                continue   # the source end is off the axes, or the curve was not sampled up to it
+            y_end = float(np.interp(x_end, cx, cy))
+            note = note.format(end=f"{x_end:g}")
+            if y0 <= y_end <= y1:
                 # below the end point and to its left: inside the axes, clear of the title above
                 ax.annotate(note, xy=(x_end, y_end), xytext=(-2, -10), textcoords="offset points", ha="right", va="top",
                             fontsize="x-small", style="italic", color="0.35", zorder=4, annotation_clip=True)
