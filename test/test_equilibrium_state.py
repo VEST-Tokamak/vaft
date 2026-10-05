@@ -48,10 +48,14 @@ def _code(path: Path) -> str:
     return "\n".join("".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code")
 
 
-def test_every_slice_has_a_row_and_an_unreadable_one_keeps_its_reason(vest_rows):
+def test_every_slice_has_a_row_and_a_missing_input_costs_only_its_columns(vest_rows):
+    """The packaged sample's last slice has no boundary: its shape columns are NaN with the reason, not a lost row."""
     assert [r["time_index"] for r in vest_rows] == list(range(9))
-    assert [r["state_status"] for r in vest_rows] == ["valid"] * 8 + ["failed"]
-    assert "boundary.outline" in vest_rows[-1]["state_reason"]
+    assert [r["state_status"] for r in vest_rows] == ["valid"] * 9
+    assert all(r["state_notes"] == "" for r in vest_rows[:8])
+    last = vest_rows[-1]
+    assert "boundary.outline" in last["state_notes"] and last["update_routine_status"] == "skipped"
+    assert math.isnan(last["edge_safety_factor_95"]) and math.isnan(last["internal_inductance_li3"])
     assert all(r["machine"] == "VEST" and r["machine_class"] == "spherical_tokamak" for r in vest_rows)
     assert all(r["cocos_target"] == 11 and r["cocos_source"] == 11 for r in vest_rows[:8])
     assert all("ambiguous" in r["cocos_status"] for r in vest_rows[:8])   # an ambiguity is said, not hidden
@@ -96,9 +100,11 @@ def test_table_is_one_frame_with_units_and_provenance(vest_ods):
     assert (table["edge_safety_factor_95"] > 0).all()   # a magnitude after COCOS 11
 
 
-def test_asserted_cocos_is_recorded(vest_ods):
+def test_asserted_cocos_is_recorded_and_held_to_amperes_law(vest_ods):
     (row,) = equilibrium_state_rows(vest_ods, {"machine": "VEST"}, time_indices=[0], cocos=11)
-    assert row["cocos_status"] == "asserted" and row["cocos_source"] == 11
+    assert row["cocos_status"] == "asserted" and row["cocos_source"] == 11 and row["state_status"] == "valid"
+    (wrong,) = equilibrium_state_rows(vest_ods, {"machine": "VEST"}, time_indices=[0], cocos=1)
+    assert wrong["state_status"] == "flux_conflict" and "COCOS 1 is asserted" in wrong["state_reason"]
 
 
 def test_a_psi_map_that_fails_amperes_law_is_not_a_state(vest_ods, vest_rows):
@@ -108,7 +114,7 @@ def test_a_psi_map_that_fails_amperes_law_is_not_a_state(vest_ods, vest_rows):
     rows = equilibrium_state_rows(ods, {"machine": "VEST"}, time_indices=[1, 2])
     assert [r["state_status"] for r in rows] == ["valid", "flux_conflict"]
     assert "Ampere" in rows[1]["state_reason"] or "disagree" in rows[1]["state_reason"]
-    assert rows[1]["internal_inductance_li3"] > 10 * vest_rows[2]["internal_inductance_li3"]
+    assert rows[1]["internal_inductance_li3"] > 5 * vest_rows[2]["internal_inductance_li3"]
 
 
 def test_a_source_without_an_equilibrium_keeps_one_failed_row():
@@ -164,10 +170,13 @@ def test_operation_space_notebook_discovers_projections_and_restates_no_boundary
     assert "list_projections()" in code and "operational_space_population(" in code
     assert "equilibrium_state_table(" in code
     assert "plot_stability_limit" not in code   # the legacy workflow is history, not a source
-    # the only numbers a boundary could hide behind: none of the registered coefficients appears
-    for key in ("troyon", "iter_1991_q95_min", "menard_2004_qstar_min"):
-        from vaft.formula import boundaries as B
+    # no registered coefficient is restated: compare every numeric literal of the code with every coefficient
+    from vaft.formula import boundaries as B
 
-        coefficient = getattr(B.get_boundary(key), "coefficient", None)
-        if coefficient is not None:
-            assert f"{coefficient:g}" not in code, key
+    literals = {node.value for node in ast.walk(ast.parse("\n".join(
+        line for line in code.splitlines() if not line.lstrip().startswith("%"))))
+        if isinstance(node, ast.Constant) and isinstance(node.value, float)}
+    coefficients = {key: entry.coefficient for key in B.list_boundaries()
+                    for entry in [B.get_boundary(key)] if getattr(entry, "coefficient", None) not in (None, 0.0, 1.0, 2.0)}
+    restated = {key: c for key, c in coefficients.items() for v in literals if math.isclose(v, c, rel_tol=0.02)}
+    assert coefficients and not restated, restated

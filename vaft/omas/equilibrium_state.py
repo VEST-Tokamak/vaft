@@ -28,8 +28,15 @@ Every value comes from the equilibrium alone:
   and START $q_{95}$ estimates, $1/q_{cyl}$) are evaluated by the registered
   coordinate functions on the slice's own shape, never by a restated formula.
 
-A quantity the source cannot supply stays NaN; a slice that cannot be read
-keeps its row with ``state_status = "failed"`` and the reason. A slice whose
+Two toroidal fields appear, as in the atlas: ``toroidal_field`` and the shape
+coordinates use the vacuum field at the geometric radius,
+$B_0 R_{ref}/R_{geo}$; ``normalized_current`` and $\\beta_N$ use ``b0`` at the
+reference radius $R_{ref}$ (the DD convention). On a spherical tokamak the two
+differ by tens of percent.
+
+A quantity the source cannot supply stays NaN, with the reason in
+``state_notes`` when a derivation raised; only a slice that cannot be read at
+all keeps its row with ``state_status = "failed"`` and the reason. A slice whose
 psi map does not satisfy Ampere's law round the LCFS in the flux family it is
 read in (:func:`vaft.process.cocos.identify_flux_exponent`) gets
 ``state_status = "flux_conflict"``: its ``li_3`` and $\\beta_p$ would be off by
@@ -84,7 +91,8 @@ EQUILIBRIUM_STATE_UNITS = {
 #: Provenance columns, first in every table.
 _PROVENANCE = ("machine", "machine_class", "dataset_source", "dataset_type", "source_format", "shot", "time_s",
                "time_index", "equilibrium_provenance", "cocos_source", "cocos_status", "cocos_target",
-               "state_status", "state_reason", "li_beta_source", "li_beta_crosscheck")
+               "state_status", "state_reason", "state_notes", "li_beta_source", "li_beta_crosscheck",
+               "update_routine_status")
 
 #: Relative tolerance of the li_3 / beta_N cross-check, as in the atlas base table (grid-cell bias of a few %).
 CROSSCHECK_RTOL = 0.10
@@ -159,12 +167,15 @@ def _resolved(ods, k: int, cocos: Optional[int]):
     return convert_cocos(stated, 11), source, status
 
 
-def _flux_consistency(ods, k: int) -> str:
+def _flux_consistency(ods, k: int, cocos: Optional[int] = None) -> str:
     """Ampere's law round the LCFS against the flux family the ODS is read in; "" when they agree.
 
     ``li_3`` and ``beta_p`` scale with the poloidal field, so a psi map that does not carry ``mu0 |I_p|``
     round the boundary in the family it is read in (a g-file of the other family converted as if it
-    were this one, or a file whose ``ip`` and psi disagree) would give them silently wrong.
+    were this one, or a file whose ``ip`` and psi disagree) would give them silently wrong. An asserted COCOS
+    is held to the same test. When the ODS declares no COCOS and stores no ``phi``, its family was itself decided
+    by this probe, so only the "neither family" outcome can fire: the check is then a consistency check of ``ip``
+    against the psi map, not an independent family test.
     """
     from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
     from vaft.process.cocos import identify_flux_exponent
@@ -176,11 +187,23 @@ def _flux_consistency(ods, k: int) -> str:
         return ""   # nothing to measure: the check abstains
     if exponent is None:
         return f"I_p and the psi map disagree: loop integral of B_p over mu0 |I_p| is {ratio:.3g}, neither family"
+    family = ("weber", "weber per radian")
+    if cocos is not None and exponent != int(cocos >= 11):
+        return (f"COCOS {cocos} is asserted ({family[1 - int(cocos >= 11)]}) but Ampere's law says "
+                f"{family[1 - exponent]} (loop ratio {ratio:.3g})")
     if exponent != stored:
-        family = ("weber", "weber per radian")
         return (f"psi is read as {family[1 - stored]} but Ampere's law says {family[1 - exponent]} "
                 f"(loop ratio {ratio:.3g})")
     return ""
+
+
+def _guarded(notes: list, label: str, compute):
+    """``compute()``, or NaN with the reason in ``notes``: one missing input never costs the row its other columns."""
+    try:
+        return float(compute())
+    except Exception as exc:
+        notes.append(f"{label}: {type(exc).__name__}: {exc}")
+        return math.nan
 
 
 def _slice_values(ods, k: int, cocos: Optional[int]) -> dict:
@@ -189,20 +212,27 @@ def _slice_values(ods, k: int, cocos: Optional[int]) -> dict:
     from vaft.omas.update import resolve_reference_major_radius
     from vaft.process.equilibrium import derive_global_descriptors
 
+    # the slice itself must be readable; every derived group below fails on its own
     eq, source, status = _resolved(ods, k, cocos)
     d = derive_global_descriptors(eq).values
     pick = lambda n: float(d[n].value) if n in d and d[n].available else math.nan  # noqa: E731
-    r_ref = float(resolve_reference_major_radius(ods))
+    notes: list = []
+    r_ref = _guarded(notes, "reference_major_radius", lambda: resolve_reference_major_radius(ods))
     ip_a = abs(pick("ip"))
-    li3_grid = li_3_from_Bp2_volume_integral(_bp2_volume_integral(ods, k), ip_a, r_ref)
+    li3_grid = _guarded(notes, "li3_grid_integral",
+                        lambda: li_3_from_Bp2_volume_integral(_bp2_volume_integral(ods, k), ip_a, r_ref))
     li3_dd, bn_dd, routine = _dd_li_beta(ods, k)
     bn_desc = pick("beta_n")
     use_dd = np.isfinite(li3_dd) and np.isfinite(bn_dd)
     ip_ma = ip_a * 1e-6
     a, r_geo = pick("minor_radius"), pick("major_radius")
     kappa, area = pick("elongation"), pick("cross_section_area")
-    b0_all = np.atleast_1d(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], dtype=float))
-    b0 = abs(float(b0_all[min(k, b0_all.size - 1)]))   # a constant field is stored once
+
+    def _b0():
+        b0_all = np.atleast_1d(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], dtype=float))
+        return abs(float(b0_all[min(k, b0_all.size - 1)]))   # a constant field is stored once
+
+    b0 = _guarded(notes, "b0", _b0)
     kappa_a = area / (math.pi * a * a)
     b_geo = b0 * r_ref / r_geo   # vacuum field at R_geo from the field at the reference radius
     delta = 0.5 * (pick("triangularity_upper") + pick("triangularity_lower"))
@@ -213,6 +243,7 @@ def _slice_values(ods, k: int, cocos: Optional[int]) -> dict:
         "cocos_target": 11,
         "li_beta_source": "dd_update_routine" if use_dd else "grid_integral_and_descriptors",
         "li_beta_crosscheck": _crosscheck([(li3_dd, li3_grid), (bn_dd, bn_desc)], routine),
+        "update_routine_status": routine,
         "plasma_current": ip_ma,
         "toroidal_field": b_geo,
         "b0": b0,
@@ -236,13 +267,22 @@ def _slice_values(ods, k: int, cocos: Optional[int]) -> dict:
         "normalized_beta": bn_dd if use_dd else bn_desc,
         "toroidal_beta": 100.0 * pick("beta_t"),
         "poloidal_beta": pick("beta_p_boundary_average"),
+        # B_0 at the reference radius, as in beta_N; toroidal_field and the shape coordinates use B at R_geo
         "normalized_current": ip_ma / (a * b0),
-        "inverse_cylindrical_q": 1.0 / q_cyl_from_B_R_epsilon_kappa_I(b_geo, r_geo, a / r_geo, kappa_a, ip_a),
-        "kink_safety_factor_elliptic": float(_b.kink_coordinates(a, r_geo, b_geo, kappa, ip_ma)),
-        "kink_safety_factor_cylindrical": float(_b.cylindrical_kink_coordinates(a, r_geo, b_geo, kappa, ip_ma)),
-        "edge_safety_factor_95_estimate_iter": float(_b.iter_q95_coordinates(a, r_geo, b_geo, kappa, delta, ip_ma)),
-        "edge_safety_factor_95_estimate_start": float(_b.start_q95_coordinates(a, r_geo, b_geo, kappa, delta,
-                                                                               ip_ma)),
+        "inverse_cylindrical_q": _guarded(notes, "inverse_cylindrical_q", lambda: 1.0 / q_cyl_from_B_R_epsilon_kappa_I(
+            b_geo, r_geo, a / r_geo, kappa_a, ip_a)),
+        "kink_safety_factor_elliptic": _guarded(notes, "kink_safety_factor_elliptic",
+                                                lambda: _b.kink_coordinates(a, r_geo, b_geo, kappa, ip_ma)),
+        "kink_safety_factor_cylindrical": _guarded(notes, "kink_safety_factor_cylindrical",
+                                                   lambda: _b.cylindrical_kink_coordinates(a, r_geo, b_geo, kappa,
+                                                                                           ip_ma)),
+        "edge_safety_factor_95_estimate_iter": _guarded(notes, "edge_safety_factor_95_estimate_iter",
+                                                        lambda: _b.iter_q95_coordinates(a, r_geo, b_geo, kappa, delta,
+                                                                                        ip_ma)),
+        "edge_safety_factor_95_estimate_start": _guarded(notes, "edge_safety_factor_95_estimate_start",
+                                                         lambda: _b.start_q95_coordinates(a, r_geo, b_geo, kappa,
+                                                                                          delta, ip_ma)),
+        "state_notes": "; ".join(notes),
     }
 
 
@@ -294,7 +334,7 @@ def equilibrium_state_rows(ods: Any, provenance: Optional[Mapping[str, Any]] = N
         row["time_s"] = float(t) if t is not None else math.nan
         try:
             row.update(_slice_values(ods, int(k), cocos))
-            conflict = _flux_consistency(ods, int(k))
+            conflict = _flux_consistency(ods, int(k), cocos)
             # the values stay in the row so the conflict can be inspected; only "valid" rows are states
             row.update(state_status="flux_conflict" if conflict else "valid", state_reason=conflict)
         except Exception as exc:  # recorded per row, never silently dropped
