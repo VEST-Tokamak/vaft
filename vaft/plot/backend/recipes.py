@@ -885,8 +885,11 @@ def _machine_view_title(base: str, shared: GeometryLayers | Geometry3DLayers) ->
 def _exclude_crossshot_equilibrium(ods: Any, options: Mapping[str, Any]) -> bool:
     """Do not put a foreign-shot equilibrium in the fixture's machine context."""
     manifest = options.get("geometry_manifest") or {}
-    if manifest.get("kind") != "cross-shot-diagnostic-fixture" or options.get("geometry_data", ods) is not ods:
+    if options.get("geometry_data", ods) is not ods:
         return False
+    if manifest.get("kind") != "cross-shot-diagnostic-fixture":
+        comment = _get(ods, "dataset_description.ids_properties.comment")
+        return isinstance(comment, str) and "Cross-shot composite fixture" in comment
     reference = manifest.get("geometry_reference", {}).get("source_shot")
     sources = [source for source in manifest.get("sources", {}).values()
                if "equilibrium" in source.get("ids", ())]

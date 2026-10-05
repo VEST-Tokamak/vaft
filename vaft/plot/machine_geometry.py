@@ -436,6 +436,10 @@ def machine_geometry_view(data: Any, view: str, *, families: tuple[str, ...] | N
     if (manifest or {}).get("kind") == "cross-shot-diagnostic-fixture":
         reference = (manifest or {}).get("geometry_reference", {}).get("source_shot")
         notice = f"Cross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
+    elif not notice:
+        source_comment = get(data, "dataset_description.ids_properties.comment")
+        if isinstance(source_comment, str) and "Cross-shot composite fixture" in source_comment:
+            notice = source_comment.replace("Cross-shot composite fixture", "Cross-shot composite")
     title = "Machine geometry" + (f"\n{notice}" if notice else "")
     if view == "3d":
         return Geometry3DLayers(tuple(layers), title=title)

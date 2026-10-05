@@ -174,6 +174,7 @@ def test_four_views_share_family_selection_and_composite_notice():
                 assert any("3-D coil filament (R-Z projection)" in layer.label for layer in model.layers)
     with pytest.raises(ValueError, match="calibrated"):
         machine_geometry_view(data, "camera", families=selected, manifest=manifest)
+    assert "Cross-shot composite" in machine_geometry_view(data, "rz", families=selected).title
     assert not machine_geometry_view(data, "top", families=("langmuir_probes",),
                                      manifest=manifest).layers
 
@@ -262,6 +263,13 @@ def test_public_machine_views_use_fixture_registry_and_composite_notice():
     manifest = unified_diagnostics_manifest()
     families = ("thomson_scattering", "ec_launchers", "nbi")
     names = ("machine_geometry_poloidal", "machine_geometry_topview", "machine_geometry3d")
+    for name in names:
+        bare = build_model(name, normalize_entries(data))
+        assert "Cross-shot composite" in bare.title
+        if name == "machine_geometry3d":
+            assert not any(layer.group == "equilibrium/boundary" for layer in bare.layers)
+        if name == "machine_geometry_topview":
+            assert not any("Plasma" in layer.label for layer in bare.layers)
     for name, view in zip(names, ("rz", "top", "3d")):
         public = build_model(name, normalize_entries(data), geometry_manifest=manifest,
                              geometry_families=families)
