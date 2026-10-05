@@ -74,6 +74,12 @@ def _check_labels(labels) -> bool:
     return labels
 
 
+def _check_name(name, allowed: Sequence[str], what: str) -> str:
+    if not isinstance(name, str) or name not in allowed:
+        raise ValueError(f"{what} must be one of {tuple(allowed)}, not {name!r}")
+    return name
+
+
 def _check_names(names, allowed: Sequence[str], what: str) -> Tuple[str, ...]:
     if isinstance(names, str):
         names = (names,)
@@ -225,10 +231,11 @@ def q_profile_landmarks(profile: str = "monotonic", *, labels: bool = True) -> D
     only for a monotonic $q$; $q_{95} = q(\psi_N = 0.95)$, which is not at
     $r/a = 0.95$; $q_a$ is the boundary value of a cylinder or limited
     plasma -- in a diverted equilibrium $q \to \infty$ at the separatrix,
-    which is why $q_{95}$ is quoted. None of them is the engineering
-    $q_\mathrm{cyl}$ or $q^*$.
+    which is why $q_{95}$ is quoted. In this cylinder $q_a = q_\mathrm{cyl}$
+    by construction; in a shaped, finite-aspect-ratio torus $q_{95}$ and the
+    equilibrium edge $q$ differ from $q_\mathrm{cyl}$ and $q^*$.
     """
-    profile = _check_names(profile, ("monotonic", "reversed_shear"), "profile")[0]
+    profile = _check_name(profile, ("monotonic", "reversed_shear"), "profile")
     labels = _check_labels(labels)
     m = _cylinder(_TOPOLOGY[profile])
     x, q = m["x"], m["q"]
@@ -276,8 +283,8 @@ def q_profile_landmarks(profile: str = "monotonic", *, labels: bool = True) -> D
                                              else ""), CHART_WIDTH / 2, -2.55),
             _note("$q_a$: the boundary of a cylinder or limited plasma. In a diverted equilibrium "
                   "$q \\to \\infty$ at the separatrix,", CHART_WIDTH / 2, -3.2),
-            _note("so $q_{95}$ is quoted instead. Neither is the engineering $q_\\mathrm{cyl}$ or $q^*$. "
-                  "Reduced cylindrical model.", CHART_WIDTH / 2, -3.75),
+            _note("so $q_{95}$ is quoted instead. Here $q_a = q_\\mathrm{cyl}$; in a shaped torus $q_{95}$ and "
+                  "edge $q$ differ from $q_\\mathrm{cyl}$ and $q^*$.", CHART_WIDTH / 2, -3.75),
         ]
     return Diagram("q_profile_landmarks", Scene(tuple(items)), model=chart)
 
@@ -389,7 +396,7 @@ def rational_surface_topology(profile: str = "reversed_shear", m: int = 2, n: in
     say whether it grows. ``rational_surface`` keeps the single-crossing
     definition.
     """
-    profile = _check_names(profile, tuple(_TOPOLOGY), "profile")[0]
+    profile = _check_name(profile, tuple(_TOPOLOGY), "profile")
     for name, value in (("m", m), ("n", n)):
         if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value <= 0:
             raise ValueError(f"{name} must be a positive integer mode number, not {value!r}")

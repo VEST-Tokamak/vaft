@@ -4,10 +4,12 @@ import math
 
 import numpy as np
 import pytest
+from scipy.integrate import quad
+from scipy.optimize import brentq
 
 import vaft.diagram
 from vaft.diagram._equilibrium_profiles import _cylinder
-from vaft.formula.constants import MU0
+from vaft.formula.equilibrium import li_3_from_Bp2_volume_integral
 from vaft.formula.geometry import (
     cylindrical_enclosed_current,
     cylindrical_internal_inductance,
@@ -56,6 +58,17 @@ def test_a_uniform_current_has_l_i_one_half_and_a_peaked_one_more():
     assert cylindrical_internal_inductance(r, 3.0 * B) == pytest.approx(0.5, rel=1e-6)  # a ratio of B^2
 
 
+def test_the_cylinder_l_i_is_the_imas_l_i_3_of_a_straight_torus():
+    a, R0, Ip = 0.4, 1.8, 3e5
+    r = np.linspace(0.0, a, 4001)
+    I = Ip * (1.0 - (1.0 - (r / a) ** 2) ** 3)  # j ~ (1 - x^2)^2
+    B = np.zeros_like(r)
+    B[1:] = cylindrical_poloidal_field(r[1:], I[1:])
+    bp2_dv = 2.0 * math.pi * R0 * np.trapezoid(B**2 * 2.0 * math.pi * r, r)
+    assert cylindrical_internal_inductance(r, B) == pytest.approx(li_3_from_Bp2_volume_integral(bp2_dv, Ip, R0),
+                                                                  rel=1e-9)
+
+
 @pytest.mark.parametrize("bad", [
     {"r": np.array([0.1, 0.2, 0.3])},          # not from the axis
     {"r": np.array([0.0, 0.2, 0.1])},          # not increasing
@@ -75,8 +88,9 @@ def test_l_i_needs_a_boundary_field_and_flux_a_positive_R0():
     r = np.linspace(0.0, 1.0, 11)
     with pytest.raises(ValueError):
         cylindrical_internal_inductance(r, np.zeros_like(r))
-    with pytest.raises(ValueError):
-        cylindrical_poloidal_flux(r, r, 0.0)
+    for R0 in (0.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError):
+            cylindrical_poloidal_flux(r, r, R0)
 
 
 # ---------------------------------------------------------------------------
@@ -93,10 +107,13 @@ def test_every_shape_carries_the_same_current_and_its_field_is_ampere(shape):
     assert 2.0 * np.trapezoid(m["j"] * x, x) == pytest.approx(1.0, rel=1e-5)
     # B_theta / B_theta(a) = I(r) a / (I_p r), Ampère
     np.testing.assert_allclose(m["B_theta"][1:], m["I"][1:] / x[1:], rtol=1e-12)
-    assert MU0 * 1.0 / (2 * math.pi) == pytest.approx(float(cylindrical_poloidal_field(1.0, 1.0)))
-    # q = q_a (r/a)^2 I_p / I(r), and the axis value is its limit
-    np.testing.assert_allclose(m["q"][1:], m["q_a"] * x[1:] ** 2 / m["I"][1:], rtol=1e-10)
-    assert m["q0"] == pytest.approx(m["q"][1], rel=1e-3)
+    # q = q_a (r/a)^2 I_p / I(r) against quadrature, and on axis q0 = q_a j_bar / j(0)
+    f = vaft.diagram._equilibrium_profiles._CURRENTS[shape]
+    total = quad(lambda s: f(s) * s, 0.0, 1.0, epsabs=1e-13)[0]
+    for xx in (0.2, 0.5, 0.8):
+        expected = m["q_a"] * xx**2 * total / quad(lambda s: f(s) * s, 0.0, xx, epsabs=1e-13)[0]
+        assert np.interp(xx, x, m["q"]) == pytest.approx(expected, rel=1e-4)
+    assert m["q0"] == pytest.approx(m["q_a"] * 2.0 * total / f(0.0), rel=1e-5)
     assert m["q"][-1] == pytest.approx(m["q_a"])
 
 
@@ -144,11 +161,23 @@ def test_the_landmarks_sit_where_they_are_defined(profile):
     assert p["q_min"] == pytest.approx(q[:, 1].min())
     # q95 is q at psi_N = 0.95, not at r/a = 0.95
     m = _cylinder({"monotonic": "peaked", "reversed_shear": "hollow"}[profile])
-    assert np.interp(p["x95"], m["x"], m["psi_n"]) == pytest.approx(0.95, abs=1e-6)
     assert p["q95"] == pytest.approx(np.interp(p["x95"], m["x"], m["q"]))
-    assert p["x95"] > 0.95 and p["q95"] != pytest.approx(np.interp(0.95, m["x"], m["q"]), abs=1e-3)
+    assert p["x95"] > 0.953 and p["q95"] > np.interp(0.95, m["x"], m["q"]) + 0.02
     # the edge q is its own landmark, never substituted for q95
     assert chart.points["q_a"] == (1.0, p["q_a"]) and p["q95"] < p["q_a"]
+
+
+def test_psi_n_is_the_closed_form_of_the_peaked_current():
+    # j ~ (1 - x^2)^2: I ~ 1 - (1 - u)^3 with u = x^2, so psi ~ (3u - 3u^2/2 + u^3/3)/2
+    def psi_n(x):
+        u = x * x
+        return (3 * u - 1.5 * u * u + u**3 / 3) / (11.0 / 6.0)
+
+    m = _cylinder("peaked")
+    np.testing.assert_allclose(m["psi_n"], psi_n(m["x"]), atol=2e-6)
+    x95 = brentq(lambda x: psi_n(x) - 0.95, 0.5, 1.0)
+    assert vaft.diagram.q_profile_landmarks("monotonic").model.parameters["x95"] == pytest.approx(x95, abs=1e-5)
+    assert x95 == pytest.approx(0.9551, abs=1e-4)
 
 
 def test_q_min_is_on_axis_only_for_the_monotonic_profile():
@@ -189,10 +218,16 @@ def test_monotonic_q_crosses_m_over_n_once_and_reversed_shear_twice(m, n):
     assert r1 < two["x_min"] < r2
     for p in (one, two):
         assert p["level"] == m / n
-        model = _cylinder({"monotonic": "peaked", "reversed_shear": "hollow"}[p["profile"]], q_a=p["q_a"],
-                          points=2001)
-        for rs in p["crossings"]:
-            assert np.interp(rs, model["x"], model["q"]) == pytest.approx(m / n, abs=1e-6)
+        f = vaft.diagram._equilibrium_profiles._CURRENTS[{"monotonic": "peaked",
+                                                          "reversed_shear": "hollow"}[p["profile"]]]
+        total = quad(lambda s: f(s) * s, 0.0, 1.0, epsabs=1e-13)[0]
+
+        def q(xx):
+            return p["q_a"] * xx**2 * total / quad(lambda s: f(s) * s, 0.0, xx, epsabs=1e-13)[0]
+
+        edges = [0.01, p["x_min"], 1.0] if p["profile"] == "reversed_shear" else [0.01, 1.0]
+        roots = [brentq(lambda xx: q(xx) - m / n, lo, hi) for lo, hi in zip(edges, edges[1:])]
+        np.testing.assert_allclose(p["crossings"], roots, atol=1e-5)
 
 
 def test_the_crossings_are_the_processors():
@@ -228,6 +263,8 @@ def test_the_single_crossing_rational_surface_is_unchanged():
     lambda: vaft.diagram.current_profile_shapes(profiles=("peaked", "peaked")),
     lambda: vaft.diagram.current_profile_shapes(labels=1),
     lambda: vaft.diagram.q_profile_landmarks("weak_shear"),
+    lambda: vaft.diagram.q_profile_landmarks(("monotonic", "reversed_shear")),
+    lambda: vaft.diagram.rational_surface_topology(1, 2, 1),
     lambda: vaft.diagram.q_profile_topologies(profiles=()),
     lambda: vaft.diagram.rational_surface_topology("reversed_shear", 4, 2),
     lambda: vaft.diagram.rational_surface_topology("reversed_shear", 0, 1),

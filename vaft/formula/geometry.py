@@ -599,13 +599,14 @@ def cylindrical_poloidal_flux(r, B_theta, R0):
     ------
     ValueError
         ``r`` is not an increasing grid from 0, ``B_theta`` differs in shape
-        or ``R0`` is not positive.
+        or ``R0`` is not positive and finite.
 
     Convention
     ----------
-    Per radian (COCOS 11 style, no $2\pi$) and zero on the axis, so
-    $\psi_N = \psi/\psi(a)$ is the normalized poloidal flux of the cylinder;
-    it increases outward for a positive $B_\theta$. Trapezoidal in $r$.
+    Per radian, as COCOS 1--8 (a g-file) store it, and zero on the axis;
+    multiply by $2\pi$ for the full flux in Wb of IMAS / COCOS 11. $\psi_N =
+    \psi/\psi(a)$ is the same either way. It increases outward for a
+    positive $B_\theta$. Trapezoidal in $r$.
 
     Physical interpretation
     -----------------------
@@ -627,8 +628,8 @@ def cylindrical_poloidal_flux(r, B_theta, R0):
     B_theta = np.asarray(B_theta, dtype=float)
     if B_theta.shape != r.shape:
         raise ValueError(f"B_theta must have the shape of r, {r.shape}, not {B_theta.shape}")
-    if float(R0) <= 0.0:
-        raise ValueError(f"R0 must be positive, not {R0!r}")
+    if not (np.isfinite(float(R0)) and float(R0) > 0.0):
+        raise ValueError(f"R0 must be positive and finite, not {R0!r}")
     return float(R0) * _cumulative_trapezoid(B_theta, r)
 
 
@@ -658,10 +659,10 @@ def cylindrical_internal_inductance(r, B_theta):
     Convention
     ----------
     The cylindrical $l_i$: the area-averaged $B_\theta^2$ over its boundary
-    value. A uniform current gives exactly $1/2$. Not the Lao/EFIT
-    ``virial_li_from_volume`` (normalised by the boundary-averaged $B_{pa}$
-    over the volume) nor the IMAS $l_{i,3}$, though all three reduce to it in
-    a large-aspect-ratio circular plasma.
+    value. A uniform current gives exactly $1/2$. On the straight cylinder
+    it equals the IMAS $l_{i,3}$ of ``li_3_from_Bp2_volume_integral`` (with
+    $B_\theta(a) = \mu_0I_p/2\pi a$ and $dV = 2\pi R_0\,2\pi r\,dr$) and the
+    Lao/EFIT ``virial_li_from_volume``; in a shaped torus the three differ.
 
     Physical interpretation
     -----------------------
