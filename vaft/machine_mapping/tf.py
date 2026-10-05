@@ -6,7 +6,7 @@ import math
 
 import numpy as np
 from scipy import signal
-from scipy.ndimage import median_filter
+from scipy.ndimage import median_filter, uniform_filter1d
 
 from vaft.database import raw as raw_db
 from vaft.process.signal_processing import smooth
@@ -38,22 +38,6 @@ def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
     return [(int(a), int(b)) for a, b in zip(edges[::2], edges[1::2])]
 
 
-def _bridge(t: np.ndarray, values: np.ndarray, bad: np.ndarray, span: float) -> np.ndarray:
-    """``values`` with each bad run replaced by a straight-line fit to the good
-    samples within ``span`` seconds either side.  A least-squares line over
-    tens of milliseconds averages the raw noise away, which neither an end
-    sample nor a running median contaminated by the excursion itself can do.
-    """
-    out = values.copy()
-    for first, stop in _runs(bad):
-        near = (t >= t[first] - span) & (t <= t[stop - 1] + span) & ~bad
-        if near.sum() < 2:
-            continue
-        slope, intercept = np.polyfit(t[near], values[near], 1)
-        out[first:stop] = slope * t[first:stop] + intercept
-    return out
-
-
 def repair_tf_excursions(
     time: np.ndarray,
     current: np.ndarray,
@@ -68,15 +52,21 @@ def repair_tf_excursions(
     (48238-48269, 46250, 46500).  That is the measurement, not the coil, and
     the excursion passes straight into ``b_field_tor_vacuum_r`` -- EFIT's BTOR.
 
-    Inside ``repair["window"]`` a sample is an excursion when its
-    ``detect_window_s`` median departs from the slow trend by more than
-    ``core_fraction`` of the plateau; the region grows while the departure
-    stays above ``extend_fraction``, plus ``margin_s`` either side, and runs
-    closer than ``merge_gap_s`` are joined.  The trend
+    Inside ``repair["window"]`` a sample is an excursion core when its
+    ``detect_window_s`` running mean departs from the slow trend by more than both
+    ``core_fraction`` of the plateau and ``core_sigma`` times the noise of that
+    mean, measured (1.4826 x MAD) in the quiet ``noise_window`` before the PF
+    swing; a core must last ``min_core_s``.  The raw noise is a fixed size, so
+    a plateau fraction alone flags healthy low-field shots (cold review of
+    #1616: 18/20 healthy records at a 9 kA plateau).  The region grows while
+    the departure stays above both ``extend_fraction`` and ``extend_sigma``
+    times the noise, plus ``margin_s`` either side, and runs closer than
+    ``merge_gap_s`` are joined.  The trend
     is a ``trend_window_s`` running median, re-derived once with the first
-    pass's excursions bridged so that they cannot bias it.  Excursion samples
-    are then replaced by a straight line fitted to the good samples within
-    ``trend_window_s`` either side.  A shot whose TF is off (plateau below
+    pass's onset as the boundary: a straight line through the good samples
+    from ``fit_start`` to the first flagged sample, extrapolated across the
+    window (the coil's L/R is seconds).  Excursion samples are replaced by
+    that line.  A shot whose TF is off (plateau below
     ``min_plateau``) is left alone.
 
     Returns the repaired current and the repaired ``(start, end)`` intervals.
@@ -90,7 +80,10 @@ def repair_tf_excursions(
         return values, []
     span = float(repair["trend_window_s"])
     trend_size = int(span / dt) | 1
-    local = median_filter(values, size=int(float(repair["detect_window_s"]) / dt) | 1, mode="nearest")
+    # A moving MEAN, not a median: some excursions are bursts of spikes
+    # (48625: +130 kA spikes on a 5 kA plateau) that a median ignores but that
+    # survive the low-pass into BTOR as a 6x plateau shift.
+    local = uniform_filter1d(values, size=max(int(float(repair["detect_window_s"]) / dt), 1), mode="nearest")
     start, end = (float(bound) for bound in repair["window"])
     window = (t >= start) & (t <= end)
     if not window.any():
@@ -98,18 +91,35 @@ def repair_tf_excursions(
     margin = int(round(float(repair["margin_s"]) / dt))
     merge_gap = int(round(float(repair.get("merge_gap_s", 0.0)) / dt))
 
+    noise_start, noise_end = (float(bound) for bound in repair["noise_window"])
+    quiet = (t >= noise_start) & (t <= noise_end)
+    min_core = max(int(round(float(repair["min_core_s"]) / dt)), 1)
+
+    first_trend = median_filter(values, size=trend_size, mode="nearest")
+    # The plateau and the noise are read before the PF swing: an excursion can
+    # cover most of the window and would otherwise drag the plateau to ~0 (TF
+    # "off") and inflate the noise estimate.
+    plateau = float(np.median(first_trend[quiet])) if quiet.any() else float(np.median(first_trend[window]))
+    quiet_residual = (local - first_trend)[quiet] if quiet.sum() >= min_core else (local - first_trend)[window]
+    sigma = 1.4826 * float(np.median(np.abs(quiet_residual - np.median(quiet_residual))))
+    extend_level = max(float(repair["extend_fraction"]) * abs(plateau), float(repair["extend_sigma"]) * sigma)
+    if abs(plateau) < float(repair["min_plateau"]):
+        return values, []
+
     def detect(trend: np.ndarray) -> tuple[np.ndarray, float]:
-        plateau = float(np.median(trend[window]))
-        if abs(plateau) < float(repair["min_plateau"]):
-            return np.zeros(values.size, dtype=bool), plateau
-        departure = np.abs(local - trend) / abs(plateau)
-        core = window & (departure > float(repair["core_fraction"]))
-        candidate = window & (departure > float(repair["extend_fraction"]))
+        residual = local - trend
+        departure = np.abs(residual)
+        core_level = max(float(repair["core_fraction"]) * abs(plateau), float(repair["core_sigma"]) * sigma)
+        core = np.zeros(values.size, dtype=bool)
+        for first, stop in _runs(window & (departure > core_level)):
+            if stop - first >= min_core:
+                core[first:stop] = True
+        candidate = window & (departure > extend_level)
         bad = np.zeros(values.size, dtype=bool)
         for first, stop in _runs(candidate):
             if core[first:stop].any():
                 bad[max(first - margin, 0):min(stop + margin, values.size)] = True
-        # Inside a burst the 1 ms median can pass back through the trend for a
+        # Inside a burst the 1 ms mean can pass back through the trend for a
         # moment; a gap shorter than ``merge_gap_s`` between two repaired runs
         # is part of the same excursion (48625 kept a +130 kA spike otherwise).
         runs = _runs(bad)
@@ -118,14 +128,36 @@ def repair_tf_excursions(
                 bad[stop:first] = True
         return bad, plateau
 
-    bad, _ = detect(median_filter(values, size=trend_size, mode="nearest"))
+    bad, _ = detect(first_trend)
     if not bad.any():
         return values, []
-    bridged = _bridge(t, values, bad, span)
-    bad, _ = detect(median_filter(bridged, size=trend_size, mode="nearest"))
+    # Second pass against the TF current extrapolated from BEFORE the first
+    # excursion: a straight line through the good samples from ``fit_start``
+    # to the first flagged sample, refitted while samples departing by more
+    # than the extend level drop out.  The pre-excursion record is the one
+    # that can be trusted: some excursions recover slowly (46525 still
+    # recovering at 0.40 s) or leave the sensor offset shifted, so a running
+    # median or any fit through the post-event samples is dragged off the
+    # coil current.  The L/R of seconds keeps the current within ~1 % of a
+    # straight line over the ~0.15 s this spans.
+    onset = int(np.flatnonzero(bad)[0])
+    fit_start = float(repair["fit_start"])
+    usable = (t >= fit_start) & (np.arange(t.size) < onset)
+    reference = None
+    for _ in range(3):
+        if usable.sum() <= max(min_core, 2):
+            break
+        coefficients = np.polyfit(t[usable], values[usable], 1)
+        reference = np.polyval(coefficients, t)
+        smoothed = uniform_filter1d(values - reference, size=max(int(float(repair["detect_window_s"]) / dt), 1), mode="nearest")
+        usable &= np.abs(smoothed) <= extend_level
+    if reference is None:
+        return values, []
+    bad, _ = detect(reference)
     if not bad.any():
         return values, []
-    repaired = _bridge(t, values, bad, span)
+    repaired = values.copy()
+    repaired[bad] = reference[bad]
     intervals = [(float(t[first]), float(t[stop - 1])) for first, stop in _runs(bad)]
     return repaired, intervals
 
@@ -219,11 +251,14 @@ def vfit_tf_dynamic(
         # The Data Dictionary gives tf.coil.current no validity node, so the
         # repair is stated where a reader of the IDS will find it.
         spans = ", ".join(f"{start:.4f}-{end:.4f} s" for start, end in repaired)
+        repair_config = resolve_vest_diagnostic(shot, "tf")["processing"]["excursion_repair"]
+        fit_start = float(repair_config["fit_start"])
         set_path(
             ods,
             "tf.ids_properties.comment",
-            "tf from vfit_tf; TF-current acquisition excursion replaced by its "
-            f"60 ms running-median trend over {spans} (issue #1543)",
+            "tf from vfit_tf; TF-current acquisition excursion over "
+            f"{spans} replaced by a straight line through the good samples from "
+            f"{fit_start:.2f} s to the excursion onset (issue #1543)",
         )
 
 

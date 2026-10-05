@@ -273,7 +273,10 @@
           factor: 133.3223684211
           output_unit: Pa
       # The main-chamber gauge was replaced by a Pfeiffer IKR 251 at 46993
-      # (2025-10-29; confirmed by VEST operations, issue #1543). Field 12 is
+      # (2025-10-29; confirmed by VEST operations, issue #1543). The IKR
+      # formula below is the one VEST operations supplied for this DAQ input
+      # (2026-10-05); it is not the bare datasheet law, so it includes the
+      # signal chain as installed. Field 12 is
       # unchanged, but the output characteristic is not: the PKR formula on the
       # new gauge read every pressure ~40-120x low (pre-puff 3e-8 Torr). With
       # this formula the pre-puff base (2.1e-6 -> 1.3e-6 Torr) and the
@@ -359,20 +362,30 @@
         # Acquisition excursions of the TF current (issue #1543): the trace
         # leaves its 12 kA plateau by -15/+25 kA from plasma termination to
         # ~0.326 s on 48238-48269, 46250, 46500 -- impossible for a circuit
-        # with an L/R of seconds -- and drags BTOR with it. Detection on the
-        # calibrated raw samples: healthy shots never reach a 15 % departure
-        # of the 1 ms median from the 60 ms median (raw noise is ~13 % rms,
-        # max 1 ms departure < 15 %); the faulty ones exceed it for 22-25 ms.
+        # with an L/R of seconds -- and drags BTOR with it. A core departure
+        # of the 1 ms median from the 60 ms trend must exceed BOTH 15 % of
+        # the plateau and 8 sigma of that median's own noise (measured in the
+        # quiet 0.20-0.25 s before the PF swing) for 2 ms: the raw noise is a
+        # fixed size, so the plateau fraction alone flagged healthy low-field
+        # shots. Real excursions depart 50-200 % of the plateau for 20+ ms.
         excursion_repair:
           enabled: true
           window: [0.25, 0.40]
+          noise_window: [0.20, 0.25]
           trend_window_s: 0.060
           detect_window_s: 0.001
           core_fraction: 0.15
+          core_sigma: 8.0
+          min_core_s: 0.002
           extend_fraction: 0.05
+          extend_sigma: 3.0
           margin_s: 0.002
           merge_gap_s: 0.005
           min_plateau: 2000.0
+          # Second-pass reference and replacement: a straight line through the
+          # good samples from fit_start to the excursion onset (the post-event
+          # record can stay offset: 46525 sits ~4 kA low after its excursion).
+          fit_start: 0.20
       output:
         turns: 24
         reference_radius: 0.4

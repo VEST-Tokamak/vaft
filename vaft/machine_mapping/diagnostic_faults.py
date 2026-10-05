@@ -48,7 +48,7 @@ def _check_spectrometer_uv(entry: dict[str, Any], context: str) -> None:
 
 def _check_barometry(entry: dict[str, Any], context: str) -> None:
     if str(entry["node"]) != "gauge.0":
-        raise VestConfigurationError(f"{context}: barometry records only gauge.0 (the PKR-251 main gauge)")
+        raise VestConfigurationError(f"{context}: barometry records only gauge.0 (the main-chamber gauge)")
     shot = int(entry.get("from_shot") or 0)
     field = int(resolve_vest_diagnostic(shot, "barometry_main")["source"]["field"])
     if int(entry["field"]) != field:

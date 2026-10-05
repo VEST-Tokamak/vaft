@@ -20,6 +20,8 @@ def _labels(shot: int) -> list[tuple[str, str, str]]:
         (46677, [("spectrometer_uv", "H-beta_4861", "no_signal"), ("spectrometer_uv", "OV_629", "no_signal")]),
         (46992, [("spectrometer_uv", "H-beta_4861", "no_signal"), ("spectrometer_uv", "OV_629", "no_signal")]),
         (47415, [("spectrometer_uv", "H-gamma_4340", "railed"), ("spectrometer_uv", "OV_629", "no_signal")]),
+        (47616, [("spectrometer_uv", "H-gamma_4340", "railed"), ("spectrometer_uv", "H-beta_4861", "no_signal"),
+                 ("spectrometer_uv", "OV_629", "no_signal")]),
         (47615, [("spectrometer_uv", "H-gamma_4340", "railed"), ("spectrometer_uv", "OV_629", "no_signal")]),
         (48224, [("spectrometer_uv", "H-gamma_4340", "railed"), ("spectrometer_uv", "H-beta_4861", "no_signal"),
                  ("spectrometer_uv", "OV_629", "no_signal")]),

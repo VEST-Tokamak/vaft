@@ -27,12 +27,24 @@ def test_the_repair_is_enabled_for_vest(config):
     assert config["window"] == [0.25, 0.40]
 
 
-@pytest.mark.parametrize("seed", [0, 1, 2])
-def test_a_healthy_record_is_left_exactly_as_it_was(config, seed):
-    _true, measured = _tf(seed)
-    repaired, intervals = repair_tf_excursions(TIME, measured, config)
-    assert intervals == []
-    np.testing.assert_array_equal(repaired, measured)
+@pytest.mark.parametrize("plateau", [12000.0, 9000.0, 5000.0, 3000.0])
+def test_healthy_records_are_left_exactly_as_they_were_at_any_plateau(config, plateau):
+    """The raw noise is a fixed size; a plateau-fraction trigger alone flagged
+    18/20 healthy 9 kA records (cold review of #1616)."""
+    for seed in range(40):
+        _true, measured = _tf(seed, plateau=plateau)
+        repaired, intervals = repair_tf_excursions(TIME, measured, config)
+        assert intervals == [], (plateau, seed)
+        np.testing.assert_array_equal(repaired, measured)
+
+
+@pytest.mark.parametrize("plateau", [12000.0, 5000.0, 3000.0])
+def test_a_real_excursion_is_caught_at_any_plateau(config, plateau):
+    for seed in range(5):
+        _true, measured = _tf(seed, plateau=plateau)
+        measured[(TIME > 0.303) & (TIME < 0.326)] -= 2 * plateau
+        _repaired, intervals = repair_tf_excursions(TIME, measured, config)
+        assert len(intervals) == 1, (plateau, seed)
 
 
 @pytest.mark.parametrize("shift", [-25000.0, +13000.0])
@@ -76,3 +88,35 @@ def test_a_burst_whose_median_dips_back_mid_way_is_repaired_as_one(config):
     assert len(intervals) == 1
     span = (TIME > 0.280) & (TIME < 0.302)
     assert np.max(np.abs(repaired[span] - true[span])) < 0.5 * 12000.0
+
+
+def _two_ms_error(repaired, true, plateau):
+    from scipy.ndimage import uniform_filter1d
+
+    span = (TIME > 0.27) & (TIME < 0.36)
+    return float(np.max(np.abs(uniform_filter1d(repaired - true, 50)[span]))) / plateau
+
+
+def test_a_burst_of_spikes_is_repaired(config):
+    """48625: +130 kA spikes on a 5 kA plateau, which a median ignores but the
+    low-pass passes into BTOR as a 6x shift."""
+    true, measured = _tf(plateau=5000.0)
+    burst = (TIME > 0.28) & (TIME < 0.30)
+    measured[burst] += 100000.0 * (np.random.default_rng(2).random(burst.sum()) < 0.3)
+    repaired, intervals = repair_tf_excursions(TIME, measured, config)
+    assert len(intervals) == 1
+    # 1500 A raw noise alone moves a 2 ms mean by up to ~15 % of 5 kA.
+    assert _two_ms_error(repaired, true, 5000.0) < 0.2
+    assert _two_ms_error(measured, true, 5000.0) > 5.0
+
+
+def test_a_slow_recovery_and_a_shifted_offset_are_bridged_from_before_the_onset(config):
+    """46525: -150 kA, still recovering at 0.40 s, and the sensor offset is
+    left shifted; a fit through the post-event record would sit ~4 kA low."""
+    true, measured = _tf(plateau=6500.0)
+    measured[(TIME > 0.295) & (TIME < 0.33)] -= 150000.0
+    measured[TIME >= 0.33] -= 4000.0
+    repaired, intervals = repair_tf_excursions(TIME, measured, config)
+    assert intervals and intervals[0][0] <= 0.295 and intervals[-1][1] >= 0.36
+    assert _two_ms_error(repaired, true, 6500.0) < 0.2
+    assert _two_ms_error(measured, true, 6500.0) > 5.0

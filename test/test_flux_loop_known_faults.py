@@ -42,7 +42,7 @@ def test_dead_flux_loops_at_each_boundary(shot, dead):
     assert _loops(shot) == dead
 
 
-@pytest.mark.parametrize("shot", [44394, 44928, 47986, 48940])
+@pytest.mark.parametrize("shot", [44394, 44922, 44923, 44928, 45027, 47986, 48940])
 def test_a_flux_loop_revision_keeps_the_always_on_probe_fault(shot):
     """Revisions replace `probes`; C4-04 must be restated in each one (#977)."""
     assert C4_04 in known_magnetics_faults(shot)
