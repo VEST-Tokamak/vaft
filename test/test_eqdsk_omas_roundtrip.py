@@ -52,3 +52,33 @@ def test_geqdsk_to_omas_round_trip_does_not_transpose_psirz_on_a_square_grid():
     # happens to be symmetric -- confirm the fixture's psi genuinely isn't,
     # so this test could actually have caught the bug.
     assert not np.allclose(original_psi, original_psi.T)
+
+
+def test_a_weber_family_geqdsk_is_not_scaled_by_two_pi_again():
+    """A g-file storing psi in Wb (COCOS 11-18, e.g. TCV's 17) reaches the ODS as it is (#294).
+
+    The same equilibrium written in both families must give the same ODS. Before #294,
+    `to_omas` multiplied the weber file by 2*pi as well, leaving its psi (2*pi)^2 off
+    Ampere's law and its li_3 about 40 times too large.
+    """
+    from vaft.data.eqdsk import TWO_PI, to_omas
+    from vaft.process.cocos import identify_flux_exponent
+    from vaft.process.equilibrium import as_equilibrium
+
+    per_radian = read_geqdsk(data_path("efit/g039915.00319"))
+    weber = dict(per_radian.mapping)
+    for key in ("SIMAG", "SIBRY", "PSIRZ"):
+        weber[key] = np.asarray(per_radian[key], dtype=float) * TWO_PI
+    for key in ("FFPRIM", "PPRIME"):
+        weber[key] = np.asarray(per_radian[key], dtype=float) / TWO_PI
+    assert as_equilibrium(weber).convention.psi_per_radian is False   # the fixture is a weber file
+
+    reference, converted = to_omas(per_radian), to_omas(weber)
+    slice_ = "equilibrium.time_slice.0"
+    for leaf in ("global_quantities.psi_axis", "global_quantities.psi_boundary", "profiles_1d.psi",
+                 "profiles_1d.f_df_dpsi", "profiles_1d.dpressure_dpsi", "profiles_1d.phi",
+                 "profiles_2d.0.psi"):
+        np.testing.assert_allclose(converted[f"{slice_}.{leaf}"], reference[f"{slice_}.{leaf}"], rtol=1e-12,
+                                   err_msg=leaf)
+    exponent, ratio = identify_flux_exponent(as_equilibrium(converted))
+    assert exponent == 1 and abs(ratio / TWO_PI - 1.0) < 0.05   # Ampere: weber, not (2*pi)^2

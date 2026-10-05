@@ -342,14 +342,25 @@ def from_equilibrium(equilibrium: Any) -> GEQDSK:
     return GEQDSK(mapping, metadata=_metadata(mapping, "equilibrium_data"))
 
 
-def _label_cocos(geqdsk: GEQDSK, ods: Any) -> int | None:
+def _geqdsk_convention(geqdsk: GEQDSK) -> Any:
+    """The g-file's convention record, or None when it cannot be read (conversion never fails on it)."""
+    try:
+        from vaft.process.equilibrium import as_equilibrium
+
+        return as_equilibrium(geqdsk).convention
+    except Exception:
+        return None
+
+
+def _label_cocos(geqdsk: GEQDSK, ods: Any, convention: Any = None) -> int | None:
     """Record on the ODS the convention its psi is *in*, not the file's.
 
     :func:`to_omas` converts psi to the Data Dictionary's full weber on the way
-    in (issue #236): psi-like leaves gain 2*pi and psi-derivative profiles lose
-    it.  So the index written here is the g-file's own index moved into the
-    weber family -- COCOS 2 becomes COCOS 12 -- because that is what the ODS
-    now holds.  Labelling it with the raw file index would declare per-radian
+    in (issue #236): a per-radian file's psi-like leaves gain 2*pi and its
+    psi-derivative profiles lose it, and a weber file is copied as it is.  So
+    the index written here is the g-file's own index moved into the weber
+    family -- COCOS 2 becomes COCOS 12 -- because that is what the ODS now
+    holds.  Labelling it with the raw file index would declare per-radian
     storage over weber data, and a declared index beats the data probe in
     :func:`ods_psi_to_wb_per_radian_factor`, so every flux quantity downstream
     would be off by 2*pi.
@@ -365,7 +376,7 @@ def _label_cocos(geqdsk: GEQDSK, ods: Any) -> int | None:
         from vaft.omas.general import set_ods_cocos
         from vaft.process.equilibrium import as_equilibrium
 
-        convention = as_equilibrium(geqdsk).convention
+        convention = convention if convention is not None else as_equilibrium(geqdsk).convention
         if convention.contradicted:
             # The file declares an index its own signs do not support. Copying
             # that into a new artifact would launder the contradiction; leaving
@@ -1447,21 +1458,29 @@ def to_omas(
 
     eqt = ods[f"equilibrium.time_slice.{time_index}"]
     nw, nh = int(data["NW"]), int(data["NH"])
-    # g-files store psi in Wb/rad; the IMAS DD defines equilibrium.*.psi as the
-    # full poloidal flux in Wb (issue #236). Convert on the way in -- psi-like
-    # leaves gain 2*pi, psi-derivative profiles lose it. The Wb/rad psi_1d is
-    # kept for the internal integrations below (phi already comes out in Wb).
+    # The IMAS DD defines equilibrium.*.psi as the full poloidal flux in Wb
+    # (issue #236). Most g-files store it per radian (COCOS 1-8), but a file of
+    # the weber family (COCOS 11-18, e.g. TCV's COCOS 17) stores Wb already, and
+    # scaling that by 2*pi left the ODS (2*pi)^2 off its own family (#294). The
+    # file's family comes from its convention: a declared index, else the
+    # identification, whose Ampere probe separates the two families by 2*pi.
+    # Only an undecidable file falls back to the g-file's per-radian definition.
+    convention = _geqdsk_convention(item)
+    per_radian = convention.psi_per_radian if convention is not None else None
+    if per_radian is None:
+        per_radian = True
+    to_weber = TWO_PI if per_radian else 1.0
     psi_1d = np.linspace(float(data["SIMAG"]), float(data["SIBRY"]), nw)
     psi_norm = (psi_1d - psi_1d[0]) / (psi_1d[-1] - psi_1d[0]) if nw > 1 and psi_1d[-1] != psi_1d[0] else np.zeros(nw)
 
     ods["dataset_description.data_entry.pulse"] = _infer_source_shot(item.source)
     ods["equilibrium.ids_properties.comment"] = str(data.get("CASE", "VAFT GEQDSK"))
-    _label_cocos(item, ods)
+    _label_cocos(item, ods, convention)
     eqt["time"] = _infer_source_time(item.source)
     eqt["global_quantities.magnetic_axis.r"] = float(data["RMAXIS"])
     eqt["global_quantities.magnetic_axis.z"] = float(data["ZMAXIS"])
-    eqt["global_quantities.psi_axis"] = float(data["SIMAG"]) * TWO_PI
-    eqt["global_quantities.psi_boundary"] = float(data["SIBRY"]) * TWO_PI
+    eqt["global_quantities.psi_axis"] = float(data["SIMAG"]) * to_weber
+    eqt["global_quantities.psi_boundary"] = float(data["SIBRY"]) * to_weber
     eqt["global_quantities.ip"] = float(data["CURRENT"])
     ods["equilibrium.vacuum_toroidal_field.r0"] = float(data["RCENTR"])
     b0 = _vacuum_b0(data)
@@ -1470,15 +1489,15 @@ def to_omas(
     except Exception:
         ods[f"equilibrium.vacuum_toroidal_field.b0.{time_index}"] = b0
 
-    eqt["profiles_1d.psi"] = psi_1d * TWO_PI
+    eqt["profiles_1d.psi"] = psi_1d * to_weber
     eqt["profiles_1d.f"] = np.asarray(data["FPOL"], dtype=float)
     eqt["profiles_1d.pressure"] = np.asarray(data["PRES"], dtype=float)
-    eqt["profiles_1d.f_df_dpsi"] = np.asarray(data["FFPRIM"], dtype=float) / TWO_PI
-    eqt["profiles_1d.dpressure_dpsi"] = np.asarray(data["PPRIME"], dtype=float) / TWO_PI
+    eqt["profiles_1d.f_df_dpsi"] = np.asarray(data["FFPRIM"], dtype=float) / to_weber
+    eqt["profiles_1d.dpressure_dpsi"] = np.asarray(data["PPRIME"], dtype=float) / to_weber
     eqt["profiles_1d.q"] = np.asarray(data["QPSI"], dtype=float)
 
-    # psi_1d is the g-file's weber-per-radian; the shared routine takes weber.
-    rho_tor_terms = rho_tor_profile(data["QPSI"], psi_1d * TWO_PI, b0)
+    # psi_1d is in the g-file's own family; the shared routine takes weber.
+    rho_tor_terms = rho_tor_profile(data["QPSI"], psi_1d * to_weber, b0)
     if rho_tor_terms is None:
         # No toroidal coordinate is derivable, so write the poloidal one the DD
         # does define -- equilibrium profiles_1d has psi_norm but no
@@ -1495,7 +1514,7 @@ def to_omas(
     prof2d["grid_type.index"] = 1
     prof2d["grid.dim1"] = np.linspace(0.0, float(data["RDIM"]), nw) + float(data["RLEFT"])
     prof2d["grid.dim2"] = np.linspace(0.0, float(data["ZDIM"]), nh) - float(data["ZDIM"]) / 2.0 + float(data["ZMID"])
-    prof2d["psi"] = np.asarray(data["PSIRZ"], dtype=float).reshape(nw, nh) * TWO_PI
+    prof2d["psi"] = np.asarray(data["PSIRZ"], dtype=float).reshape(nw, nh) * to_weber
 
     if allow_derived_data and float(data["CURRENT"]) != 0.0:
         # b0 * RCENTR is FPOL[-1], the vacuum R*B_phi, so this is that field
