@@ -66,7 +66,63 @@ boundary fit is good.
 Physical field and later free-boundary closure comparisons are the validation
 targets; matching another inverse method's current vector is not required.
 
-This stage does not run a Grad-Shafranov closure. The next stages add the
-independent TokaMaker `get_vfixed()` path, profile transfer, and free-boundary
-forward solves. Guazzotto pressure/bootstrap surface currents and toroidal
+The direct fit does not run a Grad-Shafranov closure. Later stages add
+profile transfer and free-boundary forward solves. Guazzotto
+pressure/bootstrap surface currents and toroidal
 flow are rejected because this volume-current model cannot represent them.
+
+## Independent TokaMaker fixed-boundary path (stage 2)
+
+`vaft.code.tokamaker.fit_free_boundary_coils_vfixed(eq, machine, workdir, ...)`
+builds a plasma-only mesh from the target LCFS, sets
+`settings.free_boundary=False`, solves, and fits `get_vfixed()` samples.
+`fit_vfixed_samples(points, flux, machine, flux_scale_Wb=...)` exposes the
+OFT-free linear inverse step for existing solver samples. Both functions use
+the same exact PF response as the direct path, but the required external field
+comes from OFT alone. No direct plasma filaments or direct external-field
+target enter the native route. Samples are copied before the OFT solver is
+reset and saved to a new work directory.
+
+OFT's `get_vfixed` uses its `eval_green` orientation in Wb/rad. The PF fitter
+converts it with `-2*pi` to VAFT's full-weber Green orientation. An optional
+installed-OFT test checks this against OFT's independent `eval_green`, with
+relative agreement better than `2e-8` at three separated points. Flux fitting
+removes the additive gauge. The result preserves the required external flux,
+fitted external flux, RMS/max residuals, SVD, rank, condition, regularization
+cost, bound activity, and the native fixed-solve statistics.
+
+At this stage the fixed solve uses the adapter's existing **power-law source
+shape**, with the target LCFS and Ip. `fixed_profile_mode="power_law"` records
+that distinction. Its vacuum field is an independent solver result, but its
+current vector is not yet a comparison of identical analytic profiles. Stage
+3 adds the target `pprime`/`ffprime` shape. Boundary-field and free-boundary
+closure comparisons follow that transfer; `accepted` here describes only the
+linear sample fit with complete finite caller-supplied bounds.
+
+The limited-family resolution comparison ran on vestserver, in the isolated
+directory `/home/user1/scratch/vaft-1608-vfixed.w1EylN`, using the existing
+`/home/user1/miniconda3/envs/vaft/bin/python` OFT runtime. No solver installation
+was changed. Run from the source root on a server:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=2 PYTHONPATH=. python \
+  validation/fixed_free_1608/vfixed_fit.py \
+  --workdir /tmp/vaft-1608-vfixed-new --resolutions .05 .035
+```
+
+The output directory must not already exist. Mesh order was 2,
+regularization `1e-5`, and physical current bounds were not supplied.
+
+| Family | mesh dx (m) | boundary samples | fixed/target Ip | RMS/max flux/span | Condition |
+|---|---:|---:|---:|---:|---:|
+| Solov'ev/CF limited | .050 | 40 | .999935 | .008773 / .019920 | 1.91e8 |
+| Solov'ev/CF limited | .035 | 58 | .999883 | .008710 / .019927 | 1.92e8 |
+| Guazzotto–Freidberg Part 1 limited | .050 | 21 | .999676 | .001885 / .004335 | 6.04e10 |
+| Guazzotto–Freidberg Part 1 limited | .035 | 31 | .999672 | .001252 / .002677 | 6.50e10 |
+
+All four fits report `bounds_unverified`. The largest unbounded Solov'ev
+current is 12.8 MA; these fits demonstrate sample residuals and numerical
+sensitivity, not attainable VEST currents. Two mesh sizes establish a small
+smoke comparison, not asymptotic convergence or final acceptance tolerances.
+Null-family solver coverage, matching analytic profiles, and closure remain
+in the later validation matrix.
