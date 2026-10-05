@@ -10,10 +10,12 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 import json
+import os
 from pathlib import Path
 import threading
 from types import SimpleNamespace
 import time
+import warnings
 
 import h5py
 import numpy as np
@@ -224,6 +226,12 @@ def test_a_plain_save_merges_instead_of_replacing_the_master(hsds, tmp_path):
 # --------------------------------------------------------------------------- #
 # the lock itself
 # --------------------------------------------------------------------------- #
+_needs_fcntl = pytest.mark.skipif(
+    os.name == "nt", reason="the master lock is enforced through fcntl; on Windows it is a documented no-op"
+)
+
+
+@_needs_fcntl
 def test_one_shot_is_serialized_and_different_shots_are_not(monkeypatch, tmp_path):
     monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(tmp_path))
     holding, release = threading.Event(), threading.Event()
@@ -249,6 +257,7 @@ def test_one_shot_is_serialized_and_different_shots_are_not(monkeypatch, tmp_pat
         pass  # free again once released
 
 
+@_needs_fcntl
 def test_lock_files_are_shareable_and_a_read_only_one_still_locks(monkeypatch, tmp_path):
     """Another account's lock file must not lock this one out (flock needs no write access)."""
     import os
@@ -274,6 +283,7 @@ def test_the_lock_is_reentrant_within_a_thread(monkeypatch, tmp_path):
             pass
 
 
+@_needs_fcntl
 def test_a_held_lock_times_out_with_a_named_error(monkeypatch, tmp_path):
     monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(tmp_path))
     holding = threading.Event()
@@ -303,6 +313,87 @@ def test_the_lock_directory_is_fixed_not_tmpdir(monkeypatch, tmp_path):
     assert _master_lock.lock_path("main/chease/dcon-peeling", 48916) == Path(
         "/tmp/vaft-hsds-locks/main__chease__dcon-peeling.48916.lock"
     )
+
+
+_not_root = pytest.mark.skipif(
+    os.name != "posix" or os.geteuid() == 0, reason="root ignores directory modes"
+)
+
+
+@_not_root
+@pytest.mark.parametrize("missing_parent", [False, True], ids=["unwritable", "uncreatable"])
+def test_an_unwritable_lock_directory_falls_back_to_a_per_user_one(monkeypatch, tmp_path, missing_parent):
+    """Cold review 0.8.0 delta-absorb-13-infra F1.
+
+    ``/tmp/vaft-hsds-locks`` made by another account without the sticky
+    world-writable mode: the lock file of a shot this account has never
+    written cannot be created there, and the read-only fallback found no file
+    (``FileNotFoundError``), aborting the replication before any upload. The
+    lock now moves to a per-user temp directory, once, with a warning that
+    names both directories -- a weaker lock beats no write at all.
+    """
+    import tempfile
+
+    home = tmp_path / "tmpdir"
+    home.mkdir()
+    monkeypatch.setenv("TMPDIR", str(home))
+    monkeypatch.setattr(tempfile, "tempdir", None)
+    locked = tmp_path / "locks"
+    if missing_parent:
+        locked.mkdir()
+        locked.chmod(0o555)
+        directory = locked / "vaft-hsds-locks"
+    else:
+        directory = locked
+        directory.mkdir()
+        directory.chmod(0o555)
+    monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(directory))
+    monkeypatch.setattr(_master_lock, "_fallback_warned", set())
+    try:
+        with pytest.warns(RuntimeWarning, match=str(directory)) as record:
+            with _master_lock.shot_master_lock("main", 31):
+                pass
+        fallback = _master_lock.fallback_lock_directory()
+        assert str(home) in str(fallback) and fallback.is_dir()
+        assert (fallback / _master_lock.lock_path("main", 31).name).exists()
+        assert any(str(fallback) in str(w.message) for w in record)
+        # Said once per process, not once per shot.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with _master_lock.shot_master_lock("main", 32):
+                pass
+    finally:
+        locked.chmod(0o755)
+
+
+def test_the_reentrancy_key_is_the_sanitised_source(monkeypatch, tmp_path):
+    """Cold review 0.8.0 delta-absorb-13-infra F3.
+
+    Two spellings of one source map to one lock file; keyed on the raw string
+    the nested hold took a second fd on the same file and waited on itself.
+    """
+    monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(tmp_path))
+    assert _master_lock.lock_path("main/", 7) == _master_lock.lock_path("main", 7)
+    with _master_lock.shot_master_lock("main/", 7):
+        with _master_lock.shot_master_lock("main", 7, timeout=0.5):
+            pass
+
+
+def test_without_fcntl_the_no_op_is_said_once(monkeypatch, tmp_path):
+    """Cold review 0.8.0 delta-absorb-13-infra F4: Windows has no lock, and says so."""
+    import sys
+
+    monkeypatch.setenv(_master_lock.LOCK_DIR_ENV, str(tmp_path))
+    monkeypatch.setitem(sys.modules, "fcntl", None)  # what ``import fcntl`` meets on Windows
+    monkeypatch.setattr(_master_lock, "_no_lock_warned", False)
+    with pytest.warns(RuntimeWarning, match="not enforced"):
+        with _master_lock.shot_master_lock("main", 1):
+            pass
+    assert not list(tmp_path.iterdir())  # no lock file was made
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with _master_lock.shot_master_lock("main", 1):
+            pass
 
 
 # --------------------------------------------------------------------------- #
@@ -389,13 +480,37 @@ def test_an_ids_file_of_fill_values_holds_no_data(tmp_path):
         assert replication.ids_file_holds_data(one)
 
 
-def _shot_with_unlinked(hsds, tmp_path, shot, *, real, stubs):
+def _write_nan_only(path: Path, name: str = "core_profiles") -> None:
+    """A fit that failed, stored as it was computed: shaped arrays holding NaN."""
+    _write_stub(path, name)
+    with h5py.File(path, "r+") as handle:
+        handle[name]["profiles_1d[]&electrons&temperature"] = np.full((1, 5), np.nan)
+        handle[name]["profiles_1d[]&electrons&temperature_SHAPE"] = np.array([[5]], dtype=np.int32)
+
+
+def test_a_nan_only_ids_file_is_neither_data_nor_a_stub(tmp_path):
+    """Cold review 0.8.0 delta-absorb-13-infra F5: NaN is not the IMAS fill."""
+    path = tmp_path / "core_profiles.h5"
+    _write_nan_only(path)
+    assert replication.ids_file_content(path) == replication.NAN_ONLY
+    assert not replication.ids_file_holds_data(path)
+    stub = tmp_path / "equilibrium.h5"
+    _write_stub(stub)
+    assert replication.ids_file_content(stub) == replication.STUB
+    _write_staged_shot(tmp_path / "real", ["magnetics"])
+    assert replication.ids_file_content(tmp_path / "real" / "magnetics.h5") == replication.DATA
+
+
+def _shot_with_unlinked(hsds, tmp_path, shot, *, real, stubs, nan_only=()):
     folder = tmp_path / str(shot)
     _write_staged_shot(folder, ["dataset_description", *real])
     for name in ("dataset_description", *real):
         hsds.put(folder / f"{name}.h5", f"hdf5://main/{shot}/{name}.h5")
     for name in stubs:
         _write_stub(folder / f"{name}.h5", name)
+        hsds.put(folder / f"{name}.h5", f"hdf5://main/{shot}/{name}.h5")
+    for name in nan_only:
+        _write_nan_only(folder / f"{name}.h5", name)
         hsds.put(folder / f"{name}.h5", f"hdf5://main/{shot}/{name}.h5")
     with h5py.File(folder / "master.h5", "w") as master:
         master["dataset_description"] = h5py.ExternalLink("dataset_description.h5", "/dataset_description")
@@ -426,6 +541,45 @@ def test_a_repair_links_the_hidden_files_and_leaves_the_stubs(hsds, monkeypatch,
     assert maintenance.audit_master_link(5)["status"] == maintenance.MASTER_STUBS_UNLINKED
 
 
+def test_an_unlinked_nan_only_file_is_reported_apart_from_the_stubs(hsds, monkeypatch, tmp_path):
+    """Cold review 0.8.0 delta-absorb-13-infra F5.
+
+    An unlinked IDS whose arrays are shaped but all NaN used to be reported
+    as a stub, indistinguishable from an empty file. It is its own verdict,
+    listed under ``nan_only``, and a repair still leaves it unlinked.
+    """
+    monkeypatch.setattr("vaft.database.sources.resolve", lambda source, writable=False, **k: source or "main")
+    _shot_with_unlinked(hsds, tmp_path, 6, real=[], stubs=["equilibrium"], nan_only=["core_profiles"])
+
+    report = maintenance.audit_master_link(6, repair=True)
+    assert report["status"] == maintenance.MASTER_NAN_ONLY_UNLINKED
+    assert report["missing"] == [] and report["stubs"] == ["equilibrium.h5"]
+    assert report["nan_only"] == ["core_profiles.h5"]
+    assert set(hsds.master_links("main", 6, tmp_path)) == {"dataset_description.h5"}
+
+    # Hidden data still wins the verdict, and the repair links only that.
+    _shot_with_unlinked(hsds, tmp_path, 8, real=["magnetics"], stubs=[], nan_only=["core_profiles"])
+    report = maintenance.audit_master_link(8)
+    assert report["status"] == maintenance.MASTER_LINKS_MISSING
+    assert report["missing"] == ["magnetics.h5"] and report["nan_only"] == ["core_profiles.h5"]
+    assert maintenance.audit_master_link(8, repair=True)["status"] == maintenance.MASTER_REPAIRED
+    assert set(hsds.master_links("main", 8, tmp_path)) == {"dataset_description.h5", "magnetics.h5"}
+    assert maintenance.audit_master_link(8)["status"] == maintenance.MASTER_NAN_ONLY_UNLINKED
+
+
+def test_the_audit_command_names_the_nan_only_files(monkeypatch, capsys):
+    from vaft.cli import maintenance as cli
+
+    monkeypatch.setattr(
+        "vaft.database.maintenance.audit_master_links",
+        lambda shots, source=None, repair=False: [
+            {"shot": 1, "status": "nan_only_unlinked", "missing": [], "stubs": [], "nan_only": ["core_profiles.h5"]}
+        ],
+    )
+    assert cli.main(["audit-masters", "--shots", "1"]) == 0
+    assert "NaN-only, left unlinked: core_profiles.h5" in capsys.readouterr().out
+
+
 def test_the_audit_command_names_the_stubs(monkeypatch, capsys):
     from vaft.cli import maintenance as cli
 
@@ -442,7 +596,7 @@ def test_the_audit_command_names_the_stubs(monkeypatch, capsys):
 @pytest.mark.parametrize(
     ("status", "code"),
     [
-        ("complete", 0), ("absent", 0), ("repaired", 0), ("stubs_unlinked", 0),
+        ("complete", 0), ("absent", 0), ("repaired", 0), ("stubs_unlinked", 0), ("nan_only_unlinked", 0),
         ("links_missing", 1), ("no_master", 1), ("unreadable", 1),
     ],
 )
@@ -519,12 +673,13 @@ def test_a_shot_path_that_is_a_domain_is_refused(monkeypatch):
         utils.ensure_shot_folder("main", 50001)
 
 
+@_needs_fcntl
 def test_the_publish_creates_the_folder_under_the_lock_before_uploading(hsds, monkeypatch, tmp_path):
     order = []
     held = []
 
     def ensure(source, shot):
-        held.append(_master_lock._held.get((f"{source}:{shot}", threading.get_ident()), 0))
+        held.append(int(_master_lock.is_held(source, shot)))
         order.append(("folder", source, shot))
 
     monkeypatch.setattr(ods_module, "ensure_shot_folder", ensure)

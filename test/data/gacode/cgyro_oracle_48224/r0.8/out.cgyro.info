@@ -1,0 +1,48 @@
+INFO: (CGYRO) Velocity order 1
+INFO: (CGYRO) Single-mode linear analysis
+INFO: (CGYRO) Ion direction: omega > 0
+INFO: (CGYRO) ExB shear: OFF
+INFO: (CGYRO) Time integrator: RK4 4:4(3) [non-adaptive]
+INFO: (CGYRO) Using gyrokinetic electrons
+INFO: (CGYRO) Profile model: experimental (input.gacode)
+INFO: (CGYRO) QN flag: Enforcing quasi-neutrality
+INFO: (CGYRO) Equilibrium: Miller Extended Harmonic (MXH)
+INFO: (CGYRO) Electrostatic fluctuations (Phi)
+INFO: (CGYRO) Rotation terms: O(mach) only (traditional GYRO)
+INFO: (CGYRO) Collision model: Sugama
+INFO: (CGYRO) Collision terms: L D Rm Re kp ions field
+INFO: (CGYRO)                  x x x  x  x   x     x
+
+ n_theta | n_species | n_energy | n_xi 
+    32         3          8        24
+
+           n    Delta      Max     L/rho
+ kx*rho:   8   -3.289   -9.867     -1.91
+ ky*rho:   1   -0.300   -0.300     20.94
+
+  D-theta:  6    D-radial:  6    D-alpha:  6   [dissipation order]
+ up_theta: 1.0  up_radial: 1.0  up_alpha: 0.0  [dissipation strength]
+ C(theta): 2.3
+
+  r/a  0.80000   R/a  1.47293   q  2.74695   zmag  0.10895    kappa  1.69318
+               shift -0.16397   s  1.74480  dzmag  0.01961  s_kappa  0.04224
+
+  c1  0.00000   s_c1  0.00000   delta  0.20983  s_delta  0.17827
+  c2  0.00000   s_c2  0.00000    zeta  0.00000   s_zeta  0.00000
+
+ gamma_e:  0.000E+00  gamma_p:  0.000E+00    mach:  0.000E+00  [rho/a]: -8.737E-02
+   betae:  3.827E-04   beta_*:  4.241E-03  lamb_*: -0.000E+00  [z_eff]:  2.000E+00
+
+ i  z  n/n_norm   T/T_norm   m/m_norm     a/Ln       a/Lt       nu
+ 1  1  8.000E-01  1.316E-01  5.039E-01  6.944E+00  7.924E-01  2.415E-01
+ 2  6  3.333E-02  1.316E-01  6.005E+00  6.944E+00  7.924E-01  3.778E+00
+ 3 -1  1.000E+00  1.000E+00  2.724E-04  6.944E+00  3.289E+00  6.200E-01
+
+            a[m]: 2.773E-01  |b_unit[T]|: 3.485E-01     |rhos/a|: 1.289E-02   dn: 6.778E+00
+ n_norm[e19/m^3]: 1.552E-01  v_norm[m/s]: 5.970E+04  T_norm[keV]: 7.437E-02
+
+  n = 1         2         3         4         5         6         7         8
+ KY = 4.426E-02 8.853E-02 1.328E-01 1.771E-01 2.213E-01 2.656E-01 3.098E-01 3.541E-01
+ LY = 1.419E+02 7.097E+01 4.732E+01 3.549E+01 2.839E+01 2.366E+01 2.028E+01 1.774E+01
+
+EXIT: (CGYRO) Linear terminated at max time

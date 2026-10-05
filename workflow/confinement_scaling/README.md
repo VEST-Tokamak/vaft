@@ -33,6 +33,11 @@ This directory builds the VEST Tier A confinement table on a validated ohmic pow
 - **P_net** = P_OH − dW/dt. This is `p_loss_W`; radiation is not subtracted, as in DB5 `PLTH`.
 - **P_transport** is NaN: VEST maps no bolometer.
 - **τ_E** = W_mhd / P_net. The kinetic counterpart is `tau_e_kin_s`, which uses the magnetics dW/dt.
+- **EFIT verdicts** come from Lane K's state table under criteria v2 (#1521), as two separate columns:
+  - `efit_quality` (good / admissible / ...) grades the fit alone;
+  - `thomson_consistent` is True when the EFIT pressure lies within [1, 2]·p_e of the Thomson fit, False outside, and NaN where no Thomson profile was matched.
+
+Units of every extension column are in `EXTENSION_UNITS` (`build_table.py`) and in the product's `schema/` files.
 
 ## Slice quality
 
@@ -41,7 +46,7 @@ Every row carries its evidence:
 - `ip_change_per_tau`, which is |dI_p/dt|/I_p · τ_E;
 - `dwdt_fraction`, which is |dW/dt|/P_OH.
 
-The `rule_*` and `accepted` columns apply the provisional working thresholds in `MANIFEST.json`. `threshold_sweep.csv` gives the accepted count and the number of shots on a threshold grid. The thresholds are not adopted until the sweep has been read; VEST discharges have no flat top, so stationarity is judged by rate, not by phase.
+The `rule_*`, `accepted` and `selected` columns apply the primary selection below (`PRIMARY_THRESHOLDS` in `build_table.py`, recorded in `MANIFEST.json` as `selection_thresholds`). `threshold_sweep.csv` gives the accepted count and the number of shots on a threshold grid. VEST discharges have no flat top, so stationarity is judged by rate, not by phase.
 
 ## Selections (decided 2026-10-02 on #1490)
 
@@ -92,5 +97,13 @@ Then the figures:
 ```bash
 python figures.py --atlas ~/runs/campaign/atlas/confinement --out ~/runs/campaign/atlas/confinement/figures
 ```
+
+The TGLF saturation-rule link (#1482) reads Lane T's `transport/` and `transport_sensitivity/` products beside the table:
+
+```bash
+python tglf_link.py --atlas ~/runs/campaign/atlas --out ~/runs/campaign/atlas/confinement/tglf_link
+```
+
+This writes `power_link.csv` (P = (Q_e + Q_i) dV/dr per state, r/a and TGLF configuration, beside P_OH and P_net) and `power_link_summary_r0.8.csv`. It is a consistency test, not an identity: the flow through r carries only the power deposited inside r.
 
 Nothing is written to the FileDB.

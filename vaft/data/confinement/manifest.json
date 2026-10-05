@@ -2,19 +2,20 @@
   "description": "VEST Tier A confinement table (Lane D, #548): one row per magnetics state key of state key contract v1 (#1454), built by workflow/confinement_scaling/build_table.py; repo-only derived sample, not shipped in the wheel.",
   "source": {
     "atlas": "vestserver:~/runs/campaign/atlas/confinement/",
-    "vaft_git": "48d5e1ae18192d338dec7ba6a71d03d269ee68cf",
+    "vaft_git": "bd7cc70735bc8dbccbb5934891a272ec0a55197a",
     "vaft_dirty": false,
-    "generated_at": "2026-10-02T06:25:51.768479+00:00",
+    "generated_at": "2026-10-02T14:14:05.517015+00:00",
+    "command": "build_table.py --state /home/user1/runs/campaign/atlas/v1/state.csv --filedb /home/user1/runs/campaign/filedb --out /home/user1/runs/campaign/atlas/confinement --spitzer",
     "state": {
       "path": "/home/user1/runs/campaign/atlas/v1/state.csv",
-      "sha256": "431a2965795693b0c0fb6da1cca5d1d132821c1bb7767a3ceed3aea0f65756ae"
+      "sha256": "d023ee87da53b7cf09a48a79663d2987f423bafe696099781a1b4100f202480a"
     },
-    "command": "lane-d-conf/workflow/confinement_scaling/build_table.py --state /home/user1/runs/campaign/atlas/v1/state.csv --filedb /home/user1/runs/campaign/filedb --out /home/user1/runs/campaign/atlas/confinement --spitzer"
+    "criteria": "Lane K state.csv regenerated under criteria v2 (#1521): efit_quality is fit quality only; thomson_consistent is the [1, 2] p_e verdict"
   },
   "dropped_columns": {
     "assumptions": {
       "dip_dt": "local quadratic fit over 0.001 s of the measured Ip",
-      "dwdt": "local degree-1 fit over 0.003 s of W_mhd on the shot's labelled (good/admissible) EFIT slices only; NaN with one labelled slice",
+      "dwdt": "local degree-1 fit over 0.003 s of W_mhd on the shot's labelled (good/admissible) EFIT slices only; NaN with one labelled slice, where dli_3/dt is unavailable too (likewise at labelled slices further apart than the window) and l_i is held fixed in V_ind there, so P_OH and R_p are still computed",
       "external_inductance": "flux between the inboard loop and the LCFS is not removed",
       "li_3": "vaft.omas.update.update_equilibrium_global_quantities_beta_li after #1477",
       "m_eff_amu": "1.0 (H+ per state key contract v1; not measured)",
@@ -58,8 +59,16 @@
   "files": {
     "vest_39915_power_balance_series.csv": "c52471e88eb78aa0e0b2ce88e5f50a7a93e9938f36f2cf85a3c9a654d6a97854",
     "vest_42894_power_balance_series.csv": "5137f0e4ab06c52216d1789b5f989c41b317442de87b53f3e34e49c0fd47fafc",
-    "vest_tier_a_confinement.csv": "939785019dbe5f14d5e9361794f052573f36e2d7ed70d7e7eec6007bda75d51f"
+    "vest_tier_a_confinement.csv": "b557b71fe1b0f3bd01f389b2836b690d1c88d261b351f9b8b63ccfe848693e20"
   },
   "series": "per-shot power balance on the labelled EFIT slices (atlas series/<shot>.csv) for 39915 (block 399xx-403xx) and 42894 (block 429xx-430xx)",
-  "caveat": "429xx-430xx block: at fixed I_p and I_p V_loop its W_mhd is x1.6 the 399xx-403xx block's (log offset +0.46 +- 0.10), while the Thomson-only W_e shows none (-0.09 +- 0.49); W_mhd/W_e medians are 4.5 against 2.1, EFIT probe reduced chi^2 6.8 against 1.1. See #1490."
+  "caveat": "429xx-430xx block (criteria v2, #1521): 2 of 80 state keys are fit-quality good; 84 % of its Thomson-matched slices are Thomson-inconsistent (48 % for 399xx-403xx); it is 1.6x denser (2.7x in the primary selection). At fixed I_p and I_p V_loop its W_mhd is x1.8 the 399xx block's; with density included the offset is +0.01 +- 0.12 (log) on Thomson-consistent state keys (only 5 of them in 429xx) and +0.37 +- 0.09 on inconsistent ones. On the primary selection the consistent offset stays (+0.61 +- 0.27, 4 slices), and the Thomson-only W_e of the inconsistent 429xx slices is low (log offset -1.3), so the disagreement is not one-sided. A block-wide magnetics-EFIT bias is not decided by Tier A. See #1490.",
+  "selection": {
+    "thresholds": {
+      "ip_min": 30000.0,
+      "max_dwdt_fraction": 1.0,
+      "max_ip_change_per_tau": 0.2
+    },
+    "status": "primary selection decided 2026-10-02 on #1490; accepted/selected apply it; the sensitivity set is fit.py SELECTIONS['sensitivity']; threshold_sweep.csv gives the count on a grid"
+  }
 }
