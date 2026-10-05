@@ -422,13 +422,13 @@
     },
     "li_qa_cheng_1987.svg": {
       "call": "vaft.diagram.li_qa(reference='cheng_1987')",
-      "source_sha256": "0e7567f48d71e82cb99736065b7cc162e4213fc375fc418d85f7f1f6d359d30b",
-      "svg_sha256": "4cb3338f2463412dae266ba878045d9cd451f568fb97f2da7cc808a7fbf5bf91"
+      "source_sha256": "1f3a106a32175fb2b1aaa8ad250770ca32a384e786b691be4edeecab9163b129",
+      "svg_sha256": "5201d2a86c0ea96132fa9862ca99cd0a22bf554f968fe88257f2ad065a13d469"
     },
     "li_qa_wesson_1989.svg": {
       "call": "vaft.diagram.li_qa(reference='wesson_1989')",
-      "source_sha256": "cd6b59e696d4df31e39cd66458bfe297c6998abf9478e228de9a97b73b760255",
-      "svg_sha256": "0ccee0cea25362a2f3814282f6bcec1b6a5d9d8fd090492aa976c36b3b7b532f"
+      "source_sha256": "3ec78172db0eb011c88bf7bde719a1023684b4614f1025ce92639d70a4e5ea0b",
+      "svg_sha256": "d4146651266b76e216a4fca1a1a0ec4540bdb2feea5e39aad1a1e4b77afa189b"
     },
     "limiter_and_diverted_topologies.svg": {
       "call": "vaft.diagram.limiter_and_diverted_topologies()",

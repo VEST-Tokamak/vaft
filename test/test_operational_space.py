@@ -620,3 +620,48 @@ def test_st_hugill_diagram_curves_are_the_registered_boundaries():
     expected = B.boundary_value(B.get_boundary("sykes_2000_st_hugill"), inverse_cylindrical_q_st=xy[:, 1], elongation=1.8)
     np.testing.assert_allclose(xy[:, 0], expected)
     assert chart.parameters["boundaries"] == ("sykes_2000_st_hugill", "greenwald_hugill_st", "murakami_hugill")
+
+
+# --- Wesson + Cheng-Furth-Boozer references (#1603) ----------------------------------------------
+
+
+def test_the_pair_shows_both_references_on_their_own_planes_and_keeps_the_data():
+    from vaft.plot.operational_space import li_qa_pair
+    t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 17, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
+    t.attrs["machine_class"] = "spherical_tokamak"
+    fig, axs = li_qa_pair(t)
+    assert axs[0].vaft_overlay.projection == "li_qa_wesson" and axs[1].vaft_overlay.projection == "li_qa_cheng"
+    # the data beyond Wesson's q_psi = 10 stay on the plot
+    offsets = np.concatenate([c.get_offsets() for c in axs[0].collections if hasattr(c, "get_offsets")])
+    assert offsets[:, 0].max() == pytest.approx(17.0)
+    # the CFB panel never receives the q_psi population
+    assert not any(len(c.get_offsets()) for c in axs[1].collections if type(c).__name__ == "PathCollection")
+    legend = " ".join(t_.get_text() for t_ in axs[1].get_legend().get_texts()).replace("\n  ", " ")
+    assert "Cheng-Furth-Boozer 1987 stable domain" in legend and "(Theoretical)" in legend
+    legend0 = " ".join(t_.get_text() for t_ in axs[0].get_legend().get_texts()).replace("\n  ", " ")
+    assert "(Empirical)" in legend0
+
+
+def test_the_cfb_domain_stops_where_its_source_figure_ends():
+    empty = pd.DataFrame({"cylinder_edge_safety_factor": pd.Series(dtype=float),
+                          "internal_inductance_cylinder": pd.Series(dtype=float)})
+    _, ax = operational_space_population(empty, "li_qa_cheng", boundary_style="inline", x_range=(1.0, 9.0),
+                                         y_range=(0.2, 2.6))
+    fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
+    xs = np.concatenate([p.vertices[:, 0] for c in fills for p in c.get_paths()])
+    assert xs.max() <= 7.75 + 1e-9   # no fill (stable or unstable) beyond q(a) = 7.75
+    notes = [t_.get_text() for t_ in ax.texts if "Fig. 4 ends" in t_.get_text()]
+    assert notes and "no upper-$q$ limit implied" in notes[0]
+
+
+def test_cfb_bounds_are_never_drawn_on_the_q_psi_plane():
+    for key in ("cheng_1987_li_qa_lower", "cheng_1987_li_qa_upper", "cheng_1987_qa_min"):
+        assert not ops.placement("li_qa_wesson", key).drawable
+
+
+def test_the_cfb_diagram_fills_the_domain_and_labels_the_m1_edges():
+    import vaft.diagram
+    chart = vaft.diagram.li_qa(reference="cheng_1987").model
+    assert chart.curves["domain"][:, 0].max() <= 7.75 + 1e-9
+    assert {f"m{m}" for m in (3, 4, 5, 6)} <= set(chart.labels)
+    assert all(chart.labels[f"m{m}"][0] == m for m in (3, 4, 5, 6))   # at the integer-q(a) edges
