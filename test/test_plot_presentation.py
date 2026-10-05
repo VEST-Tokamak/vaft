@@ -274,8 +274,13 @@ def test_a_time_trace_is_the_landscape_strip_its_policy_says():
 def test_minimal_really_switches_the_grid_off():
     import warnings
 
+    from vaft.plot.presentation import FontFallbackWarning
+
     with warnings.catch_warnings():
         warnings.simplefilter("error")
+        # A host without the theme's first font (any plain Linux CI) falls
+        # back with a warning; that is not the grid's business here.
+        warnings.simplefilter("ignore", FontFallbackWarning)
         figure, axes = renderers.render_line_series(_minimal("render_line_series"), theme="minimal")
         _, caller_axes = plt.subplots()
         renderers.render_line_series(_minimal("render_line_series"), ax=caller_axes, theme="minimal")

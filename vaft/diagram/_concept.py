@@ -10,7 +10,7 @@ Layout is explicit: coordinates in centimetres, chosen by the builder.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -103,18 +103,22 @@ def band(x0: float, x1: float, y0: float, y1: float, text: str = "", *, style: s
 
 
 def database(x: float, y: float, width: float, height: float, text: str, *, style: str = "concept database",
-             text_style: str = "concept text", role: str = "", latex: bool = False) -> Box:
+             text_style: str = "concept text", role: str = "", latex: bool = False, ry: Optional[float] = None) -> Box:
     """A database cylinder centred at ``(x, y)``: a body and a front rim, drawn as polylines.
 
     The body is one closed outline -- the top ellipse's back half, the
     sides and the bottom ellipse's front half -- and the rim is the top
     ellipse's front half, so the drum reads as a store without a TikZ shape
     library. Connectors attach to its bounding box like a :func:`box`.
+    ``ry`` sets the rim's half-height; by default it scales with the drum.
     """
     if not width > 2 * _PAD or not height > 0:
         raise ValueError(f"database needs a width above {2 * _PAD} cm and a positive height, not {width} x {height}")
     hw, hh = 0.5 * width, 0.5 * height
-    ry = min(0.18 * width, 0.25 * height)  # ellipse half-height
+    if ry is None:
+        ry = min(0.18 * width, 0.25 * height)  # ellipse half-height
+    elif not 0.0 < ry <= 0.5 * height:
+        raise ValueError(f"ry must be in (0, height/2], not {ry!r}")
     t = np.linspace(0.0, np.pi, 25)
     top_back = np.stack([x + hw * np.cos(t), y + hh - ry + ry * np.sin(t)], -1)          # right to left, over
     bottom_front = np.stack([x - hw * np.cos(t), y - hh + ry - ry * np.sin(t)], -1)     # left to right, under
