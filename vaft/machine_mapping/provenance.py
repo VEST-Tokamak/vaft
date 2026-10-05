@@ -145,6 +145,14 @@ def _core_profiles_provenance(shot: int) -> dict[str, Any]:
             species: {"fraction": policy.impurity_fractions[species], "status": policy.impurity_status[species]}
             for species in policy.impurity_species
         },
+        "impurity_model": None if policy.impurity_model is None else {
+            "status": policy.impurity_model["status"],
+            "target_zeff": policy.impurity_model["target_zeff"],
+            "species": [
+                {key: item[key] for key in ("element", "charge_state", "mass", "relative_density")}
+                for item in policy.impurity_model["species"]
+            ],
+        },
         "revision": policy.provenance["revision"],
         "source": policy.source,
     }
