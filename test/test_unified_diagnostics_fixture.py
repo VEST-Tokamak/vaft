@@ -151,3 +151,55 @@ def test_kinetic_overview_renders_through_both_adapters(fixture_data):
         assert len(figure.axes) == 4
         assert "Cross-shot composite" in figure._suptitle.get_text()
         plt.close(figure)
+
+
+def _calibration_assets():
+    import yaml
+
+    from vaft.data.resources import data_path
+
+    with (data_path("unified/vest_diagnostics") / "manifest.yaml").open("r", encoding="utf-8") as handle:
+        manifest = yaml.safe_load(handle)
+    return manifest["camera_calibration_reference"]["assets"]
+
+
+def test_sha256_pinned_calibration_assets_are_checked_out_with_lf():
+    """The manifest hashes the LF bytes, so Git must not rewrite them to CRLF on a
+    Windows checkout (that broke every fixture test on Windows CI only)."""
+    import subprocess
+
+    from vaft.data.resources import data_path
+
+    paths = [str(data_path(asset["path"])) for asset in _calibration_assets()]
+    assert paths
+    out = subprocess.run(
+        ["git", "check-attr", "text", "eol", "--", *paths],
+        cwd=data_path(), capture_output=True, text=True,
+    )
+    if out.returncode != 0:
+        pytest.skip("not a git checkout")
+    for path in paths:
+        attrs = dict(
+            line.rsplit(": ", 2)[1:] for line in out.stdout.splitlines() if line.startswith(path)
+        )
+        assert attrs.get("text") == "unset" or attrs.get("eol") == "lf", (path, out.stdout)
+
+
+def test_calibration_checksum_still_rejects_crlf_content(tmp_path, monkeypatch):
+    """The check stays byte-exact: a CRLF copy of a calibration asset must fail."""
+    import shutil
+
+    from vaft.data import resources
+
+    real = resources.data_path
+    asset = _calibration_assets()[0]["path"]
+    shutil.copytree(real("unified/vest_diagnostics"), tmp_path / "unified/vest_diagnostics")
+    target = tmp_path / asset
+    target.parent.mkdir(parents=True)
+    for other in _calibration_assets():
+        shutil.copyfile(real(other["path"]), tmp_path / other["path"])
+    monkeypatch.setattr(resources, "data_path", lambda name="": tmp_path / name if name else tmp_path)
+    assert unified_diagnostics_manifest()["camera_calibration_reference"]["assets"]
+    target.write_bytes(target.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+    with pytest.raises(ValueError, match="Camera calibration reference checksum mismatch"):
+        unified_diagnostics_manifest()
