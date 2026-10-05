@@ -56,6 +56,7 @@ def test_partial_grid_and_missing_ion_flux_do_not_create_a_false_total():
     base = "core_transport.model.0.profiles_1d.0"
     ods[f"{base}.grid_flux.rho_tor_norm"] = np.array([0.3, np.nan, 0.8])
     ods[f"{base}.electrons.energy.flux"] = np.array([1.0, 100.0, 2.0])
+    ods[f"{base}.electrons.particles.flux"] = np.array([np.nan, 1000.0, 4.0])
     del ods[f"{base}.ion.1.energy.flux"]
     row = _summary.extract_turbulent_transport(ods, 42)[0]
     assert row["points_on_grid"] == 2
@@ -66,6 +67,9 @@ def test_partial_grid_and_missing_ion_flux_do_not_create_a_false_total():
     assert row["q_i_points"] == 0
     assert np.isnan(row["q_i_peak_abs_W_m2"])
     assert np.isnan(row["rho_q_i_min"])
+    assert row["gamma_e_points"] == 1
+    assert row["gamma_e_peak_abs_m2_s"] == 4.0
+    assert row["rho_gamma_e_min"] == row["rho_gamma_e_max"] == 0.8
 
 
 def test_unrecorded_configuration_is_not_guessed_from_code_name():

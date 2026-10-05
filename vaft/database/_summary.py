@@ -191,10 +191,13 @@ TURBULENT_TRANSPORT_COLUMNS = (
     "ion_count",
     "q_e_points",
     "q_i_points",
+    "gamma_e_points",
     "rho_q_e_min",
     "rho_q_e_max",
     "rho_q_i_min",
     "rho_q_i_max",
+    "rho_gamma_e_min",
+    "rho_gamma_e_max",
     "q_e_peak_abs_W_m2",
     "q_i_peak_abs_W_m2",
     "gamma_e_peak_abs_m2_s",
@@ -826,6 +829,7 @@ def extract_turbulent_transport(ods, shot: int) -> list[dict]:
             finite_grid = grid[np.isfinite(grid)]
             rho_q_e_min, rho_q_e_max = _rho_coverage(grid, q_e)
             rho_q_i_min, rho_q_i_max = _rho_coverage(grid, q_i)
+            rho_gamma_e_min, rho_gamma_e_max = _rho_coverage(grid, gamma_e)
             rows.append({
                 "shot": int(shot),
                 "model_index": model_index,
@@ -844,10 +848,13 @@ def extract_turbulent_transport(ods, shot: int) -> list[dict]:
                 "ion_count": ion_count,
                 "q_e_points": 0 if q_e is None else int(np.count_nonzero(np.isfinite(q_e))),
                 "q_i_points": 0 if q_i is None else int(np.count_nonzero(np.isfinite(q_i))),
+                "gamma_e_points": 0 if gamma_e is None else int(np.count_nonzero(np.isfinite(gamma_e))),
                 "rho_q_e_min": rho_q_e_min,
                 "rho_q_e_max": rho_q_e_max,
                 "rho_q_i_min": rho_q_i_min,
                 "rho_q_i_max": rho_q_i_max,
+                "rho_gamma_e_min": rho_gamma_e_min,
+                "rho_gamma_e_max": rho_gamma_e_max,
                 "q_e_peak_abs_W_m2": _peak_abs(q_e),
                 "q_i_peak_abs_W_m2": _peak_abs(q_i),
                 "gamma_e_peak_abs_m2_s": _peak_abs(gamma_e),

@@ -62,8 +62,9 @@ transport[["shot", "time_s", "source", "model_index", "rho_grid_min",
 
 The peak columns are maxima of the *absolute* mapped SI flux over finite
 `rho_tor_norm` grid points, not full radial profiles. `rho_grid_min/max`
-describe the stored grid; `rho_q_e_min/max` and `rho_q_i_min/max` describe the
-finite coverage of each heat-flux channel. `q_i` sums all recorded ion species
+describe the stored grid; `rho_q_e_min/max`, `rho_q_i_min/max`, and
+`rho_gamma_e_min/max` describe the finite coverage of each reported flux
+channel. Each channel also has a point count. `q_i` sums all recorded ion species
 at each point only when every ion flux is present. `parameters_text_sha256`
 identifies exact stored `model.code.parameters` text, when present; it is not a
 configuration-equivalence key because the text can include state-specific
