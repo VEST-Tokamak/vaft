@@ -189,6 +189,152 @@ $|L_s| \simeq qR_0/|\hat s|$ and, in curved slabs, $\kappa \simeq 1/R_0$.
 | --- | --- | --- |
 | ![torus]({{ '/assets/diagrams/field_line_geometry_toroidal.svg' | relative_url }}) | ![cylinder]({{ '/assets/diagrams/field_line_geometry_cylindrical.svg' | relative_url }}) | ![slab]({{ '/assets/diagrams/field_line_geometry_slab.svg' | relative_url }}) |
 
+## MHD mode representations across geometries
+
+The same instability is described differently in each geometry, and MHD vocabulary mixes several
+classification systems in one name. "$m = 1$", "kink", "internal", "ideal", "tearing parity", "low-$n$"
+and "resonant" are answers to different questions. Schematically,
+
+$$\text{mode} = \text{spectral label} + \text{drive} + \text{localisation} + \text{resonance} + \text{parity} + \text{physical model},$$
+
+and two modes with the same name can differ in any of these. This section maps mode families across the
+slab, cylindrical and toroidal reductions above. It does not claim that every mode has a unique
+descendant in the next geometry.
+
+![MHD mode families across geometries]({{ '/assets/diagrams/mhd_mode_geometry_map.svg' | relative_url }})
+
+`mhd_mode_geometry_map` keeps four kinds of relation apart, and draws each with its own arrow:
+
+| Relation | Meaning | Example |
+| --- | --- | --- |
+| exact relabelling | the same perturbation in other coordinates and mode numbers | $(m, n) \to (m, k_z = -n/R_0)$ along $z = R_0\phi$ |
+| limit or coordinate continuation | one description is a limit of the other | Suydam's criterion is the cylindrical limit of Mercier's |
+| physical analogue | the same mechanism in a different eigenproblem | magnetic Rayleigh–Taylor and interchange |
+| branch | extra physics or localisation on top of a family | a resistive wall turns the external kink into an RWM |
+
+### Fourier representation and resonance
+
+With the conventions above, a perturbation is
+
+| Geometry | Representation | Spectral labels |
+| --- | --- | --- |
+| slab | $\tilde f \propto e^{i(k_xx + k_yy + k_zz)}$ | $k_y$, $k_\parallel = \mathbf k\cdot\mathbf B/B$ (`slab_parallel_wavenumber`) |
+| cylinder | $\tilde f \propto e^{i(m\theta + k_zz)}$ | $m$, $k_z$ |
+| torus | $\tilde f \propto e^{i(m\theta - n\phi)}$ | $(m, n)$, phase $m\theta - n\phi$ (`helical_phase`) |
+
+Straightening the torus at $R_0$ gives $z = R_0\phi$ and $k_z = -n/R_0$. The field-aligned local slab of
+a surface (`local_slab_from_cylinder`) has $k_y = m/r_0$, and along the field the harmonic has
+$k_\parallel = (m - nq)/(qR_0)$ (`cylindrical_parallel_wavenumber`). Hence
+
+$$k_\parallel(r_s) = 0 \iff q(r_s) = \frac{m}{n},$$
+
+which is `mode_number_mapping`. These relations exist once, in `vaft.formula.geometry` and
+`vaft.formula.stability.helical_phase`; the map quotes them and implements nothing new.
+
+### Mode numbers are morphology, not instability
+
+In a cylinder, $m = 0$ is a sausage, $m = 1$ a kink (a rigid helical shift) and $m \ge 2$ higher helical
+distortions (`cylindrical_mode_morphology`). These are **Fourier morphologies**. They are not a
+taxonomy of instabilities. "$m = 1$ means kink instability" says too much. It is more accurate to say that
+$m = 1$ has kink-like cylindrical morphology, and that whether an unstable kink branch exists depends on
+the equilibrium and on the eigenproblem posed. The $m = 0$ sausage, the classic Z-pinch instability, is
+stabilised in a tokamak by its strong $B_z$, so it has no tokamak descendant on the map.
+
+### Pressure- and curvature-driven family
+
+$$\text{Rayleigh–Taylor analogue} \to \text{flute / interchange} \to \text{interchange / Mercier, ballooning, infernal}$$
+
+* **Curved slab.** A pressure gradient against a prescribed field-line curvature acts like a heavy fluid
+  above a light one, with the curvature playing gravity: a magnetic Rayleigh–Taylor *analogue*.
+* **Cylinder.** Flute or interchange perturbations have $k_\parallel \simeq 0$ and so bend field lines as
+  little as possible. Suydam's criterion is their local stability limit. Interchange names a mechanism, not
+  a mode number.
+* **Torus.** Three branches are kept apart:
+  * *interchange / Mercier*: the localised pressure–curvature limit; Mercier's criterion is the toroidal
+    continuation of Suydam's;
+  * *ballooning*: high $n$, modified by field-line bending and magnetic shear and localised on the
+    bad-curvature side (`ballooning_curvature_drive`, `ballooning_harmonic_envelope`,
+    `ballooning_eigenfunction`, `s_alpha_ballooning`);
+  * *infernal*: low $n$, pressure-driven, where magnetic shear is weak.
+
+### Current-driven family
+
+* **Internal kink**: a global ideal mode confined inside an internal rational surface, the $m = 1$ mode
+  inside $q = 1$. Finite resistivity at $q = 1$ gives the resistive kink.
+* **External kink**: a global ideal mode that displaces the plasma boundary (`internal_external_kink`,
+  `plasma_vacuum_wall`, `kink_mode`).
+* **Peeling**: an edge-current-driven, edge-localised, *external-kink-like* branch. It is not simply the
+  same mode as the external kink.
+* **Resistive-wall mode (RWM)**: the external-kink branch modified by a finite-conductivity wall. It grows on
+  the wall time instead of the Alfvén time.
+* **Peeling–ballooning**: the coupled edge branch of peeling and ballooning, the picture behind the
+  `peeling_ballooning` operational diagram.
+
+Global current-driven modes have no local-slab counterpart. They need the radial current profile that a
+local slab discards.
+
+### Resonant and reconnecting family
+
+```text
+global toroidal / cylindrical harmonic
+  -> q = m/n                          (mode_number_mapping)
+  -> cylindrical ideal outer problem  (cylindrical_tearing_outer, Delta')
+  -> local sheared-slab layer         (slab_parity, rational_surface)
+  -> tearing or twisting channel      (resonant_layer_matching, tearing_layer_matching)
+```
+
+The **tearing mode** is the resistive resonant instability. In a torus, toroidicity and shaping couple
+several $m$ at fixed $n$ (`poloidal_harmonic_coupling`), so the outer problem becomes a matrix over all
+rational surfaces of that $n$. The **NTM** is a nonlinear, neoclassical extension of island evolution,
+driven by the loss of bootstrap current inside the island (`magnetic_island`). It is not the next linear
+eigenmode in an ideal–resistive hierarchy, which is why it hangs off the map as a branch.
+
+### Parity is orthogonal to mode number
+
+$m$ and $n$ are not parity labels. At a resonant surface the local layer response has its own
+classification, **tearing** or **twisting** parity (`slab_parity`, `slab_parity_comparison`). A given
+$m/n$ harmonic can take part in either channel, depending on the response or eigenproblem. Toroidal
+coupling of several $m$ at fixed $n$ does not change this. Parity stays a separate concept.
+
+### Axisymmetric free-boundary modes
+
+The vertical instability, and the VDE it leads to, is $n = 0$, axisymmetric, and set by elongation and the
+free boundary (`hot_vde_sequence`, `cold_vde_bifurcation`, `vde_timescales`). It does not belong to the
+kink family. A rigid transverse shift of a cylinder is useful intuition and nothing more. There is no
+exact $m = 1 \leftrightarrow$ VDE equivalence.
+
+### Orthogonal mode descriptors
+
+| Descriptor | Examples | What it tells us |
+| --- | --- | --- |
+| geometry | slab, cylinder, torus | the space the model lives in |
+| spectral label | $k_y, k_\parallel$; $m, k_z$; $(m, n)$ | Fourier structure |
+| drive | pressure and curvature, current, bootstrap current | the free-energy source |
+| localisation | core, internal, global, edge | radial structure |
+| resonance | resonant, non-resonant | relation to $k_\parallel = 0$ |
+| parity | tearing, twisting | local layer symmetry |
+| model | ideal, resistive, neoclassical, wall-coupled | the physics retained |
+| ordering | $n = 0$, low $n$, intermediate $n$, high $n$ | spectral and asymptotic regime |
+
+$$\text{mode name} \ne \text{mode number} \ne \text{geometry} \ne \text{physical drive}$$
+
+### Where VAFT's stability tools sit
+
+| Tool | Place on the map |
+| --- | --- |
+| analytic criteria (`vaft.formula.stability`) | Mercier- and interchange-like limits, ballooning limits, operational boundaries |
+| DCON | finite-$n$ ideal MHD: global ideal mode structure and the energy principle |
+| RDCON / STRIDE | resonant outer regions matched to inner layers: tearing and twisting channels |
+| GPEC | the forced, perturbed 3-D response: resonant and non-resonant harmonics |
+
+These tools do not share a common "instability severity" scale. Interchange, ballooning, kink and peeling
+should not be ranked by comparing unrelated criteria with each other. Naming the dominant dynamical mode
+needs a common eigenvalue or growth-rate problem. How VAFT runs these codes is on
+[MHD stability]({{ '/workflows/mhd-stability/' | relative_url }}).
+
+Gyrokinetic micro-instabilities (ITG, TEM, ETG, MTM, KBM) are outside this MHD map. They can use the same
+coordinate framework later.
+
 ## Where these lead
 
 ```text
@@ -208,3 +354,7 @@ use the slab frame of this page. See [Scientific diagrams]({{ '/reference/diagra
 2. J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014), Ch. 9 and 11.
 3. H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6 (1963) 459.
 4. W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+5. C. Mercier, Nucl. Fusion 1 (1960) 47; B. R. Suydam, Proc. 2nd UN Conf. Peaceful Uses of Atomic Energy 31 (1958) 157.
+6. J. Manickam, N. Pomphrey and A. M. M. Todd, Nucl. Fusion 27 (1987) 1461 (infernal modes).
+7. J. W. Connor, R. J. Hastie, H. R. Wilson and R. L. Miller, Phys. Plasmas 5 (1998) 2687 (peeling–ballooning).
+8. R. J. La Haye, Phys. Plasmas 13 (2006) 055501 (neoclassical tearing modes).
