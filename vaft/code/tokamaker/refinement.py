@@ -13,7 +13,8 @@ class ShapeRefinement:
     Points are R/Z metres, currents and bounds are physical amperes. Native
     OFT constraint weights are separate from the initial inverse-fit weights.
     Regularization penalizes deviation from initial fitted currents, rather
-    than replacing the initial fit. Complete finite bounds are mandatory.
+    than replacing the initial fit. Complete finite bounds are mandatory. Every saddle also participates in
+    the common LCFS isoflux constraint.
     """
     isoflux_points_m: np.ndarray
     saddle_points_m: np.ndarray
@@ -31,6 +32,13 @@ class ShapeRefinement:
                     or not np.isfinite(points).all() or np.any(points[:, 0] <= 0)):
                 raise ValueError(f'{name} must be finite positive-R (n,2) points')
             object.__setattr__(self, name, points.copy())
+        # Zero poloidal field alone does not place a saddle on the separatrix.
+        # Tie its flux to the LCFS, including for directly constructed objects.
+        boundary = self.isoflux_points_m
+        for saddle in self.saddle_points_m:
+            if not np.any(np.all(boundary == saddle, axis=1)):
+                boundary = np.vstack((boundary, saddle))
+        object.__setattr__(self, 'isoflux_points_m', boundary)
         values = [self.regularization, self.current_scale_A, self.isoflux_weight, self.saddle_weight]
         if not np.isfinite(values).all() or np.any(np.asarray(values) <= 0):
             raise ValueError('refinement controls must be finite positive')

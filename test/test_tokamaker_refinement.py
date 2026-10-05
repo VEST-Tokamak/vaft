@@ -16,7 +16,8 @@ def test_arclength_and_saddle_constraints_use_physical_bounds(tmp_path, monkeypa
     refine = prepare_shape_refinement(eq, {'PF1': 123.}, current_bounds={'PF1': (-1000., 1000.)},
                                       boundary_samples=16, x_points=[(.3, -.2)],
                                       regularization=.02, current_scale_A=100.)
-    assert refine.isoflux_points_m.shape == (16, 2)
+    assert refine.isoflux_points_m.shape == (17, 2)
+    assert refine.isoflux_points_m[-1] == pytest.approx([.3, -.2])
     calls, _ = make_fake_oft(monkeypatch)
     cls = import_oft().TokaMaker
     for name in ('set_isoflux', 'set_saddles', 'set_coil_bounds'):
@@ -72,3 +73,16 @@ def test_saddles_can_be_explicitly_disabled_for_limited_case():
     shifted = replace(eq, lcfs=None)
     with pytest.raises(ValueError, match='closed'):
         prepare_shape_refinement(shifted, {'PF1': 0.}, current_bounds={'PF1': (-1., 1.)})
+
+
+def test_every_saddle_shares_lcfs_flux_without_duplicate_constraints():
+    eq = solovev_example(resolution=33)
+    options = {'current_bounds': {'PF1': (-1., 1.)}, 'boundary_samples': 16}
+    boundary = prepare_shape_refinement(eq, {'PF1': 0.}, x_points=[], **options)
+    existing = boundary.isoflux_points_m[3]
+    extra = np.array([.3, -.44])
+    refined = prepare_shape_refinement(eq, {'PF1': 0.},
+                                       x_points=[existing, extra, extra], **options)
+    assert len(refined.isoflux_points_m) == 17
+    for saddle in refined.saddle_points_m:
+        assert np.count_nonzero(np.all(refined.isoflux_points_m == saddle, axis=1)) == 1
