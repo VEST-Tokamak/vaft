@@ -49,6 +49,10 @@ from .inputs import (
 )
 from .mesh import build_tokamaker_mesh
 from .runner import run_tokamaker
+from .bridge import VFixedFitResult, fit_vfixed_samples, fit_free_boundary_coils_vfixed
+from .refinement import ShapeRefinement, prepare_shape_refinement
+from .closure import FixedToFreeResult, compare_equilibria, fixed_to_free
+from .profiles import TokaMakerProfiles, equilibrium_to_tokamaker_profiles
 from .evolve import run_tokamaker_evolution
 from .stability import run_tokamaker_vertical_stability, run_tokamaker_wall_eigenmodes
 from .outputs import (
@@ -84,6 +88,16 @@ __all__ = [
     "resolve_mesh_file",
     "build_tokamaker_mesh",
     "run_tokamaker",
+    "VFixedFitResult",
+    "fit_vfixed_samples",
+    "fit_free_boundary_coils_vfixed",
+    "ShapeRefinement",
+    "prepare_shape_refinement",
+    "FixedToFreeResult",
+    "compare_equilibria",
+    "fixed_to_free",
+    "TokaMakerProfiles",
+    "equilibrium_to_tokamaker_profiles",
     "run_tokamaker_evolution",
     "run_tokamaker_wall_eigenmodes",
     "run_tokamaker_vertical_stability",

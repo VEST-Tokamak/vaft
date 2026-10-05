@@ -42,6 +42,7 @@ flowchart LR
 | `vaft.formula.stability` | Beta conversions, ballooning/kink/sawtooth criteria, Greenwald limit, transport speeds |
 | `vaft.formula.green` | Axisymmetric Green's functions for $\psi$, $B_R$, $B_Z$ and the elliptic integrals behind them |
 | `vaft.formula.atomic` | OPEN-ADAS ADF11 interpolation, coronal charge-state fractions, line-radiation cooling coefficients |
+| `vaft.formula.impurity` | Impurity-mixture moments, densities for a target $Z_\mathrm{eff}$, the reduced pseudo-impurity, main-ion dilution |
 | `vaft.formula.statistics` | Residual, goodness-of-fit and solver-convergence statistics used by the validation layer |
 
 `vaft/formula/__init__.py` resolves its submodules lazily (PEP 562): importing one of them costs

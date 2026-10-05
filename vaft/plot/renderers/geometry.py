@@ -413,7 +413,7 @@ def charge_exchange_geometry_poloidal(
     description="Composed poloidal machine view: wall, coils, passive structure "
                 "and diagnostic positions and sight lines in one axes.",
     ids=("wall", "pf_active", "pf_passive", "magnetics", "thomson_scattering",
-         "charge_exchange", "soft_x_rays"),
+         "charge_exchange", "soft_x_rays", "interferometer", "langmuir_probes"),
     required_paths=(),
     optional_paths=("wall.description_2d.{i}.limiter.unit.{j}.outline.r",
                     "pf_active.coil.{i}.element.{j}.geometry.geometry_type",

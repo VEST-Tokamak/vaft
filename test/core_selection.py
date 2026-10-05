@@ -88,6 +88,7 @@ CORE_MODULES: tuple[str, ...] = (
     # be able to see.
     "test_gpec_island_geometry.py",
     "test_magnetic_island.py",
+    # Machine geometry: source vertices, unknown phi, camera units and mask.
     # Registry, taxonomy and display policy: the vocabulary the rest of the
     # package indexes itself by.
     "test_diagnostic_registry.py",
@@ -96,8 +97,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_equilibrium_field_2d.py",
     "test_layout_contract.py",
     "test_line_abscissa.py",
+    "test_machine_geometry_registry.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_parameter_history.py",
     "test_plot_3d_contract.py",
     "test_plot_contract.py",
     "test_plot_intent.py",
@@ -129,6 +132,7 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_models_uncertainty.py",
     "test_code_parameters_contract.py",
     "test_code_parameters_entry_payload.py",
+    "test_database_summary.py",
     "test_dataset_description.py",
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
@@ -136,6 +140,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_public_profile.py",
     "test_public_transition.py",
     "test_shotlog.py",
+    "test_turbulent_transport_summary.py",
     # Packaging and documentation policy. Metadata reads; they catch the
     # breakage `package` cannot see until it is already building a wheel.
     "contracts/test_dependency_policy_matrix.py",
@@ -223,8 +228,10 @@ CORE_MODULES: tuple[str, ...] = (
     # and the #141 scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
     "test_gpec_rdcon_criteria.py",
+    "test_mhd_linear_dcon_payload.py",
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
+    "test_stability_rdcon_stride_benchmark.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
@@ -234,6 +241,12 @@ CORE_MODULES: tuple[str, ...] = (
     # The atlas renderers draw synthetic tables only.
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
+    # Impurity composition (lane L, #1565): the mixture algebra against the
+    # issue's exact reference values, the precedence resolver on tiny ODSs, and
+    # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
+    "test_formula_impurity.py",
+    "test_process_impurity.py",
+    "test_vest_core_profiles_policy.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

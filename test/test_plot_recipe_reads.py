@@ -64,6 +64,7 @@ NEUTRAL = frozenset({
     "summary_time_q_star_kink", "summary_time_normalized_current",
 })
 OMAS_BOUND = frozenset({
+    "kinetic_overview_profiles",
     "passive_structure_geometry_wall_mode",
     "passive_structure_overview_wall_time", "passive_structure_overview_wall_reduction",
     "passive_structure_field_wall_reduction", "neoclassical_profile_bootstrap_current",
@@ -90,6 +91,7 @@ _MAPPER_PROBES = {
     "NW": "the mapper then asks whether it was handed a GEQDSK before reading the ODS equilibrium",
 }
 IGNORED_READS: dict[str, dict[str, str]] = {
+    "kinetic_overview_profiles": _MAPPER_PROBES,
     "thomson_scattering_profile_fit": _MAPPER_PROBES,
     "charge_exchange_profile_fit": _MAPPER_PROBES,
 }

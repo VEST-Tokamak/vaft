@@ -48,6 +48,12 @@ MISSING_LABELS = frozenset({"unknown", "not available"})
 BOUNDARY_COLORS = ("#1a1a19", "#a3442b", "#2f6f4f", "#5b4a9e")
 #: Edge colours of representative-discharge trajectories, in order.
 TRAJECTORY_COLORS = ("#1a1a19", "#5b2a9e", "#a3442b")
+#: Boundaries shown in the inline style as a dashed reference line, never as a limit: no hatched forbidden side,
+#: no part in the "Stable" zone. Murakami is a historical conventional-tokamak reference, not a limit for a
+#: spherical tokamak (#1602).
+REFERENCE_ONLY = frozenset({"murakami_hugill"})
+#: Shorter names written along a line in the inline style, where the legend's full name would not fit the curve.
+ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)"}
 #: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
 BOUNDARY_NAMES = {
     "freidberg_2008_kink_qstar": "External kink limit",
@@ -60,7 +66,7 @@ BOUNDARY_NAMES = {
     "cheng_1987_qa_min": "q(a) = 2",
     "low_q": "Low-q limit",
     "greenwald_hugill": "Greenwald/Hugill limit",
-    "murakami_hugill": "Murakami limit",
+    "murakami_hugill": "Murakami (historical conventional-tokamak reference)",
     "greenwald_fraction_unity": "Greenwald limit",
     "martin_2008_lh": "L-H threshold (Martin 2008)",
     "takizuka_2004_lh": "L-H threshold (Takizuka 2004)",
@@ -201,7 +207,9 @@ def _boundary_label(curve: _b.BoundaryCurve) -> str:
 
 
 def _basis_word(entry) -> str:
-    """Empirical, Analytical or Numerical, from the registered ``basis``."""
+    """Derived (a registered relation re-expressed by VAFT), else Empirical, Analytical or Numerical from ``basis``."""
+    if entry.origin == "derived":
+        return "Derived"
     basis = entry.basis
     if basis.endswith("numerical"):
         return "Numerical"
@@ -231,7 +239,7 @@ def _math(symbol: str) -> str:
 
 
 def _inline_legend_label(curve: _b.BoundaryCurve) -> str:
-    """``{name} ({fixed inputs}) {Unstable} ({Empirical|Analytical|Numerical})``."""
+    """``{name} ({fixed inputs}) {Unstable} ({Empirical|Analytical|Numerical|Derived})``."""
     entry = _b.get_boundary(curve.key)
 
     def symbol(name):
@@ -324,8 +332,11 @@ def _allowed_mask(curve: _b.BoundaryCurve, px: np.ndarray, py: np.ndarray) -> np
     return (px < level) if curve.allowed_side == "left" else (px > level)
 
 
-def _label_allowed_zone(ax, curves, xs: np.ndarray, ys: np.ndarray, text: str):
-    """One label in the zone every drawn boundary allows, where it is farthest from the data."""
+def _label_allowed_zone(ax, curves, xs: np.ndarray, ys: np.ndarray, text: str, avoid=()):
+    """One label in the zone every drawn limit allows, farthest from the data and from every drawn line.
+
+    ``avoid`` holds further curves (reference lines) the label must keep clear of without bounding the zone.
+    """
     if not curves:
         return None
     (xlo, xhi), (ylo, yhi) = ax.get_xlim(), ax.get_ylim()
@@ -338,7 +349,7 @@ def _label_allowed_zone(ax, curves, xs: np.ndarray, ys: np.ndarray, text: str):
         return None
     cand = np.c_[u.ravel(), v.ravel()][allowed]
     others = [np.c_[(xs - xlo) / (xhi - xlo), (ys - ylo) / (yhi - ylo)]] if len(xs) else []
-    for curve in curves:
+    for curve in tuple(curves) + tuple(avoid):
         cx, cy = np.asarray(curve.x, float), np.asarray(curve.y, float)
         ok = np.isfinite(cx) & np.isfinite(cy)
         others.append(np.c_[(cx[ok] - xlo) / (xhi - xlo), (cy[ok] - ylo) / (yhi - ylo)])
@@ -652,8 +663,16 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     ax.set_ylim(ylim)
     for i, curve in enumerate(plan.curves):
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
-        ax.plot(curve.x, curve.y, color=c, linewidth=1.6 * line_scale, label=None if inline else _boundary_label(curve),
-                zorder=2)
+        reference = inline and curve.key in REFERENCE_ONLY
+        ax.plot(curve.x, curve.y, color=c, linewidth=1.6 * line_scale, linestyle="--" if reference else "-",
+                label=None if inline else _boundary_label(curve), zorder=2)
+        if reference:
+            from matplotlib.lines import Line2D
+            entry = _b.get_boundary(curve.key)
+            patches.append(Line2D([], [], color=c, linestyle="--", linewidth=1.6 * line_scale, label=textwrap.fill(
+                f"{BOUNDARY_NAMES.get(curve.key, curve.key)} ({_basis_word(entry)})",
+                width=46, subsequent_indent="  ")))
+            continue
         _shade_forbidden(ax, curve, c, hatch="////" if inline else None)
         if inline:
             from matplotlib.colors import to_rgba
@@ -664,9 +683,13 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     ax.set_ylim(ylim)
     if inline and plan.curves:
         for i, curve in enumerate(plan.curves):
-            _label_along(ax, curve, BOUNDARY_NAMES.get(curve.key, curve.key), BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)])
-        words = {_allowed_word(_b.get_boundary(curve.key)) for curve in plan.curves}
-        _label_allowed_zone(ax, plan.curves, xs, ys, " / ".join(sorted(words)))
+            name = ALONG_LINE_NAMES.get(curve.key, BOUNDARY_NAMES.get(curve.key, curve.key))
+            _label_along(ax, curve, name, BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)])
+        limits = [curve for curve in plan.curves if curve.key not in REFERENCE_ONLY]
+        words = {_allowed_word(_b.get_boundary(curve.key)) for curve in limits}
+        if limits:
+            _label_allowed_zone(ax, limits, xs, ys, " / ".join(sorted(words)),
+                                avoid=[curve for curve in plan.curves if curve.key in REFERENCE_ONLY])
     if trajectories:
         def colour_of(row):
             if color is None:

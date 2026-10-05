@@ -73,6 +73,17 @@ VIEWING_PORT = "9MM10"
 PORT_MAJOR_RADIUS_M = 0.803
 
 
+def laser_chord_positions() -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """VEST port-map laser entry and dump in (R [m], Z [m], phi [rad]).
+
+    This is a derived midplane chord using the port-flange radius, not an
+    as-built laser survey. Callers must establish that their channel geometry
+    uses this mapper before attaching the chord to a discharge.
+    """
+    return ((PORT_MAJOR_RADIUS_M, 0.0, port_phi(LASER_ENTRY_PORT)),
+            (PORT_MAJOR_RADIUS_M, 0.0, port_phi(LASER_DUMP_PORT)))
+
+
 def _chord_geometry() -> tuple[float, float]:
     """The chord's bisector angle [rad] and its tangency radius [m]."""
     entry = port_phi(LASER_ENTRY_PORT)
