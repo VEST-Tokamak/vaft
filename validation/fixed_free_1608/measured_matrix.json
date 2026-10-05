@@ -28,6 +28,7 @@
       "lcfs_max_m": 0.0022866383820506083,
       "axis_displacement_m": 0.00010677115252446903,
       "native_topology": "limited",
+      "native_x_flux_tolerance_fraction": null,
       "gridded_topology": "limited",
       "x_point_displacements_m": [],
       "unmatched_target_x_points": 0,
@@ -46,6 +47,8 @@
       "volume_difference_m3": 1.7714168384364015e-05,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -77,6 +80,7 @@
       "lcfs_max_m": 0.0022557341854679866,
       "axis_displacement_m": 0.00013417153569568655,
       "native_topology": "limited",
+      "native_x_flux_tolerance_fraction": null,
       "gridded_topology": "limited",
       "x_point_displacements_m": [],
       "unmatched_target_x_points": 0,
@@ -95,6 +99,8 @@
       "volume_difference_m3": -0.00014727120337620914,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -126,6 +132,7 @@
       "lcfs_max_m": 0.010448673897210834,
       "axis_displacement_m": 0.001356502068652291,
       "native_topology": "lower_single_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "lower_single_null",
       "x_point_displacements_m": [
         0.00018586283074253034
@@ -146,6 +153,8 @@
       "volume_difference_m3": -0.0025653195695926057,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -177,6 +186,7 @@
       "lcfs_max_m": 0.010444251538363694,
       "axis_displacement_m": 0.0013484092925597573,
       "native_topology": "lower_single_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "lower_single_null",
       "x_point_displacements_m": [
         0.00018476458646551918
@@ -197,6 +207,8 @@
       "volume_difference_m3": -0.0025637328654692926,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -228,6 +240,7 @@
       "lcfs_max_m": 0.005675282471991812,
       "axis_displacement_m": 0.0004083516757780006,
       "native_topology": "double_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "double_null",
       "x_point_displacements_m": [
         5.199789980843385e-05,
@@ -249,6 +262,8 @@
       "volume_difference_m3": -0.00042034176729932593,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -280,6 +295,7 @@
       "lcfs_max_m": 0.005287211362669208,
       "axis_displacement_m": 0.00039277078544828505,
       "native_topology": "double_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "double_null",
       "x_point_displacements_m": [
         2.983805802303815e-05,
@@ -301,6 +317,8 @@
       "volume_difference_m3": -0.00011214286019234354,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -332,6 +350,7 @@
       "lcfs_max_m": 0.0003838597774435553,
       "axis_displacement_m": 0.00028487359650354523,
       "native_topology": "limited",
+      "native_x_flux_tolerance_fraction": null,
       "gridded_topology": "limited",
       "x_point_displacements_m": [],
       "unmatched_target_x_points": 0,
@@ -350,6 +369,8 @@
       "volume_difference_m3": 0.00010924198472014868,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -381,6 +402,7 @@
       "lcfs_max_m": 0.00038356008122177656,
       "axis_displacement_m": 0.0002849316355481959,
       "native_topology": "limited",
+      "native_x_flux_tolerance_fraction": null,
       "gridded_topology": "limited",
       "x_point_displacements_m": [],
       "unmatched_target_x_points": 0,
@@ -399,6 +421,8 @@
       "volume_difference_m3": 0.00010900407009903357,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -430,6 +454,7 @@
       "lcfs_max_m": 0.0013288354163171047,
       "axis_displacement_m": 9.727231757121538e-05,
       "native_topology": "lower_single_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "ambiguous",
       "x_point_displacements_m": [
         1.0522777167490817e-05
@@ -450,6 +475,8 @@
       "volume_difference_m3": -0.00019703902181941735,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -481,6 +508,7 @@
       "lcfs_max_m": 0.0013298819810943384,
       "axis_displacement_m": 9.749031615903902e-05,
       "native_topology": "lower_single_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "ambiguous",
       "x_point_displacements_m": [
         1.0417688658472941e-05
@@ -501,6 +529,8 @@
       "volume_difference_m3": -0.00019751354325497905,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -532,6 +562,7 @@
       "lcfs_max_m": 0.00200069649946331,
       "axis_displacement_m": 0.00014823564777740182,
       "native_topology": "double_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "ambiguous",
       "x_point_displacements_m": [
         1.228100196291293e-06,
@@ -553,6 +584,8 @@
       "volume_difference_m3": -0.000140564560928369,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -584,6 +617,7 @@
       "lcfs_max_m": 0.0019934173599684595,
       "axis_displacement_m": 0.00014847405962901055,
       "native_topology": "double_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "ambiguous",
       "x_point_displacements_m": [
         1.186398290807799e-06,
@@ -605,6 +639,8 @@
       "volume_difference_m3": -0.00013955570391596672,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -636,6 +672,7 @@
       "lcfs_max_m": 0.0003789384572203262,
       "axis_displacement_m": 0.00026179922047687,
       "native_topology": "limited",
+      "native_x_flux_tolerance_fraction": null,
       "gridded_topology": "limited",
       "x_point_displacements_m": [],
       "unmatched_target_x_points": 0,
@@ -654,6 +691,8 @@
       "volume_difference_m3": 0.00013506489069983751,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -685,6 +724,7 @@
       "lcfs_max_m": 0.00037900992693018336,
       "axis_displacement_m": 0.0002621499943225729,
       "native_topology": "limited",
+      "native_x_flux_tolerance_fraction": null,
       "gridded_topology": "limited",
       "x_point_displacements_m": [],
       "unmatched_target_x_points": 0,
@@ -703,6 +743,8 @@
       "volume_difference_m3": 0.0001357968914826868,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -734,6 +776,7 @@
       "lcfs_max_m": 0.0035273142041816587,
       "axis_displacement_m": 0.00022655089762377552,
       "native_topology": "lower_single_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "ambiguous",
       "x_point_displacements_m": [
         3.293911119745145e-05
@@ -754,6 +797,8 @@
       "volume_difference_m3": 1.128546590986601e-05,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -785,6 +830,7 @@
       "lcfs_max_m": 0.003527274709526151,
       "axis_displacement_m": 0.0002265991335346787,
       "native_topology": "lower_single_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "ambiguous",
       "x_point_displacements_m": [
         3.2945935540328085e-05
@@ -805,6 +851,8 @@
       "volume_difference_m3": 1.142758433805846e-05,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -836,6 +884,7 @@
       "lcfs_max_m": 0.00250936015867224,
       "axis_displacement_m": 1.6055765008860846e-05,
       "native_topology": "double_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "ambiguous",
       "x_point_displacements_m": [
         2.0734570653143325e-05,
@@ -857,6 +906,8 @@
       "volume_difference_m3": 0.00042135831721887285,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -884,10 +935,11 @@
     },
     "verified": {
       "status": "converged",
-      "lcfs_rms_m": 0.0007333002575844041,
+      "lcfs_rms_m": 0.0007333002576684171,
       "lcfs_max_m": 0.0025106462489137187,
       "axis_displacement_m": 1.6224617807447137e-05,
       "native_topology": "double_null",
+      "native_x_flux_tolerance_fraction": 0.0001,
       "gridded_topology": "ambiguous",
       "x_point_displacements_m": [
         2.0599737052405732e-05,
@@ -903,12 +955,14 @@
         "solved_reason": null,
         "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
       },
-      "beta_p_difference": -1.1145861080974484e-05,
-      "li_difference": -0.008046490914776827,
+      "beta_p_difference": -1.1145855113525727e-05,
+      "li_difference": -0.008046490963727115,
       "thermal_energy_difference_J": -0.0027115704726590195,
-      "volume_difference_m3": 0.00042257821672236906,
+      "volume_difference_m3": 0.00042257821976499077,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -940,6 +994,7 @@
       "lcfs_max_m": 0.0003147279112993844,
       "axis_displacement_m": 0.000658727365606522,
       "native_topology": "limited",
+      "native_x_flux_tolerance_fraction": null,
       "gridded_topology": "limited",
       "x_point_displacements_m": [],
       "unmatched_target_x_points": 0,
@@ -958,6 +1013,8 @@
       "volume_difference_m3": -6.33116539361378e-07,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   },
   {
@@ -989,6 +1046,7 @@
       "lcfs_max_m": 0.00031497904712079414,
       "axis_displacement_m": 0.0006587861851482669,
       "native_topology": "limited",
+      "native_x_flux_tolerance_fraction": null,
       "gridded_topology": "limited",
       "x_point_displacements_m": [],
       "unmatched_target_x_points": 0,
@@ -1007,6 +1065,8 @@
       "volume_difference_m3": -3.408696972462266e-07,
       "error": ""
     },
+    "accepted": true,
+    "acceptance_failures": [],
     "error": null
   }
 ]
