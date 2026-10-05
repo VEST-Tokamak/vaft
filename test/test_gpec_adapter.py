@@ -963,6 +963,35 @@ def test_a_backend_timeout_still_reaches_the_suite_timeout_carve_out(monkeypatch
     assert "timeout after 7.0 seconds" in record.reason
 
 
+@pytest.mark.parametrize(
+    ("execution_fields", "expected", "absent"),
+    [
+        (dict(runtime_status="memory_limit", peak_rss_mb=24600.0, elapsed_s=812.0),
+         "stopped by the memory limit at 24600 MiB resident", "timeout after"),
+        (dict(runtime_status="queue_timeout", waited_for="memory", elapsed_s=600.0),
+         "waiting 600 s for memory to become available (it never started)", "timeout after"),
+    ],
+)
+def test_a_memory_stop_is_not_reported_as_a_timeout(monkeypatch, tmp_path, case, execution_fields, expected, absent):
+    """#1460: the record says what stopped the solver, via timeout_reason()."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True, **execution_fields))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto", timeout=7.0, backend=backend),
+    )
+
+    (record,) = result.records
+    assert record.status == "failed" and record.returncode is None
+    assert expected in record.reason and absent not in record.reason
+    assert record.reason.startswith("dcon ")
+
+
 def test_find_gpec_executable_is_none_without_an_installation(no_gpec_env):
     assert gpec.find_gpec_executable("dcon") is None
 

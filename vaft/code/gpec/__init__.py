@@ -730,7 +730,11 @@ def _run_module(
                     workdir=run_dir,
                     returncode=0,
                     status="completed",
-                    reason=f"timeout after outputs materialized ({exc.timeout} seconds)",
+                    reason=(
+                        f"timeout after outputs materialized ({exc.timeout} seconds)"
+                        if not isinstance(exc, rt.GPECLimitStop) or exc.is_time_limit
+                        else f"{exc.reason}, after its outputs materialized"
+                    ),
                     logs=tuple(logs),
                     outputs=outputs,
                     commands=tuple(commands),
@@ -742,7 +746,7 @@ def _run_module(
                 returncode=None,
                 status="failed",
                 reason=(
-                    f"timeout after {exc.timeout} seconds; outputs present but "
+                    f"{rt.limit_stop_reason(exc)}; outputs present but "
                     f"failed verification: {check_reason}"
                 ),
                 logs=tuple(logs),
@@ -755,7 +759,7 @@ def _run_module(
             workdir=run_dir,
             returncode=None,
             status="failed",
-            reason=f"timeout after {exc.timeout} seconds",
+            reason=rt.limit_stop_reason(exc),
             logs=tuple(logs),
             outputs=outputs,
             commands=tuple(commands),
