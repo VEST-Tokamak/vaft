@@ -239,6 +239,12 @@ CORE_MODULES: tuple[str, ...] = (
     # The atlas renderers draw synthetic tables only.
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
+    # Impurity composition (lane L, #1565): the mixture algebra against the
+    # issue's exact reference values, the precedence resolver on tiny ODSs, and
+    # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
+    "test_formula_impurity.py",
+    "test_process_impurity.py",
+    "test_vest_core_profiles_policy.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

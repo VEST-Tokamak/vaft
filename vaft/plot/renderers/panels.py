@@ -388,13 +388,9 @@ def _aligned_grid_axes(figure: Any, grid: Any, model: Panels) -> tuple[np.ndarra
 
 
 def _label_panels(axes: Any) -> None:
-    from .._panel_grid import panel_label
+    from .._panel_grid import annotate_panel_labels
 
-    for index, axis in enumerate(axes):
-        axis.annotate(
-            panel_label(index), xy=(0, 1), xycoords="axes fraction", xytext=(-6, 6),
-            textcoords="offset points", ha="right", va="bottom", fontweight="bold",
-        )
+    annotate_panel_labels(axes)
 
 
 def visual_rows(model: Panels) -> int:
