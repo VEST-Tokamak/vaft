@@ -257,3 +257,56 @@ comparison. These are coarse reference results, not final acceptance tolerances.
 Guazzotto pure-pressure ν=1 also failed native closure at dx=0.04 and 0.02; fixed
 boundary solves and linear fits succeed. Its free-boundary normalization remains
 a validation requirement for the subsequent refinement/final-case stages.
+
+## Stage 5: optional native LCFS / X-point refinement
+
+```python
+result = fixed_to_free(target, machine, new_workdir, fit_backend="direct",
+                       refine_shape=True,
+                       fit_options={"current_bounds": bounds, "regularization": 1e-5},
+                       refinement_options={"boundary_samples": 64,
+                                           "regularization": 1e-5,
+                                           "current_scale_A": 1000.})
+```
+
+The initial linear fit and fixed-current forward result remain in `fit`,
+`forward`, `initial_currents_A`, `realized_currents_A`, `comparison` and `status`.
+A separate solve in `refined/` applies installed native `set_isoflux` and
+`set_saddles`, with arc-length LCFS samples and explicit active X-points.
+Explicit `x_points=[(R,Z),...]` overrides saddle detection; `[]` disables saddles.
+`set_coil_bounds` uses physical A and requires complete finite bounds containing
+all starting currents. `set_coil_reg` penalizes `(I-I_initial)/current_scale_A`;
+its native OFT weights are distinct from the initial linear-fitter penalty.
+
+`refined`, `refined_currents_A`, `refined_comparison`, `refinement_status` and
+`refinement_diagnostics` record the subsequent optimizer outcome, current changes,
+bound activity and scaled current deviation. A successful refined solve does not
+replace a failed initial closure or upgrade the initial fit's hardware status.
+Refinement can start from a failed initial closure's target-volume-current seed;
+when the initial closure converges, it starts from its solved volume sources.
+
+Reproduce on a server:
+
+```bash
+PYTHONPATH=. python validation/fixed_free_1608/closure.py \
+  --workdir new_refinement --dx .04 --refine-shape
+```
+
+Existing server OFT v26.9 outputs are isolated in
+`vaft-1608-refine.jxMufS/results`. Same synthetic coils, bounds and source profiles
+as stage 4, with 64 isoflux samples and native regularization weight `1e-5`.
+
+| Family / route | Initial LCFS RMS / max [mm] | Refined LCFS RMS / max [mm] | Refined axis [mm] | Max current change [A] |
+| --- | --- | --- | --- | --- |
+| Solov'ev / direct | 2.942 / 6.146 | 0.874 / 2.142 | 0.159 | 18297.5 |
+| Solov'ev / native | 2.406 / 6.160 | 0.871 / 2.132 | 0.135 | 1189.6 |
+| Guazzotto–Freidberg ν=.5 / direct | solve failed | 0.0778 / 0.3324 | 0.189 | 28368.9 |
+| Guazzotto–Freidberg ν=.5 / native | solve failed | 0.0778 / 0.3324 | 0.189 | 17942.7 |
+
+All four refined cases converged with currents within bounds. Refined canonical
+Ip equals 100 kA for Solov'ev and differs from the Guazzotto target 14254.4548 A
+by +0.0013 / -0.0144 A for direct/native. This demonstrates recovery by a
+separate current optimization; it does not resolve or hide the Guazzotto initial
+fixed-current normalization failure. Diverted saddle validation, native closure
+with final currents frozen, pure-pressure/current-pedestal cases, q95 and final
+convergence-based acceptance remain stage-6 requirements.

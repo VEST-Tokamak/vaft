@@ -326,7 +326,7 @@ def _initial_current_density(equilibrium, points):
     return current
 
 
-def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMakerResult:
+def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinement=None) -> TokaMakerResult:
     """Execute a forward solve and collect the produced outputs.
 
     Builds the mesh on a cache miss, then runs the canonical TokaMaker
@@ -336,6 +336,14 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
     solve is reported through ``result.ok``/``result.error`` rather than
     raised, mirroring the subprocess adapters.
     """
+    if refinement is not None:
+        if set(refinement.reference_currents_A) != set(inputs.coil_currents) or any(
+            abs(refinement.reference_currents_A[n] - inputs.coil_currents[n]) > 1e-6
+            for n in inputs.coil_currents
+        ):
+            raise ValueError("refinement reference currents must match prescribed initial PF circuits")
+        if config.vsc_coil or inputs.vessel_loop_currents:
+            raise ValueError("shape refinement requires no VSC or imposed vessel currents")
     oft = import_oft()
     env = get_oft_env(config.nthreads)
 
@@ -398,6 +406,9 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
             )
         if seed_ip is not None:
             mygs.set_targets(**effective_targets)
+        if refinement is not None:
+            from .refinement import apply_shape_refinement
+            sidecar["shape_refinement"] = apply_shape_refinement(mygs, refinement)
         mygs.solve()
 
         sidecar["converged"] = True

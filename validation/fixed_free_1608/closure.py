@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--workdir', type=Path, required=True)
     parser.add_argument('--families', nargs='+', default=['solovev', 'guazzotto_freidberg'])
     parser.add_argument('--backends', nargs='+', default=['direct', 'tokamaker_vfixed'])
+    parser.add_argument('--refine-shape', action='store_true')
     parser.add_argument('--dx', type=float, default=.04)
     args = parser.parse_args()
     args.workdir.mkdir(parents=True, exist_ok=False)
@@ -48,12 +49,17 @@ def main():
             if backend == 'direct':
                 options.update(method='flux_normal', boundary_samples=64)
             result = fixed_to_free(eq, machine, args.workdir/f'{family}_{backend}',
-                                   fit_backend=backend, config=config, fit_options=options)
+                                   fit_backend=backend, config=config, fit_options=options,
+                                   refine_shape=args.refine_shape)
             record = {'family': family, 'backend': backend, 'status': result.status,
                       'fit_status': result.fit.status, 'rms_relative_flux': result.fit.rms_relative_flux,
                       'max_relative_flux': result.fit.max_relative_flux,
                       'current_max_change_A': result.current_max_change_A,
-                      'forward_error': result.forward.error, 'comparison': result.comparison}
+                      'forward_error': result.forward.error, 'comparison': result.comparison,
+                      'refinement_status': result.refinement_status,
+                      'refined_currents_A': result.refined_currents_A,
+                      'refined_error': result.refined.error if result.refined else None,
+                      'refined_comparison': result.refined_comparison}
             records.append(record)
             (args.workdir/'summary.json').write_text(json.dumps(records, indent=2))
             print(json.dumps(record), flush=True)
