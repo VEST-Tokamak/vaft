@@ -50,6 +50,15 @@ dependencies = [
   "ipywidgets",
   "matplotlib>=3.7.3,<4",
   "plotly>=5.24,<7",
+  # The browser GUI (`vaft gui`, vaft.gui; #1086, roadmap #1359). A core
+  # dependency so that `pip install vaft` alone gives the team the GUI, which is
+  # also served from the VEST server; it used to be the optional [gui] extra.
+  # It costs about 150 MB of install (Panel and Bokeh, mostly bundled
+  # JavaScript); Plotly, which the interactive plots use, was already here.
+  # `import vaft` still never imports it: vaft.gui imports Panel only when an
+  # app is built. The rest of the HoloViz stack (HoloViews, hvPlot, Datashader)
+  # stays out until a concrete view needs it.
+  "panel>=1.9,<2",
   "mysql-connector-python>=8.4.0",
   "numpy>=2.0.0,<3",
   # Exact: VAFT reads and writes through omas internals (DD tables up to
@@ -132,13 +141,9 @@ accel = ["numba"]
 # Only vaft.mcp.server imports the SDK, inside build_server(): `import vaft` and
 # `import vaft.mcp` never need it. In [dev] too, so CI runs the stdio round trip.
 mcp = ["mcp>=1.26,<2"]
-# The browser GUI (`vaft gui`, vaft.gui; #1086, roadmap #1359). Panel serves it
-# to a browser, so the same command works locally, over SSH port forwarding
-# and on a cluster node without X11. It is a presentation layer over the public
-# APIs and no computational module imports it; vaft.gui imports Panel only when
-# an app is built. The rest of the HoloViz stack (HoloViews, hvPlot, Datashader)
-# is deliberately not pulled in until a concrete view needs it.
-gui = ["panel>=1.9"]
+# Empty: Panel is a core dependency now (see `dependencies`). Kept so that the
+# `pip install 'vaft[gui]'` already written in scripts and notes still works.
+gui = []
 dev = [
   "pytest",
   # so the surrogate's arithmetic check actually runs on the gate. CI installs
@@ -166,8 +171,6 @@ dev = [
   "mcp>=1.26,<2",
   "nbclient>=0.10",
   "nbformat>=5.10",
-  # so the GUI tests build the Panel app on the gate instead of skipping
-  "panel>=1.9",
 ]
 
 [project.urls]
