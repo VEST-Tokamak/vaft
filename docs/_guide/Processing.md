@@ -594,6 +594,12 @@ Processing returns arrays, and drawing them is `vaft.plot`'s job -- `plot_flux_l
 
 ## Mirnov fluctuations and toroidal mode numbers
 
+For time-resolved coherence across Mirnov, soft X-ray, camera, interferometer,
+and emission-line records, see [cross-diagnostic fluctuation coherence]({{ '/workflows/fluctuation-coherence/' | relative_url }}).
+That workflow keeps one explicitly selected scalar representative per diagnostic,
+retains the raw units and alignment provenance, and separates a coherent spectral
+component from a physical MHD mode identification.
+
 <!-- docs-snippet: skip fragment (placeholder name data is never defined on the page) -->
 ```python
 from vaft.process.magnetics import (

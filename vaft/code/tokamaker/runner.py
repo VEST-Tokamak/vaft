@@ -256,7 +256,14 @@ def _apply_vsc(mygs, config: TokaMakerConfig) -> None:
     mygs.set_coil_reg(reg_terms=[term])
 
 
-def _apply_profiles(oft, mygs, config: TokaMakerConfig) -> None:
+def _apply_profiles(oft, mygs, config: TokaMakerConfig, profiles=None) -> None:
+    if config.profile_mode != "power_law":
+        from .profiles import profiles_for_config
+        profiles = profiles if profiles is not None else profiles_for_config(config)
+        mygs.set_profiles(**profiles.solver_tables())
+        if not np.any(profiles.pprime):
+            mygs.pnorm = 0.0
+        return
     mygs.set_profiles(
         ffp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_f_a, config.alpha_f_b),
         pp_prof=oft.util.create_power_flux_fun(config.nprof, config.alpha_p_a, config.alpha_p_b),
@@ -299,7 +306,27 @@ def _boundary_state(mygs) -> dict[str, Any]:
     return state
 
 
-def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMakerResult:
+def _initial_current_density(equilibrium, points):
+    """Physical Jphi [A/m²] seed on native nodes; no plasma Green integration."""
+    from matplotlib.path import Path as PolygonPath
+    from scipy.interpolate import RegularGridInterpolator
+    from vaft.process.equilibrium import convert_cocos
+    eq = convert_cocos(equilibrium, 11)
+    inside = PolygonPath(eq.lcfs.points).contains_points(points)
+    psi = RegularGridInterpolator((eq.r, eq.z), eq.psi, bounds_error=False,
+                                  fill_value=np.nan)(points[inside])
+    order = np.argsort(eq.psi_1d)
+    pp = np.interp(psi, eq.psi_1d[order], eq.pprime[order])
+    ffp = np.interp(psi, eq.psi_1d[order], eq.ffprime[order])
+    r = points[inside, 0]
+    current = np.zeros(len(points))
+    current[inside] = -2*np.pi*(r*pp + ffp/(4e-7*np.pi*r))
+    if not np.isfinite(current).all():
+        raise ValueError("initial equilibrium grid must cover its LCFS")
+    return current
+
+
+def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinement=None) -> TokaMakerResult:
     """Execute a forward solve and collect the produced outputs.
 
     Builds the mesh on a cache miss, then runs the canonical TokaMaker
@@ -309,6 +336,14 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
     solve is reported through ``result.ok``/``result.error`` rather than
     raised, mirroring the subprocess adapters.
     """
+    if refinement is not None:
+        if set(refinement.reference_currents_A) != set(inputs.coil_currents) or any(
+            abs(refinement.reference_currents_A[n] - inputs.coil_currents[n]) > 1e-6
+            for n in inputs.coil_currents
+        ):
+            raise ValueError("refinement reference currents must match prescribed initial PF circuits")
+        if config.vsc_coil or inputs.vessel_loop_currents:
+            raise ValueError("shape refinement requires no VSC or imposed vessel currents")
     oft = import_oft()
     env = get_oft_env(config.nthreads)
 
@@ -336,6 +371,8 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
     mygs = oft.TokaMaker(env)
     try:
         _configure_tokamaker(oft, mygs, inputs, config)
+        mygs.settings.free_boundary = True
+        sidecar["free_boundary"] = True
         _apply_vsc(mygs, config)
 
         mygs.set_coil_currents(dict(inputs.coil_currents))
@@ -343,17 +380,42 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig) -> TokaMaker
         if vessel_totals:
             sidecar["vessel_currents_A"] = vessel_totals
             sidecar["vessel_current_total_A"] = float(sum(vessel_totals.values()))
-        mygs.set_targets(**inputs.targets)
-        _apply_profiles(oft, mygs, config)
+        from .profiles import profiles_for_config, profile_targets
+        profiles = profiles_for_config(config)
+        effective_targets = profile_targets(profiles, inputs.targets)
+        mygs.set_targets(**effective_targets)
+        _apply_profiles(oft, mygs, config, profiles)
+        sidecar["targets"] = effective_targets
+        sidecar["profile_mode"] = config.profile_mode
 
-        mygs.init_psi(
-            config.init_r0, config.init_z0, config.init_a0,
-            config.init_kappa, config.init_delta,
-        )
+        # Pure-pressure normalization omits Ip during nonlinear iterations,
+        # but its initial uniform plasma must still have a physical amplitude.
+        seed_ip = profiles.ip_A if profiles is not None and "Ip" not in effective_targets else None
+        if seed_ip is not None:
+            mygs.set_targets(Ip=seed_ip)
+        if config.init_equilibrium is not None:
+            # curr_source in init_psi is an assembled FE load, not nodal J.
+            # vac_solve(rhs_source=...) integrates physical density natively.
+            seed = mygs.vac_solve(rhs_source=_initial_current_density(config.init_equilibrium, mygs.r[:, :2]))
+            psi = seed.get_psi(normalized=False) if hasattr(seed, "get_psi") else seed
+            mygs.set_psi(psi, update_bounds=True)
+        else:
+            mygs.init_psi(
+                config.init_r0, config.init_z0, config.init_a0,
+                config.init_kappa, config.init_delta,
+            )
+        if seed_ip is not None:
+            mygs.set_targets(**effective_targets)
+        if refinement is not None:
+            from .refinement import apply_shape_refinement
+            sidecar["shape_refinement"] = apply_shape_refinement(mygs, refinement)
         mygs.solve()
 
         sidecar["converged"] = True
         sidecar["stats"] = mygs.get_stats()
+        if profiles is not None:
+            from .profiles import source_profile_diagnostics
+            sidecar["source_profiles"] = source_profile_diagnostics(mygs, profiles)
         # vessel regions run as 1 A coils; their real currents are vessel_currents_A
         sidecar["coil_currents_A"] = {
             name: value for name, value in dict(mygs.get_coil_currents()[0]).items()

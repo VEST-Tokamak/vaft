@@ -98,6 +98,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_line_abscissa.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_parameter_history.py",
     "test_plot_3d_contract.py",
     "test_plot_contract.py",
     "test_plot_intent.py",
@@ -129,6 +130,7 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_models_uncertainty.py",
     "test_code_parameters_contract.py",
     "test_code_parameters_entry_payload.py",
+    "test_database_summary.py",
     "test_dataset_description.py",
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
@@ -136,6 +138,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_public_profile.py",
     "test_public_transition.py",
     "test_shotlog.py",
+    "test_turbulent_transport_summary.py",
     # Packaging and documentation policy. Metadata reads; they catch the
     # breakage `package` cannot see until it is already building a wheel.
     "contracts/test_dependency_policy_matrix.py",
