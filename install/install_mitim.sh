@@ -45,10 +45,12 @@ INTERPRETER="${PREFIX}/bin/python"
 # Never let a ~/.local package satisfy (or be uninstalled by) this environment's pip.
 export PYTHONNOUSERSITE=1
 
+SCRATCH="$(mktemp -d)"
+trap 'rm -rf "${SCRATCH}"' EXIT
+
 probe() {
   # MITIM reads $MITIM_CONFIG while importing; give the check a throwaway one.
-  local scratch
-  scratch="$(mktemp -d)"
+  local scratch="${SCRATCH}"
   printf '{"preferences": {"verbose_level": "1"}, "local": {"machine": "local", "scratch": "%s/"}}' \
     "${scratch}" > "${scratch}/config.json"
   MITIM_CONFIG="${scratch}/config.json" "${INTERPRETER}" - <<'PY'
@@ -61,6 +63,10 @@ PY
 }
 
 if [[ "${CHECK_ONLY}" == 1 ]]; then
+  if [[ ! -x "${INTERPRETER}" ]]; then
+    echo "no MITIM environment at ${PREFIX} (expected ${INTERPRETER})" >&2
+    exit 1
+  fi
   probe
   exit 0
 fi
@@ -68,6 +74,14 @@ fi
 if [[ -e "${INTERPRETER}" ]]; then
   echo "reusing the environment at ${PREFIX}"
 elif [[ "${USE_CONDA}" == 1 ]]; then
+  if ! command -v conda >/dev/null 2>&1; then
+    echo "--conda given but conda is not on PATH (source <conda>/etc/profile.d/conda.sh first)" >&2
+    exit 1
+  fi
+  if [[ "${PYTHON_BIN}" == */* || ! "${PYTHON_BIN#python}" =~ ^3\.1[0-2]$ ]]; then
+    echo "--conda needs --python python3.10|python3.11|python3.12, not ${PYTHON_BIN}" >&2
+    exit 2
+  fi
   conda create -y -q -p "${PREFIX}" "python=${PYTHON_BIN#python}" pip
 else
   "${PYTHON_BIN}" -m venv "${PREFIX}"
@@ -82,6 +96,14 @@ SOURCE="${PREFIX}/MITIM-fusion"
 if [[ ! -d "${SOURCE}/.git" ]]; then
   git clone -q --depth 1 --branch "v${VERSION}" "${REPOSITORY}" "${SOURCE}"
 fi
+# A reused clone must be exactly the requested tag and unmodified, or the install
+# record below would name a revision that is not what was installed.
+TAG="$(git -C "${SOURCE}" describe --tags --exact-match 2>/dev/null || true)"
+if [[ "${TAG}" != "v${VERSION}" || -n "$(git -C "${SOURCE}" status --porcelain)" ]]; then
+  echo "${SOURCE} is not a clean checkout of v${VERSION} (found '${TAG:-no tag}');" \
+       "remove it and re-run, or pass another --prefix" >&2
+  exit 1
+fi
 "${INTERPRETER}" -m pip install -e "${SOURCE}"
 # PORTALS (mitim_tools.gacode_tools.utils) imports fortranformat, which MITIM 5.3.0
 # does not declare. Found on tdst once the user site was excluded (#1588).
@@ -95,14 +117,15 @@ if [[ "${INSTALLED}" != "${VERSION}" ]]; then
   exit 1
 fi
 
-"${INTERPRETER}" - "${PREFIX}" "${VERSION}" "${REPOSITORY}" <<'PY'
+"${INTERPRETER}" - "${PREFIX}" "${VERSION}" "${REPOSITORY}" "$(git -C "${SOURCE}" rev-parse HEAD)" <<'PY'
 import json, sys, datetime, subprocess
-prefix, version, repository = sys.argv[1:4]
+prefix, version, repository, revision = sys.argv[1:5]
 freeze = subprocess.run([sys.executable, "-m", "pip", "freeze"], capture_output=True, text=True).stdout
 record = {
     "code": "mitim",
     "version": version,
     "source": f"{repository}@v{version}",
+    "revision": revision,
     "interpreter": sys.executable,
     "installed_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
     "pip_freeze": freeze.splitlines(),

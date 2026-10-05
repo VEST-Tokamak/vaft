@@ -38,11 +38,26 @@ def _environment(config: MITIMConfig, config_path: Path) -> dict[str, str]:
         path = gacode_environment(config.gacode, "neo").get("PATH", "")
         environment["PATH"] = os.pathsep.join([*extra, path]).rstrip(os.pathsep)
     environment["MITIM_CONFIG"] = str(config_path)
-    # The isolated interpreter must not pick up the caller's user site or VAFT's
-    # own PYTHONPATH entries ahead of its pinned packages.
+    # The isolated interpreter must not pick up the caller's user site; the
+    # caller's PYTHONPATH/PYTHONHOME are removed by the command (see _command).
     environment["PYTHONNOUSERSITE"] = "1"
-    environment.update({str(k): str(v) for k, v in config.env.items()})
+    environment.pop("PYTHONPATH", None)
+    environment.pop("PYTHONHOME", None)
+    environment.update({str(k): str(v) for k, v in config.env.items()
+                        if k not in ("PYTHONPATH", "PYTHONHOME")})
     return environment
+
+
+def _command(config: MITIMConfig, python: str, *arguments: str) -> tuple[str, ...]:
+    """Launch ``python`` with the caller's PYTHONPATH/PYTHONHOME removed.
+
+    The execution backend overlays its ``env`` on the launching environment and
+    cannot remove a variable, and a VAFT interpreter's PYTHONPATH (a worktree, a
+    3.14 site-packages) would put wrong-version packages ahead of MITIM's. ``env -u``
+    removes them; a value the caller set in ``config.env`` is passed explicitly.
+    """
+    explicit = [f"{key}={config.env[key]}" for key in ("PYTHONPATH", "PYTHONHOME") if key in config.env]
+    return ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME", *explicit, python, *arguments)
 
 
 def _sha256(path: Path) -> str:
@@ -78,7 +93,8 @@ def run_mitim_driver(
     MITIMResult
     """
     config = config or MITIMConfig()
-    availability = availability or mitim_availability(config)
+    availability = availability or mitim_availability(
+        config, timeout=max(300.0, float(config.timeout or 0.0)))
     if not availability.ready:
         raise FileNotFoundError(f"MITIM is not ready ({availability.status}): {availability.detail}")
     workdir = Path(workdir).resolve()
@@ -97,7 +113,7 @@ def run_mitim_driver(
 
     execution = resolve_backend(config).run(
         ExecutionRequest(
-            command=(availability.python, script.name, argument_path.name),
+            command=_command(config, availability.python, script.name, argument_path.name),
             workdir=workdir,
             env=_environment(config, config_path),
             timeout=config.timeout,

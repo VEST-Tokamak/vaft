@@ -21,6 +21,7 @@ __all__ = ["PROBE", "STATUSES", "MITIMAvailability", "mitim_availability"]
 #: Statuses in the order the checks run; ``ready`` only when every check passed.
 STATUSES = (
     "configuration_missing",
+    "probe_timeout",
     "not_installed",
     "unsupported_version",
     "portals_unavailable",
@@ -138,8 +139,12 @@ def mitim_availability(config: MITIMConfig | None = None, *, timeout: float = 30
     with tempfile.TemporaryDirectory(prefix="vaft-mitim-probe-") as scratch:
         config_path = Path(scratch) / "mitim_config.json"
         config_path.write_text(json.dumps(mitim_user_config(config, scratch)))
-        environment = {**os.environ, "MITIM_CONFIG": str(config_path), "PYTHONNOUSERSITE": "1",
-                       **{str(k): str(v) for k, v in config.env.items()}}
+        # The caller's PYTHONPATH/PYTHONHOME would put VAFT-side (other-version)
+        # packages ahead of MITIM's own; only an explicit config.env value passes.
+        environment = {key: value for key, value in os.environ.items()
+                       if key not in ("PYTHONPATH", "PYTHONHOME")}
+        environment.update({"MITIM_CONFIG": str(config_path), "PYTHONNOUSERSITE": "1",
+                            **{str(k): str(v) for k, v in config.env.items()}})
         try:
             completed = subprocess.run([python, "-c", PROBE], capture_output=True, text=True,
                                        timeout=timeout, check=False, env=environment, cwd=scratch)
@@ -149,7 +154,9 @@ def mitim_availability(config: MITIMConfig | None = None, *, timeout: float = 30
             return MITIMAvailability("not_installed", f"{python} cannot be run: {error}",
                                      python=python)
     if completed is None:
-        return MITIMAvailability("not_installed", f"the probe did not finish in {timeout:g} s",
+        # Importing tensorflow/torch on a loaded node can be slow; that is not a
+        # broken installation, and is reported as what it is.
+        return MITIMAvailability("probe_timeout", f"the probe did not finish in {timeout:g} s",
                                  python=python)
     lines = [line for line in completed.stdout.splitlines() if line.startswith("{")]
     if completed.returncode != 0 or not lines:
@@ -161,6 +168,11 @@ def mitim_availability(config: MITIMConfig | None = None, *, timeout: float = 30
                   root=found.get("root"), portals=bool(found.get("portals")))
     if "import_error" in found:
         return MITIMAvailability("not_installed", found["import_error"], **common)
+    if found.get("version") not in SUPPORTED_MITIM_VERSIONS:
+        return MITIMAvailability(
+            "unsupported_version",
+            f"MITIM {found.get('version')} is not in the supported set {SUPPORTED_MITIM_VERSIONS}",
+            **common)
     if not found.get("templates"):
         # A wheel install leaves __mitimroot__ in site-packages, without templates/,
         # and MITIM then fails on its first prep() (input.neo.controls).
@@ -168,11 +180,6 @@ def mitim_availability(config: MITIMConfig | None = None, *, timeout: float = 30
             "not_installed",
             f"MITIM at {found.get('root')} has no templates/: install it editable from a "
             "checkout of the release tag (install/install_mitim.sh)", **common)
-    if found.get("version") not in SUPPORTED_MITIM_VERSIONS:
-        return MITIMAvailability(
-            "unsupported_version",
-            f"MITIM {found.get('version')} is not in the supported set {SUPPORTED_MITIM_VERSIONS}",
-            **common)
     if not found.get("portals"):
         return MITIMAvailability("portals_unavailable", found.get("portals_error", ""), **common)
     gacode = _gacode(config)

@@ -39,6 +39,8 @@ class NEO:
             time.sleep(30)
         if mode == "raise":
             raise RuntimeError("stub NEO failure")
+        if mode == "die":
+            os._exit(3)  # killed before the driver can write result.json
         # MITIM 5.3.0's layout: every radius in one folder, each file suffixed by it.
         target = self.folder / subfolder
         target.mkdir(parents=True, exist_ok=True)
@@ -116,24 +118,26 @@ def test_no_interpreter_is_configuration_missing(monkeypatch):
 
 
 def test_an_interpreter_without_mitim_is_not_installed(tmp_path, monkeypatch):
-    monkeypatch.setenv("PYTHONPATH", str(tmp_path))
-    found = mitim.mitim_availability(mitim.MITIMConfig(python=sys.executable))
+    found = mitim.mitim_availability(mitim.MITIMConfig(python=sys.executable,
+                                                        env={"PYTHONPATH": str(tmp_path)}))
     assert found.status == "not_installed" and "mitim_tools" in found.detail
 
 
 def test_an_unlisted_version_is_unsupported_not_assumed(tmp_path, monkeypatch):
-    monkeypatch.setenv("PYTHONPATH", str(_stub_mitim(tmp_path, version="4.0.0")))
-    found = mitim.mitim_availability(mitim.MITIMConfig(python=sys.executable))
+    site = str(_stub_mitim(tmp_path, version="4.0.0"))
+    found = mitim.mitim_availability(mitim.MITIMConfig(python=sys.executable, env={"PYTHONPATH": site}))
     assert found.status == "unsupported_version" and found.version == "4.0.0"
 
 
 def test_missing_portals_and_missing_gacode_are_named(tmp_path, monkeypatch):
-    monkeypatch.setenv("PYTHONPATH", str(_stub_mitim(tmp_path / "a", portals=False)))
-    assert mitim.mitim_availability(mitim.MITIMConfig(python=sys.executable)).status == "portals_unavailable"
-    monkeypatch.setenv("PYTHONPATH", str(_stub_mitim(tmp_path / "b")))
+    site = str(_stub_mitim(tmp_path / "a", portals=False))
+    config = mitim.MITIMConfig(python=sys.executable, env={"PYTHONPATH": site})
+    assert mitim.mitim_availability(config).status == "portals_unavailable"
+    site = str(_stub_mitim(tmp_path / "b"))
     for variable in ("GACODEHOME", "GACODE_ROOT"):
         monkeypatch.delenv(variable, raising=False)
-    assert mitim.mitim_availability(mitim.MITIMConfig(python=sys.executable)).status == "gacode_unavailable"
+    config = mitim.MITIMConfig(python=sys.executable, env={"PYTHONPATH": site})
+    assert mitim.mitim_availability(config).status == "gacode_unavailable"
 
 
 def test_ready_reports_versions_and_the_gacode_build(ready):
@@ -212,8 +216,9 @@ def test_a_timeout_is_a_result(ready, profile, tmp_path, monkeypatch):
 def test_a_stale_result_is_never_reported(ready, profile, tmp_path, monkeypatch):
     first, _ = mitim.run_neo_smoke(profile, [0.5], tmp_path / "run", ready)
     assert first.ok
-    monkeypatch.setenv("STUB_MODE", "raise")
+    monkeypatch.setenv("STUB_MODE", "die")
     second, outputs = mitim.run_neo_smoke(profile, [0.5], tmp_path / "run", ready)
+    assert second.returncode == 3 and second.result is None
     assert not second.ok and outputs == []
 
 
@@ -234,6 +239,34 @@ def test_drivers_import_only_mitim_and_the_standard_library():
 def test_a_wheel_install_without_templates_is_not_installed(tmp_path, monkeypatch):
     site = _stub_mitim(tmp_path)
     (site / "templates" / "input.neo.controls").unlink()
-    monkeypatch.setenv("PYTHONPATH", str(site))
-    found = mitim.mitim_availability(mitim.MITIMConfig(python=sys.executable))
+    found = mitim.mitim_availability(mitim.MITIMConfig(python=sys.executable,
+                                                        env={"PYTHONPATH": str(site)}))
     assert found.status == "not_installed" and "templates" in found.detail
+
+
+def test_the_callers_pythonpath_never_reaches_the_mitim_interpreter(ready, profile, tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    from vaft.code.mitim.runner import _command, _environment
+
+    monkeypatch.setenv("PYTHONPATH", "/caller/worktree:/caller/py314/site-packages")
+    monkeypatch.setenv("PYTHONHOME", "/caller/home")
+    bare = replace(ready, env={})
+    environment = _environment(bare, tmp_path / "c.json")
+    assert "PYTHONPATH" not in environment and "PYTHONHOME" not in environment
+    command = _command(bare, "/mitim/python", "driver.py")
+    assert command[:5] == ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME")
+    assert not any(part.startswith("PYTHONPATH=") for part in command)
+    assert "PYTHONPATH=" + ready.env["PYTHONPATH"] in _command(ready, "/mitim/python", "driver.py")
+    # The probe drops it too: with the stub only on the caller's PYTHONPATH, MITIM is absent.
+    monkeypatch.setenv("PYTHONPATH", ready.env["PYTHONPATH"])
+    assert mitim.mitim_availability(bare).status == "not_installed"
+    assert mitim.mitim_availability(ready).ready
+
+
+def test_a_slow_probe_is_a_timeout_not_a_broken_install(tmp_path):
+    slow = tmp_path / "python"
+    slow.write_text("#!/bin/sh\nsleep 5\n")
+    slow.chmod(0o755)
+    found = mitim.mitim_availability(mitim.MITIMConfig(python=str(slow)), timeout=1)
+    assert found.status == "probe_timeout"
