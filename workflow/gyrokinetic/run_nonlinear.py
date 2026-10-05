@@ -10,6 +10,13 @@ allocation's limit and leaves ``bin.cgyro.restart``; ``--restart`` continues it 
 appends to its time records, so the whole trace survives). ``--smoke`` caps the run at a
 few ``a/c_s`` to measure the cost per unit time before a production submission.
 
+The field model defaults to ``em-aperp``. Electrostatic runs with kinetic electrons carry a
+spurious high-frequency branch at low ``k_y`` (``|omega| ~ 200 c_s/a``, growing faster at
+lower ``k_y`` and with finer ``theta``; the ``omega_H`` mode) that finite beta removes. On
+39915 r/a 0.7 it grew alone at ``k_y = 0.1`` and drove the whole ES nonlinear run (#1484),
+so an ES run whose ``n=1`` sits at ``k_y <= ES_MIN_KY`` is refused unless
+``--allow-es-low-ky`` is given.
+
 Writes ``<out>/<state slug>/r<r/a>/<field>/nonlinear/`` (native CGYRO files plus
 ``record.json``) and prints the measured wall time per ``a/c_s``.
 """
@@ -51,6 +58,11 @@ def _write_local_summary(workdir: Path, local) -> None:
     }, indent=1), encoding="utf-8")
 
 
+# Lowest n=1 k_y rho_s an electrostatic nonlinear run may use: the ES omega_H branch was
+# unstable at every k_y <= 0.2 checked on 39915 r/a 0.7 (job 768747, #1484).
+ES_MIN_KY = 0.2
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--filedb", type=Path, required=True)
@@ -58,7 +70,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--state", required=True, help="shot:time_s:lineage")
     parser.add_argument("--r-over-a", type=float, required=True)
-    parser.add_argument("--field-model", default="es")
+    parser.add_argument("--field-model", default="em-aperp")
     parser.add_argument("--n-toroidal", type=int, default=16)
     parser.add_argument("--ky", type=float, default=0.12, help="k_y rho_s of n=1")
     parser.add_argument("--box-size", type=int, default=4)
@@ -77,7 +89,15 @@ def main(argv: Optional[list[str]] = None) -> int:
                         help="write local_summary.json for an existing run; run nothing")
     parser.add_argument("--gacode-home")
     parser.add_argument("--ti-te-ratio", default="policy")
+    parser.add_argument("--allow-es-low-ky", action="store_true",
+                        help=f"run ES even though n=1 sits at k_y <= {ES_MIN_KY}")
     args = parser.parse_args(argv)
+    if (args.field_model == "es" and args.ky <= ES_MIN_KY and not args.local_only
+            and not args.allow_es_low_ky):
+        raise SystemExit(
+            f"electrostatic nonlinear run with n=1 at k_y={args.ky} <= {ES_MIN_KY}: the ES "
+            "omega_H branch is unstable there (#1484); use --field-model em-aperp or pass "
+            "--allow-es-low-ky")
 
     rl = _run_linear_module()
     rl._assert_checkout()

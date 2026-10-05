@@ -131,3 +131,20 @@ def test_build_nonlinear_rebuilds_the_local_input_from_its_summary(tmp_path):
     report = module._locality(Path(run.directory), run, (2.0, 5.0))
     assert report["verdict"]["locality"] == "local_ok"
     assert report["l_corr_rho_s"] == pytest.approx(6.0, rel=0.03)
+
+
+def test_an_electrostatic_low_ky_nonlinear_run_is_refused_before_anything_runs(tmp_path):
+    """#1484: the ES omega_H branch grew alone at k_y=0.1 and drove the whole ES run."""
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "run_nonlinear",
+        Path(__file__).parents[1] / "workflow" / "gyrokinetic" / "run_nonlinear.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    common = ["--filedb", str(tmp_path), "--labels", str(tmp_path / "l.json"),
+              "--out", str(tmp_path), "--state", "39915:0.317:magnetics", "--r-over-a", "0.7"]
+    with pytest.raises(SystemExit, match="omega_H"):
+        module.main(common + ["--field-model", "es", "--ky", "0.1"])
+    assert module.ES_MIN_KY >= 0.2
