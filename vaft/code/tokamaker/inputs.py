@@ -280,7 +280,8 @@ def prepare_tokamaker_inputs(ods: Any, config: TokaMakerConfig) -> TokaMakerInpu
     profiles = profiles_for_config(config)
     source_config = config
     if config.profile_mode == "equilibrium":
-        eq = config.profile_equilibrium
+        from vaft.process._equilibrium_parametric import convert_cocos
+        eq = convert_cocos(config.profile_equilibrium, 11)
         source_config = replace(config, ip=config.ip if config.ip is not None else profiles.ip_A,
                                 f0=config.f0 if config.f0 is not None or config.bt0 is not None else
                                 (float(eq.r0 * eq.bt0) if eq.r0 is not None and eq.bt0 is not None else None))

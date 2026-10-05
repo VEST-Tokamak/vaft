@@ -60,15 +60,33 @@ def test_zero_pressure_does_not_enable_axis_pressure_constraint():
     assert profiles_for_config(TokaMakerConfig()) is None
 
 
-def test_prepared_inputs_bind_canonical_scales_and_respect_explicit_bt(tmp_path):
+@pytest.mark.parametrize("cocos", [1, 2, 7, 11, 12, 17])
+def test_prepared_inputs_bind_canonical_scales_and_respect_explicit_bt(tmp_path, cocos):
     from test_tokamaker_inputs import _build_ods
     from vaft.code.tokamaker import prepare_tokamaker_inputs
 
     eq = solovev_example(resolution=33)
-    cfg = TokaMakerConfig(workdir=tmp_path, time=.4, profile_mode="equilibrium", profile_equilibrium=eq)
+    cfg = TokaMakerConfig(workdir=tmp_path, time=.4, profile_mode="equilibrium", profile_equilibrium=convert_cocos(eq, cocos))
     prepared = prepare_tokamaker_inputs(_build_ods(), cfg)
     assert prepared.targets["Ip"] == pytest.approx(eq.ip)
     assert prepared.targets["pax"] == pytest.approx(eq.pressure[0])
     assert prepared.f0 == pytest.approx(eq.r0 * eq.bt0)
     overridden = prepare_tokamaker_inputs(_build_ods(), replace(cfg, bt0=.2))
     assert overridden.f0 == pytest.approx(.2 * cfg.major_r)
+
+
+@pytest.mark.parametrize("control", [{"R0": .4}, {"Ip_ratio": 1.}])
+def test_zero_pressure_rejects_dependent_normalization_controls(control):
+    cfg = TokaMakerConfig(profile_mode="explicit", profile_tables={
+        "psi_n": [0., 1.], "pprime": [0., 0.], "ffprime": [1., 1.],
+        "axis_pressure_Pa": 0.})
+    with pytest.raises(ValueError, match="conflicts"):
+        profile_targets(profiles_for_config(cfg), {"Ip": 1e5, **control})
+
+
+def test_explicit_pressure_shape_requires_nonzero_integral():
+    cfg = TokaMakerConfig(profile_mode="explicit", profile_tables={
+        "psi_n": [0., 1.], "pprime": [1., -1.], "ffprime": [1., 1.],
+        "axis_pressure_Pa": 100.})
+    with pytest.raises(ValueError, match="nonzero integrated shape"):
+        profiles_for_config(cfg)

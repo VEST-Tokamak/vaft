@@ -42,6 +42,11 @@ def _validate(x, pp, ffp, pax):
         raise ValueError("profiles need finite distinct axis-to-edge psi_n spanning [0,1]")
     if not np.any(pp) and not np.any(ffp):
         raise ValueError("both Grad-Shafranov sources are zero")
+    if np.any(pp):
+        integral = float(np.sum((pp[1:] + pp[:-1]) * np.diff(x) / 2))
+        scale = float(np.sum((np.abs(pp[1:]) + np.abs(pp[:-1])) * np.diff(x) / 2))
+        if abs(integral) <= 1e-12 * scale:
+            raise ValueError("pressure source needs nonzero integrated shape for OFT normalization")
     if np.any(pp) and pax <= 0:
         raise ValueError("pressure source needs positive relative axis pressure for OFT normalization")
     if not np.any(pp) and pax != 0:
@@ -126,9 +131,9 @@ def profile_targets(profiles: TokaMakerProfiles | None, targets: Mapping[str, fl
         return result
     if profiles.ip_A is not None:
         result.setdefault("Ip", profiles.ip_A)
+    if "R0" in result or "Ip_ratio" in result:
+        raise ValueError("tabulated pressure normalization conflicts with R0/Ip_ratio targets")
     if np.any(profiles.pprime):
-        if "R0" in result or "Ip_ratio" in result:
-            raise ValueError("tabulated pressure normalization conflicts with R0/Ip_ratio targets")
         result.setdefault("pax", profiles.axis_pressure_Pa)
     else:
         if result.get("pax", 0) != 0:
