@@ -1,0 +1,1012 @@
+[
+  {
+    "family": "solovev",
+    "topology": "limited",
+    "backend": "direct",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.008283946311580808,
+      "max_relative_flux": 0.023188698751494357,
+      "condition_number": 403.2590861241925
+    },
+    "initial": {
+      "status": "converged",
+      "lcfs_max_m": 0.011122415491472328,
+      "error": ""
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0022865860326589105,
+      "max_current_change_A": 15971.322570360227,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.0009222093060063422,
+      "lcfs_max_m": 0.0022866383820506083,
+      "axis_displacement_m": 0.00010677115252446903,
+      "native_topology": "limited",
+      "gridded_topology": "limited",
+      "x_point_displacements_m": [],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.0,
+      "q95_field_integral": {
+        "target": 2.5652282618697324,
+        "solved": 2.5536978360023213,
+        "difference": -0.011530425867411154,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": 0.0018082037428172604,
+      "li_difference": 0.005211188257222055,
+      "thermal_energy_difference_J": -0.007965160025165119,
+      "volume_difference_m3": 1.7714168384364015e-05,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "solovev",
+    "topology": "limited",
+    "backend": "tokamaker_vfixed",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.006930260205583435,
+      "max_relative_flux": 0.01814022886487377,
+      "condition_number": 402.3600322603379
+    },
+    "initial": {
+      "status": "converged",
+      "lcfs_max_m": 0.0023516255927998656,
+      "error": ""
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0022556818360762888,
+      "max_current_change_A": 1961.9951128572538,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.000922022377030037,
+      "lcfs_max_m": 0.0022557341854679866,
+      "axis_displacement_m": 0.00013417153569568655,
+      "native_topology": "limited",
+      "gridded_topology": "limited",
+      "x_point_displacements_m": [],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.0,
+      "q95_field_integral": {
+        "target": 2.5652282618697324,
+        "solved": 2.5555783070473095,
+        "difference": -0.009649954822422924,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": 0.0018839336110234306,
+      "li_difference": 0.0056547671704053615,
+      "thermal_energy_difference_J": -0.03367124482400641,
+      "volume_difference_m3": -0.00014727120337620914,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "solovev",
+    "topology": "lower_single_null",
+    "backend": "direct",
+    "nu": 0.5,
+    "fit": {
+      "status": "residual_or_conditioning",
+      "accepted": false,
+      "rms_relative_flux": 0.01741311671325876,
+      "max_relative_flux": 0.05696536724511211,
+      "condition_number": 364.6078786067563
+    },
+    "initial": {
+      "status": "converged",
+      "lcfs_max_m": 0.015565845545317605,
+      "error": ""
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.01044866081718915,
+      "max_current_change_A": 11265.291726528281,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.003026933038666668,
+      "lcfs_max_m": 0.010448673897210834,
+      "axis_displacement_m": 0.001356502068652291,
+      "native_topology": "lower_single_null",
+      "gridded_topology": "lower_single_null",
+      "x_point_displacements_m": [
+        0.00018586283074253034
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.0,
+      "q95_field_integral": {
+        "target": 2.570090747248431,
+        "solved": 2.60136004544154,
+        "difference": 0.03126929819310886,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": 0.0019079913147055094,
+      "li_difference": 0.003652948818609003,
+      "thermal_energy_difference_J": -0.3477273451784413,
+      "volume_difference_m3": -0.0025653195695926057,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "solovev",
+    "topology": "lower_single_null",
+    "backend": "tokamaker_vfixed",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.012750818013441783,
+      "max_relative_flux": 0.037133967230496445,
+      "condition_number": 433.7845124228112
+    },
+    "initial": {
+      "status": "converged",
+      "lcfs_max_m": 0.019725603035571356,
+      "error": ""
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.010443762305813642,
+      "max_current_change_A": 31752.086996069585,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.0030089144449872386,
+      "lcfs_max_m": 0.010444251538363694,
+      "axis_displacement_m": 0.0013484092925597573,
+      "native_topology": "lower_single_null",
+      "gridded_topology": "lower_single_null",
+      "x_point_displacements_m": [
+        0.00018476458646551918
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.0,
+      "q95_field_integral": {
+        "target": 2.570090747248431,
+        "solved": 2.6021105720914344,
+        "difference": 0.03201982484300325,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": 0.0019330953703607517,
+      "li_difference": 0.0032730053945823068,
+      "thermal_energy_difference_J": -0.34506361178139855,
+      "volume_difference_m3": -0.0025637328654692926,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "solovev",
+    "topology": "double_null",
+    "backend": "direct",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.00557587858531502,
+      "max_relative_flux": 0.013204037533610264,
+      "condition_number": 392.2854732793491
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.005675404669961659,
+      "max_current_change_A": 29961.57998173287,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.001861715750688435,
+      "lcfs_max_m": 0.005675282471991812,
+      "axis_displacement_m": 0.0004083516757780006,
+      "native_topology": "double_null",
+      "gridded_topology": "double_null",
+      "x_point_displacements_m": [
+        5.199789980843385e-05,
+        0.00011516145415614001
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.0,
+      "q95_field_integral": {
+        "target": 2.5712560210116644,
+        "solved": 2.6140309669436994,
+        "difference": 0.04277494593203501,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": 0.002765216226890202,
+      "li_difference": 0.008286712464912915,
+      "thermal_energy_difference_J": -0.2502068932916899,
+      "volume_difference_m3": -0.00042034176729932593,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "solovev",
+    "topology": "double_null",
+    "backend": "tokamaker_vfixed",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.0037941923007274486,
+      "max_relative_flux": 0.0071155369428347,
+      "condition_number": 444.99632889416654
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.005287142284075579,
+      "max_current_change_A": 23372.258114703138,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.0017554254036132662,
+      "lcfs_max_m": 0.005287211362669208,
+      "axis_displacement_m": 0.00039277078544828505,
+      "native_topology": "double_null",
+      "gridded_topology": "double_null",
+      "x_point_displacements_m": [
+        2.983805802303815e-05,
+        8.092516119824391e-05
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.0,
+      "q95_field_integral": {
+        "target": 2.5712560210116644,
+        "solved": 2.605495574060396,
+        "difference": 0.03423955304873161,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": 0.0026384388812236564,
+      "li_difference": 0.008433379704359312,
+      "thermal_energy_difference_J": -0.17186329706400727,
+      "volume_difference_m3": -0.00011214286019234354,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_freidberg",
+    "topology": "limited",
+    "backend": "direct",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.000598305671463864,
+      "max_relative_flux": 0.0014979887351425055,
+      "condition_number": 10114.549753953555
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0003834286143246198,
+      "max_current_change_A": 26062.416236700898,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 9.269612328486282e-05,
+      "lcfs_max_m": 0.0003838597774435553,
+      "axis_displacement_m": 0.00028487359650354523,
+      "native_topology": "limited",
+      "gridded_topology": "limited",
+      "x_point_displacements_m": [],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.027586706688452978,
+      "q95_field_integral": {
+        "target": 3.2624549951494486,
+        "solved": 3.269962818534694,
+        "difference": 0.007507823385245249,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": 1.5705515174879725e-05,
+      "li_difference": -0.007573244513062294,
+      "thermal_energy_difference_J": 0.01711542544756739,
+      "volume_difference_m3": 0.00010924198472014868,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_freidberg",
+    "topology": "limited",
+    "backend": "tokamaker_vfixed",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.0016962143380883552,
+      "max_relative_flux": 0.0059929889165178255,
+      "condition_number": 25172.14249085897
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Exceeded \"maxits\"                       "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.00038342659900221683,
+      "max_current_change_A": 15590.042404157852,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 9.263947075818804e-05,
+      "lcfs_max_m": 0.00038356008122177656,
+      "axis_displacement_m": 0.0002849316355481959,
+      "native_topology": "limited",
+      "gridded_topology": "limited",
+      "x_point_displacements_m": [],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.009986706687413971,
+      "q95_field_integral": {
+        "target": 3.2624549951494486,
+        "solved": 3.2699583505660286,
+        "difference": 0.007503355416579982,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": 1.512793066293927e-05,
+      "li_difference": -0.007575968023243673,
+      "thermal_energy_difference_J": 0.0171146901519883,
+      "volume_difference_m3": 0.00010900407009903357,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_freidberg",
+    "topology": "lower_single_null",
+    "backend": "direct",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.002177486059341337,
+      "max_relative_flux": 0.0061837615692244665,
+      "condition_number": 7534.0807243051295
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0013285672225154894,
+      "max_current_change_A": 50306.10823732564,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.0004122561730123464,
+      "lcfs_max_m": 0.0013288354163171047,
+      "axis_displacement_m": 9.727231757121538e-05,
+      "native_topology": "lower_single_null",
+      "gridded_topology": "ambiguous",
+      "x_point_displacements_m": [
+        1.0522777167490817e-05
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.013965309690320282,
+      "q95_field_integral": {
+        "target": 3.5690191833610885,
+        "solved": 3.5738332931699017,
+        "difference": 0.0048141098088132495,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": -0.003106572615338976,
+      "li_difference": -0.0019746998768019886,
+      "thermal_energy_difference_J": -0.020020912888750075,
+      "volume_difference_m3": -0.00019703902181941735,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_freidberg",
+    "topology": "lower_single_null",
+    "backend": "tokamaker_vfixed",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.001950166121035056,
+      "max_relative_flux": 0.006682669815698976,
+      "condition_number": 16037.765844185444
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.001330781958201868,
+      "max_current_change_A": 70595.18184193099,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.0004122175088682198,
+      "lcfs_max_m": 0.0013298819810943384,
+      "axis_displacement_m": 9.749031615903902e-05,
+      "native_topology": "lower_single_null",
+      "gridded_topology": "ambiguous",
+      "x_point_displacements_m": [
+        1.0417688658472941e-05
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": -0.012334690309216967,
+      "q95_field_integral": {
+        "target": 3.5690191833610885,
+        "solved": 3.573821895630784,
+        "difference": 0.004802712269695419,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": -0.0031108991198109948,
+      "li_difference": -0.0019852657924772643,
+      "thermal_energy_difference_J": -0.020045003857163124,
+      "volume_difference_m3": -0.00019751354325497905,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_freidberg",
+    "topology": "double_null",
+    "backend": "direct",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.0002793092314970899,
+      "max_relative_flux": 0.0007012256490498352,
+      "condition_number": 4376.494773813697
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.001967421702833234,
+      "max_current_change_A": 15089.77624490701,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.00020114974967422216,
+      "lcfs_max_m": 0.00200069649946331,
+      "axis_displacement_m": 0.00014823564777740182,
+      "native_topology": "double_null",
+      "gridded_topology": "ambiguous",
+      "x_point_displacements_m": [
+        1.228100196291293e-06,
+        1.2672663503464937e-06
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": -0.0540779184702842,
+      "q95_field_integral": {
+        "target": 3.8614612022488113,
+        "solved": 3.8620513049542504,
+        "difference": 0.0005901027054391328,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": -0.006258560939975788,
+      "li_difference": -0.006581788845890335,
+      "thermal_energy_difference_J": -0.016508254411181866,
+      "volume_difference_m3": -0.000140564560928369,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_freidberg",
+    "topology": "double_null",
+    "backend": "tokamaker_vfixed",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.0003134783408367368,
+      "max_relative_flux": 0.0009349017346905449,
+      "condition_number": 10659.861992553113
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0019685621947845328,
+      "max_current_change_A": 4805.900896275234,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.00020093978988285248,
+      "lcfs_max_m": 0.0019934173599684595,
+      "axis_displacement_m": 0.00014847405962901055,
+      "native_topology": "double_null",
+      "gridded_topology": "ambiguous",
+      "x_point_displacements_m": [
+        1.186398290807799e-06,
+        1.361601794926373e-06
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": -0.03747791846944892,
+      "q95_field_integral": {
+        "target": 3.8614612022488113,
+        "solved": 3.8620549985042896,
+        "difference": 0.000593796255478285,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": -0.006240952996442672,
+      "li_difference": -0.0065566578179634405,
+      "thermal_energy_difference_J": -0.01642651734899303,
+      "volume_difference_m3": -0.00013955570391596672,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_pedestal",
+    "topology": "limited",
+    "backend": "direct",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.0019469397386224834,
+      "max_relative_flux": 0.005372598331875588,
+      "condition_number": 10869.173413009888
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0003788219877266921,
+      "max_current_change_A": 95875.90429637542,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.00010004439426802775,
+      "lcfs_max_m": 0.0003789384572203262,
+      "axis_displacement_m": 0.00026179922047687,
+      "native_topology": "limited",
+      "gridded_topology": "limited",
+      "x_point_displacements_m": [],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.0006718362274114043,
+      "q95_field_integral": {
+        "target": 2.7703204858049952,
+        "solved": 2.774798825731196,
+        "difference": 0.004478339926200725,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": 0.005882787770758846,
+      "li_difference": -0.0005976366911976116,
+      "thermal_energy_difference_J": 0.023569142168589963,
+      "volume_difference_m3": 0.00013506489069983751,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_pedestal",
+    "topology": "limited",
+    "backend": "tokamaker_vfixed",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.0005770114800609141,
+      "max_relative_flux": 0.0017786555710029277,
+      "condition_number": 25128.61360149881
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0003787947362205049,
+      "max_current_change_A": 19482.874843864323,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.00010019871988131688,
+      "lcfs_max_m": 0.00037900992693018336,
+      "axis_displacement_m": 0.0002621499943225729,
+      "native_topology": "limited",
+      "gridded_topology": "limited",
+      "x_point_displacements_m": [],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.01827183622663142,
+      "q95_field_integral": {
+        "target": 2.7703204858049952,
+        "solved": 2.7747995809058783,
+        "difference": 0.004479095100883068,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": 0.005887115505864071,
+      "li_difference": -0.0006014391926517648,
+      "thermal_energy_difference_J": 0.02373688855295697,
+      "volume_difference_m3": 0.0001357968914826868,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_pedestal",
+    "topology": "lower_single_null",
+    "backend": "direct",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.00411871794026819,
+      "max_relative_flux": 0.011567161514175618,
+      "condition_number": 8192.776093848832
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0035273336005219027,
+      "max_current_change_A": 98582.20679653864,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.0009949986274734475,
+      "lcfs_max_m": 0.0035273142041816587,
+      "axis_displacement_m": 0.00022655089762377552,
+      "native_topology": "lower_single_null",
+      "gridded_topology": "ambiguous",
+      "x_point_displacements_m": [
+        3.293911119745145e-05
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.005724615497456398,
+      "q95_field_integral": {
+        "target": 3.0640596877678052,
+        "solved": 3.0927484126255944,
+        "difference": 0.028688724857789172,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": -0.0002031353739130326,
+      "li_difference": -0.0006909008499462743,
+      "thermal_energy_difference_J": -0.02429066958254822,
+      "volume_difference_m3": 1.128546590986601e-05,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_pedestal",
+    "topology": "lower_single_null",
+    "backend": "tokamaker_vfixed",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.0023882479751587858,
+      "max_relative_flux": 0.00515091863934364,
+      "condition_number": 16022.593391839697
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0035273675327083445,
+      "max_current_change_A": 109450.96331249682,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.0009949626325285418,
+      "lcfs_max_m": 0.003527274709526151,
+      "axis_displacement_m": 0.0002265991335346787,
+      "native_topology": "lower_single_null",
+      "gridded_topology": "ambiguous",
+      "x_point_displacements_m": [
+        3.2945935540328085e-05
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 0.005724615497456398,
+      "q95_field_integral": {
+        "target": 3.0640596877678052,
+        "solved": 3.0927427116378854,
+        "difference": 0.02868302387008015,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": -0.0002020890815614962,
+      "li_difference": -0.000694587723615192,
+      "thermal_energy_difference_J": -0.024240226616878857,
+      "volume_difference_m3": 1.142758433805846e-05,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_pedestal",
+    "topology": "double_null",
+    "backend": "direct",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.001452474509255385,
+      "max_relative_flux": 0.003223184523482138,
+      "condition_number": 4991.460735056861
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.002511661708430357,
+      "max_current_change_A": 72614.36788048872,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.0007331962187299844,
+      "lcfs_max_m": 0.00250936015867224,
+      "axis_displacement_m": 1.6055765008860846e-05,
+      "native_topology": "double_null",
+      "gridded_topology": "ambiguous",
+      "x_point_displacements_m": [
+        2.0734570653143325e-05,
+        1.0172012100031696e-05
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": -0.04296283675648738,
+      "q95_field_integral": {
+        "target": 3.3424113077598316,
+        "solved": 3.383500388925943,
+        "difference": 0.04108908116611154,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": -3.3989205340700934e-05,
+      "li_difference": -0.008080381478619225,
+      "thermal_energy_difference_J": -0.0028213015730855773,
+      "volume_difference_m3": 0.00042135831721887285,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_pedestal",
+    "topology": "double_null",
+    "backend": "tokamaker_vfixed",
+    "nu": 0.5,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.0009679982621471193,
+      "max_relative_flux": 0.00175605623144225,
+      "condition_number": 10505.233299777981
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0025117004661402097,
+      "max_current_change_A": 64724.820079532175,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 0.0007333002575844041,
+      "lcfs_max_m": 0.0025106462489137187,
+      "axis_displacement_m": 1.6224617807447137e-05,
+      "native_topology": "double_null",
+      "gridded_topology": "ambiguous",
+      "x_point_displacements_m": [
+        2.0599737052405732e-05,
+        1.0306803167353897e-05
+      ],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": -0.019462836757156765,
+      "q95_field_integral": {
+        "target": 3.3424113077598316,
+        "solved": 3.383517024243539,
+        "difference": 0.04110571648370742,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": -1.1145861080974484e-05,
+      "li_difference": -0.008046490914776827,
+      "thermal_energy_difference_J": -0.0027115704726590195,
+      "volume_difference_m3": 0.00042257821672236906,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_freidberg",
+    "topology": "limited",
+    "backend": "direct",
+    "nu": 1.0,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.0005695555724011681,
+      "max_relative_flux": 0.001430157664069362,
+      "condition_number": 9503.731522368706
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Matrix solve failed for targets         "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0003141401186653483,
+      "max_current_change_A": 2708.3192232501933,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 7.455048918442002e-05,
+      "lcfs_max_m": 0.0003147279112993844,
+      "axis_displacement_m": 0.000658727365606522,
+      "native_topology": "limited",
+      "gridded_topology": "limited",
+      "x_point_displacements_m": [],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 9.208022171211269,
+      "q95_field_integral": {
+        "target": 3.9406389111094713,
+        "solved": 3.9450507917757642,
+        "difference": 0.004411880666292944,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": -0.002819190418929418,
+      "li_difference": -0.01745893934084619,
+      "thermal_energy_difference_J": 0.03311863862223774,
+      "volume_difference_m3": -6.33116539361378e-07,
+      "error": ""
+    },
+    "error": null
+  },
+  {
+    "family": "guazzotto_freidberg",
+    "topology": "limited",
+    "backend": "tokamaker_vfixed",
+    "nu": 1.0,
+    "fit": {
+      "status": "accepted",
+      "accepted": true,
+      "rms_relative_flux": 0.000493156820727511,
+      "max_relative_flux": 0.0012926132706694818,
+      "condition_number": 25275.134105464935
+    },
+    "initial": {
+      "status": "solver_failed",
+      "lcfs_max_m": null,
+      "error": "Error in solve: Closed flux volume lost                 "
+    },
+    "refined": {
+      "status": "converged",
+      "lcfs_max_m": 0.0003141329696039898,
+      "max_current_change_A": 24313.428750533778,
+      "error": ""
+    },
+    "verified": {
+      "status": "converged",
+      "lcfs_rms_m": 7.457470776654563e-05,
+      "lcfs_max_m": 0.00031497904712079414,
+      "axis_displacement_m": 0.0006587861851482669,
+      "native_topology": "limited",
+      "gridded_topology": "limited",
+      "x_point_displacements_m": [],
+      "unmatched_target_x_points": 0,
+      "Ip_difference_A": 9.240322171212028,
+      "q95_field_integral": {
+        "target": 3.9406389111094713,
+        "solved": 3.9450412582111967,
+        "difference": 0.004402347101725379,
+        "target_reason": null,
+        "solved_reason": null,
+        "definition": "independent 95% contour field integral using psi(R,Z) and F(psi)"
+      },
+      "beta_p_difference": -0.0028155260228543977,
+      "li_difference": -0.017459909984382183,
+      "thermal_energy_difference_J": 0.03325806526603614,
+      "volume_difference_m3": -3.408696972462266e-07,
+      "error": ""
+    },
+    "error": null
+  }
+]

@@ -306,6 +306,29 @@ def _boundary_state(mygs) -> dict[str, Any]:
     return state
 
 
+def _native_active_x_points(mygs) -> dict[str, Any]:
+    """Retain native FE saddles on the active boundary flux before g-file export."""
+    points, diverted = mygs.get_xpoints()
+    if not diverted or points is None:
+        return {"native_active_x_points_m": []}
+    points = np.asarray(points, dtype=float).reshape(-1, 2)
+    reference = np.asarray(mygs.lim_point, dtype=float).reshape(-1)[:2]
+    field = mygs.get_field_eval("psi")
+    reference_psi = float(np.asarray(field.eval(reference)).ravel()[0])
+    span = abs(float(mygs.get_stats().get("dflux", 1.)))
+    if not np.isfinite(span) or span <= 0:
+        return {"native_active_x_points_m": [], "native_x_points_reason": "invalid flux span"}
+    active = []
+    all_points = []
+    for point in points:
+        residual = abs(float(np.asarray(field.eval(point)).ravel()[0]) - reference_psi) / span
+        all_points.append({"rz_m": point.tolist(), "relative_boundary_flux_residual": residual})
+        if np.isfinite(residual) and residual <= .01:
+            active.append(point.tolist())
+    return {"native_active_x_points_m": active, "native_all_x_points": all_points,
+            "native_x_flux_tolerance_fraction": .01}
+
+
 def _initial_current_density(equilibrium, points):
     """Physical Jphi [A/m²] seed on native nodes; no plasma Green integration."""
     from matplotlib.path import Path as PolygonPath
@@ -326,7 +349,8 @@ def _initial_current_density(equilibrium, points):
     return current
 
 
-def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinement=None) -> TokaMakerResult:
+def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinement=None,
+                  verify_refinement: bool = False) -> TokaMakerResult:
     """Execute a forward solve and collect the produced outputs.
 
     Builds the mesh on a cache miss, then runs the canonical TokaMaker
@@ -336,6 +360,8 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinemen
     solve is reported through ``result.ok``/``result.error`` rather than
     raised, mirroring the subprocess adapters.
     """
+    if verify_refinement and refinement is None:
+        raise ValueError("frozen verification requires shape refinement")
     if refinement is not None:
         if set(refinement.reference_currents_A) != set(inputs.coil_currents) or any(
             abs(refinement.reference_currents_A[n] - inputs.coil_currents[n]) > 1e-6
@@ -356,6 +382,8 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinemen
 
     returncode = 1
     error = ""
+    verified_error = None
+    verified_dir = inputs.workdir / "verified_free"
     sidecar: dict[str, Any] = {
         "converged": False,
         "shot": shot,
@@ -426,6 +454,40 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinemen
         sidecar.update(_wall_check(mygs, inputs.geometry["limiter"]))
         _save_eqdsk(mygs, gpath, config, f"# {shot} {ctime}ms")
         returncode = 0
+        if verify_refinement:
+            # Keep the converged native FE state. Reconstructing it from a
+            # coarse g-file can select another free-boundary solution branch.
+            verified_dir.mkdir(parents=True, exist_ok=False)
+            currents = dict(sidecar["coil_currents_A"])
+            verified_sidecar = {key: sidecar[key] for key in ("shot", "time_s", "targets", "f0", "cocos")}
+            verified_sidecar.update(converged=False, free_boundary=True,
+                                    shape_constraints_cleared=True, coil_currents_A=currents)
+            try:
+                isoflux = getattr(mygs, "set_isoflux_constraints", None)
+                if isoflux is None:
+                    isoflux = mygs.set_isoflux
+                saddles = getattr(mygs, "set_saddle_constraints", None)
+                if saddles is None:
+                    saddles = mygs.set_saddles
+                isoflux(None)
+                saddles(None)
+                mygs.set_coil_currents(currents)
+                mygs.solve()
+                realized = dict(mygs.get_coil_currents()[0])
+                if set(realized) != set(currents) or any(
+                    abs(realized[name] - current) > 1e-6 for name, current in currents.items()
+                ):
+                    raise RuntimeError("PF currents changed during frozen verification")
+                verified_sidecar.update(converged=True, coil_currents_A=realized,
+                                        stats=mygs.get_stats(), o_point=mygs.o_point)
+                verified_sidecar.update(_boundary_state(mygs))
+                verified_sidecar.update(_native_active_x_points(mygs))
+                verified_sidecar.update(_wall_check(mygs, inputs.geometry["limiter"]))
+                _save_eqdsk(mygs, verified_dir / gpath.name, config, f"# {shot} {ctime}ms frozen")
+            except Exception as exc:
+                verified_error = str(exc)
+                verified_sidecar["error"] = verified_error
+            _write_sidecar(verified_dir, verified_sidecar)
     except Exception as exc:
         error = str(exc)
         sidecar["error"] = error
@@ -459,6 +521,16 @@ def run_tokamaker(inputs: TokaMakerInputs, config: TokaMakerConfig, *, refinemen
         result.geqdsk = ()
         result.ods = None
         result.scalars.pop("_geqdsk_error", None)
+    if verify_refinement and verified_dir.is_dir():
+        verified = collect_tokamaker_outputs(verified_dir, config)
+        verified.returncode = 1 if verified_error else 0
+        verified.error = verified_error or ""
+        verified.mesh_file = result.mesh_file
+        if verified_error:
+            verified.gfile = None
+            verified.geqdsk = ()
+            verified.ods = None
+        result.verified_free = verified
     return result
 
 
