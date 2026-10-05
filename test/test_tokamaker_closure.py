@@ -7,6 +7,7 @@ import pytest
 
 from vaft.code.tokamaker import TokaMakerConfig, compare_equilibria, fixed_to_free
 from vaft.code.tokamaker import closure
+from vaft.code.tokamaker.runner import _native_active_x_points
 from vaft.code.tokamaker.config import TokaMakerResult
 from vaft.data.equilibrium import Contour
 from vaft.process.equilibrium import convert_cocos, solovev_example
@@ -19,6 +20,10 @@ def test_comparison_is_cocos_invariant_and_preserves_missing_q():
     assert result['axis_displacement_m'] == 0
     assert result['globals']['thermal_energy']['difference'] == pytest.approx(0)
     assert result['globals']['q95']['target'] is None
+    field_q = result['globals']['q95_field_integral']
+    assert field_q['target'] is not None
+    assert field_q['target'] == pytest.approx(field_q['solved'])
+    assert field_q['difference'] == pytest.approx(0)
 
 
 def test_segment_distance_and_axis_displacement_are_independent_of_vertex_order():
@@ -63,6 +68,9 @@ def test_routes_feed_fitted_currents_to_forward_without_constraints(tmp_path, mo
 
 def test_failed_forward_and_vsc_rejection(tmp_path, monkeypatch):
     eq = solovev_example(resolution=33)
+    with pytest.raises(ValueError, match='requires refine_shape'):
+        fixed_to_free(eq, {}, tmp_path/'no-refinement', verify_refinement=True)
+    assert not (tmp_path/'no-refinement').exists()
     with pytest.raises(ValueError, match='unchanged PF'):
         fixed_to_free(eq, {}, tmp_path/'bad', config=TokaMakerConfig(vsc_coil='PF1'))
     assert not (tmp_path/'bad').exists()
@@ -84,3 +92,37 @@ def test_native_density_seed_has_physical_units_and_no_vacuum_current():
     expected = -2*np.pi*(points[0, 0]*eq.pprime[0] + eq.ffprime[0]/(4e-7*np.pi*points[0, 0]))
     assert actual[0] == pytest.approx(expected)
     assert actual[1] == 0
+
+
+def test_native_saddle_diagnostics_restore_double_null_when_gridded_export_misses_xpoints():
+    target = solovev_example('double_null', resolution=65)
+    active = closure.derive_boundary_representation(target).x_points
+    saddles = [[x.r, x.z] for x in active if x.active]
+    gridded = replace(target, limiter=None)
+    result = closure._native_boundary_comparison(target, gridded, {
+        'diverted': True, 'native_active_x_points_m': saddles,
+        'native_x_flux_tolerance_fraction': 1e-4,
+    })
+    assert result['native_boundary']['topology'] == 'double_null'
+    assert result['native_boundary']['unmatched_target'] == 0
+    assert result['native_boundary']['matched_displacements_m'] == pytest.approx([0., 0.])
+
+
+def test_native_topology_rejects_flux_offset_or_unmatched_extra_saddle():
+    target = solovev_example('single_null', resolution=65)
+    active = [x for x in closure.derive_boundary_representation(target).x_points if x.active]
+    lower = [active[0].r, active[0].z]
+    upper = [lower[0], -lower[1]]
+    flux = SimpleNamespace(eval=lambda point: np.array([0.005 if point[1] > 0 else 0.]))
+    gs = SimpleNamespace(get_xpoints=lambda: (np.array([lower, upper]), True),
+                         lim_point=np.array(lower), get_field_eval=lambda _: flux,
+                         get_stats=lambda: {'dflux': 1.})
+    sidecar = _native_active_x_points(gs)
+    assert sidecar['native_active_x_points_m'] == [lower]
+    result = closure._native_boundary_comparison(target, target, {
+        **sidecar, 'diverted': True})
+    assert result['native_boundary']['topology'] == 'lower_single_null'
+    extra = closure._native_boundary_comparison(target, target, {
+        **sidecar, 'diverted': True, 'native_active_x_points_m': [lower, upper]})
+    assert extra['native_boundary']['topology'] == 'ambiguous'
+    assert extra['native_boundary']['unmatched_solved'] == 1
