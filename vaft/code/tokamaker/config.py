@@ -78,6 +78,7 @@ class TokaMakerConfig:
     profile_tables: Optional[Mapping[str, Any]] = None
 
     # --- initial plasma guess for init_psi (R0, Z0, a, kappa, delta) ---
+    init_equilibrium: Any = None             # canonical volume-current seed; no fixed boundary constraint
     init_r0: float = 0.35
     init_z0: float = 0.00
     init_a0: float = 0.20
