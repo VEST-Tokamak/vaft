@@ -71,8 +71,14 @@ class TokaMakerConfig:
     alpha_p_a: float = 4.0                    # P'  inner exponent
     alpha_p_b: float = 1.0                    # P'  outer exponent
     nprof: int = 40                           # sample count for the profile tables
+    profile_mode: str = "power_law"          # power_law | equilibrium | explicit
+    profile_equilibrium: Any = None           # canonical EquilibriumData for source shape/scales
+    # Explicit native per-radian pprime/ffprime, axis-to-edge psi_n, and
+    # relative axis_pressure_Pa; coordinates must span [0,1].
+    profile_tables: Optional[Mapping[str, Any]] = None
 
     # --- initial plasma guess for init_psi (R0, Z0, a, kappa, delta) ---
+    init_equilibrium: Any = None             # canonical volume-current seed; no fixed boundary constraint
     init_r0: float = 0.35
     init_z0: float = 0.00
     init_a0: float = 0.20
@@ -240,6 +246,7 @@ class TokaMakerResult:
     geqdsk: tuple[Any, ...] = ()
     ods: Any = None
     scalars: Mapping[str, Any] = field(default_factory=dict)
+    verified_free: Optional["TokaMakerResult"] = None  # second solve with optimized PF currents frozen
 
     @property
     def ok(self) -> bool:

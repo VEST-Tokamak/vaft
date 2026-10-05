@@ -140,6 +140,7 @@ _SUBJECTS = (
     # Purpose-driven composites
     Subject("current", "composite"),
     Subject("diagnostics", "composite"),
+    Subject("kinetic", "composite"),
     Subject("summary", "composite"),
 )
 
