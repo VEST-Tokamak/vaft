@@ -199,7 +199,7 @@ def fit_free_boundary_coils_vfixed(
     Parameters
     ----------
     equilibrium : EquilibriumData
-        Target with a closed LCFS, Ip, Bt and declared COCOS [-].
+        Target with a closed LCFS, positive canonical Ip, Bt and declared COCOS [-].
     machine : ODS-like
         ``pf_active`` geometry supplying the inverse response [-].
     workdir : path
@@ -232,13 +232,15 @@ def fit_free_boundary_coils_vfixed(
 
     Applicability
     -------------
-    Static, closed, positive-R LCFS. OFT must be installed locally.
+    Static, closed, positive-R LCFS and positive canonical Ip. OFT must be installed.
 
     Limitations
     -----------
     Until arbitrary-profile transfer is implemented, the fixed solve matches
     the target boundary and Ip but uses power-law source *shape*. This is
     explicitly a fixed-solver cross-check, not yet an analytic profile match.
+    The installed OFT API permits only positive Ip targets; signed-current
+    orientation support is deferred to the profile-transfer stage.
 
     Provenance
     ----------
@@ -252,8 +254,10 @@ def fit_free_boundary_coils_vfixed(
     model = eq.metadata.get("model") if eq.metadata.get("source_type") == "guazzotto_freidberg" else None
     if model is not None and (model.pressure_pedestal or model.bootstrap_fraction or model.mach_number):
         raise ValueError("Guazzotto surface-current or flow terms are unsupported by this static fixed solve")
-    if eq.lcfs is None or not eq.lcfs.closed or eq.ip is None or eq.ip == 0:
-        raise ValueError("closed LCFS and nonzero target Ip are required")
+    if eq.lcfs is None or not eq.lcfs.closed:
+        raise ValueError("closed LCFS is required")
+    if eq.ip is None or not np.isfinite(eq.ip) or eq.ip <= 0:
+        raise ValueError("TokaMaker fixed solve requires finite positive canonical Ip")
     if eq.r0 is None or eq.bt0 is None or eq.magnetic_axis is None:
         raise ValueError("target r0, bt0 and magnetic_axis are required")
     if eq.psi_boundary is None or eq.psi_axis is None:

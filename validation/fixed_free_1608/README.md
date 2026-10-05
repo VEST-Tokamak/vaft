@@ -98,6 +98,10 @@ current vector is not yet a comparison of identical analytic profiles. Stage
 3 adds the target `pprime`/`ffprime` shape. Boundary-field and free-boundary
 closure comparisons follow that transfer; `accepted` here describes only the
 linear sample fit with complete finite caller-supplied bounds.
+The stage-2 fixed solve explicitly requires finite positive Ip after COCOS-11
+conversion, matching the installed OFT target API. Other signs fail before
+runtime initialization or creation of the output directory. Signed-current
+orientation handling is part of the next stage's profile conversion.
 
 The limited-family resolution comparison ran on vestserver, in the isolated
 directory `/home/user1/scratch/vaft-1608-vfixed.w1EylN`, using the existing

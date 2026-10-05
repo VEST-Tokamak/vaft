@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 from omas import ODS
 from types import SimpleNamespace
+from dataclasses import replace
 
 from vaft.code.tokamaker import fit_vfixed_samples
 from vaft.process.electromagnetics import compute_point_response_matrices
@@ -74,6 +75,23 @@ def test_oft_green_orientation_if_installed():
     )[0][:, 0]
     # OFT's elliptic-integral approximation differs at about 1e-9 here.
     np.testing.assert_allclose(-2 * np.pi * oft_psi, vaft_psi, rtol=2e-8)
+
+
+@pytest.mark.parametrize("ip", [-1e5, 0., np.nan])
+def test_native_ip_restriction_precedes_output_and_runtime(monkeypatch, tmp_path, ip):
+    from vaft.code.tokamaker import bridge
+
+    eq = solovev_example(resolution=33)
+    eq = replace(eq, ip=ip, convention=replace(eq.convention, ip_sign=None))
+
+    def forbidden():
+        raise AssertionError("invalid Ip must not initialize OFT")
+
+    monkeypatch.setattr(bridge, "import_oft", forbidden)
+    workdir = tmp_path / "fixed"
+    with pytest.raises(ValueError, match="finite positive canonical Ip"):
+        bridge.fit_free_boundary_coils_vfixed(eq, _machine(), workdir)
+    assert not workdir.exists()
 
 
 @pytest.mark.parametrize("fail", [False, True])
