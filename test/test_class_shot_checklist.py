@@ -134,4 +134,4 @@ def test_recorded_faults_and_tf_repairs_become_flags(module):
 
 def test_the_class_era_carries_its_recorded_faults(module):
     labels = {fault["label"] for fault in module.recorded_faults_row(48224)}
-    assert {"H-gamma_4340", "H-beta_4861", "OV_629", "PKR-251 Main Gauge"} <= labels
+    assert {"H-gamma_4340", "H-beta_4861", "OV_629"} <= labels

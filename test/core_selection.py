@@ -230,6 +230,7 @@ CORE_MODULES: tuple[str, ...] = (
     # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
     # only), the plasma-current Rogowski verdict and the TF excursion repair on
     # synthetic records.
+    "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_flux_loop_known_faults.py",

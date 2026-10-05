@@ -19,23 +19,24 @@ def _labels(shot: int) -> list[tuple[str, str, str]]:
         (46676, []),
         (46677, [("spectrometer_uv", "H-beta_4861", "no_signal"), ("spectrometer_uv", "OV_629", "no_signal")]),
         (46992, [("spectrometer_uv", "H-beta_4861", "no_signal"), ("spectrometer_uv", "OV_629", "no_signal")]),
-        (47415, [("spectrometer_uv", "H-gamma_4340", "railed"), ("spectrometer_uv", "OV_629", "no_signal"),
-                 ("barometry", "PKR-251 Main Gauge", "calibration_unverified")]),
-        (47615, [("spectrometer_uv", "H-gamma_4340", "railed"), ("spectrometer_uv", "OV_629", "no_signal"),
-                 ("barometry", "PKR-251 Main Gauge", "calibration_unverified")]),
+        (47415, [("spectrometer_uv", "H-gamma_4340", "railed"), ("spectrometer_uv", "OV_629", "no_signal")]),
+        (47615, [("spectrometer_uv", "H-gamma_4340", "railed"), ("spectrometer_uv", "OV_629", "no_signal")]),
         (48224, [("spectrometer_uv", "H-gamma_4340", "railed"), ("spectrometer_uv", "H-beta_4861", "no_signal"),
-                 ("spectrometer_uv", "OV_629", "no_signal"), ("barometry", "PKR-251 Main Gauge", "calibration_unverified")]),
+                 ("spectrometer_uv", "OV_629", "no_signal")]),
     ],
 )
 def test_records_at_each_boundary(shot, expected):
     assert _labels(shot) == expected
 
 
-def test_the_46993_change_reaches_both_gauge_and_filterscope():
-    before, after = _labels(46992), _labels(46993)
-    assert ("spectrometer_uv", "H-gamma_4340", "railed") not in before
-    assert ("spectrometer_uv", "H-gamma_4340", "railed") in after
-    assert ("barometry", "PKR-251 Main Gauge", "calibration_unverified") in after
+def test_h_gamma_rails_from_46993():
+    assert ("spectrometer_uv", "H-gamma_4340", "railed") not in _labels(46992)
+    assert ("spectrometer_uv", "H-gamma_4340", "railed") in _labels(46993)
+
+
+def test_the_gauge_change_is_a_calibration_not_a_fault_record():
+    """46993 is the IKR 251 replacement, resolved in barometry_main (#1543)."""
+    assert all(f["ids"] != "barometry" for f in known_diagnostic_faults(48224))
 
 
 def _write(tmp_path, entries):

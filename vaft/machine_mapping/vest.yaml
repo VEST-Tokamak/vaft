@@ -256,6 +256,10 @@
         field: 12
         raw_unit: V
         daq_type: slow
+      gauge:
+        name: PKR-251 Main Gauge
+        type_name: Penning
+        description: Pfeiffer PKR 251 full-range (Pirani + cold cathode) main-chamber gauge
       calibration:
         type: exponential_pressure
         scale: 2.4
@@ -268,6 +272,26 @@
         unit_conversion:
           factor: 133.3223684211
           output_unit: Pa
+      # The main-chamber gauge was replaced by a Pfeiffer IKR 251 at 46993
+      # (2025-10-29; confirmed by VEST operations, issue #1543). Field 12 is
+      # unchanged, but the output characteristic is not: the PKR formula on the
+      # new gauge read every pressure ~40-120x low (pre-puff 3e-8 Torr). With
+      # this formula the pre-puff base (2.1e-6 -> 1.3e-6 Torr) and the
+      # pre-discharge fill at 0.25-0.29 s (3.2e-5 -> 1.4e-5 Torr) stay
+      # continuous across the change (medians, every 10th shot 44000-48960).
+      revisions:
+        - from_shot: 46993
+          gauge:
+            name: IKR-251 Main Gauge
+            type_name: Penning
+            description: Pfeiffer IKR 251 cold-cathode (inverted magnetron) main-chamber gauge
+          calibration:
+            type: exponential_pressure
+            scale: 2.4
+            slope: 2.0
+            offset: -10.625
+            base: 10.0
+            output_unit: Torr
 
     # 6 kW 2.45 GHz ECH (port 5ML10) forward/reflected power detectors, issue
     # #165. Same legacy log-detector transfer function as the VFIT donor
@@ -1716,13 +1740,6 @@ diagnostic_faults:
     from_shot: 46677
     kind: no_signal
     reason: "No light: field 143 correlates ~0.99 with field 141 and ~0 with every other line from 46685 on (46676 last good); the label itself is also questioned in #569"
-  - ids: barometry
-    node: gauge.0
-    label: PKR-251 Main Gauge
-    field: 12
-    from_shot: 46993
-    kind: calibration_unverified
-    reason: "Gauge output stepped down by ~1.05 V at 46993 (pre-fill median 3.25 V -> 2.20 V, max 4.12 V -> 3.39 V) with a noisier signal path; through 2.4*10^(1.667 V - 11.46) every pressure since reads ~40x lower and the pre-fill ~3e-8 Torr. Gauge replacement or offset not yet confirmed by operations"
 
 diagnostics_time_policies:
   default: analysis
