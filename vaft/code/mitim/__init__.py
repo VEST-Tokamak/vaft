@@ -17,9 +17,9 @@ from .config import (
     MITIMResult,
     mitim_user_config,
 )
-from .compare import compare_tglf_inputs, read_input_tglf
+from .compare import compare_tglf_inputs, effective_tglf_controls, read_input_tglf
 from .coordinates import r_over_a_at, rho_tor_norm_at
-from .runner import mitim_tglf_local_inputs, run_mitim_driver, run_neo_smoke
+from .runner import mitim_tglf_local_inputs, run_mitim_driver, run_mitim_tglf, run_neo_smoke
 
 __all__ = [
     "MITIMAvailability",
@@ -30,6 +30,7 @@ __all__ = [
     "SUPPORTED_MITIM_VERSIONS",
     "VAFT_MACHINE",
     "compare_tglf_inputs",
+    "effective_tglf_controls",
     "mitim_availability",
     "mitim_tglf_local_inputs",
     "r_over_a_at",
@@ -37,5 +38,6 @@ __all__ = [
     "rho_tor_norm_at",
     "mitim_user_config",
     "run_mitim_driver",
+    "run_mitim_tglf",
     "run_neo_smoke",
 ]

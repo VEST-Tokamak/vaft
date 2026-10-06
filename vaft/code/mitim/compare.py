@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-__all__ = ["PHYSICS_KEYS", "compare_tglf_inputs", "read_input_tglf"]
+__all__ = ["PHYSICS_KEYS", "compare_tglf_inputs", "effective_tglf_controls", "read_input_tglf"]
 
 #: Keys that describe the plasma at the surface (geometry, gradients, species,
 #: collisionality, beta, rotation); everything else is a solver control.
@@ -50,6 +50,42 @@ def read_input_tglf(path: str | Path) -> dict[str, Any]:
     return parameters
 
 
+#: The s-alpha geometry inputs, read only when GEOMETRY_FLAG = 0.
+_SALPHA = re.compile(r"^[A-Z_]+_SA$")
+
+
+def effective_tglf_controls(parameters: Mapping[str, Any]) -> dict[str, Any]:
+    """The controls TGLF actually runs with, after its own start-up presets.
+
+    ``tglf_startup.f90`` (GACODE b493397) has ``USE_PRESETS = .TRUE.`` hard-coded:
+    it zeroes WDIA_TRAPPED, then for SAT_RULE 2/3 sets XNU_MODEL = 3, WDIA_TRAPPED = 1
+    and UNITS GYRO -> CGYRO; for SAT_RULE 1 sets XNU_MODEL = 2; for SAT_RULE 0 sets
+    UNITS = GYRO and XNU_MODEL = 2; with USE_BPER sets ALPHA_MACH = 0; and SAT_RULE 0
+    rounds NMODES > 2 up to 4. The s-alpha ``*_SA`` inputs are dropped unless
+    GEOMETRY_FLAG = 0. Two inputs that differ only in what these overwrite run
+    identically, which is what a comparison should see.
+    """
+    out = {key: value for key, value in parameters.items()
+           if not (_SALPHA.match(key) and int(parameters.get("GEOMETRY_FLAG", 1)) != 0)}
+    sat = int(out.get("SAT_RULE", 0))
+    out["WDIA_TRAPPED"] = 0.0
+    if sat in (2, 3):
+        out["XNU_MODEL"] = 3
+        out["WDIA_TRAPPED"] = 1.0
+        if str(out.get("UNITS", "GYRO")).upper() == "GYRO":
+            out["UNITS"] = "CGYRO"
+    elif sat == 1:
+        out["XNU_MODEL"] = 2
+    elif sat == 0:
+        out["UNITS"] = "GYRO"
+        out["XNU_MODEL"] = 2
+        if int(out.get("NMODES", 2)) > 2:
+            out["NMODES"] = 4
+    if bool(out.get("USE_BPER", False)):
+        out["ALPHA_MACH"] = 0.0
+    return out
+
+
 def _numeric(value: Any) -> float | None:
     if isinstance(value, bool):
         return float(value)
@@ -65,6 +101,7 @@ def compare_tglf_inputs(
     rtol: float = 1e-3,
     atol: float = 1e-6,
     keys: Iterable[str] | None = None,
+    effective: bool = True,
 ) -> list[dict[str, Any]]:
     """One row per key present in either input.
 
@@ -72,7 +109,12 @@ def compare_tglf_inputs(
     ``status`` (``agree``, ``differ``, ``vaft_only``, ``mitim_only``) and, for two
     numbers, ``abs_diff`` and ``rel_diff`` = |a - b| / max(|a|, |b|). A key that one
     side leaves to TGLF's default is ``*_only``, not a disagreement on the value.
+    With ``effective`` (the default), both sides first go through
+    :func:`effective_tglf_controls`, so a control TGLF overwrites at start-up does not
+    count as a difference.
     """
+    if effective:
+        vaft, mitim = effective_tglf_controls(vaft), effective_tglf_controls(mitim)
     names = sorted(set(keys) if keys is not None else set(vaft) | set(mitim))
     rows = []
     for key in names:

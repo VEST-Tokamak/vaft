@@ -20,7 +20,7 @@ from ..execution import ExecutionRequest, resolve_backend, timeout_reason
 from .availability import MITIMAvailability, mitim_availability
 from .config import MITIMConfig, MITIMResult, mitim_user_config
 
-__all__ = ["mitim_tglf_local_inputs", "run_mitim_driver", "run_neo_smoke"]
+__all__ = ["mitim_tglf_local_inputs", "run_mitim_driver", "run_mitim_tglf", "run_neo_smoke"]
 
 #: The GACODE members MITIM may call; each one's ``bin`` goes on ``PATH``.
 _GACODE_MEMBERS = ("neo", "tglf", "tgyro", "cgyro", "vgen")
@@ -257,3 +257,53 @@ def mitim_tglf_local_inputs(
         for label, path in result.result.get("files", {}).items():
             parsed[float(label)] = read_input_tglf(path)
     return result, parsed
+
+
+def run_mitim_tglf(
+    profile: Any,
+    r_over_a,
+    workdir: str | Path,
+    config: MITIMConfig | None = None,
+    *,
+    code_settings: str = "SAT3",
+    extra_options: Optional[Mapping[str, Any]] = None,
+    availability: Optional[MITIMAvailability] = None,
+) -> tuple[MITIMResult, dict[float, Any]]:
+    """Run TGLF through MITIM at VAFT's ``r/a`` surfaces and read the results with VAFT.
+
+    MITIM's ``TGLF(rhos=...)`` takes ``rho_tor_norm``, so the surfaces are converted
+    once with :func:`vaft.code.mitim.coordinates.rho_tor_norm_at` (VAFT's bridge, from
+    the same profile), and every result is keyed back by the ``r/a`` requested.
+    ``extra_options`` are MITIM ``extraOptions``: individual ``input.tglf`` keys
+    applied last, e.g. to align NKY/NMODES/USE_MHD_RULE with VAFT's defaults.
+
+    Returns
+    -------
+    (MITIMResult, {r/a: TglfOutputs})
+    """
+    from ..gacode._input_gacode import write_input_gacode
+    from ..gacode.tglf.outputs import collect_tglf_outputs
+    from .coordinates import rho_tor_norm_at
+
+    workdir = Path(workdir).resolve()
+    workdir.mkdir(parents=True, exist_ok=True)
+    folder = workdir / "tglf"
+    if folder.exists():
+        shutil.rmtree(folder)
+    r_over_a = [float(r) for r in r_over_a]
+    rho = [float(x) for x in rho_tor_norm_at(profile, r_over_a)]
+    input_path = write_input_gacode(profile, workdir / "input.gacode")
+    arguments = {"input_gacode": str(input_path), "folder": str(folder), "rho_tor_norm": rho,
+                 "r_over_a": r_over_a, "code_settings": code_settings,
+                 "extra_options": dict(extra_options or {}),
+                 "input_gacode_sha256": _sha256(input_path)}
+    result = run_mitim_driver("tglf_run", arguments, workdir, config, availability=availability)
+    outputs: dict[float, Any] = {}
+    if result.ok:
+        for directory in result.result.get("run_directories", []):
+            value = float(Path(directory).name.split("_", 1)[1])
+            index = min(range(len(rho)), key=lambda i: abs(rho[i] - value))
+            parsed = collect_tglf_outputs(directory)
+            if parsed is not None and abs(rho[index] - value) < 5e-5:
+                outputs[r_over_a[index]] = parsed
+    return result, outputs
