@@ -11,3 +11,10 @@ libraries:
     source: dist/cytoscape.min.js
     sha256: 5f3b5b529546d5af1fc5628590af033b74511a5b6f789f5f4682845863228b91
     npm_integrity: sha512-yfYGhRcGAntq6YBD583j4n0Eg3jIxvWmZtz/5uz9UYkeIStSlMxuUja+ec5j3iBD8nv1rwaOAYMW09tBdkSeaQ==
+  - name: cytoscape-dagre
+    version: 4.0.1
+    license: MIT
+    file: cytoscape-dagre-4.0.1/cytoscape-dagre.min.js
+    source: dist/cytoscape-dagre.min.js (bundles dagre; its source map is copied beside it)
+    sha256: ec671a41d2bfcac580352e2997797793949e3489cecaf347fc48670d4bd456b0
+    npm_integrity: sha512-hyNdh8Vp1nwzBcjHnM4c71G81bFhPmQYLXD2HM9AZIvl+8TrMzWEOPW45hF/XOBQiEguPcDQzi6VrXR1XBcXOA==

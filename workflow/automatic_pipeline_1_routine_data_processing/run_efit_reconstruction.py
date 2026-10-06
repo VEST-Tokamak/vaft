@@ -12,6 +12,7 @@ import shutil
 from pathlib import Path
 
 from vaft.code.efit import EFITConfig, EFITInputs, run_efit
+from vaft.code.efit.applicability import kfile_manifest_not_applicable_reason, kfile_manifest_paths
 
 
 LOGGER = logging.getLogger("vaft.run_efit_reconstruction")
@@ -124,9 +125,17 @@ def main() -> int:
     if not args.kfile_manifest.exists():
         raise FileNotFoundError(f"Kfile manifest not found: {args.kfile_manifest}")
 
-    kfiles = tuple(Path(line.strip()) for line in args.kfile_manifest.read_text(encoding="utf-8").splitlines() if line.strip())
+    manifest_text = args.kfile_manifest.read_text(encoding="utf-8")
+    kfiles = tuple(Path(line) for line in kfile_manifest_paths(manifest_text))
     workdir = args.kfile_manifest.parent.parent
     executable = Path(args.executable).expanduser() if args.executable else None
+
+    not_applicable = kfile_manifest_not_applicable_reason(manifest_text)
+    if not_applicable is not None:
+        # Ahead of efit.run: the verdict is about the shot, not this deployment (#205).
+        _write_outputs(args.gfile_manifest, args.status, args.artifact_manifest, workdir, args.shot,
+                       f"skipped: not applicable: {not_applicable}; kfiles=0")
+        return 0
 
     if not _bool(args.run):
         _write_outputs(args.gfile_manifest, args.status, args.artifact_manifest, workdir, args.shot, f"skipped: efit.run=false; kfiles={len(kfiles)}")

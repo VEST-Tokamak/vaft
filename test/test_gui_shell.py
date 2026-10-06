@@ -277,7 +277,8 @@ def test_serve_builds_a_shell_per_session(monkeypatch):
     ))
     monkeypatch.setattr(pn.state, "on_session_destroyed", lambda callback: None)
     gui_app.serve(port=5123, sample=[39915], workspace="database")
-    assert calls[-1]["/"]() == "page" and built[-1] == {"sample": [39915], "workspace": "database"}
+    assert calls[-1]["/"]() == "page"
+    assert built[-1] == {"sample": [39915], "workspace": "database", "hosted": False}
 
 
 def test_an_explorer_handed_over_already_loaded_is_published(monkeypatch, ods):
@@ -354,3 +355,23 @@ def test_a_workspace_whose_layout_raises_is_reported(toys):
     shell = Shell(toys)
     shell.nav.value = "nolayout"
     assert shell.active == "one" and shell.alert.object == "No layout: no main"
+
+
+def test_a_hosted_shell_keeps_the_server_s_credentials_to_itself(ods, monkeypatch, tmp_path):
+    path = tmp_path / ".hscfg"
+    path.write_text("hs_endpoint = http://127.0.0.1:5101\nhs_username = service-reader\nhs_password = s3cret\n")
+    monkeypatch.setattr("vaft.database.hscfg.active_path", lambda cwd=None: path)
+    monkeypatch.setattr("vaft.gui.state.load_source", lambda source: ods)
+    app = gui_app.BrowserApp(_Session(), hosted=True)
+    hosted = Shell(factories={"plots": lambda shell: gui_workspaces.PlotWorkspace(shell, app)}, hosted=True)
+    try:
+        hosted.show("database")
+        text = hosted.workspaces["database"].credentials.object
+        assert "service-reader" not in text and "127.0.0.1" not in text and str(path) not in text
+        assert "read-only account" in text
+        # files stay refused through the shell's shared selection, too
+        hosted.selection.update(sources=(Source("file", str(path)),))
+        hosted.show("plots")
+        assert not any(source.kind == "file" for source in app.session.sources)
+    finally:
+        hosted.close()

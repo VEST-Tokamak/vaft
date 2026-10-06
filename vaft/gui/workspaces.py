@@ -182,6 +182,11 @@ class DatabaseWorkspace:
         self.shell.selection.update(origin=self, namespace=event.new)
 
     def refresh_credentials(self) -> dict[str, str]:
+        if self.shell.hosted:
+            # The server's credential file, endpoint and account name are its
+            # own business, not its readers'.
+            self.credentials.object = "This server reads the database with its own read-only account."
+            return {}
         summary = credential_summary()
         lines = [
             f"Configuration: `{summary['file']}`",

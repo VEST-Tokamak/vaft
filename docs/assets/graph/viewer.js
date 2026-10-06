@@ -15,6 +15,7 @@
  *   searchItems(v)           -> [{id, label, hint}]
  *   resolveSearch(id, v)     -> node id to focus (an API object resolves to its module)
  *   style(v)                 -> extra Cytoscape style rules
+ *   directions               -> optional {both, out, in} labels of the neighbourhood control
  *
  * Graph state lives in `state`: one key per control plus `focus`, `direction`
  * and `depth`.  Edges always carry `data.kind`; `direction` follows edge
@@ -118,7 +119,15 @@
         self.mountGraph();
         self.render();
         // a pasted link that differs only in its hash does not reload the page
-        window.addEventListener('hashchange', function () {
+        window.addEventListener('hashchange', function onHash() {
+          // in-site navigation replaces the page without unloading it: a viewer
+          // whose graph has left the document stops listening and lets go of it
+          if (!document.body.contains(self.root)) {
+            window.removeEventListener('hashchange', onHash);
+            if (self.cy) self.cy.destroy();
+            self.cy = null;
+            return;
+          }
           // an ordinary in-page anchor (#some-heading) is not graph state
           var keys = Object.keys(readHash());
           var mine = self.hashKeys();
@@ -169,10 +178,11 @@
       }
       html += '</fieldset>';
     });
+    var words = this.adapter.directions || { both: 'Both directions', out: 'Outgoing edges only', 'in': 'Incoming edges only' };
     html += '<fieldset class="vg-group" data-control="neighbourhood"><legend>Neighbourhood of the selection</legend>' +
-      '<label class="vg-option"><input type="radio" name="vg-direction" value="both" checked> Dependencies and dependents</label>' +
-      '<label class="vg-option"><input type="radio" name="vg-direction" value="out"> Dependencies only (downstream)</label>' +
-      '<label class="vg-option"><input type="radio" name="vg-direction" value="in"> Dependents only (upstream)</label>' +
+      '<label class="vg-option"><input type="radio" name="vg-direction" value="both" checked> ' + escapeHtml(words.both) + '</label>' +
+      '<label class="vg-option"><input type="radio" name="vg-direction" value="out"> ' + escapeHtml(words.out) + '</label>' +
+      '<label class="vg-option"><input type="radio" name="vg-direction" value="in"> ' + escapeHtml(words['in']) + '</label>' +
       '<label class="vg-option vg-inline">Depth <select name="vg-depth">' +
       '<option value="1">1 hop</option><option value="2">2 hops</option><option value="all">all</option></select></label>' +
       '<button type="button" class="vg-clear" data-vg-clear>Show whole view</button></fieldset>';

@@ -29,7 +29,8 @@ What the graph deliberately does **not** say:
   legitimate; which boundaries VAFT intends is the conceptual question of
   [Computational layers]({{ site.baseurl }}/reference/computational-layers/) and of scientific ownership (#1645).
 - External scientific codes (EFIT, CHEASE, GPEC, ...) are executables VAFT invokes, not Python
-  imports, so they never appear here. *External packages* are third-party top-level import names;
+  imports, so they never appear here. How the production pipelines run them, and what flows between
+  their stages, is the [pipeline lineage explorer]({{ site.baseurl }}/reference/pipeline-graph/). *External packages* are third-party top-level import names;
   the standard library is left out.
 
 Layers are the package hierarchy and nothing more: `vaft.<layer>.*` belongs to `<layer>`, and the
@@ -43,7 +44,7 @@ for a module or a public object (for example `vaft.process.equilibrium` or `vaft
 then restrict the view to its dependencies, its dependents, or both, one hop, two hops or
 transitively. The detail panel links every import to its line at the documented commit.
 
-{% include graph/viewer.html adapter="dependency" src="/assets/graph/dependency-graph.json" label="VAFT module dependency graph" %}
+{% include graph/viewer.html adapter="dependency" src="/assets/graph/dependency-graph.json" label="VAFT module dependency graph" placeholder="Search a module, package or public object" %}
 
 {% if g %}<p class="vg-meta">{{ g.nodes | where: "kind", "module" | size }} modules, {{ g.nodes | where: "kind", "package" | size }} packages,
 {{ g.nodes | where: "kind", "external" | size }} external packages, {{ g.edges | size }} import relations,
