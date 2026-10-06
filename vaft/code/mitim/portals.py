@@ -34,9 +34,10 @@ class ClosedLoopReport:
 
     ``manufacture_error`` is max |required - model| / |model| at the true profile
     (the source construction); ``recovery_error`` is max |a/L_Te recovered - true| /
-    |true|; ``final_flux_error`` the same for the fluxes at the end; ``sign_ok`` is
-    True when R = Q_model - Q_required > 0 at every radius of a steeper start
-    (perturbation > 0), or < 0 for a shallower one.
+    |true|; ``final_flux_error`` the same for the fluxes at the end. ``sign_ok`` checks
+    the residual convention: for a transport model whose flux rises with a/L_Te,
+    R = Q_model - Q_required has the sign of a/L_Te(start) - a/L_Te(true) at every
+    radius. (A hollow profile has a/L_Te < 0 inside, so "steeper" is not "larger".)
     """
 
     r_over_a: tuple[float, ...]
@@ -55,7 +56,9 @@ def _max_rel(a, b) -> float:
 def closed_loop_report(result: dict, perturbation: float) -> ClosedLoopReport:
     """Reduce a driver ``result.json`` to :class:`ClosedLoopReport`."""
     residual = np.asarray(result["model_minus_required_at_start_MWm2"], dtype=float)
-    sign_ok = bool(np.all(residual > 0)) if perturbation > 0 else bool(np.all(residual < 0))
+    offset = (np.asarray(result["aLte_start"], dtype=float)
+              - np.asarray(result["aLte_true"], dtype=float))
+    sign_ok = bool(np.all(np.sign(residual) == np.sign(offset)) and np.all(offset != 0))
     return ClosedLoopReport(
         r_over_a=tuple(float(x) for x in result["r_over_a"]),
         manufacture_error=_max_rel(result["target_after_manufacture_MWm2"],

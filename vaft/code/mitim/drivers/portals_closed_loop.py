@@ -90,18 +90,26 @@ def main(argument_file):
         rho = np.asarray(state.profiles["rho(-)"], dtype=float)
         r = np.asarray(state.derived["r"], dtype=float)
         volp = np.asarray(state.derived["volp_geo"], dtype=float)
-        power = PchipInterpolator(np.concatenate(([0.0], rho_k.numpy())),
-                                  np.concatenate(([0.0], q_tr * volp_k)), extrapolate=True)
         drho_dr = np.gradient(rho, r)
-        q = np.zeros_like(r)
         inside = volp > 0
-        q[inside] = power.derivative()(rho[inside]) * drho_dr[inside] / volp[inside]
         key = _key(state.profiles, "qohme") or "qohme(MW/m^3)"
-        state.profiles[key] = q
-        state.derive_quantities()
-
-        matched = build(state)
-        matched.calculate()
+        nodes = q_tr * volp_k
+        history = []
+        # The discrete chain (PCHIP, gradient, MITIM's trapezoid volume integral and its
+        # interpolation to rho_k) misses the nodes by a few percent; a few fixed-point
+        # corrections of the nodes remove that, and the remaining error is reported.
+        for _ in range(int(args.get("manufacture_iterations", 4))):
+            power = PchipInterpolator(np.concatenate(([0.0], rho_k.numpy())),
+                                      np.concatenate(([0.0], nodes)), extrapolate=True)
+            q = np.zeros_like(r)
+            q[inside] = power.derivative()(rho[inside]) * drho_dr[inside] / volp[inside]
+            state.profiles[key] = q
+            state.derive_quantities()
+            matched = build(state)
+            matched.calculate()
+            got = matched.plasma["QeMWm2"][0, 1:].detach().numpy()
+            history.append(float(np.max(np.abs(got - q_tr) / np.maximum(np.abs(q_tr), 1e-30))))
+            nodes = nodes + (q_tr - got) * volp_k
         target_k = matched.plasma["QeMWm2"][0, 1:].detach().numpy()
         transport_k = matched.plasma["QeMWm2_tr"][0, 1:].detach().numpy()
         x_true = matched.plasma["aLte"][:, 1:].clone()
@@ -118,6 +126,7 @@ def main(argument_file):
         out.update(
             status="ok",
             stripped_sources=stripped,
+            manufacture_history=history,
             rho_tor_norm=rho_k.tolist(), r_over_a=[float(x) for x in args["r_over_a"]],
             mitim_r_over_a=roa_k.tolist(),
             transport_at_truth_MWm2=q_tr.tolist(),
