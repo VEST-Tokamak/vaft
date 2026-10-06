@@ -120,11 +120,13 @@ CORE_MODULES: tuple[str, ...] = (
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
     # The MITIM adapter (#1588) runs a stub mitim_tools in this interpreter:
-    # availability statuses, the per-run config, launch, timeout and discovery.
+    # availability statuses, the per-run config, launch, timeout and discovery;
+    # the r/a <-> rho_tor_norm bridge and the TGLF input comparison are pure.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
     "test_mitim_adapter.py",
+    "test_mitim_compare.py",
     "test_process_tree.py",
     "test_remote_backend.py",
     "test_slurm_backend.py",
@@ -189,6 +191,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_edge_q_estimate.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
+    # Dimensionless-similarity spaces (#1624): conventions never mix, missing
+    # inputs are counted not imputed. Pure NumPy and Agg.
+    "test_dimensionless_similarity.py",
     "test_li_qa.py",
     "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
@@ -287,6 +292,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
+    # Credibility and applicability (lane AP, #1639): the six-axis taxonomy and
+    # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
+    # import checks that keep both off the default processing path. Under 10 s.
+    "test_validation_credibility.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

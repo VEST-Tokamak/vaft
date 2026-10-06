@@ -26,6 +26,7 @@ from typing import Callable, Dict, Mapping, Optional, Sequence, Tuple, Union
 import numpy as np
 
 from vaft.formula import boundaries as _b
+from vaft.diagram._projection_interpretation import ProjectionInterpretation
 
 __all__ = [
     "AXIS_QUANTITIES",
@@ -103,6 +104,8 @@ class OperationalProjection:
     reference space reads it as a family of lines through the origin -- Troyon's
     $\\beta_N = \\beta_T/I_N$ -- so a limit on it is a line through the origin.
     ``diagram`` is the :mod:`vaft.diagram` builder for the reference picture, if any.
+    ``interpretation`` states what the space is for and the conventions of its
+    axes (#1624); see :mod:`vaft.diagram._projection_interpretation`.
     """
 
     key: str
@@ -114,6 +117,7 @@ class OperationalProjection:
     assumptions: Tuple[str, ...] = ()
     diagram: Optional[str] = None
     ratio: Optional[_b.BoundaryQuantity] = None
+    interpretation: Optional[ProjectionInterpretation] = None
 
 
 @dataclass(frozen=True)
@@ -530,3 +534,7 @@ def overlay_plan(projection: Union[str, OperationalProjection], boundaries: Unio
         else:
             curves.append(result)
     return OverlayPlan(projection=proj.key, curves=tuple(curves), omitted=tuple(omitted))
+
+
+# dimensionless-similarity projections (#1624) register themselves through _register
+from vaft.diagram import _similarity_space  # noqa: E402,F401
