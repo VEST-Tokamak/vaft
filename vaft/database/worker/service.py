@@ -47,6 +47,8 @@ class CycleReport:
     outcomes: dict[int, str] = field(default_factory=dict)
     gave_up: list[int] = field(default_factory=list)
     reprocessed: list[int] = field(default_factory=list)
+    #: Why no batch started because a guarded filesystem is short of space.
+    disk_paused: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {key: value for key, value in self.__dict__.items()}
@@ -66,6 +68,7 @@ class PipelineWorker:
         harvester: PipelineHarvester | None = None,
         pipeline_config: Mapping[str, Any] | None = None,
         clock: Callable[[], datetime] = datetime.now,
+        disk_free: Callable[[str], int] = lambda path: shutil.disk_usage(path).free,
     ):
         self.config = config
         self.pipeline_config = dict(pipeline_config) if pipeline_config is not None else load_pipeline_config(config)
@@ -79,6 +82,7 @@ class PipelineWorker:
             self.pipeline_config, workflow_dir=config.workflow_dir, environment=config.environment()
         )
         self.clock = clock
+        self.disk_free = disk_free
         self._stop = threading.Event()
 
     # -- the cycle ---------------------------------------------------------
@@ -190,6 +194,59 @@ class PipelineWorker:
         for path in files:
             shutil.move(str(path), str(target / path.name))
         return str(target)
+
+    def guarded_paths(self) -> list[Path]:
+        if self.config.disk_paths:
+            return list(self.config.disk_paths)
+        paths = [self.config.log_dir, self.config.state_db.parent]
+        base_dir = self.harvester.config.get("base_dir")
+        if base_dir:
+            paths.insert(0, Path(str(base_dir)))
+        return paths
+
+    def disk_shortage(self) -> str | None:
+        """Why a new batch must not start for lack of disk space, or ``None``.
+
+        A guarded path need not exist yet (a fresh FileDB); its nearest
+        existing ancestor is on the filesystem it will be written to.  While
+        paused, the worker resumes only at ``resume_free_gb`` so a filesystem
+        hovering at the limit does not flip it every cycle.
+        """
+        limit = self.config.min_free_gb
+        if limit is None:
+            return None
+        if self.state.disk_paused() is not None and self.config.resume_free_gb is not None:
+            limit = self.config.resume_free_gb
+        short = []
+        for path in self.guarded_paths():
+            probe = path
+            while not probe.exists() and probe != probe.parent:
+                probe = probe.parent
+            free_gb = self.disk_free(str(probe)) / 1e9
+            if free_gb < limit:
+                short.append(f"{path}: {free_gb:.1f} GB free")
+        if not short:
+            return None
+        return f"below {limit:g} GB free ({'; '.join(short)})"
+
+    def guard_disk(self, report: CycleReport) -> bool:
+        """Pause (or resume) on free disk space; ``True`` when a batch may start.
+
+        Only the transitions are recorded -- an event in the state file and a
+        warning in the service log -- so a long pause does not flood either.
+        """
+        shortage = self.disk_shortage()
+        was_paused = self.state.disk_paused()
+        if shortage is None:
+            if was_paused is not None:
+                self.state.set_disk_paused(None)
+                logger.warning("disk space recovered; resuming new-shot processing")
+            return True
+        if was_paused is None:
+            self.state.set_disk_paused(shortage)
+            logger.warning("pausing new-shot processing: %s", shortage)
+        report.disk_paused = shortage
+        return False
 
     def run_batch(self, report: CycleReport) -> None:
         batch = self.state.runnable(
@@ -343,7 +400,9 @@ class PipelineWorker:
         report.detected = self.detect()
         self.recheck(report)
         self.settle(report)
-        if not self._stop.is_set():
+        # Detection, settling and the re-check only touch the state file, so
+        # they go on while paused: the queue is ready the moment space returns.
+        if not self._stop.is_set() and self.guard_disk(report):
             self.run_batch(report)
         report.gave_up = self.state.give_up_exhausted(self.config.max_attempts)
         return report

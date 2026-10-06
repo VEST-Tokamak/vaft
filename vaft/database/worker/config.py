@@ -76,6 +76,15 @@ class WorkerConfig:
     #: Written into each run's config as ``stages``, which narrows ``rule all``
     #: (the workflow's ``paths.stage_scope``).  ``None`` runs the whole pipeline.
     stages: tuple[str, ...] | None = None
+    #: Disk guard: no new batch starts while any guarded filesystem has less
+    #: than this many GB (1e9 bytes) free.  ``None`` disables the guard.
+    min_free_gb: float | None = None
+    #: Free space at which a paused worker resumes (hysteresis); defaults to
+    #: ``min_free_gb``.
+    resume_free_gb: float | None = None
+    #: Paths whose filesystems are guarded.  Empty: the pipeline's ``base_dir``
+    #: (where every product lands), ``log_dir`` and the state database's directory.
+    disk_paths: tuple[Path, ...] = ()
 
     @property
     def snakefile(self) -> Path:
@@ -122,6 +131,20 @@ def _stages(value: Any) -> tuple[str, ...] | None:
     return tuple(value)
 
 
+def _path_list(value: Any, key: str) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, (str, os.PathLike)):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    raise WorkerConfigError(f"{key} must be a path or a list of paths")
+
+
+def _optional_float(value: Any) -> float | None:
+    return None if value is None else float(value)
+
+
 def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> WorkerConfig:
     """Build a :class:`WorkerConfig` from parsed YAML.
 
@@ -164,6 +187,12 @@ def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> Wo
         classifier=data.get("classifier"),
         record_shot_class=bool(data.get("record_shot_class", False)),
         stages=_stages(data.get("stages")),
+        min_free_gb=_optional_float(data.get("min_free_gb")),
+        resume_free_gb=_optional_float(data.get("resume_free_gb")),
+        disk_paths=tuple(
+            _path(item, relative_to=base_dir, key="disk_paths")
+            for item in _path_list(data.get("disk_paths"), "disk_paths")
+        ),
     )
     for name in ("poll_interval", "quiet_seconds", "cores", "max_shots_per_run", "max_attempts"):
         if getattr(config, name) <= 0:
@@ -172,6 +201,13 @@ def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> Wo
         raise WorkerConfigError("run_timeout must be positive or null")
     if config.recheck_seconds < 0 or config.max_reprocess < 0:
         raise WorkerConfigError("recheck_seconds and max_reprocess must not be negative")
+    if config.min_free_gb is None and (config.resume_free_gb is not None or config.disk_paths):
+        raise WorkerConfigError("resume_free_gb and disk_paths need min_free_gb")
+    if config.min_free_gb is not None:
+        if config.min_free_gb <= 0:
+            raise WorkerConfigError("min_free_gb must be positive or null")
+        if config.resume_free_gb is not None and config.resume_free_gb < config.min_free_gb:
+            raise WorkerConfigError("resume_free_gb must not be below min_free_gb")
     if config.first_shot <= 0:
         raise WorkerConfigError("first_shot must be a positive shot number")
     if not config.snakefile.is_file():
