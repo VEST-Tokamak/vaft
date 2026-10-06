@@ -153,7 +153,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 "vaft": vaft.__file__, "vaft_git": helpers._git_sha(ROOT), "states": [list(w) for w in wanted],
                 "enumeration": counts, "cgyro_jobs": len(cgyro_jobs), "tglf_jobs": len(tglf_jobs),
                 "resolution": lane_y.cgyro_config(args, "es", 0.3, None).resolution(), "n_mpi": args.n_mpi}
-    (args.out / "run_manifest.json").write_text(json.dumps(manifest, indent=1, default=str) + "\n")
+    (args.out / "run_manifest.json").write_text(json.dumps(manifest, indent=1, default=str) + "\n", encoding="utf-8")
     return 0
 
 

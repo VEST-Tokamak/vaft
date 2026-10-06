@@ -57,7 +57,24 @@ _ALLOWED_DATA_SUFFIXES = {
     "shotlog/schemas/": (".yaml",),
 }
 
+# Issue studies under vaft/validation/studies (#1756): the folders whose
+# scripts ship, and only their ``.py`` files.  Notes, run records and the
+# repository-only folders (ec_launcher_cad_266, nice_issue_666*) never ship;
+# ``[tool.setuptools.packages.find] exclude`` and MANIFEST.in make the same
+# decision, and ``_allowed_study_file`` catches either one drifting.
+_STUDIES = "vaft/validation/studies/"
+_SHIPPED_STUDIES = {"fixed_free_1608"}
+_SHIPPED_STUDY_SCRIPTS = {
+    "fixed_free_1608/closure.py",
+    "fixed_free_1608/direct_fit.py",
+    "fixed_free_1608/matrix.py",
+    "fixed_free_1608/vacuum_response.py",
+    "fixed_free_1608/vfixed_fit.py",
+}
+
 REQUIRED_FILES = {
+    "vaft/validation/studies/__init__.py",
+    "vaft/validation/studies/fixed_free_1608/__init__.py",
     "vaft/.hscfg.example",
     "vaft/machine_mapping/vest.yaml",
     "vaft/data/geometry/MD.yaml",
@@ -76,7 +93,18 @@ REQUIRED_FILES = {
     "vaft/code/nice/upstream_compat.h",
     # The TikZ template every vaft.diagram scene renders into.
     "vaft/diagram/templates/standalone.tex",
-} | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES}
+    # The hosted-GUI deployment templates (#1755): a server installing from
+    # PyPI gets the unit, env file and nginx configuration its own
+    # ``vaft gui --hosted`` is meant to be deployed with.
+    "vaft/deploy/__init__.py",
+    "vaft/deploy/gui/__init__.py",
+    "vaft/deploy/gui/vaft-gui.service",
+    "vaft/deploy/gui/vaft-gui.env.example",
+    "vaft/deploy/gui/nginx-vaft-gui.conf",
+    "vaft/deploy/gui/vaft-gui-proxy.conf",
+} | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES} | {
+    f"{_STUDIES}{name}" for name in _SHIPPED_STUDY_SCRIPTS
+}
 
 
 def _distribution_names(path: Path) -> set[str]:
@@ -110,6 +138,16 @@ def _allowed_data_file(name: str) -> bool:
     return False
 
 
+def _allowed_study_file(name: str) -> bool:
+    if not name.startswith(_STUDIES):
+        return True
+    relative = name.removeprefix(_STUDIES)
+    if relative == "__init__.py":
+        return True
+    folder, separator, _ = relative.partition("/")
+    return bool(separator) and folder in _SHIPPED_STUDIES and relative.endswith(".py")
+
+
 def _verify_distribution(path: Path) -> None:
     names = _distribution_names(path)
     missing = sorted(REQUIRED_FILES - names)
@@ -120,6 +158,13 @@ def _verify_distribution(path: Path) -> None:
     if forbidden_data:
         raise ValueError(
             f"{path.name}: contains repository-only data: {', '.join(forbidden_data)}"
+        )
+
+    forbidden_studies = sorted(name for name in names if not _allowed_study_file(name))
+    if forbidden_studies:
+        raise ValueError(
+            f"{path.name}: contains repository-only issue-study files: "
+            f"{', '.join(forbidden_studies)}"
         )
 
     sdist_only = {f"vaft/data/{name}" for name in _SDIST_ONLY_DATA_FILES}

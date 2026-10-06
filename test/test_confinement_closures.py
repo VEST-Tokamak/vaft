@@ -157,3 +157,65 @@ def test_restricted_leverage_has_one_fewer_degree_of_freedom():
     assert np.sum(fit.leverage) == pytest.approx(len(fit.coef) - 1, abs=1e-9)
     free = fit_confinement_scaling(tau, x, shot)
     assert np.sum(free.leverage) == pytest.approx(len(free.coef), abs=1e-9)
+
+
+# --- per-row response error (#579 EFIT model-form spread, #548) ------------------------
+
+
+def test_per_row_response_error_reduces_to_the_closed_form_when_constant():
+    tau, x, _ = _sample()
+    errors = {"i_p": 0.02, "b_t": 0.0, "p_net": 0.1}
+    w = tau * x["p_net"]
+    scalar = fit_confinement_scaling_odr(w, x, sigma_log_response=0.1, sigma_log_predictors=errors)
+    rows = fit_confinement_scaling_odr(w, x, sigma_log_response=np.full(w.size, 0.1), sigma_log_predictors=errors)
+    assert scalar["method"] == "partial_tls" and rows["method"] == "weighted_odr"
+    np.testing.assert_allclose(rows["coef"], scalar["coef"], atol=1e-5)
+
+
+def test_per_row_response_error_weights_rows_and_drops_unusable_ones():
+    rng = np.random.default_rng(579)
+    n = 300
+    p_true = np.exp(rng.normal(0.0, 0.4, n))
+    sigma = np.where(np.arange(n) < n // 2, 0.02, 0.5)       # half the rows are much noisier
+    w = p_true**0.4 * np.exp(rng.normal(0.0, sigma))
+    p_meas = p_true * np.exp(rng.normal(0.0, 0.05, n))
+    weighted = fit_confinement_scaling_odr(w, {"p": p_meas}, sigma_log_response=sigma,
+                                           sigma_log_predictors={"p": 0.05})
+    assert weighted["coef"][1] == pytest.approx(0.4, abs=0.05)
+    gaps = sigma.copy()
+    gaps[:10] = np.nan
+    assert fit_confinement_scaling_odr(w, {"p": p_meas}, sigma_log_response=gaps,
+                                       sigma_log_predictors={"p": 0.05})["n"] == n - 10
+    with pytest.raises(ValueError, match="shape"):
+        fit_confinement_scaling_odr(w, {"p": p_meas}, sigma_log_response=sigma[:5], sigma_log_predictors={"p": 0.05})
+
+
+def _closures_module():
+    import importlib.util
+    import pathlib
+    import sys
+
+    here = pathlib.Path(__file__).resolve().parents[1] / "workflow/confinement_scaling"
+    sys.path.insert(0, str(here))
+    try:
+        spec = importlib.util.spec_from_file_location("lane_d_closures", here / "closures.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(here))
+    return module
+
+
+def test_model_spread_joins_by_shot_and_time_not_row_order():
+    import pandas as pd
+
+    closures = _closures_module()
+    table = pd.DataFrame({"shot": [1, 1, 2], "time_efit_s": [0.3200, 0.32100000001, 0.330]})
+    spread = pd.DataFrame({"shot": [2, 1], "time_efit_s": [0.33, 0.321], "efit_lineage": ["magnetics"] * 2,
+                           "w_mhd_J_admissible_sigma_log": [0.3, 0.2], "w_mhd_J_admissible_median": [10.0, 20.0],
+                           "admissible_bimodal": ["True", "False"], "w_mhd_J_viable_sigma_log": [np.nan, 0.01],
+                           "w_mhd_J_viable_n": [0, 4]})
+    out = closures.join_model_spread(table, spread)
+    assert np.isnan(out.loc[0, "w_mhd_J_admissible_sigma_log"])            # no entry at 0.320
+    assert out.loc[1, "w_mhd_J_admissible_sigma_log"] == 0.2                # 0.32100000001 -> 0.321
+    assert out.loc[2, "w_mhd_J_admissible_sigma_log"] == 0.3 and bool(out.loc[2, "admissible_bimodal"])
