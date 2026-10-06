@@ -29,6 +29,8 @@ include vaft/data/*.py
 include vaft/data/public/*.py
 # ShotLog era schemas read at run time by vaft.machine_mapping.pulse_schedule (#995).
 include vaft/data/shotlog/schemas/*.yaml
+include vaft/data/unified/vest_diagnostics/manifest.yaml
+include vaft/data/unified/vest_diagnostics/omas.json.gz
 include vaft/data/geometry/Coil_info.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat
