@@ -142,3 +142,61 @@ The strongest applicability evidence pairs the ordering with the convergence it 
 | acceptance policy (what a study accepts) | the workflow or notebook |
 | sensitivity, Jacobians, uncertainty propagation | #1642, opt-in |
 | the VEST population study | `notebooks/vest_ordering_and_model_applicability.ipynb` (#1629) |
+
+## Sensitivity, linearization and uncertainty (#1642)
+
+The domain that owns an operation owns its derivatives. EFIT's native response matrix stays in
+`vaft.code.efit.linearization`, and a process's Jacobian stays beside the process. Two shared
+pieces sit around them:
+- the algebra, in `vaft.formula.sensitivity`;
+- what the numbers mean, in `vaft.validation.sensitivity`.
+
+There is no `sensitivity` package, and nothing in this section runs unless it is called.
+
+| function | layer | cost |
+| --- | --- | --- |
+| `finite_difference_jacobian(f, x)` | formula | 2n model calls (central) |
+| `linear_covariance_propagation(J, Σ)` | formula | $J\Sigma J^{\mathsf T}$, correlations kept |
+| `monte_carlo_propagation(f, μ, Σ, samples, seed)` | formula | one model call per sample: opt-in only |
+| `singular_value_spectrum(J, column_scale)` | formula | SVD of $JD$, never of $J^{\mathsf T}J$ |
+| `linearity_ratio(f, x, δ, J)` | formula | share of a finite response the Jacobian misses |
+| `Jacobian(provenance, kind, perturbation, inputs, outputs, matrix \| jvp)` | validation | explicit or matrix-free |
+| `compare_jacobians(reference, candidate, tolerance=)` | validation | one derivative verified by another |
+| `compare_linear_to_monte_carlo(J Σ Jᵀ, sampled, tolerance=)` | validation | local-to-global escalation test |
+| `scan_evidence(report)` | validation | a targeted scan (#1663) as model-form evidence |
+
+**Distinctions kept apart:**
+- **Provenance:** `native`, `finite_difference`, `autodiff` or `analytic`. Comparing a Jacobian
+  with one of the *same* provenance is refused: that is repetition, not validation.
+- **Kind:** an `observation` Jacobian (identifiability), a `governing_operator` one (uniqueness,
+  branches) and a `forward` one (local sensitivity) answer different questions.
+- **Perturbation:** `physical` versus `numerical`. Physical sensitivity is never mixed with
+  convergence.
+
+**Tolerances.** A comparison returns metrics. It carries a status only when the caller passes a
+`tolerance=(warn, fail)`; no tolerance is invented here.
+
+`test/test_sensitivity_contract.py` demonstrates the #1642 acceptance points at unit-test cost:
+
+1. **A derivative checked by another method.** The exact Green's-function field (an analytic
+   derivative already in VAFT, $B = \nabla\times\psi$) matches the finite-difference derivative of
+   its flux to below $10^{-6}$.
+2. **Local propagation against sampling.** `vaft.process.confinement.dimensionless_confinement_indices`
+   already propagates the exponent covariance through a central-difference Jacobian. Its covariance
+   equals the generic kernels', and it agrees with 4000-draw Monte Carlo to 5 % in standard
+   deviation at $\alpha_P = -0.6$.
+3. **Where the linearization fails.** Near $\alpha_P = -1$ (here $1+\alpha_P = 0.07$, about 1.4
+   standard errors from the pole), the same map is off by a factor of $e^{3.8}$, as that function's
+   docstring warns. The cheap `linearity_ratio` flags it before any sampling is paid for.
+
+### Workflow graduation audit
+
+#1642 §21 asks which workflow-held logic is reusable. These are the candidates found so far. None
+is moved by this change; each move belongs to the owning lane.
+
+| workflow logic | what is reusable | owning API |
+| --- | --- | --- |
+| `workflow/efit_identifiability/identifiability_study.py` (#664) | column scaling, null space, singular classes, direction linearity | already partly in `vaft.code.efit.analyze_efit_identifiability`; the generic SVD is `singular_value_spectrum` |
+| `workflow/efit_uncertainty_calibration/weight_scan.py` stage 6 and `sensitivity_report.py` (#1663) | targeted scan over σ and basis; model-form spread | stays a study; read through `scan_evidence` |
+| `workflow/confinement_scaling/closures.py` | bootstrap over shots | `vaft.process.confinement.bootstrap_confinement_scaling` (already graduated) |
+| `vaft.process.confinement.dimensionless_confinement_indices` | inline central-difference $J\Sigma J^{\mathsf T}$ | could call the formula kernels; left untouched (Lane D) |

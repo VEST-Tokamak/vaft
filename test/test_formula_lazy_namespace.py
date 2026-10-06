@@ -49,6 +49,7 @@ _IMPORT_ORDER = (
     "sol",
     "boundaries",
     "impurity",
+    "sensitivity",
 )
 
 
