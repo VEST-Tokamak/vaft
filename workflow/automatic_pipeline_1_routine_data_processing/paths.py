@@ -17,8 +17,8 @@ Only the Snakefile imports this module; the stage scripts receive explicit
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import PurePosixPath
+from typing import NamedTuple
 
 from vaft.compat import IS_WINDOWS
 from vaft.database.filedb import (
@@ -168,8 +168,7 @@ def stage_scope(value) -> frozenset[str] | None:
     return frozenset(scope)
 
 
-@dataclass(frozen=True)
-class ScientificReference:
+class ScientificReference(NamedTuple):
     """A product a rule consults without Snakemake scheduling it (#1647).
 
     Pipeline 2 passes pipeline 1's EFIT products as ``params``, not ``input``,
@@ -182,6 +181,9 @@ class ScientificReference:
     ``product`` is the :class:`PipelinePaths` method (taking a shot) that
     resolves the consulted path; ``pipeline`` names the one that produces it,
     ``consumer`` the one whose ``rule`` consults it.
+
+    A NamedTuple rather than a dataclass: tests and the Snakefiles load this
+    file by path, and a dataclass needs its module registered while defining.
     """
 
     rule: str
