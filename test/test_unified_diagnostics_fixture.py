@@ -106,6 +106,48 @@ def test_kinetic_overview_keeps_local_measurement_meanings(fixture_data):
     assert "shot 42699" in radius_panels.models[0].series[-1].label
 
 
+def test_kinetic_overview_maps_measurements_through_the_time_matched_slice(fixture_data):
+    """The Thomson sample is picked by time, so the equilibrium slice must be too.
+
+    Two slices with different axes: the plotted psi_N must follow the slice
+    nearest ``core_profiles.time``, not slice 0 whatever the target time is.
+    """
+    from omas import ODS
+
+    from vaft.omas.sample import sample_ods
+    from vaft.plot.backend.recipes import build_model
+    from vaft.process.profile import equilibrium_mapping_points
+
+    _, fixture = fixture_data
+    sample = sample_ods()
+    times = np.asarray(sample["equilibrium.time"], dtype=float)
+    assert times.size >= 2
+    two = ODS(consistency_check=False)
+    two["thomson_scattering"] = fixture["thomson_scattering"]
+    for new, old in ((0, 0), (1, times.size - 1)):
+        two[f"equilibrium.time_slice.{new}"] = sample[f"equilibrium.time_slice.{old}"]
+    two["equilibrium.time"] = np.array([times[0], times[-1]])
+    for leaf in ("equilibrium.vacuum_toroidal_field.r0", "equilibrium.ids_properties.cocos"):
+        if leaf in sample:
+            two[leaf] = sample[leaf]
+    channels = len(fixture["thomson_scattering.channel"])
+    r = np.array([float(fixture[f"thomson_scattering.channel.{i}.position.r"]) for i in range(channels)])
+    z = np.array([float(fixture[f"thomson_scattering.channel.{i}.position.z"]) for i in range(channels)])
+    targets = (float(times[0]), float(times[-1]))
+    expected = {when: equilibrium_mapping_points(two, r, z, time=when).psi_norm for when in targets}
+    assert not np.allclose(np.nan_to_num(expected[targets[0]]), np.nan_to_num(expected[targets[1]]))
+
+    plotted = {}
+    for when in targets:
+        two["core_profiles.time"] = np.array([when])
+        panels = build_model("kinetic_overview_profiles", [("two", two)], coordinate="psi_norm")
+        measured = panels.models[0].series[0]
+        assert measured.role == "measurement"
+        assert all(np.isclose(value, expected[when]).any() for value in measured.x), when
+        plotted[when] = measured.x
+    assert not np.array_equal(plotted[targets[0]], plotted[targets[1]])
+
+
 def test_probe_only_overview_uses_major_radius_without_invention(fixture_data):
     from omas import ODS
     import vaft.omas

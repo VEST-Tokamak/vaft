@@ -53,19 +53,49 @@ def _is_composite(ods) -> bool:
     return _NOTICE.split(" — ")[0] in str(get(ods, "dataset_description.ids_properties.comment", ""))
 
 
-def _mapped_coordinate(ods, r: np.ndarray, z: np.ndarray, coordinate: str) -> np.ndarray | None:
+def _equilibrium_time_axis(ods) -> np.ndarray | None:
+    """The equilibrium slice times, or None when the ODS records none."""
+    axis = array(ods, "equilibrium.time")
+    if axis is None or not np.isfinite(axis).any():
+        slices = [_scalar(get(ods, f"equilibrium.time_slice.{index}.time"))
+                  for index in range(count(ods, "equilibrium.time_slice"))]
+        if not any(value is not None for value in slices):
+            return None
+        axis = np.asarray([np.nan if value is None else value for value in slices], dtype=float)
+    return np.asarray(axis, dtype=float).reshape(-1)
+
+
+def _equilibrium_slice(ods, target: float | None) -> tuple[int, float | None]:
+    """``(index, time)`` of the equilibrium slice nearest the kinetic target time.
+
+    The kinetic sample is chosen by time, so the equilibrium it is mapped
+    through must be too (slice 0 is only right when it is the nearest one).
+    Without slice times, or without a target, slice 0 and ``time=None``.
+    """
+    axis = _equilibrium_time_axis(ods)
+    if axis is None or target is None:
+        return 0, None
+    index = _closest(axis, target)
+    when = float(axis[index])
+    return index, (when if np.isfinite(when) else None)
+
+
+def _mapped_coordinate(ods, r: np.ndarray, z: np.ndarray, coordinate: str,
+                       target: float | None) -> np.ndarray | None:
     if coordinate in ("R", "r_major"):
         return r
     if count(ods, "equilibrium.time_slice") == 0:
         return None
     from vaft.process.profile import equilibrium_mapping_points
 
-    mapped = equilibrium_mapping_points(ods, r, z)
+    _, when = _equilibrium_slice(ods, target)
+    mapped = equilibrium_mapping_points(ods, r, z, time=when)
     result = mapped.select(coordinate)
     return None if result is None else np.asarray(result, dtype=float)
 
 
-def _core_coordinate(ods, index: int, coordinate: str) -> np.ndarray | None:
+def _core_coordinate(ods, index: int, coordinate: str,
+                     target: float | None) -> np.ndarray | None:
     prefix = f"core_profiles.profiles_1d.{index}.grid"
     if coordinate in ("R", "r_major"):
         # A flux coordinate does not name one physical major radius. Refuse to
@@ -77,8 +107,9 @@ def _core_coordinate(ods, index: int, coordinate: str) -> np.ndarray | None:
     if rho_pol is not None:
         return rho_pol**2 if coordinate == "psi_norm" else rho_pol
     psi = array(ods, f"{prefix}.psi")
-    axis = _scalar(get(ods, "equilibrium.time_slice.0.global_quantities.psi_axis"))
-    edge = _scalar(get(ods, "equilibrium.time_slice.0.global_quantities.psi_boundary"))
+    slice_index, _ = _equilibrium_slice(ods, target)
+    axis = _scalar(get(ods, f"equilibrium.time_slice.{slice_index}.global_quantities.psi_axis"))
+    edge = _scalar(get(ods, f"equilibrium.time_slice.{slice_index}.global_quantities.psi_boundary"))
     if psi is None or axis is None or edge is None or edge == axis:
         return None
     normalized = (psi - axis) / (edge - axis)
@@ -110,7 +141,7 @@ def _diagnostic_points(ods, family: str, signal: str, coordinate: str,
         errors.append(_selected(array(ods, path + ".data_error_upper"), time_index))
     if not values:
         return None
-    x = _mapped_coordinate(ods, np.asarray(radii), np.asarray(heights), coordinate)
+    x = _mapped_coordinate(ods, np.asarray(radii), np.asarray(heights), coordinate, target)
     if x is None:
         return None
     y = np.asarray(values)
@@ -132,7 +163,7 @@ def _core_profile(ods, path: str, coordinate: str, label: str,
     times = array(ods, "core_profiles.time")
     index = _closest(times, target)
     values = array(ods, f"core_profiles.profiles_1d.{index}.{path}")
-    x = _core_coordinate(ods, index, coordinate)
+    x = _core_coordinate(ods, index, coordinate, target)
     if values is None or x is None or len(values) != len(x):
         return None
     finite = np.isfinite(x) & np.isfinite(values)
