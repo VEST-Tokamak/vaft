@@ -23,6 +23,9 @@ sections:
       - id: mhd-stability
         title: MHD stability
         url: /workflows/mhd-stability/
+      - id: fluctuation-coherence
+        title: Cross-diagnostic fluctuation coherence
+        url: /workflows/fluctuation-coherence/
       - id: operations-statistical-analysis
         title: Operations and statistical analysis
         url: /workflows/operations-statistical-analysis/
