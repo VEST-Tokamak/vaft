@@ -262,7 +262,7 @@
     },
     "external_code_integration.svg": {
       "call": "vaft.diagram.external_code_integration()",
-      "source_sha256": "a126b53e20bd13019b5d4e42925861e8013a1e54efeca7b4965948a7c6baaf70",
+      "source_sha256": "d1aa1571e691217cadfdc72ed1d33db34c9a581364a19991aba5df79b813941e",
       "svg_sha256": "4c84c7fceafc686ae39f53e0f21f7aafe84be01b23c87cf4a4020d476da4099e"
     },
     "fast_magnetosonic_wave.svg": {
@@ -902,8 +902,8 @@
     },
     "software_dependency_ecosystem.svg": {
       "call": "vaft.diagram.software_dependency_ecosystem()",
-      "source_sha256": "991d45c8a22d52aa8b9b3a70f0baa790a57d532b6b643acb98beae45e8733821",
-      "svg_sha256": "ff8dded608b82a3dd47e93d53be0833c8b11ccf3e2e74c6f7f28abb9666c30b5"
+      "source_sha256": "9d5fa15de29c5d567363f0a3a922cd9882a2ff6b852268d66bb7e2058b52ffd6",
+      "svg_sha256": "063f310a015a376bd61085025dec951f8352cfcb70d3af574509698fca0800ed"
     },
     "spectroscopy_energy_levels.svg": {
       "call": "vaft.diagram.spectroscopy_energy_levels(term='D-alpha')",
