@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 from omas import load_omas_json
@@ -16,6 +17,27 @@ from vaft.code.efit.presets import DEFAULT_PRESET, PRESET_RECORD
 
 
 LOGGER = logging.getLogger("vaft.generate_kfile")
+
+
+def supersede_kfiles(kfile_dir: Path, shot: int) -> Path | None:
+    """Move the shot's k-files from an earlier run into ``kfile/superseded/<UTC stamp>/``.
+
+    The stage used to list its output by globbing ``kfile/``, so k-files of an
+    earlier run (another configuration, another Green table, other instants)
+    were run again with the new ones (#1786). EFIT reads the table of the first
+    k-file of a batch, so a stale first file failed every new one, and stale
+    files after a new first file produced g-files that passed as fresh. They
+    are moved, not deleted: they are the record of what the earlier run used.
+    """
+    previous = sorted(kfile_dir.glob(f"k0{shot}.*"))
+    if not previous:
+        return None
+    target = kfile_dir / "superseded" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    target.mkdir(parents=True)
+    for path in previous:
+        path.rename(target / path.name)
+    LOGGER.info("Moved %d k-file(s) of an earlier run of shot %s to %s", len(previous), shot, target)
+    return target
 
 
 def main() -> int:
@@ -65,6 +87,7 @@ def main() -> int:
         # No k-file to write (#205); the manifest carries the verdict on.
         args.output.parent.mkdir(parents=True, exist_ok=True)
         (args.output.parent / PRESET_RECORD).unlink(missing_ok=True)
+        supersede_kfiles(args.output.parent.parent / "kfile", args.shot)
         args.output.write_text(kfile_manifest_text(not_applicable), encoding="utf-8")
         LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, not_applicable)
         return 0
@@ -103,6 +126,11 @@ def main() -> int:
             json.dumps({**preset.record(), "sigma_floor_changes": floor_changes}, indent=1) + "\n",
             encoding="utf-8",
         )
+    kfile_dir = efit_dir / "kfile"
+    supersede_kfiles(kfile_dir, args.shot)
+    before = set(kfile_dir.glob(f"k0{args.shot}.*"))
+    if before:  # supersede_kfiles must leave nothing behind to be listed as this run's
+        raise RuntimeError(f"k-files of an earlier run remain in {kfile_dir}: {sorted(p.name for p in before)}")
     generate_kfile(
         ods,
         args.shot,
@@ -112,9 +140,10 @@ def main() -> int:
         config=scientific_config,
     )
 
-    kfiles = sorted((efit_dir / "kfile").glob(f"k0{args.shot}.*"))
+    # Only what this run wrote: the directory was emptied of the shot's k-files above.
+    kfiles = sorted(set(kfile_dir.glob(f"k0{args.shot}.*")) - before)
     if not kfiles:
-        raise FileNotFoundError(f"No kfiles generated under {efit_dir / 'kfile'}")
+        raise FileNotFoundError(f"No kfiles generated under {kfile_dir}")
     args.output.write_text(
         "\n".join(str(path) for path in kfiles) + "\n", encoding="utf-8"
     )

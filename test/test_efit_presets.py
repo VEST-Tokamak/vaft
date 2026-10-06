@@ -211,6 +211,31 @@ def test_a_run_naming_nothing_records_the_default(tmp_path):
     assert record["name"] == DEFAULT_PRESET
 
 
+def test_a_rerun_lists_only_its_own_kfiles_and_keeps_the_earlier_ones_aside(tmp_path):
+    """k-files of an earlier run must not enter the new manifest (#1786).
+
+    An earlier run left a k-file at an instant this run does not produce (and,
+    in production, from another Green table). Globbing ``kfile/`` listed it
+    with the new ones, and EFIT ran both.
+    """
+    manifest, first = _run_generate_kfile(tmp_path, "--preset", "statistical_891")
+    assert first.returncode == 0, first.stderr[-2000:]
+    first_run = sorted(Path(line).name for line in manifest.read_text().split())
+    kfile_dir = manifest.parent.parent / "kfile"
+    stale = kfile_dir / "k039915.00001"  # sorts before every real instant, as the 09-03 files did
+    stale.write_text(" &IN1\n TABLE_DIR = '/old/table/'\n /\n", encoding="utf-8")
+
+    _, second = _run_generate_kfile(tmp_path, "--preset", "statistical_891")
+    assert second.returncode == 0, second.stderr[-2000:]
+    listed = [Path(line) for line in manifest.read_text().split()]
+    assert sorted(path.name for path in listed) == first_run  # this run's instants, nothing else
+    assert all(path.parent == kfile_dir for path in listed)
+    assert sorted(p.name for p in kfile_dir.glob("k039915.*")) == first_run
+    superseded = list((kfile_dir / "superseded").glob("*/k039915.*"))
+    assert stale.name in {p.name for p in superseded}  # kept aside, not deleted
+    assert len(superseded) == len(first_run) + 1
+
+
 def test_the_efit_collection_payload_of_a_pre_record_product_is_unchanged():
     """No record (a product from before the k-file stage wrote one): the payload is what it was."""
     efit_collection_parameters = _generate_efit_ods_module().efit_collection_parameters
