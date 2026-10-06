@@ -704,3 +704,44 @@ def test_gacode_accepts_the_radial_writer_product_by_lumping_the_bundled_ions(sa
     other["core_profiles.profiles_1d.0.zeff"] = np.full(_stored(out, "zeff").shape, 2.5)
     with pytest.raises(ProfileConversionError, match="contradicts the species"):
         prepare_gacode_profile(other, time=0.3, rho_max=0.95, z_eff=None, impurity=None)
+
+
+def test_a_profile_valued_composition_is_paired_with_profile_rho_by_coordinate(transport_profile):
+    """cold review 0.8.0 delta-absorb-16 F4: positional pairing silently accepted a foreign grid."""
+    import dataclasses
+
+    from vaft.process.impurity import surface_composition_profile
+
+    p = transport_profile
+    rho = np.asarray(p.rho, dtype=float)
+    n = rho.size
+    preset = resolve_impurity_composition(machine_preset="vest")
+    charges = np.array([s.charge_state for s in preset.species])
+
+    def profile_valued(shape, grid):
+        frac = np.outer(shape, np.asarray(preset.impurity_fractions))
+        return dataclasses.replace(preset, impurity_fractions=frac, main_ion_fraction=1.0 - frac @ charges, rho=grid)
+
+    shape = np.linspace(1.0, 0.0, n)
+    on_grid = profile_valued(shape, rho)
+    foreign = profile_valued(shape, np.sqrt(rho))         # same length, another coordinate value per point
+    v_grid = surface_composition_profile(p, on_grid, 0.6)
+    v_foreign = surface_composition_profile(p, foreign, 0.6)
+    meant = np.interp(rho, np.sqrt(rho), on_grid.impurity_fractions[:, 0]) * np.asarray(p.ne)
+    np.testing.assert_allclose(np.asarray(v_foreign.ni)[1], meant, rtol=1e-9, atol=0)
+    assert not np.allclose(np.asarray(v_foreign.ni)[1], np.asarray(v_grid.ni)[1])
+    assert v_foreign.provenance["ni"]["composition_grid"] == {
+        "coordinate": "rho_tor_norm", "profile_valued": True, "interpolated": True,
+        "source_points": n, "filled_points": 0}
+    assert v_grid.provenance["ni"]["composition_grid"]["interpolated"] is False
+    # another length with its coordinate interpolates; without a coordinate it is refused, clearly
+    coarse_rho = np.linspace(rho[0], rho[-1], 50)
+    coarse = profile_valued(np.linspace(1.0, 0.0, 50), coarse_rho)
+    v_coarse = surface_composition_profile(p, coarse, 0.6)
+    np.testing.assert_allclose(np.asarray(v_coarse.ni)[1],
+                               np.interp(rho, coarse_rho, coarse.impurity_fractions[:, 0]) * np.asarray(p.ne),
+                               rtol=1e-9, atol=0)
+    with pytest.raises(ValueError, match="rho_tor_norm"):
+        surface_composition_profile(p, dataclasses.replace(coarse, rho=None), 0.6)
+    with pytest.raises(ValueError, match="does not overlap"):
+        surface_composition_profile(p, profile_valued(np.linspace(1.0, 0.0, 50), coarse_rho + 2.0), 0.6)

@@ -1983,6 +1983,51 @@ def populate_radial_impurity_profiles(
 # --- an explicit composition in a GACODE profile, per surface (Lane L PR 5) ---------------------
 
 
+def _resolved_on_grid(composition: ResolvedImpurityComposition, rho: np.ndarray):
+    """A profile-valued resolved composition on a GACODE profile's rho grid, paired by coordinate.
+
+    Both grids are ``rho_tor_norm``; the composition's ``rho`` is required and
+    interpolated onto ``rho`` (same grid: taken as is).  Undefined points and the
+    range beyond the composition's grid are filled as :func:`_fill_undefined`
+    fills them and counted.  Returns ``(fractions, <Z>, <Z^2>, main_ion_fraction, note)``.
+    """
+    frac = np.asarray(composition.impurity_fractions, dtype=float)
+    source = composition.rho
+    if source is None:
+        raise ValueError(
+            "the composition is profile-valued but carries no rho (rho_tor_norm) to pair it with "
+            "profile.rho; resolve it on a core_profiles grid or on profile.rho"
+        )
+    source = np.asarray(source, dtype=float)
+    if source.ndim != 1 or source.size != frac.shape[0]:
+        raise ValueError(
+            f"the composition's rho has {source.size} points but its fractions {frac.shape[0]}; "
+            "they must run over the same grid"
+        )
+    charges = np.array([s.charge_state for s in composition.species], dtype=float)
+    mean = np.broadcast_to(charges, frac.shape) if composition.mean_charge is None else np.asarray(composition.mean_charge, dtype=float)
+    mean2 = mean**2 if composition.mean_square_charge is None else np.asarray(composition.mean_square_charge, dtype=float)
+    main = np.broadcast_to(np.asarray(composition.main_ion_fraction, dtype=float), (source.size,))
+    stacked = np.concatenate([frac, mean, mean2, main[:, None]], axis=1)
+    note: dict[str, Any] = {"coordinate": "rho_tor_norm", "profile_valued": True}
+    if source.shape == rho.shape and np.allclose(source, rho):
+        out, note["interpolated"] = stacked, False
+    else:
+        if not (np.all(np.isfinite(source)) and np.all(np.diff(source) > 0.0)):
+            raise ValueError("the composition's rho grid must be finite and increasing to be interpolated onto profile.rho")
+        if source[-1] < rho.min() or source[0] > rho.max():
+            raise ValueError(
+                f"the composition's rho [{source[0]:g}, {source[-1]:g}] does not overlap profile.rho "
+                f"[{rho.min():g}, {rho.max():g}]; resolve the composition on profile.rho"
+            )
+        # anti-alias: spatial interpolation over rho, not time -- no sample rate to reduce
+        out = np.column_stack([np.interp(rho, source, column, left=np.nan, right=np.nan) for column in stacked.T])
+        note.update(interpolated=True, source_points=int(source.size))
+    out, note["filled_points"] = _fill_undefined(out, rho)
+    k = frac.shape[1]
+    return out[:, :k], out[:, k:2 * k], out[:, 2 * k:3 * k], out[:, 3 * k], note
+
+
 def surface_composition_profile(
     profile: Any,
     composition: Union[RadialImpurityComposition, ResolvedImpurityComposition],
@@ -1996,8 +2041,9 @@ def surface_composition_profile(
         The resolved transport profile (its main ion, temperatures, rotation
         and geometry are kept) [any].
     composition : RadialImpurityComposition or ResolvedImpurityComposition
-        On ``profile.rho`` (a radial composition must be resolved on that
-        grid); a resolved one with fixed charge states may be scalar [any].
+        A radial composition must be resolved on ``profile.rho``; a resolved
+        one may be scalar, or a profile on its own ``rho`` (``rho_tor_norm``),
+        which is interpolated onto ``profile.rho`` [any].
     r_over_a : float
         The surface, ``rmin / rmin[-1]``, whose charge states the lumped
         impurities take [-].
@@ -2038,7 +2084,11 @@ def surface_composition_profile(
     GACODE carries one charge per species for the whole profile, so a
     charge that varies with rho is lumped per surface (one profile per TGLF
     or CGYRO surface); with fixed charge states the profile is the same at
-    every surface.  Z_eff at the surface equals the composition's.
+    every surface.  Z_eff at the surface equals the composition's.  A
+    profile-valued composition is paired with ``profile.rho`` by coordinate
+    (both are ``rho_tor_norm``): a radial composition must be resolved on
+    ``profile.rho``; a resolved one is interpolated from its own ``rho``,
+    which it must carry (``provenance["ni"]["composition_grid"]`` says so).
 
     Applicability
     -------------
@@ -2087,12 +2137,16 @@ def surface_composition_profile(
         elements = [s.element for s in composition.species]
         charges = np.array([s.charge_state for s in composition.species], dtype=float)
         frac = np.asarray(composition.impurity_fractions, dtype=float)
-        fractions = np.broadcast_to(frac, (n, charges.size)) if frac.ndim == 1 else frac
-        mean = np.broadcast_to(charges, (n, charges.size))
-        mean2 = mean**2
-        main_fraction = np.broadcast_to(np.asarray(composition.main_ion_fraction, dtype=float), (n,))
+        if frac.ndim == 1:
+            fractions = np.broadcast_to(frac, (n, charges.size))
+            mean = np.broadcast_to(charges, (n, charges.size))
+            mean2 = mean**2
+            main_fraction = np.broadcast_to(np.asarray(composition.main_ion_fraction, dtype=float), (n,))
+            grid_note = {"coordinate": "rho_tor_norm", "profile_valued": False}
+        else:
+            fractions, mean, mean2, main_fraction, grid_note = _resolved_on_grid(composition, rho)
         masses = [float(s.mass) for s in composition.species]
-        label = f"{composition.kind}_fixed_charge"
+        label = f"{composition.kind}_" + ("bundled_charge" if composition.mean_charge is not None else "fixed_charge")
     # anti-alias: spatial interpolation over rho / r/a, not time -- no sample rate to reduce
     lumped = np.array([np.interp(rho_s, rho, mean2[:, k] / mean[:, k]) for k in range(len(elements))])
     densities = [ne * np.asarray(main_fraction, dtype=float)]
@@ -2111,6 +2165,8 @@ def surface_composition_profile(
     provenance = dict(profile.provenance)
     provenance["ni"] = {"kind": "derived", "source": f"Lane L composition ({label})",
                         "surface_r_over_a": float(r_over_a), "lumped_charge": dict(zip(elements, lumped.tolist()))}
+    if not isinstance(composition, RadialImpurityComposition):
+        provenance["ni"]["composition_grid"] = grid_note
     provenance["ti"] = {**dict(profile.provenance.get("ti", {})),
                         "impurities": "equal to the main ion (assumed)"}
     provenance["z_eff"] = {"kind": "derived", "source": "species list (lumped at the surface)",
