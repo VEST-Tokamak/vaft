@@ -20,6 +20,13 @@ from ._workflow import Node as N, WorkflowSpec, _render_workflow
 _STATE = "vaft.process.transport_state.resolve_transport_state"
 _CP = "core_profiles.profiles_1d[:]"
 _EQ = "equilibrium.time_slice[:]"
+#: works cited by the inference figures (each already referenced in the vaft docstrings it names)
+_LAO = "L. L. Lao et al., Nucl. Fusion 25 (1985) 1611"
+_WESSON = "J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 4.25"
+_ROMERO = "J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002"
+_SPITZER = "L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977"
+_SAUTER = "O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834"
+_REDL = "A. Redl et al., Phys. Plasmas 28 (2021) 022502"
 
 _SPECS = (
     # ------------------------------------------------------------------ inference
@@ -477,43 +484,53 @@ _SPECS = (
     ),
     # ------------------------------------------------------------------ plasma parameter inference (#1601)
     WorkflowSpec(
-        key="parameter_inference_overview", title="Plasma parameter inference: completing the plasma state",
+        key="parameter_inference_overview", title="Plasma parameter inference: completing the kinetic profiles",
         family="parameter_inference", status="implemented",
-        summary="Where inference sits: diagnostics and the equilibrium give a reconstructed but incomplete "
-                "state; explicit assumptions and the closures VAFT implements complete it, and every completed "
-                "quantity keeps its origin on the way to simulation.",
+        summary="Where inference sits: diagnostics and the equilibrium give reconstructed but incomplete "
+                "kinetic profiles; explicit assumptions and the closures VAFT implements complete them, and every "
+                "completed quantity keeps its origin on the way to simulation.",
         nodes=(
-            N("diagnostics", "Kinetic diagnostics", "measured",
-              ids="{thomson_scattering.channel[:], charge_exchange.channel[:]}",
-              symbols=r"T_e,\ n_e,\ T_i^{\mathrm{CX}}\ \mathrm{at}\ (R, Z)"),
-            N("eq", "Magnetic equilibrium", "reconstructed", ids=f"{_EQ}.profiles_1d",
+            N("diagnostics", "Thomson scattering", "measured", ids="thomson_scattering.channel[:]",
+              symbols=r"T_e,\ n_e\ \mathrm{at}\ (R, Z)"),
+            N("cx", "Charge exchange (optional)", "measured", ids="charge_exchange.channel[:].ion[0].t_i",
+              symbols=r"T_i^{\mathrm{CX}}\ \mathrm{at}\ (R, Z)"),
+            N("eq", "Magnetic equilibrium", "reconstructed", ids=f"{_EQ}.profiles_1d", references=(_LAO,),
               symbols=r"p_{\mathrm{eq}}(\psi),\ q,\ \langle j\cdot B\rangle,\ \mathrm{geometry}"),
-            N("reconstructed", "Reconstructed plasma state", "reconstructed", ids=f"{_CP}.electrons",
-              symbols=r"T_e(\rho),\ n_e(\rho)\ (\mathrm{fitted})\qquad p_{\mathrm{eq}}(\rho),\ q(\rho)"),
+            N("reconstructed", "Reconstructed kinetic profiles", "reconstructed", ids=f"{_CP}.electrons",
+              symbols=r"T_e(\rho),\ n_e(\rho)\ (\mathrm{fitted}),\ [T_i(\rho)]\qquad p_{\mathrm{eq}}(\rho),\ q(\rho)"),
+            N("fitting", "Fitting assumptions", "convention",
+              api="vaft.process.profile.profile_fitting_thomson_scattering",
+              symbols=r"\mathrm{polynomial\ |\ core\text{-}poly/edge\text{-}exp\ |\ GP}\qquad "
+                      r"\mathrm{order}\ N,\ x = \rho_{\mathrm{tor},N}\ \mathrm{or}\ \psi_N\qquad "
+                      r"T, n > 0,\ \sigma\text{-}\mathrm{weighted}"),
             N("assumptions", "Closure assumptions", "prior",
               symbols=r"\mathrm{common}\ T_i,\ \mathrm{composition},\ Z_{\mathrm{eff}}\qquad "
-                      r"\mathrm{conductivity\ model},\ \ln\Lambda"),
+                      r"\sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda"),
             N("thermo", "Thermodynamic closure", "inferred",
               api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
               relation=r"p_{\mathrm{eq}} = e\,n_e T_e + e\sum_s n_s T_i\qquad T_i = \frac{p_{\mathrm{eq}} - e n_e T_e}"
                        r"{e f n_e}"),
             N("composition", "Composition closure", "inferred",
-              api="vaft.process.impurity.resolve_impurity_composition",
+              api="vaft.process.impurity.resolve_impurity_composition", references=(_WESSON,),
+              equation="vaft.formula.atomic.impurity_fraction_from_effective_charge",
               relation=r"n_e = \sum_s Z_s n_s\qquad Z_{\mathrm{eff}} = \frac{\sum_s Z_s^2 n_s}{n_e}"),
             N("resistive", "Resistive closure", "inferred", api="vaft.process.resistive_zeff.infer_resistive_zeff",
-              symbols=r"V_R^{\mathrm{obs}} \to Z_{\mathrm{eff}}^{\mathrm{res}}\ (\mathrm{scalar})"),
-            N("state", "Completed plasma state", "derived", ids=f"{_CP}.{{electrons, ion[:], zeff}}",
+              references=(_ROMERO, _SPITZER, _SAUTER, _REDL),
+              symbols=r"V_R^{\mathrm{obs}} \to Z_{\mathrm{eff}}^{\mathrm{res}}\ (\mathrm{scalar})\qquad "
+                      r"\sigma_\parallel:\ \mathrm{Spitzer\ |\ neoclassical\ (Sauter,\ Redl)}"),
+            N("state", "Completed kinetic profiles", "derived", ids=f"{_CP}.{{electrons, ion[:], zeff}}",
               symbols=r"n_e, T_e, T_i, n_s, Z_{\mathrm{eff}}\qquad \mathrm{each\ with\ origin=\ldots;\ method=\ldots}"),
             N("simulation", "Simulation-ready", "code_input",
               symbols=r"\mathrm{every\ input\ quantity\ with\ its\ origin}"),
         ),
-        rows=(("diagnostics", "eq"), ("reconstructed",), ("thermo", "composition", "resistive"), ("state",),
+        rows=(("diagnostics", "cx", "eq"), ("reconstructed",), ("thermo", "composition", "resistive"), ("state",),
               ("simulation",)),
-        edges=(("diagnostics", "reconstructed", ""), ("eq", "reconstructed", "mapping"),
+        edges=(("diagnostics", "reconstructed", ""), ("cx", "reconstructed", "optional"),
+               ("eq", "reconstructed", "mapping"),
                ("reconstructed", "thermo", ""), ("reconstructed", "composition", ""),
                ("reconstructed", "resistive", ""), ("thermo", "state", ""), ("composition", "state", ""),
                ("resistive", "state", ""), ("state", "simulation", "")),
-        side=(("assumptions", "reconstructed"),),
+        side=(("assumptions", "reconstructed"), ("fitting", "reconstructed")),
         todos=("Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive "
                "closure) is in progress in Lane L / Lane Z (#1565, #1566, PR #1659) and is not on develop.",
                "Rotation, E_r and the ExB shear are not inferred: downstream codes receive gamma_E = 0 as an "
@@ -531,11 +548,12 @@ _SPECS = (
         nodes=(
             N("te_ne", "Electron profiles", "measured", ids=f"{_CP}.electrons.{{temperature, density_thermal}}",
               symbols=r"T_e(\rho),\ n_e(\rho)"),
-            N("eq", "Equilibrium pressure", "reconstructed", ids=f"{_EQ}.profiles_1d.pressure",
+            N("eq", "Equilibrium pressure", "reconstructed", ids=f"{_EQ}.profiles_1d.pressure", references=(_LAO,),
               symbols=r"p_{\mathrm{eq}}(\psi)\ \ (\mathrm{independent\ lineage})"),
             N("composition", "Composition source", "prior",
               symbols=r"\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}"),
             N("ions", "Ion densities", "derived", api="vaft.process.impurity.resolve_impurity_composition",
+              references=(_WESSON,),
               equation="vaft.formula.impurity.main_ion_density_from_species"),
             N("ti", "Pressure-partition ion temperature", "inferred",
               api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
@@ -627,11 +645,17 @@ def tglf_cgyro_local_transport(*, labels: bool = True) -> Diagram:
     return _render_workflow(WORKFLOWS["tglf_cgyro_local_transport"], labels=labels)
 
 
-def parameter_inference_overview(*, labels: bool = True) -> Diagram:
-    """Where plasma parameter inference sits between reconstruction and simulation (#1601)."""
-    return _render_workflow(WORKFLOWS["parameter_inference_overview"], labels=labels)
+def parameter_inference_overview(*, labels: bool = True, references: bool = False) -> Diagram:
+    """Where plasma parameter inference sits between reconstruction and simulation (#1601).
+
+    ``references=True`` numbers each closure's representative papers and lists them under the legend.
+    """
+    return _render_workflow(WORKFLOWS["parameter_inference_overview"], labels=labels, references=references)
 
 
-def parameter_inference_dependency_graph(*, labels: bool = True) -> Diagram:
-    """How provenance propagates through inferred plasma parameters (#1601)."""
-    return _render_workflow(WORKFLOWS["parameter_inference_dependency_graph"], labels=labels)
+def parameter_inference_dependency_graph(*, labels: bool = True, references: bool = False) -> Diagram:
+    """How provenance propagates through inferred plasma parameters (#1601).
+
+    ``references=True`` numbers the representative papers and lists them under the legend.
+    """
+    return _render_workflow(WORKFLOWS["parameter_inference_dependency_graph"], labels=labels, references=references)

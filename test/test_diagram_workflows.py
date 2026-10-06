@@ -215,5 +215,20 @@ def test_inference_figures_draw_only_implemented_closures_and_name_no_code():
     for spec in (overview, graph):
         assert all(n.api for n in spec.nodes if n.kind == "inferred")  # nothing future is drawn
         drawn = " ".join(f"{n.label} {n.symbols or ''}" for n in spec.nodes).lower()
-        assert not any(code in drawn for code in ("tglf", "cgyro", "neo", "chease", "efit"))
+        assert not re.search(r"\b(tglf|cgyro|neo|chease|efit)\b", drawn)  # "neoclassical" is physics, not a code
     assert graph.node("gamma").kind == "prior"  # gamma_E = 0 is an assumption, not an inference (#553)
+
+
+def test_references_are_optional_numbered_by_first_use_and_listed():
+    spec = WORKFLOWS["parameter_inference_overview"]
+    plain = vaft.diagram.parameter_inference_overview()
+    cited = vaft.diagram.parameter_inference_overview(references=True)
+    assert not [it for it in plain.scene.items if getattr(it, "role", "").startswith("reference:")]
+    listed = [it.text for it in cited.scene.items if getattr(it, "role", "").startswith("reference:")]
+    numbers = W.reference_numbers(spec)
+    assert len(listed) == len(numbers) == len({r for n in spec.nodes for r in n.references}) > 0
+    assert listed[0].startswith("[1] ") and "Lao" in listed[0]  # first cited node: the equilibrium
+    resistive = next(it.text for it in cited.scene.items if isinstance(it, Label) and it.role == "node:resistive")
+    assert "[3,4,5,6]" in resistive and "Spitzer" in resistive
+    with pytest.raises(ValueError):
+        vaft.diagram.parameter_inference_overview(references="yes")

@@ -26,6 +26,10 @@ It sits between two neighbours and is neither of them:
   (`measurements -> fit -> profile`). Multi-diagnostic fitting of one primitive profile (TS +
   interferometer, TS + ECE, CX + other diagnostics) stays there — see
   [Equilibrium and kinetic profiles]({{ '/workflows/equilibrium-kinetic-profiles/' | relative_url }}) and #1204.
+  The fit carries its own assumptions — the basis (polynomial, core-polynomial/edge-exponential,
+  Gaussian process) and its order, the fitting coordinate ($\rho_{\mathrm{tor},N}$ or $\psi_N$),
+  positivity and uncertainty weighting — and the overview draws them entering the reconstructed profiles,
+  because every closure below inherits them.
 - **Simulation and consistency workflows** take a completed state into NEO, TGLF, CGYRO, CHEASE and
   predict a response or test consistency. A flux-matched profile may come out of an inverse solve, but it
   is *transport-model-consistent*, not a closure-inferred experimental parameter. The
@@ -48,10 +52,10 @@ on `develop`; it introduces no new computational layer and no `Inference` runtim
 | predicted | the output of a transport or stability model | TGLF fluxes; flux-matched profiles |
 
 The diagrams use the same grammar as the [physics-workflow diagrams]({{ '/reference/diagrams/' | relative_url }})
-(#1585) and draw only the closures VAFT implements today; synthetic completion and force balance are
+(#1585), draw only the closures VAFT implements today, and number each closure's representative papers; synthetic completion and force balance are
 described in their sections below.
 
-![Plasma parameter inference: completing the plasma state]({{ '/assets/diagrams/parameter_inference_overview.svg' | relative_url }})
+![Plasma parameter inference: completing the kinetic profiles]({{ '/assets/diagrams/parameter_inference_overview.svg' | relative_url }})
 
 ## Thermodynamic closure
 
