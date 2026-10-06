@@ -212,6 +212,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
+    "test_diagram_reduced_stability.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
     "test_diagram_sfl_coordinates_part2.py",
@@ -269,6 +270,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_impurity_charge_states.py",
     "test_process_impurity.py",
     "test_vest_core_profiles_policy.py",
+    # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
+    # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
+    "test_formula_reduced_stability.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

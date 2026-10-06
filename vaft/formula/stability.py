@@ -76,6 +76,13 @@ __all__ = [
     "kadomtsev_mixing_radius",
     "ballooning_radial_wavenumber",
     "s_alpha_ballooning_eigenmode",
+    "suydam_criterion",
+    "mercier_criterion_circular",
+    "ggj_ideal_interchange_index",
+    "ggj_resistive_interchange_index",
+    "magnetic_well_from_specific_volume",
+    "bussac_poloidal_beta",
+    "bussac_internal_kink_energy",
 ]
 
 
@@ -1113,6 +1120,432 @@ def kadomtsev_mixing_radius(r, q):
         raise ValueError("the helical flux does not return to its axis value within r: r_mix is beyond the range")
     i = int(past[0])
     return float(r[i] + (r[i + 1] - r[i]) * psi_star[i] / (psi_star[i] - psi_star[i + 1]))
+
+
+# ------------------------------------------------------------------
+# Local interchange criteria and the reduced internal kink (#1635)
+# ------------------------------------------------------------------
+
+def _finite(value, name: str) -> np.ndarray:
+    array = np.asarray(value, dtype=float)
+    if not np.all(np.isfinite(array)):
+        raise ValueError(f"{name} must be finite, not {value!r}")
+    return array
+
+
+def _scalar_or_array(result):
+    result = np.asarray(result, dtype=float)
+    return float(result) if result.ndim == 0 else result
+
+
+def suydam_criterion(r, B_z, q, dq_dr, dp_dr):
+    r"""Suydam's local interchange criterion of a cylindrical screw pinch.
+
+    $$D_S = \frac{rB_z^2}{8\mu_0}\left(\frac{q'}{q}\right)^2 + p'$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Minor radius of the surface, positive [m].
+    B_z : float or np.ndarray
+        Axial field on the surface [T].
+    q : float or np.ndarray
+        Safety factor on the surface, non-zero [-].
+    dq_dr : float or np.ndarray
+        Radial derivative of $q$ [1/m].
+    dp_dr : float or np.ndarray
+        Radial derivative of the pressure [Pa/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $D_S$: positive where the criterion holds, negative where it is
+        violated [Pa/m].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not positive, ``q`` is zero, or an input is not finite.
+
+    Convention
+    ----------
+    Sign chosen so that $D_S > 0$ satisfies the criterion. $q$ enters only
+    through the shear $q'/q$, so its sign convention does not matter.
+
+    Physical interpretation
+    -----------------------
+    Field-line bending from magnetic shear (the first term, always
+    stabilising) against the pressure gradient falling outward in the bad
+    curvature of the azimuthal field ($p' < 0$). With no shear any outward
+    pressure fall is unstable to localised interchanges.
+
+    Assumptions
+    -----------
+    Ideal MHD, a straight cylinder (no toroidal curvature), perturbations
+    localised about one surface ($m \to \infty$ with $k_\parallel = 0$ there).
+    The criterion is **necessary** for stability: $D_S < 0$ proves a local
+    instability, $D_S > 0$ proves nothing about global modes.
+
+    References
+    ----------
+    .. [1] B. R. Suydam, Proc. 2nd UN Int. Conf. Peaceful Uses of Atomic
+           Energy 31 (1958) 157.
+    .. [2] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Ch. 11.
+    """
+    r = _finite(r, "r")
+    q = _finite(q, "q")
+    if np.any(r <= 0.0):
+        raise ValueError(f"r must be positive, not {r!r}")
+    if np.any(q == 0.0):
+        raise ValueError("q must be non-zero")
+    B_z, dq_dr, dp_dr = (_finite(v, n) for v, n in ((B_z, "B_z"), (dq_dr, "dq_dr"), (dp_dr, "dp_dr")))
+    return _scalar_or_array(r * B_z ** 2 / (8.0 * MU0) * (dq_dr / q) ** 2 + dp_dr)
+
+
+def mercier_criterion_circular(r, B_phi, q, dq_dr, dp_dr):
+    r"""Mercier's interchange criterion for a large-aspect-ratio circular tokamak.
+
+    $$D_M = \frac{rB_\phi^2}{8\mu_0}\left(\frac{q'}{q}\right)^2 + p'\,(1 - q^2)$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Minor radius of the surface, positive [m].
+    B_phi : float or np.ndarray
+        Toroidal field on the surface [T].
+    q : float or np.ndarray
+        Safety factor on the surface, non-zero [-].
+    dq_dr : float or np.ndarray
+        Radial derivative of $q$ [1/m].
+    dp_dr : float or np.ndarray
+        Radial derivative of the pressure [Pa/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $D_M$: positive where the criterion holds, negative where it is
+        violated [Pa/m].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not positive, ``q`` is zero, or an input is not finite.
+
+    Convention
+    ----------
+    Sign chosen so that $D_M > 0$ satisfies the criterion, as for
+    ``suydam_criterion``. It is not the GGJ index $D_I$, which is negative
+    when stable (``ggj_ideal_interchange_index``). $D_M = D_S - p'q^2$ with
+    $B_z \to B_\phi$.
+
+    Physical interpretation
+    -----------------------
+    Toroidicity adds the average curvature of the torus to Suydam's
+    cylinder. The factor $1 - q^2$ changes sign at $q = 1$: for $q > 1$ the
+    field lines spend enough of their transit on the good-curvature side
+    that an outward pressure fall *stabilises* interchanges, and the
+    criterion holds even without shear.
+
+    Assumptions
+    -----------
+    Ideal MHD; large aspect ratio $\epsilon = r/R_0 \ll 1$; circular,
+    unshifted surfaces to the order kept; low $\beta$. Localised
+    interchanges only: a **necessary** condition, not a global stability
+    proof. For shaped or tight-aspect-ratio equilibria the general Mercier
+    index from flux-surface averages is needed; DCON reports it as $D_I$.
+
+    References
+    ----------
+    .. [1] C. Mercier, Nucl. Fusion 1 (1960) 47.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 6.
+    """
+    r = _finite(r, "r")
+    q = _finite(q, "q")
+    if np.any(r <= 0.0):
+        raise ValueError(f"r must be positive, not {r!r}")
+    if np.any(q == 0.0):
+        raise ValueError("q must be non-zero")
+    B_phi, dq_dr, dp_dr = (_finite(v, n) for v, n in ((B_phi, "B_phi"), (dq_dr, "dq_dr"), (dp_dr, "dp_dr")))
+    return _scalar_or_array(r * B_phi ** 2 / (8.0 * MU0) * (dq_dr / q) ** 2 + dp_dr * (1.0 - q ** 2))
+
+
+def ggj_ideal_interchange_index(E, F, H):
+    r"""Glasser–Greene–Johnson ideal-interchange (Mercier) index $D_I$ from the layer coefficients.
+
+    $$D_I = E + F + H - \tfrac{1}{4}$$
+
+    Parameters
+    ----------
+    E : float or np.ndarray
+        GGJ coefficient $E$ of the resonant surface [-].
+    F : float or np.ndarray
+        GGJ coefficient $F$ [-].
+    H : float or np.ndarray
+        GGJ coefficient $H$ [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $D_I$; negative where the Mercier criterion holds [-].
+
+    Raises
+    ------
+    ValueError
+        An input is not finite.
+
+    Convention
+    ----------
+    GGJ sign: $D_I < 0$ is ideal-interchange stable, the opposite sign to
+    ``mercier_criterion_circular``. The Mercier small-solution exponents
+    are $-\tfrac12 \pm \sqrt{-D_I}$, real when $D_I < 0$. This is the
+    convention of the ``di`` column DCON and RDCON write.
+
+    Physical interpretation
+    -----------------------
+    The local ideal-interchange drive at a surface: pressure against
+    average curvature ($E$, $F$) and the geodesic coupling $H$, measured
+    against the shear, which the $-\tfrac14$ represents.
+
+    Assumptions
+    -----------
+    Toroidal ideal MHD; $E$, $F$, $H$ are flux-surface quantities of the
+    equilibrium at the surface. Local criterion only.
+
+    References
+    ----------
+    .. [1] A. H. Glasser, J. M. Greene and J. L. Johnson, Phys. Fluids 18
+           (1975) 875.
+    """
+    E, F, H = (_finite(v, n) for v, n in ((E, "E"), (F, "F"), (H, "H")))
+    return _scalar_or_array(E + F + H - 0.25)
+
+
+def ggj_resistive_interchange_index(E, F, H):
+    r"""Glasser–Greene–Johnson resistive-interchange index $D_R$ from the layer coefficients.
+
+    $$D_R = E + F + H^2$$
+
+    Parameters
+    ----------
+    E : float or np.ndarray
+        GGJ coefficient $E$ of the resonant surface [-].
+    F : float or np.ndarray
+        GGJ coefficient $F$ [-].
+    H : float or np.ndarray
+        GGJ coefficient $H$ [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $D_R$; negative where resistive interchanges are stable [-].
+
+    Raises
+    ------
+    ValueError
+        An input is not finite.
+
+    Convention
+    ----------
+    $D_R = D_I + (H - \tfrac12)^2$ with $D_I$ from
+    ``ggj_ideal_interchange_index``, so $D_R \ge D_I$: a surface can be
+    Mercier stable ($D_I < 0$) and resistive-interchange unstable
+    ($D_R > 0$). Notation varies between references; this is GGJ's, used by
+    the ``dr`` column of DCON and RDCON.
+
+    Physical interpretation
+    -----------------------
+    Resistivity lets the layer interchange without bending field lines,
+    so the geodesic term $H$ enters squared instead of linearly and the
+    shear no longer helps.
+
+    Assumptions
+    -----------
+    Resistive MHD in the GGJ inner layer; the same flux-surface
+    coefficients as $D_I$.
+
+    References
+    ----------
+    .. [1] A. H. Glasser, J. M. Greene and J. L. Johnson, Phys. Fluids 18
+           (1975) 875.
+    """
+    E, F, H = (_finite(v, n) for v, n in ((E, "E"), (F, "F"), (H, "H")))
+    return _scalar_or_array(E + F + H ** 2)
+
+
+def magnetic_well_from_specific_volume(flux, dV_dflux):
+    r"""Normalised magnetic well from the specific volume $V'$ against toroidal flux.
+
+    $$W = -\frac{\Phi}{V'}\,\frac{dV'}{d\Phi},\qquad V' = \frac{dV}{d\Phi}$$
+
+    Parameters
+    ----------
+    flux : np.ndarray
+        Toroidal flux $\Phi$ enclosed by each surface, increasing outward,
+        at least 3 points [Wb].
+    dV_dflux : np.ndarray
+        Specific volume $V' = dV/d\Phi$ on ``flux``, positive [m^3/Wb].
+
+    Returns
+    -------
+    np.ndarray
+        $W$: positive in a magnetic well, negative on a magnetic hill [-].
+
+    Raises
+    ------
+    ValueError
+        The arrays differ in length or have fewer than 3 points, ``flux`` is
+        not increasing, ``dV_dflux`` is not positive, or an input is not
+        finite.
+
+    Convention
+    ----------
+    The flux label is the **toroidal** flux; with the poloidal flux the
+    sign of $V''$ also carries the shear and is a different quantity.
+    $W > 0$ ($V'' < 0$): $|B|$ rises outward on average, a well. A straight
+    cylinder of uniform $B_z$ has $V' = 2\pi R_0/B_z$ constant and $W = 0$.
+    The derivative is second-order finite differences
+    (``vaft.formula.utils.gradient``).
+
+    Physical interpretation
+    -----------------------
+    Whether a flux tube that moves outward finds a stronger average field,
+    which opposes interchange (a well), or a weaker one (a hill). It is the
+    average-curvature ingredient of the Mercier criterion, a geometric
+    diagnostic, not a stability boundary by itself.
+
+    Assumptions
+    -----------
+    Nested flux surfaces; ``dV_dflux`` from the equilibrium's surface
+    volumes. Only the sign and the normalisation are fixed here; the
+    stabilising contribution in the Mercier criterion also depends on
+    pressure and shear.
+
+    References
+    ----------
+    .. [1] J. M. Greene, Comments Plasma Phys. Control. Fusion 17 (1997) 389.
+    .. [2] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Ch. 12.
+    """
+    flux = _finite(flux, "flux").ravel()
+    v_prime = _finite(dV_dflux, "dV_dflux").ravel()
+    if flux.shape != v_prime.shape or flux.size < 3 or np.any(np.diff(flux) <= 0.0):
+        raise ValueError("flux must be increasing and the same length as dV_dflux (at least 3 points)")
+    if np.any(v_prime <= 0.0):
+        raise ValueError("dV_dflux must be positive")
+    return -flux / v_prime * gradient(flux, v_prime)
+
+
+def bussac_poloidal_beta(p_mean_inside, p_at_r1, B_theta_at_r1):
+    r"""Bussac's poloidal beta inside the $q = 1$ surface.
+
+    $$\beta_{p1} = \frac{2\mu_0}{B_{\theta 1}^2}\left(\langle p\rangle_1 - p(r_1)\right),
+      \qquad \langle p\rangle_1 = \frac{2}{r_1^2}\int_0^{r_1} p\,r\,dr$$
+
+    Parameters
+    ----------
+    p_mean_inside : float or np.ndarray
+        Area-averaged pressure inside $r_1$, $\langle p\rangle_1$ [Pa].
+    p_at_r1 : float or np.ndarray
+        Pressure at the $q = 1$ surface [Pa].
+    B_theta_at_r1 : float or np.ndarray
+        Poloidal field at $r_1$, non-zero [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\beta_{p1}$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``B_theta_at_r1`` is zero or an input is not finite.
+
+    Convention
+    ----------
+    The pressure *difference* enters, so a pedestal outside $r_1$ does not;
+    the average is over the circular cross-section inside $r_1$.
+
+    Physical interpretation
+    -----------------------
+    The pressure drive of the toroidal $m = n = 1$ internal kink: how far
+    the core inside $q = 1$ is peaked above its edge value, against the
+    poloidal field there. It is the variable of ``bussac_internal_kink_energy``.
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular cross-section.
+
+    References
+    ----------
+    .. [1] M. N. Bussac, R. Pellat, D. Edery and J. L. Soulé, Phys. Rev.
+           Lett. 35 (1975) 1638.
+    """
+    p_mean_inside, p_at_r1, B_theta_at_r1 = (
+        _finite(v, n) for v, n in ((p_mean_inside, "p_mean_inside"), (p_at_r1, "p_at_r1"),
+                                   (B_theta_at_r1, "B_theta_at_r1")))
+    if np.any(B_theta_at_r1 == 0.0):
+        raise ValueError("B_theta_at_r1 must be non-zero")
+    return _scalar_or_array(2.0 * MU0 * (p_mean_inside - p_at_r1) / B_theta_at_r1 ** 2)
+
+
+def bussac_internal_kink_energy(beta_p1, q0):
+    r"""Reduced toroidal $m = n = 1$ internal-kink energy of Bussac et al., up to its positive prefactor.
+
+    $$\delta\hat W_T = (1 - q_0)\left(\frac{13}{144} - \beta_{p1}^2\right)$$
+
+    Parameters
+    ----------
+    beta_p1 : float or np.ndarray
+        Poloidal beta inside $q = 1$, from ``bussac_poloidal_beta`` [-].
+    q0 : float or np.ndarray
+        Safety factor on the axis, below one [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\delta\hat W_T$: positive is ideal-stable, negative unstable [-].
+
+    Raises
+    ------
+    ValueError
+        ``q0`` is not below one or an input is not finite.
+
+    Convention
+    ----------
+    Only the sign and the $q_0$, $\beta_{p1}$ dependence are kept: the
+    omitted prefactor ($\propto \epsilon_1^4\xi_0^2 B_\phi^2R_0/\mu_0$, with
+    $\epsilon_1 = r_1/R_0$) is positive, so the sign is the verdict. The
+    marginal value is $\beta_{p1} = \sqrt{13/144} \approx 0.30$.
+
+    Physical interpretation
+    -----------------------
+    In a cylinder the $m = 1$ internal kink is marginal at leading order;
+    toroidicity decides it. A weakly peaked core is stabilised by the
+    $13/144$ term and a core with $\beta_{p1}$ above about 0.3 is
+    destabilised.
+
+    Assumptions
+    -----------
+    Ideal MHD; large aspect ratio, circular cross-section; the parabolic
+    $q(r) = q_0 + (1 - q_0)r^2/r_1^2$ inside $r_1$ with $1 - q_0 \ll 1$, for
+    which $13/144$ is evaluated. Other $q$ profiles change that constant;
+    shaping and kinetic effects (Porcelli's $\delta W$ terms) are not
+    included.
+
+    References
+    ----------
+    .. [1] M. N. Bussac, R. Pellat, D. Edery and J. L. Soulé, Phys. Rev.
+           Lett. 35 (1975) 1638.
+    .. [2] F. Porcelli, D. Boucher and M. N. Rosenbluth, Plasma Phys.
+           Control. Fusion 38 (1996) 2163.
+    """
+    beta_p1 = _finite(beta_p1, "beta_p1")
+    q0 = _finite(q0, "q0")
+    if np.any(q0 >= 1.0):
+        raise ValueError(f"q0 must be below one (a q = 1 surface must exist), not {q0!r}")
+    return _scalar_or_array((1.0 - q0) * (13.0 / 144.0 - beta_p1 ** 2))
 
 
 # ------------------------------------------------------------------

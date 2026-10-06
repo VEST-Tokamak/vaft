@@ -46,6 +46,10 @@ The closed-form criteria are catalogued with their exact signatures and unit tra
 [Physics formulas]({{ site.baseurl }}/guide/Formula/) page. This page covers what to do with them and
 how to run the codes.
 
+What each criterion assumes and proves — exact definition, reduced model, empirical boundary, heuristic or
+solver-derived — is inventoried on
+[Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}).
+
 ---
 
 # Screening an equilibrium
@@ -388,6 +392,8 @@ which produce the refined equilibria the GPEC suite consumes — see the
 - [Physics formulas]({{ site.baseurl }}/guide/Formula/) — full signature reference for
   `vaft.formula.stability`, including the beta conversions, characteristic speeds and unit traps.
 - [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) — producing the equilibrium the codes consume.
+- [Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}) — the
+  logical status, assumptions and validation path of every analytic and reduced criterion.
 - [Data structures (ODS, IDS, IMAS)]({{ site.baseurl }}/guide/Data_structures/) — where `beta_normal`,
   `q_95` and the rest of `equilibrium.time_slice[:].global_quantities` live.
 - Source: [`vaft/formula/stability.py`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/formula/stability.py)
