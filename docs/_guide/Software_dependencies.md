@@ -35,7 +35,7 @@ source, by the [dependency explorer]({{ site.baseurl }}/reference/dependency-gra
 {% for cap in e.capabilities %}{% if cap.scope == "runtime" %}{% assign rows = e.dependencies | where: "capability", cap.id %}
 ### {{ cap.title }}
 
-{{ cap.summary | capitalize }}.
+{{ cap.summary }}.
 
 | Package | Requirement | Used for |
 | --- | --- | --- |

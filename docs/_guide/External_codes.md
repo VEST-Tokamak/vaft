@@ -46,7 +46,7 @@ shows them.
 <td>{{ c.mode_label }}</td>
 <td>{{ c.installation_label }}</td>
 <td><code>{{ c.adapter }}</code></td>
-<td>{{ c.platforms | join: ", " | default: "site-managed" }}</td>
+<td>{% if c.platforms.size > 0 %}{{ c.platforms | join: ", " }}{% elsif c.installation == "reader_only" %}wherever its results are{% else %}as the site installs it{% endif %}</td>
 </tr>
 {%- endfor %}
 </tbody></table></div>
@@ -62,9 +62,11 @@ shows them.
 
 "VAFT source-build helper" means an installer under `install/` configures, builds and checks a
 source tree; it never downloads EFIT, which you obtain yourself under its users agreement, and
-`install/README.md` says for each code where its source comes from. Each build writes
-`vaft-external-install.json` beside the executables -- source path and revision, dirty-tree
-state, build command, toolchain and the installed files -- and the checker reads it back.
+`install/README.md` says for each code where its source comes from (some installers fetch build
+dependencies, such as NUBEAM's NTCC libraries or Homebrew packages). The installers that keep a
+build record write `vaft-external-install.json` beside the executables -- source path and
+revision, dirty-tree state, build command, toolchain and the installed files -- and the checker
+reads it back; each code's entry below says whether its installers do.
 
 ## Per-code reference
 {% for c in e.codes %}
@@ -78,9 +80,10 @@ state, build command, toolchain and the installed files -- and the checker reads
 | --- | --- |
 | Scientific role | {{ c.roles | join: ", " }} |
 | VAFT adapter | `{{ c.adapter }}`{% if commit != "" %} ([source](https://github.com/VEST-Tokamak/vaft/blob/{{ commit }}/{{ c.adapter_source }})){% endif %} |
-| How VAFT runs it | {{ c.mode_label | capitalize }}; {{ c.execution | join: ", " }} |
-| Installation | {{ c.installation_label }}{% if c.access == "registration" %}; licensed, obtained by registration under a users agreement{% elsif c.access == "not_open_source" %}; not open source{% endif %} |
+| How VAFT runs it | {{ c.mode_label }}; {{ c.execution | join: ", " }} |
+| Installation | {{ c.installation_label }}{% if c.access == "registration" %}; licensed, obtained by registration under a users agreement{% elsif c.access == "not_open_source" %}; not open source{% elsif c.access == "not_stated" %}; this repository records no distribution terms{% endif %} |
 | Configuration | {% if c.home_variable != "" %}`{{ c.home_variable }}`{% elsif c.extra != "" %}`pip install "vaft[{{ c.extra }}]"`{% else %}none (reads result files){% endif %} |
+| Build record | {% for p in c.provenance %}`vaft-external-install.json` from `{{ p }}`{% unless forloop.last %}; {% endunless %}{% else %}{% if c.installers.size > 0 %}not written by these installers{% else %}none{% endif %}{% endfor %} |
 | Installers | {% for i in c.installers %}`{{ i }}`{% unless forloop.last %}, {% endunless %}{% else %}none in this repository{% endfor %} |
 | Checker | {% if c.checker != "" %}`python {{ c.checker }}`{% else %}none{% endif %} |
 | Platforms | {{ c.platforms | join: ", " | default: "as the site installs it" }} |

@@ -119,7 +119,7 @@ def _standardized(entry: ecosystem.Standardized) -> dict:
 
 
 def _code(code: ecosystem.ExternalCode) -> dict:
-    for path in (*code.installers, *([code.checker] if code.checker else [])):
+    for path in (*code.installers, *code.provenance, *([code.checker] if code.checker else [])):
         if not (_ROOT / path).is_file():
             raise EcosystemCatalogError(f"{code.id}: {path} does not exist")
     return {
@@ -136,6 +136,7 @@ def _code(code: ecosystem.ExternalCode) -> dict:
         "installation_label": ecosystem.INSTALLATION_LABELS[code.installation],
         "access": code.access,
         "installers": list(code.installers),
+        "provenance": list(code.provenance),
         "checker": code.checker,
         "extra": code.extra,
         "maturity": code.maturity,

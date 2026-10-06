@@ -54,33 +54,33 @@ class Capability:
 #: works without it.
 CAPABILITIES: Tuple[Capability, ...] = (
     Capability("representation", "Scientific data representation", "runtime",
-               "the OMAS/IMAS data model every VAFT layer reads and writes"),
+               "The OMAS/IMAS data model every VAFT layer reads and writes"),
     Capability("numerics", "Numerical computing", "runtime",
-               "arrays, solvers, statistics and uncertainty propagation"),
+               "Arrays, solvers, statistics and uncertainty propagation"),
     Capability("tabular", "Tabular and labelled data", "runtime",
-               "tables, labelled arrays and spreadsheet exchange"),
+               "Tables, labelled arrays and spreadsheet exchange"),
     Capability("images", "Image processing", "runtime",
-               "camera frames and contour extraction"),
+               "Camera frames and contour extraction"),
     Capability("storage", "Storage and remote access", "runtime",
                "HDF5 files, the HSDS service and the encrypted raw-data access"),
-    Capability("database", "Database access", "runtime", "the VEST shot database"),
+    Capability("database", "Database access", "runtime", "The VEST shot database"),
     Capability("formats", "Configuration and code file formats", "runtime",
                "YAML configuration and the Fortran namelists of EFIT, EFUND and g-/k-files"),
-    Capability("visualization", "Visualization", "runtime", "static and interactive figures"),
-    Capability("workflow", "Workflow execution", "runtime", "the production Snakemake pipelines"),
-    Capability("interactive", "Interactive notebooks", "runtime", "the Jupyter kernel and widgets the notebooks use"),
+    Capability("visualization", "Visualization", "runtime", "Static and interactive figures"),
+    Capability("workflow", "Workflow execution", "runtime", "The production Snakemake pipelines"),
+    Capability("interactive", "Interactive notebooks", "runtime", "The Jupyter kernel and widgets the notebooks use"),
     Capability("learning", "Machine learning and surrogates", "optional",
-               "learned backends, ONNX export and surrogate inference"),
+               "Learned backends, ONNX export and surrogate inference"),
     Capability("solvers", "In-process solver backends", "optional",
-               "external solvers VAFT calls as a Python library"),
+               "External solvers VAFT calls as a Python library"),
     Capability("visualization3d", "3-D and video output", "optional",
                "ParaView scenes, Jupyter 3-D and encoded animations"),
-    Capability("interfaces", "Agent and browser interfaces", "optional", "the MCP server and the browser GUI"),
+    Capability("interfaces", "Agent and browser interfaces", "optional", "The MCP server and the browser GUI"),
     Capability("acceleration", "Acceleration", "optional", "JIT compilation, reserved until a measurement justifies it"),
     Capability("development", "Testing, quality and notebooks", "development",
-               "the test suite, linters, formatters and notebook execution"),
+               "The test suite, linters, formatters and notebook execution"),
     Capability("architecture", "Architecture and documentation tooling", "development",
-               "the generated import graph of the dependency explorer"),
+               "The generated import graph of the dependency explorer"),
 )
 
 #: Runtime dependency (distribution name as ``pyproject.toml`` spells it) ->
@@ -107,9 +107,9 @@ RUNTIME_ROLES = {
     "PyYAML": ("formats", "machine descriptions, configurations and the generated documentation catalogs"),
     "matplotlib": ("visualization", "every static figure"),
     "plotly": ("visualization", "interactive panels and the GUI"),
-    "seaborn": ("visualization", "parameter-history plots"),
+    "seaborn": ("visualization", "confinement-scaling regression and residual plots"),
     "snakemake": ("workflow", "the production pipelines' scheduler"),
-    "tqdm": ("workflow", "progress reporting in long conversions"),
+    "tqdm": ("workflow", "declared; vaft.imas.omas_imas's verbose path names it without importing it"),
     "wexpect": ("workflow", "Windows-only; declared but imported by no VAFT module today"),
     "ipykernel": ("interactive", "the notebooks' kernel"),
     "ipython": ("interactive", "inline display in notebooks"),
@@ -175,9 +175,12 @@ class ExternalCode:
     home: str = ""
     #: "vaft_managed_source_build", "python_package", "site_managed" or "reader_only"
     installation: str = "site_managed"
-    #: "public", "registration" (users agreement) or "not_open_source"
+    #: "public", "registration" (users agreement), "not_open_source", or
+    #: "not_stated" where the repository records no distribution terms
     access: str = "public"
     installers: Tuple[str, ...] = ()
+    #: the installers that write vaft-external-install.json (the build record the checker reads)
+    provenance: Tuple[str, ...] = ()
     checker: str = ""
     extra: str = ""
     maturity: str = "supported"  # "supported", "experimental" or "read_only"
@@ -206,7 +209,8 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
     ExternalCode(
         "efit", "EFIT (with EFUND)", ("equilibrium reconstruction",), "vaft.code.efit", "subprocess_executable",
         home="vaft.code.efit.magnetic:EFIT_HOME_ENV", installation="vaft_managed_source_build", access="registration",
-        installers=("install/install_efit.sh", "install/install_efit_windows.ps1"), checker="install/check_efit.py",
+        installers=("install/install_efit.sh", "install/install_efit_windows.ps1"),
+        provenance=("install/install_efit.sh", "install/install_efit_windows.ps1"), checker="install/check_efit.py",
         native="k-files in, g-/a-/m-files out (EFUND response tables beside them)",
         standardized=(Standardized(("equilibrium",), "stage:efit"),),
         workflow=("routine:generate_kfile", "routine:run_efit_reconstruction", "routine:generate_efit_ods"),
@@ -218,7 +222,8 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
     ExternalCode(
         "chease", "CHEASE", ("equilibrium refinement",), "vaft.code.chease", "subprocess_executable",
         home="vaft.code.chease:CHEASE_HOME_ENV", installation="vaft_managed_source_build",
-        installers=("install/install_chease.sh", "install/install_chease_windows.ps1"), checker="install/check_chease.py",
+        installers=("install/install_chease.sh", "install/install_chease_windows.ps1"),
+        provenance=("install/install_chease.sh", "install/install_chease_windows.ps1"), checker="install/check_chease.py",
         native="EXPEQ in, refined EQDSK and the CHEASE output files out",
         standardized=(Standardized(("equilibrium",), "stage:chease"),),
         workflow=("routine:run_chease", "routine:generate_chease_ods"),
@@ -230,7 +235,8 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
     ExternalCode(
         "gpec", "DCON, RDCON, STRIDE and GPEC", ("MHD stability", "3-D plasma response"), "vaft.code.gpec",
         "subprocess_executable", home="vaft.code.gpec._types:GPEC_HOME_ENV", installation="vaft_managed_source_build",
-        installers=("install/install_gpec.sh", "install/install_gpec_windows.ps1"), checker="install/check_gpec.py",
+        installers=("install/install_gpec.sh", "install/install_gpec_windows.ps1"),
+        provenance=("install/install_gpec.sh", "install/install_gpec_windows.ps1"), checker="install/check_gpec.py",
         native="namelists and an EQDSK in, NetCDF/binary stability and response files out",
         standardized=(Standardized(("mhd_linear", "ntms"), "stage:mhd_linear"),
                       Standardized(("mhd_linear", "coils_non_axisymmetric"), "stage:gpec_ideal")),
@@ -269,7 +275,7 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
         "subprocess_executable", home="vaft.code.nubeam.config:NUBEAM_HOME_ENV", installation="vaft_managed_source_build",
         installers=("install/nubeam/linux.sh", "install/nubeam/macos.sh", "install/nubeam/windows.sh",
                     "install/nubeam/windows.ps1"),
-        checker="install/check_nubeam.py", native="a Plasma State file in, NUBEAM's Plasma State and NetCDF out",
+        provenance=("install/nubeam/linux.sh", "install/nubeam/windows.ps1"), checker="install/check_nubeam.py", native="a Plasma State file in, NUBEAM's Plasma State and NetCDF out",
         install_section="nubeam",
         links=(Reference("homepage", "NTCC NUBEAM", "https://w3.pppl.gov/NTCC/NUBEAM/"),
                _doi("A. Pankin et al., Comput. Phys. Commun. 159, 157 (2004)", "10.1016/j.cpc.2003.11.002")),
@@ -277,7 +283,8 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
     ExternalCode(
         "genray", "GENRAY", ("RF wave propagation and current drive",), "vaft.code.genray", "subprocess_executable",
         home="vaft.code.genray.config:GENRAY_HOME_ENV", installation="vaft_managed_source_build",
-        installers=("install/install_genray.sh",), checker="install/check_genray.py",
+        installers=("install/install_genray.sh",), provenance=("install/install_genray.sh",),
+        checker="install/check_genray.py",
         native="genray.in and an EQDSK in, genray.nc out",
         standardized=(Standardized(("waves",), "mapper:vaft.code.genray.outputs.genray_to_waves"),),
         install_section="genray",
@@ -303,7 +310,8 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
     ),
     ExternalCode(
         "nice", "NICE", ("equilibrium reconstruction",), "vaft.code.nice", "subprocess_executable",
-        home="vaft.code.nice.runner:NICE_HOME_ENV", installation="site_managed", maturity="experimental",
+        home="vaft.code.nice.runner:NICE_HOME_ENV", installation="site_managed", access="not_stated",
+        maturity="experimental",
         native="NICE inputs in, its reconstruction files out",
         links=(_doi("J. Blum, C. Boulbe and B. Faugeras, J. Comput. Phys. 231, 960 (2012)",
                     "10.1016/j.jcp.2011.04.005"),),
@@ -311,12 +319,13 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
     ),
     ExternalCode(
         "flare", "FLARE", ("magnetic field-line tracing",), "vaft.code.flare", "subprocess_executable",
-        home="FLAREHOME", installation="site_managed", native="field-line and mesh files",
+        home="FLAREHOME", installation="site_managed", access="not_stated", native="field-line and mesh files",
         links=(_doi("H. Frerichs, Nucl. Fusion 64, 106034 (2024)", "10.1088/1741-4326/ad7303"),),
     ),
     ExternalCode(
         "transp", "TRANSP (reader)", ("integrated modelling",), "vaft.code.transp", "native_reader",
-        installation="reader_only", maturity="read_only", native="reads a finished run's .CDF output",
+        installation="reader_only", access="not_open_source", maturity="read_only",
+        native="reads a finished run's .CDF output",
         install_section="transp",
         links=(Reference("homepage", "PPPL TRANSP", "https://transp.pppl.gov/"),
                _doi("A. Y. Pankin et al., Comput. Phys. Commun. 312, 109611 (2025)", "10.1016/j.cpc.2025.109611")),
@@ -332,7 +341,7 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
 
 #: Who installs a code, in words (figure and pages).
 INSTALLATION_LABELS = {
-    "vaft_managed_source_build": "VAFT-managed source build (install/, from source you supply)",
+    "vaft_managed_source_build": "VAFT-managed source build (install/; build dependencies may be fetched)",
     "python_package": "Python package (an optional extra)",
     "site_managed": "Site- or user-managed (VAFT only resolves and runs it)",
     "reader_only": "Results reader (VAFT does not run the code)",
@@ -340,9 +349,9 @@ INSTALLATION_LABELS = {
 
 #: How VAFT calls a code, in words.
 MODE_LABELS = {
-    "subprocess_executable": "executable, launched as a subprocess",
+    "subprocess_executable": "Executable, launched as a subprocess",
     "in_process_python": "Python library, called in process",
-    "native_reader": "reader of finished results",
+    "native_reader": "Reader of finished results",
 }
 
 #: The integration lifecycle every external code passes through, in figure order.
@@ -350,7 +359,7 @@ INTEGRATION_LIFECYCLE: Tuple[Tuple[str, str], ...] = (
     ("upstream", "Upstream scientific project: repository, release, literature"),
     ("obtain", "Obtain the source or package"),
     ("install", "Installation boundary: VAFT-managed build, Python package, or site-managed"),
-    ("provenance", "Installation provenance (vaft-external-install.json) and checker"),
+    ("provenance", "Installation provenance (the build record) and checker"),
     ("resolve", "Environment resolution: {CODE}HOME"),
     ("adapter", "vaft.code adapter: prepare input, execute, collect"),
     ("execute", "Execution: local, Slurm, or remote Slurm"),

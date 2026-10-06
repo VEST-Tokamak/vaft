@@ -51,7 +51,8 @@ def test_dependencies_and_extras_are_exactly_pyprojects(project):
 
 def test_the_registry_restates_no_version_constraint():
     text = (ROOT / "vaft" / "_ecosystem.py").read_text(encoding="utf-8")
-    assert not re.search(r"(?:>=|<=|==|~=|!=)\s*\d", text)
+    text = re.sub(r"10\.\d{4,9}/\S+", "", text)  # DOIs are identifiers, not versions
+    assert not re.search(r"(?:>=|<=|===|==|~=|!=|[<>])\s*\d|\b\d+\.\d+\.\d+\b", text)
 
 
 def test_the_snapshot_carries_pyprojects_requirements_verbatim(snapshot, project):
@@ -90,13 +91,31 @@ def test_installers_and_checkers_exist_and_every_installer_is_catalogued():
         if code.installation == "python_package":
             assert code.extra in ecosystem.EXTRA_ROLES, code.id
     on_disk = {p.relative_to(ROOT).as_posix() for p in INSTALL.glob("install_*.sh")}
-    on_disk |= {p.relative_to(ROOT).as_posix() for p in INSTALL.glob("install_*_windows.ps1")}
+    # every code installer, on any platform (VAFT's own bootstrap scripts are not code installers)
+    on_disk |= {p.relative_to(ROOT).as_posix() for p in INSTALL.glob("install_*.ps1")}
     on_disk |= {p.relative_to(ROOT).as_posix() for p in INSTALL.glob("*/[lmw]*.sh")
                 if p.stem in {"linux", "macos", "windows"}}
     on_disk |= {p.relative_to(ROOT).as_posix() for p in INSTALL.glob("*/windows.ps1")}
     on_disk |= {p.relative_to(ROOT).as_posix() for p in INSTALL.glob("check_*.py")
                 if not p.stem.startswith("check_vaft")}
     assert on_disk - named == set(), "an installer or checker has no catalog entry"
+
+
+def test_build_records_are_exactly_the_installers_that_write_one():
+    marker = re.compile(r"VAFT_EXTERNAL_MANIFEST_NAME|vaft-external-install\.json|Write-InstallManifest")
+    for code in ecosystem.EXTERNAL_CODES:
+        writers = {p for p in code.installers if marker.search((ROOT / p).read_text(encoding="utf-8"))}
+        assert set(code.provenance) == writers, code.id
+
+
+def test_modes_match_how_the_adapter_runs_the_code():
+    for code in ecosystem.EXTERNAL_CODES:
+        spec = importlib.util.find_spec(code.adapter)
+        files = ([Path(spec.origin)] if not spec.submodule_search_locations
+                 else [p for d in spec.submodule_search_locations for p in Path(d).rglob("*.py")])
+        source = "\n".join(p.read_text(encoding="utf-8") for p in files)
+        launches = "resolve_backend(" in source
+        assert launches == (code.mode == "subprocess_executable"), (code.id, code.mode)
 
 
 def test_standardized_results_resolve_to_a_stage_or_a_mapper():
@@ -153,7 +172,7 @@ def test_links_are_typed_and_references_carry_dois():
                 assert link.url == f"https://doi.org/{link.doi}"
         assert code.mode in {"subprocess_executable", "in_process_python", "native_reader"}
         assert code.maturity in {"supported", "experimental", "read_only"}
-        assert code.access in {"public", "registration", "not_open_source"}
+        assert code.access in {"public", "registration", "not_open_source", "not_stated"}
 
 
 def test_platforms_come_from_installers_never_from_vaft(snapshot):

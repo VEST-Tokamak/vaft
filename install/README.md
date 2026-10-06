@@ -995,10 +995,12 @@ to check an uninstalled CMake build.
 
 ## Codes with no installer here, and why
 
-`install/` carries a build recipe for six codes: CHEASE, DCON/GPEC, EFIT/EFUND,
-NUBEAM, GACODE and GENRAY (`install_genray.sh`, described in its section below).
-`vaft.code` also talks to three others -- TES, TRANSP and TokaMaker -- and none
-of them gets a script here. That is a deliberate stop, not an omission, so this section says
+`install/` carries build recipes for CHEASE, DCON/GPEC, EFIT/EFUND, NUBEAM,
+GACODE and GENRAY (`install_genray.sh`; its notes are kept in this section). The
+codes below without a script -- TES, TRANSP and TokaMaker -- are not the only
+others `vaft.code` talks to: the generated
+[external-code reference](https://vest-tokamak.github.io/vaft/develop/reference/external-codes/)
+lists every integration, NICE, FLARE, PENTRC and the TGLF surrogates included. That is a deliberate stop, not an omission, so this section says
 what VAFT actually does for each and what you would have to supply yourself. The
 last entry, the `vaft-nn` model registry, is not a code at all but is configured
 the same way.
