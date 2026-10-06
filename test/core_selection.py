@@ -217,6 +217,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
+    "test_diagram_reduced_stability.py",
     "test_diagram_research_concepts.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
@@ -261,13 +262,14 @@ CORE_MODULES: tuple[str, ...] = (
     "test_transport_state.py",
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
     # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
-    # only), the plasma-current Rogowski verdict and the TF excursion repair on
-    # synthetic records.
+    # only), the plasma-current Rogowski verdict, the TF excursion repair and
+    # the shot-class pickup refusal (#1733) on synthetic records.
     "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_flux_loop_known_faults.py",
     "test_plasma_current_quality.py",
+    "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
@@ -280,6 +282,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
+    # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
+    # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
+    "test_formula_reduced_stability.py",
     # Credibility and applicability (lane AP, #1639): the six-axis taxonomy and
     # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
     # import checks that keep both off the default processing path. Under 10 s.

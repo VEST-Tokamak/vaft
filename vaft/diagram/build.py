@@ -41,6 +41,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     },
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon")},
+    # reduced stability diagnostics (#1635)
+    **{f"{name}.svg": (name, {}) for name in ("stability_diagnostic_taxonomy", "interchange_criteria")},
     **{f"li_qa_{r}.svg": ("li_qa", {"reference": r}) for r in ("wesson_1989", "cheng_1987")},
     # single-particle motion
     **{f"{name}.svg": (name, {}) for name in ("exb_drift", "curvature_drift", "magnetization_current",
@@ -188,6 +190,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "scientific_workflow.svg": ("scientific_workflow", {}),
     "interoperability_layers.svg": ("interoperability_layers", {}),
     "scientific_provenance_chain.svg": ("scientific_provenance_chain", {}),
+    "plasma_state_provenance.svg": ("plasma_state_provenance", {}),
     "scientific_infrastructure_principles.svg": ("scientific_infrastructure_principles", {}),
     "machine_agnostic_architecture.svg": ("machine_agnostic_architecture", {}),
     "experiment_modeling_theory_data_network.svg": ("experiment_modeling_theory_data_network", {}),
