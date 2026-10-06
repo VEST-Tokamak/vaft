@@ -8,6 +8,7 @@ from .formula_wrapper import *
 from .update import *
 from .sample import *
 from .startup_summary import NULL_FIELD_THRESHOLD_T, startup_summary
+from .edge_q import EdgeQEstimate, edge_q_estimate
 from .equilibrium_state import EQUILIBRIUM_STATE_UNITS, equilibrium_state_rows, equilibrium_state_table
 from .fluctuation import (
     DiagnosticSelection,
@@ -303,6 +304,8 @@ __all__ = [
     *_sample.__all__,
     "NULL_FIELD_THRESHOLD_T",
     "startup_summary",
+    "EdgeQEstimate",
+    "edge_q_estimate",
     "EQUILIBRIUM_STATE_UNITS",
     "equilibrium_state_rows",
     "equilibrium_state_table",

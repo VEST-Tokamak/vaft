@@ -51,5 +51,36 @@ no camera frame is copied. CES LOS and gas injection remain absent.
 The geometry additions are model/mapper records in the manifest when DD 3.41
 has no appropriate source leaf. Every such record cites its source key,
 processing and source hashes. NBI's `source_model_key: 0` is a configuration
-key, not a physical VEST shot. Canonical plot integration and the four-view
-atlas follow in the next PR for issue #1610.
+key, not a physical VEST shot.
+
+`machine_geometry_view(data, view, families=..., manifest=...)` builds existing
+`GeometryLayers`/`Geometry3DLayers` models for `rz`, `top`, `3d`, and `camera`
+from one registry. Camera needs `projection=camera_projection_for(39915)` or
+another explicitly calibrated `CameraProjection`. The family selection is
+shared by all four views; unsupported families raise and unavailable
+coordinates are omitted. Missing Z still permits a top view if R and phi are
+stored, while 3-D and camera require all three coordinates. An unknown phi
+allows stored R-Z vertices to be shown as points without drawing a chord.
+The composed public `machine_geometry_poloidal`, `machine_geometry_topview`,
+and `machine_geometry3d` plots accept the same `geometry_manifest=` and
+`geometry_families=` options, so the fixture's derived geometry and notice
+appear alongside their machine context. They may use `geometry_data=` when
+that geometry is supplied separately from the plotted machine IDS.
+
+For an ordinary VEST shot, the registry adds the derived Thomson laser port
+chord only when the IDS has a real source shot and at least two stored
+scattering locations with toroidal angles matching the VEST mapper. An
+unmapped or inconsistent Thomson IDS keeps only its stored coordinates. The
+shot identifies the channel data used for that check; the static port-map
+geometry has an unverified era and is not attributed to the discharge.
+When the cross-shot fixture's equilibrium comes from a different shot than
+its geometry reference, composed top and 3-D views omit that equilibrium.
+
+The canonical `plot_camera_visible_image(..., overlay="machine_geometry",
+geometry_data=fixture, geometry_manifest=manifest, geometry_families=(...))`
+uses this same projection over an actual camera frame and marks the image as
+cross-shot. Individual families can be named directly in `overlay`, for
+example `overlay=("thomson_scattering", "coils_non_axisymmetric")`, using
+the same registry. The notebook atlas instead plots the calibrated geometry against
+pixel axes without loading a large camera frame. Its four panels all carry
+the cross-shot notice and shot-39915 geometry reference.

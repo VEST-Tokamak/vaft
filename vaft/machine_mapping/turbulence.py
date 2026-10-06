@@ -325,6 +325,9 @@ def core_transport_from_tglf(
     )
 
     _set_time_array(ods, "core_transport.time", time_index, float(time))
-    ods["core_transport.ids_properties.homogeneous_time"] = 1
+    # An IDS the classical mapper (#1654) made heterogeneous stays so: every slice
+    # here also carries its own profiles_1d time, so 0 remains true.
+    if ods.get("core_transport.ids_properties.homogeneous_time", None) != 0:
+        ods["core_transport.ids_properties.homogeneous_time"] = 1
 
     return {"model": model, "written": written, "skipped": skipped}

@@ -128,3 +128,58 @@ def test_population_table_by_machine_still_highlights_vest():
                           "ip_change_per_tau": 0.01, "dwdt_fraction": 0.1, "rule_finite": True}])
     table = figures.population_table(db5, vest, grouping="machine", scope="all")
     assert list(table["population"]) == ["JET", figures.VEST_LABEL]
+
+
+def _population_with_verdict():
+    from vaft.data.public.schema import CONFINEMENT_COLUMNS
+
+    base = {c: np.nan for c in CONFINEMENT_COLUMNS}
+    rows = [{**base, "machine": "JET", "tau_e_th_s": 0.3, "i_p_A": 2e6, "p_loss_W": 5e6, "population": "JET"}]
+    for i, verdict in enumerate((True, False, np.nan, "False")):
+        rows.append({**base, "machine": "VEST", "tau_e_th_s": 1e-3 * (i + 1), "i_p_A": 1e5 * (i + 1),
+                     "p_loss_W": 2e5, "population": "VEST (ohmic, this work)", "thomson_consistent": verdict})
+    return pd.DataFrame(rows)
+
+
+def test_thomson_inconsistent_marks_only_vest_rows_with_a_false_verdict():
+    figures = _figures()
+    table = _population_with_verdict()
+    # True and NaN (no Thomson) are not marked; False and its CSV spelling are.
+    assert list(figures.thomson_inconsistent(table)) == [False, False, True, False, True]
+    assert not figures.thomson_inconsistent(table.drop(columns="thomson_consistent")).any()
+
+
+def test_rings_sit_on_the_vest_points_vaft_plot_draws():
+    from vaft.plot.population import confinement_population
+
+    figures = _figures()
+    table = _population_with_verdict()
+    fig, ax = matplotlib.pyplot.subplots()
+    confinement_population(table, x="i_p_A", y="tau_e_th_s", by="population",
+                           highlight="VEST (ohmic, this work)", ax=ax)
+    before = len(ax.collections)
+    figures.mark_thomson_inconsistent(ax, table, "i_p_A", "tau_e_th_s")
+    rings = ax.collections[-1].get_offsets()
+    assert len(ax.collections) == before + 1
+    # Every ring is centred on a point vaft.plot drew (it draws I_p in MA, not A).
+    drawn = np.vstack([c.get_offsets() for c in ax.collections[:-1]])
+    for ring in np.asarray(rings):
+        assert np.isclose(drawn, ring).all(axis=1).any()
+    assert ax.collections[-1].get_label() == f"{figures.THOMSON_RING_LABEL} (2)"
+    matplotlib.pyplot.close(fig)
+
+
+def test_slide_figures_use_the_slide_format():
+    figures = _figures()
+    table = _population_with_verdict()
+    before = dict(matplotlib.rcParams)
+    out = figures.slide_figures(table, figures.exponent_table(*_closures()))
+    assert set(out) == {"tau_population", "tau_predicted_vs_measured", "exponents"}
+    for fig in out.values():
+        width, height = fig.get_size_inches()
+        assert width == pytest.approx(11.0) and height <= 5.8 + 1e-9
+        matplotlib.pyplot.close(fig)
+    # The rc context is gone afterwards: nothing of the slide format leaks.
+    assert {k: v for k, v in matplotlib.rcParams.items() if before.get(k) != v} == {}
+    with pytest.raises(ValueError, match="presentation format"):
+        figures.slide_figures(table, figures.exponent_table(*_closures()), fmt=None)
