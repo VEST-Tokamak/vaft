@@ -16,6 +16,9 @@
 ``scientific_provenance_chain``
     traceable provenance from raw signal to analysis, with versioned inputs
     and configurations kept apart from quality metadata;
+``plasma_state_provenance``
+    the information layers of a plasma state: measured, reconstructed or
+    fitted, assumed or prior, and derived;
 ``scientific_infrastructure_principles``
     FAIR, W3C PROV and TRUST (common principles) beside three fusion-community
     requirements, each converging on VAFT, with references beneath each side;
@@ -460,6 +463,70 @@ def scientific_provenance_chain(*, labels: bool = True) -> Diagram:
                    model={"steps": tuple(k for k, _, _ in PROVENANCE), "edges": tuple(edges),
                           "records": {k: r for k, _, r in PROVENANCE}, "trace": ("analysis", "raw"),
                           "versioned": VERSIONED, "quality": QUALITY})
+
+
+#: the four information layers of a plasma state: (key, title, what it means, examples, box style)
+STATE_LAYERS: Tuple[Tuple[str, str, str, Tuple[str, ...], str], ...] = (
+    ("measured", "Measured", "a diagnostic recorded it",
+     ("$I_p$", "poloidal-field probes", "flux loops", "diamagnetic flux", "Thomson $T_e$, $n_e$",
+      "charge-exchange $T_i$, $v_\\phi$"), "concept source"),
+    ("reconstructed", "Reconstructed / fitted", "inferred from measurements through a model",
+     ("$\\psi(R,Z)$", "$p'(\\psi)$, $FF'(\\psi)$", "$T_e(\\rho)$, $n_e(\\rho)$", "$T_i(\\rho)$, $v_\\phi(\\rho)$"),
+     "concept box"),
+    ("assumed", "Assumed / prior", "chosen by the analyst, not measured",
+     ("profile model", "weights and uncertainties", "$Z_\\mathrm{eff}$", "boundary conditions"), "im conceptual"),
+    ("derived", "Derived", "computed from the layers above",
+     ("$\\kappa$, $\\delta$", "$q_{95}$", "$\\beta_p$, $\\beta_N$", "$\\ell_i$", "$p_e$, $p_i$, $p_\\mathrm{th}$",
+      "$\\nu^*$", "$\\rho^*$", "$a / L_T$"), "concept state"),
+)
+
+
+def _layer_text(title: str, meaning: str, examples: Sequence[str]) -> str:
+    return ("\\textbf{" + escape_latex(title) + "}\\\\{\\footnotesize\\itshape " + escape_latex(meaning)
+            + "}\\\\[2pt]{\\small " + " $\\cdot$ ".join(examples) + "}")
+
+
+def plasma_state_provenance(*, labels: bool = True) -> Diagram:
+    r"""Where each quantity of a plasma state comes from: measured, reconstructed, assumed or derived.
+
+    Measurements (plasma current, magnetic probes and loops, diamagnetic
+    flux, Thomson and charge-exchange profiles) enter a reconstruction or a
+    profile fit, which also takes assumptions the data cannot supply: the
+    profile model, the weights and uncertainties, the effective charge and
+    the boundary conditions; some assumptions (an effective charge in a
+    collisionality, $n_i = n_e$ in an ion pressure) enter only the derivation
+    itself. The fitted fields and profiles feed the derived
+    descriptors (shape, $q_{95}$, $\beta$, $\ell_i$, pressures, collisionality,
+    normalized gyroradius and gradient lengths). A derived number inherits
+    every assumption made upstream of it, so it is never itself a measurement.
+    """
+    labels = _check_labels(labels)
+    items: List = []
+    edges: List = []
+    w, h, step, side = 6.8, 2.3, 3.4, 7.9
+    positions = {"measured": (0.0, 0.0), "reconstructed": (0.0, -step), "assumed": (side, -step),
+                 "derived": (0.0, -2 * step)}
+    boxes: Dict[str, Box] = {}
+    for key, title, meaning, examples, style in STATE_LAYERS:
+        x, y = positions[key]
+        b = box(x, y, w, h, _layer_text(title, meaning, examples), style=style, role=f"layer:{key}", latex=True)
+        boxes[key] = b
+        items += list(b.items)
+    _down_or_up(items, edges, boxes["measured"], boxes["reconstructed"], "measured", "reconstructed")
+    _edge(items, edges, boxes["assumed"], boxes["reconstructed"], "assumed", "reconstructed")
+    _down_or_up(items, edges, boxes["reconstructed"], boxes["derived"], "reconstructed", "derived")
+    # some assumptions enter only the derivation: a chosen Z_eff in a collisionality, n_i = n_e in p_i
+    _edge(items, edges, boxes["assumed"], boxes["derived"], "assumed", "derived", style="connector feedback")
+    if labels:
+        items.append(Label((0.15, -0.5 * step), "fit or reconstruction", "concept annotation", anchor="west",
+                           role="note"))
+        items.append(Label((-0.15, -1.5 * step), "definitions and formulas", "concept annotation", anchor="east",
+                           role="note"))
+        items.append(Label((0.5 * side, -2 * step - 0.5 * h - 0.3), "A derived number inherits every assumption "
+                           "upstream of it: it is never itself a measurement", "note", anchor="north", role="note"))
+    return Diagram("plasma_state_provenance", Scene(tuple(items)),
+                   model={"layers": tuple(k for k, *_ in STATE_LAYERS), "edges": tuple(edges),
+                          "examples": {k: e for k, _, _, e, _ in STATE_LAYERS}})
 
 
 #: common principles for modern scientific infrastructure: (key, title, subtitle, content)
