@@ -707,9 +707,9 @@ def test_the_pair_treats_all_nan_cylinder_columns_as_absent_and_draws_a_cylinder
 def test_a_source_end_note_marks_the_registered_end_and_only_inside_the_axes():
     t = pd.DataFrame({"edge_safety_factor": [4.0, 6.0], "internal_inductance_li3": [0.6, 0.8]})
     _, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0, 8), y_range=(0, 2))
-    assert not [t_ for t_ in ax.texts if "ends at" in t_.get_text()]   # the axes stop before q_psi = 10
+    assert not [t_ for t_ in ax.texts if "Fig. 6 ends" in t_.get_text()]   # the axes stop before q_psi = 10
     _, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0, 14), y_range=(0, 2))
-    notes = [t_ for t_ in ax.texts if "ends at" in t_.get_text()]
+    notes = [t_ for t_ in ax.texts if "Fig. 6 ends" in t_.get_text()]
     assert len(notes) == 1 and notes[0].get_text().endswith("= 10") and notes[0].xy[0] == pytest.approx(10.0)
 
 

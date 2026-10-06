@@ -66,10 +66,11 @@ REGIONS = {
 }
 #: Where a source figure ends: annotated at the registered end of the boundary's x range (its
 #: ``Applicability.ranges``), and only when that end is inside the axes, so that the end of a literature
-#: reference is not read as a limit and the data beyond it stay on the plot (#1603). ``{end}`` is that end.
+#: reference is not read as a limit and the data beyond it stay on the plot (#1603). ``{end}`` is that end;
+#: the side ("right" of the end point, or "above" it) keeps the note clear of the curve's along-line label.
 SOURCE_ENDS = {
-    "wesson_1989_jet_li_qpsi_upper": "JET Fig. 6 ends at $q_\\psi$ = {end}",
-    "cheng_1987_li_qa_upper": "Fig. 4 ends at $q(a)$ = {end}: no upper-$q$ limit implied",
+    "wesson_1989_jet_li_qpsi_upper": ("JET Fig. 6 ends\nat $q_\\psi$ = {end}", "right"),
+    "cheng_1987_li_qa_upper": ("Fig. 4 ends at $q(a)$ = {end}:\nno upper-$q$ limit implied", "above"),
 }
 #: Fill of a theoretical permissible domain (REGIONS), shared by the plot and its legend patch.
 REGION_FILL = ("#1baf7a", 0.16)
@@ -85,7 +86,8 @@ def _is_spherical(machine_class: Optional[str]) -> bool:
 
 
 #: Shorter names written along a line in the inline style, where the legend's full name would not fit the curve.
-ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)"}
+ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)", "cheng_1987_li_qa_upper": "Resistive kink",
+                    "cheng_1987_li_qa_lower": "Ideal external kink"}
 #: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
 BOUNDARY_NAMES = {
     "freidberg_2008_kink_qstar": "External kink limit",
@@ -598,7 +600,7 @@ def li_qa_pair(table: pd.DataFrame, *, x_range: Optional[Tuple[float, float]] = 
         Population, columns named by quantity identity.
     x_range, y_range : (float, float), optional
         Limits of the Wesson panel. By default each panel spans its reference
-        (Wesson: q_psi 0-18, l_i 0-2; CFB: q(a) 1-9, l_i 0.2-2.6) widened to
+        (Wesson: q_psi 0-18, l_i 0-2; CFB: q(a) 1-9, l_i 0.2-2.9) widened to
         every finite data point, so the data are never cut to a reference.
     format, theme : str, optional
         Presentation format and theme of :mod:`vaft.plot.presentation`.
@@ -621,12 +623,12 @@ def li_qa_pair(table: pd.DataFrame, *, x_range: Optional[Tuple[float, float]] = 
     pres = resolve_presentation(format or DEFAULT_FORMAT, theme)
     with pres.context():
         width = pres.format.width_in
-        fig, axs = plt.subplots(1, 2, figsize=(width, min(0.45 * width, pres.format.max_height_in)))
+        fig, axs = plt.subplots(1, 2, figsize=(width, min(0.6 * width, pres.format.max_height_in)))
         panels = (("li_qa_wesson", ("edge_safety_factor", "internal_inductance_li3"), (0.0, 18.0), (0.0, 2.0),
-                   "Empirical: Wesson 1989 (JET)", "no $q_\\psi$, $l_i(3)$ for these states: reference only"),
+                   "Wesson 1989 (JET, empirical)", "no $q_\\psi$, $l_i(3)$ for these states:\nreference only"),
                   ("li_qa_cheng", ("cylinder_edge_safety_factor", "internal_inductance_cylinder"), (1.0, 9.0),
-                   (0.2, 2.6), "Theoretical: Cheng, Furth and Boozer 1987",
-                   "no cylinder $q(a)$, $l_i$ for these states: reference only"))
+                   (0.2, 2.9), "Cheng-Furth-Boozer 1987 (theory)",
+                   "no cylinder $q(a)$, $l_i$\nfor these states: reference only"))
         for ax, (proj, cols, x_ref, y_ref, title, empty_note) in zip(axs, panels):
             values = [pd.to_numeric(table[c], errors="coerce") if c in table.columns else None for c in cols]
             finite = (values[0].notna() & values[1].notna()
@@ -651,7 +653,7 @@ def li_qa_pair(table: pd.DataFrame, *, x_range: Optional[Tuple[float, float]] = 
             if legend is not None:
                 handles, labels = legend.legend_handles, [t.get_text() for t in legend.get_texts()]
                 ax.legend(handles, labels, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.16),
-                          fontsize="x-small", ncol=1)
+                          fontsize="xx-small", ncol=1)
         fig.tight_layout(pad=pres.pad if pres.pad is not None else 1.08)
         if show:
             plt.show()
@@ -939,7 +941,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     ax.set_ylim(ylim)
     if inline:
         for curve in plan.curves:
-            note = SOURCE_ENDS.get(curve.key)
+            note, side = SOURCE_ENDS.get(curve.key, (None, None))
             ok = np.isfinite(curve.x) & np.isfinite(curve.y)
             entry = _b.get_boundary(curve.key)
             ranges = dict(entry.applicability.ranges) if entry.applicability is not None else {}
@@ -957,8 +959,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             y_end = float(np.interp(x_end, cx, cy))
             note = note.format(end=f"{x_end:g}")
             if y0 <= y_end <= y1:
-                # below the end point and to its left: inside the axes, clear of the title above
-                ax.annotate(note, xy=(x_end, y_end), xytext=(-2, -10), textcoords="offset points", ha="right", va="top",
+                offset, ha, va = ((4, 0), "left", "center") if side == "right" else ((-2, 4), "right", "bottom")
+                ax.annotate(note, xy=(x_end, y_end), xytext=offset, textcoords="offset points", ha=ha, va=va,
                             fontsize="x-small", style="italic", color="0.35", zorder=4, annotation_clip=True)
     if inline and plan.curves:
         for i, curve in enumerate(plan.curves):
