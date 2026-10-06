@@ -1205,24 +1205,26 @@ def _topview_reads() -> tuple[str, ...]:
         else:
             reads += [f"{container}.{{i}}.position.r", f"{container}.{{i}}.position.phi"]
     # The shared machine-space registry reads these IDS paths for all views.
-    for container in ("thomson_scattering.channel", "charge_exchange.channel", "langmuir_probes.embedded"):
-        for suffix in ("position", "position.0"):
-            for coordinate in ("r", "z", "phi"):
-                reads += [f"{container}.{{i}}.{suffix}.{coordinate}",
-                          f"{container}.{{i}}.{suffix}.{coordinate}.data"]
+    # Each family is declared in its DD shape: charge exchange stores time
+    # traces, the others static coordinates; only interferometer reflects.
+    for container, leaf in (("thomson_scattering.channel", ""), ("charge_exchange.channel", ".data"),
+                            ("langmuir_probes.embedded", "")):
+        reads += [f"{container}.{{i}}.position.{coordinate}{leaf}" for coordinate in ("r", "z", "phi")]
         reads.append(f"{container}.{{i}}.name")
-    for container in ("interferometer.channel", "soft_x_rays.channel"):
-        for endpoint in ("first_point", "second_point", "third_point"):
+    for container, endpoints in (("interferometer.channel", ("first_point", "second_point", "third_point")),
+                                 ("soft_x_rays.channel", ("first_point", "second_point"))):
+        for endpoint in endpoints:
             for coordinate in ("r", "z", "phi"):
                 reads.append(f"{container}.{{i}}.line_of_sight.{endpoint}.{coordinate}")
         reads += [f"{container}.{{i}}.name", f"{container}.{{i}}.identifier"]
     for coordinate in ("r", "z", "phi"):
         reads += [f"ec_launchers.beam.{{i}}.launching_position.{coordinate}",
-                  f"ec_launchers.beam.{{i}}.launching_position.{coordinate}.data",
                   f"nbi.unit.{{i}}.beamlets_group.{{j}}.position.{coordinate}"]
     reads += ["ec_launchers.beam.{i}.steering_angle_pol", "ec_launchers.beam.{i}.steering_angle_tor",
               "ec_launchers.beam.{i}.name", "nbi.unit.{i}.name",
-              "dataset_description.data_entry.machine", "dataset_description.data_entry.pulse"]
+              "dataset_description.data_entry.machine", "dataset_description.data_entry.pulse",
+              # _exclude_crossshot_equilibrium recognises the composite fixture by its comment.
+              "dataset_description.ids_properties.comment"]
     return tuple(dict.fromkeys(reads))
 
 
