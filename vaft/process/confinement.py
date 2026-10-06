@@ -1182,10 +1182,12 @@ def fit_confinement_scaling_odr(
     4. The exact predictors' slopes and the intercept by least squares of
        $y - \\sum_{j\\in\\mathrm{noisy}} b_j x_j$ on them.
     5. With per-row response errors steps 2-4 have no closed form: the same
-       linear model is solved by weighted orthogonal distance regression
-       (``scipy.odr``), the exact predictors held fixed, starting from the
-       least-squares solution. For a constant per-row error it reproduces
-       steps 2-4.
+       linear model is solved as weighted orthogonal distance regression: the
+       maximum-likelihood criterion of a linear model with independent Gaussian
+       errors, $\\sum_i (y_i - \\beta\\cdot x_i)^2 / (\\sigma_{y,i}^2 +
+       \\sum_j \\beta_j^2\\sigma_{x,j}^2)$, minimised from the least-squares
+       start (exact predictors carry $\\sigma = 0$). For a constant per-row
+       error it reproduces steps 2-4.
 
     Applicability
     -------------
@@ -1240,17 +1242,19 @@ def fit_confinement_scaling_odr(
         raise ValueError("no predictor has an error: use fit_confinement_scaling")
     ols, *_ = np.linalg.lstsq(x, log_y, rcond=None)
     if per_row:
-        from scipy import odr
+        from scipy.optimize import least_squares
 
-        def linear(beta, xx):
-            return beta[0] + beta[1:] @ np.atleast_2d(xx)
+        # For a linear model with independent Gaussian errors the orthogonal-distance
+        # (maximum-likelihood) estimate minimises sum_i r_i^2 with the effective
+        # variance sigma_y,i^2 + sum_j b_j^2 sigma_x,j^2 (exact predictors: sigma 0).
+        def residuals(beta):
+            scale = np.sqrt(sy**2 + np.sum((beta[1:] * sx) ** 2))
+            return (log_y - x @ beta) / scale
 
-        sx_rows = np.tile(np.where(sx > 0, sx, 1.0)[:, None], (1, n))
-        fit = odr.ODR(odr.RealData(x[:, 1:].T, log_y, sx=sx_rows, sy=sy), odr.Model(linear), beta0=ols,
-                      ifixx=np.tile((sx > 0).astype(int)[:, None], (1, n)), maxit=1000).run()
-        if fit.info > 3 or not np.all(np.isfinite(fit.beta)):
-            raise ValueError(f"weighted ODR did not converge: {fit.stopreason}")
-        return {"names": ("log_C", *names), "coef": np.asarray(fit.beta, dtype=float), "n": n, "mask": keep,
+        fit = least_squares(residuals, ols, method="lm", xtol=1e-12, ftol=1e-12, max_nfev=20000)
+        if not fit.success or not np.all(np.isfinite(fit.x)):
+            raise ValueError(f"weighted ODR did not converge: {fit.message}")
+        return {"names": ("log_C", *names), "coef": np.asarray(fit.x, dtype=float), "n": n, "mask": keep,
                 "ols_coef": ols, "method": "weighted_odr"}
 
     base = np.column_stack([np.ones(n)] + [x[:, 1 + j] for j in exact])

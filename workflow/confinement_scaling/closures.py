@@ -245,12 +245,17 @@ def odr_scan(name, frame, n_boot):
 #: a lower and a central assumption: the spread is one part of the equation error
 #: of ln W, not all of it (#579, #548).
 SIGMA_LOG_INTRINSIC = (0.0, 0.10)
+#: Measurement error of ln P_OH in the model-spread ODR: the reference of the scan.
+SIGMA_LOG_P_REF = SIGMA_REF[0]
 
 
 def join_model_spread(frame: pd.DataFrame, spread: pd.DataFrame) -> pd.DataFrame:
     """Attach the #579 per-state EFIT model-form spread of W, matched by (shot, time) to 1e-4 s."""
     keep = ["shot", "w_mhd_J_admissible_sigma_log", "w_mhd_J_admissible_median", "admissible_bimodal",
             "w_mhd_J_viable_sigma_log", "w_mhd_J_viable_n"]
+    # The table is magnetics-lineage; another lineage's spread is not attached.
+    if "efit_lineage" in spread:
+        spread = spread.loc[spread["efit_lineage"] == "magnetics"]
     right = spread.assign(time_key=spread["time_efit_s"].round(4))[keep + ["time_key"]]
     out = frame.assign(time_key=frame["time_efit_s"].round(4)).merge(
         right, on=["shot", "time_key"], how="left", validate="many_to_one")
@@ -262,18 +267,21 @@ def join_model_spread(frame: pd.DataFrame, spread: pd.DataFrame) -> pd.DataFrame
 def odr_model_spread(name: str, frame: pd.DataFrame) -> list:
     """ODR of W on (I_p, B_T, P_OH) with the EFIT model-form spread as the per-row W error.
 
-    On the rows the #579 ensemble covers: a constant sigma_W = 0.2 (the closure
-    scan's reference) against per-row sigma_W = sqrt(sigma_EFIT^2 + sigma_int^2),
-    with and without the bimodal rows (two solution branches, one sigma is wrong
-    there), and with the tight 'viable' spread where it exists.
+    Per-row sigma_W = sqrt(sigma_EFIT^2 + sigma_int^2) on the rows the #579
+    ensemble covers, with and without the bimodal rows (two solution branches,
+    one sigma is wrong there), and with the tight 'viable' spread where it
+    exists; every case also reports the scan's constant sigma_W = 0.2 on the same
+    rows, so a difference is the weighting's and not a change of rows.
     """
     from vaft.process.confinement import fit_confinement_scaling_odr
 
-    errors = {"i_p": SIGMA_LOG_IB, "b_t": SIGMA_LOG_IB, "p_ohm": SIGMA_REF[0]}
-    covered = frame.loc[np.isfinite(frame["w_mhd_J_admissible_sigma_log"])]
+    errors = {"i_p": SIGMA_LOG_IB, "b_t": SIGMA_LOG_IB, "p_ohm": SIGMA_LOG_P_REF}
+    adm, via = frame["w_mhd_J_admissible_sigma_log"], frame["w_mhd_J_viable_sigma_log"]
+    covered = frame.loc[np.isfinite(adm) & (adm > 0)]
     unimodal = covered.loc[~covered["admissible_bimodal"].fillna(False).astype(bool)]
-    viable = frame.loc[np.isfinite(frame["w_mhd_J_viable_sigma_log"])]
-    cases = [("constant 0.2", unimodal, None, 0.0)]
+    # A spread of zero is a single member, not a measured error: dropped for every case.
+    viable = frame.loc[np.isfinite(via) & (via > 0)]
+    cases = []
     for intrinsic in SIGMA_LOG_INTRINSIC:
         cases += [(f"admissible, unimodal, +{intrinsic:g} intrinsic", unimodal, "w_mhd_J_admissible_sigma_log", intrinsic),
                   (f"admissible, all, +{intrinsic:g} intrinsic", covered, "w_mhd_J_admissible_sigma_log", intrinsic),
@@ -281,24 +289,24 @@ def odr_model_spread(name: str, frame: pd.DataFrame) -> list:
     rows = []
     for label, data, column, intrinsic in cases:
         row = {"data": name, "case": label, "rows": len(data), "shots": int(data["shot"].nunique())}
-        if column is None:
-            sigma = SIGMA_REF[1]
-        else:
-            sigma = np.sqrt(data[column].to_numpy(float) ** 2 + intrinsic**2)
-            row["sigma_w_median"] = float(np.median(sigma))
+        sigma = np.sqrt(data[column].to_numpy(float) ** 2 + intrinsic**2)
+        row["sigma_w_median"] = float(np.median(sigma))
         x = {"i_p": data["i_p_A"].to_numpy(float), "b_t": data["b_t_T"].to_numpy(float),
              "p_ohm": data["p_ohm_W"].to_numpy(float)}
+        w = data["w_th_J"].to_numpy(float)
         try:
-            out = fit_confinement_scaling_odr(data["w_th_J"].to_numpy(float), x, sigma_log_response=sigma,
-                                              sigma_log_predictors=errors)
+            out = fit_confinement_scaling_odr(w, x, sigma_log_response=sigma, sigma_log_predictors=errors)
+            # The scan's constant sigma_W on the SAME rows, so a difference is the weighting's.
+            const = fit_confinement_scaling_odr(w, x, sigma_log_response=SIGMA_REF[1], sigma_log_predictors=errors)
         except ValueError as exc:
             rows.append({**row, "error": str(exc)[:120]})
             continue
         coef = dict(zip(out["names"], out["coef"]))
+        ref = dict(zip(const["names"], const["coef"]))
         ols = dict(zip(out["names"], out["ols_coef"]))
         rows.append({**row, "n": out["n"], "method": out["method"],
                      "a_i_p": coef["i_p"], "a_b_t": coef["b_t"], "a_p": coef["p_ohm"] - 1.0,
-                     "ols_a_p": ols["p_ohm"] - 1.0})
+                     "a_p_constant_0p2_same_rows": ref["p_ohm"] - 1.0, "ols_a_p": ols["p_ohm"] - 1.0})
     return rows
 
 
