@@ -187,7 +187,7 @@ def _layers(relations) -> Dict[str, int]:
     return depth
 
 
-def _heights(order: Dict[int, List[str]], incoming: Dict[str, Relation]) -> Dict[str, float]:
+def _heights(order: Dict[int, List[str]], incoming: Dict[str, List[Relation]]) -> Dict[str, float]:
     """Vertical positions: each source's targets a contiguous block, each source level with its block.
 
     The first target layer is stacked about zero; deeper layers centre each
@@ -204,7 +204,7 @@ def _heights(order: Dict[int, List[str]], incoming: Dict[str, Relation]) -> Dict
             continue
         def parent(key):
             # the deepest placed source; a layer-0 input is not placed yet and is centred on its targets later
-            placed = [src for src in incoming[key].sources if src in ys]
+            placed = [src for rel in incoming[key] for src in rel.sources if src in ys]
             return placed[-1] if placed else None
 
         groups: List[List[str]] = []
@@ -225,7 +225,7 @@ def _heights(order: Dict[int, List[str]], incoming: Dict[str, Relation]) -> Dict
             floor = ys[group[-1]]
     floor = None
     for key in order[layers[0]]:
-        children = [t for t, rel in incoming.items() if key in rel.sources and t in ys]
+        children = [t for t, rels in incoming.items() if any(key in rel.sources for rel in rels) and t in ys]
         y = sum(ys[c] for c in children) / len(children) if children else 0.0
         if floor is not None:
             y = min(y, floor - _DY)
@@ -263,7 +263,9 @@ def reduction_graph(family: str = "current_q", *, labels: bool = True) -> Diagra
         appearance = {key: i for i, key in enumerate(order[layer])}
         order[layer] = sorted(order[layer], key=lambda k: (barycentre(k), appearance[k]))
         rank.update({key: i for i, key in enumerate(order[layer])})
-    incoming = {rel.target: rel for rel in relations}
+    incoming: Dict[str, List[Relation]] = {}
+    for rel in relations:
+        incoming.setdefault(rel.target, []).append(rel)
     ys = _heights(order, incoming)
     tallest = max(len(v) for v in order.values())
     nodes = {}
@@ -275,7 +277,8 @@ def reduction_graph(family: str = "current_q", *, labels: bool = True) -> Diagra
             sub = word + (", dimensionless" if q.dimensionless else "")
             text = f"{q.symbol}\\\\ {{\\small {sub}}}"
             if key in incoming and labels:
-                text += f"\\\\ {{\\small\\itshape\\hyphenpenalty=10000 via {relation_kind(incoming[key]).replace('_', ' ')}}}"
+                kinds = " / ".join(dict.fromkeys(relation_kind(rel).replace("_", " ") for rel in incoming[key]))
+                text += f"\\\\ {{\\small\\itshape\\hyphenpenalty=10000 via {kinds}}}"
             nodes[key] = box(layer * _DX, ys[key], _W, _H, text, style=style, role=f"node:{key}", latex=True)
             items += list(nodes[key].items)
     # Orthogonal edges: every edge leaves its source at the midpoint of the right side -- one shared start

@@ -190,8 +190,10 @@ class Relation:
 #: quantity key -> Quantity, shared by every family
 QUANTITIES = {
     "j_phi": Quantity("$j_\\phi(\\rho)$", "profile_1d"),
+    "psi": Quantity("$\\psi(R, Z)$", "field_2d"),
+    "j_phi_field": Quantity("$j_\\phi(R, Z)$", "field_2d"),
     "I_p": Quantity("$I_p$", "scalar_0d"),
-    "B_theta": Quantity("$B_\\theta(r)$", "profile_1d"),
+    "B_theta": Quantity("$B_\\theta(r)$: cylindrical $B_p$", "profile_1d"),
     "B_p_field": Quantity("$B_p(R, Z)$", "field_2d"),
     "l_i": Quantity("$l_i$", "scalar_0d", True),
     "q": Quantity("$q(\\rho)$", "profile_1d", True),
@@ -227,11 +229,13 @@ QUANTITIES = {
 #: family -> its relations, in reading order
 REDUCTION_FAMILIES = {
     "current_q": (
-        Relation(("j_phi",), "I_enc", kind="integral", note="enclosed-current integral; equilibrium process"),
-        Relation(("I_enc",), "I_p", kind="feature_extraction", note="the boundary value"),
-        Relation(("I_enc",), "B_theta", "geometry.cylindrical_poloidal_field"),
-        Relation(("B_theta",), "q", "geometry.cylindrical_safety_factor_from_r_B"),
+        Relation(("psi",), "B_p_field", kind="differential", note="$B_p = |\\nabla\\psi|/R$"),
+        Relation(("psi",), "j_phi_field", kind="differential", note="Ampere: $\\Delta^*\\psi = -\\mu_0Rj_\\phi$"),
         Relation(("B_p_field",), "l_i", "virial.virial_li_from_volume"),
+        Relation(("B_p_field",), "B_theta", kind="weighted_average", note="the same field, flux-surface averaged"),
+        Relation(("j_phi_field",), "I_enc", kind="integral", note="enclosed current; equilibrium process"),
+        Relation(("B_theta",), "q", "geometry.cylindrical_safety_factor_from_r_B"),
+        Relation(("I_enc",), "I_p", kind="feature_extraction", note="the boundary value"),
         Relation(("q",), "s_hat", "equilibrium.shear_from_r_q"),
         Relation(("q",), "q_features", kind="feature_extraction", note="axis, minimum, $\\psi_N = 0.95$, $q = m/n$"),
         Relation(("q",), "r_mix", "stability.kadomtsev_mixing_radius"),

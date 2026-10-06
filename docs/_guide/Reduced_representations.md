@@ -66,6 +66,10 @@ elsewhere, such as a flux-surface average or a profile feature, and states its o
 
 ### Current and $q$
 
+Both $B_p$ and $j_\phi$ derive from the poloidal flux. $B_p = |\nabla\psi|/R$, and Ampère's law in
+Grad–Shafranov form is $\Delta^*\psi = -\mu_0Rj_\phi$. $B_\theta(r)$ is the same poloidal field,
+flux-surface averaged into the cylindrical profile that $q$ is computed from.
+
 ![current and q]({{ '/assets/diagrams/reduction_graph_current_q.svg' | relative_url }})
 
 ### Pressure and energy
