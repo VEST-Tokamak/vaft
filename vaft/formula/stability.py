@@ -49,6 +49,8 @@ __all__ = [
     "collisionality_from_n_T_B_R",
     "delta_prime_from_outer_derivatives",
     "empirical_li_qa",
+    "ggj_pressure_curvature_offset",
+    "ggj_resistive_parameter",
     "greenwald_density",
     "greenwald_fraction",
     "helical_harmonic",
@@ -2305,3 +2307,85 @@ def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):
     if np.ndim(s) == 0:
         return float(first[0]), float(second[0])
     return first, second
+
+
+def ggj_resistive_parameter(di, h):
+    r"""Glasser-Greene-Johnson resistive-interchange parameter $D_R$ from $D_I$ and $H$.
+
+    $$D_R = D_I + \left(H - \tfrac{1}{2}\right)^{2}$$
+
+    Parameters
+    ----------
+    di : float or np.ndarray
+        Mercier (ideal-interchange) criterion $D_I$ on a flux surface [-].
+    h : float or np.ndarray
+        GGJ pressure-curvature parameter $H$ on the same surface [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Resistive-interchange parameter $D_R$ [-].
+
+    Convention
+    ----------
+    GGJ's signs, as RDCON and DCON write them: $D_I > 0$ is Mercier
+    unstable and $D_R > 0$ is resistive-interchange unstable. With
+    $D_I = E + F + H - 1/4$ and $D_R = E + F + H^{2}$, the identity follows
+    for any $E$, $F$. $D_R$ is a local criterion: it is not a
+    Rutherford-equation $\Delta'$ contribution, and $D_R > 0$ or $< 0$ with
+    any sign of $\Delta'$ is not a tearing verdict, which needs an inner-layer
+    solution.
+
+    Physical interpretation
+    -----------------------
+    Favourable average curvature ($D_R < 0$) stabilises resistive modes at the
+    rational surface; the pressure-curvature offset $(H - 1/2)^{2} \ge 0$ is
+    why $D_R \ge D_I$, so a surface can be Mercier stable yet resistively
+    unstable but never the reverse.
+
+    Assumptions
+    -----------
+    $D_I$ and $H$ from the same equilibrium, on the same surface.
+
+    References
+    ----------
+    .. [1] A. H. Glasser, J. M. Greene and J. L. Johnson, "Resistive
+           instabilities in general toroidal plasma configurations",
+           Phys. Fluids 18, 875 (1975).
+    .. [2] A. H. Glasser, Z. R. Wang and J.-K. Park, "Computation of resistive
+           instabilities by matched asymptotic expansions", Phys. Plasmas 23,
+           112506 (2016).
+    """
+    return np.asarray(di, dtype=float) + ggj_pressure_curvature_offset(h)
+
+
+def ggj_pressure_curvature_offset(h):
+    r"""The GGJ offset $D_R - D_I = (H - 1/2)^{2}$.
+
+    $$D_R - D_I = \left(H - \tfrac{1}{2}\right)^{2}$$
+
+    Parameters
+    ----------
+    h : float or np.ndarray
+        GGJ pressure-curvature parameter $H$ [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Non-negative offset of $D_R$ above $D_I$ [-].
+
+    Convention
+    ----------
+    The same GGJ definitions as ``ggj_resistive_parameter``.
+
+    Physical interpretation
+    -----------------------
+    It vanishes at $H = 1/2$, where the resistive and ideal interchange
+    criteria coincide.
+
+    References
+    ----------
+    .. [1] A. H. Glasser, J. M. Greene and J. L. Johnson, Phys. Fluids 18,
+           875 (1975).
+    """
+    return (np.asarray(h, dtype=float) - 0.5) ** 2

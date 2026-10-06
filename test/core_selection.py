@@ -241,6 +241,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_gpec_dcon_edge_reference.py",
     "test_gpec_rdcon_criteria.py",
     "test_mhd_linear_dcon_payload.py",
+    "test_rdcon_ods_closure.py",
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
     "test_stability_rdcon_stride_benchmark.py",
