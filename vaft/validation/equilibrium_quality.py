@@ -493,8 +493,42 @@ def select_representative_cases(table) -> list[dict[str, Any]]:
     return out
 
 
+#: The confinement selection's rule columns, in the order it applies them
+#: (``vaft.process.confinement.confinement_slice_decision``).
+CONFINEMENT_RULES = ("finite", "ip_min", "dwdt_fraction", "ip_change_per_tau")
+
+
+def equilibrium_quality_confinement_funnel(confinement_table, *, quality_column: str = "efit_quality",
+                                           rules: Sequence[str] = CONFINEMENT_RULES) -> dict[str, Any]:
+    """Equilibrium quality × confinement acceptance (#1644 §9), per quality cohort.
+
+    ``confinement_table`` is the confinement study's table (``rule_<name>``
+    pass columns, ``accepted``, and the EFIT quality label of each row).  Per
+    cohort: candidates, selected, rejected, and the sequential removal by each
+    downstream rule, from :func:`vaft.process.confinement.confinement_exclusion_table`
+    -- the confinement module's own count, not a re-derivation.  Confinement
+    stationarity stays a downstream rule; it never enters equilibrium quality.
+    """
+    from vaft.process.confinement import confinement_exclusion_table
+
+    def flags(series):
+        return series.map(lambda v: str(v).strip().lower() in ("true", "1", "1.0")).to_numpy(bool)
+
+    out: dict[str, Any] = {"rules": list(rules), "cohorts": {}}
+    labels = confinement_table[quality_column].astype(object).where(confinement_table[quality_column].notna(), "unknown")
+    for cohort in [c for c in COHORTS if c in set(labels)] + sorted(set(labels) - set(COHORTS)):
+        group = confinement_table[labels == cohort]
+        decision = {rule: flags(group[f"rule_{rule}"]) for rule in rules if f"rule_{rule}" in group}
+        accepted = flags(group["accepted"]) if "accepted" in group else np.logical_and.reduce(list(decision.values()))
+        out["cohorts"][str(cohort)] = {
+            "candidates": int(len(group)), "selected": int(accepted.sum()), "rejected": int(len(group) - accepted.sum()),
+            "exclusions": confinement_exclusion_table(decision) if decision else [],
+        }
+    return out
+
+
 __all__: Sequence[str] = (
-    "ADMISSIBILITY_RULES", "COHORTS", "CRITERIA_PATH", "CROSSWALK", "MEASUREMENT_RULES", "RULE_COLUMNS",
-    "FIT_QUALITY_RULES", "REPRESENTATIVE_CASES", "ROUTINE_SETTING", "TYPICALITY_METRICS", "STATUSES", "efit_evidence_columns", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
+    "ADMISSIBILITY_RULES", "COHORTS", "CONFINEMENT_RULES", "CRITERIA_PATH", "CROSSWALK", "MEASUREMENT_RULES", "RULE_COLUMNS",
+    "FIT_QUALITY_RULES", "REPRESENTATIVE_CASES", "ROUTINE_SETTING", "TYPICALITY_METRICS", "STATUSES", "efit_evidence_columns", "equilibrium_quality_confinement_funnel", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
     "equilibrium_quality_summary", "equilibrium_quality_table", "load_study_criteria", "select_representative_cases", "slice_cohorts",
 )
