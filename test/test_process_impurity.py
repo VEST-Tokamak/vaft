@@ -542,3 +542,133 @@ def test_surface_profiles_refuse_a_foreign_grid_or_surface(transport_profile):
         surface_composition_profile(p, radial, 0.5)
     with pytest.raises(ValueError, match="r_over_a"):
         surface_composition_profile(p, resolve_impurity_composition(machine_preset="vest"), 1.2)
+
+
+# --- a bundled (radial-charge) product read back (cold review 0.8.0 delta-absorb-16 F2) --------
+
+
+def _synthetic_tables():
+    import sys
+
+    sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
+    from _adf11_synthetic import synthetic_adf11_tables
+
+    return synthetic_adf11_tables()
+
+
+def _real_adf11_tables():
+    """The OPEN-ADAS C/O 96 tables from the local cache; skipped when absent (nothing is downloaded)."""
+    cache = __import__("pathlib").Path.home() / "Library/Caches/vaft/open_adas/adf11"
+    tables = {s: (cache / f"acd96_{s.lower()}.dat", cache / f"scd96_{s.lower()}.dat") for s in ("C", "O")}
+    if not all(p.is_file() for pair in tables.values() for p in pair):
+        pytest.skip("the real ADF11 tables are not in the local OPEN-ADAS cache")
+    return {k: tuple(str(p) for p in v) for k, v in tables.items()}
+
+
+def _tables(which):
+    return _synthetic_tables() if which == "synthetic" else _real_adf11_tables()
+
+
+def _radial_product(sample, tables):
+    """The package's own radial writer product on the 48224 slice: bundled C and O ions."""
+    from vaft.ods_access import path_value
+    from vaft.process.impurity import populate_radial_impurity_profiles, resolve_radial_composition
+
+    base = "core_profiles.profiles_1d.0"
+    rho = np.asarray(sample[f"{base}.grid.rho_tor_norm"], dtype=float)
+    te = np.asarray(sample[f"{base}.electrons.temperature"], dtype=float)
+    ne = path_value(sample, f"{base}.electrons.density_thermal")
+    ne = np.asarray(sample[f"{base}.electrons.density"] if ne is None else ne, dtype=float)
+    radial = resolve_radial_composition(te, ne, rho, {"C": 1, "O": 1}, tables=tables, time=0.3)
+    return populate_radial_impurity_profiles(sample, radial), radial, ne
+
+
+def _stored(out, path):
+    return np.asarray(out[f"core_profiles.profiles_1d.0.{path}"], dtype=float)
+
+
+@pytest.mark.parametrize("which", ["synthetic", "real_adf11"])
+def test_the_resolver_rereads_a_bundled_ion_with_its_radial_charge(sample_48224, which):
+    out, radial, ne = _radial_product(sample_48224, _tables(which))
+    again = resolve_impurity_composition(out, machine_preset="vest")
+    stored = _stored(out, "zeff")
+    with np.errstate(invalid="ignore", divide="ignore"):
+        # Z_eff = n_H/n_e + sum_k n_k <Z^2>_k / n_e from the stored fields themselves ...
+        direct = _stored(out, "ion.0.density") / ne + sum(
+            _stored(out, f"ion.{k}.density") * _stored(out, f"ion.{k}.z_ion_square_1d") / ne for k in (1, 2))
+        # ... and what reading the scalar z_ion as a fixed charge state gives instead
+        flattened = _stored(out, "ion.0.density") / ne + sum(
+            _stored(out, f"ion.{k}.density") * _stored(out, f"ion.{k}.z_ion") ** 2 / ne for k in (1, 2))
+    zeff = np.asarray(again.zeff)
+    finite = np.isfinite(zeff)
+    assert finite.sum() >= stored.size - 1          # the zero-density edge point stays undefined
+    assert np.nanmax(np.abs(flattened - stored)) > 0.1     # the defect this pins was O(1)
+    np.testing.assert_allclose(zeff[finite], direct[finite], atol=1e-6)
+    np.testing.assert_allclose(zeff[finite], stored[finite], atol=1e-6)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        main = _stored(out, "ion.0.density") / ne
+    np.testing.assert_allclose(np.asarray(again.main_ion_fraction)[finite], main[finite], atol=1e-9)
+    both = finite & np.isfinite(radial.S2)
+    np.testing.assert_allclose(np.asarray(again.S2)[both], radial.S2[both], atol=1e-9)
+    np.testing.assert_allclose(np.asarray(again.S1)[both], radial.S1[both], atol=1e-9)
+    assert again.kind == "derived" and "origin=derived" in again.source
+    np.testing.assert_array_equal(again.mean_charge[:, 0], _stored(out, "ion.1.z_ion_1d"))
+    np.testing.assert_array_equal(again.mean_square_charge[:, 1], _stored(out, "ion.2.z_ion_square_1d"))
+    assert again.provenance["charge_fields"] == {"ion.1": "z_ion_1d + z_ion_square_1d",
+                                                 "ion.2": "z_ion_1d + z_ion_square_1d"}
+    assert "bundled" in again.provenance["charge"]
+    assert again.species[0].charge_state == pytest.approx(float(out["core_profiles.profiles_1d.0.ion.1.z_ion"]))
+    __import__("json").dumps(again.as_record())
+
+
+def test_a_fixed_charge_ion_is_still_read_from_its_scalar_z_ion():
+    ods = _ods(ions=_lane_k_like(composition_record_text("derived", "x")))
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    assert r.mean_charge is None and r.mean_square_charge is None
+    assert r.provenance["charge_fields"] == {"ion.1": "z_ion"}
+    assert "charge" not in r.provenance
+    np.testing.assert_allclose(r.zeff, 2.0)
+    np.testing.assert_allclose(r.S2, 36.0)
+
+
+def test_a_bundled_ion_without_z_ion_square_1d_takes_its_states_then_the_square_of_the_mean():
+    ods = _ods(ions=(("H+", 1.0, 1.0, 1.008, 0.7, None), ("C", 6.0, 5.0, 12.011, 0.05, None)))
+    ion = "core_profiles.profiles_1d.0.ion.1"
+    mean = np.array([6.0, 5.5, 5.0, 4.5, 4.0])
+    ods[f"{ion}.z_ion_1d"] = mean
+    # the charge states behind that mean: half the ions one charge below, half one above
+    density = 0.05 * NE
+    for q, share in ((1, 0.5), (2, 0.5)):
+        ods[f"{ion}.state.{q - 1}.z_min"] = ods[f"{ion}.state.{q - 1}.z_max"] = float(q)
+    # states carry the mean +- 1 split, written per point: q-1 and q+1 around each mean
+    del ods[f"{ion}.state"]
+    for k, q in enumerate((3.0, 7.0)):
+        ods[f"{ion}.state.{k}.z_min"] = ods[f"{ion}.state.{k}.z_max"] = q
+    lower = (7.0 - mean) / 4.0                          # share at charge 3 so that <Z> = mean
+    ods[f"{ion}.state.0.density"] = density * lower
+    ods[f"{ion}.state.1.density"] = density * (1 - lower)
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    mean2 = 9.0 * lower + 49.0 * (1 - lower)
+    assert r.provenance["charge_fields"]["ion.1"] == "z_ion_1d + state[].density for <Z^2>"
+    np.testing.assert_allclose(r.mean_square_charge[:, 0], mean2)
+    np.testing.assert_allclose(r.zeff, (1 - 0.05 * mean) + 0.05 * mean2)
+    np.testing.assert_allclose(r.main_ion_fraction, 1 - 0.05 * mean)
+    del ods[f"{ion}.state"]
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    assert r.provenance["charge_fields"]["ion.1"].startswith("z_ion_1d + <Z^2> = <Z>^2")
+    np.testing.assert_allclose(r.zeff, (1 - 0.05 * mean) + 0.05 * mean**2)
+
+
+def test_a_bundled_ion_closed_at_a_measured_zeff_uses_its_radial_moments():
+    ods = _ods(ions=(("H+", 1.0, 1.0, 1.008, 0.7, None), ("C", 6.0, 5.0, 12.011, 0.05, None)),
+               zeff=1.8, zeff_record=composition_record_text("measured", "x"))
+    ion = "core_profiles.profiles_1d.0.ion.1"
+    mean = np.array([6.0, 5.5, 5.0, 4.5, 4.0])
+    ods[f"{ion}.z_ion_1d"] = mean
+    ods[f"{ion}.z_ion_square_1d"] = mean**2 + 1.0
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    assert r.kind == "derived" and "measured" in r.zeff_source
+    np.testing.assert_allclose(r.zeff, 1.8)
+    # closed point by point with S1 = <Z>, S2 = <Z^2>: f = (Z_eff - 1) / (<Z^2> - <Z>)
+    np.testing.assert_allclose(r.impurity_fractions[:, 0], 0.8 / (mean**2 + 1.0 - mean))
+    np.testing.assert_allclose(1.0 * r.main_ion_fraction + r.impurity_fractions[:, 0] * mean, 1.0)
