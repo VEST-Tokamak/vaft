@@ -298,7 +298,17 @@ def read_pr08_0d(path: str | os.PathLike[str]) -> pd.DataFrame:
 
     split = next((i for i, line in enumerate(lines) if is_value_line(line)), len(lines))
     names = [token for line in lines[:split] for token in fields(line) if token]
-    values = [token for line in lines[split:] for token in fields(line)]
+    # A file of several records repeats the names block before each one (T-10, TEXTOR,
+    # JT-60U, Tore Supra); read as values it became a row of names (#1736).
+    header = [line.strip() for line in lines[:split]]
+    body, i = [], split
+    while i < len(lines):
+        if header and [line.strip() for line in lines[i:i + len(header)]] == header:
+            i += len(header)
+            continue
+        body.append(lines[i])
+        i += 1
+    values = [token for line in body for token in fields(line)]
     if not names or len(values) % len(names):
         raise ValueError(f"{path}: {len(names)} names but {len(values)} values")
     records = [
