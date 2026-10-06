@@ -28,6 +28,9 @@ def test_arclength_and_saddle_constraints_use_physical_bounds(tmp_path, monkeypa
     assert result.ok
     names = [c[0] for c in calls]
     assert names.index('init_psi') < names.index('set_isoflux') < names.index('solve')
+    isoflux_call = calls[names.index('set_isoflux')]
+    assert isoflux_call[2]['weights'][:-1] == pytest.approx(np.ones(16))
+    assert isoflux_call[2]['weights'][-1] == pytest.approx(100.)
     assert calls[names.index('set_saddles')][1][0] == pytest.approx(np.array([[.3, -.2]]))
     assert calls[names.index('set_coil_bounds')][1][0] == {'PF1': (-1000., 1000.)}
     term = calls[names.index('coil_reg_term')]
@@ -73,6 +76,41 @@ def test_saddles_can_be_explicitly_disabled_for_limited_case():
     shifted = replace(eq, lcfs=None)
     with pytest.raises(ValueError, match='closed'):
         prepare_shape_refinement(shifted, {'PF1': 0.}, current_bounds={'PF1': (-1., 1.)})
+
+
+@pytest.mark.parametrize('verification_fails', [False, True])
+def test_frozen_verification_uses_same_native_state_and_preserves_refinement(
+        tmp_path, monkeypatch, verification_fails):
+    calls, _ = make_fake_oft(monkeypatch, solve_error='frozen failure' if verification_fails else None,
+                             solve_error_at=2)
+    cls = import_oft().TokaMaker
+    monkeypatch.setattr(cls, 'set_isoflux',
+                        lambda self, points, **kw: calls.append(('set_isoflux', points)), raising=False)
+    monkeypatch.setattr(cls, 'set_saddles',
+                        lambda self, points, **kw: calls.append(('set_saddles', points)), raising=False)
+    monkeypatch.setattr(cls, 'set_coil_bounds',
+                        lambda self, bounds: calls.append(('set_coil_bounds', bounds)), raising=False)
+    refine = prepare_shape_refinement(solovev_example(resolution=33),
+                                      {'PF1': -640., 'PF2': 320.},
+                                      current_bounds={'PF1': (-1000., 1000.),
+                                                      'PF2': (-1000., 1000.)}, x_points=[])
+    result = run_tokamaker(make_inputs(tmp_path), TokaMakerConfig(workdir=tmp_path),
+                           refinement=refine, verify_refinement=True)
+    names = [call[0] for call in calls]
+    assert result.ok and result.gfile.is_file()
+    assert names.index('save_eqdsk') < names.index('set_isoflux', names.index('solve')+1)
+    assert names.count('solve') == 2 and names.count('init') == 1
+    assert calls[names.index('set_isoflux', names.index('solve')+1)][1] is None
+    assert calls[names.index('set_saddles', names.index('solve')+1)][1] is None
+    assert result.verified_free is not None
+    assert result.verified_free.ok is not verification_fails
+    assert result.verified_free.scalars['shape_constraints_cleared'] is True
+    if verification_fails:
+        assert result.verified_free.gfile is None
+        assert 'frozen failure' in result.verified_free.error
+    else:
+        assert result.verified_free.gfile.is_file()
+        assert result.verified_free.scalars['coil_currents_A'] == {'PF1': -640., 'PF2': 320.}
 
 
 def test_every_saddle_shares_lcfs_flux_without_duplicate_constraints():

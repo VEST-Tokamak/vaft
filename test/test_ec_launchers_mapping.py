@@ -373,9 +373,9 @@ def test_machine_topview_draws_the_launcher_and_its_launch_direction(monkeypatch
     layers = {layer.label: layer for layer in _build_machine_topview(ods).layers}
 
     phi = np.deg2rad(210.0)
-    marker = layers["EC launcher 0"]
+    marker = layers["EC launch position (provisional CAD)"]
     np.testing.assert_allclose([marker.r[0], marker.z[0]], [0.8021 * np.cos(phi), 0.8021 * np.sin(phi)])
-    ray = layers["EC launch direction 0"]
+    ray = layers["EC launch axis (provisional CAD)"]
     # A radial launch heads straight at the machine axis.
     start = np.array([ray.r[0], ray.z[0]])
     end = np.array([ray.r[-1], ray.z[-1]])
@@ -393,16 +393,21 @@ def test_machine_topview_draws_the_launcher_and_its_launch_direction(monkeypatch
     ],
 )
 def test_topview_launch_ray_turns_toroidal_steering_the_imas_way(phi, angle_tor, expected):
-    from vaft.plot.backend.recipes import _EC_RAY_LENGTH, _ec_launch_ray_topview
+    from vaft.plot.machine_geometry import machine_geometry_registry, project_machine_geometry
 
     ods = ODS()
     ods["ec_launchers.beam.0.time"] = np.array([0.0])
     ods["ec_launchers.beam.0.steering_angle_pol"] = np.array([0.0])
     ods["ec_launchers.beam.0.steering_angle_tor"] = np.array([angle_tor])
+    ods["ec_launchers.beam.0.launching_position.r"] = np.array([0.8])
+    ods["ec_launchers.beam.0.launching_position.z"] = np.array([0.0])
+    ods["ec_launchers.beam.0.launching_position.phi"] = np.array([phi])
 
-    ray = _ec_launch_ray_topview(ods, 0, 0.8, phi)
+    axis, = (record for record in machine_geometry_registry(ods, families=("ec_launchers",))
+             if record.semantic == "directed_axis")
+    ray = project_machine_geometry(axis, "top", axis_length=0.25)
 
-    step = np.array([ray.r[-1] - ray.r[0], ray.z[-1] - ray.z[0]]) / _EC_RAY_LENGTH
+    step = np.array([ray.r[-1] - ray.r[0], ray.z[-1] - ray.z[0]]) / 0.25
     np.testing.assert_allclose(step, expected, atol=1e-12)
 
 
@@ -431,6 +436,19 @@ def test_topview_skips_a_launcher_whose_phi_is_never_finite(monkeypatch):
     )
 
     with pytest.raises(ValueError):  # nothing left to draw, not a launcher at 12 o'clock
+        _build_machine_topview(ods)
+
+
+def test_topview_declines_time_varying_launcher_without_time_selection():
+    from vaft.plot.backend.recipes import _build_machine_topview
+
+    ods = ODS(consistency_check=False)
+    ods["ec_launchers.beam.0.launching_position.r"] = [0.8, 0.8]
+    ods["ec_launchers.beam.0.launching_position.z"] = [0.0, 0.0]
+    ods["ec_launchers.beam.0.launching_position.phi"] = [0.0, 0.1]
+    ods["ec_launchers.beam.0.steering_angle_pol"] = [0.0, 0.0]
+    ods["ec_launchers.beam.0.steering_angle_tor"] = [0.0, 0.0]
+    with pytest.raises(ValueError, match="none of the top-view IDS"):
         _build_machine_topview(ods)
 
 
