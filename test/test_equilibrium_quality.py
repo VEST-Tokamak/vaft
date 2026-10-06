@@ -161,3 +161,14 @@ def test_product_evidence_goes_only_to_the_setting_that_made_the_product(tmp_pat
     evidence = module.ProductEvidence(tmp_path, "statistical_891")
     assert "another" not in evidence({"shot": 1, "time_s": 0.3, "setting": "statistical_891"})["evidence_status"]
     assert evidence({"shot": 1, "time_s": 0.3, "setting": "p1f1"})["evidence_status"].startswith("product is setting")
+
+
+def test_constraint_points_use_the_efit_quality_tables():
+    from vaft.omas.sample import sample_ods
+
+    points = eq.equilibrium_quality_constraint_points(sample_ods(), 0)
+    families = {p["family"] for p in points}
+    assert {"bpol_probe", "flux_loop"} <= families
+    assert all({"measured", "reconstructed", "z", "fitted", "state", "unit"} <= set(p) for p in points)
+    probe = [p for p in points if p["family"] == "bpol_probe"]
+    assert probe[0]["unit"] == "mT"
