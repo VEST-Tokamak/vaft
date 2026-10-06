@@ -384,8 +384,9 @@ def composition_from_model(model: Mapping[str, Any], *, source: Optional[str] = 
     Returns
     -------
     ImpurityComposition
-        The composition, with ``status`` ``"assumed"`` for an ``assumed``
-        preset (any other preset status is kept as ``derived``) [any].
+        The composition, with ``status`` ``"assumed"``, ``"measured"`` or
+        ``"derived"`` as the preset's own ``status`` (``inferred`` and any
+        other value map to ``derived``) [any].
 
     Raises
     ------
@@ -406,7 +407,9 @@ def composition_from_model(model: Mapping[str, Any], *, source: Optional[str] = 
         for item in model["species"]
     )
     provenance = dict(model.get("provenance") or {})
-    status = "assumed" if model.get("status") == "assumed" else "derived"
+    # measured stays measured, inferred is a derived kind (COMPOSITION_KINDS has no
+    # "inferred"), assumed stays assumed; anything else is derived
+    status = {"assumed": "assumed", "measured": "measured", "inferred": "derived"}.get(model.get("status"), "derived")
     return ImpurityComposition(
         species=species,
         target_zeff=model.get("target_zeff"),

@@ -745,3 +745,17 @@ def test_a_profile_valued_composition_is_paired_with_profile_rho_by_coordinate(t
         surface_composition_profile(p, dataclasses.replace(coarse, rho=None), 0.6)
     with pytest.raises(ValueError, match="does not overlap"):
         surface_composition_profile(p, profile_valued(np.linspace(1.0, 0.0, 50), coarse_rho + 2.0), 0.6)
+
+
+def test_a_preset_s_status_is_kept_not_demoted_to_derived():
+    """cold review 0.8.0 delta-absorb-16 F8: ``measured`` and ``inferred`` presets both became ``derived``."""
+    from vaft.process.impurity import composition_from_model
+
+    model = {"main_ion": "H", "target_zeff": 2.0, "reduction": "preserve_charge_z2_mass",
+             "species": [{"element": "C", "charge_state": 6, "relative_density": 0.5},
+                         {"element": "O", "charge_state": 8, "relative_density": 0.5}]}
+    for given, expected in (("measured", "measured"), ("inferred", "derived"),
+                            ("assumed", "assumed"), ("derived", "derived"), (None, "derived")):
+        c = composition_from_model({**model, "status": given})
+        assert c.status == expected, given
+        assert c.input_record["model_status"] == given
