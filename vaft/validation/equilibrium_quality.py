@@ -35,6 +35,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+import numpy as np
+
 #: Where the study policy lives in a source checkout.
 CRITERIA_PATH = Path(__file__).resolve().parents[2] / "workflow" / "efit_uncertainty_calibration" / "criteria.py"
 
@@ -362,8 +364,44 @@ def efit_evidence_columns(ods: Any, time_slice: int, *, diagnostics: Any = None,
     return out
 
 
+def equilibrium_quality_constraint_points(ods: Any, time_slice: int) -> list[dict[str, Any]]:
+    """Every constraint channel of one slice: measured, reconstructed and normalised residual.
+
+    Read through :func:`vaft.omas.efit_quality.constraint_table`, with ``z``
+    from its ``normalized_residuals`` at the family's own units-of-fit factor
+    and ``fitted`` from ``fitted_mask`` -- the definitions the fit-quality
+    metrics use, so a population plot and the per-slice metrics agree.
+    Array families come in their display units; Ip [kA] and the diamagnetic
+    flux [mWb] as one point each, with ``z`` from ``fit_quality_metrics``.
+    """
+    from vaft.omas import efit_quality as q
+
+    points: list[dict[str, Any]] = []
+    for family, _title, unit, scale, is_array in q.FAMILIES:
+        table = q.constraint_table(ods, time_slice=time_slice, family=family, is_array=is_array, scale=scale)
+        if not len(table.index):
+            continue
+        k, _spread = q.sigma_unit_factor(table)
+        z = q.normalized_residuals(table, k) if math.isfinite(k) and k > 0 else np.full(len(table.index), math.nan)
+        fitted = q.fitted_mask(table)
+        for i in range(len(table.index)):
+            points.append({"family": family, "channel": table.source[i], "unit": unit,
+                           "measured": float(table.measured[i]), "reconstructed": float(table.reconstructed[i]),
+                           "uncertainty": float(table.uncertainty[i]), "state": table.state[i],
+                           "fitted": bool(fitted[i]), "z": float(z[i])})
+    scalars = (q.fit_quality_metrics(ods, time_slice=time_slice).get("scalars") or {})
+    for family, unit, scale in (("ip", "kA", 1e-3), ("diamagnetic_flux", "mWb", 1e3)):
+        entry = scalars.get(family) or {}
+        measured, reconstructed = _finite(entry.get("measured")), _finite(entry.get("reconstructed"))
+        if math.isfinite(measured) or math.isfinite(reconstructed):
+            points.append({"family": family, "channel": family, "unit": unit, "measured": measured * scale,
+                           "reconstructed": reconstructed * scale, "uncertainty": math.nan, "state": "enabled",
+                           "fitted": math.isfinite(_finite(entry.get("z"))), "z": _finite(entry.get("z"))})
+    return points
+
+
 __all__: Sequence[str] = (
     "ADMISSIBILITY_RULES", "COHORTS", "CRITERIA_PATH", "CROSSWALK", "MEASUREMENT_RULES", "RULE_COLUMNS",
-    "FIT_QUALITY_RULES", "ROUTINE_SETTING", "STATUSES", "efit_evidence_columns", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
+    "FIT_QUALITY_RULES", "ROUTINE_SETTING", "STATUSES", "efit_evidence_columns", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
     "equilibrium_quality_summary", "equilibrium_quality_table", "load_study_criteria", "slice_cohorts",
 )
