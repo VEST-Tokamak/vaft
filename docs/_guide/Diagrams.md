@@ -2057,10 +2057,12 @@ python -m vaft.diagram.build            # re-render diagrams whose TikZ source c
 python -m vaft.diagram.build --check    # verify the committed assets; needs no TeX
 ```
 
-`manifest.json`, stored next to the SVGs, records the SHA-256 of the generated TikZ document each SVG
-was rendered from, together with the SHA-256 of the SVG itself. `--check` rebuilds the TikZ in pure
-Python and fails in four cases: an asset is stale, an asset was edited by hand, an asset is
-missing, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
+Each SVG carries its own build record: one comment line after the XML declaration holding the call,
+the SHA-256 of the generated TikZ document it was rendered from, and the SHA-256 of the SVG without
+that line. Because the record lives in the diagram's own file, two pull requests that change different
+diagrams share no generated file and do not conflict (#1750). `--check` rebuilds the TikZ in pure
+Python and fails in five cases: an asset is stale, an asset was edited by hand, an asset is missing,
+an asset has no record, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
 and not on SVG bytes, because two `dvisvgm` releases write different but equally correct SVG for the
 same picture. Rendering needs `latex` and `dvisvgm`, which TeX Live and MacTeX provide. The generated
 `.tex`, PDF, PNG and LaTeX by-products are never committed.

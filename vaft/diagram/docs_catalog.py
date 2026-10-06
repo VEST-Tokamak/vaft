@@ -3,10 +3,10 @@
 ``python -m vaft.diagram.docs_catalog --output docs/_data/diagram_catalog.yml``
 writes what ``/reference/diagram/`` renders: every public builder of
 :mod:`vaft.diagram`, every committed asset :data:`vaft.diagram.build.CANONICAL`
-declares (builder, arguments, SVG path, the hashes ``manifest.json`` records),
+declares (builder, arguments, SVG path, the hashes each SVG's build record holds),
 and the ``vaft.formula`` functions each builder draws on.
 
-It only *reads* :mod:`vaft.diagram.build` and the committed manifest; it
+It only *reads* :mod:`vaft.diagram.build` and the committed SVG records; it
 builds no diagram, needs no TeX, and does not judge freshness --
 ``python -m vaft.diagram.build --check`` does that.
 
@@ -25,7 +25,6 @@ import ast
 import hashlib
 import importlib
 import inspect
-import json
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -186,8 +185,11 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     from . import build
 
     asset_dir = _ROOT / ASSET_DIR
-    manifest_path = asset_dir / build.MANIFEST
-    recorded = json.loads(manifest_path.read_text(encoding="utf-8")).get("diagrams", {})
+    recorded = {}
+    for asset in build.CANONICAL:
+        if (asset_dir / asset).is_file():
+            record, _ = build.read_record(asset_dir / asset)
+            recorded[asset] = record or {}
 
     assets_by_builder: dict[str, list[str]] = {}
     assets: list[dict] = []
@@ -214,7 +216,7 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     sources: set[Path] = {
         path for path in _PACKAGE.rglob("*") if path.is_file() and "__pycache__" not in path.parts
     }
-    sources.add(manifest_path)
+    sources.update(asset_dir / asset for asset in build.CANONICAL if (asset_dir / asset).is_file())
     sources.add(_ROOT / "vaft" / "_docstring.py")  # decides every source span
     for name in builder_names():
         function = inspect.unwrap(getattr(diagram, name))

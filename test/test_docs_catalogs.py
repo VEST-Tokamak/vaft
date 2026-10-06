@@ -134,9 +134,9 @@ def test_the_diagram_catalog_holds_every_canonical_asset(snapshots):
 
     snapshot = snapshots["diagram"]
     assert [row["asset"] for row in snapshot["assets"]] == list(diagram_build.CANONICAL)
-    recorded = yaml.safe_load((DOCS / "assets" / "diagrams" / "manifest.json").read_text())["diagrams"]
     for row in snapshot["assets"]:
-        assert row["svg_sha256"] == recorded[row["asset"]]["svg_sha256"]
+        record, _ = diagram_build.read_record(DOCS / "assets" / "diagrams" / row["asset"])
+        assert row["svg_sha256"] == record["svg_sha256"]
         assert (DOCS / row["svg"]).is_file()
         assert row["asset"] in next(b for b in snapshot["builders"] if b["name"] == row["builder"])["assets"]
 

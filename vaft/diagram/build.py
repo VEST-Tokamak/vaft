@@ -9,10 +9,13 @@
 Freshness is judged on the generated TikZ source, not on SVG bytes: two
 ``dvisvgm`` releases write different (equally correct) SVG for the same
 picture, so a byte comparison would fail on every machine but the last one
-to render. ``manifest.json`` records, per asset, the SHA-256 of the TikZ
-document it was rendered from and of the SVG itself. ``--check`` rebuilds
-the TikZ (pure Python), and fails when either hash disagrees -- a stale
-asset, or a hand-edited one -- or when an asset is missing or orphaned.
+to render. Each SVG carries its own build record -- one comment line after
+the XML declaration holding the call, the SHA-256 of the TikZ document it
+was rendered from and of the SVG without that line -- so a diagram's
+freshness lives in its own file and two PRs that change different diagrams
+share no generated file (#1750). ``--check`` rebuilds the TikZ (pure
+Python), and fails when either hash disagrees -- a stale asset, or a
+hand-edited one -- or when an asset is missing, unrecorded or orphaned.
 """
 
 from __future__ import annotations
@@ -25,7 +28,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-MANIFEST = "manifest.json"
+#: The single manifest the records replaced (#1750): read once to migrate, then removed; never written.
+LEGACY_MANIFEST = "manifest.json"
 
 #: The reference island: a 3/2 mode on a D-shaped (elongated, triangular) plasma.
 REFERENCE_ISLAND = {
@@ -268,76 +272,86 @@ def _diagram(builder: str, kwargs: dict):
     return getattr(vaft.diagram, builder)(**kwargs)
 
 
-def _read_manifest(out_dir: Path) -> dict:
-    path = out_dir / MANIFEST
+def _read_legacy_manifest(out_dir: Path) -> dict:
+    path = out_dir / LEGACY_MANIFEST
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8")).get("diagrams", {})
 
 
+def read_record(svg_path: Path) -> Tuple[Optional[dict], str]:
+    """The build record of one committed SVG and the SVG without it (see :func:`_render.split_svg_record`)."""
+    from ._render import split_svg_record
+
+    return split_svg_record(svg_path.read_text(encoding="utf-8"))
+
+
 def check(out_dir: Optional[Path] = None) -> List[str]:
     """Every way the committed assets disagree with the current source."""
     out_dir = Path(out_dir or default_output())
-    recorded = _read_manifest(out_dir)
     problems: List[str] = []
     for name, (builder, kwargs) in CANONICAL.items():
-        entry = recorded.get(name)
         svg = out_dir / name
-        if entry is None:
-            problems.append(f"{name}: not in {MANIFEST}")
-            continue
         if not svg.exists():
             problems.append(f"{name}: missing")
+            continue
+        record, body = read_record(svg)
+        if record is None:
+            problems.append(f"{name}: no build record; run python -m vaft.diagram.build")
             continue
         try:
             source_sha256 = _diagram(builder, kwargs).source_sha256
         except Exception as exc:  # noqa: BLE001 -- one broken builder must not hide the report on the others
             problems.append(f"{name}: builder raised {type(exc).__name__}: {exc}")
             continue
-        if source_sha256 != entry.get("source_sha256"):
+        if source_sha256 != record.get("source_sha256"):
             problems.append(f"{name}: stale -- its TikZ source or the render recipe changed; run python -m vaft.diagram.build")
-        if _sha256(svg.read_bytes()) != entry.get("svg_sha256"):
-            problems.append(f"{name}: the SVG does not match {MANIFEST} (edited by hand?)")
-    for name in sorted(set(recorded) - set(CANONICAL)):
-        problems.append(f"{name}: recorded in {MANIFEST} but no longer canonical")
+        if _sha256(body.encode("utf-8")) != record.get("svg_sha256"):
+            problems.append(f"{name}: the SVG does not match its build record (edited by hand?)")
     for svg in sorted(out_dir.glob("*.svg")):
         if svg.name not in CANONICAL:
             problems.append(f"{svg.name}: orphaned asset, not produced by the build")
+    if (out_dir / LEGACY_MANIFEST).exists():
+        problems.append(f"{LEGACY_MANIFEST}: obsolete since #1750 (records live in each SVG); "
+                        "git rm it and run python -m vaft.diagram.build")
     return problems
 
 
 def build(out_dir: Optional[Path] = None, *, force: bool = False) -> List[str]:
-    """Render stale (or, with ``force``, all) canonical diagrams; return what was written."""
+    """Render stale (or, with ``force``, all) canonical diagrams; return what was rendered.
+
+    An SVG that is fresh but has no record yet (committed under the legacy
+    manifest) gets its record written without re-rendering, so migrating does
+    not churn every file; the legacy manifest is then removed.
+    """
+    from ._render import with_svg_record
+
     out_dir = Path(out_dir or default_output())
     out_dir.mkdir(parents=True, exist_ok=True)
-    recorded = _read_manifest(out_dir)
-    manifest: Dict[str, dict] = {}
+    legacy = _read_legacy_manifest(out_dir)
     written: List[str] = []
     for name, (builder, kwargs) in CANONICAL.items():
         diagram = _diagram(builder, kwargs)
+        call = _call_text(builder, kwargs)
         svg_path = out_dir / name
-        entry = recorded.get(name, {})
+        record, body = read_record(svg_path) if svg_path.exists() else (None, "")
+        if record is None and name in legacy and svg_path.exists():
+            # committed before #1750: the legacy manifest vouched for the whole file
+            entry = legacy[name]
+            record = {"source_sha256": entry.get("source_sha256"), "svg_sha256": entry.get("svg_sha256")}
         fresh = (
             not force
-            and svg_path.exists()
-            and entry.get("source_sha256") == diagram.source_sha256
-            and entry.get("svg_sha256") == _sha256(svg_path.read_bytes())
+            and record is not None
+            and record.get("source_sha256") == diagram.source_sha256
+            and record.get("svg_sha256") == _sha256(body.encode("utf-8"))
         )
         if not fresh:
-            svg_path.write_text(diagram.svg, encoding="utf-8", newline="\n")
+            body = diagram.svg
             written.append(name)
-        manifest[name] = {
-            "call": _call_text(builder, kwargs),
-            "source_sha256": diagram.source_sha256,
-            "svg_sha256": _sha256(svg_path.read_bytes()),
-        }
-    document = {
-        "generator": "python -m vaft.diagram.build",
-        "note": "source_sha256 hashes the render recipe and the generated TikZ document; --check compares it without TeX.",
-        "diagrams": manifest,
-    }
-    (out_dir / MANIFEST).write_text(json.dumps(document, indent=2, sort_keys=True) + "\n",
-                                    encoding="utf-8", newline="\n")
+        text = with_svg_record(body, call, diagram.source_sha256)
+        if not svg_path.exists() or svg_path.read_text(encoding="utf-8") != text:
+            svg_path.write_text(text, encoding="utf-8", newline="\n")
+    (out_dir / LEGACY_MANIFEST).unlink(missing_ok=True)
     return written
 
 
