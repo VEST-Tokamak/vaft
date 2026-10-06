@@ -440,6 +440,14 @@ def cylindrical_poloidal_field(r, I_enclosed):
     current makes $B_\theta$ rise fast and then fall as $1/r$, which is what
     shapes $q(r)$.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: normalization
+    locality: flux_surface_local
+    role: state_coordinate
+
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
@@ -494,6 +502,14 @@ def peaked_current_safety_factor(x, q_a, nu):
     -----------
     Cylinder, large aspect ratio, the standard model profile; not a
     reconstructed equilibrium.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: integral
+    locality: flux_surface_local
+    role: state_coordinate
 
     References
     ----------

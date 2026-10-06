@@ -53,6 +53,14 @@ from ._docstring import (
     source_span,
     strip_roles,
 )
+from ._taxonomy import (
+    LOCALITIES,
+    PHYSICAL_ROLES,
+    REDUCTION_KINDS,
+    SPATIAL_REPRESENTATIONS,
+    Reduction,
+    parse_reduction,
+)
 
 __all__ = [
     "CATEGORIES",
@@ -71,7 +79,7 @@ __all__ = [
 #: ``constants`` defines no functions and appears only through :func:`categories`.
 CATEGORIES: tuple[str, ...] = tuple(key for key in _IMPORT_ORDER if key != "constants")
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4  # +reduction (#1626)
 _GENERATOR = "python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml"
 
 #: A displayed equation of the description, ``$$...$$``, possibly over several lines.
@@ -117,6 +125,7 @@ class FormulaSpec:
     source_end_line: int = 0
     source_code: str = ""
     definitions: tuple[str, ...] = ()
+    reduction: Reduction | None = None
 
     @property
     def qualname(self) -> str:
@@ -337,7 +346,7 @@ class FormulaSpec:
             "sections": [
                 {"title": title, "text": strip_roles(text)}
                 for title, text in self.sections
-                if title not in ("Parameters", "Returns", "Yields", "Raises", "References")
+                if title not in ("Parameters", "Returns", "Yields", "Raises", "References", "Reduction")
             ],
             "references": [
                 {"label": ref.label, "text": strip_roles(ref.text)} for ref in self.references
@@ -358,6 +367,7 @@ class FormulaSpec:
             "definitions": list(self.definitions),
             "aliases": list(self.aliases),
             "shadowed_by": self.shadowed_by,
+            "reduction": self.reduction.as_dict() if self.reduction is not None else None,
         }
 
 
@@ -455,8 +465,21 @@ def _signature(fn) -> str:
     return str(stripped)
 
 
+def _reduction(parsed: ParsedDocstring) -> tuple[Reduction | None, tuple[str, ...]]:
+    """The parsed ``Reduction`` section and its problems, the dimensionless check included."""
+    reduction, errors = parse_reduction(parsed.section("Reduction"))
+    if reduction is not None and reduction.dimensionless:
+        unit = parsed.returns[0].unit if parsed.returns else None
+        if unit != "-":
+            return None, errors + (
+                f"Reduction kind {reduction.kind!r} / role {reduction.role!r} promises a dimensionless output, "
+                f"but the first return's unit is {unit!r}",)
+    return reduction, errors
+
+
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> FormulaSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
+    reduction, reduction_errors = _reduction(parsed)
     span = source_span(fn, Path(__file__).resolve().parents[2])
     return FormulaSpec(
         name=name,
@@ -474,13 +497,14 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         deprecated=parsed.deprecated,
         aliases=aliases,
         shadowed_by=_shadowing_category(category, name),
-        errors=parsed.errors,
+        errors=parsed.errors + reduction_errors,
         raises=parsed.raises,
         source_path=span["path"],
         source_line=span["line"],
         source_end_line=span["end_line"],
         source_code=span["code"],
         definitions=tuple(equation.strip() for equation in _DISPLAY_MATH.findall(parsed.description)),
+        reduction=reduction,
     )
 
 
@@ -581,15 +605,34 @@ def show(name: str, sections: list[str] | tuple[str, ...] | None = None) -> Form
     return FormulaMarkdown(describe(name).to_markdown(sections))
 
 
-def list_formulas(category: str | None = None) -> list[FormulaSpec]:
+def list_formulas(
+    category: str | None = None,
+    *,
+    reduction_kind: str | None = None,
+    locality: str | None = None,
+    role: str | None = None,
+    output_representation: str | None = None,
+) -> list[FormulaSpec]:
     """Specs of every formula, or of one category, in category-then-name order.
 
-    Passing a category imports only that submodule.
+    Passing a category imports only that submodule. The keyword filters keep
+    only formulas whose ``Reduction`` section (#1626) has that value; any
+    filter excludes formulas without one. Values outside the vocabulary of
+    :mod:`vaft.formula._taxonomy` raise ``ValueError``.
     """
+    filters = {"kind": (reduction_kind, REDUCTION_KINDS), "locality": (locality, LOCALITIES),
+               "role": (role, PHYSICAL_ROLES), "output": (output_representation, SPATIAL_REPRESENTATIONS)}
+    for key, (value, allowed) in filters.items():
+        if value is not None and value not in allowed:
+            raise ValueError(f"{value!r} is not a reduction {key}; choose one of {', '.join(allowed)}")
     selected = CATEGORIES if category is None else (category,)
     result: list[FormulaSpec] = []
     for key in selected:
         result.extend(_specs_for(key)[name] for name in sorted(_specs_for(key)))
+    wanted = {key: value for key, (value, _) in filters.items() if value is not None}
+    if wanted:
+        result = [spec for spec in result if spec.reduction is not None
+                  and all(getattr(spec.reduction, key) == value for key, value in wanted.items())]
     return result
 
 

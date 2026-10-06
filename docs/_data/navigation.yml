@@ -47,6 +47,9 @@ sections:
       - id: formula-reference
         title: Formula reference
         url: /reference/formula/
+      - id: reduced-representations
+        title: Reduced representations
+        url: /reference/reduced-representations/
       - id: diagrams
         title: Scientific diagrams
         url: /reference/diagrams/

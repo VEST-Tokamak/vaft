@@ -287,6 +287,24 @@ vaft.diagram.mhd_mode_geometry_map()
 | `mode_number_mapping` | The cylinder's $k_\parallel(r)$ crosses zero at $q(r_s) = m/n$. The local slab of `local_slab_from_cylinder` is its tangent there |
 | `mhd_mode_geometry_map` | Pressure-driven, current-driven, resonant and $n = 0$ mode families in slab, cylinder and torus. Exact relabelling, limits, analogues and branches are drawn as four different arrows. The text is [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }}) |
 
+## Reduced representations
+
+How formulas compress plasma information, from fields to profiles to scalars and from dimensional to
+dimensionless quantities, is classified on
+[Reduced representations]({{ '/reference/reduced-representations/' | relative_url }}) (#1626). The figures
+are built from the formulas' `Reduction` docstring sections and the relation metadata in
+`vaft.formula._taxonomy`.
+
+```python
+vaft.diagram.reduced_representation_hierarchy()
+vaft.diagram.reduction_graph(family="current_q")   # "pressure_energy", "kinetic_profiles", "dimensionless_similarity"
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `reduced_representation_hierarchy` | Spatial reduction (field, profile, scalar) down, dimensionless normalisation across, so a dimensionless quantity can still be a profile. Each cell counts the catalogued formulas that land there |
+| `reduction_graph` | One family as a layered graph of quantities. A solid edge is a formula, and its catalogued reduction kind is shown as *via*. A dashed edge is a step VAFT performs elsewhere |
+
 ## Tokamak geometry and flux coordinates
 
 The parent geometry that the cylindrical and slab reductions start from. Surfaces are

@@ -216,6 +216,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
+    "test_diagram_reduced_representations.py",
     "test_diagram_research_concepts.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
@@ -279,6 +280,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
+    # Reduced-representation taxonomy (#1626): the Reduction vocabulary, its
+    # parser, the catalog's exposure and filters, and the family metadata.
+    "test_formula_taxonomy.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

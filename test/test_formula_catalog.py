@@ -212,7 +212,8 @@ def test_the_star_import_neither_loads_nor_binds_the_catalog():
 
 def test_touching_describe_loads_the_catalog_and_nothing_physical():
     loaded = _loaded_after("import vaft.formula; vaft.formula.describe")
-    assert loaded == {"vaft.formula.catalog", "vaft.formula._docstring"}
+    # _taxonomy is the Reduction vocabulary (#1626): pure tuples, no physics
+    assert loaded == {"vaft.formula.catalog", "vaft.formula._docstring", "vaft.formula._taxonomy"}
 
 
 def test_describing_one_formula_imports_only_its_category():
@@ -221,6 +222,7 @@ def test_describing_one_formula_imports_only_its_category():
     assert loaded == {
         "vaft.formula.catalog",
         "vaft.formula._docstring",
+        "vaft.formula._taxonomy",
         "vaft.formula.constants",
         "vaft.formula.utils",
         "vaft.formula.stability",
@@ -303,7 +305,7 @@ _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "references", "empirical",
     "convention_sensitive", "deprecated", "aliases", "shadowed_by", "raises", "source",
-    "definitions",
+    "definitions", "reduction",
 }
 
 
