@@ -117,3 +117,23 @@ evidence and the retired manual list) and `workflow/vacuum_benchmark/`
 (#190, the machine-model qualification). This directory asks the third
 question those two leave open: taken together, is the shot's magnetics fit to
 reconstruct from?
+
+## Class-shot checklist
+
+`class_shot_checklist.py` asks a broader and shallower question for the shots
+the #58 worker has just processed: can each diagnostic in the product be
+trusted? It reads the FileDB diagnostics product (never writes it) and gives one
+row per shot covering the plasma current, the Rogowski sensors, the condemned
+probes and flux loops grouped by detector, and the filterscope clamped tail.
+With `--raw` it also reads each PF channel from the VEST database and reports
+how far it moved between its pre-shot baseline and the end of the record (#1424).
+
+```bash
+PYTHONPATH=$PWD python workflow/magnetics_quality/class_shot_checklist.py \
+    --shots 48930-48940 --filedb /srv/vest.filedb --raw \
+    --table /tmp/checklist.json --markdown /tmp/checklist.md
+```
+
+Its `flags` column is report-only. The thresholds behind it are echoed into the
+table as `provisional_thresholds`, and nothing in the pipeline reads them until a
+population scan justifies them (#189). Progress is logged in #1543.
