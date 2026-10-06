@@ -132,8 +132,18 @@
       if (!target) return id;
       var n = g.nodes[target];
       var state = {};
-      if ((g.data.views[v.state.view] || []).indexOf(n.kind) === -1) {
-        state.view = Object.keys(g.data.views).filter(function (view) { return g.data.views[view].indexOf(n.kind) !== -1; })[0];
+      // a view draws a non-concept node only through a relation inside that view
+      var drawnIn = function (view) {
+        var kinds = g.data.views[view] || [];
+        if (kinds.indexOf(n.kind) === -1) return false;
+        if (n.kind === 'concept') return true;
+        return (g.out[target] || []).concat(g.inn[target] || []).some(function (e) {
+          var other = g.nodes[e.source === target ? e.target : e.source];
+          return other && kinds.indexOf(other.kind) !== -1;
+        });
+      };
+      if (!drawnIn(v.state.view)) {
+        state.view = Object.keys(g.data.views).filter(drawnIn)[0] || v.state.view;
       }
       if (v.state.kinds.indexOf(n.kind) === -1) state.kinds = v.state.kinds.concat([n.kind]);
       return { focus: target, state: state };
@@ -161,7 +171,10 @@
       var links = [v.link(f.plot_url, 'Plot reference'), v.link(f.api_url, 'API documentation'),
         v.link(f.code_url, 'External-code reference'), v.link(f.diagnostics_url, 'VEST diagnostics'),
         f.source && f.source.path ? v.sourceLink(f.source, 'Source') : ''];
-      if (n.kind === 'api') links.push(v.link('/reference/dependency-graph/#level=modules&focus=' + n.label.replace(/\.[^.]+$/, ''), 'Dependency explorer'));
+      if (n.kind === 'api') {
+        var module = f.role === 'code adapter' ? n.label : n.label.replace(/\.[^.]+$/, '');
+        links.push(v.link('/reference/dependency-graph/#level=modules&focus=' + module, 'Dependency explorer'));
+      }
       if (n.kind === 'code' && f.code_url) links.push(v.link('/reference/pipeline-graph/', 'Pipeline lineage'));
       html += '<p class="vg-actions">' + links.filter(Boolean).join(' · ') + '</p>';
       html += '<p class="vg-meta">From ' + n.origins.map(function (o) { return '<code>' + v.escape(o) + '</code>'; }).join(', ') + '</p>';

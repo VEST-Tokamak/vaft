@@ -466,7 +466,7 @@ if (ROOT / "_data" / "ontology_graph.yml").file?
   else
     begin
       served = JSON.parse(endpoint.read(encoding: "UTF-8"))
-      errors << "assets/graph/ontology-graph.json does not serve the generated snapshot" unless served.is_a?(Hash) && served["nodes"].to_a.size == onto_ids.size
+      errors << "assets/graph/ontology-graph.json does not serve the generated snapshot" unless served.is_a?(Hash) && served["nodes"].to_a.size == onto_ids.size && served["edges"].to_a.size == onto.fetch("edges", []).size
     rescue JSON::ParserError => error
       errors << "assets/graph/ontology-graph.json is not JSON: #{error.message[0, 120]}"
     end

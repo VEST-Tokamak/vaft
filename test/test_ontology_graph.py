@@ -87,11 +87,48 @@ def test_family_membership_is_not_synonymy(snapshot):
 def test_unknown_terms_are_audited_never_canonicalized(snapshot):
     for term in ("electron temperature", "Electron_Temperature", "temperature_e", "plasma current"):
         assert ontology.resolve_term(term) is None
-    for row in snapshot["unresolved"]:
-        # an audited term never names a quantity concept (a composite like "current" may share its spelling)
-        assert ontology.resolve_term(row["term"], quantities_only=True) is None, row
-        assert row["origin"] and row["contexts"]
-    assert any(row["term"] == "line_den" for row in snapshot["unresolved"])
+    audited = {(row["term"], row["origin"]) for row in snapshot["unresolved"]}
+    # registry terms the vocabulary does not define are listed, with where they came from ...
+    assert ("line_den", "vaft.machine_mapping.registry") in audited
+    assert ("rogowski_current", "vaft.machine_mapping.registry") in audited
+    # ... a composite subject is not a measured quantity, so "current" is audited too ...
+    assert ("current", "vaft.machine_mapping.registry") in audited
+    # ... and a term the vocabulary does define never is
+    assert not {term for term, _ in audited} & {"electron_density", "electron_temperature", "plasma_current", "ip"}
+    assert all(row["contexts"] for row in snapshot["unresolved"])
+
+
+def test_diagnostic_identity_is_the_registrys_declared_subject(snapshot):
+    from vaft.machine_mapping.registry import load_diagnostic_registry
+
+    nodes = _nodes(snapshot)
+    part_of = _edges(snapshot, "part_of")
+    # one record per subject is that diagnostic; the B-probe set is one node, not two
+    assert nodes["diagnostic:b_field_probe"]["facets"]["registry_id"] == "magnetics.b_field_pol_probe"
+    assert "diagnostic:magnetics.b_field_pol_probe" not in nodes
+    assert ("diagnostic:b_field_probe", "validation:diagnostic_fit.bpol_probe") in _edges(snapshot, "assessed_by")
+    # several records naming one subject are its parts
+    assert ("diagnostic:charge_exchange.ces", "diagnostic:charge_exchange") in part_of
+    assert ("diagnostic:magnetics.ip", "diagnostic:magnetics") in part_of
+    # and a record without a subject keeps its own node rather than being matched by spelling
+    plain = [rid for rid, record in load_diagnostic_registry().items() if not record.get("subject")]
+    assert plain and all(f"diagnostic:{rid}" in nodes for rid in plain)
+
+
+def test_an_alias_that_names_another_node_is_dropped_and_audited(snapshot):
+    nodes = _nodes(snapshot)
+    assert "nubeam" not in nodes["machine:nbi"]["facets"].get("aliases", [])
+    assert any(row["term"] == "nubeam" and "code:nubeam" in row["contexts"][0] for row in snapshot["unresolved"])
+    names = {node["id"].split(":", 1)[1] for node in snapshot["nodes"]}
+    for node in snapshot["nodes"]:
+        for alias in node["facets"].get("aliases", []):
+            assert alias not in names
+
+
+def test_plot_quantities_are_quantities_not_overview_subjects(snapshot):
+    visualized = _edges(snapshot, "visualized_by")
+    assert ("concept:current", "plot:pf_coil_time_current") not in visualized
+    assert ("machine:pf_coil", "plot:pf_coil_time_current") in visualized
 
 
 def test_a_measured_quantity_must_be_a_quantity():

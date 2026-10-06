@@ -73,7 +73,7 @@ RELATIONS = {
     "measures": "a diagnostic measures a quantity directly",
     "derives": "a diagnostic's processing derives a quantity",
     "represented_by": "a concept or diagnostic is stored in an IDS or a Data Dictionary path",
-    "part_of": "a Data Dictionary path belongs to its IDS",
+    "part_of": "a Data Dictionary path belongs to its IDS; a diagnostic system belongs to a larger one",
     "mapped_by": "a diagnostic is mapped into IMAS by a VAFT function",
     "visualized_by": "a concept is drawn by a canonical plot",
     "reads": "a plot reads a Data Dictionary path",
@@ -291,7 +291,7 @@ def _plots(graph: _Graph) -> None:
                    plot_url=f"/reference/plot/#{spec.name}")
         subject_id = node_id_for_subject(spec.subject)
         graph.edge(subject_id, plot_id, "visualized_by", origin)
-        quantity_id = resolve_term(spec.quantity) if spec.quantity else None
+        quantity_id = resolve_term(spec.quantity, quantities_only=True) if spec.quantity else None
         if spec.quantity and quantity_id is None:
             graph.miss(spec.quantity, origin, f"quantity of {spec.name}")
         elif quantity_id and quantity_id != subject_id:
@@ -306,31 +306,44 @@ def _plots(graph: _Graph) -> None:
                 data_paths.append(node)
         # The one unambiguous representation rule: a plot of a single quantity
         # that reads exactly one quantity path shows where that quantity lives.
-        drawn = quantity_id or (subject_id if subject_id.startswith("concept:") else None)
+        if spec.quantity:
+            drawn = quantity_id  # an unresolved quantity never falls back to the subject
+        else:
+            drawn = subject_id if subject_id.startswith("concept:") else None
         concept_kind = graph.nodes[drawn]["facets"].get("concept_kind") if drawn else None
         if drawn and concept_kind == "quantity" and len(set(data_paths)) == 1:
-            graph.edge(drawn, data_paths[0], "represented_by", "vaft.plot.backend.dd")
+            graph.edge(drawn, data_paths[0], "represented_by", origin)
 
 
 def _diagnostics(graph: _Graph) -> None:
     from vaft.machine_mapping.registry import load_diagnostic_registry
 
     origin = "vaft.machine_mapping.registry"
-    for record_id, record in sorted(load_diagnostic_registry().items()):
-        # the same diagnostic the taxonomy names, when the record id or its last segment resolves to one
-        same = None
-        for term in (record_id, record_id.rsplit(".", 1)[-1]):
-            resolved = resolve_term(term)
-            if resolved and resolved.split(":", 1)[0] in {"diagnostic", "machine"}:
-                same = resolved
-                break
-        node_id = same or f"diagnostic:{record_id}"
+    records = load_diagnostic_registry()
+    # Identity is the record's declared taxonomy `subject`, never a spelling match: a
+    # record that alone names its subject *is* that diagnostic; several records naming
+    # one subject (magnetics.ip, magnetics.internal_probe, ...) are parts of it.
+    named: dict[str, list[str]] = {}
+    for record_id, record in records.items():
+        if record.get("subject"):
+            named.setdefault(record["subject"], []).append(record_id)
+    for record_id, record in sorted(records.items()):
+        subject = record.get("subject")
+        parent = None
+        if subject and len(named[subject]) == 1:
+            node_id = node_id_for_subject(subject)
+        else:
+            node_id = f"diagnostic:{record_id}"
+            if subject:
+                parent = node_id_for_subject(subject)
         kind = node_id.split(":", 1)[0]
         graph.node(node_id, kind, record.get("name") or record_id, origin, registry_id=record_id,
                    family=record.get("family"), category=record.get("category"),
                    availability=record.get("availability"), lifecycle=record.get("lifecycle"),
                    mapping_status=record.get("mapping_status"), ids_path=record.get("ids_path"),
                    diagnostics_url="/reference/vest-diagnostics/")
+        if parent:
+            graph.edge(node_id, parent, "part_of", origin)
         ids = record.get("ids")
         if ids and ids != "not_developed":
             graph.edge(node_id, _ids(graph, ids, origin), "represented_by", origin)
@@ -406,6 +419,7 @@ def _external_codes(graph: _Graph) -> None:
     for code in _ecosystem.EXTERNAL_CODES:
         node_id = _code_node(graph, code.id, origin, label=code.name, roles=list(code.roles), mode=code.mode,
                              maturity=code.maturity, code_url=f"/reference/external-codes/#code-{code.id}")
+        graph.nodes[node_id]["label"] = code.name  # the catalog names a code, whichever registry met it first
         adapter_id = f"api:{code.adapter}"
         graph.node(adapter_id, "api", code.adapter, origin, role="code adapter",
                    api_url=f"/reference/api/code/#module-{code.adapter}")
@@ -416,6 +430,21 @@ def _external_codes(graph: _Graph) -> None:
                 ids = STAGE_REPLICATION[entry.via.split(":", 1)[1]].ids
             for name in ids:
                 graph.edge(node_id, _ids(graph, name, origin), "produces", origin)
+
+
+def _ambiguous_aliases(graph: _Graph) -> None:
+    """An alias that is also another node's own name identifies nothing; drop and audit it."""
+    names: dict[str, set] = {}
+    for node in graph.nodes.values():
+        names.setdefault(node["id"].split(":", 1)[1], set()).add(node["id"])
+    for node in graph.nodes.values():
+        aliases = node["facets"].get("aliases") or []
+        kept = [alias for alias in aliases if not (names.get(alias, set()) - {node["id"]})]
+        for alias in sorted(set(aliases) - set(kept)):
+            graph.miss(alias, node["origins"][0],
+                       f"alias of {node['id']} also names {', '.join(sorted(names[alias] - {node['id']}))}")
+        if aliases:
+            node["facets"]["aliases"] = kept
 
 
 def _views(graph: _Graph) -> None:
@@ -432,6 +461,7 @@ def ontology_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     _validation(graph)
     _conventions(graph)
     _external_codes(graph)
+    _ambiguous_aliases(graph)
     _views(graph)
 
     import vaft.data.cocos as cocos_module
