@@ -356,7 +356,10 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
         return (GeometryLayer(record.r, record.z, kind="points",
                               label=f"{label} (vertices; phi unknown)")
                 if view == "rz" and np.isfinite(record.z).all() else None)
-    if view in {"rz", "3d", "camera"} and not np.isfinite(record.z).all():
+    # A gap row (NaN in r, z and phi) marks a stored discontinuity and is kept
+    # as a polyline break; only a missing height at a known position makes
+    # the record undrawable in a view that needs Z.
+    if view in {"rz", "3d", "camera"} and not np.isfinite(record.z[np.isfinite(record.r)]).all():
         return None
     if record.semantic == "directed_axis":
         if not np.isfinite(axis_length) or axis_length <= 0:
@@ -373,9 +376,13 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
         return GeometryLayer(xyz[:, 0], xyz[:, 1], kind=kind, label=label)
     if projection is None:
         raise ValueError("camera view requires a calibrated CameraProjection")
-    uv, valid = projection.project(xyz * 100.0)
-    uv = np.array(uv, dtype=float, copy=True)
-    uv[~np.asarray(valid, dtype=bool)] = np.nan
+    uv = np.full((xyz.shape[0], 2), np.nan)
+    stored = np.isfinite(xyz).all(axis=1)
+    if stored.any():
+        projected, valid = projection.project(xyz[stored] * 100.0)
+        projected = np.array(projected, dtype=float, copy=True)
+        projected[~np.asarray(valid, dtype=bool)] = np.nan
+        uv[stored] = projected
     return GeometryLayer(uv[:, 0], uv[:, 1], kind=kind, label=label)
 
 
