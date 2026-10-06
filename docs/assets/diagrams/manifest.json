@@ -145,6 +145,11 @@
       "source_sha256": "a361593616dfa2ee4bfe599c8973d39de156d3aacbcfc7e99dcfc80a85f7bf1a",
       "svg_sha256": "b27c3c8f13594d093e1439754c0160c15a60876d79eb91e0bdc04fa4e69b6c7c"
     },
+    "current_profile_shapes.svg": {
+      "call": "vaft.diagram.current_profile_shapes()",
+      "source_sha256": "70ac68c011628c20310efe07a18a811abc70ccec3b1b16acc3c49e3536b9817b",
+      "svg_sha256": "e6279c62c7b2d5e9e082fdae8556f5b070f6fbe488b789bc4b169d9b17efd676"
+    },
     "current_sheet.svg": {
       "call": "vaft.diagram.current_sheet()",
       "source_sha256": "c0701188d44535ba61ea117362cd4036cf07b21576d1882cba342c04b5e54edb",
@@ -705,10 +710,35 @@
       "source_sha256": "1bf98e486b8c2c956ad0cedde59372daea574553d7fa404f68daadd07c4255f4",
       "svg_sha256": "773afc467906c073b8efa611e2b7e0f548033a77a91db7d2c401abc67ce644d1"
     },
+    "q_profile_landmarks_monotonic.svg": {
+      "call": "vaft.diagram.q_profile_landmarks(profile='monotonic')",
+      "source_sha256": "f9c796c350483b22e973c13cfd58eb733808621e64e0ffdda01f7f9a1d135291",
+      "svg_sha256": "3fd31c8b82834a3151116277acea14169cc201e23a3e4df3d9059ee96ee6fc4c"
+    },
+    "q_profile_landmarks_reversed_shear.svg": {
+      "call": "vaft.diagram.q_profile_landmarks(profile='reversed_shear')",
+      "source_sha256": "d462868b260549c692345f531e5fdbad13d9c71fb0d2bb4bc5047f08ef53da93",
+      "svg_sha256": "79f2e92b332dfc705c39391c8f81c69c8834dcbbb679363f5e4d4eb2e2160308"
+    },
+    "q_profile_topologies.svg": {
+      "call": "vaft.diagram.q_profile_topologies()",
+      "source_sha256": "a8401255b453ebf4b965d9cca6acd085ce58b582644e1ddd4aeb0893d0f01ec2",
+      "svg_sha256": "932818a07515baabb5797c4e93db860c72ff1743ea493a62f5b2f7b4c1194608"
+    },
     "rational_surface.svg": {
       "call": "vaft.diagram.rational_surface()",
       "source_sha256": "798f1062964b9c037c5a17baca020e8d5435fd99bbf1e9557290f3ea386ead39",
       "svg_sha256": "28497bd9cf79da93947e11b0a89ac5d0a57eebf1cc528c689918e3da758e14c4"
+    },
+    "rational_surface_topology_monotonic.svg": {
+      "call": "vaft.diagram.rational_surface_topology(profile='monotonic')",
+      "source_sha256": "72e5bde5f4e65474253d671aa957bc82cc887990f1294d65aa90befc524cea4c",
+      "svg_sha256": "8c763b4357c2f77b0cc12fa65f71186c5da88e5e8b80737927ecdd072e99de5b"
+    },
+    "rational_surface_topology_reversed_shear.svg": {
+      "call": "vaft.diagram.rational_surface_topology(profile='reversed_shear')",
+      "source_sha256": "0b17a7062cdf243b00c5e953f9ba6f53a153dba809cf37adf0e1b62ae2f52f36",
+      "svg_sha256": "cde0ce89a398bc8d8bf6a0d3ed2177709c331bf5775b2bac84105dd02de489d9"
     },
     "refractive_index_vs_X.svg": {
       "call": "vaft.diagram.refractive_index_vs_X()",
