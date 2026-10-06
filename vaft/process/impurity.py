@@ -48,7 +48,7 @@ import copy
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional, Sequence, Union
+from typing import Any, Callable, Mapping, Optional, Sequence, Union
 
 import numpy as np
 
@@ -65,13 +65,18 @@ __all__ = [
     "ImpuritySpecies",
     "ImpurityComposition",
     "ResolvedImpurityComposition",
+    "RadialImpurityComposition",
+    "NORMALIZATIONS",
+    "charge_state_moments",
     "composition_from_fractions",
     "composition_from_model",
     "composition_record_origin",
     "composition_record_text",
     "populate_impurity_profiles",
+    "populate_radial_impurity_profiles",
     "populate_zeff_profile",
     "resolve_impurity_composition",
+    "resolve_radial_composition",
 ]
 
 #: How a resolved composition is known, highest precedence first.
@@ -925,7 +930,7 @@ def _preset(preset: Union[str, Mapping[str, Any]], shot: Optional[int], info_fil
 
 #: The ``origin`` written for each resolved kind; a composition already measured
 #: in ``core_profiles`` is never rewritten.
-_WRITE_ORIGIN = {"explicit": "assumed", "assumed": "assumed", "derived": "derived"}
+_WRITE_ORIGIN = {"explicit": "assumed", "assumed": "assumed", "derived": "derived", "inferred": "inferred"}
 
 
 def _write_slice(ods: Any, resolved: ResolvedImpurityComposition, time: Optional[float],
@@ -1006,6 +1011,42 @@ def _record(resolved: ResolvedImpurityComposition, quantity: str, method: Option
         zeff_source=resolved.zeff_source.replace("=", ":").replace(";", ","),
         source=resolved.source.replace("=", ":").replace(";", ","),
     )
+
+
+def _reset_ions(work: Any, base: str, main_ion: str) -> None:
+    """Keep the slice's one hydrogenic main ion whole as ``ion.0``, drop every other entry.
+
+    Refuses a non-hydrogenic requested main ion, a slice with two hydrogenic
+    ions, or a slice whose ions include no hydrogenic one.  A malformed scalar
+    ``ion`` leaf is replaced.  Writes ``H+`` when the slice has no ion at all.
+    """
+    from vaft.ods_access import path_count
+
+    if not _hydrogenic(_element_table()[main_ion][0]):
+        raise ValueError(f"only a hydrogenic main ion is written, not {main_ion!r}")
+    hydrogenic, others = [], []
+    for k in range(path_count(work, f"{base}.ion")):
+        z_n = _get(work, f"{base}.ion.{k}.element.0.z_n")
+        (hydrogenic if _hydrogenic(z_n) else others).append(k)
+    if len(hydrogenic) > 1:
+        raise ValueError(f"{base} stores {len(hydrogenic)} hydrogenic ions; one main ion is written, not a mix")
+    if others and not hydrogenic:
+        raise ValueError(f"{base} stores ions but no hydrogenic main ion; a non-hydrogenic main ion is refused")
+    main_node = copy.deepcopy(work[f"{base}.ion.{hydrogenic[0]}"]) if hydrogenic else None
+    if "ion" in work[base].keys():
+        # also a malformed non-array ``ion`` leaf: vaft.omas.load gives the campaign
+        # FileDB products a bare NaN ``profiles_1d.N.ion``, which cannot take entries
+        del work[f"{base}.ion"]
+    if main_node is not None:
+        work[f"{base}.ion.0"] = main_node
+        if "density_fit" in work[f"{base}.ion.0"].keys():
+            del work[f"{base}.ion.0.density_fit"]   # its measured/reconstructed arrays describe the old density
+    else:
+        work[f"{base}.ion.0.label"] = "H+"
+        work[f"{base}.ion.0.z_ion"] = 1.0
+        work[f"{base}.ion.0.element.0.z_n"] = 1.0
+        work[f"{base}.ion.0.element.0.a"] = float(_element_table()["H"][1])
+        work[f"{base}.ion.0.element.0.atoms_n"] = 1
 
 
 def populate_zeff_profile(
@@ -1172,34 +1213,10 @@ def populate_impurity_profiles(
     base = f"core_profiles.profiles_1d.{index}"
     from vaft.ods_access import path_count
 
-    if not _hydrogenic(_element_table()[resolved.main_ion][0]):
-        raise ValueError(f"only a hydrogenic main ion is written, not {resolved.main_ion!r}")
-    hydrogenic, others = [], []
-    for k in range(path_count(work, f"{base}.ion")):
-        z_n = _get(work, f"{base}.ion.{k}.element.0.z_n")
-        (hydrogenic if _hydrogenic(z_n) else others).append(k)
-    if len(hydrogenic) > 1:
-        raise ValueError(f"{base} stores {len(hydrogenic)} hydrogenic ions; one main ion is written, not a mix")
-    if others and not hydrogenic:
-        raise ValueError(f"{base} stores ions but no hydrogenic main ion; a non-hydrogenic main ion is refused")
-    main_node = copy.deepcopy(work[f"{base}.ion.{hydrogenic[0]}"]) if hydrogenic else None
-    if "ion" in work[base].keys():
-        # also a malformed non-array ``ion`` leaf: vaft.omas.load gives the campaign
-        # FileDB products a bare NaN ``profiles_1d.N.ion``, which cannot take entries
-        del work[f"{base}.ion"]
+    _reset_ions(work, base, resolved.main_ion)
     fractions, filled = _fill_undefined(_on_grid(resolved.impurity_fractions, resolved, rho, ne.size), rho)
     main_fraction, _ = _fill_undefined(_on_grid(resolved.main_ion_fraction, resolved, rho, ne.size), rho)
     fill_note = f"; filled_points={filled}" if filled else ""
-    if main_node is not None:
-        work[f"{base}.ion.0"] = main_node
-        if "density_fit" in work[f"{base}.ion.0"].keys():
-            del work[f"{base}.ion.0.density_fit"]   # its measured/reconstructed arrays describe the old density
-    else:
-        work[f"{base}.ion.0.label"] = "H+"
-        work[f"{base}.ion.0.z_ion"] = 1.0
-        work[f"{base}.ion.0.element.0.z_n"] = 1.0
-        work[f"{base}.ion.0.element.0.a"] = float(_element_table()["H"][1])
-        work[f"{base}.ion.0.element.0.atoms_n"] = 1
     main_density = ne * main_fraction
     work[f"{base}.ion.0.density"] = main_density
     work[f"{base}.ion.0.density_thermal"] = main_density
@@ -1234,4 +1251,577 @@ def populate_impurity_profiles(
                 del work[f"{base}.zeff_fit"]
     if write_zeff:
         work = populate_zeff_profile(work, resolved, time=time, tolerance=tolerance, method=method)
+    return work
+
+
+# --- radial charge states from atomic data (#1565 Sec. 8) -------------------------------------
+
+#: How the elemental impurity density is scaled once its shape is fixed.
+NORMALIZATIONS = ("ne_weighted_mean", "axis", "fixed", "resistive_closure")
+
+
+@dataclass(frozen=True)
+class RadialImpurityComposition:
+    """Charge-state-resolved impurity composition on a radial grid.
+
+    Elements keep a fixed relative density and a flat ``n_s/n_e`` shape scaled
+    by one factor ``scale`` (``n_s/n_e = scale * w_s``); their charge-state
+    distributions follow ``T_e(rho)``, ``n_e(rho)`` from ADF11 data.  Arrays
+    run over ``rho``; species-indexed ones carry the element on the last axis;
+    ``charge_state_fractions`` is a tuple, one ``(n_rho, Z_n + 1)`` array per
+    element with the charge (neutral first) on the last axis.
+    """
+
+    kind: str
+    rho: np.ndarray
+    te_eV: np.ndarray
+    ne_m3: np.ndarray
+    elements: tuple[str, ...]
+    weights: np.ndarray
+    scale: float
+    elemental_fractions: np.ndarray
+    charge_state_fractions: tuple[np.ndarray, ...]
+    mean_charge: np.ndarray
+    mean_square_charge: np.ndarray
+    S1: np.ndarray
+    S2: np.ndarray
+    effective_charge: np.ndarray
+    zeff: np.ndarray
+    main_ion_fraction: np.ndarray
+    dilution_fraction: np.ndarray
+    coronal_mean_charge: np.ndarray
+    relaxation_time_s: np.ndarray
+    coronal_valid: Optional[np.ndarray]
+    main_ion: str = "H"
+    time: Optional[float] = None
+    normalization: Mapping[str, Any] = field(default_factory=dict)
+    provenance: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def zeff_source(self) -> str:
+        return f"atomic-data charge states, normalization={self.normalization.get('method')}"
+
+    @property
+    def source(self) -> str:
+        return f"OpenADAS ADF11 {self.provenance.get('ionization')} charge states"
+
+    def as_rows(self, **key: Any) -> list[dict[str, Any]]:
+        """One row per rho, prefixed by ``key`` (e.g. the #1454 state key)."""
+        rows = []
+        for i, r in enumerate(self.rho):
+            row = dict(key)
+            row.update(rho=float(r), te_eV=float(self.te_eV[i]), ne_m3=float(self.ne_m3[i]),
+                       zeff=float(self.zeff[i]), S1=float(self.S1[i]), S2=float(self.S2[i]),
+                       z_i_eff=float(self.effective_charge[i]),
+                       main_ion_fraction=float(self.main_ion_fraction[i]),
+                       dilution_fraction=float(self.dilution_fraction[i]),
+                       coronal_valid=None if self.coronal_valid is None else bool(self.coronal_valid[i]))
+            for k, element in enumerate(self.elements):
+                row[f"n_{element}_over_ne"] = float(self.elemental_fractions[i, k])
+                row[f"mean_z_{element}"] = float(self.mean_charge[i, k])
+                row[f"mean_z2_{element}"] = float(self.mean_square_charge[i, k])
+                row[f"coronal_mean_z_{element}"] = float(self.coronal_mean_charge[i, k])
+                row[f"tau_relax_ms_{element}"] = float(self.relaxation_time_s[i, k] * 1e3)
+            rows.append(row)
+        return rows
+
+
+def _tables(element: str, tables: Optional[Mapping[str, Any]], cache_dir) -> tuple[Any, Any, dict[str, str]]:
+    from vaft.data.open_adas import default_adf11_files, get_adf11_path, read_adf11
+
+    if tables is not None and element in tables:
+        acd, scd = tables[element]
+        def label(source):
+            return str(getattr(source, "path", source))
+
+        return (read_adf11(acd) if not hasattr(acd, "log_coefficients") else acd,
+                read_adf11(scd) if not hasattr(scd, "log_coefficients") else scd,
+                {"acd": label(acd), "scd": label(scd)})
+    names = default_adf11_files(element)
+    acd_path = get_adf11_path(names["acd"], cache_dir=cache_dir)
+    scd_path = get_adf11_path(names["scd"], cache_dir=cache_dir)
+    return read_adf11(acd_path), read_adf11(scd_path), {"acd": names["acd"], "scd": names["scd"]}
+
+
+def charge_state_moments(
+    element: str,
+    te_eV: Any,
+    ne_m3: Any,
+    *,
+    ionization: str = "coronal",
+    age_s: Optional[float] = None,
+    tables: Optional[Mapping[str, Any]] = None,
+    cache_dir: Optional[str] = None,
+) -> dict[str, Any]:
+    """Charge-state distribution of one element and its first two charge moments.
+
+    Parameters
+    ----------
+    element : str
+        Element symbol [-].
+    te_eV : array-like
+        Electron temperature, positive [eV].
+    ne_m3 : array-like
+        Electron density, positive [m^-3].
+    ionization : str, optional
+        ``"coronal"`` (steady ionisation balance) or ``"transient"`` (a parcel
+        ``age_s`` after entering as neutrals) [-].
+    age_s : float, optional
+        Ionisation age for ``"transient"`` [s].
+    tables : mapping, optional
+        ``{element: (acd, scd)}`` ADF11 tables or paths overriding the
+        OPEN-ADAS defaults [any].
+    cache_dir : str, optional
+        ADF11 cache directory [-].
+
+    Returns
+    -------
+    dict
+        ``fractions`` (charge on the last axis, neutral first), ``mean_charge``
+        and ``mean_square_charge`` [-], ``coronal_mean_charge`` [-],
+        ``relaxation_time_s`` [s] and the ``tables`` used [any].
+
+    Raises
+    ------
+    ValueError
+        An unknown ionization model, ``"transient"`` without an age, or
+        non-positive profiles.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    No transport and no charge exchange: the transient model is an age, not
+    an impurity-transport solution (Aurora, #897).
+
+    Provenance
+    ----------
+    .. [1] H. P. Summers, *The ADAS User Manual*, version 2.6 (2004), ADF11.
+    .. [issue] #1565 Sec. 8.
+    """
+    from vaft.formula.atomic import (
+        coronal_relaxation_time,
+        fractional_abundances,
+        mean_charge_from_charge_state_densities,
+        mean_square_charge_from_charge_state_densities,
+        transient_fractional_abundances,
+    )
+
+    if ionization not in ("coronal", "transient"):
+        raise ValueError(f"ionization must be 'coronal' or 'transient', got {ionization!r}")
+    acd, scd, used = _tables(element, tables, cache_dir)
+    z_n = _element_table()[element][0]
+    if acd.n_charge_states != z_n or scd.n_charge_states != z_n:
+        raise ValueError(
+            f"{element}: ADF11 tables hold {acd.n_charge_states}/{scd.n_charge_states} charge-state "
+            f"blocks, not Z_n = {z_n}; a metastable-resolved or wrong-element file?"
+        )
+    coronal = fractional_abundances(ne_m3, te_eV, acd, scd)
+    if ionization == "transient":
+        if age_s is None:
+            raise ValueError("the transient model needs the ionisation age age_s")
+        fractions = transient_fractional_abundances(ne_m3, te_eV, acd, scd, age_s)
+    else:
+        fractions = coronal
+    return {
+        "fractions": fractions,
+        "mean_charge": mean_charge_from_charge_state_densities(fractions),
+        "mean_square_charge": mean_square_charge_from_charge_state_densities(fractions),
+        "coronal_mean_charge": mean_charge_from_charge_state_densities(coronal),
+        "transient_mean_charge": None if age_s is None else mean_charge_from_charge_state_densities(
+            fractions if ionization == "transient" else transient_fractional_abundances(ne_m3, te_eV, acd, scd, age_s)),
+        "relaxation_time_s": coronal_relaxation_time(ne_m3, te_eV, acd, scd),
+        "tables": used,
+    }
+
+
+def _radial_weights(rho: np.ndarray, ne: np.ndarray, volume_weights) -> tuple[np.ndarray, str]:
+    if volume_weights is not None:
+        dv = np.asarray(volume_weights, dtype=float)
+        if dv.shape != rho.shape or np.any(dv < 0.0) or not np.all(np.isfinite(dv)):
+            raise ValueError("volume_weights must be finite, non-negative and on the rho grid")
+        return dv, "caller dV"
+    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
+    return rho * np.diff(edges), "cylindrical rho drho (no volume given)"
+
+
+def resolve_radial_composition(
+    te_eV: Any,
+    ne_m3: Any,
+    rho: Any,
+    elemental_weights: Mapping[str, float],
+    *,
+    normalization: str = "ne_weighted_mean",
+    target_zeff: float = 2.0,
+    ionization: str = "coronal",
+    plasma_age_s: Optional[float] = None,
+    volume_weights: Any = None,
+    resistive_target: Optional[float] = None,
+    projection: Optional[Callable[[np.ndarray], float]] = None,
+    coronal_tolerance: float = 0.1,
+    tables: Optional[Mapping[str, Any]] = None,
+    cache_dir: Optional[str] = None,
+    time: Optional[float] = None,
+) -> RadialImpurityComposition:
+    """Radial Z_eff and reduced impurity from an elemental composition and atomic-data charge states.
+
+    Parameters
+    ----------
+    te_eV : array-like
+        Electron temperature on ``rho`` [eV].
+    ne_m3 : array-like
+        Electron density on ``rho`` [m^-3].
+    rho : array-like
+        Radial coordinate, increasing [-].
+    elemental_weights : mapping
+        Relative elemental (all charge states) densities by element, e.g.
+        ``{"C": 1, "O": 1}``; normalised internally [-].
+    normalization : str, optional
+        One of :data:`NORMALIZATIONS`: ``ne_weighted_mean`` (the n_e-weighted
+        volume mean of Z_eff equals ``target_zeff``), ``axis`` (Z_eff at the
+        innermost point), ``fixed`` (the fully stripped closure at
+        ``target_zeff``, i.e. 1/86 each for the VEST preset, then let Z_eff
+        fall where the charge states do) or ``resistive_closure``
+        (``projection(Z_eff) == resistive_target``) [-].
+    target_zeff : float, optional
+        Target of the ``ne_weighted_mean``, ``axis`` and ``fixed`` rules [-].
+    ionization : str, optional
+        ``"coronal"`` or ``"transient"`` (needs ``plasma_age_s``) [-].
+    plasma_age_s : float, optional
+        Time since breakdown; also the age of the coronal-validity check [s].
+    volume_weights : array-like, optional
+        ``dV`` per rho point for the volume mean; default ``rho drho``, a
+        cylindrical stand-in in rho units [m^3].
+    resistive_target : float, optional
+        Resistive Z_eff the ``resistive_closure`` rule matches [-].
+    projection : callable, optional
+        ``Z_eff(rho) -> scalar`` resistive projection (#1566) for
+        ``resistive_closure``; it receives the full ``rho`` grid with NaN at
+        undefined points and must ignore them [any].
+    coronal_tolerance : float, optional
+        Largest ``|<Z>_transient(age) - <Z>_coronal|`` still called coronal [-].
+    tables : mapping, optional
+        ``{element: (acd, scd)}`` overriding the OPEN-ADAS defaults [any].
+    cache_dir : str, optional
+        ADF11 cache directory [-].
+    time : float, optional
+        Slice time, carried for the writer [s].
+
+    Returns
+    -------
+    RadialImpurityComposition
+        ``zeff(rho)``, ``<Z>``, ``<Z^2>``, ``S1``, ``S2``, ``Z_I,eff``,
+        dilution, elemental and charge-state fractions, the coronal check and
+        the normalization record [any].
+
+    Raises
+    ------
+    ValueError
+        An unknown rule or model, a target the composition cannot reach
+        (a negative main-ion density), ``resistive_closure`` without its
+        projection and target, or no valid profile point.
+
+    Processing steps
+    ----------------
+    1. ADF11 charge-state fractions of each element at each point (coronal,
+       or transient at ``plasma_age_s``); ``<Z>_s``, ``<Z^2>_s``.
+    2. ``S1 = sum w_s <Z>_s``, ``S2 = sum w_s <Z^2>_s``.
+    3. With ``n_s/n_e = c w_s``, ``Z_eff = Z_m + c (S2 - Z_m S1)`` is linear in
+       the one scale ``c``; the normalization rule fixes ``c``.
+    4. ``n_main/n_e = (1 - c S1)/Z_m``, ``Z_I,eff = S2/S1``, dilution.
+    5. Coronal check: transient ``<Z>`` at ``plasma_age_s`` against coronal.
+
+    Convention
+    ----------
+    The elemental ratio and a flat ``n_s/n_e`` shape are fixed; only their
+    common amplitude is normalised, so the radial structure of Z_eff is the
+    charge states' alone.  ``ne_weighted_mean`` is the default the VEST atlas
+    uses (#1569); ``fixed`` shows how far Z_eff falls from the stripped value.
+
+    Assumptions
+    -----------
+    No impurity transport: flat ``n_s/n_e``; equal ages everywhere.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    VEST discharges last tens of ms while carbon relaxes on ~10-80 ms at
+    20-200 eV and 1e19 m^-3: the coronal model overstates the charge;
+    ``coronal_valid`` says where.  Charge exchange with neutrals is ignored.
+
+    Provenance
+    ----------
+    .. [1] H. P. Summers, *The ADAS User Manual*, version 2.6 (2004), ADF11.
+    .. [issue] #1565 Sec. 8, Lane L log #1569 (normalization decision).
+    """
+    if normalization not in NORMALIZATIONS:
+        raise ValueError(f"normalization must be one of {NORMALIZATIONS}, got {normalization!r}")
+    te = np.asarray(te_eV, dtype=float)
+    ne = np.asarray(ne_m3, dtype=float)
+    rho = np.asarray(rho, dtype=float)
+    if not (te.shape == ne.shape == rho.shape and rho.ndim == 1):
+        raise ValueError("te_eV, ne_m3 and rho must be 1-D arrays of one length")
+    valid = np.isfinite(te) & np.isfinite(ne) & (te > 0.0) & (ne > 0.0) & np.isfinite(rho)
+    if not valid.any():
+        raise ValueError("no point with a finite, positive T_e and n_e")
+    elements = tuple(elemental_weights)
+    raw = np.array([float(elemental_weights[e]) for e in elements], dtype=float)
+    if not elements or np.any(raw < 0.0) or raw.sum() <= 0.0 or not np.all(np.isfinite(raw)):
+        raise ValueError("elemental_weights must be non-negative with a positive sum")
+    weights = raw / raw.sum()
+    table = _element_table()
+    for element in elements:
+        if element not in table:
+            raise ValueError(f"unknown element {element!r}")
+
+    n = rho.size
+    nz = len(elements)
+    mean = np.full((n, nz), np.nan)
+    mean2 = np.full((n, nz), np.nan)
+    coronal_mean = np.full((n, nz), np.nan)
+    transient_mean = np.full((n, nz), np.nan)
+    relax = np.full((n, nz), np.nan)
+    states = []
+    used = {}
+    for k, element in enumerate(elements):
+        moments = charge_state_moments(element, te[valid], ne[valid], ionization=ionization,
+                                       age_s=plasma_age_s, tables=tables, cache_dir=cache_dir)
+        mean[valid, k] = moments["mean_charge"]
+        mean2[valid, k] = moments["mean_square_charge"]
+        coronal_mean[valid, k] = moments["coronal_mean_charge"]
+        relax[valid, k] = moments["relaxation_time_s"]
+        if moments["transient_mean_charge"] is not None:
+            transient_mean[valid, k] = moments["transient_mean_charge"]
+        full = np.full((n, table[element][0] + 1), np.nan)
+        full[valid] = moments["fractions"]
+        states.append(full)
+        used[element] = moments["tables"]
+
+    s1 = mean @ weights
+    s2 = mean2 @ weights
+    main_charge = float(table["H"][0])
+    excess = s2 - main_charge * s1
+    record: dict[str, Any] = {"method": normalization}
+    if normalization == "ne_weighted_mean":
+        dv, how = _radial_weights(rho, ne, volume_weights)
+        m = valid & np.isfinite(excess)
+        mean_excess = np.sum((ne * dv * excess)[m]) / np.sum((ne * dv)[m])
+        scale = (float(target_zeff) - main_charge) / mean_excess
+        record.update(target_zeff=float(target_zeff), weighting=f"n_e {how}")
+    elif normalization == "axis":
+        first = int(np.flatnonzero(valid)[0])
+        scale = (float(target_zeff) - main_charge) / excess[first]
+        record.update(target_zeff=float(target_zeff), at_rho=float(rho[first]))
+    elif normalization == "fixed":
+        z_n = np.array([table[e][0] for e in elements], dtype=float)
+        stripped = float(weights @ z_n**2 - main_charge * (weights @ z_n))
+        scale = (float(target_zeff) - main_charge) / stripped
+        record.update(target_zeff_fully_stripped=float(target_zeff))
+    else:
+        if projection is None or resistive_target is None:
+            raise ValueError("resistive_closure needs projection= and resistive_target=")
+        from scipy.optimize import brentq
+
+        if not np.nanmax(s1[valid]) > 0.0:
+            raise ValueError("every valid point is neutral: no impurity amplitude changes Z_eff")
+        upper = 1.0 / np.nanmax(s1[valid])
+
+        def mismatch(c):
+            value = float(projection(np.where(valid, main_charge + c * excess, np.nan)))
+            if not np.isfinite(value):
+                raise ValueError("the projection returned a non-finite value; it must ignore NaN "
+                                 "(undefined) points of Z_eff(rho)")
+            return value - float(resistive_target)
+
+        lo, hi = mismatch(0.0), mismatch(upper * (1 - 1e-9))
+        if lo * hi > 0.0:
+            raise ValueError(
+                f"no impurity amplitude reproduces resistive Z_eff {resistive_target:g}: the projection "
+                f"spans [{lo + resistive_target:g}, {hi + resistive_target:g}]"
+            )
+        scale = brentq(mismatch, 0.0, upper * (1 - 1e-9), xtol=1e-12)
+        record.update(resistive_target=float(resistive_target))
+    if not np.isfinite(scale) or scale < 0.0:
+        raise ValueError(f"the normalization gives an unphysical impurity amplitude {scale!r}")
+    main = (1.0 - scale * s1) / main_charge
+    if np.nanmin(main[valid]) < -1e-12:
+        raise ValueError("the target needs more impurity charge than there are electrons somewhere")
+    zeff = main_charge + scale * excess
+    record["scale"] = float(scale)
+    check = None
+    if plasma_age_s is not None:
+        lag = np.nanmax(np.abs(transient_mean - coronal_mean), axis=1)
+        check = np.where(valid, lag <= coronal_tolerance, False)
+        record_check = {"plasma_age_s": float(plasma_age_s), "tolerance": coronal_tolerance,
+                        "points_not_coronal": int(np.count_nonzero(valid & ~check))}
+    else:
+        record_check = {"plasma_age_s": None,
+                        "note": "no plasma age given: coronal validity not checked"}
+    with np.errstate(invalid="ignore", divide="ignore"):
+        effective = s2 / s1
+    return RadialImpurityComposition(
+        kind="inferred" if normalization == "resistive_closure" else "derived",
+        rho=rho, te_eV=te, ne_m3=ne, elements=elements, weights=weights, scale=float(scale),
+        elemental_fractions=np.outer(np.where(valid, scale, np.nan), weights),
+        charge_state_fractions=tuple(states), mean_charge=mean, mean_square_charge=mean2,
+        S1=s1, S2=s2, effective_charge=effective, zeff=zeff, main_ion_fraction=main,
+        dilution_fraction=1.0 - main, coronal_mean_charge=coronal_mean, relaxation_time_s=relax,
+        coronal_valid=check, time=time, normalization=record,
+        provenance={"ionization": ionization, "tables": used, "coronal_check": record_check,
+                    "elemental_weights_input": {e: float(elemental_weights[e]) for e in elements}},
+    )
+
+
+def populate_radial_impurity_profiles(
+    ods: Any,
+    radial: RadialImpurityComposition,
+    *,
+    time: Optional[float] = None,
+    tolerance: float = 5e-4,
+    method: Optional[str] = None,
+) -> Any:
+    """A copy of ``ods`` whose ``core_profiles`` slice carries a charge-state-resolved composition.
+
+    Parameters
+    ----------
+    ods : ODS
+        Source; never modified [any].
+    radial : RadialImpurityComposition
+        From :func:`resolve_radial_composition` [any].
+    time : float, optional
+        Slice time; default the composition's own [s].
+    tolerance : float, optional
+        Largest ``|t_slice - time|`` accepted [s].
+    method : str, optional
+        ``method=`` field; default ``openadas_<ionization>`` [-].
+
+    Returns
+    -------
+    ODS
+        A deep copy whose slice ``ion[]`` is the diluted hydrogenic main ion
+        and one bundled entry per element: ``z_ion`` (the mean charge
+        weighted by the element's density at the grid points, no volume
+        element), ``z_ion_1d`` = <Z>(rho), ``z_ion_square_1d`` = <Z^2>(rho),
+        the elemental ``density`` -- all charge states *including the neutral
+        atoms*, the density <Z> and <Z^2> are averaged over -- and
+        ``state[q]`` (``z_min = z_max = q``, charge-state density) for every
+        ionised state, so ``sum(state.density) = density (1 - f_0)``; plus
+        ``zeff`` [any].
+
+    Raises
+    ------
+    ValueError
+        As :func:`populate_impurity_profiles`.
+
+    Processing steps
+    ----------------
+    1. Match the slice by time and read ``n_e``; refuse a measured target.
+    2. Keep the hydrogenic main ion (diluted), drop stored impurity entries.
+    3. Write each element bundled, with its charge-state densities, from the
+       composition interpolated onto the slice rho grid.
+    4. Write ``zeff`` (``origin=derived``, or ``inferred`` for a resistive
+       closure).
+
+    Input semantics
+    ---------------
+    A ``core_profiles`` slice with an electron density.
+
+    Output semantics
+    ----------------
+    The same slice with bundled impurity ions whose charge varies with rho.
+
+    Convention
+    ----------
+    IMAS bundled ions: ``z_ion`` is one number, the radial charge lives in
+    ``z_ion_1d`` / ``z_ion_square_1d``.  A reader of ``z_ion`` alone loses
+    the radial variation and the charge variance -- GACODE does, so the
+    transport path lumps per surface instead (Lane L PR 5).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Neutral atoms are not written (``core_profiles.neutral`` is out of scope).
+
+    Provenance
+    ----------
+    .. [issue] #1565 Sec. 5 and 8.
+    """
+    work = copy.deepcopy(ods)
+    index, ne, rho = _write_slice(work, radial, time, tolerance)
+    base = f"core_profiles.profiles_1d.{index}"
+    if composition_record_origin(_get(work, f"{base}.zeff_fit.parameters")) == "measured":
+        raise ValueError(f"{base}.zeff is labelled measured; it is never overwritten")
+    _reset_ions(work, base, radial.main_ion)
+    if rho is None:
+        if ne.size != radial.rho.size:
+            raise ValueError("the slice has no rho grid and a different size from the composition")
+        rho = radial.rho
+
+    def grid(values):
+        values = np.asarray(values, dtype=float)
+        if values.shape[0] == rho.size and np.allclose(radial.rho, rho):
+            out = values.copy()
+        else:
+            columns = values.reshape(values.shape[0], -1)
+            ok = np.isfinite(radial.rho)
+            # anti-alias: radial, not time -- the composition onto the slice rho grid.
+            out = np.column_stack([np.interp(rho, radial.rho[ok], c[ok], left=np.nan, right=np.nan)
+                                   for c in columns.T]).reshape((rho.size,) + values.shape[1:])
+        return _fill_undefined(out, rho)
+
+    origin = _WRITE_ORIGIN[radial.kind]
+    tag = method or f"openadas_{radial.provenance.get('ionization')}"
+    norm = radial.normalization.get("method")
+    main, filled = grid(radial.main_ion_fraction)
+    fill_note = f"; filled_points={filled}" if filled else ""
+    record = composition_record_text(origin, tag, normalization=norm) + fill_note
+    work[f"{base}.ion.0.density"] = ne * main
+    work[f"{base}.ion.0.density_thermal"] = ne * main
+    work[f"{base}.ion.0.density_fit.parameters"] = record
+    temperature = _get(work, f"{base}.ion.0.temperature")
+    t_record = _get(work, f"{base}.ion.0.temperature_fit.parameters")
+    rotation = _get(work, f"{base}.ion.0.velocity.toroidal")
+    elemental, _ = grid(radial.elemental_fractions)
+    mean, _ = grid(radial.mean_charge)
+    mean2, _ = grid(radial.mean_square_charge)
+    table = _element_table()
+    for k, element in enumerate(radial.elements):
+        ion = f"{base}.ion.{k + 1}"
+        density = ne * elemental[:, k]
+        weight = density / np.sum(density) if np.sum(density) > 0 else np.full(density.shape, 1.0 / density.size)
+        work[f"{ion}.label"] = element
+        work[f"{ion}.z_ion"] = float(np.sum(weight * mean[:, k]))
+        work[f"{ion}.z_ion_1d"] = mean[:, k]
+        work[f"{ion}.z_ion_square_1d"] = mean2[:, k]
+        work[f"{ion}.element.0.z_n"] = float(table[element][0])
+        work[f"{ion}.element.0.a"] = float(table[element][1])
+        work[f"{ion}.element.0.atoms_n"] = 1
+        work[f"{ion}.density"] = density
+        work[f"{ion}.density_thermal"] = density
+        work[f"{ion}.density_fit.parameters"] = record + "; temperature=main_ion; rotation=main_ion"
+        states, _ = grid(radial.charge_state_fractions[k])
+        for q in range(1, states.shape[1]):
+            state = f"{ion}.state.{q - 1}"
+            work[f"{state}.z_min"] = float(q)
+            work[f"{state}.z_max"] = float(q)
+            work[f"{state}.label"] = f"{element}{q}+"
+            work[f"{state}.density"] = density * states[:, q]
+            work[f"{state}.density_thermal"] = density * states[:, q]
+        if temperature is not None:
+            work[f"{ion}.temperature"] = np.asarray(temperature, dtype=float)
+            if t_record is not None:
+                work[f"{ion}.temperature_fit.parameters"] = t_record
+        if rotation is not None:
+            work[f"{ion}.velocity.toroidal"] = np.asarray(rotation, dtype=float)
+    zeff, _ = grid(radial.zeff)
+    work[f"{base}.zeff"] = zeff
+    work[f"{base}.zeff_fit.parameters"] = record
     return work

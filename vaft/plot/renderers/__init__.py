@@ -10,6 +10,7 @@ from . import fields, geometry, images, lines, panels, profiles, spectra, spectr
 # exported from vaft.plot, not from this package, whose ``render_*`` names are
 # the Matplotlib bodies that take ``ax=``/``format=``/``theme=``.
 from . import tables
+from . import edge_q
 from .fields import render_field_2d
 from .geometry import draw_geometry_layer, render_geometry_layers
 from .images import render_image_2d, render_image_sequence
@@ -21,6 +22,7 @@ from .spectrograms import render_spectrogram
 
 __all__ = [
     "draw_geometry_layer",
+    "edge_q",
     "fields",
     "geometry",
     "images",

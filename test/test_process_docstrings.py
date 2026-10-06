@@ -129,6 +129,9 @@ PIPELINE = frozenset({
     "resolve_transport_state",
     # impurity (#1565): match time -> choose by precedence -> close at Z_eff -> reduce
     "resolve_impurity_composition",
+    # impurity (#1565 Sec. 8): ADF11 states -> moments -> S1/S2 -> one scale -> check
+    "resolve_radial_composition",
+    "populate_radial_impurity_profiles",
     # impurity (#1565): match -> keep main ion -> dilute -> write species -> zeff
     "populate_impurity_profiles",
     # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
@@ -290,6 +293,7 @@ STATEFUL = frozenset({
     "window_dataset",
     # impurity (#1565): an electron-only or H+ slice -> an explicit, labelled species list
     "populate_impurity_profiles",
+    "populate_radial_impurity_profiles",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
@@ -620,6 +624,8 @@ CONVENTION_SENSITIVE = frozenset({
     "resolve_impurity_composition",
     "populate_impurity_profiles",
     "populate_zeff_profile",
+    "resolve_radial_composition",
+    "populate_radial_impurity_profiles",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]
