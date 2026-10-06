@@ -148,3 +148,32 @@ def test_json_is_strict_and_nan_survives_as_absent(sat0, tmp_path):
     json.loads(path.read_text(), parse_constant=lambda c: (_ for _ in ()).throw(ValueError(c)))
     back = TglfOutputs.read_json(path)
     assert np.all(np.isnan(back.field_spectrum[..., 2]))
+
+
+def test_infinities_and_non_finite_scalars_round_trip_through_strict_json(tmp_path):
+    """A blown-up flux (Fortran ``Infinity``) or a NaN ``precision`` is a solver verdict.
+
+    ``write_json`` must still produce strict JSON for it (cold review 0.8.0 F3): the
+    transport atlas archives ``outputs.json`` for every surface, and a writer that raised
+    turned TGLF's own non-finite result into a VAFT error with no record to resume from.
+    """
+    import json
+    import math
+
+    run = TglfOutputs(
+        directory=str(tmp_path), precision=float("nan"),
+        gbflux={"particle": np.array([0.1, np.inf]), "energy": np.array([-np.inf, np.nan])},
+        saturation_parameters={"SAT_geo0_out": float("nan"), "B_unit": 1.5, "note": "inf"},
+    )
+    path = run.write_json(tmp_path / "out.json")
+    text = path.read_text(encoding="utf-8")
+    json.loads(text, parse_constant=lambda c: (_ for _ in ()).throw(ValueError(c)))
+    assert run.write_json(tmp_path / "again.json").read_text(encoding="utf-8") == text
+    back = TglfOutputs.read_json(path)
+    assert np.array_equal(back.gbflux["particle"], [0.1, np.inf])
+    assert np.isneginf(back.gbflux["energy"][0]) and np.isnan(back.gbflux["energy"][1])
+    assert math.isnan(back.precision)
+    assert math.isnan(back.saturation_parameters["SAT_geo0_out"])
+    assert back.saturation_parameters["B_unit"] == 1.5
+    assert back.saturation_parameters["note"] == "inf"   # a genuine string stays one
+    assert not back.solved
