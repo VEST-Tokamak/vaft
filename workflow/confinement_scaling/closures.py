@@ -241,6 +241,67 @@ def odr_scan(name, frame, n_boot):
     return rows
 
 
+#: Intrinsic scatter added in quadrature to the per-row EFIT model-form spread, as
+#: a lower and a central assumption: the spread is one part of the equation error
+#: of ln W, not all of it (#579, #548).
+SIGMA_LOG_INTRINSIC = (0.0, 0.10)
+
+
+def join_model_spread(frame: pd.DataFrame, spread: pd.DataFrame) -> pd.DataFrame:
+    """Attach the #579 per-state EFIT model-form spread of W, matched by (shot, time) to 1e-4 s."""
+    keep = ["shot", "w_mhd_J_admissible_sigma_log", "w_mhd_J_admissible_median", "admissible_bimodal",
+            "w_mhd_J_viable_sigma_log", "w_mhd_J_viable_n"]
+    right = spread.assign(time_key=spread["time_efit_s"].round(4))[keep + ["time_key"]]
+    out = frame.assign(time_key=frame["time_efit_s"].round(4)).merge(
+        right, on=["shot", "time_key"], how="left", validate="many_to_one")
+    out["admissible_bimodal"] = out["admissible_bimodal"].map(
+        {True: True, False: False, "True": True, "False": False}).astype("boolean")
+    return out.drop(columns="time_key")
+
+
+def odr_model_spread(name: str, frame: pd.DataFrame) -> list:
+    """ODR of W on (I_p, B_T, P_OH) with the EFIT model-form spread as the per-row W error.
+
+    On the rows the #579 ensemble covers: a constant sigma_W = 0.2 (the closure
+    scan's reference) against per-row sigma_W = sqrt(sigma_EFIT^2 + sigma_int^2),
+    with and without the bimodal rows (two solution branches, one sigma is wrong
+    there), and with the tight 'viable' spread where it exists.
+    """
+    from vaft.process.confinement import fit_confinement_scaling_odr
+
+    errors = {"i_p": SIGMA_LOG_IB, "b_t": SIGMA_LOG_IB, "p_ohm": SIGMA_REF[0]}
+    covered = frame.loc[np.isfinite(frame["w_mhd_J_admissible_sigma_log"])]
+    unimodal = covered.loc[~covered["admissible_bimodal"].fillna(False).astype(bool)]
+    viable = frame.loc[np.isfinite(frame["w_mhd_J_viable_sigma_log"])]
+    cases = [("constant 0.2", unimodal, None, 0.0)]
+    for intrinsic in SIGMA_LOG_INTRINSIC:
+        cases += [(f"admissible, unimodal, +{intrinsic:g} intrinsic", unimodal, "w_mhd_J_admissible_sigma_log", intrinsic),
+                  (f"admissible, all, +{intrinsic:g} intrinsic", covered, "w_mhd_J_admissible_sigma_log", intrinsic),
+                  (f"viable, +{intrinsic:g} intrinsic", viable, "w_mhd_J_viable_sigma_log", intrinsic)]
+    rows = []
+    for label, data, column, intrinsic in cases:
+        row = {"data": name, "case": label, "rows": len(data), "shots": int(data["shot"].nunique())}
+        if column is None:
+            sigma = SIGMA_REF[1]
+        else:
+            sigma = np.sqrt(data[column].to_numpy(float) ** 2 + intrinsic**2)
+            row["sigma_w_median"] = float(np.median(sigma))
+        x = {"i_p": data["i_p_A"].to_numpy(float), "b_t": data["b_t_T"].to_numpy(float),
+             "p_ohm": data["p_ohm_W"].to_numpy(float)}
+        try:
+            out = fit_confinement_scaling_odr(data["w_th_J"].to_numpy(float), x, sigma_log_response=sigma,
+                                              sigma_log_predictors=errors)
+        except ValueError as exc:
+            rows.append({**row, "error": str(exc)[:120]})
+            continue
+        coef = dict(zip(out["names"], out["coef"]))
+        ols = dict(zip(out["names"], out["ols_coef"]))
+        rows.append({**row, "n": out["n"], "method": out["method"],
+                     "a_i_p": coef["i_p"], "a_b_t": coef["b_t"], "a_p": coef["p_ohm"] - 1.0,
+                     "ols_a_p": ols["p_ohm"] - 1.0})
+    return rows
+
+
 def main(argv=None) -> int:
     from vaft.process.confinement import dimensionless_confinement_indices
 
@@ -248,6 +309,8 @@ def main(argv=None) -> int:
     p.add_argument("--table", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--n-boot", type=int, default=500)
+    p.add_argument("--model-spread", default=None,
+                   help="#579 model_spread.csv: per-state EFIT model-form spread of W for the ODR (optional)")
     args = p.parse_args(argv)
     table_path = Path(args.table).expanduser()
     out = Path(args.out).expanduser()
@@ -301,6 +364,25 @@ def main(argv=None) -> int:
 
     pd.DataFrame(closure_rows).to_csv(out / "closures.csv", index=False)
     pd.DataFrame(odr_rows).to_csv(out / "odr_scan.csv", index=False)
+    spread_rows, spread_coverage = [], {}
+    if args.model_spread:
+        spread = pd.read_csv(Path(args.model_spread).expanduser())
+        joined = join_model_spread(table, spread)
+        for sel_name, thresholds in SELECTIONS.items():
+            frame = joined.loc[select(joined, thresholds)]
+            frame = frame.loc[np.isfinite(frame["tau_e_th_s"]) & (frame["tau_e_th_s"] > 0)].reset_index(drop=True)
+            covered = frame.loc[np.isfinite(frame["w_mhd_J_admissible_sigma_log"])]
+            spread_coverage[sel_name] = {
+                "rows": len(frame), "covered": len(covered),
+                "bimodal": int(covered["admissible_bimodal"].fillna(False).astype(bool).sum()),
+                "viable": int(np.isfinite(frame["w_mhd_J_viable_sigma_log"]).sum()),
+                "median_sigma_log_admissible": float(covered["w_mhd_J_admissible_sigma_log"].median()),
+                # The ensemble's median W against the production reconstruction's W.
+                "median_ensemble_w_over_table_w": float((covered["w_mhd_J_admissible_median"]
+                                                         / covered["w_th_J"]).median()),
+            }
+            spread_rows += odr_model_spread(f"{sel_name}:A", frame)
+        pd.DataFrame(spread_rows).to_csv(out / "odr_model_spread.csv", index=False)
     pd.DataFrame(comparison).to_csv(out / "nstx_comparison.csv", index=False)
     if failures:
         pd.DataFrame(failures).to_csv(out / "failures.csv", index=False)
@@ -313,6 +395,10 @@ def main(argv=None) -> int:
         "odr": {"sigma_log_w_scan": SIGMA_LOG_W_SCAN, "sigma_log_i_b": SIGMA_LOG_IB,
                 "sigma_log_p_scan": SIGMA_LOG_P_SCAN, "bootstrap_at_sigma_p_w": SIGMA_REF,
                 "power_predictors": ODR_POWER, "p_ohm_path_scatter": p_scatter,
+                "model_spread": ({"path": str(Path(args.model_spread).expanduser()),
+                                  "sha256": hashlib.sha256(Path(args.model_spread).expanduser().read_bytes()).hexdigest(),
+                                  "coverage": spread_coverage, "sigma_log_intrinsic": SIGMA_LOG_INTRINSIC}
+                                 if args.model_spread else None),
                 "independence": ("P_OH is independent of W; P_net = P_OH - dW/dt is not (dW/dt is "
                                  "W-derived), so the P_net rows are a comparison only")},
         "notes": ("alpha_R_kadomtsev and *_completed are Kadomtsev-completed (assumed size exponent, not "
@@ -325,6 +411,9 @@ def main(argv=None) -> int:
     print(pd.DataFrame(closure_rows).reindex(columns=cols).round(3).to_string(index=False))
     print(pd.DataFrame(odr_rows).round(3).to_string(index=False))
     print(json.dumps(p_scatter, indent=1))
+    if spread_rows:
+        print(pd.DataFrame(spread_rows).round(3).to_string(index=False))
+        print(json.dumps(spread_coverage, indent=1))
     if failures:
         print(pd.DataFrame(failures).to_string(index=False))
     return 0

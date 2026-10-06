@@ -1133,7 +1133,7 @@ def fit_confinement_scaling_odr(
     response: np.ndarray,
     predictors: Mapping[str, np.ndarray],
     *,
-    sigma_log_response: float,
+    sigma_log_response,
     sigma_log_predictors: Mapping[str, float],
 ) -> dict:
     """Errors-in-variables (orthogonal distance) power-law fit in log space.
@@ -1145,10 +1145,12 @@ def fit_confinement_scaling_odr(
         $\\tau_E$, so its error is independent of the power's [any].
     predictors : Mapping
         Predictor arrays keyed by name [any].
-    sigma_log_response : float
+    sigma_log_response : float or array-like
         Standard deviation of the *equation* error of $\\ln y$: measurement
         error plus the scaling's intrinsic scatter, not measurement error
-        alone [-].
+        alone. One number for every row, or one per input row (e.g. a
+        reconstruction's model-form spread, #579); a row whose value is not
+        finite and positive is dropped [-].
     sigma_log_predictors : Mapping
         Standard deviation of the measurement error of $\\ln x_j$ per
         predictor; zero marks a predictor as exact [-].
@@ -1159,7 +1161,8 @@ def fit_confinement_scaling_odr(
         ``names`` (``log_C`` first) [-]; ``coef``, the errors-in-variables
         coefficients [-]; ``n`` rows used [-]; ``mask`` of the rows used
         [bool]; ``ols_coef``, the least-squares coefficients of the same data
-        [-] [any].
+        [-]; ``method``, ``"partial_tls"`` for one response error or
+        ``"weighted_odr"`` for per-row errors [-] [any].
 
     Raises
     ------
@@ -1178,6 +1181,11 @@ def fit_confinement_scaling_odr(
        noisy slopes are $b_j = -(v_j/\\sigma_j)/(v_y/\\sigma_y)$.
     4. The exact predictors' slopes and the intercept by least squares of
        $y - \\sum_{j\\in\\mathrm{noisy}} b_j x_j$ on them.
+    5. With per-row response errors steps 2-4 have no closed form: the same
+       linear model is solved by weighted orthogonal distance regression
+       (``scipy.odr``), the exact predictors held fixed, starting from the
+       least-squares solution. For a constant per-row error it reproduces
+       steps 2-4.
 
     Applicability
     -------------
@@ -1203,13 +1211,23 @@ def fit_confinement_scaling_odr(
        for a linear model with known error ratios it is the orthogonal
        distance (maximum-likelihood) solution.
     """
+    per_row = np.ndim(sigma_log_response) > 0
+    if per_row:
+        sy_rows = np.asarray(sigma_log_response, dtype=float)
+        if sy_rows.shape != (np.size(response),):
+            raise ValueError(f"sigma_log_response has shape {sy_rows.shape}, expected ({np.size(response)},)")
+        ok_sy = np.isfinite(sy_rows) & (sy_rows > 0)
+        response = np.where(ok_sy, np.asarray(response, dtype=float), np.nan)
     names, log_y, x, _, keep = _log_design(response, predictors, np.zeros(np.size(response)))
     n, k = x.shape
     if n <= k:
         raise ValueError(f"{n} usable rows cannot fit {k} coefficients")
-    sy = float(sigma_log_response)
-    if not (np.isfinite(sy) and sy > 0):
-        raise ValueError(f"sigma_log_response must be finite and > 0, got {sigma_log_response!r}")
+    if per_row:
+        sy = sy_rows[keep]
+    else:
+        sy = float(sigma_log_response)
+        if not (np.isfinite(sy) and sy > 0):
+            raise ValueError(f"sigma_log_response must be finite and > 0, got {sigma_log_response!r}")
     missing = [name for name in names if name not in sigma_log_predictors]
     if missing:
         raise ValueError(f"no log error given for predictor(s) {missing}")
@@ -1221,6 +1239,19 @@ def fit_confinement_scaling_odr(
     if noisy.size == 0:
         raise ValueError("no predictor has an error: use fit_confinement_scaling")
     ols, *_ = np.linalg.lstsq(x, log_y, rcond=None)
+    if per_row:
+        from scipy import odr
+
+        def linear(beta, xx):
+            return beta[0] + beta[1:] @ np.atleast_2d(xx)
+
+        sx_rows = np.tile(np.where(sx > 0, sx, 1.0)[:, None], (1, n))
+        fit = odr.ODR(odr.RealData(x[:, 1:].T, log_y, sx=sx_rows, sy=sy), odr.Model(linear), beta0=ols,
+                      ifixx=np.tile((sx > 0).astype(int)[:, None], (1, n)), maxit=1000).run()
+        if fit.info > 3 or not np.all(np.isfinite(fit.beta)):
+            raise ValueError(f"weighted ODR did not converge: {fit.stopreason}")
+        return {"names": ("log_C", *names), "coef": np.asarray(fit.beta, dtype=float), "n": n, "mask": keep,
+                "ols_coef": ols, "method": "weighted_odr"}
 
     base = np.column_stack([np.ones(n)] + [x[:, 1 + j] for j in exact])
     proj = base @ np.linalg.pinv(base)
@@ -1236,7 +1267,8 @@ def fit_confinement_scaling_odr(
     coef[0] = b_base[0]
     coef[1 + exact] = b_base[1:]
     coef[1 + noisy] = b_noisy
-    return {"names": ("log_C", *names), "coef": coef, "n": n, "mask": keep, "ols_coef": ols}
+    return {"names": ("log_C", *names), "coef": coef, "n": n, "mask": keep, "ols_coef": ols,
+            "method": "partial_tls"}
 
 
 def infer_kadomtsev_size_exponent(
