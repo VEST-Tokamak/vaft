@@ -369,6 +369,11 @@ not VEST hardware ratings.
 | Guazzotto pure pressure limited | accepted / accepted | failed / failed | 0.31 / 0.31 | limited |
 
 Every refined and subsequent frozen-current solve in this matrix converged.
+The validated result is fit + refinement: the unrefined fixed-current closure
+of the fitted currents converges for 4 of the 20 cases (Solov'ev limited and
+lower single null, both routes), and shape refinement moved individual coil
+currents by up to 109 kA (current-pedestal lower single null, native route)
+inside the ±200 kA bounds.
 The native FE saddle check requires flux agreement within 0.01% of the active
 boundary, one-to-one matching to the target active X-points within 10 mm, and
 the expected count and upper/lower placement. A mismatch is marked ambiguous

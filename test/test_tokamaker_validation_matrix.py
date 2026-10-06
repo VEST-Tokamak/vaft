@@ -97,3 +97,16 @@ def test_committed_measured_matrix_reproduces_its_gate_verdicts():
     broken['verified']['native_topology'] = 'ambiguous'
     broken['verified']['lcfs_max_m'] = .02
     assert set(acceptance_failures(broken)) == {'native X-point topology mismatch', 'LCFS max > 12 mm'}
+
+
+def test_readme_states_unrefined_closure_count_and_refinement_current_change():
+    """The README's fit + refinement statement carries the measured numbers."""
+    records = _measured_matrix()
+    converged_initially = [r for r in records if r['initial']['status'] == 'converged']
+    assert len(converged_initially) == 4
+    assert {r['family'] for r in converged_initially} == {'solovev'}
+    largest = max(r['refined']['max_current_change_A'] for r in records)
+    assert largest == pytest.approx(109.45e3, rel=1e-3)
+    readme = Path(matrix.__file__).with_name('README.md').read_text(encoding='utf-8')
+    assert 'converges for 4 of the 20 cases' in readme
+    assert 'up to 109 kA' in readme
