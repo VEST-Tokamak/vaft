@@ -210,9 +210,11 @@ Whoever signs in, everyone reads the database with the credentials the service r
 `--auth hsds` decides who may enter, not what they may read. Give it a **read-only
 HSDS account** through `HS_ENDPOINT`, `HS_USERNAME` and `HS_PASSWORD`, never an admin one.
 
-The files in [`deploy/gui/`](https://github.com/VEST-Tokamak/vaft/tree/develop/deploy/gui)
+The files in [`vaft/deploy/gui/`](https://github.com/VEST-Tokamak/vaft/tree/develop/vaft/deploy/gui)
 are a working starting point for Ubuntu with nginx and systemd, serving
-`https://<host>/gui/` next to HSDS on the same host:
+`https://<host>/gui/` next to HSDS on the same host. They ship with the package, so an
+install from PyPI has them too: `importlib.resources.files("vaft.deploy.gui")` is the
+installed directory.
 
 | File | Where it goes |
 | --- | --- |

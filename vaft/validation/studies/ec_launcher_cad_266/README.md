@@ -1,6 +1,6 @@
 # Issue #266: 6 kW ECH launch condition from CAD
 
-`extract_launcher_geometry.py` reduces the EC officer's `MID 6KW ECH ASSY.stp` to the
+`extract_launcher_geometry.py` (run as `python -m vaft.validation.studies.ec_launcher_cad_266.extract_launcher_geometry <file.stp>`) reduces the EC officer's `MID 6KW ECH ASSY.stp` to the
 launch condition stored in `vest.yaml` under `0: ec_launchers: beams: ech_6kw`. The STEP
 file was received on 2026-09-21 and has sha256 `a4f7b9dd…711c`. It is 9.4 MB and is not in
 the repository; ask on #266 for a copy.

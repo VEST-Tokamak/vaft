@@ -12,6 +12,11 @@
 #     exists -- the list is stale;
 #   * a public module belongs to no page below.
 #
+# `scripts` lists module prefixes that are scripts rather than API: issue
+# studies run with `python -m` (#1756).  The catalog and the coverage check
+# skip them and never import them -- they import optional solver toolkits
+# at module level.
+#
 # Order is page order.  `modules` are dotted prefixes covering a module and its
 # submodules (the longest match wins), except `vaft`, which covers only itself.
 pages:
@@ -61,9 +66,15 @@ pages:
     title: vaft.mcp
     modules: [vaft.mcp]
 
+# Script trees under the package: not API, never imported here.
+scripts:
+  - vaft.validation.studies
+
 # Public-looking modules that declare no `__all__`, so publish nothing yet.
 # Declaring `__all__` in one of them publishes it: remove it from this list.
 undeclared:
+  - vaft.deploy
+  - vaft.deploy.gui
   - vaft.diagram.build
   - vaft.plot.analysis
   - vaft.plot.backend
