@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/VEST-Tokamak/vaft/main/docs/assets/brand/vaft-wordmark-dark-1024.png">
+    <img src="https://raw.githubusercontent.com/VEST-Tokamak/vaft/main/docs/assets/brand/vaft-wordmark-1024.png" alt="VAFT" width="480">
+  </picture>
+</p>
+
 # VAFT - Versatile Analysis Framework for Tokamak
 
 <!-- README.md -->
