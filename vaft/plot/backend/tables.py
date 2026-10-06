@@ -441,6 +441,12 @@ def _build_equilibrium_table_validation(ods: Any, **options: Any) -> Table:
         status = str(result.get("status", "not_available"))
         value, measure = _verdict_value(key, result)
         note = _verdict_note(key, result)
+        if status in ("not_available", "indeterminate") and value is not None:
+            # A number the verdict was not decided on reads as a grade; keep it
+            # out of the Value column and say what it was in the note instead.
+            ungraded = f"{measure or 'measure'} = {value:.3g}, not graded"
+            note = f"{ungraded}; {note}" if note else ungraded
+            value = None
         if key == "verification.continuity":
             whole = f"whole IDS, {total} stored slices"
             note = f"{whole}; {note}" if note else whole
@@ -474,7 +480,10 @@ def _build_equilibrium_table_validation(ods: Any, **options: Any) -> Table:
         title=options.get("title") or (
             f"Equilibrium validation{shot} — {time_text} (slice {index + 1} of {total}, {reason})"
         ),
-        caption=f"overall {overall.upper()} (aggregate of {len(rows)} checks): {counts}",
+        caption=(
+            f"overall {overall.upper()} (aggregate of {len(rows)} checks, continuity over the "
+            f"whole IDS): {counts}"
+        ),
         notes=(
             "NOT_AVAILABLE: the evidence was never produced; INDETERMINATE: produced but "
             "not deciding. Neither is a pass.",

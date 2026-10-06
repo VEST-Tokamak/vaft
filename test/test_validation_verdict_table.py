@@ -147,7 +147,13 @@ def test_the_graded_value_is_the_one_the_check_reported(sample, table):
         physical["pressure_consistency"]["log_ratio"]
     )
     fit = _quiet(V.validate_magnetic_fit, sample, time_slice=index)
-    assert rows["diagnostic_fit.bpol_probe"][value].value == pytest.approx(fit["bpol_probe"]["z_rms"])
+    # The fit z is reported but not graded on 39915 (#891 unknown uncertainty
+    # model): it is named in the note, never shown as a Value a reader would grade.
+    bpol = rows["diagnostic_fit.bpol_probe"]
+    assert _status(bpol) == "not_available" and bpol[value].missing
+    note_cell = bpol[model_column("Note")]
+    note_text = note_cell.value or note_cell.note  # a long note becomes a footnote
+    assert f"{fit['bpol_probe']['z_rms']:.3g}, not graded" in note_text
     # A rule over several facts has no single number, and none is invented.
     assert rows["verification.structure"][value].missing
     assert rows["physical_validity.virial_parameter_plausibility"][value].missing
@@ -167,7 +173,9 @@ def test_the_caption_is_the_aggregate_of_the_rows(table):
     statuses = [_status(row) for row in table.rows]
     overall = str(V.aggregate_status(statuses))
     counts = ", ".join(f"{statuses.count(status)} {status.upper()}" for status in ORDER)
-    assert table.caption == f"overall {overall.upper()} (aggregate of 22 checks): {counts}"
+    assert table.caption == (
+        f"overall {overall.upper()} (aggregate of 22 checks, continuity over the whole IDS): {counts}"
+    )
     assert sum(statuses.count(status) for status in ORDER) == 22
 
 
@@ -255,3 +263,15 @@ def test_the_imas_adapter_reaches_the_same_verdicts(table):
     finally:
         entry.close()
     assert [_status(row) for row in native.rows] == [_status(row) for row in table.rows]
+
+
+def test_an_ungraded_value_is_kept_out_of_the_value_column():
+    """A diagnostic-fit z the verdict was not decided on must not read as a pass."""
+    import vaft
+
+    table = vaft.omas.extract_equilibrium_table_validation(vaft.omas.sample_ods())
+    for row in table.rows:
+        status = row[5].status
+        if status in ("not_available", "indeterminate"):
+            assert row[3].value is None, (row[1].value, status, row[3].value)
+    assert "continuity over the whole IDS" in table.caption
