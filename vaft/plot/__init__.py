@@ -336,6 +336,17 @@ from .renderers.edge_q import (
     summary_time_q_star_cylindrical,
     summary_time_q_star_kink,
 )
+from .renderers.gyrokinetics import (
+    gyrokinetics_overview,
+    gyrokinetics_profile_eigenfunction,
+    gyrokinetics_spectrum_energy_flux,
+    gyrokinetics_spectrum_frequency,
+    gyrokinetics_spectrum_growth_rate,
+    gyrokinetics_spectrum_particle_flux,
+    turbulent_transport_overview,
+    turbulent_transport_profile_energy_flux,
+    turbulent_transport_profile_particle_flux,
+)
 from .renderers.panels import (
     chease_overview_profile_validity,
     chease_overview_refinement_summary,
