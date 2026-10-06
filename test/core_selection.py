@@ -176,6 +176,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
     "test_formula_boundaries.py",
+    # Edge-q estimates (#1583): the START/ITER q95 scaling, the q* proxies, the
+    # machine policy and their extraction from the packaged sample. Pure NumPy.
+    "test_edge_q_estimate.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
     "test_li_qa.py",
