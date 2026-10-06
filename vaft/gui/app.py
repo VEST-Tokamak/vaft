@@ -13,12 +13,12 @@ from __future__ import annotations
 import os
 import re
 import warnings
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from ._require import require_panel
 from .composer import CompositionEditor
-from .figure import EXPORT_FORMATS, DisplaySize
+from .figure import EXPORT_FORMATS, VIDEO_FORMATS, DisplaySize
 from .options_form import FigureOptionsForm
 from .reproduce import ReproducePanel
 from .state import BrowserSession, Source, sample_shots
@@ -26,6 +26,8 @@ from .widgets import panel_controls
 
 #: Addresses that only this machine can reach.
 LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
+#: Controls that select a time, in the order a plot is asked for them.
+TIME_CONTROLS = ("time_slice", "time_index", "time")
 
 _SOURCE_LABELS = {"Sample": "sample", "File": "file", "Database shot": "shot"}
 #: What a hosted server opens: nothing from its own disk or the reader's.
@@ -84,6 +86,9 @@ class BrowserApp:
         self._renderer_choice = "plotly"
         self._plot_count = 0
         self._updating = False
+        #: Called with no arguments whenever what is open or the selected time
+        #: may have changed; the shell publishes it to the shared selection.
+        self.on_change: list[Callable[[], Any]] = []
 
         # -- source
         samples = list(sample_shots())
@@ -143,6 +148,17 @@ class BrowserApp:
             callback=self._export, filename="figure.png", label="Download figure",
             color="success", disabled=True,
         )
+        # A movie of the plot's sequence (#1400): offered only when the plot
+        # has the slice control the player walks.  Frames per second is how
+        # fast the states are shown -- never the acquisition rate -- and the
+        # step is the only decimation: every state is otherwise one frame.
+        self.export_fps = pn.widgets.IntInput(label="Frames per second", value=10, start=1, end=60, visible=False)
+        self.export_step = pn.widgets.IntInput(label="Every Nth state", value=1, start=1, visible=False)
+        self.download_times = pn.widgets.FileDownload(
+            callback=self._export_times, filename="figure_frames.json", label="Download frame times (JSON)",
+            visible=False, disabled=True,
+        )
+        self._video_states: int | None = None
 
         # -- main area
         self.status = pn.pane.Markdown("No source loaded.")
@@ -208,6 +224,20 @@ class BrowserApp:
             self._show_error(error)
             return
         self.load(sources)
+
+    def choose(self, sources: Sequence[Source]) -> None:
+        """Put ``sources`` in the source widgets, as if the reader had chosen them."""
+        if not sources:
+            return
+        first = sources[0]
+        self.kind.value = first.kind
+        if first.kind == "sample":
+            self.sample.value = [source.value for source in sources]
+        elif first.kind == "file":
+            self.path.value = "\n".join(str(source.value) for source in sources)
+        else:
+            self.shots.value = ", ".join(str(source.value) for source in sources)
+            self.namespace.value = first.namespace or ""
 
     def load(self, sources: Source | Sequence[Source]) -> bool:
         """Open ``sources`` and draw their first plot; ``False`` when it failed."""
@@ -283,6 +313,7 @@ class BrowserApp:
         self.renderer.disabled = True
         if not keep_selector:
             self.plot.disabled = True
+        self._offer_video()  # nothing drawn: no video formats either
 
     def _update_status(self) -> None:
         text = f"**{self.session.label}**: {self._plot_count} plots available."
@@ -290,6 +321,34 @@ class BrowserApp:
             held = [name for name in self.session.held_ids() if name != "dataset_description"]
             text += " In memory: " + (", ".join(held) if held else "nothing yet") + "."
         self.status.object = text
+        self._changed()
+
+    def _changed(self) -> None:
+        for callback in list(self.on_change):
+            try:
+                callback()
+            except Exception as error:  # a listener must not break the drawing
+                self._show_error(error)
+
+    def selected_time(self) -> str | None:
+        """The time the plot on screen is showing, as its control labels it.
+
+        ``None`` when the plot has no time control (a time trace, a
+        composition): a time is then not selected, only displayed.
+        """
+        state = self.session.state
+        if state is None or self.session.composition is not None:
+            return None
+        for name in TIME_CONTROLS:
+            if name not in state.values:
+                continue
+            spec, value = state.spec(name), state[name]
+            options = list(getattr(spec, "options", ()) or ())
+            labels = list(getattr(spec, "labels", ()) or ())
+            if labels and value in options:
+                return str(labels[options.index(value)])
+            return f"{getattr(spec, 'label', name) or name} {value}"
+        return None
 
     def _load_chosen_ids(self) -> None:
         self._clear_error()
@@ -404,6 +463,7 @@ class BrowserApp:
                 self.static.object = figure
             else:
                 self.static.param.trigger("object")
+        self._changed()
 
     def _size_panes(self) -> None:
         width, height = self.display.width, self.display.height
@@ -508,17 +568,65 @@ class BrowserApp:
 
     # -- export ---------------------------------------------------------------
     def _name_download(self) -> None:
+        self._offer_video()
         drawn = self.session.plot or ("composition" if self.session.composition is not None else "figure")
         stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", f"{drawn}_{self.session.label}").strip("_")
         self.download.filename = f"{stem}.{self.export_format.value}"
+        self.download_times.filename = f"{stem}_frames.json"
+
+    def _offer_video(self) -> None:
+        """The video formats, and their fields, only for a plot with a sequence (#1400)."""
+        states = len(self.session.sequence_states()) if self.session.state is not None else 0
+        offered = list(EXPORT_FORMATS) + (list(VIDEO_FORMATS) if states > 1 else [])
+        if list(self.export_format.options) != offered:
+            # Options and value together: the format watcher sees one change.
+            value = self.export_format.value if self.export_format.value in offered else EXPORT_FORMATS[0]
+            self.export_format.param.update(options=offered, value=value)
+        if states > 1 and states != self._video_states:
+            # Start near 200 frames -- a movie, not a long render -- and say
+            # how many states there are, so the stride is a choice.
+            self.export_step.value = max(1, -(-states // 200))
+            self.export_step.name = f"Every Nth state (of {states})"
+            self.download_times.disabled = True  # describes a movie of another plot
+        self._video_states = states if states > 1 else None
+        video = self.export_format.value in VIDEO_FORMATS
+        for widget in (self.export_fps, self.export_step, self.download_times):
+            widget.visible = video
+        self.download.label = "Download video" if video else "Download figure"
+        # A movie frame is the size of the screen, not of a printed page.
+        if video and self.export_dpi.value == 150:
+            self.export_dpi.value = 100
+        elif not video and self.export_dpi.value == 100:
+            self.export_dpi.value = 150
+
+    def _video_options(self) -> dict[str, Any]:
+        return {
+            "fps": int(self.export_fps.value or 10), "step": int(self.export_step.value or 1),
+            "dpi": int(self.export_dpi.value or 150), **self.reproduce.presentation(),
+        }
 
     def _export(self) -> Any:
         import io
 
         try:
-            data = self.session.export(
-                self.export_format.value, dpi=int(self.export_dpi.value or 150), **self.reproduce.presentation(),
-            )
+            if self.export_format.value in VIDEO_FORMATS:
+                data = self.session.export_video(self.export_format.value, **self._video_options())
+                self.download_times.disabled = False
+            else:
+                data = self.session.export(
+                    self.export_format.value, dpi=int(self.export_dpi.value or 150), **self.reproduce.presentation(),
+                )
+        except Exception as error:
+            self._show_error(error)
+            return None
+        return io.BytesIO(data)
+
+    def _export_times(self) -> Any:
+        """The frame-by-frame provenance of the video export: state indices and physical times."""
+        import io
+
+        try:
+            data = self.session.video_metadata()
         except Exception as error:
             self._show_error(error)
             return None
@@ -638,7 +746,8 @@ class BrowserApp:
             self.width, self.height, title="Preview size", collapsed=True, sizing_mode="stretch_width",
         )
         export = pn.Card(
-            self.export_format, self.export_dpi, self.download, pn.layout.Divider(), *self.reproduce.widgets(),
+            self.export_format, self.export_dpi, self.export_fps, self.export_step, self.download,
+            self.download_times, pn.layout.Divider(), *self.reproduce.widgets(),
             title="Export and reproduce", collapsed=True, sizing_mode="stretch_width",
         )
         return [
@@ -715,18 +824,33 @@ def build_app(
         samples = sample_shots()
         initial = [Source("sample", samples[0])] if samples else []
     if initial:
-        app.kind.value = initial[0].kind
-        if initial[0].kind == "sample":
-            app.sample.value = [source.value for source in initial]
-        elif initial[0].kind == "file":
-            app.path.value = str(initial[0].value)
-        else:
-            app.shots.value = ", ".join(str(source.value) for source in initial)
-            app.namespace.value = namespace or ""
+        app.choose(initial)
         # After the page is up, so a slow catalog shows this, not a blank tab.
         app.status.object = "Loading " + ", ".join(source.label for source in initial) + " ..."
         pn.state.onload(lambda: app.load(initial))
     return app
+
+
+def build_shell(*, workspace: str | None = None, hosted: bool = False, **app_options: Any) -> Any:
+    """The page ``vaft gui`` serves: the :class:`~vaft.gui.shell.Shell` with every workspace.
+
+    ``app_options`` (``sample=``, ``file=``, ``shot=``, ``namespace=``,
+    ``plot=``) open a source in the plot explorer as :func:`build_app` does;
+    ``workspace`` is the workspace shown first (the plot explorer when
+    ``None``).  ``hosted`` builds the explorer without file sources and
+    keeps the server's own database configuration off every workspace.
+    """
+    from .shell import WORKSPACES, Shell
+    from .workspaces import PlotWorkspace
+
+    if workspace is not None:
+        WORKSPACES.get(workspace)  # refused before anything is loaded
+    app = build_app(hosted=hosted, **app_options)
+    # The explorer is the one build_app primed with the source asked for.
+    shell = Shell(initial="plots", factories={"plots": lambda shell: PlotWorkspace(shell, app)}, hosted=hosted)
+    if workspace is not None and workspace != "plots":
+        shell.show(workspace)
+    return shell
 
 
 AUTH_MODES = ("auto", "password", "hsds", "none")
@@ -838,9 +962,9 @@ def serve(
         options["prefix"] = "/" + prefix.strip("/")
 
     def page() -> Any:
-        app = build_app(hosted=hosted, **app_options)
-        pn.state.on_session_destroyed(lambda _context: app.close())
-        return app.view()
+        shell = build_shell(hosted=hosted, **app_options)
+        pn.state.on_session_destroyed(lambda _context: shell.close())
+        return shell.view()
 
     return pn.serve(
         {"/": page}, address=address, port=port, show=show,
@@ -848,4 +972,7 @@ def serve(
     )
 
 
-__all__ = ["AUTH_MODES", "BrowserApp", "LOOPBACK", "PLOTLY_CONFIG", "build_app", "parse_shots", "serve"]
+__all__ = [
+    "AUTH_MODES", "BrowserApp", "LOOPBACK", "PLOTLY_CONFIG", "TIME_CONTROLS",
+    "build_app", "build_shell", "parse_shots", "serve",
+]

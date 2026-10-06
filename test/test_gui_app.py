@@ -647,7 +647,7 @@ def test_serve_hosted_behind_a_proxy(monkeypatch):
     assert "websocket_max_message_size" not in kwargs, "no uploads: Bokeh's cap stands"
     assert kwargs["address"] == "127.0.0.1" and "vest.example.org" in kwargs["websocket_origin"]
     built = []
-    monkeypatch.setattr(gui_app, "build_app", lambda **options: built.append(options) or SimpleNamespace(
+    monkeypatch.setattr(gui_app, "build_shell", lambda **options: built.append(options) or SimpleNamespace(
         view=lambda: None, close=lambda: None))
     panels["/"]()
     assert built[-1]["hosted"] is True

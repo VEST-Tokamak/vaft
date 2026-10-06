@@ -35,6 +35,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     source.add_argument("--shot", type=int, nargs="+", help="open database shots; several are compared")
     parser.add_argument("--source", dest="namespace", help="database namespace for --shot (default: main)")
     parser.add_argument("--plot", help="plot to draw first (a name from available_plots)")
+    parser.add_argument("--workspace", help="workspace shown first: plots (default) or database")
     parser.add_argument("--address", default="127.0.0.1", help="address to bind (default: %(default)s)")
     parser.add_argument("--port", type=int, default=5006, help="port to serve on (default: %(default)s)")
     parser.add_argument(
@@ -82,6 +83,16 @@ def main(argv: Iterable[str] | None = None) -> int:
             print(f"vaft gui: {error}", file=sys.stderr)
             return 1
 
+    if args.workspace is not None:
+        from ..gui.shell import WORKSPACES
+        from ..gui import workspaces  # noqa: F401 - registers the built-in workspaces
+
+        if args.workspace not in WORKSPACES:
+            print(
+                f"vaft gui: no workspace named {args.workspace!r}; "
+                f"choose one of {', '.join(WORKSPACES.names())}", file=sys.stderr,
+            )
+            return 2
     serve(
         address=args.address,
         port=args.port,
@@ -95,6 +106,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         shot=args.shot,
         namespace=args.namespace,
         plot=args.plot,
+        workspace=args.workspace,
     )
     return 0
 
