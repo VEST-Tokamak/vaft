@@ -85,7 +85,7 @@ the uncertainty linearly — keeping the $n_e$ correlation between $p_e$ and the
 **flags points, never fills them**: $p_i \le 0$ and $p_i < \sigma(p_i)$ return `NaN`. It also refuses a
 circular input: a pressure reconstructed with an assumed $T_i/T_e$ (a kinetic EFIT) returns that
 assumption, so only an independent (`"magnetics"`) equilibrium lineage is eligible. The composition
-dependence enters through $f$, which the [composition closure](#composition-and-quasineutrality) supplies.
+dependence enters through $f$, which the [impurity closure](#impurities-and-quasineutrality) supplies.
 
 ### Temperature or density from the equilibrium pressure
 
@@ -118,7 +118,7 @@ Every target is recomputed from the final arrays and reported as requested versu
 it writes says it is synthetic. This is **state completion, not a unique kinetic inference from EFIT**.
 Details: [Equilibrium and kinetic profiles]({{ '/workflows/equilibrium-kinetic-profiles/' | relative_url }}).
 
-## Composition and quasineutrality
+## Impurities and quasineutrality
 
 $$n_e = \sum_s Z_s n_s, \qquad Z_{\mathrm{eff}} = \frac{\sum_s Z_s^2 n_s}{n_e}.$$
 

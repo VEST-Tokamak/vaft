@@ -582,13 +582,13 @@
     },
     "parameter_inference_dependency_graph.svg": {
       "call": "vaft.diagram.parameter_inference_dependency_graph(references=True)",
-      "source_sha256": "c022e69616e8edb2aa027c2828f389178d6f7481deb1721389b6270bb8e1e270",
-      "svg_sha256": "15dac87b88f8254c1da725a8ae4d8306c959264ac1f1ee0522fb263eb15cb646"
+      "source_sha256": "fed7ac74488c8097987464df3bb54439fa7c42b134849eefa282f824f09636d5",
+      "svg_sha256": "db4db34663c2aa1bf7e32427879ab0ac0cea87315232b83e3f90b600b1b988bc"
     },
     "parameter_inference_overview.svg": {
       "call": "vaft.diagram.parameter_inference_overview(references=True)",
-      "source_sha256": "5aac1216932aef1f86a448b8a80e079117f4e86774daf049b6f042f36e033850",
-      "svg_sha256": "74c5207a3ec802762ae95a5216c0e5e2675beda93518cfe9ca699b67379acd21"
+      "source_sha256": "62f6188dbbb2965c270eccc9c6dac1b8f3984515bf16b9b8cb7aa8ded4d9b350",
+      "svg_sha256": "c2eb3ffa98eb1b04c8d838bdda7ec85455e40a0ed0b9859812a5728a07e0501c"
     },
     "peeling_ballooning.svg": {
       "call": "vaft.diagram.peeling_ballooning()",

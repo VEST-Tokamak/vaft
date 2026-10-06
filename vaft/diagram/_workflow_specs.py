@@ -504,13 +504,13 @@ _SPECS = (
                       r"\mathrm{order}\ N,\ x = \rho_{\mathrm{tor},N}\ \mathrm{or}\ \psi_N\qquad "
                       r"T, n > 0,\ \sigma\text{-}\mathrm{weighted}"),
             N("assumptions", "Closure assumptions", "prior",
-              symbols=r"\mathrm{common}\ T_i,\ \mathrm{composition},\ Z_{\mathrm{eff}}\qquad "
+              symbols=r"\mathrm{common}\ T_i,\ \mathrm{impurity\ species},\ Z_{\mathrm{eff}}\qquad "
                       r"\sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda"),
             N("thermo", "Thermodynamic closure", "inferred",
               api="vaft.validation.kinetic_state.infer_ti_pressure_partition",
               relation=r"p_{\mathrm{eq}} = e\,n_e T_e + e\sum_s n_s T_i\qquad T_i = \frac{p_{\mathrm{eq}} - e n_e T_e}"
                        r"{e f n_e}"),
-            N("composition", "Composition closure", "inferred",
+            N("composition", "Impurity closure", "inferred",
               api="vaft.process.impurity.resolve_impurity_composition", references=(_WESSON,),
               equation="vaft.formula.atomic.impurity_fraction_from_effective_charge",
               relation=r"n_e = \sum_s Z_s n_s\qquad Z_{\mathrm{eff}} = \frac{\sum_s Z_s^2 n_s}{n_e}"),
@@ -550,7 +550,7 @@ _SPECS = (
               symbols=r"T_e(\rho),\ n_e(\rho)"),
             N("eq", "Equilibrium pressure", "reconstructed", ids=f"{_EQ}.profiles_1d.pressure", references=(_LAO,),
               symbols=r"p_{\mathrm{eq}}(\psi)\ \ (\mathrm{independent\ lineage})"),
-            N("composition", "Composition source", "prior",
+            N("composition", "Impurity source", "prior",
               symbols=r"\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}"),
             N("ions", "Ion densities", "derived", api="vaft.process.impurity.resolve_impurity_composition",
               references=(_WESSON,),

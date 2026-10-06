@@ -1725,9 +1725,9 @@ Where inference sits: diagnostics and the equilibrium give reconstructed but inc
 | Magnetic equilibrium | reconstructed | $p_{\mathrm{eq}}(\psi),\ q,\ \langle j\cdot B\rangle,\ \mathrm{geometry}$ |  | `equilibrium.time_slice[:].profiles_1d` |
 | Reconstructed kinetic profiles | reconstructed | $T_e(\rho),\ n_e(\rho)\ (\mathrm{fitted}),\ [T_i(\rho)], p_{\mathrm{eq}}(\rho),\ q(\rho)$ |  | `core_profiles.profiles_1d[:].electrons` |
 | Fitting assumptions | model choice / convention (enters Reconstructed kinetic profiles) | $\mathrm{polynomial\ \|\ core\text{-}poly/edge\text{-}exp\ \|\ GP}, \mathrm{order}\ N,\ x = \rho_{\mathrm{tor},N}\ \mathrm{or}\ \psi_N, T, n > 0,\ \sigma\text{-}\mathrm{weighted}$ | `vaft.process.profile.profile_fitting_thomson_scattering` |  |
-| Closure assumptions | model assumption / prior (enters Reconstructed kinetic profiles) | $\mathrm{common}\ T_i,\ \mathrm{composition},\ Z_{\mathrm{eff}}, \sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda$ |  |  |
+| Closure assumptions | model assumption / prior (enters Reconstructed kinetic profiles) | $\mathrm{common}\ T_i,\ \mathrm{impurity\ species},\ Z_{\mathrm{eff}}, \sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda$ |  |  |
 | Thermodynamic closure | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
-| Composition closure | inferred |  | `vaft.process.impurity.resolve_impurity_composition` |  |
+| Impurity closure | inferred |  | `vaft.process.impurity.resolve_impurity_composition` |  |
 | Resistive closure | inferred | $V_R^{\mathrm{obs}} \to Z_{\mathrm{eff}}^{\mathrm{res}}\ (\mathrm{scalar}), \sigma_\parallel:\ \mathrm{Spitzer\ \|\ neoclassical\ (Sauter,\ Redl)}$ | `vaft.process.resistive_zeff.infer_resistive_zeff` |  |
 | Completed kinetic profiles | derived | $n_e, T_e, T_i, n_s, Z_{\mathrm{eff}}, \mathrm{each\ with\ origin=\ldots;\ method=\ldots}$ |  | `core_profiles.profiles_1d[:].{electrons, ion[:], zeff}` |
 | Simulation-ready | code input | $\mathrm{every\ input\ quantity\ with\ its\ origin}$ |  |  |
@@ -1757,7 +1757,7 @@ Provenance propagates: a composition assumption fixes the ion densities, which s
 | --- | --- | --- | --- | --- |
 | Electron profiles | measured | $T_e(\rho),\ n_e(\rho)$ |  | `core_profiles.profiles_1d[:].electrons.{temperature, density_thermal}` |
 | Equilibrium pressure | reconstructed | $p_{\mathrm{eq}}(\psi)\ \ (\mathrm{independent\ lineage})$ |  | `equilibrium.time_slice[:].profiles_1d.pressure` |
-| Composition source | model assumption / prior (enters Ion densities) | $\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}$ |  |  |
+| Impurity source | model assumption / prior (enters Ion densities) | $\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}$ |  |  |
 | Ion densities | derived |  | `vaft.process.impurity.resolve_impurity_composition` |  |
 | Pressure-partition ion temperature | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
 | Ion pressure | derived | $p_i(\rho),\ dp_i/dr$ |  |  |
