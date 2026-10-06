@@ -102,7 +102,9 @@ def run_portals_closed_loop(
         given (#1744/#1757 alignment: NKY 12, NMODES 2, USE_MHD_RULE, ROTATION_MODEL 1).
     perturbation
         ``analytic``: the solver starts from the true a/L_Te times (1 + perturbation).
-        ``tglf_neo``: PORTALS starts from Te * (1 + perturbation (1 - rho^2)) [-].
+        ``tglf_neo``: the same, written by PORTALS's own powerstate as the start file;
+        only the node gradients move, so Te outside the last radius (the anchor) stays
+        the truth's [-].
 
     Returns
     -------

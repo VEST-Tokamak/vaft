@@ -6,7 +6,11 @@ Runs in the MITIM interpreter; imports MITIM, NumPy/SciPy and the standard libra
    evaluation 0 is TGLF + NEO at the truth, giving a/L_Te and Q_e^tr at each radius.
 2. Manufacture qohme so that PORTALS's own targets equal Q_e^tr there (targets only,
    iterated on the nodes; no transport call).
-3. Perturb Te and let PORTALS flux-match from there; report the best evaluation.
+3. Scale a/L_Te at the predicted radii by (1 + perturbation) in PORTALS's own
+   powerstate, write that profile out as the start, and let PORTALS flux-match from
+   there; report the best evaluation. Only the node gradients move: PORTALS varies
+   nothing else, so a start that also moved Te outside the last radius (its anchor)
+   would make the truth unreachable.
 
 PORTALS's ``predicted_roa`` is converted to rho on the given file and its profile
 resolution step then extrapolates to rho = 1, so the radii it actually solves are
@@ -114,12 +118,13 @@ def main(argument_file):
             history.append(float(np.max(np.abs(got - q_true) / np.maximum(np.abs(q_true), 1e-30))))
             nodes = nodes + (q_true - got) * volp_k
 
-        # 3. Perturbed start: Te * (1 + eps (1 - rho^2)) changes a/L_Te everywhere inside.
+        # 3. Perturbed start: the node gradients only, through PORTALS's own powerstate.
         eps = float(args["perturbation"])
-        start = copy.deepcopy(state)
-        te_key = _key(start.profiles, "te")
-        start.profiles[te_key] = start.profiles[te_key] * (1.0 + eps * (1.0 - rho ** 2))
-        start.derive_quantities()
+        starter = setup(work / "start", 1, 0)
+        starter.prep(copy.deepcopy(state))
+        x_true = starter.powerstate.plasma["aLte"][:, 1:].clone()
+        starter.powerstate.modify(x_true * (1.0 + eps))
+        start = starter.powerstate.from_powerstate(write_input_gacode=work / "input.gacode_start")
         run_pf = setup(work / "run", int(args.get("initial_training", 5)),
                        int(args.get("maximum_iterations", 10)))
         run_pf.prep(start)
