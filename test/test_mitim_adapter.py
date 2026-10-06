@@ -76,9 +76,15 @@ class TGLF:
     def run(self, subfolder, code_settings=None, extraOptions=None, cold_start=True, forceIfcold_start=True):
         target = self.folder / subfolder; target.mkdir(parents=True, exist_ok=True)
         (self.folder / "options.txt").write_text(repr((code_settings, extraOptions)))
+        import json
+        roa_for = json.loads(os.environ.get("STUB_ROA_FOR", "{}"))   # MITIM's own rho -> r/a
         for rho in self.rhos:
+            label = f"{rho:.4f}"
             for path in Path(os.environ["STUB_TGLF_RUN"]).iterdir():
-                shutil.copy(path, target / f"{path.name}_{rho:.4f}")
+                if path.name != "input.tglf":
+                    shutil.copy(path, target / f"{path.name}_{label}")
+            roa = roa_for.get(label, rho)
+            (target / f"input.tglf_{label}").write_text(f"SAT_RULE = 3\\nRMIN_LOC = {roa}\\n")
 '''
 
 PROFILESTOOLS = '''
@@ -320,14 +326,24 @@ def test_a_slow_probe_is_a_timeout_not_a_broken_install(tmp_path):
     assert found.status == "probe_timeout"
 
 
-def test_mitim_tglf_runs_at_the_bridged_rho_and_is_keyed_back_by_r_over_a(ready, profile, tmp_path):
+def _mitim_maps_back(monkeypatch, profile, surfaces, shift=None):
+    import json
+
+    rho = mitim.rho_tor_norm_at(profile, surfaces)
+    roa = {f"{x:.4f}": r + (shift or {}).get(r, 0.0) for x, r in zip(rho, surfaces)}
+    monkeypatch.setenv("STUB_ROA_FOR", json.dumps(roa))
+
+
+def test_mitim_tglf_runs_at_the_bridged_rho_and_is_keyed_back_by_r_over_a(ready, profile, tmp_path, monkeypatch):
     surfaces = [0.4, 0.7]
+    _mitim_maps_back(monkeypatch, profile, surfaces)
     result, outputs = mitim.run_mitim_tglf(profile, surfaces, tmp_path / "run", ready,
                                            extra_options={"NKY": 12})
     assert result.ok, (result.stderr, result.result)
     rho = mitim.rho_tor_norm_at(profile, surfaces)
     assert result.record["arguments"]["rho_tor_norm"] == pytest.approx(list(rho))
     assert result.record["arguments"]["r_over_a"] == surfaces
+    assert result.result["status"] == "ok"
     assert sorted(outputs) == surfaces and all(o.gbflux is not None for o in outputs.values())
     assert "{'NKY': 12}" in (tmp_path / "run" / "tglf" / "options.txt").read_text()
 
@@ -338,3 +354,19 @@ def test_mitim_local_inputs_are_written_at_exact_r_over_a(ready, profile, tmp_pa
     assert sorted(parsed) == [0.3, 0.6]
     assert parsed[0.6]["RMIN_LOC"] == 0.6 and parsed[0.6]["NKY"] == 19
     assert result.result["rho_tor_norm"] == pytest.approx([0.24, 0.52])   # MITIM's own map
+
+
+def test_colliding_rho_labels_are_refused_before_running(ready, profile, tmp_path):
+    with pytest.raises(ValueError, match="collide"):
+        mitim.run_mitim_tglf(profile, [0.5, 0.50001], tmp_path / "run", ready)
+
+
+def test_a_surface_mitim_ran_elsewhere_is_reported_missing(ready, profile, tmp_path, monkeypatch):
+    # MITIM maps r/a 0.4 back to 0.41: that surface is not the one asked for.
+    surfaces = [0.4, 0.7]
+    _mitim_maps_back(monkeypatch, profile, surfaces, shift={0.4: 0.01})
+    result, outputs = mitim.run_mitim_tglf(profile, surfaces, tmp_path / "run", ready)
+    assert sorted(outputs) == [0.7]
+    assert not result.ok and result.result["status"] == "partial"
+    assert result.result["missing_r_over_a"] == [0.4]
+    assert result.result["shifted_r_over_a"] == {0.4: pytest.approx(0.41)}

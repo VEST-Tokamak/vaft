@@ -21,7 +21,8 @@ __all__ = ["PHYSICS_KEYS", "compare_tglf_inputs", "effective_tglf_controls", "re
 PHYSICS_KEYS = re.compile(
     r"^(RMIN_LOC|RMAJ_LOC|DRMAJDX_LOC|ZMAJ_LOC|DZMAJDX_LOC|Q_LOC|Q_PRIME_LOC|P_PRIME_LOC|"
     r"KAPPA_LOC|S_KAPPA_LOC|DELTA_LOC|S_DELTA_LOC|ZETA_LOC|S_ZETA_LOC|BETAE|XNUE|ZEFF|DEBYE|"
-    r"VEXB_SHEAR|SIGN_BT|SIGN_IT|NS|(ZS|MASS|AS|TAUS|RLNS|RLTS|VPAR|VPAR_SHEAR)_\d+)$")
+    r"VEXB|VEXB_SHEAR|BETA_LOC|KX0_LOC|SIGN_BT|SIGN_IT|NS|"
+    r"(ZS|MASS|AS|TAUS|RLNS|RLTS|VPAR|VPAR_SHEAR|VNS_SHEAR|VTS_SHEAR)_\d+)$")
 
 
 def _value(text: str) -> Any:
@@ -65,9 +66,15 @@ def effective_tglf_controls(parameters: Mapping[str, Any]) -> dict[str, Any]:
     GEOMETRY_FLAG = 0. Two inputs that differ only in what these overwrite run
     identically, which is what a comparison should see.
     """
+    def integer(key, default):
+        try:
+            return int(float(parameters.get(key, default)))
+        except (TypeError, ValueError):
+            raise ValueError(f"{key} must be an integer, got {parameters.get(key)!r}") from None
+
     out = {key: value for key, value in parameters.items()
-           if not (_SALPHA.match(key) and int(parameters.get("GEOMETRY_FLAG", 1)) != 0)}
-    sat = int(out.get("SAT_RULE", 0))
+           if not (_SALPHA.match(key) and integer("GEOMETRY_FLAG", 1) != 0)}
+    sat = integer("SAT_RULE", 0)
     out["WDIA_TRAPPED"] = 0.0
     if sat in (2, 3):
         out["XNU_MODEL"] = 3
@@ -79,7 +86,7 @@ def effective_tglf_controls(parameters: Mapping[str, Any]) -> dict[str, Any]:
     elif sat == 0:
         out["UNITS"] = "GYRO"
         out["XNU_MODEL"] = 2
-        if int(out.get("NMODES", 2)) > 2:
+        if integer("NMODES", 2) > 2:
             out["NMODES"] = 4
     if bool(out.get("USE_BPER", False)):
         out["ALPHA_MACH"] = 0.0

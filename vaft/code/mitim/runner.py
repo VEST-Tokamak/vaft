@@ -254,8 +254,13 @@ def mitim_tglf_local_inputs(
                               availability=availability)
     parsed: dict[float, dict] = {}
     if result.ok:
+        requested = arguments["r_over_a"]
         for label, path in result.result.get("files", {}).items():
-            parsed[float(label)] = read_input_tglf(path)
+            # Keyed by the r/a VAFT asked for, never by MITIM's label for it.
+            nearest = min(requested, key=lambda r: abs(r - float(label)))
+            if abs(nearest - float(label)) > 1e-6:
+                raise ValueError(f"MITIM wrote a surface at {label}, which was not requested")
+            parsed[nearest] = read_input_tglf(path)
     return result, parsed
 
 
@@ -292,6 +297,11 @@ def run_mitim_tglf(
         shutil.rmtree(folder)
     r_over_a = [float(r) for r in r_over_a]
     rho = [float(x) for x in rho_tor_norm_at(profile, r_over_a)]
+    # MITIM names each radius's files by rho to 4 decimals; two surfaces sharing a
+    # label would overwrite each other's outputs.
+    labels = [f"{x:.4f}" for x in rho]
+    if len(set(labels)) != len(labels):
+        raise ValueError(f"r/a {r_over_a} map to rho_tor_norm labels {labels} that collide")
     input_path = write_input_gacode(profile, workdir / "input.gacode")
     arguments = {"input_gacode": str(input_path), "folder": str(folder), "rho_tor_norm": rho,
                  "r_over_a": r_over_a, "code_settings": code_settings,
@@ -299,11 +309,29 @@ def run_mitim_tglf(
                  "input_gacode_sha256": _sha256(input_path)}
     result = run_mitim_driver("tglf_run", arguments, workdir, config, availability=availability)
     outputs: dict[float, Any] = {}
+    shifted: dict[float, float] = {}
     if result.ok:
+        from .compare import read_input_tglf
+
         for directory in result.result.get("run_directories", []):
-            value = float(Path(directory).name.split("_", 1)[1])
-            index = min(range(len(rho)), key=lambda i: abs(rho[i] - value))
+            label = Path(directory).name.split("_", 1)[1]
+            if label not in labels:
+                continue
+            index = labels.index(label)
+            # MITIM converts rho back to r/a with its own map; the surface it ran is
+            # the RMIN_LOC it wrote, and a shifted surface is not the one requested.
+            ran = read_input_tglf(Path(directory) / "input.tglf").get("RMIN_LOC") \
+                if (Path(directory) / "input.tglf").is_file() else None
+            if ran is None or abs(float(ran) - r_over_a[index]) > 1e-3:
+                shifted[r_over_a[index]] = None if ran is None else float(ran)
+                continue
             parsed = collect_tglf_outputs(directory)
-            if parsed is not None and abs(rho[index] - value) < 5e-5:
+            if parsed is not None and parsed.gbflux is not None:
                 outputs[r_over_a[index]] = parsed
+        missing = [r for r in r_over_a if r not in outputs]
+        if missing:
+            # Some surfaces have no usable result: say so rather than return a
+            # successful run with fewer surfaces than were asked for.
+            result.result = {**result.result, "status": "partial", "missing_r_over_a": missing,
+                             "shifted_r_over_a": shifted}
     return result, outputs
