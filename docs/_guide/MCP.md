@@ -8,7 +8,7 @@ permalink: /reference/mcp/
 guide:
   architecture: A thin, local, read-only Model Context Protocol adapter (vaft.mcp) over VAFT's existing discovery and extraction APIs (issue 1423).
   prerequisites: pip install 'vaft[mcp]' and an MCP client such as Claude Code or Codex.
-  expected: An agent that can discover VAFT's formulas, processes, checks, plots and samples, and read bounded numbers from the packaged reference shot.
+  expected: An agent that can discover VAFT's formulas, processes, checks, plots and samples, read bounded numbers and equilibrium summaries from a shot or a local artifact, and query the campaign atlas tables with each lane's rules attached.
 related:
   api: [formula, plot]
 ---
@@ -50,7 +50,12 @@ The repository root or any other directory is fine.
 | `extract_plot_data(name, shot, max_points, options)` | `vaft.plot.extract` on a packaged reference shot |
 | `list_samples`, `describe_sample(shot)` | `vaft.data.available_samples` / `sample_manifest` |
 | `list_boundaries(family)`, `describe_boundary(key)` | `vaft.formula.boundaries` (metadata only) |
-| `get_atlas_summary(path, group_by, limit)` | a `.csv`/`.parquet` table under `VAFT_ATLAS_DIR` |
+| `inspect_dataset(shot \| artifact)` | which IDS a dataset holds, with time counts and ranges, plus provenance |
+| `inspect_data_path(path, shot \| artifact, time, tolerance, max_points)` | one Data Dictionary path, read without creating it (`vaft.ods_access`) |
+| `list_equilibrium_times(shot \| artifact)` | the equilibrium slice times |
+| `get_equilibrium_summary(shot \| artifact, time, tolerance, limit)` | the `equilibrium_global` summary columns of `vaft.database.summary` (Ip, q95, β_N, li_3, W_mhd, shape, ...) |
+| `list_atlas_tables`, `describe_atlas_table(name)` | the campaign atlas registry: each lane's table, schema, rules, caveats and README |
+| `query_atlas_table(name, where, columns, order_by, count_by, limit)` | rows of one atlas table, filtered by value |
 
 `extract_plot_data` returns the plot's view model, with labels and units as VAFT stores them. Each
 array comes back as its shape, dtype, and finite minimum and maximum over all values, plus a
@@ -79,17 +84,90 @@ Tool inputs name scientific things: a plot, a formula or
 a shot. They never name a data representation. During the DD migration (#1127, #1132, #1135),
 the loading code can change behind the same tool schema.
 
+## Datasets
+
+A dataset is named by `shot` or by `artifact`, never by a storage format:
+
+| Name | Read from | When |
+| --- | --- | --- |
+| `shot=39915` | the packaged sample (`vaft.omas.sample.sample_ods`) | always; offline |
+| `artifact="run1/g039915.00319"` | a g-file, OMAS JSON, IMAS netCDF or IMAS HDF5 file or directory under `VAFT_ARTIFACT_DIR`, through `vaft.omas.load` | when `VAFT_ARTIFACT_DIR` is set |
+| `shot=42929`, or any shot with `database_source="main"` | `vaft.database.load`, with your own HSDS configuration | only when the server runs with `VAFT_MCP_DATABASE=1` |
+
+Every result carries the dataset's provenance: its kind, the shot or the artifact path relative to
+its directory, the loader, the Data Dictionary version when the data records one, and the VAFT
+version. Database failures report the exception class only, never the server's text.
+
+Slices are matched by time, never by index. `get_equilibrium_summary(time=...)` and
+`inspect_data_path("equilibrium.time_slice.*.global_quantities.q_95", time=...)` take the slice
+nearest that time. They refuse when it is further away than `tolerance` (default: half the slice
+spacing), and they report the time they matched.
+
 ## Atlas tables
 
-`get_atlas_summary` reads tables only from the directory in the `VAFT_ATLAS_DIR` environment
-variable of the server process, and it refuses to run when that variable is unset. `path` must be
-relative to that directory. Absolute, drive and UNC paths and `..` components are refused before
-any file is touched. The path is then resolved, symlinks included, and refused if it lands outside
-the directory. Every refusal gives the same message. Tables are limited to 50 MB and `group_by` to
-three columns. The result gives the columns (first 200), the row count, the row counts per value
-of each `group_by` column (default `efit_quality` and `efit_lineage`) and the first `limit` rows,
-with cell text cut to 200 characters.
+The campaign atlas is the directory the lanes write their tables to (`~/runs/campaign/atlas` on
+vestserver). Point `VAFT_ATLAS_DIR` at it. The server knows each table by name, together with
+the lane that owns it, the schema that describes its columns, and the rules for reading it:
+
+| Table | Lane | One row is |
+| --- | --- | --- |
+| `state`, `kinetic_profiles` | K (#1454) | an equilibrium state (shot, time_efit_s, efit_lineage), or one Thomson channel of it |
+| `transport`, `transport_summary` | T (#1453) | a state and r/a (one TGLF configuration), or one state |
+| `transport_sensitivity`, `transport_sensitivity_pairs` | T | a surface and a TGLF configuration, or the spread over configurations |
+| `stability`, `stability_surfaces` | N (#1448) | a state and toroidal mode number, or one rational surface for one solver |
+| `zeff_windows`, `zeff_slices` | Z (#1486) | a discharge window, or a state |
+| `confinement` | D (#1490) | a magnetics state |
+| `op_space_base` | V (#1456) | a state's operating-space coordinates |
+
+`describe_atlas_table` returns each column's unit and definition from the lane's own schema, the
+row key, the lane's rules and caveats, its README, and provenance: the file's sha256 and the build
+commit. Read it before comparing rows.
+
+`query_atlas_table` filters with `where` clauses (`{"column", "op", "value"}`; `==`, `!=`, `<`,
+`<=`, `>`, `>=`, `in`, `not_in`, `isnull`, `notnull`), selects `columns`, sorts with `order_by`
+(`"-name"` for descending) and counts rows per value with `count_by`. It does not join tables and
+does not aggregate beyond counting. A lane's "never combine" rules are refusals:
+
+- `stability` needs `n_tor ==`.
+- `stability_surfaces` needs `n_tor ==` and `solver ==`.
+- `transport_sensitivity` needs `tglf_config ==`.
+
+Older spellings (`efit_label`, `magnetics-only`, `electron-kinetic`) are accepted and returned in
+State key contract v1 spelling (`efit_quality`, `magnetics`, `electron_kinetic`). Tables are
+read-only, limited to 50 MB, and every result stays under about 50 kB.
+
+## Environment
+
+| Variable | Effect |
+| --- | --- |
+| `VAFT_ATLAS_DIR` | the campaign atlas directory; the atlas tools refuse without it |
+| `VAFT_ARTIFACT_DIR` | the directory `artifact=` paths are relative to; nothing outside it is read |
+| `VAFT_MCP_DATABASE=1` | allow database shots (read-only, through your own HSDS configuration) |
 
 ```bash
-claude mcp add vaft -e VAFT_ATLAS_DIR=/path/to/atlas -- python -m vaft.mcp
+claude mcp add vaft \
+  -e VAFT_ATLAS_DIR=$HOME/runs/campaign/atlas \
+  -e VAFT_ARTIFACT_DIR=$HOME/runs/artifacts \
+  -- python -m vaft.mcp
 ```
+
+A client configured by file (Claude Desktop, a project `.mcp.json`) takes the same command:
+
+```json
+{
+  "mcpServers": {
+    "vaft": {
+      "command": "/path/to/env/bin/python",
+      "args": ["-m", "vaft.mcp"],
+      "env": {"VAFT_ATLAS_DIR": "/path/to/campaign/atlas"}
+    }
+  }
+}
+```
+
+## Demo scenarios
+
+`workflow/mcp_demo/run_demo.py` replays four questions through a real stdio session and writes
+the transcripts. The questions are the equilibrium summary of shot 39915, the Tier A states
+ideal-unstable at n = 1, the surfaces with the largest SAT-rule flux spread, and the identified
+resistive Z_eff windows. Its README lists the same questions to ask an agent live.

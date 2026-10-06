@@ -41,6 +41,9 @@ sections:
       - id: credibility-applicability
         title: Credibility and applicability
         url: /reference/credibility-applicability/
+      - id: dependency-graph
+        title: Dependency explorer
+        url: /reference/dependency-graph/
       - id: mcp
         title: MCP server for agents
         url: /reference/mcp/
