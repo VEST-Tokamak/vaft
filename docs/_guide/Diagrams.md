@@ -144,6 +144,25 @@ boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fra
 `li_qa_wesson`, `li_qa_cheng`. See
 #944 and #636.
 
+### Reduced stability diagnostics
+
+What each analytic or reduced criterion is, and what it proves, is on
+[Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}) (#1635).
+
+```python
+vaft.diagram.stability_diagnostic_taxonomy()
+vaft.diagram.interchange_criteria()
+```
+
+| | |
+| --- | --- |
+| ![taxonomy]({{ '/assets/diagrams/stability_diagnostic_taxonomy.svg' | relative_url }}) | ![interchange]({{ '/assets/diagrams/interchange_criteria.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `stability_diagnostic_taxonomy` | VAFT's criteria by physical problem (rows) and logical status (columns): exact definition, reduced model, empirical or semi-empirical boundary, heuristic, and solver-derived. It also lists what is still absent. The reduced columns are compared with the solvers, not used as a gate |
+| `interchange_criteria` | `suydam_criterion` and `mercier_criterion_circular` on one schematic profile. The toroidal $p'(1 - q^2)$ stabilises outside $q = 1$, where Suydam's criterion still fails |
+
 ## Single-particle motion
 
 Gyration and guiding-centre drifts, drawn in the island family's style and 3-D camera. Every orbit
@@ -632,6 +651,49 @@ From the cylinder to the slab: `mode_number_mapping` expands $k_\parallel(r)$ ab
 slab of `local_slab_from_cylinder`, and `resonant_layer_matching` couples several such layers.
 The screw-pinch field line itself is `field_line_geometry("cylindrical")`, and the cylinder-vs-torus harmonic
 picture (independent $m$ vs toroidally coupled $m, m\pm1$) is `poloidal_harmonic_coupling`.
+
+## Current-profile and q topology
+
+What the shape of the current does to the poloidal field, the internal inductance and the safety
+factor, and how the shape of $q$ decides how many rational surfaces one $m/n$ has (#1604). All four
+diagrams use one reduced model: a straight cylinder whose current is peaked
+($j \propto (1 - x^2)^2$), broad ($1 - x^4$) or hollow / off-axis ($(0.1 + x^2)(1 - x^2)^{3/2}$), each
+normalized to the same $I_p$. The chain is `cylindrical_enclosed_current`, `cylindrical_poloidal_field`
+(Ampère), `cylindrical_safety_factor_from_r_B`, `cylindrical_poloidal_flux` (for $\psi_N$),
+`cylindrical_internal_inductance` and `shear_from_r_q`. The crossings come from
+`vaft.process.equilibrium.find_rational_surfaces`, the routine that finds them on a reconstructed $q$.
+These are concept figures, not equilibria and not stability results.
+
+```python
+vaft.diagram.current_profile_shapes()
+vaft.diagram.q_profile_topologies()
+vaft.diagram.q_profile_landmarks(profile="monotonic")         # or "reversed_shear"
+vaft.diagram.rational_surface_topology(profile="reversed_shear", m=2, n=1)
+```
+
+![current-profile shapes]({{ '/assets/diagrams/current_profile_shapes.svg' | relative_url }})
+
+![q topologies]({{ '/assets/diagrams/q_profile_topologies.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![q landmarks, monotonic]({{ '/assets/diagrams/q_profile_landmarks_monotonic.svg' | relative_url }}) | ![q landmarks, reversed shear]({{ '/assets/diagrams/q_profile_landmarks_reversed_shear.svg' | relative_url }}) |
+| ![one rational surface]({{ '/assets/diagrams/rational_surface_topology_monotonic.svg' | relative_url }}) | ![double rational surfaces]({{ '/assets/diagrams/rational_surface_topology_reversed_shear.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `current_profile_shapes` | $j(r) \to I(r) \to B_\theta(r) \to l_i$ at fixed $I_p$. Peaked, broad and hollow are shapes of the *current density*. $l_i$ is one number for the whole profile: a more centrally enclosed current tends to a larger $l_i$, but different profiles can share one $l_i$ |
+| `q_profile_topologies` | Peaked current gives a monotonic $q$, broad current a weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s < 0$ inside $q_{\min}$. Not every hollow current reverses the shear |
+| `q_profile_landmarks` | $q_0$ on axis; $q_{\min}$, equal to $q_0$ only when $q$ is monotonic; $q_{95} = q(\psi_N = 0.95)$, which is not at $r/a = 0.95$; $q_a$, the boundary value of a cylinder or limited plasma. In a diverted equilibrium $q \to \infty$ at the separatrix, so $q_{95}$ is quoted. In the cylinder $q_a = q_\mathrm{cyl}$; in a shaped torus $q_{95}$ and the edge $q$ differ from $q_\mathrm{cyl}$ and $q^*$ |
+| `rational_surface_topology` | A monotonic $q$ crosses one $m/n$ once. A reversed-shear $q$ can cross it twice, $q(r_1) = q(r_2) = m/n$ with $r_1 < r_{\min} < r_2$: a *double-resonant configuration*. A double tearing mode is the instability in which tearing layers on the two surfaces couple, and only a stability calculation can say whether it grows |
+
+These diagrams sit upstream of the others. `current_to_q_profile` keeps the analytic peaked
+family $j \propto (1 - x^2)^\nu$ and `cylindrical_rational_surfaces` the monotonic surfaces of one $n$
+(#1072). `rational_surface` keeps the single-crossing definition, and `delta_prime` and
+`tearing_layer_matching` follow it (#1039). The $l_i$–$q$ diagrams of `li_qa` (#1603) are
+*operating spaces*: one scalar $l_i$ against one scalar edge $q$, from the literature. They are not
+plots of a current profile. The data-side counterparts are `vaft.plot.equilibrium_profile_j_tor` and
+`equilibrium_profile_q` (#1505).
 
 ## Field configurations, reconnection and MHD waves
 
@@ -1239,6 +1301,7 @@ vaft.diagram.fusion_science_knowledge_lifecycle()
 vaft.diagram.scientific_workflow()
 vaft.diagram.interoperability_layers()
 vaft.diagram.scientific_provenance_chain()
+vaft.diagram.plasma_state_provenance()
 vaft.diagram.scientific_infrastructure_principles()
 vaft.diagram.machine_agnostic_architecture()
 vaft.diagram.experiment_modeling_theory_data_network()   # "point_to_point", "common_model", "equilibrium"
@@ -1254,6 +1317,7 @@ vaft.diagram.machine_research_archive()
 | `scientific_workflow` | A managed pipeline. Heterogeneous machine and experimental sources feed ingestion and orchestration, then diagnostic processing → equilibrium reconstruction and profile fitting → interpretive simulation, all reading and writing the standardized scientific state held in the Common Data Model (IMAS). Configuration and description, provenance and versioning, and V&V with quality assessment cut across it, and V&V feeds back to the configurations. The product is qualified, analysis-ready data |
 | `interoperability_layers` | From machine to scientific workflows in both directions, through the native representation, validation/standardization, the Common Data Model (IMAS) and the IMAS database. Native artifacts are stored alongside the standard (the dashed path) |
 | `scientific_provenance_chain` | An example tokamak analysis chain: raw signal → processed data → equilibrium reconstruction and profile fitting → derived physics quantities → analysis and visualization. Versioned inputs and configurations are kept apart from the cross-cutting quality metadata |
+| `plasma_state_provenance` | The information layers of one plasma state (Tutorial 03, #1714): measured quantities ($I_p$, magnetics, diamagnetic flux, Thomson and charge-exchange profiles) and assumed priors (profile model, weights and uncertainties, $Z_\mathrm{eff}$, boundary conditions) both enter the reconstruction or fit, whose fields and profiles feed the derived descriptors ($\kappa$, $\delta$, $q_{95}$, $\beta$, $\ell_i$, pressures, $\nu^*$, $\rho^*$, $a/L_T$). A derived number is never itself a measurement |
 | `scientific_infrastructure_principles` | Two foundations, both converging on VAFT. On one side are the common principles for modern scientific infrastructure (FAIR, W3C PROV, TRUST). On the other are three fusion-community requirements: verification and validation, integrated modelling and data analysis, and multi-machine comparison and extrapolation. Each side's references, FAIR4RS among them, sit beneath it |
 | `machine_agnostic_architecture` | Theory, experiment, modelling and simulation, and data-driven methods share one scientific framework and one Common Data Model (IMAS), which holds design, experimental and simulation data and is stored in the IMAS database. Machine-specific data access and mapping absorbs device differences, so the same architecture serves existing fusion experiments and future devices and reactor concepts. No device is named |
 | `experiment_modeling_theory_data_network` | A three-step argument for a common data model. Point to point needs $N(N-1)/2$ pairwise adapters, and a new mode needs $N-1$ more. The Common Data Model (IMAS) needs $N$ adapters, and a new mode needs one. The IMAS equilibrium IDS, a standardized equilibrium representation, then serves as a tokamak example with representative routes and references |
@@ -1266,6 +1330,7 @@ vaft.diagram.machine_research_archive()
 ![Managed scientific processing pipeline]({{ '/assets/diagrams/scientific_workflow.svg' | relative_url }})
 ![Interoperability layers]({{ '/assets/diagrams/interoperability_layers.svg' | relative_url }})
 ![Scientific provenance chain]({{ '/assets/diagrams/scientific_provenance_chain.svg' | relative_url }})
+![Plasma state provenance]({{ '/assets/diagrams/plasma_state_provenance.svg' | relative_url }})
 ![Principles for scientific infrastructure]({{ '/assets/diagrams/scientific_infrastructure_principles.svg' | relative_url }})
 ![Machine-agnostic architecture]({{ '/assets/diagrams/machine_agnostic_architecture.svg' | relative_url }})
 ![Without a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network_point_to_point.svg' | relative_url }})

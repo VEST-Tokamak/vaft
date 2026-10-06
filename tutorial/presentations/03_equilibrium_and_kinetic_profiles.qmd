@@ -35,9 +35,10 @@ The whole session is one chain, and it is worth putting on the screen.
 
 ## The chain
 
-diagnostics $\rightarrow$ constraints $+$ uncertainties $\rightarrow$
-equilibrium reconstruction $\rightarrow$ flux coordinates $\rightarrow$
-kinetic profiles $\rightarrow$ derived plasma state $\rightarrow$ comparison
+shape $\rightarrow$ force-balanced analytic equilibrium $\rightarrow$
+experimental reconstruction $\rightarrow$ validation $\rightarrow$
+flux coordinates $\rightarrow$ kinetic profiles $\rightarrow$
+derived plasma state $\rightarrow$ self-consistency
 
 ::: {.notes}
 [1 min]
@@ -124,6 +125,9 @@ what it is.
 
 **Solov'ev** --- constant $p'$, $FF'$: every surface follows.
 
+**Guazzotto--Freidberg** --- smooth sources; $\kappa$, $\delta$, $\nu \approx \beta_p$ in,
+axis, $\beta_p$, $\ell_i$, $q_{95}$ out.
+
 Limited, single null, double null: a property of the flux map.
 
 ::: {.notes}
@@ -133,11 +137,41 @@ NARRATE:
 Miller is how a gyrokinetic or stability code describes a local surface
 *given* an equilibrium. It carries no force balance. Solov'ev is an exact
 solution of the Grad--Shafranov equation, rich enough (Cerfon--Freidberg) to
-impose a boundary and an X-point.
+impose a boundary and an X-point. Guazzotto--Freidberg makes the sources
+vanish at the edge and has a pressure knob, $\nu$. The notebook scans
+$\kappa$, $\delta$ and $\nu$ at the shape of the discharge: every panel title
+is a response, and none of them is $\ell_i$ as an input.
 
 Topology is decided from the saddles of $\psi$: a saddle whose flux matches the
 boundary's makes the plasma diverted. Real VEST maps have many saddles, far
 outside the plasma; none of them is on the boundary.
+:::
+
+## Inputs and responses
+
+| input | responses |
+| --- | --- |
+| $\kappa$ | shape, axis, $\beta_p$, $\ell_i$, $q_{95}$ |
+| $\delta$ | shape, axis, $\beta_p$, $\ell_i$, $q_{95}$ |
+| $\nu \approx \beta_p$ | pressure, Shafranov shift, $\ell_i$, $q_{95}$ |
+
+There is no $\ell_i$ knob.
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+The Guazzotto--Freidberg model at the shape of the discharge, one input turned
+at a time. Raising $\nu$ moves the axis outward: the Shafranov shift. Raising
+$\kappa$ raises $q_{95}$ and lowers $\ell_i$, a geometric effect because the
+source profile is fixed. Then the model at the discharge's own shape and
+$\beta_p$ against EFIT: the axis agrees within millimetres, $\ell_i$ does not,
+because the model fixes the current-profile shape and EFIT fitted its own.
+
+TRANSITION:
+In the experiment nobody hands you $\nu$. The next slides are optional depth on
+the equation itself (deep dive A in the notebook); skip to the constraints if
+time is short.
 :::
 
 ## One flux function, three regions
@@ -245,6 +279,24 @@ Do not let this turn into "EFIT is wrong". The flux map can be fine. What
 cannot be used is the stored $\chi^2$ as evidence of fit quality.
 :::
 
+## Four layers
+
+**Measured** $\rightarrow$ **reconstructed / fitted** $\leftarrow$ **assumed / prior**
+
+$\downarrow$
+
+**Derived**
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+The provenance diagram of step 5 is the reference for the rest of the session.
+A probe signal is measured; $\psi(R,Z)$ is reconstructed; EFIT's weights and a
+chosen $Z_\mathrm{eff}$ are assumed; $\beta_N$ is derived. Some assumptions
+enter only the derivation. A derived number is never itself a measurement.
+:::
+
 ## The coordinate is borrowed
 
 $(R_i, Z_i) \rightarrow \psi_{N,i} \rightarrow \rho_{\mathrm{tor},N,i}$
@@ -335,20 +387,44 @@ looks like.
 
 ## Session workflow
 
-representation $\rightarrow$ analytic shapes $\rightarrow$ constraints
+representation $\rightarrow$ shape $\rightarrow$ analytic equilibrium and scans
 
-$\rightarrow$ one discharge $\rightarrow$ coordinates $\rightarrow$ kinetic state
+$\rightarrow$ EFIT of one discharge $\rightarrow$ its validation $\rightarrow$ coordinates
 
-$\rightarrow$ Grad--Shafranov residual $\rightarrow$ times and shots
+$\rightarrow$ kinetic EFIT $\rightarrow$ derived state $\rightarrow$ residual and CHEASE $\rightarrow$ times and shots
 
 ::: {.notes}
 [1 min]
 
 NARRATE:
 Point at each step. Note that "coordinates" is a real step, not bookkeeping: a
-profile without its radial coordinate is not a physics claim. And note that the
-constraints come *before* the reconstruction is analysed: you should know what
-EFIT was told before you read what it said.
+profile without its radial coordinate is not a physics claim. The real
+equilibrium is shown *before* its constraints are read: students first see the
+state, then ask whether the measurements and weights support it. Each step ends
+with a short "Check yourself".
+:::
+
+## What kinetic data changes
+
+Magnetic EFIT $\rightarrow$ kinetic EFIT: $\beta_p$, $\beta_N$ roughly double;
+$q$ and $\ell_i$ stay put.
+
+A magnetics-only $\beta$ is not a measured pressure.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+Same instant of 48224, same magnetics, plus Thomson pressure points. The
+magnetics fix the boundary and the current profile; the pressure was nearly
+free. Put it beside the $\nu$ scan: the model says pressure matters, the
+experiment says how much of it the magnetics could identify. Sensitivity and
+identifiability are different questions.
+
+Then close the loop: the Grad--Shafranov residual of both files is about one
+percent, and CHEASE's `EquilibriumVariation` perturbs the reconstructed
+equilibrium on purpose --- `current_peaking` is how $\ell_i$ moves, never a
+uniform $FF'$ scale.
 :::
 
 ## Practice goal: a discharge of your choice
@@ -362,7 +438,7 @@ explains the measurements.
 NARRATE:
 The exercise is a short report on any VEST discharge, in ten steps. The five
 labels are the grading rubric: every number in the report should carry one.
-The CHEASE scan is the forward-model extension, which is only possible because
-CHEASE takes inputs rather than measurements. Connect it back to the two-axes
+The CHEASE perturbation is the forward-model extension, which is only possible
+because CHEASE takes inputs rather than measurements. Connect it back to the two-axes
 slide.
 :::
