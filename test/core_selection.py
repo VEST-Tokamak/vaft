@@ -91,7 +91,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_magnetic_island.py",
     # Machine geometry: source vertices, unknown phi, camera units and mask.
     # Registry, taxonomy and display policy: the vocabulary the rest of the
-    # package indexes itself by.
+    # package indexes itself by. The beta definitions (#1691): closed forms and
+    # the packaged sample's volume beta, no solver.
+    "test_beta_volume.py",
     "test_diagnostic_registry.py",
     "test_diagnostics_interactive.py",
     "test_display_policy.py",
@@ -120,11 +122,13 @@ CORE_MODULES: tuple[str, ...] = (
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
     # The MITIM adapter (#1588) runs a stub mitim_tools in this interpreter:
-    # availability statuses, the per-run config, launch, timeout and discovery.
+    # availability statuses, the per-run config, launch, timeout and discovery;
+    # the r/a <-> rho_tor_norm bridge and the TGLF input comparison are pure.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
     "test_mitim_adapter.py",
+    "test_mitim_compare.py",
     "test_process_tree.py",
     "test_remote_backend.py",
     "test_slurm_backend.py",
@@ -188,6 +192,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_edge_q_estimate.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
+    # Dimensionless-similarity spaces (#1624): conventions never mix, missing
+    # inputs are counted not imputed. Pure NumPy and Agg.
+    "test_dimensionless_similarity.py",
     "test_li_qa.py",
     "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
@@ -247,6 +254,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_controls.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
+    # GPEC adapter records (#1460): how a solver stop is worded and recorded --
+    # time limit, memory limit, never admitted -- through stub executables and
+    # a recording backend. No solver runs; about 20 s.
+    "test_gpec_adapter.py",
+    "test_gpec_pentrc_runner.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
@@ -278,6 +290,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
     "test_process_impurity.py",
+    "test_process_species.py",
     # #1565 Sec. 8: the impurity composition and stored Z_eff plots, on
     # synthetic ADF11 tables (no network). Under 10 s.
     "test_impurity_plots.py",
@@ -286,6 +299,13 @@ CORE_MODULES: tuple[str, ...] = (
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
+    # Credibility and applicability (lane AP, #1639): the six-axis taxonomy and
+    # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
+    # import checks that keep both off the default processing path. Under 10 s.
+    "test_validation_credibility.py",
+    # Sensitivity contract (lane AP, #1642): finite differences against the
+    # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map. ~2 s.
+    "test_sensitivity_contract.py",
     # Plasma-formalism provenance (lane AP, #1727): the seven audited cases as
     # records, the generic impossibilities, serialization and CGYRO's derived
     # #1353 record. Pure Python, ~3 s.

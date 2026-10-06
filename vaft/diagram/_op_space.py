@@ -26,6 +26,7 @@ from typing import Callable, Dict, Mapping, Optional, Sequence, Tuple, Union
 import numpy as np
 
 from vaft.formula import boundaries as _b
+from vaft.diagram._projection_interpretation import ProjectionInterpretation
 
 __all__ = [
     "AXIS_QUANTITIES",
@@ -73,6 +74,7 @@ AXIS_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
         _registered("menard_2004_qstar_min"),
         _registered("iter_1991_q95_estimate_min"),
         _registered("akers_2000_q95_estimate_min"),
+        _registered("greenwald_hugill_st", "inverse_cylindrical_q_st"),
         _b.BoundaryQuantity(
             "normalized_current", "I_p/(a B_T)", "MA m^-1 T^-1",
             "Plasma current over minor radius times vacuum toroidal field (Troyon's I_N up to mu0).",
@@ -103,6 +105,8 @@ class OperationalProjection:
     reference space reads it as a family of lines through the origin -- Troyon's
     $\\beta_N = \\beta_T/I_N$ -- so a limit on it is a line through the origin.
     ``diagram`` is the :mod:`vaft.diagram` builder for the reference picture, if any.
+    ``interpretation`` states what the space is for and the conventions of its
+    axes (#1624); see :mod:`vaft.diagram._projection_interpretation`.
     """
 
     key: str
@@ -114,6 +118,7 @@ class OperationalProjection:
     assumptions: Tuple[str, ...] = ()
     diagram: Optional[str] = None
     ratio: Optional[_b.BoundaryQuantity] = None
+    interpretation: Optional[ProjectionInterpretation] = None
 
 
 @dataclass(frozen=True)
@@ -248,6 +253,20 @@ _register(OperationalProjection(
     assumptions=(
         "q* is Freidberg's Eq. (13.160), 2 pi a^2 kappa B0/(mu0 R0 I); the limit (1 + kappa)/2 is drawn at one "
         "elongation, so pass the kappa it should represent (the largest kappa is the most restrictive line)",
+    ),
+))
+
+_register(OperationalProjection(
+    key="hugill_st",
+    title="Spherical-tokamak Hugill diagram",
+    x=_q("murakami_parameter"),
+    y=_q("inverse_cylindrical_q_st"),
+    default_boundaries=("sykes_2000_st_hugill", "greenwald_hugill_st", "murakami_hugill"),
+    references=("A. Sykes et al., First results from MAST, IAEA FEC 2000, Fig. 12; Nucl. Fusion 41 (2001) 1423",),
+    assumptions=(
+        "y is the spherical-tokamak 1/q_cyl = R I_p/(2.5 a^2 (1 + kappa^2) B_T), not the conventional Hugill 1/q_cyl",
+        "the Hugill and Greenwald lines depend on kappa: pass the elongation they should represent",
+        "Murakami is a historical conventional-tokamak reference here, not a spherical-tokamak limit",
     ),
 ))
 
@@ -530,3 +549,7 @@ def overlay_plan(projection: Union[str, OperationalProjection], boundaries: Unio
         else:
             curves.append(result)
     return OverlayPlan(projection=proj.key, curves=tuple(curves), omitted=tuple(omitted))
+
+
+# dimensionless-similarity projections (#1624) register themselves through _register
+from vaft.diagram import _similarity_space  # noqa: E402,F401
