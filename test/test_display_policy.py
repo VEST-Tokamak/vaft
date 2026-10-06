@@ -220,8 +220,8 @@ def test_panel_members_keep_the_short_recipe_title(ip_ods):
 
 
 def test_a_grid_suptitle_clears_the_panels_it_names():
-    """tight_layout reserves no room for a suptitle: on a tall grid it landed
-    on the first row's own titles, which is what a reader sees first."""
+    """On a tall grid the suptitle must not land on the first row's own
+    titles, which is what a reader sees first -- nor leave the canvas."""
     sample = packaged_ods("samples/39915/omas.json.gz")
     figure, axes = vaft.omas.plot_b_field_probe_time_field(
         sample, selection=list(range(24)), layout="subplots"
@@ -229,9 +229,35 @@ def test_a_grid_suptitle_clears_the_panels_it_names():
     drawn = [panel for panel in np.asarray(axes).ravel() if panel.get_visible()]
     assert len(drawn) > 12  # a grid deep enough for the collision to happen
     assert figure._suptitle is not None
-    top = max(panel.get_position().y1 for panel in drawn)
-    assert figure._suptitle.get_position()[1] >= top
+    figure.canvas.draw()
+    renderer = figure.canvas.get_renderer()
+    extent = figure._suptitle.get_window_extent(renderer)
+    # The layout bbox keeps the titles but not a y label taller than its
+    # short axes, which overflows at the far left, beside the suptitle.
+    assert extent.y0 >= max(panel.get_tightbbox(renderer, for_layout_only=True).y1 for panel in drawn) - 0.5
+    assert extent.y1 <= figure.bbox.y1 + 0.5
+    for panel in drawn:
+        for text in _panel_texts(panel):
+            assert not extent.overlaps(text.get_window_extent(renderer)), text.get_text()
     plt.close(figure)
+
+
+def _drawn_tick_labels(axis):
+    """Tick labels inside the view limits: the ones outside are kept but never drawn."""
+    labels = []
+    for ticks, tick_labels, limits in (
+        (axis.get_xticks(), axis.get_xticklabels(), axis.get_xlim()),
+        (axis.get_yticks(), axis.get_yticklabels(), axis.get_ylim()),
+    ):
+        low, high = sorted(limits)
+        labels += [label for tick, label in zip(ticks, tick_labels) if low <= tick <= high]
+    return labels
+
+
+def _panel_texts(panel):
+    texts = [panel.title, panel._left_title, panel._right_title, panel.xaxis.label, panel.yaxis.label]
+    texts += _drawn_tick_labels(panel)
+    return [text for text in texts if text.get_visible() and text.get_text()]
 
 
 def test_multi_shot_titles_leave_shot_identity_to_the_legend(ip_ods):
