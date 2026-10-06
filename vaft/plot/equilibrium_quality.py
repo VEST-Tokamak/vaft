@@ -106,7 +106,11 @@ def equilibrium_quality_measured_vs_reconstructed(points: pd.DataFrame, *, famil
             continue
         zc = z[use][np.isfinite(z[use])]
         stats = f", z bias {zc.mean():+.2f}, z rms {np.sqrt(np.mean(zc ** 2)):.2f}" if zc.size else ""
-        ax.scatter(x[use], y[use], s=14, marker=marker, color=color, alpha=0.6,
+        # Failed attempts underneath and faint, good on top: the largest cohort
+        # must not hide the one the figure is about.
+        layer = {"good": 3, "admissible": 2}.get(_cohort, 1)
+        ax.scatter(x[use], y[use], s=14 if layer > 1 else 8, marker=marker, color=color,
+                   alpha=0.8 if layer == 3 else 0.55 if layer == 2 else 0.2, zorder=layer,
                    linewidths=1.0 if marker == "x" else 0.4, edgecolors=None if marker == "x" else "white",
                    label=f"{label} (n={int(use.sum())}{stats})")
     if finite.any():
