@@ -22,15 +22,19 @@ research community and the ownership of scientific logic.
     where reusable scientific logic belongs, how workflow logic matures into
     it, and where validation, use policy, Study and Research sit.
 
-The pair grammar. ``organization="fragmented"`` draws the problem: the
-research paths as dashed silos joined only by red, dashed ad-hoc links.
-``organization="integrated"`` draws the same entities around the shared
-layer that replaces those links. Both variants of a pair have the same title
-position, level tag and a numbered strip at the same place: red symptoms in
-the fragmented figure, the green responses with the same numbers in the
-integrated one. The numbers are cited like footnotes -- a grey superscript
-after the text it belongs to -- to mark where a symptom arises and which part
-of the architecture answers it, so the two figures can be read side by side.
+The pair grammar. ``organization="fragmented"`` draws the problem: for
+levels 1, 2 and 4 the research paths as dashed silos joined only by red,
+dashed ad-hoc links; for level 3, one chain of steps with the evidence each
+step loses beneath it. ``organization="integrated"`` draws the same entities
+around the shared layer that answers them. Both variants of a pair carry the
+level tag and a title, the take-home note, and numbered notes as columns of
+text: what goes wrong (plain words, the technical term and, where there is
+one, a reference) in the fragmented figure, what answers it under the same
+number in the integrated one. The numbers are cited like footnotes -- a grey
+superscript after the text it belongs to -- to mark where a symptom arises
+and which part of the architecture answers it. They run in the order the
+fragmented figure cites them, so the integrated figure cites the same numbers
+in its own order.
 
 As in ``_vaft_concepts`` these are capability-level figures: no backend,
 endpoint, path or module path appears in them. Their content is the data
@@ -59,7 +63,6 @@ LEVELS: Tuple[Tuple[str, str], ...] = (
 )
 #: how a symptom, a response and an ad-hoc link are drawn (inline options: the template is shared by every diagram)
 SYMPTOM_STYLE = "concept leaf,draw=driftred!70,fill=driftred!6"
-RESPONSE_STYLE = "concept leaf,draw=absfluid!85,fill=absfluid!10"
 ADHOC_STYLE = "connector,driftred!75,dashed"
 SILO_STYLE = "concept group"
 #: correspondence numbers are citations: a quiet grey superscript, the same for symptoms and responses
@@ -211,7 +214,7 @@ INFRA_LANES: Tuple[Tuple[str, str, str, str, str], ...] = (
     ("equilibrium", "machine_db", "conversion script", "reconstruction", "own settings & conventions"),
     ("profiles", "diagnostic_files", "fitting notebook", "profile", "own calibration copy"),
     ("modelling", "geometry", "custom converter", "simulation", "own geometry conventions"),
-    ("analysis", "records", "manual lookup", "physics", "local scripts"),
+    ("analysis", "records", "manual lookup", "physics", "own selection criteria"),
 )
 #: the lanes that receive a hand-copied equilibrium from the reconstruction lane
 INFRA_EQUILIBRIUM_COPIES: Tuple[str, ...] = ("profile", "simulation", "physics")
@@ -262,7 +265,9 @@ def experimental_research_infrastructure(organization: str = "integrated", *, la
         configuration, weak provenance, researcher-specific workflows -- are
         listed beneath, as consequences rather than stages;
     ``"integrated"``
-        the same sources and activities meet in one research infrastructure
+        the same sources -- with calibration and configuration, kept as
+        private copies in the fragmented figure, now a source of its own --
+        and the same activities meet in one research infrastructure
         of three complementary capabilities with distinct roles: the Common
         Data Model (IMAS) for representation and interoperability, the FAIR
         scientific data repository for organization, preservation and reuse,
@@ -481,7 +486,7 @@ def scientific_credibility(organization: str = "integrated", *, labels: bool = T
         lost uncertainty (complex error propagation), hidden dependencies,
         coupled parameters (parametric entanglement), unstable inference
         (ill-posed inversion), unverified numerics, outside the model's range
-        (qualification, domain of applicability), outside the training data,
+        (domain of applicability), outside the training data,
         hidden sensitivity, accidental agreement (fortuitous agreement) and
         derived quantities taken as direct (primacy hierarchy);
     ``"integrated"``
@@ -495,7 +500,8 @@ def scientific_credibility(organization: str = "integrated", *, labels: bool = T
         physical applicability, and physics-model applicability from the
         training domain of a surrogate.
 
-    Compact terminology sources sit beneath both. The principles behind it
+    The fragmented figure's notes cite the terminology sources compactly
+    (full references are in the documentation). The principles behind it
     are ``scientific_infrastructure_principles``; the provenance of one chain
     is ``scientific_provenance_chain``.
     """
@@ -803,7 +809,7 @@ def research_modality_architecture(organization: str = "integrated", *, labels: 
         items += list(future.items)
         # the versioned lifecycle: a dimension of its own, beside every layer
         lx = x1 - 0.5 * lifecycle_w
-        lifecycle = box(lx, 0.5 * (iy + 0.575 + 0.0), lifecycle_w, iy + 0.575 - 0.0 + 0.2,
+        lifecycle = box(lx, 0.5 * (iy + 0.575), lifecycle_w, iy + 0.775,
                         "\\textbf{Versioned research lifecycle}\\\\[6pt]{\\small " + "\\\\[2pt]".join(
                             map(_tex, MODALITY_LIFECYCLE)) + "}", style="concept pillar", role="node:lifecycle",
                         latex=True)
@@ -871,7 +877,8 @@ REPRESENTATION_STORAGE: Tuple[str, ...] = ("local files · remote store · cache
 REPRESENTATION_RESPONSE_TAGS: Dict[str, Tuple[str, ...]] = {
     "vocabulary": ("language",), "semantic": ("terms", "paths"), "cdm": ("names",), "mapping": ("formats", "structures"),
     "storage": ("full_files", "storage_leak")}
-#: the only implementation name this figure may draw: a serialization format, shown to be distinct from the model
+#: implementation names this figure may draw although IMPLEMENTATION_PATTERNS forbids them elsewhere: HDF5,
+#: shown as one serialization format (beside NetCDF and native files) to set it apart from the scientific model
 REPRESENTATION_FORMAT_EXAMPLES: Tuple[str, ...] = ("HDF5",)
 
 _REPRESENTATION_HALF_WIDTH = 10.0
@@ -951,7 +958,7 @@ def scientific_representation(organization: str = "integrated", *, labels: bool 
         keys = [k for k, *_ in REPRESENTATION_SILOS]
         for a, b in zip(keys, keys[1:]):
             _horizontal(items, edges, cells[(a, "naming")], cells[(b, "naming")], f"cell:{a}", f"cell:{b}",
-                        style=ADHOC_STYLE + ",<->", both=True)
+                        style=ADHOC_STYLE, both=True)
         items.append(Label((0.5 * (x0 + label_w + x1), rows["encoding"] - 0.95), "neighbours mapped pairwise by hand "
                            "(red); every layer fragments separately", "concept annotation", anchor="north",
                            role="pairwise"))
@@ -1219,7 +1226,9 @@ def fusion_research_ecosystem(detail: str = "full", *, labels: bool = True) -> D
                 + "}\\\\[2pt]{\\footnotesize " + _tex(sub) + "}", style="concept base", role=f"context:{key}",
                 latex=True)
         items += list(b.items)
-    items.append(Arrow((cx, -3.2 - 0.05), (cx, ctx_y + 1.125 + 0.08), "connector", role="edge:preserve->contexts"))
+    pres = nodes["preserve"]
+    items.append(Arrow((cx, pres.y - 0.5 * pres.height - 0.08), (cx, ctx_y + 1.125 + 0.08), "connector",
+                       role="edge:preserve->contexts"))
     _record(edges, "preserve", "contexts", "forward")
     items.append(Label((0.0, ctx_y - 1.3), "\\\\".join(map(_tex, ECOSYSTEM_REFERENCES)), "concept reference",
                        anchor="north", role="references"))
@@ -1366,8 +1375,12 @@ def scientific_ownership_architecture(*, labels: bool = True) -> Diagram:
         items.append(Arrow((x, impl_y - 0.5 * impl_h - 0.08), (x, ev_y + 0.5 * ev_h + 0.08), "connector", role=f"edge:{key}->evidence"))
         _record(edges, key, "evidence", "forward")
     db = nodes["database"]
-    _horizontal(items, edges, db, Box(ixs[0], db.y + 1.1, iw, impl_h, ()), "database", "formula")
-    _horizontal(items, edges, Box(db.x, ev_y, db.width, ev_h, ()), nodes["evidence"], "database", "evidence")
+    # each arrow at a height both boxes span, so it leaves the database and enters its target
+    for target, y in ((nodes["formula"], impl_y - 0.2), (nodes["evidence"], ev_y + 0.25)):
+        key = "formula" if target is nodes["formula"] else "evidence"
+        items.append(Arrow((db.x + 0.5 * db.width + 0.08, y), (target.x - 0.5 * target.width - 0.08, y), "connector",
+                           role=f"edge:database->{key}"))
+        _record(edges, "database", key, "forward")
     # assessment and policy
     node("validation", cx, 1.4, mx1 - mx0 - 0.6, 0.95, "\\textbf{Validation} interprets evidence: {\\small "
          + ", ".join(OWNERSHIP_VALIDATION) + "}", "concept vv")

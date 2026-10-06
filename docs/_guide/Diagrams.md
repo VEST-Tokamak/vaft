@@ -1224,7 +1224,8 @@ Why VAFT is built the way it is, in four levels (#1641, #1636, #1638, #1640). Ea
 from one builder: `organization="fragmented"` draws the problem and `organization="integrated"` the
 architecture that answers it. The pair grammar is shared:
 
-- the fragmented figure draws research paths as dashed silos, joined only by red, dashed ad-hoc links;
+- the fragmented figure draws research paths as dashed silos, joined only by red, dashed ad-hoc links (level 3
+  is one chain of steps instead, with the evidence each step loses beneath it);
 - the integrated figure draws the same entities around the shared layer that replaces those links;
 - both carry the level tag at the top left and numbered notes at the bottom, set as columns of text. The
   fragmented figure lists what goes wrong, each in plain words with its technical term and, where there is
@@ -1259,8 +1260,8 @@ managed pipeline is `scientific_workflow`, and the VEST implementation is `vest_
 
 The figures keep several distinctions visible, and the tests check them:
 
-- HDF5 is a serialization format, not the scientific model. It is the only technology the level-1 figure
-  names, and no storage service is named at all;
+- HDF5 is a serialization format, not the scientific model. The level-1 figure shows it only as one
+  encoding beside NetCDF, MATLAB files and native outputs, and names no storage service;
 - provenance is not validity, numerical verification is not physical applicability, and a surrogate's
   training domain is checked apart from its physics model;
 - GUI, CLI and MCP are interfaces, never part of the core;

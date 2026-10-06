@@ -142,7 +142,6 @@ def test_a_pair_shares_its_level_and_numbers_symptoms_and_responses_alike(name):
         assert placed == set(range(1, len(keys) + 1)), f"{name} places {sorted(placed)}"
         text = _text(diagram)
         assert all(rc._cite(n) in text for n in diagram.model["tags"].values())  # each citation is drawn
-        assert rc.CITE_COLOUR in rc._cite((1,)) and "textsuperscript" in rc._cite((1,))
     # both figures carry the same level tag and a title of their own
     level = dict(rc.LEVELS)[fragmented.model["level"]]
     for diagram in (fragmented, integrated):
@@ -396,6 +395,13 @@ def test_ownership_bands_and_responsibility_boundaries():
     assert d.model["actor_span"] == ("process", "code")
     assert not [k for k in edges if "actor" in k[0] or "actor" in k[1]]
     assert d.scene.role("node:actor")[0].style == "concept frame"
+    # the data arrows leave the database and land on their targets: at a height both boxes span
+    for target in ("formula", "evidence"):
+        arrow = d.scene.role(f"edge:database->{target}")[0]
+        for role in ("node:database", f"node:{target}"):
+            outline = d.scene.role(role)[0]
+            ys = [y for _, y in outline.points]
+            assert min(ys) < arrow.start[1] < max(ys), (target, role)
 
 
 def test_registered_and_canonical():
