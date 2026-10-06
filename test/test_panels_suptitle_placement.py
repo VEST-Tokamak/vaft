@@ -33,6 +33,34 @@ def _panels(suptitle: str, count: int, ncols: int) -> Panels:
     return Panels(models=members, nrows=-(-count // ncols), ncols=ncols, suptitle=suptitle)
 
 
+def _drawn_tick_labels(axis):
+    """Tick labels inside the view limits: the ones outside are kept but never drawn."""
+    labels = []
+    for ticks, tick_labels, limits in (
+        (axis.get_xticks(), axis.get_xticklabels(), axis.get_xlim()),
+        (axis.get_yticks(), axis.get_yticklabels(), axis.get_ylim()),
+    ):
+        low, high = sorted(limits)
+        labels += [label for tick, label in zip(ticks, tick_labels) if low <= tick <= high]
+    return labels
+
+
+def _assert_clear_of_panels(extent, drawn, renderer) -> None:
+    """Above every panel's titles, and on top of none of its text.
+
+    The layout bbox keeps the titles but not a y label taller than its short
+    axes, which overflows at the far left, beside the suptitle; the overlap
+    check covers that case in two dimensions.
+    """
+    assert extent.y0 >= max(axis.get_tightbbox(renderer, for_layout_only=True).y1 for axis in drawn) - 0.5
+    for axis in drawn:
+        texts = [axis.title, axis._left_title, axis._right_title, axis.xaxis.label, axis.yaxis.label]
+        texts += _drawn_tick_labels(axis)
+        for text in texts:
+            if text.get_visible() and text.get_text():
+                assert not extent.overlaps(text.get_window_extent(renderer)), text.get_text()
+
+
 @pytest.mark.parametrize("suptitle", list(SUPTITLES.values()), ids=list(SUPTITLES))
 @pytest.mark.parametrize(
     "count, ncols, figsize",
@@ -53,7 +81,7 @@ def test_the_suptitle_lies_inside_the_figure_and_above_the_panels(suptitle, coun
         assert extent.y0 >= canvas.y0 and extent.x0 >= canvas.x0 - 0.5 and extent.x1 <= canvas.x1 + 0.5
         # Above the topmost panel's own title, never on it.
         drawn = [axis for axis in np.asarray(axes).ravel() if axis.get_visible()]
-        assert extent.y0 >= max(axis.get_tightbbox(renderer).y1 for axis in drawn) - 0.5
+        _assert_clear_of_panels(extent, drawn, renderer)
     finally:
         plt.close(figure)
 
@@ -83,6 +111,6 @@ def test_a_taller_title_set_after_layout_still_clears_the_panels(format):
         extent = figure._suptitle.get_window_extent(renderer)
         drawn = [axis for axis in np.asarray(axes).ravel() if axis.get_visible()]
         assert extent.y1 <= figure.bbox.y1 + 0.5
-        assert extent.y0 >= max(axis.get_tightbbox(renderer).y1 for axis in drawn) - 0.5
+        _assert_clear_of_panels(extent, drawn, renderer)
     finally:
         plt.close(figure)

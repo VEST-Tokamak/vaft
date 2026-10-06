@@ -232,9 +232,32 @@ def test_a_grid_suptitle_clears_the_panels_it_names():
     figure.canvas.draw()
     renderer = figure.canvas.get_renderer()
     extent = figure._suptitle.get_window_extent(renderer)
-    assert extent.y0 >= max(panel.get_tightbbox(renderer).y1 for panel in drawn) - 0.5
+    # The layout bbox keeps the titles but not a y label taller than its
+    # short axes, which overflows at the far left, beside the suptitle.
+    assert extent.y0 >= max(panel.get_tightbbox(renderer, for_layout_only=True).y1 for panel in drawn) - 0.5
     assert extent.y1 <= figure.bbox.y1 + 0.5
+    for panel in drawn:
+        for text in _panel_texts(panel):
+            assert not extent.overlaps(text.get_window_extent(renderer)), text.get_text()
     plt.close(figure)
+
+
+def _drawn_tick_labels(axis):
+    """Tick labels inside the view limits: the ones outside are kept but never drawn."""
+    labels = []
+    for ticks, tick_labels, limits in (
+        (axis.get_xticks(), axis.get_xticklabels(), axis.get_xlim()),
+        (axis.get_yticks(), axis.get_yticklabels(), axis.get_ylim()),
+    ):
+        low, high = sorted(limits)
+        labels += [label for tick, label in zip(ticks, tick_labels) if low <= tick <= high]
+    return labels
+
+
+def _panel_texts(panel):
+    texts = [panel.title, panel._left_title, panel._right_title, panel.xaxis.label, panel.yaxis.label]
+    texts += _drawn_tick_labels(panel)
+    return [text for text in texts if text.get_visible() and text.get_text()]
 
 
 def test_multi_shot_titles_leave_shot_identity_to_the_legend(ip_ods):

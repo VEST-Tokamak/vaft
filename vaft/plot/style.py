@@ -235,7 +235,7 @@ def finalize(
     (issue #689); ``None`` keeps Matplotlib's default.
     """
     if tight_layout:
-        _place_suptitle(figure, pad)
+        placed = _place_suptitle(figure, pad)
         # Dense panel grids can be impossible to lay out tightly; that is a
         # cosmetic outcome, not a failure, so do not surface it to callers.
         with warnings.catch_warnings():
@@ -247,12 +247,14 @@ def finalize(
                     figure.tight_layout(pad=pad)
             except Exception:  # pragma: no cover - layout engines can refuse
                 pass
+        if placed:
+            _clear_suptitle(figure)
     if show:
         plt.show()
     return figure, axes
 
 
-def _place_suptitle(figure: Figure, pad: float | None) -> None:
+def _place_suptitle(figure: Figure, pad: float | None) -> bool:
     """Hang the suptitle from the top edge, inside the band ``tight_layout`` keeps for it.
 
     ``tight_layout`` reserves the suptitle's height plus one pad on each side
@@ -264,11 +266,51 @@ def _place_suptitle(figure: Figure, pad: float | None) -> None:
     """
     suptitle = getattr(figure, "_suptitle", None)
     if suptitle is None or not suptitle.get_text() or not getattr(suptitle, "_autopos", False):
-        return
+        return False
     pad_points = (1.08 if pad is None else pad) * plt.rcParams["font.size"]
     height_points = figure.get_figheight() * 72.0
     suptitle.set_y(1.0 - pad_points / height_points)
     suptitle.set_verticalalignment("top")
+    return True
+
+
+def _clear_suptitle(figure: Figure) -> None:
+    """Lower the subplots until nothing under the suptitle reaches into it.
+
+    ``tight_layout`` measures a y label only as far as its axes is tall, so on
+    a deep grid a label taller than its short axes sticks up past the band
+    kept for the suptitle; where it does so under the suptitle (a middle
+    column), the subplots come down by the overlap.  Lowering the top also
+    shrinks the rows, which moves the labels, hence a few passes.
+    """
+    renderer = getattr(figure, "_get_renderer", None)
+    if renderer is None:  # pragma: no cover - every Matplotlib figure has one
+        return
+    renderer = renderer()
+    suptitle = figure._suptitle
+    for _ in range(3):
+        extent = suptitle.get_window_extent(renderer)
+        intrusion = 0.0
+        for axes in figure.axes:
+            if not axes.get_visible():
+                continue
+            # The axis labels are measured themselves: whether an axes' tight
+            # bbox includes a label's overflow differs between Matplotlib versions.
+            boxes = [axes.get_tightbbox(renderer)] + [
+                label.get_window_extent(renderer)
+                for label in (axes.xaxis.label, axes.yaxis.label)
+                if label.get_visible() and label.get_text()
+            ]
+            for box in boxes:
+                if box is not None and box.x0 < extent.x1 and box.x1 > extent.x0:
+                    intrusion = max(intrusion, box.y1 - extent.y0)
+        if intrusion <= 0.0:
+            return
+        params = figure.subplotpars
+        top = params.top - (intrusion + 1.0) / figure.bbox.height
+        if top <= params.bottom + 0.05:
+            return
+        figure.subplots_adjust(top=top)
 
 
 def save_figure(
