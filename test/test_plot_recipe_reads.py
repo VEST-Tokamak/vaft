@@ -58,6 +58,10 @@ NEUTRAL = frozenset({
     # issue #1099: the FLARE connection-length map reads plasma_initiation
     # through the accessor only.
     "field_line_topology_field_connection_length",
+    # issue #1583: the edge-q estimates read through vaft.omas.edge_q, which
+    # reads through vaft.ods_access.
+    "summary_time_estimated_q95", "summary_time_q_star_cylindrical",
+    "summary_time_q_star_kink", "summary_time_normalized_current",
 })
 OMAS_BOUND = frozenset({
     "kinetic_overview_profiles",

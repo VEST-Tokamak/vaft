@@ -250,6 +250,16 @@
       "source_sha256": "11e569c3ff8e91b9be15ca669d75f83361acd3552fe3f6b785ef7973eaeb812a",
       "svg_sha256": "03e5a86e7e0e382b5310cd1ad4d5b091259ffeb15215bb77bad2201761e8a34c"
     },
+    "experimental_research_infrastructure.svg": {
+      "call": "vaft.diagram.experimental_research_infrastructure()",
+      "source_sha256": "8c5e658f389f84f91e2377375c961ae9e2c40caaaf0793c2f653940a5ef2d0f8",
+      "svg_sha256": "fca19dd32aacd36e2993c3552a74e269b105e3848f9b75352689e079ba099aa2"
+    },
+    "experimental_research_infrastructure_fragmented.svg": {
+      "call": "vaft.diagram.experimental_research_infrastructure(organization='fragmented')",
+      "source_sha256": "fee934839be30c630a7c601db9b032d067afcb900be28035268f6cb1505f30df",
+      "svg_sha256": "814fa14567f84032eab223226a9c999c35e74cfb1247c9bc367c9c809886e2ed"
+    },
     "fast_magnetosonic_wave.svg": {
       "call": "vaft.diagram.fast_magnetosonic_wave()",
       "source_sha256": "692bad7114fb532896461d97dba5632b7f37241c9e8f0449d289459503ce2691",
@@ -319,6 +329,16 @@
       "call": "vaft.diagram.flux_tube_patch()",
       "source_sha256": "ffe5e5edaf1446974f43291531dc07539c6264f85879930e0a227820d5522b1d",
       "svg_sha256": "1a39f913990196366837d3e33c91d16aed7d3e5e77e3f0c5b68a333f2c90090a"
+    },
+    "fusion_research_ecosystem.svg": {
+      "call": "vaft.diagram.fusion_research_ecosystem()",
+      "source_sha256": "821b1209332bfe92405ff6ddec7bce6c437a407be4a9498253ef5b915356a3b0",
+      "svg_sha256": "7ff16857d11ef24caaa9df7af396321f6cb20d44d58930a2f65ca3368bb75992"
+    },
+    "fusion_research_ecosystem_presentation.svg": {
+      "call": "vaft.diagram.fusion_research_ecosystem(detail='presentation')",
+      "source_sha256": "26a8fb92d293004b31385f928be6c16cf38e2a34b2d9bf31328de032d7234ee0",
+      "svg_sha256": "fd0757c08133fa3eabde59030311651151d9dd1e0467b76d9d73aefe622a42e5"
     },
     "fusion_science_knowledge_lifecycle.svg": {
       "call": "vaft.diagram.fusion_science_knowledge_lifecycle()",
@@ -660,6 +680,16 @@
       "source_sha256": "3292fa9ceda3a0f8965e579fc862b13414aa2eadb9166d9c92de18ebae61d54f",
       "svg_sha256": "28497bd9cf79da93947e11b0a89ac5d0a57eebf1cc528c689918e3da758e14c4"
     },
+    "research_modality_architecture.svg": {
+      "call": "vaft.diagram.research_modality_architecture()",
+      "source_sha256": "f42044d0796b7bc1c9380c4b8c300f125d794169f77868a062fda7a0f4b54c4a",
+      "svg_sha256": "aed759b4fa761e2878bb77b212ca1700f38f421788360335792f6d9a53767285"
+    },
+    "research_modality_architecture_fragmented.svg": {
+      "call": "vaft.diagram.research_modality_architecture(organization='fragmented')",
+      "source_sha256": "cf47dd465fba9a6a2e8b07ccf3a7c8ee0efedc7e0772e88448ef511d9e1b6e46",
+      "svg_sha256": "2a29c0b715e655e69cb0a224259c455d554ce1cd54248d5b79919cb6671075e0"
+    },
     "resistive_zeff_inference.svg": {
       "call": "vaft.diagram.resistive_zeff_inference()",
       "source_sha256": "d185928b34f7e77911291e0b451c6cbe67ece5ddb6b031122b8441da5c742286",
@@ -710,15 +740,40 @@
       "source_sha256": "ff8fd944e3ed23b01ec8cc8686f275dff768ba78da0b3eb44a18831fad752966",
       "svg_sha256": "ec1ccb388b0b45460d89d195909559c01f243b66d503df7cefda3cc7fd9e6c24"
     },
+    "scientific_credibility.svg": {
+      "call": "vaft.diagram.scientific_credibility()",
+      "source_sha256": "cad1083411e68bb110d6f24b1a2a9787a5b48e2fb4640c2b53c6e89eb9ef31c2",
+      "svg_sha256": "fea3139cc901201fefb57ede6ebc0c94c5e1e8e248d8617a57abc7f5acb709a4"
+    },
+    "scientific_credibility_fragmented.svg": {
+      "call": "vaft.diagram.scientific_credibility(organization='fragmented')",
+      "source_sha256": "84e45beeba3f5a5e873ad2e5e7654498893c0350522a635e3ea8492bfbc7d65d",
+      "svg_sha256": "ee4c4dab6ca4235f9d9f6e8c9463fdffce917dc3851b305fc54a9737cabdd12b"
+    },
     "scientific_infrastructure_principles.svg": {
       "call": "vaft.diagram.scientific_infrastructure_principles()",
       "source_sha256": "eddecfa39bb0ab95374cacba5041281959598f410876a55bd12230e2f79017c3",
       "svg_sha256": "a694636f7e51684a55738fc59796d04b2ed5acd4922aa1e7b479969591c4fcc0"
     },
+    "scientific_ownership_architecture.svg": {
+      "call": "vaft.diagram.scientific_ownership_architecture()",
+      "source_sha256": "c8b056d7b77844844d974bbf0ae46e2dff951e98fc799310dd99ba3b5739cdb0",
+      "svg_sha256": "6fd41e7bd2d7b727737591e68903244a39c98c4fb34046d18925ad02d2712f88"
+    },
     "scientific_provenance_chain.svg": {
       "call": "vaft.diagram.scientific_provenance_chain()",
       "source_sha256": "a901c5733a2feeb9d273f3c67d3285e687e0017a56ce364b9f384f0b87196346",
       "svg_sha256": "87c44d3a3f76179967ca0f536a05a0e972c710b8560d45939d2c9e5effebc03b"
+    },
+    "scientific_representation.svg": {
+      "call": "vaft.diagram.scientific_representation()",
+      "source_sha256": "b64b2363aa2277ce2ce9a862daa1bc5c5a7ef2cdf1da526a94799bc524ff484c",
+      "svg_sha256": "97289c88885dbfc8e0c0b586b52b87125dbb4bb78bdb84737a828a1e39c70f7e"
+    },
+    "scientific_representation_fragmented.svg": {
+      "call": "vaft.diagram.scientific_representation(organization='fragmented')",
+      "source_sha256": "45d42bfd5a6a178ef0e64c42f0b04c0f9c9dd2cc6f073ac0af5e81f89474188b",
+      "svg_sha256": "c6a5e2c8832294e34a74b311e05d6b6623560ff9d4b149c6f3b10a513ab5a974"
     },
     "scientific_workflow.svg": {
       "call": "vaft.diagram.scientific_workflow()",
