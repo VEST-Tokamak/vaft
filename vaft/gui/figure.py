@@ -1,4 +1,4 @@
-"""What the browser pane does with a figure: its display size and the export formats.
+"""What the browser pane does with a figure: its display size and the export formats (image and video).
 
 Everything about the figure itself -- limits, scales, legend, type, colour
 map -- is a :class:`vaft.plot.FigureOptions`, the reproducible options of
@@ -12,6 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 EXPORT_FORMATS = ("png", "svg", "pdf")
+#: Movies of a plot's sequence (#1400), written by ``plot_*(..., animation=True)``:
+#: ``.mp4``/``.webm`` need the optional PyAV package (``vaft[video]``), ``.gif`` does not.
+VIDEO_FORMATS = ("mp4", "webm", "gif")
 
 
 @dataclass(frozen=True)
@@ -28,4 +31,4 @@ class DisplaySize:
                 raise ValueError(f"{name} must be at least 50 px; got {value}")
 
 
-__all__ = ["DisplaySize", "EXPORT_FORMATS"]
+__all__ = ["DisplaySize", "EXPORT_FORMATS", "VIDEO_FORMATS"]

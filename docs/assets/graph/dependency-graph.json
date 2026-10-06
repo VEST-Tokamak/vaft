@@ -1,0 +1,16 @@
+---
+layout: null
+sitemap: false
+---
+{%- comment -%}
+The generated import graph (_data/dependency_graph.yml, written by
+python -m vaft._dependency_graph), served to the dependency explorer.  The
+snapshot's source checksums are left out: they are the build's receipt, not
+something the page shows.
+{%- endcomment -%}
+{%- assign g = site.data.dependency_graph -%}
+{%- if g -%}
+{"schema_version": {{ g.schema_version | jsonify }}, "engine": {{ g.engine | jsonify }}, "provenance": {{ g.provenance | jsonify }}, "layers": {{ g.layers | jsonify }}, "nodes": {{ g.nodes | jsonify }}, "edges": {{ g.edges | jsonify }}, "cycles": {{ g.cycles | jsonify }}, "api": {{ g.api | jsonify }}}
+{%- else -%}
+null
+{%- endif -%}
