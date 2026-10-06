@@ -132,7 +132,7 @@ def write_figures(table, points, census, directory: Path) -> list[Path]:
 def main(argv: Sequence[str] | None = None) -> int:
     from vaft.validation.equilibrium_quality import (
         CRITERIA_PATH, equilibrium_quality_crosswalk, equilibrium_quality_failure_census,
-        equilibrium_quality_summary, equilibrium_quality_table, load_study_criteria,
+        equilibrium_quality_summary, equilibrium_quality_table, load_study_criteria, select_representative_cases,
     )
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -155,6 +155,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "summary": equilibrium_quality_summary(table),
         "census": equilibrium_quality_failure_census(table),
         "crosswalk": equilibrium_quality_crosswalk(table),
+        "representative_cases": select_representative_cases(table),
     }
     (args.output / "summary.json").write_text(json.dumps(summary, indent=1, default=str, allow_nan=True) + "\n",
                                               encoding="utf-8")
@@ -173,6 +174,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.figures:
             write_figures(table, points, summary["census"], args.output / "figures")
     cohorts = summary["summary"]["cohorts"]
+    for case in summary["representative_cases"]:
+        print(f"  {case['case']}: shot {case['shot']} t={case['time_s']} setting {case['setting']} -- {case['reason']}")
     print(f"{len(table)} rows, {summary['summary']['slices']} slices: "
           + ", ".join(f"{k} {v['slices']}" for k, v in cohorts.items()))
     return 0

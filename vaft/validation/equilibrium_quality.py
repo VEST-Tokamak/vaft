@@ -400,8 +400,101 @@ def equilibrium_quality_constraint_points(ods: Any, time_slice: int) -> list[dic
     return points
 
 
+#: The four representative cases of #1644 §6, in report order.
+REPRESENTATIVE_CASES = ("good_consistent", "good_inconsistent", "admissible_only", "unreconstructible")
+#: The metrics a "typical" good slice is judged typical on (#1644 §7): distance
+#: to the cohort median in each, scaled by the cohort's own spread.
+TYPICALITY_METRICS = ("probe_reduced_chi2", "loop_reduced_chi2", "gs_residual", "virial_log_ratio")
+
+
+def _typicality(group, metrics: Sequence[str]):
+    """Scaled distance of each row to the group median over ``metrics`` (log for chi-square)."""
+    import pandas as pd
+
+    distance = pd.Series(0.0, index=group.index)
+    for metric in metrics:
+        if metric not in group:
+            continue
+        values = pd.to_numeric(group[metric], errors="coerce")
+        if metric.endswith("reduced_chi2"):
+            values = np.log(values.where(values > 0))
+        elif metric == "virial_log_ratio":
+            values = values.abs()
+        centre = values.median()
+        spread = (values - centre).abs().median() or values.std() or 1.0
+        if not math.isfinite(centre):
+            continue
+        distance = distance.add(((values - centre) / spread).abs().fillna(10.0), fill_value=0.0)
+    return distance
+
+
+def select_representative_cases(table) -> list[dict[str, Any]]:
+    """Deterministic representative slices for the four #1644 cases, with why each was chosen.
+
+    * ``good_consistent`` / ``good_inconsistent`` -- among good slices whose
+      best setting is Thomson-consistent / inconsistent, the one closest to the
+      cohort median in :data:`TYPICALITY_METRICS`;
+    * ``admissible_only`` -- among admissible-only slices failing the cohort's
+      dominant blocking rule (the census Pareto), the one closest to the median
+      of that rule's metric;
+    * ``unreconstructible`` -- among unreconstructible slices failing the
+      cohort's dominant rule, preferring rows that still carry product evidence
+      (a failed attempt to inspect), the earliest (shot, time).
+
+    Ties break by (shot, time); nothing is hand-picked.  A case with no
+    candidate is returned with ``shot`` ``None`` and the reason.
+    """
+    slices = slice_cohorts(table)
+    census = equilibrium_quality_failure_census(table)
+    out: list[dict[str, Any]] = []
+
+    def pick(case: str, group, distance, reason: str) -> None:
+        if group is None or not len(group):
+            out.append({"case": case, "shot": None, "time_s": None, "setting": None, "reason": reason + " -- no candidate"})
+            return
+        order = group.assign(_d=distance).sort_values(["_d", "shot", "time_s"])
+        row = order.iloc[0]
+        out.append({"case": case, "shot": int(row["shot"]), "time_s": float(row["time_s"]), "setting": row["setting"],
+                    "candidates": int(len(group)), "reason": reason, "failure_reasons": row.get("failure_reasons", "")})
+
+    good = slices[slices["quality_label"] == "good"] if len(slices) else slices
+    for case, flag in (("good_consistent", True), ("good_inconsistent", False)):
+        group = good[good["physically_consistent"].map(lambda v: v is flag)] if len(good) else good
+        pick(case, group, _typicality(group, TYPICALITY_METRICS) if len(group) else None,
+             f"good, Thomson {'consistent' if flag else 'inconsistent'}; closest to the cohort median in "
+             + ", ".join(TYPICALITY_METRICS))
+
+    metric_of = {"rule_probe_fit": "probe_reduced_chi2", "rule_loop_fit": "loop_reduced_chi2",
+                 "rule_ip_fit": "ip_z", "rule_dia_fit": "dia_z", "virial_status": "virial_log_ratio",
+                 "grad_shafranov_status": "gs_residual"}
+    admissible = slices[slices["quality_label"] == "admissible"] if len(slices) else slices
+    pareto = census["pareto"].get("admissible") or []
+    if pareto:
+        rule = pareto[0][0]
+        group = admissible[admissible[rule] == "fail"]
+        metric = metric_of.get(rule)
+        pick("admissible_only", group, _typicality(group, [metric]) if metric and len(group) else
+             group["shot"] * 0.0, f"admissible-only, failing the dominant blocking rule {rule}"
+             + (f"; closest to the median {metric} of those" if metric else ""))
+    else:
+        pick("admissible_only", None, None, "admissible-only")
+
+    unrec = slices[slices["quality_label"] == "unreconstructible"] if len(slices) else slices
+    pareto = census["pareto"].get("unreconstructible") or []
+    if pareto:
+        rule = pareto[0][0]
+        group = unrec[unrec[rule] == "fail"]
+        has_evidence = (group["evidence_status"] == "ok") if "evidence_status" in group else group["shot"] * 0 == 0
+        pick("unreconstructible", group, (~has_evidence).astype(float),
+             f"unreconstructible, failing the dominant rule {rule}; a slice with a stored failed attempt first, "
+             "then the earliest (shot, time)")
+    else:
+        pick("unreconstructible", None, None, "unreconstructible")
+    return out
+
+
 __all__: Sequence[str] = (
     "ADMISSIBILITY_RULES", "COHORTS", "CRITERIA_PATH", "CROSSWALK", "MEASUREMENT_RULES", "RULE_COLUMNS",
-    "FIT_QUALITY_RULES", "ROUTINE_SETTING", "STATUSES", "efit_evidence_columns", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
-    "equilibrium_quality_summary", "equilibrium_quality_table", "load_study_criteria", "slice_cohorts",
+    "FIT_QUALITY_RULES", "REPRESENTATIVE_CASES", "ROUTINE_SETTING", "TYPICALITY_METRICS", "STATUSES", "efit_evidence_columns", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
+    "equilibrium_quality_summary", "equilibrium_quality_table", "load_study_criteria", "select_representative_cases", "slice_cohorts",
 )
