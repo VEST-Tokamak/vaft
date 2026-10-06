@@ -940,6 +940,17 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    Reprocessing happens at most `max_reprocess` times per shot (3 by default). Later arrivals are
    recorded as a `late_fields_ignored` event. An operator-excluded shot is never reprocessed.
 
+7. **Disk guard.** With `min_free_gb` set (200 on vestserver), no new batch starts while any guarded
+   filesystem has less than that many GB free. By default the guarded paths are the pipeline's
+   `base_dir`, `log_dir` and the state database's directory; `disk_paths` replaces them. Detection,
+   settling and the late-field re-check go on, so shots keep queueing. Entering the pause logs a
+   warning and records a `disk_paused` event, and `vaft pipeline-worker status` prints
+   `PAUSED for disk space`. The worker resumes by itself once every guarded filesystem has
+   `resume_free_gb` free (default `min_free_gb`) and records `disk_resumed`. A filesystem whose
+   free space cannot be read counts as short. The figure `status` prints is the one measured when
+   the pause began. The guard is checked between batches only; a batch that has started runs to
+   its end.
+
 ### Run as a service
 
 ```ini
