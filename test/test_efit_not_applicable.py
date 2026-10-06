@@ -65,17 +65,34 @@ def test_a_vacuum_shot_records_efit_as_not_applicable(monkeypatch, tmp_path):
 
     assert code == 0
     reason = constraints_not_applicable_reason(load_omas_json(str(output), consistency_check=False))
-    assert reason.startswith("Vacuum shot (no plasma-current pulse")
-    assert "below CUTIP 15000 A" in reason
+    assert reason.startswith("peak |Ip| ") and "below CUTIP 15000 A" in reason
+    assert "shot_class Vacuum" in reason
 
 
-def test_a_plasma_shot_below_cutip_still_fails(monkeypatch, tmp_path):
-    """The timing saw a discharge the current does not support: a fault, not a result."""
+def test_a_pickup_classified_plasma_is_still_not_applicable():
+    """48927: a 3.3 kA pickup that shot_class reads as a pulse is still no plasma for EFIT."""
+    t = grid()
+    ods = synthetic_ods(ip=current(t, peak=3.3e3), t=t)
+    error = CONSTRAINTS.NoPlasmaCurrentError("all below", count=65, threshold=15000.0)
+
+    reason = CONSTRAINTS._efit_not_applicable(ods, error)
+    assert reason.startswith("peak |Ip| 3.") and "all 65 constraint instants" in reason
+
+
+def test_a_window_that_missed_the_discharge_still_fails():
+    """The current reaches CUTIP outside the selected instants: the window is wrong, a fault."""
     t = grid()
     ods = synthetic_ods(ip=current(t, peak=60e3), t=t)
     error = CONSTRAINTS.NoPlasmaCurrentError("all below", count=3, threshold=15000.0)
 
     assert CONSTRAINTS._efit_not_applicable(ods, error) is None
+
+
+def test_no_plasma_current_at_all_is_not_a_verdict():
+    from omas import ODS
+
+    error = CONSTRAINTS.NoPlasmaCurrentError("all below", count=3, threshold=15000.0)
+    assert CONSTRAINTS._efit_not_applicable(ODS(consistency_check=False), error) is None
 
 
 def test_the_cut_still_raises_a_value_error():

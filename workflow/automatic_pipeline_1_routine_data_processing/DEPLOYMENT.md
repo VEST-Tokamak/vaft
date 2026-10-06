@@ -864,14 +864,14 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   a stage whose upstream is left out is refused at start-up. The worker writes the list into each
   run's config as `stages`, so a manual run can use the same key. This is a decision made before the
   run; a stage that runs and declines a shot is #205's skip semantics.
-- **EFIT on a vacuum shot is a result (#205).** When every constraint instant is below the 15 kA cut
-  and `vaft.omas.shot_class` (the class the worker records) says the shot has no plasma-current
-  pulse (`Vacuum` or `BD failure`), the constraint step writes an `EFIT not applicable` product
-  instead of failing. The k-file, EFIT and EFIT-ODS steps pass it on, EFIT's status reads
+- **EFIT on a vacuum shot is a result (#205).** When the plasma current stays below the 15 kA cut
+  over the shot's whole record, the constraint step writes an `EFIT not applicable` product instead
+  of failing; the reason quotes the `vaft.omas.shot_class` label, which does not decide (it reads
+  48927's 3.3 kA pickup as a `Plasma` pulse). The k-file, EFIT and EFIT-ODS steps pass it on, EFIT's status reads
   `skipped: not applicable: <reason>`, the EFIT stage ends `no_output`, its replication is
   `skipped`, and CHEASE and stability skip for lack of g-files. With EFIT in scope such a shot is
-  `partial`, not retried. A `Plasma` shot in the same state still fails: its timing found a
-  discharge the current does not support.
+  `partial`, not retried. A shot whose current reaches 15 kA somewhere but at no selected
+  instant still fails: the constraint window missed the discharge.
   - Optional branches outside the stage chain (IMPA with `impa.enable: true`) are not scoped; they
     depend only on raw and are never part of the shot's verdict.
   - Set the scope only here, not as `--config stages=...` in `extra_args`: Snakemake would see it

@@ -292,21 +292,39 @@ def _drop_vacuum_times(
 def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
     """Why EFIT does not apply to this shot, or ``None`` when the cut is a fault (#205).
 
-    The shot's class decides, from :func:`vaft.omas.shot_class.shot_class` on
-    the same diagnostics product -- the classifier the new-shot worker records.
-    A shot without a plasma-current pulse (``Vacuum`` or ``BD failure``) whose
-    every instant is below ``CUTIP`` has nothing to reconstruct: that is the
-    result.  A ``Plasma`` shot in the same state is not: its timing found a
-    discharge the current does not support, and that stays an error.
-    """
-    from vaft.omas.shot_class import CLASS_PLASMA, shot_class
+    The plasma current decides: a shot whose current stays below ``CUTIP``
+    over its *whole* record never carried a plasma EFIT could reconstruct,
+    and that is the result.  When the current does reach ``CUTIP`` somewhere
+    but no selected instant does, the constraint window missed the discharge,
+    and that stays an error.
 
-    verdict = shot_class(ods)
-    if verdict.label == CLASS_PLASMA:
+    The class from :func:`vaft.omas.shot_class.shot_class` -- what the
+    new-shot worker records -- is quoted in the reason but does not decide:
+    on vestserver 48927 (peak 3.3 kA, H-alpha dark) its pulse detector reads
+    the pickup as a ``Plasma`` pulse.
+    """
+    try:
+        current = np.asarray(ods["magnetics.ip.0.data"], dtype=float).reshape(-1)
+    except Exception:
         return None
+    current = current[np.isfinite(current)]
+    if current.size == 0:
+        return None
+    peak = float(np.max(np.abs(current)))
+    if peak >= error.threshold:
+        return None
+    try:
+        from vaft.omas.shot_class import shot_class
+
+        verdict = shot_class(ods)
+        label = f"shot_class {verdict.label} ({verdict.reason}" + (
+            f"; flags {', '.join(verdict.flags)})" if verdict.flags else ")"
+        )
+    except Exception as exc:  # the class is a note here, never the reason to fail
+        label = f"shot_class unavailable ({type(exc).__name__}: {exc})"
     return (
-        f"{verdict.label} shot ({verdict.reason}); all {error.count} constraint instants "
-        f"below CUTIP {error.threshold:g} A"
+        f"peak |Ip| {peak / 1e3:.1f} kA over the whole record, below CUTIP {error.threshold:g} A "
+        f"(all {error.count} constraint instants below it); {label}"
     )
 
 
