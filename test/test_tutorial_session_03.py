@@ -436,15 +436,15 @@ def test_the_analytic_equilibrium_is_force_balanced_and_scanned(book):
                 '"elongation": vest.kappa', '"triangularity": vest.delta'):
         assert api in executable, api
     scans = _strip_comments(_source(_cell(book, "s03-gf-scans")))
-    for knob in ('"elongation"', '"triangularity"', '"nu"'):
-        assert knob in scans, knob
-    assert '"li"' not in scans  # li is a response, never a knob
+    knobs = re.findall(r'^\s+"(\w+)": np\.linspace', scans, re.M)
+    assert knobs == ["elongation", "triangularity", "nu"], knobs  # li is a response, never a knob
 
 
 def test_the_scan_responses_are_printed(executed):
     printed = _printed(executed)
     for knob in ("elongation", "triangularity", "nu"):
-        assert len(re.findall(rf"(?m)^ {knob}\s+-?\d", printed)) == 5, knob
+        rows = re.findall(rf"(?m)^ {knob}\s+-?\d\.\d\d\s+\d\.\d{{3}}\s+-?\d\.\d{{3}}", printed)  # the scan table only
+        assert len(rows) == 5, knob
     assert "nu_max for eps" in printed
     assert re.search(r"R_axis \[m\]\s+\d\.\d{3}\s+\d\.\d{3}\s+response", printed)
 

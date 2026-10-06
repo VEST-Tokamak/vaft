@@ -147,6 +147,33 @@ boundary's makes the plasma diverted. Real VEST maps have many saddles, far
 outside the plasma; none of them is on the boundary.
 :::
 
+## Inputs and responses
+
+| input | responses |
+| --- | --- |
+| $\kappa$ | shape, axis, $\beta_p$, $\ell_i$, $q_{95}$ |
+| $\delta$ | shape, axis, $\beta_p$, $\ell_i$, $q_{95}$ |
+| $\nu \approx \beta_p$ | pressure, Shafranov shift, $\ell_i$, $q_{95}$ |
+
+There is no $\ell_i$ knob.
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+The Guazzotto--Freidberg model at the shape of the discharge, one input turned
+at a time. Raising $\nu$ moves the axis outward: the Shafranov shift. Raising
+$\kappa$ raises $q_{95}$ and lowers $\ell_i$, a geometric effect because the
+source profile is fixed. Then the model at the discharge's own shape and
+$\beta_p$ against EFIT: the axis agrees within millimetres, $\ell_i$ does not,
+because the model fixes the current-profile shape and EFIT fitted its own.
+
+TRANSITION:
+In the experiment nobody hands you $\nu$. The next slides are optional depth on
+the equation itself (deep dive A in the notebook); skip to the constraints if
+time is short.
+:::
+
 ## One flux function, three regions
 
 $$\Delta^*\psi = -\mu_0 R J_\phi \quad\text{everywhere}$$
@@ -250,6 +277,24 @@ $10^{-4}$, so it did not constrain the pressure.
 WARN:
 Do not let this turn into "EFIT is wrong". The flux map can be fine. What
 cannot be used is the stored $\chi^2$ as evidence of fit quality.
+:::
+
+## Four layers
+
+**Measured** $\rightarrow$ **reconstructed / fitted** $\leftarrow$ **assumed / prior**
+
+$\downarrow$
+
+**Derived**
+
+::: {.notes}
+[2 min]
+
+NARRATE:
+The provenance diagram of step 5 is the reference for the rest of the session.
+A probe signal is measured; $\psi(R,Z)$ is reconstructed; EFIT's weights and a
+chosen $Z_\mathrm{eff}$ are assumed; $\beta_N$ is derived. Some assumptions
+enter only the derivation. A derived number is never itself a measurement.
 :::
 
 ## The coordinate is borrowed
@@ -357,6 +402,29 @@ profile without its radial coordinate is not a physics claim. The real
 equilibrium is shown *before* its constraints are read: students first see the
 state, then ask whether the measurements and weights support it. Each step ends
 with a short "Check yourself".
+:::
+
+## What kinetic data changes
+
+Magnetic EFIT $\rightarrow$ kinetic EFIT: $\beta_p$, $\beta_N$ roughly double;
+$q$ and $\ell_i$ stay put.
+
+A magnetics-only $\beta$ is not a measured pressure.
+
+::: {.notes}
+[3 min]
+
+NARRATE:
+Same instant of 48224, same magnetics, plus Thomson pressure points. The
+magnetics fix the boundary and the current profile; the pressure was nearly
+free. Put it beside the $\nu$ scan: the model says pressure matters, the
+experiment says how much of it the magnetics could identify. Sensitivity and
+identifiability are different questions.
+
+Then close the loop: the Grad--Shafranov residual of both files is about one
+percent, and CHEASE's `EquilibriumVariation` perturbs the reconstructed
+equilibrium on purpose --- `current_peaking` is how $\ell_i$ moves, never a
+uniform $FF'$ scale.
 :::
 
 ## Practice goal: a discharge of your choice

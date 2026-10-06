@@ -493,7 +493,9 @@ def plasma_state_provenance(*, labels: bool = True) -> Diagram:
     flux, Thomson and charge-exchange profiles) enter a reconstruction or a
     profile fit, which also takes assumptions the data cannot supply: the
     profile model, the weights and uncertainties, the effective charge and
-    the boundary conditions. Its fitted fields and profiles feed the derived
+    the boundary conditions; some assumptions (an effective charge in a
+    collisionality, $n_i = n_e$ in an ion pressure) enter only the derivation
+    itself. The fitted fields and profiles feed the derived
     descriptors (shape, $q_{95}$, $\beta$, $\ell_i$, pressures, collisionality,
     normalized gyroradius and gradient lengths). A derived number inherits
     every assumption made upstream of it, so it is never itself a measurement.
@@ -513,10 +515,12 @@ def plasma_state_provenance(*, labels: bool = True) -> Diagram:
     _down_or_up(items, edges, boxes["measured"], boxes["reconstructed"], "measured", "reconstructed")
     _edge(items, edges, boxes["assumed"], boxes["reconstructed"], "assumed", "reconstructed")
     _down_or_up(items, edges, boxes["reconstructed"], boxes["derived"], "reconstructed", "derived")
+    # some assumptions enter only the derivation: a chosen Z_eff in a collisionality, n_i = n_e in p_i
+    _edge(items, edges, boxes["assumed"], boxes["derived"], "assumed", "derived", style="connector feedback")
     if labels:
         items.append(Label((0.15, -0.5 * step), "fit or reconstruction", "concept annotation", anchor="west",
                            role="note"))
-        items.append(Label((0.15, -1.5 * step), "definitions and formulas", "concept annotation", anchor="west",
+        items.append(Label((-0.15, -1.5 * step), "definitions and formulas", "concept annotation", anchor="east",
                            role="note"))
         items.append(Label((0.5 * side, -2 * step - 0.5 * h - 0.3), "A derived number inherits every assumption "
                            "upstream of it: it is never itself a measurement", "note", anchor="north", role="note"))

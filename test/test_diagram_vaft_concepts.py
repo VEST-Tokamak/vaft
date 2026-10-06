@@ -275,8 +275,10 @@ def test_registered_and_canonical():
 def test_the_plasma_state_layers_feed_the_reconstruction_and_then_the_derived_state():
     d = vaft.diagram.plasma_state_provenance()
     assert d.model["layers"] == ("measured", "reconstructed", "assumed", "derived")
-    # measurements and assumptions both enter the reconstruction; only the reconstruction feeds the derived layer
-    assert _edges(d) == {("measured", "reconstructed"), ("assumed", "reconstructed"), ("reconstructed", "derived")}
+    # measurements and assumptions both enter the reconstruction; assumptions also enter the derivation directly,
+    # and a measurement reaches the derived layer only through a reconstruction or fit
+    assert _edges(d) == {("measured", "reconstructed"), ("assumed", "reconstructed"), ("reconstructed", "derived"),
+                         ("assumed", "derived")}
     assert d.scene.role("layer:assumed")[0].style == "im conceptual"  # an assumption is drawn unlike a measurement
     text = " ".join(i.text for i in d.scene.items if isinstance(i, Label))
     for quantity in ("Thomson", "diamagnetic flux", "Z_\\mathrm{eff}", "q_{95}", "\\ell_i", "\\nu^*"):
