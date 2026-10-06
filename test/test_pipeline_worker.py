@@ -1181,7 +1181,7 @@ def test_a_full_disk_pauses_new_batches_and_resumes_when_space_returns(setup, tm
 
 def test_the_disk_guard_watches_the_filedb_logs_and_state(setup, tmp_path):
     config, make_worker, _ = setup
-    worker, _ = make_worker()
+    worker, _ = make_worker(source=FakeSource())
     worker.config = dataclasses.replace(config, min_free_gb=200.0)
     seen = []
     worker.disk_free = lambda path: seen.append(path) or int(1e12)
@@ -1214,7 +1214,7 @@ def test_an_unreadable_filesystem_pauses_the_worker(setup):
 
 def test_without_min_free_gb_there_is_no_guard(setup):
     _, make_worker, _ = setup
-    worker, _ = make_worker()
+    worker, _ = make_worker(source=FakeSource())
     worker.disk_free = lambda path: 0
     assert worker.disk_shortage() is None
 
@@ -1240,7 +1240,7 @@ def test_a_malformed_disk_guard_is_refused(setup, tmp_path, keys, message):
 
 def test_status_reports_a_disk_pause(setup, capsys, tmp_path):
     config, make_worker, _ = setup
-    worker, _ = make_worker()
+    worker, _ = make_worker(source=FakeSource())
     worker.state.set_disk_paused("below 200 GB free (/srv: 150.0 GB free)")
     config_path = tmp_path / "worker.yaml"
     config_path.write_text(yaml.safe_dump({
