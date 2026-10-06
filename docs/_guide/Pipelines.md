@@ -81,6 +81,11 @@ with an artifact class (`input`, `output`, `log`, `plot`, `config`, `work`, `met
 `ideal-gpec`. DCON's two edge treatments are separate products rather than two views of one run,
 because a run yields one of them and can never yield both.
 
+To explore what these pipelines actually do -- each rule, the files it produces and consumes, the
+pipeline-1 products pipeline 2 consults, and what each stage publishes to which HSDS source --
+generated from the Snakefiles themselves, open the
+[pipeline lineage explorer]({{ site.baseurl }}/reference/pipeline-graph/).
+
 ---
 
 ## Pipeline 1 — routine data processing
