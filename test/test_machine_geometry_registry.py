@@ -4,7 +4,7 @@ import json
 import numpy as np
 import pytest
 
-from vaft.plot.machine_geometry import MachineGeometry, machine_geometry_registry, project_machine_geometry
+from vaft.plot.machine_geometry import MachineGeometry, machine_geometry_registry, machine_geometry_view, project_machine_geometry
 
 
 def test_cartesian_convention_and_unknown_phi():
@@ -150,6 +150,35 @@ def test_fixture_derived_paths_and_sources_are_numerically_consistent():
         assert hashlib.sha256((data_root / source["source_artifact"]).read_bytes()).hexdigest() == source["source_sha256"]
 
 
+def test_four_views_share_family_selection_and_composite_notice():
+    from vaft.data import unified_diagnostics_fixture, unified_diagnostics_manifest
+    from vaft.omas.process_wrapper import camera_projection_for
+    data = unified_diagnostics_fixture()
+    manifest = unified_diagnostics_manifest()
+    selected = ("thomson_scattering", "interferometer", "coils_non_axisymmetric", "nbi")
+    camera = camera_projection_for(39915)
+    for view in ("rz", "top", "3d", "camera"):
+        model = machine_geometry_view(data, view, families=selected, manifest=manifest,
+                                      projection=camera if view == "camera" else None)
+        assert "Cross-shot composite" in model.title
+        assert "shot 39915" in model.title
+        assert model.layers
+        if view == "3d":
+            assert {layer.group.split("/")[0] for layer in model.layers} == set(selected)
+        elif view == "camera":
+            assert any("Thomson derived laser chord" in layer.label for layer in model.layers)
+            assert any("Interferometer LOS" in layer.label for layer in model.layers)
+        else:
+            assert any("NBI model" in layer.label for layer in model.layers)
+            if view == "rz":
+                assert any("3-D coil filament (R-Z projection)" in layer.label for layer in model.layers)
+    with pytest.raises(ValueError, match="calibrated"):
+        machine_geometry_view(data, "camera", families=selected, manifest=manifest)
+    assert "Cross-shot composite" in machine_geometry_view(data, "rz", families=selected).title
+    assert not machine_geometry_view(data, "top", families=("langmuir_probes",),
+                                     manifest=manifest).layers
+
+
 def test_incomplete_reflection_is_omitted_not_downgraded_to_two_point_los():
     from vaft.ods_access import set_path
     data = {}
@@ -181,3 +210,80 @@ def test_native_imas_and_omas_coordinate_equivalence():
         b = project_machine_geometry(right, view)
         for coordinate in (("x", "y", "z") if view == "3d" else ("r", "z")):
             np.testing.assert_array_equal(getattr(a, coordinate), getattr(b, coordinate))
+
+
+def test_stored_ec_ids_keeps_real_phi_and_steering_without_time_guess():
+    from omas import ODS
+    from vaft.machine_mapping.ec_launchers import (
+        ec_launchers_geometry, ec_launchers_static, resolve_ec_launcher_geometry,
+    )
+    source = resolve_ec_launcher_geometry(39915)
+    data = ODS(consistency_check=False)
+    ec_launchers_static(data)
+    ec_launchers_geometry(data, source, [.1, .2, .3])
+    point, axis = machine_geometry_registry(data, families=("ec_launchers",))
+    assert point.semantic == "point" and axis.semantic == "directed_axis"
+    np.testing.assert_allclose(point.xyz[0], axis.xyz[0])
+    np.testing.assert_allclose(axis.direction_xyz, [-np.cos(source["phi"]), -np.sin(source["phi"]), 0])
+    # A moving launcher cannot be collapsed onto an arbitrary first sample.
+    data["ec_launchers.beam.0.launching_position.phi"] = [source["phi"], source["phi"] + .1, source["phi"]]
+    remaining, = machine_geometry_registry(data, families=("ec_launchers",))
+    assert remaining.semantic == "point" and remaining.phi is None
+    assert project_machine_geometry(remaining, "top") is None
+
+
+def test_vest_mapped_thomson_chord_requires_matching_stored_phi_and_source_shot():
+    from vaft.ods_access import set_path
+    from vaft.machine_mapping.thomson_scattering import laser_chord_positions, scattering_volume_phi
+
+    data = {}
+    set_path(data, "dataset_description.data_entry.machine", "VEST")
+    set_path(data, "dataset_description.data_entry.pulse", 48224)
+    for index, radius in enumerate((0.475, 0.425)):
+        base = f"thomson_scattering.channel.{index}.position"
+        for coordinate, value in (("r", radius), ("z", 0.0), ("phi", scattering_volume_phi(radius))):
+            set_path(data, f"{base}.{coordinate}", value)
+    records = machine_geometry_registry(data, families=("thomson_scattering",))
+    laser, = (record for record in records if record.semantic == "trajectory")
+    np.testing.assert_allclose(np.column_stack((laser.r, laser.z, laser.phi)), laser_chord_positions())
+    provenance = json.loads(laser.provenance_json)
+    assert provenance["data_shot"] == 48224
+    assert "source_shot" not in provenance["sources"]["thomson_port_map"]
+    assert "not surveyed" in provenance["sources"]["thomson_port_map"]["value_kind"]
+    set_path(data, "thomson_scattering.channel.0.position.phi", 0.0)
+    assert all(record.semantic != "trajectory" for record in machine_geometry_registry(data, families=("thomson_scattering",)))
+
+
+def test_public_machine_views_use_fixture_registry_and_composite_notice():
+    from vaft.data import unified_diagnostics_fixture, unified_diagnostics_manifest
+    from vaft.omas.entries import normalize_entries
+    from vaft.plot.backend.recipes import build_model
+
+    data = unified_diagnostics_fixture()
+    manifest = unified_diagnostics_manifest()
+    families = ("thomson_scattering", "ec_launchers", "nbi")
+    names = ("machine_geometry_poloidal", "machine_geometry_topview", "machine_geometry3d")
+    for name in names:
+        bare = build_model(name, normalize_entries(data))
+        assert "Cross-shot composite" in bare.title
+        if name == "machine_geometry3d":
+            assert not any(layer.group == "equilibrium/boundary" for layer in bare.layers)
+        if name == "machine_geometry_topview":
+            assert not any("Plasma" in layer.label for layer in bare.layers)
+    for name, view in zip(names, ("rz", "top", "3d")):
+        public = build_model(name, normalize_entries(data), geometry_manifest=manifest,
+                             geometry_families=families)
+        shared = machine_geometry_view(data, view, manifest=manifest, families=families)
+        assert "Cross-shot composite" in public.title
+        if view == "top":
+            assert not any("Plasma" in layer.label for layer in public.layers)
+        if view == "3d":
+            assert not any(layer.group == "equilibrium/boundary" for layer in public.layers)
+        labelled = [layer for layer in public.layers if layer.label in {item.label for item in shared.layers if item.label}]
+        assert len(labelled) == len([item for item in shared.layers if item.label])
+        for layer, expected in zip(labelled, (item for item in shared.layers if item.label)):
+            if view == "3d":
+                np.testing.assert_allclose([layer.x[0], layer.y[0], layer.z[0]],
+                                           [expected.x[0], expected.y[0], expected.z[0]])
+            else:
+                np.testing.assert_allclose([layer.r[0], layer.z[0]], [expected.r[0], expected.z[0]])

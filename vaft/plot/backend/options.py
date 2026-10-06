@@ -71,6 +71,11 @@ def _specs() -> tuple[OptionSpec, ...]:
                                "on a time axis or refused -- never accepted and ignored"),
         OptionSpec("conductivity_model", "choice", "recipes.ZEFF_CONDUCTIVITY_MODELS",
                    "parallel conductivity model of the resistive Z_eff view (#1214)"),
+        # Romero's balance (#1590): the resistance is the caller's estimate,
+        # never assumed; the non-inductive current defaults to 0 (Ohmic).
+        OptionSpec("plasma_resistance", description="plasma resistance in ohm, one value or one per slice"),
+        OptionSpec("non_inductive_current", "float",
+                   description="non-inductively driven current in A, signed like I_p (default 0: Ohmic)"),
         OptionSpec("smooth", "float", description="rolling-median window in seconds applied to line traces"),
         # A dense time base is indexed, not chosen from a list: the vacuum map
         # runs over the PF samples, thousands of them, where time_slice= names
@@ -88,6 +93,10 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("centre", "range", description="(r0, z0) in metres the poloidal angle is measured about"),
         OptionSpec("angle", "choice", "recipes.ANGLE_SOURCES", "where a sensor's poloidal angle comes from"),
         OptionSpec("overlay", "multi", "recipes.CAMERA_OVERLAYS", "what is drawn over a map"),
+        OptionSpec("geometry_data", "any", description="separate geometry input for a calibrated camera overlay"),
+        OptionSpec("geometry_manifest", "any", description="cross-shot provenance for projected geometry"),
+        OptionSpec("geometry_families", "any", description="machine geometry families included in every view"),
+        OptionSpec("axis_length", "float", description="display extent of a directed axis in metres"),
         OptionSpec("projection", "any", description="camera projection method"),
         OptionSpec("theta_deg_range", "range",
                    description="toroidal sweep of a camera overlay, in degrees"),
@@ -205,6 +214,17 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("rational_q", description="safety-factor values whose surfaces are drawn, e.g. [1, 1.5, 2]"),
         OptionSpec("resonances",
                    description="(m, n) harmonics whose q = m/n surfaces are drawn; (2, 1) and (4, 2) share one"),
+        # Edge-q estimates (issue #1583): where shape and current come from, the
+        # stand-in shape, and the q95 scaling; the defaults are vest.yaml's.
+        # Only the summary_time_* edge-q views take them (DECLARED_ONLY_OPTIONS).
+        OptionSpec("estimate_from", "choice", "recipes.EDGE_Q_SOURCES",
+                   "edge-q estimate: auto (the full-shot magnetics trace when present), equilibrium or magnetics"),
+        OptionSpec("estimate_shape", description="edge-q estimate: {minor_radius, major_radius, elongation, "
+                                                 "triangularity} replacing the equilibrium's or the default shape"),
+        OptionSpec("q95_scaling", "choice", "recipes.Q95_SCALINGS",
+                   "edge-q estimate: START (Akers 2000) or ITER (Post 1991)"),
+        OptionSpec("start_configuration", "choice", "recipes.START_CONFIGURATIONS",
+                   "edge-q estimate: START scaling C, limiter (1.0) or double_null (0.77)"),
     )
 
 
@@ -218,6 +238,8 @@ EXTRACTION_OPTIONS: frozenset[str] = frozenset(OPTION_SCHEMA)
 #: other plot refuses them by name, exactly as it refuses an unknown option.
 DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     "gradient_coordinate", "reference_length", "convention", "rational_q", "resonances",
+    # issue #1583: the edge-q views' choices.
+    "estimate_from", "q95_scaling", "start_configuration",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);
@@ -316,6 +338,13 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
 
             if name in recipes.RECIPES and not recipes.takes_time_range(name):
                 raise ValueError(recipes.no_time_range_option_message(name))
+        if key == "estimate_shape":
+            # Not a choice, so it cannot be declared through a recipe's choices:
+            # only the edge-q views read it (issue #1583).
+            from . import recipes
+
+            if name not in recipes.EDGE_Q_VIEWS:
+                raise ValueError(f"{name!r} takes no estimate_shape=; only the edge-q summary_time_* views do")
         if key == "members" and _plot_scoped_choices(name, key) is None:
             raise ValueError(
                 f"{name!r} is not a panel composite and takes no members=; "

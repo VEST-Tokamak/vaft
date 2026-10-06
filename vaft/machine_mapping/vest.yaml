@@ -256,6 +256,10 @@
         field: 12
         raw_unit: V
         daq_type: slow
+      gauge:
+        name: PKR-251 Main Gauge
+        type_name: Penning
+        description: Pfeiffer PKR 251 full-range (Pirani + cold cathode) main-chamber gauge
       calibration:
         type: exponential_pressure
         scale: 2.4
@@ -268,6 +272,29 @@
         unit_conversion:
           factor: 133.3223684211
           output_unit: Pa
+      # The main-chamber gauge was replaced by a Pfeiffer IKR 251 at 46993
+      # (2025-10-29; confirmed by VEST operations, issue #1543). The IKR
+      # formula below is the one VEST operations supplied for this DAQ input
+      # (2026-10-05); it is not the bare datasheet law, so it includes the
+      # signal chain as installed. Field 12 is
+      # unchanged, but the output characteristic is not: the PKR formula on the
+      # new gauge read every pressure ~40-120x low (pre-puff 3e-8 Torr). With
+      # this formula the pre-puff base (2.1e-6 -> 1.3e-6 Torr) and the
+      # pre-discharge fill at 0.25-0.29 s (3.2e-5 -> 1.4e-5 Torr) stay
+      # continuous across the change (medians, every 10th shot 44000-48960).
+      revisions:
+        - from_shot: 46993
+          gauge:
+            name: IKR-251 Main Gauge
+            type_name: Penning
+            description: Pfeiffer IKR 251 cold-cathode (inverted magnetron) main-chamber gauge
+          calibration:
+            type: exponential_pressure
+            scale: 2.4
+            slope: 2.0
+            offset: -10.625
+            base: 10.0
+            output_unit: Torr
 
     # 6 kW 2.45 GHz ECH (port 5ML10) forward/reflected power detectors, issue
     # #165. Same legacy log-detector transfer function as the VFIT donor
@@ -332,6 +359,33 @@
         taps: 26
         baseline_samples: 1000
         smoothing_window: 50
+        # Acquisition excursions of the TF current (issue #1543): the trace
+        # leaves its 12 kA plateau by -15/+25 kA from plasma termination to
+        # ~0.326 s on 48238-48269, 46250, 46500 -- impossible for a circuit
+        # with an L/R of seconds -- and drags BTOR with it. A core departure
+        # of the 1 ms median from the 60 ms trend must exceed BOTH 15 % of
+        # the plateau and 8 sigma of that median's own noise (measured in the
+        # quiet 0.20-0.25 s before the PF swing) for 2 ms: the raw noise is a
+        # fixed size, so the plateau fraction alone flagged healthy low-field
+        # shots. Real excursions depart 50-200 % of the plateau for 20+ ms.
+        excursion_repair:
+          enabled: true
+          window: [0.25, 0.40]
+          noise_window: [0.20, 0.25]
+          trend_window_s: 0.060
+          detect_window_s: 0.001
+          core_fraction: 0.15
+          core_sigma: 8.0
+          min_core_s: 0.002
+          extend_fraction: 0.05
+          extend_sigma: 3.0
+          margin_s: 0.002
+          merge_gap_s: 0.005
+          min_plateau: 2000.0
+          # Second-pass reference and replacement: a straight line through the
+          # good samples from fit_start to the excursion onset (the post-event
+          # record can stay offset: 46525 sits ~4 kA low after its excursion).
+          fit_start: 0.20
       output:
         turns: 24
         reference_radius: 0.4
@@ -692,6 +746,32 @@
               probes:
                 - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition saturated at the DAQ rail (field 170)"}
                 - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            # Flux-loop acquisition faults (issue #1543), from a per-shot scan of
+            # every loop's integrated amplitude against its siblings. A dead loop
+            # reads 1e-5..2e-3 Wb/rad where the others read ~1e-2; the waveform
+            # check does not condemn it (a small, live-looking signal), so it
+            # would reach EFIT at full weight without this record. `index`
+            # counts within flux_loop; r/z pin it.
+            - from_shot: 44394
+              to_shot: 44922
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loop #12 (field 243) dead: ~1e-3 of its siblings' amplitude from 44394 (44393 is the last good shot) to 44922 (44923 good again)"}
+            - from_shot: 44928
+              to_shot: 45027
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {index: 8, r: 0.106, z: 0.62, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+            - from_shot: 47986
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
 
     # Kinetic-profile construction policy (issue #420): the VEST decisions a
     # pipeline hands to the machine-independent vaft.process.profile and
@@ -745,13 +825,34 @@
             gfile, fit degree and pairing direction
           known_trend: the early 299 ms slices sit high (~0.28) against the 300/301 ms cluster (~0.14)
           derivation_script: ids_test/fit_ti_te_ratio.py   # cited by the original derivation; not in the repository
-      # Impurity content for line-radiation estimates when the ODS carries no
-      # ion density profile. Assumed, not measured; no derivation recorded.
-      impurities:
-        species: [C, O]
-        fractions:
-          C: {value: 1.0e-2, status: assumed}
-          O: {value: 1.0e-2, status: assumed}
+      # Impurity composition (#1565): an explicit VEST modelling preset, not a
+      # global VAFT default. Element, ionic charge state, mass and relative
+      # density are separate fields; the charge state is the ion's, never the
+      # atomic number. The quasi-neutral closure at the target Z_eff gives
+      # n_C/n_e = n_O/n_e = 1/86 (S1 = 7, S2 = 50); the reduced pseudo-impurity
+      # is Z_I,eff = 50/7, n_I,eff/n_e = 49/2150, A_I,eff ~ 14.3. The C and O
+      # fractions line radiation uses (when the ODS carries no ion density
+      # profile) are DERIVED from this block, not configured beside it.
+      impurity_model:
+        status: assumed
+        main_ion: H
+        species:
+          - {element: C, charge_state: 6, relative_density: 0.5}
+          - {element: O, charge_state: 8, relative_density: 0.5}
+        target_zeff: 2.0
+        reduction: preserve_charge_z2_mass
+        rationale: >-
+          equal carbon (graphite limiter and walls) and oxygen (water, residual
+          gas) densities at Z_eff = 2, fully stripped; the radial charge-state
+          distribution from T_e(rho), n_e(rho) is a separate, derived model
+        decided: 2026-10-03 (#1565)
+        superseded_assumption:
+          fractions: {C: 1.0e-2, O: 1.0e-2}
+          status: assumed
+          note: >-
+            line-radiation fractions configured directly until 2026-10-03, no
+            derivation recorded; they implied Z_eff ~ 1.86 against the Z_eff = 2
+            assumed elsewhere
 
     # Triple Langmuir probes (issue #152). Deliberately no unconditional
     # default block below `revisions:` -- a shot that matches no era has no
@@ -1636,6 +1737,44 @@ impa:
     pitch_tolerance: 0.015
 
 
+# Recorded faults of diagnostics that have no IMAS validity node (issue #1543),
+# read by vaft.machine_mapping.diagnostic_faults.known_diagnostic_faults. A
+# record documents; it does not alter a mapped value. Each entry is pinned by
+# IDS node, label and raw field against the mapper's own channel table.
+# from_shot/to_shot are inclusive. Boundaries come from raw-signal scans:
+# where the shots between the last good and the first bad one carry no plasma
+# (nothing to judge), the record starts at the first shot after the last good.
+diagnostic_faults:
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.2
+    label: H-gamma_4340
+    field: 138
+    from_shot: 46993
+    kind: railed
+    reason: "Raw input pinned at -5 V (stored +5 V) for the whole record from 46993 (2025-10-29; 46991 last good, 46992 not recorded); still railed on the 2026 class shots"
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.1
+    label: H-beta_4861
+    field: 141
+    from_shot: 46677
+    to_shot: 47414
+    kind: no_signal
+    reason: "No light: field 141 correlates ~0.99 with field 143 and ~0 with every other line, std ~0.01 V (common pickup on an unconnected input). 46676 last good, 46685 first confirmed; 47382 last confirmed, 47415 good again"
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.1
+    label: H-beta_4861
+    field: 141
+    from_shot: 47616
+    kind: no_signal
+    reason: "No light again after the 47415-47615 window (47615 last good, 47618 first confirmed); same signature as 46677-47414"
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.6
+    label: OV_629
+    field: 143
+    from_shot: 46677
+    kind: no_signal
+    reason: "No light: field 143 correlates ~0.99 with field 141 and ~0 with every other line from 46685 on (46676 last good); the label itself is also questioned in #569"
+
 diagnostics_time_policies:
   default: analysis
   windows:
@@ -1748,6 +1887,38 @@ equilibrium_regime:
       values are listed because EFIT can write them, not because VEST has
       been observed to produce one -- shot 46742 was checked and its eight
       converged slices are all IN. Nothing here claims VEST diverts.
+
+# How an edge safety factor is estimated for a shot with no equilibrium
+# (#1583). Pipeline policy like `equilibrium_regime`, outside the `0:` / shot
+# overrides: read by vaft.machine_mapping.edge_q_estimate.
+edge_q_estimate:
+  # vaft.formula.equilibrium.estimated_q95's `scaling` and `configuration`.
+  scaling: start
+  configuration: limiter
+  status: measured
+  provenance: >-
+    #1580 evaluated each analytic edge-q proxy on the boundary shape of the
+    133 Tier A EFIT equilibria and divided by the equilibrium q95 (median,
+    IQR): START scaling of Akers et al. NF 40 (2000) 1223 0.99 (0.95-1.03),
+    ITER guideline of Post et al. (1991) 1.35, Menard q* 0.41, Freidberg q*
+    0.38. VEST is limited (equilibrium_regime.topology: every reference
+    reconstruction is IN), so C = 1.0.
+
+  # The shape used when a shot has no equilibrium and the caller gives none.
+  # Every estimate made with it says so in its provenance.
+  default_shape:
+    minor_radius: 0.274
+    major_radius: 0.379
+    elongation: 1.51
+    triangularity: 0.30
+    # assumed: for the shot it stands in for, nothing measured this shape.
+    status: assumed
+    provenance: >-
+      Mean last-closed-surface shape of the Tier A magnetics equilibria
+      (notebooks/conference_operational_space_atlas.ipynb, #1580): a = 0.274
+      m, R_geo = 0.379 m (A = 1.38), kappa = 1.51, delta = 0.30. A cohort
+      mean: a single shot's shape can differ, so an estimate made with it
+      carries the shape's spread on top of the scaling's.
 
 # Like `diagnostics_time_policies` and `plasma_timing` this is pipeline policy,
 # outside the `0:` / shot overrides.
