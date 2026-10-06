@@ -77,6 +77,7 @@ _NOTHING_BY_DESIGN = re.compile(
     r"|failed: refined_gfiles=0\b"  # CHEASE ran: every slice a solver verdict
     r"|skipped: no EFIT gfiles\b"   # CHEASE: nothing upstream to refine
     r"|skipped: required input unavailable\b"  # eddy: a PF circuit was never recorded (#1568)
+    r"|skipped: not applicable: "  # EFIT: a vacuum / BD-failure shot has no plasma current (#205)
     r"|skipped: \w+\.run=false\b)"   # switched off on purpose
 )
 
