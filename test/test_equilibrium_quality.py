@@ -172,3 +172,69 @@ def test_constraint_points_use_the_efit_quality_tables():
     assert all({"measured", "reconstructed", "z", "fitted", "state", "unit"} <= set(p) for p in points)
     probe = [p for p in points if p["family"] == "bpol_probe"]
     assert probe[0]["unit"] == "mT"
+
+
+def test_representative_cases_are_deterministic_and_say_why(criteria):
+    probe = lambda chi2: {**_record()["fit"], "probe_reduced_chi2": chi2}
+    records = [
+        _record(shot=1, fit=probe(1.0)), _record(shot=2, fit=probe(1.1)), _record(shot=3, fit=probe(1.9)),
+        _record(shot=4, thomson={"log_ratio": math.log(1 / 2.7)}),             # good, inconsistent
+        _record(shot=5, fit=probe(6.0)), _record(shot=6, fit=probe(30.0)),      # admissible-only: probe fit
+        _record(shot=7, converged=False), _record(shot=8, converged=False),     # unreconstructible
+    ]
+    table = eq.equilibrium_quality_table(records, criteria=criteria)
+    first = eq.select_representative_cases(table)
+    assert [c["case"] for c in first] == list(eq.REPRESENTATIVE_CASES)
+    assert first == eq.select_representative_cases(table.sample(frac=1.0, random_state=3))  # order-independent
+    cases = {c["case"]: c for c in first}
+    assert cases["good_consistent"]["shot"] == 2          # the median probe chi2 of 1.0 / 1.1 / 1.9
+    assert cases["good_inconsistent"]["shot"] == 4
+    assert cases["admissible_only"]["shot"] in (5, 6) and "rule_probe_fit" in cases["admissible_only"]["reason"]
+    assert cases["unreconstructible"]["shot"] == 7 and "rule_convergence" in cases["unreconstructible"]["reason"]
+
+
+def test_a_case_without_candidates_says_so(criteria):
+    cases = {c["case"]: c for c in eq.select_representative_cases(
+        eq.equilibrium_quality_table([_record()], criteria=criteria))}
+    assert cases["good_inconsistent"]["shot"] is None and "no candidate" in cases["good_inconsistent"]["reason"]
+
+
+def test_the_confinement_funnel_counts_with_the_confinement_module():
+    import pandas as pd
+
+    table = pd.DataFrame({
+        "efit_quality": ["good", "good", "good", "admissible", "admissible"],
+        "rule_finite": ["True", "True", "False", "True", "True"],
+        "rule_ip_min": [True, True, True, True, False],
+        "rule_dwdt_fraction": [True, False, True, True, True],
+        "rule_ip_change_per_tau": [True, True, True, True, True],
+        "accepted": [True, False, False, True, False],
+    })
+    funnel = eq.equilibrium_quality_confinement_funnel(table)
+    good = funnel["cohorts"]["good"]
+    assert (good["candidates"], good["selected"], good["rejected"]) == (3, 1, 2)
+    removed = {row["rule"]: row["removed_in_sequence"] for row in good["exclusions"]}
+    assert removed == {"finite": 1, "ip_min": 0, "dwdt_fraction": 1, "ip_change_per_tau": 0}
+    assert funnel["cohorts"]["admissible"]["selected"] == 1
+
+
+def test_the_confinement_funnel_refuses_an_incomplete_or_inconsistent_table():
+    import pandas as pd
+
+    table = pd.DataFrame({
+        "efit_quality": ["good", "good", "good"],
+        "rule_finite": [True, False, True],
+        "rule_ip_min": [True, True, True],
+        "rule_dwdt_fraction": [True, True, True],
+        "rule_ip_change_per_tau": [True, True, True],
+        "accepted": [True, True, True],
+    })
+    # 'accepted' keeps a row the rules remove: the counts would not add up.
+    with pytest.raises(ValueError, match="accepted"):
+        eq.equilibrium_quality_confinement_funnel(table)
+    # A rule without its column would credit its removals to no rule.
+    with pytest.raises(KeyError, match="rule_ip_change_per_tau"):
+        eq.equilibrium_quality_confinement_funnel(table.drop(columns=["rule_ip_change_per_tau", "accepted"]))
+    funnel = eq.equilibrium_quality_confinement_funnel(table.drop(columns=["accepted"]))
+    good = funnel["cohorts"]["good"]
+    assert good["selected"] + sum(row["removed_in_sequence"] for row in good["exclusions"]) == good["candidates"]

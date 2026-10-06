@@ -26,7 +26,7 @@ _COMMANDS = {
     "help": (".help", "what VAFT can do: topics, defaults and setup status"),
     "setup": (".setup", "report or prepare the runtime environment (never scientific settings)"),
     "mcp": (".mcp", "serve read-only VAFT discovery tools to an MCP client over stdio"),
-    "gui": (".gui", "launch the browser GUI (needs vaft[gui])"),
+    "gui": (".gui", "launch the browser GUI"),
 }
 
 

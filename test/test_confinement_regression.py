@@ -193,3 +193,46 @@ def test_engineering_and_direct_dimensionless_routes_agree_on_exact_data():
     np.testing.assert_allclose(mu_a["value"], [-2.7, -0.9, -0.01, -3.0], atol=1e-9)
     # The completed size exponent equals the one the exact data carry.
     assert mu_a["alpha_R"] == pytest.approx(route_a.exponents()["r"], abs=1e-9)
+
+
+
+# --- #1713: thermal vs global energy basis -------------------------------------------------
+
+
+def test_resolver_is_strict_and_records_the_thermal_for_global_approximation():
+    from vaft.process.confinement import THERMAL_AS_GLOBAL, resolve_observed_confinement
+
+    th = np.array([1e-3, 2e-3, np.nan])
+    thermal = resolve_observed_confinement(th, "thermal")
+    np.testing.assert_array_equal(thermal.tau[:2], th[:2])
+    assert np.isnan(thermal.tau[2])
+    assert thermal.approximation is None and list(thermal.energy_basis_used) == ["thermal", "thermal", ""]
+    # A global scaling with only a thermal time is not silently accepted...
+    strict = resolve_observed_confinement(th, "global")
+    assert np.all(np.isnan(strict.tau)) and "no global" in strict.reason
+    # ...unless the approximation is asked for, and then it is recorded.
+    relaxed = resolve_observed_confinement(th, "global", thermal_as_global=True)
+    np.testing.assert_array_equal(relaxed.tau[:2], th[:2])
+    assert relaxed.approximation == THERMAL_AS_GLOBAL
+    # A global observation wins where it exists.
+    mixed = resolve_observed_confinement(th, "global", tau_global=np.array([1.5e-3, np.nan, np.nan]),
+                                         thermal_as_global=True)
+    assert mixed.tau[0] == 1.5e-3 and list(mixed.energy_basis_used[:2]) == ["global", "thermal"]
+    # An unaudited basis is unknown: NaN unless the approximation is asked for.
+    assert np.all(np.isnan(resolve_observed_confinement(th, "unaudited").tau))
+    assert "unaudited" in resolve_observed_confinement(th, "unaudited", thermal_as_global=True).approximation
+    with pytest.raises(ValueError):
+        resolve_observed_confinement(th, "total")
+
+
+def test_fast_ions_separate_the_thermal_and_global_h_factors():
+    from vaft.process.confinement import resolve_observed_confinement
+
+    p = np.array([1e6, 2e6])
+    w_th, w_fast = np.array([1e5, 1.6e5]), np.array([3e4, 6e4])
+    tau_th, tau_global = w_th / p, (w_th + w_fast) / p
+    prediction = np.array([0.08, 0.07])
+    h_thermal = resolve_observed_confinement(tau_th, "thermal", tau_global=tau_global).tau / prediction
+    h_global = resolve_observed_confinement(tau_th, "global", tau_global=tau_global).tau / prediction
+    np.testing.assert_allclose(h_global / h_thermal, (w_th + w_fast) / w_th)
+    assert np.all(h_global > h_thermal)
