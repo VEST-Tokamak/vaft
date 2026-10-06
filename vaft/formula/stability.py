@@ -49,8 +49,7 @@ __all__ = [
     "collisionality_from_n_T_B_R",
     "delta_prime_from_outer_derivatives",
     "empirical_li_qa",
-    "ggj_pressure_curvature_offset",
-    "ggj_resistive_parameter",
+    "ggj_resistive_interchange_index_from_ideal",
     "greenwald_density",
     "greenwald_fraction",
     "helical_harmonic",
@@ -2751,39 +2750,39 @@ def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):
     return first, second
 
 
-def ggj_resistive_parameter(di, h):
-    r"""Glasser-Greene-Johnson resistive-interchange parameter $D_R$ from $D_I$ and $H$.
+def ggj_resistive_interchange_index_from_ideal(D_I, H):
+    r"""GGJ resistive-interchange index $D_R$ from the ideal index $D_I$ and $H$.
 
     $$D_R = D_I + \left(H - \tfrac{1}{2}\right)^{2}$$
 
     Parameters
     ----------
-    di : float or np.ndarray
-        Mercier (ideal-interchange) criterion $D_I$ on a flux surface [-].
-    h : float or np.ndarray
-        GGJ pressure-curvature parameter $H$ on the same surface [-].
+    D_I : float or np.ndarray
+        GGJ ideal-interchange (Mercier) index on a flux surface [-].
+    H : float or np.ndarray
+        GGJ coefficient $H$ on the same surface [-].
 
     Returns
     -------
     float or np.ndarray
-        Resistive-interchange parameter $D_R$ [-].
+        Resistive-interchange index $D_R$ [-].
 
     Convention
     ----------
-    GGJ's signs, as RDCON and DCON write them: $D_I > 0$ is Mercier
-    unstable and $D_R > 0$ is resistive-interchange unstable. With
-    $D_I = E + F + H - 1/4$ and $D_R = E + F + H^{2}$, the identity follows
-    for any $E$, $F$. $D_R$ is a local criterion: it is not a
-    Rutherford-equation $\Delta'$ contribution, and $D_R > 0$ or $< 0$ with
-    any sign of $\Delta'$ is not a tearing verdict, which needs an inner-layer
-    solution.
+    GGJ's signs, as ``ggj_ideal_interchange_index`` and
+    ``ggj_resistive_interchange_index`` define them and RDCON and DCON write
+    them: $D_I > 0$ is Mercier unstable, $D_R > 0$ resistive-interchange
+    unstable. It is the same $D_R$ as ``ggj_resistive_interchange_index``,
+    eliminating $E + F$ between $D_I = E + F + H - 1/4$ and
+    $D_R = E + F + H^{2}$; this form exists because RDCON writes $D_I$ and $H$
+    but not $E$ and $F$. $D_R$ is a local criterion, not a Rutherford
+    $\Delta'$ contribution, and with any sign of $\Delta'$ it is not a
+    tearing verdict, which needs an inner-layer solution.
 
     Physical interpretation
     -----------------------
-    Favourable average curvature ($D_R < 0$) stabilises resistive modes at the
-    rational surface; the pressure-curvature offset $(H - 1/2)^{2} \ge 0$ is
-    why $D_R \ge D_I$, so a surface can be Mercier stable yet resistively
-    unstable but never the reverse.
+    The offset $(H - 1/2)^{2} \ge 0$ is why $D_R \ge D_I$: a surface can be
+    Mercier stable yet resistively unstable, never the reverse.
 
     Assumptions
     -----------
@@ -2798,36 +2797,4 @@ def ggj_resistive_parameter(di, h):
            instabilities by matched asymptotic expansions", Phys. Plasmas 23,
            112506 (2016).
     """
-    return np.asarray(di, dtype=float) + ggj_pressure_curvature_offset(h)
-
-
-def ggj_pressure_curvature_offset(h):
-    r"""The GGJ offset $D_R - D_I = (H - 1/2)^{2}$.
-
-    $$D_R - D_I = \left(H - \tfrac{1}{2}\right)^{2}$$
-
-    Parameters
-    ----------
-    h : float or np.ndarray
-        GGJ pressure-curvature parameter $H$ [-].
-
-    Returns
-    -------
-    float or np.ndarray
-        Non-negative offset of $D_R$ above $D_I$ [-].
-
-    Convention
-    ----------
-    The same GGJ definitions as ``ggj_resistive_parameter``.
-
-    Physical interpretation
-    -----------------------
-    It vanishes at $H = 1/2$, where the resistive and ideal interchange
-    criteria coincide.
-
-    References
-    ----------
-    .. [1] A. H. Glasser, J. M. Greene and J. L. Johnson, Phys. Fluids 18,
-           875 (1975).
-    """
-    return (np.asarray(h, dtype=float) - 0.5) ** 2
+    return np.asarray(D_I, dtype=float) + (np.asarray(H, dtype=float) - 0.5) ** 2

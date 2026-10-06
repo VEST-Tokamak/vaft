@@ -16,7 +16,7 @@ pytest.importorskip("omas")
 from omas import ODS
 
 from vaft.code.gpec import read_pest3_matching_output
-from vaft.formula.stability import ggj_pressure_curvature_offset, ggj_resistive_parameter
+from vaft.formula.stability import ggj_resistive_interchange_index, ggj_resistive_interchange_index_from_ideal
 from vaft.machine_mapping.mhd_linear import extract_rdcon_stability, mhd_linear
 
 FIXTURE = Path(__file__).resolve().parent / "data" / "gpec" / "rdcon_39915_319_n1"
@@ -64,16 +64,20 @@ def test_surfaces_join_ntms_with_the_fragment(mapped, native):
 
 def test_ggj_identity_holds_on_the_mapped_profiles(mapped):
     [row] = extract_rdcon_stability(mapped)
-    np.testing.assert_allclose(ggj_resistive_parameter(row["D_I"], row["H"]), row["D_R"], rtol=0, atol=1e-12)
-    assert np.all(ggj_pressure_curvature_offset(row["H"]) >= 0)
+    np.testing.assert_allclose(
+        ggj_resistive_interchange_index_from_ideal(row["D_I"], row["H"]), row["D_R"], rtol=0, atol=1e-12
+    )
 
 
-def test_ggj_helpers():
-    assert ggj_pressure_curvature_offset(0.5) == 0.0
-    assert ggj_resistive_parameter(-0.1, 0.8) == pytest.approx(-0.1 + 0.09)
+def test_the_ideal_index_form_agrees_with_the_layer_coefficient_form():
+    rng = np.random.default_rng(1)
+    E, F, H = rng.normal(size=(3, 20))
+    D_I = E + F + H - 0.25
+    np.testing.assert_allclose(
+        ggj_resistive_interchange_index_from_ideal(D_I, H), ggj_resistive_interchange_index(E, F, H)
+    )
     # D_R >= D_I always: a surface can be Mercier stable yet resistively unstable.
-    h = np.linspace(-2, 2, 9)
-    assert np.all(ggj_resistive_parameter(np.zeros_like(h), h) >= 0)
+    assert np.all(ggj_resistive_interchange_index_from_ideal(D_I, H) >= D_I)
 
 
 def test_rdcon_and_stride_stay_apart(tmp_path):

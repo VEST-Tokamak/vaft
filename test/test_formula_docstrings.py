@@ -205,8 +205,7 @@ CONVENTION_SENSITIVE = frozenset({
     "island_separatrix_half_width",
     "delta_prime_from_outer_derivatives",
     # GGJ: D_I > 0 / D_R > 0 unstable, as RDCON and DCON write them
-    "ggj_resistive_parameter",
-    "ggj_pressure_curvature_offset",
+    "ggj_resistive_interchange_index_from_ideal",
     "s_alpha_ballooning_stable",
     "s_alpha_marginal_alpha",
     "slab_perturbed_flux",
