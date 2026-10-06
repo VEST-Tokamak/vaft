@@ -2367,8 +2367,9 @@ def compute_magnetic_energy(
     """Magnetic field energy inside the last closed flux surface, by component.
 
     ``W = int B^2 / (2 mu0) dV`` over the inside of ``boundary.outline``,
-    weighted by each grid cell's area fraction inside it, with ``B_R`` and ``B_Z`` from the stored psi map (Sauter Eq. 20) and
-    ``B_phi = B0 R0 / R`` -- the *vacuum* toroidal field, ``F`` held constant.
+    weighted by each grid cell's area fraction inside it, with ``B_R`` and ``B_Z`` from the stored psi map (Sauter Eq. 20) and,
+    by default, ``B_phi = B0 R0 / R`` -- the *vacuum* toroidal field, ``F`` held constant
+    (``toroidal_field="equilibrium"`` uses the real ``F(psi)/R`` instead).
 
     Which energy that is matters more than the arithmetic:
 
@@ -2401,8 +2402,8 @@ def compute_magnetic_energy(
             -- the total field energy that the volume beta
             (:func:`vaft.formula.equilibrium.beta_volume_from_p_B2`) divides by.
         write_fields: When true, also store ``profiles_2d.0.b_field_r``,
-            ``b_field_z`` and ``b_field_tor`` in ``ods`` -- the constant-``F``
-            toroidal field included.  Off by default: the function used to do
+            ``b_field_z`` and ``b_field_tor`` in ``ods`` -- the toroidal field of
+            the chosen ``toroidal_field`` (constant ``F`` by default).  Off by default: the function used to do
             this silently. For the fields themselves prefer
             :func:`vaft.omas.update.update_equilibrium_profiles_2d_b_field`,
             which uses the real ``F(psi)``.
@@ -2445,33 +2446,24 @@ def compute_magnetic_energy(
     except KeyError as e:
         raise KeyError(f"Missing equilibrium keys for magnetic energy: {e}")
 
-    # Reference toroidal field (B_phi) & reference radius for F = R * B_phi
-    # Prefer equilibrium global_quantities (produced by EFIT mapping in this repo)
-    try:
-        B0 = float(eq_ts['global_quantities.b0'])  # [T]
-    except Exception:
-        # Fallback to vacuum_toroidal_field.b0 if present (time-dependent array)
-        if 'equilibrium.vacuum_toroidal_field.b0' in ods:
+    # Reference toroidal field (B_phi) & reference radius for F = R * B_phi, needed by
+    # the vacuum field only. Each leaf is tested with ``in`` before it is read: reading
+    # a missing OMAS path creates it as an empty node in the caller's ODS.
+    if toroidal_field == "vacuum":
+        if 'global_quantities.b0' in eq_ts:
+            B0 = float(eq_ts['global_quantities.b0'])  # [T]
+        elif 'equilibrium.vacuum_toroidal_field.b0' in ods:
             b0_arr = np.asarray(ods['equilibrium.vacuum_toroidal_field.b0'], float)
             # If time array exists, use closest by index; else take first
             B0 = float(b0_arr[eq_idx]) if b0_arr.size > eq_idx else float(b0_arr.flat[0])
         else:
             raise KeyError("Missing reference toroidal field: equilibrium.time_slice[*].global_quantities.b0")
-
-    try:
-        R0 = float(eq_ts['global_quantities.major_radius'])  # [m]
-    except Exception:
-        if 'equilibrium.vacuum_toroidal_field.r0' in ods:
+        if 'global_quantities.major_radius' in eq_ts:
+            R0 = float(eq_ts['global_quantities.major_radius'])  # [m]
+        elif 'equilibrium.vacuum_toroidal_field.r0' in ods:
             R0 = float(np.asarray(ods['equilibrium.vacuum_toroidal_field.r0'], float).flat[0])
         else:
             raise KeyError("Missing reference radius for toroidal field (major_radius or vacuum_toroidal_field.r0)")
-
-    # Ip is not needed for B from psi, but user requested to load it (sanity / completeness)
-    Ip = None
-    try:
-        Ip = float(eq_ts['global_quantities.ip'])
-    except Exception:
-        pass
 
     # Ensure psi_RZ shape convention is (len(R), len(Z))
     # When R_grid and Z_grid have the same length, use physical properties:

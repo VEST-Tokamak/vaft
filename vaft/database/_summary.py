@@ -531,7 +531,14 @@ def _beta_volume(ods, index: int, eq_slice, minor_radius: float, b0: float) -> t
     ``beta_B = 2 mu0 int p dV / int B^2 dV``: the pressure integral from the 1-D
     profiles, the field integral over the inside of the boundary outline with
     ``B_phi = F(psi)/R`` (not the vacuum field). Both are averaged over the
-    profile volume so the ratio is the ratio of the integrals.
+    profile volume so the ratio is the ratio of the integrals; a slice without an
+    outline reports NaN, since the flux-mask fallback integrates a different volume.
+
+    ``beta_normal_B2`` normalizes by ``b0`` at ``vacuum_toroidal_field.r0``, the
+    reference ``beta_normal`` uses, so the two columns differ only in the beta.
+    Menard et al. take ``B_T0`` at the plasma's geometric centre instead: on VEST,
+    whose geometric centre moves inward of ``r0``, the column is not directly the
+    quantity behind their 3.2.
     """
     import numpy as np
 
@@ -541,10 +548,17 @@ def _beta_volume(ods, index: int, eq_slice, minor_radius: float, b0: float) -> t
     from vaft.omas.process_wrapper import compute_magnetic_energy
 
     nan = (float("nan"), float("nan"))
+    # tested with `in` first: reading a missing OMAS path creates it in the caller's ODS
+    needed = ("profiles_1d.pressure", "profiles_1d.volume", "global_quantities.ip", "boundary.outline.r",
+              "boundary.outline.z")
+    if not all(name in eq_slice for name in needed):
+        return nan
     try:
         pressure = np.asarray(eq_slice["profiles_1d.pressure"], float).reshape(-1)
         volume = np.asarray(eq_slice["profiles_1d.volume"], float).reshape(-1)
         ip = float(eq_slice["global_quantities.ip"])
+        if np.count_nonzero(np.isfinite(np.asarray(eq_slice["boundary.outline.r"], float))) < 3:
+            return nan
         energy = float(compute_magnetic_energy(ods, time_slice=index, toroidal_field="equilibrium"))
     except Exception as exc:  # noqa: BLE001 - a slice without the inputs reports NaN
         logger.debug("slice %s: volume beta unavailable: %s", index, exc)
@@ -639,6 +653,8 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
 
 def extract_equilibrium_global(ods, shot: int) -> list[dict]:
     """Extract the legacy equilibrium-global history schema from one lazy ODS."""
+    from vaft.formula.equilibrium import normalized_plasma_current
+
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         return []
 
@@ -724,8 +740,6 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
             if np.isfinite(source_b0) and np.isfinite(reference_r0)
             else np.nan
         )
-        from vaft.formula.equilibrium import normalized_plasma_current
-
         beta_volume, beta_normal_volume = _beta_volume(ods, index, eq_slice, minor_radius, source_b0)
         ip_value = _as_float(_safe_get(eq_slice, "global_quantities.ip"))
         # on magnitudes, like beta_normal: I_N is the x axis the Troyon line runs through the origin on

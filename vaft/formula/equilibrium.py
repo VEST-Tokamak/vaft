@@ -1953,7 +1953,7 @@ def beta_volume_from_p_B2(p_average: float,
     
     Convention
     ----------
-    A ratio of volume averages, Troyon's beta: not the average of the local ratio
+    A ratio of volume averages -- the beta Menard et al. attribute to Troyon -- not the average of the local ratio
     $\langle 2\mu_0 p / B^2 \rangle_V$, and not the toroidal beta
     (:func:`beta_toroidal_from_p_B0`), which divides by the vacuum field at one radius.
     The two agree at large aspect ratio and low beta; at low aspect ratio the $1/R$
@@ -2001,7 +2001,10 @@ def beta_normal_from_beta_volume(beta_volume: float,
     Convention
     ----------
     Menard's $\langle\beta_N\rangle$: the normalization $a B_0 / I_p$ is the
-    conventional one, only the beta differs. It is not the conventional
+    conventional one, only the beta differs. Which $B_0$ is the caller's: Menard
+    et al. take the vacuum field at the plasma's geometric centre, VAFT's
+    ``beta_normal`` the one at ``vacuum_toroidal_field.r0``; where the two radii
+    differ, so does the value, by their ratio. It is not the conventional
     :func:`beta_normal_from_beta_tor`; at low aspect ratio the conventional
     $\beta_N$ of an optimized no-wall sequence nearly doubles (3.15 at A = 10 to
     5.85 at A = 1.25) while this one stays at 3.2 within 3 % [2]_, [3]_.

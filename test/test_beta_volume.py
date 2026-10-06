@@ -74,19 +74,55 @@ def test_the_equilibrium_toroidal_field_reduces_to_the_vacuum_one_for_a_flat_f()
         compute_magnetic_energy(ods, time_slice=0, toroidal_field="paramagnetic")
 
 
-def test_the_summary_reports_the_volume_beta_as_a_separate_definition():
-    from vaft.database import _summary as summary_module
+def test_the_equilibrium_toroidal_energy_matches_the_independent_f_psi_field():
+    """F(psi) interpolation, psi units and ordering, checked against the 2-D field
+    writer, which interpolates F(psi) on its own path (bicubic psi spline)."""
+    from vaft.omas.process_wrapper import compute_magnetic_energy
+    from vaft.omas.update import update_equilibrium_profiles_2d_b_field
+    from vaft.process.equilibrium import fractional_cell_weights_from_boundary
 
-    rows = summary_module.extract_equilibrium_global(_sample(), 39915)
+    ods = copy.deepcopy(_sample())
+    ts = ods["equilibrium.time_slice"][0]
+    update_equilibrium_profiles_2d_b_field(ods, time_slice=0)
+    r = np.asarray(ts["profiles_2d.0.grid.dim1"], float)
+    z = np.asarray(ts["profiles_2d.0.grid.dim2"], float)
+    b_tor = np.asarray(ts["profiles_2d.0.b_field_tor"], float)
+    if b_tor.shape != (r.size, z.size):
+        b_tor = b_tor.T
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    weights = fractional_cell_weights_from_boundary(
+        rm, zm, np.asarray(ts["boundary.outline.r"], float), np.asarray(ts["boundary.outline.z"], float),
+        samples_per_axis=5)
+    d_volume = 2 * np.pi * rm * np.outer(np.gradient(r), np.gradient(z)) * weights
+    independent = float(np.nansum(b_tor**2 / (2 * MU0) * d_volume))
+    ours = compute_magnetic_energy(ods, time_slice=0, components="toroidal", toroidal_field="equilibrium")
+    assert ours == pytest.approx(independent, rel=0.01)
+    # and the real F(psi) is not the vacuum field: VEST's ohmic plasma is paramagnetic
+    f = np.abs(np.asarray(ts["profiles_1d.f"], float))
+    vacuum = compute_magnetic_energy(ods, time_slice=0, components="toroidal")
+    assert (ours > vacuum) == (f[0] > f[-1])
+
+
+def test_the_summary_reports_the_volume_beta_as_a_separate_definition():
+    from vaft.compat import trapz_compat
+    from vaft.database import _summary as summary_module
+    from vaft.omas.process_wrapper import compute_magnetic_energy
+
+    ods = _sample()
+    before = set(ods["equilibrium.time_slice"][0]["global_quantities"].keys())
+    rows = summary_module.extract_equilibrium_global(ods, 39915)
+    ts = ods["equilibrium.time_slice"][0]
+    # the new columns read no path that is not there: no empty nodes left behind
+    assert not ({"b0", "major_radius"} - before) & set(ts["global_quantities"].keys())
     row = rows[0]
     for name in ("beta_volume_B2", "beta_normal_B2", "normalized_plasma_current"):
         assert name in summary_module.EQUILIBRIUM_GLOBAL_COLUMNS and np.isfinite(row[name])
-    # VEST is a spherical tokamak: <B^2>_V exceeds b0^2 (the 1/R field and the
-    # poloidal field), so the volume beta is below the toroidal beta -- the
-    # aspect-ratio effect the definition exists to remove (Menard 2004).
-    assert 0.0 < row["beta_volume_B2"] < row["beta_tor"]
-    # one normalization for both: beta_N / beta_N,B is beta_tor / beta_B
+    # beta_B is the ratio of the integrals: int p dV over the F(psi) field energy
+    pressure_integral = trapz_compat(np.asarray(ts["profiles_1d.pressure"], float),
+                                     x=np.asarray(ts["profiles_1d.volume"], float))
+    energy = compute_magnetic_energy(ods, time_slice=0, toroidal_field="equilibrium")
+    assert row["beta_volume_B2"] == pytest.approx(pressure_integral / energy, rel=1e-9)
+    # one normalization for both, and I_N the abscissa of the Troyon line: exact identities
     assert row["beta_normal"] / row["beta_normal_B2"] == pytest.approx(
-        row["beta_tor"] / row["beta_volume_B2"], rel=0.05)
-    # I_N is the abscissa of the Troyon line: beta_N = beta_tor[%] / I_N
-    assert row["beta_normal"] == pytest.approx(100 * row["beta_tor"] / row["normalized_plasma_current"], rel=0.05)
+        row["beta_tor"] / row["beta_volume_B2"], rel=1e-9)
+    assert row["beta_normal"] == pytest.approx(100 * row["beta_tor"] / row["normalized_plasma_current"], rel=1e-9)
