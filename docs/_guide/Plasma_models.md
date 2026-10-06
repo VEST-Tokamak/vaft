@@ -516,3 +516,52 @@ whose physics is not documented.
   - `cgyro.formalism()` hard-codes values that `extra_parameters` can contradict (`AE_FLAG`, `EQUILIBRIUM_MODEL`,
     `GLOBAL_FLAG`), and it omits the collision model and the zeroed rotation;
   - NEO's `equilibrium_model=0` silently means s-α if `profile_model=1` is ever used.
+
+## 11. The implemented record (#1727)
+
+Phase B encodes the vocabulary of §10 as `vaft.code.formalism.PlasmaFormalism`. It is an immutable record with
+controlled values and is not a model class:
+
+```python
+from vaft.code.gacode import cgyro
+cgyro.plasma_formalism(config).as_dict()   # versioned, JSON-ready
+```
+
+**What the record enforces:**
+- `None` means not applicable and `"unknown"` means undocumented.
+- Only generically impossible combinations are refused:
+  - a fluid run with a kinetic equation;
+  - a hybrid without a fluid model, a kinetic equation and a coupling;
+  - a kinetic run with a fluid model;
+  - a test-particle run with anything but the test-species Fokker–Planck equation;
+  - a reduced model that claims to solve a kinetic equation (its parent theory goes in `derived_from`).
+- There is no field for "kinetic profiles were used": that is a property of the inputs.
+- Solver-specific physics goes in `extensions`.
+
+| theory concept (§2) | field | example backend mode |
+| --- | --- | --- |
+| ideal / resistive MHD | `bulk_description="fluid"`, `fluid_model` | DCON ideal; RDCON + RMATCH |
+| MHD + drift-kinetic response | `"hybrid"`, `kinetic_equation="drift_kinetic"`, `kinetic_coupling="energy"`, `orbit_representation="bounce_averaged"` | DCON `kin_flag=t` |
+| kinetic closure on a given displacement | `"hybrid"`, `kinetic_coupling="closure"` | PENTRC on a GPEC ξ |
+| standalone drift kinetics | `"kinetic"`, `"drift_kinetic"` | NEO |
+| local δf gyrokinetics | `"kinetic"`, `"gyrokinetic"`, `spatial_domain="local"`, `distribution_formulation="delta_f"` | CGYRO |
+| gyrokinetic-derived reduced model | `"reduced"`, `derived_from="gyrokinetic"`, `regime="quasilinear"` | TGLF, TGLF-NN |
+| test particles | `"particle"`, `kinetic_equation="fokker_planck"` or `None`, `orbit_representation` | ASCOT5, NUBEAM; SIMPLE (no equation) |
+
+**CGYRO is the reference integration.**
+- `cgyro.plasma_formalism(config)` builds the shared record.
+- The existing #1353 record, `cgyro.formalism()`, is now read from it, with unchanged keys and values. The two cannot
+  disagree.
+- CGYRO's own detail stays in `extensions`: the `em-aperp` / `em-aperp-bpar` split, the continuum representation,
+  Miller geometry and gyrokinetic electrons.
+
+**Deferred to Phase C.**
+- **GPEC suite (#1734):**
+  - derive the record from `dcon.in` `kin_flag` and the `pentrc.in` settings;
+  - write it into the `mhd_linear` provenance.
+- **GACODE (#1735):**
+  - derive NEO and TGLF records;
+  - read `AE_FLAG`, `EQUILIBRIUM_MODEL`, `GLOBAL_FLAG` and the collision model back from `input.cgyro.gen`, instead
+    of trusting the configuration object.
+- **NUBEAM and ASCOT5:** no Phase C issue yet.
+

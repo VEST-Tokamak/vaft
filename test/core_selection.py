@@ -286,6 +286,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
+    # Plasma-formalism provenance (lane AP, #1727): the seven audited cases as
+    # records, the generic impossibilities, serialization and CGYRO's derived
+    # #1353 record. Pure Python, ~3 s.
+    "test_plasma_formalism.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
