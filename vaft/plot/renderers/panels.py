@@ -68,6 +68,7 @@ __all__ = [
     "summary_time_energy",
     "summary_time_power_balance",
     "summary_time_resistive_zeff",
+    "summary_time_romero_balance",
     "summary_time_voltage_consumption",
 ]
 
@@ -643,6 +644,30 @@ def summary_time_resistive_zeff(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Resistive Z_eff history: Romero voltages, observed vs model R_p, window estimate."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="summary",
+    subject="summary",
+    view="time",
+    quantity="romero_balance",
+    description=(
+        "Romero's voltage and volt-second balance: V_B, V_I, V_C (and V_R with a given R_p), "
+        "Phi_B against the direct flux change, L_i and the closing resistance."
+    ),
+    ids=("equilibrium", "tf", "wall"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.global_quantities.ip",
+        "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+        "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+        "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+    ),
+)
+def summary_time_romero_balance(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Romero's voltage and volt-second balance."""
     return render_panels(model, ax=ax, show=show, **style)
 
 
