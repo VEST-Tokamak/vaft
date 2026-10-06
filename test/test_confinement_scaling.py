@@ -280,6 +280,8 @@ class ConfinementScalingTests(unittest.TestCase):
             self.assertIn(b.power_basis, ("p_loss", "p_abs", "p_heat", "none", "unaudited"))
             self.assertTrue(b.energy_source and b.power_source)
         self.assertEqual(confinement_scaling_basis("Kurskiev2022").power_basis, "p_abs")
+        # Unchecked power definitions are declared unaudited, never guessed.
+        self.assertEqual(confinement_scaling_basis("ITER89P").power_basis, "unaudited")
         with self.assertRaises(KeyError):
             confinement_scaling_basis("not_a_scaling")
 

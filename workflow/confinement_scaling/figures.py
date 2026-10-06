@@ -124,7 +124,8 @@ def observed_tau(table: pd.DataFrame, scaling: str) -> pd.Series:
             if "tau_e_global_s" in table else None)
     strict = resolve_observed_confinement(thermal, basis, tau_global=glob)
     relaxed = resolve_observed_confinement(thermal, basis, tau_global=glob, thermal_as_global=True)
-    ohmic = table["machine"].isin(OHMIC_MACHINES).to_numpy() if "machine" in table else np.ones(len(table), bool)
+    # Without a machine column nothing is known to be ohmic: stay strict.
+    ohmic = table["machine"].isin(OHMIC_MACHINES).to_numpy() if "machine" in table else np.zeros(len(table), bool)
     tau = np.where(ohmic, relaxed.tau, strict.tau)
     out = pd.Series(tau, index=table.index, name=f"tau_e_obs_{scaling}")
     substituted = ohmic & (relaxed.energy_basis_used == "thermal") & (basis != "thermal")
@@ -290,6 +291,8 @@ def predicted_vs_measured_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX20
         confinement_predicted_vs_measured(shown, predicted, scaling_label=LABELS.get(scaling, scaling),
                                           by="population", highlight=VEST_LABEL, max_groups=max_groups, ax=ax)
         mark_thomson_inconsistent(ax, shown, predicted.to_numpy(float), "tau_e_th_s", legend_loc="upper left")
+        if basis_marker(scaling):
+            ax.set_ylabel(r"$\tau_{E,global}$ measured [s] (VEST: $\tau_{E,th}$)")
         ax.set_title(f"{LABELS.get(scaling, scaling)}{basis_marker(scaling)}: "
                      f"{_vest_coverage(table, predicted)}", fontsize="small")
     _basis_footnote(fig, scalings)

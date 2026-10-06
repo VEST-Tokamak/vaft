@@ -218,3 +218,5 @@ def test_observed_tau_uses_the_scaling_basis_and_approximates_only_for_ohmic_mac
     with_global = figures.observed_tau(table.assign(tau_e_global_s=[np.nan, 0.35]), "ITER89P")
     assert with_global.iloc[1] == 0.35
     assert figures.basis_marker("ITER89P") == "*" and figures.basis_marker("ITER97L") == ""
+    # No machine column: nothing is known to be ohmic, so a global scaling stays strict.
+    assert np.isnan(figures.observed_tau(table.drop(columns="machine"), "ITER89P")).all()
