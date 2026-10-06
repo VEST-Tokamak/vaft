@@ -114,12 +114,14 @@ CORE_MODULES: tuple[str, ...] = (
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
+    # The ssh+Slurm backend runs against fake ssh/rsync/Slurm shims: no network.
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
     "test_process_tree.py",
+    "test_remote_backend.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures and the canonical
@@ -174,6 +176,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
     "test_formula_boundaries.py",
+    # Edge-q estimates (#1583): the START/ITER q95 scaling, the q* proxies, the
+    # machine policy and their extraction from the packaged sample. Pure NumPy.
+    "test_edge_q_estimate.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
     "test_li_qa.py",
@@ -216,6 +221,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
+    "test_diagram_workflows.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
     # The per-shot master lock (#913): an in-memory HSDS, ~4 s of threads.
     "test_hsds_master_lock.py",
@@ -235,7 +241,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Transport atlas (lane T): the shared transport-state resolver on the packaged
     # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
     # reg05 fixture, and the routine driver with a fake runner. No solver runs.
-    # The atlas renderers draw synthetic tables only.
+    # The atlas renderers draw synthetic tables only. The classical core_transport
+    # projection and its summary preset (#1654) use one packaged state plus synthetic
+    # records.
+    "test_classical_transport_summary.py",
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the
