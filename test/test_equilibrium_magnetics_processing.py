@@ -5,6 +5,8 @@ on `VestMagneticsProcessingConfig` on purpose: they prove the migration to
 `vest.yaml` is behavior-preserving for every era that already worked.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -504,3 +506,41 @@ def test_a_probe_is_named_after_the_channel_it_reads_on_that_shot(shot, plus_006
     assert ods["magnetics.b_field_pol_probe.35.identifier"] == plus_006
     assert ods["magnetics.b_field_pol_probe.47.identifier"] == minus_042
     assert ods["magnetics.b_field_pol_probe.35.position.z"] == pytest.approx(0.06)
+
+
+ROUTINE_CONFIG = (
+    Path(__file__).resolve().parents[1]
+    / "workflow" / "automatic_pipeline_1_routine_data_processing" / "config.yaml"
+)
+
+
+def _routine_magnetics_override():
+    import yaml
+
+    config = yaml.safe_load(ROUTINE_CONFIG.read_text(encoding="utf-8"))
+    return (config.get("vest") or {}).get("magnetics", {}).get("processing") or {}
+
+
+@pytest.mark.parametrize("shot", [39916, 44043, 47946, 48927])
+def test_the_routine_override_keeps_the_shots_acquisition_era(shot):
+    """The workflow's processing block must not move a shot off its era (#1541).
+
+    It restates the dataclass defaults; applied as a replacement it ran every
+    native-DAQ shot through the slow-DAQ path with the wrong baselines.
+    """
+    from vaft.omas.vest_upstream import magnetics_processing_for_shot
+
+    era = equilibrium_magnetics_processing_config(shot)
+    applied = magnetics_processing_for_shot(shot, _routine_magnetics_override() or {"lowpass_taps": 251})
+    for key in ("daq_mode", "flux_baseline_samples", "flux_baseline_window", "window_override"):
+        assert getattr(applied, key) == getattr(era, key), key
+
+
+def test_an_override_still_changes_what_it_names():
+    from vaft.omas.vest_upstream import magnetics_processing_for_shot
+
+    assert magnetics_processing_for_shot(47946, None) is None
+    assert magnetics_processing_for_shot(47946, {}) is None
+    applied = magnetics_processing_for_shot(47946, {"flux_baseline_samples": 1000})
+    assert applied.flux_baseline_samples == 1000
+    assert applied.daq_mode == "native_daq"
