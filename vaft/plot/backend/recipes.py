@@ -5460,6 +5460,571 @@ RECIPES["neoclassical_profile_bootstrap_current"] = CallableRecipe(
     backend=OMAS_BOUND,
     reason='vaft.validation.neoclassical.bootstrap_models subscripts the ODS; the stored-series fallback reads core_profiles.code.name with `in`',
 )
+
+
+# --- Gyrokinetics (#1591): local flux tube (gyrokinetics_local) and radial
+# turbulent transport (core_transport) ----------------------------------------
+#
+# Standardized views: they read the IMAS IDS in its own (GKDB) normalisation and
+# never convert to solver-native units -- that lives in vaft.machine_mapping. A
+# `gyrokinetics_local` IDS holds ONE local simulation, so a comparison is several
+# entries; what makes two entries comparable is checked from each IDS's own
+# metadata and stated on the figure, never assumed from the overlay.
+
+_GK = "gyrokinetics_local"
+_GK_FIELDS = ("phi_potential", "a_field_parallel", "b_field_parallel")
+
+
+def _gk_parameter(obj: Any, key: str, base: str = _GK) -> str | None:
+    """One ``<key>value</key>`` entry of ``<base>.code.parameters``, or ``None``."""
+    text = _get(obj, f"{base}.code.parameters")
+    if not text:
+        return None
+    match = re.search(fr"<{key}>(.*?)</{key}>", str(text))
+    return match.group(1) if match else None
+
+
+def _gk_label(label: str, obj: Any) -> str:
+    code = _get(obj, f"{_GK}.code.name") or "gyrokinetics_local"
+    extras = []
+    sat = _gk_parameter(obj, "sat_rule")
+    if sat is not None:
+        extras.append(f"SAT{sat}")
+    field = _get(obj, f"{_GK}.model.include_a_field_parallel")
+    if field is not None:
+        extras.append("EM" if int(field) else "ES")
+    text = " ".join([str(code), *extras])
+    if not label:
+        return text
+    # a caller's label is kept and only what it does not already say is added
+    # ("CGYRO" -> "CGYRO EM", never "CGYRO: CGYRO EM")
+    missing = [token for token in text.split() if token not in label.split()]
+    return " ".join([label, *missing])
+
+
+def _gk_signature(obj: Any) -> dict[str, Any]:
+    """What must agree for two local runs to be one comparison."""
+    charges = tuple(
+        _get(obj, f"{_GK}.species.{s}.charge_norm") for s in range(_count(obj, f"{_GK}.species"))
+    )
+    return {
+        "surface (r_minor_norm)": _get(obj, f"{_GK}.flux_surface.r_minor_norm"),
+        "q": _get(obj, f"{_GK}.flux_surface.q"),
+        "magnetic shear": _get(obj, f"{_GK}.flux_surface.magnetic_shear_r_minor"),
+        "species": charges,
+        "field model": (_get(obj, f"{_GK}.model.include_a_field_parallel"),
+                        _get(obj, f"{_GK}.model.include_b_field_parallel")),
+        "frequency sign convention": _gk_parameter(obj, "frequency_sign_convention"),
+        "normalisation": _gk_parameter(obj, "normalisation"),
+    }
+
+
+def _gk_mismatches(entries: Sequence[tuple[str, Any]]) -> list[str]:
+    """Keys on which the entries disagree (scalars to 1e-3 relative)."""
+    signatures = [_gk_signature(obj) for _label, obj in entries]
+    if len(signatures) < 2:
+        return []
+    out = []
+    for key in signatures[0]:
+        values = [sig[key] for sig in signatures]
+        first = values[0]
+        for other in values[1:]:
+            if isinstance(first, (int, float)) and isinstance(other, (int, float)):
+                if not np.isclose(float(first), float(other), rtol=1e-3, atol=0.0):
+                    out.append(key)
+                    break
+            elif first != other:
+                out.append(key)
+                break
+    return out
+
+
+def _labelled(entries: Sequence[tuple[str, Any]]) -> list[tuple[str, Any]]:
+    """Entry labels only when there is more than one entry to tell apart."""
+    entries = list(entries)
+    return entries if len(entries) > 1 else [("", obj) for _label, obj in entries]
+
+
+def _gk_title(base: str, entries: Sequence[tuple[str, Any]]) -> str:
+    mismatches = _gk_mismatches(entries)
+    return base + (f" — unmatched: {', '.join(mismatches)}" if mismatches else "")
+
+
+def _gk_unconverged(obj: Any, mode: str) -> bool:
+    """An initial-value eigenmode that reached no tolerance (``growth_rate_tolerance`` is
+    written only for a converged run): its last-step value is not an eigenvalue."""
+    return (_get(obj, f"{mode}.initial_value_run") == 1
+            and _get(obj, f"{mode}.growth_rate_tolerance") is None)
+
+
+def _gk_linear_series(label: str, obj: Any, leaf: str, *, include_unconverged: bool = False,
+                      short: bool = False) -> list[Series]:
+    """One series per eigenmode index over ``linear.wavevector[:]``; absent modes are NaN.
+
+    Unconverged initial-value modes are left out unless ``include_unconverged``."""
+    waves = _count(obj, f"{_GK}.linear.wavevector")
+    if not waves:
+        return []
+    ky = np.full(waves, np.nan)
+    modes = max(_count(obj, f"{_GK}.linear.wavevector.{k}.eigenmode") for k in range(waves))
+    values = np.full((waves, max(modes, 1)), np.nan)
+    for k in range(waves):
+        wave = f"{_GK}.linear.wavevector.{k}"
+        ky[k] = _get(obj, f"{wave}.binormal_wavevector_norm", np.nan)
+        for m in range(_count(obj, f"{wave}.eigenmode")):
+            if not include_unconverged and _gk_unconverged(obj, f"{wave}.eigenmode.{m}"):
+                continue
+            value = _get(obj, f"{wave}.eigenmode.{m}.{leaf}")
+            if value is not None:
+                values[k, m] = float(value)
+    order = np.argsort(ky)
+    name = _gk_label(label, obj)
+    drawn = [m for m in range(values.shape[1]) if not np.all(np.isnan(values[:, m]))]
+    series = []
+    for m in drawn:
+        if short:   # inside an overview whose suptitle names the run
+            text = f"mode {m + 1}" if len(drawn) > 1 else ""
+        else:
+            text = name if m == 0 else f"{name} (mode {m + 1})"
+        series.append(Series(
+            x=ky[order], y=values[order, m],
+            label=text,
+            style={} if m == 0 else {"linestyle": ":"},
+        ))
+    return series
+
+
+def _gk_spectrum_available(leaf: str):
+    def available(obj: Any) -> str | None:
+        for k in range(_count(obj, f"{_GK}.linear.wavevector")):
+            wave = f"{_GK}.linear.wavevector.{k}"
+            for m in range(_count(obj, f"{wave}.eigenmode")):
+                mode = f"{wave}.eigenmode.{m}"
+                if _has(obj, f"{mode}.{leaf}") and not _gk_unconverged(obj, mode):
+                    return None
+        return f"no converged {_GK}.linear eigenmode carries {leaf}"
+    return available
+
+
+def _build_gk_growth_rate(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
+    include = bool(options.get("include_unconverged", False))
+    series = [s for label, obj in _labelled(entries)
+              for s in _gk_linear_series(label, obj, "growth_rate_norm", include_unconverged=include,
+                                         short=bool(options.get("short_labels")))]
+    if not series:
+        raise ValueError(f"no converged {_GK}.linear growth rates in this input "
+                         "(include_unconverged=True draws initial-value runs that reached none)")
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label=r"$k_y\rho_{ref}$",
+        y_label=r"$\gamma\,R_0/v_{th,ref}$",
+        title=_gk_title("Growth rate", entries),
+        metadata={"x": "binormal_wavevector_norm", "y": "growth_rate_norm",
+                  "normalisation": "GKDB: L_ref=R0, B_ref=Btor(R0), v_thref=sqrt(2Te/mD)"},
+    )
+
+
+def _build_gk_frequency(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
+    include = bool(options.get("include_unconverged", False))
+    series = [s for label, obj in _labelled(entries)
+              for s in _gk_linear_series(label, obj, "frequency_norm", include_unconverged=include,
+                                         short=bool(options.get("short_labels")))]
+    if not series:
+        raise ValueError(f"no converged {_GK}.linear frequencies in this input")
+    conventions = {_gk_parameter(obj, "frequency_sign_convention") for _label, obj in entries}
+    if conventions == {"ion_diamagnetic_negative"}:
+        sign = "ion dia. < 0"
+    elif None in conventions and len(conventions) == 1:
+        sign = "sign convention not recorded"
+    else:
+        sign = "sign conventions differ"
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label=r"$k_y\rho_{ref}$",
+        y_label=fr"$\omega\,R_0/v_{{th,ref}}$ ({sign})",
+        title=_gk_title("Frequency", entries),
+        metadata={"x": "binormal_wavevector_norm", "y": "frequency_norm",
+                  "frequency_sign_convention": sorted(c or "unrecorded" for c in conventions)},
+    )
+
+
+def _gk_species_label(obj: Any, index: int) -> str:
+    charge = _get(obj, f"{_GK}.species.{index}.charge_norm")
+    if charge is None:
+        return f"species {index + 1}"
+    return "e" if float(charge) < 0 else f"Z={float(charge):g}"
+
+
+_FLUX_WORD = {"energy": "Energy", "particles": "Particle"}
+
+
+def _gk_flux_spectrum_available(quantity: str):
+    def available(obj: Any) -> str | None:
+        if not _has(obj, f"{_GK}.non_linear.binormal_wavevector_norm"):
+            return f"no {_GK}.non_linear.binormal_wavevector_norm"
+        for field in _GK_FIELDS:
+            if _has(obj, f"{_GK}.non_linear.fluxes_2d_k_x_sum.{quantity}_{field}"):
+                return None
+        return f"no ky-resolved {quantity} flux (non_linear.fluxes_2d_k_x_sum)"
+    return available
+
+
+_GK_FLUX_TAIL = 1e-2
+
+
+def _gk_flux_builder(quantity: str, y_label: str):
+    def builder(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
+        series = []
+        for label, obj in _labelled(entries):
+            ky = _array(obj, f"{_GK}.non_linear.binormal_wavevector_norm")
+            if ky is None:
+                continue
+            total = None
+            for field in _GK_FIELDS:
+                values = _array(obj, f"{_GK}.non_linear.fluxes_2d_k_x_sum.{quantity}_{field}")
+                if values is not None:
+                    total = values if total is None else total + values
+            if total is None:
+                continue
+            total = np.atleast_2d(total)
+            name = _gk_label(label, obj)
+            order = np.argsort(ky)
+            for s in range(total.shape[0]):
+                species = _gk_species_label(obj, s)
+                series.append(Series(x=ky[order], y=total[s][order],
+                                     label=species if options.get("short_labels") else f"{name} {species}"))
+        if not series:
+            raise ValueError(f"no ky-resolved {quantity} flux in this input")
+        quasi = {_get(obj, f"{_GK}.non_linear.quasi_linear") for _label, obj in entries}
+        kind = "quasilinear" if quasi == {1} else ("nonlinear" if quasi == {0} else "mixed QL/NL")
+        # Display range only: beyond the last k_y where any species carries at least
+        # _GK_FLUX_TAIL of its peak |flux| the curves are flat at zero (TGLF's grid
+        # reaches the ETG range); nothing is dropped from the model's series.
+        x_end = 0.0
+        for item in series:
+            y = np.abs(np.asarray(item.y, dtype=float))
+            peak = np.nanmax(y) if y.size else 0.0
+            if peak > 0:
+                x_end = max(x_end, float(np.max(np.asarray(item.x)[y >= _GK_FLUX_TAIL * peak])))
+        x_full = max(float(np.nanmax(item.x)) for item in series)
+        x_limits = (0.0, min(x_full, 1.1 * x_end)) if 0 < x_end < x_full else None
+        return Profile1D(
+            series=tuple(series),
+            x_limits=x_limits,
+            coordinate_label=r"$k_y\rho_{ref}$",
+            y_label=y_label + " per $k_y$",
+            title=_gk_title(f"{_FLUX_WORD[quantity]} flux, {kind}", entries),
+            metadata={"x": "non_linear.binormal_wavevector_norm",
+                      "y": f"non_linear.fluxes_2d_k_x_sum.{quantity}_* (summed over fields)"},
+        )
+    return builder
+
+
+def _gk_eigenfunction_available(obj: Any) -> str | None:
+    for k in range(_count(obj, f"{_GK}.linear.wavevector")):
+        if _has(obj, f"{_GK}.linear.wavevector.{k}.eigenmode.0.fields.phi_potential_perturbed_norm"):
+            return None
+    return f"no {_GK}.linear eigenmode carries a phi eigenfunction"
+
+
+def _build_gk_eigenfunction(obj: Any, **options: Any) -> Profile1D:
+    """phi of the most unstable leading eigenmode against the DD's poloidal angle.
+
+    The complex amplitude is read as written (``_array`` would drop the imaginary
+    part); its phase convention is the mapping's, stated in the eigenmode's
+    ``code.parameters``, and repeated in the title.
+    """
+    best, best_gamma = None, -np.inf
+    for k in range(_count(obj, f"{_GK}.linear.wavevector")):
+        mode = f"{_GK}.linear.wavevector.{k}.eigenmode.0"
+        if not _has(obj, f"{mode}.fields.phi_potential_perturbed_norm") or _gk_unconverged(obj, mode):
+            continue
+        gamma = _get(obj, f"{mode}.growth_rate_norm", -np.inf)
+        if gamma is not None and float(gamma) > best_gamma:
+            best, best_gamma = k, float(gamma)
+    if best is None:
+        raise ValueError(f"no converged {_GK}.linear eigenmode carries a phi eigenfunction")
+    mode = f"{_GK}.linear.wavevector.{best}.eigenmode.0"
+    angle = _array(obj, f"{mode}.angle_pol")
+    phi = np.asarray(_get(obj, f"{mode}.fields.phi_potential_perturbed_norm"), dtype=complex)
+    phi = phi[:, -1] if phi.ndim == 2 else phi
+    ky = _get(obj, f"{_GK}.linear.wavevector.{best}.binormal_wavevector_norm")
+    normalisation = _gk_parameter(obj, "field_normalisation", base=mode) or "as stored"
+    x = angle / np.pi
+    return Profile1D(
+        series=(
+            Series(x=x, y=np.abs(phi), label=r"$|\phi|$", style={"color": "emphasis:strong"}),
+            Series(x=x, y=phi.real, label=r"Re $\phi$"),
+            Series(x=x, y=phi.imag, label=r"Im $\phi$"),
+        ),
+        coordinate_label=r"angle_pol / $\pi$",
+        y_label=r"$\phi$",
+        title=fr"Eigenfunction, $k_y\rho_{{ref}}$ = {float(ky):.3g}",
+        metadata={"angle": "clockwise from the LFS midplane (DD angle_pol)",
+                  "field_normalisation": normalisation},
+    )
+
+
+def _gk_local_state_lines(obj: Any) -> list[str]:
+    """The local state the run was given, as text (species gradients in R0/L)."""
+    fs = f"{_GK}.flux_surface"
+    lines = []
+    for label, path, fmt in (
+        ("r/R0", f"{fs}.r_minor_norm", ".3f"), ("q", f"{fs}.q", ".3f"),
+        ("s", f"{fs}.magnetic_shear_r_minor", ".3f"), ("kappa", f"{fs}.elongation", ".3f"),
+        ("beta_ref", f"{_GK}.species_all.beta_reference", ".3g"),
+    ):
+        value = _get(obj, path)
+        lines.append(f"{label} = {format(float(value), fmt)}" if value is not None
+                     else f"{label}: unavailable")
+    gradients = []
+    for s in range(_count(obj, f"{_GK}.species")):
+        base = f"{_GK}.species.{s}"
+        ln = _get(obj, f"{base}.density_log_gradient_norm")
+        lt = _get(obj, f"{base}.temperature_log_gradient_norm")
+        if ln is not None and lt is not None:
+            gradients.append(f"{_gk_species_label(obj, s):>4s} {float(ln):5.2f} {float(lt):5.2f}")
+    if gradients:
+        lines += ["", "    R0/Ln R0/LT", *gradients]
+    code = _get(obj, f"{_GK}.code.name")
+    if code:
+        commit = _get(obj, f"{_GK}.code.commit")
+        lines.append(f"code: {code}" + (f" {str(commit)[:7]}" if commit else ""))
+    locality = _gk_parameter(obj, "locality_verdict")
+    if locality:
+        lines.append(f"locality: {locality}")
+    return lines
+
+
+def _build_gk_overview(obj: Any, **options: Any) -> Panels:
+    """The members a run supports, plus its local state; a missing quantity drops its panel."""
+    entries = [("", obj)]
+    models: list[Any] = []
+    for available, build in (
+        (_gk_spectrum_available("growth_rate_norm"),
+         lambda: _build_gk_growth_rate(entries, short_labels=True)),
+        (_gk_spectrum_available("frequency_norm"),
+         lambda: _build_gk_frequency(entries, short_labels=True)),
+        (_gk_flux_spectrum_available("energy"),
+         lambda: _gk_flux_builder("energy", r"$Q/Q_{ref}$")(entries, short_labels=True)),
+        (_gk_eigenfunction_available, lambda: _build_gk_eigenfunction(obj)),
+    ):
+        if available(obj) is None:
+            models.append(build())
+    # Plots fill a two-row grid column by column; the local state is a full-height
+    # column on the right, so its lines have room and no plot is squeezed by text.
+    rows = 2 if len(models) > 1 else 1
+    plot_cols = -(-len(models) // rows)
+    spans = [(i % rows, i // rows, 1, 1) for i in range(len(models))]
+    models.append(TextPanel(lines=tuple(_gk_local_state_lines(obj)), title="Local state"))
+    spans.append((0, plot_cols, rows, 1))
+    r_minor = _get(obj, f"{_GK}.flux_surface.r_minor_norm")
+    where = f"r/R0 = {float(r_minor):.3f}" if r_minor is not None else "surface not recorded"
+    return Panels(models=tuple(models), nrows=rows, ncols=plot_cols + 1, share_x=False,
+                  spans=tuple(spans),
+                  suptitle=options.get("title", f"{_gk_label('', obj)} — {where}"))
+
+
+def _gk_overview_available(obj: Any) -> str | None:
+    if not _has(obj, f"{_GK}.flux_surface.r_minor_norm"):
+        return f"no {_GK} in this input"
+    return None
+
+
+_GK_COMMON_READS = (
+    f"{_GK}.code.name", f"{_GK}.code.commit", f"{_GK}.code.parameters",
+    f"{_GK}.model.include_a_field_parallel", f"{_GK}.model.include_b_field_parallel",
+    f"{_GK}.flux_surface.r_minor_norm", f"{_GK}.flux_surface.q",
+    f"{_GK}.flux_surface.magnetic_shear_r_minor", f"{_GK}.species.{{i}}.charge_norm",
+)
+_GK_LINEAR_READS = (
+    f"{_GK}.linear.wavevector.{{i}}.binormal_wavevector_norm",
+)
+
+
+def _gk_eigen_reads(leaf: str) -> tuple[str, ...]:
+    return (*_GK_COMMON_READS, *_GK_LINEAR_READS,
+            f"{_GK}.linear.wavevector.{{i}}.eigenmode.{{j}}.{leaf}",
+            f"{_GK}.linear.wavevector.{{i}}.eigenmode.{{j}}.initial_value_run",
+            f"{_GK}.linear.wavevector.{{i}}.eigenmode.{{j}}.growth_rate_tolerance")
+
+
+def _gk_flux_reads(quantity: str) -> tuple[str, ...]:
+    return (*_GK_COMMON_READS, f"{_GK}.non_linear.binormal_wavevector_norm",
+            f"{_GK}.non_linear.quasi_linear",
+            *(f"{_GK}.non_linear.fluxes_2d_k_x_sum.{quantity}_{f}" for f in _GK_FIELDS))
+
+
+_GK_EIGENFUNCTION_READS = (
+    *_GK_COMMON_READS, *_GK_LINEAR_READS,
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.growth_rate_norm",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.angle_pol",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.fields.phi_potential_perturbed_norm",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.code.parameters",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.initial_value_run",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.growth_rate_tolerance",
+)
+
+RECIPES["gyrokinetics_spectrum_growth_rate"] = CallableRecipe(
+    builder=_build_gk_growth_rate,
+    description="Linear growth rate against k_y from gyrokinetics_local, every eigenmode, "
+                "every entry overlaid; entries that are not one comparison are named.",
+    available=_gk_spectrum_available("growth_rate_norm"),
+    reads=_gk_eigen_reads("growth_rate_norm"),
+    backend=NEUTRAL,
+    multi_entry=True,
+)
+RECIPES["gyrokinetics_spectrum_frequency"] = CallableRecipe(
+    builder=_build_gk_frequency,
+    description="Linear real frequency against k_y from gyrokinetics_local, with the sign "
+                "convention each IDS records.",
+    available=_gk_spectrum_available("frequency_norm"),
+    reads=_gk_eigen_reads("frequency_norm"),
+    backend=NEUTRAL,
+    multi_entry=True,
+)
+RECIPES["gyrokinetics_spectrum_energy_flux"] = CallableRecipe(
+    builder=_gk_flux_builder("energy", r"$Q/Q_{ref}$"),
+    description="ky-resolved energy flux per species from gyrokinetics_local "
+                "(non_linear.fluxes_2d_k_x_sum), quasilinear or nonlinear as recorded.",
+    available=_gk_flux_spectrum_available("energy"),
+    reads=_gk_flux_reads("energy"),
+    backend=NEUTRAL,
+    multi_entry=True,
+)
+RECIPES["gyrokinetics_spectrum_particle_flux"] = CallableRecipe(
+    builder=_gk_flux_builder("particles", r"$\Gamma/\Gamma_{ref}$"),
+    description="ky-resolved particle flux per species from gyrokinetics_local.",
+    available=_gk_flux_spectrum_available("particles"),
+    reads=_gk_flux_reads("particles"),
+    backend=NEUTRAL,
+    multi_entry=True,
+)
+RECIPES["gyrokinetics_profile_eigenfunction"] = CallableRecipe(
+    builder=_build_gk_eigenfunction,
+    description="phi eigenfunction of the most unstable leading mode against the DD "
+                "poloidal angle: magnitude, real and imaginary parts.",
+    available=_gk_eigenfunction_available,
+    reads=_GK_EIGENFUNCTION_READS,
+    backend=NEUTRAL,
+)
+RECIPES["gyrokinetics_overview"] = CallableRecipe(
+    builder=_build_gk_overview,
+    description="One local gyrokinetic run: growth rate, frequency, flux spectrum and "
+                "eigenfunction where the run carries them, and its local state.",
+    available=_gk_overview_available,
+    reads=tuple(dict.fromkeys((
+        *_gk_eigen_reads("growth_rate_norm"), *_gk_eigen_reads("frequency_norm"),
+        *_gk_flux_reads("energy"), *_GK_EIGENFUNCTION_READS,
+        f"{_GK}.flux_surface.elongation", f"{_GK}.species_all.beta_reference",
+        f"{_GK}.species.{{i}}.density_log_gradient_norm",
+        f"{_GK}.species.{{i}}.temperature_log_gradient_norm",
+    ))),
+    backend=NEUTRAL,
+)
+
+
+# --- turbulent transport from core_transport ---------------------------------
+
+_ANOMALOUS = 6
+
+
+def _tt_models(obj: Any) -> list[int]:
+    return [m for m in range(_count(obj, "core_transport.model"))
+            if _get(obj, f"core_transport.model.{m}.identifier.index") == _ANOMALOUS]
+
+
+def _tt_available(quantity: str):
+    def available(obj: Any) -> str | None:
+        for m in _tt_models(obj):
+            base = f"core_transport.model.{m}.profiles_1d"
+            for t in range(_count(obj, base)):
+                if _has(obj, f"{base}.{t}.electrons.{quantity}.flux"):
+                    return None
+        return f"no anomalous (index 6) core_transport model carries electrons.{quantity}.flux"
+    return available
+
+
+def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
+    base = f"core_transport.model.{m}.profiles_1d"
+    count = _count(obj, base)
+    if not count:
+        return None
+    if time is None:
+        return 0
+    times = np.array([_get(obj, f"{base}.{t}.time", np.nan) for t in range(count)], dtype=float)
+    if np.all(np.isnan(times)):
+        return 0
+    return int(np.nanargmin(np.abs(times - float(time))))
+
+
+def _tt_builder(quantity: str, y_label: str, y_unit: str):
+    def builder(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
+        series = []
+        for label, obj in _labelled(entries):
+            for m in _tt_models(obj):
+                t = _tt_slice(obj, m, options.get("time"))
+                if t is None:
+                    continue
+                base = f"core_transport.model.{m}.profiles_1d.{t}"
+                rho = _array(obj, f"{base}.grid_flux.rho_tor_norm")
+                electrons = _array(obj, f"{base}.electrons.{quantity}.flux")
+                if rho is None or electrons is None:
+                    continue
+                code = _get(obj, f"core_transport.model.{m}.code.name") or f"model {m}"
+                name = (label if str(code) in label else f"{label} ({code})") if label else str(code)
+                # one colour per model; electrons solid, ions dashed
+                color = palette(sum(1 for item in series if item.label.endswith(' e')))
+                series.append(Series(x=rho, y=electrons, label=f"{name} e", style={"color": color}))
+                ions = [_array(obj, f"{base}.ion.{i}.{quantity}.flux")
+                        for i in range(_count(obj, f"{base}.ion"))]
+                ions = [v for v in ions if v is not None and v.shape == rho.shape]
+                if ions:
+                    series.append(Series(x=rho, y=np.sum(ions, axis=0), label=f"{name} i",
+                                         style={"linestyle": "--", "color": color}))
+        if not series:
+            raise ValueError(f"no turbulent {quantity} flux profile in this input")
+        return Profile1D(
+            series=tuple(series), coordinate_label=r"$\rho_{tor,N}$",
+            y_label=y_label, y_unit=y_unit,
+            title=f"{_FLUX_WORD[quantity]} flux",
+        )
+    return builder
+
+
+def _tt_reads(quantity: str) -> tuple[str, ...]:
+    base = "core_transport.model.{i}"
+    return (f"{base}.identifier.index", f"{base}.code.name",
+            f"{base}.profiles_1d.{{j}}.time", f"{base}.profiles_1d.{{j}}.grid_flux.rho_tor_norm",
+            f"{base}.profiles_1d.{{j}}.electrons.{quantity}.flux",
+            f"{base}.profiles_1d.{{j}}.ion.{{k}}.{quantity}.flux")
+
+
+RECIPES["turbulent_transport_profile_energy_flux"] = CallableRecipe(
+    builder=_tt_builder("energy", "energy flux", "W.m^-2"),
+    description="Turbulent electron and ion energy flux against rho_tor_norm, one series "
+                "pair per anomalous core_transport model and entry.",
+    available=_tt_available("energy"),
+    reads=_tt_reads("energy"),
+    backend=NEUTRAL,
+    multi_entry=True,
+    time_axis=OWN_TIME,
+)
+RECIPES["turbulent_transport_profile_particle_flux"] = CallableRecipe(
+    builder=_tt_builder("particles", "particle flux", "m^-2.s^-1"),
+    description="Turbulent electron and ion particle flux against rho_tor_norm.",
+    available=_tt_available("particles"),
+    reads=_tt_reads("particles"),
+    backend=NEUTRAL,
+    multi_entry=True,
+    time_axis=OWN_TIME,
+)
+RECIPES["turbulent_transport_overview"] = PanelRecipe(
+    members=("turbulent_transport_profile_energy_flux", "turbulent_transport_profile_particle_flux"),
+    ncols=2,
+    share_x=True,
+    suptitle="Turbulent transport (core_transport, anomalous models)",
+)
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
     description="Wall, coils, passive structure and diagnostic positions composed.",
@@ -15876,7 +16441,16 @@ def _build_edge_q_time(entries: Sequence[tuple[str, Any]], *, _plot_name: str, *
         # The plot's "auto" is the full-shot magnetics trace when there is one:
         # the equilibrium slices then overlay it as the check (issue #1583).
         resolved = ("magnetics" if _magnetics_usable(ods) else "equilibrium") if source == "auto" else source
-        result = edge_q_estimate(ods, source=resolved, **kwargs)
+        try:
+            result = edge_q_estimate(ods, source=resolved, **kwargs)
+        except ValueError as error:
+            if "configuration" in kwargs and str(error).startswith("configuration "):
+                # The formula names its own argument; the view's option is start_configuration.
+                raise ValueError(
+                    f"start_configuration={kwargs['configuration']!r} applies to q95_scaling='start' only; "
+                    f"the {str(kwargs.get('scaling', 'start')).upper()} guideline has no configuration factor"
+                ) from error
+            raise
         name = result.label if key == "estimated_q95" else quantity_label
         titles.add(name)
         time = np.asarray(result.time, dtype=float)

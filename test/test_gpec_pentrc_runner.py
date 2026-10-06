@@ -789,6 +789,31 @@ def test_a_pentrc_that_does_not_finish_is_a_failed_record_not_an_exception(
     assert record.outputs == ()
 
 
+def test_a_pentrc_memory_stop_says_so(cell, tmp_path, monkeypatch):
+    """#1460: a memory stop is not "did not finish within N s"."""
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.gpec import _pentrc, _runtime
+
+    def run(executable_path, cwd, log_path, *, config):
+        Path(log_path).write_text("partial\n", encoding="utf-8")
+        execution = ExecutionResult(returncode=None, timed_out=True, runtime_status="memory_limit",
+                                    peak_rss_mb=9000.0, elapsed_s=42.0)
+        raise _runtime.GPECLimitStop([str(executable_path)], 300.0, execution,
+                                     "pentrc was stopped by the memory limit at 9000 MiB resident after 42 s")
+
+    monkeypatch.setattr(_runtime, "run_subprocess", run)
+    record = _pentrc.run_pentrc(
+        cell,
+        mode=1,
+        options=_options(),
+        kinetic_file=cell.parents[2] / "profiles.kin",
+        config=_config(tmp_path, timeout=300.0),
+    )
+    assert record.status == "failed"
+    assert record.reason.startswith("pentrc was stopped by the memory limit")
+    assert "did not finish within" not in record.reason and "its log is 8 bytes" in record.reason
+
+
 def test_strict_still_raises_when_pentrc_does_not_finish(cell, tmp_path, monkeypatch):
     """Because a scheduler-driven scan wants the walltime failure to stop it."""
     import subprocess

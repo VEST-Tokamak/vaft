@@ -69,8 +69,11 @@ def _widget(app, label):
 
 
 def test_loading_fills_the_plot_selector_and_draws_the_first(app):
-    assert app.plot.groups == {"equilibrium": ["equilibrium_field_psi", "equilibrium_profile_q"],
-                               "plasma": ["plasma_current_time"], "flux": ["flux_loop_time_voltage"]}
+    # {subject: {label: canonical name}}; the stub records carry no view, so a label is the name
+    assert {group: list(options.values()) for group, options in app.plot.groups.items()} == {
+        "equilibrium": ["equilibrium_field_psi", "equilibrium_profile_q"],
+        "plasma": ["plasma_current_time"], "flux": ["flux_loop_time_voltage"],
+    }
     assert app.session.plot == "equilibrium_field_psi"
     assert app.session.renderer == "plotly" and app.interactive.visible and not app.static.visible
     import plotly.graph_objects as go

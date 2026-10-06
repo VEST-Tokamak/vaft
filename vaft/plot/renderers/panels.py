@@ -602,7 +602,33 @@ def equilibrium_time_shape(
 def equilibrium_time_beta(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
-    """Poloidal, toroidal and normalized beta panels."""
+    """Poloidal, toroidal and normalized beta panels.
+
+    Interpretation
+    --------------
+    The three common measures of plasma pressure relative to magnetic pressure
+    against time, one panel each, from the reconstruction's slices: poloidal
+    beta (against the poloidal field of the plasma current), toroidal beta
+    (against the vacuum toroidal field at the reference radius) and normalized
+    beta (the toroidal beta in percent scaled by a B0 / I_p, the Troyon
+    normalization). Read together they follow how heating and confinement raise
+    the pressure and how close the discharge comes to the pressure the field
+    can confine.
+
+    Limitations
+    -----------
+    Beta is a reconstruction output.  With magnetic constraints alone, poloidal
+    beta and the internal inductance are not separately well determined --
+    mainly their sum beta_p + l_i / 2 is -- particularly for nearly circular
+    plasmas; a diamagnetic or kinetic pressure constraint improves it.
+    Proximity to an empirical beta limit is context, not a stability verdict:
+    the actual limit depends on the profiles, the shape and the wall.
+
+    See Also
+    --------
+    equilibrium_time_beta_p : poloidal beta alone.
+    equilibrium_time_beta_n : normalized beta alone.
+    """
     return render_panels(model, ax=ax, show=show, **style)
 
 
@@ -988,7 +1014,37 @@ def magnetics_overview_plasma_residual(
 def equilibrium_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
-    """Static summary of one representative equilibrium slice (issue #261)."""
+    """Static summary of one representative equilibrium slice (issue #261).
+
+    Interpretation
+    --------------
+    A first look at one reconstruction in one figure: the poloidal flux with
+    the boundary, axis and wall; the pressure, q and toroidal current-density
+    profiles; the two Grad-Shafranov source terms p' and FF' that the solver
+    actually fitted; and the slice's global quantities as text.  It is read to
+    check that position, shape, profiles and globals are mutually plausible
+    before any of them is used.  Without ``time=`` or ``time_slice=`` the slice
+    is the one with the largest stored plasma volume (the middle usable slice
+    when no volume is stored), and the title states which slice and why.
+
+    Options
+    -------
+    ``time=`` snaps to the nearest stored slice and ``time_slice=`` names one;
+    neither interpolates.  ``style=`` and ``units=`` act as in
+    :func:`equilibrium_field_psi`; ``coordinate=`` sets the profiles' abscissa.
+
+    Limitations
+    -----------
+    One slice does not describe a discharge.  A profile the slice does not
+    store (an EFIT g-file stores no j_tor) is derived from it on a private copy
+    and the panel says so.  The figure shows no goodness of fit: a
+    plausible-looking slice may still fit its constraints poorly.
+
+    See Also
+    --------
+    equilibrium_table_fit_quality : how well this slice fits its constraints.
+    equilibrium_table_summary : the same global quantities as a table.
+    """
     return render_panels(model, ax=ax, show=show, **style)
 
 
