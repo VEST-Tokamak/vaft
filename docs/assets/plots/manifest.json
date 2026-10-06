@@ -509,6 +509,10 @@
       "reason": "a table/text view is presented as text, not drawn as a figure",
       "status": "no_figure"
     },
+    "equilibrium_table_validation": {
+      "reason": "a table/text view is presented as text, not drawn as a figure",
+      "status": "no_figure"
+    },
     "equilibrium_text_summary": {
       "reason": "a table/text view is presented as text, not drawn as a figure",
       "status": "no_figure"
