@@ -367,7 +367,12 @@ def tglf_flux_contributors(
             if np.all(np.isnan(values)):
                 continue          # a field the run did not include: absent, not zero
             fields[FLUX_SPECTRUM_FIELDS[f]] = values.sum(axis=0)
-        fields["total"] = sum(fields.values())
+        if fields:
+            fields["total"] = sum(fields.values())
+        else:
+            # No field carries this quantity for the species (a partial or malformed
+            # spectrum): the total is unknown, not zero, and keeps the ky shape.
+            fields["total"] = np.full(block.shape[2], np.nan)
         series[name] = fields
     return {"ky": np.asarray(outputs.ky_spectrum, dtype=float), "series": series,
             "quantity": quantity}
@@ -445,6 +450,10 @@ def plot_flux_contributors(
         # it, and a solid line underneath would vanish.
         panel.plot(ky, fields["total"], color="black", linewidth=1.1, linestyle="--",
                    zorder=5, label="total")
+        if np.all(np.isnan(fields["total"])):
+            panel.text(0.5, 0.5, f"no {contributors.get('quantity', 'energy')} flux "
+                       f"written for {name}", transform=panel.transAxes, ha="center",
+                       va="center", fontsize="small", color="0.4")
         panel.axhline(0.0, color="0.7", linewidth=0.6)
         panel.set_xlabel(_KY)
         panel.set_ylabel(axis_label(fr"${symbol}_{{{name}}}$ per $k_y$ bin", "GB"))
