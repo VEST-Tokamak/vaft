@@ -10301,7 +10301,9 @@ def _build_spectrogram(
             "so predicted tracks cannot be paired with it by time"
         )
         return model
-    window = (float(time[0]), float(time[-1])) if time.size else (np.nan, np.nan)
+    # The map's own time axis (window centres), not the raw signal span: a
+    # track is drawn only where there is a spectrogram column under it.
+    window = (float(model.time[0]), float(model.time[-1])) if model.time.size else (np.nan, np.nan)
     return _with_mode_overlay(model, ods, request, window)
 
 
@@ -10416,7 +10418,7 @@ def _with_mode_overlay(
 
     The tracks come from :func:`vaft.process.mode_frequency.mode_frequency_tracks`;
     this only presents them.  ``|f_pred|`` is drawn, on the equilibrium times,
-    clipped to the analysed signal's ``window``: the prediction is paired with
+    clipped to the spectrogram's own time axis (``window``): the prediction is paired with
     the spectrogram by time, and invalid samples stay gaps.  Missing inputs
     warn and return ``model`` unchanged.
     """

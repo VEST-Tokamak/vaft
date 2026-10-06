@@ -465,3 +465,62 @@ def test_the_base_spectrogram_needs_none_of_the_overlay_inputs():
     assert "mirnov_spectrogram" in catalog
     model = vo.extract_mirnov_spectrogram(ods)
     assert model.tracks == ()
+
+
+# --- cold-review follow-ups ------------------------------------------------------
+
+
+def test_a_packaged_efit_slice_without_r_outboard_derives_it_and_leaves_the_input_alone():
+    ods = vo.sample_ods(39915)
+    assert "r_outboard" not in ods["equilibrium.time_slice.0.profiles_1d"]
+    times = (0.315, 0.332)
+    rho = np.linspace(0.0, 1.0, 21)
+    for k, t in enumerate(times):
+        ods[f"core_profiles.profiles_1d.{k}.time"] = t
+        ods[f"core_profiles.profiles_1d.{k}.grid.rho_tor_norm"] = rho
+        ods[f"core_profiles.profiles_1d.{k}.ion.0.velocity.toroidal"] = np.full(rho.size, 1.0e4)
+    result = mode_frequency_tracks(ods, [(3, 1)])
+    (track,) = result.tracks
+    assert track.valid.sum() >= 5, track.status
+    assert "no_major_radius" not in track.status
+    ok = track.valid
+    assert np.all((track.r_outboard[ok] > 0.3) & (track.r_outboard[ok] < 0.8))
+    assert np.allclose(track.toroidal_rotation_frequency[ok], 1.0e4 / (2 * np.pi * track.r_outboard[ok]))
+    radii = result.provenance["equilibrium"]["r_outboard"]
+    assert radii["stored"] == [] and len(radii["derived"]) >= 5
+    # read, never written: the caller's ODS still has no r_outboard
+    for i in range(len(ods["equilibrium.time_slice"])):
+        assert "r_outboard" not in ods[f"equilibrium.time_slice.{i}.profiles_1d"]
+
+
+def test_a_stored_r_outboard_is_recorded_as_stored(ods):
+    radii = mode_frequency_tracks(ods, [(2, 1)]).provenance["equilibrium"]["r_outboard"]
+    assert radii["stored"] == list(range(EQ_TIMES.size)) and radii["derived"] == []
+
+
+def test_a_proxy_rho_tor_grid_is_read_at_the_root_rho_pol():
+    ods = ODS()
+    _equilibrium(ods)
+    proxy = np.sqrt(np.linspace(0.0, 1.0, 21))   # what pre-#276 files stored as rho_tor_norm
+    _rotation(ods, f_phi=lambda t, rho: F0 * (1.0 + rho), leaf="rotation_frequency_tor", grid=proxy)
+    result = mode_frequency_tracks(ods, [(3, 1)])
+    track = _track(result, 3, 1)
+    ok = track.valid
+    # the fixture's rho_tor (= psi_N = 2/3) and rho_pol (= sqrt(2/3)) differ, so the reading tells
+    assert np.allclose(track.predicted_frequency[ok], F0 * (1.0 + np.sqrt(2.0 / 3.0)), rtol=1e-6)
+    assert not np.allclose(track.predicted_frequency[ok], F0 * (1.0 + 2.0 / 3.0), rtol=1e-3)
+    assert result.provenance["toroidal_rotation"]["coordinate"] == ["rho_pol_norm"]
+    assert result.provenance["toroidal_rotation"]["rho_tor_norm_proxy_profiles"] == [0, 1, 2]
+
+
+def test_the_tracks_are_clipped_to_the_spectrograms_own_time_axis(shot):
+    model = vo.extract_mirnov_spectrogram(shot, mode_overlay=[(2, 1)], nperseg=6000)
+    (track,) = model.tracks
+    outside = (track.time < model.time[0]) | (track.time > model.time[-1])
+    predicted = _bracketed(track.time)   # the prediction itself is valid there
+    # 6 ms windows centre the map on 3-6 ms: slices at 2 and 8 ms have a
+    # prediction but no column under them
+    assert (outside & predicted).any()
+    assert np.all(np.isnan(track.frequency[outside]))
+    assert np.all(np.isfinite(track.frequency[~outside & predicted]))
+    assert model.metadata["mode_overlay"]["window"] == [model.time[0], model.time[-1]]

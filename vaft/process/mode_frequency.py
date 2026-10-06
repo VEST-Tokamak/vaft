@@ -216,6 +216,7 @@ class _EquilibriumSlice:
     rho_tor_norm: np.ndarray | None
     r_outboard: np.ndarray | None
     psi_norm_reference: str
+    r_outboard_source: str = ""   # "stored", "derived" or "" (unavailable)
 
 
 def _equilibrium_slice(ods: Any, index: int, time: float) -> _EquilibriumSlice:
@@ -252,9 +253,47 @@ def _equilibrium_slice(ods: Any, index: int, time: float) -> _EquilibriumSlice:
         if derived is not None and derived.rho_tor_norm.size == psi.size:
             rho_tor = np.asarray(derived.rho_tor_norm, dtype=float)
     r_outboard = _array(ods, f"{base}.profiles_1d.r_outboard")
-    if r_outboard is not None and r_outboard.size != psi.size:
-        r_outboard = None
-    return _EquilibriumSlice(index, time, psi_norm, q, rho_tor, r_outboard, reference)
+    source = "stored"
+    if r_outboard is None or r_outboard.size != psi.size or not np.any(np.isfinite(r_outboard)):
+        r_outboard = _derived_r_outboard(ods, index, psi)
+        source = "derived" if r_outboard is not None else ""
+    return _EquilibriumSlice(index, time, psi_norm, q, rho_tor, r_outboard, reference, source)
+
+
+def _derived_r_outboard(ods: Any, index: int, psi: np.ndarray) -> np.ndarray | None:
+    """``r_outboard`` of a slice that stores none, from its 2-D flux map.
+
+    The map, axis and boundary outline are only *read* (through
+    :mod:`vaft.ods_access`, which never materialises a path) and handed to
+    :func:`vaft.process.equilibrium.psi_to_radial`, the midplane split
+    ``update_equilibrium_profiles_1d_radial_coordinates`` uses; nothing is
+    written to the caller's object. ``None`` when the slice cannot serve it.
+    """
+    from vaft.process.equilibrium import psi_to_radial
+
+    base = f"equilibrium.time_slice.{index}"
+    grid_r = _array(ods, f"{base}.profiles_2d.0.grid.dim1")
+    grid_z = _array(ods, f"{base}.profiles_2d.0.grid.dim2")
+    psi_2d = _value(ods, f"{base}.profiles_2d.0.psi")
+    boundary_r = _array(ods, f"{base}.boundary.outline.r")
+    axis_r = _scalar(ods, f"{base}.global_quantities.magnetic_axis.r")
+    axis_z = _scalar(ods, f"{base}.global_quantities.magnetic_axis.z")
+    if any(v is None for v in (grid_r, grid_z, psi_2d, boundary_r, axis_r, axis_z)):
+        return None
+    try:
+        psi_2d = np.asarray(psi_2d, dtype=float)
+        if psi_2d.shape != (grid_r.size, grid_z.size):
+            if psi_2d.shape != (grid_z.size, grid_r.size):
+                return None
+            psi_2d = psi_2d.T  # stored (Z, R); OMAS orders profiles_2d (dim1=R, dim2=Z)
+        row = psi_2d[:, int(np.argmin(np.abs(grid_z - axis_z)))]
+        _, outboard = psi_to_radial(psi, row, grid_r, boundary_r, axis_r)
+    except Exception:  # noqa: BLE001 - an underivable slice is a gap, not a failure
+        return None
+    outboard = np.asarray(outboard, dtype=float).reshape(-1)
+    if outboard.size != psi.size or not np.any(np.isfinite(outboard)):
+        return None
+    return outboard
 
 
 @dataclass(frozen=True)
@@ -266,6 +305,7 @@ class _RotationSlice:
     values: np.ndarray       # on grid
     kind: str                # "angular" [rad/s] or "velocity" [m/s]
     leaf: str
+    proxy: bool = False      # grid.rho_tor_norm was the sqrt(psi_N) proxy, read as rho_pol_norm
 
 
 def _rotation_slices(ods: Any, ion_index: int) -> list[_RotationSlice]:
@@ -283,13 +323,20 @@ def _rotation_slices(ods: Any, ion_index: int) -> list[_RotationSlice]:
                 grid = _array(ods, f"{base}.grid.{coordinate}")
                 if grid is None or grid.size != values.size:
                     continue
+                if coordinate == "rho_tor_norm" and _is_proxy_grid(ods, base, grid):
+                    # The sqrt(psi_N) proxy older files wrote under this name
+                    # (#276) is a poloidal radius: it is read at the root's
+                    # rho_pol_norm, never at its rho_tor_norm.
+                    coordinate, proxy = "rho_pol_norm", True
+                else:
+                    proxy = False
                 keep = np.isfinite(grid) & np.isfinite(values)
                 if np.count_nonzero(keep) < 2:
                     continue
                 order = np.argsort(grid[keep])
                 slices.append(_RotationSlice(
                     index, time, coordinate, grid[keep][order], values[keep][order], kind,
-                    f"core_profiles.profiles_1d.{{i}}.ion.{ion_index}.{leaf}",
+                    f"core_profiles.profiles_1d.{{i}}.ion.{ion_index}.{leaf}", proxy,
                 ))
                 break
             else:
@@ -297,6 +344,28 @@ def _rotation_slices(ods: Any, ion_index: int) -> list[_RotationSlice]:
             break
     slices.sort(key=lambda s: s.time)
     return slices
+
+
+def _is_proxy_grid(ods: Any, base: str, grid: np.ndarray) -> bool:
+    """Whether a core profile's ``grid.rho_tor_norm`` is the ``sqrt(psi_N)`` proxy.
+
+    The equilibrium side's test (:func:`vaft.data._derived.is_rho_pol_proxy`),
+    against the profile's own ``grid.psi`` when it stores one, else a uniform
+    ``psi_N``; a stored ``grid.rho_pol_norm`` equal to it settles it too.
+    """
+    from vaft.data._derived import is_rho_pol_proxy
+
+    psi = _array(ods, f"{base}.grid.psi")
+    psi_norm = None
+    if psi is not None and psi.size == grid.size and np.all(np.isfinite(psi)) and psi[-1] != psi[0]:
+        psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
+    if is_rho_pol_proxy(grid, psi_norm):
+        return True
+    rho_pol = _array(ods, f"{base}.grid.rho_pol_norm")
+    return bool(
+        rho_pol is not None and rho_pol.size == grid.size
+        and np.allclose(rho_pol, grid, rtol=0.0, atol=1e-9, equal_nan=False)
+    )
 
 
 def _modes(modes: Any) -> tuple[tuple[int, int], ...]:
@@ -393,9 +462,13 @@ def mode_frequency_tracks(ods, modes, *, model="toroidal_rotation", ion_index=0,
     ----------------
     1. Read every timed equilibrium slice: ``psi_norm`` from the global
        ``psi_axis``/``psi_boundary`` (else the profile's ends), the authentic
-       ``rho_tor_norm`` (stored, else integrated from ``q``) and ``r_outboard``.
+       ``rho_tor_norm`` (stored, else integrated from ``q``) and ``r_outboard``
+       (stored, else derived from the 2-D flux map at the axis height without
+       writing the input).
     2. Read every timed rotation profile, preferring ``rotation_frequency_tor``
-       over ``velocity.toroidal``, on ``rho_tor_norm`` over ``rho_pol_norm``.
+       over ``velocity.toroidal``, on ``rho_tor_norm`` over ``rho_pol_norm``; a
+       ``grid.rho_tor_norm`` that is the ``sqrt(psi_N)`` proxy is read as the
+       ``rho_pol_norm`` it is.
     3. Per slice, locate ``|q| = |m/n|`` once per distinct ratio with
        :func:`~vaft.process.equilibrium.rational_surfaces`.
     4. Per root, evaluate ``omega_phi`` on the two rotation profiles that
@@ -564,11 +637,19 @@ def mode_frequency_tracks(ods, modes, *, model="toroidal_rotation", ion_index=0,
             "source": "equilibrium.time_slice.{i}.profiles_1d (q, psi, rho_tor_norm, r_outboard)",
             "slices": [int(eq.index) for eq in slices],
             "psi_norm_reference": sorted({eq.psi_norm_reference for eq in slices if eq.psi_norm_reference}),
+            "r_outboard": {
+                "stored": [int(eq.index) for eq in slices if eq.r_outboard_source == "stored"],
+                "derived": [int(eq.index) for eq in slices if eq.r_outboard_source == "derived"],
+                "unavailable": [int(eq.index) for eq in slices if not eq.r_outboard_source],
+                "derivation": "vaft.process.equilibrium.psi_to_radial on the profiles_2d psi row at the "
+                              "magnetic-axis height, read without writing the input",
+            },
         },
         "toroidal_rotation": {
             "source": sorted({s.leaf for s in rotation}),
             "ion_index": int(ion_index),
             "coordinate": sorted({s.coordinate for s in rotation}),
+            "rho_tor_norm_proxy_profiles": [int(s.index) for s in rotation if s.proxy],
             "profiles": [int(s.index) for s in rotation],
             "time_span": [float(rotation_times[0]), float(rotation_times[-1])],
             "velocity_to_frequency": "omega_phi = v_phi / R_out(surface), "
