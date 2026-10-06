@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 import re
 import warnings
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from ._require import require_panel
@@ -26,6 +26,8 @@ from .widgets import panel_controls
 
 #: Addresses that only this machine can reach.
 LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
+#: Controls that select a time, in the order a plot is asked for them.
+TIME_CONTROLS = ("time_slice", "time_index", "time")
 
 _SOURCE_LABELS = {"Sample": "sample", "File": "file", "Database shot": "shot"}
 _RENDERER_LABELS = {"Interactive": "plotly", "Static": "matplotlib"}
@@ -76,6 +78,9 @@ class BrowserApp:
         self._renderer_choice = "plotly"
         self._plot_count = 0
         self._updating = False
+        #: Called with no arguments whenever what is open or the selected time
+        #: may have changed; the shell publishes it to the shared selection.
+        self.on_change: list[Callable[[], Any]] = []
 
         # -- source
         samples = list(sample_shots())
@@ -207,6 +212,20 @@ class BrowserApp:
             return
         self.load(sources)
 
+    def choose(self, sources: Sequence[Source]) -> None:
+        """Put ``sources`` in the source widgets, as if the reader had chosen them."""
+        if not sources:
+            return
+        first = sources[0]
+        self.kind.value = first.kind
+        if first.kind == "sample":
+            self.sample.value = [source.value for source in sources]
+        elif first.kind == "file":
+            self.path.value = "\n".join(str(source.value) for source in sources)
+        else:
+            self.shots.value = ", ".join(str(source.value) for source in sources)
+            self.namespace.value = first.namespace or ""
+
     def load(self, sources: Source | Sequence[Source]) -> bool:
         """Open ``sources`` and draw their first plot; ``False`` when it failed."""
         chosen = [sources] if isinstance(sources, Source) else list(sources)
@@ -284,6 +303,34 @@ class BrowserApp:
             held = [name for name in self.session.held_ids() if name != "dataset_description"]
             text += " In memory: " + (", ".join(held) if held else "nothing yet") + "."
         self.status.object = text
+        self._changed()
+
+    def _changed(self) -> None:
+        for callback in list(self.on_change):
+            try:
+                callback()
+            except Exception as error:  # a listener must not break the drawing
+                self._show_error(error)
+
+    def selected_time(self) -> str | None:
+        """The time the plot on screen is showing, as its control labels it.
+
+        ``None`` when the plot has no time control (a time trace, a
+        composition): a time is then not selected, only displayed.
+        """
+        state = self.session.state
+        if state is None or self.session.composition is not None:
+            return None
+        for name in TIME_CONTROLS:
+            if name not in state.values:
+                continue
+            spec, value = state.spec(name), state[name]
+            options = list(getattr(spec, "options", ()) or ())
+            labels = list(getattr(spec, "labels", ()) or ())
+            if labels and value in options:
+                return str(labels[options.index(value)])
+            return f"{getattr(spec, 'label', name) or name} {value}"
+        return None
 
     def _load_chosen_ids(self) -> None:
         self._clear_error()
@@ -398,6 +445,7 @@ class BrowserApp:
                 self.static.object = figure
             else:
                 self.static.param.trigger("object")
+        self._changed()
 
     def _size_panes(self) -> None:
         width, height = self.display.width, self.display.height
@@ -754,18 +802,32 @@ def build_app(
         samples = sample_shots()
         initial = [Source("sample", samples[0])] if samples else []
     if initial:
-        app.kind.value = initial[0].kind
-        if initial[0].kind == "sample":
-            app.sample.value = [source.value for source in initial]
-        elif initial[0].kind == "file":
-            app.path.value = str(initial[0].value)
-        else:
-            app.shots.value = ", ".join(str(source.value) for source in initial)
-            app.namespace.value = namespace or ""
+        app.choose(initial)
         # After the page is up, so a slow catalog shows this, not a blank tab.
         app.status.object = "Loading " + ", ".join(source.label for source in initial) + " ..."
         pn.state.onload(lambda: app.load(initial))
     return app
+
+
+def build_shell(*, workspace: str | None = None, **app_options: Any) -> Any:
+    """The page ``vaft gui`` serves: the :class:`~vaft.gui.shell.Shell` with every workspace.
+
+    ``app_options`` (``sample=``, ``file=``, ``shot=``, ``namespace=``,
+    ``plot=``) open a source in the plot explorer as :func:`build_app` does;
+    ``workspace`` is the workspace shown first (the plot explorer when
+    ``None``).
+    """
+    from .shell import WORKSPACES, Shell
+    from .workspaces import PlotWorkspace
+
+    if workspace is not None:
+        WORKSPACES.get(workspace)  # refused before anything is loaded
+    app = build_app(**app_options)
+    # The explorer is the one build_app primed with the source asked for.
+    shell = Shell(initial="plots", factories={"plots": lambda shell: PlotWorkspace(shell, app)})
+    if workspace is not None and workspace != "plots":
+        shell.show(workspace)
+    return shell
 
 
 AUTH_MODES = ("auto", "password", "none")
@@ -845,9 +907,9 @@ def serve(
     options["websocket_max_message_size"] = MAX_UPLOAD_BYTES
 
     def page() -> Any:
-        app = build_app(**app_options)
-        pn.state.on_session_destroyed(lambda _context: app.close())
-        return app.view()
+        shell = build_shell(**app_options)
+        pn.state.on_session_destroyed(lambda _context: shell.close())
+        return shell.view()
 
     return pn.serve(
         {"/": page}, address=address, port=port, show=show,
@@ -855,4 +917,7 @@ def serve(
     )
 
 
-__all__ = ["AUTH_MODES", "BrowserApp", "LOOPBACK", "PLOTLY_CONFIG", "build_app", "parse_shots", "serve"]
+__all__ = [
+    "AUTH_MODES", "BrowserApp", "LOOPBACK", "PLOTLY_CONFIG", "TIME_CONTROLS",
+    "build_app", "build_shell", "parse_shots", "serve",
+]
