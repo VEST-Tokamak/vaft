@@ -21,6 +21,7 @@ from .compare import (
     compare_neo_fluxes,
     compare_tglf_inputs,
     effective_tglf_controls,
+    neo_input_charges,
     neo_local_to_profile_normalisation,
     read_input_neo,
     read_input_tglf,
@@ -35,6 +36,7 @@ from .runner import (
 )
 
 __all__ = [
+    "neo_input_charges",
     "run_mitim_neo",
     "read_input_neo",
     "neo_local_to_profile_normalisation",

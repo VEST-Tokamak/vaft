@@ -116,3 +116,11 @@ def test_a_species_mismatch_is_reported_not_truncated():
     assert {r["status"] for r in swapped} == {"species_mismatch"}
     assert {r["status"] for r in mitim.compare_neo_fluxes(vaft, same, vaft_charges=[1, 6, -1],
                                                           mitim_charges={0.5: [1, 6, -1]})} == {"agree"}
+
+
+def test_local_neo_charges_come_from_its_input():
+    assert mitim.neo_input_charges({"N_SPECIES": 3, "Z_1": 1.0, "Z_2": 6.0, "Z_3": -1.0}) == [1.0, 6.0, -1.0]
+    vaft = {"r_over_a": np.array([0.5]), "particle_flux": np.array([[1.0]]), "energy_flux": np.array([[1.0]])}
+    with pytest.raises(ValueError, match="neo_input_charges"):
+        mitim.compare_neo_fluxes(vaft, {0.5: {"particle_flux": np.array([1.0]), "energy_flux": np.array([1.0])}},
+                                 vaft_charges=[1.0], mitim_charges={0.5: None})

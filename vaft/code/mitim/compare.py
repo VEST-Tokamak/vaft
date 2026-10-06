@@ -19,6 +19,7 @@ __all__ = [
     "compare_neo_fluxes",
     "compare_tglf_inputs",
     "effective_tglf_controls",
+    "neo_input_charges",
     "neo_local_to_profile_normalisation",
     "read_input_neo",
     "read_input_tglf",
@@ -106,6 +107,16 @@ def read_input_neo(path: str | Path) -> dict[str, Any]:
     return read_input_tglf(path)
 
 
+def neo_input_charges(input_neo: Mapping[str, Any]) -> list[float]:
+    """``Z_1 .. Z_N_SPECIES`` of an ``input.neo``, in NEO's species order.
+
+    A local-mode run writes no ``out.neo.species``, so its species identity is the
+    input it was given.
+    """
+    count = int(float(input_neo["N_SPECIES"]))
+    return [float(input_neo[f"Z_{index}"]) for index in range(1, count + 1)]
+
+
 def neo_local_to_profile_normalisation(
     transport: Mapping[str, Any],
     input_neo: Mapping[str, Any],
@@ -184,7 +195,10 @@ def compare_neo_fluxes(
                 continue
             a = np.asarray(vaft_transport[channel], dtype=float).reshape(-1, radii.size)[:, matches[0]]
             charges_ok = True
-            if vaft_charges is not None and mitim_charges is not None and r_over_a in mitim_charges:
+            if vaft_charges is not None and mitim_charges is not None:
+                if mitim_charges.get(r_over_a) is None:
+                    raise ValueError(f"no MITIM species charges for r/a {r_over_a}; pass "
+                                     "neo_input_charges(input_neo) for a local-mode run")
                 va = np.asarray(list(vaft_charges), dtype=float)
                 mi = np.asarray(list(mitim_charges[r_over_a]), dtype=float)
                 charges_ok = va.shape == mi.shape and bool(np.allclose(va, mi))
