@@ -243,8 +243,10 @@ CORE_MODULES: tuple[str, ...] = (
     # reg05 fixture, and the routine driver with a fake runner. No solver runs.
     # The atlas renderers draw synthetic tables only. The classical core_transport
     # projection and its summary preset (#1654) use one packaged state plus synthetic
-    # records.
+    # records; the neoclassical summary's bootstrap <-> NEO flux correspondence
+    # (#1655) uses synthetic products plus the recorded 48224 NEO fixture run.
     "test_classical_transport_summary.py",
+    "test_neoclassical_summary.py",
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
