@@ -151,6 +151,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
                     
                         <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
@@ -184,6 +190,12 @@
                     <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
                     
                         <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
                     </li>
                 
                     
@@ -300,7 +312,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>31eea12</code>. What is described
+  <code>4b88523</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -381,7 +393,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="stability">
     <td><a href="/vaft/develop/reference/formula/stability/">stability</a></td>
-    <td><code>vaft.formula.stability</code></td><td>37</td><td>Plasma stability, operational limits, and transport calculations.</td>
+    <td><code>vaft.formula.stability</code></td><td>44</td><td>Plasma stability, operational limits, and transport calculations.</td>
   </tr>
   <tr id="green">
     <td><a href="/vaft/develop/reference/formula/green/">green</a></td>
@@ -417,7 +429,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="geometry">
     <td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td>
-    <td><code>vaft.formula.geometry</code></td><td>12</td><td>Canonical geometric approximations: slab, sheared slab, cylinder, local reduction.</td>
+    <td><code>vaft.formula.geometry</code></td><td>15</td><td>Canonical geometric approximations: slab, sheared slab, cylinder, local reduction.</td>
   </tr>
   <tr id="ripple">
     <td><a href="/vaft/develop/reference/formula/ripple/">ripple</a></td>
@@ -458,6 +470,14 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   <tr id="impurity">
     <td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td>
     <td><code>vaft.formula.impurity</code></td><td>9</td><td>Impurity-mixture algebra: moments, target-Z_eff densities, the reduced pseudo-impurity and main-ion dilution.</td>
+  </tr>
+  <tr id="dimensional">
+    <td><a href="/vaft/develop/reference/formula/dimensional/">dimensional</a></td>
+    <td><code>vaft.formula.dimensional</code></td><td>7</td><td>Dimensional analysis: dimension matrices, Buckingham-Pi groups and similarity constraints.</td>
+  </tr>
+  <tr id="sensitivity">
+    <td><a href="/vaft/develop/reference/formula/sensitivity/">sensitivity</a></td>
+    <td><code>vaft.formula.sensitivity</code></td><td>5</td><td>Generic kernels for local sensitivity, linear uncertainty propagation and identifiability (issue #1642).</td>
   </tr>
   </tbody>
 </table>
@@ -520,7 +540,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 404 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 426 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -856,6 +876,10 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
   <tr data-ref-row="beta_tor_from_beta_pol stability"><td><a href="/vaft/develop/reference/formula/stability/#beta_tor_from_beta_pol"><code>beta_tor_from_beta_pol</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Toroidal beta from poloidal beta, cylindrical relation.
 </td></tr>
+  <tr data-ref-row="bussac_internal_kink_energy stability"><td><a href="/vaft/develop/reference/formula/stability/#bussac_internal_kink_energy"><code>bussac_internal_kink_energy</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Reduced toroidal $m = n = 1$ internal-kink energy of Bussac et al., up to its positive prefactor.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="bussac_poloidal_beta stability"><td><a href="/vaft/develop/reference/formula/stability/#bussac_poloidal_beta"><code>bussac_poloidal_beta</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Bussac’s poloidal beta inside the $q = 1$ surface.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="c_s_from_Te_Ti_mi stability"><td><a href="/vaft/develop/reference/formula/stability/#c_s_from_Te_Ti_mi"><code>c_s_from_Te_Ti_mi</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Isothermal ion sound speed $c_s = \sqrt{(T_e + T_i)/m_i}$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="collisionality_from_n_T_B_R stability"><td><a href="/vaft/develop/reference/formula/stability/#collisionality_from_n_T_B_R"><code>collisionality_from_n_T_B_R</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Electron collisionality figure $6.921\times10^{-18}\,n_e R_0/(T_e^2 B_t)$.
@@ -865,6 +889,10 @@ which documents the conventions and cites every entry.</p>
   <tr data-ref-row="empirical_li_qa stability"><td><a href="/vaft/develop/reference/formula/stability/#empirical_li_qa"><code>empirical_li_qa</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Vertices of the JET empirical $l_i$-$q_\psi$ stability boundary (Wesson 1989, Fig. 6).
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
   <tr data-ref-row="field_line_label stability"><td><a href="/vaft/develop/reference/formula/stability/#field_line_label"><code>field_line_label</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Clebsch field-line label on a flux surface in straight-field-line coordinates.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ggj_ideal_interchange_index stability"><td><a href="/vaft/develop/reference/formula/stability/#ggj_ideal_interchange_index"><code>ggj_ideal_interchange_index</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Glasser–Greene–Johnson ideal-interchange (Mercier) index $D_I$ from the layer coefficients.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ggj_resistive_interchange_index stability"><td><a href="/vaft/develop/reference/formula/stability/#ggj_resistive_interchange_index"><code>ggj_resistive_interchange_index</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Glasser–Greene–Johnson resistive-interchange index $D_R$ from the layer coefficients.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="greenwald_density stability"><td><a href="/vaft/develop/reference/formula/stability/#greenwald_density"><code>greenwald_density</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Greenwald density limit $n_G$.
  <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -886,8 +914,12 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
   <tr data-ref-row="li_from_qa_empirical stability"><td><a href="/vaft/develop/reference/formula/stability/#li_from_qa_empirical"><code>li_from_qa_empirical</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Internal inductance at a given $q_a$ by interpolating the JET survey points.
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
+  <tr data-ref-row="magnetic_well_from_specific_volume stability"><td><a href="/vaft/develop/reference/formula/stability/#magnetic_well_from_specific_volume"><code>magnetic_well_from_specific_volume</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Normalised magnetic well from the specific volume $V’$ against toroidal flux.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="magnetosonic_phase_speeds stability"><td><a href="/vaft/develop/reference/formula/stability/#magnetosonic_phase_speeds"><code>magnetosonic_phase_speeds</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Fast and slow magnetosonic phase speeds at angle $\theta$ to $\mathbf B_0$.
 </td></tr>
+  <tr data-ref-row="mercier_criterion_circular stability"><td><a href="/vaft/develop/reference/formula/stability/#mercier_criterion_circular"><code>mercier_criterion_circular</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Mercier’s interchange criterion for a large-aspect-ratio circular tokamak.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="plasma_stability_margins stability"><td><a href="/vaft/develop/reference/formula/stability/#plasma_stability_margins"><code>plasma_stability_margins</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Deprecated: beta, $q_{95}$ and density margins built on the unsourced $0.028\,q_{95}$ beta limit.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="power_limit_from_beta stability"><td><a href="/vaft/develop/reference/formula/stability/#power_limit_from_beta"><code>power_limit_from_beta</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Energy-like figure $\beta_N B_0^2 V/(2\mu_0)$ labelled a power limit.
@@ -913,6 +945,8 @@ which documents the conventions and cites every entry.</p>
   <tr data-ref-row="shear_alfven_frequency stability"><td><a href="/vaft/develop/reference/formula/stability/#shear_alfven_frequency"><code>shear_alfven_frequency</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Frequency of the ideal shear Alfven wave in a uniform plasma.
 </td></tr>
   <tr data-ref-row="slab_perturbed_flux stability"><td><a href="/vaft/develop/reference/formula/stability/#slab_perturbed_flux"><code>slab_perturbed_flux</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Helical flux of a sheared slab with a tearing- or twisting-parity perturbation.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="suydam_criterion stability"><td><a href="/vaft/develop/reference/formula/stability/#suydam_criterion"><code>suydam_criterion</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Suydam’s local interchange criterion of a cylindrical screw pinch.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="v_alfven_from_B_n_mi stability"><td><a href="/vaft/develop/reference/formula/stability/#v_alfven_from_B_n_mi"><code>v_alfven_from_B_n_mi</code></a></td><td><a href="/vaft/develop/reference/formula/stability/">stability</a></td><td>Alfven speed $v_A = B/\sqrt{\mu_0 n m_i}$.
 </td></tr>
@@ -1184,9 +1218,15 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="psi_per_radian_from_cocos particle"><td><a href="/vaft/develop/reference/formula/particle/#psi_per_radian_from_cocos"><code>psi_per_radian_from_cocos</code></a></td><td><a href="/vaft/develop/reference/formula/particle/">particle</a></td><td>The guiding-centre $\psi = RA_\phi$ from a flux stored in a COCOS convention.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_enclosed_current geometry"><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_enclosed_current"><code>cylindrical_enclosed_current</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Axial current inside each radius of a straight current column.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_internal_inductance geometry"><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_internal_inductance"><code>cylindrical_internal_inductance</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Normalized internal inductance of a current column of radius $a$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cylindrical_parallel_wavenumber geometry"><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_parallel_wavenumber"><code>cylindrical_parallel_wavenumber</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Parallel wavenumber of an $m/n$ harmonic on a cylindrical surface of safety factor $q$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cylindrical_poloidal_field geometry"><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_poloidal_field"><code>cylindrical_poloidal_field</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Poloidal field of a straight current column by Ampère’s law.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_poloidal_flux geometry"><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_poloidal_flux"><code>cylindrical_poloidal_flux</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Poloidal flux per radian of a straightened torus, zero on the axis.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="cylindrical_safety_factor_from_r_B geometry"><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></td><td><a href="/vaft/develop/reference/formula/geometry/">geometry</a></td><td>Safety factor of a straight cylinder standing in for a torus.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -1389,6 +1429,30 @@ which documents the conventions and cites every entry.</p>
   <tr data-ref-row="reduce_impurity_mixture impurity"><td><a href="/vaft/develop/reference/formula/impurity/#reduce_impurity_mixture"><code>reduce_impurity_mixture</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>The single pseudo-impurity that keeps a mixture’s charge, Z^2 and mass moments.
 </td></tr>
   <tr data-ref-row="solve_impurity_mixture_for_target_zeff impurity"><td><a href="/vaft/develop/reference/formula/impurity/#solve_impurity_mixture_for_target_zeff"><code>solve_impurity_mixture_for_target_zeff</code></a></td><td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td><td>Impurity and main-ion density fractions that give a target effective charge.
+</td></tr>
+  <tr data-ref-row="dimension_matrix dimensional"><td><a href="/vaft/develop/reference/formula/dimensional/#dimension_matrix"><code>dimension_matrix</code></a></td><td><a href="/vaft/develop/reference/formula/dimensional/">dimensional</a></td><td>Dimension matrix $D$ of a list of variables, exactly.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="dimensionless_groups dimensional"><td><a href="/vaft/develop/reference/formula/dimensional/#dimensionless_groups"><code>dimensionless_groups</code></a></td><td><a href="/vaft/develop/reference/formula/dimensional/">dimensional</a></td><td>A basis of the Buckingham-Pi groups of a set of variables: $\ker D$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="express_in_basis dimensional"><td><a href="/vaft/develop/reference/formula/dimensional/#express_in_basis"><code>express_in_basis</code></a></td><td><a href="/vaft/develop/reference/formula/dimensional/">dimensional</a></td><td>Exact coefficients $\mathbf c$ with $\mathbf t = \sum_k c_k \mathbf b_k$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="monomial_dimension dimensional"><td><a href="/vaft/develop/reference/formula/dimensional/#monomial_dimension"><code>monomial_dimension</code></a></td><td><a href="/vaft/develop/reference/formula/dimensional/">dimensional</a></td><td>Base dimensions of the monomial $\prod_j x_j^{a_j}$: $D\mathbf a$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="rational_null_space dimensional"><td><a href="/vaft/develop/reference/formula/dimensional/#rational_null_space"><code>rational_null_space</code></a></td><td><a href="/vaft/develop/reference/formula/dimensional/">dimensional</a></td><td>Exact basis of the null space ${\mathbf a : M\mathbf a = 0}$ of a rational matrix.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="similarity_constraint_vectors dimensional"><td><a href="/vaft/develop/reference/formula/dimensional/#similarity_constraint_vectors"><code>similarity_constraint_vectors</code></a></td><td><a href="/vaft/develop/reference/formula/dimensional/">dimensional</a></td><td>Linear constraints a law depending only on <code class="language-plaintext highlighter-rouge">kept_groups</code> imposes on its exponents.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="state_exponents_from_engineering_exponents dimensional"><td><a href="/vaft/develop/reference/formula/dimensional/#state_exponents_from_engineering_exponents"><code>state_exponents_from_engineering_exponents</code></a></td><td><a href="/vaft/develop/reference/formula/dimensional/">dimensional</a></td><td>Exponents of $\tau_E$ over $(n, T, B, R)$ implied by an engineering scaling, exactly.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="finite_difference_jacobian sensitivity"><td><a href="/vaft/develop/reference/formula/sensitivity/#finite_difference_jacobian"><code>finite_difference_jacobian</code></a></td><td><a href="/vaft/develop/reference/formula/sensitivity/">sensitivity</a></td><td>Jacobian of a vector function by forward or central differences.
+</td></tr>
+  <tr data-ref-row="linear_covariance_propagation sensitivity"><td><a href="/vaft/develop/reference/formula/sensitivity/#linear_covariance_propagation"><code>linear_covariance_propagation</code></a></td><td><a href="/vaft/develop/reference/formula/sensitivity/">sensitivity</a></td><td>Output covariance of a linearized model, correlations included.
+</td></tr>
+  <tr data-ref-row="linearity_ratio sensitivity"><td><a href="/vaft/develop/reference/formula/sensitivity/#linearity_ratio"><code>linearity_ratio</code></a></td><td><a href="/vaft/develop/reference/formula/sensitivity/">sensitivity</a></td><td>How much of a finite response the linearization misses.
+</td></tr>
+  <tr data-ref-row="monte_carlo_propagation sensitivity"><td><a href="/vaft/develop/reference/formula/sensitivity/#monte_carlo_propagation"><code>monte_carlo_propagation</code></a></td><td><a href="/vaft/develop/reference/formula/sensitivity/">sensitivity</a></td><td>Output mean and covariance by sampling Gaussian inputs through the full model.
+</td></tr>
+  <tr data-ref-row="singular_value_spectrum sensitivity"><td><a href="/vaft/develop/reference/formula/sensitivity/#singular_value_spectrum"><code>singular_value_spectrum</code></a></td><td><a href="/vaft/develop/reference/formula/sensitivity/">sensitivity</a></td><td>Singular values, numerical rank and null space of a (column-scaled) Jacobian.
 </td></tr>
   </tbody>
 </table></div>
@@ -1654,7 +1718,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 14:01:13 +0000"
+        "time": "2026-10-06 18:29:01 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

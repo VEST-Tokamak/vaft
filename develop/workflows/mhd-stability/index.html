@@ -151,6 +151,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
                     
                         <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
@@ -184,6 +190,12 @@
                     <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
                     
                         <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
                     </li>
                 
                     
@@ -300,7 +312,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>31eea12</code>. What is described
+  <code>4b88523</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -363,6 +375,10 @@ how to run the codes.</p>
 <p>Which mode family each tool addresses (interchange and Mercier, ballooning, kink and peeling, tearing and
 its parity channels), and why their criteria are not one severity scale, is on
 <a href="/vaft/develop/reference/geometric-approximations/#mhd-mode-representations-across-geometries">MHD mode representations across geometries</a>.</p>
+
+<p>What each criterion assumes and proves — exact definition, reduced model, empirical boundary, heuristic or
+solver-derived — is inventoried on
+<a href="/vaft/develop/reference/reduced-stability-diagnostics/">Reduced stability diagnostics</a>.</p>
 
 <hr />
 
@@ -820,6 +836,8 @@ which produce the refined equilibria the GPEC suite consumes — see the
   <li><a href="/vaft/develop/guide/Equilibrium/">Equilibrium</a> — producing the equilibrium the codes consume.</li>
   <li><a href="/vaft/develop/reference/geometric-approximations/#mhd-mode-representations-across-geometries">MHD mode representations across geometries</a>
 — how slab, cylindrical and toroidal mode families relate, and which tool sits where.</li>
+  <li><a href="/vaft/develop/reference/reduced-stability-diagnostics/">Reduced stability diagnostics</a> — the
+logical status, assumptions and validation path of every analytic and reduced criterion.</li>
   <li><a href="/vaft/develop/guide/Data_structures/">Data structures (ODS, IDS, IMAS)</a> — where <code class="language-plaintext highlighter-rouge">beta_normal</code>,
 <code class="language-plaintext highlighter-rouge">q_95</code> and the rest of <code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].global_quantities</code> live.</li>
   <li>Source: <a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/formula/stability.py"><code class="language-plaintext highlighter-rouge">vaft/formula/stability.py</code></a>
@@ -1164,7 +1182,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 14:01:13 +0000"
+        "time": "2026-10-06 18:29:01 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -1,0 +1,1188 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: sensitivity · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/credibility-applicability/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/reduced-stability-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: sensitivity</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>4b88523</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_sensitivity">Formula reference: sensitivity</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.sensitivity, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.sensitivity</code>:
+<strong>5</strong> public functions. Each entry is what
+<code>vaft.formula.describe("sensitivity.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The mathematics shared by every VAFT domain that linearizes something: a
+Jacobian by finite differences, covariance pushed through a Jacobian, the
+same push by sampling, the singular-value spectrum of a Jacobian, and a test
+of whether the linearization still describes a finite step.</p>
+
+<ul>
+  <li>A forward model <code class="language-plaintext highlighter-rouge">f</code> maps a 1-D parameter vector <code class="language-plaintext highlighter-rouge">x</code> [n] to a 1-D output
+vector <code class="language-plaintext highlighter-rouge">y</code> [m]; a scalar output is treated as <code class="language-plaintext highlighter-rouge">m = 1</code>.  The Jacobian is
+<code class="language-plaintext highlighter-rouge">J[i, j] = dy_i/dx_j</code> with shape <code class="language-plaintext highlighter-rouge">(m, n)</code>.</li>
+  <li>Nothing here knows what the parameters mean.  Which perturbation is
+physical, which step is admissible and what the derivative is <em>for</em> belong to
+the domain that owns <code class="language-plaintext highlighter-rouge">f</code> (#1642 s12); interpreting the result belongs to
+<code class="language-plaintext highlighter-rouge">vaft.validation.sensitivity</code>.</li>
+  <li>Every function is cheap except <code class="language-plaintext highlighter-rouge">monte_carlo_propagation</code>, which calls
+<code class="language-plaintext highlighter-rouge">f</code> once per sample and is therefore never invoked by anything else in
+VAFT: it exists to be called explicitly (#1639 s8).</li>
+</ul>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 5 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="finite_difference_jacobian"><td><a href="#finite_difference_jacobian"><code>finite_difference_jacobian</code></a></td><td>Jacobian of a vector function by forward or central differences.
+</td></tr>
+  <tr data-ref-row="linear_covariance_propagation"><td><a href="#linear_covariance_propagation"><code>linear_covariance_propagation</code></a></td><td>Output covariance of a linearized model, correlations included.
+</td></tr>
+  <tr data-ref-row="linearity_ratio"><td><a href="#linearity_ratio"><code>linearity_ratio</code></a></td><td>How much of a finite response the linearization misses.
+</td></tr>
+  <tr data-ref-row="monte_carlo_propagation"><td><a href="#monte_carlo_propagation"><code>monte_carlo_propagation</code></a></td><td>Output mean and covariance by sampling Gaussian inputs through the full model.
+</td></tr>
+  <tr data-ref-row="singular_value_spectrum"><td><a href="#singular_value_spectrum"><code>singular_value_spectrum</code></a></td><td>Singular values, numerical rank and null space of a (column-scaled) Jacobian.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="finite_difference_jacobian" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#finite_difference_jacobian"><code>finite_difference_jacobian</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="finite_difference_jacobian" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/formula/sensitivity.py#L41-L115" title="vaft/formula/sensitivity.py, lines 41–115 at 4b88523">source</a>
+</header>
+    <pre class="ref-signature"><code>finite_difference_jacobian(f, x, step=None, scheme=&#39;central&#39;)</code></pre>
+    <details class="ref-code" data-source-code="finite_difference_jacobian"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 41–115</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">finite_difference_jacobian</span><span class="p">(</span>
+    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">step</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">scheme</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">central</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Jacobian of a vector function by forward or central differences.
+
+    $$J_{ij} \approx \frac{f_i(x + h_j e_j) - f_i(x - h_j e_j)}{2 h_j}
+      \quad\text{(central)}, \qquad
+      J_{ij} \approx \frac{f_i(x + h_j e_j) - f_i(x)}{h_j} \quad\text{(forward)}$$
+
+    Parameters
+    ----------
+    f : callable
+        Forward model taking a parameter vector and returning an output vector [any].
+    x : array-like
+        Point of linearization [any].
+    step : float or array-like, optional
+        Absolute step per parameter; default
+        $h_j = \epsilon^{1/3}\max(1, |x_j|)$ (central) or
+        $\epsilon^{1/2}\max(1, |x_j|)$ (forward) [any].
+    scheme : str, optional
+        ``</span><span class="sh">"</span><span class="s">central</span><span class="sh">"</span><span class="s">`` (second order) or ``</span><span class="sh">"</span><span class="s">forward</span><span class="sh">"</span><span class="s">`` (first order); either
+        costs n + 1 or 2n + 1 evaluations, the extra one fixing the output
+        size [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        ``(m, n)`` Jacobian [any].
+
+    Raises
+    ------
+    ValueError
+        On an unknown scheme or a non-positive step.
+
+    Numerical notes
+    ---------------
+    The default steps balance truncation against round-off for a model
+    evaluated to machine precision.  They are absolute and floored at one
+    unit, so a parameter far below unit magnitude (``1e-8``) is stepped far
+    beyond its own size -- possibly across a domain edge such as a sign or a
+    logarithm; give such a parameter its own ``step``.  A model with its own solver tolerance
+    (an iterative equilibrium, an external code) needs a step well above that
+    tolerance, chosen by its owner: a finite difference across a convergence
+    threshold measures the solver, not the physics (#1642 s18).
+
+    References
+    ----------
+    .. [1] J. Nocedal and S. J. Wright, *Numerical Optimization*, 2nd ed.,
+           Springer (2006), Sec. 8.1.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">scheme</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="sh">"</span><span class="s">central</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">forward</span><span class="sh">"</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">scheme must be </span><span class="sh">'</span><span class="s">central</span><span class="sh">'</span><span class="s"> or </span><span class="sh">'</span><span class="s">forward</span><span class="sh">'</span><span class="s">, got </span><span class="si">{</span><span class="n">scheme</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="nf">_vector</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">).</span><span class="n">eps</span>
+    <span class="k">if</span> <span class="n">step</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="p">(</span><span class="n">eps</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span> <span class="k">if</span> <span class="n">scheme</span> <span class="o">==</span> <span class="sh">"</span><span class="s">central</span><span class="sh">"</span> <span class="k">else</span> <span class="n">eps</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">x0</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_to</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">x0</span><span class="p">.</span><span class="n">shape</span><span class="p">).</span><span class="nf">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">h</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">h</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">finite-difference steps must be finite and positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">f0</span> <span class="o">=</span> <span class="nf">_vector</span><span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">x0</span><span class="p">.</span><span class="nf">copy</span><span class="p">()))</span>
+    <span class="n">jac</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">empty</span><span class="p">((</span><span class="n">f0</span><span class="p">.</span><span class="n">size</span><span class="p">,</span> <span class="n">x0</span><span class="p">.</span><span class="n">size</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">x0</span><span class="p">.</span><span class="n">size</span><span class="p">):</span>
+        <span class="n">up</span> <span class="o">=</span> <span class="n">x0</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+        <span class="n">up</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">scheme</span> <span class="o">==</span> <span class="sh">"</span><span class="s">central</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">down</span> <span class="o">=</span> <span class="n">x0</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+            <span class="n">down</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+            <span class="n">jac</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nf">_vector</span><span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">up</span><span class="p">))</span> <span class="o">-</span> <span class="nf">_vector</span><span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">down</span><span class="p">)))</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">jac</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nf">_vector</span><span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">up</span><span class="p">))</span> <span class="o">-</span> <span class="n">f0</span><span class="p">)</span> <span class="o">/</span> <span class="n">h</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">jac</span></code></pre></figure>
+
+</details>
+
+    <p>Jacobian of a vector function by forward or central differences.</p>
+
+\[J_{ij} \approx \frac{f_i(x + h_j e_j) - f_i(x - h_j e_j)}{2 h_j}
+  \quad\text{(central)}, \qquad
+  J_{ij} \approx \frac{f_i(x + h_j e_j) - f_i(x)}{h_j} \quad\text{(forward)}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>f</code></td><td class="ref-type">callable</td><td class="ref-unit">any</td><td><p>Forward model taking a parameter vector and returning an output vector.</p>
+</td></tr>
+  <tr><td><code>x</code></td><td class="ref-type">array-like</td><td class="ref-unit">any</td><td><p>Point of linearization.</p>
+</td></tr>
+  <tr><td><code>step</code></td><td class="ref-type">float or array-like, optional</td><td class="ref-unit">any</td><td><table>
+  <tbody>
+    <tr>
+      <td>Absolute step per parameter; default $h_j = \epsilon^{1/3}\max(1,</td>
+      <td>x_j</td>
+      <td>)$ (central) or $\epsilon^{1/2}\max(1,</td>
+      <td>x_j</td>
+      <td>)$ (forward).</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  <tr><td><code>scheme</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"central"</code> (second order) or <code class="language-plaintext highlighter-rouge">"forward"</code> (first order); either costs n + 1 or 2n + 1 evaluations, the extra one fixing the output size.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">(m, n)</code> Jacobian.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> On an unknown scheme or a non-positive step.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Numerical notes</h4>
+
+      <p>The default steps balance truncation against round-off for a model
+evaluated to machine precision.  They are absolute and floored at one
+unit, so a parameter far below unit magnitude (<code class="language-plaintext highlighter-rouge">1e-8</code>) is stepped far
+beyond its own size – possibly across a domain edge such as a sign or a
+logarithm; give such a parameter its own <code class="language-plaintext highlighter-rouge">step</code>.  A model with its own solver tolerance
+(an iterative equilibrium, an external code) needs a step well above that
+tolerance, chosen by its owner: a finite difference across a convergence
+threshold measures the solver, not the physics (#1642 s18).</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Nocedal and S. J. Wright, <em>Numerical Optimization</em>, 2nd ed., Springer (2006), Sec. 8.1.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="linear_covariance_propagation" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#linear_covariance_propagation"><code>linear_covariance_propagation</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="linear_covariance_propagation" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/formula/sensitivity.py#L131-L168" title="vaft/formula/sensitivity.py, lines 131–168 at 4b88523">source</a>
+</header>
+    <pre class="ref-signature"><code>linear_covariance_propagation(jacobian, covariance)</code></pre>
+    <details class="ref-code" data-source-code="linear_covariance_propagation"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 131–168</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">linear_covariance_propagation</span><span class="p">(</span><span class="n">jacobian</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">covariance</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Output covariance of a linearized model, correlations included.
+
+    $$\Sigma_y = J\,\Sigma_x\,J^{\mathsf T}$$
+
+    Parameters
+    ----------
+    jacobian : array-like
+        ``(m, n)`` sensitivity matrix [any].
+    covariance : array-like
+        ``(n, n)`` input covariance; a 1-D array is read as independent
+        variances [any].
+
+    Returns
+    -------
+    numpy.ndarray
+        ``(m, m)`` output covariance, symmetrized [any].
+
+    Raises
+    ------
+    ValueError
+        When the shapes do not agree or the input covariance is not symmetric
+        to round-off (relative ``1e-12`` of its largest entry).
+
+    Assumptions
+    -----------
+    The model is linear over the spread of the inputs; :func:`linearity_ratio`
+    and :func:`monte_carlo_propagation` test that.
+
+    References
+    ----------
+    .. [1] JCGM 100:2008, *Evaluation of measurement data -- Guide to the
+           expression of uncertainty in measurement*, Sec. 5.2, Eq. (13).
+    </span><span class="sh">"""</span>
+    <span class="n">jac</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_2d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">jacobian</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="n">cov</span> <span class="o">=</span> <span class="nf">_covariance</span><span class="p">(</span><span class="n">covariance</span><span class="p">,</span> <span class="n">jac</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">jac</span> <span class="o">@</span> <span class="n">cov</span> <span class="o">@</span> <span class="n">jac</span><span class="p">.</span><span class="n">T</span>
+    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">out</span> <span class="o">+</span> <span class="n">out</span><span class="p">.</span><span class="n">T</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Output covariance of a linearized model, correlations included.</p>
+
+\[\Sigma_y = J\,\Sigma_x\,J^{\mathsf T}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>jacobian</code></td><td class="ref-type">array-like</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">(m, n)</code> sensitivity matrix.</p>
+</td></tr>
+  <tr><td><code>covariance</code></td><td class="ref-type">array-like</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">(n, n)</code> input covariance; a 1-D array is read as independent variances.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">(m, m)</code> output covariance, symmetrized.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> When the shapes do not agree or the input covariance is not symmetric to round-off (relative <code class="language-plaintext highlighter-rouge">1e-12</code> of its largest entry).
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>The model is linear over the spread of the inputs; <code class="language-plaintext highlighter-rouge">linearity_ratio</code>
+and <code class="language-plaintext highlighter-rouge">monte_carlo_propagation</code> test that.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>JCGM 100:2008, <em>Evaluation of measurement data – Guide to the expression of uncertainty in measurement</em>, Sec. 5.2, Eq. (13).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="linearity_ratio" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#linearity_ratio"><code>linearity_ratio</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="linearity_ratio" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/formula/sensitivity.py#L320-L368" title="vaft/formula/sensitivity.py, lines 320–368 at 4b88523">source</a>
+</header>
+    <pre class="ref-signature"><code>linearity_ratio(f, x, step, jacobian, output_scale=None)</code></pre>
+    <details class="ref-code" data-source-code="linearity_ratio"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 320–368</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">linearity_ratio</span><span class="p">(</span>
+    <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">step</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">jacobian</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">output_scale</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">How much of a finite response the linearization misses.
+
+    $$r = \frac{\lVert W(f(x + \delta) - f(x) - J\delta)\rVert}{\lVert W(f(x + \delta) - f(x))\rVert},
+      \qquad W = \operatorname{diag}(1/s_i)$$
+
+    Parameters
+    ----------
+    f : callable
+        Forward model [any].
+    x : array-like
+        Point of linearization [any].
+    step : array-like
+        Finite perturbation $\delta$, typically one standard deviation along
+        a direction of interest [any].
+    jacobian : array-like
+        $J$ at ``x`` [any].
+    output_scale : array-like, optional
+        Typical magnitude $s_i$ per output, so outputs in different units
+        weigh alike; default unweighted [any].
+
+    Returns
+    -------
+    float
+        $r$; 0 for an exactly linear response, of order 1 when the local
+        Jacobian no longer describes the step; ``nan`` when the response is
+        zero [-].
+
+    Assumptions
+    -----------
+    One direction is tested per call; a model can be linear along one and not
+    another.
+    </span><span class="sh">"""</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="nf">_vector</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="nf">_vector</span><span class="p">(</span><span class="n">step</span><span class="p">)</span>
+    <span class="n">f0</span> <span class="o">=</span> <span class="nf">_vector</span><span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">x0</span><span class="p">.</span><span class="nf">copy</span><span class="p">()))</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="nf">_vector</span><span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">delta</span><span class="p">))</span> <span class="o">-</span> <span class="n">f0</span>
+    <span class="n">predicted</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_2d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">jacobian</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span> <span class="o">@</span> <span class="n">delta</span>
+    <span class="n">weight</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">response</span><span class="p">)</span> <span class="k">if</span> <span class="n">output_scale</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="nf">_vector</span><span class="p">(</span><span class="n">output_scale</span><span class="p">)</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">weight</span> <span class="o">*</span> <span class="n">response</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">norm</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">norm</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="sh">"</span><span class="s">nan</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">weight</span> <span class="o">*</span> <span class="p">(</span><span class="n">response</span> <span class="o">-</span> <span class="n">predicted</span><span class="p">))</span> <span class="o">/</span> <span class="n">norm</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>How much of a finite response the linearization misses.</p>
+
+\[r = \frac{\lVert W(f(x + \delta) - f(x) - J\delta)\rVert}{\lVert W(f(x + \delta) - f(x))\rVert},
+  \qquad W = \operatorname{diag}(1/s_i)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>f</code></td><td class="ref-type">callable</td><td class="ref-unit">any</td><td><p>Forward model.</p>
+</td></tr>
+  <tr><td><code>x</code></td><td class="ref-type">array-like</td><td class="ref-unit">any</td><td><p>Point of linearization.</p>
+</td></tr>
+  <tr><td><code>step</code></td><td class="ref-type">array-like</td><td class="ref-unit">any</td><td><p>Finite perturbation $\delta$, typically one standard deviation along a direction of interest.</p>
+</td></tr>
+  <tr><td><code>jacobian</code></td><td class="ref-type">array-like</td><td class="ref-unit">any</td><td><p>$J$ at <code class="language-plaintext highlighter-rouge">x</code>.</p>
+</td></tr>
+  <tr><td><code>output_scale</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">any</td><td><p>Typical magnitude $s_i$ per output, so outputs in different units weigh alike; default unweighted.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$r$; 0 for an exactly linear response, of order 1 when the local Jacobian no longer describes the step; <code class="language-plaintext highlighter-rouge">nan</code> when the response is zero.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Assumptions</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>One direction is tested per call; a model can be linear along one and not
+another.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="monte_carlo_propagation" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#monte_carlo_propagation"><code>monte_carlo_propagation</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="monte_carlo_propagation" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/formula/sensitivity.py#L171-L254" title="vaft/formula/sensitivity.py, lines 171–254 at 4b88523">source</a>
+</header>
+    <pre class="ref-signature"><code>monte_carlo_propagation(f, mean, covariance, samples=2000, seed=0)</code></pre>
+
+    <p>Output mean and covariance by sampling Gaussian inputs through the full model.</p>
+
+\[x^{(k)} \sim \mathcal N(\mu, \Sigma_x), \qquad
+  \hat\Sigma_y = \frac{1}{K-1}\sum_k (y^{(k)} - \bar y)(y^{(k)} - \bar y)^{\mathsf T}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>f</code></td><td class="ref-type">callable</td><td class="ref-unit">any</td><td><p>Forward model, called once per sample.</p>
+</td></tr>
+  <tr><td><code>mean</code></td><td class="ref-type">array-like</td><td class="ref-unit">any</td><td><p>Input mean.</p>
+</td></tr>
+  <tr><td><code>covariance</code></td><td class="ref-type">array-like</td><td class="ref-unit">any</td><td><p>Input covariance, positive semi-definite; 1-D means independent variances.</p>
+</td></tr>
+  <tr><td><code>samples</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Number of draws $K$.</p>
+</td></tr>
+  <tr><td><code>seed</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Seed of the NumPy generator, so a result is reproducible.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">mean</code> and <code class="language-plaintext highlighter-rouge">covariance</code> of the finite outputs, <code class="language-plaintext highlighter-rouge">samples</code> used, <code class="language-plaintext highlighter-rouge">rejected</code> (draws whose output was not finite or whose evaluation raised).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> When <code class="language-plaintext highlighter-rouge">samples</code> is below 2, or the covariance does not match the mean, is not symmetric, or is not positive semi-definite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Gaussian inputs.  Expensive: <code class="language-plaintext highlighter-rouge">samples</code> model evaluations, so it is never
+called implicitly (#1639 s8); the cost is the caller’s decision.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The statistics are over the <em>accepted</em> draws only, so a model that fails
+on part of the input distribution yields a covariance conditioned on
+success; <code class="language-plaintext highlighter-rouge">rejected</code> says how much was conditioned away.  An output with
+infinite variance (a pole inside the input distribution) has a sample
+covariance that does not converge with <code class="language-plaintext highlighter-rouge">samples</code>.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>JCGM 101:2008, <em>Propagation of distributions using a Monte Carlo method</em>, Sec. 7.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="singular_value_spectrum" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#singular_value_spectrum"><code>singular_value_spectrum</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="singular_value_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/formula/sensitivity.py#L257-L317" title="vaft/formula/sensitivity.py, lines 257–317 at 4b88523">source</a>
+</header>
+    <pre class="ref-signature"><code>singular_value_spectrum(jacobian, column_scale=None, rtol=None)</code></pre>
+    <details class="ref-code" data-source-code="singular_value_spectrum"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 257–317</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">singular_value_spectrum</span><span class="p">(</span>
+    <span class="n">jacobian</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
+    <span class="n">column_scale</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Singular values, numerical rank and null space of a (column-scaled) Jacobian.
+
+    $$J D = U \Sigma V^{\mathsf T}, \qquad
+      \operatorname{rank} = \#\{\sigma_k &gt; \tau\,\sigma_1\}, \qquad
+      \kappa = \sigma_1/\sigma_{\min}$$
+
+    Parameters
+    ----------
+    jacobian : array-like
+        ``(m, n)`` sensitivity matrix, ideally already weighted by the inverse
+        measurement uncertainty so its rows are commensurate [any].
+    column_scale : array-like, optional
+        Diagonal of $D$, e.g. a typical magnitude per parameter, making the
+        columns commensurate; default no scaling [any].
+    rtol : float, optional
+        Relative rank tolerance $\tau$; default $\max(m, n)\,\epsilon$ [-].
+
+    Returns
+    -------
+    dict
+        ``singular_values`` (descending), ``rank``, ``nullity`` (n - rank),
+        ``condition_number`` (inf when rank deficient), ``null_space``
+        (``(n, nullity)`` basis in the *unscaled* parameters) [any].
+
+    Raises
+    ------
+    ValueError
+        When the matrix is not finite or ``column_scale`` has a zero.
+
+    Numerical notes
+    ---------------
+    The SVD is taken of $JD$ itself, never of $J^{\mathsf T}J$, which would
+    square the condition number -- the practice of
+    :func:`vaft.code.efit.analyze_efit_identifiability`.
+
+    References
+    ----------
+    .. [1] G. H. Golub and C. F. Van Loan, *Matrix Computations*, 4th ed.,
+           Johns Hopkins (2013), Secs. 2.4 and 5.4.
+    </span><span class="sh">"""</span>
+    <span class="n">jac</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_2d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">jacobian</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">jac</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Jacobian must be finite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">jac</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">scale</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">if</span> <span class="n">column_scale</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="nf">_vector</span><span class="p">(</span><span class="n">column_scale</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">scale</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="n">n</span><span class="p">,)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">scale</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">scale</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">column_scale must be finite, non-zero and one per column</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">vt</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">svd</span><span class="p">(</span><span class="n">jac</span> <span class="o">*</span> <span class="n">scale</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">tol</span> <span class="o">=</span> <span class="p">(</span><span class="nf">max</span><span class="p">(</span><span class="n">jac</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">finfo</span><span class="p">(</span><span class="nb">float</span><span class="p">).</span><span class="n">eps</span><span class="p">)</span> <span class="k">if</span> <span class="n">rtol</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="nf">float</span><span class="p">(</span><span class="n">rtol</span><span class="p">)</span>
+    <span class="n">rank</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">sigma</span> <span class="o">&gt;</span> <span class="n">tol</span> <span class="o">*</span> <span class="n">sigma</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span> <span class="k">if</span> <span class="n">sigma</span><span class="p">.</span><span class="n">size</span> <span class="ow">and</span> <span class="n">sigma</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="n">null</span> <span class="o">=</span> <span class="p">(</span><span class="n">vt</span><span class="p">[</span><span class="n">rank</span><span class="p">:].</span><span class="n">T</span> <span class="o">*</span> <span class="n">scale</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">])</span> <span class="k">if</span> <span class="n">rank</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="k">else</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">null</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">null</span> <span class="o">=</span> <span class="n">null</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">null</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">condition</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">sigma</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">sigma</span><span class="p">[</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="n">n</span> <span class="k">else</span> <span class="nf">float</span><span class="p">(</span><span class="sh">"</span><span class="s">inf</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">singular_values</span><span class="sh">"</span><span class="p">:</span> <span class="n">sigma</span><span class="p">,</span> <span class="sh">"</span><span class="s">rank</span><span class="sh">"</span><span class="p">:</span> <span class="n">rank</span><span class="p">,</span> <span class="sh">"</span><span class="s">nullity</span><span class="sh">"</span><span class="p">:</span> <span class="n">n</span> <span class="o">-</span> <span class="n">rank</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">condition_number</span><span class="sh">"</span><span class="p">:</span> <span class="n">condition</span><span class="p">,</span> <span class="sh">"</span><span class="s">null_space</span><span class="sh">"</span><span class="p">:</span> <span class="n">null</span><span class="p">}</span></code></pre></figure>
+
+</details>
+
+    <p>Singular values, numerical rank and null space of a (column-scaled) Jacobian.</p>
+
+\[J D = U \Sigma V^{\mathsf T}, \qquad
+  \operatorname{rank} = \#\{\sigma_k &gt; \tau\,\sigma_1\}, \qquad
+  \kappa = \sigma_1/\sigma_{\min}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>jacobian</code></td><td class="ref-type">array-like</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">(m, n)</code> sensitivity matrix, ideally already weighted by the inverse measurement uncertainty so its rows are commensurate.</p>
+</td></tr>
+  <tr><td><code>column_scale</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">any</td><td><p>Diagonal of $D$, e.g. a typical magnitude per parameter, making the columns commensurate; default no scaling.</p>
+</td></tr>
+  <tr><td><code>rtol</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Relative rank tolerance $\tau$; default $\max(m, n)\,\epsilon$.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">singular_values</code> (descending), <code class="language-plaintext highlighter-rouge">rank</code>, <code class="language-plaintext highlighter-rouge">nullity</code> (n - rank), <code class="language-plaintext highlighter-rouge">condition_number</code> (inf when rank deficient), <code class="language-plaintext highlighter-rouge">null_space</code> (<code class="language-plaintext highlighter-rouge">(n, nullity)</code> basis in the <em>unscaled</em> parameters).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> When the matrix is not finite or <code class="language-plaintext highlighter-rouge">column_scale</code> has a zero.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Numerical notes · References</summary>
+
+      <h4 class="ref-label no_toc">Numerical notes</h4>
+
+      <p>The SVD is taken of $JD$ itself, never of $J^{\mathsf T}J$, which would
+square the condition number – the practice of
+<code class="language-plaintext highlighter-rouge">vaft.code.efit.analyze_efit_identifiability</code>.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>G. H. Golub and C. F. Van Loan, <em>Matrix Computations</em>, 4th ed., Johns Hopkins (2013), Secs. 2.4 and 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/credibility-applicability/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Credibility and applicability">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: Reduced stability diagnostics">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Reduced stability diagnostics",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Reduced_stability_diagnostics.md",
+            "ref": "_guide/Reduced_stability_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_sensitivity.md",
+        "mtime": "2026-10-05 09:30:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-06 18:29:01 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

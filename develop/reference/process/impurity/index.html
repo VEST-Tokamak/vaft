@@ -151,6 +151,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
                     
                         <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
@@ -184,6 +190,12 @@
                     <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
                     
                         <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
                     </li>
                 
                     
@@ -300,7 +312,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>31eea12</code>. What is described
+  <code>4b88523</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -419,7 +431,7 @@ composition (#1566).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#charge_state_moments"><code>charge_state_moments</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="charge_state_moments" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L1347-L1438" title="vaft/process/impurity.py, lines 1347–1438 at 31eea12">source</a>
+<a class="ref-source" data-source="charge_state_moments" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L1347-L1438" title="vaft/process/impurity.py, lines 1347–1438 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>charge_state_moments(element, te_eV, ne_m3, *, ionization=&#39;coronal&#39;, age_s=None, tables=None, cache_dir=None)</code></pre>
 
@@ -487,7 +499,7 @@ an impurity-transport solution (Aurora, #897).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#composition_from_fractions"><code>composition_from_fractions</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="composition_from_fractions" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L289-L356" title="vaft/process/impurity.py, lines 289–356 at 31eea12">source</a>
+<a class="ref-source" data-source="composition_from_fractions" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L289-L356" title="vaft/process/impurity.py, lines 289–356 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>composition_from_fractions(elements, fractions, charge_states, *, target_zeff, masses=None, main_ion=&#39;H&#39;, status=&#39;explicit&#39;, source=&#39;caller&#39;)</code></pre>
     <details class="ref-code" data-source-code="composition_from_fractions"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 289–356</span></summary>
@@ -619,7 +631,7 @@ charge state of each species is stated, never read off the atomic number.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#composition_from_model"><code>composition_from_model</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="composition_from_model" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L359-L406" title="vaft/process/impurity.py, lines 359–406 at 31eea12">source</a>
+<a class="ref-source" data-source="composition_from_model" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L359-L406" title="vaft/process/impurity.py, lines 359–406 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>composition_from_model(model, *, source=None)</code></pre>
     <details class="ref-code" data-source-code="composition_from_model"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 359–406</span></summary>
@@ -715,7 +727,7 @@ charge state of each species is stated, never read off the atomic number.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#composition_record_origin"><code>composition_record_origin</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="composition_record_origin" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L448-L474" title="vaft/process/impurity.py, lines 448–474 at 31eea12">source</a>
+<a class="ref-source" data-source="composition_record_origin" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L448-L474" title="vaft/process/impurity.py, lines 448–474 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>composition_record_origin(record)</code></pre>
     <details class="ref-code" data-source-code="composition_record_origin"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 448–474</span></summary>
@@ -780,7 +792,7 @@ charge state of each species is stated, never read off the atomic number.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#composition_record_text"><code>composition_record_text</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="composition_record_text" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L412-L445" title="vaft/process/impurity.py, lines 412–445 at 31eea12">source</a>
+<a class="ref-source" data-source="composition_record_text" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L412-L445" title="vaft/process/impurity.py, lines 412–445 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>composition_record_text(origin, method, **fields)</code></pre>
     <details class="ref-code" data-source-code="composition_record_text"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 412–445</span></summary>
@@ -862,7 +874,7 @@ charge state of each species is stated, never read off the atomic number.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#populate_impurity_profiles"><code>populate_impurity_profiles</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="populate_impurity_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L1119-L1255" title="vaft/process/impurity.py, lines 1119–1255 at 31eea12">source</a>
+<a class="ref-source" data-source="populate_impurity_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L1119-L1255" title="vaft/process/impurity.py, lines 1119–1255 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>populate_impurity_profiles(ods, resolved, *, time=None, tolerance=0.0005, method=None, write_zeff=True)</code></pre>
 
@@ -968,7 +980,7 @@ assumption noted only in the density record.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#populate_radial_impurity_profiles"><code>populate_radial_impurity_profiles</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="populate_radial_impurity_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L1681-L1828" title="vaft/process/impurity.py, lines 1681–1828 at 31eea12">source</a>
+<a class="ref-source" data-source="populate_radial_impurity_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L1681-L1828" title="vaft/process/impurity.py, lines 1681–1828 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>populate_radial_impurity_profiles(ods, radial, *, time=None, tolerance=0.0005, method=None)</code></pre>
 
@@ -1058,7 +1070,7 @@ closure).</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#populate_zeff_profile"><code>populate_zeff_profile</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="populate_zeff_profile" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L1053-L1116" title="vaft/process/impurity.py, lines 1053–1116 at 31eea12">source</a>
+<a class="ref-source" data-source="populate_zeff_profile" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L1053-L1116" title="vaft/process/impurity.py, lines 1053–1116 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>populate_zeff_profile(ods, resolved, *, time=None, tolerance=0.0005, method=None)</code></pre>
     <details class="ref-code" data-source-code="populate_zeff_profile"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 1053–1116</span></summary>
@@ -1195,7 +1207,7 @@ measured profile and record.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_impurity_composition"><code>resolve_impurity_composition</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resolve_impurity_composition" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L725-L913" title="vaft/process/impurity.py, lines 725–913 at 31eea12">source</a>
+<a class="ref-source" data-source="resolve_impurity_composition" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L725-L913" title="vaft/process/impurity.py, lines 725–913 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_impurity_composition(ods=None, *, time=None, tolerance=0.0005, composition=None, derived=None, machine_preset=None, shot=None, use_measured_zeff=True, resistive_zeff=None, info_file=None)</code></pre>
 
@@ -1300,7 +1312,7 @@ are not hydrogen isotopes plus impurities is skipped with its reason.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_radial_composition"><code>resolve_radial_composition</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resolve_radial_composition" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L1451-L1678" title="vaft/process/impurity.py, lines 1451–1678 at 31eea12">source</a>
+<a class="ref-source" data-source="resolve_radial_composition" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L1451-L1678" title="vaft/process/impurity.py, lines 1451–1678 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_radial_composition(te_eV, ne_m3, rho, elemental_weights, *, normalization=&#39;ne_weighted_mean&#39;, target_zeff=2.0, ionization=&#39;coronal&#39;, plasma_age_s=None, volume_weights=None, resistive_target=None, projection=None, coronal_tolerance=0.1, tables=None, cache_dir=None, time=None)</code></pre>
 
@@ -1411,7 +1423,7 @@ the one scale <code class="language-plaintext highlighter-rouge">c</code>; the n
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#surface_composition_profile"><code>surface_composition_profile</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="surface_composition_profile" href="https://github.com/VEST-Tokamak/vaft/blob/31eea12a7ed1416895f36a3baa7f6d37d44dcf5e/vaft/process/impurity.py#L1834-L1979" title="vaft/process/impurity.py, lines 1834–1979 at 31eea12">source</a>
+<a class="ref-source" data-source="surface_composition_profile" href="https://github.com/VEST-Tokamak/vaft/blob/4b8852399a226b57b8106ad95e450bf12f341d9b/vaft/process/impurity.py#L1834-L1979" title="vaft/process/impurity.py, lines 1834–1979 at 4b88523">source</a>
 </header>
     <pre class="ref-signature"><code>surface_composition_profile(profile, composition, r_over_a)</code></pre>
 
@@ -1716,7 +1728,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 14:01:13 +0000"
+        "time": "2026-10-06 18:29:01 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

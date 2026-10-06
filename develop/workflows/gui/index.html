@@ -151,6 +151,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
                     
                         <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
@@ -184,6 +190,12 @@
                     <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
                     
                         <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
                     </li>
                 
                     
@@ -300,7 +312,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>31eea12</code>. What is described
+  <code>4b88523</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -367,12 +379,30 @@ vaft gui <span class="nt">--workspace</span> database     <span class="c"># star
 screen (for a plot with a slice or time control), the database namespace and the state of the
 database connection. Errors from any workspace appear under that strip.</p>
 
-<p>In the <strong>Plots</strong> workspace, the sidebar holds the source picker and the plot selector in the sidebar, the plot’s controls
-beneath them, and the figure in the main area. Slices, channels, units and overlays appear
+<p>In the <strong>Plots</strong> workspace, the sidebar holds the source picker, the plot selector and the
+plot’s controls, and the figure fills the main area. Slices, channels, units and overlays appear
 only for plots that offer them. A value a plot cannot draw leaves the previous figure on screen
 and shows the reason above it.</p>
 
+<p>The plot selector is built from plot discovery (<code class="language-plaintext highlighter-rouge">available_plots</code>), not from a list kept in the
+GUI:</p>
+
 <ul>
+  <li><strong>Grouping and labels.</strong> Plots are grouped by subject, with the subject’s aliases, and labelled
+by view and quantity (<code class="language-plaintext highlighter-rouge">time / current</code> under <code class="language-plaintext highlighter-rouge">plasma_current [ip, ...]</code>). The canonical plot
+name stays the plot’s identity and is shown under <strong>About this plot</strong>.</li>
+  <li><strong>Search.</strong> The box above the selector narrows the list. It uses the registry’s own query, so
+<code class="language-plaintext highlighter-rouge">ip</code> finds the plasma current, plus a plain text match on names, labels and subjects. The plot
+on screen stays drawn while you search.</li>
+  <li><strong>Available / All supported.</strong> <strong>Available</strong> lists what the open source can draw. <strong>All
+supported</strong> adds every other plot VAFT has for this kind of data, marked <em>(unavailable)</em>.
+Choosing one draws nothing and shows discovery’s reason, for example the missing IDS path.
+With several database shots, a plot is available only when every shot can draw it, and the
+reason names the shot that cannot.</li>
+  <li>
+    <p><strong>About this plot.</strong> The discovery record behind the plot: description, canonical name and
+function, IDS read, backends, controls and interaction modes.</p>
+  </li>
   <li><strong>Files.</strong> Type server paths (one per line), pick them with <strong>Browse server files</strong> (the files
 of the machine the GUI runs on), or upload them from your own computer. Uploads are copied to a
 temporary folder on the server for the session (at most 512 MB per upload); select an IMAS
@@ -792,7 +822,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 14:01:13 +0000"
+        "time": "2026-10-06 18:29:01 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
