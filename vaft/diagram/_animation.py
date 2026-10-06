@@ -139,13 +139,15 @@ def draw_scene(scene: Any, *, ax: Any = None, figsize: tuple[float, float] = (9.
     Coordinates are the scene's own (TikZ centimetres), on equal axes with no
     frame: the diagram is a picture, not a plot.
     """
-    import matplotlib.pyplot as plt
+    from matplotlib.figure import Figure
     from matplotlib.patches import FancyArrowPatch, Polygon
 
     from ._scene import Arrow, Image, Label, Marker, Polyline
 
     if ax is None:
-        figure = plt.figure(figsize=figsize)
+        # A bare Figure, not pyplot's: vaft.diagram never registers figures
+        # with pyplot (test_no_pyplot_outside_plot), and a frame needs none.
+        figure = Figure(figsize=figsize)
         ax = figure.add_axes((0.0, 0.03, 1.0, 0.95))
     else:
         figure = ax.figure
