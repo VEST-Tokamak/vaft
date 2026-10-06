@@ -95,12 +95,24 @@ _COHORT_EXPORTS = (
     "summarize_by_cohort",
 )
 
+#: Equilibrium-quality cohorts (#1644): why a slice is good, admissible or
+#: unreconstructible, composed from the study criteria, the EFIT evidence and
+#: the generic report -- a review surface, not another status model.
+_QUALITY_EXPORTS = (
+    "efit_evidence_columns",
+    "equilibrium_quality_crosswalk",
+    "equilibrium_quality_failure_census",
+    "equilibrium_quality_summary",
+    "equilibrium_quality_table",
+)
+
 __all__ = [
     "CATEGORIES",
     "ValidationStatus",
     *_EQUILIBRIUM_EXPORTS,
     *_REGIME_EXPORTS,
     *_COHORT_EXPORTS,
+    *_QUALITY_EXPORTS,
     *_EVIDENCE_EXPORTS,
     *_ARTIFACT_EXPORTS,
 ]
@@ -141,6 +153,13 @@ def __getattr__(name: str):
         from . import equilibrium_cohorts
 
         value = getattr(equilibrium_cohorts, name)
+        globals()[name] = value
+        return value
+
+    if name in _QUALITY_EXPORTS:
+        from . import equilibrium_quality
+
+        value = getattr(equilibrium_quality, name)
         globals()[name] = value
         return value
 

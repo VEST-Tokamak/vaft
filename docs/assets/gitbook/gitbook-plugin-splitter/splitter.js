@@ -77,6 +77,13 @@ require(['gitbook', 'jQuery'], function (gitbook, $) {
 		});
 
 		$body.on('mouseup', function (event) {
+			// Only a drag of the divider is the splitter's to end. Swallowing every
+			// mouseup kept it from reaching window, where Cytoscape (the generated
+			// graph pages) ends a press: a clicked node stayed grabbed and followed
+			// the pointer. mousemove below already returns when not dragging.
+			if (!isDraggable) {
+				return;
+			}
 			event.stopPropagation();
 			isDraggable = false;
 			saveSplitState(

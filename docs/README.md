@@ -33,6 +33,19 @@ is whatever its own `generators.yml` declares:
 | `/reference/plot/` | `vaft.plot.docs_catalog` | no | yes |
 | `/reference/diagram/` | `vaft.diagram.docs_catalog` | no | yes |
 | `/reference/api/<page>/` | `vaft._api_catalog` | no | yes |
+| `/reference/dependency-graph/` | `vaft._dependency_graph` | no | yes |
+
+`vaft._dependency_graph` (#1646) needs Grimp, the optional `architecture`
+extra (`pip install -e ".[architecture]"`; also in `[dev]`). Without it the
+generator stops with that install hint instead of falling back to another
+analyser, and `import vaft` never needs it. `--check` compares an existing
+snapshot with what the tree derives. The page renders it with the shared graph
+viewer in `assets/graph/` and Cytoscape.js, vendored under `assets/lib/`:
+the version is pinned in `package.json`, and `assets/lib/vendor.yml` records
+the file's checksum, which `test/test_dependency_graph.py` verifies. To upgrade,
+bump the pin, copy `dist/cytoscape.min.js` from `npm pack cytoscape@<version>`
+into a new versioned directory, and update the manifest and
+`_includes/graph/viewer.html`.
 
 `main` gains the last two when a release carries the generators and its
 `generators.yml` declares them; nothing about the stable track changes before then.
@@ -130,7 +143,7 @@ npm run test:docs:develop
 
 `_data/vest_diagnostics.yml`, `_data/formula_catalog.yml`,
 `_data/process_catalog.yml`, `_data/plot_catalog.yml`,
-`_data/diagram_catalog.yml`, `_data/api_catalog.yml` and `_data/provenance.yml` are generated and are
+`_data/diagram_catalog.yml`, `_data/api_catalog.yml`, `_data/dependency_graph.yml` and `_data/provenance.yml` are generated and are
 not committed. `generators.yml`
 declares which generators this branch has, which is why that file differs
 between `main` and `develop`.
@@ -158,6 +171,8 @@ Linux renderer.
 | `_pages/` | the `pages` collection (About, Contact) |
 | `_includes/`, `_layouts/` | vendored theme partials, locally modified |
 | `assets/` | images and theme assets |
+| `assets/graph/`, `_includes/graph/` | the shared interactive graph viewer and its per-graph adapters |
+| `assets/lib/` | pinned third-party browser libraries (`vendor.yml` records version and checksum) |
 | `scripts/validate_docs.rb` | the validator that `build.py` and `npm run test:docs` run |
 | `scripts/catalog_coverage.py` | the public-surface check `build.py` runs after the generators |
 | `build.py`, `generators.yml` | the build and publish pipeline |

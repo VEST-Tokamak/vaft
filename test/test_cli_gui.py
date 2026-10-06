@@ -49,8 +49,18 @@ def test_arguments_reach_serve(monkeypatch):
     assert calls == [{
         "address": "127.0.0.1", "port": 5010, "show": False,
         "websocket_origin": ["vest:5010"], "auth": "auto", "sample": None, "file": None,
-        "shot": [41524, 41672], "namespace": "main", "plot": "plasma_current_time",
+        "shot": [41524, 41672], "namespace": "main", "plot": "plasma_current_time", "workspace": None,
     }]
+
+
+def test_the_first_workspace_is_checked_against_the_registry(monkeypatch, capsys):
+    pytest.importorskip("panel")
+    calls = []
+    monkeypatch.setattr("vaft.gui.app.serve", lambda **kwargs: calls.append(kwargs))
+    assert gui_cli.main(["--workspace", "database", "--no-show"]) == 0
+    assert calls[-1]["workspace"] == "database"
+    assert gui_cli.main(["--workspace", "nope", "--no-show"]) == 2
+    assert "plots, database" in capsys.readouterr().err and len(calls) == 1
 
 
 def test_sources_are_mutually_exclusive():
