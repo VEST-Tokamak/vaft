@@ -966,6 +966,10 @@ def build_diagnostics_ods(
     )
     grids["langmuir_probes"] = policy_grid("langmuir_probes")
     tf_policy = policies["tf"]
+    # Filled by the mapper: the TF-current acquisition excursions it replaced
+    # (#1543), so the manifest's `repaired` says what `tf.coil.0.current` no
+    # longer measures rather than a literal empty list.
+    tf_report: dict[str, Any] = {}
     run_component(
         "tf",
         ("tf",),
@@ -978,10 +982,14 @@ def build_diagnostics_ods(
                 tf_policy.tend,
                 tf_policy.dt,
                 raw_source=raw_path,
+                report=tf_report,
             ),
         ),
     )
     record_realized_grid("tf", "tf", "tf.time")
+    tf_repaired = [{"component": "tf", **entry} for entry in tf_report.get("repaired", [])]
+    if statuses["tf"]["status"] != "unavailable":
+        statuses["tf"]["repaired"] = tf_repaired
     processing = magnetics_processing_for_shot(shot, vest_magnetics_processing)
     magnetics_channels = [
         int(channel["field_code"])
@@ -1123,7 +1131,7 @@ def build_diagnostics_ods(
                     for coil in statuses.get("pf_active", {}).get("unacquired_channels", [])
                 ]
             ),
-            "repaired": [],
+            "repaired": tf_repaired,
             "disabled": _disabled_pf_coils(shot),
             "rejected": [],
             "unavailable": unavailable,
