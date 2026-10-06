@@ -134,6 +134,9 @@ PIPELINE = frozenset({
     "populate_radial_impurity_profiles",
     # impurity (Lane L PR 5): main ion -> lumped charge at the surface -> densities
     "surface_composition_profile",
+    # species (#1567): match -> nuclide/charge/population per ion -> state
+    "species_state_from_core_profiles",
+    "project_species_state",
     # kinetic_closure (#1606): v_c -> tau_s -> n_f, W_f -> p_f; slice -> composition -> pressures
     "fast_ion_slowing_down_estimate",
     "infer_kinetic_closure",
@@ -303,6 +306,8 @@ STATEFUL = frozenset({
     "populate_impurity_profiles",
     "populate_radial_impurity_profiles",
     "surface_composition_profile",
+    # species (#1567): a core_profiles slice -> canonical components
+    "species_state_from_core_profiles",
     # kinetic_closure (#1606): a fitted slice -> derived kinetic densities and pressures
     "infer_kinetic_closure",
 })
@@ -650,6 +655,11 @@ CONVENTION_SENSITIVE = frozenset({
     "project_window_to_resistive_scalar",
     "flat_profile_from_resistive",
     "zeff_profile_for_state",
+    # species (#1567): population labels, dilution bases and per-target projection policy
+    "species_state_from_core_profiles",
+    "species_state_from_composition",
+    "composition_moments",
+    "project_species_state",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

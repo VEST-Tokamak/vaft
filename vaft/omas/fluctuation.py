@@ -196,7 +196,10 @@ def _camera_scalar(ods: Any, selection: DiagnosticSelection):
     time = np.empty(count)
     summed = np.empty(count)
     for index in range(count):
-        time[index] = float(path_value(ods, f"{prefix}.{index}.time"))
+        when = path_value(ods, f"{prefix}.{index}.time")
+        if when is None:
+            raise ValueError(f"{prefix}.{index}: time is missing")
+        time[index] = float(when)
         frame = path_value(ods, f"{prefix}.{index}.image_raw")
         if frame is None:
             raise ValueError(f"{prefix}.{index}: image_raw is missing")

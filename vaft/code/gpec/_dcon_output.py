@@ -506,6 +506,11 @@ def _namelist_float(values: dict[str, str], key: str) -> Optional[float]:
         return None
 
 
+#: DCON's ``psiedge`` when ``dcon.in`` omits the key (``dcon/dcon_mod.f:121``):
+#: the full edge, no truncation scan.
+DCON_DEFAULT_PSIEDGE = 1.0
+
+
 @dataclass
 class DconEvaluation:
     """Which local-stability criteria this DCON run was asked to evaluate.
@@ -549,6 +554,19 @@ class DconEvaluation:
     def ballooning(self) -> bool:
         """Whether ``ca1`` may be read as physics."""
         return self.bal_flag is True
+
+    @property
+    def requested_psiedge(self) -> Optional[float]:
+        """The ``psiedge`` the run asked for, with DCON's default filled in.
+
+        ``None`` only when no ``dcon.in`` was found (``source`` empty): then
+        nothing was asked for that can be named. A namelist that omits the key
+        asked for :data:`DCON_DEFAULT_PSIEDGE`, and every reader of the run
+        (the validation layer, the ``mhd_linear`` payload) must say so alike.
+        """
+        if self.source != "dcon.in":
+            return None
+        return DCON_DEFAULT_PSIEDGE if self.psiedge is None else float(self.psiedge)
 
     @classmethod
     def from_run_dir(cls, run_dir: Path) -> "DconEvaluation":

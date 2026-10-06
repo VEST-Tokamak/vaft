@@ -47,6 +47,7 @@ _SUBMODULES = {
     "boundaries": ".boundaries",
     "impurity": ".impurity",
     "dimensional": ".dimensional",
+    "sensitivity": ".sensitivity",
     "fast_ion": ".fast_ion",
     "kinetic": ".kinetic",
 }
@@ -84,6 +85,7 @@ _IMPORT_ORDER = (
     "boundaries",
     "impurity",
     "dimensional",
+    "sensitivity",
     "fast_ion",
     "kinetic",
 )

@@ -63,6 +63,7 @@ _SUBMODULES = {
     "transport_state": ".transport_state",
     "confinement": ".confinement",
     "impurity": ".impurity",
+    "species": ".species",
     "kinetic_closure": ".kinetic_closure",
     "zeff_projection": ".zeff_projection",
 }
@@ -122,6 +123,9 @@ _IMPORT_ORDER = (
     # One resolved impurity composition behind every Z_eff (#1565); nothing it
     # exports collides.
     "impurity",
+    # Canonical species/population state and its projections (#1567); nothing it
+    # exports collides.
+    "species",
     # Dilution-aware pressure and the classical fast-ion baseline (#1606); nothing
     # it exports collides.
     "kinetic_closure",
