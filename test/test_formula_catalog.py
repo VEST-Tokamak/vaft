@@ -73,11 +73,11 @@ def test_the_catalog_counts_the_known_public_surface():
         # 0.8.0 removed the two deprecated shims promised gone in it (#355, #760):
         # current_density_from_psi and the Z_eff-first bremsstrahlung spelling, 99 - 2 = 97.
         # #351 added the dimensionless-to-engineering inverse map: 97 + 1 = 98.
-        "equilibrium": 98,  # +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        "equilibrium": 101,  # +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
         "stability": 37,  # +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
-        "atomic": 8,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046)
+        "atomic": 11,  # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046), +mean square charge, transient abundances, coronal relaxation time (#1565)
         "statistics": 22,
         "magnetics": 2,
         # #781 child A: Romero's exact transformer identities.
@@ -107,6 +107,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
         "boundaries": 13,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580)
+        "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution (#1565)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 

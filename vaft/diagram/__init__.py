@@ -21,7 +21,8 @@ of the island: ``rational_surface``, ``delta_prime`` and
 ``normal_field_component``, ``complex_harmonic``, ``toroidal_harmonic_phase``,
 ``harmonic_real_space_projection`` and ``complex_field_superposition``;
 the classification ``collision_processes``; geometric approximations:
-``geometry_ordering_map``, ``field_line_geometry`` and ``mode_number_mapping``;
+``geometry_ordering_map``, ``field_line_geometry``, ``mode_number_mapping`` and
+``mhd_mode_geometry_map`` (#1574);
 tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
 ``hfs_lfs_field``, ``safety_factor_winding``, ``flux_coordinates``,
 ``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``;
@@ -34,8 +35,18 @@ modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 ``scientific_workflow``, ``interoperability_layers``,
 ``scientific_provenance_chain``, ``scientific_infrastructure_principles``,
 ``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``,
-``human_ai_interface`` and ``machine_research_archive``; the VEST data platform
-(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the spatial
+``human_ai_interface`` and ``machine_research_archive``; research
+infrastructure (#1636, #1638, #1640, #1641, #1643, #1645), fragmented
+against integrated pairs plus the research community and ownership:
+``scientific_representation``, ``experimental_research_infrastructure``,
+``scientific_credibility``, ``research_modality_architecture``,
+``fusion_research_ecosystem`` and ``scientific_ownership_architecture``; the VEST data platform
+(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the physics-workflow
+spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
+``resistive_zeff_inference``, ``magnetic_efit``, ``kinetic_efit``,
+``analytic_mhd_equilibrium``, ``chease_coupling``, ``tokamaker_coupling``,
+``dcon_rdcon_stability``, ``gpec_plasma_response``, ``flare_field_line_topology``,
+``neo_neoclassical`` and ``tglf_cgyro_local_transport``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``.
@@ -76,6 +87,7 @@ __all__ = [
     "geometry_ordering_map",
     "field_line_geometry",
     "mode_number_mapping",
+    "mhd_mode_geometry_map",
     "tokamak_torus",
     "flux_surfaces",
     "shaping_family",
@@ -194,8 +206,27 @@ __all__ = [
     "experiment_modeling_theory_data_network",
     "human_ai_interface",
     "machine_research_archive",
+    "scientific_representation",
+    "experimental_research_infrastructure",
+    "scientific_credibility",
+    "research_modality_architecture",
+    "fusion_research_ecosystem",
+    "scientific_ownership_architecture",
     "vest_data_platform",
     "vest_data_platform_overview",
+    "plasma_parameter_inference",
+    "romero_transformer_balance",
+    "resistive_zeff_inference",
+    "magnetic_efit",
+    "kinetic_efit",
+    "analytic_mhd_equilibrium",
+    "chease_coupling",
+    "tokamaker_coupling",
+    "dcon_rdcon_stability",
+    "gpec_plasma_response",
+    "flare_field_line_topology",
+    "neo_neoclassical",
+    "tglf_cgyro_local_transport",
     "tokamak_top_view",
     "cocos_orientation",
     "machine_and_equilibrium_geometry",
@@ -230,6 +261,7 @@ _LOCATIONS = {
     "geometry_ordering_map": "._geometry",
     "field_line_geometry": "._geometry",
     "mode_number_mapping": "._geometry",
+    "mhd_mode_geometry_map": "._mode_geometry",
     "tokamak_torus": "._tokamak_geometry",
     "flux_surfaces": "._tokamak_geometry",
     "shaping_family": "._tokamak_geometry",
@@ -348,8 +380,27 @@ _LOCATIONS = {
     "experiment_modeling_theory_data_network": "._vaft_concepts",
     "human_ai_interface": "._vaft_concepts",
     "machine_research_archive": "._vaft_concepts",
+    "scientific_representation": "._research_concepts",
+    "experimental_research_infrastructure": "._research_concepts",
+    "scientific_credibility": "._research_concepts",
+    "research_modality_architecture": "._research_concepts",
+    "fusion_research_ecosystem": "._research_concepts",
+    "scientific_ownership_architecture": "._research_concepts",
     "vest_data_platform": "._platform",
     "vest_data_platform_overview": "._platform",
+    "plasma_parameter_inference": "._workflow_specs",
+    "romero_transformer_balance": "._workflow_specs",
+    "resistive_zeff_inference": "._workflow_specs",
+    "magnetic_efit": "._workflow_specs",
+    "kinetic_efit": "._workflow_specs",
+    "analytic_mhd_equilibrium": "._workflow_specs",
+    "chease_coupling": "._workflow_specs",
+    "tokamaker_coupling": "._workflow_specs",
+    "dcon_rdcon_stability": "._workflow_specs",
+    "gpec_plasma_response": "._workflow_specs",
+    "flare_field_line_topology": "._workflow_specs",
+    "neo_neoclassical": "._workflow_specs",
+    "tglf_cgyro_local_transport": "._workflow_specs",
     "tokamak_top_view": "._spatial",
     "cocos_orientation": "._spatial",
     "machine_and_equilibrium_geometry": "._spatial",
