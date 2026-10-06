@@ -544,3 +544,15 @@ def test_an_override_still_changes_what_it_names():
     applied = magnetics_processing_for_shot(47946, {"flux_baseline_samples": 1000})
     assert applied.flux_baseline_samples == 1000
     assert applied.daq_mode == "native_daq"
+
+
+def test_an_override_the_era_would_silently_drop_is_refused():
+    """A shadowed legacy key set off its default must not be ignored quietly (cold review)."""
+    from vaft.omas.vest_upstream import magnetics_processing_for_shot
+
+    with pytest.raises(ValueError, match="default_index_start"):
+        magnetics_processing_for_shot(39916, {"default_index_start": 5000})
+    with pytest.raises(ValueError, match="flux_baseline_first_start"):
+        magnetics_processing_for_shot(47946, {"flux_baseline_first_start": 100})
+    # Restating the default (as the routine block does) stays inert.
+    assert magnetics_processing_for_shot(47946, {"flux_baseline_late_loop_numbers": [9, 10, 11]}).daq_mode == "native_daq"

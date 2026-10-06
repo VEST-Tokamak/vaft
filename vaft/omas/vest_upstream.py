@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, fields, replace
 from datetime import datetime
 import gzip
 import hashlib
@@ -694,7 +694,40 @@ def magnetics_processing_for_shot(
     """
     if not overrides:
         return None
-    return replace(equilibrium_magnetics_processing_config(int(shot)), **dict(overrides))
+    era = equilibrium_magnetics_processing_config(int(shot))
+    shadowed = set(_WINDOW_RULE_KEYS) if era.window_override is not None else set()
+    if era.flux_baseline_window is not None or era.flux_baseline_samples is not None:
+        shadowed |= set(_FLUX_BASELINE_RULE_KEYS)
+    defaults = {f.name: f.default for f in fields(VestMagneticsProcessingConfig)}
+    # A shadowed key left at its default is inert (the routine block restates
+    # them all); one set to anything else is a change that would be dropped.
+    dropped = sorted(
+        key for key in shadowed & set(overrides)
+        if _as_tuple(overrides[key]) != _as_tuple(defaults[key])
+    )
+    if dropped:
+        raise ValueError(
+            f"shot {shot}: the vest.yaml era policy decides {dropped}, so this override would "
+            "change nothing; set window_override / flux_baseline_window / flux_baseline_samples instead"
+        )
+    return replace(era, **dict(overrides))
+
+
+#: Keys only the legacy hardcoded window ladder reads; an era ``window_override`` shadows them.
+_WINDOW_RULE_KEYS = (
+    "default_index_start", "default_index_end", "default_probe_baseline_end", "late_shot_min",
+    "transient_shot_min", "transient_shot_max", "late_index_start", "late_index_end", "late_probe_baseline_end",
+)
+#: Keys only the legacy per-sample flux baselines read; an era flux-baseline rule shadows them.
+_FLUX_BASELINE_RULE_KEYS = (
+    "flux_baseline_first_start", "flux_baseline_first_end", "flux_baseline_second_start",
+    "flux_baseline_second_end", "flux_baseline_late_start", "flux_baseline_late_end",
+    "flux_baseline_late_loop_numbers",
+)
+
+
+def _as_tuple(value: Any) -> Any:
+    return tuple(value) if isinstance(value, (list, tuple)) else value
 
 
 def build_diagnostics_ods(
@@ -1068,6 +1101,10 @@ def build_diagnostics_ods(
             "dt": float(analysis.dt),
             "run": int(run),
             "vest_magnetics_processing": vest_magnetics_processing or {},
+            # What the processing actually used: the era policy with the override on top.
+            "vest_magnetics_processing_effective": (
+                json.loads(json.dumps(asdict(processing))) if processing is not None else None
+            ),
             "time_policies": time_policies or {},
         },
         "time_grid": time_grid,
