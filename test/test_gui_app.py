@@ -607,6 +607,53 @@ def test_serve_admits_the_page_on_the_address_it_binds(monkeypatch):
     assert "10.0.0.5:5123" in calls[-1]["websocket_origin"]
 
 
+def test_a_hosted_app_offers_no_files_and_refuses_them(ods, monkeypatch, tmp_path):
+    monkeypatch.setattr("vaft.gui.state.load_source", lambda source: ods)
+    hosted = gui_app.BrowserApp(_Session(), hosted=True)
+    try:
+        assert set(hosted.kind.options.values()) == {"sample", "shot"}
+        hosted.kind.value = "shot"
+        shown = hosted._source_inputs.objects
+        assert hosted.path not in shown and hosted.browse not in shown and hosted.upload not in shown
+        secret = tmp_path / "secret.json"
+        secret.write_text("{}")
+        assert hosted.load(Source("file", str(secret))) is False
+        assert "not files" in hosted.alert.object and not hosted.session.sources
+        # the widgets exist but are wired to nothing: no listing, no disk write
+        hosted.browse.value = True
+        assert hosted.browser is None
+        hosted.upload.param.update(filename=["a.json"], value=[b"{}"])
+        assert hosted._uploads is None
+        assert hosted.load(Source("sample", 39915))
+    finally:
+        hosted.close()
+    with pytest.raises(ValueError, match="opens no files"):
+        gui_app.build_app(file="eq.json", hosted=True)
+
+
+def test_serve_hosted_behind_a_proxy(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pn, "serve", lambda panels, **kwargs: calls.append((panels, kwargs)))
+    monkeypatch.delenv("SSH_CONNECTION", raising=False)
+    monkeypatch.delenv("VAFT_GUI_PASSWORD", raising=False)
+    with pytest.raises(ValueError, match="VAFT_GUI_PASSWORD"):
+        gui_app.serve(hosted=True)
+    assert not calls, "no server starts with a password nobody chose"
+    monkeypatch.setenv("VAFT_GUI_PASSWORD", "team")
+    gui_app.serve(hosted=True, prefix="gui/", websocket_origin=["vest.example.org"])
+    panels, kwargs = calls[-1]
+    assert kwargs["basic_auth"] == "team", "hosted always asks, even on loopback"
+    assert kwargs["use_xheaders"] is True and kwargs["prefix"] == "/gui"
+    assert "websocket_max_message_size" not in kwargs, "no uploads: Bokeh's cap stands"
+    assert kwargs["address"] == "127.0.0.1" and "vest.example.org" in kwargs["websocket_origin"]
+    built = []
+    monkeypatch.setattr(gui_app, "build_shell", lambda **options: built.append(options) or SimpleNamespace(
+        view=lambda: None, close=lambda: None))
+    panels["/"]()
+    assert built[-1]["hosted"] is True
+    gui_app.serve(hosted=True, auth="none")
+    assert "basic_auth" not in calls[-1][1], "a proxy that authenticates may take over"
+
 
 def test_every_origin_serve_lists_is_one_bokeh_accepts(monkeypatch):
     """The server must start: an origin Bokeh cannot parse stops it (``[::1]:5006`` did)."""
@@ -616,6 +663,7 @@ def test_every_origin_serve_lists_is_one_bokeh_accepts(monkeypatch):
     monkeypatch.setattr(pn, "serve", lambda panels, **kwargs: calls.append(kwargs))
     monkeypatch.setenv("VAFT_GUI_PASSWORD", "x")
     gui_app.serve(port=5123)
+    gui_app.serve(hosted=True, websocket_origin=["vest.example.org"])
     with pytest.warns(UserWarning):
         gui_app.serve(address="0.0.0.0", port=5123)
     with pytest.warns(UserWarning):
@@ -717,3 +765,15 @@ def test_the_composer_draws_exports_and_reproduces_a_composition(app):
     assert not app.draw_composition() and "does not fit" in app.alert.object
     app.mode.value = "plot"
     assert app.session.composition is None and app.session.plot == app.plot.value
+
+
+def test_serve_signs_in_with_hsds_accounts(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pn, "serve", lambda panels, **kwargs: calls.append(kwargs))
+    monkeypatch.delenv("VAFT_GUI_PASSWORD", raising=False)
+    monkeypatch.setenv("HS_ENDPOINT", "http://127.0.0.1:5101/")
+    gui_app.serve(hosted=True, auth="hsds")
+    kwargs = calls[-1]
+    assert "basic_auth" not in kwargs, "no shared password: the accounts are HSDS's"
+    assert kwargs["auth_provider"].login_handler.__name__ == "HSDSLoginHandler"
+    assert kwargs["cookie_secret"]

@@ -27,6 +27,7 @@ import numpy as np
 from vaft.formula.constants import EPS0, ME, QE
 from vaft.formula.waves import (
     cma_coordinates,
+    cold_plasma_refractive_index_squared,
     perpendicular_refractive_index_squared,
     propagation_regime,
     stix_parameters,
@@ -273,7 +274,7 @@ def profile_layers(p: Dict[str, float] = EXAMPLE_PROFILE) -> Dict[str, List[floa
     return layers
 
 
-def profile_propagation(*, labels: bool = True) -> Diagram:
+def profile_propagation(*, theta=None, labels: bool = True) -> Diagram:
     r"""O- and X-mode $n^2$ along the midplane of an example tokamak, with its cutoff and resonance layers.
 
     Example parameters (``EXAMPLE_PROFILE``, illustrative, not a device):
@@ -282,41 +283,66 @@ def profile_propagation(*, labels: bool = True) -> Diagram:
     $R = 0$ and $L = 0$, upper-hybrid $S = 0$, cyclotron $Y = 1$ -- are
     sign changes of the Stix parameters along the profile, refined by
     bisection; ``propagation_regime`` classifies the samples between them.
+
+    ``theta`` (default: perpendicular, the O and X modes) draws instead both
+    roots of ``cold_plasma_refractive_index_squared`` at that angle to
+    $\mathbf B$, unnamed and in one colour, and adds the oblique resonance
+    layers $A = S\sin^2\theta + P\cos^2\theta = 0$.
     """
     labels = _check_labels(labels)
+    oblique = theta is not None and not np.isclose(_check_theta(theta), 0.5 * np.pi)
     p = EXAMPLE_PROFILE
     R = np.linspace(p["R0"] - p["a"], p["R0"] + p["a"], 1201)
-    _, _, _, n2_O, n2_X = profile_quantities(R, p)
+    _, _, s, n2_O, n2_X = profile_quantities(R, p)
     layers = profile_layers(p)
+    if oblique:
+        theta = float(theta)
+        roots = _modes(s, theta)
+        n2_O, n2_X = roots["+"], roots["-"]
+        layers["S"] = []  # the upper hybrid is the perpendicular resonance; oblique it moves to A = 0
+        layers["A"] = _resonance_cone(R, lambda r: profile_quantities(np.atleast_1d(r), p)[2], theta)
     limit = 3.0
     chart = Chart(x_range=(R[0], R[-1]), y_range=(-limit, 2.0))
-    chart.curves["n2_O"] = np.stack([R, n2_O], axis=-1)[n2_O >= -limit]
+    if oblique:  # an oblique root has gaps (the cyclotron pole): split it into runs, never chord across them
+        for i, run in enumerate(_clip_runs(R, n2_O, limit)):
+            chart.curves[f"n2_O {i}"] = run
+    else:
+        chart.curves["n2_O"] = np.stack([R, n2_O], axis=-1)[n2_O >= -limit]
     for i, run in enumerate(_clip_runs(R, n2_X, limit)):
         chart.curves[f"n2_X {i}"] = run
     chart.curves["zero"] = np.array([[R[0], 0.0], [R[-1], 0.0]])
-    names = {"P": "$P{=}0$", "R": "$R{=}0$", "L": "$L{=}0$", "S": "UH", "ECR": "ECR"}
+    names = {"P": "$P{=}0$", "R": "$R{=}0$", "L": "$L{=}0$", "S": "UH", "ECR": "ECR", "A": "$A{=}0$"}
     for name, roots in layers.items():
         for j, r in enumerate(roots):
             key = f"{name} {j}"
             chart.curves[key] = np.array([[r, -limit], [r, 2.0]])
             chart.points[key] = (r, 0.0)
     chart.parameters.update({k: float(v) for k, v in p.items()})
+    if oblique:
+        chart.parameters["theta"] = theta
     # where each mode propagates, as strips along the bottom: propagation_regime on the sampled profile
-    for mode, n2, y in (("O", n2_O, -2.45), ("X", n2_X, -2.75)):
+    # off perpendicular the algebraic roots swap at the cyclotron layer: one strip, where either root propagates
+    strips = ((("any", np.fmax(n2_O, n2_X), -2.6),) if oblique
+              else (("O", n2_O, -2.45), ("X", n2_X, -2.75)))
+    for mode, n2, y in strips:
         regime = propagation_regime(np.where(np.isfinite(n2), n2, np.inf))
         for i, run in enumerate(_clip_runs(R, np.where(regime == "propagating", y, np.nan), 10.0)):
             chart.curves[f"{mode} propagates {i}"] = run
         chart.parameters[f"{mode}_propagating_fraction"] = float(np.mean(regime == "propagating"))
-    styles: Dict[str, str] = {"zero": "approx", "n2_O": "boundary"}
-    styles.update({name: "inner solution" for name in chart.curves if name.startswith(("n2_X", "X propagates"))})
-    styles.update({name: "boundary" for name in chart.curves if name.startswith("O propagates")})
+    styles: Dict[str, str] = {"zero": "approx"}
+    styles.update({name: "boundary" for name in chart.curves if name.split(" ")[0] == "n2_O"})
+    styles.update({name: "boundary" if oblique else "inner solution" for name in chart.curves
+                   if name.startswith(("n2_X", "X propagates"))})
+    styles.update({name: "boundary" for name in chart.curves if name.startswith(("O propagates", "any propagates"))})
     styles.update({name: "approx" for name in chart.curves if name.split(" ")[0] in names})
     scene = render_chart(
-        chart, x_label="$R$ [m]", y_label="$n^2$ (perpendicular)", curve_styles=styles, region_text={},
+        chart, x_label="$R$ [m]", y_label="$n^2$" if oblique else "$n^2$ (perpendicular)", curve_styles=styles,
+        region_text={},
         x_ticks=[0.7, 0.85, 1.0, 1.15, 1.3], y_ticks=[-3.0, -2.0, -1.0, 0.0, 1.0, 2.0],
         note=(f"Example: $R_0 = {p['R0']:g}$ m, $a = {p['a']:g}$ m, $B_0 = {p['B0']:g}$ T, "
-              f"$n_0 = 3\\times10^{{19}}$ m$^{{-3}}$, $f = {p['frequency'] / 1e9:g}$ GHz. O blue, X red; "
-              "strips: where each propagates"
+              f"$n_0 = 3\\times10^{{19}}$ m$^{{-3}}$, $f = {p['frequency'] / 1e9:g}$ GHz. "
+              + (f"${_theta_text(theta)}$, both roots, unnamed; strip: where either propagates" if oblique
+                 else "O blue, X red; strips: where each propagates")
               if labels else ""),
     )
     items = list(scene.items)
@@ -342,3 +368,236 @@ def profile_propagation(*, labels: bool = True) -> Diagram:
                 items.append(Polyline.of([(x, top - 0.1), (x, top + 0.4 * row)], "leader line", role=roles[0]))
             items.append(Label((x, top + 0.4 * row), text, "small label", anchor="south", role=" + ".join(roles)))
     return Diagram("profile_propagation", Scene(tuple(items)), model=chart)
+
+
+# ---------------------------------------------------------------------------
+# #1113 section A: the omega-k, n^2-X and n^2-Y views, perpendicular or oblique
+# ---------------------------------------------------------------------------
+
+
+#: smallest angle the oblique views accept [rad]: below it the resonance cone sits within a grid cell of the
+#: cyclotron pole and parallel propagation (R and L, no cone) is the better picture
+THETA_MIN = np.radians(5.0)
+
+
+def _number(value, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, np.integer, np.floating)):
+        raise ValueError(f"{name} must be a number, not {value!r}")
+    return float(value)
+
+
+def _check_theta(theta) -> float:
+    theta = _number(theta, "theta")
+    if not THETA_MIN <= theta <= 0.5 * np.pi:
+        raise ValueError(f"theta must be an angle from 5 degrees to pi/2, not {theta!r}")
+    return theta
+
+
+def _modes(s, theta: float):
+    """The two n^2 branches and their names: O/X at theta = pi/2 (tracked by formula), +/- otherwise."""
+    if np.isclose(theta, 0.5 * np.pi):
+        n2_O, n2_X = perpendicular_refractive_index_squared(s.R, s.L, s.P)
+        return {"O": np.asarray(n2_O, dtype=float), "X": np.asarray(n2_X, dtype=float)}
+    with np.errstate(invalid="ignore"):  # NaN at the cyclotron pole, masked by the plot
+        plus, minus = cold_plasma_refractive_index_squared(s.R, s.L, s.P, theta)
+    return {"+": np.asarray(plus, dtype=float), "-": np.asarray(minus, dtype=float)}
+
+
+#: styles of the branches: O blue and X red, as in ``profile_propagation``; off $\\theta = \\pi/2$ the two
+#: algebraic roots swap at the cyclotron layer, so they share one colour rather than imply a mode identity
+_BRANCH_STYLE = {"O": "boundary", "X": "inner solution", "+": "boundary", "-": "boundary"}
+
+
+def _branch_note(theta: float) -> str:
+    if np.isclose(theta, 0.5 * np.pi):
+        return "O blue, X red"
+    return "both roots of $An^4 - Bn^2 + C = 0$, unnamed off $\\theta = \\pi/2$"
+
+
+def _theta_text(theta: float) -> str:
+    if np.isclose(theta, 0.5 * np.pi):
+        return "\\theta = \\pi/2"
+    return f"\\theta = {np.degrees(theta):.0f}^\\circ"
+
+
+def wave_dispersion_omega_k(*, omega_pe_over_omega_ce: float = 1.2, theta: float = 0.5 * np.pi,
+                            labels: bool = True) -> Diagram:
+    r"""The cold electron plasma in the $\omega$-$k$ plane: where each branch exists and where it ends.
+
+    For each frequency the refractive index from the Stix parameters gives
+    $k = n\omega/c$ wherever $n^2 > 0$; the branches start at $k = 0$ on their
+    cutoffs ($P$, $R$ or $L = 0$) -- except the oblique whistler, which leaves
+    the origin -- and run to $k \to \infty$ at a resonance
+    ($S = 0$, the upper hybrid, at $\theta = \pi/2$), approaching the light
+    line $\omega = ck$ from above at high frequency. ``theta = pi/2`` names
+    the branches O and X (``perpendicular_refractive_index_squared``);
+    another angle draws both roots of ``cold_plasma_refractive_index_squared``
+    in one colour, since its algebraic $\pm$ branches swap at the cyclotron
+    layer, and marks the resonances $A = S\sin^2\theta + P\cos^2\theta = 0$.
+    Axes in units of $|\Omega_e|$.
+    """
+    labels = _check_labels(labels)
+    theta = _check_theta(theta)
+    omega_pe_over_omega_ce = _number(omega_pe_over_omega_ce, "omega_pe_over_omega_ce")
+    if not 0.0 < omega_pe_over_omega_ce <= 3.0:
+        raise ValueError(f"omega_pe_over_omega_ce must be in (0, 3] to keep the cutoffs on the chart, "
+                         f"not {omega_pe_over_omega_ce!r}")
+    n_e = _N_REF * omega_pe_over_omega_ce**2
+    B = _field_for_Y(1.0, _W_REF)
+    w = np.linspace(0.02, 4.0, 3000)
+    s = _electron_stix(w * _W_REF, n_e, B)
+    k_max = 4.0
+    chart = Chart(x_range=(0.0, k_max), y_range=(0.0, 4.0))
+    for name, n2 in _modes(s, theta).items():
+        with np.errstate(invalid="ignore"):
+            k = np.where(np.isfinite(n2) & (n2 > 0), np.sqrt(np.clip(n2, 0, None)) * w, np.nan)
+        for i, run in enumerate(_clip_runs(w, k, k_max)):
+            chart.curves[f"{name} {i}"] = run[:, ::-1]  # (k, omega)
+    chart.curves["light"] = np.array([[0.0, 0.0], [4.0, 4.0]])
+    stix = lambda r: _electron_stix(r * _W_REF, n_e, B)
+    w_uh = np.sqrt(1.0 + omega_pe_over_omega_ce**2)
+    layers = {"P": _bisect(lambda r: stix(r).P, 1e-3, 10.0),
+              "L": _bisect(lambda r: stix(r).L, 1e-3, w_uh - 1e-6),
+              "R": _bisect(lambda r: stix(r).R, 1.0 + 1e-9, 3.5 * w_uh)}
+    if np.isclose(theta, 0.5 * np.pi):
+        layers["S"] = _bisect(lambda r: stix(r).S, 1.0 + 1e-9, 3.5 * w_uh)
+    else:
+        layers.update({("A" if i == 0 else f"A{i + 1}"): r for i, r in enumerate(_resonance_cone(np.linspace(0.02, 4.0, 801), stix, theta))})
+    for name, value in layers.items():
+        if chart.y_range[0] < value < chart.y_range[1]:
+            chart.curves[f"layer {name}"] = np.array([[0.0, value], [k_max, value]])
+    chart.parameters.update({"omega_pe_over_omega_ce": omega_pe_over_omega_ce, "theta": theta,
+                             **{f"omega_{k}": v for k, v in layers.items()}})
+    styles = {n: _BRANCH_STYLE[n.split(" ")[0]] for n in chart.curves if n.split(" ")[0] in _BRANCH_STYLE}
+    styles.update({"light": "approx"})
+    styles.update({n: "mesh" for n in chart.curves if n.startswith("layer")})
+    scene = render_chart(
+        chart, x_label="$ck/|\\Omega_e|$", y_label="$\\omega/|\\Omega_e|$", curve_styles=styles, region_text={},
+        x_ticks=[0.0, 1.0, 2.0, 3.0, 4.0], y_ticks=[0.0, 1.0, 2.0, 3.0, 4.0],
+        note=(f"Cold electrons, $\\omega_{{pe}}/|\\Omega_e| = {omega_pe_over_omega_ce:g}$, ${_theta_text(theta)}$; "
+              f"{_branch_note(theta)}; dashed: $\\omega = ck$" if labels else ""),
+    )
+    items = list(scene.items)
+    if labels:
+        text = {"P": "$P = 0$", "L": "$L = 0$", "R": "$R = 0$", "S": "$S = 0$ (UH)", "A": "$A = 0$ (resonance)",
+                "A2": "$A = 0$ (resonance)"}
+        x = float(chart.to_cm(np.array([k_max, 0.0]))[0]) + 0.15
+        for name, value in sorted(layers.items(), key=lambda kv: kv[1]):
+            if not chart.y_range[0] < value < chart.y_range[1]:
+                continue
+            y = float(chart.to_cm(np.array([0.0, value]))[1])
+            items.append(Label((x, y), text[name], "small label", anchor="west", role=f"layer {name}"))
+    return Diagram("wave_dispersion_omega_k", Scene(tuple(items)), model=chart)
+
+
+def _index_chart(axis: str, values, s, theta, layers, fixed_text, limit=3.0):
+    chart = Chart(x_range=(float(values[0]), float(values[-1])), y_range=(-limit, limit))
+    for name, n2 in _modes(s, theta).items():
+        for i, run in enumerate(_clip_runs(values, n2, limit)):
+            chart.curves[f"{name} {i}"] = run
+    chart.curves["zero"] = np.array([[values[0], 0.0], [values[-1], 0.0]])
+    for name, v in layers.items():
+        if values[0] < v < values[-1]:
+            chart.curves[f"layer {name}"] = np.array([[v, -limit], [v, limit]])
+            chart.points[f"layer {name}"] = (v, 0.0)
+    styles = {n: _BRANCH_STYLE[n.split(" ")[0]] for n in chart.curves if n.split(" ")[0] in _BRANCH_STYLE}
+    styles.update({"zero": "approx"})
+    styles.update({n: "mesh" for n in chart.curves if n.startswith("layer")})
+    return chart, styles, f"{fixed_text}, ${_theta_text(theta)}$; {_branch_note(theta)}"
+
+
+def _layer_labels(chart, layers, text, limit=3.0) -> List:
+    items: List = []
+    top = float(chart.to_cm(np.array([chart.x_range[0], limit]))[1]) + 0.15
+    for k, (name, v) in enumerate(sorted(layers.items(), key=lambda kv: kv[1])):
+        if chart.x_range[0] < v < chart.x_range[1]:
+            items.append(Label((float(chart.to_cm(np.array([v, 0.0]))[0]), top + 0.42 * (k % 2)), text[name],
+                               "small label", anchor="south", role=f"layer {name}"))
+    return items
+
+
+_LAYER_TEXT = {"P": "$P{=}0$", "R": "$R{=}0$", "L": "$L{=}0$", "S": "$S{=}0$", "ECR": "$Y{=}1$",
+               "A": "$A{=}0$", "A2": "$A{=}0$"}
+
+
+def _resonance_cone(grid, stix_at, theta: float) -> List[float]:
+    """Zeros of $A = S\\sin^2\\theta + P\\cos^2\\theta$ along ``grid``: where an oblique branch has $n^2 \\to \\infty$.
+
+    Sign changes across a pole of $S$ (the cyclotron layer) are not zeros and are dropped.
+    """
+    A = lambda v: float(np.squeeze(stix_at(v).S * np.sin(theta) ** 2 + stix_at(v).P * np.cos(theta) ** 2))
+    values = np.array([A(v) for v in grid])
+    roots = []
+    for i in np.where(np.isfinite(values[:-1]) & np.isfinite(values[1:])
+                      & (np.sign(values[:-1]) != np.sign(values[1:])))[0]:
+        root = _bisect(A, grid[i], grid[i + 1])
+        if abs(A(root)) < 1e-6:
+            roots.append(root)
+    return roots
+
+
+def refractive_index_vs_X(*, Y: float = 0.5, theta: float = 0.5 * np.pi, labels: bool = True) -> Diagram:
+    r"""$n^2$ against $X = \omega_{pe}^2/\omega^2$ at fixed $Y$: rising density at one frequency and field.
+
+    The cutoffs are the zeros of the Stix parameters along $X$ -- $P = 0$ at
+    $X = 1$, $R = 0$ at $X = 1 - Y$, $L = 0$ at $X = 1 + Y$ -- and at
+    $\theta = \pi/2$ the upper-hybrid resonance $S = 0$ at $X = 1 - Y^2$,
+    all located by bracketing ``stix_parameters`` rather than from these
+    closed forms. Branches as in ``wave_dispersion_omega_k``.
+    """
+    labels = _check_labels(labels)
+    theta = _check_theta(theta)
+    Y = _number(Y, "Y")
+    if not 0.0 < Y < 1.0:
+        raise ValueError(f"Y must be between 0 and 1 (below the cyclotron resonance), not {Y!r}")
+    X = np.linspace(0.0, 2.5, 2000)
+    B = _field_for_Y(Y, _W_REF)
+    s = _electron_stix(_W_REF, _density_for_X(X, _W_REF), B)
+    at = lambda name: (lambda x: getattr(_electron_stix(_W_REF, _density_for_X(x, _W_REF), B), name))
+    layers = {"P": _bisect(at("P"), 0.5, 2.0), "R": _bisect(at("R"), 1e-6, 1.0),
+              "L": _bisect(at("L"), 1.0, 2.5)}
+    if np.isclose(theta, 0.5 * np.pi):
+        layers["S"] = _bisect(at("S"), 1e-6, 1.0 - 1e-9)
+    else:
+        layers.update({("A" if i == 0 else f"A{i + 1}"): r for i, r in enumerate(_resonance_cone(
+            np.linspace(1e-6, 2.5, 501), lambda x: _electron_stix(_W_REF, _density_for_X(x, _W_REF), B), theta))})
+    chart, styles, note = _index_chart("X", X, s, theta, layers, f"Cold electrons, $Y = {Y:g}$")
+    chart.parameters.update({"Y": Y, "theta": theta, **{f"X_{k}": v for k, v in layers.items()}})
+    scene = render_chart(chart, x_label="$X = \\omega_{pe}^2/\\omega^2$", y_label="$n^2$", curve_styles=styles,
+                         region_text={}, x_ticks=[0.0, 0.5, 1.0, 1.5, 2.0, 2.5],
+                         y_ticks=[-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0], note=note if labels else "")
+    items = list(scene.items) + (_layer_labels(chart, layers, _LAYER_TEXT) if labels else [])
+    return Diagram("refractive_index_vs_X", Scene(tuple(items)), model=chart)
+
+
+def refractive_index_vs_Y(*, X: float = 0.5, theta: float = 0.5 * np.pi, labels: bool = True) -> Diagram:
+    r"""$n^2$ against $Y = |\Omega_e|/\omega$ at fixed $X$: rising field at one frequency and density.
+
+    At $\theta = \pi/2$ the O branch ($n^2 = P = 1 - X$) does not depend on $Y$; the other
+    branch has the $R = 0$ cutoff at $Y = 1 - X$ and, at $\theta = \pi/2$,
+    the upper-hybrid resonance $S = 0$ at $Y = \sqrt{1 - X}$; $Y = 1$ is the
+    electron cyclotron resonance, where $R$ has its pole. Located by
+    bracketing ``stix_parameters``. Branches as in ``wave_dispersion_omega_k``.
+    """
+    labels = _check_labels(labels)
+    theta = _check_theta(theta)
+    X = _number(X, "X")
+    if not 0.0 < X < 1.0:
+        raise ValueError(f"X must be between 0 and 1 (above the O cutoff), not {X!r}")
+    Yv = np.linspace(0.0, 2.0, 2001)[1:]
+    n_e = _density_for_X(X, _W_REF)
+    s = _electron_stix(_W_REF, n_e, _field_for_Y(Yv, _W_REF))
+    at = lambda name: (lambda y: getattr(_electron_stix(_W_REF, n_e, _field_for_Y(y, _W_REF)), name))
+    layers = {"R": _bisect(at("R"), 1e-6, 1.0 - 1e-9), "ECR": 1.0}
+    if np.isclose(theta, 0.5 * np.pi):
+        layers["S"] = _bisect(at("S"), 1e-6, 1.0 - 1e-9)
+    else:
+        layers.update({("A" if i == 0 else f"A{i + 1}"): r for i, r in enumerate(_resonance_cone(
+            np.linspace(1e-3, 2.0, 801), lambda y: _electron_stix(_W_REF, n_e, _field_for_Y(y, _W_REF)), theta))})
+    chart, styles, note = _index_chart("Y", Yv, s, theta, layers, f"Cold electrons, $X = {X:g}$")
+    chart.parameters.update({"X": X, "theta": theta, **{f"Y_{k}": v for k, v in layers.items()}})
+    scene = render_chart(chart, x_label="$Y = |\\Omega_e|/\\omega$", y_label="$n^2$", curve_styles=styles,
+                         region_text={}, x_ticks=[0.0, 0.5, 1.0, 1.5, 2.0],
+                         y_ticks=[-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0], note=note if labels else "")
+    items = list(scene.items) + (_layer_labels(chart, layers, _LAYER_TEXT) if labels else [])
+    return Diagram("refractive_index_vs_Y", Scene(tuple(items)), model=chart)

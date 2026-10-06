@@ -21,7 +21,8 @@ of the island: ``rational_surface``, ``delta_prime`` and
 ``normal_field_component``, ``complex_harmonic``, ``toroidal_harmonic_phase``,
 ``harmonic_real_space_projection`` and ``complex_field_superposition``;
 the classification ``collision_processes``; geometric approximations:
-``geometry_ordering_map``, ``field_line_geometry`` and ``mode_number_mapping``;
+``geometry_ordering_map``, ``field_line_geometry``, ``mode_number_mapping`` and
+``mhd_mode_geometry_map`` (#1574);
 tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
 ``hfs_lfs_field``, ``safety_factor_winding``, ``flux_coordinates``,
 ``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``;
@@ -34,7 +35,12 @@ modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 ``scientific_workflow``, ``interoperability_layers``,
 ``scientific_provenance_chain``, ``scientific_infrastructure_principles``,
 ``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``,
-``human_ai_interface`` and ``machine_research_archive``; the VEST data platform
+``integrated_scientific_framework`` (#1698), ``human_ai_interface`` and ``machine_research_archive``; research
+infrastructure (#1636, #1638, #1640, #1641, #1643, #1645), fragmented
+against integrated pairs plus the research community and ownership:
+``scientific_representation``, ``experimental_research_infrastructure``,
+``scientific_credibility``, ``research_modality_architecture``,
+``fusion_research_ecosystem`` and ``scientific_ownership_architecture``; the VEST data platform
 (#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the physics-workflow
 spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``resistive_zeff_inference``, ``magnetic_efit``, ``kinetic_efit``,
@@ -83,6 +89,7 @@ __all__ = [
     "geometry_ordering_map",
     "field_line_geometry",
     "mode_number_mapping",
+    "mhd_mode_geometry_map",
     "tokamak_torus",
     "flux_surfaces",
     "shaping_family",
@@ -163,6 +170,9 @@ __all__ = [
     "x_mode_dispersion",
     "cma_diagram",
     "profile_propagation",
+    "wave_dispersion_omega_k",
+    "refractive_index_vs_X",
+    "refractive_index_vs_Y",
     "neoclassical_collisionality",
     "ntv_collisionality",
     "ntv_precession_regimes",
@@ -199,8 +209,15 @@ __all__ = [
     "scientific_infrastructure_principles",
     "machine_agnostic_architecture",
     "experiment_modeling_theory_data_network",
+    "integrated_scientific_framework",
     "human_ai_interface",
     "machine_research_archive",
+    "scientific_representation",
+    "experimental_research_infrastructure",
+    "scientific_credibility",
+    "research_modality_architecture",
+    "fusion_research_ecosystem",
+    "scientific_ownership_architecture",
     "vest_data_platform",
     "vest_data_platform_overview",
     "plasma_parameter_inference",
@@ -252,6 +269,7 @@ _LOCATIONS = {
     "geometry_ordering_map": "._geometry",
     "field_line_geometry": "._geometry",
     "mode_number_mapping": "._geometry",
+    "mhd_mode_geometry_map": "._mode_geometry",
     "tokamak_torus": "._tokamak_geometry",
     "flux_surfaces": "._tokamak_geometry",
     "shaping_family": "._tokamak_geometry",
@@ -332,6 +350,9 @@ _LOCATIONS = {
     "x_mode_dispersion": "._cold_plasma_waves",
     "cma_diagram": "._cold_plasma_waves",
     "profile_propagation": "._cold_plasma_waves",
+    "wave_dispersion_omega_k": "._cold_plasma_waves",
+    "refractive_index_vs_X": "._cold_plasma_waves",
+    "refractive_index_vs_Y": "._cold_plasma_waves",
     "neoclassical_collisionality": "._transport_regimes",
     "ntv_collisionality": "._transport_regimes",
     "ntv_precession_regimes": "._transport_regimes",
@@ -368,8 +389,15 @@ _LOCATIONS = {
     "scientific_infrastructure_principles": "._vaft_concepts",
     "machine_agnostic_architecture": "._vaft_concepts",
     "experiment_modeling_theory_data_network": "._vaft_concepts",
+    "integrated_scientific_framework": "._vaft_concepts",
     "human_ai_interface": "._vaft_concepts",
     "machine_research_archive": "._vaft_concepts",
+    "scientific_representation": "._research_concepts",
+    "experimental_research_infrastructure": "._research_concepts",
+    "scientific_credibility": "._research_concepts",
+    "research_modality_architecture": "._research_concepts",
+    "fusion_research_ecosystem": "._research_concepts",
+    "scientific_ownership_architecture": "._research_concepts",
     "vest_data_platform": "._platform",
     "vest_data_platform_overview": "._platform",
     "plasma_parameter_inference": "._workflow_specs",

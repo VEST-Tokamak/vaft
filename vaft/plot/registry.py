@@ -23,6 +23,7 @@ from typing import Any, Callable, Iterable, Literal, Mapping
 from . import taxonomy
 
 __all__ = [
+    "NON_GRAPHICAL_VIEWS",
     "PlotSpec",
     "VIEWS",
     "available_plots",
@@ -41,6 +42,8 @@ Status = Literal["canonical", "legacy"]
 #: (``spectral_quantity(t, f)``); ``spatial`` is ``quantity(position)`` across
 #: a sensor array at one time (issue #486).  Interaction, 3D representation,
 #: comparison, and validation are capabilities, not views (issue #251).
+#: ``table`` and ``text`` are scientific presentations that are not graphical
+#: (issue #1180): their renderers return text, not a figure.
 VIEWS = (
     "time",
     "profile",
@@ -54,7 +57,14 @@ VIEWS = (
     "overview",
     "image",
     "animation",
+    "table",
+    "text",
 )
+
+#: The views whose renderer returns a text object rather than a figure
+#: (:mod:`vaft.plot.renderers.tables`).  ``ax=``, ``format=``, ``theme=``,
+#: ``figure_options=`` and ``backend="plotly"`` do not apply to them.
+NON_GRAPHICAL_VIEWS = ("table", "text")
 
 
 @dataclass(frozen=True)

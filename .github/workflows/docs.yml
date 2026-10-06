@@ -64,7 +64,9 @@ jobs:
           working-directory: docs
 
       - name: Install VAFT
-        run: python -m pip install -e ".[dev]"
+        # [architecture] is Grimp, which the dependency explorer's generator
+        # needs (#1646); it is named explicitly rather than relied on via [dev].
+        run: python -m pip install -e ".[dev,architecture]"
 
       - name: Choose the ref each track is built from
         # On a pull request the target branch's track must be built from the
@@ -130,7 +132,9 @@ jobs:
           working-directory: docs
 
       - name: Install VAFT
-        run: python -m pip install -e ".[dev]"
+        # [architecture] is Grimp, which the dependency explorer's generator
+        # needs (#1646); it is named explicitly rather than relied on via [dev].
+        run: python -m pip install -e ".[dev,architecture]"
 
       - name: Choose the ref each track is built from
         # On a pull request the target branch's track must be built from the

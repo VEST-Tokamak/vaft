@@ -6,8 +6,8 @@ category: guide
 layout: post
 permalink: /workflows/gui/
 guide:
-  architecture: An optional Panel application over the same loading, discovery and plotting APIs a notebook uses.
-  prerequisites: VAFT installed with the `gui` extra; a browser on the machine you sit at.
+  architecture: A Panel application over the same loading, discovery and plotting APIs a notebook uses.
+  prerequisites: VAFT installed; a browser on the machine you sit at.
   expected: The plot browser at http://localhost:5006, locally or through a forwarded port.
   status: Experimental reference application (#1086); workspaces follow the GUI roadmap (#1359).
 related:
@@ -27,14 +27,9 @@ with no X11 or remote desktop.
 
 ## Install
 
-Panel is an optional dependency:
-
-```bash
-python -m pip install -e ".[gui]"
-```
-
-Without it, `import vaft` and every other workflow are unaffected; `vaft gui` stops with a
-message naming the extra.
+Nothing beyond VAFT itself: Panel is one of its dependencies, so `vaft gui` works in any VAFT
+environment. `import vaft` does not import Panel; only launching the GUI does. (Panel used to be
+the optional `gui` extra; `pip install 'vaft[gui]'` still works and adds nothing.)
 
 ## Run locally
 
@@ -44,9 +39,19 @@ vaft gui --sample 39915 41524     # two samples, compared on each plot
 vaft gui --file equilibrium.json
 vaft gui --shot 39915 41524       # database shots (needs HSDS read access)
 vaft gui --plot equilibrium_field_psi --port 5010
+vaft gui --workspace database     # start in the Database workspace
 ```
 
-The page shows the source picker and the plot selector in the sidebar, the plot's controls
+The page is an application shell. The sidebar starts with the **workspaces**:
+
+- **Plots:** the plot explorer described below.
+- **Database:** the database sources, the connection, and opening database shots.
+
+A strip above the main area shows the shared selection, which every workspace reads: what is open, the time on
+screen (for a plot with a slice or time control), the database namespace and the state of the
+database connection. Errors from any workspace appear under that strip.
+
+In the **Plots** workspace, the sidebar holds the source picker and the plot selector in the sidebar, the plot's controls
 beneath them, and the figure in the main area. Slices, channels, units and overlays appear
 only for plots that offer them. A value a plot cannot draw leaves the previous figure on screen
 and shows the reason above it.
@@ -75,6 +80,43 @@ and shows the reason above it.
   Matplotlib rendering with the controls and figure settings on screen, whichever renderer is shown.
 
 Loading a source computes its plot catalog, which takes a few seconds the first time.
+
+The **Database** workspace contains:
+
+- **Namespaces.** A table of the namespaces a shot can be read from: what each holds, whether
+  VAFT may write to it, and whether it covers every shot or only the shots its product was made
+  for. It comes from `vaft.database.sources`.
+- **Opening shots.** Pick a namespace, type shots and press **Open in Plots**. The plot explorer
+  opens them and becomes the active workspace.
+- **Credentials.** The HSDS configuration h5pyd will use: the file, the endpoint and the
+  username. Environment variables override the file. Passwords and API keys show only as
+  *configured* or *not set*. The GUI never shows, logs or stores a secret; change the
+  configuration with `vaft hsds configure` in a terminal.
+- **Test connection.** Asks the server whether it is ready, and puts the answer in the status
+  strip. The page does not contact the server until you press it.
+
+### Adding a workspace
+
+Workspaces are registered rather than built in, and the later domain workspaces (#1359) plug
+in the same way:
+
+```python
+from vaft.gui import register_workspace
+
+class EquilibriumWorkspace:
+    def __init__(self, shell):           # shell.selection, shell.report, shell.show
+        self.shell = shell
+    def sidebar(self): return [...]      # Panel objects
+    def main(self): return [...]
+    def activate(self): ...              # optional: called each time it is shown
+    def close(self): ...                 # optional: called when the browser session ends
+
+register_workspace("equilibrium", "Equilibrium", EquilibriumWorkspace, order=30)
+```
+
+A workspace is built the first time it is shown. It reads and changes the shared selection
+through `shell.selection` (a `vaft.gui.SelectionState`), and draws through the public VAFT APIs
+like every other workspace.
 
 ## Run on a remote host over SSH
 
@@ -127,11 +169,50 @@ it runs under SSH or binds another address (`--auth auto`, the default). Use `--
 require it locally too, and `--auth none` only on a machine nobody else uses.
 
 Binding another address (`--address 0.0.0.0`) also prints a warning: the connection is not
-encrypted. Multi-user deployment is a separate concern from this page, and belongs with the
-database portal (#960).
+encrypted. To serve a team, put the GUI behind a proxy with HTTPS instead, as below.
+
+## Host it for a team
+
+`vaft gui --hosted` serves people who are not the server's user, behind a reverse proxy that
+terminates HTTPS. What changes against a personal `vaft gui`:
+
+- **Samples and database shots only.** The file source, the server file browser and uploads are
+  left out of the page, and a file source is refused even if one is sent. A reader cannot reach
+  the server's disk through the GUI.
+  The Database workspace does not show the server's own HSDS configuration (file, endpoint,
+  account name) either.
+- **Every reader signs in.** With `--auth hsds`, readers sign in with their own HSDS account:
+  the user name and password are checked against the HSDS the GUI reads from (`GET /about`,
+  which answers 401 to a wrong account) and kept nowhere. Otherwise `--hosted` asks one shared
+  password, which must be set in `VAFT_GUI_PASSWORD` (a random one would change unseen on every
+  restart). `--auth none` is for a proxy that authenticates by itself.
+- **The proxy's headers are trusted** (`X-Forwarded-For`, `X-Forwarded-Proto`), and `--prefix`
+  serves the app under a path, so it can sit next to another service on the same host.
+
+Whoever signs in, everyone reads the database with the credentials the service runs with:
+`--auth hsds` decides who may enter, not what they may read. Give it a **read-only
+HSDS account** through `HS_ENDPOINT`, `HS_USERNAME` and `HS_PASSWORD`, never an admin one.
+
+The files in [`deploy/gui/`](https://github.com/VEST-Tokamak/vaft/tree/develop/deploy/gui)
+are a working starting point for Ubuntu with nginx and systemd, serving
+`https://<host>/gui/` next to HSDS on the same host:
+
+| File | Where it goes |
+| --- | --- |
+| `vaft-gui.service` | `/etc/systemd/system/`; runs `vaft gui --hosted --prefix /gui` as an unprivileged `vaft-gui` user with systemd sandboxing and a memory cap |
+| `vaft-gui.env.example` | `/etc/vaft-gui.env` (mode 0600); the page password and the HSDS read account |
+| `nginx-vaft-gui.conf` | the nginx site; keeps HSDS on port 80 as before, serves `/gui/` over HTTPS only, and throttles the login form |
+| `vaft-gui-proxy.conf` | `/etc/nginx/snippets/`; the websocket proxy settings the site includes |
+
+The service's `--allow-websocket-origin` must name the host the browser opens (without a port
+for the default 80/443). The page loads Panel's fonts and assets from public CDNs, so readers
+need internet access; the server does not.
+
+Hosted, one process holds every reader's session, and each session keeps the IDS it has read in
+memory until its tab closes. `MemoryMax` in the unit bounds the whole service.
 
 ## What comes next
 
-The browser application is Track A of the GUI roadmap (#1359). An application shell and a
-fuller plot explorer follow, then workspaces for routine diagnostics, equilibrium,
+The browser application is Track A of the GUI roadmap (#1359). A fuller plot explorer follows,
+then workspaces for routine diagnostics, equilibrium,
 fluctuations and stability, operational space, start-up and pipeline monitoring.

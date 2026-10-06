@@ -25,6 +25,11 @@ vaft/data/wheel_samples/** text=auto eol=lf
 vaft/data/kineticEfit/** -text
 vaft/data/legacy/digitizer_*_45531.csv -text
 
+# The cross-shot fixture manifest (vaft/data/unified/vest_diagnostics) pins the
+# camera calibration JSONs by sha256 of their LF bytes; a CRLF checkout raised
+# "Camera calibration reference checksum mismatch" on Windows CI only.
+vaft/data/geometry/camera_visible/** text=auto eol=lf
+
 # POSIX shell scripts must keep LF even in a Windows checkout.
 *.sh text eol=lf
 
