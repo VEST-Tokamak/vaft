@@ -188,6 +188,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_edge_q_estimate.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
+    # Dimensionless-similarity spaces (#1624): conventions never mix, missing
+    # inputs are counted not imputed. Pure NumPy and Agg.
+    "test_dimensionless_similarity.py",
     "test_li_qa.py",
     "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
