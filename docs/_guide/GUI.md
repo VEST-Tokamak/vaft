@@ -56,10 +56,27 @@ A strip above the main area shows the shared selection, which every workspace re
 screen (for a plot with a slice or time control), the database namespace and the state of the
 database connection. Errors from any workspace appear under that strip.
 
-In the **Plots** workspace, the sidebar holds the source picker and the plot selector in the sidebar, the plot's controls
-beneath them, and the figure in the main area. Slices, channels, units and overlays appear
+In the **Plots** workspace, the sidebar holds the source picker, the plot selector and the
+plot's controls, and the figure fills the main area. Slices, channels, units and overlays appear
 only for plots that offer them. A value a plot cannot draw leaves the previous figure on screen
 and shows the reason above it.
+
+The plot selector is built from plot discovery (`available_plots`), not from a list kept in the
+GUI:
+
+- **Grouping and labels.** Plots are grouped by subject, with the subject's aliases, and labelled
+  by view and quantity (`time / current` under `plasma_current [ip, ...]`). The canonical plot
+  name stays the plot's identity and is shown under **About this plot**.
+- **Search.** The box above the selector narrows the list. It uses the registry's own query, so
+  `ip` finds the plasma current, plus a plain text match on names, labels and subjects. The plot
+  on screen stays drawn while you search.
+- **Available / All supported.** **Available** lists what the open source can draw. **All
+  supported** adds every other plot VAFT has for this kind of data, marked *(unavailable)*.
+  Choosing one draws nothing and shows discovery's reason, for example the missing IDS path.
+  With several database shots, a plot is available only when every shot can draw it, and the
+  reason names the shot that cannot.
+- **About this plot.** The discovery record behind the plot: description, canonical name and
+  function, IDS read, backends, controls and interaction modes.
 
 - **Files.** Type server paths (one per line), pick them with **Browse server files** (the files
   of the machine the GUI runs on), or upload them from your own computer. Uploads are copied to a

@@ -17,6 +17,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from ._require import require_panel
+from .catalog_view import describe, group_options, matching_names
 from .composer import CompositionEditor
 from .figure import EXPORT_FORMATS, VIDEO_FORMATS, DisplaySize
 from .options_form import FigureOptionsForm
@@ -29,6 +30,7 @@ LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
 #: Controls that select a time, in the order a plot is asked for them.
 TIME_CONTROLS = ("time_slice", "time_index", "time")
 
+_SCOPE_LABELS = {"Available": "available", "All supported": "all"}
 _SOURCE_LABELS = {"Sample": "sample", "File": "file", "Database shot": "shot"}
 _RENDERER_LABELS = {"Interactive": "plotly", "Static": "matplotlib"}
 _MODE_LABELS = {"One plot": "plot", "Composed figure": "compose"}
@@ -119,10 +121,23 @@ class BrowserApp:
         # -- plot, or several composed into one figure (#1467)
         self.mode = pn.widgets.RadioButtonGroup(options=_MODE_LABELS, value="plot")
         self.plot = pn.widgets.Select(label="Plot", groups={"": []}, disabled=True)
+        # What the selector lists: the discovery catalog, searched and with or
+        # without the plots this source cannot draw (#1172).
+        self.search = pn.widgets.TextInput(
+            name="", placeholder="Search plots: ip, psi, profile ...", sizing_mode="stretch_width",
+        )
+        self.scope = pn.widgets.RadioButtonGroup(options=_SCOPE_LABELS, value="available")
+        self.about = pn.pane.Markdown("", sizing_mode="stretch_width", styles={"font-size": "0.9em"})
+        self.about_card = pn.Card(
+            self.about, title="About this plot", collapsed=True, sizing_mode="stretch_width",
+        )
         self.renderer = pn.widgets.RadioButtonGroup(options=_RENDERER_LABELS, value="plotly", disabled=True)
         self.controls = pn.Column()
         self.composer = CompositionEditor(on_draw=lambda editor: self.draw_composition())
-        self.plot_box = pn.Column(self.plot, self.renderer, self.controls, sizing_mode="stretch_width")
+        self.plot_box = pn.Column(
+            self.search, self.scope, self.plot, self.about_card, self.renderer, self.controls,
+            sizing_mode="stretch_width",
+        )
         self.compose_box = pn.Column(*self.composer.widgets(), visible=False, sizing_mode="stretch_width")
 
         # -- the figure: reproducible options (#1421) and the preview size
@@ -166,6 +181,8 @@ class BrowserApp:
         self.ids_button.on_click(lambda _event: self._load_chosen_ids())
         self.load_button.on_click(lambda _event: self._load_requested())
         self.plot.param.watch(self._on_plot, "value")
+        self.search.param.watch(self._relist, "value")
+        self.scope.param.watch(self._relist, "value")
         self.renderer.param.watch(self._on_renderer, "value")
         self.mode.param.watch(self._on_mode, "value")
         for widget in (self.width, self.height):
@@ -246,6 +263,12 @@ class BrowserApp:
         names = [name for members in groups.values() for name in members]
         self._plot_count = len(names)
         self.composer.set_plots(names)
+        self._updating = True
+        try:
+            self.search.value = ""  # a search for the old sources must not hide the new ones
+        finally:
+            self._updating = False
+        groups = self._plot_groups()
         self._update_status()
         database = self.session.database
         self.ids_choice.param.update(
@@ -343,9 +366,45 @@ class BrowserApp:
         self._update_status()
 
     # -- plot -----------------------------------------------------------------
+    def _plot_groups(self) -> dict[str, Any]:
+        """The selector's groups: discovery's records, searched, by subject."""
+        records = list(self.session.full_catalog())
+        groups = group_options(
+            records, unavailable=self.scope.value == "all",
+            names=matching_names(self.search.value, records),
+        )
+        return groups or {"": {}}
+
+    def _relist(self, _event: Any = None) -> None:
+        """List the plots again after a search or a change of scope."""
+        if self._updating or self.session.ods is None:
+            return
+        groups = self._plot_groups()
+        listed = {value for options in groups.values() for value in options.values()}
+        # The plot on screen stays selected while the search lists it, and is
+        # selected again when a later search lists it once more.
+        current = self.plot.value or self.session.plot
+        self._updating = True
+        try:
+            self.plot.param.update(groups=groups, value=current if current in listed else None)
+        finally:
+            self._updating = False
+
     def _on_plot(self, event: Any) -> None:
-        if event.new:
-            self.show(event.new, renderer=self._renderer_for(event.new))
+        if self._updating or not event.new:
+            return
+        record = self.session.capability(event.new)
+        self.about.object = describe(record)
+        if record is not None and getattr(record, "available", True) is False:
+            # Shown so the reader learns why; nothing to draw.
+            self.session.release()
+            self._clear_plot(keep_selector=True)
+            self.about_card.collapsed = False
+            self.alert.object = f"{event.new} cannot be drawn here: {record.reason or 'the data it needs is missing'}"
+            self.alert.visible = True
+            self._changed()
+            return
+        self.show(event.new, renderer=self._renderer_for(event.new))
 
     def _renderer_for(self, name: str) -> str:
         """The renderer the reader last chose, where ``name`` offers it."""
@@ -374,6 +433,7 @@ class BrowserApp:
     def show(self, name: str, *, renderer: str = "auto", **options: Any) -> bool:
         """Draw ``name`` with its controls; ``False`` when it could not be drawn."""
         self._clear_error()
+        self.about.object = describe(self.session.capability(name))
         try:
             drawn = self.session.select(name, renderer=renderer, **options)
         except Exception as error:
