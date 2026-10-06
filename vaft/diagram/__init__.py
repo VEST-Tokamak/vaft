@@ -14,7 +14,8 @@ where :mod:`vaft.plot` shows data and results. The boundary:
 Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
 island model) and the stability / operational-space charts
 ``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``, ``hugill_st``,
-``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); single-particle motion: ``exb_drift``, ``curvature_drift``,
+``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); reduced stability
+diagnostics (#1635): ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; single-particle motion: ``exb_drift``, ``curvature_drift``,
 ``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
 of the island: ``rational_surface``, ``delta_prime`` and
 ``tearing_layer_matching``; 3-D perturbation harmonics:
@@ -33,9 +34,9 @@ modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 ``integrated_modeling_process``; the VAFT framework (#1090):
 ``fusion_science_knowledge_lifecycle``, ``vaft_four_pillars``,
 ``scientific_workflow``, ``interoperability_layers``,
-``scientific_provenance_chain``, ``scientific_infrastructure_principles``,
+``scientific_provenance_chain``, ``plasma_state_provenance``, ``scientific_infrastructure_principles``,
 ``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``,
-``human_ai_interface`` and ``machine_research_archive``; research
+``integrated_scientific_framework`` (#1698), ``human_ai_interface`` and ``machine_research_archive``; research
 infrastructure (#1636, #1638, #1640, #1641, #1643, #1645), fragmented
 against integrated pairs plus the research community and ownership:
 ``scientific_representation``, ``experimental_research_infrastructure``,
@@ -49,7 +50,9 @@ spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``neo_neoclassical`` and ``tglf_cgyro_local_transport``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
-``logical_to_physical_mapping`` and ``physical_to_flux_mapping``.
+``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
+and q topology (#1604): ``current_profile_shapes``, ``q_profile_landmarks``,
+``q_profile_topologies`` and ``rational_surface_topology``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -68,6 +71,8 @@ __all__ = [
     "magnetic_island",
     "peeling_ballooning",
     "s_alpha_ballooning",
+    "stability_diagnostic_taxonomy",
+    "interchange_criteria",
     "hugill",
     "hugill_st",
     "troyon",
@@ -140,6 +145,10 @@ __all__ = [
     "internal_external_kink",
     "plasma_vacuum_wall",
     "cylindrical_tearing_outer",
+    "current_profile_shapes",
+    "q_profile_landmarks",
+    "q_profile_topologies",
+    "rational_surface_topology",
     "slab_field_configuration",
     "current_sheet",
     "harris_sheet",
@@ -169,6 +178,9 @@ __all__ = [
     "x_mode_dispersion",
     "cma_diagram",
     "profile_propagation",
+    "wave_dispersion_omega_k",
+    "refractive_index_vs_X",
+    "refractive_index_vs_Y",
     "neoclassical_collisionality",
     "ntv_collisionality",
     "ntv_precession_regimes",
@@ -202,9 +214,11 @@ __all__ = [
     "scientific_workflow",
     "interoperability_layers",
     "scientific_provenance_chain",
+    "plasma_state_provenance",
     "scientific_infrastructure_principles",
     "machine_agnostic_architecture",
     "experiment_modeling_theory_data_network",
+    "integrated_scientific_framework",
     "human_ai_interface",
     "machine_research_archive",
     "scientific_representation",
@@ -243,6 +257,8 @@ _LOCATIONS = {
     "magnetic_island": "._magnetic_island",
     "peeling_ballooning": "._stability_space",
     "s_alpha_ballooning": "._stability_space",
+    "stability_diagnostic_taxonomy": "._reduced_stability",
+    "interchange_criteria": "._reduced_stability",
     "hugill": "._stability_space",
     "hugill_st": "._stability_space",
     "troyon": "._stability_space",
@@ -315,6 +331,10 @@ _LOCATIONS = {
     "internal_external_kink": "._cylindrical_modes",
     "plasma_vacuum_wall": "._cylindrical_modes",
     "cylindrical_tearing_outer": "._cylindrical_modes",
+    "current_profile_shapes": "._equilibrium_profiles",
+    "q_profile_landmarks": "._equilibrium_profiles",
+    "q_profile_topologies": "._equilibrium_profiles",
+    "rational_surface_topology": "._equilibrium_profiles",
     "slab_field_configuration": "._field_configurations",
     "current_sheet": "._field_configurations",
     "harris_sheet": "._field_configurations",
@@ -344,6 +364,9 @@ _LOCATIONS = {
     "x_mode_dispersion": "._cold_plasma_waves",
     "cma_diagram": "._cold_plasma_waves",
     "profile_propagation": "._cold_plasma_waves",
+    "wave_dispersion_omega_k": "._cold_plasma_waves",
+    "refractive_index_vs_X": "._cold_plasma_waves",
+    "refractive_index_vs_Y": "._cold_plasma_waves",
     "neoclassical_collisionality": "._transport_regimes",
     "ntv_collisionality": "._transport_regimes",
     "ntv_precession_regimes": "._transport_regimes",
@@ -377,9 +400,11 @@ _LOCATIONS = {
     "scientific_workflow": "._vaft_concepts",
     "interoperability_layers": "._vaft_concepts",
     "scientific_provenance_chain": "._vaft_concepts",
+    "plasma_state_provenance": "._vaft_concepts",
     "scientific_infrastructure_principles": "._vaft_concepts",
     "machine_agnostic_architecture": "._vaft_concepts",
     "experiment_modeling_theory_data_network": "._vaft_concepts",
+    "integrated_scientific_framework": "._vaft_concepts",
     "human_ai_interface": "._vaft_concepts",
     "machine_research_archive": "._vaft_concepts",
     "scientific_representation": "._research_concepts",
