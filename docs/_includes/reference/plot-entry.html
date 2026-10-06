@@ -7,8 +7,19 @@ One plot of the generated plot reference (plot_catalog.yml).
 The data-catalog attribute is what validate_docs.rb counts: every plot in the
 catalog must render exactly one of these, and every one rendered must still be
 in the catalog.
+
+The scientific guidance is the renderer's docstring parsed under the plot
+contract (p.documentation, issue #1505): Interpretation, Options and
+Limitations are shown open, the other sections folded behind one <details>.
+Section prose is emitted raw so kramdown renders it exactly once, as on the
+formula and process pages.
 {%- endcomment -%}
 {%- assign p = include.p -%}
+{%- assign doc = p.documentation -%}
+{%- assign interpretation = doc.sections | where: "title", "Interpretation" | first -%}
+{%- assign options = doc.sections | where: "title", "Options" | first -%}
+{%- assign limitations = doc.sections | where: "title", "Limitations" | first -%}
+{%- assign more = doc.sections | where_exp: "s", "s.title != 'Interpretation' and s.title != 'Options' and s.title != 'Limitations'" -%}
 <section class="ref-entry" id="{{ p.name }}" data-catalog="plot" markdown="block">
 <header class="ref-head">
 <h4 class="ref-name no_toc"><a href="#{{ p.name }}"><code>{{ p.name }}</code></a></h4>
@@ -19,7 +30,43 @@ in the catalog.
 
 {{ p.description | escape }}
 
-{% if p.thumbnail %}<p class="ref-note">{% if p.thumbnail.status == "rendered" %}Thumbnail drawn from sample shot {{ p.thumbnail.shot }}{% if p.thumbnail.stale != "" %}, <strong>stale</strong>: {{ p.thumbnail.stale | escape }}{% endif %}.{% else %}No thumbnail: {{ p.thumbnail.reason | escape }}.{% endif %}</p>
+{% if interpretation %}<div class="ref-callout ref-callout-interpretation" markdown="1">
+<p class="ref-label">Interpretation</p>
+
+{{ interpretation.text }}
+
+</div>
+
+{% endif %}{% if options %}<div class="ref-callout ref-callout-options" markdown="1">
+<p class="ref-label">Options</p>
+
+{{ options.text }}
+
+</div>
+
+{% endif %}{% if limitations %}<div class="ref-callout ref-callout-limitations" markdown="1">
+<p class="ref-label">Limitations</p>
+
+{{ limitations.text }}
+
+</div>
+
+{% endif %}{% if more.size > 0 or doc.references.size > 0 %}<details class="ref-more" markdown="block">
+<summary>{% for s in more %}{{ s.title }}{% unless forloop.last %} · {% endunless %}{% endfor %}{% if doc.references.size > 0 %}{% if more.size > 0 %} · {% endif %}References{% endif %}</summary>
+
+{% for s in more %}<h5 class="ref-label no_toc">{{ s.title }}</h5>
+
+{{ s.text }}
+
+{% endfor %}{% if doc.references.size > 0 %}<h5 class="ref-label no_toc">References</h5>
+
+<ol class="ref-cites">
+{% for ref in doc.references %}  <li>{{ ref.text | markdownify | remove: "<p>" | remove: "</p>" }}</li>
+{% endfor %}</ol>
+
+{% endif %}</details>
+
+{% endif %}{% if p.thumbnail %}<p class="ref-note">{% if p.thumbnail.status == "rendered" %}Thumbnail drawn from sample shot {{ p.thumbnail.shot }}{% if p.thumbnail.stale != "" %}, <strong>stale</strong>: {{ p.thumbnail.stale | escape }}{% endif %}.{% else %}No thumbnail: {{ p.thumbnail.reason | escape }}.{% endif %}</p>
 
 {% endif %}<pre class="ref-signature"><code>{{ p.adapter }}(ods)         # from data
 vaft.plot.{{ p.name }}(model)   # from a {{ p.model }}</code></pre>
