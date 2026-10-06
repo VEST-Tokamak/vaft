@@ -29,7 +29,7 @@ def test_critical_energy_is_the_14_8_law():
     # pure deuterium, deuterium beam: 14.8 A_b T_e (1/A)^{2/3}, to the rounding of 14.8
     ec = critical_energy_from_T_e_A_b_n_species(100.0, 2.0, NE, [NE], [1.0], [2.0])
     assert ec == pytest.approx(14.8 * 2 * 100.0 * 0.5 ** (2 / 3), rel=3e-3)
-    # linear in T_e and A_b; impurities raise it through Z^2/A
+    # linear in T_e
     assert critical_energy_from_T_e_A_b_n_species(200.0, 2.0, NE, [NE], [1.0], [2.0]) == pytest.approx(2 * ec)
     # quasi-neutral C6+ in D leaves sum n Z^2/A = n_e/2 (Z^2/A = Z/2 for both): E_c unchanged
     with_c = critical_energy_from_T_e_A_b_n_species(100.0, 2.0, NE, [0.8 * NE, NE / 30], [1.0, 6.0], [2.0, 12.0])
@@ -90,6 +90,10 @@ def test_limits_of_the_slowing_down_chain():
     assert fast_ion_density_from_source(s, tau, vb, 1e6) == pytest.approx(s * t)
     assert slowing_down_time_between_speeds(tau, 1e6, vb, vb) == 0.0
     assert fast_ion_pressure_from_energy_density(3.0) == pytest.approx(2.0)
+    # v_b << v_c: ion drag only, W -> S tau_s E_b (v_b/v_c)^3 / 5, no cancellation error
+    for x in (1e-4, 1e-2, 0.049, 0.051):
+        w = fast_ion_energy_density_from_source(s, tau, a_b, vb, vb / x)
+        assert w == pytest.approx(s * tau * e_b * (x**5 / 5 - x**8 / 8) / x**2, rel=1e-7)
 
 
 @pytest.mark.parametrize("bad", [

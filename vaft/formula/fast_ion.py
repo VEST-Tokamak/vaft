@@ -414,10 +414,15 @@ def fast_ion_density_from_source(S, tau_s, v_b, v_c):
 
 
 def _velocity_moment_4(x):
-    """int_0^x u^4/(u^3+1) du in closed form."""
-    h = (np.log((x**2 - x + 1.0) / (x + 1.0) ** 2) / 6.0
-         + (np.arctan((2.0 * x - 1.0) / np.sqrt(3.0)) + np.pi / 6.0) / np.sqrt(3.0))
-    return x**2 / 2.0 - h
+    """int_0^x u^4/(u^3+1) du: closed form, or its series where the closed form cancels."""
+    x = np.asarray(x, dtype=float)
+    small = x < 0.05
+    xs = np.where(small, x, 0.0)
+    series = xs**5 / 5.0 - xs**8 / 8.0 + xs**11 / 11.0 - xs**14 / 14.0
+    xl = np.where(small, 1.0, x)
+    h = (np.log((xl**2 - xl + 1.0) / (xl + 1.0) ** 2) / 6.0
+         + (np.arctan((2.0 * xl - 1.0) / np.sqrt(3.0)) + np.pi / 6.0) / np.sqrt(3.0))
+    return np.where(small, series, xl**2 / 2.0 - h)
 
 
 def fast_ion_energy_density_from_source(S, tau_s, A_b, v_b, v_c):

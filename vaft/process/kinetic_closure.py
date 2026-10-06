@@ -89,6 +89,8 @@ class FastIonEstimate:
     W_fast: np.ndarray
     p_fast: np.ndarray
     provenance: Mapping[str, Any] = field(default_factory=dict)
+    time: Optional[float] = None
+    rho: Optional[np.ndarray] = None
 
 
 @dataclass(frozen=True)
@@ -202,6 +204,8 @@ def fast_ion_slowing_down_estimate(
     A_b: float,
     Z_b: float = 1.0,
     ln_Lambda: Any = None,
+    time: Optional[float] = None,
+    rho: Any = None,
 ) -> FastIonEstimate:
     """Classical slowing-down density, energy and pressure of one fast-ion source on a grid.
 
@@ -223,6 +227,11 @@ def fast_ion_slowing_down_estimate(
         Charge of the fast ion [-].
     ln_Lambda : array-like, optional
         Electron Coulomb logarithm; default the NRL form of n_e, T_e [-].
+    time : float, optional
+        Time of the profiles; :func:`infer_kinetic_closure` refuses the
+        estimate for a slice further away than its tolerance [s].
+    rho : array-like, optional
+        Radial grid of the profiles; checked against the slice grid [-].
 
     Returns
     -------
@@ -233,7 +242,7 @@ def fast_ion_slowing_down_estimate(
     Raises
     ------
     ValueError
-        Non-positive beam energy, mass or charge, or invalid profiles.
+        Non-positive beam energy, mass or charge, or a negative source rate.
 
     Processing steps
     ----------------
@@ -246,6 +255,8 @@ def fast_ion_slowing_down_estimate(
     -----------
     Steady state, a single birth energy, classical drag, local deposition
     (no orbit width), an isotropic population, no charge-exchange loss.
+    Points with a non-positive or non-finite n_e or T_e (the zero edge of a
+    fitted profile) have no defined drag and are returned as NaN.
 
     Applicability
     -------------
@@ -274,27 +285,75 @@ def fast_ion_slowing_down_estimate(
 
     if not beam_energy_eV > 0.0 or not A_b > 0.0 or not Z_b > 0.0:
         raise ValueError("beam_energy_eV, A_b and Z_b must be positive")
-    ne = np.asarray(n_e, dtype=float)
+    ne = np.atleast_1d(np.asarray(n_e, dtype=float))
     te = np.broadcast_to(np.asarray(T_e, dtype=float), ne.shape)
     labels = list(field_ions)
     n_j = np.stack([np.broadcast_to(np.asarray(field_ions[k][0], float), ne.shape) for k in labels], axis=-1)
     z_j = np.array([float(field_ions[k][1]) for k in labels])
     a_j = np.array([float(field_ions[k][2]) for k in labels])
-    lnl = coulomb_logarithm_from_n_T(ne, te) if ln_Lambda is None else np.broadcast_to(ln_Lambda, ne.shape)
+    lnl = (None if ln_Lambda is None
+           else np.broadcast_to(np.asarray(ln_Lambda, dtype=float), ne.shape))
     source = np.broadcast_to(np.asarray(source_rate, dtype=float), ne.shape)
+    if np.any(source < 0.0):
+        raise ValueError("source_rate must be non-negative")
+    # Fitted profiles often end in a zero density or a NaN temperature: those
+    # points carry no defined drag and get NaN, as the thermal side does.
+    ok = (np.isfinite(ne) & (ne > 0.0) & np.isfinite(te) & (te > 0.0) & np.isfinite(source)
+          & np.all(np.isfinite(n_j) & (n_j >= 0.0), axis=-1) & (np.sum(n_j, axis=-1) > 0.0))
+    if lnl is not None:
+        ok &= np.isfinite(lnl) & (lnl > 0.0)
     v_b = float(np.sqrt(2.0 * beam_energy_eV * _QE / (A_b * 1.66053906660e-27)))
-    v_c = np.asarray(critical_velocity_from_T_e_n_species(te, ne, n_j, z_j, a_j))
-    tau_s = np.asarray(slowing_down_time_from_T_e_n_e_A_b_Z_b(te, ne, A_b, Z_b, lnl))
-    n_f = np.asarray(fast_ion_density_from_source(source, tau_s, v_b, v_c))
-    w_f = np.asarray(fast_ion_energy_density_from_source(source, tau_s, A_b, v_b, v_c))
+    names = ("v_c", "tau_s", "tau_thermalisation", "n_fast", "W_fast")
+    out = {name: np.full(ne.shape, np.nan) for name in names}
+    if np.any(ok):
+        ln_ok = coulomb_logarithm_from_n_T(ne[ok], te[ok]) if lnl is None else lnl[ok]
+        v_c = np.asarray(critical_velocity_from_T_e_n_species(te[ok], ne[ok], n_j[ok], z_j, a_j))
+        tau_s = np.asarray(slowing_down_time_from_T_e_n_e_A_b_Z_b(te[ok], ne[ok], A_b, Z_b, ln_ok))
+        out["v_c"][ok], out["tau_s"][ok] = v_c, tau_s
+        out["tau_thermalisation"][ok] = slowing_down_time_between_speeds(tau_s, v_c, v_b)
+        out["n_fast"][ok] = fast_ion_density_from_source(source[ok], tau_s, v_b, v_c)
+        out["W_fast"][ok] = fast_ion_energy_density_from_source(source[ok], tau_s, A_b, v_b, v_c)
+    w_f = out["W_fast"]
+    p_f = np.where(ok, np.asarray(fast_ion_pressure_from_energy_density(np.where(ok, w_f, 0.0))), np.nan)
     return FastIonEstimate(
         source_rate=np.asarray(source), beam_energy_eV=float(beam_energy_eV), A_b=float(A_b), Z_b=float(Z_b),
-        v_b=v_b, v_c=v_c, E_c_eV=0.5 * A_b * 1.66053906660e-27 * v_c**2 / _QE, tau_s=tau_s,
-        tau_thermalisation=np.asarray(slowing_down_time_between_speeds(tau_s, v_c, v_b)),
-        n_fast=n_f, W_fast=w_f, p_fast=np.asarray(fast_ion_pressure_from_energy_density(w_f)),
+        v_b=v_b, v_c=out["v_c"], E_c_eV=0.5 * A_b * 1.66053906660e-27 * out["v_c"]**2 / _QE,
+        tau_s=out["tau_s"], tau_thermalisation=out["tau_thermalisation"],
+        n_fast=out["n_fast"], W_fast=w_f, p_fast=p_f,
         provenance={"model": "classical slowing down (Stix 1972), steady, isotropic, local",
-                    "ln_Lambda": "NRL electron form" if ln_Lambda is None else "caller"},
+                    "ln_Lambda": "NRL electron form" if ln_Lambda is None else "caller",
+                    "undefined_points": int(np.count_nonzero(~ok))},
+        time=None if time is None else float(time),
+        rho=None if rho is None else np.asarray(rho, dtype=float),
     )
+
+
+def _main_ion_path(ods: Any, base: str) -> Optional[str]:
+    """Path of the one hydrogenic ``ion[]`` entry (``element.0.z_n == 1``), or None.
+
+    The entry is found by its nuclear charge, not its position.  Several
+    hydrogenic entries (an isotope mix) are refused rather than one of them
+    standing in for the main ion.
+    """
+    from vaft.ods_access import path_count
+    from vaft.process.impurity import _get, _hydrogenic
+
+    found = [f"{base}.ion.{k}" for k in range(path_count(ods, f"{base}.ion"))
+             if _hydrogenic(_get(ods, f"{base}.ion.{k}.element.0.z_n"))]
+    if len(found) > 1:
+        raise ValueError(f"{base} stores {len(found)} hydrogenic ions; one main-ion temperature is read, not a mix")
+    return found[0] if found else None
+
+
+def _check_fast_ion_slice(fast_ion: FastIonEstimate, shape: tuple, time: Optional[float],
+                          rho: Any, tolerance: float) -> None:
+    """Refuse a fast-ion estimate made on another grid or at another time than the slice."""
+    if np.shape(fast_ion.p_fast) != shape:
+        raise ValueError(f"fast_ion is on a grid of shape {np.shape(fast_ion.p_fast)}, the slice on {shape}")
+    if fast_ion.time is not None and time is not None and abs(fast_ion.time - time) > tolerance:
+        raise ValueError(f"fast_ion was estimated at t = {fast_ion.time:g} s, the slice is at t = {time:g} s")
+    if fast_ion.rho is not None and rho is not None and not np.allclose(fast_ion.rho, np.asarray(rho, float)):
+        raise ValueError("fast_ion was estimated on another rho grid than the slice")
 
 
 def infer_kinetic_closure(
@@ -347,7 +406,8 @@ def infer_kinetic_closure(
     ------
     ValueError
         An unknown dilution mode, no slice at the time, no n_e or T_e, no
-        stored T_i and no ratio, or a composition that cannot be resolved.
+        stored T_i and no ratio, several hydrogenic ions, a composition that
+        cannot be resolved, or a fast-ion estimate from another grid or time.
 
     Processing steps
     ----------------
@@ -379,8 +439,11 @@ def infer_kinetic_closure(
 
     Limitations
     -----------
-    Impurities share the main-ion temperature.  The fast-ion pressure is the
-    caller's estimate on the same grid; no deposition model is run here.
+    Impurities share the main-ion temperature, read from the one hydrogenic
+    ``ion[]`` entry (by ``element.0.z_n``, not position).  The fast-ion
+    pressure is the caller's estimate; it must share the slice's grid (and
+    its time and rho when the estimate records them).  No deposition model
+    is run here.
 
     Provenance
     ----------
@@ -401,12 +464,13 @@ def infer_kinetic_closure(
         raise ValueError(f"{base} needs electrons.density and electrons.temperature")
     ne, te = np.asarray(ne, dtype=float), np.asarray(te, dtype=float)
     rho = _get(ods, f"{base}.grid.rho_tor_norm")
-    stored_ti = _get(ods, f"{base}.ion.0.temperature")
+    main_ion = _main_ion_path(ods, base)
+    stored_ti = None if main_ion is None else _get(ods, f"{main_ion}.temperature")
     provenance: dict[str, Any] = {"slice": base, "dilution": dilution}
     if stored_ti is not None:
         ti = np.broadcast_to(np.asarray(stored_ti, dtype=float), ne.shape)
-        provenance["ti"] = {"source": f"{base}.ion.0.temperature",
-                            "record": _get(ods, f"{base}.ion.0.temperature_fit.parameters")}
+        provenance["ti"] = {"source": f"{main_ion}.temperature",
+                            "record": _get(ods, f"{main_ion}.temperature_fit.parameters")}
     elif ti_te_ratio is not None:
         ti = float(ti_te_ratio) * te
         provenance["ti"] = {"source": "ti_te_ratio", "ratio": float(ti_te_ratio), "status": "assumed",
@@ -432,6 +496,7 @@ def infer_kinetic_closure(
                                      "zeff_source": resolved.zeff_source}
     temperatures = {label: ti for label in densities}
     if fast_ion is not None:
+        _check_fast_ion_slice(fast_ion, ne.shape, _slice_time(ods, index), rho, tolerance)
         provenance["fast_ion"] = dict(fast_ion.provenance) | {"beam_energy_eV": fast_ion.beam_energy_eV,
                                                               "A_b": fast_ion.A_b}
     pressure = assemble_pressure(ne, te, densities, temperatures,

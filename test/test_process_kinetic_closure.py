@@ -93,7 +93,50 @@ def test_assemble_pressure_refuses_mismatched_species():
 
 
 def test_reading_creates_no_path():
+    for ods in (_ods(), _ods(ti=0.5 * TE)):
+        before = sorted(ods.paths())
+        infer_kinetic_closure(ods, machine_preset="vest", ti_te_ratio=1.0)
+        assert sorted(ods.paths()) == before
+
+
+def test_the_main_ion_temperature_is_found_by_nuclear_charge_not_position():
     ods = _ods()
-    before = sorted(ods["core_profiles.profiles_1d.0"].keys())
-    infer_kinetic_closure(ods, machine_preset="vest", ti_te_ratio=1.0)
-    assert sorted(ods["core_profiles.profiles_1d.0"].keys()) == before
+    base = "core_profiles.profiles_1d.0"
+    # carbon first, hydrogen second, each with its own temperature
+    for k, (label, z_n, a, z, t) in enumerate([("C6+", 6.0, 12.011, 6.0, 3.0 * TE), ("H+", 1.0, 1.008, 1.0, 0.5 * TE)]):
+        ods[f"{base}.ion.{k}.label"] = label
+        ods[f"{base}.ion.{k}.element.0.z_n"] = z_n
+        ods[f"{base}.ion.{k}.element.0.a"] = a
+        ods[f"{base}.ion.{k}.z_ion"] = z
+        ods[f"{base}.ion.{k}.density_thermal"] = NE / 100 if z_n > 1 else NE * 0.94
+        ods[f"{base}.ion.{k}.temperature"] = t
+    closure = infer_kinetic_closure(ods, dilution="none")
+    np.testing.assert_allclose(closure.ion_temperatures["H+"], 0.5 * TE)
+    assert closure.provenance["ti"]["source"].endswith("ion.1.temperature")
+    ods[f"{base}.ion.0.element.0.z_n"] = 1.0                                 # two hydrogenic entries
+    with pytest.raises(ValueError, match="hydrogenic"):
+        infer_kinetic_closure(ods, dilution="none")
+
+
+def test_a_zero_or_undefined_edge_gives_nan_not_an_error():
+    ne = NE.copy()
+    ne[-1] = 0.0
+    te = TE.copy()
+    te[-2] = np.nan
+    fast = fast_ion_slowing_down_estimate(ne, te, {"H+": (ne, 1.0, 1.0)}, 1e20 * np.ones_like(ne), 20e3, A_b=1.0)
+    assert np.all(np.isnan(fast.p_fast[-2:])) and np.all(np.isfinite(fast.p_fast[:-2]))
+    assert fast.provenance["undefined_points"] == 2
+
+
+def test_a_fast_ion_estimate_from_another_slice_is_refused():
+    def estimate(**kw):
+        return fast_ion_slowing_down_estimate(NE, TE, {"H+": (NE, 1.0, 1.0)}, 1e20, 20e3, A_b=1.0, **kw)
+
+    infer_kinetic_closure(_ods(), dilution="none", ti_te_ratio=1.0, fast_ion=estimate(time=0.3, rho=RHO))
+    with pytest.raises(ValueError, match="estimated at"):
+        infer_kinetic_closure(_ods(), dilution="none", ti_te_ratio=1.0, fast_ion=estimate(time=0.31))
+    with pytest.raises(ValueError, match="rho grid"):
+        infer_kinetic_closure(_ods(), dilution="none", ti_te_ratio=1.0, fast_ion=estimate(rho=RHO**2))
+    short = fast_ion_slowing_down_estimate(NE[:3], TE[:3], {"H+": (NE[:3], 1.0, 1.0)}, 1e20, 20e3, A_b=1.0)
+    with pytest.raises(ValueError, match="shape"):
+        infer_kinetic_closure(_ods(), dilution="none", ti_te_ratio=1.0, fast_ion=short)
