@@ -17,11 +17,28 @@ from .config import (
     MITIMResult,
     mitim_user_config,
 )
-from .compare import compare_tglf_inputs, effective_tglf_controls, read_input_tglf
+from .compare import (
+    compare_neo_fluxes,
+    compare_tglf_inputs,
+    effective_tglf_controls,
+    neo_local_to_profile_normalisation,
+    read_input_neo,
+    read_input_tglf,
+)
 from .coordinates import r_over_a_at, rho_tor_norm_at
-from .runner import mitim_tglf_local_inputs, run_mitim_driver, run_mitim_tglf, run_neo_smoke
+from .runner import (
+    mitim_tglf_local_inputs,
+    run_mitim_driver,
+    run_mitim_neo,
+    run_mitim_tglf,
+    run_neo_smoke,
+)
 
 __all__ = [
+    "run_mitim_neo",
+    "read_input_neo",
+    "neo_local_to_profile_normalisation",
+    "compare_neo_fluxes",
     "MITIMAvailability",
     "MITIMConfig",
     "MITIMResult",

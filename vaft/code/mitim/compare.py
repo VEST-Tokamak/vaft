@@ -14,7 +14,15 @@ import re
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-__all__ = ["PHYSICS_KEYS", "compare_tglf_inputs", "effective_tglf_controls", "read_input_tglf"]
+__all__ = [
+    "PHYSICS_KEYS",
+    "compare_neo_fluxes",
+    "compare_tglf_inputs",
+    "effective_tglf_controls",
+    "neo_local_to_profile_normalisation",
+    "read_input_neo",
+    "read_input_tglf",
+]
 
 #: Keys that describe the plasma at the surface (geometry, gradients, species,
 #: collisionality, beta, rotation); everything else is a solver control.
@@ -91,6 +99,71 @@ def effective_tglf_controls(parameters: Mapping[str, Any]) -> dict[str, Any]:
     if bool(out.get("USE_BPER", False)):
         out["ALPHA_MACH"] = 0.0
     return out
+
+
+def read_input_neo(path: str | Path) -> dict[str, Any]:
+    """``KEY = VALUE`` lines of an ``input.neo`` (same syntax as ``input.tglf``)."""
+    return read_input_tglf(path)
+
+
+def neo_local_to_profile_normalisation(transport: Mapping[str, Any], input_neo: Mapping[str, Any]) -> dict[str, Any]:
+    """Re-express a local-mode NEO result in profile mode's normalisation.
+
+    In profile mode (``PROFILE_MODEL=2``, how VAFT runs NEO) ``neo_make_profiles.f90``
+    normalises by species 1 at each radius: ``n_0 = n_1``, ``T_0 = T_1``,
+    ``v_t0 = sqrt(T_1/m_D)``. A local-mode run (``PROFILE_MODEL=1``, how MITIM runs
+    NEO) normalises by references its ``input.neo`` expresses species 1 against,
+    ``DENS_1 = n_1/n_ref`` and ``TEMP_1 = T_1/T_ref`` (MITIM: ``n_ref = n_e``). So
+
+    ``Gamma/(n_1 v_1) = [Gamma/(n_ref v_ref)] / (DENS_1 sqrt(TEMP_1))`` and
+    ``Q/(n_1 T_1 v_1) = [Q/(n_ref T_ref v_ref)] / (DENS_1 TEMP_1^1.5)``.
+
+    On 39915 (H+/C6+, Z_eff 2: ``DENS_1 = 0.8``) the unconverted MITIM fluxes are
+    exactly 0.8 of VAFT's, for every species, channel and radius.
+    """
+    import numpy as np
+
+    dens, temp = float(input_neo["DENS_1"]), float(input_neo["TEMP_1"])
+    out = dict(transport)
+    out["particle_flux"] = np.asarray(transport["particle_flux"], dtype=float) / (dens * temp ** 0.5)
+    out["energy_flux"] = np.asarray(transport["energy_flux"], dtype=float) / (dens * temp ** 1.5)
+    return out
+
+
+def compare_neo_fluxes(
+    vaft_transport: Mapping[str, Any],
+    mitim_by_r_over_a: Mapping[float, Mapping[str, Any]],
+    *,
+    rtol: float = 1e-3,
+    atol: float = 0.0,
+) -> list[dict[str, Any]]:
+    """Per (r/a, channel, species) rows comparing a VAFT profile run with MITIM runs.
+
+    ``vaft_transport`` is a profile-mode ``NeoOutputs.transport`` (radius on the last
+    axis); ``mitim_by_r_over_a`` maps each requested r/a to a local-mode transport
+    already passed through :func:`neo_local_to_profile_normalisation`. A MITIM
+    surface the profile run did not solve, within 1e-4 in r/a, is ``vaft_missing``.
+    """
+    import numpy as np
+
+    radii = np.atleast_1d(np.asarray(vaft_transport["r_over_a"], dtype=float)).ravel()
+    rows = []
+    for r_over_a, mitim in sorted(mitim_by_r_over_a.items()):
+        matches = np.flatnonzero(np.abs(radii - float(r_over_a)) <= 1e-4)
+        for channel in ("particle_flux", "energy_flux"):
+            b = np.asarray(mitim[channel], dtype=float).reshape(-1)
+            if matches.size != 1:
+                rows.append({"r_over_a": float(r_over_a), "channel": channel, "species": None,
+                             "vaft": None, "mitim": None, "rel_diff": None, "status": "vaft_missing"})
+                continue
+            a = np.asarray(vaft_transport[channel], dtype=float).reshape(-1, radii.size)[:, matches[0]]
+            for species, (x, y) in enumerate(zip(a, b)):
+                scale = max(abs(x), abs(y))
+                rel = abs(x - y) / scale if scale > 0 else 0.0
+                rows.append({"r_over_a": float(r_over_a), "channel": channel, "species": species + 1,
+                             "vaft": float(x), "mitim": float(y), "rel_diff": rel,
+                             "status": "agree" if math.isclose(x, y, rel_tol=rtol, abs_tol=atol) else "differ"})
+    return rows
 
 
 def _numeric(value: Any) -> float | None:

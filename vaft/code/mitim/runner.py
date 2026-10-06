@@ -20,7 +20,13 @@ from ..execution import ExecutionRequest, resolve_backend, timeout_reason
 from .availability import MITIMAvailability, mitim_availability
 from .config import MITIMConfig, MITIMResult, mitim_user_config
 
-__all__ = ["mitim_tglf_local_inputs", "run_mitim_driver", "run_mitim_tglf", "run_neo_smoke"]
+__all__ = [
+    "mitim_tglf_local_inputs",
+    "run_mitim_driver",
+    "run_mitim_neo",
+    "run_mitim_tglf",
+    "run_neo_smoke",
+]
 
 #: The GACODE members MITIM may call; each one's ``bin`` goes on ``PATH``.
 _GACODE_MEMBERS = ("neo", "tglf", "tgyro", "cgyro", "vgen")
@@ -335,3 +341,74 @@ def run_mitim_tglf(
             result.result = {**result.result, "status": "partial", "missing_r_over_a": missing,
                              "shifted_r_over_a": shifted}
     return result, outputs
+
+
+def run_mitim_neo(
+    profile: Any,
+    r_over_a,
+    workdir: str | Path,
+    config: MITIMConfig | None = None,
+    *,
+    code_settings: Optional[str] = None,
+    extra_options: Optional[Mapping[str, Any]] = None,
+    availability: Optional[MITIMAvailability] = None,
+) -> tuple[MITIMResult, dict[float, Any], dict[float, dict]]:
+    """Run NEO through MITIM (local mode, one radius each) at VAFT's ``r/a``.
+
+    The radii go through VAFT's bridge, colliding 4-decimal rho labels are refused,
+    and each radius's ``RMIN_OVER_A`` in the ``input.neo`` MITIM ran is checked
+    against the request (1e-3); a shifted or missing surface makes the result
+    ``partial``. MITIM's NEO preset is ``Sonic`` (ROTATION_MODEL=2); VAFT runs
+    ROTATION_MODEL=1, so pass ``extra_options={"ROTATION_MODEL": 1}`` to compare.
+
+    Returns
+    -------
+    (MITIMResult, {r/a: NeoOutputs}, {r/a: parsed input.neo})
+        The outputs are in MITIM's local normalisation; see
+        :func:`vaft.code.mitim.compare.neo_local_to_profile_normalisation`.
+    """
+    from ..gacode._input_gacode import write_input_gacode
+    from ..gacode.neo.outputs import collect_neo_outputs
+    from .compare import read_input_neo
+    from .coordinates import rho_tor_norm_at
+
+    workdir = Path(workdir).resolve()
+    workdir.mkdir(parents=True, exist_ok=True)
+    folder = workdir / "neo"
+    if folder.exists():
+        shutil.rmtree(folder)
+    r_over_a = [float(r) for r in r_over_a]
+    rho = [float(x) for x in rho_tor_norm_at(profile, r_over_a)]
+    labels = [f"{x:.4f}" for x in rho]
+    if len(set(labels)) != len(labels):
+        raise ValueError(f"r/a {r_over_a} map to rho_tor_norm labels {labels} that collide")
+    input_path = write_input_gacode(profile, workdir / "input.gacode")
+    arguments = {"input_gacode": str(input_path), "folder": str(folder), "rhos": rho,
+                 "rhos_coordinate": "rho_tor_norm", "r_over_a": r_over_a,
+                 "code_settings": code_settings, "extra_options": dict(extra_options or {}),
+                 "input_gacode_sha256": _sha256(input_path)}
+    result = run_mitim_driver("neo_smoke", arguments, workdir, config, availability=availability)
+    outputs: dict[float, Any] = {}
+    inputs: dict[float, dict] = {}
+    shifted: dict[float, Optional[float]] = {}
+    if result.ok:
+        for directory in result.result.get("run_directories", []):
+            label = Path(directory).name.split("_", 1)[1]
+            if label not in labels:
+                continue
+            index = labels.index(label)
+            path = Path(directory) / "input.neo"
+            parsed_input = read_input_neo(path) if path.is_file() else {}
+            ran = parsed_input.get("RMIN_OVER_A")
+            if ran is None or abs(float(ran) - r_over_a[index]) > 1e-3:
+                shifted[r_over_a[index]] = None if ran is None else float(ran)
+                continue
+            parsed = collect_neo_outputs(directory)
+            if parsed is not None and parsed.transport is not None:
+                outputs[r_over_a[index]] = parsed
+                inputs[r_over_a[index]] = parsed_input
+        missing = [r for r in r_over_a if r not in outputs]
+        if missing:
+            result.result = {**result.result, "status": "partial", "missing_r_over_a": missing,
+                             "shifted_r_over_a": shifted}
+    return result, outputs, inputs
