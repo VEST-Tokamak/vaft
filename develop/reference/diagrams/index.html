@@ -105,6 +105,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
                     
                         <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
@@ -312,7 +318,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4b88523</code>. What is described
+  <code>11ab9da</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -513,6 +519,7 @@ which has no closed form, is a schematic, and the figure says so.</p>
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">peeling_ballooning</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">s_alpha_ballooning</span><span class="p">(</span><span class="n">s_max</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">alpha_max</span><span class="o">=</span><span class="mf">3.5</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">hugill</span><span class="p">(</span><span class="n">elongation</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>                       <span class="c1"># no size parameter: R, a, B cancel
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">hugill_st</span><span class="p">(</span><span class="n">elongation</span><span class="o">=</span><span class="mf">1.8</span><span class="p">)</span>                   <span class="c1"># spherical-tokamak q_cyl (Sykes et al. 2000, MAST)
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">troyon</span><span class="p">(</span><span class="n">aspect_ratio</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">elongation</span><span class="o">=</span><span class="mf">1.7</span><span class="p">)</span>      <span class="c1"># registered Troyon limit, ~2.76
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">li_qa</span><span class="p">(</span><span class="n">reference</span><span class="o">=</span><span class="sh">"</span><span class="s">wesson_1989</span><span class="sh">"</span><span class="p">)</span>                <span class="c1"># JET empirical l_i-q_psi space
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">li_qa</span><span class="p">(</span><span class="n">reference</span><span class="o">=</span><span class="sh">"</span><span class="s">cheng_1987</span><span class="sh">"</span><span class="p">)</span>                 <span class="c1"># theoretical MHD-stable l_i-q(a) domain
@@ -568,6 +575,12 @@ which has no closed form, is a schematic, and the figure says so.</p>
       <td>Where is the density limit?</td>
       <td>$\bar n_e R/B_T$, $1/q_\mathrm{cyl}$</td>
       <td>The registered <code class="language-plaintext highlighter-rouge">greenwald_hugill</code> line (slope $\pi/50\kappa_a$ in $1/q_\mathrm{cyl}$ against $\bar n_e R/B_T$) and <code class="language-plaintext highlighter-rouge">murakami_hugill</code> ($\bar n_e R/B_T = 1$). The registered <code class="language-plaintext highlighter-rouge">low_q</code> is on the equilibrium $q_\psi$, not $q_\mathrm{cyl}$, so it is not drawn; <code class="language-plaintext highlighter-rouge">q_limit=</code> adds a dashed <em>reference</em> $q_\mathrm{cyl}$ line</td>
+    </tr>
+    <tr>
+      <td>Hugill (ST)</td>
+      <td>Where is the density limit in a spherical tokamak?</td>
+      <td>$\bar n_e R/B_T$, $1/q^{ST}<em>\mathrm{cyl}$ with $q^{ST}</em>\mathrm{cyl} = 2.5a^2(1+\kappa^2)B_T/(RI_p)$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.diagram.hugill_st(elongation=1.8)</code>: the Hugill limit as Sykes et al. (2000, MAST) define it (<code class="language-plaintext highlighter-rouge">sykes_2000_st_hugill</code>) and the Greenwald limit on these axes (<code class="language-plaintext highlighter-rouge">greenwald_hugill_st</code>, derived); Murakami dashed as a historical conventional-tokamak reference. Not substitutable with the conventional <code class="language-plaintext highlighter-rouge">hugill</code> axes (#1602)</td>
     </tr>
     <tr>
       <td>$l_i$–$q$</td>
@@ -3343,6 +3356,10 @@ unsupported capability. Node style says how a quantity was obtained:</p>
       <td>estimated with a model, prior or closure</td>
     </tr>
     <tr>
+      <td>synthetic (assumption-completed)</td>
+      <td>completed from an equilibrium and explicit assumptions with no kinetic data; never a measurement</td>
+    </tr>
+    <tr>
       <td>model assumption / prior</td>
       <td>an assumed value or prior the result depends on; drawn entering from the side</td>
     </tr>
@@ -3390,6 +3407,8 @@ where one exists, otherwise a relation restating the expression the named API im
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">flare_field_line_topology</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">neo_neoclassical</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">tglf_cgyro_local_transport</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">parameter_inference_overview</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">parameter_inference_dependency_graph</span><span class="p">()</span>
 </code></pre></div></div>
 
 <h3 id="plasma-parameter-inference-ion-temperature-and-species">Plasma parameter inference: ion temperature and species</h3>
@@ -4603,6 +4622,218 @@ where one exists, otherwise a relation restating the expression the named API im
   <li>No TGLF to gyrokinetics_local mapping.</li>
 </ul>
 
+<h3 id="plasma-parameter-inference-completing-the-kinetic-profiles">Plasma parameter inference: completing the kinetic profiles</h3>
+
+<p>Where inference sits: diagnostics and the equilibrium give reconstructed but incomplete kinetic profiles; explicit assumptions and the closures VAFT implements complete them, and every completed quantity keeps its origin on the way to simulation.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/parameter_inference_overview.svg" alt="Plasma parameter inference: completing the kinetic profiles" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Node</th>
+      <th>Kind</th>
+      <th>Variables</th>
+      <th>API</th>
+      <th>IDS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Thomson scattering</td>
+      <td>measured</td>
+      <td>$T_e,\ n_e\ \mathrm{at}\ (R, Z)$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">thomson_scattering.channel[:]</code></td>
+    </tr>
+    <tr>
+      <td>Charge exchange (optional)</td>
+      <td>measured</td>
+      <td>$T_i^{\mathrm{CX}}\ \mathrm{at}\ (R, Z)$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">charge_exchange.channel[:].ion[0].t_i</code></td>
+    </tr>
+    <tr>
+      <td>Magnetic equilibrium</td>
+      <td>reconstructed</td>
+      <td>$p_{\mathrm{eq}}(\psi),\ q,\ \langle j\cdot B\rangle,\ \mathrm{geometry}$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].profiles_1d</code></td>
+    </tr>
+    <tr>
+      <td>Reconstructed kinetic profiles</td>
+      <td>reconstructed</td>
+      <td>$T_e(\rho),\ n_e(\rho)\ (\mathrm{fitted}),\ [T_i(\rho)], p_{\mathrm{eq}}(\rho),\ q(\rho)$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles.profiles_1d[:].electrons</code></td>
+    </tr>
+    <tr>
+      <td>Fitting assumptions</td>
+      <td>model choice / convention (enters Reconstructed kinetic profiles)</td>
+      <td>$\mathrm{polynomial\ |\ core\text{-}poly/edge\text{-}exp\ |\ GP}, \mathrm{order}\ N,\ x = \rho_{\mathrm{tor},N}\ \mathrm{or}\ \psi_N, T, n &gt; 0,\ \sigma\text{-}\mathrm{weighted}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.profile.profile_fitting_thomson_scattering</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Closure assumptions</td>
+      <td>model assumption / prior (enters Reconstructed kinetic profiles)</td>
+      <td>$\mathrm{common}\ T_i,\ \mathrm{impurity\ species},\ Z_{\mathrm{eff}}, \sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Thermodynamic closure</td>
+      <td>inferred</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.kinetic_state.infer_ti_pressure_partition</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Impurity closure</td>
+      <td>inferred</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.impurity.resolve_impurity_composition</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Resistive closure</td>
+      <td>inferred</td>
+      <td>$V_R^{\mathrm{obs}} \to Z_{\mathrm{eff}}^{\mathrm{res}}\ (\mathrm{scalar}), \sigma_\parallel:\ \mathrm{Spitzer\ |\ neoclassical\ (Sauter,\ Redl)}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.resistive_zeff.infer_resistive_zeff</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Completed kinetic profiles</td>
+      <td>derived</td>
+      <td>$n_e, T_e, T_i, n_s, Z_{\mathrm{eff}}, \mathrm{each\ with\ origin=\ldots;\ method=\ldots}$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles.profiles_1d[:].{electrons, ion[:], zeff}</code></td>
+    </tr>
+    <tr>
+      <td>Simulation-ready</td>
+      <td>code input</td>
+      <td>$\mathrm{every\ input\ quantity\ with\ its\ origin}$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>References:</p>
+
+<ol>
+  <li>L. L. Lao et al., Nucl. Fusion 25 (1985) 1611</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25</li>
+  <li>J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002</li>
+  <li>L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977</li>
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834</li>
+  <li>A. Redl et al., Phys. Plasmas 28 (2021) 022502</li>
+</ol>
+
+<p>Follow-up TODOs (implementation or IMAS mapping):</p>
+
+<ul>
+  <li>Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive closure) is in progress in Lane L / Lane Z (#1565, #1566, PR #1659) and is not on develop.</li>
+  <li>Rotation, E_r and the ExB shear are not inferred: downstream codes receive gamma_E = 0 as an explicit assumption (#553).</li>
+  <li>Provenance is recorded per quantity where it exists (core_profiles origin=…; method=… records for composition, the T_i result’s origin/method fields); there is no single runtime provenance object, by design (#1601 is documentation-first).</li>
+</ul>
+
+<h3 id="inferred-quantities-depend-on-inferred-quantities">Inferred quantities depend on inferred quantities</h3>
+
+<p>Provenance propagates: a composition assumption fixes the ion densities, which set the pressure-partition T_i, whose gradients reach the gyrokinetic input beside an assumed zero ExB shear. Every link below the measurements carries the assumptions above it.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/parameter_inference_dependency_graph.svg" alt="Inferred quantities depend on inferred quantities" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Node</th>
+      <th>Kind</th>
+      <th>Variables</th>
+      <th>API</th>
+      <th>IDS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Electron profiles</td>
+      <td>measured</td>
+      <td>$T_e(\rho),\ n_e(\rho)$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles.profiles_1d[:].electrons.{temperature, density_thermal}</code></td>
+    </tr>
+    <tr>
+      <td>Equilibrium pressure</td>
+      <td>reconstructed</td>
+      <td>$p_{\mathrm{eq}}(\psi)\ \ (\mathrm{independent\ lineage})$</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].profiles_1d.pressure</code></td>
+    </tr>
+    <tr>
+      <td>Impurity source</td>
+      <td>model assumption / prior (enters Ion densities)</td>
+      <td>$\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Ion densities</td>
+      <td>derived</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.impurity.resolve_impurity_composition</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Pressure-partition ion temperature</td>
+      <td>inferred</td>
+      <td> </td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.kinetic_state.infer_ti_pressure_partition</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Ion pressure</td>
+      <td>derived</td>
+      <td>$p_i(\rho),\ dp_i/dr$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Normalized gradients</td>
+      <td>derived</td>
+      <td>$a/L_{T_i},\ a/L_{n_i},\ T_i/T_e$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.gacode.tglf.prepare_tglf_input</code></td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>ExB shear</td>
+      <td>model assumption / prior (enters Gyrokinetic input)</td>
+      <td>$\gamma_E = 0\ \ (\mathrm{assumed})$</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Gyrokinetic input</td>
+      <td>code input</td>
+      <td>$\mathrm{local\ state\ with\ origins}$</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.gacode.cgyro.prepare_cgyro_input</code></td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>References:</p>
+
+<ol>
+  <li>L. L. Lao et al., Nucl. Fusion 25 (1985) 1611</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25</li>
+</ol>
+
+<p>Follow-up TODOs (implementation or IMAS mapping):</p>
+
+<ul>
+  <li>E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic input as an assumption, and force balance is future scope.</li>
+</ul>
+
 <h2 id="using-the-committed-assets">Using the committed assets</h2>
 
 <p>The reference SVGs live in <code class="language-plaintext highlighter-rouge">docs/assets/diagrams/</code> and are the artifacts to embed anywhere:</p>
@@ -4735,7 +4966,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#animating-the-island-a-phase-scan-or-a-rigid-rotation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Animating the island: a phase scan or a rigid rotation</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#dimensionless-similarity-spaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Dimensionless similarity spaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduced-stability-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reduced stability diagnostics</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#toroidal-shift-action-angles-validity-and-cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidal shift, action angles, validity, and COCOS</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#field-aligned-basis-flux-tube-shear-and-the-ballooning-eigenfunction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field-aligned basis, flux tube, shear, and the ballooning eigenfunction</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#current-profile-and-q-topology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Current-profile and q topology</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#marfe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARFE</a></li><li class="page-toc-item page-toc-level-3"><a href="#divertor-heat-flux-footprint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Divertor heat-flux footprint</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#neutral-beam-injection-lifecycle-and-reduced-attenuation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neutral beam injection: lifecycle and reduced attenuation</a></li><li class="page-toc-item page-toc-level-2"><a href="#iteration-behaviour-branch-bifurcation-and-branch-selection" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Iteration behaviour, branch bifurcation and branch selection</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical-and-ntv-collisionality-regimes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical and NTV collisionality regimes</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#sol-blobs-and-filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">SOL blobs and filaments</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-vaft-framework-pillars-research-cycle-managed-pipeline-provenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The VAFT framework: pillars, research cycle, managed pipeline, provenance</a></li><li class="page-toc-item page-toc-level-2"><a href="#research-infrastructure-four-levels-of-integration-the-community-and-ownership" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Research infrastructure: four levels of integration, the community and ownership</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-vest-data-platform" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The VEST data platform</a></li><li class="page-toc-item page-toc-level-2"><a href="#integrated-modeling-knowledge-basis-realization-abstraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Integrated modeling: knowledge basis, realization, abstraction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spatial-vocabulary-coordinates-geometry-meshes-mappings-and-topology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spatial vocabulary: coordinates, geometry, meshes, mappings and topology</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-workflows-derivation-inference-and-solver-coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics workflows: derivation, inference and solver coupling</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#plasma-parameter-inference-ion-temperature-and-species" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma parameter inference: ion temperature and species</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-resistance-from-romeros-transformer-balance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma resistance from Romero’s transformer balance</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistively-equivalent-effective-charge" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Resistively equivalent effective charge</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic-equilibrium-reconstruction-efit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic equilibrium reconstruction (EFIT)</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetically-constrained-equilibrium-reconstruction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetically constrained equilibrium reconstruction</a></li><li class="page-toc-item page-toc-level-3"><a href="#analytic-mhd-equilibrium-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Analytic MHD equilibrium models</a></li><li class="page-toc-item page-toc-level-3"><a href="#fixed-boundary-equilibrium-refinement-chease" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fixed-boundary equilibrium refinement (CHEASE)</a></li><li class="page-toc-item page-toc-level-3"><a href="#free-boundary-equilibrium-tokamaker" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Free-boundary equilibrium (TokaMaker)</a></li><li class="page-toc-item page-toc-level-3"><a href="#ideal-and-resistive-mhd-stability-dcon--rdcon" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ideal and resistive MHD stability (DCON / RDCON)</a></li><li class="page-toc-item page-toc-level-3"><a href="#ideal-plasma-response-to-3-d-fields-gpec" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ideal plasma response to 3-D fields (GPEC)</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic-field-line-topology-flare" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic field-line topology (FLARE)</a></li><li class="page-toc-item page-toc-level-3"><a href="#neoclassical-transport-closed-form-fits-and-drift-kinetic-solution" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical transport: closed-form fits and drift-kinetic solution</a></li><li class="page-toc-item page-toc-level-3"><a href="#local-turbulent-transport-quasilinear-and-gyrokinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local turbulent transport: quasilinear and gyrokinetic</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetic-island" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic island</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#animating-the-island-a-phase-scan-or-a-rigid-rotation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Animating the island: a phase scan or a rigid rotation</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#stability-and-operational-space-diagrams" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability and operational-space diagrams</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#dimensionless-similarity-spaces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Dimensionless similarity spaces</a></li><li class="page-toc-item page-toc-level-3"><a href="#reduced-stability-diagnostics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reduced stability diagnostics</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#single-particle-motion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Single-particle motion</a></li><li class="page-toc-item page-toc-level-2"><a href="#tearing-physics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tearing physics</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-d-perturbation-harmonics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D perturbation harmonics</a></li><li class="page-toc-item page-toc-level-2"><a href="#collision-processes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Collision processes</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometric-approximations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometric approximations</a></li><li class="page-toc-item page-toc-level-2"><a href="#tokamak-geometry-and-flux-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tokamak geometry and flux coordinates</a></li><li class="page-toc-item page-toc-level-2"><a href="#toroidicity-and-tf-ripple" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidicity and TF ripple</a></li><li class="page-toc-item page-toc-level-2"><a href="#guiding-centre-invariants-and-toroidal-symmetry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Guiding-centre invariants and toroidal symmetry</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-field-line-coordinates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight-field-line coordinates</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#toroidal-shift-action-angles-validity-and-cocos" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Toroidal shift, action angles, validity, and COCOS</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#clebsch-labels-and-the-ballooning-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Clebsch labels and the ballooning representation</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#field-aligned-basis-flux-tube-shear-and-the-ballooning-eigenfunction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field-aligned basis, flux tube, shear, and the ballooning eigenfunction</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#slab-resonant-layers-tearing-and-twisting-parity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Slab resonant layers: tearing and twisting parity</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylindrical-geometry-profiles-mode-shapes-and-matching" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylindrical geometry: profiles, mode shapes and matching</a></li><li class="page-toc-item page-toc-level-2"><a href="#current-profile-and-q-topology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Current-profile and q topology</a></li><li class="page-toc-item page-toc-level-2"><a href="#field-configurations-reconnection-and-mhd-waves" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Field configurations, reconnection and MHD waves</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-gradshafranov-problem-regions-boundaries-and-problem-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The Grad–Shafranov problem: regions, boundaries and problem classes</a></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-aware-phenomena-kink-displacement-and-sawtooth" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-aware phenomena: kink displacement and sawtooth</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#marfe" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MARFE</a></li><li class="page-toc-item page-toc-level-3"><a href="#divertor-heat-flux-footprint" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Divertor heat-flux footprint</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#disruption-physics-quench-sequence-runaways-and-energy-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Disruption physics: quench sequence, runaways and energy paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#vertical-displacement-events-hot-and-cold-vde-halo-currents" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Vertical displacement events: hot and cold VDE, halo currents</a></li><li class="page-toc-item page-toc-level-2"><a href="#plasma-wall-interaction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma-wall interaction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spectroscopy-and-ionization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spectroscopy and ionization</a></li><li class="page-toc-item page-toc-level-2"><a href="#neutral-beam-injection-lifecycle-and-reduced-attenuation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neutral beam injection: lifecycle and reduced attenuation</a></li><li class="page-toc-item page-toc-level-2"><a href="#iteration-behaviour-branch-bifurcation-and-branch-selection" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Iteration behaviour, branch bifurcation and branch selection</a></li><li class="page-toc-item page-toc-level-2"><a href="#cold-plasma-waves-dispersion-cutoffs-resonances-and-the-cma-diagram" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cold-plasma waves: dispersion, cutoffs, resonances and the CMA diagram</a></li><li class="page-toc-item page-toc-level-2"><a href="#neoclassical-and-ntv-collisionality-regimes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical and NTV collisionality regimes</a></li><li class="page-toc-item page-toc-level-2"><a href="#wall-conditioning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Wall conditioning</a></li><li class="page-toc-item page-toc-level-2"><a href="#sol-blobs-and-filaments" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">SOL blobs and filaments</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-vaft-framework-pillars-research-cycle-managed-pipeline-provenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The VAFT framework: pillars, research cycle, managed pipeline, provenance</a></li><li class="page-toc-item page-toc-level-2"><a href="#research-infrastructure-four-levels-of-integration-the-community-and-ownership" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Research infrastructure: four levels of integration, the community and ownership</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-vest-data-platform" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The VEST data platform</a></li><li class="page-toc-item page-toc-level-2"><a href="#integrated-modeling-knowledge-basis-realization-abstraction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Integrated modeling: knowledge basis, realization, abstraction</a></li><li class="page-toc-item page-toc-level-2"><a href="#spatial-vocabulary-coordinates-geometry-meshes-mappings-and-topology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spatial vocabulary: coordinates, geometry, meshes, mappings and topology</a></li><li class="page-toc-item page-toc-level-2"><a href="#physics-workflows-derivation-inference-and-solver-coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physics workflows: derivation, inference and solver coupling</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#plasma-parameter-inference-ion-temperature-and-species" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma parameter inference: ion temperature and species</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-resistance-from-romeros-transformer-balance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma resistance from Romero’s transformer balance</a></li><li class="page-toc-item page-toc-level-3"><a href="#resistively-equivalent-effective-charge" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Resistively equivalent effective charge</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic-equilibrium-reconstruction-efit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic equilibrium reconstruction (EFIT)</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetically-constrained-equilibrium-reconstruction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetically constrained equilibrium reconstruction</a></li><li class="page-toc-item page-toc-level-3"><a href="#analytic-mhd-equilibrium-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Analytic MHD equilibrium models</a></li><li class="page-toc-item page-toc-level-3"><a href="#fixed-boundary-equilibrium-refinement-chease" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fixed-boundary equilibrium refinement (CHEASE)</a></li><li class="page-toc-item page-toc-level-3"><a href="#free-boundary-equilibrium-tokamaker" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Free-boundary equilibrium (TokaMaker)</a></li><li class="page-toc-item page-toc-level-3"><a href="#ideal-and-resistive-mhd-stability-dcon--rdcon" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ideal and resistive MHD stability (DCON / RDCON)</a></li><li class="page-toc-item page-toc-level-3"><a href="#ideal-plasma-response-to-3-d-fields-gpec" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ideal plasma response to 3-D fields (GPEC)</a></li><li class="page-toc-item page-toc-level-3"><a href="#magnetic-field-line-topology-flare" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Magnetic field-line topology (FLARE)</a></li><li class="page-toc-item page-toc-level-3"><a href="#neoclassical-transport-closed-form-fits-and-drift-kinetic-solution" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Neoclassical transport: closed-form fits and drift-kinetic solution</a></li><li class="page-toc-item page-toc-level-3"><a href="#local-turbulent-transport-quasilinear-and-gyrokinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local turbulent transport: quasilinear and gyrokinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-parameter-inference-completing-the-kinetic-profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma parameter inference: completing the kinetic profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#inferred-quantities-depend-on-inferred-quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Inferred quantities depend on inferred quantities</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#using-the-committed-assets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Using the committed assets</a></li><li class="page-toc-item page-toc-level-2"><a href="#regenerating-and-checking" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Regenerating and checking</a></li></ul>
     </nav>
 </aside>
 
@@ -4853,7 +5084,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 18:29:01 +0000"
+        "time": "2026-10-06 19:04:04 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

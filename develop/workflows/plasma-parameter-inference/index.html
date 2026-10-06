@@ -1,0 +1,932 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Plasma parameter inference · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/formula/sensitivity/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/reduced-stability-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Plasma parameter inference</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>11ab9da</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/workflows/Plasma_parameter_inference">Plasma parameter inference</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Completes an experimentally incomplete plasma state through explicit closures and assumptions.</dd>
+    <dt>Prerequisites / inputs</dt><dd>A reconstructed equilibrium and fitted electron profiles (or an equilibrium alone for synthetic completion).</dd>
+    <dt>Expected result</dt><dd>Inferred or synthetic quantities that stay distinguishable from measurements and traceable to their inputs.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p><strong>Plasma parameter inference</strong> determines a plasma-state quantity that no diagnostic measured, from
+quantities VAFT already has, together with explicit physical constraints, closures and assumptions:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>known plasma state  +  physical closure  +  explicit prior / assumption   -&gt;   missing plasma parameter
+</code></pre></div></div>
+
+<p>It sits between two neighbours and is neither of them:</p>
+
+<ul>
+  <li><strong>Profile reconstruction</strong> turns measurements into a profile through a measurement model and a fit
+(<code class="language-plaintext highlighter-rouge">measurements -&gt; fit -&gt; profile</code>). Multi-diagnostic fitting of one primitive profile (TS +
+interferometer, TS + ECE, CX + other diagnostics) stays there — see
+<a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/">Equilibrium and kinetic profiles</a> and #1204.
+The fit carries its own assumptions — the basis (polynomial, core-polynomial/edge-exponential,
+Gaussian process) and its order, the fitting coordinate ($\rho_{\mathrm{tor},N}$ or $\psi_N$),
+positivity and uncertainty weighting — and the overview draws them entering the reconstructed profiles,
+because every closure below inherits them.</li>
+  <li><strong>Simulation and consistency workflows</strong> take a completed state into NEO, TGLF, CGYRO, CHEASE and
+predict a response or test consistency. A flux-matched profile may come out of an inverse solve, but it
+is <em>transport-model-consistent</em>, not a closure-inferred experimental parameter. The
+equilibrium–kinetic iteration (#123) belongs there too.</li>
+</ul>
+
+<p>The principle throughout: VAFT may complete an incomplete plasma state through explicit physical
+constraints, but <strong>every inferred or synthetic quantity stays distinguishable from a measurement and
+traceable to the assumptions and inputs that produced it.</strong> This page documents the pathways that exist
+on <code class="language-plaintext highlighter-rouge">develop</code>; it introduces no new computational layer and no <code class="language-plaintext highlighter-rouge">Inference</code> runtime object.</p>
+
+<h2 id="how-a-quantity-was-obtained">How a quantity was obtained</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Origin</th>
+      <th>Meaning</th>
+      <th>VAFT example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>measured</td>
+      <td>a diagnostic determined it</td>
+      <td>Thomson <code class="language-plaintext highlighter-rouge">T_e</code>, <code class="language-plaintext highlighter-rouge">n_e</code>; CX <code class="language-plaintext highlighter-rouge">T_i</code></td>
+    </tr>
+    <tr>
+      <td>reconstructed</td>
+      <td>the solution of an inverse problem or fit</td>
+      <td>EFIT <code class="language-plaintext highlighter-rouge">p_eq(ψ)</code>; fitted <code class="language-plaintext highlighter-rouge">T_e(ρ)</code></td>
+    </tr>
+    <tr>
+      <td>inferred</td>
+      <td>estimated through a stated closure from other data</td>
+      <td>pressure-partition <code class="language-plaintext highlighter-rouge">T_i</code>; resistive <code class="language-plaintext highlighter-rouge">Z_eff</code></td>
+    </tr>
+    <tr>
+      <td>assumed</td>
+      <td>supplied by the user or the machine policy</td>
+      <td><code class="language-plaintext highlighter-rouge">T_i/T_e</code> ratio; a composition preset</td>
+    </tr>
+    <tr>
+      <td>synthetic</td>
+      <td>completed from an equilibrium and assumptions, with no kinetic data</td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles_from_eq</code>, <code class="language-plaintext highlighter-rouge">generate_synthetic_kinetic_profiles</code></td>
+    </tr>
+    <tr>
+      <td>predicted</td>
+      <td>the output of a transport or stability model</td>
+      <td>TGLF fluxes; flux-matched profiles</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The diagrams use the same grammar as the <a href="/vaft/develop/reference/diagrams/">physics-workflow diagrams</a>
+(#1585), draw only the closures VAFT implements today, and number each closure’s representative papers; synthetic completion and force balance are
+described in their sections below.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/parameter_inference_overview.svg" alt="Plasma parameter inference: completing the kinetic profiles" /></p>
+
+<h2 id="thermodynamic-closure">Thermodynamic closure</h2>
+
+<p>The thermal pressure is</p>
+
+\[p_{\mathrm{th}} = p_e + p_i = e\,n_e T_e + e \sum_s n_{i,s} T_{i,s}.\]
+
+<p>Pressure alone does not determine density and temperature: $p = nT$ is underdetermined until one more
+constraint is supplied.</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>p_eq alone                     x-&gt;  unique n_e, T_e
+p_eq + n_e                      -&gt;  T_e (or T_i)
+p_eq + T_e                      -&gt;  n_e
+p_eq + one more profile/scalar  -&gt;  a possible kinetic decomposition
+</code></pre></div></div>
+
+<h3 id="ion-temperature-from-the-equilibrium-pressure">Ion temperature from the equilibrium pressure</h3>
+
+<p>With an equilibrium pressure, fitted electron profiles and an ion-density closure
+$\sum_s n_{i,s} = f\,n_e$ (common ion temperature),</p>
+
+\[p_i = p_{\mathrm{eq}} - e\,n_e T_e, \qquad T_i = \frac{p_i}{e\,f\,n_e} = \frac{p_{\mathrm{eq}}}{e f n_e} - \frac{T_e}{f}.\]
+
+<p><code class="language-plaintext highlighter-rouge">vaft.validation.kinetic_state.infer_ti_pressure_partition</code> implements this (#1426). It propagates
+the uncertainty linearly — keeping the $n_e$ correlation between $p_e$ and the ion density — and
+<strong>flags points, never fills them</strong>: $p_i \le 0$ and $p_i &lt; \sigma(p_i)$ return <code class="language-plaintext highlighter-rouge">NaN</code>. It also refuses a
+circular input: a pressure reconstructed with an assumed $T_i/T_e$ (a kinetic EFIT) returns that
+assumption, so only an independent (<code class="language-plaintext highlighter-rouge">"magnetics"</code>) equilibrium lineage is eligible. The composition
+dependence enters through $f$, which the <a href="#impurities-and-quasineutrality">impurity closure</a> supplies.</p>
+
+<h3 id="temperature-or-density-from-the-equilibrium-pressure">Temperature or density from the equilibrium pressure</h3>
+
+<p>The two inverse directions — solve $T_e$ given $n_e$, or $n_e$ given $T_e$, each with a declared
+$T_i/T_e$ and composition — are closures of <code class="language-plaintext highlighter-rouge">generate_synthetic_kinetic_profiles</code> with
+<code class="language-plaintext highlighter-rouge">pressure_constraint="equilibrium"</code> and <code class="language-plaintext highlighter-rouge">closure="temperature"</code> or <code class="language-plaintext highlighter-rouge">"density"</code>. They make
+$p_{\mathrm{kin}} = p_{\mathrm{eq}}$ locally. Because the held channel is itself an assumption when no
+kinetic data enter, these results are <strong>synthetic</strong> (next section) unless the held profile is measured.</p>
+
+<h2 id="equilibrium-constrained-synthetic-completion">Equilibrium-constrained synthetic completion</h2>
+
+<p>When there are no kinetic measurements at all, VAFT can still complete a state from the equilibrium,
+and labels it synthetic. The simplest closure (<code class="language-plaintext highlighter-rouge">core_profiles_from_eq</code>, <code class="language-plaintext highlighter-rouge">core_profiles_from_eq_ratio</code>)
+assumes $n_e$ and $T_e$ share one shape:</p>
+
+\[g(\rho) = \sqrt{\frac{p_{\mathrm{eq}}(\rho)}{p_{\mathrm{eq}}(0)}}, \qquad
+T_e = T_{e0}\,g, \qquad n_e = \frac{p_{\mathrm{eq}}(0)}{k\,e\,T_{e0}}\,g,\]
+
+<p>with $k = 2$ for pure hydrogen and $T_i = T_e$ ($p_{\mathrm{eq}} = 2 e n_e T_e$).
+<code class="language-plaintext highlighter-rouge">generate_synthetic_kinetic_profiles</code> (#122) generalizes it as a fidelity ladder:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Closure</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td><code class="language-plaintext highlighter-rouge">SqrtPressureSplit</code> — the $\sqrt{p}$ decomposition above, bit for bit</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>analytic profile shapes (<code class="language-plaintext highlighter-rouge">AnalyticProfile</code>) or tabulated shapes</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>scalar-normalized: axis, separatrix, line or volume average, peaking, Greenwald fraction, $T_i/T_e$ or $p_e/p$</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>a prescribed $a/L$ profile</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Every target is recomputed from the final arrays and reported as requested versus achieved; the slice
+it writes says it is synthetic. This is <strong>state completion, not a unique kinetic inference from EFIT</strong>.
+Details: <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/">Equilibrium and kinetic profiles</a>.</p>
+
+<h2 id="impurities-and-quasineutrality">Impurities and quasineutrality</h2>
+
+\[n_e = \sum_s Z_s n_s, \qquad Z_{\mathrm{eff}} = \frac{\sum_s Z_s^2 n_s}{n_e}.\]
+
+<p>Once a composition model is declared — the relative impurity weights $w_s$ — these two relations fix the
+main-ion density, the impurity densities and the dilution at a target $Z_{\mathrm{eff}}$
+(<code class="language-plaintext highlighter-rouge">vaft.formula.impurity.solve_impurity_mixture_for_target_zeff</code>). With more species or charge states
+than constraints the problem is underdetermined, which is why the weights must be declared.</p>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process.impurity.resolve_impurity_composition</code> decides <em>which</em> composition applies and records why,
+in a fixed order: stored ions labelled <strong>measured</strong> → an <strong>explicit</strong> argument → a <strong>derived</strong> composition
+(a stated model) → stored ions labelled <strong>assumed</strong> or unlabelled → the machine preset. A fixed,
+fully stripped impurity closure is this algebra with $Z_s$ constant; atomic charge-state inference
+replaces $Z_s$ by the moments $\langle Z\rangle_s = \sum_q q f_{s,q}$ and
+$\langle Z^2\rangle_s = \sum_q q^2 f_{s,q}$ (next sections). The provenance it writes on <code class="language-plaintext highlighter-rouge">core_profiles</code>
+uses one grammar: <code class="language-plaintext highlighter-rouge">origin=&lt;measured|assumed|derived|inferred&gt;; method=&lt;m&gt;[; key=value...]</code>.</p>
+
+<h2 id="resistive-z_eff">Resistive Z_eff</h2>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process.resistive_zeff</code> infers one <strong>scalar</strong> effective charge over a time window: the
+$Z_{\mathrm{eff}}$ a chosen parallel-conductivity model needs to reproduce the plasma resistance observed
+through Romero’s transformer balance.</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>equilibrium + transformer balance  -&gt;  V_R^obs, R_p^obs
+T_e, n_e + conductivity model      -&gt;  R_p^model(Z)
+bounded scalar fit                 -&gt;  Z_eff^res,obs
+</code></pre></div></div>
+
+<p>$Z_{\mathrm{eff}}^{\mathrm{res,obs}}$ is <strong>model-inferred from global electrical behaviour</strong>: it depends on
+the conductivity model (Spitzer, Sauter, Redl) and on $\ln\Lambda$, and it is not a composition measurement.
+It is never interchangeable with a local composition $Z_{\mathrm{eff}}^{\mathrm{comp}}(\rho)$ —
+<code class="language-plaintext highlighter-rouge">resolve_impurity_composition</code> carries it beside a composition under its own provenance and never uses
+it as a target. See the <a href="/vaft/develop/reference/diagrams/">resistive Z_eff diagram</a>.</p>
+
+<h2 id="atomic-model-constrained-z_effρ--in-progress">Atomic-model-constrained Z_eff(ρ) — in progress</h2>
+
+<p><em>Not on <code class="language-plaintext highlighter-rouge">develop</code> yet</em> (Lane L / Lane Z: #1565, #1566, #1569, PR #1659). The intended chain combines
+radial structure from atomic physics with a global amplitude from the resistive closure:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>T_e(ρ), n_e(ρ), plasma age  +  elemental-ratio prior (C/O)
+    -&gt; transient charge states f_{s,q}(ρ)  -&gt;  &lt;Z&gt;_s(ρ), &lt;Z²&gt;_s(ρ)
+    -&gt; n_C/n_e = a w_C,  n_O/n_e = a w_O  -&gt;  Z_eff(ρ; a)
+    -&gt; resistive projection  Z_eff(ρ; a) --P_R--&gt; Z_eff^res,equiv(a)
+    -&gt; a* = argmin_a [Z_eff^res,equiv(a) - Z_eff^res,obs]²   -&gt;   Z_eff(ρ; a*)
+</code></pre></div></div>
+
+<p>Atomic physics sets the radial charge-state structure; the resistive closure sets one impurity amplitude.
+The result is closure-inferred, not a unique composition measurement.</p>
+
+<h2 id="rotation-and-force-balance--future-scope">Rotation and force balance — future scope</h2>
+
+<p>No VAFT pathway infers rotation or the radial electric field yet. The relevant quantities are
+$V_\phi$, $V_\theta$, $\Omega_\phi$, $E_r$ and the ExB shear $\gamma_E$; a representative relation is</p>
+
+\[E_r = \frac{1}{Z_i e n_i}\frac{dp_i}{dr} + V_\phi B_\theta - V_\theta B_\phi\]
+
+<p>(in the adopted sign convention). One force-balance equation does not determine $E_r$, $V_\phi$ and
+$V_\theta$ independently; a future inference would combine CXRS rotation, a neoclassical poloidal-flow
+model, pressure gradients and the equilibrium geometry. The source order should be
+measured &gt; closure-inferred &gt; model-predicted &gt; explicit zero-rotation assumption.</p>
+
+<p>Today TGLF and CGYRO receive <strong>$\gamma_E = 0$ as an explicit assumption</strong> (#553). A zero-rotation
+assumption must never be presented as inferred rotation.</p>
+
+<h2 id="inferred-quantities-depend-on-inferred-quantities">Inferred quantities depend on inferred quantities</h2>
+
+<p><img src="/vaft/develop/assets/diagrams/parameter_inference_dependency_graph.svg" alt="Inferred quantities depend on inferred quantities" /></p>
+
+<p>A composition assumption fixes the ion densities, which set the pressure-partition $T_i$, whose
+gradient would enter force balance and the ExB shear a gyrokinetic input needs. Uncertainty and
+provenance propagate down this chain, so each inferred profile should answer <em>where did this come from?</em>
+A record for an inferred quantity names:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>quantity, origin, method
+depends_on      (input quantities and their origins)
+assumptions
+validity        (conditions under which the closure holds)
+uncertainty / sensitivity
+downstream consumers
+</code></pre></div></div>
+
+<p>For example, the pressure-partition result returns
+<code class="language-plaintext highlighter-rouge">origin="inferred"</code>, <code class="language-plaintext highlighter-rouge">method="equilibrium_pressure_partition"</code>, its <code class="language-plaintext highlighter-rouge">equilibrium_lineage</code>, its
+<code class="language-plaintext highlighter-rouge">assumptions</code> (common ion temperature and the composition source), per-point <code class="language-plaintext highlighter-rouge">flags</code> and
+$\sigma(T_i)$; a composition written to <code class="language-plaintext highlighter-rouge">core_profiles</code> carries <code class="language-plaintext highlighter-rouge">origin=...; method=...</code>. There is no
+single runtime provenance object, by design.</p>
+
+<h2 id="worked-examples">Worked examples</h2>
+
+<h3 id="a--efit-only-level-0-state-synthetic">A — EFIT-only Level-0 state (synthetic)</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+
+<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">sample_ods</span><span class="p">()</span>                    <span class="c1"># an ODS holding an equilibrium
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">core_profiles_from_eq</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">Te0_eV</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span> <span class="n">eq_time_index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">cp</span> <span class="o">=</span> <span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">core_profiles.profiles_1d.0</span><span class="sh">"</span><span class="p">]</span>
+<span class="n">cp</span><span class="p">[</span><span class="sh">"</span><span class="s">electrons.temperature</span><span class="sh">"</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">cp</span><span class="p">[</span><span class="sh">"</span><span class="s">electrons.density_thermal</span><span class="sh">"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>   <span class="c1"># 100 eV, ~1.0e18 m^-3
+</span></code></pre></div></div>
+
+<p>$p_{\mathrm{eq}} \to n_e, T_e, T_i = T_e, n_i = n_e$. The result is synthetic: the on-axis temperature
+and the shared shape are assumptions, not data.</p>
+
+<h3 id="b--ion-temperature-from-the-equilibrium-pressure-inferred">B — ion temperature from the equilibrium pressure (inferred)</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">vaft.validation.kinetic_state</span> <span class="kn">import</span> <span class="n">infer_ti_pressure_partition</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="nf">infer_ti_pressure_partition</span><span class="p">(</span>
+    <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">500.0</span><span class="p">,</span> <span class="mf">330.0</span><span class="p">,</span> <span class="mf">120.0</span><span class="p">]),</span>              <span class="c1"># p_eq [Pa], magnetic-only equilibrium
+</span>    <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">1.2e19</span><span class="p">,</span> <span class="mf">1.0e19</span><span class="p">,</span> <span class="mf">0.6e19</span><span class="p">]),</span>           <span class="c1"># n_e [m^-3], fitted
+</span>    <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">150.0</span><span class="p">,</span> <span class="mf">110.0</span><span class="p">,</span> <span class="mf">60.0</span><span class="p">]),</span>               <span class="c1"># T_e [eV], fitted
+</span>    <span class="n">composition</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">ion_density_per_electron</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span>
+                 <span class="sh">"</span><span class="s">composition_source</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">assumed: carbon at Z_eff = 1.5</span><span class="sh">"</span><span class="p">},</span>
+    <span class="n">sigma_p_eq</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">50.0</span><span class="p">,</span> <span class="mf">40.0</span><span class="p">,</span> <span class="mf">30.0</span><span class="p">]),</span> <span class="n">sigma_n_e</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mf">1e18</span><span class="p">),</span>
+    <span class="n">sigma_t_e</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">]),</span>
+    <span class="n">equilibrium_lineage</span><span class="o">=</span><span class="sh">"</span><span class="s">magnetics</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">result</span><span class="p">[</span><span class="sh">"</span><span class="s">t_i</span><span class="sh">"</span><span class="p">],</span> <span class="n">result</span><span class="p">[</span><span class="sh">"</span><span class="s">sigma_t_i</span><span class="sh">"</span><span class="p">]</span>                <span class="c1"># ~[122, 107, 72] eV, ~[39, 38, 43] eV
+</span></code></pre></div></div>
+
+<p>With <code class="language-plaintext highlighter-rouge">equilibrium_lineage="kinetic"</code> the call returns <code class="language-plaintext highlighter-rouge">eligible=False</code> and the reason: that pressure was
+fitted with an assumed $T_i/T_e$, so partitioning it would return the assumption.</p>
+
+<h3 id="c--electron-density-from-the-equilibrium-pressure-synthetic">C — electron density from the equilibrium pressure (synthetic)</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.data</span> <span class="kn">import</span> <span class="n">Composition</span><span class="p">,</span> <span class="n">ProfileSpec</span><span class="p">,</span> <span class="n">ScalarTarget</span><span class="p">,</span> <span class="n">SyntheticKineticSpec</span><span class="p">,</span> <span class="n">TemperatureAssumption</span>
+<span class="kn">from</span> <span class="n">vaft.data.resources</span> <span class="kn">import</span> <span class="n">sample_geqdsk</span>
+<span class="kn">from</span> <span class="n">vaft.process.profile</span> <span class="kn">import</span> <span class="n">compose_analytic_profile</span><span class="p">,</span> <span class="n">generate_synthetic_kinetic_profiles</span>
+
+<span class="n">te_shape</span> <span class="o">=</span> <span class="nf">compose_analytic_profile</span><span class="p">(</span><span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">,</span> <span class="n">axis_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">separatrix_value</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">core_beta</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+<span class="n">spec</span> <span class="o">=</span> <span class="nc">SyntheticKineticSpec</span><span class="p">(</span>
+    <span class="n">T_e</span><span class="o">=</span><span class="nc">ProfileSpec</span><span class="p">(</span><span class="n">te_shape</span><span class="p">,</span> <span class="nc">ScalarTarget</span><span class="p">(</span><span class="sh">"</span><span class="s">axis</span><span class="sh">"</span><span class="p">,</span> <span class="mf">150.0</span><span class="p">)),</span>    <span class="c1"># held: an assumed T_e
+</span>    <span class="n">temperature</span><span class="o">=</span><span class="nc">TemperatureAssumption</span><span class="p">(</span><span class="n">ti_over_te</span><span class="o">=</span><span class="mf">0.5</span><span class="p">),</span>
+    <span class="n">composition</span><span class="o">=</span><span class="nc">Composition</span><span class="p">(</span><span class="sh">"</span><span class="s">D</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="p">,</span> <span class="n">z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">),</span>
+    <span class="n">pressure_constraint</span><span class="o">=</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="n">closure</span><span class="o">=</span><span class="sh">"</span><span class="s">density</span><span class="sh">"</span><span class="p">,</span>      <span class="c1"># solve n_e so p_kin = p_eq
+</span><span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="nf">generate_synthetic_kinetic_profiles</span><span class="p">(</span><span class="nf">sample_geqdsk</span><span class="p">(),</span> <span class="n">spec</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="mf">0.319</span><span class="p">)</span>
+<span class="n">result</span><span class="p">.</span><span class="n">status</span><span class="p">,</span> <span class="p">[(</span><span class="n">t</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="n">t</span><span class="p">.</span><span class="n">requested</span><span class="p">,</span> <span class="n">t</span><span class="p">.</span><span class="n">achieved</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">result</span><span class="p">.</span><span class="n">targets</span><span class="p">]</span>
+</code></pre></div></div>
+
+<p>Every requested target comes back as requested versus achieved. With a fitted $T_e$ in place of the
+assumed shape, the same closure becomes an inference of $n_e$ from data.</p>
+
+<h3 id="d--resistive-z_eff-inferred">D — resistive Z_eff (inferred)</h3>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>compute_romero_flux_balance_ods(ods)        -&gt;  V_R^obs(t), R_p^obs(t)
+observed_resistance(...)                    -&gt;  observed series on the window
+infer_resistive_zeff(observed, states,
+    model=..., ln_lambda=..., bounds=..., weights="uniform")   -&gt;  Z_eff^res ± σ, residual, bound hit
+</code></pre></div></div>
+
+<p>The bounds are set by the caller; there is no VAFT default. See <code class="language-plaintext highlighter-rouge">vaft.omas.resistive_zeff</code> for the
+ODS-level entry point.</p>
+
+<h3 id="e--atomic--resistive-z_effρ">E — atomic + resistive Z_eff(ρ)</h3>
+
+<p>In progress; see <a href="#atomic-model-constrained-z_effρ--in-progress">above</a>.</p>
+
+<h2 id="related">Related</h2>
+
+<ul>
+  <li><a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/">Equilibrium and kinetic profiles</a> — profile fitting, synthetic profiles, EFIT</li>
+  <li><a href="/vaft/develop/reference/computational-layers/">Computational layers</a> — Formula / Process / Code</li>
+  <li><a href="/vaft/develop/reference/formula/">Formula reference</a> and <a href="/vaft/develop/reference/diagrams/">Scientific diagrams</a></li>
+  <li>Issues: #1204 (profile evidence), #122 (synthetic profiles), #123 (equilibrium–kinetic iteration),
+#1426 (pressure-partition T_i), #1565 / #1566 / #1569 (impurity and Z_eff), #553 (rotation inputs)</li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="diagram"><a href="/vaft/develop/reference/diagrams/"><code>vaft.diagram</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/sensitivity/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: sensitivity">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: Reduced stability diagnostics">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#how-a-quantity-was-obtained" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">How a quantity was obtained</a></li><li class="page-toc-item page-toc-level-2"><a href="#thermodynamic-closure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Thermodynamic closure</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ion-temperature-from-the-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ion temperature from the equilibrium pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#temperature-or-density-from-the-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Temperature or density from the equilibrium pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-constrained-synthetic-completion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-constrained synthetic completion</a></li><li class="page-toc-item page-toc-level-2"><a href="#impurities-and-quasineutrality" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Impurities and quasineutrality</a></li><li class="page-toc-item page-toc-level-2"><a href="#resistive-z_eff" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Resistive Z_eff</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic-model-constrained-z_effρ--in-progress" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic-model-constrained Z_eff(ρ) — in progress</a></li><li class="page-toc-item page-toc-level-2"><a href="#rotation-and-force-balance--future-scope" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Rotation and force balance — future scope</a></li><li class="page-toc-item page-toc-level-2"><a href="#inferred-quantities-depend-on-inferred-quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Inferred quantities depend on inferred quantities</a></li><li class="page-toc-item page-toc-level-2"><a href="#worked-examples" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Worked examples</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#a--efit-only-level-0-state-synthetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A — EFIT-only Level-0 state (synthetic)</a></li><li class="page-toc-item page-toc-level-3"><a href="#b--ion-temperature-from-the-equilibrium-pressure-inferred" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">B — ion temperature from the equilibrium pressure (inferred)</a></li><li class="page-toc-item page-toc-level-3"><a href="#c--electron-density-from-the-equilibrium-pressure-synthetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">C — electron density from the equilibrium pressure (synthetic)</a></li><li class="page-toc-item page-toc-level-3"><a href="#d--resistive-z_eff-inferred" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">D — resistive Z_eff (inferred)</a></li><li class="page-toc-item page-toc-level-3"><a href="#e--atomic--resistive-z_effρ" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">E — atomic + resistive Z_eff(ρ)</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#related" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Related</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Reduced stability diagnostics",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Reduced_stability_diagnostics.md",
+            "ref": "_guide/Reduced_stability_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Plasma_parameter_inference.md",
+        "mtime": "2026-10-05 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-06 19:04:04 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

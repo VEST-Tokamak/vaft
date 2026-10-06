@@ -105,6 +105,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
                     
                         <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
@@ -312,7 +318,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4b88523</code>. What is described
+  <code>11ab9da</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -385,7 +391,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="equilibrium">
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>105</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>107</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
   </tr>
   <tr id="virial">
     <td><a href="/vaft/develop/reference/formula/virial/">virial</a></td>
@@ -465,7 +471,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="boundaries">
     <td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td>
-    <td><code>vaft.formula.boundaries</code></td><td>13</td><td>Operational boundaries from the literature: one data model for density, transition and stability limits.</td>
+    <td><code>vaft.formula.boundaries</code></td><td>14</td><td>Operational boundaries from the literature: one data model for density, transition and stability limits.</td>
   </tr>
   <tr id="impurity">
     <td><a href="/vaft/develop/reference/formula/impurity/">impurity</a></td>
@@ -540,7 +546,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 426 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 429 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -576,6 +582,8 @@ which documents the conventions and cites every entry.</p>
 </td></tr>
   <tr data-ref-row="beta_normal_from_beta_tor equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_normal_from_beta_tor"><code>beta_normal_from_beta_tor</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Normalized beta (Troyon) from toroidal beta, minor radius, field and current.
 </td></tr>
+  <tr data-ref-row="beta_normal_from_beta_volume equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_normal_from_beta_volume"><code>beta_normal_from_beta_volume</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Normalized volume beta: the volume beta normalized like the Troyon beta_N.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="beta_poloidal_from_circumference equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_poloidal_from_circumference"><code>beta_poloidal_from_circumference</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Poloidal beta in the EFIT/OMFIT convention, normalized by the LCFS circumference.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="beta_poloidal_from_pressure_integral equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_poloidal_from_pressure_integral"><code>beta_poloidal_from_pressure_integral</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Poloidal beta in the IMAS definition, from the pressure volume integral.
@@ -584,6 +592,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="beta_toroidal_from_p_B0 equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_toroidal_from_p_B0"><code>beta_toroidal_from_p_B0</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Toroidal beta from the volume-averaged pressure and the vacuum field.
 </td></tr>
+  <tr data-ref-row="beta_volume_from_p_B2 equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_volume_from_p_B2"><code>beta_volume_from_p_B2</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Volume beta: the volume-averaged pressure over the volume-averaged total magnetic energy density.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="bootstrap_current_fraction equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#bootstrap_current_fraction"><code>bootstrap_current_fraction</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Heuristic bootstrap-current fraction $f_{BS}$.
  <span class="ref-flag ref-flag-empirical">Empirical</span></td></tr>
   <tr data-ref-row="bremsstrahlung_power_density_from_T_e_p_Z_eff equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#bremsstrahlung_power_density_from_T_e_p_Z_eff"><code>bremsstrahlung_power_density_from_T_e_p_Z_eff</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Bremsstrahlung power density in the pressure form.
@@ -1400,6 +1410,8 @@ which documents the conventions and cites every entry.</p>
 </td></tr>
   <tr data-ref-row="hugill_coordinates boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#hugill_coordinates"><code>hugill_coordinates</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="hugill_coordinates_st boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#hugill_coordinates_st"><code>hugill_coordinates_st</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Spherical-tokamak Hugill coordinates $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl}^{ST})$ of Sykes et al. (2000).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="iter_q95_coordinates boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#iter_q95_coordinates"><code>iter_q95_coordinates</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>The ITER design-guideline $q_{95}$ estimate from global shape, $q_{95} \approx q_* f(\epsilon)$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="kink_coordinates boundaries"><td><a href="/vaft/develop/reference/formula/boundaries/#kink_coordinates"><code>kink_coordinates</code></a></td><td><a href="/vaft/develop/reference/formula/boundaries/">boundaries</a></td><td>Freidberg’s kink safety factor of an elongated tokamak, $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I)$.
@@ -1718,7 +1730,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 18:29:01 +0000"
+        "time": "2026-10-06 19:04:04 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
