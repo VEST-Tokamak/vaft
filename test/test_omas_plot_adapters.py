@@ -75,7 +75,12 @@ def test_every_offered_plot_actually_renders(sample_ods):
     failures = []
     for row in vomas.available_plots(sample_ods):
         try:
-            figure, _ = getattr(vomas, f"plot_{row['name']}")(sample_ods)
+            result = getattr(vomas, f"plot_{row['name']}")(sample_ods)
+            if row["view"] in ("table", "text"):
+                # A table or text view returns text, not a figure (issue #1180).
+                assert result.text(), row["name"]
+                continue
+            figure, _ = result
             plt.close(figure)
         except Exception as exc:  # pragma: no cover - reported below
             failures.append(f"{row['name']}: {type(exc).__name__}: {exc}")

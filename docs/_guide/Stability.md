@@ -46,6 +46,10 @@ The closed-form criteria are catalogued with their exact signatures and unit tra
 [Physics formulas]({{ site.baseurl }}/guide/Formula/) page. This page covers what to do with them and
 how to run the codes.
 
+Which mode family each tool addresses (interchange and Mercier, ballooning, kink and peeling, tearing and
+its parity channels), and why their criteria are not one severity scale, is on
+[MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }}).
+
 ---
 
 # Screening an equilibrium
@@ -388,6 +392,8 @@ which produce the refined equilibria the GPEC suite consumes — see the
 - [Physics formulas]({{ site.baseurl }}/guide/Formula/) — full signature reference for
   `vaft.formula.stability`, including the beta conversions, characteristic speeds and unit traps.
 - [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) — producing the equilibrium the codes consume.
+- [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }})
+  — how slab, cylindrical and toroidal mode families relate, and which tool sits where.
 - [Data structures (ODS, IDS, IMAS)]({{ site.baseurl }}/guide/Data_structures/) — where `beta_normal`,
   `q_95` and the rest of `equilibrium.time_slice[:].global_quantities` live.
 - Source: [`vaft/formula/stability.py`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/formula/stability.py)

@@ -134,6 +134,10 @@ _SUBJECTS = (
     # different objects, so they are two subjects rather than one "turbulence".
     Subject("gyrokinetics", "model", ("gyrokinetics_local", "local_gyrokinetics", "linear_spectrum")),
     Subject("turbulent_transport", "model", ("anomalous_transport", "turbulent_flux")),
+    # Impurity composition: elements spread over charge states by atomic data
+    # from T_e, n_e -- a model of what the plasma holds, not a measurement of it
+    # (#1565).  The stored Z_eff stays a core_profiles quantity.
+    Subject("impurity", "model", ("impurities",)),
     Subject("nbi", "machine", ("neutral_beam", "nubeam")),
     Subject("ec_launchers", "machine", ("ech", "ecrh", "electron_cyclotron")),
     Subject("chease", "code"),
