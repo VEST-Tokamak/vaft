@@ -306,6 +306,20 @@ vaft.diagram.mhd_mode_geometry_map()
 | `mode_number_mapping` | The cylinder's $k_\parallel(r)$ crosses zero at $q(r_s) = m/n$. The local slab of `local_slab_from_cylinder` is its tangent there |
 | `mhd_mode_geometry_map` | Pressure-driven, current-driven, resonant and $n = 0$ mode families in slab, cylinder and torus. Exact relabelling, limits, analogues and branches are drawn as four different arrows. The text is [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }}) |
 
+## Asymptotic orderings
+
+The scale separations a reduced model assumes, evaluated rather than assumed. The kernels are in
+`vaft.formula.ordering`, and [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}) (#1627)
+explains them.
+
+```python
+vaft.diagram.timescale_hierarchy()
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `timescale_hierarchy` | Gyroperiods, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
+
 ## Tokamak geometry and flux coordinates
 
 The parent geometry that the cylindrical and slab reductions start from. Surfaces are

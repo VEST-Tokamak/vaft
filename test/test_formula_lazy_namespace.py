@@ -50,6 +50,7 @@ _IMPORT_ORDER = (
     "boundaries",
     "impurity",
     "dimensional",
+    "ordering",
 )
 
 

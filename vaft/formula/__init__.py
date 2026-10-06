@@ -47,6 +47,7 @@ _SUBMODULES = {
     "boundaries": ".boundaries",
     "impurity": ".impurity",
     "dimensional": ".dimensional",
+    "ordering": ".ordering",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -82,6 +83,7 @@ _IMPORT_ORDER = (
     "boundaries",
     "impurity",
     "dimensional",
+    "ordering",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
