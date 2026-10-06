@@ -243,3 +243,5 @@ canonical home (`legacy`). They have no subject / view identity and no `vaft.oma
 </section>
 {% endfor %}
 </div>
+
+What these objects mean scientifically -- which concept a plot draws, which diagnostic measures it, which Data Dictionary path represents it -- is generated in the [scientific ontology explorer]({{ site.baseurl }}/reference/ontology/).

@@ -44,6 +44,9 @@ sections:
       - id: pipeline-graph
         title: Pipeline lineage explorer
         url: /reference/pipeline-graph/
+      - id: ontology
+        title: Scientific ontology explorer
+        url: /reference/ontology/
       - id: software-dependencies
         title: Software dependencies
         url: /reference/software-dependencies/
