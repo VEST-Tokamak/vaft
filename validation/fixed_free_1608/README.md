@@ -83,10 +83,11 @@ comes from OFT alone. No direct plasma filaments or direct external-field
 target enter the native route. Samples are copied before the OFT solver is
 reset and saved to a new work directory.
 
-OFT's `get_vfixed` uses its `eval_green` orientation in Wb/rad. The PF fitter
-converts it with `-2*pi` to VAFT's full-weber Green orientation. An optional
-installed-OFT test checks this against OFT's independent `eval_green`, with
-relative agreement better than `2e-8` at three separated points. Flux fitting
+OFT's `get_vfixed` is an external FEM vacuum flux in Wb/rad. The PF fitter
+converts it with `+2*pi` to VAFT's full-weber finite-coil response. OFT's
+mathematical `eval_green` has the opposite sign to the assembled FEM coil
+response; an independent 1 A finite-winding probe agrees with `+2*pi` to
+within 0.019%. Flux fitting
 removes the additive gauge. The result preserves the required external flux,
 fitted external flux, RMS/max residuals, SVD, rank, condition, regularization
 cost, bound activity, and the native fixed-solve statistics.
@@ -310,3 +311,110 @@ separate current optimization; it does not resolve or hide the Guazzotto initial
 fixed-current normalization failure. Diverted saddle validation, native closure
 with final currents frozen, pure-pressure/current-pedestal cases, q95 and final
 convergence-based acceptance remain stage-6 requirements.
+
+## Stage 6: frozen-current verification and analytic matrix
+
+`fixed_to_free(..., refine_shape=True, verify_refinement=True)` performs a
+second **unconstrained** native free-boundary solve in the same finite-element
+state after refinement. It removes all isoflux and saddle constraints, freezes
+the measured optimized PF currents, and saves a separate
+`refined/verified_free/` equilibrium. The initial fit, initial fixed-current
+closure, and constrained refinement retain their own status and files. This
+second solve tests whether the final coils and source profiles sustain the
+surface without shape-control constraints. Restarting from a gridded g-file can
+select another nonlinear branch, so verification deliberately retains the
+native FE state. A failed initial closure remains failed even when refinement
+and frozen verification succeed.
+
+The public API notebook
+[`notebooks/analytic_fixed_to_free_boundary.ipynb`](../../notebooks/analytic_fixed_to_free_boundary.ipynb)
+uses `EquilibriumData`, ODS machine geometry, and `fixed_to_free`; it contains
+no inverse-solver implementation. To reproduce the full native matrix in an
+isolated directory with an installed OFT runtime, run from the repository root:
+
+```bash
+PYTHONPATH=. python validation/fixed_free_1608/matrix.py \
+  --workdir /path/to/new/analytic-matrix \
+  --families solovev guazzotto_freidberg guazzotto_pedestal \
+  --topologies limited lower_single_null double_null --dx .04
+PYTHONPATH=. python validation/fixed_free_1608/matrix.py \
+  --workdir /path/to/new/pure-pressure \
+  --families guazzotto_freidberg --topologies limited --nu 1.0 --dx .04
+```
+
+The measured 20-case result is in [`measured_matrix.json`](measured_matrix.json):
+18 family/topology/route combinations and two pure-pressure routes. It was
+produced on the isolated vestserver OFT v26.9 runtime with a 65×65 target,
+`dx_plasma=.04 m`, 12 independent one-turn rectangular PF coils, ±200 kA
+per-coil bounds, initial and refinement regularization `1e-5`, 64 boundary
+samples, and saddle isoflux-row weight 100. The current pedestal is 0.1 in
+the Guazzotto model's dimensionless parameter; pressure/bootstrap surface
+currents and toroidal flow are rejected explicitly. These are synthetic coils,
+not VEST hardware ratings.
+
+| Target | Direct fit / native fit | Initial direct / native | Frozen LCFS maximum direct / native [mm] | Frozen native topology |
+| --- | --- | --- | ---: | --- |
+| Solov'ev limited | accepted / accepted | converged / converged | 2.29 / 2.26 | limited |
+| Solov'ev lower single null | residual or conditioning / accepted | converged / converged | 10.45 / 10.44 | lower single null |
+| Solov'ev double null | accepted / accepted | failed / failed | 5.68 / 5.29 | double null |
+| Guazzotto Part 1 limited | accepted / accepted | failed / failed | 0.38 / 0.38 | limited |
+| Guazzotto Part 1 lower single null | accepted / accepted | failed / failed | 1.33 / 1.33 | lower single null |
+| Guazzotto Part 1 double null | accepted / accepted | failed / failed | 2.00 / 1.99 | double null |
+| Guazzotto current pedestal limited | accepted / accepted | failed / failed | 0.38 / 0.38 | limited |
+| Guazzotto current pedestal lower single null | accepted / accepted | failed / failed | 3.53 / 3.53 | lower single null |
+| Guazzotto current pedestal double null | accepted / accepted | failed / failed | 2.51 / 2.51 | double null |
+| Guazzotto pure pressure limited | accepted / accepted | failed / failed | 0.31 / 0.31 | limited |
+
+Every refined and subsequent frozen-current solve in this matrix converged.
+The native FE saddle check requires flux agreement within 0.01% of the active
+boundary, one-to-one matching to the target active X-points within 10 mm, and
+the expected count and upper/lower placement. A mismatch is marked ambiguous
+rather than promoted to double null. It checks X-point candidates, not a
+separatrix trace. The checked native classification matches all diverted targets;
+gridded 129×129 g-files can miss a narrow X-point, so both gridded and native
+topology diagnostics are retained. The maximum native X-point displacement is
+0.186 mm for Solov'ev, 0.011 mm for Guazzotto Part 1, and 0.033 mm for the
+current pedestal. The independent 95% contour field integral supplies a
+target `q95` even when the analytic record has no q table. Maximum absolute
+frozen differences across the 18 principal cases are 0.043 in q95, 1.36 mm
+for the axis, 0.0063 in beta_p, 0.0085 in virial li, and 9.25 A in Ip.
+Energy, volume, fit condition and current changes are summarized in the JSON;
+pressure integral and the full comparisons are in the individual manifests.
+
+These coarse-grid **benchmark gates**, rather than universal hardware
+guarantees, are justified by the measured discretization study:
+
+| Gate | Limit | Measured worst case |
+| --- | ---: | ---: |
+| Frozen solve and native topology | converged and exact topology | 20/20 |
+| LCFS maximum distance | 12 mm | 10.45 mm |
+| Axis displacement | 2 mm | 1.36 mm |
+| Native active X displacement | 0.5 mm | 0.186 mm |
+| Absolute q95 field-integral difference | 0.06 | 0.043 |
+| Absolute Ip difference | 15 A | 9.25 A |
+
+The matrix command evaluates these gates per case in `summary.json` and exits
+nonzero if any generated target, native solve, metric, X-point match or gate
+fails. It retains all case records even after a failure. The initial inverse
+fit acceptance and initial fixed-current closure are reported independently;
+they are not silently counted as final frozen-current gate failures or passes.
+
+For the direct plasma-field integration at target grids 33, 65 and 97,
+Solov'ev RMS relative flux decreases `0.00458 → 0.00343 → 0.00211` and
+Guazzotto RMS relative flux `0.000702 → 0.000685 → 0.000681`;
+Solov'ev Ip relative error is `0.00711, 0.00293, 0.00298` and Guazzotto
+`0.000440, 0.000119, 0.000055`. The nonmonotone Solov'ev Ip and normal-field
+errors preclude an asymptotic convergence claim. A separate native limited
+dx=.025 m check gave Solov'ev direct LCFS maximum 2.51 mm versus 2.29 mm at
+dx=.04 m, and Guazzotto 0.24 versus 0.38 mm. The above gates cover these
+observed variations with margin; finer meshes or other machines require new
+convergence checks.
+
+The Solov'ev lower-single-null direct linear fit is **not accepted** by its
+default inverse residual criterion: RMS relative flux 0.01745, maximum
+0.05697 (default maximum 0.04), despite the later shape-refined physical
+closure. It remains an explicit inverse-fit limitation of this synthetic coil
+set. Likewise, failed initial Guazzotto fixed-current closures are not counted
+as initial successes. The final frozen-current result establishes the
+coil-driven equilibrium reached after optimization, not acceptance of those
+earlier stages.

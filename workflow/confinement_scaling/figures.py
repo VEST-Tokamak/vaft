@@ -93,7 +93,8 @@ def population_table(db5: pd.DataFrame, confinement: pd.DataFrame, selection: st
     if scope not in ("standard", "all") or grouping not in ("spherical", "machine"):
         raise ValueError(f"scope must be standard/all and grouping spherical/machine; got {scope}, {grouping}")
     vest = confinement.loc[select(confinement, SELECTIONS[selection])]
-    vest = vest.loc[np.isfinite(vest["tau_e_th_s"]) & (vest["tau_e_th_s"] > 0), list(CONFINEMENT_COLUMNS)]
+    keep = list(CONFINEMENT_COLUMNS) + (["thomson_consistent"] if "thomson_consistent" in vest else [])
+    vest = vest.loc[np.isfinite(vest["tau_e_th_s"]) & (vest["tau_e_th_s"] > 0), keep]
     rows = db5 if scope == "all" else db5.loc[db5["selected"].astype(bool)]
     table = pd.concat([rows[list(CONFINEMENT_COLUMNS)], vest], ignore_index=True)
     machine = table["machine"].astype(str)
@@ -113,39 +114,92 @@ def population_figure(table: pd.DataFrame, *, max_groups: int = 4, figsize=(11.0
     from vaft.plot.population import confinement_population
 
     fig, axes = plt.subplots(1, 2, figsize=figsize, constrained_layout=True)
+    # VEST sits bottom left and the I_p panel's upper left is empty; the two panels
+    # draw the same series, so the P_loss panel, which has no empty corner, keeps none.
     for ax, x in zip(axes, ("i_p_A", "p_loss_W")):
         confinement_population(table, x=x, y="tau_e_th_s", by="population",
                                highlight=VEST_LABEL, max_groups=max_groups, ax=ax)
-    axes[0].set_title("Thermal confinement time against plasma current")
-    axes[1].set_title("... against loss power (VEST: P_OH - dW/dt)")
+        mark_thomson_inconsistent(ax, table, x, "tau_e_th_s", legend_loc="upper left")
+    if axes[1].get_legend() is not None:
+        axes[1].get_legend().remove()
+    axes[0].set_title(r"$\tau_E$ against $I_p$")
+    axes[1].set_title(r"$\tau_E$ against $P_{loss}$ (VEST: $P_{OH} - dW/dt$)")
     return fig, axes
 
 
-def _grid(n: int, panel=(5.4, 5.0)):
+#: Legend text of the ring drawn around a VEST point whose EFIT pressure is outside
+#: [1, 2] p_e of its Thomson profile (Lane K criteria v2, #1521).
+THOMSON_RING_LABEL = "VEST: EFIT p outside [1, 2] p_e (#1521)"
+
+
+def thomson_inconsistent(table: pd.DataFrame) -> np.ndarray:
+    """VEST rows whose criteria-v2 verdict is False (NaN, no Thomson, is not marked)."""
+    if "thomson_consistent" not in table:
+        return np.zeros(len(table), dtype=bool)
+    verdict = table["thomson_consistent"].map(
+        {True: False, False: True, "True": False, "False": True, "true": False, "false": True})
+    return ((table["machine"] == "VEST") & verdict.fillna(False).astype(bool)).to_numpy()
+
+
+def mark_thomson_inconsistent(ax, table: pd.DataFrame, x, y: str, *, legend_loc: str = "best") -> None:
+    """Ring the VEST points of ``ax`` whose stored energy disagrees with Thomson.
+
+    ``x`` is a column name or an array aligned with ``table``. The ring is drawn
+    only when some row is marked; the legend is redrawn in the style of
+    ``vaft.plot.population`` (x-small, frameless) so the ring joins it.
+    """
+    mask = thomson_inconsistent(table)
+    if not mask.any():
+        return
+    import matplotlib
+
+    from vaft.plot.population import LABELS as POPULATION_UNITS
+
+    def values(v):
+        if not isinstance(v, str):
+            return np.asarray(v, float)
+        # The population plots draw a column in its display unit (MA, MW, ...).
+        scale = POPULATION_UNITS.get(v, (None, None, 1.0))[2]
+        return pd.to_numeric(table[v], errors="coerce").to_numpy(float) * scale
+
+    xs, ys = values(x), values(y)
+    shown = mask & np.isfinite(xs) & np.isfinite(ys)
+    if not shown.any():
+        return
+    size = 2.2 * float(matplotlib.rcParams["lines.markersize"]) ** 2
+    ax.scatter(xs[shown], ys[shown], s=size, facecolors="none", edgecolors="crimson",
+               linewidths=1.2, zorder=6, label=f"{THOMSON_RING_LABEL} ({int(shown.sum())})")
+    if ax.get_legend() is not None:
+        ax.legend(fontsize="x-small", markerscale=1.5, frameon=False, loc=legend_loc)
+
+
+def _grid(n: int, panel=(5.4, 5.0), figsize=None):
     """A figure with n panels, at most three per row; unused panels hidden."""
     import matplotlib.pyplot as plt
 
     ncols = min(3, n)
     nrows = int(np.ceil(n / ncols))
-    fig, axes = plt.subplots(nrows, ncols, figsize=(panel[0] * ncols, panel[1] * nrows),
-                             constrained_layout=True, squeeze=False)
+    size = figsize if figsize is not None else (panel[0] * ncols, panel[1] * nrows)
+    fig, axes = plt.subplots(nrows, ncols, figsize=size, constrained_layout=True, squeeze=False)
     flat = axes.ravel()
     for ax in flat[n:]:
         ax.set_visible(False)
     return fig, flat[:n]
 
 
-def predicted_vs_measured_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L"), *, max_groups: int = 4):
+def predicted_vs_measured_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L"), *, max_groups: int = 4,
+                                 figsize=None):
     """Measured against scaling-predicted tau_E, one panel per scaling."""
 
     from vaft.plot.population import confinement_predicted_vs_measured
 
-    fig, axes = _grid(len(scalings))
+    fig, axes = _grid(len(scalings), figsize=figsize)
     for ax, scaling in zip(axes, scalings):
         predicted = predict_tau(table, scaling)
         confinement_predicted_vs_measured(table, predicted, scaling_label=LABELS.get(scaling, scaling),
                                           by="population", highlight=VEST_LABEL, max_groups=max_groups, ax=ax)
-        ax.set_title(f"{LABELS.get(scaling, scaling)}: {_vest_coverage(table, predicted)}", fontsize=9)
+        mark_thomson_inconsistent(ax, table, predicted.to_numpy(float), "tau_e_th_s", legend_loc="upper left")
+        ax.set_title(f"{LABELS.get(scaling, scaling)}: {_vest_coverage(table, predicted)}", fontsize="small")
     return fig, axes
 
 
@@ -167,7 +221,7 @@ def h_factor_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L")):
         h = h_factor_of(table, scaling)
         confinement_h_factor_distribution(table, h, scaling_label=LABELS.get(scaling, scaling),
                                           by="population", highlight=VEST_LABEL, ax=ax)
-        ax.set_title(f"{LABELS.get(scaling, scaling)}: {_vest_coverage(table, h)}", fontsize=9)
+        ax.set_title(f"{LABELS.get(scaling, scaling)}: {_vest_coverage(table, h)}", fontsize="small")
     return fig, axes
 
 
@@ -202,7 +256,7 @@ def exponent_figure(exponents: pd.DataFrame, *, figsize=(12.5, 5.2)):
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(1, 2, figsize=figsize, constrained_layout=True,
-                             gridspec_kw={"width_ratios": [2.0, 1.25]})
+                             gridspec_kw={"width_ratios": [1.0, 1.15]})
     ax = axes[0]
     terms = [("i_p", r"$\alpha_I$"), ("b_t", r"$\alpha_B$"), ("p_net", r"$\alpha_P$")]
     n = len(exponents)
@@ -224,34 +278,60 @@ def exponent_figure(exponents: pd.DataFrame, *, figsize=(12.5, 5.2)):
         es = [e if np.isfinite(e) else 0.0 for e in es]
         ax.errorbar(xs, ys, yerr=es, ls="none", label=r["label"], capsize=2, **st)
     ax.axhline(0.0, color="0.7", lw=0.8)
-    ax.set_xticks(range(len(terms)), [t for _, t in terms], fontsize=12)
-    ax.set_ylabel("engineering exponent (VEST: ±1σ, clustered by shot)")
-    ax.set_title(r"$\tau_E \propto I_p^{\alpha_I} B_T^{\alpha_B} P^{\alpha_P}$"
-                 "  (VEST: density-free, primary selection)", fontsize=10)
-    ax.legend(fontsize=7, loc="upper right", ncol=2)
+    ax.set_xticks(range(len(terms)), [t for _, t in terms], fontsize="large")
+    # The right panel names every series beside its marker, so it is the legend.
+    ax.set_ylabel("exponent (VEST ±1σ, by shot)")
+    ax.set_title(r"$\tau_E \propto I_p^{\alpha_I} B_T^{\alpha_B} P^{\alpha_P}$", fontsize="medium")
 
     ax = axes[1]
     ys = np.arange(len(exponents))[::-1]
     for y, (_, r) in zip(ys, exponents.iterrows()):
         st = {k: v for k, v in styles[r["label"]].items() if k != "zorder"}
         if r["mu_rho_undetermined"] or not np.isfinite(float(r["mu_rho"])):
-            ax.text(-4.0, y, r"undetermined: $(1+\alpha_P)/\sigma < $" + f"{UNDETERMINED_SIGMA:g}",
-                    ha="center", va="center", fontsize=8, color="k",
+            ax.text(-6.8, y, r"undetermined: $(1+\alpha_P)/\sigma < $" + f"{UNDETERMINED_SIGMA:g}",
+                    ha="left", va="center", fontsize="x-small", color="k",
                     bbox=dict(boxstyle="round", fc="white", ec="0.6"))
             continue
         se = float(r["mu_rho_se"]) if np.isfinite(float(r["mu_rho_se"])) else 0.0
         ax.errorbar(float(r["mu_rho"]), y, xerr=se or None, ls="none", capsize=2, **st)
     ax.axvspan(-3.0, -2.0, color="0.92", zorder=0)
-    for x, name in ((-2.0, "Bohm"), (-3.0, "gyro-Bohm")):
+    for x, name, align in ((-2.0, "Bohm", "left"), (-3.0, "gyro-Bohm", "right")):
         ax.axvline(x, color="0.6", lw=0.8, ls=":")
-        ax.text(x, 1.01, name, transform=ax.get_xaxis_transform(), ha="center", va="bottom", fontsize=8)
-    ax.set_yticks(ys, exponents["label"], fontsize=7)
+        ax.text(x, 1.01, name, transform=ax.get_xaxis_transform(), ha=align, va="bottom", fontsize="x-small")
+    ax.set_yticks(ys, exponents["label"], fontsize="x-small")
     ax.set_xlim(-7.0, 0.0)
     ax.set_ylim(-0.7, len(exponents) - 0.3)
     ax.set_xlabel(r"$\mu_\rho$ in $\Omega_i\tau_E \propto \rho_*^{\mu_\rho}\beta^{\mu_\beta}\nu_*^{\mu_\nu}$"
-                  "\nKadomtsev-completed: the size exponent is ASSUMED", fontsize=9)
-    ax.set_title("closures: imposed; references: completed", fontsize=9, pad=16)
+                  "\nKadomtsev-completed: size exponent ASSUMED", fontsize="small", loc="right")
     return fig, axes
+
+
+#: The conference set: (name, scalings) drawn in vaft.plot's slide format (#1572).
+SLIDE_SCALINGS = ("ITER97L", "H98y2")
+
+
+def slide_figures(table: pd.DataFrame, exponents: pd.DataFrame, *, theme: str = "minimal",
+                  fmt: str = "slide") -> dict:
+    """The conference figures in a ``vaft.plot`` presentation format: name -> figure.
+
+    Width and height ceiling, type size and line scale come from the format; the
+    figures are drawn inside its rc context, so the relative font sizes of the
+    functions above scale with it. VEST points whose EFIT pressure is outside
+    [1, 2] p_e of Thomson are ringed.
+    """
+    from vaft.plot.presentation import resolve_presentation
+
+    pres = resolve_presentation(fmt, theme)
+    if pres is None or pres.format is None:
+        raise ValueError(f"slide_figures needs a presentation format such as 'slide'; got {fmt!r}")
+    width, ceiling = pres.format.width_in, pres.format.max_height_in
+    with pres.context():
+        return {
+            "tau_population": population_figure(table, figsize=(width, min(0.5 * width, ceiling)))[0],
+            "tau_predicted_vs_measured": predicted_vs_measured_figure(
+                table, SLIDE_SCALINGS, figsize=(width, min(0.52 * width, ceiling)))[0],
+            "exponents": exponent_figure(exponents, figsize=(width, ceiling))[0],
+        }
 
 
 def main(argv=None) -> int:
@@ -296,6 +376,13 @@ def main(argv=None) -> int:
             path = out / f"{name}.{ext}"
             fig.savefig(path, dpi=200)
             written.append(path.name)
+    slide_dir = out / "slide"
+    slide_dir.mkdir(exist_ok=True)
+    for name, fig in slide_figures(table, exponents).items():
+        for ext in ("png", "pdf"):
+            path = slide_dir / f"{name}.{ext}"
+            fig.savefig(path, dpi=200)
+            written.append(f"slide/{path.name}")
     exponents.to_csv(out / "exponents.csv", index=False)
     inputs = [atlas / "table.csv", atlas / "closures" / "closures.csv", atlas / "closures" / "nstx_comparison.csv"]
     manifest = {
