@@ -288,7 +288,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a1481e5</code>. What is described
+  <code>8201e2a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -371,8 +371,91 @@ provenance. <code class="language-plaintext highlighter-rouge">configuration_sta
 The current TGLF mapper reuses its anomalous model slot and does not persist
 SAT/field settings there, so comparisons across settings need the upstream
 run record until that mapping contract is extended.
-Classical heat flux remains a resolved-state result without a standardized
-<code class="language-plaintext highlighter-rouge">core_transport</code> projection; it is not presented as a canonical preset yet.
+<code class="language-plaintext highlighter-rouge">classical_transport</code> summarizes the classical (Braginskii) baseline of #1435
+once <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.classical.core_transport_from_classical</code> has written it
+to <code class="language-plaintext highlighter-rouge">core_transport</code> (#1654). The data dictionary has no classical identifier, so
+the entry uses the private index <code class="language-plaintext highlighter-rouge">-1</code> with the name <code class="language-plaintext highlighter-rouge">classical</code>, and both are
+required. One entry holds one formulation and one EFIT lineage, and every time
+slice names its resolved <code class="language-plaintext highlighter-rouge">state_identity</code> in <code class="language-plaintext highlighter-rouge">code.parameters</code>. Rows therefore
+never mix states, lineages or formulations. The mapper refuses a write without a
+<code class="language-plaintext highlighter-rouge">state_identity</code>, and a second, different state at a time already written.
+<code class="language-plaintext highlighter-rouge">configuration_status</code> is <code class="language-plaintext highlighter-rouge">state_unrecorded</code> or <code class="language-plaintext highlighter-rouge">unrecorded</code> when the record is
+missing. The classical mapper marks <code class="language-plaintext highlighter-rouge">core_transport</code> heterogeneous
+(<code class="language-plaintext highlighter-rouge">homogeneous_time = 0</code>), because its slice indices are per entry; the NEO, TGLF
+and gyrokinetics mappers keep that 0, since each of their slices also carries its
+own time.</p>
+
+<p>What each source field means, and where it goes:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th><code class="language-plaintext highlighter-rouge">classical_heat_fluxes</code> field</th>
+      <th>Meaning</th>
+      <th><code class="language-plaintext highlighter-rouge">core_transport</code> leaf</th>
+      <th>Summary column</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">electron_energy_flux_W_m2</code></td>
+      <td>Perpendicular conductive heat flux of the stated model, <code class="language-plaintext highlighter-rouge">q = -kappa dT/dr</code>, positive down the gradient</td>
+      <td><code class="language-plaintext highlighter-rouge">electrons.energy.flux</code> on <code class="language-plaintext highlighter-rouge">grid_flux</code></td>
+      <td><code class="language-plaintext highlighter-rouge">q_e_peak_abs_W_m2</code>, <code class="language-plaintext highlighter-rouge">q_e_points</code>, <code class="language-plaintext highlighter-rouge">rho_q_e_min/max</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ion_energy_flux_W_m2</code> (<code class="language-plaintext highlighter-rouge">z=&lt;charge&gt;</code>)</td>
+      <td>The same flux for the main ion only</td>
+      <td><code class="language-plaintext highlighter-rouge">ion.0.energy.flux</code>, <code class="language-plaintext highlighter-rouge">ion.0.z_ion</code></td>
+      <td><code class="language-plaintext highlighter-rouge">q_i_peak_abs_W_m2</code>, <code class="language-plaintext highlighter-rouge">q_i_points</code>, <code class="language-plaintext highlighter-rouge">rho_q_i_min/max</code>, <code class="language-plaintext highlighter-rouge">main_ion_z</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">chi_e_m2_s</code>, <code class="language-plaintext highlighter-rouge">chi_i_m2_s</code></td>
+      <td>The model’s diffusivity, with <code class="language-plaintext highlighter-rouge">q = n chi (-dT/dr)</code>: a coefficient, not a flux</td>
+      <td><code class="language-plaintext highlighter-rouge">energy.d</code> on <code class="language-plaintext highlighter-rouge">grid_d</code></td>
+      <td><code class="language-plaintext highlighter-rouge">chi_e_max_m2_s</code>, <code class="language-plaintext highlighter-rouge">chi_i_max_m2_s</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">electron_particle_flux_m2_s</code> (<code class="language-plaintext highlighter-rouge">None</code>)</td>
+      <td>Not evaluated by the model</td>
+      <td>not written</td>
+      <td><code class="language-plaintext highlighter-rouge">particle_flux_status = not_evaluated</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tau_e_s</code>, <code class="language-plaintext highlighter-rouge">tau_i_s</code>, <code class="language-plaintext highlighter-rouge">coulomb_logarithm*</code>, <code class="language-plaintext highlighter-rouge">gamma1_perp</code>, <code class="language-plaintext highlighter-rouge">b_tesla</code></td>
+      <td>Diagnostics of the evaluation</td>
+      <td>not written (no definitional home)</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">model</code> (<code class="language-plaintext highlighter-rouge">CLASSICAL_MODEL</code>)</td>
+      <td>Formulation text</td>
+      <td><code class="language-plaintext highlighter-rouge">code.parameters</code></td>
+      <td><code class="language-plaintext highlighter-rouge">formulation_sha256</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Some quantities never appear at all:</p>
+<ul>
+  <li><strong>Reference scale.</strong> The order-of-magnitude <code class="language-plaintext highlighter-rouge">nu rho^2</code> reference scale (#780/#1112) is not a product of #1435 and is never written or summarized.</li>
+  <li><strong>Undefined surfaces.</strong> A surface below 10 eV, where the electron Coulomb logarithm is undefined, is dropped and named rather than filled.</li>
+  <li><strong>Missing versus zero.</strong> Missing data shows as zero points and NaN peaks. A stored zero is a physical zero.</li>
+</ul>
+
+<p>Example from the packaged 48224 sample (magnetics state at 0.300 s, r/a 0.3–0.8):</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rho_tor_norm          0.259   0.346   0.433   0.522   0.614   0.711
+electrons.energy.flux -42.1   -25.7    -7.5     3.4     5.7     3.4   W/m^2
+ion.0.energy.flux     181.5    97.5    12.9   -17.6    -7.6     3.1   W/m^2
+electrons.energy.d    0.080   0.065   0.050   0.037   0.025   0.016   m^2/s
+ion.0.energy.d        2.86    2.57    2.11    1.54    0.99    0.56    m^2/s
+summary row: q_e_peak_abs_W_m2 42.1, q_i_peak_abs_W_m2 181.5,
+             chi_e_max_m2_s 0.080, chi_i_max_m2_s 2.86, particle_flux_status not_evaluated
+</code></pre></div></div>
+
+<p>The negative inner electron flux is real: VEST’s hollow <code class="language-plaintext highlighter-rouge">T_e</code> makes the inner
+gradient point outward, and the peak columns report magnitudes.
 <code class="language-plaintext highlighter-rouge">power_balance</code> likewise awaits the stored-energy and loss-power definitions
 tracked in issues #1282 and #548.</p>
 
@@ -1302,7 +1385,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-05 17:47:45 +0000"
+        "time": "2026-10-06 03:20:48 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
