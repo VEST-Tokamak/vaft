@@ -55,7 +55,8 @@ __all__ = [
     "UNKNOWN",
 ]
 
-#: Bumped only when a field or a value's meaning changes, never for an added value.
+#: Bumped whenever a field or a vocabulary changes; :meth:`PlasmaFormalism.from_dict`
+#: reads exactly this version, so a record never silently means something else.
 SCHEMA_VERSION = 1
 
 #: A field that has a meaning for this formulation, but nobody has documented it.
@@ -80,7 +81,10 @@ SCIENTIFIC_OPERATIONS = (
 #: (quasilinear, analytic fit, learned surrogate).
 BULK_DESCRIPTIONS = ("fluid", "hybrid", "kinetic", "particle", "reduced")
 
-FLUID_MODELS = ("ideal_mhd", "resistive_mhd", "extended_mhd", "reduced_mhd")
+#: Reduced MHD is an ordering applied to one of these, not another fluid model (Phase A
+#: §2.1); a reduced-MHD calculation records its parent model and the ordering in
+#: ``extensions``.
+FLUID_MODELS = ("ideal_mhd", "resistive_mhd", "extended_mhd")
 
 #: ``fokker_planck`` is the test-species Fokker-Planck equation that Monte Carlo
 #: orbit codes (ASCOT5, NUBEAM) solve; an orbit integrator alone solves none.
@@ -128,6 +132,56 @@ AXES: Mapping[str, tuple[str, ...]] = MappingProxyType({
 #: The two fields every record has.
 _REQUIRED = ("scientific_operation", "bulk_description")
 
+#: Equations that remove the gyro-phase by construction, so cannot follow full orbits.
+_GYROPHASE_AVERAGED = ("drift_kinetic", "gyrokinetic")
+
+
+class _FrozenDict(dict):
+    """A read-only dict: immutable like the record, yet picklable and deep-copyable."""
+
+    def _read_only(self, *args: Any, **kwargs: Any) -> None:
+        raise TypeError("PlasmaFormalism.extensions is read-only")
+
+    __setitem__ = __delitem__ = clear = pop = popitem = setdefault = update = __ior__ = _read_only  # type: ignore[assignment]
+
+    def __reduce__(self):
+        return (_FrozenDict, (dict(self),))
+
+
+def _frozen(value: Any) -> Any:
+    """``value`` as JSON-plain data, recursively frozen: lists become tuples, dicts read-only."""
+    if isinstance(value, dict):
+        return _FrozenDict({key: _frozen(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return tuple(_frozen(item) for item in value)
+    return value
+
+
+def _thawed(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _thawed(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thawed(item) for item in value]
+    return value
+
+
+def _canonical_extensions(extensions: Mapping[str, Any]) -> _FrozenDict:
+    """Copy ``extensions`` through canonical JSON, refusing what JSON cannot hold.
+
+    That one step gives the record its guarantees: string keys, JSON values only, no
+    aliasing of the caller's objects, and a dict that round-trips through
+    :meth:`PlasmaFormalism.to_json` to an equal record.
+    """
+    data = dict(extensions)
+    bad_keys = [key for key in data if not isinstance(key, str)]
+    if bad_keys:
+        raise TypeError(f"extensions keys must be strings, got {bad_keys!r}")
+    try:
+        text = json.dumps(data, sort_keys=True, allow_nan=False)
+    except (TypeError, ValueError) as error:
+        raise TypeError(f"extensions must hold JSON values only (str, number, bool, None, list, dict): {error}") from None
+    return _frozen(json.loads(text))
+
 
 @dataclass(frozen=True)
 class PlasmaFormalism:
@@ -140,7 +194,12 @@ class PlasmaFormalism:
     as ``"all"``, ``"thermal_ions"``, ``"electrons"``, ``"beam_ions"``.
     ``derived_from`` names the parent theory of a ``reduced`` model (TGLF:
     ``"gyrokinetic"``).  ``solver`` and ``extensions`` carry what is not common:
-    the code's own name and its solver-specific physics settings.
+    the code's own name and its solver-specific physics settings, as JSON values.
+    A mode that switches representation mid-run (ASCOT5's guiding-centre to
+    full-orbit hybrid) records its dominant one and the switch in ``extensions``.
+
+    ``extensions`` does not enter the hash (it is a dict), so two records that differ
+    only there hash alike yet compare unequal.
     """
 
     scientific_operation: str
@@ -170,13 +229,20 @@ class PlasmaFormalism:
                 raise ValueError(f"{name}={value!r} is not one of {allowed} (or None / {UNKNOWN!r})")
         if self.derived_from is not None and self.derived_from not in (*KINETIC_EQUATIONS, *FLUID_MODELS, UNKNOWN):
             raise ValueError(f"derived_from={self.derived_from!r} names no known theory")
+        if self.solver is not None and not isinstance(self.solver, str):
+            raise TypeError(f"solver is a name, got {self.solver!r}")
         if self.kinetic_population is not None:
             population = self.kinetic_population
-            if isinstance(population, str):
-                raise TypeError("kinetic_population is a collection of names, not one string")
-            object.__setattr__(self, "kinetic_population", tuple(str(item) for item in population))
-        object.__setattr__(self, "extensions", MappingProxyType(dict(self.extensions)))
+            if not isinstance(population, (tuple, list)):
+                raise TypeError("kinetic_population is an ordered collection (tuple or list) of names")
+            if not population or not all(isinstance(item, str) and item for item in population):
+                raise ValueError("kinetic_population names at least one population, each a non-empty string")
+            object.__setattr__(self, "kinetic_population", tuple(population))
+        object.__setattr__(self, "extensions", _canonical_extensions(self.extensions))
         _check_combination(self)
+
+    def __reduce__(self):
+        return (_from_dict, (self.as_dict(),))
 
     def as_dict(self) -> dict[str, Any]:
         """A stable, JSON-ready dict: every field present, ``None`` kept, versioned."""
@@ -186,7 +252,7 @@ class PlasmaFormalism:
             if item.name == "kinetic_population" and value is not None:
                 value = list(value)
             elif item.name == "extensions":
-                value = dict(value)
+                value = _thawed(value)
             out[item.name] = value
         return out
 
@@ -196,7 +262,7 @@ class PlasmaFormalism:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "PlasmaFormalism":
-        """Rebuild a record from :meth:`as_dict` output; a newer schema is refused."""
+        """Rebuild a record from :meth:`as_dict` output; any other schema version is refused."""
         version = data.get("schema_version", SCHEMA_VERSION)
         if version != SCHEMA_VERSION:
             raise ValueError(f"formalism schema_version {version!r}; this VAFT reads {SCHEMA_VERSION}")
@@ -205,6 +271,10 @@ class PlasmaFormalism:
         if unknown:
             raise ValueError(f"unknown formalism fields {unknown}")
         return cls(**{key: value for key, value in data.items() if key in known})
+
+
+def _from_dict(data: Mapping[str, Any]) -> PlasmaFormalism:
+    return PlasmaFormalism.from_dict(data)
 
 
 def _present(value: Any) -> bool:
@@ -228,6 +298,9 @@ def _check_combination(record: PlasmaFormalism) -> None:
             raise ValueError("a kinetic formulation has no fluid_model; with one it is 'hybrid'")
         if not kinetic:
             raise ValueError("a kinetic formulation needs its kinetic_equation")
+        if record.kinetic_equation == "fokker_planck":
+            raise ValueError("fokker_planck is the test-species equation of a 'particle' formulation, "
+                             "not a bulk kinetic one")
     elif bulk == "hybrid":
         if not (fluid and kinetic and _present(record.kinetic_coupling)):
             raise ValueError("a hybrid formulation needs fluid_model, kinetic_equation and kinetic_coupling")
@@ -241,11 +314,18 @@ def _check_combination(record: PlasmaFormalism) -> None:
     elif bulk == "reduced":
         if kinetic:
             raise ValueError("a reduced model solves no kinetic equation; name its parent theory in derived_from")
+        if fluid:
+            raise ValueError("a reduced model names its parent theory in derived_from, not fluid_model")
     if record.derived_from is not None and bulk != "reduced":
         raise ValueError("derived_from describes a reduced model only")
     if record.kinetic_coupling is not None and bulk not in ("hybrid", "particle"):
         raise ValueError("kinetic_coupling describes how a kinetic result re-enters a fluid or transport model")
-    if not kinetic and bulk != "particle":
-        for name in ("distribution_formulation", "kinetic_population", "orbit_representation"):
-            if _present(getattr(record, name)):
-                raise ValueError(f"{name} has no meaning without a kinetic equation or test particles")
+    if record.kinetic_equation in _GYROPHASE_AVERAGED and record.orbit_representation == "full_orbit":
+        raise ValueError(f"{record.kinetic_equation} removes the gyro-phase; it cannot follow full orbits")
+    if not kinetic and _present(record.distribution_formulation):
+        raise ValueError("distribution_formulation has no meaning without a kinetic equation for a distribution")
+    if not kinetic and bulk != "particle" and _present(record.orbit_representation):
+        raise ValueError("orbit_representation has no meaning without a kinetic equation or test particles")
+    if not kinetic and bulk not in ("particle", "reduced") and _present(record.kinetic_population):
+        raise ValueError("kinetic_population has no meaning without a kinetic equation, test particles "
+                         "or a reduced model's species")

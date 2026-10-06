@@ -544,15 +544,38 @@ cgyro.plasma_formalism(config).as_dict()   # versioned, JSON-ready
 ```
 
 **What the record enforces:**
-- `None` means not applicable and `"unknown"` means undocumented.
+- `None` means not applicable and `"unknown"` means undocumented. The two required fields can be neither.
 - Only generically impossible combinations are refused:
-  - a fluid run with a kinetic equation;
-  - a hybrid without a fluid model, a kinetic equation and a coupling;
-  - a kinetic run with a fluid model;
-  - a test-particle run with anything but the test-species Fokker–Planck equation;
-  - a reduced model that claims to solve a kinetic equation (its parent theory goes in `derived_from`).
+  - **fluid:** a kinetic equation, or no fluid model;
+  - **kinetic:** a fluid model, no kinetic equation, or the test-species `fokker_planck` equation;
+  - **hybrid:** missing a fluid model, a kinetic equation or a coupling;
+  - **particle:** a fluid model, an equation other than `fokker_planck`, or no orbit representation;
+  - **reduced:** a kinetic equation or a fluid model, since its parent theory goes in `derived_from`;
+  - **any bulk description:**
+    - `derived_from` outside a reduced model;
+    - a coupling outside hybrid and particle formulations;
+    - a drift-kinetic or gyrokinetic equation with full orbits (both remove the gyro-phase);
+    - a distribution formulation without a kinetic equation;
+    - an orbit representation or a population where neither has meaning.
 - There is no field for "kinetic profiles were used": that is a property of the inputs.
-- Solver-specific physics goes in `extensions`.
+- Solver-specific physics goes in `extensions`. These are JSON values only, copied and frozen on construction, so the
+  record pickles, deep-copies and round-trips through `to_json()` unchanged.
+- **Mixed modes.** A mode that switches representation mid-run records its dominant representation, with the
+  switch in `extensions`. Examples: ASCOT5 `SIM_MODE=3`, guiding centre then full orbit near the wall; NUBEAM's
+  guiding centre plus FLR sampling.
+
+**Where the implemented names differ from the §10 proposal:**
+- `fokker_planck` (proposed as `fokker_planck_test_particle`) and `guiding_center` (proposed as `guiding_centre`).
+- New values: `gyrocenter` (the gyrokinetic orbit representation); `mhd_displacement` and `prescribed` field models;
+  `time_dependent`; and the `equilibrium` operation.
+- `reduced_mhd` is **not** a fluid model: it is an ordering on one (§2.1).
+- `numerical_representation` (continuum vs PIC) is deliberately not a common axis. It changes no physics, so it
+  stays in `extensions`.
+- `SCHEMA_VERSION` changes with any field or vocabulary change, and `from_dict` reads only its own version.
+
+**IMAS.** The record is not mapped to an IMAS field. No standard location for it has been identified (#1727 §12), so
+VAFT run provenance stays authoritative. CGYRO runs store the record as `provenance["plasma_formalism"]`, beside
+the #1353 `provenance["formalism"]` that the `gyrokinetics_local` mapping already writes.
 
 | theory concept (§2) | field | example backend mode |
 | --- | --- | --- |

@@ -186,3 +186,63 @@ def test_importing_the_record_is_light():
         capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == ""
+
+
+# ---------------------------------------------------------------------------
+# found in review: transport, JSON safety, further impossibilities
+# ---------------------------------------------------------------------------
+
+
+def test_the_record_pickles_deep_copies_and_converts_like_a_dataclass():
+    import copy
+    import dataclasses
+    import pickle
+
+    from vaft.code.gacode import cgyro
+
+    record = cgyro.plasma_formalism()
+    assert pickle.loads(pickle.dumps(record)) == record
+    assert copy.deepcopy(record) == record
+    assert dataclasses.asdict(record)["extensions"]["field_model"] == "es"
+
+
+def test_extensions_are_json_values_frozen_and_never_alias_the_caller():
+    nested = {"grid": [1, 2], "sub": {"a": 1}}
+    record = PlasmaFormalism(**{**CASES["ideal_mhd"], "extensions": {"x": (1, 2), "nested": nested}})
+    nested["grid"].append(3)
+    assert record.extensions["nested"]["grid"] == (1, 2)
+    assert PlasmaFormalism.from_dict(json.loads(record.to_json())) == record
+    with pytest.raises(TypeError):
+        record.extensions["nested"]["sub"]["a"] = 2
+    for bad in ({3: "a"}, {"s": {1, 2}}, {"nan": float("nan")}, {"obj": object()}):
+        with pytest.raises(TypeError):
+            PlasmaFormalism(**{**CASES["ideal_mhd"], "extensions": bad})
+
+
+@pytest.mark.parametrize("case, change, message", [
+    ("local_delta_f_gyrokinetic", {"orbit_representation": "full_orbit"}, "gyro-phase"),
+    ("drift_kinetic", {"orbit_representation": "full_orbit"}, "gyro-phase"),
+    ("guiding_center_particle", {"kinetic_equation": None}, "distribution_formulation"),
+    ("drift_kinetic", {"kinetic_equation": "fokker_planck"}, "test-species"),
+    ("gyrokinetic_derived_reduced", {"fluid_model": "ideal_mhd"}, "derived_from"),
+    ("ideal_mhd", {"fluid_model": "reduced_mhd"}, "fluid_model"),
+    ("drift_kinetic", {"kinetic_population": ()}, "at least one"),
+    ("drift_kinetic", {"kinetic_population": {"ions", "electrons"}}, "ordered"),
+    ("ideal_mhd", {"solver": 123}, "name"),
+])
+def test_further_impossibilities_are_refused(case, change, message):
+    with pytest.raises((ValueError, TypeError), match=message):
+        PlasmaFormalism(**{**CASES[case], **change})
+
+
+def test_a_reduced_model_may_name_the_species_it_covers():
+    tglf = PlasmaFormalism(**{**CASES["gyrokinetic_derived_reduced"], "kinetic_population": ("trapped", "passing")})
+    assert tglf.kinetic_population == ("trapped", "passing")
+
+
+def test_cgyro_runs_record_the_shared_record_beside_the_1353_one():
+    import inspect
+
+    from vaft.code.gacode.cgyro import runner
+
+    assert '"plasma_formalism": plasma_formalism(configuration).as_dict()' in inspect.getsource(runner)
