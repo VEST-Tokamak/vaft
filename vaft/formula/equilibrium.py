@@ -3338,6 +3338,14 @@ def kinetic_energy_from_beta_p_B_pa_V_p(beta_p: float,
     $L_p$, the EFIT/Lao normalisation of $\beta_p$; the $3/2$ converts $pV$ to
     the ideal-gas thermal energy.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: normalization
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
