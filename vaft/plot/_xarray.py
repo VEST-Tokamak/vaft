@@ -342,3 +342,101 @@ def panels_datatree(model: Any, **extra: Any) -> Any:
     )
     root = xr.Dataset(attrs=attrs)
     return xr.DataTree.from_dict({"/": root, **{f"/{name}": ds for name, ds in children.items()}})
+
+
+# ---------------------------------------------------------------------------
+# non-graphical views (issue #1180)
+# ---------------------------------------------------------------------------
+
+
+#: The kind of a structured value, recorded beside its number so the model is
+#: recoverable: ``number``, ``int``, ``bool``, ``text`` or ``missing``.
+def _value_kind(value: Any) -> str:
+    if value is None:
+        return "missing"
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, str):
+        return "text"
+    return "number"
+
+
+def _split_values(values: Sequence[Any]) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    """``(numbers, texts, kinds)``: one netCDF-writable float and string array each.
+
+    A number (an int or a bool too) goes to ``numbers`` with ``""`` in
+    ``texts``; a word goes to ``texts`` with ``NaN`` in ``numbers``; ``None``
+    is ``NaN`` and ``""``.  ``kinds`` says which, so nothing is lost.
+    """
+    kinds = [_value_kind(value) for value in values]
+    numbers = np.array(
+        [float(value) if kind in ("number", "int", "bool") else np.nan for value, kind in zip(values, kinds)],
+        dtype=float,
+    )
+    texts = np.array([value if kind == "text" else "" for value, kind in zip(values, kinds)], dtype=object)
+    return numbers, texts, kinds
+
+
+def _strings(values: Sequence[Any]) -> np.ndarray:
+    return np.array([str(value) for value in values], dtype=object)
+
+
+#: The per-value facts kept as JSON attributes, beside each value variable.
+_VALUE_FACTS = ("unit", "subject", "quantity", "display_unit", "format", "status", "note")
+
+
+def table_dataset(model: Any, **extra: Any) -> "xr.Dataset":
+    """A :class:`~vaft.plot.models.Table` as two variables per column on a ``row`` dimension.
+
+    ``column_NN`` holds the numbers (``NaN`` where the cell is a word or
+    empty) and ``column_NN_text`` the words; the attributes name the column
+    and list, as JSON, each cell's value kind and stored unit, display
+    subject/quantity/unit, format, status and note.  Writable to netCDF and
+    lossless: nothing is formatted.
+    """
+    xr = _xr()
+    data_vars = {}
+    for index, column in enumerate(model.columns):
+        cells = [row[index] for row in model.rows]
+        numbers, texts, kinds = _split_values([cell.value for cell in cells])
+        attrs = {"name": column.name, "kind": column.kind, "align": column.align,
+                 "units_placement": column.units, "value_kind": _plain(kinds)}
+        attrs.update({fact: _plain([getattr(cell, fact) for cell in cells]) for fact in _VALUE_FACTS})
+        data_vars[f"column_{index:02d}"] = (("row",), numbers, attrs)
+        data_vars[f"column_{index:02d}_text"] = (("row",), texts, {"name": column.name})
+    ds = xr.Dataset(data_vars, coords={"row": np.arange(len(model.rows))})
+    ds.attrs.update(dataset_attrs(model, "title", "caption", "notes", "missing", **extra))
+    return ds
+
+
+def text_summary_dataset(model: Any, **extra: Any) -> "xr.Dataset":
+    """A :class:`~vaft.plot.models.TextSummary` flattened onto one ``item`` dimension.
+
+    ``value`` holds the numbers and ``text`` the words (statements included);
+    ``section``, ``label``, ``unit`` and ``status`` are string variables, and
+    each item's value kind, display subject/quantity/unit, format and note
+    are JSON attributes.  Writable to netCDF and lossless.
+    """
+    xr = _xr()
+    items = [(section.title, item) for section in model.sections for item in section.items]
+    numbers, texts, kinds = _split_values([item.value for _, item in items])
+    attrs = {"value_kind": _plain(kinds)}
+    attrs.update({fact: _plain([getattr(item, fact) for _, item in items])
+                  for fact in ("subject", "quantity", "display_unit", "format", "note")})
+    ds = xr.Dataset(
+        {
+            "value": (("item",), numbers, attrs),
+            "text": (("item",), texts),
+            "unit": (("item",), _strings([item.unit for _, item in items])),
+            "status": (("item",), _strings([item.status for _, item in items])),
+        },
+        coords={
+            "item": np.arange(len(items)),
+            "section": (("item",), _strings([title for title, _ in items])),
+            "label": (("item",), _strings([item.label for _, item in items])),
+        },
+    )
+    ds.attrs.update(dataset_attrs(model, "title", "caption", "missing", **extra))
+    return ds
