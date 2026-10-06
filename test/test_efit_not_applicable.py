@@ -99,6 +99,30 @@ def test_light_without_current_is_not_a_vacuum():
     assert CONSTRAINTS._efit_not_applicable(ods, error) is None
 
 
+def test_an_eddy_stage_without_output_is_a_verdict_not_a_failure(monkeypatch, tmp_path):
+    """#1568 unscoped: the eddy manifest says `no_output` (a PF circuit was never
+    recorded). Composition refuses it by name; the constraint step used to let
+    that escape, so the worker retried the shot to `gave_up` for a product that
+    cannot exist (cold review 0.8.0 delta-absorb-16 F1). It is now the #205
+    carrier, which the k-file and EFIT steps already pass on."""
+    eddy_manifest = tmp_path / "eddy-manifest.json"
+    eddy_manifest.write_text(json.dumps({
+        "status": "no_output",
+        "eddy_status": "skipped: required input unavailable: pf_active circuits PF5, PF6 were never recorded",
+    }), encoding="utf-8")
+    output = tmp_path / "constraints" / "48500_constraints.json"
+    monkeypatch.setattr(sys, "argv", [
+        "generate_constraints_ods.py", "--shot", "48500", "--eddy-ods", str(tmp_path / "absent-eddy.json"),
+        "--diagnostics-ods", str(tmp_path / "absent-diagnostics.json"),
+        "--eddy-manifest", str(eddy_manifest), "--output", str(output),
+    ])
+
+    assert CONSTRAINTS.main() == 0
+    reason = constraints_not_applicable_reason(load_omas_json(str(output), consistency_check=False))
+    assert reason.startswith("eddy produced no output: skipped: required input unavailable")
+    assert "PF5, PF6" in reason
+
+
 def test_a_refused_verdict_still_fails_the_step(monkeypatch, tmp_path):
     """main() re-raises when the cut is a fault: no product, a non-zero exit."""
     monkeypatch.setattr(CONSTRAINTS, "_efit_not_applicable", lambda ods, error: None)

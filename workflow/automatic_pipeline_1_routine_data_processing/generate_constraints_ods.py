@@ -22,7 +22,7 @@ from omas import save_omas_json
 
 from vaft.code.efit import correct_flux_loop, generate_constraints_ods as build_constraints
 from vaft.code.efit.applicability import not_applicable_constraints
-from vaft.database.composition import compose_stage_products
+from vaft.database.composition import EddyNoOutputError, compose_stage_products
 from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
 from vaft.omas.plasma_timing import plasma_timing
 from vaft.omas.vest_upstream import machine_era_for_shot
@@ -428,11 +428,23 @@ def main() -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
-    ods, composition = compose_stage_products(
-        diagnostics=args.diagnostics_ods,
-        eddy=args.eddy_ods,
-        eddy_manifest=args.eddy_manifest,
-    )
+    try:
+        ods, composition = compose_stage_products(
+            diagnostics=args.diagnostics_ods,
+            eddy=args.eddy_ods,
+            eddy_manifest=args.eddy_manifest,
+        )
+    except EddyNoOutputError as error:
+        # The eddy stage recorded that this shot has no passive currents to
+        # compute (a PF circuit that was never recorded, #1568). That is a
+        # result about the shot, carried on the way a vacuum shot's is (#205):
+        # without it an unscoped run failed here and the worker retried the
+        # shot to `gave_up` for a product that can never exist.
+        reason = f"eddy produced no output: {error.reason}"
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        save_omas_json(not_applicable_constraints(reason), str(args.output))
+        LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, reason)
+        return 0
     LOGGER.info("composed inputs: %s", json.dumps(composition, default=str))
     times, window = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
     if times.size == 0:
