@@ -252,6 +252,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_controls.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
+    # GPEC adapter records (#1460): how a solver stop is worded and recorded --
+    # time limit, memory limit, never admitted -- through stub executables and
+    # a recording backend. No solver runs; about 20 s.
+    "test_gpec_adapter.py",
+    "test_gpec_pentrc_runner.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",

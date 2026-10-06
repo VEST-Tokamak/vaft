@@ -447,8 +447,8 @@ class LocalBackend:
             raise
         stopped = timed_out or memory_stop
         if memory_stop and not capture:
-            # GPEC-style adapters report any limit stop as a timeout (#1460
-            # follow-up); the solver's own log keeps the real reason.
+            # The solver's own log keeps the real reason too, for anyone
+            # reading the run directory rather than the adapter's record.
             with open(log_path, "a", encoding="utf-8") as log:
                 log.write(
                     f"\n[vaft LocalBackend] stopped: resident memory {peak:.0f} MiB passed "
