@@ -141,6 +141,50 @@ def test_unknown_evaluation_is_none_not_false(native):
     assert row["mercier_evaluated"] is None and row["min_C_A"] is None
 
 
+def test_the_payload_and_the_validation_layer_name_the_same_requested_psiedge(native):
+    # Cold review 0.8.0 stability F4: a dcon.in without a psiedge line asked for
+    # DCON's default 1.0; both readers must say so, and neither may invent one
+    # when there was no namelist at all.
+    from vaft.validation.stability import validate_stability
+
+    omitted = dataclasses.replace(native, evaluation=dataclasses.replace(native.evaluation, psiedge=None))
+    [row] = extract_dcon_stability(_ods_with((omitted, 0)))
+    assert row["requested_psiedge"] == 1.0
+    assert validate_stability(dcon=omitted)["verification"]["dcon_edge"]["requested_psiedge"] == 1.0
+    no_namelist = dataclasses.replace(native, evaluation=dataclasses.replace(native.evaluation, psiedge=0.95, source=""))
+    [row] = extract_dcon_stability(_ods_with((no_namelist, 0)))
+    assert row["requested_psiedge"] is None
+    assert validate_stability(dcon=no_namelist)["verification"]["dcon_edge"]["requested_psiedge"] is None
+
+
+def test_evaluation_flags_are_written_without_a_profile_block(native):
+    # F4 second half: the flags describe the namelist, not the profiles. A run
+    # with energies but no local-criteria block still says what it was asked.
+    trimmed = dataclasses.replace(native, psi_n=None, di=None, dr=None, ca1=None, ca1_evaluated=None)
+    [row] = extract_dcon_stability(_ods_with((trimmed, 0)))
+    assert row["mercier_evaluated"] is True and row["ballooning_evaluated"] is True
+    assert row["ballooning_points_evaluated"] is None
+    assert row["psi_n"] is None and row["max_D_I"] is None and row["min_C_A"] is None
+
+
+def test_ballooning_evaluated_is_the_flag_and_the_point_count_is_separate(native):
+    # Cold review 0.8.0 stability F5: bal_flag=t with no surface qualifying
+    # (bal.f:51-53 integrates only where di <= 0) is "asked, nothing reached",
+    # which the validation layer reports as evaluated/pass; bal_flag=f is not
+    # asked. The two must not collapse into one False.
+    from vaft.validation.stability import validate_stability
+
+    none_reached = dataclasses.replace(native, ca1_evaluated=np.zeros_like(np.asarray(native.ca1_evaluated, bool)))
+    [row] = extract_dcon_stability(_ods_with((none_reached, 0)))
+    assert row["ballooning_evaluated"] is True and row["ballooning_points_evaluated"] == 0 and row["min_C_A"] is None
+    assert validate_stability(dcon=none_reached)["verification"]["dcon_local_criteria"]["ballooning_evaluated"] is True
+    off = dataclasses.replace(native, evaluation=dataclasses.replace(native.evaluation, bal_flag=False))
+    [row] = extract_dcon_stability(_ods_with((off, 0)))
+    assert row["ballooning_evaluated"] is False
+    [row] = extract_dcon_stability(_ods_with((native, 0)))
+    assert row["ballooning_points_evaluated"] == int(np.asarray(native.ca1_evaluated, bool).sum()) > 0
+
+
 def test_min_c_a_uses_evaluated_points_only(native):
     mask = np.asarray(native.ca1_evaluated, dtype=bool).copy()
     lowest = int(np.nanargmin(native.ca1))

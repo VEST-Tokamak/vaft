@@ -40,7 +40,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         for projection in ("poloidal", "top", "3d")
     },
     # stability and operational-space charts, at their documented defaults
-    **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon")},
+    **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
     # reduced stability diagnostics (#1635)
     **{f"{name}.svg": (name, {}) for name in ("stability_diagnostic_taxonomy", "interchange_criteria")},
     **{f"li_qa_{r}.svg": ("li_qa", {"reference": r}) for r in ("wesson_1989", "cheng_1987")},
@@ -111,6 +111,13 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("current_to_q_profile", "cylindrical_rational_surfaces",
                                               "cylindrical_mode_morphology", "internal_external_kink",
                                               "plasma_vacuum_wall", "cylindrical_tearing_outer")},
+    # current-profile and q topology: shapes, l_i, q landmarks, rational surfaces (#1604)
+    "current_profile_shapes.svg": ("current_profile_shapes", {}),
+    "q_profile_topologies.svg": ("q_profile_topologies", {}),
+    **{f"q_profile_landmarks_{p}.svg": ("q_profile_landmarks", {"profile": p})
+       for p in ("monotonic", "reversed_shear")},
+    **{f"rational_surface_topology_{p}.svg": ("rational_surface_topology", {"profile": p})
+       for p in ("monotonic", "reversed_shear")},
     # canonical field configurations, reconnection topology and ideal-MHD waves (#1063)
     **{f"slab_field_configuration_{k}.svg": ("slab_field_configuration", {"kind": k})
        for k in ("uniform", "sheared", "reversed", "guide")},
@@ -220,6 +227,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
         "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
         "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport")},
+    # plasma parameter inference: architecture and provenance (#1601)
+    "parameter_inference_overview.svg": ("parameter_inference_overview", {"references": True}),
+    "parameter_inference_dependency_graph.svg": ("parameter_inference_dependency_graph", {"references": True}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),

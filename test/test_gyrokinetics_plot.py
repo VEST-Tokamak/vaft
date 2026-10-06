@@ -140,3 +140,30 @@ def test_flux_contributors_refuse_species_that_do_not_exist():
     for bad in ((5,), (0,), (-1,)):
         with pytest.raises(ValueError, match="outside"):
             gkplot.tglf_flux_contributors(run, species=bad)
+
+
+def test_flux_contributors_keep_the_total_unknown_when_no_field_carries_the_quantity():
+    """A species whose selected quantity is NaN in every field slot (cold review 0.8.0 F6).
+
+    ``sum({}.values())`` is the integer 0; the renderer then paired a (nky,) ky axis with
+    a scalar and raised. The total is unknown, not zero: it keeps the ky shape as NaN
+    and the panel says so.
+    """
+    from vaft.code.gacode.tglf.outputs import FLUX_SPECTRUM_QUANTITIES
+    import types
+
+    nky, nfield, nq = 5, 3, len(FLUX_SPECTRUM_QUANTITIES)
+    spectrum = np.full((2, nfield, nky, nq), np.nan)      # (species, field, ky, quantity)
+    spectrum[:, 0, :, :] = 1.0                            # phi written for every quantity...
+    q = FLUX_SPECTRUM_QUANTITIES.index("toroidal_stress")
+    spectrum[0, :, :, q] = np.nan                         # ...except the electrons' stress
+    run = types.SimpleNamespace(sum_flux_spectrum=spectrum, ky_spectrum=np.linspace(0.1, 1.0, nky))
+    contributors = gkplot.tglf_flux_contributors(run, quantity="toroidal_stress", species=("e", "i"))
+    total = contributors["series"]["e"]["total"]
+    assert isinstance(total, np.ndarray) and total.shape == (nky,) and np.all(np.isnan(total))
+    assert np.allclose(contributors["series"]["i"]["total"], 1.0)
+    figure, axes = gkplot.plot_flux_contributors(contributors)
+    notes = [text.get_text() for text in axes[0].texts]
+    assert any("toroidal_stress" in note and "e" in note for note in notes)
+    assert not axes[1].texts
+    plt.close(figure)

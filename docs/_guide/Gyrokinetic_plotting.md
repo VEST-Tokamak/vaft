@@ -59,11 +59,11 @@ Native source: the parsed field of `TglfOutputs` / `CgyroOutputs`. IMAS class fo
 
 | MITIM tab | quantity | native source | IMAS home | class | VAFT plot |
 | --- | --- | --- | --- | --- | --- |
-| Summary | $\gamma(k_y)$, $\omega(k_y)$ | `growth_rate`, `frequency` (TGLF, all modes); CGYRO final eigenvalue | `linear.wavevector[:].eigenmode[:].growth_rate_norm` / `frequency_norm` | unit / convention (CGYRO mapped) | native `plot_linear_spectrum`; standardized `gyrokinetics_spectrum_growth_rate` / `_frequency` (#1591 PR-C) |
+| Summary | $\gamma(k_y)$, $\omega(k_y)$ | `growth_rate`, `frequency` (TGLF, all modes); CGYRO final eigenvalue | `linear.wavevector[:].eigenmode[:].growth_rate_norm` / `frequency_norm` | unit / convention (CGYRO mapped) | native `plot_linear_spectrum`; standardized `gyrokinetics_spectrum_growth_rate` / `_frequency` |
 | Summary | $\gamma/k$ view | derived from the spectrum | — | reduced diagnostic | native `plot_mixing_length_proxy` (explicit $\gamma/k_y^2$ at $k_x=0$ or $\gamma/k_y$) |
 | Summary | $\delta T_e$, $\delta n_e$ amplitudes | `temperature_spectrum`, `density_spectrum` | none audited | unsupported | native `plot_fluctuation_spectra` |
 | Summary | $n_e$–$T_e$ cross phase | `nete_crossphase_spectrum` | none audited | unsupported | native `plot_fluctuation_spectra` |
-| Summary | $Q_e, Q_i, \Gamma_e$ spectra | `sum_flux_spectrum` (TGLF); `flux` (CGYRO NL) | `non_linear.fluxes_1d` per field (totals only) | unit (CGYRO mapped) | native `plot_flux_ky_spectrum`, `plot_flux_contributors`; standardized `gyrokinetics_spectrum_flux` |
+| Summary | $Q_e, Q_i, \Gamma_e$ spectra | `sum_flux_spectrum` (TGLF); `flux` (CGYRO NL) | `non_linear.fluxes_1d` per field (totals only) | unit (CGYRO mapped) | native `plot_flux_ky_spectrum`, `plot_flux_contributors`; standardized `gyrokinetics_spectrum_energy_flux` / `_particle_flux` (per $k_y$ from `fluxes_2d_k_x_sum`) |
 | Summary / Exp. Fluxes | $Q_e(r), Q_i(r), \Gamma_e(r)$ | `gbflux` × gyro-Bohm unit | `core_transport.model[:].profiles_1d` | unit (TGLF, CGYRO mapped) | standardized `turbulent_transport_profile_energy_flux` / `_particle_flux` |
 | Contributors | flux by field ($\phi$, $A_\parallel$, $B_\parallel$) | `sum_flux_spectrum[:, field]` | `non_linear.fluxes_1d.*_<field>` | unit | native `plot_flux_contributors` (only fields the solver wrote; no ES/EM by difference) |
 | Spectra | intensities per species and mode | `intensity_spectrum` | none audited | unsupported | parsed; not drawn yet |
@@ -84,6 +84,36 @@ An overlay does not prove that two runs are matched. A comparison is meaningful 
 - normalization and frequency sign convention.
 
 In VAFT, CGYRO's input is a renaming of the TGLF local input, so a TGLF–CGYRO native comparison satisfies this by construction. The standardized views check the same conditions against each IDS's own metadata, and they mark a mismatch on the figure instead of overlaying silently.
+
+## Example: one VEST state
+
+These figures are built from existing Lane Y products by `workflow/gyrokinetic/build_plot_example.py`. The state is shot 39915 at 0.317 s (magnetics lineage), and the field model is EM ($A_\parallel$). The registered plots read only the IMAS IDS, never solver files.
+
+```python
+import vaft.omas
+from vaft.machine_mapping.gyrokinetics import merge_linear_scan
+
+cgyro = merge_linear_scan(single_ky_odss)          # one CGYRO run per k_y -> one IDS
+vaft.omas.plot_gyrokinetics_overview(cgyro)
+vaft.omas.plot_gyrokinetics_spectrum_growth_rate({"CGYRO": cgyro, "TGLF SAT2": tglf})
+vaft.omas.plot_turbulent_transport_overview({f"TGLF SAT{n}": ct for n, ct in sat_rules.items()})
+```
+
+![CGYRO overview, 39915 r/a 0.7]({{ site.baseurl }}/assets/images/gyrokinetics/gk_overview_cgyro_39915_r0.70.png)
+
+**CGYRO overview (r/a 0.7).** The 12 linear runs on this surface are merged into one `gyrokinetics_local` (`merge_linear_scan`). Merging refuses runs whose species, surface or model differ. Initial-value eigenmodes that stopped at the time limit carry no `growth_rate_tolerance`, so they are left out. Pass `include_unconverged=True` to draw them. The eigenfunction panel shows the most unstable converged mode.
+
+![TGLF SAT2 overview, 39915 r/a 0.7]({{ site.baseurl }}/assets/images/gyrokinetics/gk_overview_tglf_39915_r0.70.png)
+
+**TGLF SAT2 overview, same surface.** It is mapped by `gyrokinetics_local_from_tglf`. TGLF writes every eigenmode (here two) and the quasilinear flux per $k_y$, so the overview gains a flux panel. The $k_y$ axis of that panel stops where every species' flux has fallen below 1% of its peak. Nothing is dropped from the data.
+
+![CGYRO and TGLF growth rates]({{ site.baseurl }}/assets/images/gyrokinetics/gk_growth_cgyro_tglf_39915_r0.70.png)
+
+**Matched comparison.** Both IDS describe the same surface, species, field model, normalization and sign convention, so the overlay carries no "unmatched" note. The TGLF SAT2-preset growth rate lies above CGYRO's converged points, as in the #1484 validation.
+
+![Turbulent transport, TGLF SAT0-3]({{ site.baseurl }}/assets/images/gyrokinetics/turbulent_transport_overview_39915.png)
+
+**Radial family.** `core_transport` with one anomalous model per SAT rule over r/a 0.6-0.8. Each model gets one color, with electrons solid and ions dashed.
 
 ## What stays outside plotting
 

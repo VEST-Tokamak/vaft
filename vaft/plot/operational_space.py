@@ -57,6 +57,17 @@ TRAJECTORY_COLORS = ("#1a1a19", "#5b2a9e", "#a3442b")
 #: no part in the "Stable" zone. Murakami is a historical conventional-tokamak reference, not a limit for a
 #: spherical tokamak (#1602).
 REFERENCE_ONLY = frozenset({"murakami_hugill"})
+#: Projections on which a REFERENCE_ONLY boundary is a reference in every style, the default shaded one too:
+#: on the spherical-tokamak Hugill diagram Murakami must never read as a limit (#1602). The same holds for any
+#: population whose ``table.attrs["machine_class"]`` is a spherical tokamak.
+REFERENCE_PROJECTIONS = frozenset({"hugill_st"})
+
+
+def _is_spherical(machine_class: Optional[str]) -> bool:
+    text = (machine_class or "").lower().replace("_", " ")
+    return "spherical" in text or text.split()[:1] == ["st"]
+
+
 #: Shorter names written along a line in the inline style, where the legend's full name would not fit the curve.
 ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)"}
 #: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
@@ -71,6 +82,8 @@ BOUNDARY_NAMES = {
     "cheng_1987_qa_min": "q(a) = 2",
     "low_q": "Low-q limit",
     "greenwald_hugill": "Greenwald/Hugill limit",
+    "greenwald_hugill_st": "Greenwald limit (ST coordinates)",
+    "sykes_2000_st_hugill": "Hugill limit (Sykes 2000, MAST)",
     "murakami_hugill": "Murakami (historical conventional-tokamak reference)",
     "greenwald_fraction_unity": "Greenwald limit",
     "martin_2008_lh": "L-H threshold (Martin 2008)",
@@ -789,9 +802,13 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
         applicability[curve.key] = applicability_status(curve, rows, (x, y), machine_class)
         suffix = _status_suffix(*applicability[curve.key])
-        reference = inline and curve.key in REFERENCE_ONLY
+        reference = curve.key in REFERENCE_ONLY and (
+            inline or proj.key in REFERENCE_PROJECTIONS or _is_spherical(machine_class))
         ax.plot(curve.x, curve.y, color=c, linewidth=1.6 * line_scale, linestyle="--" if reference else "-",
-                label=None if inline else _boundary_label(curve), zorder=2)
+                label=None if inline else (_boundary_label(curve) + (" (reference only)" if reference else "")),
+                zorder=2)
+        if reference and not inline:
+            continue   # a dashed line without a forbidden side
         if reference:
             from matplotlib.lines import Line2D
             entry = _b.get_boundary(curve.key)

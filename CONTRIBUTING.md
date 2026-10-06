@@ -199,6 +199,48 @@ and never import the machine layer (issue #420).
 are never imported by `import vaft.process`; `/reference/process/` is generated
 by `python -m vaft.process.catalog`, which `docs/build.py` runs for you.
 
+## Plot docstrings
+
+`vaft/plot` uses the same parser for a third question: what does this figure
+show, how is it read, and what can it not tell you?  The docstring of a
+canonical renderer -- the `@renderer`-registered function `vaft.plot.<name>` --
+carries a one-sentence summary and any of the sections `Interpretation`,
+`Options`, `Convention`, `Applicability`, `Limitations`, `References`, `Notes`,
+`See Also`, `Examples`, `Warnings`, plus numpydoc `Parameters` / `Returns` /
+`Raises` without unit tags (a renderer takes a view model, not a physical
+quantity).  `vaft/plot/_docstring.py` declares the vocabulary.
+
+- `Interpretation` is required: what the figure exposes, which scientific
+  questions it is used for, which features a reader inspects, and how the
+  drawn representation relates to the physical quantity.  Concise guidance,
+  not a textbook chapter.
+- `Options` explains the options that change the scientific representation
+  (radial coordinate, normalization, uncertainty and validity display,
+  reference lines, contour style, overlays) by what they *mean*.  The option
+  values are defined structurally (`vaft.plot.controls`, the plot's
+  capability), so never re-enumerate a vocabulary; the test refuses an
+  `Options` that spells out every member of one.  Generic styling keywords
+  are not listed.
+- `Limitations` states what must not be concluded from the plot alone; it is
+  required for profile, spatial, field, spectrum, spectrogram, overview and
+  table views and for every `equilibrium` plot.  A known defect is written
+  `Tracked in #NNN`.
+- `See Also` names related registered plots, one per line as `name : why`.
+- If `Parameters` is present it documents every named signature parameter,
+  in order.
+
+The docstring is the only source of human-facing scientific guidance:
+`vaft.plot.documentation(name)` parses it into a `PlotDocumentation` (summary,
+sections, and the `interpretation` / `options` / `limitations` shortcuts,
+`as_dict()` for JSON) that both `/reference/plot/` (through
+`python -m vaft.plot.docs_catalog`) and GUI help surfaces read.  Do not add
+scientific prose to `PlotSpec` or keep a second description table anywhere;
+the registry answers structural questions (model, DD paths, options), the
+docstring scientific ones.  `test/test_plot_docstrings.py` enforces the
+contract, and its `PENDING` set names the plots not yet migrated: a plot
+leaves it the moment it conforms, and a newly registered plot must conform
+from the start (`PENDING_CEILING` only goes down).
+
 ## Documentation
 
 The site published at <https://vest-tokamak.github.io/vaft/> is built from
@@ -270,6 +312,20 @@ To normalize notebooks manually, run:
 ```bash
 python notebooks/_clean_outputs.py notebooks/*.ipynb
 ```
+
+## Issue studies
+
+A per-issue study -- the scripts that were run and the notes that were written
+while an issue was investigated -- goes under `vaft/validation/studies/<name>/`
+(#1756), as a regular package with an `__init__.py`, so its scripts run from an
+installed tree as `python -m vaft.validation.studies.<name>.<script>` rather
+than as a `PYTHONPATH=.` path run (which imports whichever `vaft` is first on
+the path). `vaft.validation` never imports the studies, and the API catalog
+skips them (`scripts` in `docs/api_inventory.yml`). A new folder does not ship
+in the wheel unless it is added to `[tool.setuptools.packages.find]`,
+`MANIFEST.in` and `test/verify_dist.py` together; notes, run records and
+inputs that are not in the repository never do, and a script that needs such
+a file takes its path as a command-line argument.
 
 ## Running the tests
 
