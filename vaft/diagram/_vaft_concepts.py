@@ -42,7 +42,7 @@ documentation can read it.
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from ._concept import Box, band, escape_latex
 from ._concept import box as _concept_box
@@ -758,7 +758,7 @@ EQUILIBRIUM_ANALYSIS: Tuple[Tuple[str, str], ...] = (
 )
 
 
-def integrated_scientific_framework(domain=None, *, labels: bool = True) -> Diagram:
+def integrated_scientific_framework(domain: Optional[str] = None, *, labels: bool = True) -> Diagram:
     r"""The research modes and their common state inside one integrated framework, serving analysis (#1698).
 
     The four research modes and the Common Data Model (IMAS) sit exactly as in
@@ -807,7 +807,8 @@ def integrated_scientific_framework(domain=None, *, labels: bool = True) -> Diag
         items.append(Label((0.0, frame_bottom - 0.25), "\\\\".join(lines), "concept reference", anchor="north",
                            role="references"))
     if labels:
-        note = "Common Data Model: shared representation; framework: connects and reproduces; analysis: the use"
+        note = ("The Common Data Model is the shared representation;\\\\the framework connects research through it, "
+                "and analysis is its use")
         items.append(Label((0.0, frame_bottom - (2.75 if example else 0.3)), note, "note", anchor="north", role="note"))
     return Diagram("integrated_scientific_framework", Scene(tuple(items)),
                    model={"framework": "integrated", "domain": domain,

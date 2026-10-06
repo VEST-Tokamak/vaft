@@ -318,5 +318,6 @@ def test_the_framework_encloses_the_network_and_feeds_analysis(domain):
 def test_the_framework_rejects_an_unknown_domain():
     with pytest.raises(ValueError, match="domain"):
         vaft.diagram.integrated_scientific_framework("transport")
-    with pytest.raises(TypeError):
-        vaft.diagram.experiment_modeling_theory_data_network(communication="common_model", domain="equilibrium")
+    # the framework is its own figure, not a fourth topology of the network
+    with pytest.raises(ValueError, match="communication"):
+        vaft.diagram.experiment_modeling_theory_data_network("integrated_framework")
