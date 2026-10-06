@@ -314,8 +314,11 @@
       maxZoom: 4
     });
     this.cy.on('tap', 'node', function (event) {
-      // through the adapter, so an API leaf selects its module with the object highlighted
-      self.focus(event.target.id());
+      // Through the adapter, so an API leaf selects its module with the object
+      // highlighted -- and after the event, because re-rendering removes the
+      // tapped node while Cytoscape is still handling the pointer.
+      var id = event.target.id();
+      window.setTimeout(function () { self.focus(id); }, 0);
     });
     this.cy.on('mouseover', 'node', function (event) {
       var node = event.target;

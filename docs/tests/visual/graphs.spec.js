@@ -90,6 +90,31 @@ test('an ordinary in-page anchor does not reset the explorer', async ({ page }) 
   await expect(page.locator('.vg-title')).toHaveText('vaft.formula.geometry');
 });
 
+test('a real click selects the node under the pointer after the page has scrolled', async ({ page }) => {
+  await openExplorer(page);
+  // GitBook scrolls an inner element, not the window; Cytoscape must not use a stale canvas offset.
+  await page.evaluate(() => document.querySelector('.vg-canvas').scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(300);
+  const before = await page.evaluate(() => document.querySelector('.vg-root').vaftGraph.cy.pan());
+  const point = await page.evaluate(() => {
+    const viewer = document.querySelector('.vg-root').vaftGraph;
+    const box = viewer.cy.container().getBoundingClientRect();
+    const position = viewer.cy.getElementById('vaft.formula').renderedPosition();
+    return { x: box.left + position.x, y: box.top + position.y };
+  });
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.locator('.vg-title')).toHaveText('vaft.formula');
+  // and moving the pointer afterwards no longer drags the view along
+  const panAfterClick = await page.evaluate(() => document.querySelector('.vg-root').vaftGraph.cy.pan());
+  await page.mouse.move(point.x + 200, point.y + 120, { steps: 8 });
+  await page.waitForTimeout(200);
+  const panAfterMove = await page.evaluate(() => document.querySelector('.vg-root').vaftGraph.cy.pan());
+  expect(panAfterMove).toEqual(panAfterClick);
+  expect(before).toBeTruthy();
+});
+
 test('without JavaScript the page still explains itself', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
