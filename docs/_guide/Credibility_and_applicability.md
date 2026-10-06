@@ -155,9 +155,9 @@ There is no `sensitivity` package, and nothing in this section runs unless it is
 
 | function | layer | cost |
 | --- | --- | --- |
-| `finite_difference_jacobian(f, x)` | formula | 2n model calls (central) |
+| `finite_difference_jacobian(f, x)` | formula | 2n + 1 model calls (central), n + 1 (forward) |
 | `linear_covariance_propagation(J, Σ)` | formula | $J\Sigma J^{\mathsf T}$, correlations kept |
-| `monte_carlo_propagation(f, μ, Σ, samples, seed)` | formula | one model call per sample: opt-in only |
+| `monte_carlo_propagation(f, μ, Σ, samples, seed)` | formula | one model call per sample: opt-in only; failed draws are counted as `rejected` |
 | `singular_value_spectrum(J, column_scale)` | formula | SVD of $JD$, never of $J^{\mathsf T}J$ |
 | `linearity_ratio(f, x, δ, J)` | formula | share of a finite response the Jacobian misses |
 | `Jacobian(provenance, kind, perturbation, inputs, outputs, matrix \| jvp)` | validation | explicit or matrix-free |
@@ -171,10 +171,15 @@ There is no `sensitivity` package, and nothing in this section runs unless it is
 - **Kind:** an `observation` Jacobian (identifiability), a `governing_operator` one (uniqueness,
   branches) and a `forward` one (local sensitivity) answer different questions.
 - **Perturbation:** `physical` versus `numerical`. Physical sensitivity is never mixed with
-  convergence.
+  convergence. `compare_jacobians` refuses a pair that differs in kind or perturbation unless
+  `allow_mixed=True`.
 
 **Tolerances.** A comparison returns metrics. It carries a status only when the caller passes a
 `tolerance=(warn, fail)`; no tolerance is invented here.
+- An infinite discrepancy fails. Examples: a zero Jacobian against a real spread, or a non-zero row
+  against a zero one.
+- A comparison over Monte Carlo draws that rejected any sample is never better than `warn`: the
+  sampled covariance is then conditioned on the model succeeding.
 
 `test/test_sensitivity_contract.py` demonstrates the #1642 acceptance points at unit-test cost:
 
@@ -182,12 +187,20 @@ There is no `sensitivity` package, and nothing in this section runs unless it is
    derivative already in VAFT, $B = \nabla\times\psi$) matches the finite-difference derivative of
    its flux to below $10^{-6}$.
 2. **Local propagation against sampling.** `vaft.process.confinement.dimensionless_confinement_indices`
-   already propagates the exponent covariance through a central-difference Jacobian. Its covariance
-   equals the generic kernels', and it agrees with 4000-draw Monte Carlo to 5 % in standard
-   deviation at $\alpha_P = -0.6$.
-3. **Where the linearization fails.** Near $\alpha_P = -1$ (here $1+\alpha_P = 0.07$, about 1.4
-   standard errors from the pole), the same map is off by a factor of $e^{3.8}$, as that function's
-   docstring warns. The cheap `linearity_ratio` flags it before any sampling is paid for.
+   already propagates the exponent covariance through a central-difference Jacobian.
+   - Its covariance equals the generic kernels'.
+   - At $\alpha_P = -0.6$ it passes the test's tolerance (0.1 in $\ln\sigma$) against 4000-draw
+     Monte Carlo.
+   - It is not exact. The linear standard deviation is 5–8 % low across seeds, against a sampling
+     error of 1 %: the curvature of $1/(1+\alpha_P)$ shows even here.
+3. **Where the linearization fails.** At $\alpha_P = -0.93$, $1+\alpha_P = 0.07$ puts the pole
+   1.4 standard errors away, inside the input distribution.
+   - $1/(1+\alpha_P)$ of a Gaussian $\alpha_P$ has infinite variance. The sampled spread does
+     not converge with the sample count, and only its size, not its sign, depends on the seed.
+   - The linear propagation fails against it every time, as that function's docstring warns.
+   - The cheap `linearity_ratio` flags the problem before any sampling is paid for.
+   - The reported `sampling_standard_error` assumes finite variance, so it means nothing in this
+     regime.
 
 ### Workflow graduation audit
 
@@ -200,3 +213,8 @@ is moved by this change; each move belongs to the owning lane.
 | `workflow/efit_uncertainty_calibration/weight_scan.py` stage 6 and `sensitivity_report.py` (#1663) | targeted scan over σ and basis; model-form spread | stays a study; read through `scan_evidence` |
 | `workflow/confinement_scaling/closures.py` | bootstrap over shots | `vaft.process.confinement.bootstrap_confinement_scaling` (already graduated) |
 | `vaft.process.confinement.dimensionless_confinement_indices` | inline central-difference $J\Sigma J^{\mathsf T}$ | could call the formula kernels; left untouched (Lane D) |
+
+Two notes on this table:
+- "Already graduated" means only that the library function exists. `closures.py` keeps its own
+  bootstrap loop.
+- `sensitivity_report.py` and the stage-6 grid exist only on the #1663 branch for now.

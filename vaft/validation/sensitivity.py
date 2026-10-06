@@ -45,6 +45,7 @@ from .model import ValidationStatus
 
 __all__ = [
     "JACOBIAN_KINDS",
+    "MIN_SCAN_MEMBERS",
     "PERTURBATIONS",
     "PROVENANCES",
     "Jacobian",
@@ -57,6 +58,10 @@ __all__ = [
 PROVENANCES = ("native", "finite_difference", "autodiff", "analytic")
 JACOBIAN_KINDS = ("forward", "observation", "governing_operator")
 PERTURBATIONS = ("physical", "numerical")
+
+#: Fewest ensemble members a per-slice spread needs to count in
+#: :func:`scan_evidence`: an interquartile range of fewer is not a spread.
+MIN_SCAN_MEMBERS = 3
 
 
 @dataclass(frozen=True)
@@ -87,6 +92,9 @@ class Jacobian:
             raise ValueError("give exactly one of matrix and jvp")
         object.__setattr__(self, "inputs", tuple(self.inputs))
         object.__setattr__(self, "outputs", tuple(self.outputs))
+        for name, names in (("inputs", self.inputs), ("outputs", self.outputs)):
+            if len(set(names)) != len(names):
+                raise ValueError(f"{name} must be distinct, got {names}")
         if self.matrix is not None:
             matrix = np.atleast_2d(np.asarray(self.matrix, dtype=float))
             if matrix.shape != (len(self.outputs), len(self.inputs)):
@@ -115,9 +123,10 @@ class Jacobian:
 
 
 def _graded(value: float, tolerance: tuple[float, float] | None) -> ValidationStatus | None:
+    """``value <= warn`` pass, ``<= fail`` warn, else fail; ``inf`` fails, ``nan`` is undecided."""
     if tolerance is None:
         return None
-    if not math.isfinite(value):
+    if math.isnan(value):
         return ValidationStatus.INDETERMINATE
     warn, fail = tolerance
     if value <= warn:
@@ -133,10 +142,15 @@ def compare_jacobians(
     *,
     output_scale: Sequence[float] | None = None,
     tolerance: tuple[float, float] | None = None,
+    allow_mixed: bool = False,
 ) -> dict[str, Any]:
     """One derivative validated against another of different provenance.
 
-    Both are aligned by their named inputs and outputs.  The metric is the
+    Both must be of the same ``kind`` and ``perturbation`` -- a numerical
+    convergence derivative is no check of a physical one -- unless
+    ``allow_mixed`` says the caller means it.  They are aligned by their named
+    inputs and outputs.  A non-zero candidate row against an exactly zero
+    reference row is an infinite error, and fails.  The metric is the
     largest per-output relative error, ``max_i ||(C - R)_i|| / ||R_i||`` (row
     norms), with ``output_scale`` in place of ``||R_i||`` where a row of the
     reference is legitimately near zero.  ``tolerance=(warn, fail)`` grades it;
@@ -146,16 +160,22 @@ def compare_jacobians(
         raise ValueError("Jacobians name different inputs or outputs")
     if reference.provenance == candidate.provenance:
         raise ValueError(f"both Jacobians are {reference.provenance}: that is repetition, not validation")
+    if not allow_mixed and (reference.kind, reference.perturbation) != (candidate.kind, candidate.perturbation):
+        raise ValueError(f"a {reference.perturbation} {reference.kind} Jacobian against a "
+                         f"{candidate.perturbation} {candidate.kind} one; pass allow_mixed=True to compare anyway")
     ref = reference.dense()
     cand = candidate.dense()
     cols = [candidate.inputs.index(name) for name in reference.inputs]
     rows = [candidate.outputs.index(name) for name in reference.outputs]
     cand = cand[np.ix_(rows, cols)]
     ref_norm = np.linalg.norm(ref, axis=1)
-    scale = ref_norm if output_scale is None else np.asarray(output_scale, dtype=float)
+    scale = ref_norm if output_scale is None else np.asarray(output_scale, dtype=float).ravel()
+    if scale.shape != ref_norm.shape:
+        raise ValueError(f"output_scale has {scale.size} entries for {ref_norm.size} outputs "
+                         "(in the reference's output order)")
     with np.errstate(divide="ignore", invalid="ignore"):
         per_output = np.linalg.norm(cand - ref, axis=1) / scale
-    worst = float(np.nanmax(per_output)) if np.any(np.isfinite(per_output)) else math.nan
+    worst = float(np.nanmax(per_output)) if np.any(~np.isnan(per_output)) else math.nan
     status = _graded(worst, tolerance)
     result = {
         "reference": reference.provenance,
@@ -180,10 +200,14 @@ def compare_linear_to_monte_carlo(
 
     ``sampled`` is the dict :func:`vaft.formula.sensitivity.monte_carlo_propagation`
     returns.  The metric is the largest ``|ln(sigma_linear / sigma_sampled)|``
-    over outputs -- a log ratio, so over- and under-estimation count alike --
-    plus the sampled standard error of a standard deviation,
-    ``1/sqrt(2(K-1))``, so the caller can tell a real disagreement from sampling
-    noise.  Graded only when ``tolerance=(warn, fail)`` is given.
+    over outputs -- a log ratio, so over- and under-estimation count alike;
+    one side zero and the other not is an infinite ratio, and fails.  Also
+    reported: the sampled standard error of a standard deviation,
+    ``1/sqrt(2(K-1))``, valid only for outputs with finite variance (near a
+    pole of the model it means nothing), and the fraction of draws the sampler
+    rejected.  Graded only when ``tolerance=(warn, fail)`` is given; a pass
+    over a sample that rejected any draws is downgraded to ``warn``, because
+    the sampled covariance is then conditioned on the model succeeding.
     """
     lin = np.atleast_2d(np.asarray(linear_covariance, dtype=float))
     mc = np.atleast_2d(np.asarray(sampled["covariance"], dtype=float))
@@ -194,16 +218,20 @@ def compare_linear_to_monte_carlo(
     sd_mc = np.sqrt(np.clip(np.diag(mc), 0.0, None))
     with np.errstate(divide="ignore", invalid="ignore"):
         log_ratio = np.log(sd_lin / sd_mc)
-    finite = np.isfinite(log_ratio)
-    worst = float(np.max(np.abs(log_ratio[finite]))) if finite.any() else math.nan
+    decided = ~np.isnan(log_ratio)
+    worst = float(np.max(np.abs(log_ratio[decided]))) if decided.any() else math.nan
     count = int(sampled.get("samples", 0))
+    rejected = int(sampled.get("rejected", 0))
     status = _graded(worst, tolerance)
+    if status is ValidationStatus.PASS and rejected:
+        status = ValidationStatus.WARN
     result = {
         "max_abs_log_sd_ratio": worst,
         "log_sd_ratio_by_output": dict(zip(names, log_ratio.tolist())),
         "sampling_standard_error": 1.0 / math.sqrt(2.0 * (count - 1)) if count > 1 else math.nan,
         "samples": count,
-        "rejected": int(sampled.get("rejected", 0)),
+        "rejected": rejected,
+        "rejected_fraction": rejected / (count + rejected) if count + rejected else math.nan,
         "tolerance": tolerance,
     }
     if status is not None:
@@ -211,15 +239,24 @@ def compare_linear_to_monte_carlo(
     return result
 
 
-def as_evidence(result: Mapping[str, Any], *, key: str, axis: str = "numerical", cost: str = "moderate"):
+def as_evidence(result: Mapping[str, Any], *, key: str, axis: str | None = None, cost: str = "moderate"):
     """A graded comparison as :class:`~vaft.validation.credibility.Evidence`.
 
     A Jacobian-against-Jacobian check verifies a derivative (``numerical``); a
     linear-against-sampled one says whether local uncertainty is trustworthy
-    (``inference``).  An ungraded result (no tolerance given) is
+    (``inference``).  Left out, ``axis`` follows from which comparison
+    produced ``result``.  An ungraded result (no tolerance given) is
     ``indeterminate``: the metric exists, nobody has said what it must be.
     """
     from .credibility import Evidence
+
+    if axis is None:
+        if "max_relative_error" in result:
+            axis = "numerical"
+        elif "max_abs_log_sd_ratio" in result:
+            axis = "inference"
+        else:
+            raise ValueError("give the axis: result is from neither comparison in this module")
 
     status = result.get("status", ValidationStatus.INDETERMINATE)
     metrics = {k: v for k, v in result.items() if k != "status"}
@@ -243,8 +280,11 @@ def scan_evidence(report: Mapping[str, Any], *, key: str = "efit_sensitivity.mod
     when no slice carries a finite spread.
 
     The metrics are, per quantity, the median over slices of the relative
-    half-IQR among the ``good`` members and among the ``admissible`` members;
-    the report's ``marginal`` block is passed through untouched.
+    half-IQR among the ``good`` members and among the ``admissible`` members,
+    counting only slices with at least :data:`MIN_SCAN_MEMBERS` members -- a
+    one-member spread is zero by construction, not a measured absence of
+    model-form spread.  The report's ``marginal`` block is passed through
+    untouched.
     """
     from .credibility import Evidence
 
@@ -252,6 +292,8 @@ def scan_evidence(report: Mapping[str, Any], *, key: str = "efit_sensitivity.mod
     for entry in report.get("slices", ()):
         for population, block in (("good", "model_form"), ("admissible", "model_form_admissible")):
             for quantity, spread in (entry.get(block) or {}).items():
+                if int((spread or {}).get("n", 0)) < MIN_SCAN_MEMBERS:
+                    continue
                 value = (spread or {}).get("relative_half_iqr")
                 try:
                     number = float(value)

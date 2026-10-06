@@ -46,7 +46,9 @@ def finite_difference_jacobian(
 ) -> np.ndarray:
     r"""Jacobian of a vector function by forward or central differences.
 
-    $$J_{ij} \approx \frac{f_i(x + h_j e_j) - f_i(x - h_j e_j)}{2 h_j}$$
+    $$J_{ij} \approx \frac{f_i(x + h_j e_j) - f_i(x - h_j e_j)}{2 h_j}
+      \quad\text{(central)}, \qquad
+      J_{ij} \approx \frac{f_i(x + h_j e_j) - f_i(x)}{h_j} \quad\text{(forward)}$$
 
     Parameters
     ----------
@@ -59,8 +61,9 @@ def finite_difference_jacobian(
         $h_j = \epsilon^{1/3}\max(1, |x_j|)$ (central) or
         $\epsilon^{1/2}\max(1, |x_j|)$ (forward) [any].
     scheme : str, optional
-        ``"central"`` (second order, 2n evaluations) or ``"forward"``
-        (first order, n + 1 evaluations) [-].
+        ``"central"`` (second order) or ``"forward"`` (first order); either
+        costs n + 1 or 2n + 1 evaluations, the extra one fixing the output
+        size [-].
 
     Returns
     -------
@@ -75,7 +78,10 @@ def finite_difference_jacobian(
     Numerical notes
     ---------------
     The default steps balance truncation against round-off for a model
-    evaluated to machine precision.  A model with its own solver tolerance
+    evaluated to machine precision.  They are absolute and floored at one
+    unit, so a parameter far below unit magnitude (``1e-8``) is stepped far
+    beyond its own size -- possibly across a domain edge such as a sign or a
+    logarithm; give such a parameter its own ``step``.  A model with its own solver tolerance
     (an iterative equilibrium, an external code) needs a step well above that
     tolerance, chosen by its owner: a finite difference across a convergence
     threshold measures the solver, not the physics (#1642 s18).
@@ -109,6 +115,19 @@ def finite_difference_jacobian(
     return jac
 
 
+def _covariance(covariance, n: int) -> np.ndarray:
+    """A square, symmetric (to round-off) covariance of size ``n``."""
+    cov = np.asarray(covariance, dtype=float)
+    if cov.ndim == 1:
+        cov = np.diag(cov)
+    if cov.shape != (n, n):
+        raise ValueError(f"covariance {cov.shape} does not match {n} parameters")
+    scale = float(np.max(np.abs(cov))) if cov.size else 0.0
+    if not np.allclose(cov, cov.T, rtol=0.0, atol=1e-12 * max(scale, np.finfo(float).tiny)):
+        raise ValueError("input covariance must be symmetric")
+    return 0.5 * (cov + cov.T)
+
+
 def linear_covariance_propagation(jacobian: np.ndarray, covariance: np.ndarray) -> np.ndarray:
     r"""Output covariance of a linearized model, correlations included.
 
@@ -130,7 +149,8 @@ def linear_covariance_propagation(jacobian: np.ndarray, covariance: np.ndarray) 
     Raises
     ------
     ValueError
-        When the shapes do not agree or the input covariance is not symmetric.
+        When the shapes do not agree or the input covariance is not symmetric
+        to round-off (relative ``1e-12`` of its largest entry).
 
     Assumptions
     -----------
@@ -143,13 +163,7 @@ def linear_covariance_propagation(jacobian: np.ndarray, covariance: np.ndarray) 
            expression of uncertainty in measurement*, Sec. 5.2, Eq. (13).
     """
     jac = np.atleast_2d(np.asarray(jacobian, dtype=float))
-    cov = np.asarray(covariance, dtype=float)
-    if cov.ndim == 1:
-        cov = np.diag(cov)
-    if cov.shape != (jac.shape[1], jac.shape[1]):
-        raise ValueError(f"covariance {cov.shape} does not match a Jacobian with {jac.shape[1]} columns")
-    if not np.allclose(cov, cov.T, rtol=1e-10, atol=0.0):
-        raise ValueError("input covariance must be symmetric")
+    cov = _covariance(covariance, jac.shape[1])
     out = jac @ cov @ jac.T
     return 0.5 * (out + out.T)
 
@@ -184,17 +198,27 @@ def monte_carlo_propagation(
     -------
     dict
         ``mean`` and ``covariance`` of the finite outputs, ``samples`` used,
-        ``rejected`` (draws whose output was not finite) [any].
+        ``rejected`` (draws whose output was not finite or whose evaluation
+        raised) [any].
 
     Raises
     ------
     ValueError
-        When ``samples`` is below 2.
+        When ``samples`` is below 2, or the covariance does not match the
+        mean, is not symmetric, or is not positive semi-definite.
 
     Assumptions
     -----------
     Gaussian inputs.  Expensive: ``samples`` model evaluations, so it is never
     called implicitly (#1639 s8); the cost is the caller's decision.
+
+    Limitations
+    -----------
+    The statistics are over the *accepted* draws only, so a model that fails
+    on part of the input distribution yields a covariance conditioned on
+    success; ``rejected`` says how much was conditioned away.  An output with
+    infinite variance (a pole inside the input distribution) has a sample
+    covariance that does not converge with ``samples``.
 
     References
     ----------
@@ -204,19 +228,30 @@ def monte_carlo_propagation(
     if samples < 2:
         raise ValueError("Monte Carlo propagation needs at least two samples")
     mu = _vector(mean)
-    cov = np.asarray(covariance, dtype=float)
-    if cov.ndim == 1:
-        cov = np.diag(cov)
+    cov = _covariance(covariance, mu.size)
+    eigenvalues = np.linalg.eigvalsh(cov)
+    if eigenvalues.size and eigenvalues.min() < -1e-12 * max(abs(eigenvalues.max()), np.finfo(float).tiny):
+        raise ValueError("input covariance must be positive semi-definite")
     rng = np.random.default_rng(seed)
     draws = rng.multivariate_normal(mu, cov, size=int(samples), method="eigh")
-    outputs = np.array([_vector(f(draw)) for draw in draws])
-    finite = np.all(np.isfinite(outputs), axis=1)
-    kept = outputs[finite]
-    if kept.shape[0] < 2:
-        return {"mean": np.full(outputs.shape[1], np.nan), "covariance": np.full((outputs.shape[1],) * 2, np.nan),
-                "samples": int(kept.shape[0]), "rejected": int((~finite).sum())}
+    outputs, rejected = [], 0
+    for draw in draws:
+        try:
+            value = _vector(f(draw))
+        except Exception:  # a failed evaluation is a rejected draw, counted, not fatal
+            rejected += 1
+            continue
+        if np.all(np.isfinite(value)):
+            outputs.append(value)
+        else:
+            rejected += 1
+    if len(outputs) < 2:
+        width = outputs[0].size if outputs else 0
+        return {"mean": np.full(width, np.nan), "covariance": np.full((width, width), np.nan),
+                "samples": len(outputs), "rejected": rejected}
+    kept = np.array(outputs)
     return {"mean": kept.mean(axis=0), "covariance": np.atleast_2d(np.cov(kept, rowvar=False)),
-            "samples": int(kept.shape[0]), "rejected": int((~finite).sum())}
+            "samples": int(kept.shape[0]), "rejected": rejected}
 
 
 def singular_value_spectrum(
@@ -287,10 +322,12 @@ def linearity_ratio(
     x: np.ndarray,
     step: np.ndarray,
     jacobian: np.ndarray,
+    output_scale: np.ndarray | None = None,
 ) -> float:
     r"""How much of a finite response the linearization misses.
 
-    $$r = \frac{\lVert f(x + \delta) - f(x) - J\delta\rVert}{\lVert f(x + \delta) - f(x)\rVert}$$
+    $$r = \frac{\lVert W(f(x + \delta) - f(x) - J\delta)\rVert}{\lVert W(f(x + \delta) - f(x))\rVert},
+      \qquad W = \operatorname{diag}(1/s_i)$$
 
     Parameters
     ----------
@@ -303,6 +340,9 @@ def linearity_ratio(
         a direction of interest [any].
     jacobian : array-like
         $J$ at ``x`` [any].
+    output_scale : array-like, optional
+        Typical magnitude $s_i$ per output, so outputs in different units
+        weigh alike; default unweighted [any].
 
     Returns
     -------
@@ -320,8 +360,9 @@ def linearity_ratio(
     delta = _vector(step)
     f0 = _vector(f(x0.copy()))
     response = _vector(f(x0 + delta)) - f0
-    norm = float(np.linalg.norm(response))
+    predicted = np.atleast_2d(np.asarray(jacobian, dtype=float)) @ delta
+    weight = np.ones_like(response) if output_scale is None else 1.0 / _vector(output_scale)
+    norm = float(np.linalg.norm(weight * response))
     if norm == 0.0 or not np.isfinite(norm):
         return float("nan")
-    predicted = np.atleast_2d(np.asarray(jacobian, dtype=float)) @ delta
-    return float(np.linalg.norm(response - predicted) / norm)
+    return float(np.linalg.norm(weight * (response - predicted)) / norm)

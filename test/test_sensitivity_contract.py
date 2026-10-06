@@ -199,7 +199,9 @@ def test_linear_propagation_holds_far_from_the_singularity_and_fails_near_it():
     assert healthy["status"] == "pass"
     assert healthy["sampling_standard_error"] == pytest.approx(1 / math.sqrt(2 * 3999))
 
-    # 1 + alpha_P = 0.07, one standard error 0.05 away from the pole.
+    # 1 + alpha_P = 0.07: the pole sits 1.4 standard errors (0.05) away, inside the
+    # input distribution, so the sampled variance of 1/(1 + alpha_P) does not even
+    # converge -- the size of the disagreement is seed-dependent, its sign is not.
     alpha, cov, indices, x = _confinement(-0.93)
     jac = finite_difference_jacobian(indices, x)
     linear = linear_covariance_propagation(jac, cov)
@@ -247,6 +249,9 @@ def test_a_weight_scan_report_is_model_form_inference_evidence():
     assert medians["li"] == {"good": pytest.approx(0.02), "admissible": pytest.approx(0.04)}
     assert evidence.metrics["slices"] == 2 and evidence.metrics["records"] == 240
     assert scan_evidence({"slices": []}).status is ValidationStatus.NOT_AVAILABLE
+    # A one-member "spread" is zero by construction and must not count.
+    lonely = {"slices": [{"model_form": {"wmhd": {"n": 1, "relative_half_iqr": 0.0}}}]}
+    assert scan_evidence(lonely).status is ValidationStatus.NOT_AVAILABLE
 
 
 def test_the_validation_side_imports_no_plotting_database_or_workflow():
@@ -258,3 +263,82 @@ def test_the_validation_side_imports_no_plotting_database_or_workflow():
         capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == ""
+
+
+# ---------------------------------------------------------------------------
+# failure modes found in review: none may grade as anything but what it is
+# ---------------------------------------------------------------------------
+
+
+def test_a_covariance_built_by_blas_is_accepted():
+    rng = np.random.default_rng(7)
+    q, _ = np.linalg.qr(rng.normal(size=(5, 5)))
+    cov = q @ np.diag([1.0, 0.5, 0.2, 0.1, 1e-3]) @ q.T
+    assert linear_covariance_propagation(np.eye(5), cov) == pytest.approx(cov, abs=1e-15)
+    with pytest.raises(ValueError, match="positive semi-definite"):
+        monte_carlo_propagation(lambda x: x, [0.0, 0.0], [[1.0, 2.0], [2.0, 1.0]])
+    with pytest.raises(ValueError):
+        monte_carlo_propagation(lambda x: x, [0.0, 0.0, 0.0], np.eye(2))
+
+
+def test_a_vanishing_jacobian_against_a_real_spread_fails():
+    # f = x^2 at x = 0: J = 0, so J Sigma J^T = 0 while the output plainly varies.
+    f = lambda x: np.asarray(x) ** 2  # noqa: E731
+    linear = linear_covariance_propagation(finite_difference_jacobian(f, [0.0]), [[0.01]])
+    sampled = monte_carlo_propagation(f, [0.0], [[0.01]], samples=500, seed=0)
+    result = compare_linear_to_monte_carlo(linear, sampled, tolerance=(0.1, 0.5))
+    assert result["max_abs_log_sd_ratio"] == math.inf
+    assert result["status"] == "fail"
+
+
+def test_a_nonzero_candidate_against_a_zero_reference_fails():
+    names = dict(kind="forward", perturbation="physical", inputs=("x",), outputs=("a", "b"))
+    reference = Jacobian("analytic", matrix=[[0.0], [1.0]], **names)
+    candidate = Jacobian("finite_difference", matrix=[[5.0], [1.0]], **names)
+    assert compare_jacobians(reference, candidate, tolerance=(1e-6, 1e-4))["status"] == "fail"
+
+
+def test_rejected_draws_are_counted_and_keep_a_comparison_from_passing():
+    def fragile(x):
+        if x[0] > 1.0:
+            raise RuntimeError("solver diverged")
+        return np.array([2.0 * x[0]]) if x[0] > -1.0 else np.array([np.nan])
+
+    sampled = monte_carlo_propagation(fragile, [0.0], [[1.0]], samples=2000, seed=0)
+    assert 0.2 < sampled["rejected"] / 2000 < 0.45
+    result = compare_linear_to_monte_carlo(np.array([[sampled["covariance"][0, 0]]]), sampled,
+                                           tolerance=(0.1, 0.5))
+    assert result["max_abs_log_sd_ratio"] == pytest.approx(0.0)
+    assert result["status"] == "warn"
+    assert result["rejected_fraction"] == pytest.approx(sampled["rejected"] / 2000)
+
+
+def test_jacobians_of_different_kind_or_perturbation_are_not_compared_by_accident():
+    physical = Jacobian("analytic", "forward", "physical", ("x",), ("f",), matrix=[[1.0]])
+    numerical = Jacobian("finite_difference", "forward", "numerical", ("x",), ("f",), matrix=[[1.0]])
+    with pytest.raises(ValueError, match="allow_mixed"):
+        compare_jacobians(physical, numerical)
+    assert compare_jacobians(physical, numerical, allow_mixed=True)["max_relative_error"] == 0.0
+    with pytest.raises(ValueError, match="distinct"):
+        Jacobian("analytic", "forward", "physical", ("x", "x"), ("f",), matrix=[[1.0, 1.0]])
+    with pytest.raises(ValueError, match="output_scale"):
+        compare_jacobians(physical, Jacobian("autodiff", "forward", "physical", ("x",), ("f",), matrix=[[1.0]]),
+                          output_scale=[1.0, 2.0])
+
+
+def test_evidence_lands_on_the_axis_its_comparison_belongs_to():
+    sampled = {"covariance": [[1.0]], "samples": 100, "rejected": 0}
+    assert as_evidence(compare_linear_to_monte_carlo([[1.0]], sampled), key="k").axis == "inference"
+    analytic, numeric = _green_jacobians()
+    assert as_evidence(compare_jacobians(analytic, numeric), key="k").axis == "numerical"
+    with pytest.raises(ValueError, match="axis"):
+        as_evidence({"status": "pass"}, key="k")
+
+
+def test_linearity_ratio_weighs_outputs_by_their_scale():
+    # Output 0 is linear and huge, output 1 quadratic and small: unweighted, the
+    # huge one hides the curvature; scaled, it shows.
+    f = lambda x: np.array([1e6 * x[0], x[0] ** 2])  # noqa: E731
+    jac = np.array([[1e6], [2.0]])
+    assert linearity_ratio(f, [1.0], [0.5], jac) < 1e-6
+    assert linearity_ratio(f, [1.0], [0.5], jac, output_scale=[1e6, 1.0]) > 0.05

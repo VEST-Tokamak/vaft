@@ -250,10 +250,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Credibility and applicability (lane AP, #1639): the six-axis taxonomy and
     # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
     # import checks that keep both off the default processing path. Under 10 s.
-    # Sensitivity contract (#1642): finite differences against the analytic Green
-    # field, J Sigma J^T against 4000-draw Monte Carlo on a closed-form map. ~2 s.
-    "test_sensitivity_contract.py",
     "test_validation_credibility.py",
+    # Sensitivity contract (lane AP, #1642): finite differences against the
+    # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map. ~2 s.
+    "test_sensitivity_contract.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
