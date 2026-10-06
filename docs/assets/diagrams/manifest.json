@@ -252,12 +252,12 @@
     },
     "experimental_research_infrastructure.svg": {
       "call": "vaft.diagram.experimental_research_infrastructure()",
-      "source_sha256": "8c5e658f389f84f91e2377375c961ae9e2c40caaaf0793c2f653940a5ef2d0f8",
+      "source_sha256": "8ed84223d1572e9cbaac288269e27698585470d34c634fb31cbed748ed832deb",
       "svg_sha256": "fca19dd32aacd36e2993c3552a74e269b105e3848f9b75352689e079ba099aa2"
     },
     "experimental_research_infrastructure_fragmented.svg": {
       "call": "vaft.diagram.experimental_research_infrastructure(organization='fragmented')",
-      "source_sha256": "fee934839be30c630a7c601db9b032d067afcb900be28035268f6cb1505f30df",
+      "source_sha256": "81e72b8853e6f171a0d2bcaef14ac147e0b4cc4fa2bdba1839553066ae119155",
       "svg_sha256": "814fa14567f84032eab223226a9c999c35e74cfb1247c9bc367c9c809886e2ed"
     },
     "fast_magnetosonic_wave.svg": {
@@ -332,12 +332,12 @@
     },
     "fusion_research_ecosystem.svg": {
       "call": "vaft.diagram.fusion_research_ecosystem()",
-      "source_sha256": "821b1209332bfe92405ff6ddec7bce6c437a407be4a9498253ef5b915356a3b0",
+      "source_sha256": "61853ac31bba57a68427d0e5edf1f83e269e80b73cb19f837f90eba60cb44d27",
       "svg_sha256": "7ff16857d11ef24caaa9df7af396321f6cb20d44d58930a2f65ca3368bb75992"
     },
     "fusion_research_ecosystem_presentation.svg": {
       "call": "vaft.diagram.fusion_research_ecosystem(detail='presentation')",
-      "source_sha256": "26a8fb92d293004b31385f928be6c16cf38e2a34b2d9bf31328de032d7234ee0",
+      "source_sha256": "4c38cfdb7a162481fccc808c0061ffc524891c3ce2f02672264bea0527e96478",
       "svg_sha256": "fd0757c08133fa3eabde59030311651151d9dd1e0467b76d9d73aefe622a42e5"
     },
     "fusion_science_knowledge_lifecycle.svg": {
@@ -424,6 +424,11 @@
       "call": "vaft.diagram.integrated_modeling_space(examples='tearing')",
       "source_sha256": "1fbc60022d7f04592b648e681eb879b8b140aa268426689a2005668c6d09804c",
       "svg_sha256": "298dae43861a7382603511d44d17fab88b68775e101aa40588b79bd7a2c5ccab"
+    },
+    "interchange_criteria.svg": {
+      "call": "vaft.diagram.interchange_criteria()",
+      "source_sha256": "2029d025ff6e29ddfecbf10638c1d29aba6713058f7962ad87976c1b9442cc31",
+      "svg_sha256": "18d56b078051a676b6aff030d010ca8b3ef079e9cc774a84f63662ec757076ed"
     },
     "internal_external_kink.svg": {
       "call": "vaft.diagram.internal_external_kink()",
@@ -687,12 +692,12 @@
     },
     "research_modality_architecture.svg": {
       "call": "vaft.diagram.research_modality_architecture()",
-      "source_sha256": "f42044d0796b7bc1c9380c4b8c300f125d794169f77868a062fda7a0f4b54c4a",
+      "source_sha256": "255b03135dd440664fc43dc360f05255935b1d6a3d98b892c4eab8f90f60de90",
       "svg_sha256": "aed759b4fa761e2878bb77b212ca1700f38f421788360335792f6d9a53767285"
     },
     "research_modality_architecture_fragmented.svg": {
       "call": "vaft.diagram.research_modality_architecture(organization='fragmented')",
-      "source_sha256": "cf47dd465fba9a6a2e8b07ccf3a7c8ee0efedc7e0772e88448ef511d9e1b6e46",
+      "source_sha256": "f3d01bf7485e35bb29d25e347b564c71068f03009d912e8eb9ec204198cef9b8",
       "svg_sha256": "2a29c0b715e655e69cb0a224259c455d554ce1cd54248d5b79919cb6671075e0"
     },
     "resistive_zeff_inference.svg": {
@@ -747,12 +752,12 @@
     },
     "scientific_credibility.svg": {
       "call": "vaft.diagram.scientific_credibility()",
-      "source_sha256": "cad1083411e68bb110d6f24b1a2a9787a5b48e2fb4640c2b53c6e89eb9ef31c2",
+      "source_sha256": "e831c875c18c6f1622ec939f373f45d198969d8c3f40fccb0b862cd2b3064cac",
       "svg_sha256": "fea3139cc901201fefb57ede6ebc0c94c5e1e8e248d8617a57abc7f5acb709a4"
     },
     "scientific_credibility_fragmented.svg": {
       "call": "vaft.diagram.scientific_credibility(organization='fragmented')",
-      "source_sha256": "84e45beeba3f5a5e873ad2e5e7654498893c0350522a635e3ea8492bfbc7d65d",
+      "source_sha256": "b10f1cab435b83e197a7411d2b31ff57de096d5db0e34445aa9404079d4e196b",
       "svg_sha256": "ee4c4dab6ca4235f9d9f6e8c9463fdffce917dc3851b305fc54a9737cabdd12b"
     },
     "scientific_infrastructure_principles.svg": {
@@ -762,7 +767,7 @@
     },
     "scientific_ownership_architecture.svg": {
       "call": "vaft.diagram.scientific_ownership_architecture()",
-      "source_sha256": "c8b056d7b77844844d974bbf0ae46e2dff951e98fc799310dd99ba3b5739cdb0",
+      "source_sha256": "b65c950a35c115a204b28c0e301935efac445f26fa6ec990d2b02f004737f98f",
       "svg_sha256": "6fd41e7bd2d7b727737591e68903244a39c98c4fb34046d18925ad02d2712f88"
     },
     "scientific_provenance_chain.svg": {
@@ -772,12 +777,12 @@
     },
     "scientific_representation.svg": {
       "call": "vaft.diagram.scientific_representation()",
-      "source_sha256": "b64b2363aa2277ce2ce9a862daa1bc5c5a7ef2cdf1da526a94799bc524ff484c",
+      "source_sha256": "0bd8a0057d733bdbbe7f03384cad954923759cabc7bc9dc8479e1e218b047fa5",
       "svg_sha256": "97289c88885dbfc8e0c0b586b52b87125dbb4bb78bdb84737a828a1e39c70f7e"
     },
     "scientific_representation_fragmented.svg": {
       "call": "vaft.diagram.scientific_representation(organization='fragmented')",
-      "source_sha256": "45d42bfd5a6a178ef0e64c42f0b04c0f9c9dd2cc6f073ac0af5e81f89474188b",
+      "source_sha256": "9fb8f5a558bfb50c84efc40c0a54e17a5b983b8033d47725981a863ba5880c8e",
       "svg_sha256": "c6a5e2c8832294e34a74b311e05d6b6623560ff9d4b149c6f3b10a513ab5a974"
     },
     "scientific_workflow.svg": {
@@ -884,6 +889,11 @@
       "call": "vaft.diagram.spectroscopy_transitions(term='OI_7770')",
       "source_sha256": "68faacd43d3de1ca9806480f30f29df1bc1e9e356008f756575a397a1dfb22b0",
       "svg_sha256": "162a3d69d60196a4401b3a5e1ee4ffb3658faa66439ca959217fd6f6769f77f5"
+    },
+    "stability_diagnostic_taxonomy.svg": {
+      "call": "vaft.diagram.stability_diagnostic_taxonomy()",
+      "source_sha256": "f8c15734c0160e87a70e9fc1fd501fe2bc5bbc528cc9a0da19819c238f6bb50c",
+      "svg_sha256": "dcf22e420f13b8a6ccd11f3580cd64a394bad1d2e2aa073e412e0ea1ca281c7b"
     },
     "stochastic_layer_isolated.svg": {
       "call": "vaft.diagram.stochastic_layer(regime='isolated')",

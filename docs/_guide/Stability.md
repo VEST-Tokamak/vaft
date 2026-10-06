@@ -49,6 +49,7 @@ how to run the codes.
 Which mode family each tool addresses (interchange and Mercier, ballooning, kink and peeling, tearing and
 its parity channels), and why their criteria are not one severity scale, is on
 [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }}).
+
 What each criterion assumes and proves — exact definition, reduced model, empirical boundary, heuristic or
 solver-derived — is inventoried on
 [Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}).
