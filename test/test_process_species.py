@@ -7,6 +7,7 @@ import pytest
 from omas import ODS
 
 from vaft.process.impurity import (
+    composition_from_fractions,
     composition_record_text,
     resolve_impurity_composition,
     resolve_radial_composition,
@@ -107,7 +108,7 @@ def test_a_bundled_ion_keeps_its_mean_square_charge_and_refuses_an_atomic_projec
 
 def test_case_c_vest_mixture_explicit_and_effective_agree_on_moments_not_identity():
     state = species_state_from_composition(resolve_impurity_composition(machine_preset="vest"), NE, rho=RHO,
-                                           main_isotope=2)
+                                           main_isotope=2)    # the preset names its main ion "H"
     explicit = project_species_state(state, "turbulence")
     effective = project_species_state(state, "turbulence", "effective_impurity")
     assert explicit.method == "explicit" and effective.method == "effective_impurity"
@@ -220,3 +221,100 @@ def test_a_radial_composition_gives_one_component_per_charge_state(tmp_path):
     assert ids[0] == "H-1/Z1/thermal" and len(ids) == 1 + 6 + 8
     np.testing.assert_allclose(composition_moments(state)["zeff"], radial.zeff, rtol=1e-9)
     assert project_species_state(state, "atomic").method == "charge_state_resolved"
+
+
+# --- cold-review findings ------------------------------------------------------------------
+
+
+def _component(element, a, z, density, **kw):
+    return SpeciesComponent(Species(element, a), z, kw.pop("population", "thermal"), density,
+                            kw.pop("mass", float(a)), **kw)
+
+
+def test_the_effective_impurity_keeps_mass_density_where_the_mix_varies():
+    d = _component("H", 2, 1.0, NE * 0.9, mass=2.014)
+    c = _component("C", 12, 6.0, 1e17 * (1 - RHO) + 1e14)
+    w = _component("W", 184, 20.0, 1e15 * RHO + 1e12, bundled=True)
+    state = CanonicalSpeciesState((d, c, w), rho=RHO)
+    pseudo = project_species_state(state, "turbulence", "effective_impurity").components[-1]
+    np.testing.assert_allclose(pseudo.mass_amu * pseudo.density, 12 * c.density + 184 * w.density, rtol=1e-12)
+    np.testing.assert_allclose(pseudo.density * pseudo.charge, 6 * c.density + 20 * w.density, rtol=1e-12)
+
+
+def test_an_undefined_impurity_point_stays_undefined_not_zero():
+    c = _component("C", 12, 6.0, np.where(RHO == RHO[2], np.nan, NE / 30))
+    state = CanonicalSpeciesState((_component("H", 1, 1.0, 0.8 * NE, mass=1.008), c), rho=RHO)
+    pseudo = project_species_state(state, "turbulence", "effective_impurity").components[-1]
+    assert np.isnan(pseudo.density[2]) and np.all(np.isfinite(np.delete(pseudo.density, 2)))
+
+
+def test_states_and_an_ion_level_fast_density_both_survive():
+    ods = _ods([{"label": "D", "element.0.z_n": 1.0, "element.0.a": 2.014, "z_ion": 1.0,
+                 "density_fast": 0.1 * NE, "state.0.z_min": 1.0, "state.0.z_max": 1.0,
+                 "state.0.density_thermal": 0.9 * NE}])
+    ids = [c.component_id for c in species_state_from_core_profiles(ods).components]
+    assert ids == ["D-2/Z1/thermal", "D-2/Z1/fast_unspecified"]
+
+
+def test_a_state_spanning_several_charges_is_a_bundle_with_its_own_averages():
+    ods = _ods([_ion("D+", 1.0, 2.014, 1.0, 0.95),
+                {"label": "C", "element.0.z_n": 6.0, "element.0.a": 12.011, "z_ion": 5.0,
+                 "state.0.z_min": 4.0, "state.0.z_max": 6.0, "state.0.density": 0.01 * NE,
+                 "state.0.z_average_1d": np.full(6, 5.0), "state.0.z_average_square_1d": np.full(6, 26.0),
+                 "state.1.z_min": 4.0, "state.1.z_max": 5.0, "state.1.density": 0.001 * NE}])
+    state = species_state_from_core_profiles(ods)
+    ids = [c.component_id for c in state.components]
+    assert ids[1:] == ["C-12/Z4-6/thermal", "C-12/Z4-5/thermal"]
+    np.testing.assert_allclose(state.components[1].z_moment(2), 26.0)
+    with pytest.raises(ValueError, match="charge-state bundles"):
+        project_species_state(state, "atomic")
+
+
+def test_the_main_ion_is_the_composition_s_own():
+    deuterium = composition_from_fractions(["C"], [1], [6], target_zeff=2.0, main_ion="D")
+    state = species_state_from_composition(resolve_impurity_composition(composition=deuterium), NE, rho=RHO)
+    assert state.components[0].component_id == "D-2/Z1/thermal"
+    np.testing.assert_allclose(composition_moments(state)["zeff"], 2.0)
+    with pytest.raises(ValueError, match="names its main ion"):
+        species_state_from_composition(resolve_impurity_composition(composition=deuterium), NE, rho=RHO,
+                                       main_isotope=3)
+
+
+def test_state_id_tracks_mean_square_charge_temperature_and_not_order():
+    def state(z2, te, order=1):
+        h = _component("H", 1, 1.0, 0.95 * NE, mass=1.008, temperature=te)
+        c = _component("C", 12, 5.0, 0.01 * NE, bundled=True, mean_square_charge=np.full(6, z2))
+        return CanonicalSpeciesState((h, c)[::order], rho=RHO)
+
+    base = state(26.0, np.full(6, 100.0))
+    assert base.state_id != state(28.0, np.full(6, 100.0)).state_id
+    assert base.state_id != state(26.0, np.full(6, 200.0)).state_id
+    assert base.state_id == state(26.0, np.full(6, 100.0), order=-1).state_id
+
+
+@pytest.mark.parametrize("z2", [1.0, 40.0])
+def test_an_unphysical_mean_square_charge_is_refused(z2):
+    with pytest.raises(ValueError, match="<Z>\\^2 <= <Z\\^2> <= Z_n <Z>"):
+        _component("C", 12, 5.0, NE, bundled=True, mean_square_charge=np.full(6, z2))
+
+
+def test_the_fusion_projection_keeps_helium_3():
+    d = _component("H", 2, 1.0, 0.8 * NE, mass=2.014)
+    he3 = _component("He", 3, 2.0, 0.05 * NE, mass=3.016)
+    he4 = _component("He", 4, 2.0, 0.05 * NE, mass=4.003)
+    ids = [c.component_id for c in project_species_state(CanonicalSpeciesState((d, he3, he4), rho=RHO), "fusion").components]
+    assert "He-3/Z2/thermal" in ids and "pseudo(He)/Zeff/thermal" in ids
+
+
+def test_hydrogen_isotopes_must_match_a_mass_and_other_elements_read():
+    ods = _ods([_ion("X", 1.0, 4.0, 1.0, 1.0)])
+    with pytest.raises(ValueError, match="no hydrogen isotope"):
+        species_state_from_core_profiles(ods)
+    ods = _ods([_ion("D+", 1.0, 2.014, 1.0, 0.98), _ion("Si", 14.0, 28.09, 14.0, 0.001)])
+    assert species_state_from_core_profiles(ods).components[1].component_id == "Si-28/Z14/thermal"
+
+
+def test_n_e_is_the_total_electron_density():
+    ods = _ods([_ion("D+", 1.0, 2.014, 1.0, 1.0)])
+    ods["core_profiles.profiles_1d.0.electrons.density"] = 1.1 * NE
+    np.testing.assert_allclose(species_state_from_core_profiles(ods).n_e, 1.1 * NE)
