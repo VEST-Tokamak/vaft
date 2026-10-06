@@ -46,7 +46,7 @@ def test_48927_pickup_with_dark_light_is_a_breakdown_failure():
     assert record.decided_by == "pressure_response"
     assert "ip_pulse_dark_unended" in record.flags
     assert "halpha_dark_with_ip_pulse" in record.flags
-    assert "never ends" in record.reason
+    assert "never ends" in record.reason and record.reason.startswith("no discharge current")
 
 
 def test_a_large_dark_drift_that_never_ends_is_not_a_plasma():
@@ -81,3 +81,18 @@ def test_darkness_alone_does_not_refuse_a_discharge_that_ends():
 def test_the_floor_is_a_parameter(floor, label):
     ods = _shot(lambda t: current(t, peak=1000.0, noise=30.0), lit=True)
     assert shot_class(ods, min_plasma_current=floor).label == label
+
+
+def test_a_dark_pulse_that_ends_by_collapse_is_kept():
+    """Pinned on purpose: a dark discharge with a vessel-current tail ends by a
+    collapse, not at the span end, and must not be refused for darkness alone."""
+
+    def ip(t):
+        rng = np.random.default_rng(4)
+        y = 20e3 * np.clip((t - 0.300) / 0.05, 0.0, 1.0)
+        y[t >= 0.355] = 5e3
+        return y + 77.0 * rng.standard_normal(t.size)
+
+    record = shot_class(_shot(ip, lit=False))
+    assert "ip_pulse_dark_unended" not in record.flags
+    assert record.label == "Plasma"

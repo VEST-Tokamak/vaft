@@ -15,13 +15,18 @@ Three classes, decided in this order and with the deciding check on record:
 
 A current pulse is refused as a discharge (issue #1733) when its accepted peak
 is below ``min_plasma_current`` (2 kA), or when the light is usable but dark
-(``halpha_dark_with_ip_pulse``) and the pulse never ends inside the record
-(``offset_at_record_end``).  The pulse detector's threshold is relative to the
+(``halpha_dark_with_ip_pulse``) and the pulse is still on at the end of the
+analysis span (``offset_at_record_end``; the span is ``plasma_timing``'s
+``plasma_analysis`` window, 0.26-0.36 s).  A dark pulse that ends -- by falling
+below the threshold or by a collapse (``offset_from_collapse``) -- is kept: a
+dark discharge with a vessel-current tail looks the same, and darkness alone
+is not evidence enough.  The pulse detector's threshold is relative to the
 shot's own noise floor, so a few kA of PF pickup or a drifting Rogowski passes
 it.  A census of 1,565 production products (47514-48944 and every 10th shot
 of 39000-47513) put 66 of 924 ``Plasma`` labels in the dark-and-unended group:
 59 below 10 kA of pickup (48927: 3.3 kA, the regression shot) and 7 drifting
-records, including the Rogowski square-wave faults of #1373.  Lit pulses that
+records, among them the #1373 Rogowski square-wave faults 43690 and 45780; a
+#1373 record that does end inside the span is not caught by this rule.  Lit pulses that
 end are 782 and keep their label down to 2 kA, below which nothing behaves
 like a discharge.  A refused pulse falls through to ``BD failure`` or
 ``Vacuum`` with the refusal on ``flags``.
@@ -151,7 +156,7 @@ def _pickup_refusal(timing: PlasmaTiming, min_plasma_current: float) -> str | No
 
 
 def _no_pulse(refusal: str | None) -> str:
-    return "no plasma-current pulse" if refusal is None else f"no plasma-current pulse ({_REFUSAL_TEXT[refusal]})"
+    return "no plasma-current pulse" if refusal is None else f"no discharge current ({_REFUSAL_TEXT[refusal]})"
 
 
 def shot_class(

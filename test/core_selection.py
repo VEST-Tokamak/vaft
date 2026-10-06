@@ -260,13 +260,14 @@ CORE_MODULES: tuple[str, ...] = (
     "test_transport_state.py",
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
     # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
-    # only), the plasma-current Rogowski verdict and the TF excursion repair on
-    # synthetic records.
+    # only), the plasma-current Rogowski verdict, the TF excursion repair and
+    # the shot-class pickup refusal (#1733) on synthetic records.
     "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_flux_loop_known_faults.py",
     "test_plasma_current_quality.py",
+    "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
