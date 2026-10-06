@@ -292,3 +292,22 @@ def test_a_placeholder_product_is_a_recorded_refusal_not_a_crash(tmp_path):
     assert "evidence.global_reduced_chi2" not in columns
     # the stub was not materialised into a product with an (empty) time base
     assert "equilibrium.time" not in evidence.product(1)
+
+
+def test_the_study_criteria_ship_inside_the_package():
+    """`load_study_criteria()` must work from a wheel: the policy is a package module, not a repository file (cold review 0.8.0)."""
+    import importlib.resources
+    from pathlib import Path
+
+    import vaft
+
+    package_root = Path(vaft.__file__).resolve().parent
+    assert eq.CRITERIA_PATH.is_file()
+    assert eq.CRITERIA_PATH.is_relative_to(package_root)  # a `vaft*` module: the wheel ships every .py below here
+    assert (importlib.resources.files("vaft.validation") / eq.CRITERIA_PATH.name).is_file()
+    criteria = eq.load_study_criteria()
+    assert criteria.__name__ == "vaft.validation._efit_study_criteria" and criteria.CRITERIA_VERSION == 2
+    # the study's path still answers with the same policy, and a file loads by path
+    study = eq.load_study_criteria(package_root.parent / "workflow" / "efit_uncertainty_calibration" / "criteria.py")
+    assert study.CRITERIA is criteria.CRITERIA and study.evaluate is criteria.evaluate
+    assert eq.load_study_criteria(eq.CRITERIA_PATH) is eq.load_study_criteria(str(eq.CRITERIA_PATH))

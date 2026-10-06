@@ -2,10 +2,11 @@
 
 This module **composes** existing layers; it defines no rule of its own.
 
-* the study policy -- ``workflow/efit_uncertainty_calibration/criteria.py``
-  (#891/#1331, criteria v2): ``evaluate`` per (shot, time, setting) and
-  ``slice_labels`` across settings.  Loaded by path (it is a workflow module,
-  not library code), never copied;
+* the study policy -- :mod:`vaft.validation._efit_study_criteria` (#891/#1331,
+  criteria v2; ``workflow/efit_uncertainty_calibration/criteria.py`` re-exports
+  it at the study's path): ``evaluate`` per (shot, time, setting) and
+  ``slice_labels`` across settings.  Shipped with the package, loaded as a
+  module, never copied; a caller's own criteria file is loaded by path;
 * the EFIT evidence -- :mod:`vaft.omas.efit_quality` (``fit_quality_metrics``,
   ``convergence_metrics``);
 * the generic scientific report -- :func:`vaft.validation.equilibrium.validate_equilibrium`.
@@ -28,6 +29,8 @@ equilibrium product the caller can supply.
 
 from __future__ import annotations
 
+import hashlib
+import importlib
 import importlib.util
 import math
 import sys
@@ -37,8 +40,9 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 
 import numpy as np
 
-#: Where the study policy lives in a source checkout.
-CRITERIA_PATH = Path(__file__).resolve().parents[2] / "workflow" / "efit_uncertainty_calibration" / "criteria.py"
+#: The shipped study policy module (``vaft.validation._efit_study_criteria``):
+#: inside the package, so it is present in a wheel install as in a checkout.
+CRITERIA_PATH = Path(__file__).resolve().with_name("_efit_study_criteria.py")
 
 #: Cohorts in their report order.  ``admissible`` means admissible-only (no
 #: setting good there); ``unreconstructible`` means no tested setting gave an
@@ -78,19 +82,19 @@ STATUSES = ("pass", "fail", "indeterminate", "not_available")
 
 
 def load_study_criteria(path: str | Path | None = None) -> ModuleType:
-    """The #891/#1331 study criteria module, loaded from ``path`` (default: this checkout's)."""
-    path = (Path(path) if path is not None else CRITERIA_PATH).resolve()
+    """The #891/#1331 study criteria module: the shipped one, or a caller's file loaded from ``path``."""
+    if path is None:
+        return importlib.import_module("vaft.validation._efit_study_criteria")
+    path = Path(path).resolve()
     if not path.is_file():
-        raise FileNotFoundError(
-            f"study criteria not found at {path}: the classification policy is a workflow module "
-            "(workflow/efit_uncertainty_calibration/criteria.py); pass its path from a source checkout"
-        )
-    name = f"_vaft_study_criteria_{abs(hash(str(path)))}"
+        raise FileNotFoundError(f"study criteria not found at {path}; the shipped policy is {CRITERIA_PATH}")
+    # A stable module name per file: hash() is salted per process.
+    name = f"_vaft_study_criteria_{hashlib.sha1(str(path).encode('utf-8')).hexdigest()[:12]}"
     if name in sys.modules:
         return sys.modules[name]
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module  # dataclasses and pickling resolve the module by name
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
