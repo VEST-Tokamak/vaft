@@ -9,6 +9,8 @@ substituted value.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -151,6 +153,15 @@ def h_factor(
         ``thermal_as_global`` is a number that is not a bool (``numpy.bool_``
         is accepted as a bool).
 
+    Warns
+    -----
+    UserWarning
+        A global or unaudited scaling (ITER89-P, NSTX 2006 L, Kurskiev 2022,
+        the Goldston 1984 forms) on rows that have ``tau_e_th_s`` but no
+        ``tau_e_global_s`` while ``thermal_as_global`` does not cover them:
+        those rows are ``NaN`` by the audit gate of #1713, and the warning
+        names the scaling and the way out. Thermal scalings never warn.
+
     Notes
     -----
     A thermal scaling (IPB98(y,2), ITER97-L, NSTX 2006 H) is compared with
@@ -158,7 +169,10 @@ def h_factor(
     ``tau_e_global_s`` (#1713): the basis comes from
     :func:`vaft.formula.equilibrium.confinement_scaling_basis` and the
     resolution from :func:`vaft.process.confinement.resolve_observed_confinement`.
-    For thermal scalings the result is unchanged from before #1713.
+    For thermal scalings the result is unchanged from before #1713.  The gate
+    is deliberate: an H factor formed from a thermal time against a global
+    scaling is not the conventional one unless the fast-ion energy is
+    negligible, which only the caller can assert (``thermal_as_global``).
     """
     from vaft.formula.equilibrium import confinement_scaling_basis
     from vaft.process.confinement import resolve_observed_confinement
@@ -184,6 +198,15 @@ def h_factor(
             raise ValueError("thermal_as_global names machines, but the table has no 'machine' column")
         allow = table["machine"].isin(names).to_numpy()
     tau = np.where(allow, relaxed.tau, strict.tau)
+    # Rows the energy-basis gate (#1713) blanks although a thermal time is there:
+    # say so once, with the scaling, instead of returning NaN silently.
+    gated = ~allow & ~np.isfinite(strict.tau) & np.isfinite(relaxed.tau)
+    if gated.any():
+        warnings.warn(
+            f"h_factor({scaling!r}): {strict.reason}; {int(gated.sum())} of {len(table)} rows are NaN "
+            f"(energy basis {basis!r}, audit gate #1713). Pass thermal_as_global=True or the machine names "
+            "to compare with tau_e_th_s (recorded in attrs), or supply tau_e_global_s.",
+            UserWarning, stacklevel=2)
     out = (pd.Series(tau, index=table.index) / predicted).rename(f"h_{scaling}")
     substituted = allow & (relaxed.energy_basis_used == "thermal") & (basis != "thermal")
     out.attrs.update(energy_basis=basis, approximation=relaxed.approximation if substituted.any() else None,

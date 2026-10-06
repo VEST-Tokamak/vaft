@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import io
 import os
+import warnings
 from unittest import mock
 from urllib.error import URLError
 
@@ -498,8 +499,9 @@ def test_a_db5_file_without_wtot_reads_with_nan_global_columns(db5):
 def test_h_factor_resolves_the_energy_basis(db5):
     thermal = h_factor(db5, "H98y2")
     assert thermal.attrs["energy_basis"] == "thermal" and thermal.attrs["approximation"] is None
-    # ITER89-P is a global scaling: without tau_e_global_s it is NaN, not silently thermal...
-    strict = h_factor(db5, "ITER89P")
+    # ITER89-P is a global scaling: without tau_e_global_s it is NaN (and says so), not silently thermal...
+    with pytest.warns(UserWarning, match="#1713"):
+        strict = h_factor(db5, "ITER89P")
     assert strict.isna().all() and strict.attrs["energy_basis"] == "global"
     # ...with a global time it uses it...
     with_global = db5.assign(tau_e_global_s=db5["tau_e_th_s"] * 1.2)
@@ -524,7 +526,8 @@ def test_h_factor_accepts_a_numpy_bool_flag(db5):
     got = h_factor(db5, "ITER89P", thermal_as_global=np.True_)
     np.testing.assert_array_equal(got.to_numpy(), expected.to_numpy())
     assert got.attrs["substituted_rows"] == expected.attrs["substituted_rows"] >= 1
-    assert h_factor(db5, "ITER89P", thermal_as_global=np.False_).isna().all()
+    with pytest.warns(UserWarning, match="#1713"):
+        assert h_factor(db5, "ITER89P", thermal_as_global=np.False_).isna().all()
     # A number that is not a bool is still refused, with a message that names the parameter.
     with pytest.raises(TypeError, match="thermal_as_global"):
         h_factor(db5, "ITER89P", thermal_as_global=1)
@@ -549,3 +552,20 @@ def test_vest_summary_definitions_quote_the_stored_energy_factor_the_code_uses()
     for fn in (formula_wrapper.compute_power_balance, formula_wrapper.compute_tau_E_exp):
         source = inspect.getsource(fn)
         assert "(3.0 / 2.0) * volume" in source and "(2.0 / 3.0)" not in source
+
+
+def test_h_factor_warns_when_the_energy_basis_gate_blanks_rows(db5):
+    # The #1713 gate is deliberate, but it must not be silent: a global or
+    # unaudited scaling without tau_e_global_s names itself and the gate
+    # (cold review 0.8.0 delta-absorb-16 confinement F5).
+    with pytest.warns(UserWarning, match=r"h_factor\('ITER89P'\).*#1713.*thermal_as_global") as record:
+        strict = h_factor(db5, "ITER89P")
+    assert strict.isna().all() and len(record) == 1
+    with pytest.warns(UserWarning, match="Kurskiev2022.*unaudited"):
+        h_factor(db5, "Kurskiev2022")
+    # The way out silences it: thermal rows allowed, or a global time supplied.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        h_factor(db5, "ITER89P", thermal_as_global=True)
+        h_factor(db5.assign(tau_e_global_s=db5["tau_e_th_s"]), "ITER89P")
+        h_factor(db5, "H98y2")   # thermal scalings never warn
