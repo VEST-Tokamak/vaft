@@ -18,6 +18,7 @@ Only the Snakefile imports this module; the stage scripts receive explicit
 from __future__ import annotations
 
 from pathlib import PurePosixPath
+from typing import NamedTuple
 
 from vaft.compat import IS_WINDOWS
 from vaft.database.filedb import (
@@ -167,8 +168,88 @@ def stage_scope(value) -> frozenset[str] | None:
     return frozenset(scope)
 
 
+class ScientificReference(NamedTuple):
+    """A product a rule consults without Snakemake scheduling it (#1647).
+
+    Pipeline 2 passes pipeline 1's EFIT products as ``params``, not ``input``,
+    so that a shot pipeline 1 never reconstructed is *recorded* by the stage
+    rather than raised by Snakemake. That is still lineage -- the stage reads
+    the product when it exists -- but no DAG can show it. This record states
+    it, and the rule's param is built from it (:func:`scientific_reference`),
+    so the declaration and the workflow cannot drift apart.
+
+    ``product`` is the :class:`PipelinePaths` method (taking a shot) that
+    resolves the consulted path; ``pipeline`` names the one that produces it,
+    ``consumer`` the one whose ``rule`` consults it.
+
+    A NamedTuple rather than a dataclass: tests and the Snakefiles load this
+    file by path, and a dataclass needs its module registered while defining.
+    """
+
+    rule: str
+    param: str
+    product: str
+    pipeline: str
+    note: str
+    consumer: str = "corrective"
+
+
+#: Every non-scheduling reference the production pipelines make. Only real
+#: params that name an upstream scientific product belong here; configuration
+#: values and output directories are not lineage.
+SCIENTIFIC_REFERENCES = (
+    ScientificReference(
+        "generate_core_profiles_ods", "efit", "efit_ods", "routine",
+        "maps Thomson and CES onto the magnetic equilibrium's flux coordinate",
+    ),
+    *(
+        reference
+        for stage in ("electron_efit", "kinetic_efit")
+        for reference in (
+            ScientificReference(
+                f"generate_{stage}_ods", "constraints", "constraints_ods", "routine",
+                "starts the kinetic reconstruction from the magnetic constraints",
+            ),
+            ScientificReference(
+                f"generate_{stage}_ods", "efit", "efit_ods", "routine",
+                "seeds the kinetic reconstruction with the magnetic equilibrium",
+            ),
+        )
+    ),
+)
+
+
+def scientific_reference(paths: "PipelinePaths", rule: str, param: str):
+    """The Snakemake param callable for a declared :data:`SCIENTIFIC_REFERENCES` entry.
+
+    A callable rather than a ``{shot}``-bearing pattern string: Snakemake does
+    expand braces inside a plain param, but silently, and a path carrying a
+    brace that is not a wildcard would be mangled rather than rejected.
+    Raises ``KeyError`` for an undeclared (rule, param), so a workflow cannot
+    consult an upstream product without declaring it.
+    """
+    matches = [ref for ref in SCIENTIFIC_REFERENCES if ref.rule == rule and ref.param == param]
+    if not matches:
+        raise KeyError(f"{rule}.{param} is not a declared scientific reference (paths.SCIENTIFIC_REFERENCES)")
+    method = getattr(paths, matches[0].product)
+    return lambda wildcards: method(wildcards.shot)
+
+
 #: Keys a run must state itself when it passes its own config file (#1530).
 RUN_CONFIG_REQUIRED_KEYS = ("base_dir", "shots")
+
+
+def _configfile_keys(paths) -> set:
+    """The top-level keys a run's config files set (YAML, which also reads JSON)."""
+    import yaml
+
+    keys: set = set()
+    for path in paths:
+        with open(path, encoding="utf-8") as handle:
+            content = yaml.safe_load(handle) or {}
+        if isinstance(content, dict):
+            keys |= set(content)
+    return keys
 
 
 def require_run_config_keys(workflow, keys=RUN_CONFIG_REQUIRED_KEYS) -> None:
@@ -182,9 +263,13 @@ def require_run_config_keys(workflow, keys=RUN_CONFIG_REQUIRED_KEYS) -> None:
     Checked only when a config *file* is passed: ``--config shots=[...]`` from
     the workflow directory keeps the workflow's ``base_dir`` on purpose.
     """
-    if not getattr(workflow, "overwrite_configfiles", None):
+    configfiles = getattr(workflow, "overwrite_configfiles", None)
+    if not configfiles:
         return
-    given = getattr(workflow, "overwrite_config", None) or {}
+    # Snakemake 7 merges --configfile contents into overwrite_config; Snakemake 9
+    # leaves it holding --config only, so the files themselves are read too --
+    # otherwise every run config would be refused, however complete.
+    given = set(getattr(workflow, "overwrite_config", None) or {}) | _configfile_keys(configfiles)
     missing = [key for key in keys if key not in given]
     if missing:
         raise ValueError(
@@ -973,10 +1058,13 @@ __all__ = [
     "SHIPPED_DCON_EDGE_TREATMENT",
     "RUN_CONFIG_REQUIRED_KEYS",
     "SHOT_FIRST",
+    "SCIENTIFIC_REFERENCES",
     "SHOT_STAGES",
     "PipelinePaths",
+    "ScientificReference",
     "require_run_config_keys",
     "solver_module",
+    "scientific_reference",
     "stability_product",
     "stage_scope",
 ]

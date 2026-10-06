@@ -122,7 +122,8 @@ class Shell:
     ``initial`` is the workspace shown first (the registry's first when
     ``None``); ``factories`` replace a registered workspace's factory for
     this shell only (``vaft gui`` hands the plot explorer its first source
-    this way).  The shell checks the database connection only when asked
+    this way).  ``hosted`` tells the workspaces that the readers are not the
+    server's user (``vaft gui --hosted``).  The shell checks the database connection only when asked
     (:meth:`check_connection`): an unreachable server must not hold the
     page's first paint.
     """
@@ -134,8 +135,12 @@ class Shell:
         initial: str | None = None,
         selection: SelectionState | None = None,
         factories: Mapping[str, Callable[["Shell"], Any]] | None = None,
+        hosted: bool = False,
     ) -> None:
         pn = require_panel()
+        #: Serving readers who are not the server's user (``vaft gui --hosted``):
+        #: workspaces keep the server's own configuration to themselves.
+        self.hosted = hosted
         if registry is None:
             from . import workspaces  # noqa: F401 - registers the built-in workspaces
 
