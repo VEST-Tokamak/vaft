@@ -239,6 +239,19 @@ def scientific_reference(paths: "PipelinePaths", rule: str, param: str):
 RUN_CONFIG_REQUIRED_KEYS = ("base_dir", "shots")
 
 
+def _configfile_keys(paths) -> set:
+    """The top-level keys a run's config files set (YAML, which also reads JSON)."""
+    import yaml
+
+    keys: set = set()
+    for path in paths:
+        with open(path, encoding="utf-8") as handle:
+            content = yaml.safe_load(handle) or {}
+        if isinstance(content, dict):
+            keys |= set(content)
+    return keys
+
+
 def require_run_config_keys(workflow, keys=RUN_CONFIG_REQUIRED_KEYS) -> None:
     """Refuse a run config file that leaves *where* and *which shots* to the defaults.
 
@@ -250,9 +263,13 @@ def require_run_config_keys(workflow, keys=RUN_CONFIG_REQUIRED_KEYS) -> None:
     Checked only when a config *file* is passed: ``--config shots=[...]`` from
     the workflow directory keeps the workflow's ``base_dir`` on purpose.
     """
-    if not getattr(workflow, "overwrite_configfiles", None):
+    configfiles = getattr(workflow, "overwrite_configfiles", None)
+    if not configfiles:
         return
-    given = getattr(workflow, "overwrite_config", None) or {}
+    # Snakemake 7 merges --configfile contents into overwrite_config; Snakemake 9
+    # leaves it holding --config only, so the files themselves are read too --
+    # otherwise every run config would be refused, however complete.
+    given = set(getattr(workflow, "overwrite_config", None) or {}) | _configfile_keys(configfiles)
     missing = [key for key in keys if key not in given]
     if missing:
         raise ValueError(
