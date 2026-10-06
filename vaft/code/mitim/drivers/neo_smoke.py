@@ -48,6 +48,8 @@ def main(argument_file):
         options = {"cold_start": True}
         if args.get("code_settings"):
             options["code_settings"] = args["code_settings"]
+        if args.get("extra_options"):
+            options["extraOptions"] = dict(args["extra_options"])
         neo.run(args.get("subfolder", "smoke/"), **options)
         neo.read(label="smoke")
         runs = split_by_radius(folder / args.get("subfolder", "smoke/"), folder / "by_radius")

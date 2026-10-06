@@ -1,7 +1,6 @@
 """Reproduce the small direct PF-current fits for issue #1608.
 
-Run from the repository root with
-``PYTHONPATH=. python validation/fixed_free_1608/direct_fit.py``.
+Run as ``python -m vaft.validation.studies.fixed_free_1608.direct_fit``.
 No TokaMaker solve or measured discharge is required.
 """
 

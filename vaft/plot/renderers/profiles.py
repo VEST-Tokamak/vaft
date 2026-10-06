@@ -164,7 +164,32 @@ def mirnov_spatial_phase(model: Profile1D, *, ax: Axes | None = None, show: bool
     optional_paths=_SENSOR_POSITIONS["flux_loop"] + ("magnetics.flux_loop.{i}.flux.time", "magnetics.time"),
 )
 def flux_loop_spatial_flux(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
-    """Flux-loop flux against sensor position at one time (issue #486)."""
+    """Flux-loop flux against sensor position at one time (issue #486).
+
+    Interpretation
+    --------------
+    The flux of every loop at one instant, against where the loop sits.  It
+    shows the spatial pattern behind the time traces: an up-down asymmetry can
+    reflect a vertical plasma displacement or asymmetric coil currents, an
+    inboard-outboard difference the radial position and current.
+
+    Options
+    -------
+    ``time=`` picks the stored sample nearest the requested instant; nothing is
+    interpolated.  ``coordinate=`` draws the sensors either against height,
+    with inboard and outboard sensors in separate panels, or against their
+    poloidal angle about the centre of the sensor layout (``centre=`` moves
+    it). ``validity=`` treats flagged channels as in the time view.
+
+    Limitations
+    -----------
+    The values include the vacuum field.  Sensors are sparse: whatever is drawn
+    between them is not measured.
+
+    See Also
+    --------
+    flux_loop_time_flux : the same loops against time.
+    """
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -180,7 +205,34 @@ def flux_loop_spatial_flux(model: Profile1D, *, ax: Axes | None = None, show: bo
     optional_paths=_SENSOR_POSITIONS["b_field_probe"] + ("magnetics.b_field_pol_probe.{i}.field.time", "magnetics.time"),
 )
 def b_field_probe_spatial_field(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
-    """B-probe poloidal field against sensor position at one time (issue #486)."""
+    """B-probe poloidal field against sensor position at one time (issue #486).
+
+    Interpretation
+    --------------
+    The field of every magnetic probe at one instant, against where the probe
+    sits.  It shows how the poloidal field is distributed around the plasma
+    region at that time, which follows the plasma's position, shape and current
+    distribution as well as the coil field.
+
+    Options
+    -------
+    ``time=`` picks the stored sample nearest the requested instant; nothing is
+    interpolated.  ``coordinate=`` draws the sensors either against height,
+    with inboard and outboard sensors in separate panels, or against their
+    poloidal angle about the centre of the sensor layout (``centre=`` moves
+    it). ``validity=`` treats flagged channels as in the time view. ``angle=``
+    chooses the geometric poloidal angle or the one stored with each probe.
+
+    Limitations
+    -----------
+    Each probe measures one field component along its own axis, so neighbouring
+    probes mounted differently are not directly comparable.  The values include
+    the vacuum field, and nothing between sensors is measured.
+
+    See Also
+    --------
+    b_field_probe_time_field : the same probes against time.
+    """
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -279,7 +331,48 @@ def equilibrium_profile_pressure(
 def equilibrium_profile_q(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Equilibrium safety-factor profile."""
+    """Equilibrium safety-factor profile.
+
+    Interpretation
+    --------------
+    Shows the safety factor q -- the number of toroidal turns a field line
+    makes per poloidal turn on a flux surface -- across the radius of one
+    reconstructed equilibrium slice.  It is read for the location of low-order
+    rational surfaces (q = m/n such as 1, 3/2, 2, 3), for the magnetic shear
+    given by the local slope of the curve, for the central value q0 and the
+    edge value, and for differences in current-profile structure between slices
+    or shots: a peaked current gives a low q0 and a steep rise, a broad or
+    hollow one a flat or reversed-shear core.
+
+    Options
+    -------
+    ``coordinate=`` changes only the horizontal axis.  The q values are the
+    same equilibrium quantity on every coordinate, so the positions of rational
+    surfaces move with the choice and must be compared on one coordinate.
+    ``rational_q=`` and ``resonances=`` mark where the stored profile crosses a
+    requested q or the m/n of a requested harmonic.  ``orientation=`` decides
+    whether q keeps its stored sign or is drawn positive.
+
+    Convention
+    ----------
+    The stored sign of q follows the equilibrium's COCOS and the directions of
+    plasma current and toroidal field.  The default display draws it positive
+    (the title then says "sign flipped"); ``orientation="canonical"`` keeps
+    the stored sign.  Rational surfaces are matched on the magnitude of q.
+
+    Limitations
+    -----------
+    The profile is the reconstruction's, not a measurement.  With magnetic
+    constraints alone the core q, and q0 in particular, is weakly determined
+    and reflects the solver's profile parametrisation.  q gives context for
+    tearing, kink and sawtooth behaviour, but it is not by itself a stability
+    criterion.
+
+    See Also
+    --------
+    equilibrium_time_q95 : q at the 95 % flux surface against time.
+    equilibrium_profile_j_tor : the current density that shapes q.
+    """
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -354,7 +447,37 @@ def equilibrium_profile_ffprime(
 def electron_temperature_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Core electron temperature profile."""
+    """Core electron temperature profile.
+
+    Interpretation
+    --------------
+    The electron temperature against the radial flux coordinate at one
+    core_profiles time.  It is read for the central temperature, the peaking,
+    the regions of steep gradient and a pedestal if there is one, and for how
+    the profile changes between times or discharges.
+
+    Options
+    -------
+    ``coordinate=`` draws the profile against rho_tor_norm, the square root of
+    the normalized toroidal flux, or against the normalized poloidal flux
+    psi_N; the values do not change, but positions do, so
+    profiles are compared on one coordinate.  ``rational_q=`` and
+    ``resonances=`` mark rational surfaces from the equilibrium's q profile.
+    ``uncertainty=`` and ``validity=`` control how stored uncertainties and
+    flagged values are drawn.
+
+    Limitations
+    -----------
+    A core_profiles entry may be a fit to measurements, a model or an assumed
+    profile; the curve between measurement points is the fit's, not the data.
+    Mapping onto a flux coordinate uses an equilibrium, whose errors move the
+    points radially.
+
+    See Also
+    --------
+    thomson_scattering_profile_fit : the measurements behind a fitted profile.
+    electron_temperature_field : the same profile mapped onto the poloidal plane.
+    """
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -369,7 +492,37 @@ def electron_temperature_profile(
 def electron_density_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Core electron density profile."""
+    """Core electron density profile.
+
+    Interpretation
+    --------------
+    The electron density against the radial flux coordinate at one
+    core_profiles time.  It is read for the central density, the peaking, the
+    gradient regions and the edge, and for how the profile evolves with
+    fuelling and confinement.
+
+    Options
+    -------
+    ``coordinate=`` draws the profile against rho_tor_norm, the square root of
+    the normalized toroidal flux, or against the normalized poloidal flux
+    psi_N; the values do not change, but positions do, so
+    profiles are compared on one coordinate.  ``rational_q=`` and
+    ``resonances=`` mark rational surfaces from the equilibrium's q profile.
+    ``uncertainty=`` and ``validity=`` control how stored uncertainties and
+    flagged values are drawn.
+
+    Limitations
+    -----------
+    A core_profiles entry may be a fit to measurements, a model or an assumed
+    profile; the curve between measurement points is the fit's, not the data.
+    Mapping onto a flux coordinate uses an equilibrium, whose errors move the
+    points radially.
+
+    See Also
+    --------
+    thomson_scattering_profile_fit : the measurements behind a fitted profile.
+    electron_density_field : the same profile mapped onto the poloidal plane.
+    """
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 

@@ -1672,7 +1672,8 @@ def cross_spectral_matrix(
     records : sequence of FluctuationRecord
         Named scalar records, each with its own time, units and usable band [-].
     sample_rate : float, optional
-        Common-grid rate; defaults to the fastest native rate [Hz].
+        Common-grid rate; defaults to the slowest native rate, as
+        :func:`cross_spectrogram` does, so no record is upsampled [Hz].
     frequency_range : tuple of float, optional
         Inclusive output band; defaults to all usable bins [Hz].
     nperseg : int, optional
@@ -1738,9 +1739,15 @@ def cross_spectral_matrix(
 
     Limitations
     -----------
-    Upsampling cannot recover frequencies above a record's native bandwidth.
-    A missing physical bandwidth is reported as ``"nyquist_only"`` in the
-    provenance. If the available records lack two jointly finite segments at
+    Upsampling cannot recover frequencies above a record's native bandwidth,
+    and a record linearly interpolated onto a faster requested grid carries
+    the interpolant's sinc²(f/f_native) roll-off inside its own band: its
+    ``raw_csd`` auto-density is low by sinc⁴ (0.67 at a quarter of its native
+    rate) and its cross terms by sinc², while the ``"psd"`` matrix, in which
+    the factor cancels, is unaffected.  That is why the default grid is the
+    slowest native rate; a faster ``sample_rate`` is the caller's choice to
+    keep the fast records' band at that price.  A missing physical bandwidth
+    is reported as ``"nyquist_only"`` in the provenance. If the available records lack two jointly finite segments at
     a bin, that bin is unavailable; it is not filled with zeros.
 
     Provenance
@@ -1770,7 +1777,7 @@ def cross_spectral_matrix(
 
     native = [_uniform_record(record.time, record.data, record.name) for record in selected]
     native_rates = [item[2] for item in native]
-    fs = max(native_rates) if sample_rate is None else float(sample_rate)
+    fs = min(native_rates) if sample_rate is None else float(sample_rate)
     if not np.isfinite(fs) or fs <= 0:
         raise ValueError("sample_rate must be positive and finite")
     start = max(float(item[0][0]) for item in native)

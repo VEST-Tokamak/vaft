@@ -155,12 +155,27 @@ def sample(shot: int, representation: str = "omas") -> Path:
     return path
 
 
+def _require_shipped_fixture(path: Path) -> Path:
+    """Return ``path`` or raise a FileNotFoundError that names the unified fixture.
+
+    The unified VEST diagnostics fixture ships in the wheel since 0.8.0, so a
+    missing file means an incomplete installation, not a repository-only sample.
+    """
+    if path.is_file():
+        return path
+    raise FileNotFoundError(
+        f"{path} is missing: the unified VEST diagnostics fixture ships with vaft "
+        "(vaft/data/unified/vest_diagnostics); reinstall the package or check the "
+        "checkout, it is not a repository-only sample."
+    )
+
+
 def unified_diagnostics_manifest() -> dict:
     """Validate and return the provenance contract for the VEST cross-shot fixture."""
     import hashlib
 
     root = data_path("unified/vest_diagnostics")
-    with require_repository_sample(root / "manifest.yaml").open("r", encoding="utf-8") as handle:
+    with _require_shipped_fixture(root / "manifest.yaml").open("r", encoding="utf-8") as handle:
         manifest = yaml.safe_load(handle)
     if (
         manifest.get("schema_version") != 1
@@ -218,7 +233,7 @@ def unified_diagnostics_fixture():
     from vaft.omas import load
 
     manifest = unified_diagnostics_manifest()
-    return load(data_path("unified/vest_diagnostics") / manifest["artifact"]["path"])
+    return load(_require_shipped_fixture(data_path("unified/vest_diagnostics") / manifest["artifact"]["path"]))
 
 
 def sample_geqdsk(name: str = "efit/g039915.00319"):

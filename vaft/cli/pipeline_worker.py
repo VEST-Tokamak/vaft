@@ -104,6 +104,7 @@ def _status(args: argparse.Namespace) -> int:
             return 0
         summary = {
             "watermark": state.watermark(config.first_shot - 1),
+            "disk_paused": state.disk_paused(),
             "counts": state.counts(),
             "attention": [
                 {k: row[k] for k in ("shot", "state", "attempts", "reason")}
@@ -115,6 +116,8 @@ def _status(args: argparse.Namespace) -> int:
             print(json.dumps(summary, indent=2, default=str))
         else:
             print(f"watermark: {summary['watermark']}")
+            if summary["disk_paused"]:
+                print(f"PAUSED for disk space: {summary['disk_paused']}")
             for name, count in sorted(summary["counts"].items()):
                 print(f"  {name:10s} {count}")
             for row in summary["attention"]:
