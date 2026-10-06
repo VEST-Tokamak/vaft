@@ -144,6 +144,25 @@ boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fra
 `li_qa_wesson`, `li_qa_cheng`. See
 #944 and #636.
 
+### Reduced stability diagnostics
+
+What each analytic or reduced criterion is, and what it proves, is on
+[Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}) (#1635).
+
+```python
+vaft.diagram.stability_diagnostic_taxonomy()
+vaft.diagram.interchange_criteria()
+```
+
+| | |
+| --- | --- |
+| ![taxonomy]({{ '/assets/diagrams/stability_diagnostic_taxonomy.svg' | relative_url }}) | ![interchange]({{ '/assets/diagrams/interchange_criteria.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `stability_diagnostic_taxonomy` | VAFT's criteria by physical problem (rows) and logical status (columns): exact definition, reduced model, empirical or semi-empirical boundary, heuristic, and solver-derived. It also lists what is still absent. The reduced columns are compared with the solvers, not used as a gate |
+| `interchange_criteria` | `suydam_criterion` and `mercier_criterion_circular` on one schematic profile. The toroidal $p'(1 - q^2)$ stabilises outside $q = 1$, where Suydam's criterion still fails |
+
 ## Single-particle motion
 
 Gyration and guiding-centre drifts, drawn in the island family's style and 3-D camera. Every orbit
