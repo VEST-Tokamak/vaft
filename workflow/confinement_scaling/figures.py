@@ -103,8 +103,8 @@ def predict_tau(table: pd.DataFrame, scaling: str) -> pd.Series:
 
 #: Machines whose plasmas are ohmic with no fast-ion population: there the thermal
 #: confinement time may stand in for a global one, recorded (#1713). DB5 rows are
-#: auxiliary-heated, so for them a global scaling stays strict (NaN) until the
-#: canonical table carries a global tau_E (requested on #1280).
+#: auxiliary-heated: a global scaling takes their tau_e_global_s (DB5 TAUTOT), and
+#: an unaudited one stays strict (NaN).
 OHMIC_MACHINES = ("VEST",)
 
 
@@ -157,7 +157,7 @@ def _basis_footnote(fig, scalings) -> None:
 
 #: Footnote for basis_marker.
 BASIS_FOOTNOTE = ("* global or unaudited energy basis: VEST uses tau_E,th (ohmic, W_global ~ W_th); "
-                  "DB5 rows need a global tau_E and are omitted")
+                  "DB5 uses TAUTOT for global scalings and is omitted for unaudited ones")
 #: Machines coloured individually when grouping by machine (the largest by row count);
 #: the rest fold into "Other". vaft.plot.population has seven colours, and more groups
 #: would repeat them.
@@ -184,9 +184,10 @@ def population_table(db5: pd.DataFrame, confinement: pd.DataFrame, selection: st
         raise ValueError(f"scope must be standard/all and grouping spherical/machine; got {scope}, {grouping}")
     vest = confinement.loc[select(confinement, SELECTIONS[selection])]
     keep = list(CONFINEMENT_COLUMNS) + (["thomson_consistent"] if "thomson_consistent" in vest else [])
-    vest = vest.loc[np.isfinite(vest["tau_e_th_s"]) & (vest["tau_e_th_s"] > 0), keep]
+    # reindex: a Lane D table written before #1713 has no global columns (NaN here).
+    vest = vest.loc[np.isfinite(vest["tau_e_th_s"]) & (vest["tau_e_th_s"] > 0)].reindex(columns=keep)
     rows = db5 if scope == "all" else db5.loc[db5["selected"].astype(bool)]
-    table = pd.concat([rows[list(CONFINEMENT_COLUMNS)], vest], ignore_index=True)
+    table = pd.concat([rows.reindex(columns=list(CONFINEMENT_COLUMNS)), vest], ignore_index=True)
     machine = table["machine"].astype(str)
     if grouping == "machine":
         table["population"] = machine
