@@ -497,6 +497,18 @@
       "shot": 39915,
       "status": "rendered"
     },
+    "equilibrium_table_fit_quality": {
+      "reason": "a table/text view is presented as text, not drawn as a figure",
+      "status": "no_figure"
+    },
+    "equilibrium_table_summary": {
+      "reason": "a table/text view is presented as text, not drawn as a figure",
+      "status": "no_figure"
+    },
+    "equilibrium_text_summary": {
+      "reason": "a table/text view is presented as text, not drawn as a figure",
+      "status": "no_figure"
+    },
     "equilibrium_time_beta": {
       "call": "vaft.omas.plot_equilibrium_time_beta(vaft.omas.load(vaft.data.sample(48224)))",
       "model_sha256": "4c72519dce977c685fd3de48fc16f45fc1f62ce2e6bc40bc90b76693b273cccf",

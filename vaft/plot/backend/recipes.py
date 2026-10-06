@@ -10318,41 +10318,72 @@ def _global_scalar(ods: Any, index: int, leaf: str) -> float:
         return np.nan
 
 
-def _slice_global_lines(
+def slice_global_cells(
     ods: Any, index: int, derived: Any = None, *, flux_display: Any = None
-) -> list[str]:
-    """Formatted global-quantity lines for one slice, per the display policy.
+) -> list[tuple[str, Any]]:
+    """``(label, TableCell)`` per global quantity of one slice, unformatted.
 
     A quantity the slice stores is read from ``ods``; one it does not store is
     read from ``derived`` -- the private copy on which
-    ``vaft.omas.update_equilibrium_derived_profiles`` has run (issue #475) --
-    and shown like any other value.  "not stored" is left for what is neither
-    stored nor derivable.
+    ``vaft.omas.update_equilibrium_derived_profiles`` has run (issue #475);
+    neither leaves the cell empty.  Each cell keeps the stored value and the
+    unit and display subject the policy converts it by, so the slice
+    overview's text panel and the table/text views (issue #1180) format the
+    same values the same way.  The poloidal flux rows carry the stored flux
+    convention, resolved once per slice (issue #478), and ``flux_display``'s
+    unit when the caller chose one.
     """
-    from vaft.plot.display import resolve_display
+    from vaft.plot.display import QUANTITIES
+    from vaft.plot.models import TableCell
 
-    lines = []
-    width = max(len(label) for label, _, _ in _SLICE_GLOBAL_QUANTITIES)
+    cells: list[tuple[str, Any]] = []
     for label, leaf, unit in _SLICE_GLOBAL_QUANTITIES:
         value = _global_scalar(ods, index, leaf)
         dimensionless = _SLICE_DIMENSIONLESS.get(label)
         if not np.isfinite(value) and derived is not None:
             value = _global_scalar(derived, index, leaf)
         if not np.isfinite(value):
-            lines.append(f"{label:<{width}}  not stored")
+            cells.append((label, TableCell(None)))
             continue
-        shown_unit = unit
         if unit == "psi":
             if flux_display is None:
                 flux_display = _flux_display(ods, index)
-            value, shown_unit = value * flux_display.scale, flux_display.unit
+            quantity = QUANTITIES.get(flux_display.quantity)
+            if quantity is not None:
+                stored = quantity.canonical_unit
+            else:  # pragma: no cover - a flux display always names a flux quantity
+                from .convention import psi_convention
+
+                stored = psi_convention(ods, index)
+            cell = TableCell(value, unit=stored, subject="equilibrium", display_unit=flux_display.unit)
         elif unit or dimensionless:
-            try:
-                display = resolve_display(unit, subject="equilibrium", quantity=dimensionless)
-                value, shown_unit = value * display.scale, display.unit
-            except ValueError:
-                pass
-        lines.append(f"{label:<{width}}  {value:.4g} {shown_unit}".rstrip())
+            cell = TableCell(value, unit=unit, subject="equilibrium", quantity=dimensionless or "")
+        else:
+            cell = TableCell(value)
+        cells.append((label, cell))
+    return cells
+
+
+def _slice_global_lines(
+    ods: Any, index: int, derived: Any = None, *, flux_display: Any = None
+) -> list[str]:
+    """Formatted global-quantity lines for one slice, per the display policy.
+
+    The values are :func:`slice_global_cells`, written by the table renderer's
+    own formatter; "not stored" is left for what is neither stored nor
+    derivable.
+    """
+    from vaft.plot.renderers.tables import format_quantity
+
+    cells = slice_global_cells(ods, index, derived, flux_display=flux_display)
+    width = max(len(label) for label, _ in cells)
+    lines = []
+    for label, cell in cells:
+        text, unit = format_quantity(cell)
+        if text is None:
+            lines.append(f"{label:<{width}}  not stored")
+        else:
+            lines.append(f"{label:<{width}}  {text} {unit}".rstrip())
     return lines
 
 
@@ -14955,3 +14986,7 @@ for _name in EDGE_Q_VIEWS:
             "start_configuration": ChoiceDeclaration(None, START_CONFIGURATIONS),
         },
     )
+
+# The non-graphical views (issue #1180) keep their builders in their own module
+# and register into RECIPES here, once every helper they share is defined.
+from . import tables as _tables  # noqa: E402,F401
