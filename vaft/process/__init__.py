@@ -64,6 +64,7 @@ _SUBMODULES = {
     "confinement": ".confinement",
     "impurity": ".impurity",
     "zeff_projection": ".zeff_projection",
+    "mode_frequency": ".mode_frequency",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -123,6 +124,9 @@ _IMPORT_ORDER = (
     "impurity",
     # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
     "zeff_projection",
+    # Predicted mode-frequency tracks from rotation at q = m/n (#460); nothing
+    # it exports collides.
+    "mode_frequency",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
