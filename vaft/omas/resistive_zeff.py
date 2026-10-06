@@ -102,6 +102,7 @@ def romero_boundary_flux_ods(
         flux_normalization=normalization,
         flux_sign=float(hist["flux_sign"]),
         source={"time_index": ",".join(str(int(i)) for i in hist["time_index"]),
+                "ip_source": "equilibrium.time_slice.global_quantities.ip (reconstruction)",
                 **(source or {})},
     )
 
@@ -262,6 +263,7 @@ def flux_surface_state_ods(
         "cp_index": int(cp_index),
         "psi_per_radian": bool(detected),
         "j_dot_b": "-(F p' + F F' <B^2>/(mu0 F)), sign of I_p",
+        "ip_source": "equilibrium.time_slice.global_quantities.ip (reconstruction)",
         "psi_norm_range": f"{psi_norm[first]:.3f}-{psi_norm[last]:.3f}",
         "gs_current_ratio": float(ratio),
         "excluded_current_fraction": excluded,
