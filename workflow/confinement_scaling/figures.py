@@ -54,6 +54,32 @@ ALL_SCALINGS = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L", "ITER89P", "ITE
                 "H98y2", "NSTX2006H", "Kurskiev2022")
 
 
+#: Where each scaling was fitted and for which regime, as a compact label tag:
+#: database ("single" machine, "multi"-machine; "ST" when spherical tokamaks only)
+#: and confinement mode. Goldston 1984 and ITER89-P/97-L are multi-machine L-mode
+#: (neo-Alcator: ohmic) compilations; NSTX 2006 is NSTX alone; Kurskiev 2022 is the
+#: multi-machine ST H-mode set; IPB98(y,2) the ITPA ELMy H-mode set.
+SCALING_TAGS = {
+    "NeoAlcator": ("multi", "ohmic"),
+    "Goldston84OhmicL": ("multi", "ohmic+L"),
+    "Goldston84L": ("multi", "L"),
+    "ITER89P": ("multi", "L"),
+    "ITER97L": ("multi", "L"),
+    "NSTX2006L": ("single ST", "L"),
+    "H98y2": ("multi", "H"),
+    "NSTX2006H": ("single ST", "H"),
+    "Kurskiev2022": ("multi ST", "H"),
+}
+#: Box colour per database tag of SCALING_TAGS.
+DATABASE_COLOURS = {"multi": "#9ecae1", "single ST": "#fdae6b", "multi ST": "#a1d99b"}
+
+
+def tagged_label(scaling: str) -> str:
+    """'ITER97-L (Kaye 1997)  [multi | L]': the scaling's label with its database and mode."""
+    database, mode = SCALING_TAGS.get(scaling, ("?", "?"))
+    return f"{LABELS.get(scaling, scaling)}  [{database} | {mode}]"
+
+
 def predict_tau(table: pd.DataFrame, scaling: str) -> pd.Series:
     """Predicted tau_E of any scaling, from vaft.data.public or extra_scalings [s]."""
     from vaft.data.public import predict_confinement_time
@@ -224,6 +250,43 @@ def h_factor_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L")):
     return fig, axes
 
 
+def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, figsize=(9.5, 5.6)):
+    """VEST alone: the H factor against each scaling, one box per scaling, tagged by database and mode.
+
+    ``table`` holds VEST rows only (e.g. the primary selection). A scaling with a
+    density term uses the rows with a Thomson density; the row count is shown.
+    Boxes are coloured by where the scaling was fitted (SCALING_TAGS).
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+
+    values, labels, colours = [], [], []
+    for name in scalings:
+        h = h_factor_of(table, name).replace([np.inf, -np.inf], np.nan).dropna()
+        values.append(h.to_numpy(float))
+        database, mode = SCALING_TAGS.get(name, ("?", "?"))
+        labels.append(f"{LABELS.get(name, name)}\n[{database} | {mode}]  n={len(h)}")
+        colours.append(DATABASE_COLOURS.get(SCALING_TAGS.get(name, ("?",))[0], "0.85"))
+    fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
+    # Top to bottom in the order given (ohmic, L, H).
+    positions = np.arange(len(values))[::-1]
+    boxes = ax.boxplot(values, positions=positions, vert=False, widths=0.6, patch_artist=True,
+                       medianprops=dict(color="k"), flierprops=dict(markersize=3))
+    for patch, colour in zip(boxes["boxes"], colours):
+        patch.set_facecolor(colour)
+    ax.set_yticks(positions, labels, fontsize="small")
+    ax.axvline(1.0, color="k", ls="--", lw=1)
+    ax.set_xscale("log")
+    ax.set_xlabel(r"$H = \tau_{E,th}/\tau_{E,scaling}$")
+    ax.grid(alpha=0.25, which="both", axis="x")
+    ax.set_title("VEST (ohmic): H against each scaling", fontsize="medium")
+    handles = [Patch(facecolor=c, edgecolor="k", label=f"{k}-machine fit" if " " not in k else f"{k} fit")
+               for k, c in DATABASE_COLOURS.items()]
+    # The low-H top rows are empty (ohmic and L-mode scalings sit near or above 1).
+    ax.legend(handles=handles, fontsize="x-small", loc="upper left", frameon=False)
+    return fig, ax
+
+
 def exponent_table(closures: pd.DataFrame, nstx: pd.DataFrame, data: str = "primary:A") -> pd.DataFrame:
     """One row per scaling: aI, aB, aP (with errors where fitted) and the completed mu_rho."""
     rows = []
@@ -330,6 +393,8 @@ def slide_figures(table: pd.DataFrame, exponents: pd.DataFrame, *, theme: str = 
             "tau_predicted_vs_measured": predicted_vs_measured_figure(
                 table, SLIDE_SCALINGS, figsize=(width, min(0.52 * width, ceiling)))[0],
             "exponents": exponent_figure(exponents, figsize=(width, ceiling))[0],
+            "vest_h_factor": vest_h_factor_figure(table.loc[table["machine"] == "VEST"],
+                                                  figsize=(width, ceiling))[0],
         }
 
 
@@ -368,6 +433,8 @@ def main(argv=None) -> int:
         "confinement_predicted_vs_measured_all_scalings":
             predicted_vs_measured_figure(by_machine, ALL_SCALINGS, max_groups=MACHINE_GROUPS)[0],
         "confinement_h_factor_all_scalings": h_factor_figure(by_machine, ALL_SCALINGS)[0],
+        # VEST alone against every scaling, tagged by fit database and mode.
+        "confinement_vest_h_factor": vest_h_factor_figure(table.loc[table["machine"] == "VEST"])[0],
     }
     written = []
     for name, fig in figures.items():

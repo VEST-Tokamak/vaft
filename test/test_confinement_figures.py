@@ -174,7 +174,7 @@ def test_slide_figures_use_the_slide_format():
     table = _population_with_verdict()
     before = dict(matplotlib.rcParams)
     out = figures.slide_figures(table, figures.exponent_table(*_closures()))
-    assert set(out) == {"tau_population", "tau_predicted_vs_measured", "exponents"}
+    assert set(out) == {"tau_population", "tau_predicted_vs_measured", "exponents", "vest_h_factor"}
     for fig in out.values():
         width, height = fig.get_size_inches()
         assert width == pytest.approx(11.0) and height <= 5.8 + 1e-9
@@ -183,3 +183,17 @@ def test_slide_figures_use_the_slide_format():
     assert {k: v for k, v in matplotlib.rcParams.items() if before.get(k) != v} == {}
     with pytest.raises(ValueError, match="presentation format"):
         figures.slide_figures(table, figures.exponent_table(*_closures()), fmt=None)
+
+
+def test_every_scaling_is_tagged_and_the_vest_h_figure_draws():
+    figures = _figures()
+    assert set(figures.SCALING_TAGS) == set(figures.ALL_SCALINGS)
+    assert {db for db, _ in figures.SCALING_TAGS.values()} <= set(figures.DATABASE_COLOURS)
+    assert figures.tagged_label("NSTX2006L").endswith("[single ST | L]")
+    vest = pd.DataFrame([{**ROW.iloc[0].to_dict(), "tau_e_th_s": 1.5e-3 * k} for k in (1.0, 1.2, 0.8)])
+    fig, ax = figures.vest_h_factor_figure(vest, ("ITER97L", "H98y2"))
+    by_position = {tick: label.get_text() for tick, label in zip(ax.get_yticks(), ax.get_yticklabels())}
+    # Drawn top to bottom in the order given: the first scaling sits highest.
+    assert by_position[max(by_position)].startswith("ITER97-L") and "[multi | L]  n=3" in by_position[max(by_position)]
+    assert by_position[min(by_position)].startswith("IPB98") and "[multi | H]" in by_position[min(by_position)]
+    matplotlib.pyplot.close(fig)
