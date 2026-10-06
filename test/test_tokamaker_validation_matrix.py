@@ -1,6 +1,7 @@
 """Small analytic topology and representability checks for the #1608 matrix."""
 from dataclasses import replace
 import json
+from pathlib import Path
 import sys
 import numpy as np
 import pytest
@@ -78,3 +79,21 @@ def test_matrix_records_target_failure_for_each_route_and_exits_nonzero(tmp_path
     records = json.loads((out/'summary.json').read_text())
     assert len(records) == 2
     assert all('target construction failed' in row['error'] for row in records)
+
+
+def _measured_matrix():
+    path = Path(matrix.__file__).with_name('measured_matrix.json')
+    return json.loads(path.read_text(encoding='utf-8'))
+
+
+def test_committed_measured_matrix_reproduces_its_gate_verdicts():
+    """The gates must read the committed record shape, not only a fresh summary.json."""
+    records = _measured_matrix()
+    assert len(records) == 20
+    for record in records:
+        assert record['accepted'] is True
+        assert acceptance_failures(record) == record['acceptance_failures'] == []
+    broken = json.loads(json.dumps(records[0]))
+    broken['verified']['native_topology'] = 'ambiguous'
+    broken['verified']['lcfs_max_m'] = .02
+    assert set(acceptance_failures(broken)) == {'native X-point topology mismatch', 'LCFS max > 12 mm'}
