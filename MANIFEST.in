@@ -11,6 +11,11 @@ prune docs
 global-exclude *.py[cod]
 global-exclude ._*
 
+# The hosted-GUI deployment templates (#1755).  `graft vaft` already carries
+# them; they are named so the allowlist reads the same here and in pyproject.
+include vaft/deploy/gui/*.service
+include vaft/deploy/gui/*.example
+include vaft/deploy/gui/*.conf
 include vaft/data/*.py
 # Public-database readers; the databases themselves are fetched, never shipped.
 include vaft/data/public/*.py

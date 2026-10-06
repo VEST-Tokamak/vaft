@@ -64,6 +64,8 @@ pages:
 # Public-looking modules that declare no `__all__`, so publish nothing yet.
 # Declaring `__all__` in one of them publishes it: remove it from this list.
 undeclared:
+  - vaft.deploy
+  - vaft.deploy.gui
   - vaft.diagram.build
   - vaft.plot.analysis
   - vaft.plot.backend

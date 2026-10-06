@@ -234,6 +234,11 @@ vaft = [
   # packaged pictures a diagram embeds (the VEST machine render, #1550)
   "diagram/images/*.jpg",
   "diagram/images/*.png",
+  # The hosted-GUI deployment templates (`vaft gui --hosted`, #1755): the
+  # systemd unit, its environment file, the nginx site and proxy snippet.
+  "deploy/gui/*.service",
+  "deploy/gui/*.example",
+  "deploy/gui/*.conf",
 ]
 
 [tool.uv.sources]

@@ -76,6 +76,15 @@ REQUIRED_FILES = {
     "vaft/code/nice/upstream_compat.h",
     # The TikZ template every vaft.diagram scene renders into.
     "vaft/diagram/templates/standalone.tex",
+    # The hosted-GUI deployment templates (#1755): a server installing from
+    # PyPI gets the unit, env file and nginx configuration its own
+    # ``vaft gui --hosted`` is meant to be deployed with.
+    "vaft/deploy/__init__.py",
+    "vaft/deploy/gui/__init__.py",
+    "vaft/deploy/gui/vaft-gui.service",
+    "vaft/deploy/gui/vaft-gui.env.example",
+    "vaft/deploy/gui/nginx-vaft-gui.conf",
+    "vaft/deploy/gui/vaft-gui-proxy.conf",
 } | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES}
 
 
