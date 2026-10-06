@@ -55,7 +55,7 @@ def test_the_registry_orders_workspaces_and_refuses_a_second_of_one_name():
 def test_vaft_gui_lists_its_builtin_workspaces():
     import vaft.gui
 
-    assert vaft.gui.WORKSPACES.names()[:3] == ["plots", "diagnostics", "database"]
+    assert vaft.gui.WORKSPACES.names()[:4] == ["plots", "diagnostics", "equilibrium", "database"]
 
 
 # -- the shell ------------------------------------------------------------------------

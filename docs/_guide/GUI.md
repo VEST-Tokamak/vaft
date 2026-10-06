@@ -39,13 +39,14 @@ vaft gui --sample 39915 41524     # two samples, compared on each plot
 vaft gui --file equilibrium.json
 vaft gui --shot 39915 41524       # database shots (needs HSDS read access)
 vaft gui --plot equilibrium_field_psi --port 5010
-vaft gui --workspace diagnostics  # start in another workspace (plots, diagnostics, database)
+vaft gui --workspace diagnostics  # start in another workspace (plots, diagnostics, equilibrium, database)
 ```
 
 The page is an application shell. The sidebar starts with the **workspaces**:
 
 - **Plots:** the plot explorer described below.
 - **Diagnostics:** the same explorer narrowed to one diagnostic.
+- **Equilibrium:** equilibrium plots by mode with one shared time slice, and validation verdicts.
 - **Database:** the database sources, the connection, and opening database shots.
 
 A strip above the main area shows the shared selection, which every workspace reads: what is open, the time on
@@ -111,6 +112,24 @@ The **Diagnostics** workspace shows processed diagnostics by diagnostic, not by 
   mapping status, measured and derived quantities, and the recorded source.
 - **Not yet available.** Raw-versus-processed comparison and raw field inspection need an API
   that names each diagnostic's raw DAQ fields; they come when that API lands.
+
+The **Equilibrium** workspace inspects reconstructed equilibria, after Tutorial 03:
+
+- **One time slice.** Pick a slice on any plot that has one. Every other equilibrium plot you
+  open shows the same slice, and the status strip names it.
+- **Modes.**
+  - **Inspect:** the 2-D state (flux map, boundary) and 1-D profiles.
+  - **Constraints & fit:** constraints, their coverage and weights, residuals and convergence.
+  - **Time evolution:** global quantities across the discharge.
+  - **Quality:** fit-quality plots and table.
+
+  The plots come from plot discovery. A plot no mode claims is shown under Inspect.
+- **Validation verdicts.** In Quality, **Check this slice** (or **Check all slices**) runs
+  `vaft.validation.equilibrium.validate_equilibrium` on each open shot. It shows the verdict of
+  every check (verification, diagnostic fit, physical validity, independent validation) with its
+  reason, exactly as the validation layer states it.
+- **Several shots** compare on each plot as in **Plots**. Nothing in this workspace edits or
+  reruns a reconstruction.
 
 The **Database** workspace contains:
 
