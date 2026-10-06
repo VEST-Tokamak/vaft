@@ -33,7 +33,7 @@ modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 ``integrated_modeling_process``; the VAFT framework (#1090):
 ``fusion_science_knowledge_lifecycle``, ``vaft_four_pillars``,
 ``scientific_workflow``, ``interoperability_layers``,
-``scientific_provenance_chain``, ``scientific_infrastructure_principles``,
+``scientific_provenance_chain``, ``plasma_state_provenance``, ``scientific_infrastructure_principles``,
 ``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``,
 ``human_ai_interface`` and ``machine_research_archive``; research
 infrastructure (#1636, #1638, #1640, #1641, #1643, #1645), fragmented
@@ -201,6 +201,7 @@ __all__ = [
     "scientific_workflow",
     "interoperability_layers",
     "scientific_provenance_chain",
+    "plasma_state_provenance",
     "scientific_infrastructure_principles",
     "machine_agnostic_architecture",
     "experiment_modeling_theory_data_network",
@@ -375,6 +376,7 @@ _LOCATIONS = {
     "scientific_workflow": "._vaft_concepts",
     "interoperability_layers": "._vaft_concepts",
     "scientific_provenance_chain": "._vaft_concepts",
+    "plasma_state_provenance": "._vaft_concepts",
     "scientific_infrastructure_principles": "._vaft_concepts",
     "machine_agnostic_architecture": "._vaft_concepts",
     "experiment_modeling_theory_data_network": "._vaft_concepts",

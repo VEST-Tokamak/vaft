@@ -18,7 +18,8 @@ def test_the_registry_lists_the_expected_builders():
     assert set(BUILDERS) == {
         "fusion_science_knowledge_lifecycle", "vaft_four_pillars", "scientific_workflow", "interoperability_layers",
         "scientific_provenance_chain", "scientific_infrastructure_principles", "machine_agnostic_architecture",
-        "experiment_modeling_theory_data_network", "human_ai_interface", "machine_research_archive"}
+        "experiment_modeling_theory_data_network", "human_ai_interface", "machine_research_archive",
+        "plasma_state_provenance"}
 
 
 def _all_variants():
@@ -269,3 +270,14 @@ def test_registered_and_canonical():
             variant = kwargs.get("communication", "common_model")
             assert model["communication"] == variant
             assert filename.removesuffix(".svg").endswith(variant if kwargs else "network")
+
+
+def test_the_plasma_state_layers_feed_the_reconstruction_and_then_the_derived_state():
+    d = vaft.diagram.plasma_state_provenance()
+    assert d.model["layers"] == ("measured", "reconstructed", "assumed", "derived")
+    # measurements and assumptions both enter the reconstruction; only the reconstruction feeds the derived layer
+    assert _edges(d) == {("measured", "reconstructed"), ("assumed", "reconstructed"), ("reconstructed", "derived")}
+    assert d.scene.role("layer:assumed")[0].style == "im conceptual"  # an assumption is drawn unlike a measurement
+    text = " ".join(i.text for i in d.scene.items if isinstance(i, Label))
+    for quantity in ("Thomson", "diamagnetic flux", "Z_\\mathrm{eff}", "q_{95}", "\\ell_i", "\\nu^*"):
+        assert quantity in text

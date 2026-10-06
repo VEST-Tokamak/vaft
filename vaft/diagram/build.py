@@ -181,6 +181,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "scientific_workflow.svg": ("scientific_workflow", {}),
     "interoperability_layers.svg": ("interoperability_layers", {}),
     "scientific_provenance_chain.svg": ("scientific_provenance_chain", {}),
+    "plasma_state_provenance.svg": ("plasma_state_provenance", {}),
     "scientific_infrastructure_principles.svg": ("scientific_infrastructure_principles", {}),
     "machine_agnostic_architecture.svg": ("machine_agnostic_architecture", {}),
     "experiment_modeling_theory_data_network.svg": ("experiment_modeling_theory_data_network", {}),

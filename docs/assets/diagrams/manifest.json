@@ -625,6 +625,11 @@
       "source_sha256": "99b27e5f3c23b95e40feb0043e4aaffb9c66471a611f677a325f1dbee2c9c60c",
       "svg_sha256": "44f7b2787436cbc504bd69de08ac8a291ff85f379eaed60549a83e9a996e8d4e"
     },
+    "plasma_state_provenance.svg": {
+      "call": "vaft.diagram.plasma_state_provenance()",
+      "source_sha256": "c1df36fbb08c4712cd19e15394fbb2d52d76eb79fad9c4cf9d2fd7179ac72d70",
+      "svg_sha256": "9e964eb60318b126aa40d7bf728bd6d8ab84f90d959cd2eaa25e99942f8eb9e4"
+    },
     "plasma_vacuum_wall.svg": {
       "call": "vaft.diagram.plasma_vacuum_wall()",
       "source_sha256": "c9cd726c4ea956be84d9ec5769c696c4ec2a494863b6509fb0c43d5edb83031d",
