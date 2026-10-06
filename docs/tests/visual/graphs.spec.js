@@ -98,3 +98,61 @@ test('without JavaScript the page still explains itself', async ({ browser }) =>
   await expect(page.locator('.page-inner')).toContainText('an arrow from');
   await context.close();
 });
+
+// The pipeline lineage explorer (#1647).
+
+async function openPipelines(page, hash = '') {
+  await page.goto(`reference/pipeline-graph/${hash}`);
+  await expect(count(page)).toContainText(/\d+ nodes/);
+}
+
+const shownIds = (page) => page.evaluate(() => document.querySelector('.vg-root').vaftGraph.cy.nodes().map((n) => n.id()));
+
+test('the pipeline explorer loads the rule graph of both pipelines', async ({ page }) => {
+  await openPipelines(page);
+  await expect(page.locator('input[name="vg-view"][value="rules"]')).toBeChecked();
+  const ids = await shownIds(page);
+  expect(ids).toContain('routine:generate_efit_ods');
+  expect(ids).toContain('corrective:generate_core_profiles_ods');
+});
+
+test('pipeline switching restricts the graph', async ({ page }) => {
+  await openPipelines(page);
+  await page.locator('input[name="vg-pipelines"][value="routine"]').uncheck();
+  const ids = await shownIds(page);
+  expect(ids.some((id) => id.startsWith('routine:'))).toBe(false);
+  expect(ids).toContain('corrective:generate_thomson_ods');
+});
+
+test('view switching shows jobs, artifacts and publication', async ({ page }) => {
+  await openPipelines(page);
+  for (const [view, kind] of [['dag', 'job'], ['artifacts', 'artifact'], ['publication', 'stage']]) {
+    await page.locator(`input[name="vg-view"][value="${view}"]`).check();
+    const kinds = await page.evaluate(() => document.querySelector('.vg-root').vaftGraph.cy.nodes().map((n) => n.data('kind')));
+    expect(kinds).toContain(kind);
+  }
+});
+
+test('selecting a rule shows its artifacts and a pipeline-1 reference as a non-execution edge', async ({ page }) => {
+  await openPipelines(page, '#focus=corrective:generate_core_profiles_ods');
+  const details = page.locator('.vg-details');
+  await expect(details).toContainText('Scientific references (consulted, not scheduled)');
+  await expect(details).toContainText('generate_efit_ods');
+  await expect(details).toContainText('Outputs');
+  const kinds = await page.evaluate(() => document.querySelector('.vg-root').vaftGraph.cy.edges()
+    .filter((e) => e.source().id() === 'routine:generate_efit_ods').map((e) => e.data('kind')));
+  expect(kinds.length).toBeGreaterThan(0);
+  expect(new Set(kinds)).toEqual(new Set(['scientific_reference']));
+  await expect(details.locator('a', { hasText: 'Snakefile' })).toHaveAttribute('href', /blob\/[0-9a-f]{40}\/workflow\/.+Snakefile#L\d+/);
+});
+
+test('selecting a stage shows what it owns and where it is published, offline', async ({ page }) => {
+  const remote = [];
+  page.on('request', (request) => { if (!request.url().startsWith('http://127.0.0.1') && !request.url().startsWith('http://localhost')) remote.push(request.url()); });
+  await openPipelines(page, '#view=publication&focus=stage:eddy');
+  const details = page.locator('.vg-details');
+  await expect(details).toContainText('Owns (publishes only these IDS)');
+  await expect(details).toContainText('pf_passive');
+  await expect(details).toContainText('replicate_eddy_to_hsds');
+  expect(remote.filter((url) => /hsds|:5101/.test(url))).toEqual([]);
+});

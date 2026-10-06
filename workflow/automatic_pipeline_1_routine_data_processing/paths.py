@@ -17,6 +17,7 @@ Only the Snakefile imports this module; the stage scripts receive explicit
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import PurePosixPath
 
 from vaft.compat import IS_WINDOWS
@@ -165,6 +166,69 @@ def stage_scope(value) -> frozenset[str] | None:
         if stage in scope and upstream is not None and upstream not in scope:
             raise ValueError(f"stages includes {stage!r} but not {upstream!r}, which it needs")
     return frozenset(scope)
+
+
+@dataclass(frozen=True)
+class ScientificReference:
+    """A product a rule consults without Snakemake scheduling it (#1647).
+
+    Pipeline 2 passes pipeline 1's EFIT products as ``params``, not ``input``,
+    so that a shot pipeline 1 never reconstructed is *recorded* by the stage
+    rather than raised by Snakemake. That is still lineage -- the stage reads
+    the product when it exists -- but no DAG can show it. This record states
+    it, and the rule's param is built from it (:func:`scientific_reference`),
+    so the declaration and the workflow cannot drift apart.
+
+    ``product`` is the :class:`PipelinePaths` method (taking a shot) that
+    resolves the consulted path; ``pipeline`` names the one that produces it.
+    """
+
+    rule: str
+    param: str
+    product: str
+    pipeline: str
+    note: str
+
+
+#: Every non-scheduling reference the production pipelines make. Only real
+#: params that name an upstream scientific product belong here; configuration
+#: values and output directories are not lineage.
+SCIENTIFIC_REFERENCES = (
+    ScientificReference(
+        "generate_core_profiles_ods", "efit", "efit_ods", "routine",
+        "maps Thomson and CES onto the magnetic equilibrium's flux coordinate",
+    ),
+    *(
+        reference
+        for stage in ("electron_efit", "kinetic_efit")
+        for reference in (
+            ScientificReference(
+                f"generate_{stage}_ods", "constraints", "constraints_ods", "routine",
+                "starts the kinetic reconstruction from the magnetic constraints",
+            ),
+            ScientificReference(
+                f"generate_{stage}_ods", "efit", "efit_ods", "routine",
+                "seeds the kinetic reconstruction with the magnetic equilibrium",
+            ),
+        )
+    ),
+)
+
+
+def scientific_reference(paths: "PipelinePaths", rule: str, param: str):
+    """The Snakemake param callable for a declared :data:`SCIENTIFIC_REFERENCES` entry.
+
+    A callable rather than a ``{shot}``-bearing pattern string: Snakemake does
+    expand braces inside a plain param, but silently, and a path carrying a
+    brace that is not a wildcard would be mangled rather than rejected.
+    Raises ``KeyError`` for an undeclared (rule, param), so a workflow cannot
+    consult an upstream product without declaring it.
+    """
+    matches = [ref for ref in SCIENTIFIC_REFERENCES if ref.rule == rule and ref.param == param]
+    if not matches:
+        raise KeyError(f"{rule}.{param} is not a declared scientific reference (paths.SCIENTIFIC_REFERENCES)")
+    method = getattr(paths, matches[0].product)
+    return lambda wildcards: method(wildcards.shot)
 
 
 def solver_module(product: str) -> str:
@@ -943,9 +1007,12 @@ __all__ = [
     "LAYOUTS",
     "SHIPPED_DCON_EDGE_TREATMENT",
     "SHOT_FIRST",
+    "SCIENTIFIC_REFERENCES",
     "SHOT_STAGES",
     "PipelinePaths",
+    "ScientificReference",
     "solver_module",
+    "scientific_reference",
     "stability_product",
     "stage_scope",
 ]

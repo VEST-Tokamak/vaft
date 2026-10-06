@@ -337,6 +337,10 @@ Both netCDF backends need the `netCDF4` package.
 
 ## Saving to HSDS
 
+Which production stage publishes which IDS to which source, generated from `STAGE_REPLICATION`,
+is shown in the HSDS publication view of the
+[pipeline lineage explorer]({{ site.baseurl }}/reference/pipeline-graph/).
+
 <!-- docs-snippet: skip signature (signature listing or pseudo-code, not a program) -->
 ```python
 save(data, shot, *, source=None, representation=None, occurrence=None,
