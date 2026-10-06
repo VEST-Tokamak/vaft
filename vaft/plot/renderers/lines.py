@@ -119,7 +119,9 @@ def plasma_current_time(
     Convention
     ----------
     The stored sign follows the machine's current direction in the IMAS
-    convention; the default display draws the dominant polarity positive.
+    convention.  The default display draws the dominant polarity positive and
+    says "sign flipped" in the title when it did; ``orientation="canonical"``
+    keeps the stored sign, which is what tells the current direction.
 
     Limitations
     -----------
@@ -173,12 +175,17 @@ def diamagnetic_flux_time(
     -------
     ``synthetic=`` overlays, as markers at each equilibrium slice, the value
     the reconstruction predicts for this signal, so measurement and fit can be
-    compared where the fit exists.  ``orientation=`` draws the dominant
-    polarity positive.
+    compared where the fit exists.  By default the dominant polarity is
+    drawn positive, so a diamagnetic shot, whose stored flux is negative, is
+    drawn positive too and the title says "sign flipped";
+    ``orientation="canonical"`` keeps the stored sign and is needed to read
+    para- or diamagnetism from the plot.
 
     Convention
     ----------
-    In VEST products a positive stored flux is a paramagnetic plasma (#1196).
+    In VEST products a positive stored flux is a paramagnetic plasma (#1196),
+    a negative one a diamagnetic plasma.  The sign carries that meaning only
+    under ``orientation="canonical"``.
 
     Limitations
     -----------

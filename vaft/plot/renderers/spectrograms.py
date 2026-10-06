@@ -113,7 +113,7 @@ def mirnov_spectrogram(
 
     Interpretation
     --------------
-    The spectral power of one Mirnov coil's voltage in sliding windows.  A
+    The spectral magnitude of one Mirnov coil's voltage in sliding windows.  A
     coherent MHD mode appears as a narrow band, and its frequency history shows
     onset, frequency chirping as rotation changes, and locking when the band
     drops to zero frequency and vanishes; broadband activity and crashes appear

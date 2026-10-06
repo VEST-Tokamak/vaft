@@ -356,8 +356,9 @@ def equilibrium_profile_q(
     Convention
     ----------
     The stored sign of q follows the equilibrium's COCOS and the directions of
-    plasma current and toroidal field; the default display draws it positive,
-    and rational surfaces are matched on the magnitude of q.
+    plasma current and toroidal field.  The default display draws it positive
+    (the title then says "sign flipped"); ``orientation="canonical"`` keeps
+    the stored sign.  Rational surfaces are matched on the magnitude of q.
 
     Limitations
     -----------
@@ -457,8 +458,9 @@ def electron_temperature_profile(
 
     Options
     -------
-    ``coordinate=`` draws the profile against normalized toroidal flux or
-    normalized poloidal flux; the values do not change, but positions do, so
+    ``coordinate=`` draws the profile against rho_tor_norm, the square root of
+    the normalized toroidal flux, or against the normalized poloidal flux
+    psi_N; the values do not change, but positions do, so
     profiles are compared on one coordinate.  ``rational_q=`` and
     ``resonances=`` mark rational surfaces from the equilibrium's q profile.
     ``uncertainty=`` and ``validity=`` control how stored uncertainties and
@@ -501,8 +503,9 @@ def electron_density_profile(
 
     Options
     -------
-    ``coordinate=`` draws the profile against normalized toroidal flux or
-    normalized poloidal flux; the values do not change, but positions do, so
+    ``coordinate=`` draws the profile against rho_tor_norm, the square root of
+    the normalized toroidal flux, or against the normalized poloidal flux
+    psi_N; the values do not change, but positions do, so
     profiles are compared on one coordinate.  ``rational_q=`` and
     ``resonances=`` mark rational surfaces from the equilibrium's q profile.
     ``uncertainty=`` and ``validity=`` control how stored uncertainties and

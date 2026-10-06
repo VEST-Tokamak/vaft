@@ -12,7 +12,8 @@ than re-enumerating it, and that ``See Also`` names real plots.
 the contract.  It is exact -- a plot leaves it the moment it conforms, and a
 plot that stops conforming fails -- and it may only shrink: a plot registered
 after the contract landed must conform from the start, so it never joins the
-list, and ``PENDING_CEILING`` makes growing the list a visible edit.
+list: ``PENDING`` must stay a subset of the frozen ``PENDING_AT_LANDING``
+snapshot, and ``PENDING_CEILING`` only goes down.
 """
 
 from __future__ import annotations
@@ -36,7 +37,9 @@ from vaft.plot._docstring import (
 
 #: Registered plots whose renderer docstrings are not yet under the contract.
 #: Remove a name when its renderer is migrated; never add one.
-PENDING: frozenset[str] = frozenset({
+#: The plots that predate the contract (#1505), frozen when it landed.  Never
+#: edit: PENDING may only drop names from it, so no new plot can join PENDING.
+PENDING_AT_LANDING: frozenset[str] = frozenset({
     "barometry_time_pressure",
     "camera_visible_animation_frames",
     "camera_visible_image",
@@ -185,6 +188,10 @@ PENDING: frozenset[str] = frozenset({
     "wall_geometry_poloidal",
 })
 
+#: Registered plots whose renderer docstrings are not yet under the contract.
+#: Remove a name with ``- {...}`` when its renderer is migrated; never add one.
+PENDING: frozenset[str] = PENDING_AT_LANDING - frozenset()
+
 #: ``len(PENDING)`` when the contract landed, lowered with every migration.
 PENDING_CEILING = 146
 
@@ -241,7 +248,12 @@ def test_pending_is_exactly_the_set_of_non_conforming_plots():
 
 
 def test_pending_only_shrinks():
-    assert len(PENDING) <= PENDING_CEILING, "a new plot must conform; it never joins PENDING"
+    assert PENDING <= PENDING_AT_LANDING, (
+        "a plot registered after #1505 must conform; it never joins PENDING",
+        sorted(PENDING - PENDING_AT_LANDING),
+    )
+    assert len(PENDING) <= PENDING_CEILING, "lower PENDING_CEILING as plots are migrated"
+    assert len(PENDING_AT_LANDING) == 146, "the landing snapshot is frozen; never edit it"
 
 
 def test_something_is_under_the_contract():
