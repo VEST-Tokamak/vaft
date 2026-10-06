@@ -2872,8 +2872,10 @@ def resistive_diffusion_time(a, eta):
 
     Convention
     ----------
-    No numerical prefactor: the diffusion time of the lowest radial mode of
-    a uniform cylinder is $\tau_R/j_{0,1}^2 \approx \tau_R/5.8$, and other
+    No numerical prefactor. The slowest radial mode of a uniform cylinder
+    decays in $\tau_R/j_{0,1}^2 \approx \tau_R/5.8$ with the edge field $E$
+    held (voltage drive) and $\tau_R/j_{1,1}^2 \approx \tau_R/14.7$ with the
+    edge current held (current drive); other
     texts quote $\mu_0 a^2/(4\eta)$ or include $\kappa$; compare orders of
     magnitude, not factors of a few.
 
@@ -2886,8 +2888,8 @@ def resistive_diffusion_time(a, eta):
 
     References
     ----------
-    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
-           Sec. 3.9.
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011)
+           (resistive diffusion of the current).
     """
     a = np.asarray(a, dtype=float)
     eta = np.asarray(eta, dtype=float)

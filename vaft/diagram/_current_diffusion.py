@@ -1,8 +1,8 @@
 """Current diffusion and current drive: how $j_\\phi(\\rho, t)$ and $q(\\rho, t)$ evolve (#1605).
 
 ``current_diffusion``
-    a fast ohmic ramp ($t_\\mathrm{ramp} \\ll \\tau_R$) leaves a skin current,
-    a hollow $j_\\phi$ and a reversed-shear $q$; the current then penetrates
+    a fast ohmic ramp ($t_\\mathrm{ramp} \\ll \\tau_R$) leaves the current in an
+    off-axis shell -- a hollow $j_\\phi$ -- and a reversed-shear $q$; the current then penetrates
     and relaxes towards $j \\propto 1/\\eta$ -- peaked because the core is
     hotter, flat if $\\eta$ were uniform;
 ``current_drive_profiles``
@@ -65,7 +65,7 @@ _Q_A = 3.5
 #: ramp duration and the snapshots of ``current_diffusion`` [core tau_R]
 _T_RAMP = 0.01
 _STAGES = (("early", 0.03), ("penetration", 0.05), ("relaxed", 3.0))
-_STAGE_TEXT = {"early": "early fast ramp", "penetration": "penetration", "relaxed": "relaxed"}
+_STAGE_TEXT = {"early": "after the ramp", "penetration": "penetration", "relaxed": "relaxed"}
 #: snapshots of ``current_drive_profiles`` after the source is switched on [core tau_R]
 _CD_EARLY, _CD_RELAXED = 0.002, 3.0
 #: (centre, width, fraction of I_p) of each driven source, by deposition
@@ -160,13 +160,15 @@ def _ramp(uniform: bool = False) -> Tuple[_Cylinder, Dict[str, Dict[str, np.ndar
 
 
 def current_diffusion(*, labels: bool = True) -> Diagram:
-    r"""Ohmic current diffusion after a fast ramp: skin current, reversed shear, relaxation.
+    r"""Ohmic current diffusion after a fast ramp: hollow current, reversed shear, relaxation.
 
     The edge current rises to $I_p$ in $t_\mathrm{ramp} = 0.01\,\tau_R$, far
     faster than the core resistive time $\tau_R = \mu_0 a^2/\eta(0)$
-    (``resistive_diffusion_time``), as in a VEST-like fast ramp. Columns: the
-    current still in a skin (hollow $j_\phi$, $q_{\min}$ off axis, $s < 0$
-    inside it), penetrating inward (weaker reversal), and relaxed. The
+    (``resistive_diffusion_time``) -- the ordering of a fast ramp such as
+    VEST's, though the model's ratio is illustrative, not a VEST estimate.
+    Columns after the ramp: the current still in an off-axis shell (hollow
+    $j_\phi$, $q_{\min}$ off axis, $s < 0$ inside it), already depleted at
+    the cold, resistive edge; penetrating inward (weaker reversal); relaxed. The
     relaxed current is $\propto 1/\eta$ with one $E_\phi$ across the radius:
     peaked here because the core is hotter ($\eta \propto T_e^{-3/2}$); with a
     uniform $\eta$ (dashed) the same diffusion relaxes only to a flat current.
@@ -259,7 +261,7 @@ def current_diffusion(*, labels: bool = True) -> Diagram:
             Label((mid + 6.0, -1.45), f"$\\displaystyle {formula_equation(resistive_diffusion_time)}$",
                   "formula box", anchor="north", role="equations"),
             _note(f"$t_\\mathrm{{ramp}} = {_T_RAMP:g}\\,\\tau_R \\ll \\tau_R$: the current is driven at the edge "
-                  "faster than it can diffuse in, so it starts as a skin and $q$ starts reversed.", mid - 3.2, -3.2),
+                  "faster than it can diffuse in: it is left in an off-axis shell, and $q$ is reversed.", mid - 3.2, -3.2),
             _note("Relaxed $j_\\phi \\propto 1/\\eta$: peaked because the core is hotter; with a uniform $\\eta$ "
                   "the same diffusion gives a flat current. Reduced cylinder at fixed $T_e(\\rho)$.", mid - 3.2,
                   -3.8),
@@ -312,7 +314,8 @@ def current_drive_profiles(deposition: str = "off_axis", *, labels: bool = True)
     with the source as $j_\mathrm{ni}$: the driven current persists where it
     is deposited, while the ohmic current around it readjusts resistively --
     the source does not itself diffuse. The ohmic row's dashed curve is the
-    skin of a fast ramp. Representative cylinder profiles; NBI's pressure,
+    hollow current after a fast ramp. On-axis drive takes $q_0$ below 1; no
+    sawtooth is modelled. Representative cylinder profiles; NBI's pressure,
     rotation, fast-ion and bootstrap effects and counter-drive are not drawn.
     """
     deposition = _check_name(deposition, tuple(_SOURCES), "deposition")
@@ -376,7 +379,7 @@ def current_drive_profiles(deposition: str = "off_axis", *, labels: bool = True)
         items.append(Label((col["actuator"] + 1.6, top), "actuator", "subtitle", anchor="south", role="title"))
         mid = 0.5 * (col["q"] + _PANEL * CHART_WIDTH)
         items += [
-            _note(f"Grey: before switch-on; dashed: ${_CD_EARLY:g}\\,\\tau_R$ after (ohmic row: the skin "
+            _note(f"Grey: before switch-on; dashed: ${_CD_EARLY:g}\\,\\tau_R$ after (ohmic row: the hollow current "
                   f"${_STAGES[0][1]:g}\\,\\tau_R$ into a fast ramp); solid: relaxed. Fixed $I_p$, "
                   f"{'off-axis' if deposition == 'off_axis' else 'on-axis'} deposition.", mid, -1.45),
             _note("The source persists where it is deposited; the ohmic current around it readjusts resistively. "

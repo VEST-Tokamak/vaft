@@ -725,7 +725,8 @@ def cylindrical_current_diffusion_rate(r, I, eta, j_ni=None):
     $E_z = \eta\,(j_z - j_\mathrm{ni})$, with $j_z = (\partial I/\partial r)/2\pi r$
     the total current density. Conservative finite differences: the
     bracket is evaluated on the cell faces (midpoints of ``r``), with $\eta$
-    and $j_\mathrm{ni}$ averaged there; second order in the grid spacing.
+    and $j_\mathrm{ni}$ averaged there; second order on a uniform grid, first
+    order on a non-uniform one.
 
     Physical interpretation
     -----------------------
@@ -742,10 +743,8 @@ def cylindrical_current_diffusion_rate(r, I, eta, j_ni=None):
 
     References
     ----------
-    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
-           Sec. 3.9 (resistive diffusion of the current).
-    .. [2] F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239,
-           Sec. VI (poloidal flux diffusion).
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011)
+           (resistive diffusion of the current).
     """
     r = _radial_grid(r)
     if r.size < 3:

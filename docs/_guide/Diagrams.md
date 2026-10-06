@@ -718,7 +718,7 @@ vaft.diagram.current_drive_profiles(deposition="off_axis")   # or "on_axis"
 
 | Diagram | Concept |
 | --- | --- |
-| `current_diffusion` | A fast ohmic ramp, $t_\mathrm{ramp} = 0.01\,\tau_R \ll \tau_R$ as in VEST, leaves the current in a skin: hollow $j_\phi$, $q_{\min}$ off axis and $s < 0$ inside it. The current then penetrates and relaxes towards $j_\phi \propto 1/\eta$ with one $E_\phi$ across the radius. The relaxed profile is peaked only because the core is hotter; with a uniform $\eta$ (dashed) the same diffusion relaxes to a flat current |
+| `current_diffusion` | A fast ohmic ramp, $t_\mathrm{ramp} = 0.01\,\tau_R \ll \tau_R$ (the ordering of a fast ramp such as VEST's; the ratio is illustrative), leaves the current in an off-axis shell, depleted at the cold edge: hollow $j_\phi$, $q_{\min}$ off axis and $s < 0$ inside it. The current then penetrates and relaxes towards $j_\phi \propto 1/\eta$ with one $E_\phi$ across the radius. The relaxed profile is peaked only because the core is hotter; with a uniform $\eta$ (dashed) the same diffusion relaxes to a flat current |
 | `current_drive_profiles` | Ohmic, ECCD and NBCD rows: actuator, the source $j_\mathrm{drive}(\rho)$ it drives, the total $j_\phi(\rho, t)$ before, shortly after and long after switch-on, and $q(\rho, t)$. The driven source persists where it is deposited while the ohmic current around it readjusts resistively; the source itself does not diffuse. ECCD is narrow and modifies the local shear; NBCD is broad. NBI's pressure, rotation, fast-ion and bootstrap effects and counter-drive are not drawn |
 
 ## Field configurations, reconnection and MHD waves
