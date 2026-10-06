@@ -130,7 +130,8 @@ def h_factor(
         Where a global (or unaudited-basis) scaling finds no ``tau_e_global_s``,
         use ``tau_e_th_s`` instead: ``True`` on every row, a collection of
         machine names on those machines' rows only (e.g. ``{"VEST"}``, an
-        ohmic machine without fast ions); default ``False``, strict [-].
+        ohmic machine without fast ions; one name may be given as a string);
+        default ``False``, strict [-].
 
     Returns
     -------
@@ -140,6 +141,12 @@ def h_factor(
         time the row does not have.  ``attrs`` records ``energy_basis`` and,
         when thermal times stood in for global ones, ``approximation`` and
         ``substituted_rows`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``thermal_as_global`` names machines and the table has no ``machine``
+        column.
 
     Notes
     -----
@@ -163,8 +170,11 @@ def h_factor(
     if isinstance(thermal_as_global, bool):
         allow = np.full(len(table), thermal_as_global)
     else:
-        allow = table["machine"].isin(set(thermal_as_global)).to_numpy() if "machine" in table \
-            else np.zeros(len(table), bool)
+        # One machine name is one name, not a set of its letters.
+        names = {thermal_as_global} if isinstance(thermal_as_global, str) else set(thermal_as_global)
+        if "machine" not in table:
+            raise ValueError("thermal_as_global names machines, but the table has no 'machine' column")
+        allow = table["machine"].isin(names).to_numpy()
     tau = np.where(allow, relaxed.tau, strict.tau)
     out = (pd.Series(tau, index=table.index) / predicted).rename(f"h_{scaling}")
     substituted = allow & (relaxed.energy_basis_used == "thermal") & (basis != "thermal")

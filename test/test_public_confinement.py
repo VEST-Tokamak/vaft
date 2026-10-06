@@ -509,3 +509,7 @@ def test_h_factor_resolves_the_energy_basis(db5):
     assert "W_global ~ W_th" in h_th.attrs["approximation"] and h_th.attrs["substituted_rows"] >= 1
     jet_only = h_factor(db5, "ITER89P", thermal_as_global={"JET"})
     assert np.isfinite(jet_only[db5["machine"] == "JET"]).all() and jet_only[db5["machine"] != "JET"].isna().all()
+    # One name as a string is that machine, not its letters.
+    np.testing.assert_array_equal(h_factor(db5, "ITER89P", thermal_as_global="JET").to_numpy(), jet_only.to_numpy())
+    with pytest.raises(ValueError, match="machine"):
+        h_factor(db5.drop(columns="machine"), "ITER89P", thermal_as_global={"JET"})
