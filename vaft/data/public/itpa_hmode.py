@@ -45,6 +45,8 @@ DB5_COLUMN_MAP: dict[str, str] = {
     "p_loss_W": "PLTH",
     "w_th_J": "WTH",
     "tau_e_th_s": "TAUTH",
+    "w_global_J": "WTOT",
+    "tau_e_global_s": "TAUTOT",
     "r_geo_m": "RGEO",
     "a_m": "AMIN",
     "kappa": "KAPPA",
@@ -66,6 +68,11 @@ DB5_DEFINITIONS: dict[str, str] = {
         "machine-specific recipe"
     ),
     "tau_e_definition": "DB5 TAUTH = WTH / PLTH",
+    "w_global_definition": "DB5 WTOT: total plasma stored energy, fast ions included, machine-specific recipe",
+    "tau_e_global_definition": (
+        "DB5 TAUTOT = WTOT / PL, PL = POHM + auxiliary heating - dW/dt; unlike TAUTH, "
+        "fast-ion losses (PFLOSS) are NOT removed from the power"
+    ),
     "b_t_definition": "DB5 BT: vacuum toroidal field at RGEO",
     "n_e_definition": (
         "DB5 NEL: central line-averaged density from interferometry "
@@ -73,6 +80,10 @@ DB5_DEFINITIONS: dict[str, str] = {
     ),
     "m_eff_source": "source",
 }
+
+#: Source columns read when present: the global stored energy and confinement time
+#: (#1713). A file without them still reads; the canonical columns stay NaN.
+_OPTIONAL_SOURCE_COLUMNS = ("WTOT", "TAUTOT")
 
 _NUMERIC_SOURCE_COLUMNS = (
     "SHOT", "TIME", "TIME_ID", "IP", "BT", "NEL", "PLTH", "WTH", "TAUTH",
@@ -119,7 +130,7 @@ def read_db5(
     missing = [c for c in ("TOK", "PHASE", *_NUMERIC_SOURCE_COLUMNS) if c not in raw.columns]
     if missing:
         raise ValueError(f"{path} is not a DB5.2.3 table; missing columns {missing}")
-    for column in _NUMERIC_SOURCE_COLUMNS:
+    for column in (*_NUMERIC_SOURCE_COLUMNS, *(c for c in _OPTIONAL_SOURCE_COLUMNS if c in raw.columns)):
         raw[column] = pd.to_numeric(raw[column], errors="coerce")
     return raw
 
@@ -157,7 +168,7 @@ def normalize_db5(raw: pd.DataFrame, *, release: str = _SOURCE.release) -> pd.Da
     """
     table = pd.DataFrame(index=raw.index)
     for canonical, source in DB5_COLUMN_MAP.items():
-        table[canonical] = raw[source]
+        table[canonical] = raw[source] if source in raw.columns else np.nan
     table["machine"] = raw["TOK"].astype(str).str.strip().str.upper()
     table["regime"] = raw["PHASE"].astype(str).str.strip()
     table["shot"] = raw["SHOT"].astype("Int64")
@@ -177,8 +188,12 @@ def normalize_db5(raw: pd.DataFrame, *, release: str = _SOURCE.release) -> pd.Da
     # Numeric columns as float so NaN is the only missing marker.
     for column in (
         "time_s", "i_p_A", "b_t_T", "n_e_line_avg_m3", "p_loss_W", "w_th_J",
-        "tau_e_th_s", "r_geo_m", "a_m", "epsilon", "kappa", "kappa_area",
+        "tau_e_th_s", "w_global_J", "tau_e_global_s", "r_geo_m", "a_m", "epsilon", "kappa", "kappa_area",
         "delta", "m_eff_amu",
     ):
         table[column] = table[column].astype(float)
+    # DB5 marks a missing WTOT / TAUTOT on a few AUG rows with -1e-8 instead of a
+    # blank; read it as missing, not as a (negative) stored energy.
+    for column in ("w_global_J", "tau_e_global_s"):
+        table.loc[table[column] < 0.0, column] = np.nan
     return validate_confinement_table(table)

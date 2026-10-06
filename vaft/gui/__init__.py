@@ -1,10 +1,10 @@
-"""Optional browser GUI over the public VAFT APIs (#1086, roadmap #1359).
+"""Browser GUI over the public VAFT APIs (#1086, roadmap #1359).
 
 The GUI is a presentation layer, not part of the computational API: it loads
 data, discovers plots and draws them through the same calls a notebook uses,
-and adds Panel widgets on top.  Panel is optional (``pip install
-'vaft[gui]'``); this package imports without it and names the extra only
-when a GUI is actually built.
+and adds Panel widgets on top.  Panel is a VAFT dependency, but this package
+imports without it: Panel is imported only when a GUI is actually built, so
+``import vaft`` stays light.
 
 The page is an application shell (:mod:`vaft.gui.shell`) hosting
 registered workspaces -- the plot explorer and the database view today --

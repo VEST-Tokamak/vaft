@@ -277,6 +277,9 @@ def render_panels(
                 # a column that ends earlier needs them switched on by hand.
                 column_axes[-1].tick_params(labelbottom=True)
     if model.suptitle:
+        # finalize hangs it from the top edge inside the band tight_layout
+        # reserves for it (just above the first row's titles, whatever the
+        # grid's shape), and again when a presentation format re-lays it out.
         figure.suptitle(model.suptitle)
     # A figure the caller owns keeps the caller's layout: tight_layout is
     # applied only to a figure this renderer created (issue #260 section 8;
@@ -309,13 +312,6 @@ def render_panels(
             host.set_visible(True)
             host.set_axis_off()
             host.legend(handles, labels, loc="center", frameon=False)
-    if model.suptitle and ax is None:
-        # tight_layout reserves no room for a suptitle, so on a tall grid the
-        # default position lands it on the first row's own titles. Re-place it
-        # once the layout is settled, just above the topmost axes, which works
-        # whatever shape the grid ended up with.
-        top = max(axis.get_position().y1 for axis in flat if axis.get_visible())
-        figure.suptitle(model.suptitle, y=min(1.0, top + 0.985 * (1.0 - top)), va="bottom")
     if show:
         plt.show()
     return figure, grid
