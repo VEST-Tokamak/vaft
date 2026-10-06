@@ -47,7 +47,9 @@ spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``resistive_zeff_inference``, ``magnetic_efit``, ``kinetic_efit``,
 ``analytic_mhd_equilibrium``, ``chease_coupling``, ``tokamaker_coupling``,
 ``dcon_rdcon_stability``, ``gpec_plasma_response``, ``flare_field_line_topology``,
-``neo_neoclassical`` and ``tglf_cgyro_local_transport``; the spatial
+``neo_neoclassical`` and ``tglf_cgyro_local_transport``; plasma parameter
+inference (#1601): ``parameter_inference_overview`` and
+``parameter_inference_dependency_graph``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
@@ -241,6 +243,8 @@ __all__ = [
     "flare_field_line_topology",
     "neo_neoclassical",
     "tglf_cgyro_local_transport",
+    "parameter_inference_overview",
+    "parameter_inference_dependency_graph",
     "tokamak_top_view",
     "cocos_orientation",
     "machine_and_equilibrium_geometry",
@@ -426,6 +430,8 @@ _LOCATIONS = {
     "flare_field_line_topology": "._workflow_specs",
     "neo_neoclassical": "._workflow_specs",
     "tglf_cgyro_local_transport": "._workflow_specs",
+    "parameter_inference_overview": "._workflow_specs",
+    "parameter_inference_dependency_graph": "._workflow_specs",
     "tokamak_top_view": "._spatial",
     "cocos_orientation": "._spatial",
     "machine_and_equilibrium_geometry": "._spatial",
