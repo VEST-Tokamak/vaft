@@ -67,13 +67,18 @@ def test_machine_view_keeps_diagnostic_geometry_distinct(fixture_data):
         ods, overlay=("interferometer", "langmuir_probes", "soft_x_rays")
     )
     interferometer = [layer for layer in model.layers if layer.label == "Interferometer LOS"]
-    langmuir = [layer for layer in model.layers if layer.label == "Triple Langmuir probes"]
-    sxr = [layer for layer in model.layers if layer.label == "Soft X-ray LOS"]
+    langmuir = [layer for layer in model.layers if layer.label == "Langmuir sites"]
+    sxr = [layer for layer in model.layers if layer.label == "SXR LOS"]
     assert len(interferometer) == 1
     assert interferometer[0].kind == "polyline"
-    assert len(interferometer[0].r) == 3  # reflected 94 GHz chord
+    # The three stored corners remain on the sampled Cartesian LOS, including
+    # its reflection. Sampling also preserves the true cylindrical R-Z curve.
+    assert len(interferometer[0].r) == 64
+    assert interferometer[0].r[31] == pytest.approx(
+        ods["interferometer.channel.0.line_of_sight.second_point.r"]
+    )
     assert len(langmuir) == 1 and langmuir[0].kind == "points"
-    assert len(langmuir[0].r) == len(ods["langmuir_probes.embedded"])
+    assert sum(layer.kind == "points" for layer in model.layers) == len(ods["langmuir_probes.embedded"])
     assert len(sxr) == 1 and sxr[0].kind == "polyline"
     assert not any(layer.label == "B-field Probes" for layer in model.layers)
 
@@ -146,3 +151,55 @@ def test_kinetic_overview_renders_through_both_adapters(fixture_data):
         assert len(figure.axes) == 4
         assert "Cross-shot composite" in figure._suptitle.get_text()
         plt.close(figure)
+
+
+def _calibration_assets():
+    import yaml
+
+    from vaft.data.resources import data_path
+
+    with (data_path("unified/vest_diagnostics") / "manifest.yaml").open("r", encoding="utf-8") as handle:
+        manifest = yaml.safe_load(handle)
+    return manifest["camera_calibration_reference"]["assets"]
+
+
+def test_sha256_pinned_calibration_assets_are_checked_out_with_lf():
+    """The manifest hashes the LF bytes, so Git must not rewrite them to CRLF on a
+    Windows checkout (that broke every fixture test on Windows CI only)."""
+    import subprocess
+
+    from vaft.data.resources import data_path
+
+    paths = [str(data_path(asset["path"])) for asset in _calibration_assets()]
+    assert paths
+    out = subprocess.run(
+        ["git", "check-attr", "text", "eol", "--", *paths],
+        cwd=data_path(), capture_output=True, text=True,
+    )
+    if out.returncode != 0:
+        pytest.skip("not a git checkout")
+    for path in paths:
+        attrs = dict(
+            line.rsplit(": ", 2)[1:] for line in out.stdout.splitlines() if line.startswith(path)
+        )
+        assert attrs.get("text") == "unset" or attrs.get("eol") == "lf", (path, out.stdout)
+
+
+def test_calibration_checksum_still_rejects_crlf_content(tmp_path, monkeypatch):
+    """The check stays byte-exact: a CRLF copy of a calibration asset must fail."""
+    import shutil
+
+    from vaft.data import resources
+
+    real = resources.data_path
+    asset = _calibration_assets()[0]["path"]
+    shutil.copytree(real("unified/vest_diagnostics"), tmp_path / "unified/vest_diagnostics")
+    target = tmp_path / asset
+    target.parent.mkdir(parents=True)
+    for other in _calibration_assets():
+        shutil.copyfile(real(other["path"]), tmp_path / other["path"])
+    monkeypatch.setattr(resources, "data_path", lambda name="": tmp_path / name if name else tmp_path)
+    assert unified_diagnostics_manifest()["camera_calibration_reference"]["assets"]
+    target.write_bytes(target.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+    with pytest.raises(ValueError, match="Camera calibration reference checksum mismatch"):
+        unified_diagnostics_manifest()

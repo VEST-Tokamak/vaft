@@ -48,6 +48,8 @@ _IMPORT_ORDER = (
     "pwi",
     "sol",
     "boundaries",
+    "impurity",
+    "dimensional",
 )
 
 

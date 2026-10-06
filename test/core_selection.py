@@ -64,6 +64,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_catalog.py",
     "test_help.py",
     "test_hsds_configure.py",
+    "test_mcp_phase2.py",
     "test_mcp_server.py",
     "test_mcp_tools.py",
     "test_plot_discovery.py",
@@ -100,6 +101,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_machine_geometry_registry.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_panels_suptitle_placement.py",
     "test_parameter_history.py",
     "test_plot_3d_contract.py",
     "test_plot_contract.py",
@@ -114,12 +116,17 @@ CORE_MODULES: tuple[str, ...] = (
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
+    # The ssh+Slurm backend runs against fake ssh/rsync/Slurm shims: no network.
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
+    # The MITIM adapter (#1588) runs a stub mitim_tools in this interpreter:
+    # availability statuses, the per-run config, launch, timeout and discovery.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
+    "test_mitim_adapter.py",
     "test_process_tree.py",
+    "test_remote_backend.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures and the canonical
@@ -162,7 +169,9 @@ CORE_MODULES: tuple[str, ...] = (
     # VAFT is, the site's navigation contract, and whether a documented snippet
     # names an API that exists -- a library rename breaks the last without its
     # author ever opening docs/, which is exactly what develop should catch.
-    # The committed diagram SVGs are checked against their TikZ source too.
+    # The committed diagram SVGs are checked against their TikZ source too,
+    # and the generated import graph against Grimp, which stays optional (#1646).
+    "test_dependency_graph.py",
     "test_diagram_render.py",
     "test_docs_api.py",
     "test_docs_catalogs.py",
@@ -174,6 +183,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
     "test_formula_boundaries.py",
+    # Edge-q estimates (#1583): the START/ITER q95 scaling, the q* proxies, the
+    # machine policy and their extraction from the packaged sample. Pure NumPy.
+    "test_edge_q_estimate.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
     # Dimensionless-similarity spaces (#1624): conventions never mix, missing
@@ -203,10 +215,13 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_magnetic_island.py",
     "test_diagram_marfe.py",
     "test_diagram_mhd_waves.py",
+    "test_diagram_mode_geometry.py",
     "test_diagram_nbi.py",
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
+    "test_diagram_reduced_stability.py",
+    "test_diagram_research_concepts.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
     "test_diagram_sfl_coordinates_part2.py",
@@ -219,6 +234,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
+    "test_diagram_workflows.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
     # The per-shot master lock (#913): an in-memory HSDS, ~4 s of threads.
     "test_hsds_master_lock.py",
@@ -232,15 +248,46 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
     "test_stability_rdcon_stride_benchmark.py",
+    "test_stability_validation.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
     # Transport atlas (lane T): the shared transport-state resolver on the packaged
     # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
     # reg05 fixture, and the routine driver with a fake runner. No solver runs.
-    # The atlas renderers draw synthetic tables only.
+    # The atlas renderers draw synthetic tables only. The classical core_transport
+    # projection and its summary preset (#1654) use one packaged state plus synthetic
+    # records; the neoclassical summary's bootstrap <-> NEO flux correspondence
+    # (#1655) uses synthetic products plus the recorded 48224 NEO fixture run.
+    "test_classical_transport_summary.py",
+    "test_neoclassical_summary.py",
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
+    # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
+    # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
+    # only), the plasma-current Rogowski verdict, the TF excursion repair and
+    # the shot-class pickup refusal (#1733) on synthetic records.
+    "test_barometry_gauge_eras.py",
+    "test_class_shot_checklist.py",
+    "test_diagnostic_faults.py",
+    "test_flux_loop_known_faults.py",
+    "test_plasma_current_quality.py",
+    "test_shot_class_pickup.py",
+    "test_tf_excursion_repair.py",
+    # Impurity composition (lane L, #1565): the mixture algebra against the
+    # issue's exact reference values, the precedence resolver on tiny ODSs, and
+    # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
+    "test_formula_impurity.py",
+    "test_impurity_charge_states.py",
+    "test_process_impurity.py",
+    # #1565 Sec. 8: the impurity composition and stored Z_eff plots, on
+    # synthetic ADF11 tables (no network). Under 10 s.
+    "test_impurity_plots.py",
+    "test_vest_core_profiles_policy.py",
+    "test_zeff_projection.py",
+    # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
+    # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
+    "test_formula_reduced_stability.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

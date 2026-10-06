@@ -23,7 +23,7 @@ V      : plasma volume                              [m³]
 """
 
 import warnings
-from typing import Union, Tuple, Optional
+from typing import NamedTuple, Union, Tuple, Optional
 import numpy as np
 
 from ._exports import public_names
@@ -32,6 +32,7 @@ from .constants import (
     E_ALPHA, SIGMA_V_COEF,
     SPITZER_RESISTIVITY_COEF,
     C_B, K_B_COEF,
+    _SCALING_BASES,
     _SCALING_COEFS
 )
 from scipy.integrate import cumulative_trapezoid
@@ -3055,6 +3056,194 @@ def kink_safety_factor(R: Union[float, np.ndarray],
 
 
 # ------------------------------------------------------------------
+# Edge-q estimates from global shape (#1583)
+# ------------------------------------------------------------------
+#
+# Thin SI-unit fronts over the coordinate functions of `.boundaries` (#1456),
+# which hold the coefficients and the registered sources once: the START scaling
+# (Akers et al. 2000), the ITER guideline (Post et al. 1991), Menard's cylindrical
+# q* and Freidberg's kink q*. Each quantity keeps its own name; none is q_a.
+
+#: Scalings accepted by :func:`estimated_q95`.
+Q95_SCALINGS = ("start", "iter")
+
+
+def estimated_q95(a: Union[float, np.ndarray],
+                  R0: Union[float, np.ndarray],
+                  B0: Union[float, np.ndarray],
+                  kappa: Union[float, np.ndarray],
+                  delta: Union[float, np.ndarray],
+                  I_p: Union[float, np.ndarray],
+                  *,
+                  scaling: str = "start",
+                  configuration: str = "limiter") -> Union[float, np.ndarray]:
+    r"""Estimated $q_{95}$ from global shape, plasma current and toroidal field.
+
+    $$q_{95} \approx \frac{5a^2B_0}{R_0\,I_p[\mathrm{MA}]}\,
+      \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\,f(A), \qquad A = R_0/a$$
+
+    with $f(A) = 1.17\,C\sqrt{A/(A-1)}$ for ``scaling="start"`` (Akers et al. 2000;
+    $C$ = 1.0 limiter, 0.77 double null) and $f(A) = (1.17-0.65/A)/(1-1/A^2)^2$
+    for ``scaling="iter"`` (Post et al. 1991).
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius (geometric centre of the boundary) [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    delta : float or np.ndarray
+        Triangularity (mean of upper and lower) [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [A].
+    scaling : {"start", "iter"}
+        Aspect-ratio function: the START scaling or the ITER guideline [str].
+    configuration : {"limiter", "double_null"}
+        START only: C = 1.0 or 0.77; must stay ``"limiter"`` for ``"iter"`` [str].
+
+    Returns
+    -------
+    float or np.ndarray
+        Estimated $q_{95}$, NaN where an input is NaN, infinite at zero current [-].
+
+    Raises
+    ------
+    ValueError
+        An unknown ``scaling`` or ``configuration``, ``configuration`` other than
+        ``"limiter"`` with ``scaling="iter"``, or the geometry errors of
+        :func:`vaft.formula.boundaries.start_q95_coordinates`.
+
+    Convention
+    ----------
+    An estimate from global parameters, not an equilibrium $q_{95}$: label it so
+    (``"q95 (START estimate)"``). Both fits are written for the 95 % surface shape.
+    On the 133 VEST Tier A EFIT equilibria, fed the boundary $\kappa$ and $\delta$,
+    the START estimate over the equilibrium $q_{95}$ has median 0.99 (IQR 0.95-1.03)
+    and the ITER one 1.35 (#1580), which is why ``"start"`` is the default for a
+    limited spherical tokamak. The machine default is read from the machine
+    description by :func:`vaft.omas.edge_q.edge_q_estimate`, not here.
+
+    References
+    ----------
+    .. [1] R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227.
+    .. [2] D. E. Post et al., *ITER Physics*, ITER Documentation Series No. 21,
+           IAEA (1991), Table 1-2.
+    """
+    from .boundaries import AKERS_2000_C, iter_q95_coordinates, start_q95_coordinates
+
+    if scaling not in Q95_SCALINGS:
+        raise ValueError(f"scaling must be one of {list(Q95_SCALINGS)}, not {scaling!r}")
+    if configuration not in AKERS_2000_C:
+        raise ValueError(f"configuration must be one of {sorted(AKERS_2000_C)}, not {configuration!r}")
+    current_ma = np.asarray(I_p, dtype=float) * 1e-6
+    if scaling == "iter":
+        if configuration != "limiter":
+            raise ValueError("configuration applies to the START scaling only; the ITER guideline has no C")
+        return iter_q95_coordinates(a, R0, B0, kappa, delta, current_ma)
+    return start_q95_coordinates(a, R0, B0, kappa, delta, current_ma, configuration=configuration)
+
+
+def q_star_cylindrical(a: Union[float, np.ndarray],
+                       R0: Union[float, np.ndarray],
+                       B0: Union[float, np.ndarray],
+                       kappa: Union[float, np.ndarray],
+                       I_p: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Menard's cylindrical safety factor $q^* = \pi a^2 B_0(1+\kappa^2)/(\mu_0 R_0 I_p)$.
+
+    $$q^* = \frac{\pi a^2 B_0\,(1+\kappa^2)}{\mu_0 R_0 I_p}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [A].
+
+    Returns
+    -------
+    float or np.ndarray
+        Cylindrical safety factor $q^*$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        The geometry errors of :func:`vaft.formula.boundaries.cylindrical_kink_coordinates`.
+
+    Convention
+    ----------
+    A shape-weighted proxy, not $q_a$ and not $q_{95}$: on the VEST Tier A
+    equilibria it is about 0.41 of the equilibrium $q_{95}$ (#1580). SI current;
+    :func:`vaft.formula.boundaries.cylindrical_kink_coordinates` takes MA.
+
+    References
+    ----------
+    .. [1] J. E. Menard et al., Phys. Plasmas 11 (2004) 639; preprint PPPL-3908, p. 9.
+    """
+    from .boundaries import cylindrical_kink_coordinates
+
+    return cylindrical_kink_coordinates(a, R0, B0, kappa, np.asarray(I_p, dtype=float) * 1e-6)
+
+
+def q_star_kink(a: Union[float, np.ndarray],
+                R0: Union[float, np.ndarray],
+                B0: Union[float, np.ndarray],
+                kappa: Union[float, np.ndarray],
+                I_p: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Freidberg's kink safety factor $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I_p)$.
+
+    $$q_* = \frac{2\pi a^2 \kappa B_0}{\mu_0 R_0 I_p}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [A].
+
+    Returns
+    -------
+    float or np.ndarray
+        Kink safety factor $q_*$ of Eq. (13.160), NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        The geometry errors of :func:`vaft.formula.boundaries.kink_coordinates`.
+
+    Convention
+    ----------
+    The definition with which Freidberg's kink limit $q_* \ge (1+\kappa)/2$ is
+    stated; not $q_a$, not $q_{95}$ (about 0.38 of the VEST equilibrium $q_{95}$,
+    #1580) and not the tuple-returning :func:`kink_safety_factor`. SI current;
+    :func:`vaft.formula.boundaries.kink_coordinates` takes MA.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Plasma Physics and Fusion Energy*, Cambridge University
+           Press (2008), Eq. (13.160), p. 405.
+    """
+    from .boundaries import kink_coordinates
+
+    return kink_coordinates(a, R0, B0, kappa, np.asarray(I_p, dtype=float) * 1e-6)
+
+
+# ------------------------------------------------------------------
 # Plasma beta / energy
 # ------------------------------------------------------------------
 # W_K = (3/2) * (1/(2*mu0) * beta_p * B_pa^2 * V_p)
@@ -4710,8 +4899,8 @@ def confinement_time_from_engineering_parameters(
         Elongation [-].
     scaling : str, optional
         Scaling-law name; default ``"ITER89P"`` [str].
-        One of ``"ITER89P"``, ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``,
-        ``"Kurskiev2022"``.
+        One of ``"ITER89P"``, ``"H98y2"``, ``"ITER97L"``, ``"NSTX2006H"``,
+        ``"NSTX2006L"``, ``"Kurskiev2022"``.
     input_density_definition : str, optional
         What ``n_e`` is: ``"line_avg"`` (default) or ``"volume_avg"`` [str].
     line_to_volume_factor : float or None, optional
@@ -4743,9 +4932,9 @@ def confinement_time_from_engineering_parameters(
     Validity
     --------
     Empirical fit.  Multi-machine regressions of the ITER L-mode (ITER89P [1]_)
-    and ELMy H-mode (IPB98(y,2) [2]_) databases, the NSTX H- and L-mode fits of
-    Kaye [3]_, and the spherical-tokamak multi-machine H-mode fit of Kurskiev
-    [4]_; each is valid over its database's parameter range and the ST fits are
+    and ELMy H-mode (IPB98(y,2) [2]_) databases, the ITER97-L thermal L-mode fit
+    [5]_, the NSTX H- and L-mode fits of Kaye [3]_, and the spherical-tokamak
+    multi-machine H-mode fit of Kurskiev [4]_; each is valid over its database's parameter range and the ST fits are
     the only ones that include low-aspect-ratio data.
 
     Limitations
@@ -4761,6 +4950,7 @@ def confinement_time_from_engineering_parameters(
            Eq. (20) (IPB98(y,2)).
     .. [3] S. M. Kaye et al., Nucl. Fusion 46 (2006) 848, Table 2.
     .. [4] G. S. Kurskiev et al., Nucl. Fusion 62 (2022) 016011.
+    .. [5] S. M. Kaye et al., Nucl. Fusion 37 (1997) 1303 (ITER97-L).
     """
     def _normalise_density_definition(label: str) -> str:
         mapping = {
@@ -4883,6 +5073,241 @@ def confinement_time_from_engineering_parameters(
         )
 
     return float(result)
+
+
+def neo_alcator_confinement_time_from_n_a_R_q(
+    n_e: Union[float, np.ndarray],
+    a: Union[float, np.ndarray],
+    R: Union[float, np.ndarray],
+    q: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    r"""Neo-Alcator ohmic energy confinement time.
+
+    $$\tau_{NA} = 7.1\times10^{-22}\, n\, a^{1.04} R^{2.04} q^{1/2}$$
+
+    in the paper's CGS units ($n$ in cm^-3, $a$ and $R$ in cm, $\tau$ in s).
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Line-averaged electron density, converted to cm^-3 internally [m^-3].
+    a : float or np.ndarray
+        Minor radius, converted to cm internally [m].
+    R : float or np.ndarray
+        Major radius, converted to cm internally [m].
+    q : float or np.ndarray
+        Edge safety factor [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Energy confinement time [s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or non-positive input.
+
+    Convention
+    ----------
+    Strict SI in; the m^-3 to cm^-3 and m to cm conversions happen inside.  The
+    prefactor is Goldston's eq. (3) [1]_, which carries the neo-Alcator fit to the
+    ohmic database of the time.  Goldston's $q$ is the limiter $q$ of mostly
+    circular plasmas; a cylindrical $q$ (:func:`q_cyl_from_B_R_epsilon_kappa_I`)
+    is the usual stand-in for a shaped one.
+
+    Validity
+    --------
+    Empirical fit.  It describes the linear ohmic confinement (LOC) regime,
+    where $\tau_E$ rises with density.  Above the saturation density (SOC) the measured
+    $\tau_E$ stops rising and this scaling over-predicts it.
+
+    Limitations
+    -----------
+    Single-term power law in density, without a saturation branch; the
+    ohmic-plus-auxiliary combination is
+    :func:`ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux`.
+
+    References
+    ----------
+    .. [1] R. J. Goldston, Plasma Phys. Control. Fusion 26 (1984) 87, Eq. (3).
+    """
+    n_cm3 = _validate_positive("n_e", n_e) * 1e-6
+    a_cm = _validate_positive("a", a) * 100.0
+    R_cm = _validate_positive("R", R) * 100.0
+    q_arr = _validate_positive("q", q)
+    tau = 7.1e-22 * n_cm3 * a_cm ** 1.04 * R_cm ** 2.04 * q_arr ** 0.5
+    return float(tau) if np.ndim(tau) == 0 else tau
+
+
+def goldston_l_mode_confinement_time_from_I_P_R_a_kappa(
+    I_p: Union[float, np.ndarray],
+    P: Union[float, np.ndarray],
+    R: Union[float, np.ndarray],
+    a: Union[float, np.ndarray],
+    kappa: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    r"""Goldston L-mode energy confinement time.
+
+    $$\tau_{L} = 6.4\times10^{-8}\, I_p\, P^{-1/2} R^{1.75} a^{-0.37} \kappa^{1/2}$$
+
+    in the paper's units ($I_p$ in A, $P$ in W, $R$ and $a$ in cm, $\tau$ in s).
+
+    Parameters
+    ----------
+    I_p : float or np.ndarray
+        Plasma current [A].
+    P : float or np.ndarray
+        Total heating (loss) power [W].
+    R : float or np.ndarray
+        Major radius, converted to cm internally [m].
+    a : float or np.ndarray
+        Minor radius, converted to cm internally [m].
+    kappa : float or np.ndarray
+        Elongation [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Energy confinement time [s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or non-positive input.
+
+    Convention
+    ----------
+    Strict SI in; only $R$ and $a$ are converted (m to cm), since the paper
+    already uses A and W.  This is Goldston's eq. (6) [1]_ without his isotope
+    factor $(A_i/1.5)^{1/2}$, i.e. evaluated at $A_i = 1.5$.
+
+    Validity
+    --------
+    Empirical fit.  Regressed on the auxiliary-heated L-mode data of 1984
+    (PDX, ISX-B, ASDEX, Doublet III); no density dependence.
+
+    Limitations
+    -----------
+    Pure L-mode; the ohmic phase needs the quadrature of
+    :func:`ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux`.
+
+    References
+    ----------
+    .. [1] R. J. Goldston, Plasma Phys. Control. Fusion 26 (1984) 87, Eq. (6).
+    """
+    I_A = _validate_positive("I_p", I_p)
+    P_W = _validate_positive("P", P)
+    R_cm = _validate_positive("R", R) * 100.0
+    a_cm = _validate_positive("a", a) * 100.0
+    kappa_arr = _validate_positive("kappa", kappa)
+    tau = 6.4e-8 * I_A * P_W ** -0.5 * R_cm ** 1.75 * a_cm ** -0.37 * kappa_arr ** 0.5
+    return float(tau) if np.ndim(tau) == 0 else tau
+
+
+def ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(
+    tau_ohmic: Union[float, np.ndarray],
+    tau_aux: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    r"""Ohmic and auxiliary confinement times combined in quadrature.
+
+    $$\tau_E^{-2} = \tau_{OH}^{-2} + \tau_{AUX}^{-2}$$
+
+    Parameters
+    ----------
+    tau_ohmic : float or np.ndarray
+        Ohmic (e.g. neo-Alcator) confinement time [s].
+    tau_aux : float or np.ndarray
+        Auxiliary-heated (e.g. Goldston L-mode) confinement time [s].
+
+    Returns
+    -------
+    float or np.ndarray
+        Combined energy confinement time [s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or non-positive input.
+
+    Convention
+    ----------
+    Goldston's eq. (11) [1]_.  He combined eq. (3) with the $\langle nT\rangle$
+    form of $\tau_{AUX}$ (his eq. 8); combining eqs. (3) and (6), as is common,
+    is a usage of the same rule, not his fit.
+
+    Validity
+    --------
+    Interpolation rule: it tends to the smaller of the two times and is
+    $1/\sqrt{2}$ of either where they are equal.
+
+    Limitations
+    -----------
+    No physical model of the transition between the two regimes.
+
+    References
+    ----------
+    .. [1] R. J. Goldston, Plasma Phys. Control. Fusion 26 (1984) 87, Eq. (11).
+    """
+    t_oh = _validate_positive("tau_ohmic", tau_ohmic)
+    t_aux = _validate_positive("tau_aux", tau_aux)
+    tau = (t_oh ** -2 + t_aux ** -2) ** -0.5
+    return float(tau) if np.ndim(tau) == 0 else tau
+
+
+class ConfinementScalingBasis(NamedTuple):
+    """Which confinement time and which power a published scaling predicts (issue #1713)."""
+
+    scaling: str
+    energy_basis: str
+    power_basis: str
+    energy_source: str
+    power_source: str
+
+
+def confinement_scaling_basis(scaling: str) -> ConfinementScalingBasis:
+    r"""Energy and power basis a published confinement scaling was fitted on.
+
+    $$\tau_{E,th} = W_{th}/P,\qquad \tau_{E,global} = W/P,\qquad W = W_{th} + W_{fast}$$
+
+    Parameters
+    ----------
+    scaling : str
+        Scaling name: a key of ``_SCALING_COEFS`` (``"ITER89P"``, ``"ITER97L"``,
+        ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``, ``"Kurskiev2022"``) or
+        one of the ohmic/L-mode forms ``"NeoAlcator"``, ``"Goldston84L"``,
+        ``"Goldston84OhmicL"`` [str].
+
+    Returns
+    -------
+    ConfinementScalingBasis
+        ``energy_basis`` (``"thermal"``, ``"global"`` or ``"unaudited"``),
+        ``power_basis`` (``"p_loss"``, ``"p_abs"``, ``"p_heat"``, ``"none"`` or
+        ``"unaudited"``) and the source of each assignment [-].
+
+    Raises
+    ------
+    KeyError
+        A scaling with no declared basis.
+
+    Convention
+    ----------
+    An H factor is the conventional one only when the observed confinement
+    time has the scaling's energy basis: a thermal scaling against
+    $\tau_{E,th}$, a global one against $\tau_{E,global}$.  ``"unaudited"``
+    means the original paper has not been checked for that definition; the
+    value is never guessed, and a caller must treat it as unknown.
+
+    References
+    ----------
+    .. [1] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2, Sec. 6.
+    .. [2] S. M. Kaye et al., Nucl. Fusion 46 (2006) 848.
+    """
+    if scaling not in _SCALING_BASES:
+        raise KeyError(f"no energy/power basis declared for scaling {scaling!r}; known: {sorted(_SCALING_BASES)}")
+    entry = _SCALING_BASES[scaling]
+    return ConfinementScalingBasis(scaling, entry["energy_basis"], entry["power_basis"],
+                                   entry["energy_source"], entry["power_source"])
 
 
 def confinement_factor_ITER89P(tau_E_exp: float, tau_E_ITER89P: float) -> float:
