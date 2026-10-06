@@ -233,7 +233,7 @@ def test_the_peeling_ballooning_labels_are_in_their_regions_and_it_says_schemati
     assert "schematic" in d.tikz
 
 
-@pytest.mark.parametrize("name", ["peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon"])
+@pytest.mark.parametrize("name", ["peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon"])
 def test_every_chart_is_deterministic_and_exposed_lazily(name):
     fn = getattr(vaft.diagram, name)
     assert fn().tikz == fn().tikz

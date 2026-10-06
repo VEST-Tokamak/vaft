@@ -172,3 +172,164 @@ def test_constraint_points_use_the_efit_quality_tables():
     assert all({"measured", "reconstructed", "z", "fitted", "state", "unit"} <= set(p) for p in points)
     probe = [p for p in points if p["family"] == "bpol_probe"]
     assert probe[0]["unit"] == "mT"
+
+
+def test_representative_cases_are_deterministic_and_say_why(criteria):
+    probe = lambda chi2: {**_record()["fit"], "probe_reduced_chi2": chi2}
+    records = [
+        _record(shot=1, fit=probe(1.0)), _record(shot=2, fit=probe(1.1)), _record(shot=3, fit=probe(1.9)),
+        _record(shot=4, thomson={"log_ratio": math.log(1 / 2.7)}),             # good, inconsistent
+        _record(shot=5, fit=probe(6.0)), _record(shot=6, fit=probe(30.0)),      # admissible-only: probe fit
+        _record(shot=7, converged=False), _record(shot=8, converged=False),     # unreconstructible
+    ]
+    table = eq.equilibrium_quality_table(records, criteria=criteria)
+    first = eq.select_representative_cases(table)
+    assert [c["case"] for c in first] == list(eq.REPRESENTATIVE_CASES)
+    assert first == eq.select_representative_cases(table.sample(frac=1.0, random_state=3))  # order-independent
+    cases = {c["case"]: c for c in first}
+    assert cases["good_consistent"]["shot"] == 2          # the median probe chi2 of 1.0 / 1.1 / 1.9
+    assert cases["good_inconsistent"]["shot"] == 4
+    assert cases["admissible_only"]["shot"] in (5, 6) and "rule_probe_fit" in cases["admissible_only"]["reason"]
+    assert cases["unreconstructible"]["shot"] == 7 and "rule_convergence" in cases["unreconstructible"]["reason"]
+
+
+def test_a_case_without_candidates_says_so(criteria):
+    cases = {c["case"]: c for c in eq.select_representative_cases(
+        eq.equilibrium_quality_table([_record()], criteria=criteria))}
+    assert cases["good_inconsistent"]["shot"] is None and "no candidate" in cases["good_inconsistent"]["reason"]
+
+
+def test_the_confinement_funnel_counts_with_the_confinement_module():
+    import pandas as pd
+
+    table = pd.DataFrame({
+        "efit_quality": ["good", "good", "good", "admissible", "admissible"],
+        "rule_finite": ["True", "True", "False", "True", "True"],
+        "rule_ip_min": [True, True, True, True, False],
+        "rule_dwdt_fraction": [True, False, True, True, True],
+        "rule_ip_change_per_tau": [True, True, True, True, True],
+        "accepted": [True, False, False, True, False],
+    })
+    funnel = eq.equilibrium_quality_confinement_funnel(table)
+    good = funnel["cohorts"]["good"]
+    assert (good["candidates"], good["selected"], good["rejected"]) == (3, 1, 2)
+    removed = {row["rule"]: row["removed_in_sequence"] for row in good["exclusions"]}
+    assert removed == {"finite": 1, "ip_min": 0, "dwdt_fraction": 1, "ip_change_per_tau": 0}
+    assert funnel["cohorts"]["admissible"]["selected"] == 1
+
+
+def test_the_confinement_funnel_refuses_an_incomplete_or_inconsistent_table():
+    import pandas as pd
+
+    table = pd.DataFrame({
+        "efit_quality": ["good", "good", "good"],
+        "rule_finite": [True, False, True],
+        "rule_ip_min": [True, True, True],
+        "rule_dwdt_fraction": [True, True, True],
+        "rule_ip_change_per_tau": [True, True, True],
+        "accepted": [True, True, True],
+    })
+    # 'accepted' keeps a row the rules remove: the counts would not add up.
+    with pytest.raises(ValueError, match="accepted"):
+        eq.equilibrium_quality_confinement_funnel(table)
+    # A rule without its column would credit its removals to no rule.
+    with pytest.raises(KeyError, match="rule_ip_change_per_tau"):
+        eq.equilibrium_quality_confinement_funnel(table.drop(columns=["rule_ip_change_per_tau", "accepted"]))
+    funnel = eq.equilibrium_quality_confinement_funnel(table.drop(columns=["accepted"]))
+    good = funnel["cohorts"]["good"]
+    assert good["selected"] + sum(row["removed_in_sequence"] for row in good["exclusions"]) == good["candidates"]
+
+
+def test_thomson_counts_survive_a_csv_round_trip(criteria):
+    """An empty ``consistent_settings`` cell is "not judged" whether it is "", None or NaN (cold review 0.8.0)."""
+    import io
+    import math as _math
+
+    import pandas as pd
+
+    records = [_record(shot=1, thomson=None),                                   # good, no Thomson
+               _record(shot=2),                                                 # good, consistent
+               _record(shot=3, thomson={"log_ratio": _math.log(1 / 2.7)})]      # good, inconsistent
+    table = eq.equilibrium_quality_table(records, criteria=criteria)
+    expected = {"slices": 3, "thomson_consistent": 1, "thomson_inconsistent": 1, "thomson_not_judged": 1}
+    assert eq.equilibrium_quality_summary(table)["cohorts"]["good"] == expected
+    # the library itself, fed None / NaN cells (what pandas makes of "")
+    nan_table = table.copy()
+    nan_table["consistent_settings"] = [None, "s", float("nan")]
+    nan_table["inconsistent_settings"] = [None, None, "s"]
+    assert eq.equilibrium_quality_summary(nan_table)["cohorts"]["good"] == expected
+    # the CSV round trip as the notebook does it
+    buffer = io.StringIO()
+    table.to_csv(buffer, index=False)
+    buffer.seek(0)
+    read = eq.read_equilibrium_quality_table(buffer)
+    assert eq.equilibrium_quality_summary(read) == eq.equilibrium_quality_summary(table)
+    assert list(read["consistent_settings"]) == list(table["consistent_settings"])
+    assert list(read["physically_consistent"]) == [None, True, False]
+    assert read["p_over_p_e_points"].isna().iloc[0]  # numeric NaN stays NaN
+    assert eq.select_representative_cases(read) == eq.select_representative_cases(table)
+    buffer.seek(0)
+    assert eq.equilibrium_quality_summary(pd.read_csv(buffer))["cohorts"]["good"] == expected
+
+
+def test_a_placeholder_product_is_a_recorded_refusal_not_a_crash(tmp_path):
+    """An EFIT attempt that wrote the stub has no equilibrium.time; the row says so (cold review 0.8.0)."""
+    import importlib.util
+    import json
+    from pathlib import Path
+
+    script = Path(eq.__file__).resolve().parents[2] / "workflow" / "equilibrium_quality" / "build_cohort_table.py"
+    spec = importlib.util.spec_from_file_location("build_cohort_table_stub", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    output = tmp_path / "omas" / "efit" / "magnetic" / "1" / "output"
+    output.mkdir(parents=True)
+    (output / "efit.json").write_text(
+        json.dumps({"equilibrium": {"ids_properties": {"comment": "EFIT output unavailable"}}}), encoding="utf-8")
+    evidence = module.ProductEvidence(tmp_path, "statistical_891")
+    columns = evidence({"shot": 1, "time_s": 0.3, "setting": "statistical_891"})
+    assert columns["evidence_status"] == "no equilibrium.time in product"
+    assert "evidence.global_reduced_chi2" not in columns
+    # the stub was not materialised into a product with an (empty) time base
+    assert "equilibrium.time" not in evidence.product(1)
+
+
+def test_the_study_criteria_ship_inside_the_package():
+    """`load_study_criteria()` must work from a wheel: the policy is a package module, not a repository file (cold review 0.8.0)."""
+    import importlib.resources
+    from pathlib import Path
+
+    import vaft
+
+    package_root = Path(vaft.__file__).resolve().parent
+    assert eq.CRITERIA_PATH.is_file()
+    assert eq.CRITERIA_PATH.is_relative_to(package_root)  # a `vaft*` module: the wheel ships every .py below here
+    assert (importlib.resources.files("vaft.validation") / eq.CRITERIA_PATH.name).is_file()
+    criteria = eq.load_study_criteria()
+    assert criteria.__name__ == "vaft.validation._efit_study_criteria" and criteria.CRITERIA_VERSION == 2
+    # the study's path still answers with the same policy, and a file loads by path
+    study = eq.load_study_criteria(package_root.parent / "workflow" / "efit_uncertainty_calibration" / "criteria.py")
+    assert study.CRITERIA is criteria.CRITERIA and study.evaluate is criteria.evaluate
+    assert eq.load_study_criteria(eq.CRITERIA_PATH) is eq.load_study_criteria(str(eq.CRITERIA_PATH))
+
+
+def test_the_row_with_product_evidence_represents_its_slice_whatever_its_setting_is_called(criteria):
+    """The evidence preference is explicit, not an accident of setting-name order (cold review 0.8.0)."""
+    def evidence(row):
+        return {"evidence_status": "ok" if row["setting"] == "statistical_891"
+                else "product is setting 'statistical_891'"}
+
+    records = [_record(shot=5, setting="statistical_891", converged=False),
+               _record(shot=5, setting="p1f1_legacy_reference", converged=False),   # sorts before the product's
+               _record(shot=6, setting="statistical_891", converged=False),
+               _record(shot=6, setting="zz_setting", converged=False)]                # sorts after it
+    table = eq.equilibrium_quality_table(records, criteria=criteria, evidence=evidence)
+    slices = eq.slice_cohorts(table)
+    assert list(slices["setting"]) == ["statistical_891", "statistical_891"]
+    assert list(slices["evidence_status"]) == ["ok", "ok"]
+    cases = {c["case"]: c for c in eq.select_representative_cases(table)}
+    # the earliest slice with a stored failed attempt, as the reason string promises
+    assert (cases["unreconstructible"]["shot"], cases["unreconstructible"]["setting"]) == (5, "statistical_891")
+    # without an evidence column the order falls back to the setting name
+    plain = eq.slice_cohorts(eq.equilibrium_quality_table(records, criteria=criteria))
+    assert list(plain["setting"]) == ["p1f1_legacy_reference", "statistical_891"]

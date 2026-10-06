@@ -2,10 +2,11 @@
 
 This module **composes** existing layers; it defines no rule of its own.
 
-* the study policy -- ``workflow/efit_uncertainty_calibration/criteria.py``
-  (#891/#1331, criteria v2): ``evaluate`` per (shot, time, setting) and
-  ``slice_labels`` across settings.  Loaded by path (it is a workflow module,
-  not library code), never copied;
+* the study policy -- :mod:`vaft.validation._efit_study_criteria` (#891/#1331,
+  criteria v2; ``workflow/efit_uncertainty_calibration/criteria.py`` re-exports
+  it at the study's path): ``evaluate`` per (shot, time, setting) and
+  ``slice_labels`` across settings.  Shipped with the package, loaded as a
+  module, never copied; a caller's own criteria file is loaded by path;
 * the EFIT evidence -- :mod:`vaft.omas.efit_quality` (``fit_quality_metrics``,
   ``convergence_metrics``);
 * the generic scientific report -- :func:`vaft.validation.equilibrium.validate_equilibrium`.
@@ -28,6 +29,8 @@ equilibrium product the caller can supply.
 
 from __future__ import annotations
 
+import hashlib
+import importlib
 import importlib.util
 import math
 import sys
@@ -37,8 +40,9 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 
 import numpy as np
 
-#: Where the study policy lives in a source checkout.
-CRITERIA_PATH = Path(__file__).resolve().parents[2] / "workflow" / "efit_uncertainty_calibration" / "criteria.py"
+#: The shipped study policy module (``vaft.validation._efit_study_criteria``):
+#: inside the package, so it is present in a wheel install as in a checkout.
+CRITERIA_PATH = Path(__file__).resolve().with_name("_efit_study_criteria.py")
 
 #: Cohorts in their report order.  ``admissible`` means admissible-only (no
 #: setting good there); ``unreconstructible`` means no tested setting gave an
@@ -78,19 +82,19 @@ STATUSES = ("pass", "fail", "indeterminate", "not_available")
 
 
 def load_study_criteria(path: str | Path | None = None) -> ModuleType:
-    """The #891/#1331 study criteria module, loaded from ``path`` (default: this checkout's)."""
-    path = (Path(path) if path is not None else CRITERIA_PATH).resolve()
+    """The #891/#1331 study criteria module: the shipped one, or a caller's file loaded from ``path``."""
+    if path is None:
+        return importlib.import_module("vaft.validation._efit_study_criteria")
+    path = Path(path).resolve()
     if not path.is_file():
-        raise FileNotFoundError(
-            f"study criteria not found at {path}: the classification policy is a workflow module "
-            "(workflow/efit_uncertainty_calibration/criteria.py); pass its path from a source checkout"
-        )
-    name = f"_vaft_study_criteria_{abs(hash(str(path)))}"
+        raise FileNotFoundError(f"study criteria not found at {path}; the shipped policy is {CRITERIA_PATH}")
+    # A stable module name per file: hash() is salted per process.
+    name = f"_vaft_study_criteria_{hashlib.sha1(str(path).encode('utf-8')).hexdigest()[:12]}"
     if name in sys.modules:
         return sys.modules[name]
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module  # dataclasses and pickling resolve the module by name
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -207,20 +211,63 @@ def equilibrium_quality_table(records: Iterable[Mapping[str, Any]], *, criteria:
 def slice_cohorts(table) -> Any:
     """One row per slice: its label and, for the census, the row of its *best* setting.
 
-    The best setting is the first good one, else the first admissible one, else
-    the first attempted (setting name order), so a slice is counted once with
-    the rule outcomes that earned -- or failed to earn -- its label.  The
-    ``routine`` setting's rows are left out, as the label leaves them out.
+    The best setting is a good one, else an admissible one, else any attempted;
+    among settings of the same standing, one whose row carries product
+    evidence (``evidence_status == "ok"``) comes first, then setting name
+    order.  So a slice is counted once with the rule outcomes that earned --
+    or failed to earn -- its label, and with the evidence where there is any,
+    whatever the product's setting is called.  The ``routine`` setting's rows
+    are left out, as the label leaves them out.
     """
+    import pandas as pd
+
     if table.empty:
         return table
     study = table[table["setting"] != ROUTINE_SETTING]
+    # Explicit, not an accident of the setting names' order: the row with
+    # evidence wins the tie, whichever setting made the product.
+    no_evidence = ((study["evidence_status"] != "ok").astype(int) if "evidence_status" in study.columns
+                   else pd.Series(0, index=study.index))
     rank = study.assign(_rank=(~study["setting_good"].astype(bool)).astype(int) * 2
-                        + (study["admissible_status"] != "pass").astype(int))
+                        + (study["admissible_status"] != "pass").astype(int),
+                        _no_evidence=no_evidence)
     # Whole rows: groupby().first() would take each column's first non-null
     # value and stitch cells of different settings into one row.
-    best = rank.sort_values(["shot", "time_s", "_rank", "setting"]).drop_duplicates(["shot", "time_s"])
-    return best.drop(columns="_rank").reset_index(drop=True)
+    best = rank.sort_values(["shot", "time_s", "_rank", "_no_evidence", "setting"]).drop_duplicates(["shot", "time_s"])
+    return best.drop(columns=["_rank", "_no_evidence"]).reset_index(drop=True)
+
+
+def _names_a_setting(cell: Any) -> bool:
+    """Whether a ``*_settings`` cell lists at least one setting (``""``, None and NaN do not)."""
+    return isinstance(cell, str) and cell.strip() != ""
+
+
+#: Columns :func:`equilibrium_quality_table` writes as text, empty when there is
+#: nothing to say; ``pandas.read_csv`` would read that empty cell as NaN.
+TEXT_COLUMNS = ("good_settings", "admissible_settings", "consistent_settings", "inconsistent_settings",
+                "failure_reasons")
+
+
+def read_equilibrium_quality_table(source: Any) -> Any:
+    """A cohort table written with ``DataFrame.to_csv`` read back as :func:`equilibrium_quality_table` made it.
+
+    Two things a plain ``pandas.read_csv`` loses: the empty text cells of
+    :data:`TEXT_COLUMNS` (``""`` becomes NaN, which the summary would otherwise
+    have to recognise) and the three-valued ``physically_consistent``
+    (True / False / None, read back as the strings ``"True"`` / ``"False"`` and
+    NaN).  Numeric columns keep their NaN.
+    """
+    import pandas as pd
+
+    frame = pd.read_csv(source)
+    for column in TEXT_COLUMNS:
+        if column in frame.columns:
+            frame[column] = frame[column].where(frame[column].notna(), "").astype(str)
+    if "physically_consistent" in frame.columns:
+        verdict = frame["physically_consistent"].map(
+            {True: True, False: False, "True": True, "False": False})
+        frame["physically_consistent"] = verdict.astype(object).where(verdict.notna(), None)
+    return frame
 
 
 def equilibrium_quality_summary(table) -> dict[str, Any]:
@@ -236,8 +283,10 @@ def equilibrium_quality_summary(table) -> dict[str, Any]:
         group = slices[slices["quality_label"] == cohort] if len(slices) else slices
         if cohort == "good":
             # Over all good settings, as criteria.slice_labels reports it: a
-            # slice is consistent when any good setting is.
-            verdicts = [True if c else False if i else None
+            # slice is consistent when any good setting is.  A cell names
+            # settings or is empty; NaN / None (a CSV round trip of "") is
+            # empty too, never a verdict.
+            verdicts = [True if _names_a_setting(c) else False if _names_a_setting(i) else None
                         for c, i in zip(group.get("consistent_settings", []), group.get("inconsistent_settings", []))]
         else:
             verdicts = list(group["physically_consistent"]) if len(group) else []
@@ -400,8 +449,148 @@ def equilibrium_quality_constraint_points(ods: Any, time_slice: int) -> list[dic
     return points
 
 
+#: The four representative cases of #1644 §6, in report order.
+REPRESENTATIVE_CASES = ("good_consistent", "good_inconsistent", "admissible_only", "unreconstructible")
+#: The metrics a "typical" good slice is judged typical on (#1644 §7): distance
+#: to the cohort median in each, scaled by the cohort's own spread.
+TYPICALITY_METRICS = ("probe_reduced_chi2", "loop_reduced_chi2", "gs_residual", "virial_log_ratio")
+
+
+def _typicality(group, metrics: Sequence[str]):
+    """Scaled distance of each row to the group median over ``metrics`` (log for chi-square)."""
+    import pandas as pd
+
+    distance = pd.Series(0.0, index=group.index)
+    for metric in metrics:
+        if metric not in group:
+            continue
+        values = pd.to_numeric(group[metric], errors="coerce")
+        if metric.endswith("reduced_chi2"):
+            values = np.log(values.where(values > 0))
+        elif metric == "virial_log_ratio":
+            values = values.abs()
+        centre = values.median()
+        spread = (values - centre).abs().median() or values.std() or 1.0
+        if not math.isfinite(centre):
+            continue
+        distance = distance.add(((values - centre) / spread).abs().fillna(10.0), fill_value=0.0)
+    return distance
+
+
+def select_representative_cases(table) -> list[dict[str, Any]]:
+    """Deterministic representative slices for the four #1644 cases, with why each was chosen.
+
+    * ``good_consistent`` / ``good_inconsistent`` -- among good slices whose
+      best setting is Thomson-consistent / inconsistent, the one closest to the
+      cohort median in :data:`TYPICALITY_METRICS`;
+    * ``admissible_only`` -- among admissible-only slices failing the cohort's
+      dominant blocking rule (the census Pareto), the one closest to the median
+      of that rule's metric;
+    * ``unreconstructible`` -- among unreconstructible slices failing the
+      cohort's dominant rule, preferring rows that still carry product evidence
+      (a failed attempt to inspect), the earliest (shot, time).
+
+    Ties break by (shot, time); nothing is hand-picked.  A case with no
+    candidate is returned with ``shot`` ``None`` and the reason.
+    """
+    slices = slice_cohorts(table)
+    census = equilibrium_quality_failure_census(table)
+    out: list[dict[str, Any]] = []
+
+    def pick(case: str, group, distance, reason: str) -> None:
+        if group is None or not len(group):
+            out.append({"case": case, "shot": None, "time_s": None, "setting": None, "reason": reason + " -- no candidate"})
+            return
+        order = group.assign(_d=distance).sort_values(["_d", "shot", "time_s"])
+        row = order.iloc[0]
+        out.append({"case": case, "shot": int(row["shot"]), "time_s": float(row["time_s"]), "setting": row["setting"],
+                    "candidates": int(len(group)), "reason": reason, "failure_reasons": row.get("failure_reasons", "")})
+
+    good = slices[slices["quality_label"] == "good"] if len(slices) else slices
+    for case, flag in (("good_consistent", True), ("good_inconsistent", False)):
+        group = good[good["physically_consistent"].map(lambda v: v is flag)] if len(good) else good
+        pick(case, group, _typicality(group, TYPICALITY_METRICS) if len(group) else None,
+             f"good, Thomson {'consistent' if flag else 'inconsistent'}; closest to the cohort median in "
+             + ", ".join(TYPICALITY_METRICS))
+
+    metric_of = {"rule_probe_fit": "probe_reduced_chi2", "rule_loop_fit": "loop_reduced_chi2",
+                 "rule_ip_fit": "ip_z", "rule_dia_fit": "dia_z", "virial_status": "virial_log_ratio",
+                 "grad_shafranov_status": "gs_residual"}
+    admissible = slices[slices["quality_label"] == "admissible"] if len(slices) else slices
+    pareto = census["pareto"].get("admissible") or []
+    if pareto:
+        rule = pareto[0][0]
+        group = admissible[admissible[rule] == "fail"]
+        metric = metric_of.get(rule)
+        pick("admissible_only", group, _typicality(group, [metric]) if metric and len(group) else
+             group["shot"] * 0.0, f"admissible-only, failing the dominant blocking rule {rule}"
+             + (f"; closest to the median {metric} of those" if metric else ""))
+    else:
+        pick("admissible_only", None, None, "admissible-only")
+
+    unrec = slices[slices["quality_label"] == "unreconstructible"] if len(slices) else slices
+    pareto = census["pareto"].get("unreconstructible") or []
+    if pareto:
+        rule = pareto[0][0]
+        group = unrec[unrec[rule] == "fail"]
+        has_evidence = (group["evidence_status"] == "ok") if "evidence_status" in group else group["shot"] * 0 == 0
+        pick("unreconstructible", group, (~has_evidence).astype(float),
+             f"unreconstructible, failing the dominant rule {rule}; a slice with a stored failed attempt first, "
+             "then the earliest (shot, time)")
+    else:
+        pick("unreconstructible", None, None, "unreconstructible")
+    return out
+
+
+#: The confinement selection's rule columns, in the order it applies them
+#: (``vaft.process.confinement.confinement_slice_decision``).
+CONFINEMENT_RULES = ("finite", "ip_min", "dwdt_fraction", "ip_change_per_tau")
+
+
+def equilibrium_quality_confinement_funnel(confinement_table, *, quality_column: str = "efit_quality",
+                                           rules: Sequence[str] = CONFINEMENT_RULES) -> dict[str, Any]:
+    """Equilibrium quality × confinement acceptance (#1644 §9), per quality cohort.
+
+    ``confinement_table`` is the confinement study's table (``rule_<name>``
+    pass columns, ``accepted``, and the EFIT quality label of each row).  Per
+    cohort: candidates, selected, rejected, and the sequential removal by each
+    downstream rule, from :func:`vaft.process.confinement.confinement_exclusion_table`
+    -- the confinement module's own count, not a re-derivation.  Confinement
+    stationarity stays a downstream rule; it never enters equilibrium quality.
+    """
+    from vaft.process.confinement import confinement_exclusion_table
+
+    def flags(series):
+        return series.map(lambda v: str(v).strip().lower() in ("true", "1", "1.0")).to_numpy(bool)
+
+    if not rules:
+        raise ValueError("the funnel needs at least one confinement rule")
+    missing = [f"rule_{rule}" for rule in rules if f"rule_{rule}" not in confinement_table]
+    if missing:
+        # A rule without its column would credit its removals to no rule.
+        raise KeyError(f"confinement table lacks rule columns {missing}")
+    out: dict[str, Any] = {"rules": list(rules), "cohorts": {}}
+    labels = confinement_table[quality_column].astype(object).where(confinement_table[quality_column].notna(), "unknown")
+    for cohort in [c for c in COHORTS if c in set(labels)] + sorted(set(labels) - set(COHORTS)):
+        group = confinement_table[labels == cohort]
+        decision = {rule: flags(group[f"rule_{rule}"]) for rule in rules}
+        exclusions = confinement_exclusion_table(decision)
+        # Selected is what survives every rule -- the exclusion table's own count,
+        # so removed + selected is always the candidates.
+        selected = int(exclusions[-1]["remaining"]) if exclusions else int(len(group))
+        if "accepted" in group and int(flags(group["accepted"]).sum()) != selected:
+            raise ValueError(f"cohort {cohort!r}: 'accepted' keeps {int(flags(group['accepted']).sum())} rows but "
+                             f"the rules {list(rules)} keep {selected}; the table's rule columns are not its decision")
+        out["cohorts"][str(cohort)] = {
+            "candidates": int(len(group)), "selected": selected, "rejected": int(len(group) - selected),
+            "exclusions": exclusions,
+        }
+    return out
+
+
 __all__: Sequence[str] = (
-    "ADMISSIBILITY_RULES", "COHORTS", "CRITERIA_PATH", "CROSSWALK", "MEASUREMENT_RULES", "RULE_COLUMNS",
-    "FIT_QUALITY_RULES", "ROUTINE_SETTING", "STATUSES", "efit_evidence_columns", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
-    "equilibrium_quality_summary", "equilibrium_quality_table", "load_study_criteria", "slice_cohorts",
+    "ADMISSIBILITY_RULES", "COHORTS", "CONFINEMENT_RULES", "CRITERIA_PATH", "CROSSWALK", "MEASUREMENT_RULES", "RULE_COLUMNS",
+    "FIT_QUALITY_RULES", "REPRESENTATIVE_CASES", "ROUTINE_SETTING", "TYPICALITY_METRICS", "STATUSES", "TEXT_COLUMNS", "efit_evidence_columns", "equilibrium_quality_confinement_funnel", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
+    "equilibrium_quality_summary", "equilibrium_quality_table", "load_study_criteria", "read_equilibrium_quality_table",
+    "select_representative_cases", "slice_cohorts",
 )

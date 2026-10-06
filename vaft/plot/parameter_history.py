@@ -38,18 +38,28 @@ def _date_label(stamp: pd.Timestamp, span_days: float) -> str:
 
 def _observed_ticks(
     positions: Sequence[float], labels: Sequence[object], *, coordinate: str
-) -> tuple[list[float], list[object]]:
-    """Select sparse observed positions; refuse contradictory labels."""
-    observed: dict[float, object] = {}
+) -> tuple[list[float], list[list[object]]]:
+    """Select sparse observed positions with the distinct labels seen at each.
+
+    A shot has one acquisition date and a date one shot, so for ``coordinate``
+    ``"shot"`` or ``"date"`` two different labels at one position are a
+    contradiction and are refused.  A numeric column (``time_s``, ...) is
+    repeated across shots by design -- a fixed-time preset puts every shot
+    at the same ``time_s`` -- so its distinct labels are kept together.
+    """
+    observed: dict[float, list[object]] = {}
     for position, label in zip(positions, labels):
         if not np.isfinite(position) or label is None:
             continue
         position = float(position)
-        if position in observed and observed[position] != label:
+        seen = observed.setdefault(position, [])
+        if any(label == other for other in seen):
+            continue
+        if seen and coordinate in ("shot", "date"):
             raise ValueError(
                 f"the same {coordinate} position has different secondary-axis values"
             )
-        observed[position] = label
+        seen.append(label)
     if not observed:
         return [], []
     locations = sorted(observed)
@@ -148,9 +158,12 @@ def plot_parameter_history(
             valid_dates = [date for date in dates if date is not None]
             date_positions = [mdates.date2num(date.to_pydatetime()) for date in valid_dates]
             span_days = max(date_positions) - min(date_positions)
-            tick_labels = [_date_label(value, span_days) for value in tick_values]
+            tick_labels = [
+                ", ".join(dict.fromkeys(_date_label(value, span_days) for value in values))
+                for values in tick_values
+            ]
         else:
-            tick_labels = [str(value) for value in tick_values]
+            tick_labels = [", ".join(str(value) for value in values) for values in tick_values]
         secondary = axes.secondary_xaxis("top", functions=(lambda value: value, lambda value: value))
         secondary.xaxis.set_major_locator(FixedLocator(tick_positions))
         secondary.xaxis.set_major_formatter(FixedFormatter(tick_labels))

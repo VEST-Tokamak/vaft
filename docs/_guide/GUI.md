@@ -51,10 +51,27 @@ A strip above the main area shows the shared selection, which every workspace re
 screen (for a plot with a slice or time control), the database namespace and the state of the
 database connection. Errors from any workspace appear under that strip.
 
-In the **Plots** workspace, the sidebar holds the source picker and the plot selector in the sidebar, the plot's controls
-beneath them, and the figure in the main area. Slices, channels, units and overlays appear
+In the **Plots** workspace, the sidebar holds the source picker, the plot selector and the
+plot's controls, and the figure fills the main area. Slices, channels, units and overlays appear
 only for plots that offer them. A value a plot cannot draw leaves the previous figure on screen
 and shows the reason above it.
+
+The plot selector is built from plot discovery (`available_plots`), not from a list kept in the
+GUI:
+
+- **Grouping and labels.** Plots are grouped by subject, with the subject's aliases, and labelled
+  by view and quantity (`time / current` under `plasma_current [ip, ...]`). The canonical plot
+  name stays the plot's identity and is shown under **About this plot**.
+- **Search.** The box above the selector narrows the list. It uses the registry's own query, so
+  `ip` finds the plasma current, plus a plain text match on names, labels and subjects. The plot
+  on screen stays drawn while you search.
+- **Available / All supported.** **Available** lists what the open source can draw. **All
+  supported** adds every other plot VAFT has for this kind of data, marked *(unavailable)*.
+  Choosing one draws nothing and shows discovery's reason, for example the missing IDS path.
+  With several database shots, a plot is available only when every shot can draw it, and the
+  reason names the shot that cannot.
+- **About this plot.** The discovery record behind the plot: description, canonical name and
+  function, IDS read, backends, controls and interaction modes.
 
 - **Files.** Type server paths (one per line), pick them with **Browse server files** (the files
   of the machine the GUI runs on), or upload them from your own computer. Uploads are copied to a
@@ -169,8 +186,49 @@ it runs under SSH or binds another address (`--auth auto`, the default). Use `--
 require it locally too, and `--auth none` only on a machine nobody else uses.
 
 Binding another address (`--address 0.0.0.0`) also prints a warning: the connection is not
-encrypted. Multi-user deployment is a separate concern from this page, and belongs with the
-database portal (#960).
+encrypted. To serve a team, put the GUI behind a proxy with HTTPS instead, as below.
+
+## Host it for a team
+
+`vaft gui --hosted` serves people who are not the server's user, behind a reverse proxy that
+terminates HTTPS. What changes against a personal `vaft gui`:
+
+- **Samples and database shots only.** The file source, the server file browser and uploads are
+  left out of the page, and a file source is refused even if one is sent. A reader cannot reach
+  the server's disk through the GUI.
+  The Database workspace does not show the server's own HSDS configuration (file, endpoint,
+  account name) either.
+- **Every reader signs in.** With `--auth hsds`, readers sign in with their own HSDS account:
+  the user name and password are checked against the HSDS the GUI reads from (`GET /about`,
+  which answers 401 to a wrong account) and kept nowhere. Otherwise `--hosted` asks one shared
+  password, which must be set in `VAFT_GUI_PASSWORD` (a random one would change unseen on every
+  restart). `--auth none` is for a proxy that authenticates by itself.
+- **The proxy's headers are trusted** (`X-Forwarded-For`, `X-Forwarded-Proto`), and `--prefix`
+  serves the app under a path, so it can sit next to another service on the same host.
+
+Whoever signs in, everyone reads the database with the credentials the service runs with:
+`--auth hsds` decides who may enter, not what they may read. Give it a **read-only
+HSDS account** through `HS_ENDPOINT`, `HS_USERNAME` and `HS_PASSWORD`, never an admin one.
+
+The files in [`vaft/deploy/gui/`](https://github.com/VEST-Tokamak/vaft/tree/develop/vaft/deploy/gui)
+are a working starting point for Ubuntu with nginx and systemd, serving
+`https://<host>/gui/` next to HSDS on the same host. They ship with the package, so an
+install from PyPI has them too: `importlib.resources.files("vaft.deploy.gui")` is the
+installed directory.
+
+| File | Where it goes |
+| --- | --- |
+| `vaft-gui.service` | `/etc/systemd/system/`; runs `vaft gui --hosted --prefix /gui` as an unprivileged `vaft-gui` user with systemd sandboxing and a memory cap |
+| `vaft-gui.env.example` | `/etc/vaft-gui.env` (mode 0600); the page password and the HSDS read account |
+| `nginx-vaft-gui.conf` | the nginx site; keeps HSDS on port 80 as before, serves `/gui/` over HTTPS only, and throttles the login form |
+| `vaft-gui-proxy.conf` | `/etc/nginx/snippets/`; the websocket proxy settings the site includes |
+
+The service's `--allow-websocket-origin` must name the host the browser opens (without a port
+for the default 80/443). The page loads Panel's fonts and assets from public CDNs, so readers
+need internet access; the server does not.
+
+Hosted, one process holds every reader's session, and each session keeps the IDS it has read in
+memory until its tab closes. `MemoryMax` in the unit bounds the whole service.
 
 ## What comes next
 

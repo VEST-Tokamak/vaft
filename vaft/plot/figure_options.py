@@ -282,7 +282,7 @@ class FigureOptions:
                 axis.set_title(self.title, fontsize=axis.title.get_fontsize())
             elif owned:
                 if current is not None:
-                    current.set_text(self.title)  # keeps the place the renderer chose
+                    _retitle_in_place(figure, current, self.title)
                 else:
                     size = data_axes[0].title.get_fontsize() if data_axes else None
                     figure.suptitle(self.title, fontsize=size)
@@ -463,6 +463,21 @@ class FigureOptions:
                     # Plotly's default trace width is 2 px.
                     line.width = (line.width if line.width is not None else 2.0) * self.line_scale
         return figure
+
+
+def _retitle_in_place(figure: Any, suptitle: Any, text: str) -> None:
+    """Replace the suptitle's text where the renderer hung it, keeping it off the panels.
+
+    The suptitle hangs from the top edge in the band the layout reserved for
+    the old text; a taller replacement (an extra line) would grow down onto
+    the first row's titles, so the subplots are lowered by the difference.
+    """
+    renderer = figure.canvas.get_renderer()
+    before = suptitle.get_window_extent(renderer).height
+    suptitle.set_text(text)
+    grown = (suptitle.get_window_extent(renderer).height - before) / figure.bbox.height
+    if grown > 0 and suptitle.get_verticalalignment() == "top":
+        figure.subplots_adjust(top=max(figure.subplotpars.bottom + 0.05, figure.subplotpars.top - grown))
 
 
 def _has_panel_label(axis: Any) -> bool:

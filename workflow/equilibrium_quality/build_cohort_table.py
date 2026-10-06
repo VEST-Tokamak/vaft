@@ -30,6 +30,8 @@ from typing import Any, Sequence
 
 import numpy as np
 
+from vaft.ods_access import path_value
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -79,13 +81,19 @@ class ProductEvidence:
         ods = self.product(row["shot"])
         if ods is None:
             return {"evidence_status": "no EFIT product"}
-        times = np.asarray(ods["equilibrium.time"], float)
-        index = int(np.argmin(np.abs(times - row["time_s"])))
-        if not math.isclose(times[index], row["time_s"], abs_tol=self.tolerance_s):
-            return {"evidence_status": f"no product slice within {self.tolerance_s} s"}
+        # A placeholder product ("EFIT output unavailable") has no time base:
+        # path_value asks without materialising the node, and the row records
+        # the refusal instead of the build stopping on an empty argmin.
+        times = path_value(ods, "equilibrium.time")
+        if times is None or np.size(times) == 0:
+            return {"evidence_status": "no equilibrium.time in product"}
         try:
             from vaft.validation.equilibrium_quality import equilibrium_quality_constraint_points
 
+            times = np.asarray(times, float).ravel()
+            index = int(np.argmin(np.abs(times - row["time_s"])))
+            if not math.isclose(times[index], row["time_s"], abs_tol=self.tolerance_s):
+                return {"evidence_status": f"no product slice within {self.tolerance_s} s"}
             columns = {"evidence_status": "ok", "evidence_time_s": float(times[index]),
                        **efit_evidence_columns(ods, index)}
             for point in equilibrium_quality_constraint_points(ods, index):
@@ -132,7 +140,7 @@ def write_figures(table, points, census, directory: Path) -> list[Path]:
 def main(argv: Sequence[str] | None = None) -> int:
     from vaft.validation.equilibrium_quality import (
         CRITERIA_PATH, equilibrium_quality_crosswalk, equilibrium_quality_failure_census,
-        equilibrium_quality_summary, equilibrium_quality_table, load_study_criteria,
+        equilibrium_quality_summary, equilibrium_quality_table, load_study_criteria, select_representative_cases,
     )
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -155,6 +163,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "summary": equilibrium_quality_summary(table),
         "census": equilibrium_quality_failure_census(table),
         "crosswalk": equilibrium_quality_crosswalk(table),
+        "representative_cases": select_representative_cases(table),
     }
     (args.output / "summary.json").write_text(json.dumps(summary, indent=1, default=str, allow_nan=True) + "\n",
                                               encoding="utf-8")
@@ -173,6 +182,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.figures:
             write_figures(table, points, summary["census"], args.output / "figures")
     cohorts = summary["summary"]["cohorts"]
+    for case in summary["representative_cases"]:
+        print(f"  {case['case']}: shot {case['shot']} t={case['time_s']} setting {case['setting']} -- {case['reason']}")
     print(f"{len(table)} rows, {summary['summary']['slices']} slices: "
           + ", ".join(f"{k} {v['slices']}" for k, v in cohorts.items()))
     return 0

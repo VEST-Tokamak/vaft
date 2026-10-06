@@ -31,6 +31,7 @@ import pandas as pd
 
 __all__ = [
     "CONFINEMENT_COLUMNS",
+    "OPTIONAL_CONFINEMENT_COLUMNS",
     "ColumnSpec",
     "TRANSITION_COLUMNS",
     "empty_confinement_table",
@@ -72,6 +73,8 @@ CONFINEMENT_COLUMNS: dict[str, ColumnSpec] = {
     "p_loss_W": ColumnSpec("W", "Loss power (see p_loss_definition)."),
     "w_th_J": ColumnSpec("J", "Thermal stored energy (see w_th_definition)."),
     "tau_e_th_s": ColumnSpec("s", "Thermal energy confinement time (see tau_e_definition)."),
+    "w_global_J": ColumnSpec("J", "Total stored energy, fast ions included (see w_global_definition); missing where the source has none (#1713)."),
+    "tau_e_global_s": ColumnSpec("s", "Global energy confinement time, total stored energy over its loss power (see tau_e_global_definition) (#1713)."),
     "r_geo_m": ColumnSpec("m", "Geometric major radius of the last closed flux surface."),
     "a_m": ColumnSpec("m", "Minor radius of the last closed flux surface."),
     "epsilon": ColumnSpec("1", "Inverse aspect ratio a_m / r_geo_m."),
@@ -84,6 +87,8 @@ CONFINEMENT_COLUMNS: dict[str, ColumnSpec] = {
     "p_loss_definition": ColumnSpec("str", "How p_loss_W was formed, in the source's terms."),
     "w_th_definition": ColumnSpec("str", "How w_th_J was obtained."),
     "tau_e_definition": ColumnSpec("str", "How tau_e_th_s was formed."),
+    "w_global_definition": ColumnSpec("str", "How w_global_J was obtained."),
+    "tau_e_global_definition": ColumnSpec("str", "How tau_e_global_s was formed, including which loss power."),
     "b_t_definition": ColumnSpec("str", "Which field b_t_T is and at which radius."),
     "m_eff_source": ColumnSpec("str", "Where m_eff_amu came from ('source' or 'user-specified')."),
     "selected": ColumnSpec("bool", "Source's own standard-dataset flag (DB5: SELDB5 == 1); False where the source has none."),
@@ -237,6 +242,13 @@ def empty_transition_table() -> pd.DataFrame:
     return _empty(TRANSITION_COLUMNS)
 
 
+#: Canonical confinement columns a table written before #1713 may lack: the
+#: global stored energy and confinement time.  :func:`validate_confinement_table`
+#: adds them as missing (NaN / None) rather than refusing the table, so tables and
+#: producers from before the global columns keep validating.
+OPTIONAL_CONFINEMENT_COLUMNS = ("w_global_J", "tau_e_global_s", "w_global_definition", "tau_e_global_definition")
+
+
 def validate_confinement_table(table: pd.DataFrame) -> pd.DataFrame:
     """Check a table against the canonical schema and return it column-ordered.
 
@@ -257,7 +269,18 @@ def validate_confinement_table(table: pd.DataFrame) -> pd.DataFrame:
         A canonical column is missing, ``record_id`` is not unique, a numeric
         column holds an infinite value, or a magnitude column (all numeric
         columns except ``time_s`` and ``delta``) holds a negative one.
+
+    Notes
+    -----
+    The columns of :data:`OPTIONAL_CONFINEMENT_COLUMNS` (the global stored
+    energy and confinement time, #1713) are added as missing when absent;
+    every other canonical column must be present.
     """
+    absent = [c for c in OPTIONAL_CONFINEMENT_COLUMNS if c not in table.columns]
+    if absent:
+        table = table.copy()
+        for column in absent:
+            table[column] = None if CONFINEMENT_COLUMNS[column].unit == "str" else np.nan
     return _validate(table, CONFINEMENT_COLUMNS, "Confinement")
 
 

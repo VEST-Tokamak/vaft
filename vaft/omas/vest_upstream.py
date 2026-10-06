@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields, replace
 from datetime import datetime
 import gzip
 import hashlib
@@ -36,6 +36,7 @@ from vaft.machine_mapping.langmuir_probes import LangmuirProbeEraGapError, langm
 from vaft.machine_mapping.magnetics import (
     FLUCTUATION_MIRNOV_FIRST_SHOT,
     LIMITER_SHUNT_CHANNELS,
+    equilibrium_magnetics_processing_config,
     fluctuation_mirnov_channel_definitions,
     known_magnetics_faults,
     toroidal_mirnov_reference_channels,
@@ -677,6 +678,78 @@ def _validate_diagnostics_time_coordinates(
     }
 
 
+def magnetics_processing_for_shot(
+    shot: int, overrides: Mapping[str, Any] | None
+) -> VestMagneticsProcessingConfig | None:
+    """The equilibrium-magnetics processing for *shot*: its era policy, with *overrides* on top.
+
+    ``None`` without overrides, so the mapper resolves the era itself. An
+    override changes only the keys it names. It used to *replace* the era
+    policy: the routine workflow's ``vest.magnetics.processing`` block, which
+    restates the dataclass defaults, then ran every native-DAQ shot (46404 on)
+    through the slow-DAQ path, with the wrong fields and baselines, as soon as
+    the workflow configuration was actually loaded (#1541). The acquisition era
+    (``daq_mode``, the baseline rules, the output window) comes from
+    ``vest.yaml`` unless an override names it explicitly.
+    """
+    if not overrides:
+        return None
+    era = equilibrium_magnetics_processing_config(int(shot))
+    shadowed = set(_WINDOW_RULE_KEYS) if era.window_override is not None else set()
+    if era.flux_baseline_window is not None or era.flux_baseline_samples is not None:
+        shadowed |= set(_FLUX_BASELINE_RULE_KEYS)
+    defaults = {f.name: f.default for f in fields(VestMagneticsProcessingConfig)}
+    # A shadowed key left at its default is inert (the routine block restates
+    # them all); one set to anything else is a change that would be dropped.
+    dropped = sorted(
+        key for key in shadowed & set(overrides)
+        if _as_tuple(overrides[key]) != _as_tuple(defaults[key])
+    )
+    if dropped:
+        raise ValueError(
+            f"shot {shot}: the vest.yaml era policy decides {dropped}, so this override would "
+            "change nothing; set window_override / flux_baseline_window / flux_baseline_samples instead"
+        )
+    # The era window is a triple of INDICES into the output grid
+    # linspace(time_start, time_end, sample_count). An override that moves the
+    # grid while the era keeps the indices moves the analysis window and the
+    # probe baseline with it, silently: `sample_count: 20000` puts the
+    # native-DAQ window at 0.325-0.45 s instead of 0.26-0.36 s. The grid keys
+    # are therefore refused unless the override also names `window_override`,
+    # so a scan that moves the grid owns the indices into it as well.
+    if era.window_override is not None and "window_override" not in overrides:
+        moved = sorted(
+            key for key in _OUTPUT_GRID_KEYS
+            if key in overrides and _as_tuple(overrides[key]) != _as_tuple(getattr(era, key))
+        )
+        if moved:
+            raise ValueError(
+                f"shot {shot}: {moved} would move the output grid that the vest.yaml era window "
+                f"{tuple(era.window_override)} indexes, shifting the analysis window and the probe "
+                "baseline; name window_override alongside them or leave them at the era's values"
+            )
+    return replace(era, **dict(overrides))
+
+
+#: Keys only the legacy hardcoded window ladder reads; an era ``window_override`` shadows them.
+_WINDOW_RULE_KEYS = (
+    "default_index_start", "default_index_end", "default_probe_baseline_end", "late_shot_min",
+    "transient_shot_min", "transient_shot_max", "late_index_start", "late_index_end", "late_probe_baseline_end",
+)
+#: The output grid the era's ``window_override`` indices index into.
+_OUTPUT_GRID_KEYS = ("time_start", "time_end", "sample_count")
+#: Keys only the legacy per-sample flux baselines read; an era flux-baseline rule shadows them.
+_FLUX_BASELINE_RULE_KEYS = (
+    "flux_baseline_first_start", "flux_baseline_first_end", "flux_baseline_second_start",
+    "flux_baseline_second_end", "flux_baseline_late_start", "flux_baseline_late_end",
+    "flux_baseline_late_loop_numbers",
+)
+
+
+def _as_tuple(value: Any) -> Any:
+    return tuple(value) if isinstance(value, (list, tuple)) else value
+
+
 def build_diagnostics_ods(
     *,
     shot: int,
@@ -913,6 +986,10 @@ def build_diagnostics_ods(
     )
     grids["langmuir_probes"] = policy_grid("langmuir_probes")
     tf_policy = policies["tf"]
+    # Filled by the mapper: the TF-current acquisition excursions it replaced
+    # (#1543), so the manifest's `repaired` says what `tf.coil.0.current` no
+    # longer measures rather than a literal empty list.
+    tf_report: dict[str, Any] = {}
     run_component(
         "tf",
         ("tf",),
@@ -925,15 +1002,15 @@ def build_diagnostics_ods(
                 tf_policy.tend,
                 tf_policy.dt,
                 raw_source=raw_path,
+                report=tf_report,
             ),
         ),
     )
     record_realized_grid("tf", "tf", "tf.time")
-    processing = (
-        VestMagneticsProcessingConfig(**vest_magnetics_processing)
-        if vest_magnetics_processing
-        else None
-    )
+    tf_repaired = [{"component": "tf", **entry} for entry in tf_report.get("repaired", [])]
+    if statuses["tf"]["status"] != "unavailable":
+        statuses["tf"]["repaired"] = tf_repaired
+    processing = magnetics_processing_for_shot(shot, vest_magnetics_processing)
     magnetics_channels = [
         int(channel["field_code"])
         for channel in vest_equilibrium_magnetics_channel_definitions(int(shot))
@@ -1052,6 +1129,10 @@ def build_diagnostics_ods(
             "dt": float(analysis.dt),
             "run": int(run),
             "vest_magnetics_processing": vest_magnetics_processing or {},
+            # What the processing actually used: the era policy with the override on top.
+            "vest_magnetics_processing_effective": (
+                json.loads(json.dumps(asdict(processing))) if processing is not None else None
+            ),
             "time_policies": time_policies or {},
         },
         "time_grid": time_grid,
@@ -1070,7 +1151,7 @@ def build_diagnostics_ods(
                     for coil in statuses.get("pf_active", {}).get("unacquired_channels", [])
                 ]
             ),
-            "repaired": [],
+            "repaired": tf_repaired,
             "disabled": _disabled_pf_coils(shot),
             "rejected": [],
             "unavailable": unavailable,

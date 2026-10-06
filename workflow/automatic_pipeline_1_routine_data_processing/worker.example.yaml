@@ -16,6 +16,12 @@ log_dir: ${VAFT_FILEDB_DIR}/pipeline/worker/logs
 # An unset variable anywhere in a path is an error, not a literal directory.
 workflow_dir: ${VAFT_CHECKOUT}/workflow/automatic_pipeline_1_routine_data_processing
 pipeline_config: ${VAFT_CHECKOUT}/workflow/automatic_pipeline_1_routine_data_processing/config.yaml
+# A deployed pipeline_config inherits every key it omits from that config.yaml,
+# `efit.run: true` included (#1687): a deployment that does not run EFIT must say
+#   efit:
+#     run: false
+# in its own copy. Leave `vest: {}` as well; a `vest.magnetics.processing` block
+# is a parameter-scan override on top of the shot's acquisition era (#1541/#1731).
 
 # The worker owns shots from here on; older shots belong to batch regeneration.
 first_shot: 48900
@@ -50,9 +56,19 @@ env:
 # Which per-shot stages to run and judge. Omitted: the whole pipeline (rule all).
 # A list narrows rule all and the worker's verdict to those stages; raw is always
 # included, and a stage needs its upstream (diagnostics -> eddy -> efit -> chease ->
-# mhd_linear / gpec_ideal). With [raw, diagnostics, eddy] a vacuum shot no longer
-# fails at the constraint step: nothing from EFIT on is scheduled or judged.
+# mhd_linear / gpec_ideal). With [raw, diagnostics, eddy] nothing from EFIT on is
+# scheduled or judged; with EFIT in scope a vacuum shot records EFIT as not
+# applicable and ends partial (#205).
 # stages: [raw, diagnostics, eddy]
+
+# Disk guard: no new batch starts while a guarded filesystem has less than
+# min_free_gb GB free; the worker keeps detecting and queueing shots, records a
+# disk_paused event (shown by `vaft pipeline-worker status`) and resumes at
+# resume_free_gb (default: min_free_gb). disk_paths defaults to the pipeline's
+# base_dir, log_dir and the state database's directory. null = no guard.
+min_free_gb: 200
+# resume_free_gb: 220
+# disk_paths: [/srv/vest.filedb]
 
 # module:callable returning a classifier; empty = raw-field classifier.
 classifier: null
