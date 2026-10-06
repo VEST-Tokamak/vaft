@@ -6,6 +6,7 @@ application code imports them from there rather than reaching into these modules
 """
 
 from . import fields, geometry, gyrokinetics, images, lines, panels, profiles, spectra, spectrograms
+from . import edge_q
 from .fields import render_field_2d
 from .geometry import draw_geometry_layer, render_geometry_layers
 from .images import render_image_2d, render_image_sequence
@@ -17,6 +18,7 @@ from .spectrograms import render_spectrogram
 
 __all__ = [
     "draw_geometry_layer",
+    "edge_q",
     "fields",
     "geometry",
     "gyrokinetics",

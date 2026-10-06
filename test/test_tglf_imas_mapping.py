@@ -470,3 +470,24 @@ def test_a_q_that_changes_sign_has_no_current_direction(profile):
     q[: q.size // 2] *= -1.0
     with pytest.raises(LocalConversionError, match="changes sign"):
         prepare_tglf_input(dataclasses.replace(profile, q=q), 0.5)
+
+
+def test_a_classical_entry_keeps_the_shared_ids_heterogeneous(surfaces, profile):
+    """#1654: classical slice indices are per entry, so core_transport.time cannot index them."""
+    from vaft.machine_mapping.classical import core_transport_from_classical
+    from vaft.process.transport_state import CLASSICAL_MODEL
+
+    record = {"r_over_a": 0.5, "electron_energy_flux_W_m2": 1.0, "ion_energy_flux_W_m2": {"z=1": 2.0},
+              "chi_e_m2_s": 0.1, "chi_i_m2_s": 1.0, "coulomb_log_valid": True, "model": CLASSICAL_MODEL}
+    for order in ("classical_first", "tglf_first"):
+        ods = ODS(consistency_check=False)
+        if order == "tglf_first":
+            core_transport_from_tglf(ods, surfaces, profile, time=0.3)
+        for t in (0.31, 0.32):
+            core_transport_from_classical(ods, [record], profile, time=t, state_identity=f"s{t}")
+        if order == "classical_first":
+            core_transport_from_tglf(ods, surfaces, profile, time=0.3)
+        assert ods["core_transport.ids_properties.homogeneous_time"] == 0, order
+        for model in range(len(ods["core_transport.model"])):
+            for index in range(len(ods[f"core_transport.model.{model}.profiles_1d"])):
+                assert np.isfinite(float(ods[f"core_transport.model.{model}.profiles_1d.{index}.time"]))
