@@ -26,6 +26,8 @@ from vaft.formula._docstring import (
 
 #: Identities and bookkeeping: no literature source adds anything.
 DEFINITIONAL = frozenset({
+    # The share of a finite response a Jacobian misses (#1642): a ratio of norms.
+    "linearity_ratio",
     # The operational-boundary data model (#1067): evaluation and registry
     # plumbing. The physics and its sources live on each registered entry.
     "boundary_value",
@@ -44,6 +46,8 @@ DEFINITIONAL = frozenset({
     "cylindrical_kink_coordinates",
     "iter_q95_coordinates",
     "start_q95_coordinates",
+    # The spherical-tokamak Hugill coordinates of Sykes et al. (2000), #1602; the source is in the docstring.
+    "hugill_coordinates_st",
     # A parameterization with no physics of its own (#552).
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
@@ -88,6 +92,13 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # positive-when-holds criteria vs GGJ's negative-when-stable indices; toroidal-flux well (#1635)
+    "suydam_criterion",
+    "mercier_criterion_circular",
+    "ggj_ideal_interchange_index",
+    "ggj_resistive_interchange_index",
+    "magnetic_well_from_specific_volume",
+    "bussac_internal_kink_energy",
     # the growth rate is in Alfven units v_A/(qR); Dirichlet ends on the extended angle (#1075)
     "s_alpha_ballooning_eigenmode",
     "ballooning_radial_wavenumber",
@@ -230,6 +241,9 @@ CONVENTION_SENSITIVE = frozenset({
     "local_slab_from_cylinder",
     "cylindrical_poloidal_field",
     "peaked_current_safety_factor",
+    "cylindrical_enclosed_current",
+    "cylindrical_poloidal_flux",
+    "cylindrical_internal_inductance",
     # single-particle motion: charge signs, vector orientation, half-step velocities
     "gyrofrequency",
     "larmor_radius",

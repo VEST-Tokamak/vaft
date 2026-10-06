@@ -951,7 +951,10 @@ def plot_kinetic_overview_profiles(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Four local kinetic profiles with measurement and fit provenance."""
+    """Four local kinetic profiles with measurement and fit provenance.
+
+    Renders with :func:`vaft.plot.kinetic_overview_profiles`.
+    """
     return render("kinetic_overview_profiles", source, ax=ax, show=show, label=label, **options)
 
 

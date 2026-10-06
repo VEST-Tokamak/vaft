@@ -51,4 +51,5 @@ Consequences for reading the atlas:
 - **Absolute fluxes.** Q/Q_GB is likely high on the driven surfaces. The SAT rules stay unranked: Lane Y's first nonlinear run (39915 r/a 0.7) failed locality QA and is not a benchmark (#1484, 2026-10-05).
 - **Robust quantities.** The mode direction (`omega_dom_sign`, the mode-branch map) and the radial and inter-shot ordering are what the check supports.
 - **Weak surfaces.** Near-marginal surfaces stay near-marginal; their f_neo partition is not affected.
+- **ES low-k_y caveat.** `converged` (`cgyro_qualified`) records CGYRO's converged exit only and screens no mode: electrostatic runs at k_yρ_s ≤ 0.2 can carry the high-frequency electron (ω_H) branch (|ω| ~ 200 c_s/a, worse with finer θ resolution, absent once A_∥ is kept), so an ES row that converges there is not a drift-wave growth rate and would set γ_max on its surface. In the product above those points ended `max_time`; trust the EM (`em-aperp`) rows at low k_y (#1484, #1656).
 - **Conventions.** In `linear_summary.csv`, `gamma_max_ratio` is CGYRO/TGLF, the inverse of the ratio quoted here. The EM field model is named `em-aperp`, which is the atlas's `em-bper`.
