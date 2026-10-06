@@ -18,7 +18,7 @@ from typing import Any
 
 from ._require import require_panel
 from .composer import CompositionEditor
-from .figure import EXPORT_FORMATS, DisplaySize
+from .figure import EXPORT_FORMATS, VIDEO_FORMATS, DisplaySize
 from .options_form import FigureOptionsForm
 from .reproduce import ReproducePanel
 from .state import BrowserSession, Source, sample_shots
@@ -133,6 +133,17 @@ class BrowserApp:
             callback=self._export, filename="figure.png", label="Download figure",
             color="success", disabled=True,
         )
+        # A movie of the plot's sequence (#1400): offered only when the plot
+        # has the slice control the player walks.  Frames per second is how
+        # fast the states are shown -- never the acquisition rate -- and the
+        # step is the only decimation: every state is otherwise one frame.
+        self.export_fps = pn.widgets.IntInput(label="Frames per second", value=10, start=1, end=60, visible=False)
+        self.export_step = pn.widgets.IntInput(label="Every Nth state", value=1, start=1, visible=False)
+        self.download_times = pn.widgets.FileDownload(
+            callback=self._export_times, filename="figure_frames.json", label="Download frame times (JSON)",
+            visible=False, disabled=True,
+        )
+        self._video_states: int | None = None
 
         # -- main area
         self.status = pn.pane.Markdown("No source loaded.")
@@ -265,6 +276,7 @@ class BrowserApp:
         self.renderer.disabled = True
         if not keep_selector:
             self.plot.disabled = True
+        self._offer_video()  # nothing drawn: no video formats either
 
     def _update_status(self) -> None:
         text = f"**{self.session.label}**: {self._plot_count} plots available."
@@ -490,17 +502,65 @@ class BrowserApp:
 
     # -- export ---------------------------------------------------------------
     def _name_download(self) -> None:
+        self._offer_video()
         drawn = self.session.plot or ("composition" if self.session.composition is not None else "figure")
         stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", f"{drawn}_{self.session.label}").strip("_")
         self.download.filename = f"{stem}.{self.export_format.value}"
+        self.download_times.filename = f"{stem}_frames.json"
+
+    def _offer_video(self) -> None:
+        """The video formats, and their fields, only for a plot with a sequence (#1400)."""
+        states = len(self.session.sequence_states()) if self.session.state is not None else 0
+        offered = list(EXPORT_FORMATS) + (list(VIDEO_FORMATS) if states > 1 else [])
+        if list(self.export_format.options) != offered:
+            # Options and value together: the format watcher sees one change.
+            value = self.export_format.value if self.export_format.value in offered else EXPORT_FORMATS[0]
+            self.export_format.param.update(options=offered, value=value)
+        if states > 1 and states != self._video_states:
+            # Start near 200 frames -- a movie, not a long render -- and say
+            # how many states there are, so the stride is a choice.
+            self.export_step.value = max(1, -(-states // 200))
+            self.export_step.name = f"Every Nth state (of {states})"
+            self.download_times.disabled = True  # describes a movie of another plot
+        self._video_states = states if states > 1 else None
+        video = self.export_format.value in VIDEO_FORMATS
+        for widget in (self.export_fps, self.export_step, self.download_times):
+            widget.visible = video
+        self.download.label = "Download video" if video else "Download figure"
+        # A movie frame is the size of the screen, not of a printed page.
+        if video and self.export_dpi.value == 150:
+            self.export_dpi.value = 100
+        elif not video and self.export_dpi.value == 100:
+            self.export_dpi.value = 150
+
+    def _video_options(self) -> dict[str, Any]:
+        return {
+            "fps": int(self.export_fps.value or 10), "step": int(self.export_step.value or 1),
+            "dpi": int(self.export_dpi.value or 150), **self.reproduce.presentation(),
+        }
 
     def _export(self) -> Any:
         import io
 
         try:
-            data = self.session.export(
-                self.export_format.value, dpi=int(self.export_dpi.value or 150), **self.reproduce.presentation(),
-            )
+            if self.export_format.value in VIDEO_FORMATS:
+                data = self.session.export_video(self.export_format.value, **self._video_options())
+                self.download_times.disabled = False
+            else:
+                data = self.session.export(
+                    self.export_format.value, dpi=int(self.export_dpi.value or 150), **self.reproduce.presentation(),
+                )
+        except Exception as error:
+            self._show_error(error)
+            return None
+        return io.BytesIO(data)
+
+    def _export_times(self) -> Any:
+        """The frame-by-frame provenance of the video export: state indices and physical times."""
+        import io
+
+        try:
+            data = self.session.video_metadata()
         except Exception as error:
             self._show_error(error)
             return None
@@ -620,7 +680,8 @@ class BrowserApp:
             self.width, self.height, title="Preview size", collapsed=True, sizing_mode="stretch_width",
         )
         export = pn.Card(
-            self.export_format, self.export_dpi, self.download, pn.layout.Divider(), *self.reproduce.widgets(),
+            self.export_format, self.export_dpi, self.export_fps, self.export_step, self.download,
+            self.download_times, pn.layout.Divider(), *self.reproduce.widgets(),
             title="Export and reproduce", collapsed=True, sizing_mode="stretch_width",
         )
         return [
