@@ -148,6 +148,39 @@ def test_kinetic_overview_maps_measurements_through_the_time_matched_slice(fixtu
     assert not np.array_equal(plotted[targets[0]], plotted[targets[1]])
 
 
+def test_kinetic_overview_omits_an_unavailable_coordinate_instead_of_raising(fixture_data):
+    """An equilibrium without q cannot give rho_tor_norm; the overview still builds.
+
+    ``available_plots`` promises the plot on IDS presence, so ``auto`` must
+    resolve to a coordinate the equilibrium supplies, and an explicit
+    unavailable coordinate omits the mapped series as the contract says.
+    """
+    from omas import ODS
+
+    from vaft.omas.sample import sample_ods
+    from vaft.plot.backend.kinetic_overview import _LABELS
+    from vaft.plot.backend.recipes import build_model, missing_required_path
+
+    _, fixture = fixture_data
+    sample = sample_ods()
+    without_q = ODS(consistency_check=False)
+    without_q["thomson_scattering"] = fixture["thomson_scattering"]
+    without_q["equilibrium"] = sample["equilibrium"]
+    for index in range(len(without_q["equilibrium.time_slice"])):
+        prefix = f"equilibrium.time_slice.{index}.profiles_1d"
+        for leaf in ("q", "rho_tor_norm", "phi"):
+            if f"{prefix}.{leaf}" in without_q:
+                del without_q[f"{prefix}.{leaf}"]
+    assert missing_required_path(without_q, "kinetic_overview_profiles") is None
+
+    panels = build_model("kinetic_overview_profiles", [("h", without_q)])
+    assert [len(panel.series) for panel in panels.models] == [1, 1, 0, 0]
+    assert panels.models[0].series[0].role == "measurement"
+    assert all(panel.coordinate_label == _LABELS["rho_pol_norm"] for panel in panels.models)
+    with pytest.raises(ValueError, match="no compatible local kinetic profiles"):
+        build_model("kinetic_overview_profiles", [("h", without_q)], coordinate="rho_tor_norm")
+
+
 def test_probe_only_overview_uses_major_radius_without_invention(fixture_data):
     from omas import ODS
     import vaft.omas

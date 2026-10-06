@@ -86,12 +86,43 @@ def _mapped_coordinate(ods, r: np.ndarray, z: np.ndarray, coordinate: str,
         return r
     if count(ods, "equilibrium.time_slice") == 0:
         return None
-    from vaft.process.profile import equilibrium_mapping_points
+    from vaft.process.profile import CoordinateUnavailableError, equilibrium_mapping_points
 
     _, when = _equilibrium_slice(ods, target)
     mapped = equilibrium_mapping_points(ods, r, z, time=when)
-    result = mapped.select(coordinate)
+    try:
+        result = mapped.select(coordinate)
+    except CoordinateUnavailableError:
+        # The recipe omits what it cannot place rather than failing the
+        # whole overview; the fitters' refusal is theirs to raise.
+        return None
     return None if result is None else np.asarray(result, dtype=float)
+
+
+def _auto_coordinate(ods, target: float | None) -> str:
+    """The flux coordinate ``auto`` resolves to, or ``R`` without an equilibrium or fit.
+
+    ``rho_tor_norm`` is preferred, but only when the equilibrium can supply
+    it: one without a usable ``q`` profile (a legacy fluxSurfaces mapping, a
+    reconstruction with ``q`` missing) falls back to ``rho_pol_norm``, which
+    every equilibrium gives, instead of mapping every measurement to nothing.
+    """
+    has_fit = bool(count(ods, "core_profiles.profiles_1d"))
+    has_equilibrium = bool(count(ods, "equilibrium.time_slice"))
+    has_local = bool(count(ods, "thomson_scattering.channel") or count(ods, "charge_exchange.channel"))
+    if not (has_fit or (has_equilibrium and has_local)):
+        return "R"
+    if not (has_equilibrium and has_local):
+        return "rho_tor_norm"
+    index, when = _equilibrium_slice(ods, target)
+    axis_r = _scalar(get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.r"))
+    axis_z = _scalar(get(ods, f"equilibrium.time_slice.{index}.global_quantities.magnetic_axis.z"))
+    if axis_r is None or axis_z is None:
+        return "rho_tor_norm"
+    from vaft.process.profile import equilibrium_mapping_points
+
+    probe = equilibrium_mapping_points(ods, np.array([axis_r]), np.array([axis_z]), time=when)
+    return "rho_tor_norm" if probe.rho_tor_norm is not None else "rho_pol_norm"
 
 
 def _core_coordinate(ods, index: int, coordinate: str,
@@ -205,19 +236,13 @@ def build_kinetic_overview(ods, *, coordinate: str = "auto", **options) -> Panel
     """Build four local-profile panels; omit unavailable and nonlocal sources."""
     if coordinate not in COORDINATES:
         raise ValueError(f"coordinate must be one of {', '.join(COORDINATES)}")
-    if coordinate == "auto":
-        coordinate = (
-            "rho_tor_norm" if count(ods, "core_profiles.profiles_1d")
-            or (count(ods, "equilibrium.time_slice") and (
-                count(ods, "thomson_scattering.channel")
-                or count(ods, "charge_exchange.channel")
-            )) else "R"
-        )
     if any(options.get(key) is not None for key in ("time", "time_index", "time_slice")):
         raise ValueError("kinetic overview has diagnostic-specific times; select a source plot to choose its time")
     composite = _is_composite(ods)
     suffix = " [shot 48224]" if composite else ""
     target = _selected(array(ods, "core_profiles.time"), 0)
+    if coordinate == "auto":
+        coordinate = _auto_coordinate(ods, target)
     panels = []
     for quantity, heading, unit, diagnostic_signal, core_signal, probe_signal in _FIELDS:
         series = []
