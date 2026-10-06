@@ -31,6 +31,7 @@ __all__ = [
     "TextView",
     "equilibrium_table_fit_quality",
     "equilibrium_table_summary",
+    "equilibrium_table_validation",
     "equilibrium_text_summary",
     "format_quantity",
     "render_table",
@@ -42,7 +43,10 @@ __all__ = [
 DEFAULT_FORMAT = ".4g"
 
 #: How a status reads in the text forms.
-STATUS_LABELS = {"": "", "pass": "PASS", "warn": "WARN", "fail": "FAIL", "info": "INFO"}
+STATUS_LABELS = {
+    "": "", "pass": "PASS", "warn": "WARN", "fail": "FAIL", "info": "INFO",
+    "indeterminate": "INDETERMINATE", "not_available": "NOT_AVAILABLE",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -551,6 +555,33 @@ def equilibrium_table_summary(model: Table, *, show: bool = False) -> RenderedTa
 )
 def equilibrium_table_fit_quality(model: Table, *, show: bool = False) -> RenderedTable:
     """EFIT goodness of fit at one slice, by constraint family."""
+    return render_table(model, show=show)
+
+
+@renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="table",
+    quantity="validation",
+    model=Table,
+    description=(
+        "Every registered validation check's verdict at one equilibrium slice -- "
+        "verification, diagnostic fit, physical validity, independent validation: "
+        "the number each status was decided on, the registry criterion, the status "
+        "(NOT_AVAILABLE and INDETERMINATE kept as such) and its reason; the "
+        "aggregate status and the count per status in the caption."
+    ),
+    ids=("equilibrium", "magnetics", "core_profiles", "thomson_scattering"),
+    required_paths=_SLICE_REQUIRED,
+    optional_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.q",
+        "equilibrium.time_slice.{i}.profiles_1d.pressure",
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.chi_squared",
+        "magnetics.diamagnetic_flux.{j}.data",
+    ),
+)
+def equilibrium_table_validation(model: Table, *, show: bool = False) -> RenderedTable:
+    """The validation verdicts of one equilibrium slice, one row per registered check."""
     return render_table(model, show=show)
 
 
