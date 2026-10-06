@@ -47,7 +47,7 @@ def test_the_profiles_and_matrix_round_trip_from_the_ods(mapped, native):
     np.testing.assert_array_equal(row["psi_n"], native.psi_n)
     for public, name in (("q", "q"), ("D_I", "di"), ("D_R", "dr"), ("H", "h")):
         np.testing.assert_array_equal(row[public], getattr(native, name))
-    np.testing.assert_array_equal(np.isnan(row["C_A"]), np.isnan(native.ca1))
+    np.testing.assert_array_equal(row["C_A"], native.ca1)  # NaN-aware
     np.testing.assert_array_equal(row["delta_prime_matrix"], native.Delta_prime)
 
 
@@ -85,9 +85,28 @@ def test_rdcon_and_stride_stay_apart(tmp_path):
     assert all(len(r["surfaces"]) == 9 for r in rows.values())
 
 
-def test_remapping_keeps_the_last_fragment(mapped, tmp_path):
+def test_remapping_keeps_the_last_fragment_and_its_surfaces_only(mapped, tmp_path):
     mhd_linear(mapped, str(_source(tmp_path / "again", "rdcon")), {"module": "rdcon", "modes": [1]})
-    assert len(extract_rdcon_stability(mapped)) == 1
+    [row] = extract_rdcon_stability(mapped)
+    # The second run appended ntms.mode[9:18]; only those pair with the last fragment.
+    assert len(row["surfaces"]) == row["msing"] == 9
+    assert len({s["m"] for s in row["surfaces"]}) == 9
+
+
+def test_nan_profiles_round_trip(tmp_path, native):
+    import dataclasses
+
+    from vaft.machine_mapping.mhd_linear import _parse_resistive_fragment, _resistive_native_xml
+    import xml.etree.ElementTree as ET
+
+    ca1 = np.asarray(native.ca1, dtype=float).copy()
+    ca1[[0, 5, -1]] = np.nan
+    text = f'<solver name="rdcon" n_tor="1" version="2" time_slice="0" position="0"><msing>9</msing>{_resistive_native_xml(dataclasses.replace(native, ca1=ca1))}</solver>'
+    row = _parse_resistive_fragment(ET.fromstring(text))
+    np.testing.assert_array_equal(row["C_A"], ca1)
+    # A profile on another grid is not written at all, rather than misplaced.
+    short = dataclasses.replace(native, h=np.asarray(native.h)[:-1])
+    assert ' h="' not in _resistive_native_xml(short)
 
 
 def test_reading_does_not_create_paths_and_v1_fragments_are_skipped():
@@ -106,3 +125,17 @@ def test_a_malformed_matrix_warns_instead_of_raising():
     )
     with pytest.warns(RuntimeWarning, match="malformed"):
         assert extract_rdcon_stability(ods) == []
+
+
+def test_rdcon_blocks_do_not_take_over_the_dcon_cell_attribution(tmp_path):
+    """The plot recipes name a (slice, n) cell by its mhd_linear block; RDCON's
+    version-2 block carries time_slice now, but holds no eigenfunction or
+    energy, so it must not displace DCON's name for the cell."""
+    from vaft.plot.backend.recipes import _mhd_linear_solver_names
+
+    dcon = tmp_path / "dcon"
+    shutil.copytree(Path(__file__).resolve().parent / "data" / "gpec" / "dcon_edge_792" / "full_edge", dcon)
+    ods = ODS(consistency_check=False)
+    mhd_linear(ods, str(dcon), {"module": "dcon", "modes": [1]})
+    mhd_linear(ods, str(_source(tmp_path, "rdcon")), {"module": "rdcon", "modes": [1]})
+    assert _mhd_linear_solver_names(ods)[(0, 1)] == "dcon"

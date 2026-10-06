@@ -176,6 +176,11 @@ def ntms_solver_surfaces(ods: ODS) -> list[dict[str, Any]]:
     range, or that is otherwise malformed, is skipped with a warning. The ODS
     is not modified.
     """
+    return [row for _, rows in _ntms_solver_fragments(ods) for row in rows]
+
+
+def _ntms_solver_fragments(ods: ODS) -> list[tuple[tuple[int, str, int], list[dict[str, Any]]]]:
+    """The version-2 ntms fragments in document order, each as ``((slice, solver, n), rows)``."""
     import xml.etree.ElementTree as ET
 
     if not path_exists(ods, "ntms.code.parameters"):
@@ -186,7 +191,7 @@ def ntms_solver_surfaces(ods: ODS) -> list[dict[str, Any]]:
     except ET.ParseError as exc:
         warnings.warn(f"ntms.code.parameters is not XML ({exc}); no solver attribution", RuntimeWarning, stacklevel=2)
         return []
-    rows: list[dict[str, Any]] = []
+    fragments: list[tuple[tuple[int, str, int], list[dict[str, Any]]]] = []
     for solver in root.iter("solver"):
         if int(solver.get("version", "1")) < 2:
             continue
@@ -208,9 +213,10 @@ def ntms_solver_surfaces(ods: ODS) -> list[dict[str, Any]]:
                 stacklevel=2,
             )
             continue
-        for entry in entries:
-            rows.append({"solver": solver.get("name"), "n_tor": n_tor, "time_slice": time_slice, **entry})
-    return rows
+        name = solver.get("name")
+        rows = [{"solver": name, "n_tor": n_tor, "time_slice": time_slice, **entry} for entry in entries]
+        fragments.append(((time_slice, name, n_tor), rows))
+    return fragments
 
 
 def ensure_toroidal_mode_grid(ods: ODS, time_slice: int, n_tor_grid: Sequence[int]) -> None:
@@ -860,9 +866,12 @@ def extract_rdcon_stability(ods: ODS) -> list[dict[str, Any]]:
         latest[key] = row
     if not latest:
         return []
+    # Re-mapping appends a fresh set of ntms.mode[] entries and a fresh fragment;
+    # the last fragment per key is the one that pairs with the last mhd_linear
+    # fragment, so the earlier run's surfaces are dropped, not appended.
     surfaces: dict[tuple[int, str, int], list[dict[str, Any]]] = {}
-    for surface in ntms_solver_surfaces(ods):
-        surfaces.setdefault((surface["time_slice"], surface["solver"], surface["n_tor"]), []).append(surface)
+    for key, rows in _ntms_solver_fragments(ods):
+        surfaces[key] = rows
     for key, row in latest.items():
         rows = []
         for surface in surfaces.get(key, []):
