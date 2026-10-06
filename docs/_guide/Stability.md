@@ -50,6 +50,10 @@ Which mode family each tool addresses (interchange and Mercier, ballooning, kink
 its parity channels), and why their criteria are not one severity scale, is on
 [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }}).
 
+What each criterion assumes and proves — exact definition, reduced model, empirical boundary, heuristic or
+solver-derived — is inventoried on
+[Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}).
+
 ---
 
 # Screening an equilibrium
@@ -396,6 +400,8 @@ which produce the refined equilibria the GPEC suite consumes — see the
   reduced $s$–$\alpha$ model, DCON's $C_A$ and GPEC.jl's ballooning $\Delta'$ relate, and the shared normalisation.
 - [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }})
   — how slab, cylindrical and toroidal mode families relate, and which tool sits where.
+- [Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}) — the
+  logical status, assumptions and validation path of every analytic and reduced criterion.
 - [Data structures (ODS, IDS, IMAS)]({{ site.baseurl }}/guide/Data_structures/) — where `beta_normal`,
   `q_95` and the rest of `equilibrium.time_slice[:].global_quantities` live.
 - Source: [`vaft/formula/stability.py`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/formula/stability.py)

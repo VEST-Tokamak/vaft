@@ -101,6 +101,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_machine_geometry_registry.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_panels_suptitle_placement.py",
     "test_parameter_history.py",
     "test_plot_3d_contract.py",
     "test_plot_contract.py",
@@ -200,6 +201,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_disruption.py",
     "test_diagram_divertor_footprint.py",
     "test_diagram_equilibrium_phenomena.py",
+    "test_diagram_equilibrium_profiles.py",
     "test_diagram_field_aligned.py",
     "test_diagram_field_configurations.py",
     "test_diagram_geometry.py",
@@ -217,6 +219,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
+    "test_diagram_reduced_stability.py",
     "test_diagram_research_concepts.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
@@ -261,13 +264,14 @@ CORE_MODULES: tuple[str, ...] = (
     "test_transport_state.py",
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
     # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
-    # only), the plasma-current Rogowski verdict and the TF excursion repair on
-    # synthetic records.
+    # only), the plasma-current Rogowski verdict, the TF excursion repair and
+    # the shot-class pickup refusal (#1733) on synthetic records.
     "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_flux_loop_known_faults.py",
     "test_plasma_current_quality.py",
+    "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
@@ -280,6 +284,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
+    # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
+    # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
+    "test_formula_reduced_stability.py",
     # Ballooning normalisations (#1637): the volume shear and alpha reduce exactly
     # to s-hat and the CHT alpha for circular large-aspect-ratio surfaces.
     "test_formula_ballooning_normalisation.py",

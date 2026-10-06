@@ -58,7 +58,8 @@ def test_arguments_reach_serve(monkeypatch):
     ]) == 0
     assert calls == [{
         "address": "127.0.0.1", "port": 5010, "show": False,
-        "websocket_origin": ["vest:5010"], "auth": "auto", "sample": None, "file": None,
+        "websocket_origin": ["vest:5010"], "auth": "auto", "hosted": False, "prefix": None,
+        "sample": None, "file": None,
         "shot": [41524, 41672], "namespace": "main", "plot": "plasma_current_time", "workspace": None,
     }]
 
@@ -76,3 +77,39 @@ def test_the_first_workspace_is_checked_against_the_registry(monkeypatch, capsys
 def test_sources_are_mutually_exclusive():
     with pytest.raises(SystemExit):
         gui_cli.main(["--sample", "39915", "--shot", "39915"])
+
+
+def test_hosted_passes_through_and_refuses_files(monkeypatch, capsys):
+    pytest.importorskip("panel")
+    calls = []
+    monkeypatch.setattr("vaft.gui.app.serve", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.setenv("VAFT_GUI_PASSWORD", "team")
+    assert gui_cli.main(["--hosted", "--prefix", "/gui", "--shot", "39915", "--no-show"]) == 0
+    assert calls[-1]["hosted"] is True and calls[-1]["prefix"] == "/gui"
+    with pytest.raises(SystemExit):
+        gui_cli.main(["--hosted", "--file", "eq.json"])
+    assert "opens no files" in capsys.readouterr().err
+
+
+def test_a_hosted_server_without_its_password_does_not_start(monkeypatch, capsys):
+    pytest.importorskip("panel")
+    served = []
+    monkeypatch.setattr("panel.serve", lambda *args, **kwargs: served.append(kwargs))
+    monkeypatch.delenv("VAFT_GUI_PASSWORD", raising=False)
+    assert gui_cli.main(["--hosted", "--no-show"]) == 1
+    assert "VAFT_GUI_PASSWORD" in capsys.readouterr().err and not served
+
+
+def test_hosted_with_hsds_accounts_needs_no_shared_password(monkeypatch, capsys):
+    pytest.importorskip("panel")
+    calls = []
+    monkeypatch.setattr("vaft.gui.app.serve", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.delenv("VAFT_GUI_PASSWORD", raising=False)
+    monkeypatch.setenv("HS_ENDPOINT", "http://127.0.0.1:5101")
+    assert gui_cli.main(["--hosted", "--auth", "hsds", "--no-show"]) == 0
+    assert calls[-1]["auth"] == "hsds"
+    monkeypatch.delenv("HS_ENDPOINT")
+    monkeypatch.setenv("HOME", "/nonexistent")
+    monkeypatch.chdir("/")
+    assert gui_cli.main(["--hosted", "--auth", "hsds", "--no-show"]) == 1
+    assert "HS_ENDPOINT" in capsys.readouterr().err
