@@ -29,13 +29,23 @@ def test_help_parses_without_importing_panel():
     assert "ssh -L 5006:localhost:5006" in result.stdout
 
 
-def test_missing_panel_exits_1_naming_the_extra(monkeypatch, capsys):
+def test_missing_panel_exits_1_saying_how_to_get_it(monkeypatch, capsys):
+    from vaft.gui._require import INSTALL_HINT
+
     def missing():
-        raise ImportError("The VAFT GUI needs the panel package; install it with `pip install 'vaft[gui]'`.")
+        raise ImportError(f"The VAFT GUI needs the panel package; {INSTALL_HINT}.")
 
     monkeypatch.setattr("vaft.gui.require_panel", missing)
     assert cli_main(["gui", "--no-show"]) == 1
-    assert "vaft[gui]" in capsys.readouterr().err
+    assert "pip install vaft" in capsys.readouterr().err
+
+
+def test_panel_is_a_core_dependency_and_gui_an_empty_alias():
+    tomllib = pytest.importorskip("tomllib")  # absent on Python 3.10
+
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert any(spec.startswith("panel") for spec in project["dependencies"])
+    assert project["optional-dependencies"]["gui"] == [], "kept so `vaft[gui]` still installs"
 
 
 def test_arguments_reach_serve(monkeypatch):
