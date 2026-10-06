@@ -79,6 +79,11 @@ def run_portals_closed_loop(
     chi_e: float = 1.0,
     chi_i: float = 1.0,
     perturbation: float = 0.3,
+    tglf_code_settings: str = "SAT3",
+    tglf_extra_options: Optional[dict] = None,
+    neo_extra_options: Optional[dict] = None,
+    initial_training: int = 5,
+    maximum_iterations: int = 10,
     availability: Optional[MITIMAvailability] = None,
 ) -> tuple[MITIMResult, Optional[ClosedLoopReport]]:
     """Manufacture a flux-matched problem from ``profile`` and check MITIM recovers it.
@@ -91,9 +96,13 @@ def run_portals_closed_loop(
         Predicted radii, converted to MITIM's rho_tor_norm with VAFT's bridge [-].
     model
         ``"analytic"``: MITIM's conductive diffusion model with constant ``chi_e``,
-        ``chi_i`` [m^2/s], evaluated in-memory by powertorch.
+        ``chi_i`` [m^2/s], evaluated in-memory by powertorch and flux-matched by its
+        root solver. ``"tglf_neo"``: a full PORTALS run (TGLF + NEO, Bayesian
+        optimisation) with ``predicted_roa`` = ``r_over_a``; TGLF and NEO settings as
+        given (#1744/#1757 alignment: NKY 12, NMODES 2, USE_MHD_RULE, ROTATION_MODEL 1).
     perturbation
-        The solver starts from the true a/L_Te times (1 + perturbation) [-].
+        ``analytic``: the solver starts from the true a/L_Te times (1 + perturbation).
+        ``tglf_neo``: PORTALS starts from Te * (1 + perturbation (1 - rho^2)) [-].
 
     Returns
     -------
@@ -113,7 +122,17 @@ def run_portals_closed_loop(
                  "model": model, "chi_e": float(chi_e), "chi_i": float(chi_i),
                  "perturbation": float(perturbation),
                  "input_gacode_sha256": _sha256(input_path)}
-    result = run_mitim_driver("portals_closed_loop", arguments, workdir, config,
-                              availability=availability)
+    if model == "tglf_neo":
+        arguments.update(folder=str(workdir / "portals"), tglf_code_settings=tglf_code_settings,
+                         tglf_extra_options=dict(tglf_extra_options or {}),
+                         neo_extra_options=dict(neo_extra_options or {}),
+                         initial_training=int(initial_training),
+                         maximum_iterations=int(maximum_iterations))
+        driver = "portals_tglf_closed_loop"
+    elif model == "analytic":
+        driver = "portals_closed_loop"
+    else:
+        raise ValueError(f"model must be 'analytic' or 'tglf_neo', got {model!r}")
+    result = run_mitim_driver(driver, arguments, workdir, config, availability=availability)
     report = closed_loop_report(result.result, perturbation) if result.ok else None
     return result, report

@@ -124,3 +124,32 @@ def test_local_neo_charges_come_from_its_input():
     with pytest.raises(ValueError, match="neo_input_charges"):
         mitim.compare_neo_fluxes(vaft, {0.5: {"particle_flux": np.array([1.0]), "energy_flux": np.array([1.0])}},
                                  vaft_charges=[1.0], mitim_charges={0.5: None})
+
+
+def _loop_result(true, start, recovered, residual, *, target=(1.0, 2.0), model=(1.0, 2.0)):
+    return {"r_over_a": [0.3, 0.6], "aLte_true": list(true), "aLte_start": list(start),
+            "aLte_recovered": list(recovered), "model_minus_required_at_start_MWm2": list(residual),
+            "target_after_manufacture_MWm2": list(target), "transport_after_manufacture_MWm2": list(model),
+            "final_model_MWm2": [1.0, 2.0], "final_required_MWm2": [1.0, 2.0]}
+
+
+def test_the_closed_loop_report_measures_recovery_and_manufacture():
+    report = mitim.closed_loop_report(
+        _loop_result([1.0, 2.0], [1.3, 2.6], [1.01, 2.0], [0.5, 0.7], target=(1.0, 2.02)), 0.3)
+    assert report.recovery_error == pytest.approx(0.01 / 1.01)
+    assert report.manufacture_error == pytest.approx(0.02 / 2.02)
+    assert report.final_flux_error == 0.0 and report.sign_ok
+
+
+def test_the_residual_sign_follows_the_gradient_offset_even_for_a_hollow_profile():
+    """R = Q_model - Q_required takes the sign of a/L_Te(start) - a/L_Te(true).
+
+    Inside a hollow profile a/L_Te < 0: a 30 % "steeper" start is more negative there,
+    so R < 0 inside and > 0 outside, and the convention still holds.
+    """
+    hollow = mitim.closed_loop_report(
+        _loop_result([-1.0, 2.0], [-1.3, 2.6], [-1.0, 2.0], [-0.2, 0.5]), 0.3)
+    assert hollow.sign_ok
+    flipped = mitim.closed_loop_report(
+        _loop_result([-1.0, 2.0], [-1.3, 2.6], [-1.0, 2.0], [0.2, 0.5]), 0.3)
+    assert not flipped.sign_ok

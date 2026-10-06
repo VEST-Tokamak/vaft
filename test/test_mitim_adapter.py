@@ -391,3 +391,15 @@ def test_mitim_neo_checks_the_radius_it_ran_and_keeps_its_inputs(ready, profile,
     assert sorted(outputs) == [0.4] and inputs[0.4]["DENS_1"] == 0.8
     assert result.result["status"] == "partial" and result.result["missing_r_over_a"] == [0.7]
     assert result.record["arguments"]["extra_options"] == {"ROTATION_MODEL": 1}
+
+
+def test_the_closed_loop_driver_is_handed_vaft_radii_and_the_bridged_rho(ready, profile, tmp_path):
+    """The driver runs in MITIM; here only VAFT's side of the contract is checked."""
+    result, report = mitim.run_portals_closed_loop(profile, [0.3, 0.6], tmp_path / "run", ready,
+                                                   chi_e=0.8, perturbation=-0.2)
+    arguments = result.record["arguments"]
+    assert arguments["r_over_a"] == [0.3, 0.6] and arguments["perturbation"] == -0.2
+    assert arguments["rho_tor_norm"] == pytest.approx(list(mitim.rho_tor_norm_at(profile, [0.3, 0.6])))
+    assert arguments["model"] == "analytic" and arguments["chi_e"] == 0.8
+    # The stub has no powertorch, so the driver reports the failure instead of raising.
+    assert not result.ok and report is None and "powertorch" in result.result["error"]
