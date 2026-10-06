@@ -493,8 +493,54 @@ def select_representative_cases(table) -> list[dict[str, Any]]:
     return out
 
 
+#: The confinement selection's rule columns, in the order it applies them
+#: (``vaft.process.confinement.confinement_slice_decision``).
+CONFINEMENT_RULES = ("finite", "ip_min", "dwdt_fraction", "ip_change_per_tau")
+
+
+def equilibrium_quality_confinement_funnel(confinement_table, *, quality_column: str = "efit_quality",
+                                           rules: Sequence[str] = CONFINEMENT_RULES) -> dict[str, Any]:
+    """Equilibrium quality × confinement acceptance (#1644 §9), per quality cohort.
+
+    ``confinement_table`` is the confinement study's table (``rule_<name>``
+    pass columns, ``accepted``, and the EFIT quality label of each row).  Per
+    cohort: candidates, selected, rejected, and the sequential removal by each
+    downstream rule, from :func:`vaft.process.confinement.confinement_exclusion_table`
+    -- the confinement module's own count, not a re-derivation.  Confinement
+    stationarity stays a downstream rule; it never enters equilibrium quality.
+    """
+    from vaft.process.confinement import confinement_exclusion_table
+
+    def flags(series):
+        return series.map(lambda v: str(v).strip().lower() in ("true", "1", "1.0")).to_numpy(bool)
+
+    if not rules:
+        raise ValueError("the funnel needs at least one confinement rule")
+    missing = [f"rule_{rule}" for rule in rules if f"rule_{rule}" not in confinement_table]
+    if missing:
+        # A rule without its column would credit its removals to no rule.
+        raise KeyError(f"confinement table lacks rule columns {missing}")
+    out: dict[str, Any] = {"rules": list(rules), "cohorts": {}}
+    labels = confinement_table[quality_column].astype(object).where(confinement_table[quality_column].notna(), "unknown")
+    for cohort in [c for c in COHORTS if c in set(labels)] + sorted(set(labels) - set(COHORTS)):
+        group = confinement_table[labels == cohort]
+        decision = {rule: flags(group[f"rule_{rule}"]) for rule in rules}
+        exclusions = confinement_exclusion_table(decision)
+        # Selected is what survives every rule -- the exclusion table's own count,
+        # so removed + selected is always the candidates.
+        selected = int(exclusions[-1]["remaining"]) if exclusions else int(len(group))
+        if "accepted" in group and int(flags(group["accepted"]).sum()) != selected:
+            raise ValueError(f"cohort {cohort!r}: 'accepted' keeps {int(flags(group['accepted']).sum())} rows but "
+                             f"the rules {list(rules)} keep {selected}; the table's rule columns are not its decision")
+        out["cohorts"][str(cohort)] = {
+            "candidates": int(len(group)), "selected": selected, "rejected": int(len(group) - selected),
+            "exclusions": exclusions,
+        }
+    return out
+
+
 __all__: Sequence[str] = (
-    "ADMISSIBILITY_RULES", "COHORTS", "CRITERIA_PATH", "CROSSWALK", "MEASUREMENT_RULES", "RULE_COLUMNS",
-    "FIT_QUALITY_RULES", "REPRESENTATIVE_CASES", "ROUTINE_SETTING", "TYPICALITY_METRICS", "STATUSES", "efit_evidence_columns", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
+    "ADMISSIBILITY_RULES", "COHORTS", "CONFINEMENT_RULES", "CRITERIA_PATH", "CROSSWALK", "MEASUREMENT_RULES", "RULE_COLUMNS",
+    "FIT_QUALITY_RULES", "REPRESENTATIVE_CASES", "ROUTINE_SETTING", "TYPICALITY_METRICS", "STATUSES", "efit_evidence_columns", "equilibrium_quality_confinement_funnel", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
     "equilibrium_quality_summary", "equilibrium_quality_table", "load_study_criteria", "select_representative_cases", "slice_cohorts",
 )
