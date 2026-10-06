@@ -14,12 +14,12 @@ English | [한국어](README.ko.md)
 [Python](https://pypi.org/project/vaft/)
 [License](LICENSE)
 
-> **Integrate fusion science knowledge so it can be discovered, verified, compared, and studied.**
+> **Connecting fusion knowledge across disciplines for integrated research**
 
 **VAFT is a standardized, verifiable, and interoperable scientific framework for
-machine-agnostic tokamak research.** It integrates experimental data, reconstructed
-and simulated plasma states, and analysis workflows so that fusion science knowledge
-can be discovered, verified, compared, and studied.
+machine-agnostic tokamak research.** It connects experimental data, reconstructed
+and simulated plasma states, and analysis workflows through shared data structures
+and traceable results.
 
 Its full end-to-end implementation on the [VEST tokamak](https://eng.snu.ac.kr/) at
 Seoul National University supports routine experimental data processing,
@@ -666,6 +666,5 @@ by neither gives `AMBIGUOUS` with a reason rather than a guess. Real
 reconstructions routinely contain numerical saddles far from the plasma; those
 are returned in `x_points` with `active=False` instead of being filtered by
 hard-coded geometry.
-
 
 

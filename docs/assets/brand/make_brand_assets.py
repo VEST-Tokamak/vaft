@@ -13,13 +13,16 @@ Usage::
 
     PYTHONPATH=<repo> python docs/assets/brand/make_brand_assets.py   # regenerates every asset here
 
-Rasterization uses ``rsvg-convert`` (librsvg) and the ``.ico`` uses Pillow.
+Rasterization uses ``rsvg-convert`` (librsvg), the ``.ico`` uses Pillow, and
+the selected IBM Plex Sans Condensed outlines use ``fonttools``. The OFL font
+source is kept beside this script so SVGs do not depend on a system font.
 These assets are deliberately not package data (the wheel is size-capped).
 """
 
 from __future__ import annotations
 
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -33,6 +36,8 @@ from vaft.process.equilibrium import (
 )
 
 HERE = Path(__file__).resolve().parent
+WORDMARK_FONT = HERE / "fonts" / "IBMPlexSansCondensed-SemiBold.ttf"
+TAGLINE = "Connecting fusion knowledge across disciplines for integrated research"
 
 R0, A_MINOR, KAPPA, DELTA = 1.0, 0.55, 1.75, 0.45
 BRANCH_LENGTH = 0.13 * 1.5        # natural local branch x lengthening factor [R0]
@@ -147,14 +152,66 @@ def _path(points, close=False, spacing=0.3):
     return d + (" Z" if close else "")
 
 
-def _letter_paths(w: float, h: float):
-    """Bold geometric V, F, T (flat terminals, sharp joins) filling the w x h LCFS box."""
-    t, bar = STEM, 0.18 * h
-    return {
-        "V": f"M0,0 H{t + 2} L{w / 2},{0.72 * h} L{w - t - 2},0 H{w} L{w / 2 + t / 2 + 1},{h} H{w / 2 - t / 2 - 1} Z",
-        "F": f"M0,0 H{w} V{bar} H{t} V{0.40 * h} H{w - 12} V{0.40 * h + bar} H{t} V{h} H0 Z",
-        "T": f"M0,0 H{w} V{bar} H{w / 2 + t / 2} V{h} H{w / 2 - t / 2} V{bar} H0 Z",
-    }
+@lru_cache(maxsize=1)
+def _typeface():
+    from fontTools.ttLib import TTFont
+
+    return TTFont(WORDMARK_FONT)
+
+
+def _glyph(font, char: str):
+    from fontTools.pens.boundsPen import BoundsPen
+    from fontTools.pens.svgPathPen import SVGPathPen
+
+    name = font.getBestCmap()[ord(char)]
+    glyph_set = font.getGlyphSet()
+    glyph = glyph_set[name]
+    path_pen = SVGPathPen(glyph_set)
+    bounds_pen = BoundsPen(glyph_set)
+    glyph.draw(path_pen)
+    glyph.draw(bounds_pen)
+    return path_pen.getCommands(), bounds_pen.bounds or (0, 0, 0, 0), font["hmtx"].metrics[name][0]
+
+
+def _wordmark_letters(ink: str) -> list[str]:
+    """Fit the licensed Plex outlines into the selected 03 compact layout."""
+    font = _typeface()
+    letters = {char: _glyph(font, char) for char in "VFT"}
+    xmin = min(bounds[0] for _, bounds, _ in letters.values())
+    ymin = min(bounds[1] for _, bounds, _ in letters.values())
+    xmax = max(bounds[2] for _, bounds, _ in letters.values())
+    ymax = max(bounds[3] for _, bounds, _ in letters.values())
+    scale = min(70 / (xmax - xmin), 92 / (ymax - ymin))
+    positions = {"V": 0, "F": 188, "T": 264}
+    paths = []
+    for char, x in positions.items():
+        path, bounds, _ = letters[char]
+        glyph_width = (bounds[2] - bounds[0]) * scale
+        tx = x + (70 - glyph_width) / 2 - bounds[0] * scale
+        ty = 8 + ymax * scale
+        paths.append(
+            f'<path d="{path}" transform="matrix({scale:.7f} 0 0 {-scale:.7f} {tx:.3f} {ty:.3f})" '
+            f'fill="{ink}" stroke="none"/>'
+        )
+    return paths
+
+
+def _outlined_text(text: str, center: float, baseline: float, size: float,
+                   max_width: float, color: str) -> str:
+    """Outline social text so it renders in Plex even without local fonts."""
+    font = _typeface()
+    glyphs = [_glyph(font, char) for char in text]
+    advance = sum(width for _, _, width in glyphs)
+    scale = min(size / font["head"].unitsPerEm, max_width / advance)
+    start = center - advance * scale / 2
+    parts = [f'<g transform="translate({start:.3f},{baseline:.3f}) scale({scale:.7f},{-scale:.7f})" fill="{color}">']
+    cursor = 0
+    for path, _, width in glyphs:
+        if path:
+            parts.append(f'<path d="{path}" transform="translate({cursor},0)"/>')
+        cursor += width
+    parts.append("</g>")
+    return "".join(parts)
 
 
 def _palette(variant: str):
@@ -197,7 +254,8 @@ def mark_elements(variant: str, simplified: bool = False, path_spacing: float | 
     return out
 
 
-def _svg(width_units, height_units, x0, y0, body, variant, px_height, label, bg_radius=0.0) -> str:
+def _svg(width_units, height_units, x0, y0, body, variant, px_height, label,
+         bg_radius=0.0, with_background=True) -> str:
     _, grad, bg = _palette(variant)
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" height="{px_height}" '
            f'width="{px_height * width_units / height_units:.0f}" '
@@ -205,7 +263,7 @@ def _svg(width_units, height_units, x0, y0, body, variant, px_height, label, bg_
     if grad:
         out.append(f'<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="100" x2="0" y2="0">'
                    f'<stop offset="0" stop-color="{BLUE2}"/><stop offset="1" stop-color="{CYAN2}"/></linearGradient></defs>')
-    if bg:
+    if bg and with_background:
         out.append(f'<rect x="{x0:.2f}" y="{y0:.2f}" width="{width_units:.2f}" height="{height_units:.2f}" '
                    f'rx="{bg_radius:.2f}" fill="{bg}"/>')
     out += body
@@ -215,22 +273,18 @@ def _svg(width_units, height_units, x0, y0, body, variant, px_height, label, bg_
 
 def _wordmark_body(variant: str) -> tuple[list[str], float]:
     ink = _palette(variant)[0]
-    paths = _letter_paths(BOX_W, BOX_H)
-    xs = [i * (BOX_W + GAP) + (OVER if i == 1 else 2 * OVER if i > 1 else 0) for i in range(4)]
-    body = ['<g fill="none" stroke-linecap="round" stroke-linejoin="round">']
-    for ch, dx in zip("VAFT", xs):
-        if ch == "A":
-            body.append(f'<g transform="translate({dx:.2f},0)">' + "".join(mark_elements(variant)) + "</g>")
-        else:
-            body.append(f'<path transform="translate({dx:.2f},{100 - BOX_H})" d="{paths[ch]}" fill="{ink}" stroke="none"/>')
+    body = _wordmark_letters(ink)
+    body.append('<g transform="translate(76,0)" fill="none" stroke-linecap="round" stroke-linejoin="round">')
+    body.extend(mark_elements(variant))
     body.append("</g>")
-    return body, 4 * BOX_W + 3 * GAP + 2 * OVER
+    return body, 334.0
 
 
 def wordmark_svg(variant: str = "color", px_height: int = 120) -> str:
     body, total = _wordmark_body(variant)
     pad = 22
-    return _svg(total + 2 * pad, 100 + 2 * pad, -pad, -pad, body, variant, px_height, "VAFT")
+    return _svg(total + 2 * pad, 100 + 2 * pad, -pad, -pad, body, variant, px_height,
+                "VAFT", with_background=False)
 
 
 def mark_svg(variant: str = "color", simplified: bool = False, px_height: int = 256,
@@ -246,23 +300,20 @@ def mark_svg(variant: str = "color", simplified: bool = False, px_height: int = 
 
 
 def social_svg() -> str:
-    """1280x640 social preview: the dark wordmark over the project name and the pipeline."""
+    """1280x640 social preview with the selected wordmark and tagline."""
     body, total = _wordmark_body("dark")
-    pad, width = 22, 960.0
+    pad, width = 22, 740.0
     scale = width / (total + 2 * pad)
-    font = 'font-family="Helvetica Neue, Arial, sans-serif" text-anchor="middle"'
     return "\n".join([
         '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" '
-        'aria-label="VAFT social preview">',
+        f'aria-label="VAFT: {TAGLINE}">',
         f'<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="100" x2="0" y2="0">'
         f'<stop offset="0" stop-color="{BLUE2}"/><stop offset="1" stop-color="{CYAN2}"/></linearGradient></defs>',
         f'<rect width="1280" height="640" fill="{BG_DARK}"/>',
-        f'<g transform="translate({(1280 - width) / 2:.2f},{150 - 22 * scale:.2f}) scale({scale:.4f}) translate({pad},{pad})">',
+        f'<g transform="translate({(1280 - width) / 2:.2f},92) scale({scale:.7f}) translate({pad},{pad})">',
         *body, "</g>",
-        f'<text x="640" y="450" {font} font-size="36" letter-spacing="1.5" fill="#cfe6ff">'
-        "Versatile Analysis Framework for Tokamak</text>",
-        f'<text x="640" y="508" {font} font-size="24" fill="#7fa6cc">'
-        "Integrating fusion knowledge for shared discovery.</text>",
+        _outlined_text("Versatile Analysis Framework for Tokamak", 640, 450, 38, 1060, "#cfe6ff"),
+        _outlined_text(TAGLINE, 640, 508, 26, 1060, "#9abbd8"),
         "</svg>",
     ])
 

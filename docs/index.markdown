@@ -6,12 +6,12 @@ title: VAFT — Versatile Analysis Framework for Tokamak
 ---
 
 <section class="vaft-hero">
-  <img class="vaft-hero-logo" src="{{ site.baseurl }}/assets/brand/vaft-wordmark.svg" alt="VAFT">
-  <p class="vaft-hero-tagline">A machine-agnostic framework that takes tokamak data from raw VEST signals to verifiable IMAS datasets and reproducible physics analysis.</p>
+  <img class="vaft-hero-logo vaft-hero-logo-light" src="{{ site.baseurl }}/assets/brand/vaft-wordmark.svg" alt="VAFT">
+  <img class="vaft-hero-logo vaft-hero-logo-dark" src="{{ site.baseurl }}/assets/brand/vaft-wordmark-dark.svg" alt="VAFT">
+  <p class="vaft-hero-tagline">Connecting fusion knowledge across disciplines for integrated research</p>
+  <p class="vaft-hero-summary">From VEST signals to standardized IMAS data and reproducible tokamak analysis.</p>
   <p class="vaft-hero-commands"><code>vaft.setup()</code> <code>vaft help</code></p>
 </section>
-
-> **Integrate fusion science knowledge so it can be discovered, verified, compared, and studied.**
 
 ## Get started
 
@@ -33,8 +33,9 @@ title: VAFT — Versatile Analysis Framework for Tokamak
 </ol>
 
 **VAFT** is a standardized, verifiable, and interoperable scientific framework for machine-agnostic
-tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and
-analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied.
+tokamak research. It connects experimental data, reconstructed and simulated plasma states, and
+analysis workflows across research disciplines. Shared data structures and traceable results make
+these contributions easier to use together and verify.
 Its full end-to-end implementation on the
 [VEST (Versatile Experiment Spherical Torus)](https://eng.snu.ac.kr/) tokamak at Seoul National
 University serves as the reference implementation for modern, reproducible, and data-driven fusion
