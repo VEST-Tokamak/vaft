@@ -2362,12 +2362,14 @@ def compute_magnetic_energy(
     *,
     components: str = "total",
     write_fields: bool = False,
+    toroidal_field: str = "vacuum",
 ) -> float:
     """Magnetic field energy inside the last closed flux surface, by component.
 
     ``W = int B^2 / (2 mu0) dV`` over the inside of ``boundary.outline``,
-    weighted by each grid cell's area fraction inside it, with ``B_R`` and ``B_Z`` from the stored psi map (Sauter Eq. 20) and
-    ``B_phi = B0 R0 / R`` -- the *vacuum* toroidal field, ``F`` held constant.
+    weighted by each grid cell's area fraction inside it, with ``B_R`` and ``B_Z`` from the stored psi map (Sauter Eq. 20) and,
+    by default, ``B_phi = B0 R0 / R`` -- the *vacuum* toroidal field, ``F`` held constant
+    (``toroidal_field="equilibrium"`` uses the real ``F(psi)/R`` instead).
 
     Which energy that is matters more than the arithmetic:
 
@@ -2393,9 +2395,15 @@ def compute_magnetic_energy(
         ods: OMAS data structure.
         time_slice: Time slice index (None = the first).
         components: ``"total"``, ``"poloidal"`` or ``"toroidal"``.
+        toroidal_field: ``"vacuum"`` (the default, unchanged): ``B_phi = B0 R0 / R``,
+            ``F`` held constant. ``"equilibrium"``: ``B_phi = F(psi) / R`` from
+            ``profiles_1d.f``, clipped to its edge values outside the profile's psi
+            range like :func:`vaft.omas.update.update_equilibrium_profiles_2d_b_field`
+            -- the total field energy that the volume beta
+            (:func:`vaft.formula.equilibrium.beta_volume_from_p_B2`) divides by.
         write_fields: When true, also store ``profiles_2d.0.b_field_r``,
-            ``b_field_z`` and ``b_field_tor`` in ``ods`` -- the constant-``F``
-            toroidal field included.  Off by default: the function used to do
+            ``b_field_z`` and ``b_field_tor`` in ``ods`` -- the toroidal field of
+            the chosen ``toroidal_field`` (constant ``F`` by default).  Off by default: the function used to do
             this silently. For the fields themselves prefer
             :func:`vaft.omas.update.update_equilibrium_profiles_2d_b_field`,
             which uses the real ``F(psi)``.
@@ -2412,6 +2420,8 @@ def compute_magnetic_energy(
         raise ValueError(
             f"components must be 'total', 'poloidal' or 'toroidal'; got {components!r}"
         )
+    if toroidal_field not in ("vacuum", "equilibrium"):
+        raise ValueError(f"toroidal_field must be 'vacuum' or 'equilibrium'; got {toroidal_field!r}")
     from vaft.formula.constants import MU0
 
     if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
@@ -2436,33 +2446,24 @@ def compute_magnetic_energy(
     except KeyError as e:
         raise KeyError(f"Missing equilibrium keys for magnetic energy: {e}")
 
-    # Reference toroidal field (B_phi) & reference radius for F = R * B_phi
-    # Prefer equilibrium global_quantities (produced by EFIT mapping in this repo)
-    try:
-        B0 = float(eq_ts['global_quantities.b0'])  # [T]
-    except Exception:
-        # Fallback to vacuum_toroidal_field.b0 if present (time-dependent array)
-        if 'equilibrium.vacuum_toroidal_field.b0' in ods:
+    # Reference toroidal field (B_phi) & reference radius for F = R * B_phi, needed by
+    # the vacuum field only. Each leaf is tested with ``in`` before it is read: reading
+    # a missing OMAS path creates it as an empty node in the caller's ODS.
+    if toroidal_field == "vacuum":
+        if 'global_quantities.b0' in eq_ts:
+            B0 = float(eq_ts['global_quantities.b0'])  # [T]
+        elif 'equilibrium.vacuum_toroidal_field.b0' in ods:
             b0_arr = np.asarray(ods['equilibrium.vacuum_toroidal_field.b0'], float)
             # If time array exists, use closest by index; else take first
             B0 = float(b0_arr[eq_idx]) if b0_arr.size > eq_idx else float(b0_arr.flat[0])
         else:
             raise KeyError("Missing reference toroidal field: equilibrium.time_slice[*].global_quantities.b0")
-
-    try:
-        R0 = float(eq_ts['global_quantities.major_radius'])  # [m]
-    except Exception:
-        if 'equilibrium.vacuum_toroidal_field.r0' in ods:
+        if 'global_quantities.major_radius' in eq_ts:
+            R0 = float(eq_ts['global_quantities.major_radius'])  # [m]
+        elif 'equilibrium.vacuum_toroidal_field.r0' in ods:
             R0 = float(np.asarray(ods['equilibrium.vacuum_toroidal_field.r0'], float).flat[0])
         else:
             raise KeyError("Missing reference radius for toroidal field (major_radius or vacuum_toroidal_field.r0)")
-
-    # Ip is not needed for B from psi, but user requested to load it (sanity / completeness)
-    Ip = None
-    try:
-        Ip = float(eq_ts['global_quantities.ip'])
-    except Exception:
-        pass
 
     # Ensure psi_RZ shape convention is (len(R), len(Z))
     # When R_grid and Z_grid have the same length, use physical properties:
@@ -2492,9 +2493,22 @@ def compute_magnetic_energy(
     B_Z = -k * (1.0 / Rm_safe) * dpsi_dR
 
     # Toroidal field: B_phi = F(psi) / R.
-    # Here we approximate F as constant using reference point: F ≈ B0 * R0
-    F_ref = B0 * R0
-    B_PHI = F_ref / Rm_safe
+    if toroidal_field == "equilibrium":
+        if 'profiles_1d.f' not in eq_ts or 'profiles_1d.psi' not in eq_ts:
+            raise KeyError("toroidal_field='equilibrium' needs profiles_1d.f and profiles_1d.psi")
+        f_1d = np.asarray(eq_ts['profiles_1d.f'], float).reshape(-1)
+        psi_1d = np.asarray(eq_ts['profiles_1d.psi'], float).reshape(-1) * _psi_factor
+        ok = np.isfinite(f_1d) & np.isfinite(psi_1d)
+        if f_1d.size != psi_1d.size or ok.sum() < 2:
+            raise ValueError("profiles_1d.f and profiles_1d.psi must be finite and of equal length")
+        order = np.argsort(psi_1d[ok])
+        # np.interp clips to the edge values outside the profile's psi range
+        F_RZ = np.interp(psi_RZ, psi_1d[ok][order], f_1d[ok][order])
+        B_PHI = F_RZ / Rm_safe
+    else:
+        # the vacuum field: F held constant at its reference value, F = B0 * R0
+        F_ref = B0 * R0
+        B_PHI = F_ref / Rm_safe
 
     if components == "poloidal":
         B2 = B_R**2 + B_Z**2

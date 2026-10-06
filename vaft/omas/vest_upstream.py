@@ -710,6 +710,24 @@ def magnetics_processing_for_shot(
             f"shot {shot}: the vest.yaml era policy decides {dropped}, so this override would "
             "change nothing; set window_override / flux_baseline_window / flux_baseline_samples instead"
         )
+    # The era window is a triple of INDICES into the output grid
+    # linspace(time_start, time_end, sample_count). An override that moves the
+    # grid while the era keeps the indices moves the analysis window and the
+    # probe baseline with it, silently: `sample_count: 20000` puts the
+    # native-DAQ window at 0.325-0.45 s instead of 0.26-0.36 s. The grid keys
+    # are therefore refused unless the override also names `window_override`,
+    # so a scan that moves the grid owns the indices into it as well.
+    if era.window_override is not None and "window_override" not in overrides:
+        moved = sorted(
+            key for key in _OUTPUT_GRID_KEYS
+            if key in overrides and _as_tuple(overrides[key]) != _as_tuple(getattr(era, key))
+        )
+        if moved:
+            raise ValueError(
+                f"shot {shot}: {moved} would move the output grid that the vest.yaml era window "
+                f"{tuple(era.window_override)} indexes, shifting the analysis window and the probe "
+                "baseline; name window_override alongside them or leave them at the era's values"
+            )
     return replace(era, **dict(overrides))
 
 
@@ -718,6 +736,8 @@ _WINDOW_RULE_KEYS = (
     "default_index_start", "default_index_end", "default_probe_baseline_end", "late_shot_min",
     "transient_shot_min", "transient_shot_max", "late_index_start", "late_index_end", "late_probe_baseline_end",
 )
+#: The output grid the era's ``window_override`` indices index into.
+_OUTPUT_GRID_KEYS = ("time_start", "time_end", "sample_count")
 #: Keys only the legacy per-sample flux baselines read; an era flux-baseline rule shadows them.
 _FLUX_BASELINE_RULE_KEYS = (
     "flux_baseline_first_start", "flux_baseline_first_end", "flux_baseline_second_start",
@@ -966,6 +986,10 @@ def build_diagnostics_ods(
     )
     grids["langmuir_probes"] = policy_grid("langmuir_probes")
     tf_policy = policies["tf"]
+    # Filled by the mapper: the TF-current acquisition excursions it replaced
+    # (#1543), so the manifest's `repaired` says what `tf.coil.0.current` no
+    # longer measures rather than a literal empty list.
+    tf_report: dict[str, Any] = {}
     run_component(
         "tf",
         ("tf",),
@@ -978,10 +1002,14 @@ def build_diagnostics_ods(
                 tf_policy.tend,
                 tf_policy.dt,
                 raw_source=raw_path,
+                report=tf_report,
             ),
         ),
     )
     record_realized_grid("tf", "tf", "tf.time")
+    tf_repaired = [{"component": "tf", **entry} for entry in tf_report.get("repaired", [])]
+    if statuses["tf"]["status"] != "unavailable":
+        statuses["tf"]["repaired"] = tf_repaired
     processing = magnetics_processing_for_shot(shot, vest_magnetics_processing)
     magnetics_channels = [
         int(channel["field_code"])
@@ -1123,7 +1151,7 @@ def build_diagnostics_ods(
                     for coil in statuses.get("pf_active", {}).get("unacquired_channels", [])
                 ]
             ),
-            "repaired": [],
+            "repaired": tf_repaired,
             "disabled": _disabled_pf_coils(shot),
             "rejected": [],
             "unavailable": unavailable,
