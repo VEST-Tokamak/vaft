@@ -513,3 +513,17 @@ def test_h_factor_resolves_the_energy_basis(db5):
     np.testing.assert_array_equal(h_factor(db5, "ITER89P", thermal_as_global="JET").to_numpy(), jet_only.to_numpy())
     with pytest.raises(ValueError, match="machine"):
         h_factor(db5.drop(columns="machine"), "ITER89P", thermal_as_global={"JET"})
+
+
+def test_h_factor_accepts_a_numpy_bool_flag(db5):
+    # A flag derived from the data, e.g. ``(table.machine == "VEST").all()``,
+    # is a numpy bool; it must mean the same as the Python bool (cold review
+    # 0.8.0 delta-absorb-16 confinement F1).
+    expected = h_factor(db5, "ITER89P", thermal_as_global=True)
+    got = h_factor(db5, "ITER89P", thermal_as_global=np.True_)
+    np.testing.assert_array_equal(got.to_numpy(), expected.to_numpy())
+    assert got.attrs["substituted_rows"] == expected.attrs["substituted_rows"] >= 1
+    assert h_factor(db5, "ITER89P", thermal_as_global=np.False_).isna().all()
+    # A number that is not a bool is still refused, with a message that names the parameter.
+    with pytest.raises(TypeError, match="thermal_as_global"):
+        h_factor(db5, "ITER89P", thermal_as_global=1)

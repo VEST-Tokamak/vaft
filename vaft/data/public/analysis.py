@@ -147,6 +147,9 @@ def h_factor(
     ValueError
         ``thermal_as_global`` names machines and the table has no ``machine``
         column.
+    TypeError
+        ``thermal_as_global`` is a number that is not a bool (``numpy.bool_``
+        is accepted as a bool).
 
     Notes
     -----
@@ -167,8 +170,13 @@ def h_factor(
             if "tau_e_global_s" in table else None)
     strict = resolve_observed_confinement(thermal, basis, tau_global=glob)
     relaxed = resolve_observed_confinement(thermal, basis, tau_global=glob, thermal_as_global=True)
-    if isinstance(thermal_as_global, bool):
-        allow = np.full(len(table), thermal_as_global)
+    if isinstance(thermal_as_global, (bool, np.bool_)):
+        # A flag derived from data (``(table.machine == "VEST").all()``) is a
+        # numpy bool, not a Python one; both mean every row.
+        allow = np.full(len(table), bool(thermal_as_global))
+    elif isinstance(thermal_as_global, (int, float, np.number)):
+        raise TypeError("thermal_as_global is a bool or a collection of machine names, "
+                        f"not {type(thermal_as_global).__name__}")
     else:
         # One machine name is one name, not a set of its letters.
         names = {thermal_as_global} if isinstance(thermal_as_global, str) else set(thermal_as_global)
