@@ -207,8 +207,8 @@ descendant in the next geometry.
 
 | Relation | Meaning | Example |
 | --- | --- | --- |
-| exact relabelling | the same perturbation in other coordinates and mode numbers | $(m, n) \to (m, k_z = -n/R_0)$ along $z = R_0\phi$ |
-| limit or coordinate continuation | one description is a limit of the other | Suydam's criterion is the cylindrical limit of Mercier's |
+| exact relabelling | the same harmonic's labels in another geometry's coordinates; the geometric reduction behind it is still a limit (`geometry_ordering_map`) | $n \mapsto k_z = -n/R_0$ along $z = R_0\phi$; $m \mapsto k_y = m/r_0$ at a surface $r_0$ |
+| limit or coordinate continuation | one description is a limit of the other; the arrowhead points at the more general model | Suydam's criterion is the cylindrical limit of Mercier's |
 | physical analogue | the same mechanism in a different eigenproblem | magnetic Rayleigh–Taylor and interchange |
 | branch | extra physics or localisation on top of a family | a resistive wall turns the external kink into an RWM |
 
@@ -237,8 +237,9 @@ In a cylinder, $m = 0$ is a sausage, $m = 1$ a kink (a rigid helical shift) and 
 distortions (`cylindrical_mode_morphology`). These are **Fourier morphologies**. They are not a
 taxonomy of instabilities. "$m = 1$ means kink instability" says too much. It is more accurate to say that
 $m = 1$ has kink-like cylindrical morphology, and that whether an unstable kink branch exists depends on
-the equilibrium and on the eigenproblem posed. The $m = 0$ sausage, the classic Z-pinch instability, is
-stabilised in a tokamak by its strong $B_z$, so it has no tokamak descendant on the map.
+the equilibrium and on the eigenproblem posed. The $m = 0$ sausage instability of a Z-pinch is driven by
+the pressure gradient against the curvature of $B_\theta$, so the map files it under the pressure-driven
+family. A strong $B_z$ stabilises it, and it has no tokamak descendant on the map.
 
 ### Pressure- and curvature-driven family
 
@@ -259,8 +260,12 @@ $$\text{Rayleigh–Taylor analogue} \to \text{flute / interchange} \to \text{int
 
 ### Current-driven family
 
+The internal/external distinction already exists in the cylinder (`internal_external_kink`;
+Kruskal–Shafranov is a cylindrical external-kink criterion). The torus continues both:
+
 * **Internal kink**: a global ideal mode confined inside an internal rational surface, the $m = 1$ mode
-  inside $q = 1$. Finite resistivity at $q = 1$ gives the resistive kink.
+  inside $q = 1$. In a torus its leading cylindrical $\delta W$ vanishes and the toroidal (Bussac)
+  terms decide stability. Finite resistivity at $q = 1$ gives the resistive kink.
 * **External kink**: a global ideal mode that displaces the plasma boundary (`internal_external_kink`,
   `plasma_vacuum_wall`, `kink_mode`).
 * **Peeling**: an edge-current-driven, edge-localised, *external-kink-like* branch. It is not simply the
@@ -294,7 +299,9 @@ eigenmode in an ideal–resistive hierarchy, which is why it hangs off the map a
 $m$ and $n$ are not parity labels. At a resonant surface the local layer response has its own
 classification, **tearing** or **twisting** parity (`slab_parity`, `slab_parity_comparison`). A given
 $m/n$ harmonic can take part in either channel, depending on the response or eigenproblem. Toroidal
-coupling of several $m$ at fixed $n$ does not change this. Parity stays a separate concept.
+coupling of several $m$ at fixed $n$ does not change this. Parity stays a separate concept. With finite
+pressure and curvature, the Glasser–Greene–Johnson inner layer that RDCON solves classifies its solutions
+as tearing and *interchange* parity rather than twisting.
 
 ### Axisymmetric free-boundary modes
 

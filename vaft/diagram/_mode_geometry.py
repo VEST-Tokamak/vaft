@@ -26,15 +26,16 @@ from vaft.formula.stability import helical_phase
 
 from ._concept import band, box, connector
 from ._equations import formula_equation
+from ._geometry import _check_labels
 from ._render import Diagram
 from ._scene import Arrow, Label, Scene
 
 #: arrow kind -> (TikZ style, legend text)
 RELATIONS: Dict[str, Tuple[str, str]] = {
-    "exact": ("map exact", "exact relabelling of coordinates and mode numbers"),
-    "limit": ("map limit", "limit or coordinate continuation"),
+    "exact": ("map exact", "exact relabelling of mode labels"),
+    "limit": ("map limit", "limit or continuation, head at the more general model"),
     "analogue": ("map analogue", "physical analogue, not the same eigenproblem"),
-    "branch": ("map branch", "branch: adds physics\\\\ or localisation"),
+    "branch": ("map branch", "branch that adds physics or localisation"),
 }
 
 #: family band -> (y top, y bottom, label)
@@ -50,6 +51,8 @@ GEOMETRY_COLUMNS = {"slab": _SLAB, "cylinder": _CYL, "torus": (_T1, _T3)}
 _W, _H = 4.2, 1.25
 #: slab and cylinder boxes have more room than the three torus sub-columns
 _W_LOCAL = 4.8
+#: legend text: wrapped at word boundaries, never hyphenated
+_LEGEND_STYLE = "small label,text width=5.2cm,align=left,execute at begin node={\\hyphenpenalty=10000}"
 
 #: node -> (x, y, family, text); a family of None is the header row
 _NODES: Dict[str, Tuple[float, float, object, str]] = {
@@ -65,10 +68,10 @@ _NODES: Dict[str, Tuple[float, float, object, str]] = {
     "ballooning": (_T2, -4.4, "pressure", "ballooning: high $n$,\\\\ bad curvature, shear"),
     "peeling_ballooning": (_T3, -6.6, "pressure", "peeling--ballooning:\\\\ coupled edge branch"),
     # current
-    "sausage": (_CYL, -9.3, "current", "$m = 0$ sausage morphology:\\\\ stabilised by strong $B_z$"),
-    "kink": (_CYL, -11.3, "current", "$m = 1$ kink, $m \\ge 2$\\\\ helical morphology"),
-    "internal_kink": (_T1, -9.3, "current", "internal kink: inside\\\\ $q = 1$; resistive kink"),
-    "external_kink": (_T1, -11.3, "current", "external kink:\\\\ boundary displacement"),
+    "sausage": (_CYL, -6.6, "pressure", "$m = 0$ sausage: $p'$ against\\\\ $B_\\theta$ curvature; $B_z$ stabilises"),
+    "kink": (_CYL, -10.3, "current", "internal / external kink:\\\\ $m = 1$, $m \\ge 2$ helical"),
+    "internal_kink": (_T1, -9.3, "current", "toroidal internal kink:\\\\ Bussac $\\delta W$; resistive"),
+    "external_kink": (_T1, -11.3, "current", "toroidal external kink:\\\\ boundary displacement"),
     "rwm": (_T1, -13.3, "current", "RWM: external kink\\\\ + resistive wall"),
     "peeling": (_T2, -11.3, "current", "peeling: edge current,\\\\ external-kink-like"),
     # resonant
@@ -83,8 +86,8 @@ _NODES: Dict[str, Tuple[float, float, object, str]] = {
 
 #: (start, end, relation, label or "")
 _EDGES: Tuple[Tuple[str, str, str, str], ...] = (
-    ("cylinder", "slab", "exact", "$x = r - r_s$"),
-    ("torus", "cylinder", "exact", "$z = R_0\\phi$"),
+    ("cylinder", "slab", "exact", "at $r_0$:\\\\ $m \\mapsto k_y$"),
+    ("torus", "cylinder", "exact", "$z = R_0\\phi$: $n \\mapsto k_z$"),
     ("rayleigh_taylor", "interchange", "analogue", ""),
     ("interchange", "mercier", "limit", ""),
     ("mercier", "ballooning", "branch", ""),
@@ -95,29 +98,26 @@ _EDGES: Tuple[Tuple[str, str, str, str], ...] = (
     ("kink", "external_kink", "limit", ""),
     ("external_kink", "rwm", "branch", ""),
     ("external_kink", "peeling", "branch", ""),
-    ("cylindrical_tearing", "slab_layer", "limit", ""),
+    ("slab_layer", "cylindrical_tearing", "limit", ""),
     ("cylindrical_tearing", "toroidal_tearing", "limit", ""),
     ("toroidal_tearing", "ntm", "branch", ""),
     ("rigid_shift", "vde", "analogue", ""),
 )
 
 
-def _check_labels(labels) -> bool:
-    if not isinstance(labels, bool):
-        raise ValueError(f"labels must be True or False, not {labels!r}")
-    return labels
-
-
 def mhd_mode_geometry_map(*, labels: bool = True) -> Diagram:
     r"""MHD mode families across slab, cylindrical and toroidal geometry, with typed relations.
 
     Columns are geometries, each headed by its coordinates, spectral labels
-    and the relation that names its resonance: ``slab_parallel_wavenumber``,
+    and spectral relation: ``slab_parallel_wavenumber``,
     ``cylindrical_parallel_wavenumber`` ($k_\parallel = 0 \Leftrightarrow
-    q = m/n$) and ``helical_phase``. Bands are physical families: pressure /
-    curvature driven (Rayleigh--Taylor analogue, interchange, Mercier,
-    ballooning, infernal, peeling--ballooning), current driven (sausage and
-    kink morphology, internal and external kink, peeling, RWM), resonant
+    q = m/n$) and ``helical_phase``. The header arrows relabel mode labels
+    exactly; the geometric reductions behind them are limits
+    (``geometry_ordering_map``). Bands are physical families: pressure /
+    curvature driven (Rayleigh--Taylor analogue, interchange, the $m = 0$
+    sausage, Mercier,
+    ballooning, infernal, peeling--ballooning), current driven (internal and
+    external kink in the cylinder and the torus, peeling, RWM), resonant
     (layer parity, outer tearing, toroidal tearing, NTM) and the $n = 0$
     vertical instability. Arrows are typed: an exact relabelling, a limit or
     coordinate continuation, a physical analogue, or a branch that adds
@@ -151,7 +151,7 @@ def mhd_mode_geometry_map(*, labels: bool = True) -> Diagram:
         items.append(arrow)
         if text:
             mid = 0.5 * (np.array(arrow.start) + np.array(arrow.end))
-            items.append(Label((float(mid[0]), float(mid[1]) + 0.15), text, "small label", anchor="south",
+            items.append(Label((float(mid[0]), float(mid[1]) + 0.15), text, "small label,align=center", anchor="south",
                                role=f"edge:{relation}:{start}->{end}"))
     # global current-driven modes have no local-slab form
     items.append(Label((_SLAB, -10.3), "global: no local-slab\\\\ counterpart", "concept annotation",
@@ -162,12 +162,13 @@ def mhd_mode_geometry_map(*, labels: bool = True) -> Diagram:
         for i, (relation, (style, text)) in enumerate(RELATIONS.items()):
             x = x0 + 7.0 * i
             items.append(Arrow((x, y), (x + 1.2, y), style, role=f"legend:{relation}"))
-            items.append(Label((x + 1.4, y), text, "small label,text width=5.4cm,align=left", anchor="west",
-                               role=f"legend:{relation}"))
+            items.append(Label((x + 1.4, y), text, _LEGEND_STYLE, anchor="west", role=f"legend:{relation}"))
         items.append(Label((0.5 * (left + right), -21.75),
-                           "A map of relationships, not of identity. A mode is a spectral label + drive + "
-                           "localisation + resonance + parity + physical model", "note", anchor="north",
-                           role="note"))
+                           "A map of relationships, not of identity: header arrows relabel mode labels exactly, "
+                           "while the geometric reductions themselves are limits (geometry\\_ordering\\_map).\\\\ "
+                           "A mode is a "
+                           "spectral label + drive + localisation + resonance + parity + physical model",
+                           "note", anchor="north", role="note"))
     model = {
         "columns": dict(GEOMETRY_COLUMNS),
         "nodes": {k: (b.x, b.y) for k, b in nodes.items()},

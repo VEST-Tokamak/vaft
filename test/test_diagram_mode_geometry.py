@@ -65,6 +65,11 @@ def test_no_false_one_to_one_correspondences(diagram):
     assert edges[("external_kink", "peeling")] == "branch"
     assert edges[("external_kink", "rwm")] == "branch"
     assert edges[("toroidal_tearing", "ntm")] == "branch"
+    # a limit arrow points at the more general model: the slab layer is the inner region of the cylinder problem
+    assert edges[("slab_layer", "cylindrical_tearing")] == "limit"
+    assert all(b != "slab_layer" for a, b in edges)
+    # the m = 0 sausage is pressure-driven (p' against the B_theta curvature), not current-driven
+    assert diagram.model["families"]["sausage"] == "pressure"
     # Rayleigh-Taylor and the rigid shift are analogues only
     assert edges[("rayleigh_taylor", "interchange")] == "analogue"
     assert edges[("rigid_shift", "vde")] == "analogue"
@@ -106,6 +111,10 @@ def test_boxes_do_not_overlap(diagram):
         for b, rb in boxes[i + 1:]:
             apart = ra[1] <= rb[0] or rb[1] <= ra[0] or ra[3] <= rb[2] or rb[3] <= ra[2]
             assert apart, (a, b)
+
+
+def test_model_text_carries_no_latex_line_breaks(diagram):
+    assert not any("\\\\" in text for text in diagram.model["relations"].values())
 
 
 def test_labels_switch_off_the_legend_and_note():
