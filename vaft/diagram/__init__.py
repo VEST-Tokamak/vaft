@@ -35,7 +35,9 @@ modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 ``scientific_provenance_chain``, ``scientific_infrastructure_principles``,
 ``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``,
 ``human_ai_interface`` and ``machine_research_archive``; the VEST data platform
-(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the physics-workflow
+(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the software
+and external-code ecosystem (#1648): ``software_dependency_ecosystem`` and
+``external_code_integration``; the physics-workflow
 spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``resistive_zeff_inference``, ``magnetic_efit``, ``kinetic_efit``,
 ``analytic_mhd_equilibrium``, ``chease_coupling``, ``tokamaker_coupling``,
@@ -201,6 +203,8 @@ __all__ = [
     "machine_research_archive",
     "vest_data_platform",
     "vest_data_platform_overview",
+    "software_dependency_ecosystem",
+    "external_code_integration",
     "plasma_parameter_inference",
     "romero_transformer_balance",
     "resistive_zeff_inference",
@@ -368,6 +372,8 @@ _LOCATIONS = {
     "machine_research_archive": "._vaft_concepts",
     "vest_data_platform": "._platform",
     "vest_data_platform_overview": "._platform",
+    "software_dependency_ecosystem": "._ecosystem",
+    "external_code_integration": "._ecosystem",
     "plasma_parameter_inference": "._workflow_specs",
     "romero_transformer_balance": "._workflow_specs",
     "resistive_zeff_inference": "._workflow_specs",

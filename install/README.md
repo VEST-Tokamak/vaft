@@ -401,6 +401,19 @@ The bootstrap above gives you VAFT, Python and JupyterLab. The external Fortran
 codes are optional and independent: you only need this section if you want VAFT
 to *run* CHEASE or the DCON/GPEC suite rather than only prepare their inputs.
 
+For the overview, generated from the code registry rather than kept by hand:
+
+- [External scientific codes](https://vest-tokamak.github.io/vaft/develop/reference/external-codes/)
+  -- each code's role, how VAFT runs it, who installs it, its `{CODE}HOME`,
+  checker, upstream and literature, and the installation ownership matrix;
+- [Software dependencies](https://vest-tokamak.github.io/vaft/develop/reference/software-dependencies/)
+  -- which capability each Python dependency and each optional extra provides.
+
+![How an external code becomes a VAFT capability](../docs/assets/diagrams/external_code_integration.svg)
+
+The platform-specific build instructions stay below and in each code's own
+README; the generated pages link back to them.
+
 ```text
 Need VAFT only?            -> the platform script above; you are done
 Need CHEASE?    Linux/macOS -> bash install/install_chease.sh --source PATH
@@ -982,9 +995,10 @@ to check an uninstalled CMake build.
 
 ## Codes with no installer here, and why
 
-`install/` carries a build recipe for five codes: CHEASE, DCON/GPEC, EFIT/EFUND,
-NUBEAM and GACODE. `vaft.code` also talks to three others, and none of them gets
-a script here. That is a deliberate stop, not an omission, so this section says
+`install/` carries a build recipe for six codes: CHEASE, DCON/GPEC, EFIT/EFUND,
+NUBEAM, GACODE and GENRAY (`install_genray.sh`, described in its section below).
+`vaft.code` also talks to three others -- TES, TRANSP and TokaMaker -- and none
+of them gets a script here. That is a deliberate stop, not an omission, so this section says
 what VAFT actually does for each and what you would have to supply yourself. The
 last entry, the `vaft-nn` model registry, is not a code at all but is configured
 the same way.

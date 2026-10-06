@@ -289,7 +289,8 @@ end
 # would otherwise pass everything below.
 { "Plot_reference.md" => "plot_catalog.yml", "Diagram_reference.md" => "diagram_catalog.yml",
   "Api_reference_core.md" => "api_catalog.yml", "Dependency_graph.md" => "dependency_graph.yml",
-  "Pipeline_graph.md" => "pipeline_graph.yml" }.each do |page, snapshot|
+  "Pipeline_graph.md" => "pipeline_graph.yml", "External_codes.md" => "ecosystem.yml",
+  "Software_dependencies.md" => "ecosystem.yml" }.each do |page, snapshot|
   next unless (ROOT / "_guide" / page).file?
   errors << "_guide/#{page} is published but _data/#{snapshot} was not generated (declare its generator in generators.yml)" unless (ROOT / "_data" / snapshot).file?
 end
@@ -397,6 +398,35 @@ if (ROOT / "_data" / "pipeline_graph.yml").file?
     rescue JSON::ParserError => error
       errors << "assets/graph/pipeline-graph.json is not JSON: #{error.message[0, 120]}"
     end
+  end
+end
+
+# The dependency and external-code catalog (#1648).  Its pages render tables
+# straight from the snapshot, so a missing snapshot would publish empty pages;
+# every internal link a code carries (its pipeline rules, its stage) must be a
+# built page, and every external-code entry renders exactly once.
+if (ROOT / "_data" / "ecosystem.yml").file?
+  eco = data("ecosystem.yml")
+  %w[schema_version generator source capabilities dependencies extras lifecycle codes].each do |field|
+    errors << "ecosystem snapshot missing #{field}" unless eco.key?(field)
+  end
+  check_snapshot_sources(errors, "ecosystem", eco, registry_source)
+  eco_commit = eco.dig("provenance", "commit").to_s
+  errors << "ecosystem catalog was generated from #{eco_commit[0, 7]}, but this track is built from #{SITE_PROVENANCE['commit'].to_s[0, 7]}" unless SITE_PROVENANCE["commit"].to_s.empty? || eco_commit == SITE_PROVENANCE["commit"].to_s
+  code_ids = eco.fetch("codes", []).map { |code| code["id"] }
+  errors << "ecosystem catalog repeats code ids" unless code_ids.uniq.size == code_ids.size
+  eco.fetch("codes", []).each do |code|
+    (code.fetch("workflow", []).map { |w| w["url"] } + code.fetch("standardized", []).map { |s| s["url"] })
+      .map(&:to_s).reject(&:empty?).each do |url|
+      errors << "external code #{code['id']} links to #{url}, which is not built" unless output_path("#{BASEURL}#{url.split('#').first}")
+    end
+  end
+  built = output_path("#{BASEURL}/reference/external-codes/")
+  if built
+    rendered = Nokogiri::HTML(built.read(encoding: "UTF-8")).css("[data-catalog='external-code']").map { |node| node["id"].to_s.delete_prefix("code-") }
+    errors << "/reference/external-codes/ renders #{rendered.sort.inspect}, not the catalog's #{code_ids.sort.inspect}" unless rendered.sort == code_ids.sort
+  else
+    errors << "/reference/external-codes/ is not built"
   end
 end
 

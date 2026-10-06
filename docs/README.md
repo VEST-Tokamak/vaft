@@ -35,6 +35,7 @@ is whatever its own `generators.yml` declares:
 | `/reference/api/<page>/` | `vaft._api_catalog` | no | yes |
 | `/reference/dependency-graph/` | `vaft._dependency_graph` | no | yes |
 | `/reference/pipeline-graph/` | `vaft._pipeline_graph` | no | yes |
+| `/reference/software-dependencies/`, `/reference/external-codes/` | `vaft._ecosystem_catalog` | no | yes |
 
 `vaft._dependency_graph` (#1646) needs Grimp, the optional `architecture`
 extra (`pip install -e ".[architecture]"`; also in `[dev]`). Without it the
@@ -151,7 +152,7 @@ npm run test:docs:develop
 
 `_data/vest_diagnostics.yml`, `_data/formula_catalog.yml`,
 `_data/process_catalog.yml`, `_data/plot_catalog.yml`,
-`_data/diagram_catalog.yml`, `_data/api_catalog.yml`, `_data/dependency_graph.yml`, `_data/pipeline_graph.yml` and `_data/provenance.yml` are generated and are
+`_data/diagram_catalog.yml`, `_data/api_catalog.yml`, `_data/dependency_graph.yml`, `_data/pipeline_graph.yml`, `_data/ecosystem.yml` and `_data/provenance.yml` are generated and are
 not committed. `generators.yml`
 declares which generators this branch has, which is why that file differs
 between `main` and `develop`.
