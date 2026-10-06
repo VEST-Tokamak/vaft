@@ -356,7 +356,12 @@ def render_to_file(
     """
     from vaft.plot import save_figure
     from vaft.plot.environment import use_non_interactive_backend
+    from vaft.plot.registry import NON_GRAPHICAL_VIEWS, get_spec
 
+    if get_spec(name).view in NON_GRAPHICAL_VIEWS:
+        # A table or text view is text (issue #1180): .txt, .md or .html.
+        rendered = render(name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options)
+        return rendered.save(path)
     if options.get("backend") == "plotly":
         # A Plotly figure is a web page; nothing else is a faithful file of it.
         if not str(path).lower().endswith((".html", ".htm")):

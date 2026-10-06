@@ -60,6 +60,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"field_line_geometry_{g}.svg": ("field_line_geometry", {"geometry": g})
        for g in ("toroidal", "cylindrical", "slab")},
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
+    "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
     # tokamak geometry and flux coordinates
     **{f"tokamak_torus_{p}.svg": ("tokamak_torus", {"projection": p}) for p in ("3d", "poloidal")},
     **{f"flux_surfaces_{s}.svg": ("flux_surfaces", {"shape": s}) for s in ("circular", "shifted")},
@@ -190,9 +191,22 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "human_ai_interface.svg": ("human_ai_interface", {}),
     # the machine and research archive since 2012 (#497)
     "machine_research_archive.svg": ("machine_research_archive", {}),
+    # research infrastructure: four fragmented/integrated pairs, community and ownership (#1636-#1645)
+    **{f"{name}{suffix}.svg": (name, kwargs)
+       for name in ("scientific_representation", "experimental_research_infrastructure", "scientific_credibility",
+                    "research_modality_architecture")
+       for suffix, kwargs in (("", {}), ("_fragmented", {"organization": "fragmented"}))},
+    "fusion_research_ecosystem.svg": ("fusion_research_ecosystem", {}),
+    "fusion_research_ecosystem_presentation.svg": ("fusion_research_ecosystem", {"detail": "presentation"}),
+    "scientific_ownership_architecture.svg": ("scientific_ownership_architecture", {}),
     # the VEST data platform: reference view and compact companion (#1550)
     "vest_data_platform.svg": ("vest_data_platform", {}),
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
+    # the physics-workflow spine, level 2 below the platform overview (#1585)
+    **{f"{name}.svg": (name, {}) for name in (
+        "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
+        "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
+        "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport")},
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),

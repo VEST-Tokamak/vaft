@@ -6,6 +6,10 @@ and adds Panel widgets on top.  Panel is optional (``pip install
 'vaft[gui]'``); this package imports without it and names the extra only
 when a GUI is actually built.
 
+The page is an application shell (:mod:`vaft.gui.shell`) hosting
+registered workspaces -- the plot explorer and the database view today --
+that share one selection (:mod:`vaft.gui.selection`).
+
 Run it with ``vaft gui``.  It binds to 127.0.0.1, so on a remote host or a
 cluster node the page is reached through SSH or VS Code port forwarding.
 """
@@ -15,9 +19,19 @@ from __future__ import annotations
 from typing import Any
 
 from ._require import require_panel
+from .selection import Selection, SelectionState
+from .shell import WORKSPACES, WorkspaceRegistry, WorkspaceSpec, register_workspace
 from .state import BrowserSession, Source
+from . import workspaces as _workspaces  # noqa: F401 - registers the built-in workspaces
 
-_LAZY = {"BrowserApp": ".app", "build_app": ".app", "serve": ".app", "panel_controls": ".widgets"}
+_LAZY = {
+    "BrowserApp": ".app",
+    "build_app": ".app",
+    "build_shell": ".app",
+    "serve": ".app",
+    "panel_controls": ".widgets",
+    "Shell": ".shell",
+}
 
 
 def __getattr__(name: str) -> Any:
@@ -28,4 +42,20 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["BrowserApp", "BrowserSession", "Source", "build_app", "panel_controls", "require_panel", "serve"]
+__all__ = [
+    "BrowserApp",
+    "BrowserSession",
+    "Selection",
+    "SelectionState",
+    "Shell",
+    "Source",
+    "WORKSPACES",
+    "WorkspaceRegistry",
+    "WorkspaceSpec",
+    "build_app",
+    "build_shell",
+    "panel_controls",
+    "register_workspace",
+    "require_panel",
+    "serve",
+]

@@ -13,6 +13,7 @@ equilibrium, which failed deep inside CHEASE's spline setup with
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from vaft.data.eqdsk import from_omas, read_geqdsk
 from vaft.data.resources import data_path
@@ -52,3 +53,70 @@ def test_geqdsk_to_omas_round_trip_does_not_transpose_psirz_on_a_square_grid():
     # happens to be symmetric -- confirm the fixture's psi genuinely isn't,
     # so this test could actually have caught the bug.
     assert not np.allclose(original_psi, original_psi.T)
+
+
+
+_FLUX_LEAVES = ("global_quantities.psi_axis", "global_quantities.psi_boundary", "profiles_1d.psi",
+                "profiles_1d.f_df_dpsi", "profiles_1d.dpressure_dpsi", "profiles_2d.0.psi")
+
+
+def _families(**overrides):
+    """The packaged 39915 g-file per radian, and the same equilibrium written in weber (COCOS 11-18)."""
+    from vaft.data.eqdsk import TWO_PI
+
+    per_radian = dict(read_geqdsk(data_path("efit/g039915.00319")).mapping, **overrides)
+    weber = dict(per_radian)
+    for key in ("SIMAG", "SIBRY", "PSIRZ"):
+        weber[key] = np.asarray(per_radian[key], dtype=float) * TWO_PI
+    for key in ("FFPRIM", "PPRIME"):
+        weber[key] = np.asarray(per_radian[key], dtype=float) / TWO_PI
+    return per_radian, weber
+
+
+def _assert_same_flux(converted, reference, leaves=_FLUX_LEAVES):
+    for leaf in leaves:
+        path = f"equilibrium.time_slice.0.{leaf}"
+        np.testing.assert_allclose(converted[path], reference[path], rtol=1e-12, err_msg=leaf)
+
+
+@pytest.mark.parametrize("family, case", [
+    ("weber", "plain"),
+    ("weber", "TCVlike COCOS=17"),
+    ("weber", "stale COCOS=1"),          # a token the data contradict does not rescale the file
+    ("per_radian", "stale COCOS=11"),    # ... in either direction
+])
+def test_the_flux_family_of_a_geqdsk_comes_from_its_data_not_a_stale_token(family, case):
+    """A weber-family g-file (e.g. TCV's COCOS 17) is not scaled by 2*pi again (#294).
+
+    Before #294 to_omas scaled every file by 2*pi, leaving a weber file (2*pi)^2 off
+    Ampere's law: TCV-X21 65402 gave li_3 = 32.9 instead of 0.83.
+    """
+    from vaft.data.eqdsk import TWO_PI, to_omas
+    from vaft.process.cocos import identify_flux_exponent
+    from vaft.process.equilibrium import as_equilibrium
+
+    per_radian, weber = _families()
+    source = dict(weber if family == "weber" else per_radian, CASE=case)
+    reference, converted = to_omas(per_radian), to_omas(source)
+    _assert_same_flux(converted, reference, _FLUX_LEAVES + ("profiles_1d.phi",))
+    exponent, ratio = identify_flux_exponent(as_equilibrium(converted))
+    assert exponent == 1 and abs(ratio / TWO_PI - 1.0) < 0.05   # Ampere: weber, not (2*pi)^2
+
+
+def test_a_zero_current_weber_geqdsk_is_decided_by_its_q_profile():
+    """With no current the signs identify nothing; the contour-q probe still knows the family."""
+    from vaft.data.eqdsk import to_omas
+
+    per_radian, weber = _families(CURRENT=0.0)
+    _assert_same_flux(to_omas(weber), to_omas(per_radian))
+
+
+def test_a_weber_geqdsk_survives_an_ods_round_trip_with_its_cocos_token():
+    """from_omas writes per radian, so it must not copy a weber COCOS token into CASE verbatim."""
+    from vaft.data.eqdsk import to_omas
+
+    per_radian, weber = _families()
+    first = to_omas(dict(weber, CASE="TCVlike COCOS=12"))
+    exported = from_omas(first)
+    assert "COCOS=2" in exported["CASE"]
+    _assert_same_flux(to_omas(exported), to_omas(per_radian))
