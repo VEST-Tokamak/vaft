@@ -121,3 +121,54 @@ def test_checks_without_a_shot_are_reported(monkeypatch):
         assert shell.alert.visible and "open a shot" in shell.alert.object
     finally:
         shell.close()
+
+
+# -- cold-review cases ----------------------------------------------------------------
+def _move_slice(app):
+    state = app.session.state
+    other = next(v for v in state.spec("time_slice").options if v != state["time_slice"])
+    state.set("time_slice", other)
+    return other
+
+
+def test_coming_back_to_a_plot_keeps_the_chosen_slice(workspace):
+    app = workspace.app
+    app.plot.value = "equilibrium_field_psi"
+    chosen = _move_slice(app)
+    app.plot.value = "equilibrium_geometry_boundary"  # no slice control
+    app.plot.value = "equilibrium_field_psi"
+    assert workspace.time_slice == chosen and app.session.state["time_slice"] == chosen
+
+
+def test_a_shot_the_slice_does_not_fit_is_reported_without_hiding_the_others(workspace, ods):
+    import copy
+
+    short = copy.deepcopy(ods)
+    while len(short["equilibrium.time_slice"]) > 1:
+        del short["equilibrium.time_slice"][len(short["equilibrium.time_slice"]) - 1]
+    session = workspace.app.session
+    session.sources = (Source("sample", 39915), Source("sample", 41524))
+    session.ods = [ods, short]
+    workspace.time_slice = 4
+    session._release()  # nothing on screen: the remembered slice is checked
+    reports = workspace.run_checks()
+    assert len(reports) == 1 and reports[0]["time_slices"] == [4]
+    text = workspace.quality.object
+    assert "sample 39915" in text and "sample 41524** -- not checked: slice 4 is not one of its 1" in text
+    assert not workspace.check_slice.disabled
+
+
+def test_the_checked_slice_is_the_one_on_screen(workspace):
+    app = workspace.app
+    app.plot.value = "equilibrium_field_psi"
+    on_screen = _move_slice(app)
+    workspace.time_slice = None if on_screen != 0 else 1  # a stale memory must not win
+    (report,) = workspace.run_checks()
+    assert report["time_slices"] == [on_screen]
+
+
+def test_odd_report_shapes_still_render():
+    import numpy as np
+
+    text = equilibrium.quality_markdown("x", {"status": "pass", "summary": None, "time": np.array([0.3, np.nan])})
+    assert "300.0 ms" in text and "nan" not in text

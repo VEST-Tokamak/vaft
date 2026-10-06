@@ -101,8 +101,15 @@ def quality_rows(report: Mapping[str, Any]) -> list[dict[str, str]]:
 
 def quality_markdown(label: str, report: Mapping[str, Any]) -> str:
     """A validation report as Markdown: the summary per category, then every check."""
-    summary = report.get("summary") or {}
-    times = ", ".join(f"{float(t) * 1e3:.1f} ms" for t in (report.get("time") or ()))
+    import math
+
+    import numpy as np
+
+    summary = report.get("summary")
+    summary = summary if isinstance(summary, Mapping) else {}
+    raw_times = report.get("time")
+    raw_times = [] if raw_times is None else np.ravel(np.asarray(raw_times, dtype=float)).tolist()
+    times = ", ".join(f"{t * 1e3:.1f} ms" for t in raw_times if math.isfinite(t))
     lines = [f"**{label}** -- overall **{_status(report.get('status'))}**" + (f" at {times}" if times else "")]
     lines.append(" · ".join(f"{category}: **{_status(status)}**" for category, status in summary.items()))
     table = ["| Category | Check | Status | Reason |", "| --- | --- | --- | --- |"]
@@ -139,6 +146,9 @@ class EquilibriumWorkspace(PlotWorkspace):
         )
         #: The slice the reader chose, carried to every plot that has one.
         self.time_slice: int | None = None
+        #: ((sources, plot), slice) last seen on screen, to tell the reader's
+        #: move from a new plot opening on its default.
+        self._seen: tuple[Any, Any] = ((), None)
         self.mode.param.watch(lambda event: self.set_mode(event.new), "value")
         self.check_slice.on_click(lambda _event: self.run_checks(all_slices=False))
         self.check_all.on_click(lambda _event: self.run_checks(all_slices=True))
@@ -156,16 +166,28 @@ class EquilibriumWorkspace(PlotWorkspace):
         self.app.set_plot_filter(lambda record: is_equilibrium(record) and mode_of(record) == mode)
 
     def _carry_slice(self) -> None:
-        """Keep one time slice across plots: remember it, and apply it to a new plot."""
-        state = self.app.session.state
+        """Keep one time slice across plots: remember it, and apply it to a new plot.
+
+        The slice is remembered only when the reader moves it on the plot
+        already on screen; a new plot -- another one, the same one again, or
+        the same one over other shots -- opens on the remembered slice.
+        """
+        session = self.app.session
+        key = (session.sources, session.plot)
+        state = session.state
         if state is None or "time_slice" not in state.values:
+            self._seen = (key, None)
             return
         current = state["time_slice"]
-        if self.time_slice is None or self.app.session.plot == getattr(self, "_slice_plot", None):
-            # The reader moved the slice on this plot (or chose the first): remember it.
-            self.time_slice, self._slice_plot = current, self.app.session.plot
+        seen_key, seen_slice = self._seen
+        self._seen = (key, current)
+        if seen_key == key and seen_slice is not None:
+            if current != seen_slice:
+                self.time_slice = current  # the reader moved it
             return
-        self._slice_plot = self.app.session.plot
+        if self.time_slice is None:
+            self.time_slice = current
+            return
         options = list(getattr(state.spec("time_slice"), "options", ()) or ())
         if current != self.time_slice and self.time_slice in options:
             state.set("time_slice", self.time_slice)  # redraws; comes back with equal values
@@ -179,18 +201,41 @@ class EquilibriumWorkspace(PlotWorkspace):
         if session.ods is None:
             self.shell.report("open a shot with an equilibrium first", where=self.title)
             return []
+        # The slice on screen, else the one remembered.
+        state = session.state
+        on_screen = state["time_slice"] if state is not None and "time_slice" in state.values else None
+        slice_ = None if all_slices else (on_screen if on_screen is not None else self.time_slice)
+        self.check_slice.disabled = self.check_all.disabled = True
+        self.quality.object = "Checking ..."
         try:
             if session.database:
-                session.load_ids(_VALIDATION_IDS)  # only what each shot stores is fetched
+                try:
+                    session.load_ids(_VALIDATION_IDS)  # only what each shot stores is fetched
+                finally:
+                    self.app._update_status()
             data = session.ods if isinstance(session.ods, list) else [session.ods]
-            slice_ = None if all_slices else self.time_slice
-            reports = [validate_equilibrium(ods, time_slice=slice_) for ods in data]
+            reports, parts = [], []
+            for source, ods in zip(session.sources, data):
+                # Each shot on its own: one that cannot be checked does not
+                # hide the verdicts of the others.
+                try:
+                    count = len(ods["equilibrium.time_slice"]) if "equilibrium.time_slice" in ods else 0
+                    if slice_ is not None and not 0 <= int(slice_) < count:
+                        parts.append(f"**{source.label}** -- not checked: slice {slice_} is not one of its {count}")
+                        continue
+                    report = validate_equilibrium(ods, time_slice=slice_)
+                except Exception as error:  # this shot only
+                    parts.append(f"**{source.label}** -- not checked: {str(error).splitlines()[0] if str(error) else type(error).__name__}")
+                    continue
+                reports.append(report)
+                parts.append(quality_markdown(source.label, report))
+            self.quality.object = "\n\n---\n\n".join(parts)
         except Exception as error:
+            self.quality.object = ""
             self.shell.report(error, where=f"{self.title} checks")
             return []
-        self.quality.object = "\n\n---\n\n".join(
-            quality_markdown(source.label, report) for source, report in zip(session.sources, reports)
-        )
+        finally:
+            self.check_slice.disabled = self.check_all.disabled = False
         return reports
 
     # -- layout ---------------------------------------------------------------------------
