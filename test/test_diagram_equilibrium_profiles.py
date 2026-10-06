@@ -187,6 +187,35 @@ def test_q_min_is_on_axis_only_for_the_monotonic_profile():
     assert 0.5 < rev["x_min"] < 0.9 and rev["q_min"] < rev["q0"]
 
 
+def test_the_axis_band_is_described_as_common_to_every_column():
+    """Every q has s -> 0 on axis, so the |s| < 0.1 rule draws an s ~ 0 band in every column.
+
+    The figure obeys its own stated rule; the Diagrams.md row and the builder
+    docstring used to name the flat core as if the band were unique to the
+    broad current (cold review 0.8.0 delta-absorb-16 diagram-docs F2). The
+    model half pins the fact, the prose half pins that both texts say so.
+    """
+    import re
+    from pathlib import Path
+
+    d = vaft.diagram.q_profile_topologies()
+    runs = d.model["shear_runs"]
+    axis_band = {}
+    for profile, profile_runs in runs.items():
+        sign, a, b = profile_runs[0]
+        assert sign == "0" and a == 0.0, (profile, profile_runs[0])
+        axis_band[profile] = b - a
+    assert axis_band["weak_shear"] > 2 * max(axis_band["monotonic"], axis_band["reversed_shear"])
+
+    docstring = vaft.diagram.q_profile_topologies.__doc__
+    assert "on axis, so each column carries a narrow" in docstring
+    page = (Path(vaft.__file__).resolve().parents[1] / "docs" / "_guide" / "Diagrams.md")
+    if page.is_file():
+        row = next(line for line in page.read_text(encoding="utf-8").splitlines()
+                   if line.startswith("| `q_profile_topologies` |"))
+        assert re.search(r"on axis, so each column carries a narrow .*band", row), row
+
+
 def test_the_topologies_have_their_shear_signs():
     d = vaft.diagram.q_profile_topologies()
     runs = d.model["shear_runs"]
