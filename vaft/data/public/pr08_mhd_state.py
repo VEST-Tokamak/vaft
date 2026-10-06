@@ -20,6 +20,9 @@ Every quantity column ``q`` has a sibling ``q_provenance`` on every row:
 * ``deterministic_derived`` -- computed from ``source_direct`` columns of the same
   row by a registered VAFT function (:func:`vaft.formula.boundaries.kink_coordinates`,
   :func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip`, ...);
+* ``source_corrected`` -- the source value of a file with a known whole-file unit slip
+  (:data:`SOURCE_CORRECTIONS`: JT-60U ``IP`` in MA, ITER-scenario and JT-60U 39713
+  ``BETMHD`` in percent), rescaled while the file is the pinned one; ``state_notes`` says so;
 * ``source_invalid`` -- the source holds a value that cannot be the quantity
   (a non-positive radius, elongation, current, field, volume or ``l_i``; a
   ``BETMHD`` outside [0, 1]; an ``IP`` whose registered q95 estimate is more than
@@ -69,6 +72,7 @@ __all__ = [
     "MHD_STATE_COLUMNS",
     "PR08_MACHINES",
     "PROVENANCE_KINDS",
+    "SOURCE_CORRECTIONS",
     "UNIT_SLIP_FACTOR",
     "fetch_pr08_population",
     "mhd_state_coverage",
@@ -79,8 +83,25 @@ __all__ = [
     "read_pr08_zero_d",
 ]
 
-PROVENANCE_KINDS = ("source_direct", "equilibrium_derived", "deterministic_derived", "model_imputed",
-                    "source_invalid", "missing")
+PROVENANCE_KINDS = ("source_direct", "source_corrected", "equilibrium_derived", "deterministic_derived",
+                    "model_imputed", "source_invalid", "missing")
+
+_IP_IN_MA = ("IP", 1e6, "IP is stored in MA in this file (q95 estimate 1.2e6 x the source Q95 on every record); x1e6")
+_BETMHD_IN_PERCENT = ("BETMHD", 0.01, "BETMHD is stored in percent in this file (outside [0, 1] on every record); "
+                                      "x0.01")
+
+#: Unit slips of whole files of the pinned release, corrected only while the file is the pinned one
+#: (its SHA-256 equals PR08_RELEASE's).  Each was found by the decisive checks of _unit_checks, holds on
+#: every record of the file, and gives values consistent with the file's other quantities: JT-60U
+#: 16107/16168 at 2.46 MA; the ITER scenarios at beta_N ~ 1.8-2.0; JT-60U 39713 at beta_t 1.49 %,
+#: beta_N 2.6 beside its BEPMHD 1.30.  The checks still run after a correction, so a wrong one is rejected.
+SOURCE_CORRECTIONS: dict = {
+    ("jt60u", "16107"): (_IP_IN_MA,),
+    ("jt60u", "16168"): (_IP_IN_MA,),
+    ("jt60u", "39713"): (_BETMHD_IN_PERCENT,),
+    **{("iter", shot): (_BETMHD_IN_PERCENT,) for shot in ("10020201", "10020202", "10020203", "10030201",
+                                                          "10050201", "30040201", "30040202")},
+}
 
 PR08_SOURCE_DATABASE = "ITPA PR08 profile database"
 PR08_SOURCE_RELEASE = "PR08 public release (tokamak-profiledb.ccfe.ac.uk, directories 2005-2008)"
@@ -395,7 +416,7 @@ def _unit_checks(row: dict) -> list:
 
     notes = []
     beta = row["toroidal_beta"]
-    if row["toroidal_beta_provenance"] == "source_direct" and not 0.0 <= beta <= 100.0:
+    if row["toroidal_beta_provenance"] in ("source_direct", "source_corrected") and not 0.0 <= beta <= 100.0:
         # BETMHD is a fraction: outside [0, 1] it is a sign or unit error (percent given as a fraction)
         notes.append(f"BETMHD = {beta / 100.0:g} is not a beta fraction in [0, 1]")
         row["toroidal_beta"], row["toroidal_beta_provenance"] = math.nan, "source_invalid"
@@ -461,6 +482,17 @@ def _derive(row: dict) -> None:
         lambda: _b.start_q95_coordinates(a, r, b, kappa, delta, ip, configuration=configuration))
 
 
+def _corrections(discharge: Pr08ZeroD) -> tuple:
+    """The pinned corrections of this file, or none when its content is not the pinned release's."""
+    from ._pr08_release import PR08_RELEASE
+
+    key = (discharge.machine_dir, discharge.shot)
+    pinned = PR08_RELEASE.get(key)
+    if key not in SOURCE_CORRECTIONS or pinned is None or pinned[1] != discharge.sha256:
+        return ()
+    return SOURCE_CORRECTIONS[key]
+
+
 def _label(value) -> Optional[str]:
     return None if value is None or (isinstance(value, float) and math.isnan(value)) else str(value).strip()
 
@@ -486,6 +518,7 @@ def pr08_mhd_state_table(discharges: Iterable[Pr08ZeroD]) -> pd.DataFrame:
     for discharge in discharges:
         machine = PR08_MACHINES.get(discharge.machine_dir,
                                     Pr08Machine(discharge.machine_dir.upper(), "", "experimental"))
+        corrections = _corrections(discharge)
         for index, raw in enumerate(discharge.zero_d.to_dict("records")):
             # names are upper case in the manual; a few files write them in lower case
             record = {str(key).strip().upper(): value for key, value in raw.items()}
@@ -504,8 +537,15 @@ def pr08_mhd_state_table(discharges: Iterable[Pr08ZeroD]) -> pd.DataFrame:
                 config=_label(record.get("CONFIG")),
             )
             notes = []
+            for name, factor, reason in corrections:
+                if name in record and np.isfinite(_number(record[name])):
+                    record[name] = _number(record[name]) * factor
+                    notes.append(reason)
+            corrected = {name for name, _factor, _reason in corrections}
             for spec in _DIRECT:
                 value, kind = _direct_value(spec, record.get(spec.source))
+                if kind == "source_direct" and spec.source in corrected:
+                    kind = "source_corrected"
                 row[spec.column], row[f"{spec.column}_provenance"] = value, kind
                 if kind == "source_invalid":
                     notes.append(f"{spec.source} = {_number(record.get(spec.source)):g} cannot be {spec.column}")

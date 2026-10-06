@@ -322,3 +322,27 @@ def test_real_discharges_agree_with_the_ods_mapping_at_the_0d_time(machine, shot
         # radius, and the two differ by 2.4 % on DIII-D 81507 (1.957 T against 1.91 T at RGEO = 1.606 m)
     # MAST 8302 contradicts itself on the current direction, so its ODS has no ip/b0 to compare
     assert compared or machine == "mast"
+
+
+def test_a_pinned_whole_file_unit_slip_is_corrected_only_for_the_pinned_file(tmp_path, monkeypatch):
+    """JT-60U 16107/16168 store IP in MA: rescaled while the file is the pinned one, rejected otherwise."""
+    from vaft.data.public import _pr08_release
+
+    in_ma = JETLIKE.replace("JET,52009", "JT60U,16107").replace("-2.500E+06", "-2.500E+00")
+    discharge = _zero_d(tmp_path, in_ma, machine="jt60u", shot="16107")
+    monkeypatch.setitem(_pr08_release.PR08_RELEASE, ("jt60u", "16107"), ("16107", discharge.sha256, ("0d",)))
+    row = pr08_mhd_state_table([discharge]).iloc[0]
+    assert row["plasma_current"] == pytest.approx(2.5) and row["plasma_current_provenance"] == "source_corrected"
+    assert "stored in MA" in row["state_notes"] and np.isfinite(row["normalized_current"])
+
+    # another file content under the same name is not corrected: the decisive check rejects it instead
+    monkeypatch.setitem(_pr08_release.PR08_RELEASE, ("jt60u", "16107"), ("16107", "0" * 64, ("0d",)))
+    row = pr08_mhd_state_table([discharge]).iloc[0]
+    assert math.isnan(row["plasma_current"]) and row["plasma_current_provenance"] == "source_invalid"
+
+
+def test_the_pinned_corrections_name_files_of_the_release():
+    inventory = pr08_release_inventory().set_index(["machine_dir", "shot"])
+    for key, corrections in pr08_mhd_state.SOURCE_CORRECTIONS.items():
+        assert key in inventory.index, key
+        assert all(name in ("IP", "BETMHD") and factor in (1e6, 0.01) for name, factor, _ in corrections)
