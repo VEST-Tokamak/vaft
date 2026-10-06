@@ -149,6 +149,7 @@ def equilibrium_quality_residual_distribution(points: pd.DataFrame, *, family: s
     for level in (2.0, 3.0):
         ax.axvline(level, color="#8b8a82", lw=0.8, ls=":")
     ax.set_xscale("symlog", linthresh=1.0)
+    ax.set_xlim(left=0.0)
     ax.set_xlabel("|z| (normalised residual)")
     ax.set_ylabel("fraction of channels ≤ |z|")
     ax.set_ylim(0, 1.02)
