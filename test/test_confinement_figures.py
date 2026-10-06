@@ -204,3 +204,19 @@ def test_every_scaling_is_tagged_and_the_vest_h_figure_draws():
     assert figures.mode_hatch("ohmic") == "" and figures.mode_hatch("ohmic+L") not in ("", "//", "--")
     assert figures.mode_hatch("I-mode") in figures.SPARE_HATCHES
     matplotlib.pyplot.close(fig)
+
+
+
+def test_observed_tau_uses_the_scaling_basis_and_approximates_only_for_ohmic_machines():
+    figures = _figures()
+    table = pd.DataFrame({"machine": ["VEST", "JET"], "tau_e_th_s": [1e-3, 0.3]})
+    thermal = figures.observed_tau(table, "H98y2")
+    assert list(thermal) == [1e-3, 0.3] and thermal.attrs["approximation"] is None
+    glob = figures.observed_tau(table, "ITER89P")
+    assert glob.iloc[0] == 1e-3 and np.isnan(glob.iloc[1])  # JET has no global tau_E here
+    assert "W_global ~ W_th" in glob.attrs["approximation"] and glob.attrs["substituted_rows"] == 1
+    with_global = figures.observed_tau(table.assign(tau_e_global_s=[np.nan, 0.35]), "ITER89P")
+    assert with_global.iloc[1] == 0.35
+    assert figures.basis_marker("ITER89P") == "*" and figures.basis_marker("ITER97L") == ""
+    # No machine column: nothing is known to be ohmic, so a global scaling stays strict.
+    assert np.isnan(figures.observed_tau(table.drop(columns="machine"), "ITER89P")).all()

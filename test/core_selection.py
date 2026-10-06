@@ -101,6 +101,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_machine_geometry_registry.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_panels_suptitle_placement.py",
     "test_parameter_history.py",
     "test_plot_3d_contract.py",
     "test_plot_contract.py",
@@ -119,11 +120,13 @@ CORE_MODULES: tuple[str, ...] = (
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
     # The MITIM adapter (#1588) runs a stub mitim_tools in this interpreter:
-    # availability statuses, the per-run config, launch, timeout and discovery.
+    # availability statuses, the per-run config, launch, timeout and discovery;
+    # the r/a <-> rho_tor_norm bridge and the TGLF input comparison are pure.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
     "test_mitim_adapter.py",
+    "test_mitim_compare.py",
     "test_process_tree.py",
     "test_remote_backend.py",
     "test_slurm_backend.py",
@@ -187,6 +190,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_edge_q_estimate.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
+    # Dimensionless-similarity spaces (#1624): conventions never mix, missing
+    # inputs are counted not imputed. Pure NumPy and Agg.
+    "test_dimensionless_similarity.py",
     "test_li_qa.py",
     "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
@@ -199,6 +205,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_disruption.py",
     "test_diagram_divertor_footprint.py",
     "test_diagram_equilibrium_phenomena.py",
+    "test_diagram_equilibrium_profiles.py",
     "test_diagram_field_aligned.py",
     "test_diagram_field_configurations.py",
     "test_diagram_geometry.py",
@@ -217,6 +224,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
     "test_diagram_reduced_representations.py",
+    "test_diagram_reduced_stability.py",
     "test_diagram_research_concepts.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
@@ -261,13 +269,14 @@ CORE_MODULES: tuple[str, ...] = (
     "test_transport_state.py",
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
     # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
-    # only), the plasma-current Rogowski verdict and the TF excursion repair on
-    # synthetic records.
+    # only), the plasma-current Rogowski verdict, the TF excursion repair and
+    # the shot-class pickup refusal (#1733) on synthetic records.
     "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_flux_loop_known_faults.py",
     "test_plasma_current_quality.py",
+    "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
@@ -280,6 +289,16 @@ CORE_MODULES: tuple[str, ...] = (
     "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
+    # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
+    # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
+    "test_formula_reduced_stability.py",
+    # Credibility and applicability (lane AP, #1639): the six-axis taxonomy and
+    # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
+    # import checks that keep both off the default processing path. Under 10 s.
+    "test_validation_credibility.py",
+    # Sensitivity contract (lane AP, #1642): finite differences against the
+    # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map. ~2 s.
+    "test_sensitivity_contract.py",
     # Reduced-representation taxonomy (#1626): the Reduction vocabulary, its
     # parser, the catalog's exposure and filters, and the family metadata.
     "test_formula_taxonomy.py",

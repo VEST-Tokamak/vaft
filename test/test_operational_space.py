@@ -537,3 +537,82 @@ def test_a_derived_boundary_says_derived_and_murakami_is_a_historical_reference(
     x_stable = ax.transAxes.transform(stable.get_position())[0]
     x_line = ax.transData.transform((1.0, 0.0))[0]
     assert abs(x_stable - x_line) > 0.08 * ax.get_window_extent().width
+
+
+# --- applicability status (#1628, plotting side) -------------------------------------------------
+
+
+def _wesson_table(machine_class=None):
+    t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 15, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
+    if machine_class:
+        t.attrs["machine_class"] = machine_class
+    return t
+
+
+def test_a_conventional_boundary_is_outside_for_a_spherical_tokamak_population():
+    from vaft.plot.operational_space import APPLICABILITY_STATUSES
+    _, ax = operational_space_population(_wesson_table("spherical_tokamak"), "li_qa_wesson", boundary_style="inline",
+                                         x_range=(0, 18), y_range=(0, 2))
+    status, reasons = ax.vaft_applicability["wesson_1989_jet_li_qpsi_lower"]
+    assert status == "OUTSIDE" and status in APPLICABILITY_STATUSES
+    assert any(r.startswith("$q_\\psi$") and "outside 2-10" in r for r in reasons) and "calibrated on JET" in reasons
+    legend = " ".join(t_.get_text() for t_ in ax.get_legend().get_texts()).replace("\n  ", " ")
+    assert "[outside calibration:" in legend
+
+
+def test_without_a_machine_class_a_generic_boundary_is_unassessed():
+    _, ax = operational_space_population(_hugill_table(), "hugill", boundary_style="inline")
+    status, reasons = ax.vaft_applicability["greenwald_hugill"]
+    assert status == "UNASSESSED" and "no machine class" in reasons[0]
+
+
+def test_a_class_that_covers_spherical_tokamaks_is_not_supported_without_a_tested_range():
+    t = pd.DataFrame({"normalized_current": [50.0, 80.0], "kink_safety_factor_cylindrical": [0.3, 0.2]})
+    t.attrs["units"] = {"normalized_current": "MA m^-1 T^-1"}
+    t.attrs["machine_class"] = "spherical_tokamak"
+    _, ax = operational_space_population(t, "qstar_cyl_in", boundary_style="inline")
+    status, reasons = ax.vaft_applicability["menard_2004_qstar_min"]
+    assert status == "UNASSESSED" and "no calibration range" in reasons[-1]   # Menard declares no range
+
+
+def test_supported_and_outside_on_a_declared_range(monkeypatch):
+    from dataclasses import replace
+    from vaft.plot.operational_space import applicability_status
+    entry = B.get_boundary("takizuka_2004_lh")   # its class covers spherical tokamaks; give it a test range
+    ranged = replace(entry, applicability=replace(entry.applicability, ranges={"line_average_density": (0.05, 0.5)}))
+    registry = dict(B._REGISTRY)
+    monkeypatch.setattr(B, "get_boundary", lambda key: ranged if key == entry.key else registry[key])
+    fixed = {"toroidal_field": 0.17, "plasma_current": 0.1, "minor_radius": 0.27, "aspect_ratio": 1.4,
+             "plasma_surface_area": 4.7, "effective_charge": 2.0}
+    curve = ops.overlay_plan("lh_threshold", ["takizuka_2004_lh"], x_range=(0.01, 0.6), y_range=(0, 1),
+                             fixed=fixed).curves[0]
+    axes = ("line_average_density", "loss_power")
+    inside = pd.DataFrame({"line_average_density": [0.1, 0.2]})
+    beyond = pd.DataFrame({"line_average_density": [0.1, 0.02]})
+    assert applicability_status(curve, inside, axes, "spherical_tokamak")[0] == "SUPPORTED"
+    status, reasons = applicability_status(curve, beyond, axes, "spherical_tokamak")
+    assert status == "OUTSIDE" and "1/2 outside 0.05-0.5" in reasons[0]
+    assert applicability_status(curve, inside.iloc[:0], axes, "spherical_tokamak")[0] == "UNASSESSED"   # no data
+    assert applicability_status(curve, inside, axes, None)[0] == "UNASSESSED"   # no machine class
+
+
+def test_jet_and_st_only_classes_exclude_each_others_populations():
+    from vaft.plot.operational_space import _machine_coverage
+    jet = "JET (conventional aspect ratio, R = 3 m), 1985-88 operation"
+    assert _machine_coverage(jet, "spherical_tokamak") is False
+    assert _machine_coverage(jet, "ST") is False
+    assert _machine_coverage(jet, "conventional_tokamak") is None   # a descriptive phrase is not coverage
+    assert _machine_coverage("spherical tokamak (START equilibria)", "conventional_tokamak") is False
+    assert _machine_coverage("tokamak including spherical tokamaks", "conventional_tokamak") is None
+
+
+def test_missing_inputs_are_unassessed_and_a_quantity_mismatch_is_not_applicable():
+    t = pd.DataFrame({"murakami_parameter": [1.0, 2.0], "inverse_cylindrical_q": [0.2, 0.3]})   # unit undeclared
+    _, ax = operational_space_population(t, "hugill")
+    assert {s for s, _ in ax.vaft_applicability.values()} == {"UNASSESSED"}
+
+
+def test_an_omitted_boundary_is_not_applicable():
+    t = pd.DataFrame({"edge_safety_factor_95": [5.0, 6.0], "internal_inductance_li3": [0.5, 0.6]})
+    _, ax = operational_space_population(t, "li_qa_wesson", x="edge_safety_factor_95")
+    assert {s for s, _ in ax.vaft_applicability.values()} == {"NOT_APPLICABLE"}

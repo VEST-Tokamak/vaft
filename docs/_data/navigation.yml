@@ -38,9 +38,15 @@ sections:
       - id: computational-layers
         title: Computational layers
         url: /reference/computational-layers/
+      - id: credibility-applicability
+        title: Credibility and applicability
+        url: /reference/credibility-applicability/
       - id: dependency-graph
         title: Dependency explorer
         url: /reference/dependency-graph/
+      - id: pipeline-graph
+        title: Pipeline lineage explorer
+        url: /reference/pipeline-graph/
       - id: mcp
         title: MCP server for agents
         url: /reference/mcp/
@@ -56,6 +62,9 @@ sections:
       - id: geometric-approximations
         title: Geometric approximations
         url: /reference/geometric-approximations/
+      - id: reduced-stability-diagnostics
+        title: Reduced stability diagnostics
+        url: /reference/reduced-stability-diagnostics/
       - id: equilibrium-representations
         title: Equilibrium representations
         url: /reference/equilibrium-representations/
