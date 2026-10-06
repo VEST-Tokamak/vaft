@@ -294,7 +294,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>40d675a</code>. What is described
+  <code>3a4febf</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -353,6 +353,10 @@ NetCDF products. This is where an actual $\delta W$ or $\Delta’$ comes from.</
 <p>The closed-form criteria are catalogued with their exact signatures and unit traps on the
 <a href="/vaft/develop/guide/Formula/">Physics formulas</a> page. This page covers what to do with them and
 how to run the codes.</p>
+
+<p>Which mode family each tool addresses (interchange and Mercier, ballooning, kink and peeling, tearing and
+its parity channels), and why their criteria are not one severity scale, is on
+<a href="/vaft/develop/reference/geometric-approximations/#mhd-mode-representations-across-geometries">MHD mode representations across geometries</a>.</p>
 
 <hr />
 
@@ -808,6 +812,8 @@ which produce the refined equilibria the GPEC suite consumes — see the
   <li><a href="/vaft/develop/guide/Formula/">Physics formulas</a> — full signature reference for
 <code class="language-plaintext highlighter-rouge">vaft.formula.stability</code>, including the beta conversions, characteristic speeds and unit traps.</li>
   <li><a href="/vaft/develop/guide/Equilibrium/">Equilibrium</a> — producing the equilibrium the codes consume.</li>
+  <li><a href="/vaft/develop/reference/geometric-approximations/#mhd-mode-representations-across-geometries">MHD mode representations across geometries</a>
+— how slab, cylindrical and toroidal mode families relate, and which tool sits where.</li>
   <li><a href="/vaft/develop/guide/Data_structures/">Data structures (ODS, IDS, IMAS)</a> — where <code class="language-plaintext highlighter-rouge">beta_normal</code>,
 <code class="language-plaintext highlighter-rouge">q_95</code> and the rest of <code class="language-plaintext highlighter-rouge">equilibrium.time_slice[:].global_quantities</code> live.</li>
   <li>Source: <a href="https://github.com/VEST-Tokamak/vaft/blob/main/vaft/formula/stability.py"><code class="language-plaintext highlighter-rouge">vaft/formula/stability.py</code></a>
@@ -1152,7 +1158,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 05:59:48 +0000"
+        "time": "2026-10-06 09:26:12 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

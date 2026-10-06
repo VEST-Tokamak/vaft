@@ -294,7 +294,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>40d675a</code>. What is described
+  <code>3a4febf</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -351,9 +351,21 @@ vaft gui <span class="nt">--sample</span> 39915 41524     <span class="c"># two 
 vaft gui <span class="nt">--file</span> equilibrium.json
 vaft gui <span class="nt">--shot</span> 39915 41524       <span class="c"># database shots (needs HSDS read access)</span>
 vaft gui <span class="nt">--plot</span> equilibrium_field_psi <span class="nt">--port</span> 5010
+vaft gui <span class="nt">--workspace</span> database     <span class="c"># start in the Database workspace</span>
 </code></pre></div></div>
 
-<p>The page shows the source picker and the plot selector in the sidebar, the plot’s controls
+<p>The page is an application shell. The sidebar starts with the <strong>workspaces</strong>:</p>
+
+<ul>
+  <li><strong>Plots:</strong> the plot explorer described below.</li>
+  <li><strong>Database:</strong> the database sources, the connection, and opening database shots.</li>
+</ul>
+
+<p>A strip above the main area shows the shared selection, which every workspace reads: what is open, the time on
+screen (for a plot with a slice or time control), the database namespace and the state of the
+database connection. Errors from any workspace appear under that strip.</p>
+
+<p>In the <strong>Plots</strong> workspace, the sidebar holds the source picker and the plot selector in the sidebar, the plot’s controls
 beneath them, and the figure in the main area. Slices, channels, units and overlays appear
 only for plots that offer them. A value a plot cannot draw leaves the previous figure on screen
 and shows the reason above it.</p>
@@ -384,6 +396,44 @@ Matplotlib rendering with the controls and figure settings on screen, whichever 
 </ul>
 
 <p>Loading a source computes its plot catalog, which takes a few seconds the first time.</p>
+
+<p>The <strong>Database</strong> workspace contains:</p>
+
+<ul>
+  <li><strong>Namespaces.</strong> A table of the namespaces a shot can be read from: what each holds, whether
+VAFT may write to it, and whether it covers every shot or only the shots its product was made
+for. It comes from <code class="language-plaintext highlighter-rouge">vaft.database.sources</code>.</li>
+  <li><strong>Opening shots.</strong> Pick a namespace, type shots and press <strong>Open in Plots</strong>. The plot explorer
+opens them and becomes the active workspace.</li>
+  <li><strong>Credentials.</strong> The HSDS configuration h5pyd will use: the file, the endpoint and the
+username. Environment variables override the file. Passwords and API keys show only as
+<em>configured</em> or <em>not set</em>. The GUI never shows, logs or stores a secret; change the
+configuration with <code class="language-plaintext highlighter-rouge">vaft hsds configure</code> in a terminal.</li>
+  <li><strong>Test connection.</strong> Asks the server whether it is ready, and puts the answer in the status
+strip. The page does not contact the server until you press it.</li>
+</ul>
+
+<h3 id="adding-a-workspace">Adding a workspace</h3>
+
+<p>Workspaces are registered rather than built in, and the later domain workspaces (#1359) plug
+in the same way:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.gui</span> <span class="kn">import</span> <span class="n">register_workspace</span>
+
+<span class="k">class</span> <span class="nc">EquilibriumWorkspace</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">shell</span><span class="p">):</span>           <span class="c1"># shell.selection, shell.report, shell.show
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">shell</span> <span class="o">=</span> <span class="n">shell</span>
+    <span class="k">def</span> <span class="nf">sidebar</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="k">return</span> <span class="p">[...]</span>      <span class="c1"># Panel objects
+</span>    <span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="k">return</span> <span class="p">[...]</span>
+    <span class="k">def</span> <span class="nf">activate</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="p">...</span>              <span class="c1"># optional: called each time it is shown
+</span>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="p">...</span>                 <span class="c1"># optional: called when the browser session ends
+</span>
+<span class="nf">register_workspace</span><span class="p">(</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">Equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="n">EquilibriumWorkspace</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>A workspace is built the first time it is shown. It reads and changes the shared selection
+through <code class="language-plaintext highlighter-rouge">shell.selection</code> (a <code class="language-plaintext highlighter-rouge">vaft.gui.SelectionState</code>), and draws through the public VAFT APIs
+like every other workspace.</p>
 
 <h2 id="run-on-a-remote-host-over-ssh">Run on a remote host over SSH</h2>
 
@@ -439,8 +489,8 @@ database portal (#960).</p>
 
 <h2 id="what-comes-next">What comes next</h2>
 
-<p>The browser application is Track A of the GUI roadmap (#1359). An application shell and a
-fuller plot explorer follow, then workspaces for routine diagnostics, equilibrium,
+<p>The browser application is Track A of the GUI roadmap (#1359). A fuller plot explorer follows,
+then workspaces for routine diagnostics, equilibrium,
 fluctuations and stability, operational space, start-up and pipeline monitoring.</p>
 
 
@@ -561,7 +611,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#adding-a-workspace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Adding a workspace</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
     </nav>
 </aside>
 
@@ -679,7 +729,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 05:59:48 +0000"
+        "time": "2026-10-06 09:26:12 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

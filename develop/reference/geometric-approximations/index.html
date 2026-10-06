@@ -294,7 +294,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>40d675a</code>. What is described
+  <code>3a4febf</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -581,6 +581,272 @@ $|L_s| \simeq qR_0/|\hat s|$ and, in curved slabs, $\kappa \simeq 1/R_0$.</p>
   </tbody>
 </table>
 
+<h2 id="mhd-mode-representations-across-geometries">MHD mode representations across geometries</h2>
+
+<p>The same instability is described differently in each geometry, and MHD vocabulary mixes several
+classification systems in one name. “$m = 1$”, “kink”, “internal”, “ideal”, “tearing parity”, “low-$n$”
+and “resonant” are answers to different questions. Schematically,</p>
+
+\[\text{mode} = \text{spectral label} + \text{drive} + \text{localisation} + \text{resonance} + \text{parity} + \text{physical model},\]
+
+<p>and two modes with the same name can differ in any of these. This section maps mode families across the
+slab, cylindrical and toroidal reductions above. It does not claim that every mode has a unique
+descendant in the next geometry.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/mhd_mode_geometry_map.svg" alt="MHD mode families across geometries" /></p>
+
+<p><code class="language-plaintext highlighter-rouge">mhd_mode_geometry_map</code> keeps four kinds of relation apart, and draws each with its own arrow:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Relation</th>
+      <th>Meaning</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>exact relabelling</td>
+      <td>the same harmonic’s labels in another geometry’s coordinates; the geometric reduction behind it is still a limit (<code class="language-plaintext highlighter-rouge">geometry_ordering_map</code>)</td>
+      <td>$n \mapsto k_z = -n/R_0$ along $z = R_0\phi$; $m \mapsto k_y = m/r_0$ at a surface $r_0$</td>
+    </tr>
+    <tr>
+      <td>limit or coordinate continuation</td>
+      <td>one description is a limit of the other; the arrowhead points at the more general model</td>
+      <td>Suydam’s criterion is the cylindrical limit of Mercier’s</td>
+    </tr>
+    <tr>
+      <td>physical analogue</td>
+      <td>the same mechanism in a different eigenproblem</td>
+      <td>magnetic Rayleigh–Taylor and interchange</td>
+    </tr>
+    <tr>
+      <td>branch</td>
+      <td>extra physics or localisation on top of a family</td>
+      <td>a resistive wall turns the external kink into an RWM</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="fourier-representation-and-resonance">Fourier representation and resonance</h3>
+
+<p>With the conventions above, a perturbation is</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Geometry</th>
+      <th>Representation</th>
+      <th>Spectral labels</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>slab</td>
+      <td>$\tilde f \propto e^{i(k_xx + k_yy + k_zz)}$</td>
+      <td>$k_y$, $k_\parallel = \mathbf k\cdot\mathbf B/B$ (<code class="language-plaintext highlighter-rouge">slab_parallel_wavenumber</code>)</td>
+    </tr>
+    <tr>
+      <td>cylinder</td>
+      <td>$\tilde f \propto e^{i(m\theta + k_zz)}$</td>
+      <td>$m$, $k_z$</td>
+    </tr>
+    <tr>
+      <td>torus</td>
+      <td>$\tilde f \propto e^{i(m\theta - n\phi)}$</td>
+      <td>$(m, n)$, phase $m\theta - n\phi$ (<code class="language-plaintext highlighter-rouge">helical_phase</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Straightening the torus at $R_0$ gives $z = R_0\phi$ and $k_z = -n/R_0$. The field-aligned local slab of
+a surface (<code class="language-plaintext highlighter-rouge">local_slab_from_cylinder</code>) has $k_y = m/r_0$, and along the field the harmonic has
+$k_\parallel = (m - nq)/(qR_0)$ (<code class="language-plaintext highlighter-rouge">cylindrical_parallel_wavenumber</code>). Hence</p>
+
+\[k_\parallel(r_s) = 0 \iff q(r_s) = \frac{m}{n},\]
+
+<p>which is <code class="language-plaintext highlighter-rouge">mode_number_mapping</code>. These relations exist once, in <code class="language-plaintext highlighter-rouge">vaft.formula.geometry</code> and
+<code class="language-plaintext highlighter-rouge">vaft.formula.stability.helical_phase</code>; the map quotes them and implements nothing new.</p>
+
+<h3 id="mode-numbers-are-morphology-not-instability">Mode numbers are morphology, not instability</h3>
+
+<p>In a cylinder, $m = 0$ is a sausage, $m = 1$ a kink (a rigid helical shift) and $m \ge 2$ higher helical
+distortions (<code class="language-plaintext highlighter-rouge">cylindrical_mode_morphology</code>). These are <strong>Fourier morphologies</strong>. They are not a
+taxonomy of instabilities. “$m = 1$ means kink instability” says too much. It is more accurate to say that
+$m = 1$ has kink-like cylindrical morphology, and that whether an unstable kink branch exists depends on
+the equilibrium and on the eigenproblem posed. The $m = 0$ sausage instability of a Z-pinch is driven by
+the pressure gradient against the curvature of $B_\theta$, so the map files it under the pressure-driven
+family. A strong $B_z$ stabilises it, and it has no tokamak descendant on the map.</p>
+
+<h3 id="pressure--and-curvature-driven-family">Pressure- and curvature-driven family</h3>
+
+\[\text{Rayleigh–Taylor analogue} \to \text{flute / interchange} \to \text{interchange / Mercier, ballooning, infernal}\]
+
+<ul>
+  <li><strong>Curved slab.</strong> A pressure gradient against a prescribed field-line curvature acts like a heavy fluid
+above a light one, with the curvature playing gravity: a magnetic Rayleigh–Taylor <em>analogue</em>.</li>
+  <li><strong>Cylinder.</strong> Flute or interchange perturbations have $k_\parallel \simeq 0$ and so bend field lines as
+little as possible. Suydam’s criterion is their local stability limit. Interchange names a mechanism, not
+a mode number.</li>
+  <li><strong>Torus.</strong> Three branches are kept apart:
+    <ul>
+      <li><em>interchange / Mercier</em>: the localised pressure–curvature limit; Mercier’s criterion is the toroidal
+continuation of Suydam’s;</li>
+      <li><em>ballooning</em>: high $n$, modified by field-line bending and magnetic shear and localised on the
+bad-curvature side (<code class="language-plaintext highlighter-rouge">ballooning_curvature_drive</code>, <code class="language-plaintext highlighter-rouge">ballooning_harmonic_envelope</code>,
+<code class="language-plaintext highlighter-rouge">ballooning_eigenfunction</code>, <code class="language-plaintext highlighter-rouge">s_alpha_ballooning</code>);</li>
+      <li><em>infernal</em>: low $n$, pressure-driven, where magnetic shear is weak.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="current-driven-family">Current-driven family</h3>
+
+<p>The internal/external distinction already exists in the cylinder (<code class="language-plaintext highlighter-rouge">internal_external_kink</code>;
+Kruskal–Shafranov is a cylindrical external-kink criterion). The torus continues both:</p>
+
+<ul>
+  <li><strong>Internal kink</strong>: a global ideal mode confined inside an internal rational surface, the $m = 1$ mode
+inside $q = 1$. In a torus its leading cylindrical $\delta W$ vanishes and the toroidal (Bussac)
+terms decide stability. Finite resistivity at $q = 1$ gives the resistive kink.</li>
+  <li><strong>External kink</strong>: a global ideal mode that displaces the plasma boundary (<code class="language-plaintext highlighter-rouge">internal_external_kink</code>,
+<code class="language-plaintext highlighter-rouge">plasma_vacuum_wall</code>, <code class="language-plaintext highlighter-rouge">kink_mode</code>).</li>
+  <li><strong>Peeling</strong>: an edge-current-driven, edge-localised, <em>external-kink-like</em> branch. It is not simply the
+same mode as the external kink.</li>
+  <li><strong>Resistive-wall mode (RWM)</strong>: the external-kink branch modified by a finite-conductivity wall. It grows on
+the wall time instead of the Alfvén time.</li>
+  <li><strong>Peeling–ballooning</strong>: the coupled edge branch of peeling and ballooning, the picture behind the
+<code class="language-plaintext highlighter-rouge">peeling_ballooning</code> operational diagram.</li>
+</ul>
+
+<p>Global current-driven modes have no local-slab counterpart. They need the radial current profile that a
+local slab discards.</p>
+
+<h3 id="resonant-and-reconnecting-family">Resonant and reconnecting family</h3>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>global toroidal / cylindrical harmonic
+  -&gt; q = m/n                          (mode_number_mapping)
+  -&gt; cylindrical ideal outer problem  (cylindrical_tearing_outer, Delta')
+  -&gt; local sheared-slab layer         (slab_parity, rational_surface)
+  -&gt; tearing or twisting channel      (resonant_layer_matching, tearing_layer_matching)
+</code></pre></div></div>
+
+<p>The <strong>tearing mode</strong> is the resistive resonant instability. In a torus, toroidicity and shaping couple
+several $m$ at fixed $n$ (<code class="language-plaintext highlighter-rouge">poloidal_harmonic_coupling</code>), so the outer problem becomes a matrix over all
+rational surfaces of that $n$. The <strong>NTM</strong> is a nonlinear, neoclassical extension of island evolution,
+driven by the loss of bootstrap current inside the island (<code class="language-plaintext highlighter-rouge">magnetic_island</code>). It is not the next linear
+eigenmode in an ideal–resistive hierarchy, which is why it hangs off the map as a branch.</p>
+
+<h3 id="parity-is-orthogonal-to-mode-number">Parity is orthogonal to mode number</h3>
+
+<p>$m$ and $n$ are not parity labels. At a resonant surface the local layer response has its own
+classification, <strong>tearing</strong> or <strong>twisting</strong> parity (<code class="language-plaintext highlighter-rouge">slab_parity</code>, <code class="language-plaintext highlighter-rouge">slab_parity_comparison</code>). A given
+$m/n$ harmonic can take part in either channel, depending on the response or eigenproblem. Toroidal
+coupling of several $m$ at fixed $n$ does not change this. Parity stays a separate concept. With finite
+pressure and curvature, the Glasser–Greene–Johnson inner layer that RDCON solves classifies its solutions
+as tearing and <em>interchange</em> parity rather than twisting.</p>
+
+<h3 id="axisymmetric-free-boundary-modes">Axisymmetric free-boundary modes</h3>
+
+<p>The vertical instability, and the VDE it leads to, is $n = 0$, axisymmetric, and set by elongation and the
+free boundary (<code class="language-plaintext highlighter-rouge">hot_vde_sequence</code>, <code class="language-plaintext highlighter-rouge">cold_vde_bifurcation</code>, <code class="language-plaintext highlighter-rouge">vde_timescales</code>). It does not belong to the
+kink family. A rigid transverse shift of a cylinder is useful intuition and nothing more. There is no
+exact $m = 1 \leftrightarrow$ VDE equivalence.</p>
+
+<h3 id="orthogonal-mode-descriptors">Orthogonal mode descriptors</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Descriptor</th>
+      <th>Examples</th>
+      <th>What it tells us</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>geometry</td>
+      <td>slab, cylinder, torus</td>
+      <td>the space the model lives in</td>
+    </tr>
+    <tr>
+      <td>spectral label</td>
+      <td>$k_y, k_\parallel$; $m, k_z$; $(m, n)$</td>
+      <td>Fourier structure</td>
+    </tr>
+    <tr>
+      <td>drive</td>
+      <td>pressure and curvature, current, bootstrap current</td>
+      <td>the free-energy source</td>
+    </tr>
+    <tr>
+      <td>localisation</td>
+      <td>core, internal, global, edge</td>
+      <td>radial structure</td>
+    </tr>
+    <tr>
+      <td>resonance</td>
+      <td>resonant, non-resonant</td>
+      <td>relation to $k_\parallel = 0$</td>
+    </tr>
+    <tr>
+      <td>parity</td>
+      <td>tearing, twisting</td>
+      <td>local layer symmetry</td>
+    </tr>
+    <tr>
+      <td>model</td>
+      <td>ideal, resistive, neoclassical, wall-coupled</td>
+      <td>the physics retained</td>
+    </tr>
+    <tr>
+      <td>ordering</td>
+      <td>$n = 0$, low $n$, intermediate $n$, high $n$</td>
+      <td>spectral and asymptotic regime</td>
+    </tr>
+  </tbody>
+</table>
+
+\[\text{mode name} \ne \text{mode number} \ne \text{geometry} \ne \text{physical drive}\]
+
+<h3 id="where-vafts-stability-tools-sit">Where VAFT’s stability tools sit</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Place on the map</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>analytic criteria (<code class="language-plaintext highlighter-rouge">vaft.formula.stability</code>)</td>
+      <td>Mercier- and interchange-like limits, ballooning limits, operational boundaries</td>
+    </tr>
+    <tr>
+      <td>DCON</td>
+      <td>finite-$n$ ideal MHD: global ideal mode structure and the energy principle</td>
+    </tr>
+    <tr>
+      <td>RDCON / STRIDE</td>
+      <td>resonant outer regions matched to inner layers: tearing and twisting channels</td>
+    </tr>
+    <tr>
+      <td>GPEC</td>
+      <td>the forced, perturbed 3-D response: resonant and non-resonant harmonics</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These tools do not share a common “instability severity” scale. Interchange, ballooning, kink and peeling
+should not be ranked by comparing unrelated criteria with each other. Naming the dominant dynamical mode
+needs a common eigenvalue or growth-rate problem. How VAFT runs these codes is on
+<a href="/vaft/develop/workflows/mhd-stability/">MHD stability</a>.</p>
+
+<p>Gyrokinetic micro-instabilities (ITG, TEM, ETG, MTM, KBM) are outside this MHD map. They can use the same
+coordinate framework later.</p>
+
 <h2 id="where-these-lead">Where these lead</h2>
 
 <div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cylinder / screw pinch  -&gt; Newcomb equation, internal kink, outer tearing (Delta')
@@ -600,6 +866,10 @@ use the slab frame of this page. See <a href="/vaft/develop/reference/diagrams/"
   <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014), Ch. 9 and 11.</li>
   <li>H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6 (1963) 459.</li>
   <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.</li>
+  <li>C. Mercier, Nucl. Fusion 1 (1960) 47; B. R. Suydam, Proc. 2nd UN Conf. Peaceful Uses of Atomic Energy 31 (1958) 157.</li>
+  <li>J. Manickam, N. Pomphrey and A. M. M. Todd, Nucl. Fusion 27 (1987) 1461 (infernal modes).</li>
+  <li>J. W. Connor, R. J. Hastie, H. R. Wilson and R. L. Miller, Phys. Plasmas 5 (1998) 2687 (peeling–ballooning).</li>
+  <li>R. J. La Haye, Phys. Plasmas 13 (2006) 055501 (neoclassical tearing modes).</li>
 </ol>
 
 
@@ -704,7 +974,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#two-axes-not-one-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Two axes, not one hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-used-throughout" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions used throughout</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#sheared-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sheared slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#curved-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Curved slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylinder-screw-pinch-cylindrical-tokamak" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylinder, screw pinch, cylindrical tokamak</a></li><li class="page-toc-item page-toc-level-2"><a href="#large-aspect-ratio-ordering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Large-aspect-ratio ordering</a></li><li class="page-toc-item page-toc-level-2"><a href="#local-sheared-slab-reduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local sheared-slab reduction</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-same-field-line-in-each-geometry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The same field line in each geometry</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-these-lead" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where these lead</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#two-axes-not-one-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Two axes, not one hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-used-throughout" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions used throughout</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#sheared-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sheared slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#curved-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Curved slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylinder-screw-pinch-cylindrical-tokamak" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylinder, screw pinch, cylindrical tokamak</a></li><li class="page-toc-item page-toc-level-2"><a href="#large-aspect-ratio-ordering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Large-aspect-ratio ordering</a></li><li class="page-toc-item page-toc-level-2"><a href="#local-sheared-slab-reduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local sheared-slab reduction</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-same-field-line-in-each-geometry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The same field line in each geometry</a></li><li class="page-toc-item page-toc-level-2"><a href="#mhd-mode-representations-across-geometries" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MHD mode representations across geometries</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fourier-representation-and-resonance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fourier representation and resonance</a></li><li class="page-toc-item page-toc-level-3"><a href="#mode-numbers-are-morphology-not-instability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Mode numbers are morphology, not instability</a></li><li class="page-toc-item page-toc-level-3"><a href="#pressure--and-curvature-driven-family" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pressure- and curvature-driven family</a></li><li class="page-toc-item page-toc-level-3"><a href="#current-driven-family" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Current-driven family</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant-and-reconnecting-family" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Resonant and reconnecting family</a></li><li class="page-toc-item page-toc-level-3"><a href="#parity-is-orthogonal-to-mode-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Parity is orthogonal to mode number</a></li><li class="page-toc-item page-toc-level-3"><a href="#axisymmetric-free-boundary-modes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Axisymmetric free-boundary modes</a></li><li class="page-toc-item page-toc-level-3"><a href="#orthogonal-mode-descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Orthogonal mode descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#where-vafts-stability-tools-sit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where VAFT’s stability tools sit</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#where-these-lead" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where these lead</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -822,7 +1092,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 05:59:48 +0000"
+        "time": "2026-10-06 09:26:12 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
