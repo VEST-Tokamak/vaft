@@ -414,6 +414,14 @@ class BrowserApp:
             return
         self._relist()
         offered = [record.name for record in self.session.catalog() if self._offered(record)]
+        # The composer and the count offer the same plots as the selector.
+        self._plot_count = len(offered)
+        self.composer.set_plots(offered)
+        self._update_status()
+        if self._last_drawn not in offered:
+            self._last_drawn = None  # never redrawn from outside the filter
+        if self.mode.value == "compose":
+            return  # the composition on screen stays; the plot box is hidden
         if self.session.plot in offered:
             return
         if offered and self.plot.value == offered[0]:
@@ -633,7 +641,9 @@ class BrowserApp:
             # it, the last one drawn) is drawn again -- only if it can be.
             name = self.plot.value or self._last_drawn
             record = self.session.capability(name) if name else None
-            drawable = name and (record is None or getattr(record, "available", True) is not False)
+            drawable = name and (record is None or getattr(record, "available", True) is not False) and (
+                record is None or self._offered(record)
+            )
             if drawable and self.show(name, renderer=self._renderer_for(name)):
                 return
             # Nothing to draw: the composition goes too, or it would still be

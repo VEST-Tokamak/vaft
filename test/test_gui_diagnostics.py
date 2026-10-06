@@ -105,3 +105,51 @@ def test_a_diagnostic_the_shot_cannot_show_draws_nothing_and_says_so(shell, monk
     assert app.session.plot is None and app.download.disabled
     app.scope.value = "all"
     assert _offered(app) == set(workspace.plots_of(empty)), "All supported shows why"
+
+
+# -- cold-review cases ----------------------------------------------------------------
+def test_an_overlay_plot_stays_with_its_own_ids():
+    plots = [
+        SimpleNamespace(name="wall_geometry", domain="wall", required_paths=("wall.description_2d.0.limiter",)),
+        SimpleNamespace(name="camera_with_wall", domain="camera_visible",
+                        required_paths=("camera_visible.channel.0.frame", "wall.description_2d.0.limiter")),
+    ]
+    assert diagnostics.diagnostic_plots({"ids_path": "wall"}, plots) == ["wall_geometry"]
+
+
+def test_a_new_diagnostic_relists_the_composer_and_the_count(shell):
+    workspace = shell.workspaces["diagnostics"]
+    shell.selection.update(origin="test", sources=(Source("sample", 39915),))
+    workspace.diagnostic.value = "magnetics.flux_loop"
+    app = workspace.app
+    offered = [name for name in app.session.catalog().names() if name in workspace.plots_of("magnetics.flux_loop")]
+    assert app.composer._plots == offered
+    assert f"{len(offered)} plots available" in app.status.object
+
+
+def test_in_compose_mode_a_new_diagnostic_keeps_the_composition(shell):
+    workspace = shell.workspaces["diagnostics"]
+    shell.selection.update(origin="test", sources=(Source("sample", 39915),))
+    workspace.diagnostic.value = "magnetics.ip"
+    app = workspace.app
+    app.mode.value = "compose"
+    app.composer.assign(["plasma_current_time"])
+    assert app.draw_composition()
+    workspace.diagnostic.value = "magnetics.flux_loop"
+    assert app.session.composition is not None and app.session.plot is None, "nothing drawn behind the composer"
+
+
+def test_back_from_a_composition_never_redraws_outside_the_diagnostic(shell):
+    workspace = shell.workspaces["diagnostics"]
+    shell.selection.update(origin="test", sources=(Source("sample", 39915),))
+    workspace.diagnostic.value = "magnetics.ip"
+    app = workspace.app
+    drawn = app.session.plot
+    assert drawn in workspace.plots_of("magnetics.ip")
+    app.mode.value = "compose"
+    app.composer.assign(["plasma_current_time"])
+    assert app.draw_composition()
+    workspace.diagnostic.value = "magnetics.flux_loop"
+    app.plot.value = None
+    app.mode.value = "plot"
+    assert app.session.plot is None or app.session.plot in workspace.plots_of("magnetics.flux_loop")

@@ -46,18 +46,22 @@ def _under(path: str, root: str) -> bool:
 
 
 def diagnostic_plots(record: Mapping[str, Any], plots: Iterable[Any]) -> list[str]:
-    """The plots (discovery records) whose required data is the diagnostic's.
+    """The plots (discovery records) of the diagnostic's own data.
 
-    A plot belongs to a diagnostic when one of its required paths lies under
-    the diagnostic's registry ``ids_path`` -- the join the data states, not
-    a list kept here.
+    A plot belongs to a diagnostic when it is a plot *of* the diagnostic's
+    IDS (its ``domain``) and one of its required paths lies under the
+    diagnostic's registry ``ids_path`` -- the join the data states, not a
+    list kept here.  A plot of another IDS that merely overlays this one
+    (a camera image with the wall drawn on it) stays with its own IDS.
     """
     root = _path(record.get("ids_path"))
     if not root:
         return []
+    ids = root.split(".")[0]
     return [
         plot.name for plot in plots
-        if any(_under(_path(path), root) for path in (getattr(plot, "required_paths", ()) or ()))
+        if getattr(plot, "domain", ids) in (ids, None, "")
+        and any(_under(_path(path), root) for path in (getattr(plot, "required_paths", ()) or ()))
     ]
 
 
