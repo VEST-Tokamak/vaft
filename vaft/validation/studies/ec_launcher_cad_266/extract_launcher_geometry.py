@@ -5,7 +5,7 @@ ech_6kw`` from ``MID 6KW ECH ASSY.stp`` (not in the repository; ask on #266).
 Needs OpenCascade, which VAFT does not depend on::
 
     python -m venv occ && occ/bin/pip install cadquery-ocp numpy
-    occ/bin/python extract_launcher_geometry.py "MID 6KW ECH ASSY.stp"
+    occ/bin/python -m vaft.validation.studies.ec_launcher_cad_266.extract_launcher_geometry "MID 6KW ECH ASSY.stp"
 
 Method: the ``MIDDLE SHIELD PART`` is the vessel section, whose r = 800 mm
 cylinder gives the machine axis. Its local +Y lies along that axis and is taken

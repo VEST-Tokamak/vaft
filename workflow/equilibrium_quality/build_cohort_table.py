@@ -30,6 +30,8 @@ from typing import Any, Sequence
 
 import numpy as np
 
+from vaft.ods_access import path_value
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -79,13 +81,19 @@ class ProductEvidence:
         ods = self.product(row["shot"])
         if ods is None:
             return {"evidence_status": "no EFIT product"}
-        times = np.asarray(ods["equilibrium.time"], float)
-        index = int(np.argmin(np.abs(times - row["time_s"])))
-        if not math.isclose(times[index], row["time_s"], abs_tol=self.tolerance_s):
-            return {"evidence_status": f"no product slice within {self.tolerance_s} s"}
+        # A placeholder product ("EFIT output unavailable") has no time base:
+        # path_value asks without materialising the node, and the row records
+        # the refusal instead of the build stopping on an empty argmin.
+        times = path_value(ods, "equilibrium.time")
+        if times is None or np.size(times) == 0:
+            return {"evidence_status": "no equilibrium.time in product"}
         try:
             from vaft.validation.equilibrium_quality import equilibrium_quality_constraint_points
 
+            times = np.asarray(times, float).ravel()
+            index = int(np.argmin(np.abs(times - row["time_s"])))
+            if not math.isclose(times[index], row["time_s"], abs_tol=self.tolerance_s):
+                return {"evidence_status": f"no product slice within {self.tolerance_s} s"}
             columns = {"evidence_status": "ok", "evidence_time_s": float(times[index]),
                        **efit_evidence_columns(ods, index)}
             for point in equilibrium_quality_constraint_points(ods, index):

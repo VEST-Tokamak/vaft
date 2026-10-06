@@ -95,8 +95,8 @@ def build(filedb: Path, atlas: Path, zeff_atlas: Path, out: Path) -> dict:
     )
 
     lane_z = _lane_z()
-    windows = [r for r in csv.DictReader(open(zeff_atlas / "zeff.csv")) if r["status"] == "ok"]
-    slices = list(csv.DictReader(open(zeff_atlas / "slices.csv")))
+    windows = [r for r in csv.DictReader(open(zeff_atlas / "zeff.csv", encoding="utf-8")) if r["status"] == "ok"]
+    slices = list(csv.DictReader(open(zeff_atlas / "slices.csv", encoding="utf-8")))
     rows = []
     for w in windows:
         shot = int(w["shot"])
@@ -192,7 +192,7 @@ def build(filedb: Path, atlas: Path, zeff_atlas: Path, out: Path) -> dict:
             rows.append(row)
     out.mkdir(parents=True, exist_ok=True)
     columns = sorted({k for r in rows for k in r}, key=lambda c: (c not in ("shot", "t_start_s", "t_end_s", "profile"), c))
-    with open(out / "resistive_projection.csv", "w", newline="") as handle:
+    with open(out / "resistive_projection.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
         writer.writerows(rows)
@@ -205,7 +205,7 @@ def build(filedb: Path, atlas: Path, zeff_atlas: Path, out: Path) -> dict:
                 "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "vaft_git": sha,
                 "zeff_atlas": str(zeff_atlas), "atlas": str(atlas), "filedb": str(filedb),
                 "windows": len(windows), "rows": len(rows), "weights": WEIGHTS}
-    (out / "resistive_projection.MANIFEST.json").write_text(json.dumps(manifest, indent=1) + "\n")
+    (out / "resistive_projection.MANIFEST.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
     return manifest
 
 

@@ -10,7 +10,7 @@ from matplotlib.path import Path as Polygon
 from vaft.formula.constants import MU0
 from vaft.process.equilibrium import as_equilibrium
 
-from validation.nice_issue_666.synthetic_equilibria.run_solovev import (
+from vaft.validation.studies.nice_issue_666.synthetic_equilibria.run_solovev import (
     BASE, ROOT, plasma_response, run_case,
 )
 

@@ -113,6 +113,27 @@ def test_arbitrary_numeric_x_date_column_and_show(monkeypatch):
     plt.close(figure)
 
 
+def test_repeated_numeric_x_across_shots_labels_every_shot_at_that_position():
+    """A fixed-time preset puts every shot at the same time_s: legal, not contradictory."""
+    frame = pd.DataFrame({
+        "shot": [39915, 39916], "time_s": [0.30, 0.30], "q_95": [5.0, 6.0],
+        "pulse_time_begin": ["2022-03-02T10:00:00", "2022-03-02T11:00:00"],
+    })
+    figure, axes = plot_parameter_history(frame, y="q_95", x="time_s", secondary_x="shot")
+    top = axes.child_axes[0]
+    figure.canvas.draw()
+    assert top.get_xticks().tolist() == [0.30]
+    assert [label.get_text() for label in top.get_xticklabels()] == ["39915, 39916"]
+    plt.close(figure)
+
+    figure, axes = plot_parameter_history(frame, y="q_95", x="time_s", secondary_x="date")
+    top = axes.child_axes[0]
+    figure.canvas.draw()
+    assert axes.lines[0].get_xdata().tolist() == [0.30, 0.30]
+    assert [label.get_text() for label in top.get_xticklabels()] == ["Mar 02 10:00, Mar 02 11:00"]
+    plt.close(figure)
+
+
 def test_mixed_timezone_offsets_preserve_actual_elapsed_time():
     frame = pd.DataFrame({
         "shot": [10, 11],
