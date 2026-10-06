@@ -157,6 +157,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
                     
                         <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
@@ -294,7 +300,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4506436</code>. What is described
+  <code>31eea12</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -2289,7 +2295,16 @@ scope.</p>
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">x_mode_dispersion</span><span class="p">(</span><span class="n">omega_pe_over_omega_ce</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>    <span class="c1"># L, R cutoffs; upper-hybrid resonance
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">cma_diagram</span><span class="p">()</span>                                    <span class="c1"># P, R, L, S = 0 and Y = 1 in (X, Y)
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">profile_propagation</span><span class="p">()</span>                            <span class="c1"># layers along an example midplane
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">profile_propagation</span><span class="p">(</span><span class="n">theta</span><span class="o">=</span><span class="n">math</span><span class="p">.</span><span class="nf">radians</span><span class="p">(</span><span class="mi">60</span><span class="p">))</span>      <span class="c1"># oblique: both roots, A = 0 resonances
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">wave_dispersion_omega_k</span><span class="p">(</span><span class="n">omega_pe_over_omega_ce</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>  <span class="c1"># branches in the omega-k plane
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">refractive_index_vs_X</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>                     <span class="c1"># rising density at fixed field
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">refractive_index_vs_Y</span><span class="p">(</span><span class="n">X</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>                     <span class="c1"># rising field at fixed density
 </span></code></pre></div></div>
+
+<p>Every view takes <code class="language-plaintext highlighter-rouge">theta</code>, from $5^\circ$ to $\pi/2$ (below that, parallel propagation is the picture). At $\theta = \pi/2$ the branches are named O (blue) and X (red). At any other
+angle both roots of <code class="language-plaintext highlighter-rouge">cold_plasma_refractive_index_squared</code> are drawn in one colour, because the algebraic
+$\pm$ branches swap at the cyclotron layer, and the resonance moves from $S = 0$ to the cone
+$A = S\sin^2\theta + P\cos^2\theta = 0$, which is marked.</p>
 
 <h2 id="neoclassical-and-ntv-collisionality-regimes">Neoclassical and NTV collisionality regimes</h2>
 
@@ -2367,6 +2382,22 @@ implemented, so the NTV regime diagram shows slopes only.</p>
       <td><img src="/vaft/develop/assets/diagrams/cma_diagram.svg" alt="CMA" /></td>
       <td><img src="/vaft/develop/assets/diagrams/profile_propagation.svg" alt="profile" /></td>
     </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/wave_dispersion_omega_k.svg" alt="omega-k" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/wave_dispersion_omega_k_oblique.svg" alt="omega-k oblique" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/refractive_index_vs_X.svg" alt="n2-X" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/refractive_index_vs_Y.svg" alt="n2-Y" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/refractive_index_vs_X_oblique.svg" alt="n2-X oblique" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/refractive_index_vs_Y_oblique.svg" alt="n2-Y oblique" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/profile_propagation_oblique.svg" alt="profile oblique" /></td>
+      <td> </td>
+    </tr>
   </tbody>
 </table>
 
@@ -2392,7 +2423,19 @@ implemented, so the NTV regime diagram shows slopes only.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">profile_propagation</code></td>
-      <td>$n_O^2$ and $n_X^2$ along $R$, with strips where each mode propagates (<code class="language-plaintext highlighter-rouge">propagation_regime</code>), for an example tokamak (not a device) at the on-axis electron cyclotron frequency: O cutoffs, L and R cutoffs, the upper-hybrid layer behind the R cutoff, and the ECR</td>
+      <td>$n_O^2$ and $n_X^2$ along $R$, with strips where each mode propagates (<code class="language-plaintext highlighter-rouge">propagation_regime</code>), for an example tokamak (not a device) at the on-axis electron cyclotron frequency: O cutoffs, L and R cutoffs, the upper-hybrid layer behind the R cutoff, and the ECR. With <code class="language-plaintext highlighter-rouge">theta</code>, both oblique roots and the $A = 0$ layers</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">wave_dispersion_omega_k</code></td>
+      <td>Each branch in the $\omega$-$k$ plane ($k = n\omega/c$ where $n^2 &gt; 0$): it starts at $k = 0$ on its cutoff ($P$, $R$ or $L = 0$) – the oblique whistler leaves the origin instead – runs to $k \to \infty$ at a resonance, and approaches the light line at high frequency</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">refractive_index_vs_X</code></td>
+      <td>$n^2$ against $X$ at fixed $Y$: cutoffs at $X = 1 - Y$ ($R$), $1$ ($P$), $1 + Y$ ($L$), the upper hybrid at $X = 1 - Y^2$, all located by bracketing</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">refractive_index_vs_Y</code></td>
+      <td>$n^2$ against $Y$ at fixed $X$: at $\theta = \pi/2$ the O branch does not depend on $Y$; the other has the $R$ cutoff at $Y = 1 - X$, the upper hybrid at $\sqrt{1 - X}$, and $Y = 1$ is the cyclotron layer</td>
     </tr>
   </tbody>
 </table>
@@ -2594,6 +2637,7 @@ a test enforces this. The README uses the four pillars, the research cycle and t
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">scientific_workflow</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">interoperability_layers</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">scientific_provenance_chain</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_state_provenance</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">scientific_infrastructure_principles</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">machine_agnostic_architecture</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">experiment_modeling_theory_data_network</span><span class="p">()</span>   <span class="c1"># "point_to_point", "common_model", "equilibrium"
@@ -2631,6 +2675,10 @@ a test enforces this. The README uses the four pillars, the research cycle and t
       <td>An example tokamak analysis chain: raw signal → processed data → equilibrium reconstruction and profile fitting → derived physics quantities → analysis and visualization. Versioned inputs and configurations are kept apart from the cross-cutting quality metadata</td>
     </tr>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_state_provenance</code></td>
+      <td>The information layers of one plasma state (Tutorial 03, #1714): measured quantities ($I_p$, magnetics, diamagnetic flux, Thomson and charge-exchange profiles) and assumed priors (profile model, weights and uncertainties, $Z_\mathrm{eff}$, boundary conditions) both enter the reconstruction or fit, whose fields and profiles feed the derived descriptors ($\kappa$, $\delta$, $q_{95}$, $\beta$, $\ell_i$, pressures, $\nu^<em>$, $\rho^</em>$, $a/L_T$). A derived number is never itself a measurement</td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">scientific_infrastructure_principles</code></td>
       <td>Two foundations, both converging on VAFT. On one side are the common principles for modern scientific infrastructure (FAIR, W3C PROV, TRUST). On the other are three fusion-community requirements: verification and validation, integrated modelling and data analysis, and multi-machine comparison and extrapolation. Each side’s references, FAIR4RS among them, sit beneath it</td>
     </tr>
@@ -2662,6 +2710,7 @@ a test enforces this. The README uses the four pillars, the research cycle and t
 <img src="/vaft/develop/assets/diagrams/scientific_workflow.svg" alt="Managed scientific processing pipeline" />
 <img src="/vaft/develop/assets/diagrams/interoperability_layers.svg" alt="Interoperability layers" />
 <img src="/vaft/develop/assets/diagrams/scientific_provenance_chain.svg" alt="Scientific provenance chain" />
+<img src="/vaft/develop/assets/diagrams/plasma_state_provenance.svg" alt="Plasma state provenance" />
 <img src="/vaft/develop/assets/diagrams/scientific_infrastructure_principles.svg" alt="Principles for scientific infrastructure" />
 <img src="/vaft/develop/assets/diagrams/machine_agnostic_architecture.svg" alt="Machine-agnostic architecture" />
 <img src="/vaft/develop/assets/diagrams/experiment_modeling_theory_data_network_point_to_point.svg" alt="Without a common model" />
@@ -4630,7 +4679,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 11:07:08 +0000"
+        "time": "2026-10-06 14:01:13 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
