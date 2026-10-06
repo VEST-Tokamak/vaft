@@ -73,6 +73,14 @@ def site(tmp_path_factory):
     # Source links are pinned to the generating commit (#1069), as docs/build.py records it.
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT), check=True,
                             capture_output=True, text=True).stdout.strip()
+    # The copied docs may carry a provenance receipt from an earlier local
+    # build.  This fixture generates fresh catalogs, so give the test site the
+    # matching receipt just as docs/build.py does for a real track build.
+    receipt = source / "_data" / "provenance.yml"
+    provenance = yaml.safe_load(receipt.read_text(encoding="utf-8"))
+    provenance["commit"] = commit
+    provenance["short_commit"] = commit[:7]
+    receipt.write_text(yaml.safe_dump(provenance, sort_keys=False), encoding="utf-8")
     for generator in generators:
         subprocess.run(
             [sys.executable, "-m", generator["module"], "--output", str(source / generator["output"]),
