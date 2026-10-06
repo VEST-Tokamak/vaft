@@ -173,6 +173,10 @@
       "reason": "no packaged sample carries the data this plot needs",
       "status": "no_sample"
     },
+    "core_profiles_profile_zeff": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
     "core_profiles_time_volume_averaged": {
       "call": "vaft.omas.plot_core_profiles_time_volume_averaged(vaft.omas.load(vaft.data.sample(48224)))",
       "model_sha256": "5ca025a1d585dd2d224cbe775d00f42a6f6e74aef8eda2661044a318dd15dfad",
@@ -694,6 +698,24 @@
     "impa_time_voltage": {
       "reason": "no packaged sample carries the data this plot needs",
       "status": "no_sample"
+    },
+    "impurity_profile_charge_state_fraction": {
+      "call": "vaft.omas.plot_impurity_profile_charge_state_fraction(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "b5b1fd8cc156198dbb80a18cf1a9dd528342ed7bde844e06e70c16d0f73b950a",
+      "png_sha256": "049926623fcd113348e89294fb1457786512180c8c6ff3dbc2605a0222573be4",
+      "renderer_sha256": "5f208b3690285daf278e2181950a6e5945e881158c18bfcb1d427756ad8635a1",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "impurity_profile_composition": {
+      "call": "vaft.omas.plot_impurity_profile_composition(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "42ec5436659d6a7b6a1fafe5e60a3ea5d16a99ebed00357d5189e1649c5e74a2",
+      "png_sha256": "c5824bef1c209da4a140b0736ed418ce7d19a92aaff712a248b43387ae5a115f",
+      "renderer_sha256": "5f208b3690285daf278e2181950a6e5945e881158c18bfcb1d427756ad8635a1",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
     },
     "interferometer_overview": {
       "reason": "no packaged sample carries the data this plot needs",

@@ -5861,6 +5861,484 @@ RECIPES["summary_time_resistive_zeff"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
+# Impurity composition and the radial Z_eff (#1565 Sec. 8, Lane L)
+#
+# Two questions, kept apart: what Z_eff(rho) the ODS stores and on what
+# authority (core_profiles_profile_zeff), and what the slice's own T_e, n_e
+# imply for a stated elemental composition through atomic-data charge states
+# (impurity_profile_composition, impurity_profile_charge_state_fraction).
+# The second is a model and is titled as one; neither presents an assumed or
+# derived value as a measurement.
+# ---------------------------------------------------------------------------
+
+#: The normalizations the composition view draws:
+#: :data:`vaft.process.impurity.NORMALIZATIONS` without ``resistive_closure``,
+#: which needs a resistive target and its projection, neither of which the
+#: slice holds.
+IMPURITY_NORMALIZATIONS = ("ne_weighted_mean", "axis", "fixed")
+#: Charge-state models of :func:`vaft.process.impurity.resolve_radial_composition`.
+IMPURITY_IONIZATIONS = ("coronal", "transient")
+#: How far apart a core_profiles and an equilibrium slice may be and still be
+#: paired for the volume weights [s] -- the resolver's own tolerance.
+_IMPURITY_SLICE_TOLERANCE = 5e-4
+
+_CORE_PROFILES_SLICE_READS = (
+    "core_profiles.time", "core_profiles.profiles_1d.{i}.time",
+    "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+)
+_ZEFF_PROFILE_READS = (
+    *_CORE_PROFILES_SLICE_READS,
+    "core_profiles.profiles_1d.{i}.zeff",
+    "core_profiles.profiles_1d.{i}.zeff_fit.parameters",
+)
+_IMPURITY_COMPOSITION_READS = (
+    *_ZEFF_PROFILE_READS,
+    "core_profiles.profiles_1d.{i}.electrons.temperature",
+    "core_profiles.profiles_1d.{i}.electrons.density_thermal",
+    "core_profiles.profiles_1d.{i}.electrons.density",
+    "equilibrium.time", "equilibrium.time_slice.{i}.time",
+    "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.volume",
+    *_ONSET_READS,
+)
+
+#: How a stored Z_eff is labelled, by the ``origin`` its ``zeff_fit.parameters``
+#: record states (:func:`vaft.process.impurity.composition_record_origin`).
+_ZEFF_ORIGIN_LABELS = {
+    "measured": ("measured", {"color": "role:measured"}),
+    "assumed": ("assumed, not measured", {"color": "role:reconstructed", "linestyle": "--"}),
+    "derived": ("derived, not measured", {"color": "role:reconstructed"}),
+    "inferred": ("inferred, not measured", {"color": "role:reconstructed"}),
+    "unknown": ("unrecognised origin", {"color": "emphasis:medium", "linestyle": "--"}),
+    None: ("origin not recorded", {"color": "emphasis:medium", "linestyle": "--"}),
+}
+
+
+def _core_profiles_slice(ods: Any, options: Mapping[str, Any], qualifies: Any = None) -> tuple[int, str, float]:
+    """``(index, base path, time)`` of the core_profiles slice ``time_slice=`` names.
+
+    Without one, the first slice ``qualifies(ods, base)`` accepts -- the slice
+    the recipe's ``available`` predicate found -- else slice 0.
+    """
+    total = _count(ods, "core_profiles.profiles_1d")
+    raw = options.get("time_slice")
+    index = 0 if raw is None else int(raw)
+    if raw is None and qualifies is not None:
+        index = next((i for i in range(total) if qualifies(ods, f"core_profiles.profiles_1d.{i}")), 0)
+    if not 0 <= index < total:
+        raise ValueError(f"time_slice={raw!r} is outside the {total} stored core_profiles slices")
+    times = slice_times(ods, "core_profiles.profiles_1d")
+    return index, f"core_profiles.profiles_1d.{index}", float(times[index])
+
+
+def _slice_title_time(t: float) -> str:
+    return f"t = {t * 1e3:.2f} ms" if np.isfinite(t) else "slice time not stored"
+
+
+def _record_field(record: Any, key: str) -> str:
+    """One ``key=value`` field of a ``*_fit.parameters`` record, ``""`` when absent."""
+    for part in str(record or "").replace("\n", ";").split(";"):
+        name, sep, value = part.partition("=")
+        if sep and name.strip().lower() == key:
+            return value.strip()
+    return ""
+
+
+def _stored_zeff(ods: Any, base: str) -> tuple[np.ndarray, np.ndarray, str | None, Any] | None:
+    """``(rho, zeff, origin, record)`` the slice stores, or ``None`` without a usable one."""
+    from vaft.process.impurity import composition_record_origin
+
+    zeff = _array(ods, f"{base}.zeff")
+    rho = _array(ods, f"{base}.grid.rho_tor_norm")
+    if zeff is None or rho is None or zeff.shape != rho.shape:
+        return None
+    record = _get(ods, f"{base}.zeff_fit.parameters")
+    return rho, zeff, composition_record_origin(record), record
+
+
+def _has_stored_zeff(ods: Any, base: str) -> bool:
+    return _stored_zeff(ods, base) is not None
+
+
+def _zeff_profile_available(ods: Any) -> str | None:
+    """Why no slice can draw its stored Z_eff (zeff on its own rho grid), or ``None``."""
+    for index in range(_count(ods, "core_profiles.profiles_1d")):
+        if _has_stored_zeff(ods, f"core_profiles.profiles_1d.{index}"):
+            return None
+    return "core_profiles.profiles_1d.{i}.zeff on a grid.rho_tor_norm of the same length"
+
+
+def _build_zeff_profile(ods: Any, **options: Any) -> Profile1D:
+    """The Z_eff(rho) a core_profiles slice stores, labelled by the origin its record states.
+
+    The label comes from ``zeff_fit.parameters`` (``origin=...; method=...``,
+    the grammar of :func:`vaft.process.impurity.composition_record_text`): only
+    ``origin=measured`` is drawn as a measurement; an assumed, derived or
+    inferred profile says so, and one without a record says that instead of
+    passing for a measurement.
+    """
+    _, base, t = _core_profiles_slice(ods, options, _has_stored_zeff)
+    stored = _stored_zeff(ods, base)
+    if stored is None:
+        raise ValueError(f"{base} carries no zeff on a grid.rho_tor_norm of the same length")
+    rho, zeff, origin, record = stored
+    label, style = _ZEFF_ORIGIN_LABELS[origin]
+    method = _record_field(record, "method")
+    finite = np.isfinite(zeff)
+    if not finite.any():
+        raise ValueError(f"{base}.zeff holds no finite value")
+    series = Series(x=rho, y=zeff, label=f"Z_eff ({label})", style=style,
+                    valid_mask=None if finite.all() else finite)
+    return Profile1D(
+        series=(series,),
+        coordinate_label="rho_tor_norm",
+        y_label="Z_eff",
+        y_unit="",
+        title=f"Z_eff stored in core_profiles, {_slice_title_time(t)}: {label}"
+              + (f" ({method})" if method else ""),
+        metadata={"origin": origin or "", "record": "" if record is None else str(record), "time": t},
+    )
+
+
+def _impurity_weights(options: Mapping[str, Any]) -> tuple[dict[str, float], float, str]:
+    """``(elemental weights, target Z_eff, label)`` of the ``impurity_model=`` option.
+
+    ``"vest"`` (the default) is the ``vest.yaml`` impurity-model preset, an
+    assumption with its own status; a mapping ``{element: relative density}``
+    is the caller's composition.  ``target_zeff=`` overrides either target.
+    """
+    model = options.get("impurity_model", "vest")
+    if model is None or (isinstance(model, str) and model.lower() == "vest"):
+        from vaft.machine_mapping.core_profiles import vest_impurity_model
+
+        preset = vest_impurity_model(None)
+        if preset is None:
+            raise ValueError("vest.yaml holds no impurity_model preset; pass impurity_model={element: weight}")
+        weights = {str(s["element"]): float(s["relative_density"]) for s in preset["species"]}
+        target, source = float(preset["target_zeff"]), f"VEST preset, {preset.get('status', 'assumed')}"
+    elif isinstance(model, Mapping) and model:
+        weights = {str(element): float(weight) for element, weight in model.items()}
+        target, source = 2.0, "caller"
+    else:
+        raise ValueError(f"impurity_model must be 'vest' or a non-empty {{element: weight}} mapping; got {model!r}")
+    if options.get("target_zeff") is not None:
+        target = float(options["target_zeff"])
+    if any(not np.isfinite(w) or w < 0.0 for w in weights.values()) or not any(weights.values()):
+        raise ValueError(f"impurity_model weights must be non-negative and not all zero; got {weights!r}")
+    smallest = min(w for w in weights.values() if w > 0.0)
+    ratio = ":".join(f"{w / smallest:.3g}" for w in weights.values())
+    return weights, target, f"{':'.join(weights)} = {ratio} ({source})"
+
+
+def _volume_weights_at(ods: Any, t: float, rho: np.ndarray) -> np.ndarray | None:
+    """``dV`` per rho point from the equilibrium V(rho_tor_norm) of the same time, or ``None``.
+
+    The slice is matched BY TIME within :data:`_IMPURITY_SLICE_TOLERANCE`;
+    points beyond the equilibrium's rho range get ``dV = 0`` (``np.interp``
+    clamps), as in the Lane L atlas.
+    """
+    if not np.isfinite(t) or not np.all(np.isfinite(rho)) or not _count(ods, "equilibrium.time_slice"):
+        return None
+    times = slice_times(ods, "equilibrium.time_slice")
+    if not np.isfinite(times).any():
+        return None
+    index = int(np.nanargmin(np.abs(times - t)))
+    if abs(times[index] - t) > _IMPURITY_SLICE_TOLERANCE:
+        return None
+    base = f"equilibrium.time_slice.{index}.profiles_1d"
+    rho_eq, volume = _array(ods, f"{base}.rho_tor_norm"), _array(ods, f"{base}.volume")
+    if rho_eq is None or volume is None or rho_eq.shape != volume.shape:
+        return None
+    ok = np.isfinite(rho_eq) & np.isfinite(volume)
+    if not ok.any():
+        return None
+    order = np.argsort(rho_eq[ok])
+    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
+    v = np.interp(edges, rho_eq[ok][order], volume[ok][order])
+    dv = np.clip(np.diff(v), 0.0, None)
+    # A constant or zero V(rho) weighs nothing; the caller then says the
+    # stand-in is used rather than the resolver failing on a NaN amplitude.
+    return dv if np.sum(dv) > 0.0 else None
+
+
+def _plasma_age(ods: Any, t: float, options: Mapping[str, Any]) -> tuple[float | None, str]:
+    """``(age, how it was found)``: ``plasma_age_s=``, else the slice time minus the plasma onset.
+
+    The onset is :func:`vaft.omas.plasma_timing.plasma_timing`'s, read from the
+    diagnostics the ODS carries; an age that is unknown or not positive is
+    ``None`` with the reason, and the coronal check is then not drawn.
+    """
+    if options.get("plasma_age_s") is not None:
+        age = float(options["plasma_age_s"])
+        if not np.isfinite(age) or age <= 0.0:
+            raise ValueError(f"plasma_age_s must be a positive number of seconds; got {options['plasma_age_s']!r}")
+        return age, "given"
+    if not _count(ods, "magnetics.ip"):
+        return None, "no magnetics.ip to time the plasma by"
+    from vaft.omas.plasma_timing import plasma_timing
+
+    try:
+        timing = plasma_timing(ods)
+    except (KeyError, ValueError, IndexError, TypeError) as error:
+        return None, f"plasma timing failed: {error}"
+    if not timing.found or timing.onset is None:
+        return None, "no plasma onset found"
+    if not np.isfinite(t):
+        return None, "the slice stores no time"
+    age = float(t) - float(timing.onset)
+    if age <= 0.0:
+        return None, f"slice at or before the plasma onset ({timing.onset * 1e3:.2f} ms)"
+    return age, f"onset {timing.onset * 1e3:.2f} ms from {timing.source}"
+
+
+def _impurity_inputs(ods: Any, options: Mapping[str, Any]) -> dict[str, Any]:
+    """Everything the composition views resolve from the slice and the options, once."""
+    _, base, t = _core_profiles_slice(ods, options, _has_kinetic_profiles)
+    rho, te, ne = _kinetic_profiles(ods, base)
+    missing = [name for name, value in (("grid.rho_tor_norm", rho), ("electrons.temperature", te),
+                                        ("electrons.density_thermal (or density)", ne)) if value is None]
+    if missing:
+        raise ValueError(f"{base} has no {', '.join(missing)}")
+    if not rho.shape == te.shape == ne.shape:
+        raise ValueError(f"{base}: rho, T_e and n_e differ in length ({rho.size}, {te.size}, {ne.size})")
+    ionization = options.get("ionization") or "coronal"
+    if ionization not in IMPURITY_IONIZATIONS:
+        raise ValueError(f"ionization must be one of {IMPURITY_IONIZATIONS}; got {ionization!r}")
+    age, age_source = _plasma_age(ods, t, options)
+    if ionization == "transient" and age is None:
+        raise ValueError(f"ionization='transient' needs the plasma age: pass plasma_age_s= ({age_source})")
+    weights, target, composition = _impurity_weights(options)
+    return {
+        "base": base, "time": t, "rho": rho, "te": te, "ne": ne,
+        "weights": weights, "target": target, "composition": composition,
+        "ionization": ionization, "age": age, "age_source": age_source,
+        "volume_weights": _volume_weights_at(ods, t, rho),
+        "tables": options.get("adf11_tables"), "cache_dir": options.get("adf11_cache_dir"),
+    }
+
+
+def _radial_composition(inputs: Mapping[str, Any], normalization: str) -> Any:
+    from vaft.process.impurity import resolve_radial_composition
+
+    return resolve_radial_composition(
+        inputs["te"], inputs["ne"], inputs["rho"], inputs["weights"],
+        normalization=normalization, target_zeff=inputs["target"],
+        ionization=inputs["ionization"], plasma_age_s=inputs["age"],
+        volume_weights=inputs["volume_weights"], tables=inputs["tables"],
+        cache_dir=inputs["cache_dir"], time=inputs["time"],
+    )
+
+
+def _kinetic_profiles(ods: Any, base: str) -> tuple[Any, Any, Any]:
+    """``(rho, T_e, n_e)`` of one slice, n_e in either spelling; ``None`` for what is absent."""
+    ne = _array(ods, f"{base}.electrons.density_thermal")
+    if ne is None:
+        ne = _array(ods, f"{base}.electrons.density")
+    return _array(ods, f"{base}.grid.rho_tor_norm"), _array(ods, f"{base}.electrons.temperature"), ne
+
+
+def _has_kinetic_profiles(ods: Any, base: str) -> bool:
+    rho, te, ne = _kinetic_profiles(ods, base)
+    return rho is not None and te is not None and ne is not None and rho.shape == te.shape == ne.shape
+
+
+def _impurity_available(ods: Any) -> str | None:
+    """Why no slice holds rho, T_e and n_e (either spelling) of one length, or ``None``."""
+    for index in range(_count(ods, "core_profiles.profiles_1d")):
+        if _has_kinetic_profiles(ods, f"core_profiles.profiles_1d.{index}"):
+            return None
+    return ("core_profiles.profiles_1d.{i}.electrons.temperature and electrons.density_thermal "
+            "(or density) on a grid.rho_tor_norm of the same length")
+
+
+def _age_text(inputs: Mapping[str, Any]) -> str:
+    if inputs["age"] is None:
+        return f"no plasma age ({inputs['age_source']}): coronal check not drawn"
+    return f"plasma age {inputs['age'] * 1e3:.1f} ms ({inputs['age_source']})"
+
+
+#: At most this many markers per curve flag the points that are not coronal:
+#: a Thomson-fitted grid has ~100 points, and a cross on each buries the curve.
+_NOT_CORONAL_MARKERS = 25
+
+
+def _not_coronal(rho: np.ndarray, y: np.ndarray, result: Any, label: str) -> list[Series]:
+    """Markers on the points whose plasma is too young for the coronal charge states.
+
+    Every such point is flagged, thinned evenly to :data:`_NOT_CORONAL_MARKERS`
+    so the curve stays readable; the first and last of each run are kept so
+    the flagged span is not shortened.
+    """
+    if result.coronal_valid is None:
+        return []
+    bad = ~np.asarray(result.coronal_valid, dtype=bool) & np.isfinite(y)
+    if not bad.any():
+        return []
+    where = np.flatnonzero(bad)
+    stride = max(1, int(np.ceil(where.size / _NOT_CORONAL_MARKERS)))
+    edges = where[np.r_[True, np.diff(where) > 1] | np.r_[np.diff(where) > 1, True]]
+    keep = np.union1d(where[::stride], edges)
+    return [Series(x=rho[keep], y=y[keep], label=label,
+                   style={"marker": "x", "markersize": 4, "linestyle": "none", "color": "emphasis:alert"})]
+
+
+def _build_impurity_composition(ods: Any, **options: Any) -> Panels:
+    """Radial Z_eff, charge moments, reduced impurity and dilution from the slice's own T_e, n_e.
+
+    The elemental composition (``impurity_model=``, the VEST preset by
+    default) is distributed over charge states by
+    :func:`vaft.process.impurity.resolve_radial_composition` -- coronal, or
+    transient at the plasma age -- and scaled by each normalization in
+    ``normalizations=``; the first drives the moment, Z_I,eff and dilution
+    panels.  Points where the plasma is younger than the coronal relaxation
+    time are marked; a Z_eff the slice already stores is overlaid under the
+    origin its record states.
+    """
+    inputs = _impurity_inputs(ods, options)
+    asked = options.get("normalizations") or ("ne_weighted_mean", "fixed")
+    asked = (asked,) if isinstance(asked, str) else tuple(dict.fromkeys(asked))
+    unknown = [name for name in asked if name not in IMPURITY_NORMALIZATIONS]
+    if unknown:
+        raise ValueError(f"normalizations must be drawn from {IMPURITY_NORMALIZATIONS}; got {unknown!r}")
+    primary = _radial_composition(inputs, asked[0])
+    others = []
+    for name in asked[1:]:
+        try:
+            others.append((name, _radial_composition(inputs, name)))
+        except ValueError as error:
+            warnings.warn(f"normalization {name!r} not drawn: {error}", UserWarning, stacklevel=2)
+    rho, ionization = inputs["rho"], inputs["ionization"]
+    target = inputs["target"]
+
+    weighting = ("equilibrium dV" if inputs["volume_weights"] is not None
+                 else "rho drho stand-in, no equilibrium V at this time")
+
+    def rule(name: str, result: Any) -> str:
+        """What the normalization closed, stated as the resolver closed it."""
+        if name == "ne_weighted_mean":
+            return f"<Z_eff>_ne = {target:g} ({weighting})"
+        if name == "axis":
+            return f"Z_eff(rho={result.normalization.get('at_rho', float('nan')):.2f}) = {target:g}"
+        return f"fully stripped at Z_eff = {target:g}"
+
+    zeff_traces = [Series(x=rho, y=primary.zeff, label=rule(asked[0], primary),
+                          style={"color": palette(0), "lw": 1.8})]
+    for k, (name, result) in enumerate(others, start=1):
+        zeff_traces.append(Series(x=rho, y=result.zeff, label=rule(name, result),
+                                  style={"color": palette(k), "linestyle": "--"}))
+    stored = _stored_zeff(ods, inputs["base"])
+    if stored is not None:
+        label, style = _ZEFF_ORIGIN_LABELS[stored[2]]
+        zeff_traces.append(Series(x=stored[0], y=stored[1], label=f"stored ({label})",
+                                  style={**style, "linestyle": ":"}))
+    young = "" if inputs["age"] is None else f"not coronal at {inputs['age'] * 1e3:.3g} ms"
+    zeff_traces += _not_coronal(rho, primary.zeff, primary, young)
+    zeff_panel = Profile1D(series=tuple(zeff_traces), coordinate_label="rho_tor_norm",
+                           y_label="Z_eff", y_unit="",
+                           title=f"{ionization} charge states; {rule(asked[0], primary).split(' (')[0]}: "
+                                 f"n_s/n_e = {primary.scale:.3g} w_s")
+
+    moments: list[Series] = []
+    for k, element in enumerate(primary.elements):
+        colour = palette(k)
+        z_n = primary.charge_state_fractions[k].shape[-1] - 1
+        moments.append(Series(x=rho, y=primary.mean_charge[:, k], label=f"<Z>_{element}",
+                              style={"color": colour, "lw": 1.8}))
+        if ionization == "transient":
+            moments.append(Series(x=rho, y=primary.coronal_mean_charge[:, k],
+                                  label=f"<Z>_{element} coronal", style={"color": colour, "linestyle": "--"}))
+        moments.append(Series(x=rho, y=np.full(rho.size, float(z_n)), label=f"{element}{z_n}+ fully stripped",
+                              style={"color": colour, "linestyle": ":", "lw": 1.0}))
+        moments += _not_coronal(rho, primary.mean_charge[:, k], primary, young if k == 0 else "")
+    moment_panel = Profile1D(series=tuple(moments), coordinate_label="rho_tor_norm",
+                             y_label="<Z>", y_unit="", title=_age_text(inputs))
+
+    reduced = Profile1D(
+        series=(Series(x=rho, y=primary.effective_charge, label="Z_I,eff = S2/S1",
+                       style={"color": palette(0)}),),
+        coordinate_label="rho_tor_norm", y_label="Z_I,eff", y_unit="",
+    )
+    fractions = [Series(x=rho, y=primary.dilution_fraction, label="dilution 1 - n_H/n_e",
+                        style={"color": "emphasis:strong", "lw": 1.8})]
+    for k, element in enumerate(primary.elements):
+        fractions.append(Series(x=rho, y=primary.elemental_fractions[:, k], label=f"n_{element}/n_e",
+                                style={"color": palette(k), "linestyle": ("-", "--", ":", "-.")[k % 4]}))
+    fraction_panel = Profile1D(series=tuple(fractions), coordinate_label="rho_tor_norm",
+                               y_label="n / n_e", y_unit="")
+    return Panels(
+        models=(zeff_panel, moment_panel, reduced, fraction_panel), ncols=1, share_x=True,
+        # One line: the renderer anchors a suptitle above the top axes and a
+        # second line would grow off the canvas; the details sit in the
+        # panel titles, which the layout makes room for.
+        suptitle=(f"Impurity composition (model): {inputs['composition']}, "
+                  f"{_slice_title_time(inputs['time'])}"),
+    )
+
+
+def _build_impurity_charge_states(ods: Any, **options: Any) -> Panels:
+    """Charge-state fractions f_q(rho) of each element, one panel per element.
+
+    The distribution depends on T_e, n_e and -- for ``ionization="transient"``
+    -- the plasma age only, not on how much of each element there is, so it is
+    taken from :func:`vaft.process.impurity.charge_state_moments` per element
+    and no normalization (or its target) can make it fail.
+    """
+    from vaft.process.impurity import charge_state_moments
+
+    inputs = _impurity_inputs(ods, options)
+    rho, te, ne = inputs["rho"], inputs["te"], inputs["ne"]
+    # The atomic data refuse a non-positive or non-finite T_e or n_e (a fitted
+    # edge often reaches zero); those points are left undefined, as the
+    # composition resolver leaves them.
+    valid = np.isfinite(te) & np.isfinite(ne) & (te > 0.0) & (ne > 0.0)
+    if not valid.any():
+        raise ValueError(f"{inputs['base']} has no point with positive, finite T_e and n_e")
+    panels = []
+    for k, element in enumerate(inputs["weights"]):
+        solved = np.asarray(charge_state_moments(
+            element, te[valid], ne[valid], ionization=inputs["ionization"], age_s=inputs["age"],
+            tables=inputs["tables"], cache_dir=inputs["cache_dir"])["fractions"], dtype=float)
+        fractions = np.full((rho.size, solved.shape[-1]), np.nan)
+        fractions[valid] = solved
+        traces = tuple(
+            Series(x=rho, y=fractions[:, q], label=f"{element}{q}+" if q else f"{element}0",
+                   style={"color": palette(q)})
+            for q in range(fractions.shape[-1])
+        )
+        panels.append(Profile1D(series=traces, coordinate_label="rho_tor_norm",
+                                y_label="f_q", y_unit="",
+                                title=f"{element}, {inputs['ionization']}"
+                                      + ("" if k else f"; {_age_text(inputs)}")))
+    return Panels(
+        models=tuple(panels), ncols=1, share_x=True, share_y=True,
+        suptitle=f"Charge-state fractions (model from T_e, n_e), {_slice_title_time(inputs['time'])}",
+    )
+
+
+RECIPES["core_profiles_profile_zeff"] = CallableRecipe(
+    builder=_build_zeff_profile,
+    description="Stored core_profiles Z_eff(rho), labelled by the origin its zeff_fit record states (#1565).",
+    available=_zeff_profile_available,
+    reads=_ZEFF_PROFILE_READS,
+    backend=NEUTRAL,
+)
+RECIPES["impurity_profile_composition"] = CallableRecipe(
+    builder=_build_impurity_composition,
+    description="Radial Z_eff, <Z>, Z_I,eff and dilution from T_e, n_e through ADF11 charge states (#1565 Sec. 8).",
+    available=_impurity_available,
+    reads=_IMPURITY_COMPOSITION_READS,
+    backend=NEUTRAL,
+)
+RECIPES["impurity_profile_charge_state_fraction"] = CallableRecipe(
+    builder=_build_impurity_charge_states,
+    description="Charge-state fractions f_q(rho) of each impurity element from T_e, n_e (#1565 Sec. 8).",
+    available=_impurity_available,
+    reads=_IMPURITY_COMPOSITION_READS,
+    backend=NEUTRAL,
+)
+
+
+# ---------------------------------------------------------------------------
 # Romero's voltage and volt-second balance (#781, #1590)
 #
 # compute_romero_flux_balance_ods evaluates every term; this view draws them.
@@ -14369,6 +14847,8 @@ _CALLABLE_TIME_AXES: dict[str, str] = {
     **dict.fromkeys(
         (
             "neoclassical_profile_bootstrap_current",
+            "core_profiles_profile_zeff", "impurity_profile_composition",
+            "impurity_profile_charge_state_fraction",
             "electron_temperature_profile_gradient", "electron_density_profile_gradient",
             "ion_temperature_profile_gradient",
         ),
