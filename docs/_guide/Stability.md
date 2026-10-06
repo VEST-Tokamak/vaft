@@ -392,6 +392,8 @@ which produce the refined equilibria the GPEC suite consumes — see the
 - [Physics formulas]({{ site.baseurl }}/guide/Formula/) — full signature reference for
   `vaft.formula.stability`, including the beta conversions, characteristic speeds and unit traps.
 - [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) — producing the equilibrium the codes consume.
+- [Ballooning formulations]({{ '/reference/ballooning-formulations/' | relative_url }}) — how the
+  reduced $s$–$\alpha$ model, DCON's $C_A$ and GPEC.jl's ballooning $\Delta'$ relate, and the shared normalisation.
 - [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }})
   — how slab, cylindrical and toroidal mode families relate, and which tool sits where.
 - [Data structures (ODS, IDS, IMAS)]({{ site.baseurl }}/guide/Data_structures/) — where `beta_normal`,

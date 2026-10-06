@@ -53,6 +53,9 @@ sections:
       - id: geometric-approximations
         title: Geometric approximations
         url: /reference/geometric-approximations/
+      - id: ballooning-formulations
+        title: Ballooning formulations
+        url: /reference/ballooning-formulations/
       - id: equilibrium-representations
         title: Equilibrium representations
         url: /reference/equilibrium-representations/

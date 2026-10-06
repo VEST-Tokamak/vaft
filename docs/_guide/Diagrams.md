@@ -567,6 +567,22 @@ vaft.diagram.field_aligned_xpoint_limitation(n_theta=24)
 
 ![shear]({{ '/assets/diagrams/magnetic_shear_field_aligned.svg' | relative_url }})
 
+### Ballooning formulations
+
+How the reduced $s$–$\alpha$ equation follows from the general ballooning equation, and how DCON's $C_A$
+and GPEC.jl's ballooning $\Delta'$ relate to it, is on
+[Ballooning formulations]({{ '/reference/ballooning-formulations/' | relative_url }}) (#1637).
+
+```python
+vaft.diagram.ballooning_formulation_hierarchy()
+```
+
+![ballooning formulations]({{ '/assets/diagrams/ballooning_formulation_hierarchy.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `ballooning_formulation_hierarchy` | The general equation either loses its geometry step by step (large aspect ratio, shifted circles, the $1 + \Lambda^2$ metric, the $\cos\theta + \Lambda\sin\theta$ curvature) to become the CHT equation VAFT solves, or keeps it, as DCON ($C_A$, stable when positive) and GPEC.jl ($\Delta'$, stable when negative, with poles) do. All three must share the normalisation of `shear_from_volume` and `ballooning_alpha_from_volume` before their boundaries can be compared |
+
 ## Slab resonant layers: tearing and twisting parity
 
 How a global harmonic becomes a local layer response. The mapping $(m, n) \to (k_y, k_z)$ and

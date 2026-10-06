@@ -14,7 +14,8 @@ where :mod:`vaft.plot` shows data and results. The boundary:
 Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
 island model) and the stability / operational-space charts
 ``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``,
-``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); single-particle motion: ``exb_drift``, ``curvature_drift``,
+``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical);
+ballooning formulations (#1637): ``ballooning_formulation_hierarchy``; single-particle motion: ``exb_drift``, ``curvature_drift``,
 ``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
 of the island: ``rational_surface``, ``delta_prime`` and
 ``tearing_layer_matching``; 3-D perturbation harmonics:
@@ -68,6 +69,7 @@ __all__ = [
     "magnetic_island",
     "peeling_ballooning",
     "s_alpha_ballooning",
+    "ballooning_formulation_hierarchy",
     "hugill",
     "troyon",
     "li_qa",
@@ -242,6 +244,7 @@ _LOCATIONS = {
     "magnetic_island": "._magnetic_island",
     "peeling_ballooning": "._stability_space",
     "s_alpha_ballooning": "._stability_space",
+    "ballooning_formulation_hierarchy": "._ballooning_formulations",
     "hugill": "._stability_space",
     "troyon": "._stability_space",
     "li_qa": "._li_qa",
