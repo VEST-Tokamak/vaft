@@ -726,7 +726,12 @@ class VFITResult:
             "BetaT": "beta_tor",
             "BetaN": "beta_normal",
             "Lint": "li_3",
-            "Wmag": "energy_mhd",
+            # IMAS energy_mhd is 3/2 int(p dV). VFIT's Wkin is exactly that
+            # (3/2 * volume-averaged pressure * volume, in J). Its Wmag is
+            # the poloidal magnetic energy int(Bp^2 dV)/(2 mu0), which VFIT
+            # only uses to build Lint; IMAS equilibrium has no leaf for it
+            # (li_3 already carries that information), so it is not mapped.
+            "Wkin": "energy_mhd",
             "q0": "q_axis",
         }
         for source_name, target_name in global_names.items():
