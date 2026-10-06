@@ -85,6 +85,10 @@ def sample_shots() -> tuple[int, ...]:
     return tuple(available_samples())
 
 
+#: The longest movie the browser export draws (#1400).
+MAX_VIDEO_FRAMES = 600
+
+
 class BrowserSession:
     """The loaded sources, their catalog and the plot on screen.
 
@@ -441,6 +445,122 @@ class BrowserSession:
         buffer = io.BytesIO()
         save_figure(figure, buffer, format=fmt, dpi=getattr(self.figure_options, "dpi", None) or dpi)
         return buffer.getvalue()
+
+    def sequence_control(self) -> Any:
+        """The plot's slice-group control -- the sequence a video walks -- or ``None``.
+
+        It is the control the player advances (``time_slice``, ``frame_index``
+        or ``time_index``); a plot without one, or a composed figure, has no
+        sequence to export as a movie.
+        """
+        if self.composition is not None or self.state is None:
+            return None
+        return next((c for c in self.state.controls if c.group == "slice"), None)
+
+    def sequence_states(self) -> tuple[Any, ...]:
+        """Every state of :meth:`sequence_control` for the plot as drawn, in order; empty without one.
+
+        Stored slices are the control's usable ones.  A dense index counts
+        the states of what is on screen -- a camera's chosen channel, the
+        magnetics grid -- from :func:`vaft.plot.backend.discovery.sequence_values`,
+        which the animation selects against; the control's own range is
+        the record's default camera.
+        """
+        control = self.sequence_control()
+        if control is None:
+            return ()
+        if control.kind != "range":
+            return tuple(control.options)
+        from vaft.omas.entries import normalize_entries
+        from vaft.plot.backend.discovery import sequence_values
+
+        options = {k: v for k, v in self.call_options().items() if k != control.name}
+        try:
+            _, _, values = sequence_values(self.plot, normalize_entries(self.ods), control.name, **options)
+        except (NotImplementedError, ValueError):
+            low, high, step = (int(v) for v in control.options)
+            return tuple(range(low, high + 1, step))
+        return tuple(range(len(values)))
+
+    def _animation(
+        self, *, fps: float, step: int, dpi: int | None, format: str | None, theme: str | None,
+    ) -> Any:
+        """``plot_*(..., animation=True)`` over the on-screen plot's sequence (#1400).
+
+        Every other option is the reader's, as an image export takes them;
+        the slice control's value is replaced by its states, every
+        ``step``-th one.  Nothing is drawn until the result is saved.
+        """
+        import vaft.omas
+
+        control = self.sequence_control()
+        if self.composition is not None:
+            raise ValueError("a composed figure has no sequence to animate; export one plot as a video")
+        if control is None:
+            raise ValueError(f"{self.plot} offers no sequence for this input (no slice control), so no video")
+        if self.figure_options:
+            # animation=True redraws its own frames and does not apply
+            # figure options yet; dropping them silently would export a
+            # different figure from the one on screen.
+            raise ValueError(
+                "video frames do not apply figure options yet; clear the figure options to export a video"
+            )
+        step = int(step)
+        if step < 1:
+            raise ValueError(f"step must be a positive number of states; got {step}")
+        states = self.sequence_states()[::step]
+        if len(states) > MAX_VIDEO_FRAMES:
+            # The file travels to the browser in one message and is drawn on
+            # the server thread: a five-thousand-frame movie is neither.
+            raise ValueError(
+                f"{len(states)} frames is more than the browser export draws ({MAX_VIDEO_FRAMES}); "
+                f"take every {-(-len(self.sequence_states()) // MAX_VIDEO_FRAMES)}th state or more, "
+                "or write the full movie with plot_*(..., animation=True).save() in Python"
+            )
+        request = self.request(format=format, theme=theme)
+        options = {k: v for k, v in dict(request.options).items() if k != control.name}
+        presentation = {key: value for key, value in (("format", request.format), ("theme", request.theme)) if value}
+        extra = {"dpi": int(dpi)} if dpi else {}
+        return vaft.omas.render_plot(
+            self.plot, self.ods, animation=True, fps=float(fps), **{control.name: list(states)},
+            **options, **presentation, **extra,
+        )
+
+    def export_video(
+        self, fmt: str = "mp4", *, fps: float = 10.0, step: int = 1, dpi: int | None = None,
+        format: str | None = None, theme: str | None = None,
+    ) -> bytes:
+        """The on-screen plot over its sequence as an ``fmt`` movie (#1400).
+
+        The frames are the plot's states, every ``step``-th one, shown at
+        ``fps`` -- presentation only: each frame's physical time is in
+        :meth:`video_metadata`.  ``mp4``/``webm`` need PyAV
+        (``pip install vaft[video]``); ``gif`` does not.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from .figure import VIDEO_FORMATS
+
+        if fmt not in VIDEO_FORMATS:
+            raise ValueError(f"video format must be one of {', '.join(VIDEO_FORMATS)}; got {fmt!r}")
+        movie = self._animation(fps=fps, step=step, dpi=dpi, format=format, theme=theme)
+        with tempfile.TemporaryDirectory() as folder:
+            path = movie.save(Path(folder) / f"export.{fmt}", sidecar=False)
+            data = path.read_bytes()
+        # The provenance of exactly this file -- its states, their times and
+        # the encoder's own facts (a GIF's rounded frame delay) -- kept for
+        # the frame-times download, so the two never describe different runs.
+        self.last_video_metadata = movie.metadata
+        return data
+
+    def video_metadata(self) -> bytes:
+        """The provenance of the last :meth:`export_video` file, as JSON: each frame's state and time."""
+        import json
+
+        if getattr(self, "last_video_metadata", None) is None:
+            raise RuntimeError("no video has been exported yet; download the video first")
+        return (json.dumps(self.last_video_metadata, indent=2) + "\n").encode()
 
     @property
     def state(self) -> Any:

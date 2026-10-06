@@ -13,12 +13,12 @@ from __future__ import annotations
 import os
 import re
 import warnings
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from ._require import require_panel
 from .composer import CompositionEditor
-from .figure import EXPORT_FORMATS, DisplaySize
+from .figure import EXPORT_FORMATS, VIDEO_FORMATS, DisplaySize
 from .options_form import FigureOptionsForm
 from .reproduce import ReproducePanel
 from .state import BrowserSession, Source, sample_shots
@@ -26,8 +26,12 @@ from .widgets import panel_controls
 
 #: Addresses that only this machine can reach.
 LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
+#: Controls that select a time, in the order a plot is asked for them.
+TIME_CONTROLS = ("time_slice", "time_index", "time")
 
 _SOURCE_LABELS = {"Sample": "sample", "File": "file", "Database shot": "shot"}
+#: What a hosted server opens: nothing from its own disk or the reader's.
+_HOSTED_SOURCE_LABELS = {"Sample": "sample", "Database shot": "shot"}
 _RENDERER_LABELS = {"Interactive": "plotly", "Static": "matplotlib"}
 _MODE_LABELS = {"One plot": "plot", "Composed figure": "compose"}
 
@@ -68,18 +72,29 @@ def parse_shots(text: str) -> list[int]:
 class BrowserApp:
     """Source picker, plot selector, controls, figure settings and the figure."""
 
-    def __init__(self, session: BrowserSession | None = None, *, plot: str | None = None) -> None:
+    def __init__(
+        self, session: BrowserSession | None = None, *, plot: str | None = None, hosted: bool = False,
+    ) -> None:
+        """``hosted`` serves readers who are not the server's user: files, the
+        server browser and uploads are left out, and :meth:`load` refuses files.
+        """
         pn = require_panel()
         self.session = session or BrowserSession()
+        self.hosted = hosted
         self.display = DisplaySize()
         self._preferred_plot = plot
         self._renderer_choice = "plotly"
         self._plot_count = 0
         self._updating = False
+        #: Called with no arguments whenever what is open or the selected time
+        #: may have changed; the shell publishes it to the shared selection.
+        self.on_change: list[Callable[[], Any]] = []
 
         # -- source
         samples = list(sample_shots())
-        self.kind = pn.widgets.RadioButtonGroup(options=_SOURCE_LABELS, value="sample")
+        self.kind = pn.widgets.RadioButtonGroup(
+            options=_HOSTED_SOURCE_LABELS if hosted else _SOURCE_LABELS, value="sample",
+        )
         self.sample = pn.widgets.MultiChoice(
             label="Sample shots", options=samples, value=samples[:1],
             placeholder="choose one or more shots",
@@ -133,6 +148,17 @@ class BrowserApp:
             callback=self._export, filename="figure.png", label="Download figure",
             color="success", disabled=True,
         )
+        # A movie of the plot's sequence (#1400): offered only when the plot
+        # has the slice control the player walks.  Frames per second is how
+        # fast the states are shown -- never the acquisition rate -- and the
+        # step is the only decimation: every state is otherwise one frame.
+        self.export_fps = pn.widgets.IntInput(label="Frames per second", value=10, start=1, end=60, visible=False)
+        self.export_step = pn.widgets.IntInput(label="Every Nth state", value=1, start=1, visible=False)
+        self.download_times = pn.widgets.FileDownload(
+            callback=self._export_times, filename="figure_frames.json", label="Download frame times (JSON)",
+            visible=False, disabled=True,
+        )
+        self._video_states: int | None = None
 
         # -- main area
         self.status = pn.pane.Markdown("No source loaded.")
@@ -143,10 +169,13 @@ class BrowserApp:
         )
 
         self.kind.param.watch(self._on_kind, "value")
-        self.browse.param.watch(self._on_browse, "value")
-        self.use_selected.on_click(lambda _event: self._load_selected())
-        self.close_browser.on_click(lambda _event: setattr(self.browse, "value", False))
-        self.upload.param.watch(self._on_upload, "value")
+        if not hosted:
+            # Hosted, these widgets are never on the page and nothing may
+            # reach the server's disk through them.
+            self.browse.param.watch(self._on_browse, "value")
+            self.use_selected.on_click(lambda _event: self._load_selected())
+            self.close_browser.on_click(lambda _event: setattr(self.browse, "value", False))
+            self.upload.param.watch(self._on_upload, "value")
         self.ids_button.on_click(lambda _event: self._load_chosen_ids())
         self.load_button.on_click(lambda _event: self._load_requested())
         self.plot.param.watch(self._on_plot, "value")
@@ -196,11 +225,30 @@ class BrowserApp:
             return
         self.load(sources)
 
+    def choose(self, sources: Sequence[Source]) -> None:
+        """Put ``sources`` in the source widgets, as if the reader had chosen them."""
+        if not sources:
+            return
+        first = sources[0]
+        self.kind.value = first.kind
+        if first.kind == "sample":
+            self.sample.value = [source.value for source in sources]
+        elif first.kind == "file":
+            self.path.value = "\n".join(str(source.value) for source in sources)
+        else:
+            self.shots.value = ", ".join(str(source.value) for source in sources)
+            self.namespace.value = first.namespace or ""
+
     def load(self, sources: Source | Sequence[Source]) -> bool:
         """Open ``sources`` and draw their first plot; ``False`` when it failed."""
         chosen = [sources] if isinstance(sources, Source) else list(sources)
         wanted_label = ", ".join(source.label for source in chosen) or "nothing"
         self._clear_error()
+        if self.hosted and any(source.kind == "file" for source in chosen):
+            # The one door every load passes: a hosted reader would otherwise
+            # read the server's files as the account the GUI runs under.
+            self._show_error(PermissionError("this server opens samples and database shots only, not files"))
+            return False
         self.status.object = f"Loading {wanted_label} ..."
         on_screen = self.session.plot
         try:
@@ -265,6 +313,7 @@ class BrowserApp:
         self.renderer.disabled = True
         if not keep_selector:
             self.plot.disabled = True
+        self._offer_video()  # nothing drawn: no video formats either
 
     def _update_status(self) -> None:
         text = f"**{self.session.label}**: {self._plot_count} plots available."
@@ -272,6 +321,34 @@ class BrowserApp:
             held = [name for name in self.session.held_ids() if name != "dataset_description"]
             text += " In memory: " + (", ".join(held) if held else "nothing yet") + "."
         self.status.object = text
+        self._changed()
+
+    def _changed(self) -> None:
+        for callback in list(self.on_change):
+            try:
+                callback()
+            except Exception as error:  # a listener must not break the drawing
+                self._show_error(error)
+
+    def selected_time(self) -> str | None:
+        """The time the plot on screen is showing, as its control labels it.
+
+        ``None`` when the plot has no time control (a time trace, a
+        composition): a time is then not selected, only displayed.
+        """
+        state = self.session.state
+        if state is None or self.session.composition is not None:
+            return None
+        for name in TIME_CONTROLS:
+            if name not in state.values:
+                continue
+            spec, value = state.spec(name), state[name]
+            options = list(getattr(spec, "options", ()) or ())
+            labels = list(getattr(spec, "labels", ()) or ())
+            if labels and value in options:
+                return str(labels[options.index(value)])
+            return f"{getattr(spec, 'label', name) or name} {value}"
+        return None
 
     def _load_chosen_ids(self) -> None:
         self._clear_error()
@@ -386,6 +463,7 @@ class BrowserApp:
                 self.static.object = figure
             else:
                 self.static.param.trigger("object")
+        self._changed()
 
     def _size_panes(self) -> None:
         width, height = self.display.width, self.display.height
@@ -490,17 +568,65 @@ class BrowserApp:
 
     # -- export ---------------------------------------------------------------
     def _name_download(self) -> None:
+        self._offer_video()
         drawn = self.session.plot or ("composition" if self.session.composition is not None else "figure")
         stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", f"{drawn}_{self.session.label}").strip("_")
         self.download.filename = f"{stem}.{self.export_format.value}"
+        self.download_times.filename = f"{stem}_frames.json"
+
+    def _offer_video(self) -> None:
+        """The video formats, and their fields, only for a plot with a sequence (#1400)."""
+        states = len(self.session.sequence_states()) if self.session.state is not None else 0
+        offered = list(EXPORT_FORMATS) + (list(VIDEO_FORMATS) if states > 1 else [])
+        if list(self.export_format.options) != offered:
+            # Options and value together: the format watcher sees one change.
+            value = self.export_format.value if self.export_format.value in offered else EXPORT_FORMATS[0]
+            self.export_format.param.update(options=offered, value=value)
+        if states > 1 and states != self._video_states:
+            # Start near 200 frames -- a movie, not a long render -- and say
+            # how many states there are, so the stride is a choice.
+            self.export_step.value = max(1, -(-states // 200))
+            self.export_step.name = f"Every Nth state (of {states})"
+            self.download_times.disabled = True  # describes a movie of another plot
+        self._video_states = states if states > 1 else None
+        video = self.export_format.value in VIDEO_FORMATS
+        for widget in (self.export_fps, self.export_step, self.download_times):
+            widget.visible = video
+        self.download.label = "Download video" if video else "Download figure"
+        # A movie frame is the size of the screen, not of a printed page.
+        if video and self.export_dpi.value == 150:
+            self.export_dpi.value = 100
+        elif not video and self.export_dpi.value == 100:
+            self.export_dpi.value = 150
+
+    def _video_options(self) -> dict[str, Any]:
+        return {
+            "fps": int(self.export_fps.value or 10), "step": int(self.export_step.value or 1),
+            "dpi": int(self.export_dpi.value or 150), **self.reproduce.presentation(),
+        }
 
     def _export(self) -> Any:
         import io
 
         try:
-            data = self.session.export(
-                self.export_format.value, dpi=int(self.export_dpi.value or 150), **self.reproduce.presentation(),
-            )
+            if self.export_format.value in VIDEO_FORMATS:
+                data = self.session.export_video(self.export_format.value, **self._video_options())
+                self.download_times.disabled = False
+            else:
+                data = self.session.export(
+                    self.export_format.value, dpi=int(self.export_dpi.value or 150), **self.reproduce.presentation(),
+                )
+        except Exception as error:
+            self._show_error(error)
+            return None
+        return io.BytesIO(data)
+
+    def _export_times(self) -> Any:
+        """The frame-by-frame provenance of the video export: state indices and physical times."""
+        import io
+
+        try:
+            data = self.session.video_metadata()
         except Exception as error:
             self._show_error(error)
             return None
@@ -620,7 +746,8 @@ class BrowserApp:
             self.width, self.height, title="Preview size", collapsed=True, sizing_mode="stretch_width",
         )
         export = pn.Card(
-            self.export_format, self.export_dpi, self.download, pn.layout.Divider(), *self.reproduce.widgets(),
+            self.export_format, self.export_dpi, self.export_fps, self.export_step, self.download,
+            self.download_times, pn.layout.Divider(), *self.reproduce.widgets(),
             title="Export and reproduce", collapsed=True, sizing_mode="stretch_width",
         )
         return [
@@ -667,22 +794,26 @@ def build_app(
     shot: int | Sequence[int] | None = None,
     namespace: str | None = None,
     plot: str | None = None,
+    hosted: bool = False,
 ) -> BrowserApp:
     """A :class:`BrowserApp`, with one kind of source loaded when the page opens.
 
     ``sample`` and ``shot`` take one shot or several to compare; with no
-    source given, the first packaged sample is loaded.
+    source given, the first packaged sample is loaded.  ``hosted`` builds the
+    app without file sources (see :class:`BrowserApp`).
     """
     given = [value for value in (sample, file, shot) if value is not None]
     if len(given) > 1:
         raise ValueError("give at most one of sample=, file= and shot=")
+    if hosted and file is not None:
+        raise ValueError("a hosted server opens no files; give sample= or shot=")
     pn = require_panel()
     # Plotly's JavaScript must be on the page before the first figure, or the
     # pane errors in the browser ("reading 'relayout'") and stays blank.
     import importlib.util
 
     pn.extension(*(("plotly",) if importlib.util.find_spec("plotly") else ()))
-    app = BrowserApp(plot=plot)
+    app = BrowserApp(plot=plot, hosted=hosted)
     if sample is not None:
         initial = [Source("sample", value) for value in _as_list(sample)]
     elif file is not None:
@@ -693,21 +824,36 @@ def build_app(
         samples = sample_shots()
         initial = [Source("sample", samples[0])] if samples else []
     if initial:
-        app.kind.value = initial[0].kind
-        if initial[0].kind == "sample":
-            app.sample.value = [source.value for source in initial]
-        elif initial[0].kind == "file":
-            app.path.value = str(initial[0].value)
-        else:
-            app.shots.value = ", ".join(str(source.value) for source in initial)
-            app.namespace.value = namespace or ""
+        app.choose(initial)
         # After the page is up, so a slow catalog shows this, not a blank tab.
         app.status.object = "Loading " + ", ".join(source.label for source in initial) + " ..."
         pn.state.onload(lambda: app.load(initial))
     return app
 
 
-AUTH_MODES = ("auto", "password", "none")
+def build_shell(*, workspace: str | None = None, hosted: bool = False, **app_options: Any) -> Any:
+    """The page ``vaft gui`` serves: the :class:`~vaft.gui.shell.Shell` with every workspace.
+
+    ``app_options`` (``sample=``, ``file=``, ``shot=``, ``namespace=``,
+    ``plot=``) open a source in the plot explorer as :func:`build_app` does;
+    ``workspace`` is the workspace shown first (the plot explorer when
+    ``None``).  ``hosted`` builds the explorer without file sources and
+    keeps the server's own database configuration off every workspace.
+    """
+    from .shell import WORKSPACES, Shell
+    from .workspaces import PlotWorkspace
+
+    if workspace is not None:
+        WORKSPACES.get(workspace)  # refused before anything is loaded
+    app = build_app(hosted=hosted, **app_options)
+    # The explorer is the one build_app primed with the source asked for.
+    shell = Shell(initial="plots", factories={"plots": lambda shell: PlotWorkspace(shell, app)}, hosted=hosted)
+    if workspace is not None and workspace != "plots":
+        shell.show(workspace)
+    return shell
+
+
+AUTH_MODES = ("auto", "password", "hsds", "none")
 #: The largest upload one browser message may carry (all files of one upload).
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
@@ -720,6 +866,8 @@ def serve(
     websocket_origin: Sequence[str] | None = None,
     auth: str = "auto",
     password: str | None = None,
+    hosted: bool = False,
+    prefix: str | None = None,
     **app_options: Any,
 ) -> Any:
     """Serve :func:`build_app` until interrupted; one app per browser session.
@@ -734,6 +882,20 @@ def serve(
     whenever the server runs under SSH or binds another address.  The password
     is ``password``, else ``$VAFT_GUI_PASSWORD``, else a random one printed to
     the terminal.
+
+    ``hosted`` serves a team behind a reverse proxy (nginx with HTTPS): the
+    readers are not this server's user, so the app opens samples and database
+    shots only -- no server paths, no file browser, no uploads -- the password
+    is always asked and must be given (a service's restart would otherwise
+    change it unseen), and the proxy's ``X-Forwarded-*`` headers are trusted.
+    ``prefix`` serves the app under a URL path, e.g. ``/gui`` when the proxy
+    passes ``https://host/gui/`` through.  The proxy's public host name goes
+    in ``websocket_origin``.
+
+    ``auth="hsds"`` replaces the shared password with HSDS accounts: the
+    login form's user name and password are checked against the HSDS the
+    GUI reads from (:mod:`vaft.gui.auth`).  Only the sign-in changes; the
+    data is still read with the server's own HSDS credentials.
     """
     pn = require_panel()
     import secrets
@@ -772,21 +934,37 @@ def serve(
             origins += [f"{socket.gethostname()}:{port}", f"{socket.getfqdn()}:{port}"]
         elif ":" not in address:
             origins.append(f"{address}:{port}")
-    protected = auth == "password" or (auth == "auto" and (remote or address not in LOOPBACK))
+    protected = auth == "password" or (auth == "auto" and (hosted or remote or address not in LOOPBACK))
     options: dict[str, Any] = {}
-    if protected:
+    if auth == "hsds":
+        from .auth import hsds_auth_provider, hsds_endpoint
+
+        options.update(
+            auth_provider=hsds_auth_provider(hsds_endpoint()), cookie_secret=secrets.token_urlsafe(32),
+        )
+    elif protected:
         password = password or os.environ.get("VAFT_GUI_PASSWORD") or None
+        if password is None and hosted:
+            raise ValueError("a hosted server needs its password set: export VAFT_GUI_PASSWORD")
         if password is None:
             password = secrets.token_urlsafe(12)
             print(f"vaft gui: password for this server: {password}", flush=True)
         options.update(basic_auth=password, cookie_secret=secrets.token_urlsafe(32))
-    # An upload arrives as one websocket message; Bokeh's default cap is 20 MB.
-    options["websocket_max_message_size"] = MAX_UPLOAD_BYTES
+    if hosted:
+        # Behind the proxy the connection comes from 127.0.0.1; the client's
+        # address and scheme are in the headers the proxy sets.
+        options["use_xheaders"] = True
+    else:
+        # An upload arrives as one websocket message; Bokeh's default cap is
+        # 20 MB.  Hosted there are no uploads and the default stands.
+        options["websocket_max_message_size"] = MAX_UPLOAD_BYTES
+    if prefix:
+        options["prefix"] = "/" + prefix.strip("/")
 
     def page() -> Any:
-        app = build_app(**app_options)
-        pn.state.on_session_destroyed(lambda _context: app.close())
-        return app.view()
+        shell = build_shell(hosted=hosted, **app_options)
+        pn.state.on_session_destroyed(lambda _context: shell.close())
+        return shell.view()
 
     return pn.serve(
         {"/": page}, address=address, port=port, show=show,
@@ -794,4 +972,7 @@ def serve(
     )
 
 
-__all__ = ["AUTH_MODES", "BrowserApp", "LOOPBACK", "PLOTLY_CONFIG", "build_app", "parse_shots", "serve"]
+__all__ = [
+    "AUTH_MODES", "BrowserApp", "LOOPBACK", "PLOTLY_CONFIG", "TIME_CONTROLS",
+    "build_app", "build_shell", "parse_shots", "serve",
+]

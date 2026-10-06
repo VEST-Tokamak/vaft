@@ -341,6 +341,8 @@ CONVENTION_SENSITIVE = frozenset({
     "pest_angle_from_jacobian_angle",
     "equilibrium_safety_factor",
     "resolve_rational_surface",
+    # #506: |q| = |m/n| resonance; rho_tor_norm never rebuilt from psi_norm
+    "rational_surfaces",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",

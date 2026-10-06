@@ -34,6 +34,7 @@ is whatever its own `generators.yml` declares:
 | `/reference/diagram/` | `vaft.diagram.docs_catalog` | no | yes |
 | `/reference/api/<page>/` | `vaft._api_catalog` | no | yes |
 | `/reference/dependency-graph/` | `vaft._dependency_graph` | no | yes |
+| `/reference/pipeline-graph/` | `vaft._pipeline_graph` | no | yes |
 
 `vaft._dependency_graph` (#1646) needs Grimp, the optional `architecture`
 extra (`pip install -e ".[architecture]"`; also in `[dev]`). Without it the
@@ -46,6 +47,13 @@ the file's checksum, which `test/test_dependency_graph.py` verifies. To upgrade,
 bump the pin, copy `dist/cytoscape.min.js` from `npm pack cytoscape@<version>`
 into a new versioned directory, and update the manifest and
 `_includes/graph/viewer.html`.
+
+`vaft._pipeline_graph` (#1647) dry-runs the production Snakefiles with a
+documentation configuration (`PIPELINES` in the module) in a temporary
+directory, so it needs Snakemake (a core dependency) and nothing else: no
+database, HSDS server, solver or credential. Non-scheduling references between
+pipelines are declared in `workflow/automatic_pipeline_1_routine_data_processing/paths.py`
+(`SCIENTIFIC_REFERENCES`); the pipeline explorer reuses the shared viewer.
 
 `main` gains the last two when a release carries the generators and its
 `generators.yml` declares them; nothing about the stable track changes before then.
@@ -143,7 +151,7 @@ npm run test:docs:develop
 
 `_data/vest_diagnostics.yml`, `_data/formula_catalog.yml`,
 `_data/process_catalog.yml`, `_data/plot_catalog.yml`,
-`_data/diagram_catalog.yml`, `_data/api_catalog.yml`, `_data/dependency_graph.yml` and `_data/provenance.yml` are generated and are
+`_data/diagram_catalog.yml`, `_data/api_catalog.yml`, `_data/dependency_graph.yml`, `_data/pipeline_graph.yml` and `_data/provenance.yml` are generated and are
 not committed. `generators.yml`
 declares which generators this branch has, which is why that file differs
 between `main` and `develop`.
