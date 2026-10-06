@@ -76,9 +76,12 @@ __all__ = [
     "evaluate_boundary",
     "evaluate_window",
     "boundary_curve",
+    "threshold_curve",
+    "same_quantity",
     "get_boundary",
     "list_boundaries",
     "hugill_coordinates",
+    "kink_coordinates",
 ]
 
 _FORMS = ("power_law", "threshold", "function")
@@ -610,6 +613,85 @@ def boundary_curve(boundary: Boundary, sweep: str, values, swap_axes: bool = Fal
                          allowed_side=boundary.allowed_side, fixed=fixed)
 
 
+def same_quantity(a: BoundaryQuantity, b: BoundaryQuantity) -> bool:
+    r"""Whether two quantities are the same physical quantity in the same unit.
+
+    Parameters
+    ----------
+    a, b : BoundaryQuantity
+        The quantities to compare [-].
+
+    Returns
+    -------
+    bool
+        ``True`` when both ``name`` (the identity) and ``unit`` match. The
+        symbol and the free-text definition are not compared [-].
+
+    Convention
+    ----------
+    Identity is the ``name``: ``edge_safety_factor`` ($q_\psi$),
+    ``edge_safety_factor_95`` ($q_{95}$) and ``inverse_cylindrical_q`` are
+    different quantities even where their values are close. A boundary may be
+    drawn on an axis only when this returns ``True`` for that axis (#1425).
+    """
+    return a.name == b.name and a.unit == b.unit
+
+
+def threshold_curve(boundary: Boundary, axis: BoundaryQuantity, values, target_axis: str = "y") -> BoundaryCurve:
+    r"""A threshold boundary drawn as a straight line across a 2-D projection.
+
+    $$\text{target} = C \quad\text{for every value of the other axis}$$
+
+    Parameters
+    ----------
+    boundary : Boundary
+        A ``"threshold"`` boundary, for example ``"murakami_hugill"`` [-].
+    axis : BoundaryQuantity
+        The quantity on the other axis, which the threshold does not depend on [-].
+    values : array_like
+        Sample points along that axis, in its declared unit [varies].
+    target_axis : str
+        ``"y"`` draws a horizontal line (target on y); ``"x"`` a vertical one [-].
+
+    Returns
+    -------
+    BoundaryCurve
+        The line, carrying both quantities and the permitted side: ``"below"``
+        / ``"above"`` for a horizontal line, ``"left"`` / ``"right"`` for a
+        vertical one [-].
+
+    Raises
+    ------
+    TypeError
+        ``boundary`` is not a threshold, or ``values`` is not 1-D.
+    ValueError
+        ``target_axis`` is neither ``"x"`` nor ``"y"``, or ``axis`` is the
+        boundary's own target.
+
+    Convention
+    ----------
+    :func:`boundary_curve` sweeps one of a boundary's inputs, and a threshold
+    has none, so this is its counterpart. The value is the registered
+    coefficient; nothing is restated.
+    """
+    if boundary.form != "threshold":
+        raise TypeError(f"boundary {boundary.key!r} is a {boundary.form!r}, not a threshold; use boundary_curve")
+    if target_axis not in ("x", "y"):
+        raise ValueError(f"target_axis must be 'x' or 'y', not {target_axis!r}")
+    if same_quantity(axis, boundary.target):
+        raise ValueError(f"the other axis cannot be the threshold's own target {boundary.target.name!r}")
+    v = np.atleast_1d(np.asarray(values, dtype=float))
+    if v.ndim != 1:
+        raise TypeError("values must be a 1-D sequence")
+    level = np.full(v.shape, float(boundary_value(boundary)))
+    if target_axis == "x":
+        side = {"below": "left", "above": "right"}[boundary.allowed_side]
+        return BoundaryCurve(key=boundary.key, x=level, y=v, x_quantity=boundary.target, y_quantity=axis,
+                             allowed_side=side)
+    return BoundaryCurve(key=boundary.key, x=v, y=level, x_quantity=axis, y_quantity=boundary.target,
+                         allowed_side=boundary.allowed_side)
+
+
 def hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p):
     r"""Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
 
@@ -771,6 +853,38 @@ _register(Boundary(
                        note="n_G = I_P/(pi a^2), line-averaged density in 1e20 m^-3"),
     ),
     notes="Evaluated by vaft.formula.stability.greenwald_density; coefficients are not restated here.",
+))
+
+_GREENWALD_FRACTION = BoundaryQuantity(
+    "greenwald_fraction", "f_G", "-",
+    "Line-averaged electron density over the Greenwald density I_p/(pi a^2).",
+)
+
+_register(Boundary(
+    key="greenwald_fraction_unity",
+    family="density_limit",
+    target=_GREENWALD_FRACTION,
+    inputs=(),
+    form="threshold",
+    coefficient=1.0,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="density_limit",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "the 'greenwald' limit written as a fraction: f_G = n_e,line / n_G with n_G = I_p/(pi a^2)",
+            "empirical operational limit: f_G > 1 is reached (e.g. with peaked profiles) and is not a disruption criterion",
+        ),
+    ),
+    sources=(
+        BoundarySource("M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27", equation="Eq. (1.3), p. R28",
+                       doi="10.1088/0741-3335/44/8/201",
+                       note="n_G = I_P/(pi a^2), line-averaged density in 1e20 m^-3; the limit is n/n_G = 1"),
+    ),
+    notes="Same limit as 'greenwald', on the fraction axis.",
 ))
 
 _MURAKAMI_PARAMETER = BoundaryQuantity(
@@ -1275,4 +1389,827 @@ _register(Boundary(
           "A VEST-like device (A ~ 1.7, B_T ~ 0.15 T; the repo's own values, not from these papers) lies "
           "inside the fitted aspect-ratio range but below the field and size of the fitted data: treat "
           "the ratio as indicative only.",
+))
+
+
+# ------------------------------------------------------------------
+# Internal inductance - edge q (#1422)
+# ------------------------------------------------------------------
+#
+# Two different objects, kept apart on purpose:
+#
+# * Wesson et al. 1989, Fig. 6 (p. 645): the JET *empirical* l_i-q_psi operating
+#   space. The lower boundary (labelled "Empirical stability boundary") is the
+#   stability boundary for rotating MHD modes during the current rise, with the
+#   kink and double-tearing region below it; the upper boundary is where
+#   density-limit disruptions occur. l_i = 2/(mu0^2 R I^2) int B_theta^2 dtau
+#   over the plasma volume (p. 645), and the x axis is q_psi, "the actual value
+#   of q at the plasma edge" (p. 642).
+# * Cheng, Furth and Boozer 1987, Fig. 4 (p. 357): the *theoretical* domain of
+#   MHD-stable current profiles of a pressureless straight cylinder without a
+#   conducting wall, for q(0) = 1.01, computed for m, n <= 20 (p. 352). The
+#   lower (jig-saw) bound is mainly ideal external kinks, the upper bound
+#   low-order resistive kinks, mainly m/n = 2/1 and 3/2 (p. 354). The figure
+#   plots l_i/2; the tables below are l_i.
+#
+# The vertices were digitized for #1422 from 600-dpi renders of the published
+# pages, with the axes calibrated on the printed tick marks. For Cheng Fig. 4
+# the printed closed form MAX(l_i/2) = [1 + 2 ln(q(a)/q(0))]/4 is recovered to
+# within 0.01 in l_i/2, which bounds the digitization error. The earlier
+# vaft.formula.stability.empirical_li_qa arrays are the same Wesson lower
+# boundary (within ~0.03); its "Fig. 5" attribution was wrong (Fig. 5 is the
+# Hugill diagram).
+
+_LI3 = BoundaryQuantity(
+    "internal_inductance_li3", "l_i(3)", "-",
+    "2 int B_p^2 dV / (mu0^2 I_p^2 R): the IMAS DD global_quantities.li_3 form. Wesson 1989 (p. 645) uses "
+    "this form with R the plasma major radius; the DD uses the reference major radius R_0. l_i(3) scales as "
+    "1/R, so the two differ by R_geo/R_0 where those differ (a few percent on VEST, r0 = 0.4 m); carry the "
+    "radius used alongside the value.",
+)
+_LI_CYLINDER = BoundaryQuantity(
+    "internal_inductance_cylinder", "l_i", "-",
+    "Internal inductance of a straight circular cylinder, 2 int_0^a B_theta^2 r dr / (a^2 B_theta(a)^2). "
+    "Equal to the l_i(3) form in the cylinder limit; a toroidal l_i is not this quantity.",
+)
+_Q_A_CYLINDER = BoundaryQuantity(
+    "cylinder_edge_safety_factor", "q(a)", "-",
+    "Edge safety factor of the straight-cylinder model of Cheng et al. 1987, q(a) = a B_z / (R B_theta(a)) "
+    "with the periodicity length 2 pi R; neither q_psi, q95 nor the shaped q_cyl of a toroidal plasma.",
+)
+
+#: Wesson 1989 Fig. 6 lower boundary: at each integer q_psi, l_i(3) at the top and
+#: bottom of the vertical edge of the tooth; between integers the boundary rises
+#: linearly from bottom(n) to top(n + 1).
+_WESSON_1989_TEETH = (
+    # q_psi, top, bottom
+    (2.0, 0.956, 0.687),
+    (3.0, 0.931, 0.609),
+    (4.0, 0.883, 0.492),
+    (5.0, 0.715, 0.430),
+    (6.0, 0.700, 0.338),
+    (7.0, 0.674, 0.294),
+    (8.0, 0.678, 0.298),
+    (9.0, 0.674, 0.294),
+    (10.0, 0.678, 0.295),
+)
+#: Wesson 1989 Fig. 6 upper boundary (density-limit disruptions), l_i(3) against q_psi.
+_WESSON_1989_UPPER = (
+    (2.0, 0.954), (2.5, 1.029), (3.0, 1.111), (3.5, 1.190), (4.0, 1.261), (4.5, 1.324), (5.0, 1.393),
+    (5.5, 1.460), (6.0, 1.523), (6.5, 1.584), (7.0, 1.630), (7.5, 1.677), (8.0, 1.722), (8.5, 1.760),
+    (9.0, 1.798), (9.5, 1.834), (10.0, 1.866),
+)
+#: Cheng 1987 Fig. 4 lower (jig-saw) bound, l_i/2 as printed: (q(a), top, bottom) as above.
+#: Beyond q(a) = 6 the bound is a slowly rising curve, given by _CHENG_1987_LOWER_TAIL.
+_CHENG_1987_TEETH = (
+    (2.0, 0.545, 0.345),
+    (3.0, 0.505, 0.355),
+    (4.0, 0.489, 0.355),
+    (5.0, 0.465, 0.413),
+    (6.0, 0.457, 0.442),
+)
+_CHENG_1987_LOWER_TAIL = (
+    (6.0, 0.442), (6.25, 0.444), (6.5, 0.448), (6.75, 0.451), (7.0, 0.455), (7.25, 0.457), (7.5, 0.460),
+    (7.75, 0.462),
+)
+#: Cheng 1987 Fig. 4 upper bound (low-order resistive kinks), l_i/2 against q(a).
+_CHENG_1987_UPPER = (
+    (2.0, 0.545), (2.25, 0.588), (2.5, 0.628), (2.75, 0.665), (3.0, 0.699), (3.25, 0.731), (3.5, 0.760),
+    (3.75, 0.788), (4.0, 0.814), (4.25, 0.840), (4.5, 0.865), (4.75, 0.890), (5.0, 0.914), (5.25, 0.937),
+    (5.5, 0.960), (5.75, 0.981), (6.0, 1.001), (6.25, 1.021), (6.5, 1.039), (6.75, 1.056), (7.0, 1.072),
+    (7.25, 1.088), (7.5, 1.103), (7.75, 1.116),
+)
+
+
+def _sawtooth(q, teeth, tail=None):
+    """Piecewise-linear jig-saw: on [n, n+1) from bottom(n) up to top(n+1); NaN outside the drawn range."""
+    q = np.asarray(q, dtype=float)
+    out = np.full(q.shape, np.nan)
+    for (q0, _, bottom), (q1, top, _) in zip(teeth[:-1], teeth[1:]):
+        inside = (q >= q0) & (q < q1)
+        out[inside] = bottom + (top - bottom) * (q[inside] - q0) / (q1 - q0)
+    q_last, top_last, bottom_last = teeth[-1]
+    if tail is None:  # the last vertical edge, like every other one, takes its bottom value at q itself
+        out[q == q_last] = bottom_last if bottom_last is not None else top_last
+    else:
+        tq, tv = np.array(tail).T
+        inside = (q >= tq[0]) & (q <= tq[-1])
+        out[inside] = np.interp(q[inside], tq, tv)
+    return out
+
+
+def _tabulated(q, table):
+    q = np.asarray(q, dtype=float)
+    tq, tv = np.array(table).T
+    return np.where((q >= tq[0]) & (q <= tq[-1]), np.interp(q, tq, tv), np.nan)
+
+
+_WESSON_SOURCE = BoundarySource(
+    "J. A. Wesson et al., Nucl. Fusion 29 (1989) 641", equation="Fig. 6 and l_i definition, p. 645",
+    doi="10.1088/0029-5515/29/4/009",
+    note="digitized from the published figure (#1422); axes q_psi and l_i = 2 int B_theta^2 dtau/(mu0^2 R I^2)",
+)
+_WESSON_APPLICABILITY = dict(
+    machine_class="JET (conventional aspect ratio, R = 3 m), 1985-88 operation",
+    ranges={"edge_safety_factor": (2.0, 10.0)},
+    assumptions=(
+        "empirical JET operating boundary, not a stability calculation",
+        "x is q_psi at the plasma edge, not q95 and not the cylindrical q_c of the Hugill diagram",
+        "transfer to spherical tokamaks is untested: low aspect ratio changes both q_psi and l_i at fixed profile",
+    ),
+)
+
+_register(Boundary(
+    key="wesson_1989_jet_li_qpsi_lower",
+    family="li_q",
+    target=_LI3,
+    inputs=(_EDGE_Q_MHD,),
+    form="function",
+    function=lambda edge_safety_factor: _sawtooth(edge_safety_factor, _WESSON_1989_TEETH),
+    allowed_side="above",
+    hardness="soft",
+    origin="reproduced",
+    basis="empirical",
+    event="mhd_instability",
+    branch="lower",
+    applicability=Applicability(**_WESSON_APPLICABILITY),
+    sources=(_WESSON_SOURCE,),
+    notes="'Empirical stability boundary': rotating MHD modes during the current rise; below it is the kink "
+          "and double tearing region. Same boundary as the legacy stability.empirical_li_qa arrays.",
+))
+
+_register(Boundary(
+    key="wesson_1989_jet_li_qpsi_upper",
+    family="li_q",
+    target=_LI3,
+    inputs=(_EDGE_Q_MHD,),
+    form="function",
+    function=lambda edge_safety_factor: _tabulated(edge_safety_factor, _WESSON_1989_UPPER),
+    allowed_side="below",
+    hardness="soft",
+    origin="reproduced",
+    basis="empirical",
+    event="disruption",
+    branch="upper",
+    applicability=Applicability(**_WESSON_APPLICABILITY),
+    sources=(_WESSON_SOURCE,),
+    notes="Upper boundary of Fig. 6: the region where major (density-limit) disruptions occur.",
+))
+
+_CHENG_SOURCE = BoundarySource(
+    "C. Z. Cheng, H. P. Furth and A. H. Boozer, Plasma Phys. Control. Fusion 29 (1987) 351",
+    equation="Fig. 4, p. 357 (plots l_i/2); bound origins p. 354; m, n <= 20 p. 352",
+    doi="10.1088/0741-3335/29/3/006",
+    note="digitized from the published figure (#1422); stored as l_i = 2 x the plotted l_i/2",
+)
+_CHENG_APPLICABILITY = dict(
+    machine_class="theory: pressureless straight circular cylinder, no conducting wall",
+    ranges={"cylinder_edge_safety_factor": (2.0, 7.75)},
+    assumptions=(
+        "q(0) = 1.01; for q(0) >= 1 no stable profile exists below q(a) = 2",
+        "modes up to m, n = 20 examined; a conducting wall relaxes the lower bound but barely moves the upper",
+        "toroidicity, finite beta and a separatrix are not included (p. 366)",
+    ),
+)
+
+_register(Boundary(
+    key="cheng_1987_li_qa_lower",
+    family="li_q",
+    target=_LI_CYLINDER,
+    inputs=(_Q_A_CYLINDER,),
+    form="function",
+    function=lambda cylinder_edge_safety_factor: 2.0 * _sawtooth(
+        cylinder_edge_safety_factor, _CHENG_1987_TEETH, _CHENG_1987_LOWER_TAIL),
+    allowed_side="above",
+    hardness="hard",
+    origin="reproduced",
+    basis="ideal_mhd_numerical",
+    event="external_kink",
+    branch="lower",
+    applicability=Applicability(**_CHENG_APPLICABILITY),
+    sources=(_CHENG_SOURCE,),
+    notes="Jig-saw lower bound of the MHD-stable domain, mainly ideal external kinks.",
+))
+
+_register(Boundary(
+    key="cheng_1987_li_qa_upper",
+    family="li_q",
+    target=_LI_CYLINDER,
+    inputs=(_Q_A_CYLINDER,),
+    form="function",
+    function=lambda cylinder_edge_safety_factor: 2.0 * _tabulated(cylinder_edge_safety_factor, _CHENG_1987_UPPER),
+    allowed_side="below",
+    hardness="hard",
+    origin="reproduced",
+    basis="resistive_mhd_numerical",
+    event="resistive_kink",
+    branch="upper",
+    applicability=Applicability(**_CHENG_APPLICABILITY),
+    sources=(_CHENG_SOURCE,),
+    notes="Upper bound of the MHD-stable domain, low-order resistive kinks (mainly m/n = 2/1 and 3/2).",
+))
+
+_register(Boundary(
+    key="cheng_1987_qa_min",
+    family="li_q",
+    target=_Q_A_CYLINDER,
+    inputs=(),
+    form="threshold",
+    coefficient=2.0,
+    allowed_side="above",
+    hardness="hard",
+    origin="published",
+    basis="theoretical",
+    event="external_kink",
+    applicability=Applicability(**{**_CHENG_APPLICABILITY, "ranges": {}}),
+    sources=(BoundarySource(
+        "C. Z. Cheng, H. P. Furth and A. H. Boozer, Plasma Phys. Control. Fusion 29 (1987) 351",
+        equation="p. 354 ('For q(0) = 1, there can be no stability when q(a) < 2'); left edge of Fig. 4",
+        doi="10.1088/0741-3335/29/3/006",
+    ),),
+    notes="The left edge of the stable domain for q(0) >= 1. On the cylinder's q(a), not q_psi (that is 'low_q').",
+))
+
+
+# ------------------------------------------------------------------
+# Low-beta external kink limit of an elongated tokamak (Freidberg 2008)
+# ------------------------------------------------------------------
+#
+# J. P. Freidberg, Plasma Physics and Fusion Energy (CUP 2008), Sec. 13 (pp. 405-406):
+# the kink safety factor of an elliptical tokamak is Eq. (13.158) with G(kappa) ~ 1 over
+# 1 < kappa < 2, i.e. Eq. (13.160), q* = 2 pi a^2 kappa B0 / (mu0 R0 I). The low-beta kink
+# limit Eq. (13.162), q* >= (1 + kappa)/2, is stated for THAT definition, and Eq. (13.163)
+# is the same limit written as a maximum current, I_max = (2 pi a^2 B0 / mu0 R0) 2 kappa/(1 + kappa).
+# The (1 + kappa^2)/2 form of Eq. (13.171) is the Princeton-group definition used with the
+# beta_N fit (13.172); it is a different quantity and is not paired with (13.162) here (#1524).
+
+_KINK_Q_STAR = BoundaryQuantity(
+    "kink_safety_factor_elliptic", "q_*", "-",
+    "Freidberg (2008) Eq. (13.160): 2 pi a^2 kappa B0 / (mu0 R0 I), the G(kappa) ~ 1 form of Eq. (13.158). "
+    "Not the (1 + kappa^2)/2 definition of Eq. (13.171).",
+)
+_ELONGATION = BoundaryQuantity("elongation", "kappa", "-", "Plasma elongation.")
+_FREIDBERG_SOURCE = dict(citation="J. P. Freidberg, Plasma Physics and Fusion Energy, Cambridge University Press (2008)",
+                         doi="10.1017/CBO9780511755705")
+_FREIDBERG_APPLICABILITY = dict(
+    machine_class="tokamak, elongated elliptical cross-section",
+    ranges={"elongation": (1.0, 2.0)},
+    assumptions=(
+        "low-beta external kink from the surface-current model; the coupled-harmonic result is approximate",
+        "q* is Eq. (13.160) (kappa in the numerator), not q95 and not the (1 + kappa^2)/2 form",
+        "derived for conventional aspect ratio; spherical-tokamak use is an extrapolation",
+    ),
+)
+
+
+def kink_coordinates(a, R0, B0, kappa, I_p):
+    r"""Freidberg's kink safety factor of an elongated tokamak, $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I)$.
+
+    $$q_* = \frac{2\pi a^2 \kappa B_0}{\mu_0 R_0 I_p} = \frac{5\,a^2\kappa B_0}{R_0\,I_p[\mathrm{MA}]}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    float or np.ndarray
+        Kink safety factor $q_*$ of Eq. (13.160), NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation.
+
+    Convention
+    ----------
+    Eq. (13.160) is the $G(\kappa) \approx 1$ form of Eq. (13.158), the definition with
+    which the kink limit ``"freidberg_2008_kink_qstar"`` (Eq. 13.162) is stated. It is
+    not ``vaft.formula.equilibrium.kink_safety_factor`` (#1524). A zero current maps to
+    an infinite $q_*$.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Plasma Physics and Fusion Energy*, Cambridge University
+           Press (2008), Eqs. (13.158)-(13.160), p. 405.
+    """
+    a_arr, R, B_abs, k = (np.asarray(v, dtype=float) for v in (a, R0, np.abs(np.asarray(B0, dtype=float)), kappa))
+    for name, value in (("a", a_arr), ("R0", R), ("B0", B_abs), ("kappa", k)):
+        # NaN propagates (a population table has gaps); a finite non-positive value or an infinity is an error
+        if np.any(np.isinf(value)) or np.any(np.isfinite(value) & ~(value > 0)):
+            raise ValueError(f"{name} must be positive and finite where it is given")
+    current = np.abs(np.asarray(I_p, dtype=float)) * 1e6
+    with np.errstate(divide="ignore"):
+        q = 2.0 * np.pi * a_arr**2 * k * B_abs / (MU0 * R * current)
+    return _scalar_or_array(q)
+
+
+_register(Boundary(
+    key="freidberg_2008_kink_qstar",
+    family="current_limit",
+    target=_KINK_Q_STAR,
+    inputs=(_ELONGATION,),
+    form="function",
+    function=lambda elongation: (1.0 + np.asarray(elongation, dtype=float)) / 2.0,
+    allowed_side="above",
+    hardness="hard",
+    origin="published",
+    basis="ideal_mhd_analytic",
+    event="external_kink",
+    applicability=Applicability(**_FREIDBERG_APPLICABILITY),
+    sources=(BoundarySource(**_FREIDBERG_SOURCE, equation="Eq. (13.162), p. 406",
+                            note="q* >= (1 + kappa)/2 for 1 < kappa < 2, with q* of Eq. (13.160)"),),
+    notes="The minimum stable kink safety factor rises with elongation; the current limit it implies is "
+          "'freidberg_2008_kink_current'.",
+))
+
+_register(Boundary(
+    key="freidberg_2008_kink_current",
+    family="current_limit",
+    target=_PLASMA_CURRENT_MA,
+    inputs=(_MINOR_RADIUS, _MAJOR_RADIUS, _TOROIDAL_FIELD, _ELONGATION),
+    form="function",
+    function=lambda minor_radius, major_radius, toroidal_field, elongation: (
+        2.0 * np.pi * np.asarray(minor_radius, dtype=float) ** 2 * np.abs(np.asarray(toroidal_field, dtype=float))
+        / (MU0 * np.asarray(major_radius, dtype=float))
+        * 2.0 * np.asarray(elongation, dtype=float) / (1.0 + np.asarray(elongation, dtype=float)) * 1e-6),
+    allowed_side="below",
+    hardness="hard",
+    origin="published",
+    basis="ideal_mhd_analytic",
+    event="external_kink",
+    applicability=Applicability(**_FREIDBERG_APPLICABILITY),
+    sources=(BoundarySource(**_FREIDBERG_SOURCE, equation="Eq. (13.163), p. 406",
+                            note="I_max = (2 pi a^2 B0 / mu0 R0) 2 kappa/(1 + kappa): Eq. (13.162) through Eq. (13.160)"),),
+    notes="Rises by 4/3 from kappa = 1 to 2. The printed Eq. (7) of Yun et al., PPCF 67 (2025) 115021 does not "
+          "reproduce its own Fig. 8(b); this relation does (#1524).",
+))
+
+
+# ------------------------------------------------------------------
+# Edge-q proxies from global shape and engineering parameters (#1456)
+# ------------------------------------------------------------------
+#
+# Two families, kept apart (they are different quantities and neither is q_a):
+#
+# * Menard's cylindrical safety factor (Phys. Plasmas 11 (2004) 639, PPPL-3908 preprint p. 9, after
+#   D'Ippolito et al., Phys. Fluids 21 (1978) 1600): q* = eps (1 + kappa^2) pi a B_T0 / (mu0 I_P)
+#   = pi a^2 B_T0 (1 + kappa^2) / (mu0 R0 I_P), the (1 + kappa^2)/2 form of Freidberg Eq. (13.171).
+#   In Menard's low-aspect-ratio ideal no-wall scans, <beta_N> degrades below q* = 2 and no stable
+#   case is found below q* = 1.
+# * The ITER design-guideline q95 (Post et al., ITER Physics, ITER Documentation Series No. 21, IAEA
+#   1991, Table 1-2, after Uckan, ITER Physics Design Guidelines, IAEA/ITER/DS-10, 1990, p. 10):
+#   q_psi(95%) ~ q_* f(eps), with q_* = (5 a^2 B / R I)[1 + kappa^2 (1 + 2 delta^2 - 1.2 delta^3)]/2 and
+#   f(eps) = (1.17 - 0.65 eps)/(1 - eps^2)^2; guideline q95 >= 3.0 (baseline) | 2.1 (extended
+#   performance) for kappa < 2. A conventional-aspect-ratio fit: at VEST's A ~ 1.3 it is an
+#   extrapolation (Akers et al., NF 40 (2000) 1223, give a START-based ST correction, not registered
+#   here until its coefficients are read from the paper).
+
+_KINK_Q_STAR_CYL = BoundaryQuantity(
+    "kink_safety_factor_cylindrical", "q^*", "-",
+    "Menard et al. (2004) cylindrical safety factor pi a^2 B_T0 (1 + kappa^2)/(mu0 R0 I_P) "
+    "(Freidberg Eq. 13.171). Not q95, not q_a, not Freidberg's Eq. (13.160).",
+)
+_Q95 = BoundaryQuantity("edge_safety_factor_95", "q95", "-", "Safety factor at the 95 % flux surface.")
+_Q95_ITER_ESTIMATE = BoundaryQuantity(
+    "edge_safety_factor_95_estimate_iter", "q_{95,ITER}", "-",
+    "q95 from the ITER design-guideline formula (Post et al. 1991, Table 1-2) evaluated on global shape "
+    "and engineering parameters; an estimate, not an equilibrium q95.",
+)
+_TRIANGULARITY = BoundaryQuantity("triangularity", "delta", "-", "Plasma triangularity (average of upper and lower).")
+_MENARD_2004_SOURCE = BoundarySource(
+    "J. E. Menard et al., Phys. Plasmas 11 (2004) 639 (preprint PPPL-3908)",
+    equation="p. 9 of PPPL-3908: q* = eps (1 + kappa^2) pi a B_T0 / mu0 I_P; Fig. 3d",
+    doi="10.1063/1.1640623",
+    note="after D'Ippolito, Freidberg, Goedbloed and Rem, Phys. Fluids 21 (1978) 1600",
+)
+_POST_1991_SOURCE = BoundarySource(
+    "D. E. Post et al., ITER Physics, ITER Documentation Series No. 21, IAEA, Vienna (1991)",
+    equation="Table 1-2 (Summary of ITER physics guidelines): q_psi(95%) ~ q_* f(eps)",
+    note="after N. A. Uckan and ITER Physics Group, ITER Physics Design Guidelines: 1989, IAEA/ITER/DS-10 (1990), "
+         "p. 10; '(x | y)' is (baseline performance | extended performance)",
+)
+
+
+def _positive_geometry(**values):
+    out = {}
+    for name, value in values.items():
+        arr = np.asarray(value, dtype=float)
+        if np.any(np.isinf(arr)) or np.any(np.isfinite(arr) & ~(arr > 0)):
+            raise ValueError(f"{name} must be positive and finite where it is given")
+        out[name] = arr
+    return out
+
+
+def cylindrical_kink_coordinates(a, R0, B0, kappa, I_p):
+    r"""Menard's cylindrical safety factor, $q^* = \pi a^2 B_{T0}(1+\kappa^2)/(\mu_0 R_0 I_P)$.
+
+    $$q^* = \epsilon\,(1+\kappa^2)\,\frac{\pi a B_{T0}}{\mu_0 I_P}
+          = \frac{\pi a^2 B_{T0}\,(1+\kappa^2)}{\mu_0 R_0 I_P}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    float or np.ndarray
+        Cylindrical safety factor $q^*$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation.
+
+    Convention
+    ----------
+    A global, shape-weighted proxy of the edge safety factor, not $q_a$ or $q_{95}$:
+    Menard et al. use it because $q(1)$ and $q(0.95)$ at the current limit vary by a
+    factor two with aspect ratio and shape while $q^*$ does not. It is the
+    $(1+\kappa^2)/2$ form of Freidberg Eq. (13.171), and differs from Freidberg's
+    Eq. (13.160) (``kink_coordinates``) by the factor $(1+\kappa^2)/(2\kappa)$.
+
+    References
+    ----------
+    .. [1] J. E. Menard et al., Phys. Plasmas 11 (2004) 639; preprint PPPL-3908, p. 9.
+    .. [2] D. A. D'Ippolito, J. P. Freidberg, J. P. Goedbloed and J. Rem, Phys. Fluids 21 (1978) 1600.
+    """
+    g = _positive_geometry(a=a, R0=R0, B0=np.abs(np.asarray(B0, dtype=float)), kappa=kappa)
+    current = np.abs(np.asarray(I_p, dtype=float)) * 1e6
+    with np.errstate(divide="ignore"):
+        q = np.pi * g["a"] ** 2 * g["B0"] * (1.0 + g["kappa"] ** 2) / (MU0 * g["R0"] * current)
+    return _scalar_or_array(q)
+
+
+def _finite_field(toroidal_field):
+    """|B_T|; zero is allowed (a current limit is a line through the origin of the I_p-B_T plane)."""
+    b = np.abs(np.asarray(toroidal_field, dtype=float))
+    if np.any(np.isinf(b)):
+        raise ValueError("toroidal_field must be finite where it is given")
+    return b
+
+
+def _menard_current(minor_radius, major_radius, toroidal_field, elongation):
+    g = _positive_geometry(a=minor_radius, R0=major_radius, kappa=elongation)
+    b = _finite_field(toroidal_field)
+    return np.pi * g["a"] ** 2 * b * (1.0 + g["kappa"] ** 2) / (MU0 * g["R0"]) * 1e-6
+
+
+def _iter_current(minor_radius, major_radius, toroidal_field, elongation, triangularity, q95=2.1):
+    g = _positive_geometry(a=minor_radius, R0=major_radius, kappa=elongation)
+    b = _finite_field(toroidal_field)
+    if np.any(np.isfinite(g["a"] / g["R0"]) & (g["a"] / g["R0"] >= 1.0)):
+        raise ValueError("a must be smaller than R0")
+    return _iter_q95_per_ma(g["a"], g["R0"], b, g["kappa"], np.asarray(triangularity, dtype=float)) / q95
+
+
+def _iter_q95_per_ma(a, R0, B0, kappa, delta):
+    """q95 * I_p[MA] of the ITER guideline formula (Post et al. 1991, Table 1-2)."""
+    eps = a / R0
+    shape = (1.0 + kappa**2 * (1.0 + 2.0 * delta**2 - 1.2 * delta**3)) / 2.0
+    geometry = (1.17 - 0.65 * eps) / (1.0 - eps**2) ** 2
+    return 5.0 * a**2 * B0 / R0 * shape * geometry
+
+
+def iter_q95_coordinates(a, R0, B0, kappa, delta, I_p):
+    r"""The ITER design-guideline $q_{95}$ estimate from global shape, $q_{95} \approx q_* f(\epsilon)$.
+
+    $$q_{95} \approx \frac{5a^2B}{R\,I_p[\mathrm{MA}]}\,
+      \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\,\frac{1.17-0.65\epsilon}{(1-\epsilon^2)^2},
+      \qquad \epsilon = a/R$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation of the 95 % flux surface, kappa_95 [-].
+    delta : float or np.ndarray
+        Triangularity of the 95 % flux surface, delta_95; may be zero or negative [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    float or np.ndarray
+        Estimated $q_{95}$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation, or $a \ge R_0$.
+
+    Convention
+    ----------
+    The formula is calibrated on the 95 % flux-surface shape ($\kappa_{95}$,
+    $\delta_{95}$); fed the last-closed-surface $\kappa$ and $\delta$, which are larger,
+    it over-estimates $q_{95}$ (for the ITER design point by about 27 %).
+    A fit for conventional aspect ratio used for ITER design; at a spherical
+    tokamak's $A \approx 1.3$ it is an extrapolation and over-estimates $q_{95}$
+    (Akers et al. 2000 give a START-based correction, not registered here). It is an
+    estimate from global parameters, not an equilibrium $q_{95}$.
+
+    References
+    ----------
+    .. [1] D. E. Post et al., *ITER Physics*, ITER Documentation Series No. 21, IAEA (1991),
+           Table 1-2.
+    .. [2] N. A. Uckan and ITER Physics Group, *ITER Physics Design Guidelines: 1989*,
+           IAEA/ITER/DS-10, IAEA (1990), p. 10.
+    """
+    g = _positive_geometry(a=a, R0=R0, B0=np.abs(np.asarray(B0, dtype=float)), kappa=kappa)
+    if np.any(np.isfinite(g["a"] / g["R0"]) & (g["a"] / g["R0"] >= 1.0)):
+        raise ValueError("a must be smaller than R0")
+    d = np.asarray(delta, dtype=float)
+    if np.any(np.isinf(d)):
+        raise ValueError("delta must be finite where it is given")
+    current = np.abs(np.asarray(I_p, dtype=float))
+    with np.errstate(divide="ignore"):
+        q = _iter_q95_per_ma(g["a"], g["R0"], g["B0"], g["kappa"], d) / current
+    return _scalar_or_array(q)
+
+
+__all__ += ["cylindrical_kink_coordinates", "iter_q95_coordinates"]
+
+_register(Boundary(
+    key="menard_2004_qstar_min",
+    family="current_limit",
+    target=_KINK_Q_STAR_CYL,
+    inputs=(),
+    form="threshold",
+    coefficient=1.0,
+    allowed_side="above",
+    hardness="hard",
+    origin="published",
+    basis="ideal_mhd_numerical",
+    event="external_kink",
+    applicability=Applicability(
+        machine_class="tokamak including spherical tokamaks",
+        ranges={},
+        assumptions=(
+            "ideal MHD, no wall, high bootstrap fraction equilibria at A = 1.6-3.3 (NSTX-like shapes)",
+            "'no stable cases are found with q* below 1'; <beta_N> already degrades below q* = 2",
+        ),
+    ),
+    sources=(_MENARD_2004_SOURCE,),
+    notes="The current limit on Menard's q*; the beta_N degradation below q* = 2 is a softer, beta-dependent bound.",
+))
+
+_register(Boundary(
+    key="menard_2004_qstar_current",
+    family="current_limit",
+    target=_PLASMA_CURRENT_MA,
+    inputs=(_MINOR_RADIUS, _MAJOR_RADIUS, _TOROIDAL_FIELD, _ELONGATION),
+    form="function",
+    function=_menard_current,
+    allowed_side="below",
+    hardness="hard",
+    origin="derived",
+    basis="ideal_mhd_numerical",
+    event="external_kink",
+    applicability=Applicability(
+        machine_class="tokamak including spherical tokamaks",
+        assumptions=("'menard_2004_qstar_min' (q* >= 1) written as a maximum current through Menard's q*",
+                     "Menard's scans cover A = 1.6-3.3; below A = 1.6 it is an extrapolation"),
+    ),
+    sources=(_MENARD_2004_SOURCE,),
+    notes="I_max = pi a^2 B_T0 (1 + kappa^2)/(mu0 R0); the q* = 1 limit as a current.",
+))
+
+_register(Boundary(
+    key="iter_1991_q95_min",
+    family="current_limit",
+    target=_Q95,
+    inputs=(),
+    form="threshold",
+    coefficient=2.1,
+    allowed_side="above",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="tokamak",
+        ranges={},
+        assumptions=(
+            "ITER design guideline for kappa = b/a < 2: q95 >= 3.0 (baseline) | 2.1 (extended performance)",
+            "conventional aspect ratio (ITER A = 3); a design margin, not a measured stability limit",
+        ),
+    ),
+    sources=(_POST_1991_SOURCE,),
+    notes="The extended-performance value; the baseline guideline is 3.0.",
+))
+
+_register(Boundary(
+    key="iter_1991_q95_estimate_min",
+    family="current_limit",
+    target=_Q95_ITER_ESTIMATE,
+    inputs=(),
+    form="threshold",
+    coefficient=2.1,
+    allowed_side="above",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="tokamak",
+        ranges={},
+        assumptions=(
+            "the same guideline applied to the guideline's own q95 formula, as the ITER design does",
+            "conventional aspect ratio; at A ~ 1.3 both the formula and the limit are extrapolated",
+        ),
+    ),
+    sources=(_POST_1991_SOURCE,),
+    notes="'iter_1991_q95_min' on the estimate of 'iter_q95_coordinates'.",
+))
+
+_register(Boundary(
+    key="iter_1991_q95_current",
+    family="current_limit",
+    target=_PLASMA_CURRENT_MA,
+    inputs=(_MINOR_RADIUS, _MAJOR_RADIUS, _TOROIDAL_FIELD, _ELONGATION, _TRIANGULARITY),
+    form="function",
+    function=_iter_current,
+    allowed_side="below",
+    hardness="soft",
+    origin="derived",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=("'iter_1991_q95_estimate_min' (q95 >= 2.1) written as a maximum current through the "
+                     "guideline formula", "conventional aspect ratio; extrapolated at A ~ 1.3",
+                     "the formula takes the 95 % surface kappa and delta; LCFS values raise the current limit"),
+    ),
+    sources=(_POST_1991_SOURCE,),
+    notes="I_max [MA] = 5 a^2 B/R [1 + kappa^2(1 + 2 delta^2 - 1.2 delta^3)]/2 (1.17 - 0.65 eps)/(1 - eps^2)^2 / 2.1.",
+))
+
+
+# The START low-aspect-ratio correction (Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227):
+# I_N = (5/(A q95)) f(A) [1 + kappa^2 (1 + 2 delta^2 - 1.2 delta^3)]/2 with, from START equilibrium data,
+# f(A) = 1.17 C sqrt(A/(A - 1)); C = 1.0 for natural limiter plasmas, 0.77 for double null. Same shaping
+# factor and normalisation as the ITER guideline (Akers' ref. [14] is Post et al. 1991).
+
+_Q95_START_ESTIMATE = BoundaryQuantity(
+    "edge_safety_factor_95_estimate_start", "q_{95,START}", "-",
+    "q95 from the START low-aspect-ratio scaling of Akers et al. (2000) on global shape and engineering "
+    "parameters; an estimate, not an equilibrium q95.",
+)
+_AKERS_2000_SOURCE = BoundarySource(
+    "R. J. Akers et al., Nucl. Fusion 40 (2000) 1223",
+    equation="Sec. 2.1, p. 1227: I_N = (5/(A q95)) f(A) [1 + kappa^2(1 + 2 delta^2 - 1.2 delta^3)]/2, "
+             "f(A) = 1.17 C sqrt(A/(A - 1)), C = 1.0 (limiter) | 0.77 (double null)",
+    doi="10.1088/0029-5515/40/6/317",
+    note="the START scaling; the ITER f(A) of the same paper is Post et al. 1991 (its ref. [14])",
+)
+#: C of Akers et al. (2000): natural limiter plasma, double null.
+AKERS_2000_C = {"limiter": 1.0, "double_null": 0.77}
+
+
+def _start_q95_per_ma(a, R0, B0, kappa, delta, c):
+    A = R0 / a
+    shape = (1.0 + kappa**2 * (1.0 + 2.0 * delta**2 - 1.2 * delta**3)) / 2.0
+    return 5.0 * a**2 * B0 / R0 * shape * 1.17 * c * np.sqrt(A / (A - 1.0))
+
+
+def start_q95_coordinates(a, R0, B0, kappa, delta, I_p, configuration="limiter"):
+    r"""The START low-aspect-ratio $q_{95}$ estimate of Akers et al. (2000) from global shape.
+
+    $$q_{95} \approx \frac{5a^2B}{R\,I_p[\mathrm{MA}]}\,
+      \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\;1.17\,C\sqrt{\frac{A}{A-1}},
+      \qquad A = R/a$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation of the 95 % flux surface, kappa_95 [-].
+    delta : float or np.ndarray
+        Triangularity of the 95 % flux surface, delta_95 [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+    configuration : {"limiter", "double_null"}
+        Sets C = 1.0 (natural limiter plasma) or 0.77 (double null) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Estimated $q_{95}$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation, an infinite triangularity, $a \ge R_0$, or an
+        unknown configuration.
+
+    Convention
+    ----------
+    A fit to START equilibria (spherical tokamak), more conservative in aspect ratio
+    than the ITER guideline formula (``iter_q95_coordinates``), whose shaping factor and
+    normalisation it shares. Like it, it is written for the 95 % surface shape.
+
+    References
+    ----------
+    .. [1] R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227.
+    """
+    if configuration not in AKERS_2000_C:
+        raise ValueError(f"configuration must be one of {sorted(AKERS_2000_C)}, not {configuration!r}")
+    g = _positive_geometry(a=a, R0=R0, B0=np.abs(np.asarray(B0, dtype=float)), kappa=kappa)
+    if np.any(np.isfinite(g["a"] / g["R0"]) & (g["a"] / g["R0"] >= 1.0)):
+        raise ValueError("a must be smaller than R0")
+    d = np.asarray(delta, dtype=float)
+    if np.any(np.isinf(d)):
+        raise ValueError("delta must be finite where it is given")
+    current = np.abs(np.asarray(I_p, dtype=float))
+    with np.errstate(divide="ignore"):
+        q = _start_q95_per_ma(g["a"], g["R0"], g["B0"], g["kappa"], d, AKERS_2000_C[configuration]) / current
+    return _scalar_or_array(q)
+
+
+def _start_current(minor_radius, major_radius, toroidal_field, elongation, triangularity, q95=2.1):
+    g = _positive_geometry(a=minor_radius, R0=major_radius, kappa=elongation)
+    b = _finite_field(toroidal_field)
+    if np.any(np.isfinite(g["a"] / g["R0"]) & (g["a"] / g["R0"] >= 1.0)):
+        raise ValueError("a must be smaller than R0")
+    return _start_q95_per_ma(g["a"], g["R0"], b, g["kappa"], np.asarray(triangularity, dtype=float),
+                             AKERS_2000_C["limiter"]) / q95
+
+
+__all__ += ["start_q95_coordinates"]
+
+_register(Boundary(
+    key="akers_2000_q95_estimate_min",
+    family="current_limit",
+    target=_Q95_START_ESTIMATE,
+    inputs=(),
+    form="threshold",
+    coefficient=2.1,
+    allowed_side="above",
+    hardness="soft",
+    origin="derived",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="spherical tokamak (START equilibria), limiter plasma (C = 1.0)",
+        ranges={},
+        assumptions=(
+            "the ITER extended-performance guideline q95 >= 2.1 (Post et al. 1991) applied to the START q95 "
+            "estimate; Akers et al. state the scaling, not a q95 limit (their Fig. 4 uses q95 = 3)",
+        ),
+    ),
+    sources=(_AKERS_2000_SOURCE, _POST_1991_SOURCE),
+    notes="The q95 guideline on the START estimate of 'start_q95_coordinates' (limiter, C = 1.0).",
+))
+
+_register(Boundary(
+    key="akers_2000_q95_current",
+    family="current_limit",
+    target=_PLASMA_CURRENT_MA,
+    inputs=(_MINOR_RADIUS, _MAJOR_RADIUS, _TOROIDAL_FIELD, _ELONGATION, _TRIANGULARITY),
+    form="function",
+    function=_start_current,
+    allowed_side="below",
+    hardness="soft",
+    origin="derived",
+    basis="empirical",
+    event="disruption",
+    applicability=Applicability(
+        machine_class="spherical tokamak (START equilibria), limiter plasma (C = 1.0)",
+        assumptions=("'akers_2000_q95_estimate_min' (q95 >= 2.1) written as a maximum current through the START "
+                     "scaling", "the scaling takes the 95 % surface kappa and delta; LCFS values raise the limit"),
+    ),
+    sources=(_AKERS_2000_SOURCE, _POST_1991_SOURCE),
+    notes="I_max [MA] = 5 a^2 B/R [1 + kappa^2(1 + 2 delta^2 - 1.2 delta^3)]/2 * 1.17 sqrt(A/(A - 1)) / 2.1.",
 ))

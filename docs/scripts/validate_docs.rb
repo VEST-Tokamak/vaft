@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "digest"
+require "json"
 require "nokogiri"
 require "pathname"
 require "set"
@@ -235,9 +236,11 @@ end
 diagram_snapshot = nil
 if (ROOT / "_data" / "diagram_catalog.yml").file?
   diagram_snapshot = data("diagram_catalog.yml")
-  %w[schema_version generator source families builders assets].each do |field|
+  %w[schema_version generator source families builders assets formats].each do |field|
     errors << "diagram snapshot missing #{field}" unless diagram_snapshot.key?(field)
   end
+  suffixes = Array(diagram_snapshot["formats"]).map { |f| f["suffix"] }
+  errors << "diagram snapshot formats must include the canonical .svg" unless suffixes.include?(".svg")
   check_snapshot_sources(errors, "diagram", diagram_snapshot, registry_source)
   builders = diagram_snapshot.fetch("builders", [])
   assets = diagram_snapshot.fetch("assets", [])
@@ -285,7 +288,8 @@ end
 # A generated page whose data was not generated renders as an empty list and
 # would otherwise pass everything below.
 { "Plot_reference.md" => "plot_catalog.yml", "Diagram_reference.md" => "diagram_catalog.yml",
-  "Api_reference_core.md" => "api_catalog.yml" }.each do |page, snapshot|
+  "Api_reference_core.md" => "api_catalog.yml", "Dependency_graph.md" => "dependency_graph.yml",
+  "Pipeline_graph.md" => "pipeline_graph.yml" }.each do |page, snapshot|
   next unless (ROOT / "_guide" / page).file?
   errors << "_guide/#{page} is published but _data/#{snapshot} was not generated (declare its generator in generators.yml)" unless (ROOT / "_data" / snapshot).file?
 end
@@ -325,6 +329,78 @@ end
 # class member.
 SITE_PROVENANCE = (ROOT / "_data" / "provenance.yml").file? ? data("provenance.yml") : {}
 
+# The dependency explorer (#1646).  The page fetches the snapshot through
+# assets/graph/dependency-graph.json, so that endpoint must be built and hold
+# it; every API and reference link a node carries must be a built page, and the
+# source links it draws are pinned to the commit this track is built from.
+if (ROOT / "_data" / "dependency_graph.yml").file?
+  graph = data("dependency_graph.yml")
+  %w[schema_version generator engine source layers nodes edges cycles api].each do |field|
+    errors << "dependency graph snapshot missing #{field}" unless graph.key?(field)
+  end
+  check_snapshot_sources(errors, "dependency graph", graph, registry_source)
+  graph_commit = graph.dig("provenance", "commit").to_s
+  site_commit = SITE_PROVENANCE["commit"].to_s
+  errors << "dependency graph was generated from #{graph_commit[0, 7]}, but this track is built from #{site_commit[0, 7]}" unless site_commit.empty? || graph_commit == site_commit
+  ids = graph.fetch("nodes", []).map { |node| node["id"] }
+  errors << "dependency graph repeats node ids" unless ids.uniq.size == ids.size
+  pairs = graph.fetch("edges", []).map { |edge| [edge["source"], edge["target"]] }
+  errors << "dependency graph repeats edges" unless pairs.uniq.size == pairs.size
+  known = ids.to_set
+  pairs.each { |a, b| errors << "dependency graph edge #{a} -> #{b} names an unknown node" unless known.include?(a) && known.include?(b) }
+  (graph.fetch("nodes", []) + graph.fetch("api", [])).flat_map { |item| [item["api_url"], item["reference_url"]] }
+    .map(&:to_s).reject(&:empty?).uniq.each do |url|
+    errors << "dependency graph links to #{url}, which is not built" unless output_path("#{BASEURL}#{url.split('#').first}")
+  end
+  endpoint = output_path("#{BASEURL}/assets/graph/dependency-graph.json")
+  if endpoint.nil?
+    errors << "assets/graph/dependency-graph.json is not built"
+  else
+    begin
+      served = JSON.parse(endpoint.read(encoding: "UTF-8"))
+      errors << "assets/graph/dependency-graph.json does not serve the generated snapshot" unless served.is_a?(Hash) && served["nodes"].to_a.size == ids.size
+    rescue JSON::ParserError => error
+      errors << "assets/graph/dependency-graph.json is not JSON: #{error.message[0, 120]}"
+    end
+  end
+end
+
+# The pipeline lineage explorer (#1647): the same receipt, provenance and
+# endpoint checks, plus the semantics the page promises -- every edge names
+# known nodes, and every declared scientific reference is drawn.
+if (ROOT / "_data" / "pipeline_graph.yml").file?
+  lineage = data("pipeline_graph.yml")
+  %w[schema_version generator engine source pipelines references nodes edges].each do |field|
+    errors << "pipeline graph snapshot missing #{field}" unless lineage.key?(field)
+  end
+  check_snapshot_sources(errors, "pipeline graph", lineage, registry_source)
+  lineage_commit = lineage.dig("provenance", "commit").to_s
+  site_commit = SITE_PROVENANCE["commit"].to_s
+  errors << "pipeline graph was generated from #{lineage_commit[0, 7]}, but this track is built from #{site_commit[0, 7]}" unless site_commit.empty? || lineage_commit == site_commit
+  lineage_ids = lineage.fetch("nodes", []).map { |node| node["id"] }
+  errors << "pipeline graph repeats node ids" unless lineage_ids.uniq.size == lineage_ids.size
+  known_lineage = lineage_ids.to_set
+  lineage.fetch("edges", []).each do |edge|
+    errors << "pipeline graph edge #{edge['source']} -> #{edge['target']} names an unknown node" unless known_lineage.include?(edge["source"]) && known_lineage.include?(edge["target"])
+  end
+  lineage.fetch("references", []).each do |reference|
+    drawn = lineage.fetch("edges", []).any? { |edge| edge["kind"] == "scientific_reference" && edge["target"] == reference["rule"] }
+    errors << "pipeline graph declares #{reference['rule']}.#{reference['param']} but draws no reference edge" unless drawn
+  end
+  endpoint = output_path("#{BASEURL}/assets/graph/pipeline-graph.json")
+  if endpoint.nil?
+    errors << "assets/graph/pipeline-graph.json is not built"
+  else
+    begin
+      served = JSON.parse(endpoint.read(encoding: "UTF-8"))
+      errors << "assets/graph/pipeline-graph.json does not serve the generated snapshot" unless served.is_a?(Hash) && served["nodes"].to_a.size == lineage_ids.size
+    rescue JSON::ParserError => error
+      errors << "assets/graph/pipeline-graph.json is not JSON: #{error.message[0, 120]}"
+    end
+  end
+end
+
+
 def check_sources(errors, label, url, snapshot, spans)
   commit = snapshot.dig("provenance", "commit").to_s
   unless commit.match?(/\A[0-9a-f]{40}\z/)
@@ -338,7 +414,8 @@ def check_sources(errors, label, url, snapshot, spans)
 
   document = Nokogiri::HTML(built.read)
   links = document.css("a.ref-source").group_by { |node| node["data-source"].to_s }
-  shown = document.css("details.ref-code").group_by { |node| node["data-source-code"].to_s }
+  # only inline-source views; other collapsed blocks (the diagram formats recipe) share the class for styling
+  shown = document.css("details.ref-code[data-source-code]").group_by { |node| node["data-source-code"].to_s }
   located = spans.select { |_key, src| src.is_a?(Hash) && src["line"].to_i.positive? }
   located.each do |key, src|
     href = "https://github.com/VEST-Tokamak/vaft/blob/#{commit}/#{src['path']}#L#{src['line']}-L#{src['end_line']}"
@@ -424,6 +501,7 @@ if diagram_snapshot
   url = "#{BASEURL}/reference/diagram/"
   compare_rendered(errors, "diagram", url, diagram_snapshot.fetch("builders", []).map { |item| item["name"] }, '[data-catalog="diagram"]')
   compare_rendered(errors, "diagram asset", url, diagram_snapshot.fetch("assets", []).map { |item| item["asset"] }, '[data-catalog="diagram-asset"]', "data-asset")
+  compare_rendered(errors, "diagram formats", url, diagram_snapshot.fetch("builders", []).map { |item| item["name"] }, "[data-formats]", "data-formats")
   check_sources(errors, "diagram", url, diagram_snapshot, diagram_snapshot.fetch("builders", []).to_h { |item| [item["name"], item["source"]] })
   if (built = output_path(url))
     Nokogiri::HTML(built.read).css('[data-catalog="diagram-asset"] img').each do |image|

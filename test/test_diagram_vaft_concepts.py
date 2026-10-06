@@ -18,7 +18,8 @@ def test_the_registry_lists_the_expected_builders():
     assert set(BUILDERS) == {
         "fusion_science_knowledge_lifecycle", "vaft_four_pillars", "scientific_workflow", "interoperability_layers",
         "scientific_provenance_chain", "scientific_infrastructure_principles", "machine_agnostic_architecture",
-        "experiment_modeling_theory_data_network", "human_ai_interface"}
+        "experiment_modeling_theory_data_network", "integrated_scientific_framework", "human_ai_interface",
+        "machine_research_archive"}
 
 
 def _all_variants():
@@ -28,6 +29,7 @@ def _all_variants():
         yield name, build(labels=False)
     for communication in ("point_to_point", "equilibrium"):
         yield "network", vaft.diagram.experiment_modeling_theory_data_network(communication)
+    yield "framework", vaft.diagram.integrated_scientific_framework("equilibrium")
 
 
 def _edges(diagram):
@@ -236,6 +238,25 @@ def test_styles_are_defined_and_labels_off_drops_only_notes():
         assert [i for i in full.scene.items if i.role not in annotation] == list(bare.scene.items)
 
 
+def test_the_archive_is_an_input_to_new_research_not_an_end():
+    d = vaft.diagram.machine_research_archive()
+    kinds = {(a, b): k for a, b, k in d.model["edges"]}
+    assert d.model["tracks"] == ("machine", "studies", "research")
+    # the research actually done on VEST follows the README's list of it
+    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8").lower()
+    for topic in ("diagnostic development", "disruptions", "equilibrium reconstruction", "current drive"):
+        assert any(topic in entry for entry in d.model["entries"]["studies"]) and topic in readme
+    assert all((f"track:{t}", "archive") in kinds for t in d.model["tracks"])
+    assert ("archive", "next") in kinds
+    assert kinds[("archive", "next")] == "forward"
+    loop_back = {(a, b) for (a, b), k in kinds.items() if a == "next" and k == "feedback"}
+    assert loop_back == {("next", f"track:{t}") for t in d.model["tracks"]}  # new work extends every track
+    for track, entries in d.model["entries"].items():  # each listed entry is drawn
+        assert len({i.role for i in d.scene.items if i.role.startswith(f"entry:{track}:")}) == len(entries)
+    text = " ".join(i.text for i in d.scene.items if isinstance(i, Label))
+    assert "2012" in text and not re.search(r"\b(19|20)\d\d\b", text.replace("2012", ""))  # no other dates
+
+
 def test_registered_and_canonical():
     from vaft.diagram import build
     for name in BUILDERS:
@@ -243,10 +264,60 @@ def test_registered_and_canonical():
         assert f"{name}.svg" in build.CANONICAL
     # every canonical asset of this module builds with its recorded arguments, and the variant is the named one
     entries = {f: (b, kw) for f, (b, kw) in build.CANONICAL.items() if b in BUILDERS}
-    assert len(entries) == len(BUILDERS) + 2  # the network's three variants
+    assert len(entries) == len(BUILDERS) + 3  # the network's three variants, the framework's two
     for filename, (builder, kwargs) in entries.items():
         model = getattr(vaft.diagram, builder)(**kwargs).model
         if builder == "experiment_modeling_theory_data_network":
             variant = kwargs.get("communication", "common_model")
             assert model["communication"] == variant
             assert filename.removesuffix(".svg").endswith(variant if kwargs else "network")
+        if builder == "integrated_scientific_framework":
+            assert model["domain"] == kwargs.get("domain")
+            assert filename.removesuffix(".svg").endswith(kwargs.get("domain") or "framework")
+
+
+def _box_role_bounds(diagram, role):
+    xs, ys = zip(*diagram.scene.role(role)[0].points)
+    return min(xs), max(xs), min(ys), max(ys)
+
+
+@pytest.mark.parametrize("domain", [None, "equilibrium"])
+def test_the_framework_encloses_the_network_and_feeds_analysis(domain):
+    d = vaft.diagram.integrated_scientific_framework(domain)
+    network = vaft.diagram.experiment_modeling_theory_data_network("equilibrium" if domain else "common_model")
+    edges = _edges(d)
+    modes = d.model["activities"]
+    assert modes == ("experiment", "modelling", "theory", "data_driven")
+    # the four modes and the shared state are drawn exactly as in the common-model network (#1698: no redesign)
+    for role in [f"node:{k}" for k in modes] + ["node:hub"]:
+        assert d.scene.role(role) == network.scene.role(role)
+    assert all((k, "hub") in edges for k in modes) and ("hub", "analysis") in edges
+    assert not {(a, b) for a, b in edges if a in modes and b in modes}  # no pairwise links inside the framework
+    # one framework boundary around every node
+    x0, x1, y0, y1 = _box_role_bounds(d, "framework")
+    for role in [f"node:{k}" for k in modes] + ["node:hub", "node:analysis"]:
+        bx0, bx1, by0, by1 = _box_role_bounds(d, role)
+        assert x0 < bx0 and bx1 < x1 and y0 < by0 and by1 < y1, role
+    text = " ".join(i.text for i in d.scene.items if isinstance(i, Label) and i.role != "references")
+    assert "Integrated Framework" in text and "\\textbf{Analysis}" in text
+    assert "Integrated Analysis" not in text and "Understanding" not in text
+    if domain is None:
+        assert "Common Data Model (IMAS)" in text and d.model["analysis_categories"] == ()
+        assert d.model["shared_state"] == "common_data_model"
+    else:
+        assert d.model["shared_state"] == "equilibrium" and "IMAS Equilibrium IDS" in text
+        for route in ("EFIT", "CHEASE", "TokaMaker", "Solov'ev", "Guazzotto", "neural / surrogate equilibrium models"):
+            assert route in text
+        assert d.model["analysis_categories"] == ("mhd_parameters", "plasma_shape", "operational_space")
+        for title in ("MHD Parameters", "Plasma Shape", "Operational Space"):
+            assert title in d.scene.role("node:analysis")[1].text
+        # stability codes are downstream models of the equilibrium, not equilibrium analysis
+        assert not re.search(r"DCON|RDCON|delta-W|Delta-prime|Stability", text)
+
+
+def test_the_framework_rejects_an_unknown_domain():
+    with pytest.raises(ValueError, match="domain"):
+        vaft.diagram.integrated_scientific_framework("transport")
+    # the framework is its own figure, not a fourth topology of the network
+    with pytest.raises(ValueError, match="communication"):
+        vaft.diagram.experiment_modeling_theory_data_network("integrated_framework")

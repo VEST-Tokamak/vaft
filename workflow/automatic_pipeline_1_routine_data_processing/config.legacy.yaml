@@ -1,0 +1,19 @@
+# Override for pre-SQL legacy shots (<= 29172), imported with
+# `python -m vaft.cli raw-legacy-import --timebase-policy trigger`.
+# Use on top of the base config:
+#   snakemake --configfile config.yaml config.legacy.yaml <shots file> ...
+# The raw archives already sit in the FileDB, so generate_raw_db_dump never
+# reruns; `mode: archive` only guarantees nothing falls back to SQL.
+raw:
+  mode: archive
+  archive_template: ${VAFT_FILEDB_DIR}/raw/{shot}/vest_{shot}_daq_raw.json.gz
+# Legacy discharges start at 0.24-0.30 s and the fast DAQ covers 0.24-0.34 s
+# (trigger offset 0.24 s), so the diagnostic window is the fast-DAQ window.
+# tend sits half a sample below 0.34: np.arange(0.24, 0.34, 4e-5) overshoots
+# to 0.3400000000000306 and fails the exclusive-end window check, whereas this
+# yields the same 2500-sample grid as the production 0.26-0.36 window.
+diagnostics:
+  tstart: 0.24
+  tend: 0.33998
+hsds:
+  replicate: false

@@ -51,6 +51,9 @@ from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from .recipes import (
     entry_supports,
+    RATIONAL_SURFACE_OPTIONS,
+    RATIONAL_SURFACE_PLOTS,
+    rational_surface_reads,
     CAMERA_OVERLAYS,
     ChannelProfileRecipe,
     SPECTROGRAM_METHODS,
@@ -306,6 +309,15 @@ def _declare(record: PlotCapability) -> PlotCapability:
                          **({"applies_to": dict(choice.applies_to)} if choice.applies_to else {})}
                 for option, choice in recipe.choices.items()
             }
+    if record.name in RATIONAL_SURFACE_PLOTS:
+        # Optional overlays the plot takes on request (issue #506); the base
+        # view's own requirements are unchanged by them.
+        updates["annotations"] = {
+            "rational_surfaces": {
+                "options": RATIONAL_SURFACE_OPTIONS,
+                "reads": rational_surface_reads(record.name),
+            },
+        }
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")
@@ -471,7 +483,9 @@ def _evaluate(record: PlotCapability, entries: Sequence[tuple[str, Any]]) -> Plo
             updates["abscissa"] = _abscissa_block(record, recipe, ods)
         elif isinstance(recipe, ChannelProfileRecipe):
             updates.update(_channel_facts(record, recipe, ods))
-            updates["times"] = _times_block(ods, recipe)
+            updates["times"] = _times_block(
+                [(lbl, obj) for lbl, obj in entries if per_entry[str(lbl)]], recipe,
+            )
         elif isinstance(recipe, ProfileRecipe):
             # Profiles take the same sign policy (issue #307); the catalog has
             # to say which default a profile applies, or a caller cannot know
@@ -767,7 +781,7 @@ def _slices_block(ods: Any, container: str = "equilibrium.time_slice") -> dict[s
     if container != "equilibrium.time_slice":
         return {
             "total": total, "usable": tuple(range(total)), "times": times,
-            "selected": 0 if total else None, "container": container,
+            "selected": 0 if total else None, "container": container, **_STORED,
         }
     usable = tuple(int(i) for i in _usable_slices(ods)) if total else ()
     try:
@@ -776,7 +790,7 @@ def _slices_block(ods: Any, container: str = "equilibrium.time_slice") -> dict[s
         selected = None
     return {
         "total": total, "usable": usable, "times": times, "selected": selected,
-        "container": container,
+        "container": container, **_STORED,
     }
 
 
@@ -905,16 +919,55 @@ def _abscissa_is_stored(ods: Any, entry: Any) -> bool:
     return False
 
 
-def _times_block(ods: Any, recipe: Any) -> dict[str, Any]:
-    """The stored time axis a spatial plot samples: start, stop, count."""
-    from .recipes import _first_time
+#: The three kinds of scientific sequence a plot can page through (issue
+#: #1380), as their discovery blocks state them.  ``kind`` names the
+#: storage -- a dense sampled time base, a camera's stored frames, a handful
+#: of stored reconstructions -- ``option`` the keyword one state is chosen
+#: with, and ``coordinate``/``unit`` what the states' values mean.  The
+#: values themselves come from :func:`sequence_values`.
+_SAMPLES = {"kind": "samples", "coordinate": "time", "unit": "s"}
+_FRAMES = {"kind": "frames", "coordinate": "time", "unit": "s"}
+_STORED = {"kind": "stored", "option": "time_slice", "coordinate": "time", "unit": "s"}
+
+
+def _times_block(entries: Sequence[tuple[str, Any]], recipe: Any) -> dict[str, Any]:
+    """The stored time axis a spatial plot samples, and its ``time_index`` control when it has one.
+
+    ``start``/``stop``/``count`` span every channel of every entry, not the
+    first one's.  ``option="time_index"`` is offered only when, in every
+    entry, every channel with data shares one grid and the entries' grids
+    are the same length (issue #1380): an index then names one sample for
+    the whole array of every shot, and ``selected`` is the middle sample the
+    static call draws.  Otherwise ``shared`` is ``False`` and ``time=``
+    remains the way to choose an instant.
+    """
+    from .recipes import _first_time, channel_profile_axis
 
     container = _container_of(recipe.y_path, "{i}")
-    for index in range(_count(ods, container)):
-        axis = _first_time(ods, recipe.time_paths, i=index)
-        if axis is not None and axis.size:
-            return {"start": float(axis.min()), "stop": float(axis.max()), "count": int(axis.size)}
-    return {}
+    axes = [channel_profile_axis(ods, recipe) for _, ods in entries]
+    if axes and all(axis is not None and axis.size for axis in axes):
+        sizes = {int(axis.size) for axis in axes}
+        block = {
+            "start": min(float(axis.min()) for axis in axes),
+            "stop": max(float(axis.max()) for axis in axes),
+            "count": max(sizes),
+            "shared": len(sizes) == 1,
+        }
+        if len(sizes) == 1 and block["count"] > 1:
+            block.update(option="time_index", selected=block["count"] // 2)
+        block.update(_SAMPLES)
+        return block
+    starts, stops, counts = [], [], []
+    for _, ods in entries:
+        for index in range(_count(ods, container)):
+            axis = _first_time(ods, recipe.time_paths, i=index)
+            if axis is not None and axis.size:
+                starts.append(float(axis.min()))
+                stops.append(float(axis.max()))
+                counts.append(int(axis.size))
+    if not counts:
+        return {}
+    return {"start": min(starts), "stop": max(stops), "count": max(counts), "shared": False, **_SAMPLES}
 
 
 def _camera_frame_stamps(ods: Any, channel: int = 0, detector: int = 0) -> list[float] | None:
@@ -947,6 +1000,7 @@ def _camera_frames_block(ods: Any, channel: int = 0, detector: int = 0) -> dict[
         "count": len(stamps),
         "option": "frame_index",
         "selected": 0,
+        **_FRAMES,
     }
 
 
@@ -979,6 +1033,17 @@ def sequence_values(
         return "time", "s", values
     if option == "time_index" and name in ("vacuum_field", "vacuum_field_midplane"):
         return "time", "s", np.asarray(_array(ods, "pf_active.time"), dtype=float)
+    if option == "time_index" and isinstance(RECIPES.get(name), ChannelProfileRecipe):
+        from .recipes import _resolve_selection, _selection_option, channel_profile_axis
+
+        recipe = RECIPES[name]
+        indices = _resolve_selection(
+            ods, recipe.y_path, _selection_option(dict(options)), fallbacks=recipe.fallback_y_paths,
+        )
+        shared = channel_profile_axis(ods, recipe, indices)
+        if shared is None:
+            raise ValueError(f"{name}: the selected channels do not share one time base")
+        return "time", "s", shared
     if option == "frame_index" and name.startswith("camera_visible_image"):
         channel, detector = int(options.get("channel", 0)), int(options.get("detector", 0))
         stamps = _camera_frame_stamps(ods, channel, detector)
@@ -1019,6 +1084,7 @@ def _pf_samples_block(ods: Any) -> dict[str, Any]:
         "count": int(axis.size),
         "option": "time_index",
         "selected": selected,
+        **_SAMPLES,
     }
 
 

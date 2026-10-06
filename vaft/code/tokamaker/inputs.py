@@ -66,6 +66,32 @@ def _resolve_time(ods: Any, config: TokaMakerConfig) -> float:
     raise ValueError("TokaMakerConfig.time (seconds) or TokaMakerConfig.time_index is required")
 
 
+def reference_axis_pressure(ods: Any, time: float, *, time_index: int | None = None) -> float:
+    """Axis pressure [Pa] of the reference equilibrium slice nearest ``time``.
+
+    A forward solve that targets only Ip leaves TokaMaker's pressure scale at
+    its built-in default: on 39915 @ 325 ms that gives beta_pol ~ 5 against the
+    reference EFIT pressure of ~12 Pa on axis. Passing this value as
+    ``TokaMakerConfig.pax`` anchors the pressure to the reference state
+    instead. The value comes from ``profiles_1d.pressure[0]`` of the
+    ``equilibrium`` IDS. An explicit ``time_index`` wins over ``time``.
+    """
+    if "equilibrium.time" not in ods:
+        raise ValueError("reference_axis_pressure needs an equilibrium IDS with a time array")
+    idx = time_index
+    if idx is None:
+        eqtime = np.asarray(ods["equilibrium.time"], dtype=float)
+        idx = int(np.argmin(np.abs(eqtime - time)))
+    # `in` first: reading a missing ODS path creates it.
+    path = f"equilibrium.time_slice.{int(idx)}.profiles_1d.pressure"
+    if path not in ods:
+        raise ValueError(f"reference equilibrium slice {idx} carries no profiles_1d.pressure")
+    pressure = np.asarray(ods[path], dtype=float)
+    if pressure.size == 0 or not np.isfinite(pressure[0]) or pressure[0] <= 0.0:
+        raise ValueError(f"reference equilibrium slice {idx} has no positive axis pressure")
+    return float(pressure[0])
+
+
 def _ip_from_magnetics(ods: Any, time: float) -> float:
     mg = ods["magnetics"]
     return float(np.interp(time, mg["ip.0.time"], mg["ip.0.data"]))
@@ -170,6 +196,10 @@ def _coil_currents_from_ods(
         # coils omitted from the mapping default to 0 A inside TokaMaker
         return explicit
 
+    from vaft.machine_mapping.pf_active import require_acquired_pf_currents
+
+    # A circuit published as NaN was not acquired (#1568); never solve with it.
+    require_acquired_pf_currents(ods, None, "TokaMaker's coil currents")
     pf = ods["pf_active"]
     pf_time = np.asarray(pf["time"], dtype=float)
     by_coil: dict[str, float] = {}
@@ -201,6 +231,31 @@ def _coil_currents_from_ods(
     return currents
 
 
+def _vessel_loop_currents(ods: Any, geometry: dict, time: float) -> dict[str, dict[int, float]]:
+    """pf_passive loop currents [A] at ``time``, grouped by vessel region.
+
+    These are the eddy-stage wall currents EFIT (``VCURRT``) and TES take as
+    fixed inputs; ``vessel_currents`` imposes the same ones on TokaMaker.
+    """
+    # `in` first: reading a missing ODS path creates it.
+    if "pf_passive.time" not in ods:
+        raise ValueError(
+            "vessel_currents=True needs time-dependent pf_passive loop currents "
+            "(the eddy stage product); this ODS has none."
+        )
+    loop_time = np.asarray(ods["pf_passive.time"], dtype=float)
+    currents: dict[str, dict[int, float]] = {}
+    for region, entry in geometry["vessel"].items():
+        currents[region] = {}
+        for loop in entry["loops"]:
+            path = f"pf_passive.loop.{loop['index']}.current"
+            if path not in ods:
+                raise ValueError(f"vessel_currents=True: {path} is missing")
+            data = np.asarray(ods[path], dtype=float)
+            currents[region][int(loop["index"])] = float(np.interp(time, loop_time, data))
+    return currents
+
+
 def resolve_mesh_file(geometry: dict, config: TokaMakerConfig) -> tuple[Path, bool]:
     """Resolve the mesh-cache path (explicit ``mesh_file`` or hash-named) and existence."""
     if config.mesh_file is not None:
@@ -221,6 +276,15 @@ def prepare_tokamaker_inputs(ods: Any, config: TokaMakerConfig) -> TokaMakerInpu
     The geometry dict is also written to ``workdir/geometry.json`` for
     provenance and offline inspection.
     """
+    from .profiles import profiles_for_config, profile_targets
+    profiles = profiles_for_config(config)
+    source_config = config
+    if config.profile_mode == "equilibrium":
+        from vaft.process._equilibrium_parametric import convert_cocos
+        eq = convert_cocos(config.profile_equilibrium, 11)
+        source_config = replace(config, ip=config.ip if config.ip is not None else profiles.ip_A,
+                                f0=config.f0 if config.f0 is not None or config.bt0 is not None else
+                                (float(eq.r0 * eq.bt0) if eq.r0 is not None and eq.bt0 is not None else None))
     workdir = Path(config.workdir).expanduser()
     workdir.mkdir(parents=True, exist_ok=True)
 
@@ -228,9 +292,17 @@ def prepare_tokamaker_inputs(ods: Any, config: TokaMakerConfig) -> TokaMakerInpu
     time = _resolve_time(ods, config)
 
     geometry = tokamaker_geometry_from_ods(ods, config)
-    targets = _resolve_targets(ods, config, time)
-    f0 = _f0_from_ods(ods, config, time)
+    targets = profile_targets(profiles, _resolve_targets(ods, source_config, time))
+    f0 = _f0_from_ods(ods, source_config, time)
     coil_currents = _coil_currents_from_ods(ods, config, geometry, time)
+    vessel_loop_currents: dict[str, dict[int, float]] = {}
+    if config.vessel_currents:
+        if not config.include_vessel:
+            raise ValueError("vessel_currents=True requires include_vessel=True")
+        vessel_loop_currents = _vessel_loop_currents(ods, geometry, time)
+        # each vessel region is a one-turn coil driven at 1 A; its current
+        # density distribution carries the actual loop currents
+        coil_currents.update({region: 1.0 for region in vessel_loop_currents})
     mesh_file, mesh_exists = resolve_mesh_file(geometry, config)
 
     geometry_file = workdir / "geometry.json"
@@ -248,6 +320,7 @@ def prepare_tokamaker_inputs(ods: Any, config: TokaMakerConfig) -> TokaMakerInpu
         time=time,
         ods=ods,
         files=(geometry_file,),
+        vessel_loop_currents=vessel_loop_currents,
     )
 
 
@@ -304,6 +377,13 @@ def prepare_tokamaker_evolution_inputs(
     the evolution grid. ``evolve_vacuum=True`` skips plasma targets entirely
     (``vac_solve`` mode for plasma-free windows).
     """
+    if config.profile_mode != "power_law":
+        raise ValueError("tabulated static profile normalization is not supported for evolution")
+    if config.vessel_currents:
+        raise ValueError(
+            "vessel_currents=True imposes fixed wall currents for a static solve; "
+            "quasi-static evolution solves its own wall currents and needs conductor regions. Use vessel_currents=False here."
+        )
     if not config.include_vessel:
         raise ValueError(
             "Quasi-static evolution models wall eddy currents and requires "

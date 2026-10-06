@@ -9,7 +9,7 @@ import numpy as np
 import os
 import re
 import warnings
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from functools import partial
 from numbers import Integral
 from pathlib import Path
@@ -81,9 +81,22 @@ def build_efit_coil_currents(destination, source, *, coilset=None, window=None) 
         coilset = vest_efit_coilset_policy()
 
     by_name: dict[str, int] = {}
+    unacquired: list[str] = []
     for index in range(len(source["coil"])):
-        by_name[str(source[f"coil.{index}.name"])] = index
-    missing = sorted(set(coilset.source_circuit.values()) - set(by_name))
+        name = str(source[f"coil.{index}.name"])
+        by_name[name] = index
+        # Published as NaN when its channel was empty (#1568).
+        data_path = f"coil.{index}.current.data"
+        if data_path in source and not np.all(np.isfinite(np.asarray(source[data_path], dtype=float))):
+            unacquired.append(name)
+    driven = set(coilset.source_circuit.values())
+    if driven & set(unacquired):
+        raise ValueError(
+            "pf_active circuits EFIT's groups are driven by were not acquired: "
+            + ", ".join(sorted(driven & set(unacquired)))
+            + " (NaN current); refusing to fit with a missing drive current"
+        )
+    missing = sorted(driven - set(by_name))
     if missing:
         raise ValueError(
             "pf_active is missing the circuits EFIT's groups are driven by: "
@@ -706,6 +719,27 @@ def generate_constraints_ods(
     return decisions
 
 
+_POSITIONAL_BASIS_WARNED = False
+
+
+def _warn_positional_basis() -> None:
+    """Warn once per process that a positional basis is the deprecated spelling."""
+    global _POSITIONAL_BASIS_WARNED
+    if _POSITIONAL_BASIS_WARNED:
+        return
+    _POSITIONAL_BASIS_WARNED = True
+    warnings.warn(
+        "generate_kfile(ods, shot, npprime, nffprime) is deprecated: the positional "
+        "basis swaps only KPPCUR/KFFCUR on the default configuration (preset "
+        "'statistical_891'); pass config=EFITScientificConfig(profile=EFITProfileConfig("
+        "kppcur=..., kffcur=...)) for that, or config=routine_scientific_config("
+        "profile=routine_profile_config(kppcur=..., kffcur=...)) / preset 'routine' "
+        "for the legacy routine configuration with a basis",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
 def generate_kfile(
     ods,
     shotnumber,
@@ -719,7 +753,14 @@ def generate_kfile(
     """
     Generate k-files under ``save_dir/kfile`` for the requested shot.
 
-    ``npprime`` and ``nffprime`` remain supported for legacy callers.  New
+    Without ``config`` the k-file is written from the default configuration,
+    the #891 working setting (preset ``statistical_891``).  A positional
+    ``npprime``/``nffprime`` is the deprecated spelling of a basis override:
+    it swaps only KPPCUR/KFFCUR on that default, exactly as
+    ``EFITConfig(npprime=..., nffprime=...)`` does, and warns once.  The
+    legacy routine configuration (legacy weights, (2,2), EFIT's own
+    termination, no floor) is selected only by name:
+    ``config=routine_scientific_config()`` or the ``routine`` preset.  New
     callers should supply an :class:`EFITConfig` or
     :class:`EFITScientificConfig` so every scientific namelist choice is
     explicit and serializable.
@@ -746,20 +787,22 @@ def generate_kfile(
                 "argument or make the values equal"
             )
     elif config is None:
-        if npprime is None and nffprime is None:
-            # The default: the #891 working setting (statistical_891).
-            scientific = EFITScientificConfig()
-        else:
-            # The positional basis is the legacy call, and it means the legacy
-            # routine configuration with that basis -- not the working setting
-            # with a (2,2) basis, which nothing was ever calibrated for.
-            from .config import routine_profile_config, routine_scientific_config
-
-            scientific = routine_scientific_config(
-                profile=routine_profile_config(
-                    kppcur=2 if npprime is None else npprime,
-                    kffcur=2 if nffprime is None else nffprime,
-                )
+        # The default: the #891 working setting (statistical_891).
+        scientific = EFITScientificConfig()
+        if npprime is not None or nffprime is not None:
+            # The positional basis means the same thing as EFITConfig's
+            # npprime/nffprime: a basis override on the default.  It used to
+            # select the whole routine configuration, so the same spelling
+            # meant two sigma/termination sets depending on the door used
+            # (cold review 0.8.0 delta-absorb-11b F1).
+            _warn_positional_basis()
+            scientific = replace(
+                scientific,
+                profile=replace(
+                    scientific.profile,
+                    kppcur=scientific.profile.kppcur if npprime is None else npprime,
+                    kffcur=scientific.profile.kffcur if nffprime is None else nffprime,
+                ),
             )
     else:
         raise TypeError("config must be EFITConfig, EFITScientificConfig, or None")

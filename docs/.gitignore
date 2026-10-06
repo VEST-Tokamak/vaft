@@ -16,3 +16,5 @@ _data/process_catalog.yml
 _data/plot_catalog.yml
 _data/diagram_catalog.yml
 _data/api_catalog.yml
+_data/dependency_graph.yml
+_data/pipeline_graph.yml

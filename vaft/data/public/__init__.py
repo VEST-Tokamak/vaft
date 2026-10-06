@@ -14,6 +14,7 @@ __all__ = [
     "CONFINEMENT_COLUMNS",
     "ChecksumError",
     "FetchError",
+    "OPTIONAL_CONFINEMENT_COLUMNS",
     "SOURCES",
     "TRANSITION_COLUMNS",
     "confinement_coverage",
@@ -22,6 +23,7 @@ __all__ = [
     "fetch_pr08",
     "fetch_source",
     "h_factor",
+    "load_vest_tier_a_confinement",
     "normalize_db5",
     "normalize_tc26",
     "normalize_tcv_lh",
@@ -41,6 +43,7 @@ __all__ = [
 
 _EXPORT_MAP = {
     "CONFINEMENT_COLUMNS": (".schema", "CONFINEMENT_COLUMNS"),
+    "OPTIONAL_CONFINEMENT_COLUMNS": (".schema", "OPTIONAL_CONFINEMENT_COLUMNS"),
     "empty_confinement_table": (".schema", "empty_confinement_table"),
     "validate_confinement_table": (".schema", "validate_confinement_table"),
     "TRANSITION_COLUMNS": (".schema", "TRANSITION_COLUMNS"),
@@ -62,6 +65,7 @@ _EXPORT_MAP = {
     "read_db5": (".itpa_hmode", "read_db5"),
     "normalize_db5": (".itpa_hmode", "normalize_db5"),
     "vest_ods_to_confinement_rows": (".vest_confinement", "vest_ods_to_confinement_rows"),
+    "load_vest_tier_a_confinement": (".vest_confinement", "load_vest_tier_a_confinement"),
     "vest_summary_to_confinement_table": (".vest_confinement", "vest_summary_to_confinement_table"),
     "predict_confinement_time": (".analysis", "predict_confinement_time"),
     "h_factor": (".analysis", "h_factor"),

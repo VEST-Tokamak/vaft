@@ -10,7 +10,13 @@ from pathlib import Path
 
 from omas import ODS, load_omas_json
 
-from vaft.code.efit import EFITConfig, EFITScientificConfig, collect_efit_outputs
+from vaft.code.efit import (
+    EFITConfig,
+    EFITScientificConfig,
+    collect_efit_outputs,
+    unrecorded_efit_configuration,
+)
+from vaft.code.efit.applicability import kfile_manifest_not_applicable_reason, kfile_manifest_paths
 from vaft.code.efit.presets import PRESET_RECORD
 from vaft.data.meqdsk import EFIT_MAPPING_SOURCE_REVISION
 from vaft.omas import save as save_ods
@@ -93,6 +99,26 @@ def _preset_record(kfile_manifest: Path):
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
 
 
+def _collection_config(preset, workdir: Path, shot: int) -> tuple[EFITConfig, dict | None]:
+    """The ``EFITConfig`` to collect under, and the configuration record to stamp.
+
+    Each slice status records the configuration it was collected under: the
+    one the k-file stage recorded, so a ``routine`` run does not claim the
+    default.  Without a record (a workdir whose k-files predate the record,
+    or came from ``--config`` or a legacy basis) nothing is known, and the
+    statuses say ``unrecorded`` rather than the sha of today's default
+    (cold review 0.8.0 delta-absorb-11b F4).
+    """
+    if preset and "scientific" in preset:
+        scientific = EFITScientificConfig.from_dict(preset["scientific"])
+        config = EFITConfig(workdir=workdir, shot=shot, profile=scientific.profile,
+                            initialization=scientific.initialization,
+                            numerics=scientific.numerics, constraints=scientific.constraints)
+        return config, None
+    config = EFITConfig(workdir=workdir, shot=shot)
+    return config, unrecorded_efit_configuration(config)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--shot", required=True, type=int, help="VEST shot number.")
@@ -114,21 +140,23 @@ def main() -> int:
     workdir = args.gfile_manifest.parent.parent
     status_text = args.status.read_text(encoding="utf-8").strip() if args.status.exists() else "unknown"
     constraints_ods = load_omas_json(str(args.constraints_ods), consistency_check=False)
-    kfiles = tuple(Path(line.strip()) for line in args.kfile_manifest.read_text(encoding="utf-8").splitlines() if line.strip())
+    manifest_text = args.kfile_manifest.read_text(encoding="utf-8")
+    kfiles = tuple(Path(line) for line in kfile_manifest_paths(manifest_text))
     preset = _preset_record(args.kfile_manifest)
-    # Each slice status records the configuration it was collected under: the
-    # one the k-file stage recorded, so a `routine` run does not claim the default.
-    scientific = (EFITScientificConfig.from_dict(preset["scientific"])
-                  if preset and "scientific" in preset else EFITScientificConfig())
-    result = collect_efit_outputs(
-        workdir, EFITConfig(workdir=workdir, shot=args.shot, profile=scientific.profile,
-                            initialization=scientific.initialization,
-                            numerics=scientific.numerics, constraints=scientific.constraints),
-        expected_kfiles=kfiles, constraints_ods=constraints_ods,
-    )
+    if kfile_manifest_not_applicable_reason(manifest_text) is not None:
+        # EFIT does not apply to the shot (#205): nothing was submitted, so
+        # nothing is collected; the manifest says no_output with the reason.
+        result = None
+    else:
+        config, configuration = _collection_config(preset, workdir, args.shot)
+        result = collect_efit_outputs(
+            workdir, config, expected_kfiles=kfiles, constraints_ods=constraints_ods,
+            configuration=configuration,
+        )
 
-    ods = result.ods if result.ods is not None else _minimal_efit_ods(args.shot, args.run, status_text)
-    if result.ods is not None:
+    collected = result.ods if result is not None else None
+    ods = collected if collected is not None else _minimal_efit_ods(args.shot, args.run, status_text)
+    if collected is not None:
         ods["dataset_description.data_entry.machine"] = "VEST"
         ods["dataset_description.data_entry.pulse"] = int(args.shot)
         ods["dataset_description.data_entry.run"] = int(args.run)
@@ -169,10 +197,10 @@ def main() -> int:
             "stage": "efit",
             "shot": int(args.shot),
             "run": int(args.run),
-            "status": "success" if result.ods is not None else "no_output",
+            "status": "success" if collected is not None else "no_output",
             "efit_status": status_text,
-            "slice_statuses": [status.to_dict() for status in result.slice_statuses],
-            "mapping_diagnostics": list(result.mapping_diagnostics),
+            "slice_statuses": [status.to_dict() for status in result.slice_statuses] if result else [],
+            "mapping_diagnostics": list(result.mapping_diagnostics) if result else [],
         },
         args.metadata,
     )

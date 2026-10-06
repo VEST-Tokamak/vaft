@@ -6,6 +6,12 @@
 \documentclass[tikz,border=4pt]{standalone}
 \usepackage{amsmath}
 \usetikzlibrary{arrows.meta}
+% a packaged picture (vaft.diagram Image): dvisvgm's img special, drawn down from the box's top-left
+\newcommand{\vaftimage}[3]{\raisebox{0pt}[#2][0pt]{\makebox[#1][l]{\raisebox{#2}{\special{dvisvgm:img #1 #2 #3}}}}}
+% shrink content to a width only when it is wider (vaft.diagram workflow equations); a TikZ scale,
+% because dvisvgm does not apply graphicx's dvips scaling specials
+\newsavebox{\vaftfitbox}
+\newcommand{\vaftfit}[2]{\sbox{\vaftfitbox}{#2}\ifdim\wd\vaftfitbox>#1\pgfmathsetmacro{\vaftscale}{#1/\wd\vaftfitbox}\tikz[baseline=(vaftfit.base)]\node[inner sep=0pt,scale=\vaftscale](vaftfit){\usebox{\vaftfitbox}};\else\usebox{\vaftfitbox}\fi}
 \definecolor{islandblue}{RGB}{28,103,210}
 \definecolor{islanddark}{RGB}{22,55,116}
 \definecolor{qblue}{RGB}{96,164,232}
@@ -77,6 +83,7 @@
   charge/.style={draw,circle,inner sep=0.8pt,font=\normalsize},
   charge small/.style={font=\large},
   legend symbol/.style={font=\LARGE},
+  axis current/.style={font=\LARGE,text=islandblue},
   small label/.style={font=\normalsize},
   formula box/.style={draw=black!25,rounded corners=2pt,fill=white,align=center,inner sep=5pt,font=\normalsize},
   concept box/.style={draw=islanddark,line width=1.0pt,rounded corners=3pt,fill=qblue!10},
@@ -98,6 +105,14 @@
   component real/.style={driftred,line width=3.2pt},
   component imag/.style={islandblue,line width=3.2pt},
   angle arc/.style={->,black!70,line width=0.9pt},
+  region plasma/.style={fill=qblue!16,draw=none},
+  region vacuum/.style={fill=absfluid!7,draw=none},
+  region conductor/.style={fill=gray!40,draw=none},
+  diagnostic point/.style={fill=driftred},
+  diagnostic inboard/.style={fill=abskinetic},
+  diagnostic chord/.style={driftred,line width=0.9pt},
+  grid node/.style={fill=islanddark},
+  logical cell/.style={fill=driftred!22,draw=driftred,line width=0.8pt},
   crest/.style={islandblue,line width=1.6pt},
   trough/.style={driftred,line width=1.6pt},
   im axis/.style={<->,black!80,line width=1.3pt},
@@ -140,6 +155,9 @@
   concept base/.style={draw=islanddark,line width=1.0pt,rounded corners=2pt,fill=absequil!14},
   concept actor/.style={draw=abskinetic!85,line width=1.0pt,rounded corners=6pt,fill=abskinetic!15},
   concept hub/.style={draw=islanddark,line width=1.3pt,rounded corners=10pt,fill=black!7},
+  concept frame/.style={draw=black!55,dashed,line width=1.2pt,rounded corners=6pt},
+  current ring/.style={draw=driftred!80!black,line width=0.9pt},
+  current ring back/.style={draw=driftred!30,line width=0.6pt},
   concept plain/.style={font=\normalsize,align=center,execute at begin node={\hyphenpenalty=10000}},
   concept annotation/.style={font=\small\itshape,text=black!60,align=center,execute at begin node={\hyphenpenalty=10000}},
   concept strong/.style={draw=islanddark,line width=1.8pt,rounded corners=4pt,fill=qblue!16},
@@ -151,6 +169,21 @@
   connector both/.style={<->,black!70,line width=1.0pt},
   connector feedback/.style={->,black!55,dashed,line width=1.0pt},
   connector dependency/.style={->,black!40,line width=0.7pt},
+  wf measured/.style={draw=absfluid!85!black,line width=1.0pt,rounded corners=3pt,fill=absfluid!14},
+  wf reconstructed/.style={draw=islanddark,line width=1.0pt,rounded corners=3pt,fill=qblue!22},
+  wf derived/.style={draw=islanddark!70,line width=0.9pt,rounded corners=3pt,fill=white},
+  wf inferred/.style={draw=abskinetic!90!black,line width=1.0pt,rounded corners=3pt,fill=abskinetic!16},
+  wf prior/.style={draw=black!55,dashed,line width=1.0pt,rounded corners=3pt,fill=black!4},
+  wf convention/.style={draw=chartblue!70,densely dotted,line width=1.2pt,rounded corners=3pt,fill=white},
+  wf machine/.style={draw=black!80,line width=1.0pt,fill=black!14,sharp corners},
+  wf code input/.style={draw=absequil!85,line width=1.0pt,rounded corners=3pt,fill=absequil!10},
+  wf solver/.style={draw=islanddark,line width=1.8pt,rounded corners=3pt,fill=qblue!10},
+  wf native result/.style={draw=black!60,line width=1.0pt,rounded corners=3pt,fill=black!8},
+  wf standardized/.style={draw=absequil!90!black,line width=1.4pt,rounded corners=8pt,fill=absequil!18},
+  map exact/.style={<->,islanddark,line width=1.6pt},
+  map limit/.style={->,black!75,line width=1.1pt},
+  map analogue/.style={->,black!60,dashed,line width=1.1pt},
+  map branch/.style={->,driftred!85!black,dash dot,line width=1.3pt},
 }
 \begin{document}
 \begin{tikzpicture}

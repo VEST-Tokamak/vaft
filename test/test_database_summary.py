@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+from dataclasses import replace
 
 import json
 
@@ -71,6 +72,61 @@ def test_summary_empty_result_has_canonical_columns(monkeypatch):
 
     assert result.empty
     assert tuple(result.columns) == summary_module.PRESETS["empty"].columns
+
+
+@pytest.mark.parametrize("preset", tuple(summary_module.PRESETS))
+def test_builtin_summaries_include_recorded_pulse_time(monkeypatch, preset):
+    definition = summary_module.PRESETS[preset]
+    assert definition.columns[:2] == ("shot", "pulse_time_begin")
+    monkeypatch.setitem(
+        summary_module.PRESETS, preset,
+        replace(definition, extractor=lambda _ods, shot: [{"shot": shot}]),
+    )
+    opened = []
+
+    def fake_open(shot, **kwargs):
+        opened.append(kwargs["paths"])
+        return nullcontext({"dataset_description.pulse_time_begin": "2024-05-01T12:30:45"})
+
+    monkeypatch.setattr(database, "open", fake_open)
+    result = public_summary((10, 10), preset=preset)
+    assert result.loc[0, "pulse_time_begin"] == "2024-05-01T12:30:45"
+    assert "dataset_description" in opened[0]
+
+
+def test_missing_or_invalid_pulse_time_stays_missing(monkeypatch):
+    definition = summary_module.PRESETS["shot_overview"]
+    monkeypatch.setitem(
+        summary_module.PRESETS, "shot_overview",
+        replace(definition, extractor=lambda _ods, shot: [{"shot": shot}]),
+    )
+    monkeypatch.setattr(
+        database, "open",
+        lambda shot, **_kwargs: nullcontext({"dataset_description.pulse_time_begin": "invalid"}),
+    )
+    result = public_summary((10, 10), preset="shot_overview")
+    assert pd.isna(result.loc[0, "pulse_time_begin"])
+
+
+def test_summary_keeps_rows_when_dataset_description_file_is_absent(monkeypatch):
+    definition = summary_module.PRESETS["equilibrium_global"]
+    monkeypatch.setitem(
+        summary_module.PRESETS, "equilibrium_global",
+        replace(definition, extractor=lambda _ods, shot: [{"shot": shot, "q_95": 4.0}]),
+    )
+    opened = []
+
+    def fake_open(_shot, **kwargs):
+        opened.append(kwargs["paths"])
+        if "dataset_description" in kwargs["paths"]:
+            raise FileNotFoundError("dataset_description IDS not stored")
+        return nullcontext({})
+
+    monkeypatch.setattr(database, "open", fake_open)
+    result = public_summary((10, 10), preset="equilibrium_global")
+    assert result.loc[0, "q_95"] == 4.0
+    assert pd.isna(result.loc[0, "pulse_time_begin"])
+    assert "dataset_description" not in opened[-1]
 
 
 def test_summary_without_range_discovers_all_available_shots(monkeypatch):
@@ -220,7 +276,8 @@ def test_volume_averaged_extractor_matches_nearest_equilibrium_slice(monkeypatch
     assert rows[0]["time_diff_s"] == pytest.approx(0.01)
 
 
-def _reliability_ods():
+def _reliability_ods(efit_preset=None):
+    """A finalized EFIT product; ``efit_preset`` is the k-file stage's record, when one was written."""
     fitted = {
         "measured": 1.0,
         "reconstructed": 1.2,
@@ -259,6 +316,7 @@ def _reliability_ods():
                          "provenance": {"outputs": {"gfile": "/w/g039915.00010",
                                                     "mfile": "/w/m039915.00010"}}},
                     ],
+                    **({"efit_preset": efit_preset} if efit_preset is not None else {}),
                 }
             },
             sort_keys=True,
@@ -318,6 +376,41 @@ def test_efit_magnetic_reliability_extracts_all_mapped_families():
     assert flux["measurement_index"] == 2
     assert np.isnan(flux["uncertainty"])
     assert np.isnan(flux["normalized_residual"])
+
+
+@pytest.mark.parametrize("name", ["statistical_891", "routine"])
+def test_the_efit_configuration_column_names_the_recorded_preset(name):
+    """``name@sha12`` from the k-file stage's record: the one column that keeps
+    routine and statistical rows apart (cold review 0.8.0 delta-absorb-11b F3)."""
+    from vaft.code.efit import efit_preset
+
+    record = {**efit_preset(name).record(), "sigma_floor_changes": []}
+    rows = summary_module.extract_efit_magnetic_reliability(_reliability_ods(efit_preset=record), 42)
+    assert len(rows) == 6
+    assert {row["efit_configuration"] for row in rows} == {f"{name}@{record['scientific_sha256'][:12]}"}
+    assert rows[0]["efit_configuration"] != f"{name}@"
+
+
+def test_a_kinetic_product_names_its_preset_from_the_kinetic_payload():
+    from vaft.code.efit import efit_preset
+
+    record = efit_preset("routine").record()
+    ods = _reliability_ods()
+    ods["equilibrium.code.parameters"] = json.dumps({"kinetic_efit": {"efit_preset": record}})
+    rows = summary_module.extract_efit_kinetic_reliability(ods, 42)
+    assert rows and {row["efit_configuration"] for row in rows} == {
+        f"routine@{record['scientific_sha256'][:12]}"
+    }
+
+
+def test_a_product_without_a_preset_record_is_unrecorded():
+    """Pre-record products, and the --config / legacy-basis runs that name no preset."""
+    rows = summary_module.extract_efit_magnetic_reliability(_reliability_ods(), 42)
+    assert rows and {row["efit_configuration"] for row in rows} == {"unrecorded"}
+    ods = _reliability_ods()
+    ods["equilibrium.code.parameters"] = json.dumps({"kinetic_efit": {}})
+    rows = summary_module.extract_efit_kinetic_reliability(ods, 42)
+    assert rows and {row["efit_configuration"] for row in rows} == {"unrecorded"}
 
 
 def test_efit_kinetic_reliability_extracts_all_mapped_families():
@@ -469,6 +562,20 @@ def test_export_replace_preserves_frame_and_column_order(tmp_path):
 
     pd.testing.assert_frame_equal(written, frame)
     assert pd.read_csv(path).columns.tolist() == ["b", "a"]
+
+
+@pytest.mark.parametrize("suffix,reader", [("csv", pd.read_csv), ("xlsx", pd.read_excel)])
+def test_export_preserves_pulse_time_and_missing_value(tmp_path, suffix, reader):
+    frame = pd.DataFrame({
+        "shot": [10, 11],
+        "pulse_time_begin": ["2024-05-01T12:30:45", None],
+        "value": [1.0, 2.0],
+    })
+    path = tmp_path / f"history.{suffix}"
+    database.export_summary(frame, path)
+    loaded = reader(path)
+    assert pd.Timestamp(loaded.loc[0, "pulse_time_begin"]) == pd.Timestamp("2024-05-01T12:30:45")
+    assert pd.isna(loaded.loc[1, "pulse_time_begin"])
 
 
 def test_export_upsert_replaces_whole_incoming_group_and_preserves_other_groups(

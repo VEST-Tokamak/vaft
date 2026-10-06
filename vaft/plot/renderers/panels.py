@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -20,8 +20,10 @@ import matplotlib.pyplot as plt
 from ..models import (
     Field2D,
     GeometryLayers,
+    Image2D,
     LineSeries,
     Panels,
+    PowerSpectrum,
     Profile1D,
     Spectrogram,
     TextPanel,
@@ -42,6 +44,7 @@ __all__ = [
     "core_profiles_time_volume_averaged",
     "current_overview",
     "diagnostics_overview",
+    "kinetic_overview_profiles",
     "equilibrium_overview",
     "equilibrium_overview_constraint_coverage",
     "equilibrium_overview_constraints",
@@ -53,6 +56,8 @@ __all__ = [
     "equilibrium_time_beta",
     "equilibrium_time_virial",
     "impa_overview",
+    "impurity_profile_charge_state_fraction",
+    "impurity_profile_composition",
     "interferometer_overview",
     "limiter_current_time",
     "magnetics_overview",
@@ -64,6 +69,8 @@ __all__ = [
     "spectrometer_uv_time_impurity",
     "summary_time_energy",
     "summary_time_power_balance",
+    "summary_time_resistive_zeff",
+    "summary_time_romero_balance",
     "summary_time_voltage_consumption",
 ]
 
@@ -90,8 +97,10 @@ def _panel_drawer(model: Any):
     # Imported lazily to keep the renderer modules free of import cycles.
     from .fields import render_field_2d
     from .geometry import render_geometry_layers
+    from .images import render_image_2d
     from .lines import render_line_series
     from .profiles import render_profile_1d
+    from .spectra import render_power_spectrum
     from .spectrograms import render_spectrogram
 
     for model_type, draw in (
@@ -101,6 +110,9 @@ def _panel_drawer(model: Any):
         (GeometryLayers, render_geometry_layers),
         (Spectrogram, render_spectrogram),
         (TextPanel, _draw_text_panel),
+        # Single-axes kinds a composed figure may place in a cell (#1467).
+        (PowerSpectrum, render_power_spectrum),
+        (Image2D, render_image_2d),
     ):
         if isinstance(model, model_type):
             return draw
@@ -194,13 +206,21 @@ def render_panels(
         # arrangement the slice navigator uses: a colorbar taken out of an
         # equal-aspect axes shrinks the map instead, and the taller the row
         # the smaller the map came out (issue #711).
-        field_slot = next(
-            (i for i, m in enumerate(model.models) if isinstance(m, Field2D) and m.colorbar), None,
-        )
-        flat, colorbar_axes = slice_grid_axes(figure, gridspec, model, top=0, colorbar_slot=field_slot)
-        if colorbar_axes is not None:
+        if model.links:
+            # A composed figure (#1467): every colorbar gets a cell of its own,
+            # and a panel x-linked with one keeps the same width, so the time
+            # axes of a stack line up.
+            flat, colorbar_cells = _aligned_grid_axes(figure, gridspec, model)
+        else:
+            field_slot = next(
+                (i for i, m in enumerate(model.models) if isinstance(m, Field2D) and m.colorbar), None,
+            )
+            flat, colorbar_axes = slice_grid_axes(figure, gridspec, model, top=0, colorbar_slot=field_slot)
+            colorbar_cells = {} if colorbar_axes is None else {field_slot: colorbar_axes}
+        if colorbar_cells:
             styles = [dict(s) for s in (model.member_styles or ({},) * len(model.models))]
-            styles[field_slot]["colorbar_ax"] = colorbar_axes
+            for slot, colorbar_axes in colorbar_cells.items():
+                styles[slot]["colorbar_ax"] = colorbar_axes
             model = replace(model, member_styles=tuple(styles))
         grid = flat
     else:
@@ -237,6 +257,12 @@ def render_panels(
     for axis in flat[len(model.models):]:
         # A grid cell past the last member (five members in a 3 x 2 grid).
         axis.set_visible(False)
+    if ax is None and model.links:
+        # Caller-supplied axes keep whatever sharing the caller set up, as
+        # with share_x; a figure this renderer made links what the model says.
+        _link_axes(flat, model)
+    if model.panel_labels:
+        _label_panels(flat[: len(model.models)])
 
     if ax is None and model.spans is None and model.share_x and model.nrows > 1:
         # Panels sharing a time base share its label: only the lowest drawn
@@ -251,6 +277,9 @@ def render_panels(
                 # a column that ends earlier needs them switched on by hand.
                 column_axes[-1].tick_params(labelbottom=True)
     if model.suptitle:
+        # finalize hangs it from the top edge inside the band tight_layout
+        # reserves for it (just above the first row's titles, whatever the
+        # grid's shape), and again when a presentation format re-lays it out.
         figure.suptitle(model.suptitle)
     # A figure the caller owns keeps the caller's layout: tight_layout is
     # applied only to a figure this renderer created (issue #260 section 8;
@@ -283,16 +312,84 @@ def render_panels(
             host.set_visible(True)
             host.set_axis_off()
             host.legend(handles, labels, loc="center", frameon=False)
-    if model.suptitle and ax is None:
-        # tight_layout reserves no room for a suptitle, so on a tall grid the
-        # default position lands it on the first row's own titles. Re-place it
-        # once the layout is settled, just above the topmost axes, which works
-        # whatever shape the grid ended up with.
-        top = max(axis.get_position().y1 for axis in flat if axis.get_visible())
-        figure.suptitle(model.suptitle, y=min(1.0, top + 0.985 * (1.0 - top)), va="bottom")
     if show:
         plt.show()
     return figure, grid
+
+
+def _link_anchor(flat: Any, members: Sequence[int], axis_name: str) -> int:
+    """The panel a link follows: the first that fixed its own limits, else the first."""
+    for slot in members:
+        if not getattr(flat[slot], f"get_autoscale{axis_name}_on")():
+            return slot
+    return members[0]
+
+
+def _link_axes(flat: Any, model: Panels) -> None:
+    """Make each link's panels zoom and pan together (issue #1467).
+
+    A panel that fixed its own limits (``time_range=``, ``x_limits=``) sets
+    the linked range, whatever its place in the link; otherwise the view is
+    rescaled over every linked panel's data.
+    """
+    for axis_name, members in model.links:
+        anchor_slot = _link_anchor(flat, members, axis_name)
+        anchor = flat[anchor_slot]
+        fixed = not getattr(anchor, f"get_autoscale{axis_name}_on")()
+        for slot in members:
+            if slot != anchor_slot:
+                getattr(flat[slot], f"share{axis_name}")(anchor)
+        if not fixed:
+            anchor.autoscale_view(scalex=axis_name == "x", scaley=axis_name == "y")
+    from .._panel_grid import linked_above
+
+    for slot in linked_above(model):
+        flat[slot].tick_params(labelbottom=False)
+        flat[slot].set_xlabel("")
+
+
+def _has_colorbar(model: Any, style: Mapping[str, Any]) -> bool:
+    if style.get("colorbar", True) is False:
+        return False
+    return (isinstance(model, Field2D) and model.colorbar) or isinstance(model, (Spectrogram, Image2D))
+
+
+def _aligned_grid_axes(figure: Any, grid: Any, model: Panels) -> tuple[np.ndarray, dict[int, Any]]:
+    """Axes for a linked grid: a colorbar cell for every colorbar, and the same
+    reserved width for the panels x-linked with one, so linked axes align."""
+    from .._panel_grid import columns, panel_slots
+
+    slots = panel_slots(model)
+    styles = model.member_styles or ({},) * len(model.models)
+    bars = {i for i, member in enumerate(model.models) if _has_colorbar(member, styles[i])}
+    padded = set()
+    for axis_name, members in model.links:
+        if axis_name != "x":
+            continue
+        for slot in members:
+            if slot not in bars and any(
+                other in bars and columns(slots[other]) & columns(slots[slot])
+                for other in members
+            ):
+                padded.add(slot)
+    axes = []
+    colorbar_cells: dict[int, Any] = {}
+    for slot, (row, col, rowspan, colspan) in enumerate(slots):
+        cell = grid[row:row + rowspan, col:col + colspan]
+        if slot in bars or slot in padded:
+            sub = cell.subgridspec(1, 2, width_ratios=[1.0, 0.05], wspace=0.06)
+            axes.append(figure.add_subplot(sub[0, 0]))
+            if slot in bars:
+                colorbar_cells[slot] = figure.add_subplot(sub[0, 1])
+        else:
+            axes.append(figure.add_subplot(cell))
+    return np.array(axes, dtype=object), colorbar_cells
+
+
+def _label_panels(axes: Any) -> None:
+    from .._panel_grid import annotate_panel_labels
+
+    annotate_panel_labels(axes)
 
 
 def visual_rows(model: Panels) -> int:
@@ -532,6 +629,111 @@ def summary_time_power_balance(
     domain="summary",
     subject="summary",
     view="time",
+    quantity="resistive_zeff",
+    description="Resistive Z_eff history: Romero voltages, observed vs model R_p, window estimate.",
+    ids=("equilibrium", "core_profiles"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.global_quantities.ip",
+        "equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+    ),
+)
+def summary_time_resistive_zeff(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Resistive Z_eff history: Romero voltages, observed vs model R_p, window estimate."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="core_profiles",
+    subject="impurity",
+    view="profile",
+    quantity="composition",
+    description=(
+        "Radial Z_eff, mean charges, reduced impurity charge and dilution from the slice's "
+        "T_e and n_e through atomic-data charge states, for a stated elemental composition."
+    ),
+    # equilibrium: the volume of the n_e-weighted mean; magnetics,
+    # spectrometer_uv, summary: the plasma onset the age is measured from.
+    ids=("core_profiles", "equilibrium", "magnetics", "spectrometer_uv", "summary"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+        # n_e in either spelling, which the recipe's `available` predicate checks.
+    ),
+    optional_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.density_thermal",
+        "core_profiles.profiles_1d.{i}.electrons.density",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "equilibrium.time_slice.{i}.profiles_1d.volume",
+        "magnetics.ip.0.data",
+    ),
+)
+def impurity_profile_composition(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Radial Z_eff, <Z>, Z_I,eff and dilution from T_e, n_e through ADF11 charge states."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="core_profiles",
+    subject="impurity",
+    view="profile",
+    quantity="charge_state_fraction",
+    description="Charge-state fractions f_q(rho) of each impurity element from the slice's T_e and n_e.",
+    # equilibrium: the volume of the n_e-weighted mean; magnetics,
+    # spectrometer_uv, summary: the plasma onset the age is measured from.
+    ids=("core_profiles", "equilibrium", "magnetics", "spectrometer_uv", "summary"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+        # n_e in either spelling, which the recipe's `available` predicate checks.
+    ),
+    optional_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.density_thermal",
+        "core_profiles.profiles_1d.{i}.electrons.density",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "equilibrium.time_slice.{i}.profiles_1d.volume",
+        "magnetics.ip.0.data",
+    ),
+)
+def impurity_profile_charge_state_fraction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Charge-state fractions f_q(rho) of each impurity element."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="summary",
+    subject="summary",
+    view="time",
+    quantity="romero_balance",
+    description=(
+        "Romero's voltage and volt-second balance: V_B, V_I, V_C (and V_R with a given R_p), "
+        "Phi_B against the direct flux change, L_i and the closing resistance."
+    ),
+    ids=("equilibrium", "tf", "wall"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.global_quantities.ip",
+        "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+        "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+        "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+    ),
+)
+def summary_time_romero_balance(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Romero's voltage and volt-second balance."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="summary",
+    subject="summary",
+    view="time",
     quantity="voltage_consumption",
     description="Loop-voltage and flux-consumption panels.",
     ids=("magnetics", "pf_active"),
@@ -627,6 +829,20 @@ def diagnostics_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Fixed-shape time overview across the diagnostic subjects."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="diagnostics", subject="kinetic", view="overview", quantity="profiles",
+    description="Local n_e, T_e, T_i and V_phi from compatible diagnostics and core-profile fits.",
+    ids=("thomson_scattering", "charge_exchange", "langmuir_probes", "core_profiles", "equilibrium"),
+    required_paths=(),
+)
+def kinetic_overview_profiles(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Four cross-diagnostic kinetic profile panels."""
+    style.setdefault("figsize", (14.0, 7.0))
     return render_panels(model, ax=ax, show=show, **style)
 
 

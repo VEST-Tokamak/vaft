@@ -32,6 +32,7 @@ adapters run so discovery cannot disagree with rendering.  Discovery only
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field, fields, replace
 from typing import Any, Iterator, Mapping, Sequence
@@ -125,7 +126,9 @@ class PlotCapability:
     interaction_entry_points: Mapping[str, str] = field(default_factory=dict)
     projection: Mapping[str, Any] = field(default_factory=dict)
     #: The stored equilibrium slices a slice-indexed plot can draw (instance
-    #: level, issue #480): ``total``, ``usable``, ``times``, ``selected``.
+    #: level, issue #480): ``total``, ``usable``, ``times``, ``selected``,
+    #: ``container``, and the sequence facts ``kind="stored"``,
+    #: ``option="time_slice"``, ``coordinate``, ``unit`` (issue #1380).
     slices: Mapping[str, Any] = field(default_factory=dict)
     #: The quantities a 2-D map can draw (issue #483): ``default``,
     #: ``options`` (what this input can supply) and ``declared``.
@@ -142,8 +145,12 @@ class PlotCapability:
     #: What a line plot can be drawn against (issue #481): ``default``,
     #: ``options`` (what this input can supply) and ``declared``.
     abscissa: Mapping[str, Any] = field(default_factory=dict)
-    #: The stored time axis a spatial plot samples (issue #486): ``start``,
-    #: ``stop`` in seconds and ``count``.
+    #: The dense time base a plot samples (issues #486, #1380): ``start``,
+    #: ``stop`` in seconds and ``count``; ``kind`` (``"samples"`` or
+    #: ``"frames"``), ``coordinate``, ``unit``; and, when one index names one
+    #: instant for the whole plot, ``option`` (``time_index``/``frame_index``)
+    #: and ``selected``.  ``shared=False`` says the channels sample no common
+    #: grid, so ``time=`` is the only selector.
     times: Mapping[str, Any] = field(default_factory=dict)
     #: The radial coordinates a 1-D profile can be drawn against (issue #479):
     #: ``default``, ``options`` (what this input can resolve) and ``declared``
@@ -154,6 +161,10 @@ class PlotCapability:
     #: ``gradient_coordinate``, ``reference_length`` and ``convention`` of a
     #: profile gradient view.
     choices: Mapping[str, Any] = field(default_factory=dict)
+    #: Optional overlays drawn on request (issue #506), by name: ``options``
+    #: (the keywords that ask for it) and ``reads`` (the extra DD inputs), e.g.
+    #: the ``rational_q=``/``resonances=`` surfaces of an equilibrium view.
+    annotations: Mapping[str, Any] = field(default_factory=dict)
     #: The controls ``plot_*(..., interactive=True)`` offers for this input
     #: (instance level, issue #480), in offer order.
     controls: tuple[str, ...] = ()
@@ -195,6 +206,59 @@ class PlotCapability:
     def row(self) -> dict[str, Any]:
         """The developer row in the shape the flat listing always had."""
         return {key: getattr(self, key) for key in _LEGACY_ROW_KEYS}
+
+    @property
+    def sequence(self) -> dict[str, Any]:
+        """How a reader moves through this plot's scientific states, or ``{}`` (issue #1380).
+
+        One shape whatever the storage -- the dense samples of a time base,
+        a camera's frames, a few stored reconstructions:
+
+        ``kind``
+            ``"samples"``, ``"frames"`` or ``"stored"``.
+        ``option``
+            The keyword that picks one state: ``time_index``,
+            ``frame_index`` or ``time_slice``.  It keeps its storage
+            meaning; navigation is the same for all three.
+        ``states``
+            The values ``option`` accepts, in order (the usable slices for
+            ``"stored"``, every index for the dense kinds).
+        ``selected``
+            The state the static call draws, where a slider starts.
+        ``coordinate``, ``unit``, ``start``, ``stop``
+            What the states' values are and the span they cover.  The
+            per-state values come from
+            :func:`vaft.plot.backend.discovery.sequence_values`, never from
+            an index.
+
+        Empty when the input offers no more than one state, or when its
+        channels share no grid an index could name.  The slider of
+        ``interactive=True`` and ``animation=True`` both move
+        through exactly these states.  ``states`` is always a tuple.
+        """
+        times = self.times or {}
+        if times.get("option"):
+            count = int(times["count"])
+            return {
+                "kind": times.get("kind", "samples"), "option": times["option"],
+                "states": tuple(range(count)), "selected": int(times.get("selected") or 0),
+                "coordinate": times.get("coordinate", "time"), "unit": times.get("unit", "s"),
+                "start": float(times["start"]), "stop": float(times["stop"]),
+            }
+        slices = self.slices or {}
+        usable = tuple(int(i) for i in slices.get("usable", ()))
+        if len(usable) < 2:
+            return {}
+        stamps = slices.get("times", ())
+        known = [float(stamps[i]) for i in usable if i < len(stamps) and math.isfinite(float(stamps[i]))]
+        selected = slices.get("selected")
+        return {
+            "kind": slices.get("kind", "stored"), "option": slices.get("option", "time_slice"),
+            "states": usable,
+            "selected": int(selected) if selected in usable else usable[len(usable) // 2],
+            "coordinate": slices.get("coordinate", "time"), "unit": slices.get("unit", "s"),
+            "start": min(known) if known else None, "stop": max(known) if known else None,
+        }
 
     @property
     def identity(self) -> str:
@@ -583,6 +647,8 @@ def _compact_notes(record: PlotCapability) -> list[str]:
         notes.append("coordinates: " + " | ".join(
             f"{name} (default)" if name == default else name for name in record.coordinates["options"]
         ))
+    for name, block in (record.annotations or {}).items():
+        notes.append(f"{name}: " + ", ".join(f"{option}=" for option in block.get("options") or ()))
     for option, block in (record.choices or {}).items():
         default = block.get("default")
         notes.append(f"{option}: " + " | ".join(
@@ -660,6 +726,8 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             lines.append(
                 f"{what}: {block.get('default')} by default; " + " | ".join(block["options"])
             )
+    for name, block in (record.annotations or {}).items():
+        lines.append(f"{name}: on request, " + ", ".join(f"{option}=" for option in block.get("options") or ()))
     for option, block in (record.choices or {}).items():
         lines.append(
             f"{option}: {block.get('default') or 'none'} by default; " + " | ".join(map(str, block.get("options") or ()))
@@ -705,7 +773,7 @@ def _detail_lines(record: PlotCapability) -> list[str]:
             f"orientation: {record.orientation['default']} by default; "
             + " | ".join(record.orientation.get("options", ()))
         )
-    lines.append("backends: " + " | ".join(record.backends))
+    lines.append("backends: " + (" | ".join(record.backends) or "none -- presented as text"))
     if record.sources:
         lines.append("sources: " + ", ".join(record.sources))
     if record.interaction:

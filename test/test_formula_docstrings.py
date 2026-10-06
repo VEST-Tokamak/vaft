@@ -32,10 +32,18 @@ DEFINITIONAL = frozenset({
     "evaluate_boundary",
     "evaluate_window",
     "boundary_curve",
+    "threshold_curve",
+    "same_quantity",
     "get_boundary",
     "list_boundaries",
     # A change of coordinates onto the Hugill plane (#1068); q_cyl carries its own source.
     "hugill_coordinates",
+    # Freidberg's q* of an elongated tokamak, Eq. (13.160): a coordinate, its source is in the docstring.
+    "kink_coordinates",
+    # Menard's cylindrical q* and the ITER guideline q95 estimate: coordinates whose sources are in the docstrings.
+    "cylindrical_kink_coordinates",
+    "iter_q95_coordinates",
+    "start_q95_coordinates",
     # A parameterization with no physics of its own (#552).
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
@@ -316,6 +324,8 @@ EMPIRICAL = frozenset({
     "eich_integral_width",
     "greenwald_density",
     "confinement_time_from_engineering_parameters",
+    "neo_alcator_confinement_time_from_n_a_R_q",
+    "goldston_l_mode_confinement_time_from_I_P_R_a_kappa",
     "empirical_li_qa",
     "li_from_qa_empirical",
     "kink_stability_criterion",

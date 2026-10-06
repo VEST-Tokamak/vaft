@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -40,6 +41,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     },
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon")},
+    **{f"li_qa_{r}.svg": ("li_qa", {"reference": r}) for r in ("wesson_1989", "cheng_1987")},
     # single-particle motion
     **{f"{name}.svg": (name, {}) for name in ("exb_drift", "curvature_drift", "magnetization_current",
                                               "toroidal_drift")},
@@ -59,6 +61,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"field_line_geometry_{g}.svg": ("field_line_geometry", {"geometry": g})
        for g in ("toroidal", "cylindrical", "slab")},
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
+    "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
     # tokamak geometry and flux coordinates
     **{f"tokamak_torus_{p}.svg": ("tokamak_torus", {"projection": p}) for p in ("3d", "poloidal")},
     **{f"flux_surfaces_{s}.svg": ("flux_surfaces", {"shape": s}) for s in ("circular", "shifted")},
@@ -135,6 +138,12 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # cold-plasma waves from their equations (#1113)
     **{f"{name}.svg": (name, {}) for name in ("o_mode_cutoff", "x_mode_dispersion", "cma_diagram",
                                               "profile_propagation")},
+    # the omega-k, n^2-X and n^2-Y views, perpendicular and at 60 degrees (#1113 section A, E)
+    **{f"{name}.svg": (name, {}) for name in ("wave_dispersion_omega_k", "refractive_index_vs_X",
+                                              "refractive_index_vs_Y")},
+    **{f"{name}_oblique.svg": (name, {"theta": math.radians(60.0)})
+       for name in ("wave_dispersion_omega_k", "refractive_index_vs_X", "refractive_index_vs_Y",
+                    "profile_propagation")},
     # neoclassical and NTV collisionality regimes (#1111)
     "neoclassical_collisionality.svg": ("neoclassical_collisionality", {}),
     "ntv_collisionality.svg": ("ntv_collisionality", {}),
@@ -148,6 +157,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # field-aligned coordinates, flux tubes, shear and the ballooning eigenfunction (#1075 part 2)
     **{f"{name}.svg": (name, {}) for name in ("field_aligned_basis", "flux_tube_patch",
                                               "magnetic_shear_field_aligned", "ballooning_eigenfunction")},
+    # transits, boundary conditions and the X-point limit (#1075 remainder)
+    **{f"{name}.svg": (name, {}) for name in ("ballooning_transit_map", "ballooning_boundary_conditions",
+                                              "field_aligned_xpoint_limitation")},
     # a toroidal mode number: the shift nu couples harmonics in every angle but PEST (#1074)
     "sfl_fourier_convergence_n2.svg": ("sfl_fourier_convergence", {"n": 2}),
     # SFL coordinates part 2: action-angle, validity near a separatrix, coordinates vs COCOS (#1074)
@@ -183,7 +195,36 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
                                                                    {"communication": "point_to_point"}),
     "experiment_modeling_theory_data_network_equilibrium.svg": ("experiment_modeling_theory_data_network",
                                                                 {"communication": "equilibrium"}),
+    # the research modes and their common state inside one integrated framework, serving analysis (#1698)
+    "integrated_scientific_framework.svg": ("integrated_scientific_framework", {}),
+    "integrated_scientific_framework_equilibrium.svg": ("integrated_scientific_framework", {"domain": "equilibrium"}),
     "human_ai_interface.svg": ("human_ai_interface", {}),
+    # the machine and research archive since 2012 (#497)
+    "machine_research_archive.svg": ("machine_research_archive", {}),
+    # research infrastructure: four fragmented/integrated pairs, community and ownership (#1636-#1645)
+    **{f"{name}{suffix}.svg": (name, kwargs)
+       for name in ("scientific_representation", "experimental_research_infrastructure", "scientific_credibility",
+                    "research_modality_architecture")
+       for suffix, kwargs in (("", {}), ("_fragmented", {"organization": "fragmented"}))},
+    "fusion_research_ecosystem.svg": ("fusion_research_ecosystem", {}),
+    "fusion_research_ecosystem_presentation.svg": ("fusion_research_ecosystem", {"detail": "presentation"}),
+    "scientific_ownership_architecture.svg": ("scientific_ownership_architecture", {}),
+    # the VEST data platform: reference view and compact companion (#1550)
+    "vest_data_platform.svg": ("vest_data_platform", {}),
+    "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
+    # the physics-workflow spine, level 2 below the platform overview (#1585)
+    **{f"{name}.svg": (name, {}) for name in (
+        "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
+        "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
+        "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport")},
+    "tokamak_top_view.svg": ("tokamak_top_view", {}),
+    "cocos_orientation.svg": ("cocos_orientation", {}),
+    "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),
+    "machine_and_equilibrium_geometry.svg": ("machine_and_equilibrium_geometry", {}),
+    "structured_rz_grid.svg": ("structured_rz_grid", {}),
+    "geometry_to_mesh.svg": ("geometry_to_mesh", {}),
+    "logical_to_physical_mapping.svg": ("logical_to_physical_mapping", {}),
+    "physical_to_flux_mapping.svg": ("physical_to_flux_mapping", {}),
 }
 
 

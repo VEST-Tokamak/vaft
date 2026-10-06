@@ -28,6 +28,12 @@ production counterpart of the interactive notebooks: the same `vaft` library cal
 > are library API. No `vaft.workflow` abstraction is planned; see
 > [Computational layers]({{ '/reference/computational-layers/' | relative_url }}).
 
+VAFT's products are designed to be traceable to their inputs, configuration and version. The example below
+follows one tokamak analysis chain; what is versioned includes the machine description, geometry,
+calibration, mappings and conventions, the processing and model configuration, and the schema.
+
+![Traceable provenance]({{ site.baseurl }}/assets/diagrams/scientific_provenance_chain.svg)
+
 | Pipeline | Orchestration | Purpose |
 |---|---|---|
 | `automatic_pipeline_1_routine_data_processing` | Snakemake DAG (10 rules) + `Makefile` | Per shot: raw DAQ dump → diagnostics/eddy/constraints ODS → EFIT → CHEASE → GPEC suite |
@@ -74,6 +80,11 @@ with an artifact class (`input`, `output`, `log`, `plot`, `config`, `work`, `met
 `{product}` is the stability calculation that ran: `dcon-peeling`, `dcon-kink`, `rdcon`, `stride` or
 `ideal-gpec`. DCON's two edge treatments are separate products rather than two views of one run,
 because a run yields one of them and can never yield both.
+
+To explore what these pipelines actually do -- each rule, the files it produces and consumes, the
+pipeline-1 products pipeline 2 consults, and what each stage publishes to which HSDS source --
+generated from the Snakefiles themselves, open the
+[pipeline lineage explorer]({{ site.baseurl }}/reference/pipeline-graph/).
 
 ---
 

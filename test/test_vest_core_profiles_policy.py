@@ -42,7 +42,8 @@ def test_policy_resolves_for_a_two_diagnostic_shot():
     assert policy.ti_te_ratio_sigma == pytest.approx(0.5)
     assert policy.ti_te_ratio_status == "assumed"
     assert policy.impurity_species == ("C", "O")
-    assert policy.impurity_fractions == {"C": pytest.approx(1e-2), "O": pytest.approx(1e-2)}
+    # derived from the impurity_model preset, C6+:O8+ = 1:1 at Z_eff = 2 (#1565)
+    assert policy.impurity_fractions == {"C": pytest.approx(1 / 86), "O": pytest.approx(1 / 86)}
     assert policy.impurity_status == {"C": "assumed", "O": "assumed"}
     assert policy.source == "vest.yaml:diagnostics.core_profiles"
 
@@ -81,7 +82,8 @@ def test_text_records_name_value_status_and_source():
     )
     unknown = vest_core_profiles_policy(None)
     assert unknown.ti_te_ratio_text().endswith("base; shot=unknown")
-    assert policy.impurity_text().startswith("impurity_fractions=C=0.01(assumed),O=0.01(assumed)")
+    assert policy.impurity_text().startswith("impurity_fractions=C=0.0116279(assumed),O=0.0116279(assumed)")
+    assert policy.impurity_text().endswith("derived_from=impurity_model(target_zeff=2)")
 
 
 def _yaml_with(tmp_path, **overrides):
@@ -125,6 +127,85 @@ def test_negative_or_non_finite_values_are_refused(tmp_path, bad):
 def test_a_species_without_a_fraction_entry_is_refused(tmp_path):
     with pytest.raises(VestConfigurationError, match="impurities.fractions.O"):
         vest_core_profiles_policy(1, info_file=_yaml_with(tmp_path, **{"impurities.species": ["C", "O"]}))
+
+
+# --- the impurity_model preset (#1565) --------------------------------------------
+
+
+_MODEL = {
+    "status": "assumed",
+    "species": [
+        {"element": "C", "charge_state": 6, "relative_density": 1.0},
+        {"element": "O", "charge_state": 8, "relative_density": 1.0},
+    ],
+    "target_zeff": 2.0,
+}
+
+
+def _yaml_with_model(tmp_path, **changes):
+    import copy
+
+    model = copy.deepcopy(_MODEL)
+    model.update(changes)
+    path = _yaml_with(tmp_path)
+    import yaml
+
+    doc = yaml.safe_load(open(path))
+    block = doc[0]["diagnostics"]["core_profiles"]
+    del block["impurities"]
+    block["impurity_model"] = model
+    with open(path, "w") as handle:
+        yaml.safe_dump(doc, handle)
+    return path
+
+
+def test_the_vest_preset_is_the_issue_reference_case():
+    from vaft.machine_mapping.core_profiles import vest_impurity_model
+
+    model = vest_impurity_model(48224)
+    assert model["status"] == "assumed" and model["target_zeff"] == 2.0
+    assert [(s["element"], s["charge_state"], s["weight"]) for s in model["species"]] == [
+        ("C", 6.0, 0.5), ("O", 8.0, 0.5)
+    ]
+    # the charge state is the ion's; the atomic number is kept beside it, not used for it
+    assert [s["z_n"] for s in model["species"]] == [6, 8]
+    assert model["species"][0]["mass"] == pytest.approx(12.011)
+    assert "#1565" in model["provenance"]["decided"]
+    assert model["provenance"]["superseded_assumption"]["fractions"] == {"C": 1.0e-2, "O": 1.0e-2}
+
+
+def test_relative_densities_are_normalised_and_the_input_kept(tmp_path):
+    policy = vest_core_profiles_policy(1, info_file=_yaml_with_model(tmp_path))
+    assert [s["relative_density"] for s in policy.impurity_model["species"]] == [1.0, 1.0]
+    assert [s["weight"] for s in policy.impurity_model["species"]] == [0.5, 0.5]
+    assert policy.impurity_fractions == {"C": pytest.approx(1 / 86), "O": pytest.approx(1 / 86)}
+
+
+def test_both_impurity_blocks_at_once_are_refused(tmp_path):
+    path = _yaml_with_model(tmp_path)
+    import yaml
+
+    doc = yaml.safe_load(open(path))
+    doc[0]["diagnostics"]["core_profiles"]["impurities"] = {"species": [], "fractions": {}}
+    with open(path, "w") as handle:
+        yaml.safe_dump(doc, handle)
+    with pytest.raises(VestConfigurationError, match="not both"):
+        vest_core_profiles_policy(1, info_file=path)
+
+
+@pytest.mark.parametrize("changes, message", [
+    ({"species": [{"element": "C", "charge_state": 7, "relative_density": 1}]}, "Z_n = 6"),
+    ({"species": [{"element": "C", "charge_state": 0, "relative_density": 1}]}, "charge_state"),
+    ({"species": [{"element": "Xx", "charge_state": 1, "relative_density": 1}]}, "unknown element"),
+    ({"species": [{"element": "C", "charge_state": 6, "relative_density": 0}]}, "sum to zero"),
+    ({"target_zeff": 0.5}, "target_zeff"),
+    ({"target_zeff": 7.5}, "target_zeff"),
+    ({"reduction": "preserve_nothing"}, "reduction"),
+    ({"status": "guessed"}, "status must be one of"),
+])
+def test_a_malformed_impurity_model_is_refused(tmp_path, changes, message):
+    with pytest.raises(VestConfigurationError, match=message):
+        vest_core_profiles_policy(1, info_file=_yaml_with_model(tmp_path, **changes))
 
 
 def test_statuses_are_the_three_the_contract_names():
@@ -220,3 +301,42 @@ def test_the_retired_atomic_defaults_are_gone():
         assert not hasattr(atomic, name)
         with pytest.raises(AttributeError):
             getattr(atomic, name)
+
+
+# --- the ion temperature record grammar (cold review 0.8.0) -----------------------
+
+
+@pytest.mark.parametrize("record, kind", [
+    (None, "measured"),
+    ("", "measured"),
+    ("coordinate=rho_tor_norm; method=polynomial; order=2; measured_span=0.0500:0.9500", "measured"),
+    ("coordinate=rho_tor_norm; method=external", "measured"),
+    ("origin=measured; source=CES", "measured"),
+    ("ti_te_ratio=1; status=assumed; source=legacy Ti=Te fallback", "assumed"),
+    ("ti_te_ratio=1; sigma=0.3; status=assumed; source=caller argument", "assumed"),
+    ("ti_te_ratio=0.8; status=unspecified", "assumed"),
+    ("origin=inferred; method=equilibrium_pressure_partition; not measured", "inferred"),
+    ("origin: inferred; method: equilibrium_pressure_partition", "inferred"),
+    ("origin=pressure_inferred; method=x", "inferred"),
+    ("origin=synthetic", "unknown"),
+    ("free text", "unknown"),
+])
+def test_the_ti_record_classifier_reads_every_spelling_the_tree_writes(record, kind):
+    from vaft.machine_mapping.core_profiles import TI_RECORD_KINDS, classify_ti_record
+
+    assert kind in TI_RECORD_KINDS
+    assert classify_ti_record(record) == kind
+
+
+def test_the_writers_records_classify_as_what_they_are():
+    """Producer and consumer share one grammar: what each writer stores reads back as itself."""
+    from vaft.machine_mapping.core_profiles import classify_ti_record, inferred_ti_text, ti_record_fields
+    from vaft.process.profile import FittedProfile
+
+    policy = vest_core_profiles_policy(48224)
+    assert classify_ti_record(policy.ti_te_ratio_text()) == "assumed"
+    assert ti_record_fields(policy.ti_te_ratio_text())["ti_te_ratio"] == f"{policy.ti_te_ratio:g}"
+    assert classify_ti_record(inferred_ti_text("equilibrium_pressure_partition")) == "inferred"
+    assert ti_record_fields(inferred_ti_text("x"))["method"] == "x"
+    fit = FittedProfile(function=lambda x: x, coordinate="rho_tor_norm", method="polynomial", order=2)
+    assert classify_ti_record(fit.parameters_text()) == "measured"

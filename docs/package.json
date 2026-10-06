@@ -11,7 +11,9 @@
     "test:visual:update": "playwright test --update-snapshots=all"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.1"
+    "@playwright/test": "1.62.1",
+    "cytoscape": "3.34.3",
+    "cytoscape-dagre": "4.0.1"
   },
   "description": "Source of the VAFT documentation site; built and published by docs/build.py."
 }

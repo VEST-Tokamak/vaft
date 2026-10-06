@@ -28,7 +28,10 @@
     IMAS equilibrium as a tokamak example;
 ``human_ai_interface``
     human researchers and AI agents collaborating through shared interfaces
-    on one backend.
+    on one backend;
+``machine_research_archive``
+    machine history, the research carried out on VEST and research knowledge
+    since 2012, feeding a living archive that new research builds on (#497).
 
 These are conceptual, capability-level diagrams: no storage backend,
 endpoint, path or module name appears in them (implementation diagrams are
@@ -39,7 +42,7 @@ documentation can read it.
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from ._concept import Box, band, escape_latex
 from ._concept import box as _concept_box
@@ -659,6 +662,35 @@ _REFERENCE_LINES = ((0, 3), (1,), (2,), (4,), (5,))
 _COMMUNICATION = ("point_to_point", "common_model", "equilibrium")
 
 
+#: half the distance between the four research modes: they sit at the corners of a square around the shared state
+_MODE_OFFSET = 3.5
+
+
+def _research_modes(items: List, example: bool) -> Dict[str, Box]:
+    """The four research modes at the corners, as every common-model figure places them; boxes appended to items."""
+    d = _MODE_OFFSET
+    nodes: Dict[str, Box] = {}
+    for (key, text, colour), (x, y) in zip(ACTIVITIES, [(-d, d), (d, d), (-d, -d), (d, -d)]):
+        body = _titled(text, EQUILIBRIUM_ROUTES[key]) if example else f"\\textbf{{{escape_latex(text)}}}"
+        b = box(x, y, 4.5, 1.45 if example else 1.0, body,
+                style=f"concept actor,fill={colour}!18,draw={colour}!80", role=f"node:{key}", latex=True)
+        nodes[key] = b
+        items += list(b.items)
+    return nodes
+
+
+def _common_hub(items: List, edges: List, nodes: Dict[str, Box], example: bool) -> Box:
+    """The shared state at the centre, exchanging with every research mode."""
+    hub_text = ("\\textbf{IMAS Equilibrium IDS}\\\\[3pt]$\\Delta^{*}\\psi = -\\mu_0 R^2 p'(\\psi) - FF'(\\psi)$"
+                if example else
+                "\\textbf{Common Data Model (IMAS)}\\\\{\\small shared standardized representation}")
+    hub = box(0.0, 0.0, 5.6, 1.4, hub_text, style="concept hub", role="node:hub", latex=True)
+    items += list(hub.items)
+    for k, _, _ in ACTIVITIES:
+        _edge(items, edges, nodes[k], hub, k, "hub", both=True)
+    return hub
+
+
 def experiment_modeling_theory_data_network(communication: str = "common_model", *,
                                             labels: bool = True) -> Diagram:
     r"""Why a common fusion data model: four research modes, pairwise against a shared representation.
@@ -685,16 +717,9 @@ def experiment_modeling_theory_data_network(communication: str = "common_model",
         raise ValueError(f"communication must be one of {_COMMUNICATION}, not {communication!r}")
     items: List = []
     edges: List = []
-    d = 3.5
-    corners = [(-d, d), (d, d), (-d, -d), (d, -d)]
-    nodes: Dict[str, Box] = {}
+    d = _MODE_OFFSET
     example = communication == "equilibrium"
-    for (key, text, colour), (x, y) in zip(ACTIVITIES, corners):
-        body = _titled(text, EQUILIBRIUM_ROUTES[key]) if example else f"\\textbf{{{escape_latex(text)}}}"
-        b = box(x, y, 4.5, 1.45 if example else 1.0, body,
-                style=f"concept actor,fill={colour}!18,draw={colour}!80", role=f"node:{key}", latex=True)
-        nodes[key] = b
-        items += list(b.items)
+    nodes = _research_modes(items, example)
     keys = [k for k, _, _ in ACTIVITIES]
     n = len(keys)
     if communication == "point_to_point":
@@ -705,13 +730,7 @@ def experiment_modeling_theory_data_network(communication: str = "common_model",
         caption = f"\\textbf{{Without a common model}}: $N(N-1)/2 = {adapters}$ pairwise adapters"
         note = "A new research mode needs $N-1$ new adapters"
     else:
-        hub_text = ("\\textbf{IMAS Equilibrium IDS}\\\\[3pt]$\\Delta^{*}\\psi = -\\mu_0 R^2 p'(\\psi) - FF'(\\psi)$"
-                    if example else
-                    "\\textbf{Common Data Model (IMAS)}\\\\{\\small shared standardized representation}")
-        hub = box(0.0, 0.0, 5.6, 1.4, hub_text, style="concept hub", role="node:hub", latex=True)
-        items += list(hub.items)
-        for k in keys:
-            _edge(items, edges, nodes[k], hub, k, "hub", both=True)
+        _common_hub(items, edges, nodes, example)
         adapters = n
         caption = (f"\\textbf{{With a common model}}: $N = {adapters}$ common-model adapters" if not example else
                    "Different scientific routes produce, consume, and compare\\\\a common standardized equilibrium "
@@ -729,6 +748,75 @@ def experiment_modeling_theory_data_network(communication: str = "common_model",
                    model={"communication": communication, "nodes": tuple(keys), "edges": tuple(edges),
                           "adapters": adapters,
                           "routes": dict(EQUILIBRIUM_ROUTES) if example else {}})
+
+
+#: the scientific domains the framework figure can be specialised to
+_FRAMEWORK_DOMAINS = (None, "equilibrium")
+#: what an equilibrium is analysed into: equilibrium-derived descriptors, not downstream stability models
+EQUILIBRIUM_ANALYSIS: Tuple[Tuple[str, str], ...] = (
+    ("mhd_parameters", "MHD Parameters"), ("plasma_shape", "Plasma Shape"), ("operational_space", "Operational Space"),
+)
+
+
+def integrated_scientific_framework(domain: Optional[str] = None, *, labels: bool = True) -> Diagram:
+    r"""The research modes and their common state inside one integrated framework, serving analysis (#1698).
+
+    The four research modes and the Common Data Model (IMAS) sit exactly as in
+    ``experiment_modeling_theory_data_network("common_model")``, inside an
+    Integrated Framework boundary, and the shared state feeds one downstream
+    Analysis node. Three concepts are kept apart: the Common Data Model is the
+    shared representation; the framework connects, runs, compares and
+    reproduces research through it; analysis is the scientific use of the
+    integrated state.
+
+    ``domain="equilibrium"`` specialises the figure: the representative
+    equilibrium routes of each mode and the IMAS equilibrium IDS, with an
+    analysis of MHD parameters, plasma shape and operational space -- the
+    equilibrium-derived descriptors. Stability codes are downstream models of
+    the equilibrium and stay out of it. Compact references sit beneath.
+    """
+    labels = _check_labels(labels)
+    if domain not in _FRAMEWORK_DOMAINS:
+        raise ValueError(f"domain must be one of {_FRAMEWORK_DOMAINS}, not {domain!r}")
+    example = domain == "equilibrium"
+    d = _MODE_OFFSET
+    items: List = []
+    edges: List = []
+    # the framework boundary first, so everything else is drawn over it
+    frame_x, frame_top = d + 2.25 + 0.55, d + (0.725 if example else 0.5) + 1.25
+    analysis_y = -d - 2.45
+    analysis_h = 1.15 if example else 0.95
+    frame_bottom = analysis_y - 0.5 * analysis_h - 0.5
+    items.append(Polyline.of([(-frame_x, frame_bottom), (frame_x, frame_bottom), (frame_x, frame_top),
+                              (-frame_x, frame_top)], "concept frame", role="framework", closed=True))
+    items.append(Label((-frame_x + 0.25, frame_top - 0.15), "\\textbf{Integrated Framework}", "concept group title",
+                       anchor="north west", role="framework"))
+    items.append(Label((frame_x - 0.25, frame_top - 0.2), "connects, runs, compares and reproduces research",
+                       "concept annotation", anchor="north east", role="framework"))
+    nodes = _research_modes(items, example)
+    hub = _common_hub(items, edges, nodes, example)
+    body = "\\textbf{Analysis}"
+    if example:
+        body += "\\\\{\\small " + " $\\cdot$ ".join(escape_latex(t) for _, t in EQUILIBRIUM_ANALYSIS) + "}"
+    analysis = box(0.0, analysis_y, 9.4 if example else 4.0, analysis_h, body, style="concept strong",
+                   role="node:analysis", latex=True)
+    items += list(analysis.items)
+    _down_or_up(items, edges, hub, analysis, "hub", "analysis")
+    if example:
+        lines = ("; ".join(EQUILIBRIUM_REFERENCES[i] for i in group) for group in _REFERENCE_LINES)
+        items.append(Label((0.0, frame_bottom - 0.25), "\\\\".join(lines), "concept reference", anchor="north",
+                           role="references"))
+    if labels:
+        note = ("The Common Data Model is the shared representation;\\\\the framework connects research through it, "
+                "and analysis is its use")
+        items.append(Label((0.0, frame_bottom - (2.75 if example else 0.3)), note, "note", anchor="north", role="note"))
+    return Diagram("integrated_scientific_framework", Scene(tuple(items)),
+                   model={"framework": "integrated", "domain": domain,
+                          "activities": tuple(k for k, _, _ in ACTIVITIES),
+                          "shared_state": "equilibrium" if example else "common_data_model",
+                          "analysis": "analysis",
+                          "analysis_categories": tuple(k for k, _ in EQUILIBRIUM_ANALYSIS) if example else (),
+                          "routes": dict(EQUILIBRIUM_ROUTES) if example else {}, "edges": tuple(edges)})
 
 
 #: interfaces and the interaction each one is for: (key, name, use, planned)
@@ -802,3 +890,90 @@ def human_ai_interface(*, labels: bool = True) -> Diagram:
                    model={"actors": ("human", "agent"), "interfaces": tuple(k for k, *_ in INTERFACES),
                           "planned": tuple(k for k, *_, p in INTERFACES if p), "backend": ("framework", "repository"),
                           "edges": tuple(edges)})
+
+
+#: the three tracks of the archive, in no particular chronology: what each accumulates
+ARCHIVE_TRACKS: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
+    ("machine", "Machine history", ("geometry & hardware revisions", "diagnostic additions",
+                                    "calibration changes", "operation & maintenance logs")),
+    ("studies", "Research on VEST", ("spherical-torus operation", "diagnostic development",
+                                     "start-up, heating & current drive", "disruptions & transient MHD",
+                                     "equilibrium reconstruction", "confinement & operational limits")),
+    ("research", "Research knowledge", ("experimental procedures", "reconstruction & modelling workflows",
+                                        "documentation & tutorials", "reference datasets & notebooks",
+                                        "publications & reproducible analyses")),
+)
+
+
+def machine_research_archive(*, labels: bool = True) -> Diagram:
+    r"""The machine and research archive: VEST's institutional and scientific memory since 2012.
+
+    Three tracks run from the start of VEST operation in 2012 to today:
+    machine history (geometry and hardware revisions, diagnostic additions,
+    calibration changes, operation and maintenance logs); the research
+    actually carried out on VEST, after the README's "Research historically
+    performed on VEST" (spherical-torus operation, diagnostic development,
+    start-up, heating and current drive, disruptions and transient MHD,
+    equilibrium reconstruction, confinement and operational limits); and
+    research knowledge (procedures, reconstruction and modelling workflows,
+    documentation and tutorials, reference datasets and notebooks,
+    publications and reproducible analyses). All three feed one living
+    research archive, which is not the end of the pipeline: new analyses,
+    workflows and research build on it and extend every track. No dates are
+    drawn beyond the start of operation; the figure shows what accumulates,
+    not when.
+    """
+    labels = _check_labels(labels)
+    items: List = []
+    edges: List = []
+    x0, x1 = 0.0, 17.5
+    track_y = {"machine": 6.55, "studies": 3.6, "research": 0.65}
+    for key, title, entries in ARCHIVE_TRACKS:
+        y = track_y[key]
+        items += band(x0, x1, y - 1.3, y + 1.3, role=f"track:{key}")
+        items.append(Label((x0 + 0.2, y + 1.0), "\\textbf{" + escape_latex(title) + "}", "concept plain",
+                           anchor="north west", role=f"track:{key}"))
+        n = len(entries)
+        w = (x1 - x0 - 0.6 - (n - 1) * 0.25) / n
+        for i, text in enumerate(entries):
+            b = box(x0 + 0.3 + 0.5 * w + i * (w + 0.25), y - 0.3, w, 1.45, text, style="concept leaf",
+                    role=f"entry:{key}:{i}")
+            items += list(b.items)
+    archive = box(x1 + 2.9, track_y["studies"], 3.6, 2.4,
+                  "\\textbf{Living research archive}\\\\[3pt]{\\small machine and research memory, kept usable}",
+                  style="concept strong", role="node:archive", latex=True)
+    items += list(archive.items)
+    for key, y in track_y.items():  # every track ends in the one archive
+        bx, by = archive.boundary_point((x1, y))
+        sx, sy = x1 + 0.08, y
+        length = math.hypot(bx - sx, by - sy)
+        end = (float(bx - 0.08 * (bx - sx) / length), float(by - 0.08 * (by - sy) / length))
+        items.append(Arrow((sx, sy), end, "connector", role=f"edge:track:{key}->archive"))
+        _record(edges, f"track:{key}", "archive", "forward")
+    research = box(archive.x, -2.0, 3.6, 1.0, "New analyses, workflows & research", role="node:next")
+    items += list(research.items)
+    _down_or_up(items, edges, archive, research, "archive", "next")
+    # the archive is an input: new work extends every track
+    y_back = -2.0
+    xl = x0 - 0.8
+    items.append(Polyline.of([(research.x - 0.5 * research.width - 0.08, y_back), (xl, y_back), (xl, track_y["machine"]),
+                              (x0 - 0.08, track_y["machine"])], "connector feedback", role="edge:next->track:machine"))
+    _record(edges, "next", "track:machine", "feedback")
+    for key in ("studies", "research"):
+        items.append(Arrow((xl, track_y[key]), (x0 - 0.08, track_y[key]), "connector feedback",
+                           role=f"edge:next->track:{key}"))
+        _record(edges, "next", f"track:{key}", "feedback")
+    items.append(Label((0.5 * (xl + research.x - 0.5 * research.width), y_back - 0.1),
+                       "new shots and studies extend every track", "concept annotation", anchor="north",
+                       role="feedback_label"))
+    items += [Arrow((x0, -0.85), (x1, -0.85), "connector line,->", role="time"),
+              Label((x0, -0.95), "2012: VEST operation begins", "concept annotation", anchor="north west",
+                    role="time"),
+              Label((x1, -0.95), "today", "concept annotation", anchor="north east", role="time")]
+    if labels:
+        items.append(Label((0.5 * (xl + archive.x + 1.8), -3.0), "A living research archive, not a file store: "
+                           "what VEST has learned stays usable for verification, comparison and study",
+                           "note", anchor="north", role="note"))
+    return Diagram("machine_research_archive", Scene(tuple(items)),
+                   model={"tracks": tuple(k for k, _, _ in ARCHIVE_TRACKS),
+                          "entries": {k: e for k, _, e in ARCHIVE_TRACKS}, "edges": tuple(edges), "start": 2012})

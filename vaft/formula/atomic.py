@@ -323,6 +323,163 @@ def line_cooling_coefficient(
     return coefficient
 
 
+def _rate_matrix(ne_m3, te_eV, acd, scd):
+    """Ionisation-balance rate matrix d f/dt = M f [s^-1], charge states on the last two axes."""
+    recombination = interpolate_adf11(_as_adf11(acd, "acd"), ne_m3, te_eV, multiply_density=True)
+    ionization = interpolate_adf11(_as_adf11(scd, "scd"), ne_m3, te_eV, multiply_density=True)
+    if recombination.shape != ionization.shape:
+        raise ValueError(
+            "ACD and SCD tables produced incompatible charge-state shapes: "
+            f"{recombination.shape} != {ionization.shape}"
+        )
+    if not (np.all(np.isfinite(recombination)) and np.all(np.isfinite(ionization))):
+        raise ValueError("Interpolated rates must be finite")
+    n = ionization.shape[-1] + 1
+    matrix = np.zeros(ionization.shape[:-1] + (n, n))
+    index = np.arange(n - 1)
+    # state j loses by ionisation S_j and gains from j+1 by recombination alpha_{j+1}
+    matrix[..., index, index] -= ionization
+    matrix[..., index + 1, index] += ionization
+    matrix[..., index + 1, index + 1] -= recombination
+    matrix[..., index, index + 1] += recombination
+    return matrix
+
+
+def transient_fractional_abundances(ne_m3, te_eV, acd: ADF11Source, scd: ADF11Source, tau_s):
+    r"""Fractional abundances a time tau after neutral atoms enter a plasma of fixed n_e, T_e.
+
+    $$\frac{d\mathbf f}{dt} = \mathsf M(n_e, T_e)\,\mathbf f,\qquad
+      \mathbf f(\tau) = e^{\tau\mathsf M}\,\mathbf e_0$$
+
+    with $\mathsf M$ tridiagonal: state $z$ is ionised at $n_e S_z$ and
+    recombines at $n_e\alpha_z$, and $\mathbf e_0$ is all neutral.
+
+    Parameters
+    ----------
+    ne_m3 : array-like
+        Electron density, finite and positive [m^-3].
+    te_eV : array-like
+        Electron temperature, finite and positive [eV].
+    acd : ADF11Data or path-like
+        Effective recombination table [n/a].
+    scd : ADF11Data or path-like
+        Effective ionisation table [n/a].
+    tau_s : float or array-like
+        Time since the atoms entered, broadcastable against the profiles,
+        non-negative [s].
+
+    Returns
+    -------
+    np.ndarray
+        Fractions with charge states (neutral first) on a new last axis,
+        summing to one [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive profiles, a negative time, or tables of
+        incompatible shape.
+
+    Assumptions
+    -----------
+    Constant $n_e$, $T_e$ over $\tau$, no transport and no charge exchange:
+    the ionisation age of a parcel that entered as neutrals.  As
+    $n_e\tau\to\infty$ it tends to :func:`fractional_abundances`.
+
+    Limitations
+    -----------
+    An age, not a transport solution: an impurity that recycles keeps a
+    population of low charge states that no single age reproduces.
+
+    References
+    ----------
+    .. [1] H. P. Summers, *The ADAS User Manual*, version 2.6 (2004), Sec. on
+           ADF11 (ionisation balance).
+    .. [2] R. J. Hawryluk et al., Nucl. Fusion 19 (1979) 607 (transient
+           ionisation in ohmic plasmas).
+
+    See Also
+    --------
+    fractional_abundances
+    coronal_relaxation_time
+    """
+    from scipy.linalg import expm
+
+    matrix = _rate_matrix(ne_m3, te_eV, acd, scd)
+    tau = np.asarray(tau_s, dtype=float)
+    if not np.all(np.isfinite(tau)) or np.any(tau < 0.0):
+        raise ValueError("tau_s must be finite and non-negative")
+    shape = np.broadcast_shapes(matrix.shape[:-2], tau.shape)
+    matrix = np.broadcast_to(matrix, shape + matrix.shape[-2:])
+    tau = np.broadcast_to(tau, shape)
+    n = matrix.shape[-1]
+    start = np.zeros(n)
+    start[0] = 1.0
+    flat_m = matrix.reshape(-1, n, n)
+    flat_t = tau.reshape(-1)
+    out = np.empty((flat_m.shape[0], n))
+    for k in range(flat_m.shape[0]):
+        out[k] = expm(flat_m[k] * flat_t[k]) @ start
+    out = np.clip(out, 0.0, None)
+    out /= np.sum(out, axis=-1, keepdims=True)
+    return out.reshape(shape + (n,))
+
+
+def coronal_relaxation_time(ne_m3, te_eV, acd: ADF11Source, scd: ADF11Source):
+    r"""Slowest relaxation time of the ionisation balance towards coronal equilibrium.
+
+    $$\tau_\mathrm{relax} = \frac{1}{\min_{\lambda\neq 0}|\mathrm{Re}\,\lambda(\mathsf M)|}$$
+
+    over the non-zero eigenvalues of the rate matrix of
+    :func:`transient_fractional_abundances`.
+
+    Parameters
+    ----------
+    ne_m3 : array-like
+        Electron density, finite and positive [m^-3].
+    te_eV : array-like
+        Electron temperature, finite and positive [eV].
+    acd : ADF11Data or path-like
+        Effective recombination table [n/a].
+    scd : ADF11Data or path-like
+        Effective ionisation table [n/a].
+
+    Returns
+    -------
+    np.ndarray
+        $\tau_\mathrm{relax}$ with the broadcast profile shape [s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive profiles, or tables of incompatible shape.
+
+    Physical interpretation
+    -----------------------
+    A plasma younger than a few $\tau_\mathrm{relax}$ (or whose impurities
+    stay in it for less, $\tau_p$) is not in coronal balance, and its
+    charge states lag low.  $n_e\tau_\mathrm{relax}$ is the usual
+    $n_e\tau$ criterion, here evaluated rather than quoted.
+
+    References
+    ----------
+    .. [1] H. P. Summers, *The ADAS User Manual*, version 2.6 (2004), Sec. on
+           ADF11 (ionisation balance).
+    .. [2] R. J. Hawryluk et al., Nucl. Fusion 19 (1979) 607.
+
+    See Also
+    --------
+    transient_fractional_abundances
+    """
+    matrix = _rate_matrix(ne_m3, te_eV, acd, scd)
+    eigen = np.linalg.eigvals(matrix)
+    rates = np.abs(eigen.real)
+    scale = np.max(rates, axis=-1, keepdims=True)
+    rates = np.where(rates > 1e-10 * np.where(scale > 0.0, scale, 1.0), rates, np.inf)
+    slowest = np.min(rates, axis=-1)
+    return np.where(np.isfinite(slowest), 1.0 / slowest, np.inf)
+
+
 def mean_charge_from_charge_state_densities(n_z, axis=-1):
     r"""Mean charge of one element over its charge states.
 
@@ -385,6 +542,72 @@ def mean_charge_from_charge_state_densities(n_z, axis=-1):
     shape[axis] = density.shape[axis]
     charge = np.arange(density.shape[axis], dtype=float).reshape(shape)
     mean = np.sum(charge * density, axis=axis) / total
+    return float(mean) if np.ndim(mean) == 0 else mean
+
+
+def mean_square_charge_from_charge_state_densities(n_z, axis=-1):
+    r"""Mean square charge of one element over its charge states.
+
+    $$\langle Z^2\rangle = \sum_j j^2 f_j = \frac{\sum_j j^2\,n_j}{\sum_j n_j},
+      \qquad f_j = \frac{n_j}{\sum_k n_k}$$
+
+    Parameters
+    ----------
+    n_z : array-like
+        Density of each charge state along ``axis``, ordered neutral first, so
+        that index $j$ is charge $j$; finite and non-negative [m^-3].
+    axis : int, optional
+        Axis that runs over the charge states [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Mean square charge, with ``axis`` removed [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density, or a slice whose densities sum to
+        zero, which has no charge distribution to average.
+
+    Convention
+    ----------
+    **Index is charge, neutral first**, as in
+    :func:`mean_charge_from_charge_state_densities`.  An element of density
+    $n_I$ contributes $n_I\langle Z^2\rangle$ to $Z_\mathrm{eff} n_e$ and
+    $n_I\langle Z\rangle$ to quasi-neutrality; $\langle Z^2\rangle -
+    \langle Z\rangle^2$ is the charge-state variance that collapsing onto the
+    mean charge would drop.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25 (impurity charge states).
+
+    See Also
+    --------
+    mean_charge_from_charge_state_densities
+    fractional_abundances
+    z_eff_from_n_s_Z_s
+    """
+    density = np.asarray(n_z, dtype=float)
+    if density.ndim == 0:
+        raise ValueError("n_z needs at least one charge state along axis")
+    try:
+        axis = normalize_axis_index(axis, density.ndim)
+    except (IndexError, np.exceptions.AxisError) as exc:  # numpy raises AxisError, an IndexError subclass
+        raise ValueError(f"axis {axis} is out of range for a {density.ndim}-D n_z") from exc
+    if density.shape[axis] == 0:
+        raise ValueError("n_z needs at least one charge state along axis")
+    if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+        raise ValueError("n_z must be finite and non-negative")
+    total = np.sum(density, axis=axis)
+    if np.any(total <= 0.0):
+        raise ValueError("a charge-state distribution with zero total density has no mean square charge")
+    shape = [1] * density.ndim
+    shape[axis] = density.shape[axis]
+    charge = np.arange(density.shape[axis], dtype=float).reshape(shape)
+    mean = np.sum(charge**2 * density, axis=axis) / total
     return float(mean) if np.ndim(mean) == 0 else mean
 
 
@@ -650,10 +873,13 @@ def hydrogenic_transition_wavelength(n_upper, n_lower, Z=1, mass_number=None):
 
 
 __all__ = [
+    "coronal_relaxation_time",
     "fractional_abundances",
     "interpolate_adf11",
+    "transient_fractional_abundances",
     "line_cooling_coefficient",
     "mean_charge_from_charge_state_densities",
+    "mean_square_charge_from_charge_state_densities",
     "z_eff_from_n_s_Z_s",
     "impurity_fraction_from_effective_charge",
     "hydrogenic_energy_level",

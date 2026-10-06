@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -40,7 +39,14 @@ from .config import (
 )
 from .mesh import build_tokamaker_mesh
 from .outputs import EVOLUTION_SIDECAR_NAME, _merge_equilibrium
-from .runner import _apply_profiles, _apply_vsc, _configure_tokamaker, _json_safe
+from .runner import (
+    _apply_profiles,
+    _apply_vsc,
+    _configure_tokamaker,
+    _json_safe,
+    _save_eqdsk,
+    _wall_check,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -83,6 +89,8 @@ def run_tokamaker_evolution(
     inputs: TokaMakerEvolutionInputs, config: TokaMakerConfig
 ) -> TokaMakerEvolutionResult:
     """March the quasi-static evolution and collect per-slice outputs."""
+    if config.profile_mode != "power_law":
+        raise ValueError("tabulated static profile normalization is not supported for evolution")
     oft = import_oft()
     env = get_oft_env(config.nthreads)
     base = inputs.base
@@ -141,15 +149,9 @@ def run_tokamaker_evolution(
                     psi0, t_ref = mygs.get_psi(False), time
                     converged = True
                     stats = dict(mygs.get_stats())
+                    stats.update(_wall_check(mygs, base.geometry["limiter"]))
                     gfile = base.workdir / f"g{shot:06d}.{ms:05d}"
-                    mygs.save_eqdsk(
-                        str(gfile),
-                        nr=config.eqdsk_nr,
-                        nz=config.eqdsk_nz,
-                        lcfs_pad=config.eqdsk_lcfs_pad,
-                        run_info=f"# {shot} {ms}ms",
-                        cocos=config.eqdsk_cocos,
-                    )
+                    _save_eqdsk(mygs, gfile, config, f"# {shot} {ms}ms")
             except Exception as exc:
                 error = str(exc)
                 _log.warning(

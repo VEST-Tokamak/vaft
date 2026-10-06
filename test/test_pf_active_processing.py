@@ -324,3 +324,123 @@ def test_old_shot_pf6_current_near_minus_5000_is_left_alone(tmp_path):
 
     # It really does reach the rail value, and it is preserved as measured.
     assert np.min(np.abs(pf6 - (-5000.0))) < 10.0
+
+
+# --------------------------------------------------------------------------
+# A required circuit whose channel is empty (#1568)
+# --------------------------------------------------------------------------
+_GAP_SHOT = 48700  # PF5's field 5 was not recorded on 48644-48760
+
+
+def _gap_dump(tmp_path, fields=(4, 59, 62, 65)):
+    source = tmp_path / "raw.json.gz"
+    samples = np.sin(np.linspace(0.0, 20.0, 1200)) + np.linspace(0.0, 0.2, 1200)
+    _write_raw_dump(source, _GAP_SHOT, {field: samples for field in fields})
+    return source
+
+
+def test_the_strict_reader_still_refuses_an_unrecorded_required_circuit(tmp_path):
+    from vaft.database.raw import RawSignalUnavailableError
+
+    with pytest.raises(RawSignalUnavailableError, match="field 5"):
+        vfit_pf(_GAP_SHOT, raw_source=_gap_dump(tmp_path))
+
+
+def test_the_acquired_circuits_survive_one_unrecorded_channel(tmp_path):
+    """48644-48760 lost PF1, PF2, PF6 and PF9/10 with PF5's one empty channel."""
+    from vaft.machine_mapping.pf_active import vfit_pf_acquired
+
+    _time, currents, unacquired = vfit_pf_acquired(_GAP_SHOT, raw_source=_gap_dump(tmp_path))
+
+    assert set(unacquired) == {PF5_INDEX}
+    assert np.all(np.isnan(currents[PF5_INDEX])), "an unrecorded coil must not read as 0 A"
+    for coil_index in (PF1_INDEX, PF2_INDEX, PF6_INDEX, 8, 9):
+        assert np.all(np.isfinite(currents[coil_index])) and np.any(currents[coil_index] != 0.0)
+
+
+def test_no_acquired_circuit_at_all_still_raises(tmp_path):
+    from vaft.database.raw import RawSignalUnavailableError
+    from vaft.machine_mapping.pf_active import vfit_pf_acquired
+
+    with pytest.raises(RawSignalUnavailableError):
+        vfit_pf_acquired(_GAP_SHOT, raw_source=_gap_dump(tmp_path, fields=(25,)))
+
+
+def _gap_pf_ods(tmp_path):
+    from omas import ODS
+
+    from vaft.machine_mapping.pf_active import vfit_pf_active_dynamic
+
+    ods = ODS(consistency_check=False)
+    for index in range(10):
+        ods[f"pf_active.coil.{index}.name"] = f"PF{index + 1}"
+    vfit_pf_active_dynamic(ods, _GAP_SHOT, 0.26, 0.36, 4.0e-5, raw_source=_gap_dump(tmp_path))
+    return ods
+
+
+def test_the_published_ids_marks_the_unrecorded_coil_as_nan(tmp_path):
+    from vaft.machine_mapping.pf_active import unacquired_pf_coils
+
+    ods = _gap_pf_ods(tmp_path)
+
+    assert unacquired_pf_coils(ods) == ["PF5"]
+    assert np.all(np.isnan(ods[f"pf_active.coil.{PF5_INDEX}.current.data"]))
+    assert np.all(np.isfinite(ods[f"pf_active.coil.{PF1_INDEX}.current.data"]))
+    # No non-DD node: `pf_active.coil.current` has no `validity` in IMAS 3.41.
+    assert f"pf_active.coil.{PF5_INDEX}.current.validity" not in ods
+
+
+def test_the_marker_survives_the_imas_round_trip_to_hsds(tmp_path):
+    """Cold review: a validity flag was dropped by the IMAS writer, the NaN kept."""
+    pytest.importorskip("imas")
+    from vaft.database.ods import load_ods, save_ods
+    from vaft.machine_mapping.pf_active import unacquired_pf_coils
+
+    ods = _gap_pf_ods(tmp_path)
+    ods["pf_active.ids_properties.homogeneous_time"] = 1
+    ods["dataset_description.data_entry.pulse"] = _GAP_SHOT
+    entry = tmp_path / "imasdb"
+    save_ods(ods, _GAP_SHOT, env="local", path=entry, run=1)
+    loaded = load_ods(_GAP_SHOT, path=entry, consistency_check=False)
+
+    assert unacquired_pf_coils(loaded) == ["PF5"]
+
+
+def test_every_consumer_of_the_currents_refuses_an_unrecorded_coil(tmp_path):
+    from omas import ODS
+
+    from vaft.code.efit.kfile import build_efit_coil_currents
+    from vaft.database.raw import RawSignalUnavailableError
+    from vaft.machine_mapping.pf_active import require_acquired_pf_currents
+
+    ods = _gap_pf_ods(tmp_path)
+    with pytest.raises(RawSignalUnavailableError, match="PF5 current was not acquired"):
+        require_acquired_pf_currents(ods, _GAP_SHOT, "the eddy-current solve")
+    with pytest.raises(ValueError, match="PF5 current was not acquired"):
+        require_acquired_pf_currents(ods, None, "a code adapter")
+    with pytest.raises(ValueError, match="were not acquired: PF5"):
+        build_efit_coil_currents(ODS(consistency_check=False)["pf_active"], ods["pf_active"])
+
+
+def test_a_complete_pf_active_passes_every_guard(tmp_path):
+    from vaft.machine_mapping.pf_active import require_acquired_pf_currents, unacquired_pf_coils
+
+    from omas import ODS
+
+    from vaft.machine_mapping.pf_active import vfit_pf_active_dynamic
+
+    ods = ODS(consistency_check=False)
+    for index in range(10):
+        ods[f"pf_active.coil.{index}.name"] = f"PF{index + 1}"
+    vfit_pf_active_dynamic(ods, _GAP_SHOT, 0.26, 0.36, 4.0e-5,
+                           raw_source=_gap_dump(tmp_path, fields=(4, 5, 59, 62, 65)))
+    assert unacquired_pf_coils(ods) == []
+    require_acquired_pf_currents(ods, _GAP_SHOT, "the eddy-current solve")
+
+
+def test_the_strict_reader_reports_the_lowest_empty_field_first(tmp_path):
+    """Unchanged order: with PF5 (field 5) and PF1 (field 59) both empty, field 5."""
+    from vaft.database.raw import RawSignalUnavailableError
+
+    with pytest.raises(RawSignalUnavailableError, match="field 5"):
+        vfit_pf(_GAP_SHOT, raw_source=_gap_dump(tmp_path, fields=(4, 62, 65)))

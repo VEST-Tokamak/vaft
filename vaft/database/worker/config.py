@@ -72,6 +72,10 @@ class WorkerConfig:
     #: Also record ``vaft.omas.shot_class`` from the diagnostics product.  For
     #: reference only -- it does not gate any stage until #57 lands.
     record_shot_class: bool = False
+    #: The per-shot stages to run and judge, e.g. ``(raw, diagnostics, eddy)``.
+    #: Written into each run's config as ``stages``, which narrows ``rule all``
+    #: (the workflow's ``paths.stage_scope``).  ``None`` runs the whole pipeline.
+    stages: tuple[str, ...] | None = None
 
     @property
     def snakefile(self) -> Path:
@@ -104,6 +108,18 @@ def _command(value: Any, key: str) -> tuple[str, ...]:
     else:
         raise WorkerConfigError(f"{key} must be a string or a list of strings")
     return tuple(parts)
+
+
+def _stages(value: Any) -> tuple[str, ...] | None:
+    if value is None:
+        return None
+    if isinstance(value, str) or not isinstance(value, (list, tuple)) or not all(
+        isinstance(item, str) for item in value
+    ):
+        raise WorkerConfigError(f"stages must be a list of stage names (got {value!r})")
+    if not value:
+        raise WorkerConfigError("stages is empty; omit it to run the whole pipeline")
+    return tuple(value)
 
 
 def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> WorkerConfig:
@@ -147,6 +163,7 @@ def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> Wo
         env={str(k): str(v) for k, v in (data.get("env") or {}).items()},
         classifier=data.get("classifier"),
         record_shot_class=bool(data.get("record_shot_class", False)),
+        stages=_stages(data.get("stages")),
     )
     for name in ("poll_interval", "quiet_seconds", "cores", "max_shots_per_run", "max_attempts"):
         if getattr(config, name) <= 0:
@@ -199,9 +216,9 @@ def _read_yaml(path: Path, what: str) -> dict[str, Any]:
 def load_pipeline_config(config: WorkerConfig) -> dict[str, Any]:
     """The configuration Snakemake will actually run with.
 
-    The Snakefile declares ``configfile: "config.yaml"`` and Snakemake merges
-    ``--configfile`` over it, so a key the deployment's file leaves out falls
-    back to the workflow's.  The worker reproduces that merge, so the runner,
+    The Snakefile loads its own ``config.yaml`` (by the Snakefile's path, #1530)
+    and Snakemake merges ``--configfile`` over it, so a key the deployment's
+    file leaves out falls back to the workflow's.  The worker reproduces that merge, so the runner,
     the harvester and the checks below all see what Snakemake sees.
 
     Checked for the two settings a worker cannot run under: a raw stage that
@@ -219,6 +236,10 @@ def load_pipeline_config(config: WorkerConfig) -> dict[str, Any]:
             f"configuration needs raw.mode: sql (got {raw.get('mode')!r})"
         )
     data["conda"] = None
+    if config.stages is not None:
+        # The worker's scope wins over the pipeline file's, so the runner's
+        # per-run config, Snakemake and the harvester all narrow the same way.
+        data["stages"] = list(config.stages)
     return data
 
 

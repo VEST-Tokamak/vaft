@@ -42,6 +42,16 @@ A per-shot walkthrough of the raw signals and their IMAS counterparts is in the
 [Magnetics]({{ site.baseurl }}/guide/Magnetics/) and
 [Machine mapping]({{ site.baseurl }}/guide/Machine_mapping/) guides.
 
+Since operation began in 2012, VEST has accumulated three kinds of memory that VAFT keeps usable: the
+machine's own history (geometry and hardware revisions, diagnostic additions, calibration changes,
+operation and maintenance logs); the research carried out on it (spherical-torus operation, diagnostic
+development, start-up, heating and current drive, disruptions and transient MHD, equilibrium
+reconstruction, confinement and operational limits); and the research knowledge built from both
+(procedures, reconstruction and modelling workflows, documentation, reference datasets and notebooks,
+publications). The archive is an input to new work, not the end of it.
+
+![Machine and research archive]({{ site.baseurl }}/assets/diagrams/machine_research_archive.svg)
+
 ## Foundations: IMAS, OMAS and HSDS
 
 VAFT does not invent a data model. It composes three existing ones:
@@ -83,7 +93,11 @@ vaft/
 
 Around the library sits the wider VEST data analysis platform: an automated **Snakemake** pipeline
 carrying each shot from experiment through post-processing to simulation, and the IMAS database
-itself. Both are described in [Pipelines]({{ site.baseurl }}/guide/Pipelines/); the per-module
+itself.
+
+![The VEST data platform]({{ site.baseurl }}/assets/diagrams/vest_data_platform.svg)
+
+Both are described in [Pipelines]({{ site.baseurl }}/guide/Pipelines/); the per-module
 surface is catalogued in the [API reference]({{ site.baseurl }}/guide/API_reference/).
 
 ## Citation

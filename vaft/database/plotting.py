@@ -45,6 +45,7 @@ from typing import Any, Sequence
 
 __all__ = [
     "available_plots",
+    "compose",
     "dd",
     "extract",
     "plot_diagnostics_time_interactive",
@@ -174,6 +175,49 @@ def render(
         # Models copy what they read into their own arrays and renderers never
         # keep the data object, so the lazy stores may close on the way out.
         return render_ods(name, source_object, ax=ax, show=show, label=_labels(shots, label), **options)
+
+
+def compose(
+    composition: Any,
+    shot: Any,
+    source: str | None = None,
+    *,
+    occurrence: Any = None,
+    backend: str | None = None,
+    show: bool = False,
+    label: Any = "shot",
+    **presentation: Any,
+) -> Any:
+    """Draw a :class:`vaft.plot.FigureComposition` for database shots (issue #1467).
+
+    For each shot the IDS every cell declares are narrowed to what the shot
+    stores (an overlay's optional wall is skipped, a missing required IDS is
+    an error naming the plot) and loaded once; the figure is then composed
+    as :func:`vaft.omas.compose` composes it.  Not :func:`vaft.database.compose`,
+    which joins two *sources* of one shot (#305).
+    """
+    from vaft.omas.entries import normalize_entries
+    from vaft.plot.composition import as_composition, render_composition
+
+    from . import load
+
+    composition = as_composition(composition)
+    resolved = _resolve_source(source)
+    shots = _shots(shot)
+    objects = []
+    for number in shots:
+        wanted: list[str] = []
+        for cell in composition.cells:
+            for root in _stored_subset(number, resolved, _declared_ids(cell.plot), cell.plot):
+                if root not in wanted:
+                    wanted.append(root)
+        objects.append(load(number, source=resolved, paths=wanted, occurrence=occurrence))
+    source_object = objects[0] if len(objects) == 1 else objects
+    entries = normalize_entries(source_object, label=_labels(shots, label))
+    return render_composition(
+        composition, entries, backend=backend, show=show,
+        namespace="vaft.database", subject="vaft.database.load(shot)", **presentation,
+    )
 
 
 def _refuse_lazy_occurrence(lazy: bool, occurrence: Any) -> None:
@@ -312,7 +356,12 @@ def render_to_file(
     """
     from vaft.plot import save_figure
     from vaft.plot.environment import use_non_interactive_backend
+    from vaft.plot.registry import NON_GRAPHICAL_VIEWS, get_spec
 
+    if get_spec(name).view in NON_GRAPHICAL_VIEWS:
+        # A table or text view is text (issue #1180): .txt, .md or .html.
+        rendered = render(name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options)
+        return rendered.save(path)
     if options.get("backend") == "plotly":
         # A Plotly figure is a web page; nothing else is a faithful file of it.
         if not str(path).lower().endswith((".html", ".htm")):
@@ -324,7 +373,7 @@ def render_to_file(
     figure, _ = render(
         name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options
     )
-    return save_figure(figure, path)
+    return save_figure(figure, path, figure_options=options.get("figure_options"))
 
 
 def available_plots(

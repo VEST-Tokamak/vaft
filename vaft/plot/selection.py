@@ -80,6 +80,9 @@ REPRESENTATIVE_PRESETS = ("inboard_mid", "outboard_mid")
 #: never energised is valid and flat); ``all`` draws every channel, invalid
 #: ones marked as such.  A failed shot's dead channels no longer bury the
 #: live ones, and nothing is hidden that the caller cannot ask for by name.
+#: A ``validity=`` the caller states owns the flags instead (issue #1380):
+#: ``valid`` then keeps flagged channels like ``all``, and ``active`` keeps
+#: every channel with a signal, for the validity mode to demote or mask.
 ACTIVE = "active"
 VALID = "valid"
 ALL = "all"

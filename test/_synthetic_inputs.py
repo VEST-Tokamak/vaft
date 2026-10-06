@@ -259,6 +259,14 @@ def make_neoclassical(sample: ODS) -> ODS:
     return _with_core_profiles(sample, zeff=True)
 
 
+def make_zeff_profile(sample: ODS) -> ODS:
+    """core_profiles_profile_zeff -- the stored Z_eff with the provenance record a
+    vaft.process.impurity writer leaves beside it (#1565)."""
+    ods = _with_core_profiles(sample, zeff=True)
+    ods["core_profiles.profiles_1d.0.zeff_fit.parameters"] = "origin=assumed; method=impurity_model_preset"
+    return ods
+
+
 # ---------------------------------------------------------------------------
 # camera_visible_* -- adapted from test/test_camera_visible_image_api.py (_with_frames):
 # 39915 has a packaged pose, so frames added at the equilibrium slice time project.
@@ -395,8 +403,15 @@ def make_kinetic_48224(_sample: ODS) -> ODS:
     )
 
 
+def make_unified_diagnostics(_sample: ODS) -> ODS:
+    from vaft.data import unified_diagnostics_fixture
+
+    return unified_diagnostics_fixture()
+
+
 # ---------------------------------------------------------------------------
 SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
+    "kinetic_overview_profiles": make_unified_diagnostics,
     "thomson_scattering_profile_fit": make_kinetic_48224,
     "charge_exchange_profile_fit": make_kinetic_48224,
     "nbi_profile_electron_heating": make_nbi,
@@ -420,6 +435,13 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "electron_temperature_field": make_core_profiles,
     "electron_density_field": make_core_profiles,
     "summary_time_power_balance": make_power_balance,
+    # Same shape: every current-carrying 39915 slice gets electron profiles.
+    "summary_time_resistive_zeff": make_power_balance,
+    "core_profiles_profile_zeff": make_zeff_profile,
+    # The sample's magnetics and UV lines time the plasma, so the coronal
+    # check runs; the charge states come from synthetic ADF11 tables.
+    "impurity_profile_composition": make_neoclassical,
+    "impurity_profile_charge_state_fraction": make_core_profiles,
     "camera_visible_image": make_camera,
     "camera_visible_image_frame": make_camera,
     "camera_visible_image_efit_overlay": make_camera,
@@ -445,6 +467,11 @@ OPTIONS: dict[str, dict] = {
     # vacuum resonant pairs are different objects drawn on the same axes.
     "mhd_linear_geometry_island": {"field": "total"},
 }
+
+from _adf11_synthetic import synthetic_adf11_tables  # noqa: E402
+
+OPTIONS["impurity_profile_composition"] = {"adf11_tables": synthetic_adf11_tables()}
+OPTIONS["impurity_profile_charge_state_fraction"] = {"adf11_tables": synthetic_adf11_tables()}
 
 #: Names no factory could make build, with the exact error.
 UNSUPPORTED: dict[str, str] = {}

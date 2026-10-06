@@ -1,0 +1,46 @@
+--- a/TES/find_psiab.cpp
++++ b/TES/find_psiab.cpp
+@@ -192,2 +192,6 @@
+            powell(p,xi,ndim,ERRTOL_POWEL,&iter,&fret,powellfnc);
++           // the bicubic patch only describes this cell: a minimum found more
++           // than a cell away, or one powell did not converge to (it returns
++           // at its 1000-iteration cap), is not an X-point
++           if( iter>=1000 || p[1]<X1L-DR || p[1]>X1U+DR || p[2]<X2L-DZ || p[2]>X2U+DZ ) continue;
+            
+@@ -231,2 +235,3 @@
+            powell(p,xi,ndim,ERRTOL_POWEL,&iter,&fret,powellfnc);
++           if( iter>=1000 || p[1]<X1L-DR || p[1]>X1U+DR || p[2]<X2L-DZ || p[2]>X2U+DZ ) continue;
+            
+@@ -265,3 +270,3 @@
+                 if( (dp2-dp1)>0.0 ) { // decreasing psi
+-                    if(j=max_index) PSIB=dtmp;
++                    if(j==max_index) PSIB=dtmp;
+                 } else { j=max_index+1; } // psi-increased so that it's outside of plasma boundary
+@@ -285,3 +290,3 @@
+                 if( (dp2-dp1)<0.0 ) { // increasing psi
+-                    if(j=max_index) PSIB=dtmp;
++                    if(j==max_index) PSIB=dtmp;
+                 } else { j=max_index+1; } // psi-increased so that it's outside of plasma boundary
+@@ -292,2 +297,10 @@
+     
++    // No limiter candidate passed the inward walk: fall back to the most
++    // interior limiter flux, as the unpatched check effectively did.
++    if( fabs(PSIB)>=1.e29 ) {
++       for(t=1;t<=NLIM;t++) {
++          if( t==1 || IPSIGN*LIMPSI[t] > IPSIGN*PSIB ) PSIB = LIMPSI[t];
++       }
++    }
++    
+     if (NXPT!=0) {
+--- a/nr/powell.cpp
++++ b/nr/powell.cpp
+@@ -44,3 +44,8 @@
+ 		}
+-		if (*iter == ITMAX) nrerror("powell exceeding maximum iterations.");
++		if (*iter == ITMAX) { /* not converged: return, the caller checks *iter */
++			free_dvector(xit,1,n);
++			free_dvector(ptt,1,n);
++			free_dvector(pt,1,n);
++			return;
++		}
+ 		for (j=1;j<=n;j++) {

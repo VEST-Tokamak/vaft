@@ -1186,8 +1186,9 @@ def compute_power_balance(
       else (single-species case only) Z_eff-based scalar estimate, else zero.
     - Priority per species: ODS ion profile > impurity_fractions > Z_eff (single species) > 0.
     - With ``impurity_fractions=None`` the VEST policy is resolved for the ODS's
-      shot from ``vest.yaml`` (``diagnostics.core_profiles.impurities``; C and
-      O at n_imp/n_e = 0.01, status ``assumed``) through
+      shot from ``vest.yaml`` (``diagnostics.core_profiles.impurity_model``; C
+      and O at n_imp/n_e = 1/86 each, derived from the C6+:O8+ = 1:1,
+      Z_eff = 2 preset of #1565, status ``assumed``) through
       :func:`vaft.machine_mapping.core_profiles.vest_core_profiles_policy`;
       an ODS with no shot number gets no assumption and zero line radiation
       with a warning. ``line_radiation_species=None`` follows the same policy.
@@ -1259,7 +1260,13 @@ def compute_power_balance(
             missing_cp_match_slices.append(i)
             continue
         try:
-            P_ohm_diss[k] = float(compute_ohmic_heating_power_from_core_profiles(ods, time_slice=int(cp_idx)))
+            # The former hidden Spitzer fallbacks, stated rather than implied
+            # (#1188). Deliberately not this function's Z_eff argument: that
+            # would move P_ohm_diss for callers who set it for line radiation;
+            # the inconsistency is noted on #1188 for the #548 owner.
+            P_ohm_diss[k] = float(compute_ohmic_heating_power_from_core_profiles(
+                ods, time_slice=int(cp_idx), Z_eff=2.0, ln_Lambda=17.0,
+            ))
         except Exception:
             failed_ohmic_slices.append(i)
 

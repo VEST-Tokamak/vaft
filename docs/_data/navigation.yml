@@ -26,6 +26,9 @@ sections:
       - id: automated-pipelines
         title: Automated pipelines
         url: /workflows/automated-pipelines/
+      - id: gui
+        title: Browser GUI
+        url: /workflows/gui/
   - id: reference
     title: Library and data reference
     items:
@@ -35,6 +38,15 @@ sections:
       - id: computational-layers
         title: Computational layers
         url: /reference/computational-layers/
+      - id: dependency-graph
+        title: Dependency explorer
+        url: /reference/dependency-graph/
+      - id: pipeline-graph
+        title: Pipeline lineage explorer
+        url: /reference/pipeline-graph/
+      - id: mcp
+        title: MCP server for agents
+        url: /reference/mcp/
       - id: formula-reference
         title: Formula reference
         url: /reference/formula/
@@ -47,6 +59,9 @@ sections:
       - id: equilibrium-representations
         title: Equilibrium representations
         url: /reference/equilibrium-representations/
+      - id: gyrokinetic-plotting
+        title: Gyrokinetic plotting
+        url: /reference/gyrokinetic-plotting/
       - id: process-reference
         title: Process reference
         url: /reference/process/

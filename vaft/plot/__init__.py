@@ -16,7 +16,7 @@ for example :func:`plasma_current_time`, :func:`equilibrium_profile_pressure`, a
 domains, ``machine`` for cross-IDS machine views and ``summary`` for cross-IDS
 summary panels.  ``<view>`` is one of ``time``, ``profile``, ``field``,
 ``geometry``, ``spectrum``, ``spectrogram``, ``overview``, ``image``,
-``animation``.  ``<quantity>`` may be dropped when the domain and view are
+``animation``, ``table``, ``text``.  ``<quantity>`` may be dropped when the domain and view are
 already unambiguous, as in ``soft_x_rays_spectrogram``.
 
 There is no redundant ``plot_`` prefix here; adapter layers and object methods
@@ -47,6 +47,28 @@ Every canonical renderer has this shape::
   view kinds models a time animation.  (A movie of any plot is the adapter's
   ``animation=True``, which draws the plot over its slice control and returns
   a lazy result with ``save("x.mp4")``; see :func:`vaft.plot.backend.render.render_entries`.)
+
+Tables and text summaries
+-------------------------
+
+Not every scientific view is a figure.  A ``<subject>_table_<content>`` or
+``<subject>_text_<content>`` view (issue #1180) goes through the same three
+steps as a plot -- the adapter selects and reduces the data (a slice is
+chosen, metrics are computed), builds a typed model
+(:class:`~vaft.plot.models.Table`, :class:`~vaft.plot.models.TextSummary`)
+that keeps numbers, stored units and classifications rather than formatted
+strings, and a renderer presents it -- but the presentation is text.  Its
+renderer (:func:`render_table`, :func:`render_text_summary`) returns a
+:class:`RenderedTable` / :class:`RenderedTextSummary` instead of
+``(Figure, Axes)``: it prints as fixed-width text, shows as an HTML table in a
+notebook, exports with ``.text()``/``.markdown()``/``.html()``, and formats
+numbers through the display policy (an ampere current is shown in kA).
+``show=True`` prints it; ``ax=``, ``format=``, ``theme=``, ``figure_options=``
+and ``backend="plotly"`` are Matplotlib presentation keywords and are refused.
+:class:`~vaft.plot.models.TextPanel` stays what it was: text placed *inside* a
+figure.  ``extract_*`` returns the model, so the scientific reduction is
+inspectable apart from its presentation, and ``vaft extract`` serialization
+is not duplicated -- a table is a view, not an export format.
 
 Renderers take a typed view model from :mod:`vaft.plot.models` plus styling and
 layout options, and nothing else.  None of them interprets an OMAS
@@ -179,9 +201,18 @@ from .models import (
     ReferenceSlope,
     Series,
     Spectrogram,
+    Table,
+    TableCell,
+    TableColumn,
+    TextItem,
     TextPanel,
+    TextSection,
+    TextSummary,
     ViewModel,
 )
+from .composition import AxisLink, FigureCell, FigureComposition
+from .figure_options import FigureOptions
+from .request import DataSource, PlotRequest
 from .discovery import PlotCapability, PlotCatalog
 from .display import PSI_STYLES
 from .navigation import SliceNavigator
@@ -194,6 +225,7 @@ from .renderers.panels import render_panels
 from .renderers.profiles import render_profile_1d
 from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
+from .renderers.tables import RenderedTable, RenderedTextSummary, render_table, render_text_summary
 from .presentation import DEFAULT_FORMAT, FORMATS, THEMES, resolve_presentation
 from .style import save_figure
 
@@ -289,12 +321,19 @@ from .renderers.lines import (
     thomson_scattering_time_electron_density,
     thomson_scattering_time_electron_temperature,
 )
+from .renderers.edge_q import (
+    summary_time_estimated_q95,
+    summary_time_normalized_current,
+    summary_time_q_star_cylindrical,
+    summary_time_q_star_kink,
+)
 from .renderers.panels import (
     chease_overview_profile_validity,
     chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,
     current_overview,
     diagnostics_overview,
+    kinetic_overview_profiles,
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,
@@ -310,6 +349,8 @@ from .renderers.panels import (
     interferometer_overview,
     magnetics_overview,
     impa_overview,
+    impurity_profile_charge_state_fraction,
+    impurity_profile_composition,
     magnetics_overview_plasma_residual,
     startup_proxies_time,
     magnetics_overview_vacuum,
@@ -321,6 +362,8 @@ from .renderers.panels import (
     equilibrium_time_shape,
     summary_time_energy,
     summary_time_power_balance,
+    summary_time_resistive_zeff,
+    summary_time_romero_balance,
     summary_time_voltage_consumption,
     passive_structure_overview_wall_time,
     passive_structure_overview_wall_reduction,
@@ -349,6 +392,7 @@ from .renderers.profiles import (
     equilibrium_profile_pressure,
     equilibrium_profile_q,
     neoclassical_profile_bootstrap_current,
+    core_profiles_profile_zeff,
     mhd_linear_profile_b_field_perturbed,
     mhd_linear_profile_chirikov,
     mhd_linear_profile_displacement,
@@ -374,6 +418,11 @@ from .renderers.spectrograms import (
     mirnov_spectrogram,
     soft_x_rays_spectrogram,
 )
+from .renderers.tables import (
+    equilibrium_table_fit_quality,
+    equilibrium_table_summary,
+    equilibrium_text_summary,
+)
 from .parameter_history import plot_parameter_history
 from .analytic import (
     miller_surfaces_model,
@@ -386,6 +435,11 @@ from .analytic import (
 from .fluctuation import (
     cross_spectrum_model,
     plot_cross_spectrum,
+    plot_cross_diagnostic_coherence_spectrogram,
+    plot_multi_diagnostic_coherent_spectrogram,
+    plot_multi_diagnostic_coherent_fraction,
+    plot_multi_diagnostic_participation,
+    plot_multi_diagnostic_phase,
     plot_fluctuation_frequency_coverage,
 )
 
@@ -395,6 +449,12 @@ _SUPPORT_EXPORTS = (
     "DEFAULT_FORMAT",
     "FORMATS",
     "PSI_STYLES",
+    "AxisLink",
+    "DataSource",
+    "FigureCell",
+    "FigureComposition",
+    "FigureOptions",
+    "PlotRequest",
     "Geometry3DLayer",
     "Geometry3DLayers",
     "GeometryLayer",
@@ -412,7 +472,15 @@ _SUPPORT_EXPORTS = (
     "Series",
     "SliceNavigator",
     "Spectrogram",
+    "RenderedTable",
+    "RenderedTextSummary",
+    "Table",
+    "TableCell",
+    "TableColumn",
+    "TextItem",
     "TextPanel",
+    "TextSection",
+    "TextSummary",
     "ViewModel",
     "available_plots",
     "canonical_names",
@@ -430,6 +498,8 @@ _SUPPORT_EXPORTS = (
     "render_power_spectrum",
     "render_profile_1d",
     "render_spectrogram",
+    "render_table",
+    "render_text_summary",
     "save_figure",
     "plot_parameter_history",
     "miller_surfaces_model",
@@ -440,6 +510,11 @@ _SUPPORT_EXPORTS = (
     "solovev_equilibrium_model",
     "cross_spectrum_model",
     "plot_cross_spectrum",
+    "plot_cross_diagnostic_coherence_spectrogram",
+    "plot_multi_diagnostic_coherent_spectrogram",
+    "plot_multi_diagnostic_coherent_fraction",
+    "plot_multi_diagnostic_participation",
+    "plot_multi_diagnostic_phase",
     "plot_fluctuation_frequency_coverage",
     "THEMES",
     "resolve_presentation",

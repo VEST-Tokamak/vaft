@@ -47,6 +47,14 @@ run_timeout: 86400
 env:
   PATH: ${HOME}/.local/bin:${PATH}
 
+# Which per-shot stages to run and judge. Omitted: the whole pipeline (rule all).
+# A list narrows rule all and the worker's verdict to those stages; raw is always
+# included, and a stage needs its upstream (diagnostics -> eddy -> efit -> chease ->
+# mhd_linear / gpec_ideal). With [raw, diagnostics, eddy] nothing from EFIT on is
+# scheduled or judged; with EFIT in scope a vacuum shot records EFIT as not
+# applicable and ends partial (#205).
+# stages: [raw, diagnostics, eddy]
+
 # module:callable returning a classifier; empty = raw-field classifier.
 classifier: null
 # Record vaft.omas.shot_class from the diagnostics product (reference only).

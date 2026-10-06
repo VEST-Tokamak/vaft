@@ -113,7 +113,7 @@ def plot_neoclassical_profile_bootstrap_current(
     """
     return render("neoclassical_profile_bootstrap_current", source, ax=ax, show=show, label=label, **options)
 
-__all__ = ["available_plots", "normalize_entries", "render"]
+__all__ = ["available_plots", "compose", "normalize_entries", "render"]
 
 
 from .interactive import (  # noqa: E402  public entry points, issues #261 and #482
@@ -142,6 +142,42 @@ def render(
     return render_entries(
         name, normalize_entries(source, label=label), ax=ax, show=show,
         namespace="vaft.imas", subject="ids", **options,
+    )
+
+
+def compose(
+    composition: Any,
+    source: Any,
+    *,
+    backend: str | None = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **presentation: Any,
+) -> Any:
+    """Draw several canonical plots of ``source`` as one figure (issue #1467).
+
+    ``composition`` is a :class:`vaft.plot.FigureComposition` -- which plots,
+    in which grid cells, which axes move together -- or its ``to_dict()``
+    form.  Every cell is built by its plot's own recipe, so a cell looks like
+    ``plot_<name>`` drawn on its own.  Matplotlib returns ``(Figure,
+    ndarray[Axes])``, one axes per cell in cell order, and takes ``format=``,
+    ``theme=`` and ``figsize=``; ``backend="plotly"`` returns one
+    :class:`plotly.graph_objects.Figure`.  See :mod:`vaft.plot.composition`.
+
+    Example::
+
+        vaft.imas.compose(
+            vaft.plot.FigureComposition.stack(
+                ["plasma_current_time", "flux_loop_time_voltage", "equilibrium_time_q95"]
+            ),
+            entry,
+        )
+    """
+    from vaft.plot.composition import render_composition
+
+    return render_composition(
+        composition, normalize_entries(source, label=label), backend=backend, show=show,
+        namespace="vaft.imas", subject="ids", **presentation,
     )
 
 
@@ -1182,8 +1218,9 @@ def plot_flux_loop_spatial_flux(
 ) -> Any:
     """Flux-loop flux against sensor position at one time (issue #486).
 
-    ``time=`` snaps to the nearest stored sample (``time_slice=`` maps
-    through a stored equilibrium slice); ``coordinate="z"`` (default) draws
+    ``time=`` snaps to the nearest stored sample, ``time_slice=`` maps
+    through a stored equilibrium slice and ``time_index=`` names a sample of
+    the shared magnetics grid (one of the three, issue #1380); ``coordinate="z"`` (default) draws
     the inboard and outboard loops as two panels, ``"theta"`` one panel
     against the poloidal angle about the layout centre (``centre=``).
     Renders with :func:`vaft.plot.flux_loop_spatial_flux` from native IMAS input.
@@ -1390,6 +1427,18 @@ def plot_limiter_current_time(
     Renders with :func:`vaft.plot.limiter_current_time` from native IMAS input.
     """
     return render("limiter_current_time", source, ax=ax, show=show, label=label, **options)
+
+
+def plot_kinetic_overview_profiles(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Four local kinetic profiles from native IMAS input."""
+    return render("kinetic_overview_profiles", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_machine_geometry_poloidal(
@@ -2232,6 +2281,7 @@ __all__ += [
     "plot_ion_temperature_profile",
     "plot_limiter_current_time",
     "plot_machine_geometry_poloidal",
+    "plot_kinetic_overview_profiles",
     "plot_machine_geometry3d",
     "plot_machine_geometry_topview",
     "plot_magnetics_geometry_poloidal",

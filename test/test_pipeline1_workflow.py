@@ -53,7 +53,7 @@ pytestmark = [
 ]
 
 
-def _config(tmp_path: Path, layout: str = "filedb") -> Path:
+def _config(tmp_path: Path, layout: str = "filedb", overrides: dict | None = None) -> Path:
     config = tmp_path / "config.yaml"
     config.write_text(
         json.dumps(
@@ -68,6 +68,7 @@ def _config(tmp_path: Path, layout: str = "filedb") -> Path:
                 "hsds": {"replicate": layout == "filedb"},
                 "gpec": {"modules": ["dcon", "rdcon", "stride", "gpec"], "modes": [1, 2]},
                 "conda": None,
+                **(overrides or {}),
             }
         ),
         encoding="utf-8",
@@ -77,7 +78,7 @@ def _config(tmp_path: Path, layout: str = "filedb") -> Path:
 
 def _dry_run(
     tmp_path: Path, targets: list[str] | None = None, *, layout: str = "filedb",
-    extra: list[str] | None = None,
+    extra: list[str] | None = None, config_overrides: dict | None = None,
 ):
     # config.yaml interpolates these; a dry run never executes them.
     env = dict(os.environ)
@@ -87,7 +88,7 @@ def _dry_run(
         [
             sys.executable, "-m", "snakemake",
             "--snakefile", str(WORKFLOW / "Snakefile"),
-            "--configfile", str(_config(tmp_path, layout)),
+            "--configfile", str(_config(tmp_path, layout, config_overrides)),
             "--directory", str(tmp_path),
             "--cores", "1", "-n",
             # Targets before the options: `--config` takes every following
@@ -112,9 +113,14 @@ def _paths(tmp_path: Path, layout: str = "filedb"):
 
 
 def _kfile_command(stdout: str) -> str:
-    """The k-file stage's printed shell command, up to its log redirect."""
+    """The k-file stage's printed shell command, up to its log redirect.
+
+    Whitespace is collapsed: Snakemake 7 prints a ``{param}`` substitution
+    with the template's indentation around it (``--preset  statistical_891``),
+    Snakemake 9 does not, and the assertions are about the words.
+    """
     start = stdout.index("generate_kfile.py")
-    return stdout[start:stdout.index(">", start)]
+    return " ".join(stdout[start:stdout.index(">", start)].split())
 
 
 def test_an_efit_preset_reaches_the_kfile_stage_in_place_of_the_basis(tmp_path):
@@ -194,6 +200,128 @@ def test_the_full_target_set_resolves_once_preflight_has_run(tmp_path):
     assert result.returncode == 0, result.stderr[-3000:]
     assert "build_gpec_ideal" in result.stdout
     assert "plot_mhd_linear" in result.stdout
+
+
+def _preflight_done(tmp_path):
+    paths = _paths(tmp_path)
+    raw_dump = Path(paths.raw_dump(SHOT))
+    raw_dump.parent.mkdir(parents=True, exist_ok=True)
+    raw_dump.write_bytes(b"")
+    Path(paths.raw_manifest(SHOT)).write_text("{}", encoding="utf-8")
+    eligible = Path(paths.preflight_eligible())
+    eligible.parent.mkdir(parents=True, exist_ok=True)
+    eligible.write_text(json.dumps({"eligible_shots": [SHOT]}), encoding="utf-8")
+    Path(paths.preflight_excluded()).write_text(json.dumps({"excluded_shots": []}), encoding="utf-8")
+
+
+def test_a_stage_scope_narrows_rule_all(tmp_path):
+    """`stages: [raw, diagnostics, eddy]` asks for nothing of EFIT and after (#58).
+
+    Not even the constraint step, which refuses a vacuum shot by failing: a
+    scope that left it in would still fail every vacuum shot.
+    """
+    _preflight_done(tmp_path)
+
+    result = _dry_run(tmp_path, extra=["--config", "stages=[raw,diagnostics,eddy]"])
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    for rule in ("generate_diagnostics_ods", "generate_eddy_ods",
+                 "replicate_diagnostics_to_hsds", "replicate_eddy_to_hsds", "plot_eddy"):
+        assert rule in result.stdout, rule
+    for rule in ("generate_constraints_ods", "generate_kfile", "run_efit_reconstruction",
+                 "replicate_efit_to_hsds", "run_chease", "plot_mhd_linear", "build_gpec_ideal"):
+        assert rule not in result.stdout, rule
+
+
+def test_a_stability_scope_runs_only_its_own_gpec_cells(tmp_path):
+    """`mhd_linear` without `gpec_ideal` must not run the ideal-GPEC solver (cold review)."""
+    _preflight_done(tmp_path)
+
+    result = _dry_run(tmp_path, extra=["-p", "--config",
+                                       "stages=[raw,diagnostics,eddy,efit,chease,mhd_linear]"])
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "plot_mhd_linear" in result.stdout
+    assert "build_gpec_ideal" not in result.stdout
+    assert "product=ideal-gpec" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("stages", "message"),
+    [("[raw,diagnostic]", "Unknown stage"), ("[raw,diagnostics,efit]", "but not 'eddy'")],
+)
+def test_a_stage_scope_that_cannot_be_run_fails_before_any_job(tmp_path, stages, message):
+    result = _dry_run(tmp_path, extra=["--config", f"stages={stages}"])
+    assert result.returncode != 0
+    assert message in result.stdout + result.stderr
+
+
+def _shell_args(stdout: str, flag: str) -> set[str]:
+    import re
+
+    return set(re.findall(re.escape(flag) + r" +(\S*)", " ".join(stdout.split())))
+
+
+def test_a_run_directory_does_not_hide_the_workflow_config(tmp_path):
+    """#1530: `configfile: "config.yaml"` resolved against `--directory`.
+
+    A run launched with `--directory <run dir> --configfile <partial>` re-read
+    its own partial config and never loaded the workflow's, so EFIT ran with
+    `run=false`, `args 65`, and the eddy solve had no plasma filament. The
+    partial config here names neither section; the workflow defaults must win.
+    """
+    _preflight_done(tmp_path)
+
+    result = _dry_run(tmp_path, extra=["-p", "--config", "stages=[raw,diagnostics,eddy,efit]"])
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert _shell_args(result.stdout, "--filament-r") == {'"0.35,0.35,0.35"'}
+    assert _shell_args(result.stdout, "--filament-z") == {'"0.25,0.0,-0.25"'}
+    assert "true" in _shell_args(result.stdout, "--run")
+    assert "false" not in _shell_args(result.stdout, "--run")
+    assert _shell_args(result.stdout, "--args") == {'"129"'}
+    assert _shell_args(result.stdout, "--detect-broken") == {"true"}
+
+
+def test_the_run_config_still_overrides_the_workflow_config(tmp_path):
+    """The run's `--configfile` is merged over the workflow's, not under it.
+
+    The run config switches EFIT off and that reaches the rules, while the EFIT
+    keys it leaves out (`args 129`) still come from the workflow: a deep merge,
+    not a replacement -- before #1530 they fell back to code defaults (`65`).
+    """
+    _preflight_done(tmp_path)
+
+    result = _dry_run(
+        tmp_path,
+        extra=["-p", "--config", "stages=[raw,diagnostics,eddy,efit]"],
+        config_overrides={"efit": {"run": False}},
+    )
+
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "replicate_eddy_to_hsds" in result.stdout
+    run_flags = _shell_args(result.stdout, "--run")
+    assert "false" in run_flags and "true" not in run_flags
+    assert _shell_args(result.stdout, "--args") == {'"129"'}
+
+
+@pytest.mark.parametrize("missing", ["base_dir", "shots"])
+def test_a_run_config_must_say_where_and_which_shots(tmp_path, missing):
+    """Loading the workflow defaults must not turn a forgotten base_dir into a production write."""
+    payload = json.loads(_config(tmp_path).read_text(encoding="utf-8"))
+    payload.pop(missing)
+    partial = tmp_path / "partial.yaml"
+    partial.write_text(json.dumps(payload), encoding="utf-8")
+    env = dict(os.environ)
+    for name in ("VAFT_FILEDB_DIR", "VAFT_DATA_DIR", "EFIT", "CHEASE", "GPECHOME"):
+        env.setdefault(name, str(tmp_path / name.lower()))
+    result = subprocess.run(
+        [sys.executable, "-m", "snakemake", "--snakefile", str(WORKFLOW / "Snakefile"),
+         "--configfile", str(partial), "--directory", str(tmp_path), "--cores", "1", "-n"],
+        capture_output=True, text=True, env=env, cwd=WORKFLOW,
+    )
+    assert result.returncode != 0
+    assert f"does not set {missing}" in result.stdout + result.stderr
 
 
 # --------------------------------------------------------------------------- #

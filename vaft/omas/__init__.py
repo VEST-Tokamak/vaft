@@ -8,9 +8,13 @@ from .formula_wrapper import *
 from .update import *
 from .sample import *
 from .startup_summary import NULL_FIELD_THRESHOLD_T, startup_summary
+from .edge_q import EdgeQEstimate, edge_q_estimate
 from .fluctuation import (
+    DiagnosticSelection,
+    SelectedDiagnostics,
     VerticalPositionHistory,
     fluctuation_bandwidths,
+    select_fluctuation_records,
     vertical_position_history,
 )
 from . import formula_wrapper as _formula_wrapper
@@ -142,6 +146,7 @@ def _is_plotting_export(name: str) -> bool:
         name.startswith(("plot_", "dd_", "extract_"))
         or name in {
             "available_plots",
+            "compose",
             "disable_overlay_methods",
             "disable_plot_methods",
             "enable_overlay_methods",
@@ -298,8 +303,13 @@ __all__ = [
     *_sample.__all__,
     "NULL_FIELD_THRESHOLD_T",
     "startup_summary",
+    "EdgeQEstimate",
+    "edge_q_estimate",
     "VerticalPositionHistory",
     "fluctuation_bandwidths",
+    "DiagnosticSelection",
+    "SelectedDiagnostics",
+    "select_fluctuation_records",
     "vertical_position_history",
     "load_omas_json",
     "load",

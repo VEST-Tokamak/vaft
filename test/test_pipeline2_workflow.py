@@ -125,3 +125,29 @@ def test_the_lineage_is_checked_against_the_registry():
     corrective = set(replicable_stages(produced_by="corrective"))
     lineage = {"thomson", "ces", "core_profiles", "electron_efit", "kinetic_efit"}
     assert lineage <= corrective, sorted(lineage - corrective)
+
+
+def test_pipeline2_loads_its_own_config_under_a_run_directory(tmp_path):
+    """#1530 for pipeline 2: a run config without `hsds` keeps the workflow's.
+
+    The run directory's config omits the `hsds` section; the workflow default
+    (`replicate: false`) must apply, so no replication rule is scheduled -- and a
+    `base_dir`-less run config is refused rather than defaulting to the
+    production FileDB.
+    """
+    config = tmp_path / "config.yaml"
+    config.write_text(json.dumps({
+        "base_dir": str(tmp_path / "filedb"), "layout": "filedb", "shots": [48226],
+        "external": {"data_root": str(tmp_path / "incoming"), "ces_options": "ids"},
+        "kinetic": {"encoding": "raw6", "executable": ""}, "conda": None,
+    }), encoding="utf-8")
+    base = [sys.executable, "-m", "snakemake", "--snakefile", str(WORKFLOW / "Snakefile"),
+            "--directory", str(tmp_path), "--cores", "1", "-n"]
+    result = subprocess.run(base + ["--configfile", str(config)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "replicate_" not in result.stdout
+
+    no_base = tmp_path / "no-base.yaml"
+    no_base.write_text(json.dumps({"layout": "filedb", "shots": [48226], "conda": None}), encoding="utf-8")
+    refused = subprocess.run(base + ["--configfile", str(no_base)], capture_output=True, text=True)
+    assert refused.returncode != 0 and "does not set base_dir" in refused.stdout + refused.stderr
