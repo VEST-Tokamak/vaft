@@ -24,7 +24,7 @@ _FIELDS = (
     ("T_i", "Ion temperature", "eV", "t_i", "temperature", None),
     ("V_phi", "Toroidal velocity", "m/s", "velocity_tor", "velocity.toroidal", None),
 )
-_NOTICE = "Cross-shot composite — not a physical VEST discharge"
+from vaft.plot.machine_geometry import CROSS_SHOT_NOTICE as _NOTICE
 
 
 def _scalar(value) -> float | None:

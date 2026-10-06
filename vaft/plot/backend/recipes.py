@@ -7345,8 +7345,8 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
     )
     geometry_manifest = options.get("geometry_manifest")
     if ("machine_geometry" in overlays or any(name in MACHINE_GEOMETRY_FAMILIES for name in overlays)) and geometry_manifest and geometry_manifest.get("kind") == "cross-shot-diagnostic-fixture":
-        reference = geometry_manifest["geometry_reference"]["source_shot"]
-        title += f"\nCross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
+        from vaft.plot.machine_geometry import cross_shot_notice
+        title += "\n" + cross_shot_notice(geometry_manifest["geometry_reference"]["source_shot"])
     return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
 
 

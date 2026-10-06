@@ -232,19 +232,24 @@ def _mark_cross_shot(name: str, model: Any, entries: Sequence[tuple[str, Any]]) 
     field = "suptitle" if isinstance(model, Panels) else "title"
     if not hasattr(model, field):
         return model
+    from vaft.plot.machine_geometry import CROSS_SHOT_NOTICE, cross_shot_notice
+
     title = getattr(model, field)
-    notice = "Cross-shot composite — not a physical VEST discharge"
-    if notice in title:
-        return model
     if name == "machine_geometry_poloidal":
-        context = "Other-shot diagnostic coordinates projected onto geometry reference shot 39915"
+        # The shared machine view (machine_geometry_view) already writes this
+        # two-line notice into its title; a recipe that bypassed it gets the
+        # same wording here, and one that carried it is left alone.
+        wanted = cross_shot_notice(39915)
     elif name.startswith("equilibrium_"):
-        context = "Equilibrium: source shot 48224, PF era 2507; fixture machine geometry reference: shot 39915"
+        wanted = (f"{CROSS_SHOT_NOTICE}\nEquilibrium: source shot 48224, PF era 2507; "
+                  "fixture machine geometry reference: shot 39915")
     else:
-        context = "Fixture machine geometry reference: shot 39915; source IDS retains its own coordinates"
-    return replace(model, **{field: (
-        f"{title}\n{notice}\n{context}"
-    )})
+        wanted = (f"{CROSS_SHOT_NOTICE}\nFixture machine geometry reference: shot 39915; "
+                  "source IDS retains its own coordinates")
+    missing = [line for line in wanted.split("\n") if line not in title]
+    if not missing:
+        return model
+    return replace(model, **{field: "\n".join([title, *missing])})
 
 
 def _render_interactive(
