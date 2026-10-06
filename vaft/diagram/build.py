@@ -60,6 +60,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"field_line_geometry_{g}.svg": ("field_line_geometry", {"geometry": g})
        for g in ("toroidal", "cylindrical", "slab")},
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
+    "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
     # tokamak geometry and flux coordinates
     **{f"tokamak_torus_{p}.svg": ("tokamak_torus", {"projection": p}) for p in ("3d", "poloidal")},
     **{f"flux_surfaces_{s}.svg": ("flux_surfaces", {"shape": s}) for s in ("circular", "shifted")},

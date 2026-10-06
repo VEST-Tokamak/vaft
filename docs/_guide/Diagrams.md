@@ -64,6 +64,46 @@ All three views are drawn from one model, and the convention is the same in each
 The top view suppresses $Z$, so crossings of the projected O and X loci there are not reconnection
 points. The separatrix and $w$ are only visible in the poloidal section.
 
+### Animating the island: a phase scan or a rigid rotation
+
+The same call draws the island over a trajectory of its phase when it is asked to with
+`animation=True` (issues #1049, #1053). It returns the animation result that
+`plot_*(..., animation=True)` returns. An array argument never animates by itself.
+
+<!-- docs-snippet: skip needs-file (writes island.mp4, which needs the video extra) -->
+```python
+import numpy as np
+import vaft
+
+# A helical-phase scan: one frame per phi_0, the same model as the static call.
+scan = vaft.diagram.magnetic_island(m=2, n=1, phase=np.linspace(0, 2 * np.pi, 120), animation=True, fps=30)
+scan.save("island.mp4")          # or .webm (both need vaft[video]) or .gif (needs nothing)
+
+# A rigid rotation at f = 5 kHz: phi_0(t) = phi_0 + 2*pi*f*(t - t_0), from phase= at the first time.
+rotation = vaft.diagram.magnetic_island(
+    m=2, n=1, time=np.linspace(0, 2e-3, 120), rotation_frequency=5e3, animation=True,
+)
+rotation.metadata["driver"]      # name "time", unit "s", and every frame's time
+```
+
+- **Exactly one trajectory.** A trajectory is either `phase` as an array (driver `phase` [rad]) or
+  `time` with `rotation_frequency` (driver `time` [s]).
+  - A phase array combined with `time` is refused, because it is ambiguous.
+  - So is a single phase with `animation=True`, which is a static diagram.
+- **Units and direction.** `rotation_frequency` is a frequency $f$ in Hz. The synthetic island of
+  #886 (`vaft.process.magnetic_island.IslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
+  rad/s. A positive $f$ moves the O-points towards $+\theta^*$ on a section. At fixed $\theta^*$, it
+  moves them towards $-\phi$, which is clockwise seen from above.
+- **Physics, not pictures.** Every state is the static diagram at that phase, with the same O/X
+  topology, width and shaping. The rotation is the phase relation evaluated at each time; the
+  drawing is never rotated as an image.
+- **Presentation only.** `fps` or `duration` set only how fast the frames are shown, never the
+  rotation rate. Each frame's phase or time is kept in `metadata` and in the `.json` sidecar of
+  `save()`.
+- **A preview of the canonical figure.** The frames are a Matplotlib drawing of each state's scene
+  (the template's colours and line styles, with labels through mathtext). The canonical static figure
+  remains the SVG above.
+
 ## Stability and operational-space diagrams
 
 Textbook 2-D charts: two axes, the boundaries that divide the plane, and one label per region. A
@@ -237,6 +277,7 @@ explains each representation.
 vaft.diagram.geometry_ordering_map()
 vaft.diagram.field_line_geometry(geometry="toroidal")   # "cylindrical", "slab"
 vaft.diagram.mode_number_mapping(m=2, n=1)
+vaft.diagram.mhd_mode_geometry_map()
 ```
 
 | Diagram | Concept |
@@ -244,6 +285,7 @@ vaft.diagram.mode_number_mapping(m=2, n=1)
 | `geometry_ordering_map` | Geometries are columns and orderings are bands. Each reduction arrow names what it keeps or drops |
 | `field_line_geometry` | The same $q$ field line on a torus and on the cylinder straightened at $R_0$, and the tilt of the sheared-slab field lines growing with $x$ |
 | `mode_number_mapping` | The cylinder's $k_\parallel(r)$ crosses zero at $q(r_s) = m/n$. The local slab of `local_slab_from_cylinder` is its tangent there |
+| `mhd_mode_geometry_map` | Pressure-driven, current-driven, resonant and $n = 0$ mode families in slab, cylinder and torus. Exact relabelling, limits, analogues and branches are drawn as four different arrows. The text is [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }}) |
 
 ## Tokamak geometry and flux coordinates
 
