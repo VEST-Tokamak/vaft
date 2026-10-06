@@ -227,6 +227,13 @@ def test_resolution_sign_agreement(full):
     flipped = dataclasses.replace(full, W_t_eigenvalue=-np.asarray(full.W_t_eigenvalue))
     assert validate_stability(dcon=full, dcon_check=full)["verification"]["dcon_resolution"]["status"] == PASS
     assert validate_stability(dcon=full, dcon_check=flipped)["verification"]["dcon_resolution"]["status"] == INDETERMINATE
+    # A check run at another n is not a resolution check (cold review 0.8.0 stability F2);
+    # it fails as _matching_resolution does, not pass by a coincidental sign.
+    other_n = dataclasses.replace(full, n_tor=2)
+    report = validate_stability(dcon=full, dcon_check=other_n)
+    assert report["verification"]["dcon_resolution"]["status"] == FAIL
+    assert report["verification"]["dcon_resolution"]["n_tor"] == [1, 2]
+    assert report["summary"]["dcon"] == FAIL
 
 
 def test_a_misassigned_surface_fails(rdcon):

@@ -49,9 +49,10 @@ Rules, not invented tolerances (#142):
   ``Q_AT_PSIEDGE_ATOL``. When the two ends of that bracket start the search
   at different entries and reach different verdicts, the status is
   ``indeterminate``, not ``fail``: the peak was placed, the count was not.
-* ``dcon_resolution``: the sign of W_t at two equilibrium resolutions. A
-  disagreement is ``indeterminate`` (the sign is not resolved), not a failure
-  of the run.
+* ``dcon_resolution``: the sign of W_t at two equilibrium resolutions of the
+  same n. A disagreement is ``indeterminate`` (the sign is not resolved), not
+  a failure of the run; a check run at a different n is ``fail``, as in
+  ``matching_resolution``, because it is not a resolution check at all.
 * ``matching_matrices``: Δ′ exists, is finite, and is msing × msing.
 * ``matching_surfaces``: each rational surface satisfies ``q_s = m/n``; ``fail``
   when ``|n q_s - m| > 1e-6`` (exactly 0 on 398 production RDCON/STRIDE runs),
@@ -120,7 +121,8 @@ STABILITY_CHECKS: dict[str, CheckSpec] = {
               "fail when the requested psiedge disagrees with the edge scan, or a truncated run is off the Re dW_edge peak; "
               "indeterminate when q(psiedge) is too close to a nominal scan point to place the search start"),
         _spec("verification.dcon_resolution", "", _PROVIDER_DCON,
-              "indeterminate when the sign of W_t differs between two resolutions; not_available without a check run"),
+              "indeterminate when the sign of W_t differs between two resolutions of the same n; "
+              "fail when the check run is a different n; not_available without a check run"),
         _spec("verification.matching_matrices", "", _PROVIDER_MATCHING,
               "fail unless Delta_prime exists, is finite and msing x msing"),
         _spec("verification.matching_surfaces", "", _PROVIDER_MATCHING,
@@ -337,6 +339,9 @@ def _dcon_edge(out: Any) -> dict[str, Any]:
 def _dcon_resolution(out: Any, check: Any) -> dict[str, Any]:
     if check is None:
         return _not_requested("no second-resolution run")
+    if int(check.n_tor) != int(out.n_tor):
+        return _result(ValidationStatus.FAIL, reason="check run is a different n",
+                       n_tor=[int(out.n_tor), int(check.n_tor)])
     a, b = out.total1, check.total1
     if not (_finite(a) and _finite(b)):
         return _result(ValidationStatus.NOT_AVAILABLE, reason="W_t missing in one run")
@@ -461,7 +466,8 @@ def validate_stability(
     are :class:`~vaft.code.gpec.Pest3MatchingOutput` (RDCON or STRIDE),
     likewise. Any may be None: its checks are then ``not_available`` and not
     requested, and the top-level status aggregates only the blocks given. A
-    DCON check run is the caller's to match (DconOutput records no n). The
+    check run must be the same case at another resolution: a different ``n_tor``
+    fails its resolution check (a different solver likewise, for matching). The
     report has the shape of :func:`vaft.validation.validate_equilibrium`'s::
 
         {"schema_version": 1, "status": ..., "summary": {"dcon": ..., "matching": ...},
