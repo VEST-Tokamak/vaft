@@ -138,6 +138,63 @@ def test_robust_iid_error_is_the_robust_estimators_own():
     assert robust.stderr_iid[1] < plain.stderr_iid[1]
 
 
+# --- #1621: principal directions and the engineering/dimensionless equivalence ----------
+
+
+def test_principal_directions_find_the_locked_combination():
+    from vaft.process.confinement import predictor_principal_directions
+
+    rng = np.random.default_rng(1621)
+    shots = np.repeat(np.arange(10), 6)
+    i_p = np.exp(rng.uniform(-1, 1, shots.size))
+    b_t = np.exp(rng.uniform(-1, 1, shots.size))
+    p = i_p * np.exp(rng.normal(0, 0.02, shots.size))  # P follows I_p almost exactly
+    out = predictor_principal_directions({"i_p": i_p, "b_t": b_t, "p": p}, groups=shots)
+    sv = out["singular_values"]
+    assert sv == sorted(sv, reverse=True) and sv[-1] / sv[0] < 0.05
+    weakest = np.asarray(out["directions"][-1])
+    # The barely varied combination is ln P - ln I_p, with B_T out of it.
+    assert abs(weakest[1]) < 0.05 and weakest[0] == pytest.approx(-weakest[2], abs=0.05)
+    assert out["effective_rank"] == 2 and {"between", "within"} <= set(out)
+    # The split is a decomposition of each direction's spread.
+    np.testing.assert_allclose(np.square(out["between"]["projected"]) + np.square(out["within"]["projected"]),
+                               np.square(sv), rtol=1e-10)
+    # Fewer rows than predictors: the unconstrained directions come back with zero singular value.
+    few = predictor_principal_directions({k: v[:3] for k, v in {"a": i_p, "b": b_t, "c": p, "d": i_p * b_t}.items()})
+    assert len(few["singular_values"]) == 4 and few["singular_values"][-1] == 0.0
+    with pytest.raises(ValueError, match="groups"):
+        predictor_principal_directions({"i_p": i_p, "b_t": b_t}, groups=shots[:5])
+    with pytest.raises(ValueError, match="does not vary"):
+        predictor_principal_directions({"i_p": i_p, "b_t": np.ones_like(i_p)})
+
+
+def _dimensionless_synthetic(n_rows=150, seed=0):
+    rng = np.random.default_rng(seed)
+    n, t, b, r, q = (np.exp(rng.uniform(-1, 1, n_rows)) for _ in range(5))
+    rho, beta, nu = t**0.5 / (b * r), n * t / b**2, n * r / t**2
+    omega_tau = rho**-2.7 * beta**-0.9 * nu**-0.01 * q**-3.0
+    tau = omega_tau / b
+    engineering = {"i_p": b * r / q, "b_t": b, "p_net": n * t * r**3 / tau, "n_e": n, "r": r}
+    return tau, engineering, omega_tau, {"rho": rho, "beta": beta, "nu": nu, "q": q}
+
+
+def test_engineering_and_direct_dimensionless_routes_agree_on_exact_data():
+    from vaft.process.confinement import dimensionless_confinement_indices, fit_confinement_scaling
+
+    tau, engineering, omega_tau, groups = _dimensionless_synthetic()
+    rows = np.arange(tau.size)
+    route_a = fit_confinement_scaling(tau, engineering, rows)
+    keys = ["i_p", "b_t", "p_net", "n_e"]
+    idx = [route_a.names.index(k) for k in keys]
+    mu_a = dimensionless_confinement_indices({k: route_a.exponents()[k] for k in keys},
+                                             np.asarray(route_a.cov)[np.ix_(idx, idx)])
+    route_b = fit_confinement_scaling(omega_tau, groups, rows).exponents()
+    np.testing.assert_allclose(mu_a["value"], [route_b[k] for k in ("rho", "beta", "nu", "q")], atol=1e-9)
+    np.testing.assert_allclose(mu_a["value"], [-2.7, -0.9, -0.01, -3.0], atol=1e-9)
+    # The completed size exponent equals the one the exact data carry.
+    assert mu_a["alpha_R"] == pytest.approx(route_a.exponents()["r"], abs=1e-9)
+
+
 
 # --- #1713: thermal vs global energy basis -------------------------------------------------
 
