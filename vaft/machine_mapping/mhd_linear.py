@@ -811,15 +811,19 @@ def _resistive_native_xml(result: Pest3MatchingOutput) -> str:
     :class:`~vaft.code.gpec.Pest3MatchingOutput`, which remains the authority
     for an exact round trip.
     """
+    # Read defensively: a result that carries no profiles or matrix (a caller's
+    # minimal stand-in, an older container) writes the fragment without them.
     parts = []
-    if result.psi_n is not None:
-        attrs = [f'psi_n="{_xml_numbers(result.psi_n)}"']
+    psi_n = getattr(result, "psi_n", None)
+    if psi_n is not None:
+        attrs = [f'psi_n="{_xml_numbers(psi_n)}"']
         for name in ("q", "di", "dr", "h", "ca1"):
-            values = getattr(result, name)
-            if values is not None and np.asarray(values).shape == np.asarray(result.psi_n).shape:
+            values = getattr(result, name, None)
+            if values is not None and np.asarray(values).shape == np.asarray(psi_n).shape:
                 attrs.append(f'{name}="{_xml_numbers(values)}"')
         parts.append("<local_profiles " + " ".join(attrs) + "/>")
-    matrix = None if result.Delta_prime is None else np.asarray(result.Delta_prime)
+    delta_prime = getattr(result, "Delta_prime", None)
+    matrix = None if delta_prime is None else np.asarray(delta_prime)
     if matrix is not None and matrix.ndim == 2 and matrix.shape[0] == matrix.shape[1]:
         parts.append(
             f'<delta_prime_matrix size="{matrix.shape[0]}" real="{_xml_numbers(matrix.real.ravel())}"'
