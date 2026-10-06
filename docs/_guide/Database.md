@@ -20,6 +20,121 @@ related:
 `vaft.database` is the I/O layer of VAFT. It has **two independent back-ends**, and knowing which one
 you are talking to explains almost every argument on this page:
 
+## Cross-shot parameter history
+
+Canonical summary tables include `shot` and `pulse_time_begin`, followed by
+the preset's quantities. The acquisition timestamp comes from
+`dataset_description.pulse_time_begin`; older shots may have no timestamp.
+
+```python
+import vaft
+
+df = vaft.database.summary((38000, 46000), preset="shot_overview")
+fig, ax = vaft.plot.plot_parameter_history(
+    df, y="max_ip_kA", secondary_x="date"
+)
+
+# Show elapsed calendar time geometrically, with shot labels above it.
+fig, ax = vaft.plot.plot_parameter_history(
+    df, y="max_ip_kA", x="date", secondary_x="shot"
+)
+```
+
+Shot number and acquisition time are different campaign coordinates. The
+secondary axis labels recorded observations; it does not assume a globally
+linear transformation between shot and date. Date-primary plots omit rows
+without acquisition timestamps. Summaries with several rows per shot retain
+every row; select the desired time slices in the DataFrame before plotting.
+
+## Transport summary hierarchy
+
+`equilibrium_global` and `core_profiles` describe their respective time
+slices. `neoclassical` summarizes bootstrap current from canonical
+`core_profiles`, one row per slice. Each row also carries the NEO `core_transport`
+slice that corresponds to it (#1655):
+
+- **Status column.** `transport_match_status` names the result.
+- **When the descriptors fill.** The flux descriptors (`q_e`/`q_i`/`gamma_e` point counts, finite `rho_tor_norm` coverage, |peak|, `transport_rho_grid_*`) are filled only when the status is `matched`.
+- **When a row is `matched`.** All of these must hold:
+  - exactly one `core_transport` model is neoclassical (identifier 5);
+  - exactly one of its slices lies within 1 us of the bootstrap slice's own time;
+  - both IDSs name NEO as producer, with the same revision when both record one.
+- **Failure statuses.** `bootstrap_time_unknown`, `no_neoclassical_model`, `ambiguous_models`, `no_slice_at_time`, `ambiguous_slices`, `producer_mismatch` and `no_flux_grid`.
+- **No fallbacks.** The first model and the nearest time are never chosen.
+- **Unmatched rows.** They keep their bootstrap columns.
+- **State identity.** The NEO mappers store no resolved-state identity in either IDS (only the stage manifest carries `state_sha256`), so the state is matched through time and producer.
+- **Missing versus zero.** Unmatched rows leave every flux descriptor missing (NaN), point counts included; a 0 count means a matched slice without that channel.
+- **Source.** The `source` column records the occurrence. The preset key stays `(shot, cp_index)`, as before, so an upsert of tables from two sources into one file still replaces by `(shot, cp_index)`. Keep one file per source, or pass `key_columns` with `source` to `export_summary`.
+
+`turbulent_transport` summarizes anomalous models already
+stored in canonical `core_transport`: one row per shot, model entry, and time
+slice. It reads no TGLF or CGYRO native output and does not combine models.
+
+```python
+transport = vaft.database.summary((39915, 39916), preset="turbulent_transport")
+transport[["shot", "time_s", "source", "model_index", "rho_grid_min",
+           "rho_grid_max", "q_e_peak_abs_W_m2", "q_i_peak_abs_W_m2"]]
+```
+
+The peak columns are maxima of the *absolute* mapped SI flux over finite
+`rho_tor_norm` grid points, not full radial profiles. `rho_grid_min/max`
+describe the stored grid; `rho_q_e_min/max`, `rho_q_i_min/max`, and
+`rho_gamma_e_min/max` describe the finite coverage of each reported flux
+channel. Each channel also has a point count. `q_i` sums all recorded ion species
+at each point only when every ion flux is present. `parameters_text_sha256`
+identifies exact stored `model.code.parameters` text, when present; it is not a
+configuration-equivalence key because the text can include state-specific
+provenance. `configuration_status=not_standardized` makes that limit explicit.
+The current TGLF mapper reuses its anomalous model slot and does not persist
+SAT/field settings there, so comparisons across settings need the upstream
+run record until that mapping contract is extended.
+`classical_transport` summarizes the classical (Braginskii) baseline of #1435
+once `vaft.machine_mapping.classical.core_transport_from_classical` has written it
+to `core_transport` (#1654). The data dictionary has no classical identifier, so
+the entry uses the private index `-1` with the name `classical`, and both are
+required. One entry holds one formulation and one EFIT lineage, and every time
+slice names its resolved `state_identity` in `code.parameters`. Rows therefore
+never mix states, lineages or formulations. The mapper refuses a write without a
+`state_identity`, and a second, different state at a time already written.
+`configuration_status` is `state_unrecorded` or `unrecorded` when the record is
+missing. The classical mapper marks `core_transport` heterogeneous
+(`homogeneous_time = 0`), because its slice indices are per entry; the NEO, TGLF
+and gyrokinetics mappers keep that 0, since each of their slices also carries its
+own time.
+
+What each source field means, and where it goes:
+
+| `classical_heat_fluxes` field | Meaning | `core_transport` leaf | Summary column |
+| --- | --- | --- | --- |
+| `electron_energy_flux_W_m2` | Perpendicular conductive heat flux of the stated model, `q = -kappa dT/dr`, positive down the gradient | `electrons.energy.flux` on `grid_flux` | `q_e_peak_abs_W_m2`, `q_e_points`, `rho_q_e_min/max` |
+| `ion_energy_flux_W_m2` (`z=<charge>`) | The same flux for the main ion only | `ion.0.energy.flux`, `ion.0.z_ion` | `q_i_peak_abs_W_m2`, `q_i_points`, `rho_q_i_min/max`, `main_ion_z` |
+| `chi_e_m2_s`, `chi_i_m2_s` | The model's diffusivity, with `q = n chi (-dT/dr)`: a coefficient, not a flux | `energy.d` on `grid_d` | `chi_e_max_m2_s`, `chi_i_max_m2_s` |
+| `electron_particle_flux_m2_s` (`None`) | Not evaluated by the model | not written | `particle_flux_status = not_evaluated` |
+| `tau_e_s`, `tau_i_s`, `coulomb_logarithm*`, `gamma1_perp`, `b_tesla` | Diagnostics of the evaluation | not written (no definitional home) | none |
+| `model` (`CLASSICAL_MODEL`) | Formulation text | `code.parameters` | `formulation_sha256` |
+
+Some quantities never appear at all:
+- **Reference scale.** The order-of-magnitude `nu rho^2` reference scale (#780/#1112) is not a product of #1435 and is never written or summarized.
+- **Undefined surfaces.** A surface below 10 eV, where the electron Coulomb logarithm is undefined, is dropped and named rather than filled.
+- **Missing versus zero.** Missing data shows as zero points and NaN peaks. A stored zero is a physical zero.
+
+Example from the packaged 48224 sample (magnetics state at 0.300 s, r/a 0.3–0.8):
+
+```text
+rho_tor_norm          0.259   0.346   0.433   0.522   0.614   0.711
+electrons.energy.flux -42.1   -25.7    -7.5     3.4     5.7     3.4   W/m^2
+ion.0.energy.flux     181.5    97.5    12.9   -17.6    -7.6     3.1   W/m^2
+electrons.energy.d    0.080   0.065   0.050   0.037   0.025   0.016   m^2/s
+ion.0.energy.d        2.86    2.57    2.11    1.54    0.99    0.56    m^2/s
+summary row: q_e_peak_abs_W_m2 42.1, q_i_peak_abs_W_m2 181.5,
+             chi_e_max_m2_s 0.080, chi_i_max_m2_s 2.86, particle_flux_status not_evaluated
+```
+
+The negative inner electron flux is real: VEST's hollow `T_e` makes the inner
+gradient point outward, and the peak columns report magnitudes.
+`power_balance` likewise awaits the stored-energy and loss-power definitions
+tracked in issues #1282 and #548.
+
 | Back-end | Module | What a shot looks like | What you get back |
 | --- | --- | --- | --- |
 | **HSDS** — remote IMAS HDF5 store | `vaft.database.ods`, `vaft.database.ids`, `vaft.database.utils` | a *folder* `hdf5://{directory}/{shot}/` holding `master.h5` plus one `<ids_name>.h5` per IDS | an OMAS `ODS`, or a native IMAS `IDSToplevel` |

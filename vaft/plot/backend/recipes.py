@@ -851,7 +851,49 @@ DEFAULT_POLOIDAL_OVERLAYS = ("coils", "wall")
 
 #: What the composed machine view may draw.  It has no field of its own, so
 #: no boundary or axis; the diagnostics it places are one name.
-MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
+MACHINE_DIAGNOSTICS = (
+    "magnetics", "thomson_scattering", "charge_exchange", "soft_x_rays",
+    "interferometer", "langmuir_probes",
+)
+MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics", *MACHINE_DIAGNOSTICS,
+                    "coils_non_axisymmetric", "ec_launchers", "nbi")
+DEFAULT_MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
+
+
+def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
+                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
+    """Use one source registry for selected families in composed machine plots."""
+    from vaft.plot.machine_geometry import machine_geometry_view
+
+    chosen = options.get("geometry_families")
+    if chosen is not None:
+        families = (chosen,) if isinstance(chosen, str) else tuple(chosen)
+    geometry_data = options.get("geometry_data", ods)
+    manifest = options.get("geometry_manifest")
+    if geometry_data is not ods and manifest is None:
+        raise ValueError("separate geometry_data requires geometry_manifest provenance")
+    return machine_geometry_view(
+        geometry_data, view, families=families, manifest=manifest,
+        axis_length=float(options.get("axis_length", 0.25)),
+    )
+
+
+def _machine_view_title(base: str, shared: GeometryLayers | Geometry3DLayers) -> str:
+    return base + shared.title.removeprefix("Machine geometry")
+
+
+def _exclude_crossshot_equilibrium(ods: Any, options: Mapping[str, Any]) -> bool:
+    """Do not put a foreign-shot equilibrium in the fixture's machine context."""
+    manifest = options.get("geometry_manifest") or {}
+    if options.get("geometry_data", ods) is not ods:
+        return False
+    if manifest.get("kind") != "cross-shot-diagnostic-fixture":
+        comment = _get(ods, "dataset_description.ids_properties.comment")
+        return isinstance(comment, str) and "Cross-shot composite fixture" in comment
+    reference = manifest.get("geometry_reference", {}).get("source_shot")
+    sources = [source for source in manifest.get("sources", {}).values()
+               if "equilibrium" in source.get("ids", ())]
+    return len(sources) != 1 or sources[0].get("source_shot") != reference
 
 
 @dataclass(frozen=True)
@@ -1162,7 +1204,26 @@ def _topview_reads() -> tuple[str, ...]:
             reads += [f"{container}.{{i}}.position.{{j}}.r", f"{container}.{{i}}.position.{{j}}.phi"]
         else:
             reads += [f"{container}.{{i}}.position.r", f"{container}.{{i}}.position.phi"]
-    return tuple(reads)
+    # The shared machine-space registry reads these IDS paths for all views.
+    for container in ("thomson_scattering.channel", "charge_exchange.channel", "langmuir_probes.embedded"):
+        for suffix in ("position", "position.0"):
+            for coordinate in ("r", "z", "phi"):
+                reads += [f"{container}.{{i}}.{suffix}.{coordinate}",
+                          f"{container}.{{i}}.{suffix}.{coordinate}.data"]
+        reads.append(f"{container}.{{i}}.name")
+    for container in ("interferometer.channel", "soft_x_rays.channel"):
+        for endpoint in ("first_point", "second_point", "third_point"):
+            for coordinate in ("r", "z", "phi"):
+                reads.append(f"{container}.{{i}}.line_of_sight.{endpoint}.{coordinate}")
+        reads += [f"{container}.{{i}}.name", f"{container}.{{i}}.identifier"]
+    for coordinate in ("r", "z", "phi"):
+        reads += [f"ec_launchers.beam.{{i}}.launching_position.{coordinate}",
+                  f"ec_launchers.beam.{{i}}.launching_position.{coordinate}.data",
+                  f"nbi.unit.{{i}}.beamlets_group.{{j}}.position.{coordinate}"]
+    reads += ["ec_launchers.beam.{i}.steering_angle_pol", "ec_launchers.beam.{i}.steering_angle_tor",
+              "ec_launchers.beam.{i}.name", "nbi.unit.{i}.name",
+              "dataset_description.data_entry.machine", "dataset_description.data_entry.pulse"]
+    return tuple(dict.fromkeys(reads))
 
 
 #: The EFIT constraint families vaft.omas.efit_quality reads, per slice.
@@ -3321,9 +3382,10 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     input supports is drawn when the caller names nothing (issue #483).
     """
     names = (
-        MACHINE_OVERLAYS if options.get("overlay") is None
+        DEFAULT_MACHINE_OVERLAYS if options.get("overlay") is None
         else _overlay_option(options, MACHINE_OVERLAYS)
     )
+    names = tuple(dict.fromkeys((*names, *(MACHINE_DIAGNOSTICS if "diagnostics" in names else ()))))
     layers: list[GeometryLayer] = list(_wall_layers(ods)) if "wall" in names else []
     # Coils and passive structure are drawn as sets: the composed view names
     # the machine's parts, not 950 loops and 400 coil turns one by one.
@@ -3331,30 +3393,64 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
         layers.extend(_build_passive_structure_geometry(ods).layers)
     if "coils" in names and entry_supports(ods, "pf_coil_geometry_poloidal"):
         layers.extend(_build_pf_coil_geometry(ods, collective=True).layers)
-    for member in () if "diagnostics" not in names else (
-        "magnetics_geometry_poloidal",
-        "thomson_scattering_geometry_poloidal",
-        "charge_exchange_geometry_poloidal",
-    ):
-        if not entry_supports(ods, member):
-            continue
+    if "magnetics" in names and entry_supports(ods, "magnetics_geometry_poloidal"):
         layers.extend(_build_geometry(
-            ods, RECIPES[member], **{k: v for k, v in options.items() if k != "overlay"}
+            ods, RECIPES["magnetics_geometry_poloidal"],
+            **{k: v for k, v in options.items() if k != "overlay"},
         ).layers)
-    if "diagnostics" in names and entry_supports(ods, "soft_x_rays_geometry_lines_of_sight"):
-        layers.extend(
-            _build_lines_of_sight(
-                ods, label_channels=False, include_wall=False,
-                **{k: v for k, v in options.items() if k != "overlay"},
-            ).layers
-        )
+    from vaft.plot.machine_geometry import MACHINE_GEOMETRY_FAMILIES
+
+    selected = tuple(family for family in MACHINE_GEOMETRY_FAMILIES
+                     if family in names or (options.get("overlay") is None and
+                                            family in ("coils_non_axisymmetric", "ec_launchers", "nbi"))
+                     or (family == "coils_non_axisymmetric" and "coils" in names))
+    shared = _shared_machine_view(ods, "rz", options, selected)
+    layers.extend(shared.layers)
     if not layers:
         raise ValueError(
             "none of the poloidal machine geometry IDS (wall, pf_active, "
             "pf_passive, magnetics, thomson_scattering, charge_exchange, "
             "soft_x_rays) are present"
         )
-    return GeometryLayers(layers=tuple(layers), title="Machine Cross-section")
+    return GeometryLayers(layers=tuple(layers), title=_machine_view_title("Machine Cross-section", shared))
+
+
+def _interferometer_poloidal_layers(ods: Any) -> list[GeometryLayer]:
+    """Keep reflected three-point chords as paths, never local density points."""
+    return _shared_los_poloidal_layers(
+        ods, "interferometer", "Interferometer LOS",
+        {"color": palette(4), "linestyle": "--", "lw": 0.9},
+    )
+
+
+def _shared_los_poloidal_layers(
+    ods: Any, family: str, label: str, style: Mapping[str, Any]
+) -> list[GeometryLayer]:
+    """Project stored Cartesian LOS legs into R-Z, preserving reflections."""
+    from vaft.plot.machine_geometry import machine_geometry_registry, project_machine_geometry
+
+    layers = []
+    for record in machine_geometry_registry(ods, families=(family,)):
+        layer = project_machine_geometry(record, "rz")
+        if layer is not None:
+            layers.append(replace(layer, label=label if not layers else "", style=style))
+    return layers
+
+
+def _langmuir_poloidal_layers(ods: Any) -> list[GeometryLayer]:
+    """Draw only probes with explicit mapped R and Z locations."""
+    from vaft.plot.machine_geometry import machine_geometry_registry
+
+    points = [(float(record.r[0]), float(record.z[0]))
+              for record in machine_geometry_registry(ods, families=("langmuir_probes",))]
+    if not points:
+        return []
+    return [GeometryLayer(
+        r=np.asarray([point[0] for point in points]),
+        z=np.asarray([point[1] for point in points]),
+        kind="points", label="Triple Langmuir probes",
+        style={"color": palette(5), "marker": "^", "markersize": 5},
+    )]
 
 
 def _boundary_extent(ods: Any, time_slice: int) -> tuple[float, float] | None:
@@ -3406,8 +3502,15 @@ def _pellet_positions(ods: Any, time_slice: int) -> list[tuple[float, float]]:
         radius = _get(ods, f"{base}.r")
         if radius is None:
             continue
-        phi = _get(ods, f"{base}.phi", 0.0)
-        positions.append((float(radius), float(phi or 0.0)))
+        phi = _get(ods, f"{base}.phi")
+        if phi is None:
+            continue
+        try:
+            location = (float(radius), float(phi))
+        except (TypeError, ValueError):
+            continue
+        if np.isfinite(location).all():
+            positions.append(location)
     return positions
 
 
@@ -3425,18 +3528,8 @@ _TOPVIEW_DIAGNOSTICS: tuple[tuple[str, str, str, dict], ...] = (
      {"marker": "x", "markersize": 4, "color": palette(1)}),
     ("magnetics.b_field_tor_probe", "B-tor probes", "points",
      {"marker": "+", "markersize": 5, "color": palette(2)}),
-    ("thomson_scattering.channel", "Thomson scattering", "points",
-     {"marker": "o", "markersize": 3, "color": palette(3)}),
-    ("charge_exchange.channel", "Charge exchange", "points",
-     {"marker": "d", "markersize": 3, "color": palette(4)}),
-    ("langmuir_probes.embedded", "Langmuir probes", "points",
-     {"marker": "v", "markersize": 3, "color": palette(5)}),
     ("barometry.gauge", "Pressure gauges", "points",
      {"marker": "p", "markersize": 4, "color": palette(6)}),
-    ("interferometer.channel", "Interferometer", "segments",
-     {"color": palette(0), "lw": 0.8}),
-    ("soft_x_rays.channel", "Soft X-ray LOS", "segments",
-     {"color": palette(7), "lw": 0.6}),
     ("bolometer.channel", "Bolometer LOS", "segments",
      {"color": palette(8), "lw": 0.6}),
     ("spectrometer_uv.channel", "UV spectrometer LOS", "segments",
@@ -3512,54 +3605,36 @@ def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
             ys.append(position[0] * np.sin(position[1]))
         if xs:
             layers.append(GeometryLayer(r=xs, z=ys, kind="points", label=label, style=style))
+    from vaft.plot.machine_geometry import machine_geometry_registry, project_machine_geometry
+
+    shared = machine_geometry_registry(ods, families=(
+        "thomson_scattering", "charge_exchange", "langmuir_probes",
+        "interferometer", "soft_x_rays",
+    ))
+    seen: set[str] = set()
+    labels = {"thomson_scattering": "Thomson scattering", "charge_exchange": "Charge exchange",
+              "langmuir_probes": "Langmuir probes", "interferometer": "Interferometer",
+              "soft_x_rays": "Soft X-ray LOS"}
+    for record in shared:
+        layer = project_machine_geometry(record, "top")
+        if layer is None:
+            continue
+        name = record.family
+        layers.append(replace(layer, label=labels[name] if name not in seen else ""))
+        seen.add(name)
     return layers
 
 
-def _first_finite(value: Any) -> float | None:
-    """The first finite sample of a scalar or a time trace, else ``None``.
-
-    EC launching positions are time traces in the DD (antenna positions are
-    read through their ``.data``); a fixed launcher repeats one value, and the
-    top view draws where it sits.
-    """
+def _static_topview_scalar(value: Any) -> float | None:
+    """A finite static coordinate; changing traces need an explicit time."""
     if value is None:
         return None
     samples = np.asarray(value, dtype=float).reshape(-1)
-    samples = samples[np.isfinite(samples)]
-    return float(samples[0]) if samples.size else None
-
-
-#: Length of the drawn initial EC launch direction [m].
-_EC_RAY_LENGTH = 0.25
-
-
-def _ec_launch_ray_topview(ods: Any, index: int, radius: float, phi: float) -> GeometryLayer | None:
-    """The initial straight launch direction of EC beam ``index`` in the top view.
-
-    The wave vector follows the DD 3.41 steering definitions
-    ``angle_pol = atan2(-k_Z, -k_R)`` and ``angle_tor = arcsin(k_phi/k)``.
-    """
-    base = f"ec_launchers.beam.{index}"
-    angle_pol = _first_finite(_get(ods, f"{base}.steering_angle_pol"))
-    angle_tor = _first_finite(_get(ods, f"{base}.steering_angle_tor"))
-    if angle_pol is None or angle_tor is None:
-        return None
-    k_r = -np.cos(angle_pol) * np.cos(angle_tor)
-    k_phi = np.sin(angle_tor)
-    x0, y0 = radius * np.cos(phi), radius * np.sin(phi)
-    dx = k_r * np.cos(phi) - k_phi * np.sin(phi)
-    dy = k_r * np.sin(phi) + k_phi * np.cos(phi)
-    return GeometryLayer(
-        r=[x0, x0 + _EC_RAY_LENGTH * dx],
-        z=[y0, y0 + _EC_RAY_LENGTH * dy],
-        kind="polyline",
-        label=f"EC launch direction {index}",
-        style={"lw": 1.2, "linestyle": "--"},
-    )
+    return float(samples[0]) if samples.size and np.isfinite(samples).all() and np.all(samples == samples[0]) else None
 
 
 def _build_machine_topview(
-    ods: Any, *, time_slice: int = 0, **_: Any
+    ods: Any, *, time_slice: int = 0, **options: Any
 ) -> GeometryLayers:
     """Compose the machine and plasma extent with launcher and pellet geometry."""
     layers: list[GeometryLayer] = []
@@ -3579,48 +3654,32 @@ def _build_machine_topview(
                     style={"color": "feature:wall", "lw": 1.0},
                 )
             )
-    if _has(ods, "equilibrium"):
+    if _has(ods, "equilibrium") and not _exclude_crossshot_equilibrium(ods, options):
         try:
             layers.extend(_build_equilibrium_topview(ods, time_slice=time_slice).layers)
         except ValueError:
             pass
-    for container, r_path, label, style in (
-        (
-            "lh_antennas.antenna",
-            # DD 3.41 stores antenna positions as signals (`.data` + `.time`).
-            "lh_antennas.antenna.{i}.position.r.data",
-            "LH antenna",
-            {"marker": "s"},
-        ),
-        (
-            "ec_launchers.beam",
-            "ec_launchers.beam.{i}.launching_position.r",
-            "EC launcher",
-            {"marker": "^"},
-        ),
-    ):
-        for index in range(_count(ods, container)):
-            radius = _first_finite(_get(ods, r_path.format(i=index)))
-            stored_phi = _get(ods, r_path.format(i=index).replace(".r", ".phi"))
-            # No phi at all keeps the old 12 o'clock default; a phi that is
-            # stored but never finite is unknown, and nothing is drawn.
-            phi = 0.0 if stored_phi is None else _first_finite(stored_phi)
-            if radius is None or phi is None:
-                continue
-            layers.append(
-                GeometryLayer(
-                    r=[radius * np.cos(phi)],
-                    z=[radius * np.sin(phi)],
-                    kind="points",
-                    label=f"{label} {index}",
-                    style=style,
-                )
-            )
-            if container == "ec_launchers.beam":
-                ray = _ec_launch_ray_topview(ods, index, radius, phi)
-                if ray is not None:
-                    layers.append(ray)
-    layers.extend(_topview_diagnostic_layers(ods))
+    # DD 3.41 stores LH positions as signals. A changing location needs a
+    # selected time, so the timeless top view accepts only constant traces.
+    for index in range(_count(ods, "lh_antennas.antenna")):
+        base = f"lh_antennas.antenna.{index}.position"
+        radius = _static_topview_scalar(_get(ods, f"{base}.r.data"))
+        phi = _static_topview_scalar(_get(ods, f"{base}.phi.data"))
+        if radius is not None and phi is not None:
+            layers.append(GeometryLayer(
+                r=[radius * np.cos(phi)], z=[radius * np.sin(phi)],
+                kind="points", label=f"LH antenna {index}", style={"marker": "s"},
+            ))
+    configured = any(options.get(key) is not None for key in
+                     ("geometry_data", "geometry_manifest", "geometry_families"))
+    if not configured:
+        layers.extend(_topview_diagnostic_layers(ods))
+    families = ("ec_launchers", "nbi", "coils_non_axisymmetric") if not configured else (
+        "thomson_scattering", "charge_exchange", "langmuir_probes",
+        "interferometer", "soft_x_rays", "coils_non_axisymmetric", "ec_launchers", "nbi",
+    )
+    shared = _shared_machine_view(ods, "top", options, families)
+    layers.extend(shared.layers)
     for index, (radius, phi) in enumerate(_pellet_positions(ods, time_slice)):
         layers.append(
             GeometryLayer(
@@ -3641,7 +3700,7 @@ def _build_machine_topview(
         layers=tuple(layers),
         x_label="x [m]",
         y_label="y [m]",
-        title="Machine Top View",
+        title=_machine_view_title("Machine Top View", shared),
     )
 
 
@@ -4751,10 +4810,25 @@ def _diagnostic_layers_3d(ods: Any) -> list[Geometry3DLayer]:
             layers.append(Geometry3DLayer(
                 x=x, y=y, z=height, kind="points", label=label, style=style, group=group,
             ))
+    from vaft.plot.machine_geometry import machine_geometry_registry, project_machine_geometry
+
+    shared = machine_geometry_registry(ods, families=(
+        "thomson_scattering", "charge_exchange", "langmuir_probes",
+        "interferometer", "soft_x_rays",
+    ))
+    seen: set[str] = set()
+    for index, record in enumerate(shared):
+        layer = project_machine_geometry(record, "3d")
+        if layer is None:
+            continue
+        name = record.family
+        layers.append(replace(layer, label=f"{name} [{record.semantic}]" if name not in seen else "",
+                              group=f"diagnostics/{name}/{index}"))
+        seen.add(name)
     return layers
 
 
-def _build_machine_3d(ods: Any, *, time_slice: int = 0, **_: Any) -> Geometry3DLayers:
+def _build_machine_3d(ods: Any, *, time_slice: int = 0, **options: Any) -> Geometry3DLayers:
     """Compose the machine in 3-D: wall and plasma cuts, coils, diagnostics.
 
     Axisymmetric parts are a wireframe -- the poloidal outline at four
@@ -4788,7 +4862,9 @@ def _build_machine_3d(ods: Any, *, time_slice: int = 0, **_: Any) -> Geometry3DL
                 group=f"machine/pf_active/{str(name).replace('/', '-')}/{part}",
             ))
             labelled_pf = True
-    if _count(ods, "coils_non_axisymmetric.coil"):
+    configured = any(options.get(key) is not None for key in
+                     ("geometry_data", "geometry_manifest", "geometry_families"))
+    if not configured and _count(ods, "coils_non_axisymmetric.coil"):
         # The composed scene is drawable without the coils, but a coil set
         # the dedicated coil_3d_geometry3d view refuses must not vanish from
         # it silently: the exported scene would simply lack them.
@@ -4801,20 +4877,29 @@ def _build_machine_3d(ods: Any, *, time_slice: int = 0, **_: Any) -> Geometry3DL
             )
         else:
             layers.extend(replace(layer, group=f"machine/{layer.group}") for layer in coils.layers)
-    boundary_r = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
-    boundary_z = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
+    boundary_r = None if _exclude_crossshot_equilibrium(ods, options) else _array(
+        ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
+    boundary_z = None if _exclude_crossshot_equilibrium(ods, options) else _array(
+        ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z")
     if boundary_r is not None and boundary_z is not None and boundary_r.size == boundary_z.size > 2:
         layers.extend(_outline_cuts_3d(
             boundary_r, boundary_z, label="Plasma boundary", group="equilibrium/boundary",
             style={"color": "feature:boundary", "lw": 1.0, "linestyle": "--"},
         ))
-    layers.extend(_diagnostic_layers_3d(ods))
+    if not configured:
+        layers.extend(_diagnostic_layers_3d(ods))
+    families = ("ec_launchers", "nbi") if not configured else (
+        "thomson_scattering", "charge_exchange", "langmuir_probes",
+        "interferometer", "soft_x_rays", "coils_non_axisymmetric", "ec_launchers", "nbi",
+    )
+    shared = _shared_machine_view(ods, "3d", options, families)
+    layers.extend(shared.layers)
     if not layers:
         raise ValueError(
             "none of the machine geometry IDS (wall, pf_active, coils_non_axisymmetric, "
             "equilibrium boundary, diagnostics with r/phi/z) are present"
         )
-    return Geometry3DLayers(layers=tuple(layers), title="Machine Geometry (3D)")
+    return Geometry3DLayers(layers=tuple(layers), title=_machine_view_title("Machine Geometry (3D)", shared))
 
 
 def _machine_3d_reads() -> tuple[str, ...]:
@@ -5376,7 +5461,7 @@ RECIPES["neoclassical_profile_bootstrap_current"] = CallableRecipe(
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
     description="Wall, coils, passive structure and diagnostic positions composed.",
-    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *RECIPES["soft_x_rays_geometry_lines_of_sight"].reads),
+    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, *_COIL_3D_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *_topview_reads()),
     backend=NEUTRAL,
 )
 RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
@@ -5388,7 +5473,7 @@ RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
 RECIPES["machine_geometry_topview"] = CallableRecipe(
     builder=_build_machine_topview,
     description="Plasma extent plus launcher and antenna positions in the top view.",
-    reads=(*_WALL_LIMITER_READS, *_WALL_VESSEL_READS, "equilibrium.time_slice.{i}.boundary.outline.r", "lh_antennas.antenna.{i}.position.r.data", "lh_antennas.antenna.{i}.position.phi.data", "ec_launchers.beam.{i}.launching_position.r", "ec_launchers.beam.{i}.launching_position.phi", "ec_launchers.beam.{i}.steering_angle_pol", "ec_launchers.beam.{i}.steering_angle_tor", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.phi", *_topview_reads()),
+    reads=(*_WALL_LIMITER_READS, *_WALL_VESSEL_READS, *_COIL_3D_READS, "equilibrium.time_slice.{i}.boundary.outline.r", "lh_antennas.antenna.{i}.position.r.data", "lh_antennas.antenna.{i}.position.phi.data", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.r", "pellets.time_slice.{i}.pellet.{j}.path_geometry.first_point.phi", *_topview_reads()),
     backend=NEUTRAL,
 )
 RECIPES["equilibrium_field_psi_vacuum"] = CallableRecipe(
@@ -5775,6 +5860,152 @@ RECIPES["summary_time_resistive_zeff"] = CallableRecipe(
 )
 
 
+# ---------------------------------------------------------------------------
+# Romero's voltage and volt-second balance (#781, #1590)
+#
+# compute_romero_flux_balance_ods evaluates every term; this view draws them.
+# The plasma resistance is an upstream estimate with its own provenance
+# (#781), so none is assumed: without plasma_resistance= the view draws the
+# terms that do not depend on it and the resistive part the balance
+# *implies*, V_B - V_I, labelled as such and never as an independent V_R.
+# ---------------------------------------------------------------------------
+
+
+def _romero_resistance(value: Any, n: int) -> np.ndarray | None:
+    """``plasma_resistance=`` as one value per slice [Ohm], or ``None`` when not given."""
+    if value is None:
+        return None
+    if isinstance(value, (bool, str)) or (isinstance(value, np.ndarray) and value.dtype.kind in "bUS"):
+        raise ValueError(f"plasma_resistance must be a number (or one per selected slice) in ohm; got {value!r}")
+    try:
+        r_p = np.broadcast_to(np.asarray(value, dtype=float), (n,)).copy()
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"plasma_resistance must be one value or one per selected slice ({n}) in ohm; got {value!r}"
+        ) from None
+    if not np.all(np.isfinite(r_p)) or np.any(r_p < 0.0):
+        raise ValueError("plasma_resistance must be finite and non-negative")
+    return r_p
+
+
+def _build_romero_balance(ods: Any, **options: Any) -> Panels:
+    """Romero's voltages, volt-seconds, internal inductance and closing resistance (#1590).
+
+    ``V_B``, ``V_C``, ``V_I``, ``L_i``, ``Phi_B``, ``Phi_B_direct`` and
+    ``Phi_I`` do not depend on the plasma resistance and are always drawn.
+    With ``plasma_resistance=`` the view adds ``V_R = R_p (I_p - I_ni)``, the
+    balance residual, ``Phi_R`` and ``Phi_closure``; without it, the
+    resistive voltage and volt-seconds the balance implies (``V_B - V_I``,
+    ``Phi_B - Phi_I``), which close it by construction.
+    """
+    from vaft.omas.process_wrapper import compute_romero_flux_balance_ods
+    from vaft.omas.resistive_zeff import current_carrying_window
+
+    asked = _range_option(options, "time_range")
+    window = asked
+    try:
+        if window is None:
+            window = current_carrying_window(ods)
+        raw_ni = options.get("non_inductive_current")
+        try:
+            if isinstance(raw_ni, (bool, str)):
+                raise TypeError
+            i_ni = 0.0 if raw_ni is None else float(raw_ni)
+        except (TypeError, ValueError):
+            raise ValueError(f"non_inductive_current must be a number in ampere; got {raw_ni!r}") from None
+        if not np.isfinite(i_ni):
+            raise ValueError(f"non_inductive_current must be finite; got {raw_ni!r}")
+        # R_p only enters V_R and what is built from it; those are taken from
+        # a second call with the caller's R_p, never from this zero.
+        out = compute_romero_flux_balance_ods(ods, R_p=0.0, I_ni=i_ni, time_range=window)
+    except (KeyError, IndexError) as exc:
+        raise ValueError(f"Romero's balance needs a multi-slice equilibrium: {exc}") from exc
+    t = np.asarray(out["time"], dtype=float)
+    if i_ni != 0.0:
+        # I_ni is signed like the stored I_p; a magnitude passed on a
+        # negative-current shot would enlarge |I_p - I_ni| instead of reducing it.
+        ip = np.asarray([_get(ods, f"equilibrium.time_slice.{int(i)}.global_quantities.ip")
+                         for i in out["time_index"]], dtype=float)
+        if np.any(np.sign(ip) != np.sign(i_ni)) or abs(i_ni) >= np.min(np.abs(ip)):
+            raise ValueError(
+                f"non_inductive_current={i_ni:g} A must carry the sign of I_p and stay below |I_p| "
+                f"in the window ({np.min(np.abs(ip)):.4g}-{np.max(np.abs(ip)):.4g} A, sign {np.sign(ip[0]):+g})"
+            )
+    r_p = _romero_resistance(options.get("plasma_resistance"), t.size)
+    given = None
+    if r_p is not None:
+        given = compute_romero_flux_balance_ods(ods, R_p=r_p, I_ni=i_ni, time_range=window)
+
+    voltages = [
+        Series(x=t, y=out["V_B"], label="V_B = -dpsi_B/dt (boundary)", style={"color": palette(0), "lw": 1.8}),
+        Series(x=t, y=out["V_I"], label="V_I (internal inductive)", style={"color": palette(1)}),
+        Series(x=t, y=out["V_C"], label="V_C = -d(psi_B + L_i I_p)/dt", style={"color": palette(2), "linestyle": "--"}),
+    ]
+    flux = [
+        Series(x=t, y=out["Phi_B"], label="Phi_B = int V_B dt", style={"color": palette(0), "lw": 1.8}),
+        Series(x=t, y=out["Phi_B_direct"], label="-(psi_B - psi_B(t0)) direct",
+               style={"color": palette(0), "linestyle": "none", "marker": "o", "markersize": 4}),
+        Series(x=t, y=out["Phi_I"], label="Phi_I", style={"color": palette(1)}),
+    ]
+    if given is None:
+        voltages.append(Series(x=t, y=out["V_B"] - out["V_I"], label="V_B - V_I (implied resistive)",
+                               style={"color": palette(3), "linestyle": ":"}))
+        flux.append(Series(x=t, y=out["Phi_B"] - out["Phi_I"], label="Phi_B - Phi_I (implied resistive)",
+                           style={"color": palette(3), "linestyle": ":"}))
+    else:
+        voltages += [
+            Series(x=t, y=given["V_R"], label="V_R = R_p (I_p - I_ni)", style={"color": palette(3)}),
+            Series(x=t, y=given["balance_residual"], label="residual V_B - V_R - V_I",
+                   style={"color": "emphasis:alert", "linestyle": ":"}),
+        ]
+        flux += [
+            Series(x=t, y=given["Phi_R"], label="Phi_R", style={"color": palette(3)}),
+            Series(x=t, y=given["Phi_closure"], label="closure Phi_B - Phi_R - Phi_I",
+                   style={"color": "emphasis:alert", "linestyle": ":"}),
+        ]
+    micro = 1e6
+    resistance = [Series(x=t, y=out["R_closing"] * micro, label="R_closing = (V_B - V_I)/(I_p - I_ni)",
+                         style={"color": palette(3), "marker": "o", "linestyle": "none"})]
+    if r_p is not None:
+        resistance.append(Series(x=t, y=r_p * micro, label="R_p given", style={"color": "role:reference"}))
+    assumption = ("I_ni = 0 (purely Ohmic, assumed)" if raw_ni is None
+                  else f"I_ni = {i_ni:g} A (given)")
+    # A caller's window is the axis, as on every windowed time history; the
+    # default (current-carrying) window is just where the slices are.
+    limits = None if asked is None else (float(asked[0]), float(asked[1]))
+    panels = Panels(
+        models=(
+            LineSeries(series=tuple(voltages), x_label="Time", x_unit="s", y_label="Voltage", y_unit="V",
+                       title="no R_p given: the resistive part is implied, not measured" if r_p is None
+                       else "R_p given by the caller"),
+            LineSeries(series=tuple(flux), x_label="Time", x_unit="s", y_label="Volt-seconds", y_unit="Wb"),
+            LineSeries(series=(Series(x=t, y=out["L_i"] * micro, label="L_i = mu0 R0 li_3 / 2",
+                                      style={"color": palette(0)}),),
+                       x_label="Time", x_unit="s", y_label="L_i", y_unit="uH",
+                       title=f"R0 = {out['R0']:.3f} m"),
+            LineSeries(series=tuple(resistance), x_label="Time", x_unit="s", y_label="Plasma resistance",
+                       y_unit="uOhm"),
+        ),
+        ncols=1, share_x=True,
+        suptitle=f"Romero voltage and volt-second balance, {assumption}",
+    )
+    if limits is None:
+        return panels
+    return replace(panels, models=tuple(replace(panel, x_limits=limits) for panel in panels.models))
+
+
+RECIPES["summary_time_romero_balance"] = CallableRecipe(
+    builder=_build_romero_balance,
+    description="Romero's boundary, inductive and resistive voltages and volt-seconds (#781, #1590).",
+    reads=(*_EQUILIBRIUM_SLICE_READS,
+           "equilibrium.time_slice.{i}.global_quantities.li_3",
+           "tf.r0", *_WALL_LIMITER_READS, *_RESISTIVE_ZEFF_COPY_READS),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.process_wrapper.compute_romero_flux_balance_ods subscripts the ODS and derives li_3 on a copy",
+    windowed=True,
+)
+
+
 
 # ---------------------------------------------------------------------------
 # camera_visible: raster frames and their pinhole-projected EFIT/field-line
@@ -5874,7 +6105,9 @@ def _efit_overlay_layers(
 
 #: What may be drawn over a camera frame (issue #261 section 18), and the
 #: projection methods that map machine geometry into its pixels (section 20).
-CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line")
+from vaft.plot.machine_geometry import MACHINE_GEOMETRY_FAMILIES
+
+CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line", "machine_geometry") + MACHINE_GEOMETRY_FAMILIES
 
 #: Where a vacuum field line is seeded when ``seeds=`` names none [m]: VEST's
 #: startup reference point, the one ``startup_proxies_time`` reads.
@@ -5987,6 +6220,30 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
                 "no dataset_description.data_entry.pulse; pass shot= or a CameraProjection"
             )
         projection = _projection_option(options, shot)
+        selected_families = tuple(name for name in overlays if name in MACHINE_GEOMETRY_FAMILIES)
+        if "machine_geometry" in overlays or selected_families:
+            from vaft.plot.machine_geometry import machine_geometry_view
+
+            geometry_data = options.get("geometry_data", ods)
+            geometry_manifest = options.get("geometry_manifest")
+            if geometry_data is not ods and geometry_manifest is None:
+                raise ValueError("separate geometry_data requires geometry_manifest provenance")
+            if geometry_manifest is not None and geometry_data is ods and geometry_manifest.get("kind") == "cross-shot-diagnostic-fixture":
+                raise ValueError("cross-shot geometry_manifest requires geometry_data= for the fixture")
+            family_option = options.get("geometry_families")
+            families = (None if family_option is None else
+                        (family_option,) if isinstance(family_option, str) else tuple(family_option))
+            if "machine_geometry" not in overlays:
+                if families is not None:
+                    raise ValueError("geometry_families requires overlay='machine_geometry'; use overlay family names directly otherwise")
+                families = selected_families
+            geometry = machine_geometry_view(
+                geometry_data, "camera", families=families,
+                manifest=geometry_manifest, projection=projection,
+                axis_length=float(options.get("axis_length", 0.25)),
+            )
+            layers.extend(geometry.layers)
+            notes.append("machine geometry")
         if "wall" in overlays or "equilibrium" in overlays:
             sweep = options.get("theta_deg_range")
             geometry = compute_camera_visible_efit_overlay(
@@ -6041,6 +6298,10 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
         f"{channel_name} frame {idx} @ t={resolved_time:.4f}s"
         + (f" -- shot {shot}: {'; '.join(notes)}" if notes else ""),
     )
+    geometry_manifest = options.get("geometry_manifest")
+    if ("machine_geometry" in overlays or any(name in MACHINE_GEOMETRY_FAMILIES for name in overlays)) and geometry_manifest and geometry_manifest.get("kind") == "cross-shot-diagnostic-fixture":
+        reference = geometry_manifest["geometry_reference"]["source_shot"]
+        title += f"\nCross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
     return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
 
 
@@ -8612,7 +8873,7 @@ def overlay_options_for(name: str) -> tuple[str, ...] | None:
 def overlay_defaults_for(name: str) -> tuple[str, ...]:
     """What plot ``name`` draws over itself when the caller names nothing."""
     if name == "machine_geometry_poloidal":
-        return MACHINE_OVERLAYS
+        return DEFAULT_MACHINE_OVERLAYS
     recipe = RECIPES.get(name)
     if isinstance(recipe, FieldRecipe):
         return DEFAULT_POLOIDAL_OVERLAYS + (("boundary", "axis") if recipe.boundary_paths else ())
@@ -11369,8 +11630,10 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
     Read shape-agnostically for the reason :func:`_mhd_linear_radial_stride`
     documents: ``code.parameters`` reaches a reader either as the string the
     mapper wrote or as the tree OMAS decoded, and which one depends on the
-    document.  A block with no ``time_slice`` attribute -- DCON writes none --
-    is keyed on ``None`` and matches any slice.
+    document.  A block with no ``time_slice`` attribute (DCON fragments before
+    version 2, #940) is keyed on ``None`` and matches any slice; since version 2
+    DCON blocks carry ``time_slice`` too, so for a cell both DCON and GPEC wrote
+    the later block in document order names the solver.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
     found: dict[tuple[int | None, int], str] = {}
@@ -13646,6 +13909,45 @@ for _name, _diagnostic in _PROFILE_FIT_DIAGNOSTIC.items():
 del _name, _diagnostic
 
 
+from .kinetic_overview import COORDINATES as KINETIC_OVERVIEW_COORDINATES, build_kinetic_overview
+
+
+def _kinetic_overview_available(ods: Any) -> str | None:
+    if any(_count(ods, path) for path in (
+        "thomson_scattering.channel", "charge_exchange.channel", "core_profiles.profiles_1d",
+        "langmuir_probes.embedded",
+    )):
+        return None
+    return "no local kinetic diagnostic or core profile is present"
+
+
+RECIPES["kinetic_overview_profiles"] = CallableRecipe(
+    builder=build_kinetic_overview,
+    description="Measured and fitted local n_e, T_e, T_i and V_phi profiles in four panels.",
+    available=_kinetic_overview_available,
+    reads=(*_PROFILE_FIT_READS["thomson_scattering"],
+           *_PROFILE_FIT_READS["charge_exchange"],
+           *_PROFILE_FIT_EQUILIBRIUM_READS,
+           "core_profiles.time", "core_profiles.profiles_1d.{i}.grid.psi",
+           "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
+           "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+           "core_profiles.profiles_1d.{i}.electrons.density",
+           "core_profiles.profiles_1d.{i}.electrons.temperature",
+           "core_profiles.profiles_1d.{i}.ion.{j}.temperature",
+           "core_profiles.profiles_1d.{i}.ion.{j}.velocity.toroidal",
+           "langmuir_probes.embedded.{i}.position.r",
+           "langmuir_probes.embedded.{i}.time",
+           "langmuir_probes.embedded.{i}.n_e.data",
+           "langmuir_probes.embedded.{i}.n_e.validity_timed",
+           "langmuir_probes.embedded.{i}.t_e.data",
+           "langmuir_probes.embedded.{i}.t_e.validity_timed",
+           "dataset_description.ids_properties.comment"),
+    backend=OMAS_BOUND,
+    reason="vaft.process.profile.equilibrium_mapping_points maps local positions through the input equilibrium",
+    coordinates=CoordinateDeclaration("auto", KINETIC_OVERVIEW_COORDINATES),
+)
+
+
 # ---------------------------------------------------------------------------
 # Normalized profile gradients with every choice stated (issue #551)
 # ---------------------------------------------------------------------------
@@ -14523,3 +14825,133 @@ def conversion_reason(name: str) -> str:
     """Why plot ``name`` converts a non-OMAS input, or ``""`` when it never does."""
     recipe = RECIPES.get(name)
     return recipe.reason if isinstance(recipe, CallableRecipe) else ""
+
+
+# ---------------------------------------------------------------------------
+# Edge-q estimates for shots without an equilibrium (#1583)
+# ---------------------------------------------------------------------------
+
+#: ``summary_time_<quantity>`` -> (EdgeQEstimate field, y label, unit). The
+#: estimate's label comes from the result ("q95 (START estimate)"), never bare q95.
+EDGE_Q_VIEWS: dict[str, tuple[str, str, str]] = {
+    "summary_time_estimated_q95": ("estimated_q95", "", ""),
+    "summary_time_q_star_cylindrical": ("q_star_cylindrical", "q* (Menard, cylindrical)", ""),
+    "summary_time_q_star_kink": ("q_star_kink", "q* (Freidberg kink)", ""),
+    "summary_time_normalized_current": ("normalized_current", "I_N = I_p/(a B_T)", "MA/(m T)"),
+}
+
+#: The ``estimate_from=``, ``scaling=`` and ``configuration=`` vocabularies.
+EDGE_Q_SOURCES = ("auto", "equilibrium", "magnetics")
+Q95_SCALINGS = ("start", "iter")
+START_CONFIGURATIONS = ("limiter", "double_null")
+
+#: What :func:`vaft.omas.edge_q.edge_q_estimate` reads, for either source.
+_EDGE_Q_READS = (
+    "equilibrium.time", "equilibrium.vacuum_toroidal_field.r0", "equilibrium.vacuum_toroidal_field.b0",
+    "equilibrium.time_slice.{i}.boundary.minor_radius", "equilibrium.time_slice.{i}.boundary.geometric_axis.r",
+    "equilibrium.time_slice.{i}.boundary.elongation", "equilibrium.time_slice.{i}.boundary.triangularity",
+    "equilibrium.time_slice.{i}.boundary.outline.r", "equilibrium.time_slice.{i}.boundary.outline.z",
+    "equilibrium.time_slice.{i}.global_quantities.ip", "equilibrium.time_slice.{i}.global_quantities.q_95",
+    "magnetics.ip.0.data", "magnetics.ip.0.time", "magnetics.time",
+    "tf.time", "tf.b_field_tor_vacuum_r.data",
+    "dataset_description.data_entry.pulse",
+)
+
+
+def _edge_q_available(ods: Any) -> str | None:
+    """Why ``ods`` has neither an equilibrium nor a magnetics current to estimate from.
+
+    The same predicates :func:`vaft.omas.edge_q.edge_q_estimate` chooses its
+    source by, so discovery never advertises an input the builder then refuses.
+    """
+    from vaft.omas.edge_q import _equilibrium_usable, _magnetics_usable
+
+    if _equilibrium_usable(ods) or _magnetics_usable(ods):
+        return None
+    return ("needs equilibrium slices with a boundary, equilibrium.time and the vacuum field, "
+            "or magnetics.ip with the tf field")
+
+
+def _build_edge_q_time(entries: Sequence[tuple[str, Any]], *, _plot_name: str, **options: Any) -> LineSeries:
+    """One edge-q proxy against time, every entry overlaid, provenance in the legend.
+
+    ``estimate_from=``, ``estimate_shape=``, ``q95_scaling=`` and
+    ``start_configuration=`` are :func:`vaft.omas.edge_q.edge_q_estimate`'s
+    ``source``, ``shape``, ``scaling`` and ``configuration``; the scaling and the
+    stand-in shape default to the machine description. ``estimate_from="auto"``
+    (the default) draws the full-shot magnetics trace when the ODS has one, else
+    the equilibrium slices. On the estimated-q95 view each entry's equilibrium
+    q95 is overlaid as markers where the ODS has one.
+    """
+    from vaft.omas.edge_q import edge_q_estimate
+
+    key, quantity_label, unit = EDGE_Q_VIEWS[_plot_name]
+    window = _range_option(options, "time_range")
+    from vaft.omas.edge_q import _magnetics_usable
+
+    kwargs = {argument: options[option] for option, argument in (
+        ("estimate_shape", "shape"), ("q95_scaling", "scaling"), ("start_configuration", "configuration"))
+        if options.get(option) is not None}
+    source = options.get("estimate_from") or "auto"
+    several = len(entries) > 1
+    series: list[Series] = []
+    estimates: list[Series] = []
+    titles: set[str] = set()
+    for position, (label, ods) in enumerate(entries):
+        # The plot's "auto" is the full-shot magnetics trace when there is one:
+        # the equilibrium slices then overlay it as the check (issue #1583).
+        resolved = ("magnetics" if _magnetics_usable(ods) else "equilibrium") if source == "auto" else source
+        result = edge_q_estimate(ods, source=resolved, **kwargs)
+        name = result.label if key == "estimated_q95" else quantity_label
+        titles.add(name)
+        time = np.asarray(result.time, dtype=float)
+        keep = np.ones(time.shape, dtype=bool) if window is None else (time >= window[0]) & (time <= window[1])
+        shape_note = "" if result.source == "equilibrium" and result.shape_source.startswith("equilibrium") else (
+            "default shape" if result.shape_source.startswith("the default shape") else "caller shape")
+        parts = ([str(label)] if several else []) + ([name] if key == "estimated_q95" else [])
+        parts.append(f"from {result.source}" + (f", {shape_note}" if shape_note else ""))
+        style = {"color": palette(position)} if several else {}
+        series.append(Series(x=time[keep], y=np.asarray(getattr(result, key), dtype=float)[keep],
+                             label=", ".join(parts), entry=str(label), style=style))
+        estimates.append(series[-1])
+        if key == "estimated_q95" and result.equilibrium_q95 is not None:
+            eq_time = np.asarray(result.equilibrium_time, dtype=float)
+            eq_keep = np.ones(eq_time.shape, dtype=bool) if window is None else (
+                (eq_time >= window[0]) & (eq_time <= window[1]))
+            eq_label = f"{label} q95 (equilibrium)" if several else "q95 (equilibrium)"
+            series.append(Series(x=eq_time[eq_keep], y=result.equilibrium_q95[eq_keep], label=eq_label,
+                                 entry=str(label),
+                                 style={"marker": "o", "linestyle": "none", **style}))
+    heading = titles.pop() if len(titles) == 1 else "q95 (estimate)"
+    y_label = heading
+    shot = _entry_shot(entries)
+    title = options.get("title") or (f"{heading} #{shot}" if shot else heading)
+    return LineSeries(
+        series=tuple(series),
+        x_label="Time", x_unit="s",
+        y_label=y_label, y_unit=unit,
+        title=title,
+        x_limits=window if window is not None else _finite_span([s.x[np.isfinite(s.y)] for s in estimates]),
+    )
+
+
+for _name in EDGE_Q_VIEWS:
+    RECIPES[_name] = CallableRecipe(
+        builder=(lambda plot_name: (
+            lambda entries, **options: _build_edge_q_time(entries, _plot_name=plot_name, **options)
+        ))(_name),
+        description=(
+            "An edge-q proxy from global shape, plasma current and toroidal field against time "
+            "(vaft.omas.edge_q.edge_q_estimate), with the scaling and the shape's source stated."
+        ),
+        available=_edge_q_available,
+        reads=_EDGE_Q_READS,
+        backend=NEUTRAL,
+        multi_entry=True,
+        windowed=True,
+        choices={
+            "estimate_from": ChoiceDeclaration("auto", EDGE_Q_SOURCES),
+            "q95_scaling": ChoiceDeclaration(None, Q95_SCALINGS),
+            "start_configuration": ChoiceDeclaration(None, START_CONFIGURATIONS),
+        },
+    )

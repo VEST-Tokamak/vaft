@@ -943,6 +943,18 @@ def plot_interferometer_spectrum(
     )
 
 
+def plot_kinetic_overview_profiles(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Four local kinetic profiles with measurement and fit provenance."""
+    return render("kinetic_overview_profiles", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_machine_geometry_poloidal(
     source: Any,
     *,
@@ -1593,6 +1605,7 @@ __all__ = [
     "plot_equilibrium_overview_verification",
     "plot_interferometer_spectrum",
     "plot_machine_geometry_poloidal",
+    "plot_kinetic_overview_profiles",
     "plot_machine_geometry3d",
     "plot_machine_geometry_topview",
     "plot_magnetics_overview_plasma_residual",

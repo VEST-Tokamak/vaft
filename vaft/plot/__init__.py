@@ -292,12 +292,19 @@ from .renderers.lines import (
     thomson_scattering_time_electron_density,
     thomson_scattering_time_electron_temperature,
 )
+from .renderers.edge_q import (
+    summary_time_estimated_q95,
+    summary_time_normalized_current,
+    summary_time_q_star_cylindrical,
+    summary_time_q_star_kink,
+)
 from .renderers.panels import (
     chease_overview_profile_validity,
     chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,
     current_overview,
     diagnostics_overview,
+    kinetic_overview_profiles,
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,
@@ -325,6 +332,7 @@ from .renderers.panels import (
     summary_time_energy,
     summary_time_power_balance,
     summary_time_resistive_zeff,
+    summary_time_romero_balance,
     summary_time_voltage_consumption,
     passive_structure_overview_wall_time,
     passive_structure_overview_wall_reduction,
@@ -390,6 +398,11 @@ from .analytic import (
 from .fluctuation import (
     cross_spectrum_model,
     plot_cross_spectrum,
+    plot_cross_diagnostic_coherence_spectrogram,
+    plot_multi_diagnostic_coherent_spectrogram,
+    plot_multi_diagnostic_coherent_fraction,
+    plot_multi_diagnostic_participation,
+    plot_multi_diagnostic_phase,
     plot_fluctuation_frequency_coverage,
 )
 
@@ -450,6 +463,11 @@ _SUPPORT_EXPORTS = (
     "solovev_equilibrium_model",
     "cross_spectrum_model",
     "plot_cross_spectrum",
+    "plot_cross_diagnostic_coherence_spectrogram",
+    "plot_multi_diagnostic_coherent_spectrogram",
+    "plot_multi_diagnostic_coherent_fraction",
+    "plot_multi_diagnostic_participation",
+    "plot_multi_diagnostic_phase",
     "plot_fluctuation_frequency_coverage",
     "THEMES",
     "resolve_presentation",
