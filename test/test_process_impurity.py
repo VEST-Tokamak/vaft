@@ -672,3 +672,35 @@ def test_a_bundled_ion_closed_at_a_measured_zeff_uses_its_radial_moments():
     # closed point by point with S1 = <Z>, S2 = <Z^2>: f = (Z_eff - 1) / (<Z^2> - <Z>)
     np.testing.assert_allclose(r.impurity_fractions[:, 0], 0.8 / (mean**2 + 1.0 - mean))
     np.testing.assert_allclose(1.0 * r.main_ion_fraction + r.impurity_fractions[:, 0] * mean, 1.0)
+
+
+# --- the GACODE adapter on the radial writer product (cold review 0.8.0 delta-absorb-16 F1) ----
+
+
+@pytest.mark.parametrize("which", ["synthetic", "real_adf11"])
+def test_gacode_accepts_the_radial_writer_product_by_lumping_the_bundled_ions(sample_48224, which):
+    import copy as _copy
+
+    from vaft.code.gacode.inputs import ProfileConversionError, prepare_gacode_profile
+
+    out, _, _ = _radial_product(sample_48224, _tables(which))
+    profile = prepare_gacode_profile(out, time=0.3, rho_max=0.95, z_eff=None, impurity=None)
+    z_eff = profile.provenance["z_eff"]
+    assert z_eff["origin"] == "derived" and z_eff["kind"] == "derived"
+    assert z_eff["species_value"] == pytest.approx(float(np.mean(profile.z_eff)), rel=1e-3)
+    assert list(profile.name) == ["H+", "C", "O"]
+    bundled = profile.provenance["ni"]["bundled_ions"]
+    assert set(bundled) == {"C", "O"}
+    for k, element in ((1, "C"), (2, "O")):
+        with np.errstate(invalid="ignore", divide="ignore"):
+            lump = _stored(out, f"ion.{k}.z_ion_square_1d") / _stored(out, f"ion.{k}.z_ion_1d")
+        assert np.nanmin(lump) <= profile.z[k] <= np.nanmax(lump)
+        assert bundled[element]["lumped_charge"] == profile.z[k]
+        assert bundled[element]["fields"] == "z_ion_1d, z_ion_square_1d"
+    # the lumped species keep the charge density: the list NEO reads is quasi-neutral
+    np.testing.assert_allclose(np.sum(profile.ni * np.asarray(profile.z)[:, None], axis=0), profile.ne, rtol=1e-9)
+    # a column that genuinely contradicts the ions is still refused
+    other = _copy.deepcopy(out)
+    other["core_profiles.profiles_1d.0.zeff"] = np.full(_stored(out, "zeff").shape, 2.5)
+    with pytest.raises(ProfileConversionError, match="contradicts the species"):
+        prepare_gacode_profile(other, time=0.3, rho_max=0.95, z_eff=None, impurity=None)
