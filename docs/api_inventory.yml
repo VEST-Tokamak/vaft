@@ -17,6 +17,8 @@
 pages:
   - slug: core
     title: Top level and utilities
+    # vaft.spectroscopy is a deprecated alias of vaft.data.atomic and
+    # vaft.data.spectroscopy (#1711), listed here until its removal in 0.10.0.
     modules: [vaft, vaft.compat, vaft.ods_access, vaft.spectroscopy, vaft.version]
   - slug: database
     title: vaft.database

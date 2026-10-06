@@ -51,6 +51,7 @@ CORE_MODULES: tuple[str, ...] = (
     # trustworthy -- and they are the cheapest tests in the repository.
     "test_coil_geometry_3d_shim.py",
     "test_compat_runtime.py",
+    "test_data_atomic.py",
     "test_data_code_namespace.py",
     "test_database_export.py",
     "test_database_namespace.py",
