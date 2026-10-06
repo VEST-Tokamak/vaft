@@ -47,6 +47,13 @@ def test_buckingham_pi_gives_five_groups_and_the_conventional_ones_are_a_basis_c
         d.express_in_basis((0, 0, 0, 0, 1, 0, 0, 0, 0), basis)  # tau alone is not dimensionless
 
 
+def test_large_denominators_stay_exact_and_floats_read_as_decimals():
+    big = d.rational_null_space([[Fraction(1, 999983), Fraction(1, 999979), Fraction(1, 999961), Fraction(1, 999959)]])
+    for v in big:
+        assert sum(Fraction(1, q) * x for q, x in zip((999983, 999979, 999961, 999959), v)) == 0
+    assert list(d.monomial_dimension([0.123456789], ["tau"])) == [0, 0, Fraction("0.123456789"), 0]
+
+
 def test_rational_null_space_is_exact():
     basis = d.rational_null_space([[1, 2, 3], [2, 4, 6]])
     assert len(basis) == 2
@@ -90,7 +97,7 @@ def test_ipb98_completed_scaling_is_in_the_span_and_matches_the_published_indice
     groups = [_state(g) for g in (RHO_STAR, BETA, NU_STAR)]
     (k,) = d.similarity_constraint_vectors(groups)
     off = float(sum(kv * xv for kv, xv in zip(k, x)))
-    assert abs(off) < 0.2  # IPB98 nearly satisfies the constraint (residual ~ -0.03 * (1 + aP))
+    assert abs(off) < 0.2  # IPB98 nearly satisfies the constraint: k . x = +0.03 here
     mu_rho, mu_beta, mu_nu = dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
         0.93, 0.15, -0.69, 0.41, 0.19, 1.97, 0.58, 0.78)[:3]  # a_M, a_R, a_eps, a_kappa
     assert mu_rho == pytest.approx(-2.70, abs=0.05) and mu_beta == pytest.approx(-0.90, abs=0.05)

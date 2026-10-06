@@ -57,6 +57,7 @@ References
 
 from __future__ import annotations
 
+import math
 from fractions import Fraction
 from types import MappingProxyType
 from typing import Mapping, Sequence
@@ -106,8 +107,9 @@ def _frac(value) -> Fraction:
     f = float(value)
     if not np.isfinite(f):
         raise ValueError(f"non-finite exponent {value!r}")
-    # A float exponent is taken at face value only when it is a short rational.
-    return Fraction(f).limit_denominator(10**6)
+    # A float exponent is read as the decimal it prints as (0.93 -> 93/100), the
+    # value its author wrote, not the binary approximation stored for it.
+    return Fraction(repr(f))
 
 
 def _matrix(rows) -> list[list[Fraction]]:
@@ -140,14 +142,10 @@ def _rref(rows: list[list[Fraction]]) -> tuple[list[list[Fraction]], list[int]]:
 
 
 def _integer_scaled(vector: list[Fraction]) -> np.ndarray:
-    den = 1
-    for v in vector:
-        den = den * v.denominator // np.gcd(den, v.denominator)
+    # Python integers: exact at any size (numpy's gcd would overflow int64).
+    den = math.lcm(*(v.denominator for v in vector))
     ints = [int(v * den) for v in vector]
-    g = 0
-    for v in ints:
-        g = int(np.gcd(g, abs(v)))
-    g = g or 1
+    g = math.gcd(*ints) or 1
     first = next((v for v in ints if v != 0), 1)
     sign = -1 if first < 0 else 1
     return np.array([Fraction(sign * v // g) for v in ints], dtype=object)
@@ -208,7 +206,8 @@ def rational_null_space(matrix) -> list[np.ndarray]:
     Parameters
     ----------
     matrix : array-like
-        Rows of integers, fractions or short-rational floats [-].
+        Rows of integers, fractions or floats; a float is read as the decimal
+        it prints as [-].
 
     Returns
     -------

@@ -156,6 +156,14 @@ def test_principal_directions_find_the_locked_combination():
     # The barely varied combination is ln P - ln I_p, with B_T out of it.
     assert abs(weakest[1]) < 0.05 and weakest[0] == pytest.approx(-weakest[2], abs=0.05)
     assert out["effective_rank"] == 2 and {"between", "within"} <= set(out)
+    # The split is a decomposition of each direction's spread.
+    np.testing.assert_allclose(np.square(out["between"]["projected"]) + np.square(out["within"]["projected"]),
+                               np.square(sv), rtol=1e-10)
+    # Fewer rows than predictors: the unconstrained directions come back with zero singular value.
+    few = predictor_principal_directions({k: v[:3] for k, v in {"a": i_p, "b": b_t, "c": p, "d": i_p * b_t}.items()})
+    assert len(few["singular_values"]) == 4 and few["singular_values"][-1] == 0.0
+    with pytest.raises(ValueError, match="groups"):
+        predictor_principal_directions({"i_p": i_p, "b_t": b_t}, groups=shots[:5])
     with pytest.raises(ValueError, match="does not vary"):
         predictor_principal_directions({"i_p": i_p, "b_t": np.ones_like(i_p)})
 
