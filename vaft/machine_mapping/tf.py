@@ -226,7 +226,16 @@ def vfit_tf_dynamic(
     *,
     raw_source: raw_db.RawSource | None = None,
     target_time: np.ndarray | None = None,
+    report: dict | None = None,
 ) -> None:
+    """Map the TF current and vacuum toroidal field onto the target grid.
+
+    ``report``, when given, receives ``"repaired"``: one entry per acquisition
+    excursion :func:`repair_tf_excursions` replaced (``signal``, ``start`` and
+    ``end`` in seconds, ``method``), or an empty list.  The Data Dictionary
+    gives ``tf.coil.current`` no validity node, so the IDS states the repair in
+    ``tf.ids_properties.comment`` and the stage manifest records it from here.
+    """
     source_time, tf_current, repaired = vfit_tf_current_detailed(shot, raw_source=raw_source)
     output = resolve_vest_diagnostic(shot, "tf")["output"]
     turns = float(output["turns"])
@@ -247,19 +256,30 @@ def vfit_tf_dynamic(
     set_path(ods, "tf.coil.0.current.time", target_time)
     set_path(ods, "tf.coil.0.current.data", np.interp(target_time, source_time, tf_current))
     set_path(ods, "tf.time", target_time)
+    if report is not None:
+        report["repaired"] = []
     if repaired:
         # The Data Dictionary gives tf.coil.current no validity node, so the
         # repair is stated where a reader of the IDS will find it.
         spans = ", ".join(f"{start:.4f}-{end:.4f} s" for start, end in repaired)
         repair_config = resolve_vest_diagnostic(shot, "tf")["processing"]["excursion_repair"]
         fit_start = float(repair_config["fit_start"])
+        method = (
+            "acquisition excursion replaced by a straight line through the good "
+            f"samples from {fit_start:.2f} s to the excursion onset (issue #1543)"
+        )
         set_path(
             ods,
             "tf.ids_properties.comment",
-            "tf from vfit_tf; TF-current acquisition excursion over "
-            f"{spans} replaced by a straight line through the good samples from "
-            f"{fit_start:.2f} s to the excursion onset (issue #1543)",
+            f"tf from vfit_tf; TF-current acquisition excursion over {spans} replaced by a "
+            f"straight line through the good samples from {fit_start:.2f} s to the excursion "
+            "onset (issue #1543)",
         )
+        if report is not None:
+            report["repaired"] = [
+                {"signal": "tf.coil.0.current", "start": float(start), "end": float(end), "method": method}
+                for start, end in repaired
+            ]
 
 
 def vfit_tf_static(ods: object) -> None:

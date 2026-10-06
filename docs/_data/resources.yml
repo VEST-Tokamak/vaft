@@ -88,6 +88,9 @@ api:
   code:
     title: vaft.code
     url: /reference/api/code/
+  validation:
+    title: vaft.validation
+    url: /reference/api/validation/
 
 data_sources:
   sample-ods:

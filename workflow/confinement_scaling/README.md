@@ -84,7 +84,7 @@ This writes `coefficients.csv`, `summary.csv`, `influence.csv`, `identifiability
 python closures.py --table ~/runs/campaign/atlas/confinement/table.csv --out ~/runs/campaign/atlas/confinement/closures
 ```
 
-This writes `closures.csv`, `odr_scan.csv`, `nstx_comparison.csv` and `MANIFEST.json`. Every dimensionless index divides by 1 + α_P, so read `one_plus_aP_over_se` before any μ: within about 2σ of zero, the completed indices are undetermined.
+This writes `closures.csv`, `odr_scan.csv`, `nstx_comparison.csv` and `MANIFEST.json`. With `--model-spread ~/runs/campaign/atlas/efit_model_spread/model_spread.csv` (the #579 ensemble) it also writes `odr_model_spread.csv`: the ODR of W with the per-state EFIT model-form spread as the per-row W error (unimodal and all rows, with 0 and 0.1 intrinsic scatter in quadrature, and the tight 'viable' spread), against the constant 0.2 of the scan, on the rows the ensemble covers. Every dimensionless index divides by 1 + α_P, so read `one_plus_aP_over_se` before any μ: within about 2σ of zero, the completed indices are undetermined.
 
 Then the extensions:
 

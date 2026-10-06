@@ -26,6 +26,8 @@ from vaft.formula._docstring import (
 
 #: Identities and bookkeeping: no literature source adds anything.
 DEFINITIONAL = frozenset({
+    # The share of a finite response a Jacobian misses (#1642): a ratio of norms.
+    "linearity_ratio",
     # The operational-boundary data model (#1067): evaluation and registry
     # plumbing. The physics and its sources live on each registered entry.
     "boundary_value",
@@ -44,6 +46,8 @@ DEFINITIONAL = frozenset({
     "cylindrical_kink_coordinates",
     "iter_q95_coordinates",
     "start_q95_coordinates",
+    # The spherical-tokamak Hugill coordinates of Sykes et al. (2000), #1602; the source is in the docstring.
+    "hugill_coordinates_st",
     # A parameterization with no physics of its own (#552).
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",

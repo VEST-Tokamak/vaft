@@ -2071,6 +2071,94 @@ def beta_normal_from_beta_tor(beta_tor: float,
     return 100 * float(beta_tor) * float(a) * abs(float(B0)) / abs(float(Ip) / 1e6)
 
 
+def beta_volume_from_p_B2(p_average: float,
+                          B2_average: float) -> float:
+    r"""Volume beta: the volume-averaged pressure over the volume-averaged total magnetic energy density.
+    
+    $$\beta_B = \frac{2\mu_0 \langle p \rangle_V}{\langle B^2 \rangle_V}
+               = \frac{2\mu_0 \int p \, dV}{\int B^2 \, dV}$$
+    
+    Parameters
+    ----------
+    p_average : float
+        Volume-averaged plasma pressure inside the last closed flux surface [Pa].
+    B2_average : float
+        Volume average of the total field squared, $B_R^2 + B_Z^2 + B_\phi^2$, over the
+        same volume [T^2].
+    
+    Returns
+    -------
+    float
+        Volume beta [-].
+    
+    Convention
+    ----------
+    A ratio of volume averages -- the beta Menard et al. attribute to Troyon -- not the average of the local ratio
+    $\langle 2\mu_0 p / B^2 \rangle_V$, and not the toroidal beta
+    (:func:`beta_toroidal_from_p_B0`), which divides by the vacuum field at one radius.
+    The two agree at large aspect ratio and low beta; at low aspect ratio the $1/R$
+    variation of $B_\phi$ and the poloidal field make $\langle B^2 \rangle_V$ differ from
+    $B_0^2$, which is why Menard et al. normalize by it to compare aspect ratios.
+    
+    References
+    ----------
+    .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209
+           (beta as twice the pressure over the magnetic energy integrals).
+    .. [2] J. E. Menard et al., Phys. Plasmas 11 (2004) 639, doi:10.1063/1.1640623
+           (PPPL-3908): definition of the volume-averaged total-field beta.
+    """
+    B2_average = float(B2_average)
+    if not B2_average > 0:
+        raise ValueError(f"B2_average must be positive, got {B2_average!r}")
+    return 2 * MU0 * float(p_average) / B2_average
+
+
+def beta_normal_from_beta_volume(beta_volume: float,
+                                 a: float,
+                                 B0: float,
+                                 Ip: float) -> float:
+    r"""Normalized volume beta: the volume beta normalized like the Troyon beta_N.
+    
+    $$\langle \beta_N \rangle = 100\,\beta_B \frac{a |B_0|}{|I_p[\mathrm{MA}]|}$$
+    
+    Parameters
+    ----------
+    beta_volume : float
+        Volume beta, $2\mu_0\langle p\rangle_V/\langle B^2\rangle_V$
+        (:func:`beta_volume_from_p_B2`) [-].
+    a : float
+        Minor radius [m].
+    B0 : float
+        Vacuum toroidal field at ``r0`` [T].
+    Ip : float
+        Plasma current; converted to MA internally [A].
+    
+    Returns
+    -------
+    float
+        Normalized volume beta [% m T/MA].
+    
+    Convention
+    ----------
+    Menard's $\langle\beta_N\rangle$: the normalization $a B_0 / I_p$ is the
+    conventional one, only the beta differs. Which $B_0$ is the caller's: Menard
+    et al. take the vacuum field at the plasma's geometric centre, VAFT's
+    ``beta_normal`` the one at ``vacuum_toroidal_field.r0``; where the two radii
+    differ, so does the value, by their ratio. It is not the conventional
+    :func:`beta_normal_from_beta_tor`; at low aspect ratio the conventional
+    $\beta_N$ of an optimized no-wall sequence nearly doubles (3.15 at A = 10 to
+    5.85 at A = 1.25) while this one stays at 3.2 within 3 % [2]_, [3]_.
+    
+    References
+    ----------
+    .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
+    .. [2] J. E. Menard et al., Phys. Plasmas 11 (2004) 639, doi:10.1063/1.1640623.
+    .. [3] J. E. Menard et al., "Unified ideal stability limits for advanced tokamak
+           and spherical torus plasmas", PPPL-3779 (2003), Fig. 3.
+    """
+    return 100 * float(beta_volume) * float(a) * abs(float(B0)) / abs(float(Ip) / 1e6)
+
+
 def li_3_from_Bp2_volume_integral(Bp2_dV: float,
                                   Ip: float,
                                   R0: float) -> float:

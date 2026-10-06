@@ -118,6 +118,9 @@ class BrowserSession:
 
         self.figure_options: Any = FigureOptions()
         self._catalog: Any = None
+        #: Every plot the registry supports for these sources, the unavailable
+        #: ones with the discovery record's reason (#1172).
+        self._everything: Any = None
         #: Database mode: one growing ODS per shot, the IDS it holds, and the
         #: IDS the shot stores at all.
         self._shots: dict[Source, Any] = {}
@@ -159,33 +162,65 @@ class BrowserSession:
         if kinds == {"shot"}:
             import omas
 
-            catalog, stored = self._discover_shots(chosen)
+            everything, stored = self._discover_shots(chosen)
             self.close()
             self._stored = stored
             self._shots = {source: omas.ODS() for source in chosen}
             self._held = {source: set() for source in chosen}
             data = list(self._shots.values())
-            self.sources, self.ods, self._catalog = chosen, data[0] if len(data) == 1 else data, catalog
+            self.sources, self.ods = chosen, data[0] if len(data) == 1 else data
+            self._everything, self._catalog = everything, _available(everything)
             return
         loaded = [load_source(source) for source in chosen]
         data = loaded[0] if len(loaded) == 1 else loaded
-        catalog = self._discover(data)
+        everything = self._discover(data)
         self.close()
-        self.sources, self.ods, self._catalog = chosen, data, catalog
+        self.sources, self.ods = chosen, data
+        self._everything, self._catalog = everything, _available(everything)
 
     def _discover(self, data: Any) -> Any:
+        """Every supported plot for ``data``, unavailable ones with their reason."""
         from vaft.omas import available_plots
 
-        return available_plots(data)
+        return available_plots(data, available_only=False)
 
     def _discover_shots(self, sources: Sequence[Source]) -> tuple[list[Any], dict[Source, set[str]]]:
-        """The plots every shot can draw, and the IDS each one stores."""
+        """Every supported plot for the shots, and the IDS each one stores.
+
+        A plot is available when every shot can draw it; otherwise it keeps
+        the first shot's reason that it cannot, naming the shot.
+        """
+        from dataclasses import replace
+
         from vaft.database import available_plots, stored_ids
 
         stored = {source: set(stored_ids(source.value, source.namespace)) for source in sources}
-        catalogs = [available_plots(source.value, source.namespace) for source in sources]
-        shared = set.intersection(*({c.name for c in catalog} for catalog in catalogs))
-        return [capability for capability in catalogs[0] if capability.name in shared], stored
+        catalogs = [available_plots(source.value, source.namespace, available_only=False) for source in sources]
+        by_shot = [{capability.name: capability for capability in catalog} for catalog in catalogs]
+        combined = []
+        for capability in catalogs[0]:
+            records = [records.get(capability.name) for records in by_shot]
+            blocked = next(
+                (
+                    (source, record) for source, record in zip(sources, records)
+                    if record is None or getattr(record, "available", True) is False
+                ),
+                None,
+            )
+            if blocked is None:
+                combined.append(capability)
+                continue
+            source, record = blocked
+            reason = getattr(record, "reason", "") if record is not None else "not supported"
+            if len(sources) > 1:
+                reason = f"{source.label}: {reason or 'unavailable'}"
+            try:
+                combined.append(replace(capability, available=False, reason=reason))
+            except TypeError:  # not a dataclass (a stub): the name still says it
+                continue
+        if hasattr(catalogs[0], "with_records"):
+            return catalogs[0].with_records(combined), stored
+        return combined, stored
 
     def plot_ids(self, name: str) -> list[str]:
         """The IDS plot ``name`` reads, with the one that labels a shot."""
@@ -242,6 +277,18 @@ class BrowserSession:
         if self.ods is None:
             raise RuntimeError("no source is open")
         return self._catalog
+
+    def full_catalog(self) -> Any:
+        """Every plot the registry supports here, unavailable ones with their reason."""
+        if self.ods is None:
+            raise RuntimeError("no source is open")
+        return self._everything if self._everything is not None else self._catalog
+
+    def capability(self, name: str) -> Any:
+        """The discovery record of plot ``name`` (``None`` when it is not supported here)."""
+        if self.ods is None:
+            return None
+        return next((record for record in self.full_catalog() if record.name == name), None)
 
     def grouped_plots(self) -> dict[str, list[str]]:
         """Available plot names by subject, in catalog order."""
@@ -584,11 +631,21 @@ class BrowserSession:
         self.plot, self.renderer, self.interactive = None, None, None
         self.composition, self._composed = None, None
 
+    def release(self) -> None:
+        """Let go of the plot on screen (the sources stay open)."""
+        self._release()
+
     def close(self) -> None:
         """Release the figure and forget the sources."""
         self._release()
-        self.sources, self.ods, self._catalog = (), None, None
+        self.sources, self.ods, self._catalog, self._everything = (), None, None, None
         self._shots, self._held, self._stored = {}, {}, {}
+
+
+def _available(records: Any) -> Any:
+    """The available records, as a catalog when ``records`` is one."""
+    kept = [record for record in records if getattr(record, "available", True) is not False]
+    return records.with_records(kept) if hasattr(records, "with_records") else kept
 
 
 __all__ = ["BrowserSession", "RENDERERS", "SOURCE_KINDS", "Source", "load_source", "sample_shots"]

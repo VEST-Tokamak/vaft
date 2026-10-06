@@ -7,10 +7,12 @@ one renderer (:func:`_render_workflow`) and tabulated by one function
 read the same record.
 
 Every node has a :data:`KINDS` value saying how the quantity was obtained --
-measured, reconstructed, derived, inferred, assumed (a policy or closure the
-user or machine supplies), code input, solver, native result, standardized --
-and the kind sets its style. Assumptions are drawn entering from the left, so
-they never read as observations. Equations come only from ``vaft.formula``
+measured, reconstructed, derived, inferred, synthetic (completed from explicit
+assumptions, never measured), model assumption / prior, model choice /
+convention, machine geometry / static data, code input, solver, native result,
+standardized IMAS -- and the kind sets its style. Priors, conventions and
+machine data (:data:`SIDE_KINDS`) enter a step from the side, so they never
+read as observations. Equations come only from ``vaft.formula``
 through :func:`vaft.diagram._equations.formula_equation`; a node names the
 function, never restates the physics. Each node may name the public API that
 implements it (``api``) and the IMAS IDS it reads or writes (``ids``); the
@@ -32,11 +34,12 @@ from ._render import Diagram
 from ._scene import Label, Polyline, Scene
 
 #: how a quantity was obtained, in reading order; each has one style
-KINDS: Tuple[str, ...] = ("measured", "reconstructed", "derived", "inferred", "prior", "convention", "machine",
-                          "code_input", "solver", "native_result", "standardized")
+KINDS: Tuple[str, ...] = ("measured", "reconstructed", "derived", "inferred", "synthetic", "prior", "convention",
+                          "machine", "code_input", "solver", "native_result", "standardized")
 KIND_LABEL: Dict[str, str] = {
     "measured": "measured", "reconstructed": "reconstructed", "derived": "derived", "inferred": "inferred",
-    "prior": "model assumption / prior", "convention": "model choice / convention",
+    "synthetic": "synthetic (assumption-completed)", "prior": "model assumption / prior",
+    "convention": "model choice / convention",
     "machine": "machine geometry / static data", "code_input": "code input", "solver": "solver / model",
     "native_result": "native result", "standardized": "standardized IMAS",
 }
@@ -76,6 +79,7 @@ class Node:
     symbols: Optional[str] = None
     mapping_todo: Optional[str] = None
     relation: Optional[str] = None
+    references: Tuple[str, ...] = ()
 
     def __post_init__(self):
         if self.kind not in KINDS:
@@ -164,6 +168,15 @@ def workflow_table(spec: WorkflowSpec) -> List[dict]:
              "mapping_todo": n.mapping_todo or "", "enters": side_targets.get(n.key, "")} for n in spec.nodes]
 
 
+def reference_numbers(spec: WorkflowSpec) -> Dict[str, int]:
+    """Each cited work numbered by first appearance in the spec's node order."""
+    numbers: Dict[str, int] = {}
+    for node in spec.nodes:
+        for ref in node.references:
+            numbers.setdefault(ref, len(numbers) + 1)
+    return numbers
+
+
 def workflow_markdown(spec: WorkflowSpec) -> str:
     """The documentation table of a workflow, as Diagrams.md carries it (a test keeps the two equal)."""
     def cell(text):
@@ -178,6 +191,10 @@ def workflow_markdown(spec: WorkflowSpec) -> str:
         kind = row["kind"] + (f" (enters {spec.node(row['enters']).label})" if row["enters"] else "")
         symbols = f"${cell(row['symbols']).replace(chr(92) + 'qquad', ',')}$" if row["symbols"] else ""
         lines.append(f"| {cell(row['node'])} | {cell(kind)} | {symbols} | {api} | {ids} |")
+    numbers = reference_numbers(spec)
+    if numbers:
+        lines += ["", "References:", ""]
+        lines += [f"{n}. {ref}" for ref, n in numbers.items()]
     if spec.todos:
         lines += ["", "Follow-up TODOs (implementation or IMAS mapping):", ""]
         lines += [f"- {todo}" for todo in spec.todos]
@@ -227,13 +244,14 @@ def _label_lines(node: Node) -> int:
 def _node_height(node: Node, spec_status: str) -> float:
     h = _H_LABEL + 0.2 + 0.45 * (_label_lines(node) - 1)
     h += _H_SYMBOLS * len(_symbol_parts(node))
-    h += _H_EQUATION * (len(_equation_parts(node)) + len(_relation_parts(node)))
+    parts = _equation_parts(node) + _relation_parts(node)
+    h += _H_EQUATION * len(parts) + 0.15 * sum("\\frac" in part for part in parts)  # a fraction stands taller
     h += _H_TAGS * (bool(node.ids) + bool(node.mapping_todo))
     return h
 
 
-def _node_text(node: Node, spec_status: str) -> str:
-    lines = ["\\textbf{" + escape_latex(node.label) + "}"]
+def _node_text(node: Node, spec_status: str, cite: str = "") -> str:
+    lines = ["\\textbf{" + escape_latex(node.label) + "}" + (f"\\,{{\\scriptsize {cite}}}" if cite else "")]
     for part in _symbol_parts(node):
         lines.append(_FIT + f"{{${part}$}}")
     for part in _equation_parts(node) + _relation_parts(node):
@@ -245,10 +263,44 @@ def _node_text(node: Node, spec_status: str) -> str:
     return "\\\\[2pt]".join(lines)
 
 
-def _render_workflow(spec: WorkflowSpec, *, labels: bool = True) -> Diagram:
-    """The workflow as a figure: rows top to bottom, assumptions from the left, equations in their node."""
+
+def _path_hits(path, boxes, pad: float = 0.05, samples: int = 80) -> bool:
+    """Whether a polyline passes through any of ``boxes`` (shrunk by ``pad``)."""
+    for (x0, y0), (x1, y1) in zip(path[:-1], path[1:]):
+        for t in [i / samples for i in range(samples + 1)]:
+            x, y = x0 + t * (x1 - x0), y0 + t * (y1 - y0)
+            for b in boxes:
+                if (abs(x - b.x) < 0.5 * b.width - pad) and (abs(y - b.y) < 0.5 * b.height - pad):
+                    return True
+    return False
+
+
+def _elbow(start: Box, end: Box, *, vertical_first: bool, gap: float = 0.08):
+    """A one-corner route from ``start`` to ``end``: vertical then horizontal, or the reverse; ``None`` if degenerate."""
+    if vertical_first:
+        if abs(start.x - end.x) <= 0.5 * end.width + 0.3 or abs(start.y - end.y) <= 0.5 * start.height + 0.3:
+            return None
+        sy = start.y - 0.5 * start.height - gap if end.y < start.y else start.y + 0.5 * start.height + gap
+        ex = end.x + 0.5 * end.width + gap if start.x > end.x else end.x - 0.5 * end.width - gap
+        return [(start.x, sy), (start.x, end.y), (ex, end.y)]
+    if abs(start.y - end.y) <= 0.5 * end.height + 0.3 or abs(start.x - end.x) <= 0.5 * start.width + 0.3:
+        return None
+    sx = start.x - 0.5 * start.width - gap if end.x < start.x else start.x + 0.5 * start.width + gap
+    ey = end.y + 0.5 * end.height + gap if start.y > end.y else end.y - 0.5 * end.height - gap
+    return [(sx, start.y), (end.x, start.y), (end.x, ey)]
+
+def _render_workflow(spec: WorkflowSpec, *, labels: bool = True, references: bool = False) -> Diagram:
+    """The workflow as a figure: rows top to bottom, assumptions from the side, equations in their node.
+
+    ``references=True`` tags each cited node with its numbers and lists the works under the legend.
+    """
     if not isinstance(labels, bool):
         raise ValueError(f"labels must be True or False, not {labels!r}")
+    if not isinstance(references, bool):
+        raise ValueError(f"references must be True or False, not {references!r}")
+    numbers = reference_numbers(spec) if references else {}
+    cites = {n.key: "[" + ",".join(str(numbers[r]) for r in n.references) + "]"
+             for n in spec.nodes if numbers and n.references}
     items: List = []
     boxes: Dict[str, Box] = {}
     heights = {n.key: _node_height(n, spec.status) for n in spec.nodes}
@@ -283,7 +335,8 @@ def _render_workflow(spec: WorkflowSpec, *, labels: bool = True) -> Diagram:
                 continue
             node = spec.node(key)
             x = -0.5 * span + 0.5 * _W + c * (_W + _GAP)
-            boxes[key] = _concept_box(x, y, _W, heights[key], _node_text(node, spec.status),
+            text = _node_text(node, spec.status, cites.get(node.key, ""))
+            boxes[key] = _concept_box(x, y, _W, heights[key], text,
                                       style=kind_style(node.kind), text_style="concept plain", role=f"node:{key}",
                                       latex=True)
     bottom = y - 0.5 * prev_h
@@ -301,17 +354,33 @@ def _render_workflow(spec: WorkflowSpec, *, labels: bool = True) -> Diagram:
                     node = spec.node(src)
                     cy = top - 0.5 * heights[src]
                     top -= heights[src] + 0.2
-                    boxes[src] = _concept_box(sx, cy, _W, heights[src], _node_text(node, spec.status),
+                    text = _node_text(node, spec.status, cites.get(node.key, ""))
+                    boxes[src] = _concept_box(sx, cy, _W, heights[src], text,
                                               style=kind_style(node.kind), text_style="concept plain",
                                               role=f"node:{src}", latex=True)
     for b in boxes.values():
         items += list(b.items)
     edges = list(spec.edges) + [(src, dst, "") for src, dst in spec.side]
     for src, dst, text in edges:
+        others = [b for k, b in boxes.items() if k not in (src, dst)]
         arrow = connector(boxes[src], boxes[dst], style="connector strong", role=f"edge:{src}->{dst}")
-        items.append(arrow)
+        path = [arrow.start, arrow.end]
+        if _path_hits(path, others):
+            # a straight arrow would cross a box: turn a corner instead, vertical leg first
+            for elbow in (_elbow(boxes[src], boxes[dst], vertical_first=True),
+                          _elbow(boxes[src], boxes[dst], vertical_first=False)):
+                if elbow is not None and not _path_hits(elbow, others):
+                    path = elbow
+                    break
+        if len(path) == 2:
+            items.append(arrow)
+        else:
+            items.append(Polyline.of(path, "connector strong", role=f"edge:{src}->{dst}"))
         if text and labels:
-            mx, my = 0.5 * (arrow.start[0] + arrow.end[0]), 0.5 * (arrow.start[1] + arrow.end[1])
+            (ax, ay), (bx, by) = path[-2], path[-1]
+            if len(path) == 3:  # label the leg leaving the source
+                (ax, ay), (bx, by) = path[0], path[1]
+            mx, my = 0.5 * (ax + bx), 0.5 * (ay + by)
             items.append(Label((mx - 0.15, my), escape_latex(text), "concept annotation", anchor="east",
                                role=f"edge label:{src}->{dst}"))
     equations = {n.key: node_equation(n) for n in spec.nodes if n.equation}
@@ -342,6 +411,11 @@ def _render_workflow(spec: WorkflowSpec, *, labels: bool = True) -> Diagram:
                                 role=f"legend:{kind}")]
                 x += widths[kind]
             ly -= 0.55
+        # the cited works, numbered as the nodes tag them
+        for ref, n in numbers.items():
+            items.append(Label((left, ly - 0.1), escape_latex(f"[{n}] {ref.replace('*', '')}"), "concept annotation",
+                               anchor="west", role=f"reference:{n}"))
+            ly -= 0.45
     else:
         items = [it for it in items if not isinstance(it, Label)]
     model = {"spec": spec, "centers": {k: b.center for k, b in boxes.items()},
