@@ -163,18 +163,28 @@ def test_no_cell_dumps_a_data_object(executed):
             assert len("".join(output.get("text", ""))) < MAX_OUTPUT_BYTES, cell.id
 
 
+#: the one cell that may solve with CHEASE, and only behind the lab-mode gate
+CHEASE_LAB_CELL = "s03-chease-lab"
+
+
 def test_the_default_path_needs_no_credentials_and_no_external_code(book):
     """Offline mode reaches neither the database nor CHEASE.
 
-    CHEASE is taught, but only in the commented exercise, so a reader without
-    it installed still executes every cell.
+    CHEASE solves are taught in one lab cell, gated on the tutorial mode and on
+    the executable, so a reader without it installed still executes every cell.
     """
     executable = _executable(book)
     assert "ods = vaft.omas.sample_ods(SHOT)" in executable
     assert "vaft.omas.sample_ods(shot) for shot in shots" in executable
     assert "vaft.database" not in executable
+    offline = "\n".join(_strip_comments(_source(cell)) for cell in _code_cells(book) if cell.id != CHEASE_LAB_CELL)
     for token in ("scan_chease", "run_chease", "refine_equilibrium", "run_kinetic_efit"):
-        assert token not in executable, token
+        assert token not in offline, token
+    lab = _strip_comments(_source(_cell(book, CHEASE_LAB_CELL)))
+    assert 'os.environ.get("VAFT_TUTORIAL_MODE", "offline") == "lab"' in lab
+    assert "find_chease_executable() is not None" in lab
+    gate = lab.index("if chease_ready:")
+    assert lab.index("scan_chease(") > gate  # the solve is inside the gate
 
 
 def test_database_loading_is_taught_where_the_data_is_loaded(book):
@@ -275,14 +285,17 @@ def test_no_literal_equilibrium_slice_or_frame(book):
                 assert not (isinstance(index, ast.Constant) and isinstance(index.value, int)), cell.id
 
 
-def test_the_shot_number_is_written_once_in_part_one(book):
+def test_every_shot_number_is_written_once_in_the_load_cell(book):
+    """#1714: one cell selects every shot, so new reference samples (#1712) are a one-cell change."""
     executable = _executable(book)
-    assert executable.count("SHOT = 39915") == 1
-    part_one = [cell for cell in _code_cells(book) if not cell.id.startswith("s03-multi")]
-    for cell in part_one:
+    load = _strip_comments(_source(_cell(book, "s03-load-sample")))
+    for assignment in ("SHOT = 39915", "KINETIC_SHOT = 48224", "COMPARISON_SHOTS = [39915, 41524, 41672]"):
+        assert executable.count(assignment) == 1 and assignment in load, assignment
+    for cell in _code_cells(book):
         if cell.id == "s03-load-sample":
             continue
-        assert "39915" not in _strip_comments(_source(cell)), cell.id
+        for shot in ("39915", "48224", "41524", "41672"):
+            assert shot not in _strip_comments(_source(cell)), (cell.id, shot)
 
 
 def test_the_slices_are_found_once_and_reused(book):
@@ -304,33 +317,56 @@ ORDER = (
     "vaft.omas.sample_ods(SHOT)",
     "usable_slices = ",
     "vaft.omas.sample_ods(KINETIC_SHOT)",
+    # step 1: the representation, on the target
     "plot_equilibrium_field_2d",
     "plot_equilibrium_overview_profiles",
+    # step 2: shape
+    "vaft.diagram.shaping_family()",
     "fit_miller_surface",
     "plot_miller_surfaces",
+    # step 3: force balance, then inputs against responses
+    "vaft.diagram.analytic_mhd_equilibrium()",
     "solovev_example",
-    "vaft.formula.green_psi_exact(",
-    "find_stationary_points(vaft.data.EquilibriumData(",
-    "grad_shafranov_operator(total",
+    "solve_guazzotto_freidberg",
+    "guazzotto_freidberg_to_equilibrium",
+    "scan_values = ",
+    # step 4: the reconstruction
+    "vaft.diagram.equilibrium_problem_taxonomy()",
+    "vaft.diagram.magnetic_efit()",
+    "update_equilibrium_derived_profiles(ods)",
+    "plot_equilibrium_overview_histories",
+    "plot_equilibrium_time_shape(ods)",
+    "same_shape = ",
+    # step 5: its validation
+    "vaft.diagram.plasma_state_provenance()",
     "plot_equilibrium_overview_constraints",
     "plot_equilibrium_overview_residuals",
     "fit_quality_metrics(ods",
     "sigma_unit_factor(table)",
     "plot_equilibrium_overview_constraint_weights",
+    "plot_camera_visible_image_efit_overlay",
+    # step 6: flux coordinates and profiles
+    "vaft.diagram.physical_to_flux_mapping()",
+    'plot_equilibrium_profile_q(ods, time_slice=i_rep, coordinate="psi_norm")',
+    'plot_equilibrium_profile_q(ods, time_slice=i_rep, coordinate="r_major")',
     "compare_flux_mapping",
     "plot_thomson_scattering_profile_fit",
     "profile_fit_report_thomson_scattering",
     "plot_charge_exchange_profile_fit",
+    # step 7: kinetic EFIT
+    "vaft.diagram.kinetic_efit()",
     "electron_pressure",
-    "z_eff_from_n_s_Z_s",
-    "update_equilibrium_derived_profiles(ods)",
-    "plot_equilibrium_overview_histories",
-    "plot_equilibrium_time_shape(ods)",
-    "plot_camera_visible_image_efit_overlay",
-    'plot_equilibrium_profile_q(ods, time_slice=i_rep, coordinate="psi_norm")',
-    'plot_equilibrium_profile_q(ods, time_slice=i_rep, coordinate="r_major")',
+    # step 8: the derived state
     "normalized_gradient_scale_length",
+    # step 9: self-consistency and controlled perturbations
     "compute_grad_shafranov_residual",
+    "apply_equilibrium_variation(source_geqdsk",
+    # deep dives
+    "vaft.formula.green_psi_exact(",
+    "find_stationary_points(vaft.data.EquilibriumData(",
+    "grad_shafranov_operator(total",
+    "z_eff_from_n_s_Z_s",
+    # Part II
     "vaft.omas.sample_ods(shot) for shot in shots",
     "plot_equilibrium_time_shape(ods_list)",
 )
@@ -341,12 +377,40 @@ def test_the_analysis_runs_in_the_session_order(book):
     assert positions == sorted(positions), dict(zip(ORDER, positions))
 
 
-def test_the_constraints_come_before_the_reconstruction_is_analysed(book):
-    """#952: what the experiment constrains is taught before what EFIT returned."""
+def test_the_reconstruction_is_seen_before_it_is_validated(book):
+    """#1714: the analytic intuition comes first, then the real equilibrium, then its validation."""
     derive = _first_code_index(book, "update_equilibrium_derived_profiles(ods)")
+    assert _first_code_index(book, "solve_guazzotto_freidberg") < derive
     for token in ("plot_equilibrium_overview_constraints", "compare_flux_mapping",
                   "profile_fit_report_charge_exchange"):
-        assert _first_code_index(book, token) < derive, token
+        assert derive < _first_code_index(book, token), token
+    # the deep dives are optional: the main path does not depend on them
+    deep = next(index for index, cell in enumerate(book.cells) if cell.id == "s03-deep-dives")
+    checkpoints = next(index for index, cell in enumerate(book.cells) if cell.id == "s03-checkpoints")
+    assert _first_code_index(book, "compute_grad_shafranov_residual") < deep < checkpoints
+    assert deep < _first_code_index(book, "vaft.formula.green_psi_exact(") < checkpoints
+
+
+STEPS = tuple(range(1, 10))
+
+
+def test_every_step_ends_with_a_check_for_the_students(book):
+    """Each guided step closes with its own short questions, before the next step starts."""
+    starts = {}
+    for index, cell in enumerate(book.cells):
+        if cell.cell_type == "markdown":
+            for line in _source(cell).splitlines():
+                match = re.match(r"### Step (\d+) — ", line)
+                if match:
+                    starts[int(match.group(1))] = index
+    assert sorted(starts) == list(STEPS), starts
+    bounds = [starts[step] for step in STEPS] + [
+        next(index for index, cell in enumerate(book.cells) if cell.id == "s03-deep-dives")]
+    for step, (start, end) in zip(STEPS, zip(bounds, bounds[1:])):
+        checks = [cell for cell in book.cells[start:end]
+                  if cell.cell_type == "markdown" and _source(cell).startswith("#### Check yourself")]
+        assert len(checks) == 1 and checks[0].id == f"s03-step{step}-check", step
+        assert len(re.findall(r"(?m)^\d+\. ", _source(checks[0]))) >= 2, step
 
 
 def test_the_fixed_headings_wrap_every_subsection(book):
@@ -362,6 +426,35 @@ def test_the_fixed_headings_wrap_every_subsection(book):
 # ---------------------------------------------------------------------------
 # Every new API is used
 # ---------------------------------------------------------------------------
+
+
+def test_the_analytic_equilibrium_is_force_balanced_and_scanned(book):
+    """#1714: a Guazzotto-Freidberg model at the discharge's shape, and kappa, delta, nu scans."""
+    executable = _executable(book)
+    for api in ("vaft.process.equilibrium.solve_guazzotto_freidberg",
+                "vaft.process.equilibrium.guazzotto_freidberg_to_equilibrium",
+                '"elongation": vest.kappa', '"triangularity": vest.delta'):
+        assert api in executable, api
+    scans = _strip_comments(_source(_cell(book, "s03-gf-scans")))
+    for knob in ('"elongation"', '"triangularity"', '"nu"'):
+        assert knob in scans, knob
+    assert '"li"' not in scans  # li is a response, never a knob
+
+
+def test_the_scan_responses_are_printed(executed):
+    printed = _printed(executed)
+    for knob in ("elongation", "triangularity", "nu"):
+        assert len(re.findall(rf"(?m)^ {knob}\s+-?\d", printed)) == 5, knob
+    assert "nu_max for eps" in printed
+    assert re.search(r"R_axis \[m\]\s+\d\.\d{3}\s+\d\.\d{3}\s+response", printed)
+
+
+def test_li_is_taught_as_a_response(book):
+    markdown = _markdown(book)
+    for phrase in ("derived responses", "There is no $\\ell_i$ knob", "Shafranov shift",
+                   "A magnetics-only $\\beta_p$ is not a measured plasma pressure",
+                   "Sensitivity and identifiability are different questions"):
+        assert phrase in markdown, phrase
 
 
 def test_the_analytic_apis_are_used(book):
@@ -430,7 +523,7 @@ def test_the_camera_overlay_is_guarded_and_uses_the_shot(book):
 
 def test_multi_shot_comparison_uses_lists(book):
     executable = _executable(book)
-    assert "shots = [39915, 41524, 41672]" in executable
+    assert "shots = COMPARISON_SHOTS" in executable
     assert "plot_equilibrium_time_shape(ods_list)" in executable
 
 
@@ -641,5 +734,34 @@ def test_the_concepts_precede_the_computation_and_the_schematics_follow_it(book)
 def test_every_grad_shafranov_diagram_is_drawn(executed):
     for cell_id in ("s03-taxonomy-diagram", "s03-fixed-free-diagram", "s03-domain-diagram",
                     "s03-source-diagram", "s03-topology-diagram"):
+        outputs = _cell(executed, cell_id).outputs
+        assert any("image/svg+xml" in output.get("data", {}) for output in outputs), cell_id
+
+
+#: #1714: the diagrams that carry the main teaching path, in the order the session uses them
+MAIN_PATH_DIAGRAMS = (
+    ("s03-shaping-diagram", "shaping_family"),
+    ("s03-analytic-diagram", "analytic_mhd_equilibrium"),
+    ("s03-taxonomy-diagram", "equilibrium_problem_taxonomy"),
+    ("s03-magnetic-efit-diagram", "magnetic_efit"),
+    ("s03-provenance-diagram", "plasma_state_provenance"),
+    ("s03-flux-mapping-diagram", "physical_to_flux_mapping"),
+    ("s03-kinetic-efit-diagram", "kinetic_efit"),
+)
+
+
+def test_the_main_path_diagrams_lead_their_steps_in_order(book):
+    positions = [_first_code_index(book, f"vaft.diagram.{name}()") for _cell_id, name in MAIN_PATH_DIAGRAMS]
+    assert positions == sorted(positions)
+    # each concept is drawn before the analysis it introduces
+    assert positions[1] < _first_code_index(book, "solovev_example")
+    assert positions[3] < _first_code_index(book, "update_equilibrium_derived_profiles(ods)")
+    assert positions[4] < _first_code_index(book, "plot_equilibrium_overview_constraints")
+    assert positions[5] < _first_code_index(book, "compare_flux_mapping")
+    assert positions[6] < _first_code_index(book, "plot_equilibrium_profile_q([eq_magnetic, eq_kinetic]")
+
+
+def test_every_main_path_diagram_is_drawn(executed):
+    for cell_id, _name in MAIN_PATH_DIAGRAMS:
         outputs = _cell(executed, cell_id).outputs
         assert any("image/svg+xml" in output.get("data", {}) for output in outputs), cell_id

@@ -35,9 +35,10 @@ The whole session is one chain, and it is worth putting on the screen.
 
 ## The chain
 
-diagnostics $\rightarrow$ constraints $+$ uncertainties $\rightarrow$
-equilibrium reconstruction $\rightarrow$ flux coordinates $\rightarrow$
-kinetic profiles $\rightarrow$ derived plasma state $\rightarrow$ comparison
+shape $\rightarrow$ force-balanced analytic equilibrium $\rightarrow$
+experimental reconstruction $\rightarrow$ validation $\rightarrow$
+flux coordinates $\rightarrow$ kinetic profiles $\rightarrow$
+derived plasma state $\rightarrow$ self-consistency
 
 ::: {.notes}
 [1 min]
@@ -124,6 +125,9 @@ what it is.
 
 **Solov'ev** --- constant $p'$, $FF'$: every surface follows.
 
+**Guazzotto--Freidberg** --- smooth sources; $\kappa$, $\delta$, $\nu \approx \beta_p$ in,
+axis, $\beta_p$, $\ell_i$, $q_{95}$ out.
+
 Limited, single null, double null: a property of the flux map.
 
 ::: {.notes}
@@ -133,7 +137,10 @@ NARRATE:
 Miller is how a gyrokinetic or stability code describes a local surface
 *given* an equilibrium. It carries no force balance. Solov'ev is an exact
 solution of the Grad--Shafranov equation, rich enough (Cerfon--Freidberg) to
-impose a boundary and an X-point.
+impose a boundary and an X-point. Guazzotto--Freidberg makes the sources
+vanish at the edge and has a pressure knob, $\nu$. The notebook scans
+$\kappa$, $\delta$ and $\nu$ at the shape of the discharge: every panel title
+is a response, and none of them is $\ell_i$ as an input.
 
 Topology is decided from the saddles of $\psi$: a saddle whose flux matches the
 boundary's makes the plasma diverted. Real VEST maps have many saddles, far
@@ -335,20 +342,21 @@ looks like.
 
 ## Session workflow
 
-representation $\rightarrow$ analytic shapes $\rightarrow$ constraints
+representation $\rightarrow$ shape $\rightarrow$ analytic equilibrium and scans
 
-$\rightarrow$ one discharge $\rightarrow$ coordinates $\rightarrow$ kinetic state
+$\rightarrow$ EFIT of one discharge $\rightarrow$ its validation $\rightarrow$ coordinates
 
-$\rightarrow$ Grad--Shafranov residual $\rightarrow$ times and shots
+$\rightarrow$ kinetic EFIT $\rightarrow$ derived state $\rightarrow$ residual and CHEASE $\rightarrow$ times and shots
 
 ::: {.notes}
 [1 min]
 
 NARRATE:
 Point at each step. Note that "coordinates" is a real step, not bookkeeping: a
-profile without its radial coordinate is not a physics claim. And note that the
-constraints come *before* the reconstruction is analysed: you should know what
-EFIT was told before you read what it said.
+profile without its radial coordinate is not a physics claim. The real
+equilibrium is shown *before* its constraints are read: students first see the
+state, then ask whether the measurements and weights support it. Each step ends
+with a short "Check yourself".
 :::
 
 ## Practice goal: a discharge of your choice
@@ -362,7 +370,7 @@ explains the measurements.
 NARRATE:
 The exercise is a short report on any VEST discharge, in ten steps. The five
 labels are the grading rubric: every number in the report should carry one.
-The CHEASE scan is the forward-model extension, which is only possible because
-CHEASE takes inputs rather than measurements. Connect it back to the two-axes
+The CHEASE perturbation is the forward-model extension, which is only possible
+because CHEASE takes inputs rather than measurements. Connect it back to the two-axes
 slide.
 :::
