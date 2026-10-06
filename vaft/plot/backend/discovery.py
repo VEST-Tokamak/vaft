@@ -51,6 +51,9 @@ from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from .recipes import (
     entry_supports,
+    RATIONAL_SURFACE_OPTIONS,
+    RATIONAL_SURFACE_PLOTS,
+    rational_surface_reads,
     CAMERA_OVERLAYS,
     ChannelProfileRecipe,
     SPECTROGRAM_METHODS,
@@ -306,6 +309,15 @@ def _declare(record: PlotCapability) -> PlotCapability:
                          **({"applies_to": dict(choice.applies_to)} if choice.applies_to else {})}
                 for option, choice in recipe.choices.items()
             }
+    if record.name in RATIONAL_SURFACE_PLOTS:
+        # Optional overlays the plot takes on request (issue #506); the base
+        # view's own requirements are unchanged by them.
+        updates["annotations"] = {
+            "rational_surfaces": {
+                "options": RATIONAL_SURFACE_OPTIONS,
+                "reads": rational_surface_reads(record.name),
+            },
+        }
     unit = getattr(recipe, "y_unit", None)
     if isinstance(recipe, (LineRecipe, ProfileRecipe)):
         updates["display"] = _display_block(record, unit or "")
@@ -769,7 +781,7 @@ def _slices_block(ods: Any, container: str = "equilibrium.time_slice") -> dict[s
     if container != "equilibrium.time_slice":
         return {
             "total": total, "usable": tuple(range(total)), "times": times,
-            "selected": 0 if total else None, "container": container,
+            "selected": 0 if total else None, "container": container, **_STORED,
         }
     usable = tuple(int(i) for i in _usable_slices(ods)) if total else ()
     try:
@@ -778,7 +790,7 @@ def _slices_block(ods: Any, container: str = "equilibrium.time_slice") -> dict[s
         selected = None
     return {
         "total": total, "usable": usable, "times": times, "selected": selected,
-        "container": container,
+        "container": container, **_STORED,
     }
 
 
@@ -907,6 +919,17 @@ def _abscissa_is_stored(ods: Any, entry: Any) -> bool:
     return False
 
 
+#: The three kinds of scientific sequence a plot can page through (issue
+#: #1380), as their discovery blocks state them.  ``kind`` names the
+#: storage -- a dense sampled time base, a camera's stored frames, a handful
+#: of stored reconstructions -- ``option`` the keyword one state is chosen
+#: with, and ``coordinate``/``unit`` what the states' values mean.  The
+#: values themselves come from :func:`sequence_values`.
+_SAMPLES = {"kind": "samples", "coordinate": "time", "unit": "s"}
+_FRAMES = {"kind": "frames", "coordinate": "time", "unit": "s"}
+_STORED = {"kind": "stored", "option": "time_slice", "coordinate": "time", "unit": "s"}
+
+
 def _times_block(entries: Sequence[tuple[str, Any]], recipe: Any) -> dict[str, Any]:
     """The stored time axis a spatial plot samples, and its ``time_index`` control when it has one.
 
@@ -932,6 +955,7 @@ def _times_block(entries: Sequence[tuple[str, Any]], recipe: Any) -> dict[str, A
         }
         if len(sizes) == 1 and block["count"] > 1:
             block.update(option="time_index", selected=block["count"] // 2)
+        block.update(_SAMPLES)
         return block
     starts, stops, counts = [], [], []
     for _, ods in entries:
@@ -943,7 +967,7 @@ def _times_block(entries: Sequence[tuple[str, Any]], recipe: Any) -> dict[str, A
                 counts.append(int(axis.size))
     if not counts:
         return {}
-    return {"start": min(starts), "stop": max(stops), "count": max(counts), "shared": False}
+    return {"start": min(starts), "stop": max(stops), "count": max(counts), "shared": False, **_SAMPLES}
 
 
 def _camera_frame_stamps(ods: Any, channel: int = 0, detector: int = 0) -> list[float] | None:
@@ -976,6 +1000,7 @@ def _camera_frames_block(ods: Any, channel: int = 0, detector: int = 0) -> dict[
         "count": len(stamps),
         "option": "frame_index",
         "selected": 0,
+        **_FRAMES,
     }
 
 
@@ -1059,6 +1084,7 @@ def _pf_samples_block(ods: Any) -> dict[str, Any]:
         "count": int(axis.size),
         "option": "time_index",
         "selected": selected,
+        **_SAMPLES,
     }
 
 

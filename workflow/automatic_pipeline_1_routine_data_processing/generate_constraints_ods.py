@@ -18,8 +18,10 @@ from pathlib import Path
 from typing import NamedTuple, Sequence
 
 import numpy as np
+from omas import save_omas_json
 
 from vaft.code.efit import correct_flux_loop, generate_constraints_ods as build_constraints
+from vaft.code.efit.applicability import not_applicable_constraints
 from vaft.database.composition import compose_stage_products
 from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
 from vaft.omas.plasma_timing import plasma_timing
@@ -122,6 +124,15 @@ def _log_decisions(decisions) -> None:
 
 
 ANALYSIS_RANGE_FALLBACK = "analysis_range_fallback"
+
+
+class NoPlasmaCurrentError(ValueError):
+    """Every selected instant is below ``CUTIP``: EFIT would answer each with a vacuum solution."""
+
+    def __init__(self, message: str, *, count: int, threshold: float):
+        super().__init__(message)
+        self.count = count
+        self.threshold = threshold
 
 
 class ConstraintWindow(NamedTuple):
@@ -268,13 +279,58 @@ def _drop_vacuum_times(
             keep.append(float(value))
 
     if not keep:
-        raise ValueError(
+        raise NoPlasmaCurrentError(
             f"every one of the {times.size} selected instants carries less than "
             f"{threshold} A of plasma current, so EFIT would return a vacuum solution "
             "for all of them. The plasma timing found a discharge the current does not "
-            "support; check the window before reconstructing."
+            "support; check the window before reconstructing.",
+            count=int(times.size), threshold=threshold,
         )
     return np.asarray(keep, dtype=float), dropped
+
+
+def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
+    """Why EFIT does not apply to this shot, or ``None`` when the cut is a fault (#205).
+
+    The plasma current decides: a shot whose current stays below ``CUTIP``
+    over its *whole* record never carried a plasma EFIT could reconstruct,
+    and that is the result.  When the current does reach ``CUTIP`` somewhere
+    but no selected instant does, the constraint window missed the discharge,
+    and that stays an error.
+
+    The class from :func:`vaft.omas.shot_class.shot_class` -- what the
+    new-shot worker records -- is quoted in the reason but its label does not
+    decide: on vestserver 48927 (peak 3.3 kA, H-alpha dark) its pulse detector
+    reads the pickup as a ``Plasma`` pulse.  The light does veto: when H-alpha
+    saw a window, a current that never reached ``CUTIP`` may be a dead Ip
+    channel under a real discharge, and that must stay a visible failure.
+    """
+    try:
+        current = np.asarray(ods["magnetics.ip.0.data"], dtype=float).reshape(-1)
+    except Exception:
+        return None
+    current = current[np.isfinite(current)]
+    if current.size == 0:
+        return None
+    peak = float(np.max(np.abs(current)))
+    if peak >= error.threshold:
+        return None
+    try:
+        from vaft.omas.shot_class import shot_class
+
+        verdict = shot_class(ods)
+    except Exception as exc:  # the class is a note here, never the reason to fail
+        label = f"shot_class unavailable ({type(exc).__name__}: {exc})"
+    else:
+        if verdict.optical_window:
+            return None
+        label = f"shot_class {verdict.label} ({verdict.reason}" + (
+            f"; flags {', '.join(verdict.flags)})" if verdict.flags else ")"
+        )
+    return (
+        f"peak |Ip| {peak / 1e3:.1f} kA over the whole record, below CUTIP {error.threshold:g} A "
+        f"(all {error.count} constraint instants below it); {label}"
+    )
 
 
 def _window_comment(
@@ -369,7 +425,18 @@ def main() -> int:
     times, window = _select_times(ods, args.timeset, args.tstep, args.tstart, args.tend)
     if times.size == 0:
         raise ValueError("No EFIT constraint times selected")
-    times, vacuum = _drop_vacuum_times(ods, times, average_window=args.average_window)
+    try:
+        times, vacuum = _drop_vacuum_times(ods, times, average_window=args.average_window)
+    except NoPlasmaCurrentError as error:
+        reason = _efit_not_applicable(ods, error)
+        if reason is None:
+            raise
+        # A result, not a failure: the k-file and EFIT steps pass it on as
+        # `skipped: not applicable`, the way they pass on efit.run=false.
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        save_omas_json(not_applicable_constraints(reason), str(args.output))
+        LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, reason)
+        return 0
     if vacuum:
         LOGGER.info(
             "vacuum cut: dropped %d of %d instants below CUTIP (%s)",

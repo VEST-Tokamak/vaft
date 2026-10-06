@@ -38,6 +38,12 @@ DEFINITIONAL = frozenset({
     "list_boundaries",
     # A change of coordinates onto the Hugill plane (#1068); q_cyl carries its own source.
     "hugill_coordinates",
+    # Freidberg's q* of an elongated tokamak, Eq. (13.160): a coordinate, its source is in the docstring.
+    "kink_coordinates",
+    # Menard's cylindrical q* and the ITER guideline q95 estimate: coordinates whose sources are in the docstrings.
+    "cylindrical_kink_coordinates",
+    "iter_q95_coordinates",
+    "start_q95_coordinates",
     # A parameterization with no physics of its own (#552).
     "generalized_parabolic_profile",
     "generalized_parabolic_profile_derivative",
@@ -82,6 +88,13 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # positive-when-holds criteria vs GGJ's negative-when-stable indices; toroidal-flux well (#1635)
+    "suydam_criterion",
+    "mercier_criterion_circular",
+    "ggj_ideal_interchange_index",
+    "ggj_resistive_interchange_index",
+    "magnetic_well_from_specific_volume",
+    "bussac_internal_kink_energy",
     # the growth rate is in Alfven units v_A/(qR); Dirichlet ends on the extended angle (#1075)
     "s_alpha_ballooning_eigenmode",
     "ballooning_radial_wavenumber",
@@ -224,6 +237,9 @@ CONVENTION_SENSITIVE = frozenset({
     "local_slab_from_cylinder",
     "cylindrical_poloidal_field",
     "peaked_current_safety_factor",
+    "cylindrical_enclosed_current",
+    "cylindrical_poloidal_flux",
+    "cylindrical_internal_inductance",
     # single-particle motion: charge signs, vector orientation, half-step velocities
     "gyrofrequency",
     "larmor_radius",
@@ -318,6 +334,8 @@ EMPIRICAL = frozenset({
     "eich_integral_width",
     "greenwald_density",
     "confinement_time_from_engineering_parameters",
+    "neo_alcator_confinement_time_from_n_a_R_q",
+    "goldston_l_mode_confinement_time_from_I_P_R_a_kappa",
     "empirical_li_qa",
     "li_from_qa_empirical",
     "kink_stability_criterion",

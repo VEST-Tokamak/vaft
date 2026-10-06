@@ -12,7 +12,13 @@ from pathlib import Path
 # --------------------------------------------------------------------------- #
 # 0) Configuration file
 # --------------------------------------------------------------------------- #
-configfile: "config.yaml"
+# The workflow's own defaults, located by this Snakefile rather than by the
+# working directory: a bare "config.yaml" resolves against `--directory`, so a
+# run launched with `--directory <run dir> --configfile <run dir>/config.yaml`
+# re-read its own partial config and never loaded this one -- every unset key
+# fell back to a code default (efit.run false, no eddy filament, #1530).
+# Command-line `--configfile` files are deep-merged over these.
+configfile: str(Path(workflow.basedir) / "config.yaml")
 
 
 _ENV_REFERENCE = re.compile(r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))")
@@ -42,7 +48,17 @@ config.update(_expand_config_environment(config))
 # --------------------------------------------------------------------------- #
 SCRIPT_DIR = Path(workflow.basedir)
 sys.path.insert(0, str(SCRIPT_DIR))
-from paths import FILEDB, PipelinePaths, select_efit_table, solver_module, stability_product
+from paths import (
+    FILEDB,
+    PipelinePaths,
+    require_run_config_keys,
+    select_efit_table,
+    solver_module,
+    stability_product,
+    stage_scope,
+)
+
+require_run_config_keys(workflow)
 
 from vaft.database.sources import STAGE_REPLICATION, replicable_stages
 from vaft.omas.vest_upstream import machine_era_for_shot
@@ -177,8 +193,11 @@ if HSDS_CONFIG.get("replicate", False) and PATHS.layout != FILEDB:
 # An optional stage is not part of the baseline target set: its shots are a
 # sparse subset chosen by its own checkpoint, and a shot that never produced it
 # must not read as a missing baseline output (issue #305). Which stages are
-# optional is the registry's answer, not this file's.
-_ALL_REPLICABLE = tuple(replicable_stages()) if REPLICATION_ENABLED else ()
+# optional is the registry's answer, not this file's. Only the routine stages:
+# the corrective ones (Thomson lineage, soft X-ray, camera, ...) have their own
+# producers and no rule here, so asking for their records -- which the IMPA
+# branch did whenever impa.enable and replication were both on -- failed the DAG.
+_ALL_REPLICABLE = tuple(replicable_stages(produced_by="routine")) if REPLICATION_ENABLED else ()
 REPLICATED_STAGES = tuple(
     stage for stage in _ALL_REPLICABLE if not STAGE_REPLICATION[stage].optional
 )
@@ -193,10 +212,20 @@ OPTIONAL_REPLICATED_STAGES = tuple(
 PER_PRODUCT_REPLICATED_STAGES = {"mhd_linear": GPEC_STABILITY_MODULES}
 
 
+#: Which per-shot stages `rule all` requests (#58). Absent: all of them. A
+#: stage outside the scope is never scheduled, so its products, plots and
+#: replication records are not asked for either.
+STAGE_SCOPE = stage_scope(config.get("stages"))
+
+
+def in_scope(stage):
+    return STAGE_SCOPE is None or stage in STAGE_SCOPE
+
+
 def replication_records(shots, stages=None):
     records = []
     for shot in shots:
-        for stage in (REPLICATED_STAGES if stages is None else stages):
+        for stage in ([s for s in REPLICATED_STAGES if in_scope(s)] if stages is None else stages):
             products = PER_PRODUCT_REPLICATED_STAGES.get(stage)
             if products is None:
                 records.append(PATHS.replication_record(shot, stage))
@@ -244,15 +273,19 @@ def validation_plot_products(shots):
             outputs.append(PATHS.raw_plot(shot, name))
         outputs.append(PATHS.raw_plot_manifest(shot))
         for stage in ("diagnostics", "eddy", "efit", "chease"):
+            if not in_scope(stage):
+                continue
             if stage not in EMPTY_VALIDATION_STAGES:
                 for name in stage_plot_filenames(stage, required_only=True):
                     outputs.append(PATHS.stage_plot(shot, stage, name))
             outputs.append(PATHS.stage_plot_manifest(shot, stage))
         # `mhd_linear` is one stage product per stability product (#787), so its
         # plot manifest is one per product too -- the one `plot_mhd_linear` writes.
-        for module in GPEC_STABILITY_MODULES:
-            outputs.append(PATHS.stage_plot_manifest(shot, "mhd_linear", module))
-        outputs.append(PATHS.chease_plot_manifest(shot))
+        if in_scope("mhd_linear"):
+            for module in GPEC_STABILITY_MODULES:
+                outputs.append(PATHS.stage_plot_manifest(shot, "mhd_linear", module))
+        if in_scope("chease"):
+            outputs.append(PATHS.chease_plot_manifest(shot))
     return outputs
 
 
@@ -328,33 +361,59 @@ def impa_pipeline_outputs(wildcards):
     """The optional IMPA branch, kept out of the baseline target set."""
     if not IMPA_ENABLED:
         return []
-    shots = impa_shots(wildcards)
+    return impa_outputs(impa_shots(wildcards))
+
+
+def impa_outputs(shots):
+    """What the IMPA branch builds for ``shots``, once they are selected."""
     outputs = [PATHS.impa_ods(shot) for shot in shots]
     outputs += [PATHS.impa_manifest(shot) for shot in shots]
     outputs += replication_records(shots, OPTIONAL_REPLICATED_STAGES)
     return outputs
 
 
+def scoped_gpec_codes():
+    """The GPEC-suite cells `rule all` asks for: per stage, not all-or-nothing.
+
+    `mhd_linear` owns the DCON/RDCON/STRIDE cells and `gpec_ideal` the
+    ideal-GPEC one; the DCON cell ideal GPEC reads arrives through its own
+    rule's input. Unscoped, every configured cell, exactly as before.
+    """
+    if STAGE_SCOPE is None:
+        return GPEC_PATH_CODES
+    codes = [stability_product(module) for module in GPEC_STABILITY_MODULES] if in_scope("mhd_linear") else []
+    if "gpec" in GPEC_MODULES and in_scope("gpec_ideal"):
+        codes.append(stability_product("gpec"))
+    return codes
+
+
 def eligible_pipeline_outputs(wildcards):
-    shots = eligible_shots(wildcards)
-    products = [
-        "diagnostics_ods",
-        "diagnostics_manifest",
-        "eddy_ods",
-        "eddy_manifest",
-        "constraints_ods",
-        "kfile_manifest",
-        "gfile_manifest",
-        "efit_status",
-        "efit_artifact_manifest",
-        "efit_ods",
-        "efit_manifest",
-        "chease_refined",
-        "chease_status",
-        "chease_ods",
-        "chease_manifest",
+    return pipeline_outputs(eligible_shots(wildcards))
+
+
+def pipeline_outputs(shots):
+    """Every per-shot product `rule all` requests for ``shots``, once they pass preflight."""
+    products = {
+        "diagnostics": ("diagnostics_ods", "diagnostics_manifest"),
+        "eddy": ("eddy_ods", "eddy_manifest"),
+        "efit": (
+            "constraints_ods",
+            "kfile_manifest",
+            "gfile_manifest",
+            "efit_status",
+            "efit_artifact_manifest",
+            "efit_ods",
+            "efit_manifest",
+        ),
+        "chease": ("chease_refined", "chease_status", "chease_ods", "chease_manifest"),
+    }
+    outputs = [
+        getattr(PATHS, product)(shot)
+        for stage, names in products.items()
+        if in_scope(stage)
+        for product in names
+        for shot in shots
     ]
-    outputs = [getattr(PATHS, product)(shot) for product in products for shot in shots]
     # One mhd_linear per stability product, not one per shot: the toroidal_mode
     # AOS is a dense (time, n_tor) grid, so two products sharing one stage
     # product would overwrite each other.
@@ -363,8 +422,9 @@ def eligible_pipeline_outputs(wildcards):
         for name in ("mhd_linear_ods", "mhd_linear_manifest")
         for shot in shots
         for module in GPEC_STABILITY_MODULES
+        if in_scope("mhd_linear")
     ]
-    if "gpec" in GPEC_MODULES:
+    if "gpec" in GPEC_MODULES and in_scope("gpec_ideal"):
         outputs += [
             getattr(PATHS, name)(shot, "gpec")
             for name in ("gpec_ideal_ods", "gpec_ideal_manifest")
@@ -373,7 +433,7 @@ def eligible_pipeline_outputs(wildcards):
     outputs += [
         PATHS.gpec_module_status(shot, code, mode)
         for shot in shots
-        for code in GPEC_PATH_CODES
+        for code in scoped_gpec_codes()
         for mode in GPEC_MODES
     ]
     outputs += validation_plot_products(shots)
@@ -394,6 +454,28 @@ rule all:
         static_validation_plot_products(),
         eligible_pipeline_outputs,
         impa_pipeline_outputs
+
+
+# Every product `rule all` reaches for the configured shots, with the preflight
+# and IMPA-selection checkpoints taken as passed: what the DAG looks like for a
+# shot that is eligible (and, with impa.enable, archives IMPA). A dry run cannot
+# see past a checkpoint, so this is how the documentation's lineage graph
+# (vaft._pipeline_graph, #1647) asks Snakemake for the whole topology. Never the
+# default target, and never run: it skips the gate production relies on. Defined
+# only under `documentation_graph: true`, so a production parse never resolves
+# every product of every configured shot for a target it will not ask for.
+if config.get("documentation_graph", False):
+    rule configured_products:
+        input:
+            [PATHS.raw_dump(shot) for shot in SHOTS],
+            [PATHS.raw_manifest(shot) for shot in SHOTS],
+            [PATHS.static_ods(version) for version in MACHINE_VERSIONS],
+            [PATHS.static_manifest(version) for version in MACHINE_VERSIONS],
+            PATHS.preflight_eligible(),
+            PATHS.preflight_excluded(),
+            static_validation_plot_products(),
+            pipeline_outputs(SHOTS),
+            impa_outputs(SHOTS) if IMPA_ENABLED else []
 
 ############################################################
 # DAQ Raw Data Extraction

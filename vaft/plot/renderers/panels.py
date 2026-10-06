@@ -44,6 +44,7 @@ __all__ = [
     "core_profiles_time_volume_averaged",
     "current_overview",
     "diagnostics_overview",
+    "kinetic_overview_profiles",
     "equilibrium_overview",
     "equilibrium_overview_constraint_coverage",
     "equilibrium_overview_constraints",
@@ -55,6 +56,8 @@ __all__ = [
     "equilibrium_time_beta",
     "equilibrium_time_virial",
     "impa_overview",
+    "impurity_profile_charge_state_fraction",
+    "impurity_profile_composition",
     "interferometer_overview",
     "limiter_current_time",
     "magnetics_overview",
@@ -67,6 +70,7 @@ __all__ = [
     "summary_time_energy",
     "summary_time_power_balance",
     "summary_time_resistive_zeff",
+    "summary_time_romero_balance",
     "summary_time_voltage_consumption",
 ]
 
@@ -273,6 +277,9 @@ def render_panels(
                 # a column that ends earlier needs them switched on by hand.
                 column_axes[-1].tick_params(labelbottom=True)
     if model.suptitle:
+        # finalize hangs it from the top edge inside the band tight_layout
+        # reserves for it (just above the first row's titles, whatever the
+        # grid's shape), and again when a presentation format re-lays it out.
         figure.suptitle(model.suptitle)
     # A figure the caller owns keeps the caller's layout: tight_layout is
     # applied only to a figure this renderer created (issue #260 section 8;
@@ -305,13 +312,6 @@ def render_panels(
             host.set_visible(True)
             host.set_axis_off()
             host.legend(handles, labels, loc="center", frameon=False)
-    if model.suptitle and ax is None:
-        # tight_layout reserves no room for a suptitle, so on a tall grid the
-        # default position lands it on the first row's own titles. Re-place it
-        # once the layout is settled, just above the topmost axes, which works
-        # whatever shape the grid ended up with.
-        top = max(axis.get_position().y1 for axis in flat if axis.get_visible())
-        figure.suptitle(model.suptitle, y=min(1.0, top + 0.985 * (1.0 - top)), va="bottom")
     if show:
         plt.show()
     return figure, grid
@@ -387,13 +387,9 @@ def _aligned_grid_axes(figure: Any, grid: Any, model: Panels) -> tuple[np.ndarra
 
 
 def _label_panels(axes: Any) -> None:
-    from .._panel_grid import panel_label
+    from .._panel_grid import annotate_panel_labels
 
-    for index, axis in enumerate(axes):
-        axis.annotate(
-            panel_label(index), xy=(0, 1), xycoords="axes fraction", xytext=(-6, 6),
-            textcoords="offset points", ha="right", va="bottom", fontweight="bold",
-        )
+    annotate_panel_labels(axes)
 
 
 def visual_rows(model: Panels) -> int:
@@ -650,6 +646,91 @@ def summary_time_resistive_zeff(
 
 
 @_panel_renderer(
+    domain="core_profiles",
+    subject="impurity",
+    view="profile",
+    quantity="composition",
+    description=(
+        "Radial Z_eff, mean charges, reduced impurity charge and dilution from the slice's "
+        "T_e and n_e through atomic-data charge states, for a stated elemental composition."
+    ),
+    # equilibrium: the volume of the n_e-weighted mean; magnetics,
+    # spectrometer_uv, summary: the plasma onset the age is measured from.
+    ids=("core_profiles", "equilibrium", "magnetics", "spectrometer_uv", "summary"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+        # n_e in either spelling, which the recipe's `available` predicate checks.
+    ),
+    optional_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.density_thermal",
+        "core_profiles.profiles_1d.{i}.electrons.density",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "equilibrium.time_slice.{i}.profiles_1d.volume",
+        "magnetics.ip.0.data",
+    ),
+)
+def impurity_profile_composition(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Radial Z_eff, <Z>, Z_I,eff and dilution from T_e, n_e through ADF11 charge states."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="core_profiles",
+    subject="impurity",
+    view="profile",
+    quantity="charge_state_fraction",
+    description="Charge-state fractions f_q(rho) of each impurity element from the slice's T_e and n_e.",
+    # equilibrium: the volume of the n_e-weighted mean; magnetics,
+    # spectrometer_uv, summary: the plasma onset the age is measured from.
+    ids=("core_profiles", "equilibrium", "magnetics", "spectrometer_uv", "summary"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+        # n_e in either spelling, which the recipe's `available` predicate checks.
+    ),
+    optional_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.density_thermal",
+        "core_profiles.profiles_1d.{i}.electrons.density",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "equilibrium.time_slice.{i}.profiles_1d.volume",
+        "magnetics.ip.0.data",
+    ),
+)
+def impurity_profile_charge_state_fraction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Charge-state fractions f_q(rho) of each impurity element."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="summary",
+    subject="summary",
+    view="time",
+    quantity="romero_balance",
+    description=(
+        "Romero's voltage and volt-second balance: V_B, V_I, V_C (and V_R with a given R_p), "
+        "Phi_B against the direct flux change, L_i and the closing resistance."
+    ),
+    ids=("equilibrium", "tf", "wall"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.global_quantities.ip",
+        "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+        "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+        "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+    ),
+)
+def summary_time_romero_balance(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Romero's voltage and volt-second balance."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
     domain="summary",
     subject="summary",
     view="time",
@@ -748,6 +829,20 @@ def diagnostics_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Fixed-shape time overview across the diagnostic subjects."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="diagnostics", subject="kinetic", view="overview", quantity="profiles",
+    description="Local n_e, T_e, T_i and V_phi from compatible diagnostics and core-profile fits.",
+    ids=("thomson_scattering", "charge_exchange", "langmuir_probes", "core_profiles", "equilibrium"),
+    required_paths=(),
+)
+def kinetic_overview_profiles(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Four cross-diagnostic kinetic profile panels."""
+    style.setdefault("figsize", (14.0, 7.0))
     return render_panels(model, ax=ax, show=show, **style)
 
 

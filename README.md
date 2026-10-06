@@ -158,14 +158,12 @@ validation and quality assessment feed back into the processing configurations.
 
 ![Managed scientific processing pipeline](docs/assets/diagrams/scientific_workflow.svg)
 
-The current VEST deployment:
+The current VEST deployment centres on a per-shot database. Experimental data processing writes each
+shot's diagnostic data to it; reconstruction and physics inference, and simulation, read from and write
+back to the same shot; users reach it through the Python API, CLI, GUI, MCP and documentation, locally
+or on an HPC cluster:
 
-```
-VEST Data Analysis Platform
-├── Automated Pipeline (Snakemake)     ── experiment → postprocessing → simulation
-├── Database (IMAS-HSDS)                ── per-shot HDF5 storage via REST API
-└── Interface (VAFT)                    ── data access, mapping, processing, visualization
-```
+![The VEST data platform](docs/assets/diagrams/vest_data_platform.svg)
 
 
 ### Available IMAS IDSs in the VEST Database

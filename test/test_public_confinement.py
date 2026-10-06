@@ -407,3 +407,109 @@ def test_the_subpackage_survives_the_sdist_prune_of_vaft_data():
     manifest = (Path(__file__).resolve().parents[1] / "MANIFEST.in").read_text(encoding="utf-8")
     assert "include vaft/data/public/*.py" in manifest
     assert not any(Path(__file__).resolve().parents[1].joinpath("vaft/data/public").glob("*.csv"))
+
+
+# --- lane D Tier A loader (#548) ---------------------------------------------
+
+
+def test_tier_a_loader_selections_and_schema():
+    from vaft.data import public
+    from vaft.data.public.schema import CONFINEMENT_COLUMNS
+
+    primary = public.load_vest_tier_a_confinement()
+    assert list(primary.columns[: len(CONFINEMENT_COLUMNS)]) == list(CONFINEMENT_COLUMNS)
+    assert (len(primary), primary["shot"].nunique()) == (59, 19)
+    assert primary["selected"].all() and (primary["tau_e_th_s"] > 0).all()
+    assert set(primary["tier_a_block"]) == {"399xx-403xx", "429xx-430xx"}
+    assert primary["n_e_definition"].str.startswith("z = 0 chord").all()
+    every = public.load_vest_tier_a_confinement(None)
+    assert len(every) == 133 and int(every["selected"].sum()) == 59
+    strict = public.load_vest_tier_a_confinement("sensitivity")
+    assert (len(strict), strict["shot"].nunique()) == (14, 4)
+    with pytest.raises(ValueError, match="selection"):
+        public.load_vest_tier_a_confinement("nope")
+
+
+def test_tier_a_loader_matches_the_process_layer_decision():
+    """The loader's inline rules are the ones vaft.process.confinement applies."""
+    import numpy as np
+    import pandas as pd
+
+    from vaft.data import data_path
+    from vaft.data.public.vest_confinement import VEST_TIER_A_SELECTIONS, _tier_a_selected
+    from vaft.process.confinement import ConfinementSliceEvidence, confinement_slice_decision
+
+    table = pd.read_csv(data_path("confinement/vest_tier_a_confinement.csv"))
+    for thresholds in VEST_TIER_A_SELECTIONS.values():
+        evidence = ConfinementSliceEvidence(
+            ip_abs=table["i_p_A"].abs().to_numpy(float), ip_rate=table["ip_rate_1_s"].to_numpy(float),
+            ip_change_per_tau=table["ip_change_per_tau"].to_numpy(float),
+            dwdt_fraction=table["dwdt_fraction"].to_numpy(float),
+            finite=table["rule_finite"].astype("boolean").fillna(False).to_numpy(bool))
+        decided = confinement_slice_decision(evidence, **thresholds)["accepted"]
+        decided &= (table["quality_status"] == "evaluated").to_numpy() & (table["tau_e_th_s"] > 0).to_numpy()
+        np.testing.assert_array_equal(_tier_a_selected(table, thresholds).to_numpy(), decided)
+
+
+def test_tier_a_loader_reads_an_atlas_table_and_rejects_a_foreign_one(tmp_path):
+    import pandas as pd
+
+    from vaft.data import data_path, public
+
+    table = pd.read_csv(data_path("confinement/vest_tier_a_confinement.csv"))
+    copy = tmp_path / "table.csv"
+    table.to_csv(copy, index=False)          # no manifest beside it: definitions stay absent
+    loaded = public.load_vest_tier_a_confinement(path=copy)
+    assert len(loaded) == 59 and loaded["n_e_definition"].isna().all()
+    table.drop(columns=["dwdt_fraction"]).to_csv(copy, index=False)
+    with pytest.raises(ValueError, match="slice-evidence"):
+        public.load_vest_tier_a_confinement(path=copy)
+
+
+# ---------------------------------------------------------------- global energy basis (#1713)
+
+
+def test_a_table_without_the_global_columns_still_validates(db5):
+    old = db5.drop(columns=["w_global_J", "tau_e_global_s", "w_global_definition", "tau_e_global_definition"])
+    table = validate_confinement_table(old)
+    assert list(table.columns) == list(CONFINEMENT_COLUMNS)
+    assert table["tau_e_global_s"].isna().all() and table["w_global_definition"].isna().all()
+
+
+def test_db5_global_columns_come_from_wtot_and_tautot(tmp_path):
+    header = (*_HEADER, "WTOT", "TAUTOT")
+    rows = [(*r, w, t) for r, (w, t) in zip(_ROWS, ((6.0e6, 0.48), (5.5e5, ""), ("", "")))]
+    numbers = "," + ",".join(str(i + 1) for i in range(len(header)))
+    lines = [numbers, "," + ",".join(header)] + [f"{i}," + ",".join(str(v) for v in row)
+                                                  for i, row in enumerate(rows, start=1)]
+    path = tmp_path / "DB5.2.3.csv"
+    path.write_bytes(("﻿" + "\r\n".join(lines) + "\r\n").encode("utf-8"))
+    table = normalize_db5(read_db5(path))
+    assert table.loc[0, "w_global_J"] == 6.0e6 and table.loc[0, "tau_e_global_s"] == 0.48
+    assert np.isnan(table.loc[1, "tau_e_global_s"]) and table.loc[1, "w_global_J"] == 5.5e5
+    assert "TAUTOT = WTOT / PL" in table.loc[0, "tau_e_global_definition"]
+
+
+def test_a_db5_file_without_wtot_reads_with_nan_global_columns(db5):
+    assert db5["w_global_J"].isna().all() and db5["tau_e_global_s"].isna().all()
+
+
+def test_h_factor_resolves_the_energy_basis(db5):
+    thermal = h_factor(db5, "H98y2")
+    assert thermal.attrs["energy_basis"] == "thermal" and thermal.attrs["approximation"] is None
+    # ITER89-P is a global scaling: without tau_e_global_s it is NaN, not silently thermal...
+    strict = h_factor(db5, "ITER89P")
+    assert strict.isna().all() and strict.attrs["energy_basis"] == "global"
+    # ...with a global time it uses it...
+    with_global = db5.assign(tau_e_global_s=db5["tau_e_th_s"] * 1.2)
+    h_glob = h_factor(with_global, "ITER89P")
+    h_th = h_factor(db5, "ITER89P", thermal_as_global=True)
+    np.testing.assert_allclose(h_glob.dropna(), 1.2 * h_th.dropna())
+    # ...and the thermal stand-in is recorded, for every row or one machine only.
+    assert "W_global ~ W_th" in h_th.attrs["approximation"] and h_th.attrs["substituted_rows"] >= 1
+    jet_only = h_factor(db5, "ITER89P", thermal_as_global={"JET"})
+    assert np.isfinite(jet_only[db5["machine"] == "JET"]).all() and jet_only[db5["machine"] != "JET"].isna().all()
+    # One name as a string is that machine, not its letters.
+    np.testing.assert_array_equal(h_factor(db5, "ITER89P", thermal_as_global="JET").to_numpy(), jet_only.to_numpy())
+    with pytest.raises(ValueError, match="machine"):
+        h_factor(db5.drop(columns="machine"), "ITER89P", thermal_as_global={"JET"})

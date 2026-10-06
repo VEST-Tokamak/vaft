@@ -263,3 +263,10 @@ def test_the_plot_is_not_offered_without_electron_profiles():
     with pytest.raises(ValueError, match="electron profiles"):
         RECIPES["summary_time_resistive_zeff"].builder(sample_ods(39915),
                                                        time_range=WINDOWS[39915])
+
+
+def test_the_plasma_current_is_the_reconstructions(flux, state48224):
+    """#1514: R_p and <J.B> are normalised by the same (EFIT) current."""
+    _, got = flux
+    assert "reconstruction" in got.source["ip_source"]
+    assert "reconstruction" in state48224.source["ip_source"]

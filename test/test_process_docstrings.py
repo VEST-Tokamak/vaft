@@ -88,6 +88,12 @@ DEFINITIONAL = frozenset({
     # Deleting a sum-over-species leaf from a slice that has no ion species is
     # what the leaf means, not a method borrowed from anywhere.
     "strip_electron_only_pressure",
+    # impurity (#1565): constructors and the provenance-record grammar --
+    # validation and bookkeeping; the algebra they feed is vaft.formula.impurity.
+    "composition_from_fractions",
+    "composition_from_model",
+    "composition_record_origin",
+    "composition_record_text",
     "compute_time_match_atol",
     "find_time_match_index",
     "normalize_atomic_symbol",
@@ -121,6 +127,18 @@ PIPELINE = frozenset({
     "resistive_zeff_sensitivity",
     # transport_state (#1428): times -> Ti hierarchy -> geometry -> composition/convert
     "resolve_transport_state",
+    # impurity (#1565): match time -> choose by precedence -> close at Z_eff -> reduce
+    "resolve_impurity_composition",
+    # impurity (#1565 Sec. 8): ADF11 states -> moments -> S1/S2 -> one scale -> check
+    "resolve_radial_composition",
+    "populate_radial_impurity_profiles",
+    # impurity (Lane L PR 5): main ion -> lumped charge at the surface -> densities
+    "surface_composition_profile",
+    # zeff_projection (#1566): R_p of the profile -> root / Lane Z's window objective
+    "project_zeff_profile_to_resistive_scalar",
+    "project_window_to_resistive_scalar",
+    # impurity (#1565): match -> keep main ion -> dilute -> write species -> zeff
+    "populate_impurity_profiles",
     # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
     "radial_coordinate_map",
     "profile_gradient",
@@ -226,6 +244,9 @@ PIPELINE = frozenset({
     # fluctuation / transients (#1005): common grid then Welch; floor, runs, path;
     # crossings then rate; trend, window, noise, threshold
     "cross_spectrum",
+    "cross_spectrogram",
+    "cross_spectral_matrix",
+    "coherent_components",
     "track_dominant_frequency",
     "current_quench",
     "current_spike",
@@ -275,10 +296,16 @@ STATEFUL = frozenset({
     "normalize_by_local_emission",
     # ml (#669): record-level samples -> windows
     "window_dataset",
+    # impurity (#1565): an electron-only or H+ slice -> an explicit, labelled species list
+    "populate_impurity_profiles",
+    "populate_radial_impurity_profiles",
+    "surface_composition_profile",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # #1608: COCOS source profiles versus full-weber Green response orientation.
+    "fit_free_boundary_coils",
     # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
     # the parallel (not perpendicular) Spitzer coefficient; <J.B>, not j_tor
     "observed_resistance",
@@ -309,6 +336,8 @@ CONVENTION_SENSITIVE = frozenset({
     "pest_angle_from_jacobian_angle",
     "equilibrium_safety_factor",
     "resolve_rational_surface",
+    # #506: |q| = |m/n| resonance; rho_tor_norm never rebuilt from psi_norm
+    "rational_surfaces",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",
@@ -591,9 +620,28 @@ CONVENTION_SENSITIVE = frozenset({
     # fluctuation / transients (#1005): the phase is y relative to x, the ridge
     # floor is relative to the map, and the current is measured on its magnitude.
     "cross_spectrum",
+    "cross_spectrogram",
+    "cross_spectral_matrix",
+    "coherent_components",
     "track_dominant_frequency",
     "current_quench",
     "current_spike",
+    # impurity (#1565): measured > explicit > derived > assumed, and an
+    # unlabelled stored composition ranks with the assumed ones; the writers
+    # label assumed vs derived, never measured.
+    "resolve_impurity_composition",
+    "populate_impurity_profiles",
+    "populate_zeff_profile",
+    "resolve_radial_composition",
+    "populate_radial_impurity_profiles",
+    "surface_composition_profile",
+    # zeff_projection (#1566): same model, states and objective on both sides
+    "profile_conductivity_model",
+    "spitzer_resistive_equivalent_zeff",
+    "project_zeff_profile_to_resistive_scalar",
+    "project_window_to_resistive_scalar",
+    "flat_profile_from_resistive",
+    "zeff_profile_for_state",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

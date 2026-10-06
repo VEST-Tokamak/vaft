@@ -22,6 +22,7 @@ from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axe
 
 __all__ = [
     "impa_profile_field",
+    "core_profiles_profile_zeff",
     "charge_exchange_profile_fit",
     "charge_exchange_profile_ion_temperature",
     "charge_exchange_profile_velocity_tor",
@@ -228,6 +229,27 @@ def neoclassical_profile_bootstrap_current(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Bootstrap current density, one series per neoclassical model."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="zeff",
+    subject="core_profiles",
+    description=(
+        "Z_eff(rho) stored in a core_profiles slice, labelled measured, assumed, derived or "
+        "inferred by its zeff_fit record; an unlabelled profile says so."
+    ),
+    ids=("core_profiles",),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.zeff",
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+    ),
+    optional_paths=("core_profiles.profiles_1d.{i}.zeff_fit.parameters",),
+)
+def core_profiles_profile_zeff(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Stored Z_eff(rho), labelled by the origin its record states."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 

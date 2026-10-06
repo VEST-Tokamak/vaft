@@ -7,7 +7,7 @@ This directory builds the VEST Tier A confinement table on a validated ohmic pow
 | `build_table.py` | One row per magnetics state key of Lane K's state key contract v1 (#1454). It writes Lane M's `CONFINEMENT_COLUMNS` (`vaft.data.public.schema`) followed by Lane D extension columns: three stored energies, every power-balance term, slice-quality evidence and rule flags. |
 | `closures.py` | Runs four analyses: an errors-in-variables fit of W against P_OH (independent of W) and P_net (for comparison; it carries W noise through dW/dt), over a grid of the assumed equation error of W and measurement error of P; the Kadomtsev-completed size exponent and dimensionless indices, with the cluster covariance propagated and the size exponent labelled `assumed_not_measured`; closures μ_ρ = −2, −2.5 and −3 as linear constraints, compared by RMS, AIC/BIC, a cluster Wald test, leave-one-shot-out error and bootstrap spread; and NSTX (Buxton 2019, Kaye 2006) as a comparison, never a prior. |
 | `figures.py` | Figure functions for Lane V's conference notebook (`vaft.plot` is frozen). Each returns `(fig, axes)`: VEST over the ITPA DB5.2.3 standard set with the spherical tokamaks broken out; τ_E measured against IPB98(y,2) and NSTX2006L; the H-factor distributions; and the exponent comparison with the Kadomtsev-completed μ_ρ, marked as assumed and as undetermined where (1+α_P)/σ < 2. The CLI renders PNG and PDF. |
-| `extra_scalings.py` | The ohmic and L-mode scalings `vaft.formula` lacks, transcribed from the papers and evaluated in their own units: neo-Alcator (Goldston 1984 eq. 3), Goldston 1984 L-mode (eq. 6), their eq. (11) quadrature, and ITER97-L (Kaye 1997). They belong in `vaft.formula` under #670. |
+| `extra_scalings.py` | Maps the table columns onto the ohmic and L-mode scalings of `vaft.formula` (moved there in #670), row by row with NaN for missing inputs: neo-Alcator (Goldston 1984 eq. 3), Goldston 1984 L-mode (eq. 6), their eq. (11) quadrature, and ITER97-L (Kaye 1997, a `_SCALING_COEFS` entry). |
 | `extensions.py` | Tests what the exponents measure: B_T split into TF current (B0R0) and plasma position (R_geo); shot fixed effects (within-shot) against shot means (between-shot); a campaign offset for the two Tier A shot blocks; and a direct dimensionless regression on the Thomson subset (no T elimination through P). |
 | `fit.py` | Fits τ_E = C I_p^aI B_T^aB P_net^aP, density-free (A, primary) and with the Thomson line density (B) on the same subset. It reports errors clustered by shot, a shot bootstrap, leave-one-shot-out refits, influence, a Huber fit and identifiability (VIF, condition number, correlations, log spread). Each fit runs on the primary and the sensitivity selection. |
 
@@ -33,6 +33,11 @@ This directory builds the VEST Tier A confinement table on a validated ohmic pow
 - **P_net** = P_OH − dW/dt. This is `p_loss_W`; radiation is not subtracted, as in DB5 `PLTH`.
 - **P_transport** is NaN: VEST maps no bolometer.
 - **τ_E** = W_mhd / P_net. The kinetic counterpart is `tau_e_kin_s`, which uses the magnetics dW/dt.
+- **EFIT verdicts** come from Lane K's state table under criteria v2 (#1521), as two separate columns:
+  - `efit_quality` (good / admissible / ...) grades the fit alone;
+  - `thomson_consistent` is True when the EFIT pressure lies within [1, 2]·p_e of the Thomson fit, False outside, and NaN where no Thomson profile was matched.
+
+Units of every extension column are in `EXTENSION_UNITS` (`build_table.py`) and in the product's `schema/` files.
 
 ## Slice quality
 
@@ -92,5 +97,13 @@ Then the figures:
 ```bash
 python figures.py --atlas ~/runs/campaign/atlas/confinement --out ~/runs/campaign/atlas/confinement/figures
 ```
+
+The TGLF saturation-rule link (#1482) reads Lane T's `transport/` and `transport_sensitivity/` products beside the table:
+
+```bash
+python tglf_link.py --atlas ~/runs/campaign/atlas --out ~/runs/campaign/atlas/confinement/tglf_link
+```
+
+This writes `power_link.csv` (P = (Q_e + Q_i) dV/dr per state, r/a and TGLF configuration, beside P_OH and P_net) and `power_link_summary_r0.8.csv`. It is a consistency test, not an identity: the flow through r carries only the power deposited inside r.
 
 Nothing is written to the FileDB.

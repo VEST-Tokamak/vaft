@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields, replace
 from datetime import datetime
 import gzip
 import hashlib
@@ -36,6 +36,7 @@ from vaft.machine_mapping.langmuir_probes import LangmuirProbeEraGapError, langm
 from vaft.machine_mapping.magnetics import (
     FLUCTUATION_MIRNOV_FIRST_SHOT,
     LIMITER_SHUNT_CHANNELS,
+    equilibrium_magnetics_processing_config,
     fluctuation_mirnov_channel_definitions,
     known_magnetics_faults,
     toroidal_mirnov_reference_channels,
@@ -45,7 +46,9 @@ from vaft.machine_mapping.magnetics import (
 )
 from vaft.machine_mapping.pf_active import (
     PF_COIL_COUNT,
+    require_acquired_pf_currents,
     resolve_geometry_asset,
+    unacquired_pf_coils,
     vfit_pf_active_dynamic,
     vfit_pf_active_static,
 )
@@ -675,6 +678,58 @@ def _validate_diagnostics_time_coordinates(
     }
 
 
+def magnetics_processing_for_shot(
+    shot: int, overrides: Mapping[str, Any] | None
+) -> VestMagneticsProcessingConfig | None:
+    """The equilibrium-magnetics processing for *shot*: its era policy, with *overrides* on top.
+
+    ``None`` without overrides, so the mapper resolves the era itself. An
+    override changes only the keys it names. It used to *replace* the era
+    policy: the routine workflow's ``vest.magnetics.processing`` block, which
+    restates the dataclass defaults, then ran every native-DAQ shot (46404 on)
+    through the slow-DAQ path, with the wrong fields and baselines, as soon as
+    the workflow configuration was actually loaded (#1541). The acquisition era
+    (``daq_mode``, the baseline rules, the output window) comes from
+    ``vest.yaml`` unless an override names it explicitly.
+    """
+    if not overrides:
+        return None
+    era = equilibrium_magnetics_processing_config(int(shot))
+    shadowed = set(_WINDOW_RULE_KEYS) if era.window_override is not None else set()
+    if era.flux_baseline_window is not None or era.flux_baseline_samples is not None:
+        shadowed |= set(_FLUX_BASELINE_RULE_KEYS)
+    defaults = {f.name: f.default for f in fields(VestMagneticsProcessingConfig)}
+    # A shadowed key left at its default is inert (the routine block restates
+    # them all); one set to anything else is a change that would be dropped.
+    dropped = sorted(
+        key for key in shadowed & set(overrides)
+        if _as_tuple(overrides[key]) != _as_tuple(defaults[key])
+    )
+    if dropped:
+        raise ValueError(
+            f"shot {shot}: the vest.yaml era policy decides {dropped}, so this override would "
+            "change nothing; set window_override / flux_baseline_window / flux_baseline_samples instead"
+        )
+    return replace(era, **dict(overrides))
+
+
+#: Keys only the legacy hardcoded window ladder reads; an era ``window_override`` shadows them.
+_WINDOW_RULE_KEYS = (
+    "default_index_start", "default_index_end", "default_probe_baseline_end", "late_shot_min",
+    "transient_shot_min", "transient_shot_max", "late_index_start", "late_index_end", "late_probe_baseline_end",
+)
+#: Keys only the legacy per-sample flux baselines read; an era flux-baseline rule shadows them.
+_FLUX_BASELINE_RULE_KEYS = (
+    "flux_baseline_first_start", "flux_baseline_first_end", "flux_baseline_second_start",
+    "flux_baseline_second_end", "flux_baseline_late_start", "flux_baseline_late_end",
+    "flux_baseline_late_loop_numbers",
+)
+
+
+def _as_tuple(value: Any) -> Any:
+    return tuple(value) if isinstance(value, (list, tuple)) else value
+
+
 def build_diagnostics_ods(
     *,
     shot: int,
@@ -823,6 +878,12 @@ def build_diagnostics_ods(
         ),
         disabled_channels=_disabled_pf_coils(shot),
     )
+    unacquired_pf = unacquired_pf_coils(ods)
+    if unacquired_pf and statuses["pf_active"]["status"] != "unavailable":
+        # Published without the circuits whose channel was empty (#1568):
+        # they carry NaN, and eddy/EFIT refuse the shot.
+        statuses["pf_active"]["status"] = "partial"
+        statuses["pf_active"]["unacquired_channels"] = unacquired_pf
     grids["pf_active"] = policy_grid("pf_active")
     uv_policy = policies["spectrometer_uv"]
     run_component(
@@ -921,11 +982,7 @@ def build_diagnostics_ods(
         ),
     )
     record_realized_grid("tf", "tf", "tf.time")
-    processing = (
-        VestMagneticsProcessingConfig(**vest_magnetics_processing)
-        if vest_magnetics_processing
-        else None
-    )
+    processing = magnetics_processing_for_shot(shot, vest_magnetics_processing)
     magnetics_channels = [
         int(channel["field_code"])
         for channel in vest_equilibrium_magnetics_channel_definitions(int(shot))
@@ -1044,6 +1101,10 @@ def build_diagnostics_ods(
             "dt": float(analysis.dt),
             "run": int(run),
             "vest_magnetics_processing": vest_magnetics_processing or {},
+            # What the processing actually used: the era policy with the override on top.
+            "vest_magnetics_processing_effective": (
+                json.loads(json.dumps(asdict(processing))) if processing is not None else None
+            ),
             "time_policies": time_policies or {},
         },
         "time_grid": time_grid,
@@ -1056,6 +1117,10 @@ def build_diagnostics_ods(
                 + [
                     f"magnetics:{signal}"
                     for signal in statuses.get("magnetics", {}).get("signals_left_out", {})
+                ]
+                + [
+                    f"pf_active:{coil}"
+                    for coil in statuses.get("pf_active", {}).get("unacquired_channels", [])
                 ]
             ),
             "repaired": [],
@@ -1261,6 +1326,43 @@ def build_impa_ods(
     return ods, manifest
 
 
+#: ``eddy_status`` prefix of an eddy stage whose inputs do not exist in the data.
+#: Replication reads it as a result, not a fault (vaft.database.replication).
+EDDY_INPUT_UNAVAILABLE = "skipped: required input unavailable"
+
+
+def eddy_no_output_product(
+    *, shot: int, diagnostics_ods: str | Path, static_ods: str | Path, reason: str
+) -> tuple[ODS, dict[str, Any]]:
+    """The eddy product for a shot with an unrecorded PF circuit (#1568).
+
+    :func:`build_eddy_ods` refuses such a shot, and that stays an error for a
+    direct caller. The routine stage records it instead: a product with no
+    ``pf_passive`` and a manifest saying ``no_output`` and why, so the shot is
+    finished with nothing to compute rather than a failure retried forever.
+    Only an unrecorded circuit takes this path; a missing diagnostics
+    component still fails the stage, because it can be a configuration fault.
+    """
+    diagnostics_path, static_path = Path(diagnostics_ods), Path(static_ods)
+    product = ODS(consistency_check=False)
+    product["dataset_description.data_entry.pulse"] = int(shot)
+    product["dataset_description.ids_properties.homogeneous_time"] = 2
+    product["dataset_description.ids_properties.comment"] = f"eddy produced no output: {reason}"
+    manifest = {
+        "schema_version": 1,
+        "stage": "eddy",
+        "shot": int(shot),
+        "machine_version": machine_era_for_shot(int(shot)).name,
+        "status": "no_output",
+        "eddy_status": f"{EDDY_INPUT_UNAVAILABLE}: {reason}",
+        "input": {
+            "diagnostics_sha256": sha256_file(diagnostics_path),
+            "static_sha256": sha256_file(static_path),
+        },
+    }
+    return product, manifest
+
+
 def build_eddy_ods(
     *,
     shot: int,
@@ -1318,6 +1420,9 @@ def build_eddy_ods(
             "diagnostics ODS is missing " + ", ".join(missing),
             signal_name="eddy-current constraints",
         )
+
+    # A coil kept as not-acquired (#1568) would drive the vessel with NaN.
+    require_acquired_pf_currents(diagnostics, int(shot), "the eddy-current solve")
 
     ods = diagnostics
     _copy_ids(ods, static, ("wall", "pf_passive", "em_coupling"))

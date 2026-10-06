@@ -20,6 +20,8 @@ __all__ = [
     "rss_mb",
     "ResourceRequest",
     "resolve_backend",
+    "RemoteHost",
+    "RemoteSlurmBackend",
     "SlurmBackend",
     "BoundaryContourPolicy",
     "CHEASEConfig",
@@ -96,6 +98,7 @@ __all__ = [
     "scan_tes",
     "pentrc",
     "genray",
+    "mitim",
     "GENRAYConfig",
     "GENRAYInputs",
     "GENRAYResult",
@@ -198,6 +201,8 @@ _EXPORT_MAP = {
     "rss_mb": (".resources", "rss_mb"),
     "ResourceRequest": (".execution", "ResourceRequest"),
     "resolve_backend": (".execution", "resolve_backend"),
+    "RemoteHost": (".remote", "RemoteHost"),
+    "RemoteSlurmBackend": (".remote", "RemoteSlurmBackend"),
     "SlurmBackend": (".slurm", "SlurmBackend"),
     "BoundaryContourPolicy": (".chease", "BoundaryContourPolicy"),
     "CHEASEConfig": (".chease", "CHEASEConfig"),
@@ -355,6 +360,7 @@ def __getattr__(name: str):
         "pentrc",
         "nice",
         "genray",
+        "mitim",
     }:
         module = import_module(f".{name}", __name__)
         globals()[name] = module

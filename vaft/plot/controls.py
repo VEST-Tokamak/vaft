@@ -141,6 +141,12 @@ def controls_for(
     adds the rendering library, off by
     default because changing it replaces the figure object.
     """
+    from .registry import NON_GRAPHICAL_VIEWS
+
+    if getattr(record, "view", "") in NON_GRAPHICAL_VIEWS:
+        # A table or text view (issue #1180) is presented as text; there is
+        # no figure for a control to redraw, so interactive=True is refused.
+        return ()
     controls: list[ControlSpec] = []
     controls.extend(_member_controls(record))
     controls.extend(_slice_controls(record))
@@ -184,40 +190,40 @@ _DENSE_INDEX_LABELS = {
 
 
 def _slice_controls(record: Any) -> list[ControlSpec]:
-    times: Mapping[str, Any] = getattr(record, "times", None) or {}
-    option = times.get("option")
-    if option in _DENSE_INDEX_LABELS and int(times.get("count", 0)) > 1:
-        # A dense time base is a slider, not a list: thousands of samples
-        # cannot be offered as radio buttons, and the reader wants to sweep
-        # them anyway.  The label carries the span, since the positions
-        # themselves are indices.  A PF programme and a camera's stored
-        # frames are both this shape, so the control is keyed by the keyword
-        # the index is passed as rather than by one plot.
-        count = int(times["count"])
+    """The one control that moves through ``record.sequence`` (issue #1380).
+
+    A dense time base is a slider, not a list: thousands of samples cannot
+    be offered as radio buttons, and the reader wants to sweep them anyway.
+    Its label carries the span, since the positions themselves are indices.
+    A few stored reconstructions are a choice, each labelled with its time.
+    Both read the same sequence facts, so the slider, the GUI player and
+    ``animation=True`` agree on which states exist and where one starts.
+    """
+    sequence = getattr(record, "sequence", None) or {}
+    option = sequence.get("option")
+    if option in _DENSE_INDEX_LABELS:
+        states = sequence["states"]
         return [ControlSpec(
             option, "range",
             f"{_DENSE_INDEX_LABELS[option]} "
-            f"({float(times['start']) * 1e3:.0f}-{float(times['stop']) * 1e3:.0f} ms)",
-            int(times.get("selected") or 0), (0, count - 1, 1), group="slice",
+            f"({float(sequence['start']) * 1e3:.0f}-{float(sequence['stop']) * 1e3:.0f} ms)",
+            int(sequence["selected"]), (states[0], states[-1], 1), group="slice",
         )]
-    slices: Mapping[str, Any] = getattr(record, "slices", None) or {}
-    usable = tuple(int(i) for i in slices.get("usable", ()))
-    if len(usable) < 2:
+    if option != "time_slice":
         return []
+    slices: Mapping[str, Any] = getattr(record, "slices", None) or {}
+    usable = tuple(sequence["states"])
     times = slices.get("times", ())
     labels = tuple(
         f"{i}: {float(times[i]) * 1e3:.1f} ms" if i < len(times) else str(i) for i in usable
     )
-    selected = slices.get("selected", usable[len(usable) // 2])
     # The label names the IDS whose elements are listed, which is the one the
     # plot slices: not always the equilibrium (cold review plot G2).
     container = str(slices.get("container") or "equilibrium.time_slice")
     ids = container.split(".", 1)[0]
     label = "Equilibrium slice" if ids == "equilibrium" else f"{ids} slice"
     return [ControlSpec(
-        "time_slice", "choice", label,
-        int(selected) if selected in usable else usable[len(usable) // 2],
-        usable, labels, group="slice",
+        "time_slice", "choice", label, int(sequence["selected"]), usable, labels, group="slice",
     )]
 
 

@@ -18,3 +18,7 @@ generators:
     output: _data/diagram_catalog.yml
   - module: vaft._api_catalog
     output: _data/api_catalog.yml
+  - module: vaft._dependency_graph
+    output: _data/dependency_graph.yml
+  - module: vaft._pipeline_graph
+    output: _data/pipeline_graph.yml

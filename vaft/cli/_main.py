@@ -13,6 +13,7 @@ _COMMANDS = {
     "shotlog": (".shotlog", "archive the VEST ShotLog and extract per-shot records"),
     "raw-redump": (".raw_redump", "serial, restartable VEST raw-DAQ exports"),
     "raw-upgrade": (".raw_upgrade", "in-place timebase upgrade for legacy raw dumps"),
+    "raw-legacy-import": (".raw_legacy_import", "import pre-SQL per-field CSV shots into a FileDB"),
     "sxr-pack": (".sxr_pack", "pack soft X-ray digitizer CSVs into lossless HDF5"),
     "compare-ods": (".compare_ods", "compare two local ODS products"),
     "vest-upstream": (".vest_upstream", "run VEST upstream OMAS stages"),
@@ -25,6 +26,7 @@ _COMMANDS = {
     "help": (".help", "what VAFT can do: topics, defaults and setup status"),
     "setup": (".setup", "report or prepare the runtime environment (never scientific settings)"),
     "mcp": (".mcp", "serve read-only VAFT discovery tools to an MCP client over stdio"),
+    "gui": (".gui", "launch the browser GUI"),
 }
 
 

@@ -3,7 +3,8 @@
 Three classes, decided in this order and with the deciding check on record:
 
 * ``Plasma`` -- :func:`vaft.omas.plasma_timing.plasma_timing` found a
-  plasma-current pulse (whichever source answered for the window); when the
+  plasma-current pulse (whichever source answered for the window) that is a
+  discharge rather than pickup (see below); when the
   current could not be judged at all (``ip_unusable``: a condemned or
   absent-inside-the-span channel) the light stands in, and a window it saw
   is ``Plasma`` too, flagged so;
@@ -11,6 +12,24 @@ Three classes, decided in this order and with the deciding check on record:
   attempted: the barometry pressure responded to the gas puff, or the light
   saw a window (a flash without current);
 * ``Vacuum`` -- none of those.
+
+A current pulse is refused as a discharge (issue #1733) when its accepted peak
+is below ``min_plasma_current`` (2 kA), or when the light is usable but dark
+(``halpha_dark_with_ip_pulse``) and the pulse is still on at the end of the
+analysis span (``offset_at_record_end``; the span is ``plasma_timing``'s
+``plasma_analysis`` window, 0.26-0.36 s).  A dark pulse that ends -- by falling
+below the threshold or by a collapse (``offset_from_collapse``) -- is kept: a
+dark discharge with a vessel-current tail looks the same, and darkness alone
+is not evidence enough.  The pulse detector's threshold is relative to the
+shot's own noise floor, so a few kA of PF pickup or a drifting Rogowski passes
+it.  A census of 1,565 production products (47514-48944 and every 10th shot
+of 39000-47513) put 66 of 924 ``Plasma`` labels in the dark-and-unended group:
+59 below 10 kA of pickup (48927: 3.3 kA, the regression shot) and 7 drifting
+records, among them the #1373 Rogowski square-wave faults 43690 and 45780; a
+#1373 record that does end inside the span is not caught by this rule.  Lit pulses that
+end are 782 and keep their label down to 2 kA, below which nothing behaves
+like a discharge.  A refused pulse falls through to ``BD failure`` or
+``Vacuum`` with the refusal on ``flags``.
 
 The pressure response is judged over the whole record (the puff precedes the
 analysis window) with :func:`vaft.process.signal_processing.is_signal_active`;
@@ -42,6 +61,7 @@ __all__ = [
     "DECIDED_NONE",
     "DECIDED_OPTICAL_WINDOW",
     "DECIDED_PRESSURE",
+    "MIN_PLASMA_CURRENT_A",
     "PRESSURE_BASE",
     "ShotClass",
     "pressure_response",
@@ -58,6 +78,9 @@ DECIDED_OPTICAL_WINDOW = "optical_window"
 DECIDED_NONE = "none"
 
 PRESSURE_BASE = "barometry.gauge.0.pressure"
+
+#: The smallest accepted current peak that counts as a discharge [A] (#1733).
+MIN_PLASMA_CURRENT_A = 2000.0
 
 #: The timing flags a class record repeats, so a reader need not open the timing.
 _TIMING_FLAGS = ("ip_no_pulse", "ip_unusable", "no_plasma_timing", "halpha_dark_with_ip_pulse")
@@ -115,12 +138,34 @@ def pressure_response(ods: Any, *, var_ratio_thresh: float = 1e-2) -> bool | Non
     return bool(is_signal_active(values, var_ratio_thresh=threshold, change_ratio_thresh=threshold))
 
 
+_REFUSAL_TEXT = {
+    "ip_pulse_below_floor": "a current pulse below the discharge floor (pickup)",
+    "ip_pulse_dark_unended": "a current pulse with no light that never ends (pickup or drift)",
+}
+
+
+def _pickup_refusal(timing: PlasmaTiming, min_plasma_current: float) -> str | None:
+    """Why a found current pulse is not a discharge, or ``None`` when it is one."""
+    window = timing.ip
+    peak = (window.evidence or {}).get("accepted_peak") if window is not None else None
+    if peak is not None and np.isfinite(float(peak)) and abs(float(peak)) < float(min_plasma_current):
+        return "ip_pulse_below_floor"
+    if "halpha_dark_with_ip_pulse" in timing.flags and "offset_at_record_end" in (window.flags or ()):
+        return "ip_pulse_dark_unended"
+    return None
+
+
+def _no_pulse(refusal: str | None) -> str:
+    return "no plasma-current pulse" if refusal is None else f"no discharge current ({_REFUSAL_TEXT[refusal]})"
+
+
 def shot_class(
     ods: Any,
     *,
     timing: PlasmaTiming | None = None,
     policy: PlasmaTimingPolicy | None = None,
     pressure_threshold: float = 1e-2,
+    min_plasma_current: float = MIN_PLASMA_CURRENT_A,
 ) -> ShotClass:
     """Classify a shot from the shared timing and the gas response.
 
@@ -137,8 +182,11 @@ def shot_class(
     flags = [flag for flag in timing.flags if flag in _TIMING_FLAGS]
     if pressure_active is None:
         flags.append("barometry_absent")
+    refusal = _pickup_refusal(timing, min_plasma_current) if ip_pulse else None
+    if refusal is not None:
+        flags.append(refusal)
 
-    if ip_pulse:
+    if ip_pulse and refusal is None:
         label, decided, reason = CLASS_PLASMA, DECIDED_IP_PULSE, (
             f"a plasma-current pulse was found ({timing.source} window {timing.onset:.4f}-{timing.offset:.4f} s)"
         )
@@ -149,15 +197,15 @@ def shot_class(
         )
     elif pressure_active:
         label, decided, reason = CLASS_BD_FAILURE, DECIDED_PRESSURE, (
-            "no plasma-current pulse, but the barometry pressure responded to the gas puff"
+            f"{_no_pulse(refusal)}, but the barometry pressure responded to the gas puff"
         )
     elif optical_window:
         label, decided, reason = CLASS_BD_FAILURE, DECIDED_OPTICAL_WINDOW, (
-            f"no plasma-current pulse, but the light saw a window ({timing.optical.start:.4f}-{timing.optical.end:.4f} s)"
+            f"{_no_pulse(refusal)}, but the light saw a window ({timing.optical.start:.4f}-{timing.optical.end:.4f} s)"
         )
     else:
         label, decided, reason = CLASS_VACUUM, DECIDED_NONE, (
-            "no plasma-current pulse, no pressure response"
+            f"{_no_pulse(refusal)}, no pressure response"
             + (" (barometry absent)" if pressure_active is None else "")
             + ", no light"
         )
