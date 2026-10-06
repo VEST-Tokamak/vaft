@@ -717,6 +717,10 @@
       "shot": 48224,
       "status": "rendered"
     },
+    "kinetic_overview_profiles": {
+      "status": "no_sample",
+      "reason": "cross-shot repository fixture is intentionally not assigned a packaged sample shot"
+    },
     "limiter_current_time": {
       "call": "vaft.omas.plot_limiter_current_time(vaft.omas.load(vaft.data.sample(39915)))",
       "model_sha256": "d71797921d0d1cafd89ceef94e692c28f762510ccf53acb637b7356158df37a9",
@@ -1071,6 +1075,15 @@
     "summary_time_resistive_zeff": {
       "reason": "no packaged sample carries the data this plot needs",
       "status": "no_sample"
+    },
+    "summary_time_romero_balance": {
+      "call": "vaft.omas.plot_summary_time_romero_balance(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "f57a0fcd790099c8c4118a20242969f804765bc60cd0efe2ef97ef8b49ef6096",
+      "png_sha256": "3359874bcbe90d0cde2d575faafbefe7cfa4d4cc1a1c86db91effb237324e12e",
+      "renderer_sha256": "efd8162a198df1c5e4cf2369946425bd3b326230723575235330473e1b5ccd47",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
     },
     "summary_time_voltage_consumption": {
       "call": "vaft.omas.plot_summary_time_voltage_consumption(vaft.omas.load(vaft.data.sample(39915)))",

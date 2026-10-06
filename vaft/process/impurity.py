@@ -977,8 +977,7 @@ def _on_grid(values: Any, resolved: ResolvedImpurityComposition, rho: Optional[n
         raise ValueError("the resolved rho grid must be finite and increasing to be interpolated")
     columns = array.reshape(array.shape[0], -1)
     # inside the resolved range only; beyond it the point is undefined and filled below
-    # anti-alias: radial, not time -- one slice's profile moved between rho
-    # grids; no sample rate is reduced.
+    # anti-alias: spatial interpolation over rho / r/a, not time -- no sample rate to reduce
     out = np.column_stack([np.interp(rho, source, column, left=np.nan, right=np.nan) for column in columns.T])
     return out.reshape((n,) + array.shape[1:])
 
@@ -1000,7 +999,7 @@ def _fill_undefined(values: np.ndarray, rho: Optional[np.ndarray]) -> tuple[np.n
     x = np.arange(flat.shape[0], dtype=float) if rho is None else np.asarray(rho, dtype=float)
     good = ~undefined
     for column in range(flat.shape[1]):
-        # anti-alias: radial, not time -- fills undefined rho points of one slice.
+        # anti-alias: spatial interpolation over rho / r/a, not time -- no sample rate to reduce
         flat[undefined, column] = np.interp(x[undefined], x[good], flat[good, column])
     return out, int(np.count_nonzero(undefined))
 

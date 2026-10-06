@@ -88,6 +88,7 @@ CORE_MODULES: tuple[str, ...] = (
     # be able to see.
     "test_gpec_island_geometry.py",
     "test_magnetic_island.py",
+    # Machine geometry: source vertices, unknown phi, camera units and mask.
     # Registry, taxonomy and display policy: the vocabulary the rest of the
     # package indexes itself by.
     "test_diagnostic_registry.py",
@@ -96,8 +97,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_equilibrium_field_2d.py",
     "test_layout_contract.py",
     "test_line_abscissa.py",
+    "test_machine_geometry_registry.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_parameter_history.py",
     "test_plot_3d_contract.py",
     "test_plot_contract.py",
     "test_plot_intent.py",
@@ -111,12 +114,14 @@ CORE_MODULES: tuple[str, ...] = (
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
+    # The ssh+Slurm backend runs against fake ssh/rsync/Slurm shims: no network.
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
     "test_process_tree.py",
+    "test_remote_backend.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures and the canonical
@@ -129,6 +134,7 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_models_uncertainty.py",
     "test_code_parameters_contract.py",
     "test_code_parameters_entry_payload.py",
+    "test_database_summary.py",
     "test_dataset_description.py",
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
@@ -136,6 +142,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_public_profile.py",
     "test_public_transition.py",
     "test_shotlog.py",
+    "test_turbulent_transport_summary.py",
     # Packaging and documentation policy. Metadata reads; they catch the
     # breakage `package` cannot see until it is already building a wheel.
     "contracts/test_dependency_policy_matrix.py",
@@ -197,6 +204,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_mhd_waves.py",
     "test_diagram_nbi.py",
     "test_diagram_particle_motion.py",
+    "test_diagram_platform.py",
     "test_diagram_pwi.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
@@ -210,6 +218,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
+    "test_diagram_workflows.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
     # The per-shot master lock (#913): an in-memory HSDS, ~4 s of threads.
     "test_hsds_master_lock.py",
@@ -219,8 +228,10 @@ CORE_MODULES: tuple[str, ...] = (
     # and the #141 scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
     "test_gpec_rdcon_criteria.py",
+    "test_mhd_linear_dcon_payload.py",
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
+    "test_stability_rdcon_stride_benchmark.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",

@@ -60,11 +60,13 @@ NEUTRAL = frozenset({
     "field_line_topology_field_connection_length",
 })
 OMAS_BOUND = frozenset({
+    "kinetic_overview_profiles",
     "passive_structure_geometry_wall_mode",
     "passive_structure_overview_wall_time", "passive_structure_overview_wall_reduction",
     "passive_structure_field_wall_reduction", "neoclassical_profile_bootstrap_current",
     "equilibrium_field_psi_vacuum", "vacuum_field", "summary_time_power_balance",
     "summary_time_resistive_zeff",
+    "summary_time_romero_balance",
     "camera_visible_image", "camera_visible_image_frame", "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line", "camera_visible_image_fluctuation",
     "camera_visible_image_mhd_power", "equilibrium_overview",
@@ -86,6 +88,7 @@ _MAPPER_PROBES = {
     "NW": "the mapper then asks whether it was handed a GEQDSK before reading the ODS equilibrium",
 }
 IGNORED_READS: dict[str, dict[str, str]] = {
+    "kinetic_overview_profiles": _MAPPER_PROBES,
     "thomson_scattering_profile_fit": _MAPPER_PROBES,
     "charge_exchange_profile_fit": _MAPPER_PROBES,
 }
