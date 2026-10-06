@@ -292,6 +292,12 @@ from .renderers.lines import (
     thomson_scattering_time_electron_density,
     thomson_scattering_time_electron_temperature,
 )
+from .renderers.edge_q import (
+    summary_time_estimated_q95,
+    summary_time_normalized_current,
+    summary_time_q_star_cylindrical,
+    summary_time_q_star_kink,
+)
 from .renderers.panels import (
     chease_overview_profile_validity,
     chease_overview_refinement_summary,
@@ -326,6 +332,7 @@ from .renderers.panels import (
     summary_time_energy,
     summary_time_power_balance,
     summary_time_resistive_zeff,
+    summary_time_romero_balance,
     summary_time_voltage_consumption,
     passive_structure_overview_wall_time,
     passive_structure_overview_wall_reduction,

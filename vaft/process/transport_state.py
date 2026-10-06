@@ -1415,8 +1415,9 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
     ``kappa_perp,i = 2 n_i T_i / (m_i Omega_i^2 tau_i)``; ``q = kappa T (a/L_T) / a``,
     so a positive flux runs down the temperature gradient, the sign the TGLF and NEO
     mappers use.  This is a physical flux of a stated reduced model, not the
-    order-of-magnitude ``nu rho^2`` reference scale (#780/#1112), and nothing here is
-    projected into ``core_transport``.
+    order-of-magnitude ``nu rho^2`` reference scale (#780/#1112).  This function
+    writes nothing; :func:`vaft.machine_mapping.classical.core_transport_from_classical`
+    projects its records into ``core_transport`` (#1654).
 
     Applicability
     -------------
