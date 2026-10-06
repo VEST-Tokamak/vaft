@@ -26,6 +26,8 @@ from vaft.formula._docstring import (
 
 #: Identities and bookkeeping: no literature source adds anything.
 DEFINITIONAL = frozenset({
+    # The share of a finite response a Jacobian misses (#1642): a ratio of norms.
+    "linearity_ratio",
     # The operational-boundary data model (#1067): evaluation and registry
     # plumbing. The physics and its sources live on each registered entry.
     "boundary_value",

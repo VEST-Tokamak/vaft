@@ -8,9 +8,22 @@ prune test
 # ``vaft*`` package glob, so nothing ships it today; say so explicitly, because
 # the alternative is relying on an omission staying an omission.
 prune docs
+# Issue studies (#1756): only the fixed_free_1608 scripts ship; the README and
+# the measured matrix are notes and a run record, and the other folders are
+# repository-only (see vaft/validation/studies/__init__.py).
+prune vaft/validation/studies/ec_launcher_cad_266
+prune vaft/validation/studies/nice_issue_666
+prune vaft/validation/studies/nice_issue_666_superseded
+exclude vaft/validation/studies/fixed_free_1608/README.md
+exclude vaft/validation/studies/fixed_free_1608/measured_matrix.json
 global-exclude *.py[cod]
 global-exclude ._*
 
+# The hosted-GUI deployment templates (#1755).  `graft vaft` already carries
+# them; they are named so the allowlist reads the same here and in pyproject.
+include vaft/deploy/gui/*.service
+include vaft/deploy/gui/*.example
+include vaft/deploy/gui/*.conf
 include vaft/data/*.py
 # Public-database readers; the databases themselves are fetched, never shipped.
 include vaft/data/public/*.py

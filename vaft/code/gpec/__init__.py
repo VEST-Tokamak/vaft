@@ -715,7 +715,10 @@ def _run_module(
             f"gpec_cylindrical_output_n{mode}.nc",
         }
         output_names = {path.name for path in outputs}
-        if module == "gpec" and core_gpec_outputs.issubset(output_names):
+        never_started = isinstance(exc, rt.GPECLimitStop) and exc.never_started
+        # A launch never admitted cannot have written anything: core files in the
+        # run dir are an earlier run's, so the carve-out must not claim them.
+        if module == "gpec" and core_gpec_outputs.issubset(output_names) and not never_started:
             # A process killed mid-write can leave the core files present but
             # truncated, so the timeout carve-out must verify its outputs
             # before reporting success (release review, 0.6.0). This does not
@@ -730,7 +733,11 @@ def _run_module(
                     workdir=run_dir,
                     returncode=0,
                     status="completed",
-                    reason=f"timeout after outputs materialized ({exc.timeout} seconds)",
+                    reason=(
+                        f"timeout after outputs materialized ({exc.timeout} seconds)"
+                        if not isinstance(exc, rt.GPECLimitStop) or exc.is_time_limit
+                        else f"{exc.reason}; its outputs had already materialized"
+                    ),
                     logs=tuple(logs),
                     outputs=outputs,
                     commands=tuple(commands),
@@ -742,7 +749,7 @@ def _run_module(
                 returncode=None,
                 status="failed",
                 reason=(
-                    f"timeout after {exc.timeout} seconds; outputs present but "
+                    f"{rt.limit_stop_reason(exc)}; outputs present but "
                     f"failed verification: {check_reason}"
                 ),
                 logs=tuple(logs),
@@ -755,7 +762,7 @@ def _run_module(
             workdir=run_dir,
             returncode=None,
             status="failed",
-            reason=f"timeout after {exc.timeout} seconds",
+            reason=rt.limit_stop_reason(exc),
             logs=tuple(logs),
             outputs=outputs,
             commands=tuple(commands),

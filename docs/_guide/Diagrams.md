@@ -146,6 +146,29 @@ boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fra
 `li_qa_wesson`, `li_qa_cheng`. See
 #944 and #636.
 
+### Dimensionless similarity spaces
+
+The limit diagrams above ask whether a state crosses a boundary. A similarity space asks where a state sits relative to other machines and to reactor designs, and which extrapolation separates them. In $\nu_*$–$\rho_*$, $\rho_*$ is the size / finite-gyroradius direction ($1/\rho_*$ is roughly the number of ion gyroradii across the minor radius) and $\nu_*$ the collisionality direction ($1/\nu_*$ is roughly the number of trapped-ion bounce orbits before a collision). $\beta_N$–$\rho_*$ splits MHD-normalised pressure from machine scale. $\Omega_{ci}\tau_{E,\mathrm{th}}$–$\rho_*$ splits confinement time, counted in gyro-orbits, from size. All three come from the ARC physics-basis comparison (Hillesheim et al., *J. Plasma Phys.* 92 (2026) E69, Fig. 6). They are zero-dimensional and draw no boundary by default (Luce, Petty and Cordey, *PPCF* 50 (2008) 043001, explain why these coordinates separate transport mechanisms).
+
+| Projection | Question it answers | Axes (exact quantity) |
+| --- | --- | --- |
+| `rho_star_nu_star` | Is the extrapolation in size, in collisionality, or both? | `rho_star_verdoolaege_2021`, `nu_star_verdoolaege_2021` |
+| `rho_star_beta_n` | How much is pressure, how much is scale? | `rho_star_verdoolaege_2021`, `normalized_beta` |
+| `rho_star_omega_ci_tau_e` | Size against confinement time in gyro-orbits | `rho_star_verdoolaege_2021`, `omega_ci_tau_e_th` |
+
+The $\rho_*$ and $\nu_*$ axes follow the ITPA confinement-database convention, Verdoolaege et al., *Nucl. Fusion* 61 (2021) 076006, Eqs. (1a) and (1c), which Hillesheim et al. use. $n$ and $T$ are volume averages with $T_e = T_i$. The functions that evaluate them are `rho_star_from_M_T_B_R_epsilon`, `nu_star_from_n_T_B_R_epsilon_kappa_I` and `omega_i_tau_E_from_B_tau_E_M` in `vaft.formula.equilibrium`. VAFT has other $\nu_*$ and $\rho_*$ definitions (issue 353): Sauter's local $\nu_*$, pedestal $\nu^*_e$, edge and separatrix collisionalities. Each is a different quantity, so it cannot be drawn on these axes. A missing input leaves the state *unassessed*: it is counted per group, in a warning and in the legend, and is never estimated. Each projection carries its meaning as metadata:
+
+```python
+from vaft.diagram import _op_space
+from vaft.plot.dimensionless_space import dimensionless_similarity
+
+print(_op_space.get_projection("rho_star_nu_star").interpretation.describe())
+fig, ax = dimensionless_similarity(table, "rho_star_nu_star", group="machine")   # ARC V3A overlaid
+ax.vaft_exclusions.summary()
+```
+
+The only built-in reference point is ARC V3A ($\beta_N = 1.8$, $\rho_* = 0.0017$, $\nu_* = 0.031$, $\Omega_{ci}\tau_{E,\mathrm{th}} = 4.1\times10^8$), the values Hillesheim et al. state in Sec. 4. Their SPARC, ITER and EU-DEMO points appear only as plotted markers, so they are not digitised. Pass such points as `reference_table=` with a `source` column. See #1624.
+
 ### Reduced stability diagnostics
 
 What each analytic or reduced criterion is, and what it proves, is on
@@ -1627,6 +1650,7 @@ unsupported capability. Node style says how a quantity was obtained:
 | reconstructed | the solution of an inverse problem |
 | derived | computed deterministically from existing state |
 | inferred | estimated with a model, prior or closure |
+| synthetic (assumption-completed) | completed from an equilibrium and explicit assumptions with no kinetic data; never a measurement |
 | model assumption / prior | an assumed value or prior the result depends on; drawn entering from the side |
 | model choice / convention | a model choice or convention (basis, sign, conductivity model, mode numbers); drawn from the side |
 | machine geometry / static data | static machine data: geometry, Green tables, circuits; drawn from the side |
@@ -1653,6 +1677,8 @@ vaft.diagram.gpec_plasma_response()
 vaft.diagram.flare_field_line_topology()
 vaft.diagram.neo_neoclassical()
 vaft.diagram.tglf_cgyro_local_transport()
+vaft.diagram.parameter_inference_overview()
+vaft.diagram.parameter_inference_dependency_graph()
 ```
 
 ### Plasma parameter inference: ion temperature and species
@@ -1952,6 +1978,68 @@ Follow-up TODOs (implementation or IMAS mapping):
 - Squareness zeta enters as 0 (VEST equilibria carry no squareness); Z_EFF is not written to input.cgyro by design: CGYRO recomputes it from the species list (Z_EFF_METHOD=2).
 - No implemented local-gyrokinetic validity criterion (rho*): compare_with_oracle checks only the input translation against CGYRO's own projection.
 - No TGLF to gyrokinetics_local mapping.
+
+### Plasma parameter inference: completing the kinetic profiles
+
+Where inference sits: diagnostics and the equilibrium give reconstructed but incomplete kinetic profiles; explicit assumptions and the closures VAFT implements complete them, and every completed quantity keeps its origin on the way to simulation.
+
+![Plasma parameter inference: completing the kinetic profiles]({{ '/assets/diagrams/parameter_inference_overview.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Thomson scattering | measured | $T_e,\ n_e\ \mathrm{at}\ (R, Z)$ |  | `thomson_scattering.channel[:]` |
+| Charge exchange (optional) | measured | $T_i^{\mathrm{CX}}\ \mathrm{at}\ (R, Z)$ |  | `charge_exchange.channel[:].ion[0].t_i` |
+| Magnetic equilibrium | reconstructed | $p_{\mathrm{eq}}(\psi),\ q,\ \langle j\cdot B\rangle,\ \mathrm{geometry}$ |  | `equilibrium.time_slice[:].profiles_1d` |
+| Reconstructed kinetic profiles | reconstructed | $T_e(\rho),\ n_e(\rho)\ (\mathrm{fitted}),\ [T_i(\rho)], p_{\mathrm{eq}}(\rho),\ q(\rho)$ |  | `core_profiles.profiles_1d[:].electrons` |
+| Fitting assumptions | model choice / convention (enters Reconstructed kinetic profiles) | $\mathrm{polynomial\ \|\ core\text{-}poly/edge\text{-}exp\ \|\ GP}, \mathrm{order}\ N,\ x = \rho_{\mathrm{tor},N}\ \mathrm{or}\ \psi_N, T, n > 0,\ \sigma\text{-}\mathrm{weighted}$ | `vaft.process.profile.profile_fitting_thomson_scattering` |  |
+| Closure assumptions | model assumption / prior (enters Reconstructed kinetic profiles) | $\mathrm{common}\ T_i,\ \mathrm{impurity\ species},\ Z_{\mathrm{eff}}, \sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda$ |  |  |
+| Thermodynamic closure | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Impurity closure | inferred |  | `vaft.process.impurity.resolve_impurity_composition` |  |
+| Resistive closure | inferred | $V_R^{\mathrm{obs}} \to Z_{\mathrm{eff}}^{\mathrm{res}}\ (\mathrm{scalar}), \sigma_\parallel:\ \mathrm{Spitzer\ \|\ neoclassical\ (Sauter,\ Redl)}$ | `vaft.process.resistive_zeff.infer_resistive_zeff` |  |
+| Completed kinetic profiles | derived | $n_e, T_e, T_i, n_s, Z_{\mathrm{eff}}, \mathrm{each\ with\ origin=\ldots;\ method=\ldots}$ |  | `core_profiles.profiles_1d[:].{electrons, ion[:], zeff}` |
+| Simulation-ready | code input | $\mathrm{every\ input\ quantity\ with\ its\ origin}$ |  |  |
+
+References:
+
+1. L. L. Lao et al., Nucl. Fusion 25 (1985) 1611
+2. J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 4.25
+3. J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002
+4. L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977
+5. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834
+6. A. Redl et al., Phys. Plasmas 28 (2021) 022502
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive closure) is in progress in Lane L / Lane Z (#1565, #1566, PR #1659) and is not on develop.
+- Rotation, E_r and the ExB shear are not inferred: downstream codes receive gamma_E = 0 as an explicit assumption (#553).
+- Provenance is recorded per quantity where it exists (core_profiles origin=...; method=... records for composition, the T_i result's origin/method fields); there is no single runtime provenance object, by design (#1601 is documentation-first).
+
+### Inferred quantities depend on inferred quantities
+
+Provenance propagates: a composition assumption fixes the ion densities, which set the pressure-partition T_i, whose gradients reach the gyrokinetic input beside an assumed zero ExB shear. Every link below the measurements carries the assumptions above it.
+
+![Inferred quantities depend on inferred quantities]({{ '/assets/diagrams/parameter_inference_dependency_graph.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Electron profiles | measured | $T_e(\rho),\ n_e(\rho)$ |  | `core_profiles.profiles_1d[:].electrons.{temperature, density_thermal}` |
+| Equilibrium pressure | reconstructed | $p_{\mathrm{eq}}(\psi)\ \ (\mathrm{independent\ lineage})$ |  | `equilibrium.time_slice[:].profiles_1d.pressure` |
+| Impurity source | model assumption / prior (enters Ion densities) | $\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}$ |  |  |
+| Ion densities | derived |  | `vaft.process.impurity.resolve_impurity_composition` |  |
+| Pressure-partition ion temperature | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Ion pressure | derived | $p_i(\rho),\ dp_i/dr$ |  |  |
+| Normalized gradients | derived | $a/L_{T_i},\ a/L_{n_i},\ T_i/T_e$ | `vaft.code.gacode.tglf.prepare_tglf_input` |  |
+| ExB shear | model assumption / prior (enters Gyrokinetic input) | $\gamma_E = 0\ \ (\mathrm{assumed})$ |  |  |
+| Gyrokinetic input | code input | $\mathrm{local\ state\ with\ origins}$ | `vaft.code.gacode.cgyro.prepare_cgyro_input` |  |
+
+References:
+
+1. L. L. Lao et al., Nucl. Fusion 25 (1985) 1611
+2. J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 4.25
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic input as an assumption, and force balance is future scope.
 
 ## Using the committed assets
 
