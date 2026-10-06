@@ -11,7 +11,8 @@ Every plot the registry holds gets an entry in ``docs/assets/plots/manifest.json
 A plot that one of the packaged samples (:func:`vaft.data.available_samples`) can
 draw is rendered from the first sample that can, through its
 ``vaft.omas.plot_<name>`` adapter, and committed as ``<name>.png``; any other plot
-records why it has no picture (``no_sample`` or ``failed``).  The documentation
+records why it has no picture (``no_sample`` or ``failed``; a table or text
+view, which draws no figure, records ``no_figure``).  The documentation
 build never runs matplotlib: ``/reference/plot/`` shows these committed files.
 
 Freshness follows :mod:`vaft.diagram.build` in judging the *recipe* rather than
@@ -383,6 +384,14 @@ def _fresh(entry: dict, spec, ods, out_dir: Path) -> bool:
         return False
 
 
+#: The states a manifest entry may record.  ``no_figure`` is a table or text
+#: view (issue #1180): it presents text, so there is no picture to draw.
+STATUSES = ("rendered", "no_sample", "failed", "no_figure")
+
+#: Why a table or text view has no thumbnail.
+NO_FIGURE_REASON = "a table/text view is presented as text, not drawn as a figure"
+
+
 def build(out_dir: Path | None = None, *, force: bool = False, only: Iterable[str] | None = None) -> list[str]:
     """Render stale, missing (or, with ``force``, all) thumbnails; return what was written."""
     import vaft.plot  # noqa: F401 -- registers every renderer
@@ -398,6 +407,11 @@ def build(out_dir: Path | None = None, *, force: bool = False, only: Iterable[st
     written: list[str] = []
     for name in sorted(selected):
         spec = specs[name]
+        if spec.view in registry.NON_GRAPHICAL_VIEWS:
+            # A table or text view returns text, not a figure (issue #1180).
+            entries[name] = {"status": "no_figure", "reason": NO_FIGURE_REASON}
+            (out_dir / f"{name}.png").unlink(missing_ok=True)
+            continue
         if name not in candidates:
             entries[name] = {"status": "no_sample",
                              "reason": "no packaged sample carries the data this plot needs"}
@@ -514,7 +528,7 @@ def check(out_dir: Path | None = None, *, full: bool = False) -> tuple[list[str]
     for name in sorted(set(specs) & set(recorded)):
         entry = recorded[name]
         status = entry.get("status")
-        if status not in ("rendered", "no_sample", "failed"):
+        if status not in STATUSES:
             problems.append(f"{name}: unknown thumbnail status {status!r}")
             continue
         if status != "rendered":

@@ -75,6 +75,10 @@ Follow computational ownership, not prestige: a reduced or VAFT-native model is 
 a more advanced Code exists, and an external Code is not wrapped in an Actor merely because its
 capability can be named.
 
+These boundaries say where code *should* live. To see which modules of each layer import which
+today, generated from the source, explore the current implementation in the
+[VAFT dependency explorer]({{ site.baseurl }}/reference/dependency-graph/).
+
 ## When an Actor is justified
 
 Create an Actor only when **all** of the following hold:
@@ -120,6 +124,28 @@ An Actor does not own persistence or scientific organization:
 A Run can be created or extended without any Actor, and a Study can compare Process-native and
 Code-native results without one. Actor provenance is attached only when an Actor contract is actually
 used or explicitly referenced.
+
+## Where this fits: ownership and maturation
+
+This page is the zoomed view of one band of a larger picture (#1645). That picture is drawn by
+`vaft.diagram.scientific_ownership_architecture()` and described in
+[Diagrams]({{ '/reference/diagrams/' | relative_url }}). It separates five things:
+
+- **computational implementation**: Formula, Process, Code and learned models, with data and the
+  database, all producing results and evidence;
+- **validation**, which interprets that evidence and is not part of the computation;
+- **use policy** (accept, review, warn, reject, rerun, fallback), optional and downstream of validation;
+- **workflow maturation**: a workflow or notebook composes computation and incubates new logic;
+- **Study and Research organization**: a Study records one reproducible analysis, Research groups Studies
+  by membership, and neither executes anything.
+
+Logic leaves a workflow when it is reused or copied elsewhere, needs its own tests, defines a stable
+operation, or enters routine production (#1642). It is then promoted by what it means. A pure relation goes
+to Formula, a native transformation to Process and a solver operation to Code. A scientific assessment goes
+to validation, retrieval and persistence to the database, and a learned task to its owning domain with a
+learned implementation. Study-specific orchestration stays in the workflow.
+
+![Scientific ownership and maturation]({{ '/assets/diagrams/scientific_ownership_architecture.svg' | relative_url }})
 
 ## Status
 

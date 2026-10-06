@@ -107,7 +107,8 @@ def test_bad_arguments_fail(fn, kw):
         fn(**kw)
 
 
-@pytest.mark.parametrize("name", ["geometry_ordering_map", "field_line_geometry", "mode_number_mapping"])
+@pytest.mark.parametrize("name", ["geometry_ordering_map", "field_line_geometry", "mode_number_mapping",
+                                  "mhd_mode_geometry_map"])
 def test_every_geometry_diagram_is_deterministic_and_exported(name):
     fn = getattr(vaft.diagram, name)
     assert fn().tikz == fn().tikz

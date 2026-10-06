@@ -750,7 +750,10 @@ def core_transport_from_cgyro(
         ods[f"{base}.ion.{ion}.particles.flux"] = particle[:, index]
         ods[f"{base}.ion.{ion}.energy.flux"] = energy[:, index]
         ion += 1
-    ods["core_transport.ids_properties.homogeneous_time"] = 1
+    # An IDS the classical mapper (#1654) made heterogeneous stays so: every slice
+    # here also carries its own profiles_1d time, so 0 remains true.
+    if ods.get("core_transport.ids_properties.homogeneous_time", None) != 0:
+        ods["core_transport.ids_properties.homogeneous_time"] = 1
     try:
         ods.set_time_array("core_transport.time", time_index, float(time))
     except Exception:

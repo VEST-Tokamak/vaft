@@ -129,6 +129,14 @@ PIPELINE = frozenset({
     "resolve_transport_state",
     # impurity (#1565): match time -> choose by precedence -> close at Z_eff -> reduce
     "resolve_impurity_composition",
+    # impurity (#1565 Sec. 8): ADF11 states -> moments -> S1/S2 -> one scale -> check
+    "resolve_radial_composition",
+    "populate_radial_impurity_profiles",
+    # impurity (Lane L PR 5): main ion -> lumped charge at the surface -> densities
+    "surface_composition_profile",
+    # zeff_projection (#1566): R_p of the profile -> root / Lane Z's window objective
+    "project_zeff_profile_to_resistive_scalar",
+    "project_window_to_resistive_scalar",
     # impurity (#1565): match -> keep main ion -> dilute -> write species -> zeff
     "populate_impurity_profiles",
     # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
@@ -290,6 +298,8 @@ STATEFUL = frozenset({
     "window_dataset",
     # impurity (#1565): an electron-only or H+ slice -> an explicit, labelled species list
     "populate_impurity_profiles",
+    "populate_radial_impurity_profiles",
+    "surface_composition_profile",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
@@ -620,6 +630,16 @@ CONVENTION_SENSITIVE = frozenset({
     "resolve_impurity_composition",
     "populate_impurity_profiles",
     "populate_zeff_profile",
+    "resolve_radial_composition",
+    "populate_radial_impurity_profiles",
+    "surface_composition_profile",
+    # zeff_projection (#1566): same model, states and objective on both sides
+    "profile_conductivity_model",
+    "spitzer_resistive_equivalent_zeff",
+    "project_zeff_profile_to_resistive_scalar",
+    "project_window_to_resistive_scalar",
+    "flat_profile_from_resistive",
+    "zeff_profile_for_state",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]
