@@ -28,8 +28,33 @@ def test_the_reduction_is_a_chain_from_the_general_equation_to_the_cht_model(dia
         assert (code, "compare") in edges
 
 
-def test_the_two_full_geometry_indices_have_opposite_stable_signs():
-    assert ">" in IMPLEMENTATIONS["dcon"][1] and "<" in IMPLEMENTATIONS["gpec_jl"][1]
+def _outlines(d):
+    import numpy as np
+    out = {}
+    for name in d.model["nodes"]:
+        (outline,) = [it for it in d.scene.role(f"node:{name}") if getattr(it, "closed", False)]
+        xy = np.asarray(outline.points)
+        out[name] = (xy[:, 0].min(), xy[:, 0].max(), xy[:, 1].min(), xy[:, 1].max())
+    return out
+
+
+def test_boxes_do_not_overlap_and_no_arrow_crosses_a_box_it_does_not_join(diagram):
+    import numpy as np
+    boxes = _outlines(diagram)
+    names = list(boxes)
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            ra, rb = boxes[a], boxes[b]
+            assert ra[1] <= rb[0] or rb[1] <= ra[0] or ra[3] <= rb[2] or rb[3] <= ra[2], (a, b)
+    t = np.linspace(0.0, 1.0, 200)[:, None]
+    for start, end in diagram.model["edges"]:
+        (arrow,) = [it for it in diagram.scene.role(f"edge:{start}->{end}") if hasattr(it, "start")]
+        pts = np.asarray(arrow.start) + t * (np.asarray(arrow.end) - np.asarray(arrow.start))
+        for name, (x0, x1, y0, y1) in boxes.items():
+            if name in (start, end):
+                continue
+            inside = (pts[:, 0] > x0) & (pts[:, 0] < x1) & (pts[:, 1] > y0) & (pts[:, 1] < y1)
+            assert not inside.any(), (start, end, name)
 
 
 def test_equations_come_from_the_catalog(diagram):

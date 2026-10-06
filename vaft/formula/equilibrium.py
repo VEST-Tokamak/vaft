@@ -783,7 +783,8 @@ def ballooning_alpha_from_volume(V, dV_dpsi, dp_dpsi, R0):
     dp_dpsi : float or np.ndarray
         $dp/d\psi$ against the same per-radian flux [Pa rad/Wb].
     R0 : float
-        Reference major radius naming the volume radius, positive [m].
+        Reference major radius naming the volume radius, positive; the
+        magnetic axis, as GPEC.jl's local ballooning uses [m].
 
     Returns
     -------
@@ -805,7 +806,10 @@ def ballooning_alpha_from_volume(V, dV_dpsi, dp_dpsi, R0):
     $V = 2\pi^2R_0r^2$, it is exactly the Connor-Hastie-Taylor
     $\alpha = -2\mu_0R_0q^2p'(r)/B_0^2$ with $r$ the **minor** radius
     (``ballooning_alpha_from_p_B_R`` differentiates against the major radius
-    instead).
+    instead). $\alpha \propto \sqrt{R_0}$ through $r_V$: Miller et al. use each
+    surface's geometric centre instead of the axis, which at a spherical
+    tokamak's aspect ratio moves $\alpha$ by several per cent, so state which
+    $R_0$ when comparing.
 
     Physical interpretation
     -----------------------

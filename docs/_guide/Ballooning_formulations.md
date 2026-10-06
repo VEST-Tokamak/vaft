@@ -69,7 +69,8 @@ None of the three sources writes this reduction out. It is standard theory (CHT 
    $|\nabla\beta|^2/B^2 \propto 1 + \Lambda^2$.
 4. **Curvature.** $\kappa_n \simeq -\cos\theta/R$ and $\kappa_s \propto \sin\theta/R$, so
    $\kappa_w \propto -(\cos\theta + \Lambda\sin\theta)$.
-5. **Normalisation.** With $\mathbf B\cdot\nabla = (qR)^{-1}\partial_\theta$, the drive $2P'/\chi'$ becomes $\alpha$.
+5. **Normalisation.** With $\theta$ now in radians (steps 3 and 4 use the sources' turns),
+   $\mathbf B\cdot\nabla = (qR)^{-1}\partial_\theta$ and the drive $2P'/\chi'$ becomes $\alpha$.
 
 This gives the CHT equation VAFT solves:
 
@@ -93,7 +94,7 @@ choosing a minor radius or a field strength:
 | Quantity | VAFT formula | Equation | Circular large-$\epsilon^{-1}$ limit |
 | --- | --- | --- | --- |
 | shear | `shear_from_volume` | $\hat s_V = (2V/q)(q_\psi/V_\psi) = d\ln q/d\ln r_V$, $r_V = \sqrt{V/2\pi^2R_0}$ | exactly $\hat s = (r/q)\,dq/dr$, for **any** flux label |
-| pressure gradient | `ballooning_alpha_from_volume` | $\alpha = -(2\mu_0/(2\pi)^2)\,V_\psi\,p_\psi\,\sqrt{V/2\pi^2R_0}$ | exactly $-2\mu_0R_0q^2p'(r)/B_0^2$, with $\psi$ **per radian** |
+| pressure gradient | `ballooning_alpha_from_volume` | $\alpha = -(2\mu_0/(2\pi)^2)\,V_\psi\,p_\psi\,\sqrt{V/2\pi^2R_0}$ | exactly $-2\mu_0R_0q^2p'(r)/B_0^2$, with $\psi$ **per radian** and $R_0$ the magnetic axis |
 
 Both identities are checked analytically in `test/test_formula_ballooning_normalisation.py`. With the full
 flux in Wb, $\alpha$ comes out $(2\pi)^2$ too small. The older `ballooning_alpha_from_p_B_R` differentiates
@@ -116,9 +117,9 @@ diagram.
 | Start / boundary | even solution $F(0) = 1$, $F'(0) = 0$ | asymptotic **small** solution at $-\theta_{max}$, with a first-order correction | Dirichlet $y_1 = 0$ at both $\pm\theta_{max}$ |
 | Matching | none: Newcomb zero-crossing test | projection on the large / small basis at $+\theta_{max}$ | log-derivative jump at $\pm 10^{-3}$ |
 | Index | Boolean; $\alpha_1$, $\alpha_2$ by bisection | $C_A$ (`ca1`; `ca2` is not written to netCDF) | $\Delta' = (y_2/y_1)_R - (y_2/y_1)_L$ |
-| Stable when | no zero crossing | $C_A > 0$ | $\Delta' < 0$ (*derived here*, from the $P' = 0$ limit) |
+| Stable when | no zero crossing | $C_A > 0$ (*derived here*: the start is the small solution with $y_1 > 0$, so without a zero crossing the large-solution coefficient is positive) | $\Delta' < 0$ (*derived here*, from the $P' = 0$ limit) |
 | Domain | $[0, 40\pi]$ rad, RK4, $h = 0.02$ | $\pm\min(10\,\theta_{max,0}\,\text{scale}, 100)$ turns, LSODE $10^{-5}$ | $\pm\min(10\,\text{scale}, 16.5)$ turns, DP5 $10^{-8}$ |
-| Gate | none | only where $-10^4 \le D_I \le 0$ (DCON's `alpha` there is the Mercier exponent $\sqrt{-D_I}$) | none |
+| Gate | none | only where $-10^4 \le D_I \le 0$ and $\psi_N \le 1$, with `bal.f`'s **own** determinant $D_I = \det\bar d_0$, not the `di` that `mercier_scan` writes to netCDF (DCON's `alpha` there is the Mercier exponent $\sqrt{-D_I}$) | none |
 | Scans | $\hat s$, $\alpha$ free parameters | none | thin-layer $p'$ and $q'$ perturbations: $\alpha_{crit,1}$, $\alpha_{crit,2}$ |
 
 ## How $C_A$ and $\Delta'$ relate
@@ -149,7 +150,10 @@ These steps need solver runs; P1 must come before P2.
 - **P2:** finite-$\epsilon$, elongation and triangularity scans.
 - **P3:** a conventional reference equilibrium and a VEST equilibrium.
 
-Separate convergence in $\theta_{max}$, step size and tolerance from model error. Open source questions:
+Separate convergence in $\theta_{max}$, step size and tolerance from model error. GPEC.jl's
+`salpha_reference` integrates $V$ from the innermost surface `psilow`, not from the axis. That biases $V$,
+$s_{ref}$ and $\alpha_{ref}$ low near the axis, so it must be accounted for in P1 together with the
+$4\pi^{5/2}$ factor. Open source questions:
 - whether the $\theta_k \ne 0$ gauge difference shifts zeros on up–down asymmetric equilibria;
 - how much the GS-identity and geometric $\kappa_n$ differ on equilibria that do not satisfy GS exactly;
 - a bound on the Dirichlet error.

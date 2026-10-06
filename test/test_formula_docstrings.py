@@ -88,6 +88,8 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # moves by (2 pi)^2 with the flux label: psi must be per radian (#1637)
+    "ballooning_alpha_from_volume",
     # the growth rate is in Alfven units v_A/(qR); Dirichlet ends on the extended angle (#1075)
     "s_alpha_ballooning_eigenmode",
     "ballooning_radial_wavenumber",

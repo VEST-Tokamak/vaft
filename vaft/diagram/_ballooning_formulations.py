@@ -74,16 +74,15 @@ def ballooning_formulation_hierarchy(*, labels: bool = True) -> Diagram:
                         "$\\alpha_1$ and $\\alpha_2$;\\\\ any $\\hat s$, $\\alpha$; no geometry", style="concept leaf",
                         role="node:vaft", latex=True)
     nodes["dcon"] = box(_X_DCON, -3.6, 5.6, 2.6, "Fortran DCON\\\\ full geometry, $\\theta_0 = 0$\\\\ asymptotic "
-                        "small solution\\\\ index $C_A$, stable when $> 0$;\\\\ only where $D_I < 0$",
+                        "small solution\\\\ index $C_A$, stable when $> 0$;\\\\ only where its own $D_I < 0$",
                         style="concept leaf", role="node:dcon", latex=True)
     nodes["gpec_jl"] = box(_X_JL, -3.6, 5.6, 2.6, "GPEC.jl local ballooning\\\\ full geometry, any $\\theta_k$\\\\ "
                            "Dirichlet at $\\pm\\theta_{max}$\\\\ $\\Delta'$, stable when $< 0$;\\\\ poles; "
                            "$\\alpha_{crit,1}$, $\\alpha_{crit,2}$ scans", style="concept leaf",
                            role="node:gpec_jl", latex=True)
     compare_y = nodes["vaft"].y - 2.0
-    nodes["compare"] = box(2.9, compare_y, 12.0, 1.3, "compare marginal boundaries, not Boolean labels: "
-                           "$\\alpha_{crit}$ on one normalisation;\\\\ $C_A$ and $\\Delta'$ zeros agree only as "
-                           "$\\theta_{max} \\to \\infty$ with $D_I < 0$", style="concept strong", role="node:compare",
+    nodes["compare"] = box(2.9, compare_y, 12.0, 1.3, "compare marginal boundaries on one normalisation, not Boolean labels:\\\\ "
+                           "$C_A$ and $\\Delta'$ zeros agree only as $\\theta_{max} \\to \\infty$ with $D_I < 0$", style="concept strong", role="node:compare",
                            latex=True)
     for b in nodes.values():
         items += list(b.items)
@@ -101,7 +100,7 @@ def ballooning_formulation_hierarchy(*, labels: bool = True) -> Diagram:
                                role=f"edge:{a}->{b}"))
     if labels:
         # one label for both full-geometry arrows, right of the GPEC.jl one
-        items.append(Label((9.0, -1.2), "both retain the geometry", "small label", anchor="west",
+        items.append(Label((8.5, -1.35), "both retain the geometry", "small label", anchor="west",
                            role="edge:general->full"))
     # the equations: what VAFT solves, and the normalisation all three must share
     eq_y = compare_y - 1.6
