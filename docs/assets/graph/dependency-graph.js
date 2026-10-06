@@ -28,6 +28,9 @@
   function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
 
   var adapter = {
+    directions: { both: 'Dependencies and dependents', out: 'Dependencies only (what it imports)',
+      'in': 'Dependents only (what imports it)' },
+
     load: function (data) {
       graph = { data: data, nodes: {}, out: {}, inn: {}, api: {}, apiByModule: {}, color: {}, cycles: data.cycles || [] };
       data.layers.forEach(function (layer, index) {

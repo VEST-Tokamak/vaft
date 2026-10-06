@@ -220,6 +220,11 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "(an explicit None is refused: in profile_gradient it means 'none')"),
         OptionSpec("convention", "choice", "recipes.GRADIENT_CONVENTIONS",
                    "code preset resolving gradient_coordinate and reference_length"),
+        # Rational-surface overlays (issue #506): flux-surface contours on an
+        # equilibrium map, vertical markers on a flux-coordinate profile.
+        OptionSpec("rational_q", description="safety-factor values whose surfaces are drawn, e.g. [1, 1.5, 2]"),
+        OptionSpec("resonances",
+                   description="(m, n) harmonics whose q = m/n surfaces are drawn; (2, 1) and (4, 2) share one"),
         # Edge-q estimates (issue #1583): where shape and current come from, the
         # stand-in shape, and the q95 scaling; the defaults are vest.yaml's.
         # Only the summary_time_* edge-q views take them (DECLARED_ONLY_OPTIONS).
@@ -243,7 +248,7 @@ EXTRACTION_OPTIONS: frozenset[str] = frozenset(OPTION_SCHEMA)
 #: Options only a computed view that declares them takes (issue #551).  Any
 #: other plot refuses them by name, exactly as it refuses an unknown option.
 DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
-    "gradient_coordinate", "reference_length", "convention",
+    "gradient_coordinate", "reference_length", "convention", "rational_q", "resonances",
     # issue #1583: the edge-q views' choices.
     "estimate_from", "q95_scaling", "start_configuration",
 })
@@ -322,7 +327,7 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
         if spec is not None and key in DECLARED_ONLY_OPTIONS:
             from . import recipes
 
-            if recipes.choice_options_for(name, key) is None:
+            if not recipes.declares_option(name, key):
                 spec = None
         if spec is None:
             raise ValueError(

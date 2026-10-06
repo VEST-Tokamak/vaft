@@ -5,6 +5,9 @@ on `VestMagneticsProcessingConfig` on purpose: they prove the migration to
 `vest.yaml` is behavior-preserving for every era that already worked.
 """
 
+import os
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -504,3 +507,109 @@ def test_a_probe_is_named_after_the_channel_it_reads_on_that_shot(shot, plus_006
     assert ods["magnetics.b_field_pol_probe.35.identifier"] == plus_006
     assert ods["magnetics.b_field_pol_probe.47.identifier"] == minus_042
     assert ods["magnetics.b_field_pol_probe.35.position.z"] == pytest.approx(0.06)
+
+
+ROUTINE_CONFIG = (
+    Path(__file__).resolve().parents[1]
+    / "workflow" / "automatic_pipeline_1_routine_data_processing" / "config.yaml"
+)
+
+#: The ``vest.magnetics.processing`` block the routine config carried until
+#: #1541: the dataclass defaults, restated. Kept here as the regression input.
+LEGACY_ROUTINE_BLOCK = {
+    "time_start": 0.0, "time_end": 0.99996, "sample_count": 25000, "fast_sample_rate": 250000.0,
+    "lowpass_cutoff": 2500.0, "lowpass_taps": 251, "default_index_start": 6000, "default_index_end": 8500,
+    "default_probe_baseline_end": 8500, "late_shot_min": 41660, "transient_shot_min": 41446,
+    "transient_shot_max": 41451, "late_index_start": 6500, "late_index_end": 9000,
+    "late_probe_baseline_end": 5000, "flux_baseline_first_start": 3499, "flux_baseline_first_end": 5000,
+    "flux_baseline_second_start": 11999, "flux_baseline_second_end": 15000,
+    "flux_baseline_late_start": 5999, "flux_baseline_late_end": 7000,
+    "flux_baseline_late_loop_numbers": [9, 10, 11], "calibration_mode": "divide",
+    "flux_output_per_radian": True,
+}
+
+
+def _routine_magnetics_override():
+    import yaml
+
+    config = yaml.safe_load(ROUTINE_CONFIG.read_text(encoding="utf-8"))
+    return ((config.get("vest") or {}).get("magnetics") or {}).get("processing") or {}
+
+
+def test_the_routine_config_leaves_magnetics_processing_to_the_era():
+    """With the workflow config loaded, the stage gets no override at all (#1541)."""
+    import json
+
+    from vaft.omas.vest_upstream import magnetics_processing_for_shot
+
+    override = _routine_magnetics_override()
+    # The Snakefile passes json.dumps of this mapping; the stage json.loads it back.
+    assert magnetics_processing_for_shot(47946, json.loads(json.dumps(override))) is None
+
+
+@pytest.mark.parametrize("shot", [39916, 44043, 47946, 48927])
+def test_the_legacy_routine_block_keeps_the_shots_acquisition_era(shot):
+    """The old block, applied as an override, must not move a shot off its era (#1541).
+
+    It restates the dataclass defaults; applied as a replacement it ran every
+    native-DAQ shot through the slow-DAQ path with the wrong baselines.
+    """
+    from vaft.omas.vest_upstream import magnetics_processing_for_shot
+
+    era = equilibrium_magnetics_processing_config(shot)
+    applied = magnetics_processing_for_shot(shot, LEGACY_ROUTINE_BLOCK)
+    for key in ("daq_mode", "flux_baseline_samples", "flux_baseline_window", "window_override"):
+        assert getattr(applied, key) == getattr(era, key), key
+    assert applied.window_for_shot(shot) == era.window_for_shot(shot)
+
+
+def test_an_override_still_changes_what_it_names():
+    from vaft.omas.vest_upstream import magnetics_processing_for_shot
+
+    assert magnetics_processing_for_shot(47946, None) is None
+    assert magnetics_processing_for_shot(47946, {}) is None
+    applied = magnetics_processing_for_shot(47946, {"flux_baseline_samples": 1000})
+    assert applied.flux_baseline_samples == 1000
+    assert applied.daq_mode == "native_daq"
+
+
+def test_an_override_the_era_would_silently_drop_is_refused():
+    """A shadowed legacy key set off its default must not be ignored quietly (cold review)."""
+    from vaft.omas.vest_upstream import magnetics_processing_for_shot
+
+    with pytest.raises(ValueError, match="default_index_start"):
+        magnetics_processing_for_shot(39916, {"default_index_start": 5000})
+    with pytest.raises(ValueError, match="flux_baseline_first_start"):
+        magnetics_processing_for_shot(47946, {"flux_baseline_first_start": 100})
+    # Restating the default (as the old routine block did) stays inert.
+    assert magnetics_processing_for_shot(47946, {"flux_baseline_late_loop_numbers": [9, 10, 11]}).daq_mode == "native_daq"
+
+
+#: Production raw dumps (vestserver FileDB layout); the test skips without them.
+RAW_ROOT = Path(os.environ.get("VAFT_TEST_RAW_ROOT", "/srv/vest.filedb/raw"))
+
+
+def test_47946_flux_loops_reproduce_the_era_values_with_the_legacy_block():
+    """Value-level regression on a native-DAQ shot (#1541), where the raw dump exists.
+
+    Era-correct flux loop #3/#4 at 0.33 s are -77.2/-117.2 mWb; the products
+    processed with the legacy block as a replacement stored +57.4/+77.5 mWb.
+    """
+    raw = RAW_ROOT / "47946" / "vest_47946_daq_raw.json.gz"
+    if not raw.is_file():
+        pytest.skip(f"no raw dump at {raw}")
+    from vaft.omas.vest_upstream import magnetics_processing_for_shot
+
+    def loops_at(config, instant=0.33):
+        time, a, b = vfit_equilibrium_magnetics(47946, processing_config=config, raw_source=raw,
+                                                allow_missing_channels=True)
+        loops = a if len(a) < len(b) else b
+        index = int(np.argmin(np.abs(np.asarray(time) - instant)))
+        return np.array([np.asarray(loop)[index] for loop in loops]) * 2 * np.pi * 1e3  # mWb
+
+    era = loops_at(None)
+    fixed = loops_at(magnetics_processing_for_shot(47946, LEGACY_ROUTINE_BLOCK))
+    np.testing.assert_allclose(fixed, era, atol=1e-9)
+    np.testing.assert_allclose(era[:2], [-77.2, -117.2], atol=0.5)
+    replaced = loops_at(VestMagneticsProcessingConfig(**LEGACY_ROUTINE_BLOCK))
+    assert np.max(np.abs(replaced - era)) > 50.0  # the defect this guards against

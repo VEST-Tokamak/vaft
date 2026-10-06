@@ -1,0 +1,15 @@
+---
+layout: null
+sitemap: false
+---
+{%- comment -%}
+The generated pipeline lineage (_data/pipeline_graph.yml, written by
+python -m vaft._pipeline_graph), served to the pipeline explorer.  The
+snapshot's source checksums are the build's receipt and are left out.
+{%- endcomment -%}
+{%- assign g = site.data.pipeline_graph -%}
+{%- if g -%}
+{"schema_version": {{ g.schema_version | jsonify }}, "engine": {{ g.engine | jsonify }}, "provenance": {{ g.provenance | jsonify }}, "pipelines": {{ g.pipelines | jsonify }}, "references": {{ g.references | jsonify }}, "nodes": {{ g.nodes | jsonify }}, "edges": {{ g.edges | jsonify }}}
+{%- else -%}
+null
+{%- endif -%}
