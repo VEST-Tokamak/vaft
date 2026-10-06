@@ -14,6 +14,7 @@ __all__ = [
     "CONFINEMENT_COLUMNS",
     "ChecksumError",
     "FetchError",
+    "OPTIONAL_CONFINEMENT_COLUMNS",
     "SOURCES",
     "TRANSITION_COLUMNS",
     "confinement_coverage",
@@ -42,6 +43,7 @@ __all__ = [
 
 _EXPORT_MAP = {
     "CONFINEMENT_COLUMNS": (".schema", "CONFINEMENT_COLUMNS"),
+    "OPTIONAL_CONFINEMENT_COLUMNS": (".schema", "OPTIONAL_CONFINEMENT_COLUMNS"),
     "empty_confinement_table": (".schema", "empty_confinement_table"),
     "validate_confinement_table": (".schema", "validate_confinement_table"),
     "TRANSITION_COLUMNS": (".schema", "TRANSITION_COLUMNS"),

@@ -11,6 +11,7 @@ from pathlib import Path
 from omas import load_omas_json
 
 from vaft.code.efit import EFITScientificConfig, efit_preset, generate_kfile, preset_of
+from vaft.code.efit.applicability import constraints_not_applicable_reason, kfile_manifest_text
 from vaft.code.efit.presets import DEFAULT_PRESET, PRESET_RECORD
 
 
@@ -59,6 +60,14 @@ def main() -> int:
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True
     )
     ods = load_omas_json(str(args.constraints_ods), consistency_check=False)
+    not_applicable = constraints_not_applicable_reason(ods)
+    if not_applicable is not None:
+        # No k-file to write (#205); the manifest carries the verdict on.
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        (args.output.parent / PRESET_RECORD).unlink(missing_ok=True)
+        args.output.write_text(kfile_manifest_text(not_applicable), encoding="utf-8")
+        LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, not_applicable)
+        return 0
 
     efit_dir = args.output.parent.parent
     efit_dir.mkdir(parents=True, exist_ok=True)

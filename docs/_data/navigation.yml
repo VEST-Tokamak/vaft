@@ -41,6 +41,9 @@ sections:
       - id: dependency-graph
         title: Dependency explorer
         url: /reference/dependency-graph/
+      - id: pipeline-graph
+        title: Pipeline lineage explorer
+        url: /reference/pipeline-graph/
       - id: mcp
         title: MCP server for agents
         url: /reference/mcp/
