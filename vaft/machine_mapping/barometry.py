@@ -57,7 +57,7 @@ def vfit_barometry_dynamic(
         _safe_vest_load(shot, field, raw_source),
         shot=shot,
         field=field,
-        signal_name="PKR-251 main gauge",
+        signal_name="main-chamber pressure gauge",
     )
     time = (
         np.asarray(target_time, dtype=float)
@@ -65,6 +65,13 @@ def vfit_barometry_dynamic(
         else build_window_time_axis(source_time, tstart, tend, dt)
     )
 
+    # The gauge itself changed with the shot era (PKR 251 -> IKR 251 at 46993,
+    # issue #1543), so its identity is written with the shot's calibration.
+    gauge = config.get("gauge") or {}
+    if gauge:
+        set_path(ods, "barometry.gauge.0.name", str(gauge["name"]))
+        set_path(ods, "barometry.gauge.0.type.name", str(gauge["type_name"]))
+        set_path(ods, "barometry.gauge.0.type.description", str(gauge["description"]))
     pressure_torr = calibrate_vest_signal(source_data, config["calibration"])
     # medfilt is a de-spiker for the gauge's digitiser glitches, not an
     # anti-alias filter -- it has no defined stopband.  The rate change below is
