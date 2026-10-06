@@ -176,6 +176,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
     "test_formula_boundaries.py",
+    # Edge-q estimates (#1583): the START/ITER q95 scaling, the q* proxies, the
+    # machine policy and their extraction from the packaged sample. Pure NumPy.
+    "test_edge_q_estimate.py",
     # Operational-space projections (#1425): a boundary is drawn only on its
     # own quantities; the population renderer reads tables, never ODS.
     "test_li_qa.py",
@@ -238,9 +241,24 @@ CORE_MODULES: tuple[str, ...] = (
     # Transport atlas (lane T): the shared transport-state resolver on the packaged
     # 48224 ODS made multi-slice with offset times, the TGLF spectrum parser on the
     # reg05 fixture, and the routine driver with a fake runner. No solver runs.
-    # The atlas renderers draw synthetic tables only.
+    # The atlas renderers draw synthetic tables only. The classical core_transport
+    # projection and its summary preset (#1654) use one packaged state plus synthetic
+    # records; the neoclassical summary's bootstrap <-> NEO flux correspondence
+    # (#1655) uses synthetic products plus the recorded 48224 NEO fixture run.
+    "test_classical_transport_summary.py",
+    "test_neoclassical_summary.py",
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
+    # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
+    # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
+    # only), the plasma-current Rogowski verdict and the TF excursion repair on
+    # synthetic records.
+    "test_barometry_gauge_eras.py",
+    "test_class_shot_checklist.py",
+    "test_diagnostic_faults.py",
+    "test_flux_loop_known_faults.py",
+    "test_plasma_current_quality.py",
+    "test_tf_excursion_repair.py",
     # Impurity composition (lane L, #1565): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
