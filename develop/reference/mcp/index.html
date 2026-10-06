@@ -151,6 +151,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter active" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
                     
                         <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
@@ -288,7 +294,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>470e66c</code>. What is described
+  <code>8f4fc1d</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -313,7 +319,7 @@
   <dl>
     <dt>Architecture position</dt><dd>A thin, local, read-only Model Context Protocol adapter (vaft.mcp) over VAFT's existing discovery and extraction APIs (issue 1423).</dd>
     <dt>Prerequisites / inputs</dt><dd>pip install 'vaft[mcp]' and an MCP client such as Claude Code or Codex.</dd>
-    <dt>Expected result</dt><dd>An agent that can discover VAFT's formulas, processes, checks, plots and samples, and read bounded numbers from the packaged reference shot.</dd>
+    <dt>Expected result</dt><dd>An agent that can discover VAFT's formulas, processes, checks, plots and samples, read bounded numbers and equilibrium summaries from a shot or a local artifact, and query the campaign atlas tables with each lane's rules attached.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
@@ -388,8 +394,28 @@ The repository root or any other directory is fine.</p>
       <td><code class="language-plaintext highlighter-rouge">vaft.formula.boundaries</code> (metadata only)</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">get_atlas_summary(path, group_by, limit)</code></td>
-      <td>a <code class="language-plaintext highlighter-rouge">.csv</code>/<code class="language-plaintext highlighter-rouge">.parquet</code> table under <code class="language-plaintext highlighter-rouge">VAFT_ATLAS_DIR</code></td>
+      <td><code class="language-plaintext highlighter-rouge">inspect_dataset(shot \| artifact)</code></td>
+      <td>which IDS a dataset holds, with time counts and ranges, plus provenance</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">inspect_data_path(path, shot \| artifact, time, tolerance, max_points)</code></td>
+      <td>one Data Dictionary path, read without creating it (<code class="language-plaintext highlighter-rouge">vaft.ods_access</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">list_equilibrium_times(shot \| artifact)</code></td>
+      <td>the equilibrium slice times</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">get_equilibrium_summary(shot \| artifact, time, tolerance, limit)</code></td>
+      <td>the <code class="language-plaintext highlighter-rouge">equilibrium_global</code> summary columns of <code class="language-plaintext highlighter-rouge">vaft.database.summary</code> (Ip, q95, β_N, li_3, W_mhd, shape, …)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">list_atlas_tables</code>, <code class="language-plaintext highlighter-rouge">describe_atlas_table(name)</code></td>
+      <td>the campaign atlas registry: each lane’s table, schema, rules, caveats and README</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">query_atlas_table(name, where, columns, order_by, count_by, limit)</code></td>
+      <td>rows of one atlas table, filtered by value</td>
     </tr>
   </tbody>
 </table>
@@ -421,19 +447,168 @@ Tool inputs name scientific things: a plot, a formula or
 a shot. They never name a data representation. During the DD migration (#1127, #1132, #1135),
 the loading code can change behind the same tool schema.</p>
 
+<h2 id="datasets">Datasets</h2>
+
+<p>A dataset is named by <code class="language-plaintext highlighter-rouge">shot</code> or by <code class="language-plaintext highlighter-rouge">artifact</code>, never by a storage format:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Read from</th>
+      <th>When</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">shot=39915</code></td>
+      <td>the packaged sample (<code class="language-plaintext highlighter-rouge">vaft.omas.sample.sample_ods</code>)</td>
+      <td>always; offline</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">artifact="run1/g039915.00319"</code></td>
+      <td>a g-file, OMAS JSON, IMAS netCDF or IMAS HDF5 file or directory under <code class="language-plaintext highlighter-rouge">VAFT_ARTIFACT_DIR</code>, through <code class="language-plaintext highlighter-rouge">vaft.omas.load</code></td>
+      <td>when <code class="language-plaintext highlighter-rouge">VAFT_ARTIFACT_DIR</code> is set</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">shot=42929</code>, or any shot with <code class="language-plaintext highlighter-rouge">database_source="main"</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database.load</code>, with your own HSDS configuration</td>
+      <td>only when the server runs with <code class="language-plaintext highlighter-rouge">VAFT_MCP_DATABASE=1</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Every result carries the dataset’s provenance: its kind, the shot or the artifact path relative to
+its directory, the loader, the Data Dictionary version when the data records one, and the VAFT
+version. Database failures report the exception class only, never the server’s text.</p>
+
+<p>Slices are matched by time, never by index. <code class="language-plaintext highlighter-rouge">get_equilibrium_summary(time=...)</code> and
+<code class="language-plaintext highlighter-rouge">inspect_data_path("equilibrium.time_slice.*.global_quantities.q_95", time=...)</code> take the slice
+nearest that time. They refuse when it is further away than <code class="language-plaintext highlighter-rouge">tolerance</code> (default: half the slice
+spacing), and they report the time they matched.</p>
+
 <h2 id="atlas-tables">Atlas tables</h2>
 
-<p><code class="language-plaintext highlighter-rouge">get_atlas_summary</code> reads tables only from the directory in the <code class="language-plaintext highlighter-rouge">VAFT_ATLAS_DIR</code> environment
-variable of the server process, and it refuses to run when that variable is unset. <code class="language-plaintext highlighter-rouge">path</code> must be
-relative to that directory. Absolute, drive and UNC paths and <code class="language-plaintext highlighter-rouge">..</code> components are refused before
-any file is touched. The path is then resolved, symlinks included, and refused if it lands outside
-the directory. Every refusal gives the same message. Tables are limited to 50 MB and <code class="language-plaintext highlighter-rouge">group_by</code> to
-three columns. The result gives the columns (first 200), the row count, the row counts per value
-of each <code class="language-plaintext highlighter-rouge">group_by</code> column (default <code class="language-plaintext highlighter-rouge">efit_quality</code> and <code class="language-plaintext highlighter-rouge">efit_lineage</code>) and the first <code class="language-plaintext highlighter-rouge">limit</code> rows,
-with cell text cut to 200 characters.</p>
+<p>The campaign atlas is the directory the lanes write their tables to (<code class="language-plaintext highlighter-rouge">~/runs/campaign/atlas</code> on
+vestserver). Point <code class="language-plaintext highlighter-rouge">VAFT_ATLAS_DIR</code> at it. The server knows each table by name, together with
+the lane that owns it, the schema that describes its columns, and the rules for reading it:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>claude mcp add vaft <span class="nt">-e</span> <span class="nv">VAFT_ATLAS_DIR</span><span class="o">=</span>/path/to/atlas <span class="nt">--</span> python <span class="nt">-m</span> vaft.mcp
+<table>
+  <thead>
+    <tr>
+      <th>Table</th>
+      <th>Lane</th>
+      <th>One row is</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">state</code>, <code class="language-plaintext highlighter-rouge">kinetic_profiles</code></td>
+      <td>K (#1454)</td>
+      <td>an equilibrium state (shot, time_efit_s, efit_lineage), or one Thomson channel of it</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">transport</code>, <code class="language-plaintext highlighter-rouge">transport_summary</code></td>
+      <td>T (#1453)</td>
+      <td>a state and r/a (one TGLF configuration), or one state</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">transport_sensitivity</code>, <code class="language-plaintext highlighter-rouge">transport_sensitivity_pairs</code></td>
+      <td>T</td>
+      <td>a surface and a TGLF configuration, or the spread over configurations</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">stability</code>, <code class="language-plaintext highlighter-rouge">stability_surfaces</code></td>
+      <td>N (#1448)</td>
+      <td>a state and toroidal mode number, or one rational surface for one solver</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">zeff_windows</code>, <code class="language-plaintext highlighter-rouge">zeff_slices</code></td>
+      <td>Z (#1486)</td>
+      <td>a discharge window, or a state</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">confinement</code></td>
+      <td>D (#1490)</td>
+      <td>a magnetics state</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">op_space_base</code></td>
+      <td>V (#1456)</td>
+      <td>a state’s operating-space coordinates</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">describe_atlas_table</code> returns each column’s unit and definition from the lane’s own schema, the
+row key, the lane’s rules and caveats, its README, and provenance: the file’s sha256 and the build
+commit. Read it before comparing rows.</p>
+
+<p><code class="language-plaintext highlighter-rouge">query_atlas_table</code> filters with <code class="language-plaintext highlighter-rouge">where</code> clauses (<code class="language-plaintext highlighter-rouge">{"column", "op", "value"}</code>; <code class="language-plaintext highlighter-rouge">==</code>, <code class="language-plaintext highlighter-rouge">!=</code>, <code class="language-plaintext highlighter-rouge">&lt;</code>,
+<code class="language-plaintext highlighter-rouge">&lt;=</code>, <code class="language-plaintext highlighter-rouge">&gt;</code>, <code class="language-plaintext highlighter-rouge">&gt;=</code>, <code class="language-plaintext highlighter-rouge">in</code>, <code class="language-plaintext highlighter-rouge">not_in</code>, <code class="language-plaintext highlighter-rouge">isnull</code>, <code class="language-plaintext highlighter-rouge">notnull</code>), selects <code class="language-plaintext highlighter-rouge">columns</code>, sorts with <code class="language-plaintext highlighter-rouge">order_by</code>
+(<code class="language-plaintext highlighter-rouge">"-name"</code> for descending) and counts rows per value with <code class="language-plaintext highlighter-rouge">count_by</code>. It does not join tables and
+does not aggregate beyond counting. A lane’s “never combine” rules are refusals:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">stability</code> needs <code class="language-plaintext highlighter-rouge">n_tor ==</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">stability_surfaces</code> needs <code class="language-plaintext highlighter-rouge">n_tor ==</code> and <code class="language-plaintext highlighter-rouge">solver ==</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">transport_sensitivity</code> needs <code class="language-plaintext highlighter-rouge">tglf_config ==</code>.</li>
+</ul>
+
+<p>Older spellings (<code class="language-plaintext highlighter-rouge">efit_label</code>, <code class="language-plaintext highlighter-rouge">magnetics-only</code>, <code class="language-plaintext highlighter-rouge">electron-kinetic</code>) are accepted and returned in
+State key contract v1 spelling (<code class="language-plaintext highlighter-rouge">efit_quality</code>, <code class="language-plaintext highlighter-rouge">magnetics</code>, <code class="language-plaintext highlighter-rouge">electron_kinetic</code>). Tables are
+read-only, limited to 50 MB, and every result stays under about 50 kB.</p>
+
+<h2 id="environment">Environment</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Variable</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VAFT_ATLAS_DIR</code></td>
+      <td>the campaign atlas directory; the atlas tools refuse without it</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VAFT_ARTIFACT_DIR</code></td>
+      <td>the directory <code class="language-plaintext highlighter-rouge">artifact=</code> paths are relative to; nothing outside it is read</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VAFT_MCP_DATABASE=1</code></td>
+      <td>allow database shots (read-only, through your own HSDS configuration)</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>claude mcp add vaft <span class="se">\</span>
+  <span class="nt">-e</span> <span class="nv">VAFT_ATLAS_DIR</span><span class="o">=</span><span class="nv">$HOME</span>/runs/campaign/atlas <span class="se">\</span>
+  <span class="nt">-e</span> <span class="nv">VAFT_ARTIFACT_DIR</span><span class="o">=</span><span class="nv">$HOME</span>/runs/artifacts <span class="se">\</span>
+  <span class="nt">--</span> python <span class="nt">-m</span> vaft.mcp
 </code></pre></div></div>
+
+<p>A client configured by file (Claude Desktop, a project <code class="language-plaintext highlighter-rouge">.mcp.json</code>) takes the same command:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"mcpServers"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"vaft"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/path/to/env/bin/python"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"args"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"-m"</span><span class="p">,</span><span class="w"> </span><span class="s2">"vaft.mcp"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"env"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nl">"VAFT_ATLAS_DIR"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/path/to/campaign/atlas"</span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<h2 id="demo-scenarios">Demo scenarios</h2>
+
+<p><code class="language-plaintext highlighter-rouge">workflow/mcp_demo/run_demo.py</code> replays four questions through a real stdio session and writes
+the transcripts. The questions are the equilibrium summary of shot 39915, the Tier A states
+ideal-unstable at n = 1, the surfaces with the largest SAT-rule flux spread, and the identified
+resistive Z_eff windows. Its README lists the same questions to ask an agent live.</p>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
@@ -537,7 +712,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install-and-register" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install and register</a></li><li class="page-toc-item page-toc-level-2"><a href="#tools" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tools</a></li><li class="page-toc-item page-toc-level-2"><a href="#read-only-by-construction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Read-only by construction</a></li><li class="page-toc-item page-toc-level-2"><a href="#atlas-tables" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atlas tables</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install-and-register" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install and register</a></li><li class="page-toc-item page-toc-level-2"><a href="#tools" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tools</a></li><li class="page-toc-item page-toc-level-2"><a href="#read-only-by-construction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Read-only by construction</a></li><li class="page-toc-item page-toc-level-2"><a href="#datasets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Datasets</a></li><li class="page-toc-item page-toc-level-2"><a href="#atlas-tables" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atlas tables</a></li><li class="page-toc-item page-toc-level-2"><a href="#environment" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Environment</a></li><li class="page-toc-item page-toc-level-2"><a href="#demo-scenarios" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Demo scenarios</a></li></ul>
     </nav>
 </aside>
 
@@ -655,7 +830,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 05:25:15 +0000"
+        "time": "2026-10-06 05:40:26 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

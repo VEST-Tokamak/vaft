@@ -151,6 +151,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
                     
                         <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
@@ -288,7 +294,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>470e66c</code>. What is described
+  <code>8f4fc1d</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -407,6 +413,10 @@ benchmarking or comparison meaningful.</p>
 a more advanced Code exists, and an external Code is not wrapped in an Actor merely because its
 capability can be named.</p>
 
+<p>These boundaries say where code <em>should</em> live. To see which modules of each layer import which
+today, generated from the source, explore the current implementation in the
+<a href="/vaft/develop/reference/dependency-graph/">VAFT dependency explorer</a>.</p>
+
 <h2 id="when-an-actor-is-justified">When an Actor is justified</h2>
 
 <p>Create an Actor only when <strong>all</strong> of the following hold:</p>
@@ -485,6 +495,30 @@ outputs the others cannot produce. These differences are not normalized away.</p
 <p>A Run can be created or extended without any Actor, and a Study can compare Process-native and
 Code-native results without one. Actor provenance is attached only when an Actor contract is actually
 used or explicitly referenced.</p>
+
+<h2 id="where-this-fits-ownership-and-maturation">Where this fits: ownership and maturation</h2>
+
+<p>This page is the zoomed view of one band of a larger picture (#1645). That picture is drawn by
+<code class="language-plaintext highlighter-rouge">vaft.diagram.scientific_ownership_architecture()</code> and described in
+<a href="/vaft/develop/reference/diagrams/">Diagrams</a>. It separates five things:</p>
+
+<ul>
+  <li><strong>computational implementation</strong>: Formula, Process, Code and learned models, with data and the
+database, all producing results and evidence;</li>
+  <li><strong>validation</strong>, which interprets that evidence and is not part of the computation;</li>
+  <li><strong>use policy</strong> (accept, review, warn, reject, rerun, fallback), optional and downstream of validation;</li>
+  <li><strong>workflow maturation</strong>: a workflow or notebook composes computation and incubates new logic;</li>
+  <li><strong>Study and Research organization</strong>: a Study records one reproducible analysis, Research groups Studies
+by membership, and neither executes anything.</li>
+</ul>
+
+<p>Logic leaves a workflow when it is reused or copied elsewhere, needs its own tests, defines a stable
+operation, or enters routine production (#1642). It is then promoted by what it means. A pure relation goes
+to Formula, a native transformation to Process and a solver operation to Code. A scientific assessment goes
+to validation, retrieval and persistence to the database, and a learned task to its owning domain with a
+learned implementation. Study-specific orchestration stays in the workflow.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/scientific_ownership_architecture.svg" alt="Scientific ownership and maturation" /></p>
 
 <h2 id="status">Status</h2>
 
@@ -658,7 +692,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#terminology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Terminology</a></li><li class="page-toc-item page-toc-level-2"><a href="#how-the-layers-relate" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">How the layers relate</a></li><li class="page-toc-item page-toc-level-2"><a href="#boundaries" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Boundaries</a></li><li class="page-toc-item page-toc-level-2"><a href="#when-an-actor-is-justified" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">When an Actor is justified</a></li><li class="page-toc-item page-toc-level-2"><a href="#example-equilibrium-reconstruction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Example: equilibrium reconstruction</a></li><li class="page-toc-item page-toc-level-2"><a href="#actor-run-and-study" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Actor, Run and Study</a></li><li class="page-toc-item page-toc-level-2"><a href="#status" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Status</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#terminology" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Terminology</a></li><li class="page-toc-item page-toc-level-2"><a href="#how-the-layers-relate" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">How the layers relate</a></li><li class="page-toc-item page-toc-level-2"><a href="#boundaries" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Boundaries</a></li><li class="page-toc-item page-toc-level-2"><a href="#when-an-actor-is-justified" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">When an Actor is justified</a></li><li class="page-toc-item page-toc-level-2"><a href="#example-equilibrium-reconstruction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Example: equilibrium reconstruction</a></li><li class="page-toc-item page-toc-level-2"><a href="#actor-run-and-study" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Actor, Run and Study</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-this-fits-ownership-and-maturation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where this fits: ownership and maturation</a></li><li class="page-toc-item page-toc-level-2"><a href="#status" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Status</a></li></ul>
     </nav>
 </aside>
 
@@ -776,7 +810,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 05:25:15 +0000"
+        "time": "2026-10-06 05:40:26 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
