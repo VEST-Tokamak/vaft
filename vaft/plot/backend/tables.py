@@ -43,7 +43,7 @@ from .recipes import (
     slice_global_cells,
 )
 
-__all__ = ["slice_boundary_cells"]
+__all__ = ["slice_boundary_cells", "validation_verdicts"]
 
 #: The boundary shape a slice summary states: label, ``boundary`` leaf, stored unit.
 _SLICE_SHAPE: tuple[tuple[str, str, str], ...] = (
@@ -287,7 +287,221 @@ def _build_equilibrium_table_fit_quality(ods: Any, **options: Any) -> Table:
     )
 
 
+#: Per check, the result field holding the number its status was decided on,
+#: and what that number is.  For a graded check this is the normalized
+#: residual the registry tolerance is read against; for a rule, the one
+#: quantity the rule thresholds, when there is a single one.  ``None``: the
+#: rule weighs several facts at once (codes, bounds on two parameters), so no
+#: one number stands for it and the cell is left empty rather than invented.
+#: The ``"*"`` field of ``virial_pair_consistency`` is the largest
+#: ``|pair_*_residual|`` -- the value that check grades.
+_VERDICT_MEASURE: dict[str, tuple[str, str] | None] = {
+    "verification.structure": None,
+    "verification.continuity": ("ip_max_relative_step", "largest Ip step / median |Ip|"),
+    "verification.convention": None,
+    "verification.convergence": ("final_error", "final iteration error"),
+    "diagnostic_fit.bpol_probe": ("z_rms", "z RMS"),
+    "diagnostic_fit.flux_loop": ("z_rms", "z RMS"),
+    "diagnostic_fit.pf_current": ("z_rms", "z RMS"),
+    "diagnostic_fit.ip": ("z", "z"),
+    "diagnostic_fit.diamagnetic_flux": ("z", "z"),
+    "diagnostic_fit.global": ("chi_squared_reduced", "reduced χ²"),
+    "physical_validity.virial_identity": ("rms", "RMS normalized residual"),
+    "physical_validity.virial_pair_consistency": ("*", "largest |leave-one-out residual|"),
+    "physical_validity.virial_conditioning": ("rt_denominator_ratio", "RT denominator ratio"),
+    "physical_validity.virial_parameter_plausibility": None,
+    "physical_validity.pressure_consistency": ("log_ratio", "ln(β_p integral / β_p virial)"),
+    "physical_validity.q_profile": ("non_decreasing_fraction", "non-decreasing |q| fraction"),
+    "physical_validity.pressure_profile": None,
+    "physical_validity.diamagnetic_flux": ("relative_error", "relative error"),
+    "independent_validation.kinetic_pressure": ("log_ratio", "ln(kinetic / reconstructed)"),
+    "independent_validation.thomson_pressure": ("log_ratio", "ln(Thomson / reconstructed)"),
+    "independent_validation.diamagnetic_energy": ("log_ratio", "ln(W_dia / W_kin virial)"),
+    "independent_validation.virial_measured_mu_i": ("log_ratio", "ln(β_p measured μ_i / β_p)"),
+}
+
+#: The order statuses are counted in the caption.
+_VERDICT_ORDER = ("pass", "warn", "fail", "indeterminate", "not_available")
+
+
+def _verdict_value(key: str, result: dict[str, Any]) -> tuple[Any, str]:
+    """``(value, measure label)`` of one check's result, ``(None, "")`` without one."""
+    entry = _VERDICT_MEASURE.get(key)
+    if entry is None:
+        return None, ""
+    field, label = entry
+    if field == "*":
+        residuals = [
+            abs(float(result[name])) for name in ("pair_12_residual", "pair_13_residual", "pair_23_residual")
+            if isinstance(result.get(name), (int, float)) and np.isfinite(result[name])
+        ]
+        return (max(residuals) if residuals else None), label
+    value = result.get(field)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value):
+        return None, label
+    return float(value), label
+
+
+def _verdict_criterion(spec: Any) -> TableCell:
+    """The registry's criterion: its tolerance pair, or ``rule``; the method as a note.
+
+    The method is always attached, graded checks included: it states what the
+    tolerance pair alone cannot (the one-sided electron-only coverage of the
+    pressure checks, for one).
+    """
+    from vaft.validation.registry import MEASURES
+
+    if spec.tolerance is None:
+        return TableCell("rule", note=f"{spec.key}: {spec.method}")
+    warn, fail = spec.tolerance
+    return TableCell(
+        f"|·| ≤ {warn:g} pass, ≤ {fail:g} warn, else fail",
+        note=f"{spec.key}: {spec.method} (measure {spec.measure}: {MEASURES[spec.measure]})",
+    )
+
+
+def _verdict_note(key: str, result: dict[str, Any]) -> str:
+    """The result's own reason, else the finding codes it raised."""
+    reason = result.get("reason")
+    if reason:
+        return str(reason)
+    issues = result.get("issues")
+    if issues:
+        return "findings: " + ", ".join(str(code) for code in issues)
+    return ""
+
+
+#: A reason longer than this is listed once beneath the table, behind a
+#: marker in its row, instead of widening the column (several checks share
+#: one long reason, e.g. the #891 uncertainty-model one).
+_INLINE_NOTE = 80
+
+
+def _verdict_note_cell(note: str) -> TableCell:
+    if len(note) <= _INLINE_NOTE:
+        return TableCell(note or None)
+    return TableCell(None, note=note)
+
+
+def validation_verdicts(ods: Any, index: int) -> dict[str, dict[str, Any]]:
+    """Every registered check's result at one slice, keyed by its registry key.
+
+    The per-slice results are :func:`vaft.validation.equilibrium.validate_equilibrium`
+    at ``time_slice=index`` -- every category, on the ODS alone (its own
+    ``magnetics``, ``core_profiles`` and ``thomson_scattering`` serve as the
+    diagnostics and kinetic profiles).  ``verification.continuity`` is a
+    whole-IDS check, so it is :func:`~vaft.validation.equilibrium.verify_continuity`
+    over every stored slice instead: at one slice it is ``not_available`` by
+    definition.  Nothing is recomputed here and no tolerance is applied.
+    """
+    from vaft.validation.equilibrium import EQUILIBRIUM_CATEGORIES, validate_equilibrium, verify_continuity
+    from vaft.validation.registry import CHECKS
+
+    report = validate_equilibrium(ods, time_slice=index)
+    verdicts: dict[str, dict[str, Any]] = {}
+    for key in CHECKS:
+        category, check = key.split(".", 1)
+        if key == "verification.continuity":
+            verdicts[key] = dict(verify_continuity(ods))
+            continue
+        entry = report.get(category, {}).get(check) if category in EQUILIBRIUM_CATEGORIES else None
+        if entry is None:
+            verdicts[key] = {"status": "not_available", "reason": "not evaluated by validate_equilibrium"}
+            continue
+        slices = entry.get("slices")
+        verdicts[key] = dict(slices[0]) if slices else dict(entry)
+    return verdicts
+
+
+def _build_equilibrium_table_validation(ods: Any, **options: Any) -> Table:
+    """Every registered validation check's verdict at the selected slice.
+
+    One row per :data:`vaft.validation.registry.CHECKS` entry, in registry
+    order: category, check, the number its status was decided on, the
+    registry's criterion, the status and the result's own reason.  The
+    statuses are those of :func:`validation_verdicts` -- the existing
+    validation functions, unchanged; the view adds no physics and no
+    tolerance.  A check that cannot be evaluated on this input is a
+    ``not_available`` row carrying the reason the check gave, never dropped.
+    Every provider is cheap on an EFIT slice (the virial set is the costliest,
+    well under a second), so none is skipped by this view.  The caption is
+    :func:`~vaft.validation.equilibrium.aggregate_status` over the rows and
+    the count of each status.
+    """
+    from vaft.validation.equilibrium import aggregate_status
+    from vaft.validation.registry import CHECKS
+
+    index, time_value, reason, total, pulse = _selected_slice(ods, options)
+    # validate_equilibrium deep-copies whatever it is given; handing it only
+    # the IDS its checks read keeps the copy (and the reads) to those.
+    verdicts = validation_verdicts(_recipes._isolated_copy(ods, _VALIDATION_ROOTS), index)
+    rows = []
+    for key, spec in CHECKS.items():
+        result = verdicts[key]
+        status = str(result.get("status", "not_available"))
+        value, measure = _verdict_value(key, result)
+        note = _verdict_note(key, result)
+        if status in ("not_available", "indeterminate") and value is not None:
+            # A number the verdict was not decided on reads as a grade; keep it
+            # out of the Value column and say what it was in the note instead.
+            ungraded = f"{measure or 'measure'} = {value:.3g}, not graded"
+            note = f"{ungraded}; {note}" if note else ungraded
+            value = None
+        if key == "verification.continuity":
+            whole = f"whole IDS, {total} stored slices"
+            note = f"{whole}; {note}" if note else whole
+        if status == "not_available" and not note:
+            note = "the check produced no evidence and gave no reason"
+        rows.append((
+            TableCell(spec.category),
+            TableCell(key.split(".", 1)[1]),
+            TableCell(measure or None),
+            TableCell(value, format=".3g"),
+            _verdict_criterion(spec),
+            TableCell(status=status),
+            _verdict_note_cell(note),
+        ))
+    statuses = [row[5].status for row in rows]
+    overall = str(aggregate_status(statuses))
+    counts = ", ".join(f"{statuses.count(status)} {status.upper()}" for status in _VERDICT_ORDER)
+    shot = f" #{pulse}" if pulse not in (None, "") else ""
+    time_text = f"t = {time_value * 1e3:.2f} ms" if np.isfinite(time_value) else "time not stored"
+    return Table(
+        columns=(
+            TableColumn("Category"),
+            TableColumn("Check"),
+            TableColumn("Measure"),
+            TableColumn("Value", kind="value"),
+            TableColumn("Criterion"),
+            TableColumn("Status", kind="status"),
+            TableColumn("Note"),
+        ),
+        rows=tuple(rows),
+        title=options.get("title") or (
+            f"Equilibrium validation{shot} — {time_text} (slice {index + 1} of {total}, {reason})"
+        ),
+        caption=(
+            f"overall {overall.upper()} (aggregate of {len(rows)} checks, continuity over the "
+            f"whole IDS): {counts}"
+        ),
+        notes=(
+            "NOT_AVAILABLE: the evidence was never produced; INDETERMINATE: produced but "
+            "not deciding. Neither is a pass.",
+            "Statuses from vaft.validation.equilibrium.validate_equilibrium at this slice; "
+            "continuity from verify_continuity over all stored slices.",
+        ),
+        missing="",
+    )
+
+
 _SUMMARY_READS = RECIPES["equilibrium_overview"].reads
+
+#: The IDS the equilibrium checks read: the slice itself, the measured
+#: diamagnetic flux, and the kinetic profiles and Thomson channels of the
+#: independent checks.  The builder hands validate_equilibrium a private copy
+#: of just these (it deep-copies its argument whole).
+_VALIDATION_ROOTS = ("equilibrium", "magnetics", "core_profiles", "thomson_scattering", "dataset_description")
+_VALIDATION_READS = (*_SUMMARY_READS, *_VALIDATION_ROOTS)
 
 RECIPES["equilibrium_table_summary"] = CallableRecipe(
     builder=_build_equilibrium_table_summary,
@@ -311,4 +525,15 @@ RECIPES["equilibrium_table_fit_quality"] = CallableRecipe(
     reads=_recipes._EFIT_QUALITY_READS,
     backend=NEUTRAL,
     time_axis="equilibrium.time_slice",
+)
+RECIPES["equilibrium_table_validation"] = CallableRecipe(
+    builder=_build_equilibrium_table_validation,
+    description="Every registered validation check's verdict at one equilibrium slice, as a table.",
+    reads=_VALIDATION_READS,
+    backend=OMAS_BOUND,
+    reason=(
+        "vaft.validation.equilibrium.validate_equilibrium deep-copies the ODS and runs "
+        "vaft.omas.process_wrapper.compute_virial_equilibrium_quantities_ods on the copy"
+    ),
+    time_axis=OWN_TIME,
 )

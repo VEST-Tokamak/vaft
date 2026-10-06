@@ -16456,7 +16456,16 @@ def _build_edge_q_time(entries: Sequence[tuple[str, Any]], *, _plot_name: str, *
         # The plot's "auto" is the full-shot magnetics trace when there is one:
         # the equilibrium slices then overlay it as the check (issue #1583).
         resolved = ("magnetics" if _magnetics_usable(ods) else "equilibrium") if source == "auto" else source
-        result = edge_q_estimate(ods, source=resolved, **kwargs)
+        try:
+            result = edge_q_estimate(ods, source=resolved, **kwargs)
+        except ValueError as error:
+            if "configuration" in kwargs and str(error).startswith("configuration "):
+                # The formula names its own argument; the view's option is start_configuration.
+                raise ValueError(
+                    f"start_configuration={kwargs['configuration']!r} applies to q95_scaling='start' only; "
+                    f"the {str(kwargs.get('scaling', 'start')).upper()} guideline has no configuration factor"
+                ) from error
+            raise
         name = result.label if key == "estimated_q95" else quantity_label
         titles.add(name)
         time = np.asarray(result.time, dtype=float)

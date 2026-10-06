@@ -138,7 +138,9 @@ def _equilibrium_q95(ods: Any) -> tuple[Optional[np.ndarray], Optional[np.ndarra
     if time is None or all(value is None for value in values):
         return None, None
     q = np.array([np.nan if value is None else abs(float(value)) for value in values])
-    return _as_array(time)[:n], q
+    # One time per slice (the DD's homogeneous time): a shorter time base would
+    # pair q95 values with the wrong times, so it is refused, not truncated.
+    return _per_slice(time, n, "equilibrium.time"), q
 
 
 def _equilibrium_usable(ods: Any) -> bool:

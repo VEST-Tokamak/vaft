@@ -585,6 +585,35 @@ def test_an_override_the_era_would_silently_drop_is_refused():
     assert magnetics_processing_for_shot(47946, {"flux_baseline_late_loop_numbers": [9, 10, 11]}).daq_mode == "native_daq"
 
 
+@pytest.mark.parametrize("shot", [46403, 46404, 48927])
+def test_a_grid_key_that_would_move_the_era_window_is_refused(shot):
+    """The era window is indices into linspace(time_start, time_end, sample_count);
+    an override moving the grid alone moved the native-DAQ window to 0.325-0.45 s
+    with no error (cold review 0.8.0 delta-absorb-16 V1). Every era sets the
+    window, so 46403 (slow-DAQ) is governed exactly as 46404 (native-DAQ) is."""
+    from vaft.omas.vest_upstream import magnetics_processing_for_shot
+    from vaft.process.magnetics import vest_magnetics_time_window
+
+    era = equilibrium_magnetics_processing_config(shot)
+    for key, value in (("sample_count", 20000), ("time_end", 0.9), ("time_start", 0.1)):
+        with pytest.raises(ValueError, match=key):
+            magnetics_processing_for_shot(shot, {key: value})
+
+    # Restating the era's grid (as the legacy routine block does) stays inert.
+    restated = magnetics_processing_for_shot(
+        shot, {"time_start": 0.0, "time_end": 0.99996, "sample_count": 25000}
+    )
+    np.testing.assert_array_equal(
+        vest_magnetics_time_window(shot, restated), vest_magnetics_time_window(shot, era)
+    )
+    # A scan that moves the grid and names the indices into it owns both.
+    coupled = magnetics_processing_for_shot(
+        shot, {"sample_count": 20000, "window_override": [5200, 7200, 1400]}
+    )
+    assert coupled.sample_count == 20000
+    assert tuple(coupled.window_override) == (5200, 7200, 1400)
+
+
 #: Production raw dumps (vestserver FileDB layout); the test skips without them.
 RAW_ROOT = Path(os.environ.get("VAFT_TEST_RAW_ROOT", "/srv/vest.filedb/raw"))
 

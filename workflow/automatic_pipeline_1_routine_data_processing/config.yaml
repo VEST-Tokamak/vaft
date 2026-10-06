@@ -39,7 +39,13 @@ impa:
 # vaft/machine_mapping/vest.yaml. A `vest.magnetics.processing` mapping here is an
 # override applied on top of that era policy, for parameter scans only: the
 # legacy defaults that used to sit here ran every native-DAQ shot (46404 on)
-# through the slow-DAQ path once this file was loaded (#1541).
+# through the slow-DAQ path once this file was loaded (#1541). Keys the era
+# decides (the legacy window ladder and per-sample flux baselines) are refused
+# when set off their defaults, and so are `time_start`/`time_end`/`sample_count`
+# unless `window_override` is named with them: the era window is indices into
+# that grid. The filter and calibration keys (`fast_sample_rate`,
+# `lowpass_cutoff`, `lowpass_taps`, `calibration_mode`, `flux_output_per_radian`)
+# apply on every shot. See DEPLOYMENT.md, "What a run config may override".
 vest: {}
 eddy:
   filament:
@@ -95,6 +101,8 @@ constraints:
   - 0.01
   - 0.01
 efit:
+  # A run config merged over this file inherits `true` when it omits the key
+  # (#1687); a deployment that does not run EFIT sets `efit: {run: false}` itself.
   run: true
   # Named EFIT configuration from vaft.code.efit.PRESETS. Empty is the default,
   # statistical_891: the #891 working setting (statistical sigma, diamagnetic

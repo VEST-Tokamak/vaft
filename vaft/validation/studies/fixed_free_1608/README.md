@@ -40,7 +40,7 @@ From the repository root:
 
 ```bash
 python -m pytest test/test_equilibrium_coil_fit.py -q
-PYTHONPATH=. python validation/fixed_free_1608/direct_fit.py
+python -m vaft.validation.studies.fixed_free_1608.direct_fit
 ```
 
 The script uses the packaged VEST `pf_active` geometry, a 33-point radial
@@ -110,8 +110,7 @@ directory `/home/user1/scratch/vaft-1608-vfixed.w1EylN`, using the existing
 was changed. Run from the source root on a server:
 
 ```bash
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=2 PYTHONPATH=. python \
-  validation/fixed_free_1608/vfixed_fit.py \
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=2 python -m vaft.validation.studies.fixed_free_1608.vfixed_fit \
   --workdir /tmp/vaft-1608-vfixed-new --resolutions .05 .035
 ```
 
@@ -177,8 +176,7 @@ Four repeated solves ran in isolated vestserver directory
 `/home/user1/scratch/vaft-1608-profiles.dEcsUZ` using the existing OFT runtime:
 
 ```bash
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=2 PYTHONPATH=. python \
-  validation/fixed_free_1608/vfixed_fit.py --workdir /tmp/new-profile-matrix \
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=2 python -m vaft.validation.studies.fixed_free_1608.vfixed_fit --workdir /tmp/new-profile-matrix \
   --resolutions .05 .035 --profile-mode equilibrium
 ```
 
@@ -232,8 +230,8 @@ Two convention corrections emerged from native closure:
 Reproduce the isolated server benchmark:
 
 ```bash
-PYTHONPATH=. python validation/fixed_free_1608/closure.py --workdir new_closure --dx .04
-PYTHONPATH=. python validation/fixed_free_1608/vacuum_response.py \
+python -m vaft.validation.studies.fixed_free_1608.closure --workdir new_closure --dx .04
+python -m vaft.validation.studies.fixed_free_1608.vacuum_response \
   --mesh new_closure/solovev_direct/free/vest_gs_mesh_<hash>.h5
 ```
 
@@ -289,7 +287,7 @@ when the initial closure converges, it starts from its solved volume sources.
 Reproduce on a server:
 
 ```bash
-PYTHONPATH=. python validation/fixed_free_1608/closure.py \
+python -m vaft.validation.studies.fixed_free_1608.closure \
   --workdir new_refinement --dx .04 --refine-shape
 ```
 
@@ -333,11 +331,11 @@ no inverse-solver implementation. To reproduce the full native matrix in an
 isolated directory with an installed OFT runtime, run from the repository root:
 
 ```bash
-PYTHONPATH=. python validation/fixed_free_1608/matrix.py \
+python -m vaft.validation.studies.fixed_free_1608.matrix \
   --workdir /path/to/new/analytic-matrix \
   --families solovev guazzotto_freidberg guazzotto_pedestal \
   --topologies limited lower_single_null double_null --dx .04
-PYTHONPATH=. python validation/fixed_free_1608/matrix.py \
+python -m vaft.validation.studies.fixed_free_1608.matrix \
   --workdir /path/to/new/pure-pressure \
   --families guazzotto_freidberg --topologies limited --nu 1.0 --dx .04
 ```

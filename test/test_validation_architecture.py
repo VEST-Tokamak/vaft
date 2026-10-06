@@ -377,3 +377,21 @@ def test_a_successful_run_flag_says_nothing_about_source_validity(probe):
 
     assert validity.read_output_flag(ods, time_slice=0) == 0
     assert validity.read_validity(ods, base) == validity.VALIDITY_INVALID
+
+
+def test_the_issue_studies_are_not_imported_by_the_validation_package():
+    """``vaft.validation.studies`` (#1756) holds per-issue scripts that import
+    optional solver toolkits at module level.  Importing the validation core
+    must never reach them, and the subpackage must not be an eager attribute."""
+    leaked = _in_subprocess(
+        "import sys, vaft.validation\n"
+        "print(','.join(sorted(m for m in sys.modules if m.startswith('vaft.validation.studies'))))"
+    )
+    assert leaked == "", f"importing vaft.validation pulled in: {leaked}"
+    assert "studies" not in vaft_validation_submodules()
+
+
+def vaft_validation_submodules():
+    from vaft import validation
+
+    return set(validation._SUBMODULES)

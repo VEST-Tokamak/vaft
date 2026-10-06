@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 from vaft.code.tokamaker.profiles import equilibrium_to_tokamaker_profiles
 from vaft.process.equilibrium import derive_boundary_representation, fit_free_boundary_coils
-from validation.fixed_free_1608 import matrix
-from validation.fixed_free_1608.matrix import acceptance_failures, machine_case, target_case
+from vaft.validation.studies.fixed_free_1608 import matrix
+from vaft.validation.studies.fixed_free_1608.matrix import acceptance_failures, machine_case, target_case
 
 
 @pytest.mark.parametrize('family', ['solovev', 'guazzotto_freidberg', 'guazzotto_pedestal'])
