@@ -4,6 +4,7 @@ import numpy as np
 
 from vaft.formula.equilibrium import (
     confinement_factor_ITER89P,
+    confinement_scaling_basis,
     confinement_time_from_engineering_parameters,
     goldston_l_mode_confinement_time_from_I_P_R_a_kappa,
     neo_alcator_confinement_time_from_n_a_R_q,
@@ -265,6 +266,22 @@ class ConfinementScalingTests(unittest.TestCase):
             goldston_l_mode_confinement_time_from_I_P_R_a_kappa(1e5, -1.0, 0.40, 0.30, 1.8)
         with self.assertRaises(ValueError):
             ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(np.nan, 0.002)
+
+    def test_every_scaling_declares_its_energy_and_power_basis(self):
+        # Issue #1713's assignments.
+        expected = {"ITER89P": "global", "ITER97L": "thermal", "H98y2": "thermal",
+                    "NSTX2006H": "thermal", "NSTX2006L": "global"}
+        for name, basis in expected.items():
+            self.assertEqual(confinement_scaling_basis(name).energy_basis, basis)
+        from vaft.formula.constants import _SCALING_COEFS
+        for name in [*_SCALING_COEFS, "NeoAlcator", "Goldston84L", "Goldston84OhmicL"]:
+            b = confinement_scaling_basis(name)
+            self.assertIn(b.energy_basis, ("thermal", "global", "unaudited"))
+            self.assertIn(b.power_basis, ("p_loss", "p_abs", "p_heat", "none", "unaudited"))
+            self.assertTrue(b.energy_source and b.power_source)
+        self.assertEqual(confinement_scaling_basis("Kurskiev2022").power_basis, "p_abs")
+        with self.assertRaises(KeyError):
+            confinement_scaling_basis("not_a_scaling")
 
 if __name__ == "__main__":
     unittest.main()

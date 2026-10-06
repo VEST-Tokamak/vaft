@@ -319,3 +319,48 @@ _SCALING_COEFS = {
         ),
     },
 }
+
+# -----------------------------------------------------------------------------
+# Energy and power basis of every confinement scaling (issue #1713)
+#
+# A published scaling predicts one specific confinement time: the *thermal*
+# tau_E,th = W_th / P (thermal stored energy only) or the *global* tau_E =
+# W / P (total stored energy, fast ions included).  Its power is one specific
+# power: the loss power P_L = P_heat - dW/dt, the absorbed heating power P_abs,
+# or the total heating power P_heat.  An H factor is only the conventional one
+# when the observed tau_E has the same energy basis as the scaling.
+#
+# energy_basis : "thermal" | "global" | "unaudited"
+# power_basis  : "p_loss" | "p_abs" | "p_heat" | "none" | "unaudited"
+# *_source     : where the assignment comes from.  "unaudited" means the
+#                original paper has not been checked for it; nothing is guessed.
+# -----------------------------------------------------------------------------
+_SCALING_BASES = {
+    "ITER89P": {"energy_basis": "global", "power_basis": "p_loss",
+                "energy_source": "issue #1713 (Yushmanov et al. 1990: total energy confinement)",
+                "power_source": "VAFT convention (P_L = P_heat - dW/dt); original paper not re-audited"},
+    "ITER97L": {"energy_basis": "thermal", "power_basis": "p_loss",
+                "energy_source": "issue #1713 (Kaye et al. 1997: thermal L-mode scaling)",
+                "power_source": "VAFT convention (P_L = P_heat - dW/dt); original paper not re-audited"},
+    "H98y2": {"energy_basis": "thermal", "power_basis": "p_loss",
+              "energy_source": "issue #1713 (ITER Physics Basis 1999, Ch. 2: thermal energy confinement)",
+              "power_source": "VAFT convention (P_L = P_heat - dW/dt); original paper not re-audited"},
+    "NSTX2006H": {"energy_basis": "thermal", "power_basis": "p_loss",
+                  "energy_source": "issue #1713 (Kaye et al. 2006: H-mode thermal scaling)",
+                  "power_source": "VAFT convention (P_L = P_heat - dW/dt); original paper not re-audited"},
+    "NSTX2006L": {"energy_basis": "global", "power_basis": "p_loss",
+                  "energy_source": "issue #1713 (Kaye et al. 2006: L-mode global scaling)",
+                  "power_source": "VAFT convention (P_L = P_heat - dW/dt); original paper not re-audited"},
+    "Kurskiev2022": {"energy_basis": "unaudited", "power_basis": "p_abs",
+                     "energy_source": "unaudited: thermal vs global not checked against the paper",
+                     "power_source": "the paper's absorbed-power dependence (power_note of _SCALING_COEFS)"},
+    "NeoAlcator": {"energy_basis": "unaudited", "power_basis": "none",
+                   "energy_source": "unaudited: Goldston 1984 eq. (3); ohmic data, where thermal and global coincide",
+                   "power_source": "no power term"},
+    "Goldston84L": {"energy_basis": "unaudited", "power_basis": "unaudited",
+                    "energy_source": "unaudited: Goldston 1984 eq. (6)",
+                    "power_source": "unaudited: Goldston 1984 eq. (6) total heating power"},
+    "Goldston84OhmicL": {"energy_basis": "unaudited", "power_basis": "unaudited",
+                         "energy_source": "unaudited: Goldston 1984 eq. (11) of eqs. (3) and (6)",
+                         "power_source": "unaudited: as Goldston84L"},
+}

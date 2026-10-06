@@ -23,7 +23,7 @@ V      : plasma volume                              [m³]
 """
 
 import warnings
-from typing import Union, Tuple, Optional
+from typing import NamedTuple, Union, Tuple, Optional
 import numpy as np
 
 from ._exports import public_names
@@ -32,6 +32,7 @@ from .constants import (
     E_ALPHA, SIGMA_V_COEF,
     SPITZER_RESISTIVITY_COEF,
     C_B, K_B_COEF,
+    _SCALING_BASES,
     _SCALING_COEFS
 )
 from scipy.integrate import cumulative_trapezoid
@@ -5252,6 +5253,61 @@ def ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(
     t_aux = _validate_positive("tau_aux", tau_aux)
     tau = (t_oh ** -2 + t_aux ** -2) ** -0.5
     return float(tau) if np.ndim(tau) == 0 else tau
+
+
+class ConfinementScalingBasis(NamedTuple):
+    """Which confinement time and which power a published scaling predicts (issue #1713)."""
+
+    scaling: str
+    energy_basis: str
+    power_basis: str
+    energy_source: str
+    power_source: str
+
+
+def confinement_scaling_basis(scaling: str) -> ConfinementScalingBasis:
+    r"""Energy and power basis a published confinement scaling was fitted on.
+
+    $$\tau_{E,th} = W_{th}/P,\qquad \tau_{E,global} = W/P,\qquad W = W_{th} + W_{fast}$$
+
+    Parameters
+    ----------
+    scaling : str
+        Scaling name: a key of ``_SCALING_COEFS`` (``"ITER89P"``, ``"ITER97L"``,
+        ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``, ``"Kurskiev2022"``) or
+        one of the ohmic/L-mode forms ``"NeoAlcator"``, ``"Goldston84L"``,
+        ``"Goldston84OhmicL"`` [str].
+
+    Returns
+    -------
+    ConfinementScalingBasis
+        ``energy_basis`` (``"thermal"``, ``"global"`` or ``"unaudited"``),
+        ``power_basis`` (``"p_loss"``, ``"p_abs"``, ``"p_heat"``, ``"none"`` or
+        ``"unaudited"``) and the source of each assignment [-].
+
+    Raises
+    ------
+    KeyError
+        A scaling with no declared basis.
+
+    Convention
+    ----------
+    An H factor is the conventional one only when the observed confinement
+    time has the scaling's energy basis: a thermal scaling against
+    $\tau_{E,th}$, a global one against $\tau_{E,global}$.  ``"unaudited"``
+    means the original paper has not been checked for that definition; the
+    value is never guessed, and a caller must treat it as unknown.
+
+    References
+    ----------
+    .. [1] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2, Sec. 6.
+    .. [2] S. M. Kaye et al., Nucl. Fusion 46 (2006) 848.
+    """
+    if scaling not in _SCALING_BASES:
+        raise KeyError(f"no energy/power basis declared for scaling {scaling!r}; known: {sorted(_SCALING_BASES)}")
+    entry = _SCALING_BASES[scaling]
+    return ConfinementScalingBasis(scaling, entry["energy_basis"], entry["power_basis"],
+                                   entry["energy_source"], entry["power_source"])
 
 
 def confinement_factor_ITER89P(tau_E_exp: float, tau_E_ITER89P: float) -> float:

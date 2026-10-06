@@ -74,7 +74,8 @@ def test_the_catalog_counts_the_known_public_surface():
         # current_density_from_psi and the Z_eff-first bremsstrahlung spelling, 99 - 2 = 97.
         # #351 added the dimensionless-to-engineering inverse map: 97 + 1 = 98.
         # #670 moved neo-Alcator, Goldston L-mode and their quadrature in: 101 + 3 = 104.
-        "equilibrium": 104,  # +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        # #1713 added confinement_scaling_basis, the energy/power basis of each scaling: 104 + 1 = 105.
+        "equilibrium": 105,  # +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
         "stability": 37,  # +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
