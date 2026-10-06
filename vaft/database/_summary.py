@@ -203,6 +203,47 @@ TURBULENT_TRANSPORT_COLUMNS = (
     "gamma_e_peak_abs_m2_s",
 )
 
+# One row per classical core_transport entry and time slice (#1654). The entry holds
+# one formulation and one EFIT lineage, and each slice names its resolved state, so a
+# row never mixes states, lineages or formulations. Flux columns read only
+# ``energy.flux``; the model's diffusivities are reported as ``chi_*`` coefficients
+# and never as fluxes, and the model evaluates no particle flux.
+CLASSICAL_TRANSPORT_COLUMNS = (
+    "shot",
+    "model_index",
+    "profile_index",
+    "time_s",
+    "source",
+    "state_identity",
+    "efit_lineage",
+    "model_name",
+    "code_name",
+    "code_version",
+    "configuration_status",
+    "formulation_sha256",
+    "rho_grid_min",
+    "rho_grid_max",
+    "points_on_grid",
+    "main_ion_z",
+    "q_e_points",
+    "q_i_points",
+    "rho_q_e_min",
+    "rho_q_e_max",
+    "rho_q_i_min",
+    "rho_q_i_max",
+    "q_e_peak_abs_W_m2",
+    "q_i_peak_abs_W_m2",
+    "chi_e_max_m2_s",
+    "chi_i_max_m2_s",
+    "particle_flux_status",
+)
+
+#: ``vaft.machine_mapping.classical`` writes these; they are repeated rather than
+#: imported because ``vaft.machine_mapping`` imports ``vaft.database``.
+#: ``test_classical_transport_summary.py`` pins the two together.
+CLASSICAL_MODEL_INDEX = -1
+CLASSICAL_MODEL_NAME = "classical"
+
 VOLUME_AVERAGED_COLUMNS = (
     "shot",
     "cp_index",
@@ -858,6 +899,134 @@ def extract_turbulent_transport(ods, shot: int) -> list[dict]:
                 "q_e_peak_abs_W_m2": _peak_abs(q_e),
                 "q_i_peak_abs_W_m2": _peak_abs(q_i),
                 "gamma_e_peak_abs_m2_s": _peak_abs(gamma_e),
+            })
+    return rows
+
+
+def _classical_parameters(text) -> dict | None:
+    """The classical entry's ``code.parameters`` envelope, or None if absent or foreign."""
+    import xml.etree.ElementTree as ET
+
+    if not text:
+        return None
+    try:
+        root = ET.fromstring(str(text))
+    except ET.ParseError:
+        return None
+    node = root.find("classical")
+    if root.tag != "parameters" or node is None:
+        return None
+    slices = []
+    for entry in node.findall("slice"):
+        try:
+            slice_time = float(entry.get("time", "nan"))
+        except ValueError:
+            slice_time = np.nan
+        slices.append((slice_time, entry.get("state_identity") or None))
+    return {
+        "formulation_sha256": node.get("formulation_sha256") or None,
+        "efit_lineage": node.get("efit_lineage") or None,
+        "slices": slices,
+    }
+
+
+def extract_classical_transport(ods, shot: int) -> list[dict]:
+    """Summarize classical ``core_transport`` entries by entry and time slice (#1654).
+
+    An entry is classical when its identifier is index -1 *and* name ``classical``:
+    a negative index is private, so the index alone identifies nothing. Each row
+    carries the slice's resolved ``state_identity`` and the entry's EFIT lineage
+    and formulation, read from ``code.parameters``. A slice whose time the envelope
+    does not list has no state identity and is reported ``state_unrecorded``.
+
+    Only ``energy.flux`` feeds the ``q_*`` columns. ``energy.d`` is the model's
+    diffusivity, reported as ``chi_*``. ``particle_flux_status`` is
+    ``not_evaluated`` unless a particle flux is actually stored.
+    """
+    if "core_transport.model" not in ods:
+        return []
+    rows: list[dict] = []
+    for model_index in range(len(ods["core_transport.model"])):
+        prefix = f"core_transport.model.{model_index}"
+        if (_as_float(_stored_value(ods, f"{prefix}.identifier.index")) != CLASSICAL_MODEL_INDEX
+                or _stored_value(ods, f"{prefix}.identifier.name") != CLASSICAL_MODEL_NAME):
+            continue
+        profiles_path = f"{prefix}.profiles_1d"
+        if profiles_path not in ods:
+            continue
+        envelope = _classical_parameters(_stored_value(ods, f"{prefix}.code.parameters"))
+        for profile_index in range(len(ods[profiles_path])):
+            base = f"{profiles_path}.{profile_index}"
+            time_s = _as_float(_stored_value(ods, f"{base}.time"))
+            grid = _flux_profile(ods, f"{base}.grid_flux.rho_tor_norm")
+            if not np.isfinite(time_s) or grid is None or not np.isfinite(grid).any():
+                continue
+            size = grid.size
+            valid_grid = np.isfinite(grid)
+
+            def flux(path):
+                values = _flux_profile(ods, path, size)
+                return None if values is None else np.where(valid_grid, values, np.nan)
+
+            q_e = flux(f"{base}.electrons.energy.flux")
+            ions_path = f"{base}.ion"
+            ion_count = len(ods[ions_path]) if ions_path in ods else 0
+            # One main ion is the model's whole ion content; more than one stored ion is
+            # not this mapping, and summing them would invent a total.
+            q_i = flux(f"{base}.ion.0.energy.flux") if ion_count == 1 else None
+            d_grid = _flux_profile(ods, f"{base}.grid_d.rho_tor_norm")
+            chi_e = chi_i = None
+            if d_grid is not None:
+                valid_d = np.isfinite(d_grid)
+
+                def coefficient(path):
+                    values = _flux_profile(ods, path, d_grid.size)
+                    return None if values is None else np.where(valid_d, values, np.nan)
+
+                chi_e = coefficient(f"{base}.electrons.energy.d")
+                if ion_count == 1:
+                    chi_i = coefficient(f"{base}.ion.0.energy.d")
+            particle_paths = [f"{base}.electrons.particles.flux",
+                              *(f"{ions_path}.{i}.particles.flux" for i in range(ion_count))]
+            particle_stored = any(_flux_profile(ods, path) is not None for path in particle_paths)
+            if envelope is None:
+                status, identity = "unrecorded", None
+            else:
+                matches = [state for t, state in envelope["slices"]
+                           if np.isfinite(t) and abs(t - time_s) <= _SLICE_TIME_TOLERANCE_S]
+                identity = matches[0] if len(matches) == 1 else None
+                status = "recorded" if identity else "state_unrecorded"
+            finite_grid = grid[valid_grid]
+            rho_q_e_min, rho_q_e_max = _rho_coverage(grid, q_e)
+            rho_q_i_min, rho_q_i_max = _rho_coverage(grid, q_i)
+            rows.append({
+                "shot": int(shot),
+                "model_index": model_index,
+                "profile_index": profile_index,
+                "time_s": time_s,
+                "state_identity": identity,
+                "efit_lineage": None if envelope is None else envelope["efit_lineage"],
+                "model_name": _stored_value(ods, f"{prefix}.identifier.name"),
+                "code_name": _stored_value(ods, f"{prefix}.code.name"),
+                "code_version": _stored_value(ods, f"{prefix}.code.version"),
+                "configuration_status": status,
+                "formulation_sha256": None if envelope is None else envelope["formulation_sha256"],
+                "rho_grid_min": float(np.min(finite_grid)),
+                "rho_grid_max": float(np.max(finite_grid)),
+                "points_on_grid": int(finite_grid.size),
+                "main_ion_z": (_as_float(_stored_value(ods, f"{ions_path}.0.z_ion"))
+                               if ion_count == 1 else np.nan),
+                "q_e_points": 0 if q_e is None else int(np.count_nonzero(np.isfinite(q_e))),
+                "q_i_points": 0 if q_i is None else int(np.count_nonzero(np.isfinite(q_i))),
+                "rho_q_e_min": rho_q_e_min,
+                "rho_q_e_max": rho_q_e_max,
+                "rho_q_i_min": rho_q_i_min,
+                "rho_q_i_max": rho_q_i_max,
+                "q_e_peak_abs_W_m2": _peak_abs(q_e),
+                "q_i_peak_abs_W_m2": _peak_abs(q_i),
+                "chi_e_max_m2_s": _peak_abs(chi_e),
+                "chi_i_max_m2_s": _peak_abs(chi_i),
+                "particle_flux_status": "stored" if particle_stored else "not_evaluated",
             })
     return rows
 
@@ -1602,6 +1771,14 @@ PRESETS = {
         sort_columns=("source", "shot", "time_s", "model_index", "profile_index"),
         extractor=extract_turbulent_transport,
     ),
+    "classical_transport": SummaryPreset(
+        columns=_summary_columns(CLASSICAL_TRANSPORT_COLUMNS),
+        paths=("core_transport",),
+        key_columns=("source", "shot", "model_index", "profile_index", "time_s"),
+        replace_groups=("source", "shot"),
+        sort_columns=("source", "shot", "time_s", "model_index", "profile_index"),
+        extractor=extract_classical_transport,
+    ),
     "shot_overview": SummaryPreset(
         columns=_summary_columns(SHOT_OVERVIEW_COLUMNS),
         paths=("spectrometer_uv", "magnetics", "tf", "barometry", "dataset_description"),
@@ -1850,10 +2027,12 @@ __all__ = [
     "extract_efit_reliability",
     "extract_shot_overview",
     "extract_turbulent_transport",
+    "extract_classical_transport",
     "extract_volume_averaged",
     "get_summary_preset",
     "summary",
     "SHOT_OVERVIEW_COLUMNS",
     "TURBULENT_TRANSPORT_COLUMNS",
+    "CLASSICAL_TRANSPORT_COLUMNS",
     "VOLUME_AVERAGED_COLUMNS",
 ]
