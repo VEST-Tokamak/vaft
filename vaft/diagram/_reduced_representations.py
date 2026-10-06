@@ -26,7 +26,7 @@ from vaft.formula._taxonomy import QUANTITIES, REDUCTION_FAMILIES, Relation
 from ._concept import band, box, connector
 from ._geometry import _check_labels
 from ._render import Diagram
-from ._scene import Arrow, Label, Scene
+from ._scene import Arrow, Label, Polyline, Scene
 
 FAMILIES = tuple(REDUCTION_FAMILIES)
 
@@ -55,6 +55,9 @@ def relation_kind(relation: Relation) -> str:
 # ---------------------------------------------------------------------------
 # overview
 # ---------------------------------------------------------------------------
+
+#: height of one line of small-label text, and its gap above an arrow [cm]
+_LINE, _LABEL_GAP = 0.45, 0.12
 
 _ROWS = (("field_2d", "2-D field"), ("profile_1d", "1-D profile"), ("scalar_0d", "0-D scalar"))
 
@@ -141,13 +144,24 @@ def reduced_representation_hierarchy(*, labels: bool = True) -> Diagram:
         (lower["similarity"], lower["closure"], "scaling law"),
     ]
     for a, b, text in arrows:
-        arrow = connector(a, b, role="reduction")
-        items.append(arrow)
-        if labels:
-            mx, my = 0.5 * (arrow.start[0] + arrow.end[0]), 0.5 * (arrow.start[1] + arrow.end[1])
-            horizontal = abs(arrow.end[0] - arrow.start[0]) > abs(arrow.end[1] - arrow.start[1])
-            items.append(Label((mx, my + 0.12) if horizontal else (mx + 0.15, my), text, "small label,align=center",
-                               anchor="south" if horizontal else "west", role="reduction"))
+        if abs(b.x - a.x) > abs(b.y - a.y):
+            # a horizontal arrow and its label are centred together, as one block, on the boxes' mid-line
+            label_height = _LINE * (text.count("\\\\") + 1) if labels else 0.0
+            y = a.y - 0.5 * (label_height + _LABEL_GAP) if labels else a.y
+            side = 1.0 if b.x > a.x else -1.0
+            start = (a.x + side * (0.5 * a.width + 0.08), y)
+            end = (b.x - side * (0.5 * b.width + 0.08), y)
+            items.append(Arrow(start, end, "connector", role="reduction"))
+            if labels:
+                items.append(Label((0.5 * (start[0] + end[0]), y + _LABEL_GAP), text, "small label,align=center",
+                                   anchor="south", role="reduction"))
+        else:
+            arrow = connector(a, b, role="reduction")
+            items.append(arrow)
+            if labels:
+                my = 0.5 * (arrow.start[1] + arrow.end[1])
+                items.append(Label((arrow.start[0] + 0.15, my), text, "small label,align=center", anchor="west",
+                                   role="reduction"))
     if labels:
         items.append(Label((4.8, -9.1), "Down: spatial reduction. Across: dimensionless normalisation -- an "
                            "independent axis, so a dimensionless quantity can still be a profile",
@@ -171,6 +185,47 @@ def _layers(relations) -> Dict[str, int]:
                 depth.setdefault(s, 0)
             depth[rel.target] = max(depth.get(rel.target, 0), 1 + max(depth[s] for s in rel.sources))
     return depth
+
+
+def _heights(order: Dict[int, List[str]], incoming: Dict[str, Relation]) -> Dict[str, float]:
+    """Vertical positions: each source's targets a contiguous block, each source level with its block.
+
+    The first target layer is stacked about zero; deeper layers centre each
+    group on its source; the inputs (layer 0) then sit at the mean height of
+    their targets. Spacing never falls below ``_DY``.
+    """
+    ys: Dict[str, float] = {}
+    layers = sorted(order)
+    for layer in layers[1:]:
+        keys = order[layer]
+        if layer == layers[1]:
+            top = 0.5 * (len(keys) - 1) * _DY
+            ys.update({key: top - i * _DY for i, key in enumerate(keys)})
+            continue
+        groups: List[List[str]] = []
+        for key in keys:
+            parent = incoming[key].sources[0]
+            if groups and incoming[groups[-1][0]].sources[0] == parent:
+                groups[-1].append(key)
+            else:
+                groups.append([key])
+        floor = None
+        for group in groups:
+            centre = ys[incoming[group[0]].sources[0]]
+            top = centre + 0.5 * (len(group) - 1) * _DY
+            if floor is not None:
+                top = min(top, floor - _DY)
+            for i, key in enumerate(group):
+                ys[key] = top - i * _DY
+            floor = ys[group[-1]]
+    floor = None
+    for key in order[layers[0]]:
+        children = [t for t, rel in incoming.items() if key in rel.sources and t in ys]
+        y = sum(ys[c] for c in children) / len(children) if children else 0.0
+        if floor is not None:
+            y = min(y, floor - _DY)
+        ys[key] = floor = y
+    return ys
 
 
 def reduction_graph(family: str = "current_q", *, labels: bool = True) -> Diagram:
@@ -204,31 +259,53 @@ def reduction_graph(family: str = "current_q", *, labels: bool = True) -> Diagra
         order[layer] = sorted(order[layer], key=lambda k: (barycentre(k), appearance[k]))
         rank.update({key: i for i, key in enumerate(order[layer])})
     incoming = {rel.target: rel for rel in relations}
+    ys = _heights(order, incoming)
     tallest = max(len(v) for v in order.values())
     nodes = {}
     items: List = []
     for layer, keys in sorted(order.items()):
-        top = 0.5 * (len(keys) - 1) * _DY
-        for i, key in enumerate(keys):
+        for key in keys:
             q = QUANTITIES[key]
             style, word = _STYLE[q.representation]
             sub = word + (", dimensionless" if q.dimensionless else "")
             text = f"{q.symbol}\\\\ {{\\small {sub}}}"
             if key in incoming and labels:
                 text += f"\\\\ {{\\small\\itshape\\hyphenpenalty=10000 via {relation_kind(incoming[key]).replace('_', ' ')}}}"
-            nodes[key] = box(layer * _DX, top - i * _DY, _W, _H, text, style=style, role=f"node:{key}", latex=True)
+            nodes[key] = box(layer * _DX, ys[key], _W, _H, text, style=style, role=f"node:{key}", latex=True)
             items += list(nodes[key].items)
+    # Orthogonal edges: every edge leaves its source at the midpoint of the right side -- one shared start
+    # per source -- runs to a vertical trunk in the middle of the gap, and enters the target at the midpoint
+    # of its left side. _heights keeps each source's targets a contiguous block around it, so the trunks
+    # of one gap never overlap and a single target is a straight line.
+    trunks = {(depth[k], k): depth[k] * _DX + 0.5 * _DX for k in depth}
+    # The stub from the source and its trunk are drawn once, plain, per source; each edge is the branch
+    # from the trunk into its target, solid or dashed. A source with one level target is one straight arrow.
+    targets: Dict[str, List[str]] = {}
+    for rel in relations:
+        for source in rel.sources:
+            targets.setdefault(source, []).append(rel.target)
+    straight = {s for s, t in targets.items() if len(t) == 1 and abs(nodes[t[0]].y - nodes[s].y) < 1e-9}
+    for source, ts in targets.items():
+        if source in straight:
+            continue
+        a, xm = nodes[source], trunks[(depth[source], source)]
+        span = [nodes[t].y for t in ts] + [a.y]
+        items.append(Polyline.of([(a.x + 0.5 * a.width, a.y), (xm, a.y)], "connector line", role=f"bus:{source}"))
+        if max(span) - min(span) > 1e-9:
+            items.append(Polyline.of([(xm, max(span)), (xm, min(span))], "connector line", role=f"bus:{source}"))
     edges = []
     for rel in relations:
         kind = relation_kind(rel)
         for source in rel.sources:
             style = "connector" if rel.formula else "connector feedback"
-            arrow = connector(nodes[source], nodes[rel.target], style=style, role=f"edge:{source}->{rel.target}")
-            items.append(arrow)
+            a, b = nodes[source], nodes[rel.target]
+            end = (b.x - 0.5 * b.width - 0.08, b.y)
+            start = (a.x + 0.5 * a.width, a.y) if source in straight else (trunks[(depth[source], source)], b.y)
+            items.append(Polyline.of([start, end], style, role=f"edge:{source}->{rel.target}"))
             edges.append((source, rel.target, kind, rel.formula))
     if labels:
         width = max(order) * _DX
-        bottom = -0.5 * (tallest - 1) * _DY - 0.5 * _H - 0.5
+        bottom = min(ys.values()) - 0.5 * _H - 0.5
         items.append(Label((0.5 * width, bottom), "Solid: a vaft.formula function; \\emph{via} names the reduction kind "
                            "its docstring declares. Dashed: a step VAFT performs elsewhere", "note", anchor="north",
                            role="note"))
