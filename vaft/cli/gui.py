@@ -1,4 +1,4 @@
-"""Launch the VAFT browser GUI (needs ``pip install 'vaft[gui]'``)."""
+"""Launch the VAFT browser GUI."""
 
 from __future__ import annotations
 
