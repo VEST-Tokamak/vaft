@@ -39,12 +39,13 @@ vaft gui --sample 39915 41524     # two samples, compared on each plot
 vaft gui --file equilibrium.json
 vaft gui --shot 39915 41524       # database shots (needs HSDS read access)
 vaft gui --plot equilibrium_field_psi --port 5010
-vaft gui --workspace database     # start in the Database workspace
+vaft gui --workspace diagnostics  # start in another workspace (plots, diagnostics, database)
 ```
 
 The page is an application shell. The sidebar starts with the **workspaces**:
 
 - **Plots:** the plot explorer described below.
+- **Diagnostics:** the same explorer narrowed to one diagnostic.
 - **Database:** the database sources, the connection, and opening database shots.
 
 A strip above the main area shows the shared selection, which every workspace reads: what is open, the time on
@@ -97,6 +98,19 @@ GUI:
   Matplotlib rendering with the controls and figure settings on screen, whichever renderer is shown.
 
 Loading a source computes its plot catalog, which takes a few seconds the first time.
+
+The **Diagnostics** workspace shows processed diagnostics by diagnostic, not by SQL field:
+
+- **Choosing a diagnostic.** Plasma current, flux loops, B-pol probes, Thomson scattering and
+  so on, grouped by category. The list is the diagnostic registry, the same source as the
+  diagnostics table in these docs; a diagnostic with no plots is not listed.
+- **Its plots.** They are the discovery records whose required data lies under the
+  diagnostic's IDS path. The explorer below is the one from **Plots**, narrowed to them: the
+  open shots compare on each plot, and controls, figure options and export work the same.
+- **About this diagnostic.** The registry record: processed IDS path, family, availability,
+  mapping status, measured and derived quantities, and the recorded source.
+- **Not yet available.** Raw-versus-processed comparison and raw field inspection need an API
+  that names each diagnostic's raw DAQ fields; they come when that API lands.
 
 The **Database** workspace contains:
 
