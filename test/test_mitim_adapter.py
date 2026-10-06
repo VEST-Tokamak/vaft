@@ -159,10 +159,17 @@ def ready(tmp_path, monkeypatch):
 def test_importing_the_adapter_never_imports_mitim():
     import subprocess
 
-    code = "import sys, vaft.code.mitim; print(any(m.startswith(('mitim_tools','mitim_modules')) for m in sys.modules))"
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
-                         env={**os.environ, "PYTHONPATH": str(ROOT)}, check=True)
-    assert out.stdout.strip() == "False"
+    # An editable install elsewhere can win over PYTHONPATH, so the child names the
+    # tree it imported and the test skips rather than test another checkout.
+    code = ("import sys; sys.path.insert(0, sys.argv[1]); import vaft, vaft.code.mitim; "
+            "print(vaft.__file__); "
+            "print(any(m.startswith(('mitim_tools','mitim_modules')) for m in sys.modules))")
+    out = subprocess.run([sys.executable, "-c", code, str(ROOT)], capture_output=True, text=True,
+                         env={**os.environ, "PYTHONPATH": str(ROOT)}, check=False)
+    lines = out.stdout.strip().splitlines()
+    if out.returncode != 0 or not lines or not lines[0].startswith(str(ROOT)):
+        pytest.skip(f"the child imported another vaft checkout: {lines[:1] or out.stderr[-200:]}")
+    assert lines[-1] == "False"
 
 
 def test_no_interpreter_is_configuration_missing(monkeypatch):

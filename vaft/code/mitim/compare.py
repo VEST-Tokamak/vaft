@@ -106,7 +106,12 @@ def read_input_neo(path: str | Path) -> dict[str, Any]:
     return read_input_tglf(path)
 
 
-def neo_local_to_profile_normalisation(transport: Mapping[str, Any], input_neo: Mapping[str, Any]) -> dict[str, Any]:
+def neo_local_to_profile_normalisation(
+    transport: Mapping[str, Any],
+    input_neo: Mapping[str, Any],
+    *,
+    reference_mass_1: float | None = None,
+) -> dict[str, Any]:
     """Re-express a local-mode NEO result in profile mode's normalisation.
 
     In profile mode (``PROFILE_MODEL=2``, how VAFT runs NEO) ``neo_make_profiles.f90``
@@ -120,14 +125,29 @@ def neo_local_to_profile_normalisation(transport: Mapping[str, Any], input_neo: 
 
     On 39915 (H+/C6+, Z_eff 2: ``DENS_1 = 0.8``) the unconverted MITIM fluxes are
     exactly 0.8 of VAFT's, for every species, channel and radius.
+
+    Only ``r_over_a``, ``particle_flux`` and ``energy_flux`` are returned: the other
+    transport columns (momentum flux, flows, ``K``, bootstrap) scale differently,
+    and returning them unconverted would mix two normalisations in one mapping.
+
+    Both modes take ``v_t0 = sqrt(T/m_D)``, i.e. ``MASS_i`` in deuterium masses. Pass
+    ``reference_mass_1`` (species 1's mass in m_D, e.g. VAFT's
+    ``NeoOutputs.species_mass[0]``) to check that MITIM wrote masses that way; a
+    mismatch raises ``ValueError`` rather than silently scaling by sqrt(m_1/m_D).
     """
     import numpy as np
 
     dens, temp = float(input_neo["DENS_1"]), float(input_neo["TEMP_1"])
-    out = dict(transport)
-    out["particle_flux"] = np.asarray(transport["particle_flux"], dtype=float) / (dens * temp ** 0.5)
-    out["energy_flux"] = np.asarray(transport["energy_flux"], dtype=float) / (dens * temp ** 1.5)
-    return out
+    if reference_mass_1 is not None:
+        written = float(input_neo["MASS_1"])
+        if not math.isclose(written, float(reference_mass_1), rel_tol=1e-3):
+            raise ValueError(f"MASS_1 = {written:g} is not species 1's mass in deuterium masses "
+                             f"({float(reference_mass_1):g}); the normalisations differ")
+    return {
+        "r_over_a": transport.get("r_over_a"),
+        "particle_flux": np.asarray(transport["particle_flux"], dtype=float) / (dens * temp ** 0.5),
+        "energy_flux": np.asarray(transport["energy_flux"], dtype=float) / (dens * temp ** 1.5),
+    }
 
 
 def compare_neo_fluxes(
@@ -136,6 +156,8 @@ def compare_neo_fluxes(
     *,
     rtol: float = 1e-3,
     atol: float = 0.0,
+    vaft_charges: Iterable[float] | None = None,
+    mitim_charges: Mapping[float, Iterable[float]] | None = None,
 ) -> list[dict[str, Any]]:
     """Per (r/a, channel, species) rows comparing a VAFT profile run with MITIM runs.
 
@@ -143,6 +165,10 @@ def compare_neo_fluxes(
     axis); ``mitim_by_r_over_a`` maps each requested r/a to a local-mode transport
     already passed through :func:`neo_local_to_profile_normalisation`. A MITIM
     surface the profile run did not solve, within 1e-4 in r/a, is ``vaft_missing``.
+    Species are paired by position, so the two must list the same number of species,
+    and, when ``vaft_charges``/``mitim_charges`` are given, the same charges in the
+    same order; otherwise the surface's rows are ``species_mismatch`` rather than a
+    shorter table that looks complete.
     """
     import numpy as np
 
@@ -157,6 +183,16 @@ def compare_neo_fluxes(
                              "vaft": None, "mitim": None, "rel_diff": None, "status": "vaft_missing"})
                 continue
             a = np.asarray(vaft_transport[channel], dtype=float).reshape(-1, radii.size)[:, matches[0]]
+            charges_ok = True
+            if vaft_charges is not None and mitim_charges is not None and r_over_a in mitim_charges:
+                va = np.asarray(list(vaft_charges), dtype=float)
+                mi = np.asarray(list(mitim_charges[r_over_a]), dtype=float)
+                charges_ok = va.shape == mi.shape and bool(np.allclose(va, mi))
+            if a.size != b.size or not charges_ok:
+                rows.append({"r_over_a": float(r_over_a), "channel": channel, "species": None,
+                             "vaft": a.tolist(), "mitim": b.tolist(), "rel_diff": None,
+                             "status": "species_mismatch"})
+                continue
             for species, (x, y) in enumerate(zip(a, b)):
                 scale = max(abs(x), abs(y))
                 rel = abs(x - y) / scale if scale > 0 else 0.0

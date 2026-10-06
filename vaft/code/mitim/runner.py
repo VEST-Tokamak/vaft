@@ -28,6 +28,11 @@ __all__ = [
     "run_neo_smoke",
 ]
 
+#: How far the r/a a MITIM run used (RMIN_LOC / RMIN_OVER_A it wrote) may sit from
+#: the r/a requested. The comparisons match VAFT's own grid at 1e-4, so a looser
+#: guard would let a shifted surface surface as a physics difference.
+_RAN_TOLERANCE = 1e-4
+
 #: The GACODE members MITIM may call; each one's ``bin`` goes on ``PATH``.
 _GACODE_MEMBERS = ("neo", "tglf", "tgyro", "cgyro", "vgen")
 
@@ -328,11 +333,11 @@ def run_mitim_tglf(
             # the RMIN_LOC it wrote, and a shifted surface is not the one requested.
             ran = read_input_tglf(Path(directory) / "input.tglf").get("RMIN_LOC") \
                 if (Path(directory) / "input.tglf").is_file() else None
-            if ran is None or abs(float(ran) - r_over_a[index]) > 1e-3:
+            if ran is None or abs(float(ran) - r_over_a[index]) > _RAN_TOLERANCE:
                 shifted[r_over_a[index]] = None if ran is None else float(ran)
                 continue
             parsed = collect_tglf_outputs(directory)
-            if parsed is not None and parsed.gbflux is not None:
+            if parsed is not None and parsed.gbflux is not None and parsed.solved:
                 outputs[r_over_a[index]] = parsed
         missing = [r for r in r_over_a if r not in outputs]
         if missing:
@@ -357,7 +362,7 @@ def run_mitim_neo(
 
     The radii go through VAFT's bridge, colliding 4-decimal rho labels are refused,
     and each radius's ``RMIN_OVER_A`` in the ``input.neo`` MITIM ran is checked
-    against the request (1e-3); a shifted or missing surface makes the result
+    against the request (1e-4); a shifted or missing surface makes the result
     ``partial``. MITIM's NEO preset is ``Sonic`` (ROTATION_MODEL=2); VAFT runs
     ROTATION_MODEL=1, so pass ``extra_options={"ROTATION_MODEL": 1}`` to compare.
 
@@ -400,11 +405,12 @@ def run_mitim_neo(
             path = Path(directory) / "input.neo"
             parsed_input = read_input_neo(path) if path.is_file() else {}
             ran = parsed_input.get("RMIN_OVER_A")
-            if ran is None or abs(float(ran) - r_over_a[index]) > 1e-3:
+            if ran is None or abs(float(ran) - r_over_a[index]) > _RAN_TOLERANCE:
                 shifted[r_over_a[index]] = None if ran is None else float(ran)
                 continue
             parsed = collect_neo_outputs(directory)
-            if parsed is not None and parsed.transport is not None:
+            # NEO exits 0 on input errors; only its own success flag makes a result.
+            if parsed is not None and parsed.transport is not None and parsed.solved:
                 outputs[r_over_a[index]] = parsed
                 inputs[r_over_a[index]] = parsed_input
         missing = [r for r in r_over_a if r not in outputs]

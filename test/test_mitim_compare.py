@@ -93,3 +93,26 @@ def test_neo_fluxes_are_compared_per_radius_species_and_channel():
     assert at[(0.5, "particle_flux", 1)] == at[(0.5, "particle_flux", 2)] == "agree"
     assert at[(0.5, "energy_flux", 2)] == "differ"      # 9 vs 8
     assert at[(0.6, "particle_flux", None)] == "vaft_missing"
+
+
+def test_the_conversion_returns_only_what_it_converts_and_checks_the_mass():
+    local = {"particle_flux": np.array([1.0]), "energy_flux": np.array([1.0]), "r_over_a": np.array([0.4]),
+             "momentum_flux": np.array([9.0]), "bootstrap_current": np.array([9.0])}
+    out = mitim.neo_local_to_profile_normalisation(local, {"DENS_1": 0.8, "TEMP_1": 1.0, "MASS_1": 0.50397},
+                                                   reference_mass_1=0.50397)
+    assert set(out) == {"r_over_a", "particle_flux", "energy_flux"}
+    with pytest.raises(ValueError, match="deuterium"):
+        mitim.neo_local_to_profile_normalisation(local, {"DENS_1": 0.8, "TEMP_1": 1.0, "MASS_1": 1.0},
+                                                 reference_mass_1=0.50397)
+
+
+def test_a_species_mismatch_is_reported_not_truncated():
+    vaft = {"r_over_a": np.array([0.5]), "particle_flux": np.array([[1.0], [2.0], [3.0]]),
+            "energy_flux": np.array([[1.0], [2.0], [3.0]])}
+    short = {0.5: {"particle_flux": np.array([1.0, 2.0]), "energy_flux": np.array([1.0, 2.0])}}
+    assert {r["status"] for r in mitim.compare_neo_fluxes(vaft, short)} == {"species_mismatch"}
+    same = {0.5: {"particle_flux": np.array([1.0, 2.0, 3.0]), "energy_flux": np.array([1.0, 2.0, 3.0])}}
+    swapped = mitim.compare_neo_fluxes(vaft, same, vaft_charges=[1, 6, -1], mitim_charges={0.5: [6, 1, -1]})
+    assert {r["status"] for r in swapped} == {"species_mismatch"}
+    assert {r["status"] for r in mitim.compare_neo_fluxes(vaft, same, vaft_charges=[1, 6, -1],
+                                                          mitim_charges={0.5: [1, 6, -1]})} == {"agree"}
