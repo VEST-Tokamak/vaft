@@ -37,7 +37,12 @@ from vaft.diagram._op_space import (
 from vaft.formula import boundaries as _b
 from vaft.plot.presentation import presented
 
-__all__ = ["operational_space_population", "population_overlay"]
+__all__ = ["operational_space_population", "population_overlay", "applicability_status", "APPLICABILITY_STATUSES"]
+
+#: How a drawn boundary relates to the plotted population (#1628, plotting side): inside its declared calibration
+#: (SUPPORTED), outside it (OUTSIDE), not assessable from what is declared (UNASSESSED), or not drawable on this
+#: projection (NOT_APPLICABLE). There is no MARGINAL: no cutoff is invented (#1639).
+APPLICABILITY_STATUSES = ("SUPPORTED", "OUTSIDE", "UNASSESSED", "NOT_APPLICABLE")
 
 #: Categorical slots in fixed order (the validated palette of vaft.plot.population).
 CATEGORICAL = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7")
@@ -238,7 +243,7 @@ def _math(symbol: str) -> str:
     return f"${text}$"
 
 
-def _inline_legend_label(curve: _b.BoundaryCurve) -> str:
+def _inline_legend_label(curve: _b.BoundaryCurve, suffix: str = "") -> str:
     """``{name} ({fixed inputs}) {Unstable} ({Empirical|Analytical|Numerical|Derived})``."""
     entry = _b.get_boundary(curve.key)
 
@@ -252,7 +257,7 @@ def _inline_legend_label(curve: _b.BoundaryCurve) -> str:
 
     fixed = ", ".join(f"{symbol(k)}={v:.3g}" for k, v in curve.fixed.items())
     text = BOUNDARY_NAMES.get(curve.key, curve.key) + (f" ({fixed})" if fixed else "")
-    return textwrap.fill(f"{text} {_side_word(entry)} ({_basis_word(entry)})", width=46, subsequent_indent="  ")
+    return textwrap.fill(f"{text} {_side_word(entry)} ({_basis_word(entry)}){suffix}", width=46, subsequent_indent="  ")
 
 
 def _unstable_direction(side: str) -> Tuple[float, float]:
@@ -362,6 +367,119 @@ def _label_allowed_zone(ax, curves, xs: np.ndarray, ys: np.ndarray, text: str, a
         best = cand[len(cand) // 2]
     return ax.text(best[0], best[1], text, transform=ax.transAxes, ha="center", va="center", fontsize="medium",
                    style="italic", color="#2f6f4f", zorder=4)
+
+
+def _machine_coverage(declared: str, plotted: Optional[str]) -> Optional[bool]:
+    """Whether a boundary's declared machine class covers the plotted machine class; None when undecidable.
+
+    Only what the registry states is used. For a spherical-tokamak population, a class that names spherical
+    tokamaks covers it and one calibrated on a conventional machine (conventional aspect ratio, JET) excludes it.
+    For a conventional population, a class limited to spherical tokamaks excludes it. A generic "tokamak", or a
+    descriptive phrase, never counts as coverage: that is undecided.
+    """
+    if not plotted or not declared:
+        return None
+    declared, plotted = declared.lower(), plotted.lower().replace("_", " ")
+    spherical = "spherical" in plotted or plotted.split()[:1] == ["st"]
+    if spherical:
+        if "spherical" in declared:
+            return True
+        if "conventional" in declared or "jet" in declared:
+            return False
+        return None
+    if "conventional" in plotted and "spherical" in declared and "including" not in declared:
+        return False
+    return None
+
+
+def applicability_status(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tuple[str, str],
+                         machine_class: Optional[str] = None) -> Tuple[str, Tuple[str, ...]]:
+    """The applicability status of a drawn boundary for the plotted states, with its reasons.
+
+    Parameters
+    ----------
+    curve : BoundaryCurve
+        A boundary as drawn on the projection.
+    rows : pandas.DataFrame
+        The plotted states.
+    axes : (str, str)
+        The plotted x and y columns.
+    machine_class : str, optional
+        The plotted population's machine class, e.g. ``"spherical_tokamak"``
+        (``table.attrs["machine_class"]``).
+
+    Returns
+    -------
+    (str, tuple of str)
+        One of :data:`APPLICABILITY_STATUSES` and the reasons behind it.
+
+    Notes
+    -----
+    OUTSIDE when a plotted value or a fixed input leaves a declared fitted
+    range, or the declared machine class excludes the plotted one; SUPPORTED
+    only on evidence: the machine class is covered *and* at least one declared
+    calibration range was tested on the plotted values; UNASSESSED otherwise
+    (no machine class given, a class that does not decide it, or no range to
+    test). A boundary the projection omits is UNASSESSED when inputs are
+    missing and NOT_APPLICABLE when its quantities are not this plane's.
+    """
+    entry = _b.get_boundary(curve.key)
+    reasons = []
+    ranges = getattr(entry.applicability, "ranges", {}) or {}
+    outside = False
+    checked = 0   # declared ranges actually tested on values
+    for name, (lo, hi) in ranges.items():
+        if name in curve.fixed:
+            values = np.array([curve.fixed[name]])
+        elif name in axes:
+            values = _finite(rows, name)
+            values = values[np.isfinite(values)]
+        else:
+            reasons.append(f"range of {name} not checked (neither plotted nor fixed)")
+            continue
+        if values.size == 0:
+            continue
+        checked += 1
+        beyond = (values < lo) | (values > hi)
+        if beyond.any():
+            outside = True
+            quantity = next((q for q in (entry.target, *entry.inputs) if q.name == name), None)
+            label = _math(quantity.symbol) if quantity is not None else name
+            reasons.append(f"{label} {int(beyond.sum())}/{values.size} outside {lo:g}-{hi:g}")
+    declared = getattr(entry.applicability, "machine_class", "") or ""
+    covered = _machine_coverage(declared, machine_class)
+    if covered is False:
+        outside = True
+        # the class's first phrase ("JET (conventional ...), 1985-88" -> "JET"); the rest stays on the registry entry
+        reasons.append("calibrated on " + declared.split("(")[0].split(",")[0].strip())
+    if outside:
+        return "OUTSIDE", tuple(r for r in reasons if "not checked" not in r)
+    if covered and checked:
+        # supported only on evidence: the class covers the population and a declared range was tested
+        return "SUPPORTED", tuple(reasons) or (f"inside {checked} declared calibration range(s)",)
+    if covered:
+        reasons.append("its class covers the plotted machines, but no calibration range was declared or tested")
+    else:
+        reasons.append("no machine class given for the plotted states" if not machine_class
+                       else f"declared class '{declared or 'none'}' does not decide {machine_class}")
+    return "UNASSESSED", tuple(reasons)
+
+
+#: Omission reasons that mean missing information (UNASSESSED), not a quantity that cannot be drawn here.
+_MISSING_INPUT_MARKERS = ("needs fixed input", "is not declared", "are not fixed")
+
+
+def _omission_status(reason: str) -> Tuple[str, Tuple[str, ...]]:
+    missing = any(marker in reason for marker in _MISSING_INPUT_MARKERS)
+    return ("UNASSESSED" if missing else "NOT_APPLICABLE"), (reason,)
+
+
+def _status_suffix(status: str, reasons: Sequence[str]) -> str:
+    if status == "OUTSIDE":
+        return " [outside calibration: " + "; ".join(reasons) + "]"
+    if status == "UNASSESSED":
+        return " [applicability unassessed]"
+    return ""
 
 
 def _applicability_warnings(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tuple[str, str]):
@@ -522,7 +640,11 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     Returns
     -------
     (Figure, Axes)
-        ``ax.vaft_overlay`` holds the :class:`OverlayPlan` that was drawn.
+        ``ax.vaft_overlay`` holds the :class:`OverlayPlan` that was drawn and
+        ``ax.vaft_applicability`` each requested boundary's
+        :func:`applicability_status`, judged against the population's
+        ``table.attrs["machine_class"]``; the inline legend names OUTSIDE and
+        UNASSESSED boundaries.
     """
     import matplotlib.pyplot as plt
 
@@ -661,8 +783,12 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     # them filled the wrong side of it
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    machine_class = (getattr(table, "attrs", {}) or {}).get("machine_class")
+    applicability = {key: _omission_status(reason) for key, reason in plan.omitted}
     for i, curve in enumerate(plan.curves):
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
+        applicability[curve.key] = applicability_status(curve, rows, (x, y), machine_class)
+        suffix = _status_suffix(*applicability[curve.key])
         reference = inline and curve.key in REFERENCE_ONLY
         ax.plot(curve.x, curve.y, color=c, linewidth=1.6 * line_scale, linestyle="--" if reference else "-",
                 label=None if inline else _boundary_label(curve), zorder=2)
@@ -670,7 +796,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             from matplotlib.lines import Line2D
             entry = _b.get_boundary(curve.key)
             patches.append(Line2D([], [], color=c, linestyle="--", linewidth=1.6 * line_scale, label=textwrap.fill(
-                f"{BOUNDARY_NAMES.get(curve.key, curve.key)} ({_basis_word(entry)})",
+                f"{BOUNDARY_NAMES.get(curve.key, curve.key)} ({_basis_word(entry)}){suffix}",
                 width=46, subsequent_indent="  ")))
             continue
         _shade_forbidden(ax, curve, c, hatch="////" if inline else None)
@@ -678,7 +804,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             from matplotlib.colors import to_rgba
             from matplotlib.patches import Patch
             patches.append(Patch(facecolor=to_rgba(c, 0.05), edgecolor=c, hatch="////", linewidth=1.0,
-                                 label=_inline_legend_label(curve)))
+                                 label=_inline_legend_label(curve, suffix)))
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     if inline and plan.curves:
@@ -722,6 +848,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     elif handles:
         ax.legend(handles, labels_, fontsize="x-small", frameon=False, loc="best")
     ax.vaft_overlay = plan
+    ax.vaft_applicability = applicability
     if show:
         plt.show()
     return fig, ax

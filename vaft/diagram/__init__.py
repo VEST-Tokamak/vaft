@@ -14,7 +14,8 @@ where :mod:`vaft.plot` shows data and results. The boundary:
 Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
 island model) and the stability / operational-space charts
 ``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``,
-``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); single-particle motion: ``exb_drift``, ``curvature_drift``,
+``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); reduced stability
+diagnostics (#1635): ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; single-particle motion: ``exb_drift``, ``curvature_drift``,
 ``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
 of the island: ``rational_surface``, ``delta_prime`` and
 ``tearing_layer_matching``; 3-D perturbation harmonics:
@@ -49,7 +50,9 @@ spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``neo_neoclassical`` and ``tglf_cgyro_local_transport``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
-``logical_to_physical_mapping`` and ``physical_to_flux_mapping``.
+``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
+and q topology (#1604): ``current_profile_shapes``, ``q_profile_landmarks``,
+``q_profile_topologies`` and ``rational_surface_topology``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -68,6 +71,8 @@ __all__ = [
     "magnetic_island",
     "peeling_ballooning",
     "s_alpha_ballooning",
+    "stability_diagnostic_taxonomy",
+    "interchange_criteria",
     "hugill",
     "troyon",
     "li_qa",
@@ -139,6 +144,10 @@ __all__ = [
     "internal_external_kink",
     "plasma_vacuum_wall",
     "cylindrical_tearing_outer",
+    "current_profile_shapes",
+    "q_profile_landmarks",
+    "q_profile_topologies",
+    "rational_surface_topology",
     "slab_field_configuration",
     "current_sheet",
     "harris_sheet",
@@ -247,6 +256,8 @@ _LOCATIONS = {
     "magnetic_island": "._magnetic_island",
     "peeling_ballooning": "._stability_space",
     "s_alpha_ballooning": "._stability_space",
+    "stability_diagnostic_taxonomy": "._reduced_stability",
+    "interchange_criteria": "._reduced_stability",
     "hugill": "._stability_space",
     "troyon": "._stability_space",
     "li_qa": "._li_qa",
@@ -318,6 +329,10 @@ _LOCATIONS = {
     "internal_external_kink": "._cylindrical_modes",
     "plasma_vacuum_wall": "._cylindrical_modes",
     "cylindrical_tearing_outer": "._cylindrical_modes",
+    "current_profile_shapes": "._equilibrium_profiles",
+    "q_profile_landmarks": "._equilibrium_profiles",
+    "q_profile_topologies": "._equilibrium_profiles",
+    "rational_surface_topology": "._equilibrium_profiles",
     "slab_field_configuration": "._field_configurations",
     "current_sheet": "._field_configurations",
     "harris_sheet": "._field_configurations",
