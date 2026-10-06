@@ -178,8 +178,9 @@ Energy and resistivity:
 
 <!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
 ```python
-W   = vaft.formula.stored_energy_from_p_V(p, V)                # W = p V
-W   = vaft.formula.stored_energy_from_beta_V(beta, B0, V)      # W = beta B0^2 V / (2 mu0)
+W   = vaft.formula.thermal_energy_from_p_V(p, V)               # W_th = 3/2 <p> V (IMAS energy_thermal)
+PV  = vaft.formula.stored_energy_from_p_V(p, V)                # int p dV = <p> V: NOT W_th, despite the name
+PV  = vaft.formula.stored_energy_from_beta_V(beta, B0, V)      # <p> V again, from beta = 2 mu0 <p> / B0^2
 eta = vaft.formula.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e, Z_eff=2.0, ln_Lambda=17.0)
 ```
 

@@ -54,6 +54,7 @@ from vaft.formula.equilibrium import (
     poloidal_field_factor,
     spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
     stored_energy_from_p_V,
+    thermal_energy_from_p_V,
 )
 from vaft.formula.virial import (
     virial_alpha_approx_from_kappa,
