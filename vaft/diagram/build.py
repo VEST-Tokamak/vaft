@@ -189,6 +189,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
                                                                    {"communication": "point_to_point"}),
     "experiment_modeling_theory_data_network_equilibrium.svg": ("experiment_modeling_theory_data_network",
                                                                 {"communication": "equilibrium"}),
+    # the research modes and their common state inside one integrated framework, serving analysis (#1698)
+    "integrated_scientific_framework.svg": ("integrated_scientific_framework", {}),
+    "integrated_scientific_framework_equilibrium.svg": ("integrated_scientific_framework", {"domain": "equilibrium"}),
     "human_ai_interface.svg": ("human_ai_interface", {}),
     # the machine and research archive since 2012 (#497)
     "machine_research_archive.svg": ("machine_research_archive", {}),

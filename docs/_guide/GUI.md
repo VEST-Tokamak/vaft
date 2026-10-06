@@ -6,8 +6,8 @@ category: guide
 layout: post
 permalink: /workflows/gui/
 guide:
-  architecture: An optional Panel application over the same loading, discovery and plotting APIs a notebook uses.
-  prerequisites: VAFT installed with the `gui` extra; a browser on the machine you sit at.
+  architecture: A Panel application over the same loading, discovery and plotting APIs a notebook uses.
+  prerequisites: VAFT installed; a browser on the machine you sit at.
   expected: The plot browser at http://localhost:5006, locally or through a forwarded port.
   status: Experimental reference application (#1086); workspaces follow the GUI roadmap (#1359).
 related:
@@ -27,14 +27,9 @@ with no X11 or remote desktop.
 
 ## Install
 
-Panel is an optional dependency:
-
-```bash
-python -m pip install -e ".[gui]"
-```
-
-Without it, `import vaft` and every other workflow are unaffected; `vaft gui` stops with a
-message naming the extra.
+Nothing beyond VAFT itself: Panel is one of its dependencies, so `vaft gui` works in any VAFT
+environment. `import vaft` does not import Panel; only launching the GUI does. (Panel used to be
+the optional `gui` extra; `pip install 'vaft[gui]'` still works and adds nothing.)
 
 ## Run locally
 

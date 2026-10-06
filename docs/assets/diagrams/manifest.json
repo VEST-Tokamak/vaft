@@ -425,6 +425,16 @@
       "source_sha256": "1fbc60022d7f04592b648e681eb879b8b140aa268426689a2005668c6d09804c",
       "svg_sha256": "298dae43861a7382603511d44d17fab88b68775e101aa40588b79bd7a2c5ccab"
     },
+    "integrated_scientific_framework.svg": {
+      "call": "vaft.diagram.integrated_scientific_framework()",
+      "source_sha256": "81f0d03f2468c132e2b2c70fe7175713acf1f07d29e20859a46858b407d83b38",
+      "svg_sha256": "96f3e3278494fc74c63d1035d62546af8a8534e1ff12b07fbe46201ff11d55bd"
+    },
+    "integrated_scientific_framework_equilibrium.svg": {
+      "call": "vaft.diagram.integrated_scientific_framework(domain='equilibrium')",
+      "source_sha256": "68590931e8c44c64ecd2d20dcd6eea3fe3f15a92c8aaa89e4d248de881c1694f",
+      "svg_sha256": "45c8b7525e207c3eebb70628fa4ba106e7ce612d54c86f7638f2194bb7b4bdee"
+    },
     "internal_external_kink.svg": {
       "call": "vaft.diagram.internal_external_kink()",
       "source_sha256": "ce4ba4cda39a0018ba772b9ffb6079160d77e5bd6ec2efbc38905aef6de8fcb9",
