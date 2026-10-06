@@ -49,8 +49,24 @@ every row; select the desired time slices in the DataFrame before plotting.
 ## Transport summary hierarchy
 
 `equilibrium_global` and `core_profiles` describe their respective time
-slices. `neoclassical` currently summarizes bootstrap current from canonical
-`core_profiles`. `turbulent_transport` summarizes anomalous models already
+slices. `neoclassical` summarizes bootstrap current from canonical
+`core_profiles`, one row per slice. Each row also carries the NEO `core_transport`
+slice that corresponds to it (#1655):
+
+- **Status column.** `transport_match_status` names the result.
+- **When the descriptors fill.** The flux descriptors (`q_e`/`q_i`/`gamma_e` point counts, finite `rho_tor_norm` coverage, |peak|, `transport_rho_grid_*`) are filled only when the status is `matched`.
+- **When a row is `matched`.** All of these must hold:
+  - exactly one `core_transport` model is neoclassical (identifier 5);
+  - exactly one of its slices lies within 1 us of the bootstrap slice's own time;
+  - both IDSs name NEO as producer, with the same revision when both record one.
+- **Failure statuses.** `bootstrap_time_unknown`, `no_neoclassical_model`, `ambiguous_models`, `no_slice_at_time`, `ambiguous_slices`, `producer_mismatch` and `no_flux_grid`.
+- **No fallbacks.** The first model and the nearest time are never chosen.
+- **Unmatched rows.** They keep their bootstrap columns.
+- **State identity.** The NEO mappers store no resolved-state identity in either IDS (only the stage manifest carries `state_sha256`), so the state is matched through time and producer.
+- **Missing versus zero.** Unmatched rows leave every flux descriptor missing (NaN), point counts included; a 0 count means a matched slice without that channel.
+- **Source.** The `source` column records the occurrence. The preset key stays `(shot, cp_index)`, as before, so an upsert of tables from two sources into one file still replaces by `(shot, cp_index)`. Keep one file per source, or pass `key_columns` with `source` to `export_summary`.
+
+`turbulent_transport` summarizes anomalous models already
 stored in canonical `core_transport`: one row per shot, model entry, and time
 slice. It reads no TGLF or CGYRO native output and does not combine models.
 

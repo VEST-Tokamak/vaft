@@ -217,6 +217,24 @@ verify with `install/check_gacode.py`. VAFT drives NEO for neoclassical transpor
 current, and TGLF for turbulent transport; see
 [`install/gacode/`](https://github.com/VEST-Tokamak/vaft/tree/develop/install/gacode).
 
+MITIM-fusion (#1588) runs TGLF/NEO from the same GACODE build, but MITIM itself is a Python
+package that needs Python 3.10–3.12 and pulls tensorflow, botorch and torch. It therefore gets an
+environment of its own, and VAFT never imports it. `vaft.code.mitim` launches small driver
+scripts with that environment's interpreter:
+
+```bash
+bash install/install_mitim.sh                 # venv; pins MITIM 5.3.0 from its release tag
+bash install/install_mitim.sh --conda --prefix ~/.conda/envs/mitim
+export VAFT_MITIM_PYTHON=/path/printed/by/the/installer/bin/python
+python -m vaft.code.mitim.availability        # status, versions, GACODE build
+```
+
+The installer sets `PYTHONNOUSERSITE=1`. Without it, pip may use, or uninstall, a matching
+package in `~/.local`, which other interpreters of the same Python version share. Only the
+versions in `SUPPORTED_MITIM_VERSIONS` are accepted; any other version is reported as
+`unsupported_version`. Each run writes its own `$MITIM_CONFIG` into the run directory and
+records it, and MITIM's repository is never edited.
+
 The TGLF-NN surrogate is a different kind of dependency and is worth separating from the rest of this
 section: it needs **no GACODE build and no compiler**. What it needs is pretrained networks, which VAFT
 neither ships nor downloads:

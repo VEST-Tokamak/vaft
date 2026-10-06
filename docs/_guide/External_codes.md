@@ -82,7 +82,7 @@ reads it back; each code's entry below says whether its installers do.
 | VAFT adapter | `{{ c.adapter }}`{% if commit != "" %} ([source](https://github.com/VEST-Tokamak/vaft/blob/{{ commit }}/{{ c.adapter_source }})){% endif %} |
 | How VAFT runs it | {{ c.mode_label }}; {{ c.execution | join: ", " }} |
 | Installation | {{ c.installation_label }}{% if c.access == "registration" %}; licensed, obtained by registration under a users agreement{% elsif c.access == "not_open_source" %}; not open source{% elsif c.access == "not_stated" %}; this repository records no distribution terms{% endif %} |
-| Configuration | {% if c.home_variable != "" %}`{{ c.home_variable }}`{% elsif c.extra != "" %}`pip install "vaft[{{ c.extra }}]"`{% else %}none (reads result files){% endif %} |
+| Configuration | {% if c.home_variable != "" %}`${{ c.home_variable }}`{% elsif c.extra != "" %}`pip install "vaft[{{ c.extra }}]"`{% else %}none (reads result files){% endif %} |
 | Build record | {% for p in c.provenance %}`vaft-external-install.json` from `{{ p }}`{% unless forloop.last %}; {% endunless %}{% else %}{% if c.installers.size > 0 %}not written by these installers{% else %}none{% endif %}{% endfor %} |
 | Installers | {% for i in c.installers %}`{{ i }}`{% unless forloop.last %}, {% endunless %}{% else %}none in this repository{% endfor %} |
 | Checker | {% if c.checker != "" %}`python {{ c.checker }}`{% else %}none{% endif %} |

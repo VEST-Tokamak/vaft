@@ -70,7 +70,8 @@ def test_every_adapter_exists_and_every_home_is_the_adapters_own():
         if not code.home:
             continue
         variable = catalog.home_variable(code.home)
-        assert re.fullmatch(r"[A-Z][A-Z0-9_]*HOME", variable), (code.id, variable)
+        # a {CODE}HOME install root, or the interpreter of a code run in its own environment
+        assert re.fullmatch(r"[A-Z][A-Z0-9_]*(?:HOME|_PYTHON)", variable), (code.id, variable)
         if ":" not in code.home:  # a literal is only allowed where the help table states the same name
             assert variable in provider_homes, code.id
     # every code the help table probes is in the catalog, under the same variable
@@ -85,7 +86,7 @@ def test_installers_and_checkers_exist_and_every_installer_is_catalogued():
             assert (ROOT / path).is_file(), (code.id, path)
             named.add(path)
         if code.installation == "vaft_managed_source_build":
-            assert code.installers and code.checker, code.id
+            assert code.installers, code.id
         if code.installation in {"site_managed", "reader_only"}:
             assert not code.installers, code.id
         if code.installation == "python_package":

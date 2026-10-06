@@ -190,6 +190,14 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "human_ai_interface.svg": ("human_ai_interface", {}),
     # the machine and research archive since 2012 (#497)
     "machine_research_archive.svg": ("machine_research_archive", {}),
+    # research infrastructure: four fragmented/integrated pairs, community and ownership (#1636-#1645)
+    **{f"{name}{suffix}.svg": (name, kwargs)
+       for name in ("scientific_representation", "experimental_research_infrastructure", "scientific_credibility",
+                    "research_modality_architecture")
+       for suffix, kwargs in (("", {}), ("_fragmented", {"organization": "fragmented"}))},
+    "fusion_research_ecosystem.svg": ("fusion_research_ecosystem", {}),
+    "fusion_research_ecosystem_presentation.svg": ("fusion_research_ecosystem", {"detail": "presentation"}),
+    "scientific_ownership_architecture.svg": ("scientific_ownership_architecture", {}),
     # the VEST data platform: reference view and compact companion (#1550)
     "vest_data_platform.svg": ("vest_data_platform", {}),
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
