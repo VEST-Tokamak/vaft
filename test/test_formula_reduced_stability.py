@@ -74,6 +74,15 @@ def test_magnetic_well_is_zero_for_a_straight_cylinder_and_signed_otherwise():
     assert np.all(hill < 0.0)
 
 
+def test_magnetic_well_second_order_everywhere_and_sign_invariant():
+    flux = np.linspace(0.05, 1.0, 21)
+    v_prime = 3.0 - 0.8 * flux**2  # quadratic: differentiated exactly, ends included
+    exact = flux * 1.6 * flux / v_prime
+    np.testing.assert_allclose(magnetic_well_from_specific_volume(flux, v_prime), exact, rtol=1e-10)
+    # Phi -> -Phi (a COCOS sign) flips V' and the direction of travel; W is unchanged
+    np.testing.assert_allclose(magnetic_well_from_specific_volume(-flux, -v_prime), exact, rtol=1e-10)
+
+
 def test_bussac_poloidal_beta_from_a_parabolic_pressure():
     p0, a, r1, B_theta = 1.0e4, 1.0, 0.4, 0.2
     r = np.linspace(0.0, r1, 2001)
@@ -104,6 +113,9 @@ def test_bussac_energy_changes_sign_at_the_critical_beta():
     lambda: magnetic_well_from_specific_volume([0.0, 1.0], [1.0, 1.0]),
     lambda: magnetic_well_from_specific_volume([0.0, 2.0, 1.0], [1.0, 1.0, 1.0]),
     lambda: magnetic_well_from_specific_volume([0.0, 1.0, 2.0], [1.0, 0.0, 1.0]),
+    lambda: magnetic_well_from_specific_volume([0.0, 1.0, 2.0], [-1.0, 1.0, 1.0]),
+    lambda: magnetic_well_from_specific_volume([0.0, 1.0, 2.0], [-1.0, -1.0, -1.0]),
+    lambda: bussac_internal_kink_energy(0.1, -0.9),
     lambda: bussac_poloidal_beta(1.0, 0.0, 0.0),
     lambda: bussac_internal_kink_energy(0.1, 1.0),
 ])

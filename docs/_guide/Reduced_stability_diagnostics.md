@@ -1,7 +1,7 @@
 ---
 title: Reduced stability diagnostics
 author: VEST team
-date: 2026-10-06 10:00
+date: 2026-10-05 10:00
 category: guide
 layout: post
 permalink: /reference/reduced-stability-diagnostics/
@@ -96,7 +96,8 @@ unstable.
 
 ## Bussac internal kink
 
-In a cylinder the $m = n = 1$ internal kink is marginal at leading order, and toroidicity decides it.
+The taxonomy files Bussac under current-driven modes because it belongs to the $m = 1$ kink family, even though
+its drive variable is the pressure through $\beta_{p1}$. In a cylinder the $m = n = 1$ internal kink is marginal at leading order, and toroidicity decides it.
 For a parabolic $q$ inside $r_1$, $\delta\hat W_T \propto (1 - q_0)(13/144 - \beta_{p1}^2)$, with
 $\beta_{p1} = 2\mu_0(\langle p\rangle_1 - p(r_1))/B_{\theta1}^2$. A core above
 $\beta_{p1} \approx 0.30$ is unstable. Shaping, other $q$ profiles and the kinetic terms of Porcelli's model

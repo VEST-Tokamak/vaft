@@ -1242,9 +1242,10 @@ def mercier_criterion_circular(r, B_phi, q, dq_dr, dp_dr):
     Physical interpretation
     -----------------------
     Toroidicity adds the average curvature of the torus to Suydam's
-    cylinder. The factor $1 - q^2$ changes sign at $q = 1$: for $q > 1$ the
-    field lines spend enough of their transit on the good-curvature side
-    that an outward pressure fall *stabilises* interchanges, and the
+    cylinder. The extra $-p'q^2$ is the toroidal average-curvature
+    (magnetic-well) contribution, Pfirsch--Schlüter currents included; it
+    makes the pressure factor $1 - q^2$, which changes sign at $q = 1$. For
+    $q > 1$ an outward pressure fall *stabilises* interchanges and the
     criterion holds even without shear.
 
     Assumptions
@@ -1382,10 +1383,10 @@ def magnetic_well_from_specific_volume(flux, dV_dflux):
     Parameters
     ----------
     flux : np.ndarray
-        Toroidal flux $\Phi$ enclosed by each surface, increasing outward,
+        Toroidal flux $\Phi$ enclosed by each surface, monotonic outward,
         at least 3 points [Wb].
     dV_dflux : np.ndarray
-        Specific volume $V' = dV/d\Phi$ on ``flux``, positive [m^3/Wb].
+        Specific volume $V' = dV/d\Phi$ on ``flux``, of one sign [m^3/Wb].
 
     Returns
     -------
@@ -1396,8 +1397,8 @@ def magnetic_well_from_specific_volume(flux, dV_dflux):
     ------
     ValueError
         The arrays differ in length or have fewer than 3 points, ``flux`` is
-        not increasing, ``dV_dflux`` is not positive, or an input is not
-        finite.
+        not monotonic, ``dV_dflux`` changes sign or is zero, ``flux`` and
+        ``dV_dflux`` disagree in sign of travel, or an input is not finite.
 
     Convention
     ----------
@@ -1405,8 +1406,10 @@ def magnetic_well_from_specific_volume(flux, dV_dflux):
     sign of $V''$ also carries the shear and is a different quantity.
     $W > 0$ ($V'' < 0$): $|B|$ rises outward on average, a well. A straight
     cylinder of uniform $B_z$ has $V' = 2\pi R_0/B_z$ constant and $W = 0$.
-    The derivative is second-order finite differences
-    (``vaft.formula.utils.gradient``).
+    $W$ is unchanged by $\Phi \to -\Phi$ (both $V'$ and $d\Phi$ flip), so a
+    toroidal flux that a COCOS makes decrease outward, with $V' < 0$, is
+    accepted as it is. The derivative is second-order finite differences,
+    one-sided second order at the ends.
 
     Physical interpretation
     -----------------------
@@ -1430,11 +1433,15 @@ def magnetic_well_from_specific_volume(flux, dV_dflux):
     """
     flux = _finite(flux, "flux").ravel()
     v_prime = _finite(dV_dflux, "dV_dflux").ravel()
-    if flux.shape != v_prime.shape or flux.size < 3 or np.any(np.diff(flux) <= 0.0):
-        raise ValueError("flux must be increasing and the same length as dV_dflux (at least 3 points)")
+    if flux.shape != v_prime.shape or flux.size < 3:
+        raise ValueError("flux and dV_dflux must have the same length, at least 3 points")
+    if np.all(v_prime < 0.0):  # a sign-flipped toroidal flux: W is invariant under Phi -> -Phi
+        flux, v_prime = -flux, -v_prime
     if np.any(v_prime <= 0.0):
-        raise ValueError("dV_dflux must be positive")
-    return -flux / v_prime * gradient(flux, v_prime)
+        raise ValueError("dV_dflux must be of one sign and non-zero")
+    if np.any(np.diff(flux) <= 0.0):
+        raise ValueError("flux must be monotonic, travelling outward the way dV_dflux says")
+    return -flux / v_prime * np.gradient(v_prime, flux, edge_order=2)
 
 
 def bussac_poloidal_beta(p_mean_inside, p_at_r1, B_theta_at_r1):
@@ -1500,7 +1507,7 @@ def bussac_internal_kink_energy(beta_p1, q0):
     beta_p1 : float or np.ndarray
         Poloidal beta inside $q = 1$, from ``bussac_poloidal_beta`` [-].
     q0 : float or np.ndarray
-        Safety factor on the axis, below one [-].
+        Safety factor on the axis, a positive magnitude below one [-].
 
     Returns
     -------
@@ -1510,11 +1517,12 @@ def bussac_internal_kink_energy(beta_p1, q0):
     Raises
     ------
     ValueError
-        ``q0`` is not below one or an input is not finite.
+        ``q0`` is not in $(0, 1)$ or an input is not finite.
 
     Convention
     ----------
-    Only the sign and the $q_0$, $\beta_{p1}$ dependence are kept: the
+    $q_0$ is the magnitude: a COCOS that signs $q$ must be undone first, or
+    $1 - q_0$ would be wrong. Only the sign and the $q_0$, $\beta_{p1}$ dependence are kept: the
     omitted prefactor ($\propto \epsilon_1^4\xi_0^2 B_\phi^2R_0/\mu_0$, with
     $\epsilon_1 = r_1/R_0$) is positive, so the sign is the verdict. The
     marginal value is $\beta_{p1} = \sqrt{13/144} \approx 0.30$.
@@ -1543,8 +1551,9 @@ def bussac_internal_kink_energy(beta_p1, q0):
     """
     beta_p1 = _finite(beta_p1, "beta_p1")
     q0 = _finite(q0, "q0")
-    if np.any(q0 >= 1.0):
-        raise ValueError(f"q0 must be below one (a q = 1 surface must exist), not {q0!r}")
+    if np.any((q0 <= 0.0) | (q0 >= 1.0)):
+        raise ValueError(f"q0 must be a positive magnitude below one (a q = 1 surface must exist), not {q0!r}; "
+                         "pass |q| if a COCOS gives q a sign")
     return _scalar_or_array((1.0 - q0) * (13.0 / 144.0 - beta_p1 ** 2))
 
 

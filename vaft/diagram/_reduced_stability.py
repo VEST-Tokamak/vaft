@@ -67,10 +67,10 @@ CELLS: Dict[Tuple[str, str], str] = {
     ("pressure", "heuristic"): "$\\alpha_{crit} \\approx 0.6\\,\\hat s$\\\\ (line fit)",
     ("pressure", "solver"): "DCON Mercier $D_I$,\\\\ ballooning $C_A$",
     ("resistive", "definition"): "$\\Delta'$ from outer slopes;\\\\ GGJ $D_I$, $D_R$ of $E, F, H$",
-    ("resistive", "reduced"): "slab tearing /\\\\ twisting flux",
+    ("resistive", "reduced"): "sheared-slab flux:\\\\ tearing or twisting parity",
     ("resistive", "solver"): "RDCON / STRIDE\\\\ $\\Delta'$, $D_R$, $H$",
-    ("axisymmetric", "definition"): "decay index $n$",
-    ("axisymmetric", "reduced"): "VDE growth rate,\\\\ wall times",
+    ("axisymmetric", "definition"): "decay index $n$;\\\\ VDE growth rate $d\\ln|\\Delta Z|/dt$",
+    ("axisymmetric", "reduced"): "thin-wall and\\\\ wall-mode times",
     ("trigger", "reduced"): "Kadomtsev $r_\\mathrm{mix}$;\\\\ island width",
     ("trigger", "heuristic"): "$\\beta_{p,crit} = 0.3(1 - q_0)$\\\\ (deprecated)",
     ("operational", "empirical"): "Greenwald, Murakami,\\\\ Hugill",
@@ -180,12 +180,15 @@ def interchange_criteria(*, labels: bool = True) -> Diagram:
     suydam = suydam_criterion(r, _B, q, dq, dp) * scale
     mercier = mercier_criterion_circular(r, _B, q, dq, dp) * scale
     r1 = float(np.interp(1.0, q, x))
-    lo, hi = -1.2, 1.6
+    lo, hi = -1.2, 2.4
     chart = Chart(x_range=(0.0, 1.08), y_range=(lo, hi))
     chart.curves.update({
         "suydam": np.stack([x, suydam], -1), "mercier": np.stack([x, mercier], -1),
         "zero": np.array([[0.0, 0.0], [1.05, 0.0]]), "q_one": np.array([[r1, lo], [r1, hi]]),
     })
+
+    def exit_x(values):
+        return float(x[np.argmax(values >= hi)])
 
     def last_violation(values):
         return float(x[values < 0.0].max()) if np.any(values < 0.0) else 0.0
@@ -201,11 +204,11 @@ def interchange_criteria(*, labels: bool = True) -> Diagram:
     if labels:
         at = chart.to_cm
         items += [
-            # Mercier is positive beyond about 0.3 a and Suydam beyond about 0.65 a: the lower right is empty
-            Label(tuple(at(np.array([1.04, -0.62]))), "solid: Mercier (torus)", "small label",
-                  anchor="north east", role="mercier"),
-            Label(tuple(at(np.array([1.04, -0.92]))), "dashed: Suydam (cylinder)", "small label",
-                  anchor="north east", role="suydam"),
+            # each curve is named where it leaves the top of the frame
+            Label(tuple(at(np.array([exit_x(mercier), hi]))), "Mercier (torus)", "small label",
+                  anchor="south", role="mercier"),
+            Label(tuple(at(np.array([exit_x(suydam), hi]))), "Suydam (cylinder)", "small label",
+                  anchor="south", role="suydam"),
             Label(tuple(at(np.array([r1 - 0.02, hi - 0.1]))), "$q = 1$", "small label", anchor="north east",
                   role="q_one"),
             Label(tuple(at(np.array([0.02, 0.12]))), "holds", "small label", anchor="south west", role="sign"),
