@@ -68,6 +68,7 @@ __all__ = [
     "summary_time_energy",
     "summary_time_power_balance",
     "summary_time_resistive_zeff",
+    "summary_time_romero_balance",
     "summary_time_voltage_consumption",
 ]
 
@@ -388,13 +389,9 @@ def _aligned_grid_axes(figure: Any, grid: Any, model: Panels) -> tuple[np.ndarra
 
 
 def _label_panels(axes: Any) -> None:
-    from .._panel_grid import panel_label
+    from .._panel_grid import annotate_panel_labels
 
-    for index, axis in enumerate(axes):
-        axis.annotate(
-            panel_label(index), xy=(0, 1), xycoords="axes fraction", xytext=(-6, 6),
-            textcoords="offset points", ha="right", va="bottom", fontweight="bold",
-        )
+    annotate_panel_labels(axes)
 
 
 def visual_rows(model: Panels) -> int:
@@ -647,6 +644,30 @@ def summary_time_resistive_zeff(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Resistive Z_eff history: Romero voltages, observed vs model R_p, window estimate."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="summary",
+    subject="summary",
+    view="time",
+    quantity="romero_balance",
+    description=(
+        "Romero's voltage and volt-second balance: V_B, V_I, V_C (and V_R with a given R_p), "
+        "Phi_B against the direct flux change, L_i and the closing resistance."
+    ),
+    ids=("equilibrium", "tf", "wall"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.global_quantities.ip",
+        "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+        "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+        "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+    ),
+)
+def summary_time_romero_balance(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Romero's voltage and volt-second balance."""
     return render_panels(model, ax=ax, show=show, **style)
 
 

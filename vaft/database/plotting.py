@@ -368,7 +368,7 @@ def render_to_file(
     figure, _ = render(
         name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options
     )
-    return save_figure(figure, path)
+    return save_figure(figure, path, figure_options=options.get("figure_options"))
 
 
 def available_plots(

@@ -20,6 +20,12 @@ How the options are applied:
   the figure is drawn: :func:`figure_options_scope` makes them visible to
   :func:`vaft.plot.presentation.presented`, which layers them over the
   format and theme of the plot it draws;
+* ``norm`` acts while a contour map is drawn, since a contour set's levels
+  are placed then (:func:`draw_norm`); on an image or mesh it is set
+  afterwards, which re-colours it exactly;
+* ``dpi`` and ``transparent`` act only where a file is written
+  (:func:`vaft.plot.save_figure` with ``figure_options=``, ``vaft plot
+  --out``); drawing ignores them;
 * everything else edits the finished figure: :meth:`FigureOptions.apply`
   for Matplotlib, :meth:`FigureOptions.apply_plotly` for Plotly.
 
@@ -37,6 +43,7 @@ from typing import Any, Iterator, Mapping
 
 __all__ = [
     "AXIS_SCALES",
+    "COLOR_NORMS",
     "LEGEND_LOCATIONS",
     "FigureOptions",
     "as_figure_options",
@@ -49,6 +56,9 @@ LEGEND_LOCATIONS = (
     "center left", "center right", "lower center", "upper center", "center",
 )
 TICK_DIRECTIONS = ("in", "out", "inout")
+#: Colour normalisations of a scalar field; ``centered`` puts zero (or the
+#: middle of ``clim``) at the middle of the colour map.
+COLOR_NORMS = ("linear", "log", "symlog", "centered")
 #: MathText font sets Matplotlib ships; no proprietary font is bundled.
 MATH_FONTSETS = ("dejavusans", "dejavuserif", "cm", "stix", "stixsans", "custom")
 
@@ -99,7 +109,10 @@ class FigureOptions:
     specific size is given), ``label_size``, ``tick_size``, ``title_size``,
     ``legend_size``, ``font_family``, ``math_fontset``.  Series:
     ``line_scale``, ``marker_scale``.  Scalar fields: ``cmap``, ``clim``,
-    ``colorbar_label``.
+    ``colorbar_label``, ``norm`` (:data:`COLOR_NORMS`).  Annotation:
+    ``panel_labels`` (``(a)``, ``(b)``, ... on each panel).  Export, read
+    only where a file is written: ``dpi`` (``None`` keeps 300),
+    ``transparent`` (no figure background).
     """
 
     title: str | None = None
@@ -128,6 +141,14 @@ class FigureOptions:
     cmap: str | None = None
     clim: tuple[float | None, float | None] | None = None
     colorbar_label: str | None = None
+    #: How a scalar field's colours are spaced (:data:`COLOR_NORMS`).
+    norm: str | None = None
+    #: ``(a)``, ``(b)``, ... marks on every panel, the composition's own style.
+    panel_labels: bool | None = None
+    #: Resolution of a written raster file; ``None`` keeps save_figure's 300.
+    dpi: float | None = None
+    #: Write the file without a figure background.
+    transparent: bool | None = None
 
     def __post_init__(self) -> None:
         set_ = lambda name, value: object.__setattr__(self, name, value)  # noqa: E731
@@ -138,18 +159,22 @@ class FigureOptions:
         _choice("legend_loc", self.legend_loc, LEGEND_LOCATIONS)
         _choice("tick_direction", self.tick_direction, TICK_DIRECTIONS)
         _choice("math_fontset", self.math_fontset, MATH_FONTSETS)
+        _choice("norm", self.norm, COLOR_NORMS)
+        if self.norm == "log" and any(end is not None and end <= 0 for end in (self.clim or ())):
+            raise ValueError(f"norm='log' needs a positive clim; got {self.clim!r}")
         if self.legend_ncols is not None:
             set_("legend_ncols", int(self.legend_ncols))
             if self.legend_ncols < 1:
                 raise ValueError(f"legend_ncols must be at least 1; got {self.legend_ncols}")
-        for name in ("font_size", "label_size", "tick_size", "title_size", "legend_size", "line_scale", "marker_scale"):
+        for name in ("font_size", "label_size", "tick_size", "title_size", "legend_size", "line_scale",
+                     "marker_scale", "dpi"):
             set_(name, _positive(name, getattr(self, name)))
         if self.font_family is not None:
             family = (self.font_family,) if isinstance(self.font_family, str) else tuple(self.font_family)
             if not family or not all(isinstance(face, str) and face for face in family):
                 raise ValueError(f"font_family names one or more faces; got {self.font_family!r}")
             set_("font_family", family)
-        for name in ("legend", "legend_frame", "grid", "minor_ticks"):
+        for name in ("legend", "legend_frame", "grid", "minor_ticks", "panel_labels", "transparent"):
             value = getattr(self, name)
             if value is not None:
                 set_(name, bool(value))
@@ -210,7 +235,9 @@ class FigureOptions:
             if value is not None:
                 rc[key] = value
         if self.font_family is not None:
-            rc["font.family"] = list(self.font_family)
+            from .presentation import resolve_font_family
+
+            rc["font.family"] = resolve_font_family(self.font_family)
         if self.math_fontset is not None:
             rc["mathtext.fontset"] = self.math_fontset
         if self.tick_direction is not None:
@@ -261,6 +288,12 @@ class FigureOptions:
                     figure.suptitle(self.title, fontsize=size)
         for axis in data_axes:
             self._edit_axes(axis)
+        if self.panel_labels:
+            from ._panel_grid import annotate_panel_labels
+
+            # A composite that drew its own marks keeps them; none is doubled.
+            if not any(_has_panel_label(axis) for axis in data_axes):
+                annotate_panel_labels(data_axes)
         if self.colorbar_label is not None:
             for colorbar in _colorbars(data_axes):
                 colorbar.set_label(self.colorbar_label, fontsize=colorbar.ax.yaxis.label.get_fontsize())
@@ -290,13 +323,20 @@ class FigureOptions:
         if self.tick_direction is not None:
             axis.tick_params(direction=self.tick_direction, which="both")
         self._edit_legend(axis)
-        if self.cmap is not None or self.clim is not None:
+        if self.cmap is not None or self.clim is not None or self.norm is not None:
             # Only the scalar field a colorbar explains: overlays drawn in a
             # fixed colour (a grey flux contour set) keep their own map.
+            from matplotlib.contour import ContourSet
+
             for mappable in _scalar_fields(axis):
                 if self.cmap is not None:
                     mappable.set_cmap(self.cmap)
-                if self.clim is not None:
+                if self.norm is not None:
+                    if isinstance(mappable, ContourSet):
+                        continue  # drawn under the norm already (draw_norm), clim included
+                    mappable.set_norm(_make_norm(self.norm, mappable.get_array(), self.clim))
+                    mappable.colorbar.update_normal(mappable)
+                elif self.clim is not None:
                     mappable.set_clim(*self.clim)
 
     def _edit_legend(self, axis: Any) -> None:
@@ -354,8 +394,11 @@ class FigureOptions:
             layout["showlegend"] = self.legend
         if layout:
             figure.update_layout(**layout)
+        if self.transparent:
+            figure.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
         ignored = [name for name in ("legend_loc", "legend_ncols", "legend_frame", "label_size", "tick_size",
-                                     "title_size", "legend_size", "math_fontset", "marker_scale")
+                                     "title_size", "legend_size", "math_fontset", "marker_scale", "norm",
+                                     "panel_labels", "dpi")
                    if getattr(self, name) is not None]
         if "symlog" in (self.xscale, self.yscale):
             ignored.append("symlog scale")
@@ -422,6 +465,66 @@ class FigureOptions:
         return figure
 
 
+def _has_panel_label(axis: Any) -> bool:
+    from ._panel_grid import PANEL_LABEL_GID
+
+    return any(text.get_gid() == PANEL_LABEL_GID for text in axis.texts)
+
+
+def _make_norm(kind: str, values: Any, clim: tuple[float | None, float | None] | None) -> Any:
+    """A Matplotlib norm of ``kind`` over ``values``, its range from ``clim`` where given."""
+    import numpy as np
+    from matplotlib import colors
+
+    data = np.asarray(values, dtype=float)
+    finite = data[np.isfinite(data)]
+    low, high = (None, None) if clim is None else clim
+    if kind == "log":
+        positive = finite[finite > 0]
+        if low is None:
+            if positive.size == 0:
+                raise ValueError("norm='log' needs positive values; this field has none (set clim=)")
+            low = float(positive.min())
+        if high is None:
+            high = float(positive.max()) if positive.size else low * 10.0
+        return colors.LogNorm(vmin=low, vmax=high)
+    low = float(finite.min()) if low is None and finite.size else low
+    high = float(finite.max()) if high is None and finite.size else high
+    if kind == "centered":
+        if clim is not None and clim[0] is not None and clim[1] is not None:
+            centre = 0.5 * (clim[0] + clim[1])
+            return colors.CenteredNorm(vcenter=centre, halfrange=0.5 * (clim[1] - clim[0]))
+        # Zero-centred; a single given bound sets the half range.
+        given = [abs(end) for end in (clim or ()) if end is not None]
+        half = max(given) if given else (max(abs(low or 0.0), abs(high or 0.0)) or 1.0)
+        return colors.CenteredNorm(vcenter=0.0, halfrange=half)
+    if kind == "symlog":
+        span = max(abs(low or 0.0), abs(high or 0.0)) or 1.0
+        return colors.SymLogNorm(linthresh=span * 1e-2, vmin=low, vmax=high)
+    return colors.Normalize(vmin=low, vmax=high)
+
+
+def draw_norm(values: Any) -> Any:
+    """The norm a contour map is drawn under, from the active ``norm=``, or ``None``.
+
+    A contour set's levels are placed when it is drawn, so a norm set
+    afterwards would re-colour the old levels; the field renderer asks here
+    instead (issue #1421).
+    """
+    options = _DRAWING.get()
+    if options is None or options.norm is None:
+        return None
+    try:
+        return _make_norm(options.norm, values, options.clim)
+    except ValueError as error:
+        # One field of a composite that cannot take the norm (a signed psi
+        # map under norm="log") keeps its own colours; the rest still do.
+        import warnings
+
+        warnings.warn(f"{error}; this field is drawn without it", UserWarning, stacklevel=3)
+        return None
+
+
 def _flat_axes(axes: Any) -> list[Any]:
     from matplotlib.axes import Axes
 
@@ -462,6 +565,9 @@ def as_figure_options(value: Any) -> FigureOptions:
 
 #: The options of the figure being drawn, read by vaft.plot.presentation.presented.
 _ACTIVE: contextvars.ContextVar[FigureOptions | None] = contextvars.ContextVar("vaft_figure_options", default=None)
+#: The same options for the whole render, nested renderers included: what a
+#: renderer reads to draw (``norm``), never re-entered as rcParams.
+_DRAWING: contextvars.ContextVar[FigureOptions | None] = contextvars.ContextVar("vaft_figure_drawing", default=None)
 
 
 @contextlib.contextmanager
@@ -469,9 +575,11 @@ def figure_options_scope(options: FigureOptions) -> Iterator[None]:
     """Make ``options`` the ones :func:`~vaft.plot.presentation.presented` layers
     over the format and theme of every renderer called inside the block."""
     token = _ACTIVE.set(options if options else None)
+    drawing = _DRAWING.set(options if options else None)
     try:
         yield
     finally:
+        _DRAWING.reset(drawing)
         _ACTIVE.reset(token)
 
 
