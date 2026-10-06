@@ -1185,7 +1185,7 @@ def rhostar_from_Te_a_Bt(Te_eV: float,
     output: scalar_0d
     kind: dimensionless_normalization
     locality: global
-    role: regime_coordinate
+    role: similarity_coordinate
 
     References
     ----------

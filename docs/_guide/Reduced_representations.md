@@ -14,9 +14,9 @@ related:
 ---
 
 VAFT holds many reduced descriptions of one plasma state: $q(\rho) \to q_{95}$, $B_p \to l_i$,
-$p(\rho) \to \beta$, and $T, B, a \to \rho_*$. Each output may be a scalar, but they are different
+$\langle p\rangle \to \beta$, and $T, B, a \to \rho_*$. Each output may be a scalar, but they are different
 operations. The first extracts a feature, the second is a quadratic integral, and the third and fourth
-are normalisations. This page classifies them on four independent axes:
+are normalisations. The third also needs a volume average first. This page classifies them on four independent axes:
 
 | Axis | Values | Question |
 | --- | --- | --- |

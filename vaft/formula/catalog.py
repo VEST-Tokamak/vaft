@@ -293,6 +293,10 @@ class FormulaSpec:
             lines = ["**Raises**", ""]
             lines += [f"- `{item.type}` — {_one_line(item.description)}" for item in self.raises]
             return "\n".join(lines)
+        if part == "reduction" and self.reduction is not None:
+            r = self.reduction
+            return "\n".join(["**Reduction**", "", f"- mapping: {r.mapping}", f"- kind: {r.kind}",
+                              f"- locality: {r.locality}", f"- role: {r.role}"])
         if part == "references":
             lines = ["**References**", ""]
             lines += [f"- [{ref.label}] {_one_line(ref.text)}" for ref in self.references]
@@ -468,6 +472,10 @@ def _signature(fn) -> str:
 def _reduction(parsed: ParsedDocstring) -> tuple[Reduction | None, tuple[str, ...]]:
     """The parsed ``Reduction`` section and its problems, the dimensionless check included."""
     reduction, errors = parse_reduction(parsed.section("Reduction"))
+    if reduction is not None and (reduction.kind == "empirical_scaling") != parsed.empirical:
+        return None, errors + (
+            f"Reduction kind {reduction.kind!r} disagrees with the empirical flag ({parsed.empirical}): "
+            "an empirical_scaling is exactly a formula whose Validity opens with 'Empirical fit.'",)
     if reduction is not None and reduction.dimensionless:
         unit = parsed.returns[0].unit if parsed.returns else None
         if unit != "-":

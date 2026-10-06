@@ -350,7 +350,7 @@ def virial_li_from_volume(B_p: np.ndarray,
 
     Reduction
     ---------
-    input: field_2d
+    input: field_2d, scalar_0d
     output: scalar_0d
     kind: quadratic_integral
     locality: global

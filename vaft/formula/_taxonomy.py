@@ -196,7 +196,8 @@ QUANTITIES = {
     "l_i": Quantity("$l_i$", "scalar_0d", True),
     "q": Quantity("$q(\\rho)$", "profile_1d", True),
     "s_hat": Quantity("$\\hat s(\\rho)$", "profile_1d", True),
-    "q_features": Quantity("$q_0$, $q_{min}$, $q_{95}$, $r_s$", "scalar_0d", True),
+    "q_features": Quantity("$q_0$, $q_{min}$, $q_{95}$, $r_s$", "scalar_0d"),
+    "I_enc": Quantity("$I(r)$ enclosed", "profile_1d"),
     "r_mix": Quantity("$r_{mix}$", "scalar_0d"),
     "p_profile": Quantity("$p(\\rho)$", "profile_1d"),
     "nT_field": Quantity("$n(R, Z)$, $T(R, Z)$", "field_2d"),
@@ -226,10 +227,11 @@ QUANTITIES = {
 #: family -> its relations, in reading order
 REDUCTION_FAMILIES = {
     "current_q": (
-        Relation(("j_phi",), "I_p", kind="integral", note="area integral; equilibrium process"),
-        Relation(("j_phi",), "B_theta", "geometry.cylindrical_poloidal_field", note="Ampere, enclosed current"),
+        Relation(("j_phi",), "I_enc", kind="integral", note="enclosed-current integral; equilibrium process"),
+        Relation(("I_enc",), "I_p", kind="feature_extraction", note="the boundary value"),
+        Relation(("I_enc",), "B_theta", "geometry.cylindrical_poloidal_field"),
+        Relation(("B_theta",), "q", "geometry.cylindrical_safety_factor_from_r_B"),
         Relation(("B_p_field",), "l_i", "virial.virial_li_from_volume"),
-        Relation(("j_phi",), "q", "geometry.peaked_current_safety_factor"),
         Relation(("q",), "s_hat", "equilibrium.shear_from_r_q"),
         Relation(("q",), "q_features", kind="feature_extraction", note="axis, minimum, $\\psi_N = 0.95$, $q = m/n$"),
         Relation(("q",), "r_mix", "stability.kadomtsev_mixing_radius"),
@@ -241,7 +243,7 @@ REDUCTION_FAMILIES = {
         Relation(("p_integral",), "beta_p", "equilibrium.beta_poloidal_from_pressure_integral"),
         Relation(("p_avg",), "beta_t", "equilibrium.beta_toroidal_from_p_B0"),
         Relation(("beta_t",), "beta_N", "equilibrium.beta_normal_from_beta_tor"),
-        Relation(("beta_p",), "W", "equilibrium.kinetic_energy_from_beta_p_B_pa_V_p"),
+        Relation(("p_integral",), "W", kind="normalization", note="$W_K = \\tfrac32\\int p\\,dV$"),
     ),
     "kinetic_profiles": (
         Relation(("nT_profile",), "a_over_L", "utils.normalized_gradient_scale_length"),

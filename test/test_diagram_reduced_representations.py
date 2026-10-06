@@ -104,3 +104,13 @@ def test_unknown_family_is_rejected():
     with pytest.raises(ValueError):
         vaft.diagram.reduction_graph("transport")
     assert set(FAMILIES) == set(REDUCTION_FAMILIES)
+
+
+def test_layout_accepts_a_relation_with_sources_at_different_depths(monkeypatch):
+    import vaft.diagram._reduced_representations as module
+    families = dict(REDUCTION_FAMILIES)
+    families["mixed"] = (Relation(("j_phi",), "q", kind="integral"),
+                         Relation(("j_phi", "q"), "s_hat", kind="differential"))
+    monkeypatch.setattr(module, "REDUCTION_FAMILIES", families)
+    d = module.reduction_graph("mixed")
+    assert d.model["layers"]["s_hat"] == 2

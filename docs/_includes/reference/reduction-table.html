@@ -12,7 +12,7 @@ Rows come from site.data.formula_catalog; nothing here is hand-maintained.
 {%- elsif include.by == "role" -%}{%- assign groups = rows | group_by_exp: "f", "f.reduction.role" | sort: "name" -%}
 {%- else -%}{%- assign groups = rows | group_by_exp: "f", "f.reduction.mapping" | sort: "name" -%}{%- endif -%}
 {%- for group in groups %}
-<h4 class="no_toc">{{ group.name | replace: "_", " " }}</h4>
+<h4 class="no_toc">{{ group.name | replace: "_", " " | replace: "->", "&rarr;" }}</h4>
 <table class="ref-table">
 <thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
 <tbody>

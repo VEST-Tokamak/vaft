@@ -202,16 +202,21 @@ def _heights(order: Dict[int, List[str]], incoming: Dict[str, Relation]) -> Dict
             top = 0.5 * (len(keys) - 1) * _DY
             ys.update({key: top - i * _DY for i, key in enumerate(keys)})
             continue
+        def parent(key):
+            # the deepest placed source; a layer-0 input is not placed yet and is centred on its targets later
+            placed = [src for src in incoming[key].sources if src in ys]
+            return placed[-1] if placed else None
+
         groups: List[List[str]] = []
         for key in keys:
-            parent = incoming[key].sources[0]
-            if groups and incoming[groups[-1][0]].sources[0] == parent:
+            if groups and parent(groups[-1][0]) == parent(key):
                 groups[-1].append(key)
             else:
                 groups.append([key])
         floor = None
         for group in groups:
-            centre = ys[incoming[group[0]].sources[0]]
+            anchor = parent(group[0])
+            centre = ys[anchor] if anchor is not None else 0.0
             top = centre + 0.5 * (len(group) - 1) * _DY
             if floor is not None:
                 top = min(top, floor - _DY)

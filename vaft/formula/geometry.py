@@ -335,6 +335,14 @@ def cylindrical_safety_factor_from_r_B(r, B_theta, B_z, R0):
     A periodic cylinder; a screw pinch has the same $q$ with $R_0$ set by
     the imposed period.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: normalization
+    locality: flux_surface_local
+    role: state_coordinate
+
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
@@ -446,7 +454,7 @@ def cylindrical_poloidal_field(r, I_enclosed):
     output: profile_1d
     kind: normalization
     locality: flux_surface_local
-    role: state_coordinate
+    role: profile_descriptor
 
     References
     ----------
@@ -502,14 +510,6 @@ def peaked_current_safety_factor(x, q_a, nu):
     -----------
     Cylinder, large aspect ratio, the standard model profile; not a
     reconstructed equilibrium.
-
-    Reduction
-    ---------
-    input: profile_1d
-    output: profile_1d
-    kind: integral
-    locality: flux_surface_local
-    role: state_coordinate
 
     References
     ----------

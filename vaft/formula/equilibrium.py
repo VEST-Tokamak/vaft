@@ -3186,7 +3186,7 @@ def estimated_q95(a: Union[float, np.ndarray],
     ---------
     input: scalar_0d
     output: scalar_0d
-    kind: empirical_scaling
+    kind: closure
     locality: global
     role: global_descriptor
 

@@ -93,7 +93,7 @@ def test_dimensionless_does_not_mean_zero_dimensional():
 
 def test_l_i_is_a_quadratic_integral_of_b_p_not_a_moment_of_j():
     li = catalog.describe("virial.virial_li_from_volume").reduction
-    assert li.kind == "quadratic_integral" and li.input == ("field_2d",)
+    assert li.kind == "quadratic_integral" and li.input == ("field_2d", "scalar_0d")  # B_p samples; B_pa, Omega
 
 
 def test_filters_and_their_validation():
@@ -132,3 +132,26 @@ def test_family_edges_name_catalogued_reductions_or_state_a_kind():
                 assert spec.reduction is not None, rel.formula
                 # the graph's quantities agree with the formula's declared output representation
                 assert QUANTITIES[rel.target].representation == spec.reduction.output, (rel.formula, rel.target)
+
+
+def test_quantity_dimensionless_flags_agree_with_the_formulas_that_produce_them():
+    for relations in REDUCTION_FAMILIES.values():
+        for rel in relations:
+            if rel.formula is None:
+                continue
+            unit = catalog.describe(rel.formula).returns[0].unit
+            assert QUANTITIES[rel.target].dimensionless == (unit == "-"), (rel.formula, unit)
+
+
+def test_empirical_scaling_is_exactly_an_empirical_formula():
+    for spec in catalog.list_formulas():
+        if spec.reduction is not None:
+            assert (spec.reduction.kind == "empirical_scaling") == spec.empirical, spec.qualname
+    text = GOOD.replace("kind: feature_extraction", "kind: empirical_scaling")
+    reduction, errors = catalog._reduction(parse_docstring(_docstring(text, "-")))
+    assert reduction is None and any("empirical" in e for e in errors)
+
+
+def test_show_renders_the_reduction_as_a_list():
+    card = catalog.describe("virial.virial_li_from_volume").to_markdown()
+    assert "- kind: quadratic_integral" in card and "input: field_2d" not in card
