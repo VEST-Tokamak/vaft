@@ -114,12 +114,14 @@ CORE_MODULES: tuple[str, ...] = (
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
     # The process-tree stop behind LocalBackend runs small Python/sh trees.
+    # The ssh+Slurm backend runs against fake ssh/rsync/Slurm shims: no network.
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
     "test_process_tree.py",
+    "test_remote_backend.py",
     "test_slurm_backend.py",
     # Serialization and schema smoke. The ODS/IMAS shapes everything reads and
     # writes, plus the canonical-IDS contract fixtures and the canonical
@@ -216,6 +218,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_vaft_concepts.py",
     "test_diagram_vde.py",
     "test_diagram_wall_conditioning.py",
+    "test_diagram_workflows.py",
     # The new-shot worker (#58): SQLite state, fake SQL and a fake runner only.
     # The per-shot master lock (#913): an in-memory HSDS, ~4 s of threads.
     "test_hsds_master_lock.py",
@@ -238,6 +241,12 @@ CORE_MODULES: tuple[str, ...] = (
     # The atlas renderers draw synthetic tables only.
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
+    # Impurity composition (lane L, #1565): the mixture algebra against the
+    # issue's exact reference values, the precedence resolver on tiny ODSs, and
+    # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
+    "test_formula_impurity.py",
+    "test_process_impurity.py",
+    "test_vest_core_profiles_policy.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
