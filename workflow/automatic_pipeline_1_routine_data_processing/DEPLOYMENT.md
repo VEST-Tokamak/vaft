@@ -853,6 +853,9 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   stops the worker instead of silently creating a new state file under a literal `${...}` directory.
 - **The worker reproduces Snakemake's config merge.** Snakemake merges `pipeline_config` over the
   workflow's own `config.yaml`, and the worker checks and harvests against that same merged result.
+  The Snakefile locates that `config.yaml` by its own path, so the merge holds for any `--directory`.
+  Before #1530 it resolved against `--directory`, and a run directory with a partial config silently
+  ran on code defaults: EFIT off, `args 65`, no eddy plasma filament.
 - **`stages` narrows what the worker runs and judges.** Omitted, every run requests `rule all`, the
   whole pipeline. `stages: [raw, diagnostics, eddy]` requests only those stages' products, plots and
   replication records, and the shot's verdict is taken from those alone: the constraint and k-file
@@ -861,6 +864,16 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   a stage whose upstream is left out is refused at start-up. The worker writes the list into each
   run's config as `stages`, so a manual run can use the same key. This is a decision made before the
   run; a stage that runs and declines a shot is #205's skip semantics.
+- **EFIT on a vacuum shot is a result (#205).** When the plasma current stays below the 15 kA cut
+  over the shot's whole record, the constraint step writes an `EFIT not applicable` product instead
+  of failing; the reason quotes the `vaft.omas.shot_class` label, which does not decide (it reads
+  48927's 3.3 kA pickup as a `Plasma` pulse). The k-file, EFIT and EFIT-ODS steps pass it on, EFIT's status reads
+  `skipped: not applicable: <reason>`, the EFIT stage ends `no_output`, its replication is
+  `skipped`, and CHEASE and stability skip for lack of g-files. With EFIT in scope such a shot is
+  `partial`, not retried. A shot whose current reaches 15 kA somewhere but at no selected
+  instant still fails: the constraint window missed the discharge. So does one whose H-alpha saw a
+  window while the current stayed low (possibly a dead Ip channel). Vacuum shots the worker gave up
+  on before this change stay `gave_up`; `vaft pipeline-worker retry --shot N` runs them again.
   - Optional branches outside the stage chain (IMPA with `impa.enable: true`) are not scoped; they
     depend only on raw and are never part of the shot's verdict.
   - Set the scope only here, not as `--config stages=...` in `extra_args`: Snakemake would see it

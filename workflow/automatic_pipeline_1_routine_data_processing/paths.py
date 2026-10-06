@@ -17,8 +17,8 @@ Only the Snakefile imports this module; the stage scripts receive explicit
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import PurePosixPath
+from typing import NamedTuple
 
 from vaft.compat import IS_WINDOWS
 from vaft.database.filedb import (
@@ -168,8 +168,7 @@ def stage_scope(value) -> frozenset[str] | None:
     return frozenset(scope)
 
 
-@dataclass(frozen=True)
-class ScientificReference:
+class ScientificReference(NamedTuple):
     """A product a rule consults without Snakemake scheduling it (#1647).
 
     Pipeline 2 passes pipeline 1's EFIT products as ``params``, not ``input``,
@@ -182,6 +181,9 @@ class ScientificReference:
     ``product`` is the :class:`PipelinePaths` method (taking a shot) that
     resolves the consulted path; ``pipeline`` names the one that produces it,
     ``consumer`` the one whose ``rule`` consults it.
+
+    A NamedTuple rather than a dataclass: tests and the Snakefiles load this
+    file by path, and a dataclass needs its module registered while defining.
     """
 
     rule: str
@@ -231,6 +233,52 @@ def scientific_reference(paths: "PipelinePaths", rule: str, param: str):
         raise KeyError(f"{rule}.{param} is not a declared scientific reference (paths.SCIENTIFIC_REFERENCES)")
     method = getattr(paths, matches[0].product)
     return lambda wildcards: method(wildcards.shot)
+
+
+#: Keys a run must state itself when it passes its own config file (#1530).
+RUN_CONFIG_REQUIRED_KEYS = ("base_dir", "shots")
+
+
+def _configfile_keys(paths) -> set:
+    """The top-level keys a run's config files set (YAML, which also reads JSON)."""
+    import yaml
+
+    keys: set = set()
+    for path in paths:
+        with open(path, encoding="utf-8") as handle:
+            content = yaml.safe_load(handle) or {}
+        if isinstance(content, dict):
+            keys |= set(content)
+    return keys
+
+
+def require_run_config_keys(workflow, keys=RUN_CONFIG_REQUIRED_KEYS) -> None:
+    """Refuse a run config file that leaves *where* and *which shots* to the defaults.
+
+    The Snakefile loads its own ``config.yaml`` and merges any command-line
+    ``--configfile`` over it (#1530). That makes a run config that omits
+    ``base_dir`` fall back to the workflow's -- the production FileDB on a host
+    exporting ``VAFT_FILEDB_DIR`` -- and one that omits ``shots`` process the
+    example shot. Both used to fail; they must not turn into silent writes.
+    Checked only when a config *file* is passed: ``--config shots=[...]`` from
+    the workflow directory keeps the workflow's ``base_dir`` on purpose.
+    """
+    configfiles = getattr(workflow, "overwrite_configfiles", None)
+    if not configfiles:
+        return
+    # Snakemake 7 merges --configfile contents into overwrite_config; Snakemake 9
+    # leaves it holding --config only, so the files themselves are read too --
+    # otherwise every run config would be refused, however complete.
+    given = set(getattr(workflow, "overwrite_config", None) or {}) | _configfile_keys(configfiles)
+    missing = [key for key in keys if key not in given]
+    if missing:
+        raise ValueError(
+            "The run config ("
+            + ", ".join(str(path) for path in workflow.overwrite_configfiles)
+            + f") does not set {', '.join(missing)}; a run config must say where it "
+            "writes and which shots it processes rather than take the workflow "
+            "config.yaml's defaults (#1530)."
+        )
 
 
 def solver_module(product: str) -> str:
@@ -1008,11 +1056,13 @@ __all__ = [
     "FILEDB",
     "LAYOUTS",
     "SHIPPED_DCON_EDGE_TREATMENT",
+    "RUN_CONFIG_REQUIRED_KEYS",
     "SHOT_FIRST",
     "SCIENTIFIC_REFERENCES",
     "SHOT_STAGES",
     "PipelinePaths",
     "ScientificReference",
+    "require_run_config_keys",
     "solver_module",
     "scientific_reference",
     "stability_product",

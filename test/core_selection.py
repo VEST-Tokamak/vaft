@@ -101,6 +101,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_machine_geometry_registry.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_panels_suptitle_placement.py",
     "test_parameter_history.py",
     "test_plot_3d_contract.py",
     "test_plot_contract.py",
@@ -213,6 +214,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_magnetic_island.py",
     "test_diagram_marfe.py",
     "test_diagram_mhd_waves.py",
+    "test_diagram_mode_geometry.py",
     "test_diagram_nbi.py",
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
@@ -244,6 +246,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
     "test_stability_rdcon_stride_benchmark.py",
+    "test_stability_validation.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
@@ -274,6 +277,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
     "test_process_impurity.py",
+    # #1565 Sec. 8: the impurity composition and stored Z_eff plots, on
+    # synthetic ADF11 tables (no network). Under 10 s.
+    "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
     # The gate's own contract.
