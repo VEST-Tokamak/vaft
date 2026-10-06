@@ -168,6 +168,48 @@ def test_gse_without_wkin_leaves_energy_mhd_unset(tmp_path):
     assert "equilibrium.time_slice.0.global_quantities.energy_mhd" not in ods
 
 
+def test_gse_li_3_is_built_from_wmag_not_copied_from_lint(tmp_path):
+    # The GSE Lint is li(1) (normalised by the boundary-averaged Bp), so it
+    # must not land in li_3. IMAS li_3 = 2 int Bp^2 dV / (mu0^2 Ip^2 R0) with
+    # int Bp^2 dV = 2 mu0 Wmag and VFIT's R0 = 0.4 m.
+    mu0 = 4e-7 * np.pi
+    payload = _gse_payload()
+    ip = payload["ProfFitConstMHD"]["Ip"]
+    w_mag = np.array([30.0, 90.0])
+    payload["ProfFitConstMHD"]["Wmag"] = w_mag
+    expected = 4.0 * w_mag / (mu0 * ip**2 * 0.4)
+
+    ods = read_vfit(_write(tmp_path / "Equilibrium.mat", payload)).to_omas()
+
+    for index in range(2):
+        li_3 = ods[f"equilibrium.time_slice.{index}.global_quantities.li_3"]
+        assert li_3 == pytest.approx(expected[index])
+        assert li_3 != pytest.approx(payload["ProfFitConstMHD"]["Lint"][index])
+
+
+def test_gse_without_wmag_leaves_li_3_unset(tmp_path):
+    payload = _gse_payload(count=1)
+    del payload["ProfFitConstMHD"]["Wmag"]  # Lint (li(1)) stays
+
+    ods = read_vfit(_write(tmp_path / "Equilibrium.mat", payload)).to_omas()
+
+    assert "equilibrium.time_slice.0.global_quantities.li_3" not in ods
+
+
+def test_fem_li_3_is_renormalised_from_the_magnetic_axis_to_r0(tmp_path):
+    # The FEM Lint is already the li_3 form, but divided by Rmag instead of
+    # VFIT's 0.4 m reference radius.
+    payload = _fem_payload()
+    payload["ConstMHD"]["Lint"] = np.array([0.5])
+    payload["ConstShape"]["Rmag"] = np.array([0.48])
+
+    ods = read_vfit(_write(tmp_path / "ElementAnalysis.mat", payload)).to_omas()
+
+    assert ods["equilibrium.time_slice.0.global_quantities.li_3"] == pytest.approx(
+        0.5 * 0.48 / 0.4
+    )
+
+
 def test_fem_omits_unavailable_pressure_and_appends(tmp_path):
     gse = read_vfit(_write(tmp_path / "Equilibrium.mat", _gse_payload(count=1)))
     fem = read_vfit(_write(tmp_path / "ElementAnalysis.mat", _fem_payload()))

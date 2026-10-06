@@ -13,6 +13,7 @@ from typing import Any, Literal, Mapping
 import numpy as np
 
 from vaft.data._derived import rho_tor_profile
+from vaft.formula.constants import MU0
 from scipy.io import loadmat
 
 
@@ -36,6 +37,12 @@ def _psi_to_internal() -> float:
 
 
 _TWO_PI = _psi_to_internal()
+
+# VFIT's fixed vacuum-field reference radius: its GEQDSK exporter and its
+# CenterBt = ConstBtor * 0.4 / Rmag both use it. VAFT also normalises li_3 by
+# the vacuum reference radius (vaft.omas.update), so VFIT's li_3 is written on
+# this basis too.
+_VFIT_R0 = 0.4
 
 
 def _native(value: Any) -> Any:
@@ -651,14 +658,21 @@ class VFITResult:
             "Profile.J",
         )
         self._write_profiles(eqt, psin, psi_axis, psi_boundary, q, j_tor=current)
-        for source_name, target_name in (("Lint", "li_3"),):
-            value = _slice_field(
-                mhd, source_name, source_index, self.time_count, required=False, axis=0
+        # The FEM post-processing computes Lint = 4 W_mag / (mu0 I^2 Rmag),
+        # W_mag = int Bp^2 dV / (2 mu0) and I the current inside the closed
+        # surfaces (IpReconstructedClosed, not ConstMHD.Ip): the li_3 form
+        # normalised by the magnetic axis. Only the radius is changed here.
+        lint = _slice_field(
+            mhd, "Lint", source_index, self.time_count, required=False, axis=0
+        )
+        if lint is not None:
+            li_3 = (
+                _scalar(lint, "ConstMHD.Lint")
+                * float(eqt["global_quantities.magnetic_axis.r"])
+                / _VFIT_R0
             )
-            if value is not None:
-                eqt[f"global_quantities.{target_name}"] = _scalar(
-                    value, f"ConstMHD.{source_name}"
-                )
+            if np.isfinite(li_3):
+                eqt["global_quantities.li_3"] = float(li_3)
 
     def _gse_slice(
         self, ods: Any, destination: int, source_index: int, time: float
@@ -677,7 +691,7 @@ class VFITResult:
         if btor is not None:
             # VFIT's GEQDSK exporter uses the same fixed vacuum-field
             # reference radius.
-            ods["equilibrium.vacuum_toroidal_field.r0"] = 0.4
+            ods["equilibrium.vacuum_toroidal_field.r0"] = _VFIT_R0
             try:
                 ods.set_time_array(
                     "equilibrium.vacuum_toroidal_field.b0",
@@ -725,12 +739,10 @@ class VFITResult:
             "BetaP": "beta_pol",
             "BetaT": "beta_tor",
             "BetaN": "beta_normal",
-            "Lint": "li_3",
             # IMAS energy_mhd is 3/2 int(p dV). VFIT's Wkin is exactly that
             # (3/2 * volume-averaged pressure * volume, in J). Its Wmag is
-            # the poloidal magnetic energy int(Bp^2 dV)/(2 mu0), which VFIT
-            # only uses to build Lint; IMAS equilibrium has no leaf for it
-            # (li_3 already carries that information), so it is not mapped.
+            # the poloidal magnetic energy int(Bp^2 dV)/(2 mu0); IMAS
+            # equilibrium has no leaf for it, so it only feeds li_3 below.
             "Wkin": "energy_mhd",
             "q0": "q_axis",
         }
@@ -742,6 +754,21 @@ class VFITResult:
                 eqt[f"global_quantities.{target_name}"] = _scalar(
                     value, f"ProfFitConstMHD.{source_name}"
                 )
+        # The GSE Lint is 2 mu0 W_mag / (Bpavg^2 V) with Bpavg the boundary
+        # line average of Bp (= mu0 Ip / L_pol): li(1), not li_3. Build li_3
+        # from W_mag instead and never store Lint under the li_3 name.
+        w_mag = _slice_field(
+            mhd, "Wmag", source_index, self.time_count, required=False, axis=0
+        )
+        ip = float(eqt["global_quantities.ip"])
+        if w_mag is not None and ip != 0.0:
+            from vaft.formula.equilibrium import li_3_from_Bp2_volume_integral
+
+            li_3 = li_3_from_Bp2_volume_integral(
+                2.0 * MU0 * _scalar(w_mag, "ProfFitConstMHD.Wmag"), ip, _VFIT_R0
+            )
+            if np.isfinite(li_3):
+                eqt["global_quantities.li_3"] = float(li_3)
 
     def _pf_passive(self, ods: Any) -> None:
         geometry = _field(self.raw, "VESTGeometry", required=False)
