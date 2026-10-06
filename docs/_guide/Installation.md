@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines eleven extras (ten optional-dependency groups plus `dev`); none is needed for the first result on this page:
+The project defines twelve extras (eleven optional-dependency groups plus `dev`); none is needed for the first result on this page:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
@@ -53,7 +53,8 @@ The project defines eleven extras (ten optional-dependency groups plus `dev`); n
 | `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
 | `mcp` | mcp (the Model Context Protocol SDK) | `python -m vaft.mcp` / `vaft mcp`: the local, read-only MCP server for agent clients ([MCP server]({{ site.baseurl }}/reference/mcp/)); `import vaft` never needs it |
 | `gui` | panel | `vaft gui`: the browser GUI, locally or through SSH port forwarding ([Browser GUI]({{ site.baseurl }}/workflows/gui/)) |
-| `dev` | pytest, pytest-xdist, pre-commit, the two runtimes above, PyAV, the MCP SDK and panel | running the test suite and contributing |
+| `architecture` | grimp | `python -m vaft._dependency_graph`: generating the import graph behind the [dependency explorer]({{ site.baseurl }}/reference/dependency-graph/); documentation tooling, never needed by `import vaft` |
+| `dev` | pytest, pytest-xdist, pre-commit, the two runtimes above, PyAV, the MCP SDK, panel and grimp | running the test suite and contributing |
 
 ```bash
 python -m pip install -e ".[dev]"            # development tooling
@@ -215,6 +216,24 @@ Build it with `install/gacode/linux.sh` or `install/gacode/macos.sh --gacode-roo
 verify with `install/check_gacode.py`. VAFT drives NEO for neoclassical transport and the bootstrap
 current, and TGLF for turbulent transport; see
 [`install/gacode/`](https://github.com/VEST-Tokamak/vaft/tree/develop/install/gacode).
+
+MITIM-fusion (#1588) runs TGLF/NEO from the same GACODE build, but MITIM itself is a Python
+package that needs Python 3.10–3.12 and pulls tensorflow, botorch and torch. It therefore gets an
+environment of its own, and VAFT never imports it. `vaft.code.mitim` launches small driver
+scripts with that environment's interpreter:
+
+```bash
+bash install/install_mitim.sh                 # venv; pins MITIM 5.3.0 from its release tag
+bash install/install_mitim.sh --conda --prefix ~/.conda/envs/mitim
+export VAFT_MITIM_PYTHON=/path/printed/by/the/installer/bin/python
+python -m vaft.code.mitim.availability        # status, versions, GACODE build
+```
+
+The installer sets `PYTHONNOUSERSITE=1`. Without it, pip may use, or uninstall, a matching
+package in `~/.local`, which other interpreters of the same Python version share. Only the
+versions in `SUPPORTED_MITIM_VERSIONS` are accepted; any other version is reported as
+`unsupported_version`. Each run writes its own `$MITIM_CONFIG` into the run directory and
+records it, and MITIM's repository is never edited.
 
 The TGLF-NN surrogate is a different kind of dependency and is worth separating from the rest of this
 section: it needs **no GACODE build and no compiler**. What it needs is pretrained networks, which VAFT

@@ -27,7 +27,9 @@ from vaft.plot.models import (
     Spectrogram,
 )
 
-_SPECS = registry.specs()
+# The table and text views return text, not a figure; their own contract
+# is test_table_text_views.py (issue #1180).
+_SPECS = tuple(spec for spec in registry.specs() if spec.view not in registry.NON_GRAPHICAL_VIEWS)
 _SPEC_IDS = [spec.name for spec in _SPECS]
 
 
