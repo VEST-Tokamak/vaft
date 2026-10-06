@@ -5753,7 +5753,7 @@ def _build_gk_eigenfunction(obj: Any, **options: Any) -> Profile1D:
     x = angle / np.pi
     return Profile1D(
         series=(
-            Series(x=x, y=np.abs(phi), label=r"$|\phi|$", style={"color": "black"}),
+            Series(x=x, y=np.abs(phi), label=r"$|\phi|$", style={"color": "emphasis:strong"}),
             Series(x=x, y=phi.real, label=r"Re $\phi$"),
             Series(x=x, y=phi.imag, label=r"Im $\phi$"),
         ),
@@ -5974,7 +5974,7 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
                 code = _get(obj, f"core_transport.model.{m}.code.name") or f"model {m}"
                 name = (label if str(code) in label else f"{label} ({code})") if label else str(code)
                 # one colour per model; electrons solid, ions dashed
-                color = f"C{sum(1 for item in series if item.label.endswith(' e')) % 10}"
+                color = palette(sum(1 for item in series if item.label.endswith(' e')))
                 series.append(Series(x=rho, y=electrons, label=f"{name} e", style={"color": color}))
                 ions = [_array(obj, f"{base}.ion.{i}.{quantity}.flux")
                         for i in range(_count(obj, f"{base}.ion"))]
