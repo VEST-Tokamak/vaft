@@ -56,10 +56,11 @@ def group_options(
         if missing and not unavailable:
             continue
         options = groups.setdefault(_heading(record), {})
-        label = plot_label(record)
+        suffix = UNAVAILABLE if missing else ""
+        label = plot_label(record) + suffix
         if label in options:
-            label = f"{label} ({record.name})"
-        options[label + (UNAVAILABLE if missing else "")] = record.name
+            label = f"{plot_label(record)} ({record.name}){suffix}"
+        options[label] = record.name
     return groups
 
 

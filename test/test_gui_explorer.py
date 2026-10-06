@@ -158,3 +158,47 @@ def test_loading_new_sources_clears_the_search(app):
     app.search.value = "psi"
     assert app.load(Source("sample", 39915))
     assert app.search.value == "" and _listed(app) == set(app.session.catalog().names())
+
+
+# -- cold-review cases ----------------------------------------------------------------
+def _compose(app):
+    app.mode.value = "compose"
+    app.composer.assign(["plasma_current_time"])
+    assert app.draw_composition() and app.session.composition is not None
+
+
+def test_back_from_a_composition_to_an_unavailable_plot_draws_and_exports_nothing(app):
+    app.scope.value = "all"
+    missing = next(record for record in app.session.full_catalog() if record.available is False)
+    app.plot.value = missing.name
+    _compose(app)
+    app.mode.value = "plot"
+    assert app.session.composition is None and app.session.figure is None and app.download.disabled
+
+
+def test_back_from_a_composition_while_a_search_hides_the_plot_redraws_it(app):
+    app.search.value = "zzzz-no-such-plot"
+    assert app.plot.value is None and app.session.plot == "plasma_current_time"
+    _compose(app)
+    app.mode.value = "plot"
+    assert app.session.composition is None and app.session.plot == "plasma_current_time"
+
+
+def test_two_unavailable_plots_sharing_a_label_are_both_listed():
+    from types import SimpleNamespace
+
+    records = [
+        SimpleNamespace(name=name, subject="s", view="v", quantity="", available=False, reason="r")
+        for name in ("a_plot", "b_plot")
+    ]
+    groups = catalog_view.group_options(records, unavailable=True)
+    assert sorted(groups["s"].values()) == ["a_plot", "b_plot"]
+
+
+def test_a_source_with_nothing_drawable_still_lists_all_supported(app, monkeypatch, catalog):
+    nothing = catalog.with_records([replace(record, available=False, reason="empty") for record in catalog])
+    monkeypatch.setattr(app.session, "_discover", lambda data: nothing)
+    app.scope.value = "all"
+    assert app.load(Source("sample", 39915))
+    assert not app.plot.disabled and len(_listed(app)) == len(catalog)
+    assert app.session.plot is None

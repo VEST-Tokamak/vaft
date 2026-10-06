@@ -79,6 +79,8 @@ class BrowserApp:
         self._preferred_plot = plot
         self._renderer_choice = "plotly"
         self._plot_count = 0
+        #: The last single plot drawn, for coming back from a composition.
+        self._last_drawn: str | None = None
         self._updating = False
         #: Called with no arguments whenever what is open or the selected time
         #: may have changed; the shell publishes it to the shared selection.
@@ -287,8 +289,11 @@ class BrowserApp:
                 self._clear_plot(keep_selector=True)
             return True
         if not names:
-            # The previous plot was released with its sources.
-            self._clear_plot()
+            # The previous plot was released with its sources.  The list still
+            # shows (All supported: the plots and why they cannot be drawn).
+            listed = any(options for options in groups.values())
+            self.plot.param.update(groups=groups, value=None, disabled=not listed)
+            self._clear_plot(keep_selector=listed)
             return True
         # The plot on screen stays when the new sources offer it: adding a
         # shot to compare should not jump to another plot.
@@ -460,6 +465,7 @@ class BrowserApp:
         self._name_download()
         if self.session.database:
             self._update_status()  # the plot may have fetched IDS
+        self._last_drawn = name
         self._refresh()
         return True
 
@@ -578,11 +584,17 @@ class BrowserApp:
         composing = event.new == "compose"
         self.plot_box.visible, self.compose_box.visible = not composing, composing
         if not composing and self.session.composition is not None:
-            # Back to one plot: the selector's plot is drawn again.
-            if self.plot.value:
-                self.show(self.plot.value, renderer=self._renderer_for(self.plot.value))
-            else:
-                self._clear_plot(keep_selector=True)
+            # Back to one plot: the selector's plot (or, when a search hides
+            # it, the last one drawn) is drawn again -- only if it can be.
+            name = self.plot.value or self._last_drawn
+            record = self.session.capability(name) if name else None
+            drawable = name and (record is None or getattr(record, "available", True) is not False)
+            if drawable and self.show(name, renderer=self._renderer_for(name)):
+                return
+            # Nothing to draw: the composition goes too, or it would still be
+            # exported and reproduced while the screen is empty.
+            self.session.release()
+            self._clear_plot(keep_selector=True)
 
     def draw_composition(self) -> bool:
         """Draw the editor's composition; ``False`` when it was refused."""
