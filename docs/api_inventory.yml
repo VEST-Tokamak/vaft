@@ -51,6 +51,9 @@ pages:
   - slug: code
     title: vaft.code
     modules: [vaft.code]
+  - slug: gui
+    title: vaft.gui
+    modules: [vaft.gui]
   - slug: cli
     title: vaft.cli
     modules: [vaft.cli]

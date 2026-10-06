@@ -46,3 +46,21 @@ def linked_above(model: Any) -> set[int]:
 def panel_label(index: int) -> str:
     """``(a)``, ``(b)``, ... ``(z)``, then ``(27)``, ``(28)``, ...: slot ``index``'s mark."""
     return f"({chr(ord('a') + index)})" if index < 26 else f"({index + 1})"
+
+
+#: The gid a panel mark carries, so it is found (and never drawn twice).
+PANEL_LABEL_GID = "vaft-panel-label"
+
+
+def annotate_panel_labels(axes: Any) -> None:
+    """Mark ``axes`` ``(a)``, ``(b)``, ... at their top-left corners, in order.
+
+    The one style of every panel mark: a composition's ``panel_labels`` and
+    ``FigureOptions(panel_labels=True)`` both draw through here.
+    """
+    for index, axis in enumerate(axes):
+        axis.annotate(
+            panel_label(index), xy=(0, 1), xycoords="axes fraction", xytext=(-6, 6),
+            textcoords="offset points", ha="right", va="bottom", fontweight="bold",
+            gid=PANEL_LABEL_GID,
+        )

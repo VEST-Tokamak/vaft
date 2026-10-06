@@ -72,6 +72,7 @@ flowchart TD
 | `vaft.validation` | Scientific assessment: benchmarks, comparisons, regression evidence | | [API]({{ site.baseurl }}/reference/api/validation/) |
 | `vaft.cli` | Command-line workflows over the library APIs | | [API]({{ site.baseurl }}/reference/api/cli/) |
 | `vaft.mcp` | Local, read-only MCP server over the discovery APIs, for agent clients (`vaft[mcp]`) | [MCP server]({{ site.baseurl }}/reference/mcp/) | [API]({{ site.baseurl }}/reference/api/mcp/) |
+| `vaft.gui` | Optional browser GUI over the plot catalog and interactive controls (`vaft[gui]`) | [Browser GUI]({{ site.baseurl }}/workflows/gui/) | [API]({{ site.baseurl }}/reference/api/gui/) |
 | `vaft`, `vaft.compat`, `vaft.ods_access`, `vaft.spectroscopy` | Top level and small utilities | | [API]({{ site.baseurl }}/reference/api/core/) |
 
 Everything in an ODS is in **IMAS SI units**: seconds, amperes, tesla, weber, m$^{-3}$, and eV or J
@@ -527,7 +528,7 @@ result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
 | `ExecutionRequest` | command, working directory, environment overlay, stdin, timeout, optional merged log file, resources |
 | `ExecutionResult` | return code (`None` on timeout), captured output, `timed_out`, `runtime_status` (`completed`, `timeout`, `queue_timeout`), elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends) |
 | `ResourceRequest` | `ntasks`, `threads_per_task`, `memory_mb`; the local backend applies only the thread count |
-| `ExecutionBackend`, `LocalBackend`, `SlurmBackend`, `resolve_backend` | the protocol, the local and Slurm implementations, and the config lookup (falls back to `$VAFT_EXECUTION_BACKEND`) |
+| `ExecutionBackend`, `LocalBackend`, `SlurmBackend`, `RemoteHost`, `RemoteSlurmBackend`, `resolve_backend` | the protocol, the local, Slurm and ssh+Slurm implementations, and the config lookup (falls back to `$VAFT_EXECUTION_BACKEND`: `local`, `slurm` or `remote`) |
 | `ExecutableNotLaunchable` | raised when the operating system refuses to start the program |
 
 A timeout is returned (`timed_out=True`), not raised. A program the operating system refuses to
@@ -653,6 +654,70 @@ compute nodes share. The backend does not check this.
 names no backend onto Slurm. Placement comes from `VAFT_SLURM_PARTITION`, `VAFT_SLURM_ACCOUNT`,
 `VAFT_SLURM_QOS`, `VAFT_SLURM_MODE` and `VAFT_SLURM_MAX_WAIT`. This setting also queues short runs
 such as EFUND or a single EFIT slice, so prefer an explicit `backend=` for those.
+
+### Running on a cluster over ssh
+
+`SlurmBackend` submits from a host that can run `sbatch` itself. When the machine that prepares a
+case is not the machine that can run it -- a laptop holding the inputs, a cluster holding the build
+-- `RemoteSlurmBackend` does the same job over ssh:
+
+<!-- docs-snippet: skip needs-external-code (runs an external code on a remote cluster) -->
+```python
+from vaft.code import RemoteHost, RemoteSlurmBackend
+from vaft.code.gpec import GPECSuiteConfig
+
+host = RemoteHost(
+    host="login.example.org",
+    user="me",
+    work_root="/scratch/me/vaft",
+    # Ordered local -> remote prefix pairs; the first match at a path boundary wins.
+    path_maps=(("/opt/gpec", "/apps/gpec/1.4"),),
+    setup_lines=("module purge", "module load gpec/1.4"),
+    fetch=("*.nc", "*.out"),          # "all" (default), "none", or glob patterns
+)
+config = GPECSuiteConfig(
+    timeout=7200,
+    backend=RemoteSlurmBackend(host, partition="short", account="fusion", max_wait=43200),
+)
+```
+
+One `run` rsyncs the working directory up, writes the same job script `SlurmBackend` writes (with
+`setup_lines` in front), submits it with `ssh … sbatch --parsable --no-requeue`, polls `squeue` and
+then `sacct` over ssh with a growing interval, and rsyncs back what the fetch policy names. The
+result is the one a local run returns: the same timeout and `queue_timeout` statuses, the same
+`ExecutableNotLaunchable` for a refused submission, and `run_s` taken from the scheduler's start and
+end stamps. `KeyboardInterrupt`, `SIGTERM` and `SIGHUP` `scancel` the job and are then raised again.
+
+**Paths.** The two machines share no filesystem, so the working directory, `log_path`, every
+`command` argument (`--home=/opt/gpec` included) and every path-valued `env` entry go through
+`path_maps`. A working directory that no pair covers is staged into a fresh directory under
+`work_root`. A prefix matches only at a path boundary, so `/data/runs2` is not under `/data/runs`.
+
+**Environment.** `--export=ALL` carries the *host's* ssh environment, not the laptop's, which is the
+point: the job's search paths come from the host's login environment and from `setup_lines`. Only
+the request's own entries travel, path-translated, and the ones whose value describes the submitting
+machine never do -- `PATH`, `LD_LIBRARY_PATH`, `DYLD_*`, `PYTHONPATH`, `HOME`, `TMPDIR`, the locale
+and the loaded-module state (`vaft.code.remote.UNFORWARDED_ENVIRONMENT`). A macOS `PATH` on a Linux
+compute node would shadow exactly what the modules just set up.
+
+**What comes back, and what stays.** The job log and the scratch directory always come back; the
+fetch policy governs the rest of the working directory, so a run with tens of GB of output can
+leave it on the cluster and bring back an extract. The host's copy is kept by default
+(`keep_remote=True`) because it is usually the only full copy; `keep_remote=False` removes it after
+the fetch, and only ever a directory the backend staged under `work_root`.
+
+**Credentials.** None are handled here. `ssh` always runs with `BatchMode=yes`, so a host that would
+prompt fails at once instead of blocking a batch; keys and agents are yours to arrange. Pass extra
+ssh arguments through `ssh_options`, and a key file through `identity_file`.
+
+**Switching everything at once.** `VAFT_EXECUTION_BACKEND=remote` builds the backend from
+`VAFT_REMOTE_HOST`, `VAFT_REMOTE_WORK_ROOT` (both required), `VAFT_REMOTE_USER`,
+`VAFT_REMOTE_PORT`, `VAFT_REMOTE_IDENTITY`, `VAFT_REMOTE_SSH_OPTIONS`, `VAFT_REMOTE_PATH_MAPS`
+(`local=remote` pairs, comma separated), `VAFT_REMOTE_SETUP` (`;` separated), `VAFT_REMOTE_FETCH`
+and `VAFT_REMOTE_KEEP`, plus the same `VAFT_SLURM_PARTITION`, `VAFT_SLURM_ACCOUNT`,
+`VAFT_SLURM_QOS` and `VAFT_SLURM_MAX_WAIT` a local submission reads. Every call then costs at least
+two ssh round trips and two rsyncs, so keep short runs (EFUND, one EFIT slice) on an explicit local
+`backend=`.
 
 ### In-process memory guard
 

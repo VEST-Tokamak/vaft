@@ -82,6 +82,11 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("target_zeff", "float", description="Z_eff the normalization rule closes at"),
         OptionSpec("adf11_tables", description="{element: (acd, scd)} ADF11 tables overriding OPEN-ADAS"),
         OptionSpec("adf11_cache_dir", "str", description="directory OPEN-ADAS ADF11 files are cached in"),
+        # Romero's balance (#1590): the resistance is the caller's estimate,
+        # never assumed; the non-inductive current defaults to 0 (Ohmic).
+        OptionSpec("plasma_resistance", description="plasma resistance in ohm, one value or one per slice"),
+        OptionSpec("non_inductive_current", "float",
+                   description="non-inductively driven current in A, signed like I_p (default 0: Ohmic)"),
         OptionSpec("smooth", "float", description="rolling-median window in seconds applied to line traces"),
         # A dense time base is indexed, not chosen from a list: the vacuum map
         # runs over the PF samples, thousands of them, where time_slice= names
@@ -99,6 +104,10 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("centre", "range", description="(r0, z0) in metres the poloidal angle is measured about"),
         OptionSpec("angle", "choice", "recipes.ANGLE_SOURCES", "where a sensor's poloidal angle comes from"),
         OptionSpec("overlay", "multi", "recipes.CAMERA_OVERLAYS", "what is drawn over a map"),
+        OptionSpec("geometry_data", "any", description="separate geometry input for a calibrated camera overlay"),
+        OptionSpec("geometry_manifest", "any", description="cross-shot provenance for projected geometry"),
+        OptionSpec("geometry_families", "any", description="machine geometry families included in every view"),
+        OptionSpec("axis_length", "float", description="display extent of a directed axis in metres"),
         OptionSpec("projection", "any", description="camera projection method"),
         OptionSpec("theta_deg_range", "range",
                    description="toroidal sweep of a camera overlay, in degrees"),
@@ -276,7 +285,7 @@ def _style_options() -> frozenset[str]:
             names.add(parameter.name)
     # The Plotly renderers take **style and forward what they understand;
     # the composite renderer threads per-member styles through too.
-    names.update({"colorbar_ax"})
+    names.update({"colorbar_ax", "figure_options"})
     return frozenset(names)
 
 

@@ -26,6 +26,9 @@ sections:
       - id: automated-pipelines
         title: Automated pipelines
         url: /workflows/automated-pipelines/
+      - id: gui
+        title: Browser GUI
+        url: /workflows/gui/
   - id: reference
     title: Library and data reference
     items:
@@ -50,6 +53,9 @@ sections:
       - id: equilibrium-representations
         title: Equilibrium representations
         url: /reference/equilibrium-representations/
+      - id: gyrokinetic-plotting
+        title: Gyrokinetic plotting
+        url: /reference/gyrokinetic-plotting/
       - id: process-reference
         title: Process reference
         url: /reference/process/

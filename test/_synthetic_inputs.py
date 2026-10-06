@@ -403,8 +403,15 @@ def make_kinetic_48224(_sample: ODS) -> ODS:
     )
 
 
+def make_unified_diagnostics(_sample: ODS) -> ODS:
+    from vaft.data import unified_diagnostics_fixture
+
+    return unified_diagnostics_fixture()
+
+
 # ---------------------------------------------------------------------------
 SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
+    "kinetic_overview_profiles": make_unified_diagnostics,
     "thomson_scattering_profile_fit": make_kinetic_48224,
     "charge_exchange_profile_fit": make_kinetic_48224,
     "nbi_profile_electron_heating": make_nbi,

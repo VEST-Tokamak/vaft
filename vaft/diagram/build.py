@@ -149,6 +149,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # field-aligned coordinates, flux tubes, shear and the ballooning eigenfunction (#1075 part 2)
     **{f"{name}.svg": (name, {}) for name in ("field_aligned_basis", "flux_tube_patch",
                                               "magnetic_shear_field_aligned", "ballooning_eigenfunction")},
+    # transits, boundary conditions and the X-point limit (#1075 remainder)
+    **{f"{name}.svg": (name, {}) for name in ("ballooning_transit_map", "ballooning_boundary_conditions",
+                                              "field_aligned_xpoint_limitation")},
     # a toroidal mode number: the shift nu couples harmonics in every angle but PEST (#1074)
     "sfl_fourier_convergence_n2.svg": ("sfl_fourier_convergence", {"n": 2}),
     # SFL coordinates part 2: action-angle, validity near a separatrix, coordinates vs COCOS (#1074)
@@ -187,6 +190,14 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "human_ai_interface.svg": ("human_ai_interface", {}),
     # the machine and research archive since 2012 (#497)
     "machine_research_archive.svg": ("machine_research_archive", {}),
+    # the VEST data platform: reference view and compact companion (#1550)
+    "vest_data_platform.svg": ("vest_data_platform", {}),
+    "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
+    # the physics-workflow spine, level 2 below the platform overview (#1585)
+    **{f"{name}.svg": (name, {}) for name in (
+        "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
+        "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
+        "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport")},
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),

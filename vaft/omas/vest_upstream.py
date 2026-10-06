@@ -45,7 +45,9 @@ from vaft.machine_mapping.magnetics import (
 )
 from vaft.machine_mapping.pf_active import (
     PF_COIL_COUNT,
+    require_acquired_pf_currents,
     resolve_geometry_asset,
+    unacquired_pf_coils,
     vfit_pf_active_dynamic,
     vfit_pf_active_static,
 )
@@ -823,6 +825,12 @@ def build_diagnostics_ods(
         ),
         disabled_channels=_disabled_pf_coils(shot),
     )
+    unacquired_pf = unacquired_pf_coils(ods)
+    if unacquired_pf and statuses["pf_active"]["status"] != "unavailable":
+        # Published without the circuits whose channel was empty (#1568):
+        # they carry NaN, and eddy/EFIT refuse the shot.
+        statuses["pf_active"]["status"] = "partial"
+        statuses["pf_active"]["unacquired_channels"] = unacquired_pf
     grids["pf_active"] = policy_grid("pf_active")
     uv_policy = policies["spectrometer_uv"]
     run_component(
@@ -1057,6 +1065,10 @@ def build_diagnostics_ods(
                     f"magnetics:{signal}"
                     for signal in statuses.get("magnetics", {}).get("signals_left_out", {})
                 ]
+                + [
+                    f"pf_active:{coil}"
+                    for coil in statuses.get("pf_active", {}).get("unacquired_channels", [])
+                ]
             ),
             "repaired": [],
             "disabled": _disabled_pf_coils(shot),
@@ -1261,6 +1273,43 @@ def build_impa_ods(
     return ods, manifest
 
 
+#: ``eddy_status`` prefix of an eddy stage whose inputs do not exist in the data.
+#: Replication reads it as a result, not a fault (vaft.database.replication).
+EDDY_INPUT_UNAVAILABLE = "skipped: required input unavailable"
+
+
+def eddy_no_output_product(
+    *, shot: int, diagnostics_ods: str | Path, static_ods: str | Path, reason: str
+) -> tuple[ODS, dict[str, Any]]:
+    """The eddy product for a shot with an unrecorded PF circuit (#1568).
+
+    :func:`build_eddy_ods` refuses such a shot, and that stays an error for a
+    direct caller. The routine stage records it instead: a product with no
+    ``pf_passive`` and a manifest saying ``no_output`` and why, so the shot is
+    finished with nothing to compute rather than a failure retried forever.
+    Only an unrecorded circuit takes this path; a missing diagnostics
+    component still fails the stage, because it can be a configuration fault.
+    """
+    diagnostics_path, static_path = Path(diagnostics_ods), Path(static_ods)
+    product = ODS(consistency_check=False)
+    product["dataset_description.data_entry.pulse"] = int(shot)
+    product["dataset_description.ids_properties.homogeneous_time"] = 2
+    product["dataset_description.ids_properties.comment"] = f"eddy produced no output: {reason}"
+    manifest = {
+        "schema_version": 1,
+        "stage": "eddy",
+        "shot": int(shot),
+        "machine_version": machine_era_for_shot(int(shot)).name,
+        "status": "no_output",
+        "eddy_status": f"{EDDY_INPUT_UNAVAILABLE}: {reason}",
+        "input": {
+            "diagnostics_sha256": sha256_file(diagnostics_path),
+            "static_sha256": sha256_file(static_path),
+        },
+    }
+    return product, manifest
+
+
 def build_eddy_ods(
     *,
     shot: int,
@@ -1318,6 +1367,9 @@ def build_eddy_ods(
             "diagnostics ODS is missing " + ", ".join(missing),
             signal_name="eddy-current constraints",
         )
+
+    # A coil kept as not-acquired (#1568) would drive the vessel with NaN.
+    require_acquired_pf_currents(diagnostics, int(shot), "the eddy-current solve")
 
     ods = diagnostics
     _copy_ids(ods, static, ("wall", "pf_passive", "em_coupling"))
