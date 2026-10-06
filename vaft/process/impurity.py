@@ -77,6 +77,7 @@ __all__ = [
     "populate_zeff_profile",
     "resolve_impurity_composition",
     "resolve_radial_composition",
+    "surface_composition_profile",
 ]
 
 #: How a resolved composition is known, highest precedence first.
@@ -1825,3 +1826,154 @@ def populate_radial_impurity_profiles(
     work[f"{base}.zeff"] = zeff
     work[f"{base}.zeff_fit.parameters"] = record
     return work
+
+
+# --- an explicit composition in a GACODE profile, per surface (Lane L PR 5) ---------------------
+
+
+def surface_composition_profile(
+    profile: Any,
+    composition: Union[RadialImpurityComposition, ResolvedImpurityComposition],
+    r_over_a: float,
+) -> Any:
+    """A copy of a GACODE profile whose ions are the main ion plus an explicit impurity composition.
+
+    Parameters
+    ----------
+    profile : GACODEProfile
+        The resolved transport profile (its main ion, temperatures, rotation
+        and geometry are kept) [any].
+    composition : RadialImpurityComposition or ResolvedImpurityComposition
+        On ``profile.rho`` (a radial composition must be resolved on that
+        grid); a resolved one with fixed charge states may be scalar [any].
+    r_over_a : float
+        The surface, ``rmin / rmin[-1]``, whose charge states the lumped
+        impurities take [-].
+
+    Returns
+    -------
+    GACODEProfile
+        ``z``, ``name``, ``type``, ``mass``, ``ni``, ``ti``, ``vtor``/``vpol``
+        and ``z_eff`` replaced; ``provenance`` records the composition and
+        the surface [any].
+
+    Raises
+    ------
+    ValueError
+        A profile without a hydrogenic main ion or ``rmin``, a radial
+        composition on another grid, or a surface outside the profile.
+
+    Processing steps
+    ----------------
+    1. Main ion: the profile's first ``z = 1`` species, its density replaced
+       by ``n_e n_main/n_e`` of the composition.
+    2. At the surface, each element's lumped charge ``Z_s = <Z^2>_s/<Z>_s``.
+    3. Its density ``n_s'(rho) = n_e (n_s/n_e) <Z>_s(rho) / Z_s``: the
+       element's charge density is kept at every rho (so the gradients stay
+       quasi-neutral) and its ``Z^2`` moment exactly at the surface.
+    4. Temperatures and rotation of the impurities are the main ion's.
+
+    Input semantics
+    ---------------
+    A converted GACODE profile (GACODE units: 1e19 m^-3, keV).
+
+    Output semantics
+    ----------------
+    The same profile with a species list valid at one surface only.
+
+    Convention
+    ----------
+    GACODE carries one charge per species for the whole profile, so a
+    charge that varies with rho is lumped per surface (one profile per TGLF
+    or CGYRO surface); with fixed charge states the profile is the same at
+    every surface.  Z_eff at the surface equals the composition's.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The charge-state variance enters only through ``<Z^2>``; the charge's
+    own radial gradient away from the surface is not represented.  Equal
+    ion temperatures are assumed.
+
+    Provenance
+    ----------
+    .. [issue] #1565 Sec. 6, Lane L log #1569 (lumped species per surface).
+    """
+    import dataclasses
+
+    z = np.asarray(profile.z, dtype=float)
+    main = np.flatnonzero(np.isclose(z, 1.0))
+    if main.size == 0:
+        raise ValueError("the profile has no hydrogenic main ion")
+    m = int(main[0])
+    if profile.rmin is None:
+        raise ValueError("the profile carries no rmin to locate the surface")
+    rho = np.asarray(profile.rho, dtype=float)
+    radius = np.asarray(profile.rmin, dtype=float) / float(profile.rmin[-1])
+    if not 0.0 <= float(r_over_a) <= 1.0:
+        raise ValueError(f"r_over_a must lie in [0, 1], got {r_over_a!r}")
+    # anti-alias: spatial interpolation over rho / r/a, not time -- no sample rate to reduce
+    rho_s = float(np.interp(float(r_over_a), radius, rho))
+    ne = np.asarray(profile.ne, dtype=float)
+    n = rho.size
+    table = _element_table()
+
+    if isinstance(composition, RadialImpurityComposition):
+        if composition.rho.shape != rho.shape or not np.allclose(composition.rho, rho):
+            raise ValueError("resolve the radial composition on profile.rho")
+        elements = list(composition.elements)
+        fractions, _ = _fill_undefined(composition.elemental_fractions, rho)
+        mean, _ = _fill_undefined(composition.mean_charge, rho)
+        mean2, _ = _fill_undefined(composition.mean_square_charge, rho)
+        main_fraction, _ = _fill_undefined(composition.main_ion_fraction, rho)
+        masses = [float(table[e][1]) for e in elements]
+        label = f"openadas_{composition.provenance.get('ionization')}_{composition.normalization.get('method')}"
+    else:
+        elements = [s.element for s in composition.species]
+        charges = np.array([s.charge_state for s in composition.species], dtype=float)
+        frac = np.asarray(composition.impurity_fractions, dtype=float)
+        fractions = np.broadcast_to(frac, (n, charges.size)) if frac.ndim == 1 else frac
+        mean = np.broadcast_to(charges, (n, charges.size))
+        mean2 = mean**2
+        main_fraction = np.broadcast_to(np.asarray(composition.main_ion_fraction, dtype=float), (n,))
+        masses = [float(s.mass) for s in composition.species]
+        label = f"{composition.kind}_fixed_charge"
+    # anti-alias: spatial interpolation over rho / r/a, not time -- no sample rate to reduce
+    lumped = np.array([np.interp(rho_s, rho, mean2[:, k] / mean[:, k]) for k in range(len(elements))])
+    densities = [ne * np.asarray(main_fraction, dtype=float)]
+    densities += [ne * fractions[:, k] * mean[:, k] / lumped[k] for k in range(len(elements))]
+    ti_main = np.atleast_2d(np.asarray(profile.ti, dtype=float))[m]
+
+    def repeat(field):
+        if field is None:
+            return None
+        rows = np.atleast_2d(np.asarray(field, dtype=float))
+        return np.vstack([rows[m]] * (1 + len(elements)))
+
+    z_new = np.concatenate(([z[m]], lumped))
+    stacked = np.vstack(densities)
+    z_eff = np.sum(stacked * z_new[:, None] ** 2, axis=0) / ne
+    provenance = dict(profile.provenance)
+    provenance["ni"] = {"kind": "derived", "source": f"Lane L composition ({label})",
+                        "surface_r_over_a": float(r_over_a), "lumped_charge": dict(zip(elements, lumped.tolist()))}
+    provenance["ti"] = {**dict(profile.provenance.get("ti", {})),
+                        "impurities": "equal to the main ion (assumed)"}
+    provenance["z_eff"] = {"kind": "derived", "source": "species list (lumped at the surface)",
+                           # anti-alias: spatial interpolation over rho / r/a, not time -- no sample rate to reduce
+                           "value_at_surface": float(np.interp(rho_s, rho, z_eff))}
+    return dataclasses.replace(
+        profile,
+        z=z_new,
+        name=[profile.name[m]] + elements,
+        type=[profile.type[m]] + ["[therm]"] * len(elements),
+        mass=np.concatenate(([np.asarray(profile.mass, dtype=float)[m]], masses)),
+        ni=stacked,
+        ti=np.vstack([ti_main] * (1 + len(elements))),
+        vtor=repeat(profile.vtor),
+        vpol=repeat(profile.vpol),
+        z_eff=z_eff,
+        provenance=provenance,
+    )
