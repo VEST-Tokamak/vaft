@@ -109,7 +109,7 @@ RUNTIME_ROLES = {
     "plotly": ("visualization", "interactive panels and the GUI"),
     "seaborn": ("visualization", "confinement-scaling regression and residual plots"),
     "snakemake": ("workflow", "the production pipelines' scheduler"),
-    "tqdm": ("workflow", "declared; vaft.imas.omas_imas's verbose path names it without importing it"),
+    "tqdm": ("workflow", "progress bar in verbose OMAS/IMAS loading (load_omas_imas), reached through omas's star import"),
     "wexpect": ("workflow", "Windows-only; declared but imported by no VAFT module today"),
     "ipykernel": ("interactive", "the notebooks' kernel"),
     "ipython": ("interactive", "inline display in notebooks"),
