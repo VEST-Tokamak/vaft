@@ -35,7 +35,7 @@ class NEO:
         self.folder = Path(folder)
         self.folder.mkdir(parents=True, exist_ok=True)
         assert Path(input_gacode).is_file()
-    def run(self, subfolder, cold_start=True, code_settings=None):
+    def run(self, subfolder, cold_start=True, code_settings=None, extraOptions=None):
         mode = os.environ.get("STUB_MODE", "ok")
         if mode == "sleep":
             time.sleep(30)
@@ -47,9 +47,13 @@ class NEO:
         target = self.folder / subfolder
         target.mkdir(parents=True, exist_ok=True)
         if mode != "empty":
+            roa_for = json.loads(os.environ.get("STUB_ROA_FOR", "{}"))   # MITIM's own map
             for rho in self.rhos:
                 for path in Path(os.environ["STUB_NEO_RUN"]).iterdir():
                     shutil.copy(path, target / f"{path.name}_{rho:.4f}")
+                if f"{rho:.4f}" in roa_for:
+                    (target / f"input.neo_{rho:.4f}").write_text(
+                        f"RMIN_OVER_A = {roa_for[f'{rho:.4f}']}\\nDENS_1 = 0.8\\nTEMP_1 = 1.0\\n")
         (self.folder / "seen_env.json").write_text(json.dumps(
             {"MITIM_CONFIG": os.environ.get("MITIM_CONFIG"), "PATH": os.environ.get("PATH")}))
     def read(self, label):
@@ -156,10 +160,17 @@ def ready(tmp_path, monkeypatch):
 def test_importing_the_adapter_never_imports_mitim():
     import subprocess
 
-    code = "import sys, vaft.code.mitim; print(any(m.startswith(('mitim_tools','mitim_modules')) for m in sys.modules))"
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
-                         env={**os.environ, "PYTHONPATH": str(ROOT)}, check=True)
-    assert out.stdout.strip() == "False"
+    # An editable install elsewhere can win over PYTHONPATH, so the child names the
+    # tree it imported and the test skips rather than test another checkout.
+    code = ("import sys; sys.path.insert(0, sys.argv[1]); import vaft, vaft.code.mitim; "
+            "print(vaft.__file__); "
+            "print(any(m.startswith(('mitim_tools','mitim_modules')) for m in sys.modules))")
+    out = subprocess.run([sys.executable, "-c", code, str(ROOT)], capture_output=True, text=True,
+                         env={**os.environ, "PYTHONPATH": str(ROOT)}, check=False)
+    lines = out.stdout.strip().splitlines()
+    if out.returncode != 0 or not lines or not lines[0].startswith(str(ROOT)):
+        pytest.skip(f"the child imported another vaft checkout: {lines[:1] or out.stderr[-200:]}")
+    assert lines[-1] == "False"
 
 
 def test_no_interpreter_is_configuration_missing(monkeypatch):
@@ -377,3 +388,13 @@ def test_a_surface_mitim_ran_elsewhere_is_reported_missing(ready, profile, tmp_p
     assert not result.ok and result.result["status"] == "partial"
     assert result.result["missing_r_over_a"] == [0.4]
     assert result.result["shifted_r_over_a"] == {0.4: pytest.approx(0.41)}
+
+
+def test_mitim_neo_checks_the_radius_it_ran_and_keeps_its_inputs(ready, profile, tmp_path, monkeypatch):
+    surfaces = [0.4, 0.7]
+    _mitim_maps_back(monkeypatch, profile, surfaces, shift={0.7: 0.02})
+    result, outputs, inputs = mitim.run_mitim_neo(profile, surfaces, tmp_path / "run", ready,
+                                                  extra_options={"ROTATION_MODEL": 1})
+    assert sorted(outputs) == [0.4] and inputs[0.4]["DENS_1"] == 0.8
+    assert result.result["status"] == "partial" and result.result["missing_r_over_a"] == [0.7]
+    assert result.record["arguments"]["extra_options"] == {"ROTATION_MODEL": 1}

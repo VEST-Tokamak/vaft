@@ -1439,7 +1439,7 @@ def plot_kinetic_overview_profiles(
 ) -> tuple[Any, Any]:
     """Four local kinetic profiles from native IMAS input.
 
-    Renders with :func:`vaft.plot.kinetic_overview_profiles`.
+    Renders with :func:`vaft.plot.kinetic_overview_profiles` from native IMAS input.
     """
     return render("kinetic_overview_profiles", source, ax=ax, show=show, label=label, **options)
 

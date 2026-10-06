@@ -235,6 +235,11 @@ def _mark_cross_shot(name: str, model: Any, entries: Sequence[tuple[str, Any]]) 
     from vaft.plot.machine_geometry import CROSS_SHOT_NOTICE, cross_shot_notice
 
     title = getattr(model, field)
+    if name == "kinetic_overview_profiles" and CROSS_SHOT_NOTICE in title:
+        # The kinetic overview writes the shared notice itself and names the
+        # equilibrium source and geometry reference from composite_provenance;
+        # the generic context line below would only repeat the reference.
+        return model
     if name == "machine_geometry_poloidal":
         # The shared machine view (machine_geometry_view) already writes this
         # two-line notice into its title; a recipe that bypassed it gets the
