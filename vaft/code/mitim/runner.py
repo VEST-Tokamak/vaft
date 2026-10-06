@@ -20,7 +20,7 @@ from ..execution import ExecutionRequest, resolve_backend, timeout_reason
 from .availability import MITIMAvailability, mitim_availability
 from .config import MITIMConfig, MITIMResult, mitim_user_config
 
-__all__ = ["run_mitim_driver", "run_neo_smoke"]
+__all__ = ["mitim_tglf_local_inputs", "run_mitim_driver", "run_neo_smoke"]
 
 #: The GACODE members MITIM may call; each one's ``bin`` goes on ``PATH``.
 _GACODE_MEMBERS = ("neo", "tglf", "tgyro", "cgyro", "vgen")
@@ -215,3 +215,45 @@ def run_neo_smoke(
             if parsed is not None:
                 outputs.append(parsed)
     return result, outputs
+
+
+def mitim_tglf_local_inputs(
+    profile: Any,
+    r_over_a,
+    workdir: str | Path,
+    config: MITIMConfig | None = None,
+    *,
+    code_settings: str = "SAT3",
+    availability: Optional[MITIMAvailability] = None,
+) -> tuple[MITIMResult, dict[float, dict]]:
+    """MITIM's own TGLF local inputs for ``profile`` at exactly these ``r/a``, not run.
+
+    The profile is written with VAFT's writer, as in :func:`run_neo_smoke`, and MITIM's
+    state converter is called with ``r_is_rho=False``, so no coordinate conversion sits
+    between the two inputs being compared. ``result.result["rho_tor_norm"]`` is MITIM's
+    own map of the same surfaces, to check against
+    :func:`vaft.code.mitim.coordinates.rho_tor_norm_at`.
+
+    Returns
+    -------
+    (MITIMResult, {r/a: parsed input.tglf})
+    """
+    from ..gacode._input_gacode import write_input_gacode
+    from .compare import read_input_tglf
+
+    workdir = Path(workdir).resolve()
+    workdir.mkdir(parents=True, exist_ok=True)
+    folder = workdir / "tglf_inputs"
+    if folder.exists():
+        shutil.rmtree(folder)
+    input_path = write_input_gacode(profile, workdir / "input.gacode")
+    arguments = {"input_gacode": str(input_path), "folder": str(folder),
+                 "r_over_a": [float(r) for r in r_over_a], "code_settings": code_settings,
+                 "input_gacode_sha256": _sha256(input_path)}
+    result = run_mitim_driver("tglf_local_inputs", arguments, workdir, config,
+                              availability=availability)
+    parsed: dict[float, dict] = {}
+    if result.ok:
+        for label, path in result.result.get("files", {}).items():
+            parsed[float(label)] = read_input_tglf(path)
+    return result, parsed
