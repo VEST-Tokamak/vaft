@@ -206,3 +206,16 @@ def test_a_tolerance_is_claimed_only_for_a_converged_eigenvalue(tmp_path):
     ods = ODS()
     gk.gyrokinetics_local_from_cgyro(ods, local, outputs, provenance=provenance)
     assert ods["gyrokinetics_local.linear.wavevector.0.eigenmode.0.growth_rate_tolerance"] == 1e-3
+
+
+def test_cgyro_nonlinear_ky_resolved_fluxes_sum_to_the_totals(tmp_path):
+    local = cgyro.cgyro_input_from_tglf(tglf_local())
+    outputs = collect_cgyro_outputs(write_run(tmp_path / "run", n_n=4, n_field=1, flux=True,
+                                              exit_message="Normal"))
+    ods = ODS()
+    gk.gyrokinetics_local_from_cgyro(ods, local, outputs, flux_window=(2.0, 5.0),
+                                     provenance={"parameters": {"N_FIELD": 1, "NONLINEAR_FLAG": 1}})
+    nl = "gyrokinetics_local.non_linear"
+    per_mode = ods[f"{nl}.fluxes_2d_k_x_sum.energy_phi_potential"]
+    assert per_mode.shape == (3, 4)
+    assert per_mode.sum(axis=1) == pytest.approx(ods[f"{nl}.fluxes_1d.energy_phi_potential"])
