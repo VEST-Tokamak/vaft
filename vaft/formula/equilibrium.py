@@ -2344,8 +2344,9 @@ def stored_energy_from_p_V(p: Union[float, np.ndarray],
     Despite the historical name this is $\int p\,dV$, two thirds of the
     thermal energy: the stored kinetic energy of an ideal gas is
     $W_{th} = \tfrac{3}{2}\int p\,dV$ (``thermal_energy_from_p_V``,
-    ``virial.virial_thermal_energy``, ``kinetic_energy_from_beta_p_B_pa_V_p``
-    and the IMAS ``energy_thermal`` / ``energy_mhd``). It is the
+    ``virial.virial_thermal_energy``, ``kinetic_energy_from_beta_p_B_pa_V_p``,
+    and the IMAS ``energy_mhd`` for the total and ``energy_thermal`` for the
+    thermal pressure). It is the
     quantity $\beta_p$ is normalised by (``beta_poloidal_from_pressure_integral``).
 
     Assumptions
@@ -2376,10 +2377,12 @@ def thermal_energy_from_p_V(p: Union[float, np.ndarray],
 
     Convention
     ----------
-    The ideal-gas $\tfrac{3}{2}nT$ per unit volume, summed over species: the
-    IMAS ``global_quantities.energy_thermal`` / ``energy_mhd`` and the same
-    energy as ``virial.virial_thermal_energy`` and
-    ``kinetic_energy_from_beta_p_B_pa_V_p``. ``stored_energy_from_p_V`` is
+    The ideal-gas $\tfrac{3}{2}nT$ per unit volume, summed over species, the
+    same energy as ``virial.virial_thermal_energy`` and
+    ``kinetic_energy_from_beta_p_B_pa_V_p``. With the total pressure (thermal
+    plus fast particles) it is the IMAS
+    ``equilibrium...global_quantities.energy_mhd``; with the thermal pressure
+    only, ``summary.global_quantities.energy_thermal``. ``stored_energy_from_p_V`` is
     two thirds of it, $\int p\,dV$.
 
     Physical interpretation
@@ -2405,7 +2408,7 @@ def stored_energy_from_beta_V(beta: float,
                             V: float) -> float:
     r"""Pressure volume integral $\langle p\rangle V$ from toroidal beta -- not the thermal energy.
 
-    $$W = \beta\,\frac{B_0^2}{2\mu_0}\,V$$
+    $$\langle p\rangle V = \beta\,\frac{B_0^2}{2\mu_0}\,V$$
 
     Parameters
     ----------
