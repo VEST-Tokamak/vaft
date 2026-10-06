@@ -856,6 +856,30 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   The Snakefile locates that `config.yaml` by its own path, so the merge holds for any `--directory`.
   Before #1530 it resolved against `--directory`, and a run directory with a partial config silently
   ran on code defaults: EFIT off, `args 65`, no eddy plasma filament.
+- **A run config that omits `efit.run` inherits `true`.** That is the other side of the merge: the
+  workflow's `config.yaml` sets `efit: {run: true}`, so since #1687 a `pipeline_config` that leaves
+  the key out submits EFIT, where the code default `false` used to apply. With `EFIT` unset the parse
+  fails loudly (the path is expanded at load); with it set, EFIT simply starts running. Set `efit.run`
+  explicitly in every deployed run config -- the worker redeployed on 10-06 pins `efit: {run: false}`
+  in its `pipeline.yaml` for that reason.
+- **What a run config may override in the equilibrium magnetics.** The shot's acquisition era in
+  `vaft/machine_mapping/vest.yaml` decides the processing: `daq_mode`, the analysis window and probe
+  baseline (as indices into the output grid) and the flux-loop baseline rule. A
+  `vest.magnetics.processing` block in a run config is applied on top of that era, key by key
+  (`vaft.omas.vest_upstream.magnetics_processing_for_shot`), and the diagnostics manifest records what
+  was actually used under `configuration.vest_magnetics_processing_effective`. Keys the era already
+  decides are refused when set off their defaults: the legacy window ladder (`default_*`, `late_*`,
+  `transient_*`), the per-sample flux baselines (`flux_baseline_first/second/late_*`), and the output
+  grid `time_start`, `time_end`, `sample_count` unless `window_override` is named alongside them (the
+  era window is indices into that grid; moving the grid alone moved the native-DAQ window to
+  0.325-0.45 s). The remaining keys apply on every shot, by design, for parameter scans: the probe
+  filter `fast_sample_rate`, `lowpass_cutoff`, `lowpass_taps`, the conventions `calibration_mode`,
+  `flux_output_per_radian`, and the named era keys `window_override`, `flux_baseline_window`,
+  `flux_baseline_samples`, `allow_zero_fallback` (`daq_mode` is accepted and then checked against the
+  flux rule downstream). History: until #1541 the workflow's own `config.yaml` carried the full legacy
+  block and it *replaced* the era, running every shot from 46404 on through the slow-DAQ path; a legacy
+  block left in a deployed run config forced the same from 10-02 to 10-06 (#1731). Leave `vest: {}`
+  unless you are scanning, and check `vest_magnetics_processing_effective` when a product looks wrong.
 - **`stages` narrows what the worker runs and judges.** Omitted, every run requests `rule all`, the
   whole pipeline. `stages: [raw, diagnostics, eddy]` requests only those stages' products, plots and
   replication records, and the shot's verdict is taken from those alone: the constraint and k-file

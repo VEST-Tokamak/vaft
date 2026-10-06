@@ -101,6 +101,8 @@ constraints:
   - 0.01
   - 0.01
 efit:
+  # A run config merged over this file inherits `true` when it omits the key
+  # (#1687); a deployment that does not run EFIT sets `efit: {run: false}` itself.
   run: true
   # Named EFIT configuration from vaft.code.efit.PRESETS. Empty is the default,
   # statistical_891: the #891 working setting (statistical sigma, diamagnetic

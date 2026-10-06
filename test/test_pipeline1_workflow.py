@@ -305,6 +305,23 @@ def test_the_run_config_still_overrides_the_workflow_config(tmp_path):
     assert _shell_args(result.stdout, "--args") == {'"129"'}
 
 
+def test_the_deployment_guide_states_what_a_partial_run_config_inherits():
+    """cold review 0.8.0 delta-absorb-16 F5: #1687 made a run config that omits
+    `efit.run` inherit the workflow's `true` (the 10-06 redeploy had to pin it
+    off), and nothing documented which `vest.magnetics.processing` keys a run
+    config may still override after #1541/#1731. The guide, the worker example
+    and the workflow config must say both."""
+    guide = (WORKFLOW / "DEPLOYMENT.md").read_text(encoding="utf-8")
+    assert "A run config that omits `efit.run` inherits `true`" in guide
+    assert "What a run config may override in the equilibrium magnetics" in guide
+    assert "`time_start`, `time_end`, `sample_count` unless `window_override`" in guide
+    assert "vest_magnetics_processing_effective" in guide
+    example = (WORKFLOW / "worker.example.yaml").read_text(encoding="utf-8")
+    assert "`efit.run: true` included" in example
+    workflow_config = (WORKFLOW / "config.yaml").read_text(encoding="utf-8")
+    assert "inherits `true` when it omits the key" in workflow_config
+
+
 @pytest.mark.parametrize("missing", ["base_dir", "shots"])
 def test_a_run_config_must_say_where_and_which_shots(tmp_path, missing):
     """Loading the workflow defaults must not turn a forgotten base_dir into a production write."""
