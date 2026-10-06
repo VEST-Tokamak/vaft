@@ -53,6 +53,7 @@ __all__ = [
     "ConfinementScalingFit",
     "fit_confinement_scaling",
     "assess_predictor_identifiability",
+    "predictor_principal_directions",
     "bootstrap_confinement_scaling",
     "leave_one_group_out_scaling",
     "fit_confinement_scaling_odr",
@@ -859,6 +860,102 @@ def assess_predictor_identifiability(predictors: Mapping[str, np.ndarray]) -> di
         "rank": int(np.linalg.matrix_rank(design)),
         "constant": constant,
     }
+
+
+def predictor_principal_directions(predictors: Mapping[str, np.ndarray], *, groups=None) -> dict:
+    """Principal directions of the log predictors: which exponent combinations the data constrain.
+
+    Parameters
+    ----------
+    predictors : Mapping
+        Predictor arrays keyed by name; rows with any non-finite or
+        non-positive value are dropped [any].
+    groups : array-like, optional
+        Group label per row (e.g. shot); when given, the analysis is repeated
+        on the shot means (between-group) and on the within-group deviations
+        [any].
+
+    Returns
+    -------
+    dict
+        ``names`` [-]; ``n`` rows used [-]; ``scale``, the standard deviation
+        of each log predictor [-]; ``singular_values`` of the centred,
+        standardised log design, largest first [-]; ``directions``, the unit
+        right-singular vectors as rows, one per singular value, in that
+        design's coordinates [-]; ``variance_fraction`` per direction [-];
+        ``effective_rank``, the number of directions whose singular value is
+        at least ``0.1`` of the largest [-]; and, with ``groups``, the same
+        under ``between`` and ``within`` [any].
+
+    Raises
+    ------
+    ValueError
+        No predictor, mismatched lengths, fewer than three usable rows, or a
+        predictor that does not vary.
+
+    Processing steps
+    ----------------
+    1. Take logs, centre and divide each column by its standard deviation.
+    2. Singular-value decompose; a direction with a small singular value is a
+       combination of predictors the sample barely varies, so the matching
+       combination of exponents is poorly determined (PCR diagnostic).
+    3. With ``groups``, repeat on group means and on within-group deviations
+       to show which variation carries each direction.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Directions are in standardised log coordinates; a direction mixes
+    exponents in units of each predictor's spread, so convert with ``scale``
+    before reading it as a physical scan. It diagnoses the design, not a fit:
+    it says which scan would add information, not which exponent is right.
+
+    Provenance
+    ----------
+    .. [1621] Issue #1621 Secs. 8 and 12: PCR-style identifiability and the
+       weak singular directions that point to the next scan.
+    .. [BKW] D. A. Belsley, E. Kuh and R. E. Welsch, *Regression Diagnostics*,
+       Wiley (1980), Ch. 3.
+    """
+    names = list(predictors)
+    if not names:
+        raise ValueError("at least one predictor is needed")
+    first = _series(names[0], predictors[names[0]])
+    stack = np.vstack([_series(name, predictors[name], first.size) for name in names])
+    keep = np.all(np.isfinite(stack) & (stack > 0), axis=0)
+    logs = np.log(stack[:, keep]).T
+    labels = None if groups is None else np.asarray(groups)[keep]
+
+    def svd(block):
+        if block.shape[0] < 3:
+            raise ValueError("fewer than three usable rows")
+        scale = block.std(axis=0, ddof=1)
+        if np.any(scale <= 0) or not np.all(np.isfinite(scale)):
+            raise ValueError("a predictor does not vary: " + ", ".join(
+                n for n, s in zip(names, scale) if not s > 0))
+        z = (block - block.mean(axis=0)) / scale
+        _, sv, vt = np.linalg.svd(z, full_matrices=False)
+        signs = np.sign(vt[np.arange(len(vt)), np.argmax(np.abs(vt), axis=1)])
+        vt = vt * signs[:, None]
+        return {"n": int(block.shape[0]), "scale": dict(zip(names, map(float, scale))),
+                "singular_values": sv.tolist(), "directions": vt.tolist(),
+                "variance_fraction": (sv**2 / np.sum(sv**2)).tolist(),
+                "effective_rank": int(np.sum(sv >= 0.1 * sv[0]))}
+
+    out = {"names": names, **svd(logs)}
+    if labels is not None:
+        uniq = np.unique(labels)
+        means = np.vstack([logs[labels == g].mean(axis=0) for g in uniq])
+        within = logs - np.vstack([means[np.searchsorted(uniq, g)] for g in labels])
+        for key, block in (("between", means), ("within", within)):
+            try:
+                out[key] = svd(block)
+            except ValueError as error:
+                out[key] = {"error": str(error)}
+    return out
 
 
 def bootstrap_confinement_scaling(
