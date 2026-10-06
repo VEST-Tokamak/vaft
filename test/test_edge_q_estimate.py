@@ -250,3 +250,13 @@ def test_a_time_base_shorter_than_the_slices_is_refused_not_truncated(sample):
             edge_q_estimate(ods, source=source)
     with pytest.raises(ValueError, match="equilibrium.time has"):
         vomas.extract_summary_time_estimated_q95(ods)
+
+
+def test_a_start_configuration_with_the_iter_scaling_is_refused_by_its_own_name(sample):
+    import vaft.omas as vomas
+
+    with pytest.raises(ValueError, match="start_configuration='double_null' applies to q95_scaling='start' only"):
+        vomas.extract_summary_time_estimated_q95(sample, q95_scaling="iter", start_configuration="double_null")
+    # the START scaling still takes it
+    model = vomas.extract_summary_time_estimated_q95(sample, q95_scaling="start", start_configuration="double_null")
+    assert model.series[0].label.startswith("q95 (START estimate)")
