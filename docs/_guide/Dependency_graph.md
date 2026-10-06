@@ -1,7 +1,7 @@
 ---
 title: VAFT dependency explorer
 author: VEST team
-date: 2026-10-05 22:00
+date: 2026-10-04 12:00
 category: guide
 layout: post
 permalink: /reference/dependency-graph/
