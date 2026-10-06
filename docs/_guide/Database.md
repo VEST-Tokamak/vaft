@@ -26,6 +26,7 @@ Canonical summary tables include `shot` and `pulse_time_begin`, followed by
 the preset's quantities. The acquisition timestamp comes from
 `dataset_description.pulse_time_begin`; older shots may have no timestamp.
 
+<!-- docs-snippet: skip needs-database (summarises a shot range from a VEST database source) -->
 ```python
 import vaft
 
@@ -70,6 +71,7 @@ slice that corresponds to it (#1655):
 stored in canonical `core_transport`: one row per shot, model entry, and time
 slice. It reads no TGLF or CGYRO native output and does not combine models.
 
+<!-- docs-snippet: skip needs-database (summarises a shot range from a VEST database source) -->
 ```python
 transport = vaft.database.summary((39915, 39916), preset="turbulent_transport")
 transport[["shot", "time_s", "source", "model_index", "rho_grid_min",

@@ -156,6 +156,7 @@ The limit diagrams above ask whether a state crosses a boundary. A similarity sp
 
 The $\rho_*$ and $\nu_*$ axes follow the ITPA confinement-database convention, Verdoolaege et al., *Nucl. Fusion* 61 (2021) 076006, Eqs. (1a) and (1c), which Hillesheim et al. use. $n$ and $T$ are volume averages with $T_e = T_i$. The functions that evaluate them are `rho_star_from_M_T_B_R_epsilon`, `nu_star_from_n_T_B_R_epsilon_kappa_I` and `omega_i_tau_E_from_B_tau_E_M` in `vaft.formula.equilibrium`. VAFT has other $\nu_*$ and $\rho_*$ definitions (issue 353): Sauter's local $\nu_*$, pedestal $\nu^*_e$, edge and separatrix collisionalities. Each is a different quantity, so it cannot be drawn on these axes. A missing input leaves the state *unassessed*: it is counted per group, in a warning and in the legend, and is never estimated. Each projection carries its meaning as metadata:
 
+<!-- docs-snippet: skip fragment (placeholder name table, a dimensionless-similarity table, is never built on the page) -->
 ```python
 from vaft.diagram import _op_space
 from vaft.plot.dimensionless_space import dimensionless_similarity
@@ -1151,6 +1152,8 @@ the electron-cyclotron range. Warm-plasma effects, damping, ray tracing and full
 scope.
 
 ```python
+import math
+
 vaft.diagram.o_mode_cutoff()                                  # n_O^2 = P, cutoff at omega_pe
 vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=1.2)    # L, R cutoffs; upper-hybrid resonance
 vaft.diagram.cma_diagram()                                    # P, R, L, S = 0 and Y = 1 in (X, Y)
