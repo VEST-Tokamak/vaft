@@ -20,6 +20,7 @@ from vaft.code.gacode._types import GACODEConfig
 
 ROOT = Path(__file__).resolve().parents[1]
 NEO_RUN = ROOT / "test" / "data" / "gacode" / "neo_vest_48224_profile"
+TGLF_RUN = ROOT / "test" / "data" / "gacode" / "tglf_reg05"
 SAMPLE = ROOT / "vaft" / "data" / "kineticEfit" / "ods_48224_300ms.json"
 
 NEOTOOLS = '''
@@ -55,6 +56,44 @@ class NEO:
 '''
 
 
+TGLFTOOLS = '''
+import os, shutil
+from pathlib import Path
+
+class TGLFinput:
+    @classmethod
+    def initialize_in_memory(cls, parameters):
+        self = cls(); self.parameters = dict(parameters); self.file = None; return self
+    def write_state(self):
+        Path(self.file).write_text("".join(f"{k} = {v}\\n" for k, v in self.parameters.items()))
+
+class TGLF:
+    def __init__(self, rhos):
+        self.rhos = list(rhos)
+    def prep(self, input_gacode, folder, cold_start=True, forceIfcold_start=True):
+        self.folder = Path(folder); self.folder.mkdir(parents=True, exist_ok=True)
+        assert Path(input_gacode).is_file()
+    def run(self, subfolder, code_settings=None, extraOptions=None, cold_start=True, forceIfcold_start=True):
+        target = self.folder / subfolder; target.mkdir(parents=True, exist_ok=True)
+        (self.folder / "options.txt").write_text(repr((code_settings, extraOptions)))
+        for rho in self.rhos:
+            for path in Path(os.environ["STUB_TGLF_RUN"]).iterdir():
+                shutil.copy(path, target / f"{path.name}_{rho:.4f}")
+'''
+
+PROFILESTOOLS = '''
+class gacode_state:
+    def __init__(self, path):
+        self.derived = {"roa": [0.0, 0.5, 1.0]}
+        self.profiles = {"rho(-)": [0.0, 0.4, 1.0]}
+    def derive_quantities(self, mi_ref=None):
+        pass
+    def to_tglf(self, r, code_settings="SAT0", r_is_rho=True):
+        assert r_is_rho is False
+        return {roa: {"SAT_RULE": 3, "RMIN_LOC": roa, "NKY": 19} for roa in r}
+'''
+
+
 def _stub_mitim(root: Path, *, version="5.3.0", portals=True) -> Path:
     package = root / "site"
     (package / "mitim_tools" / "gacode_tools").mkdir(parents=True)
@@ -64,6 +103,11 @@ def _stub_mitim(root: Path, *, version="5.3.0", portals=True) -> Path:
     (package / "templates" / "input.neo.controls").write_text("")
     (package / "mitim_tools" / "gacode_tools" / "__init__.py").write_text("")
     (package / "mitim_tools" / "gacode_tools" / "NEOtools.py").write_text(NEOTOOLS)
+    (package / "mitim_tools" / "gacode_tools" / "TGLFtools.py").write_text(TGLFTOOLS)
+    (package / "mitim_tools" / "gacode_tools" / "PROFILEStools.py").write_text(PROFILESTOOLS)
+    (package / "mitim_tools" / "misc_tools").mkdir()
+    (package / "mitim_tools" / "misc_tools" / "__init__.py").write_text("")
+    (package / "mitim_tools" / "misc_tools" / "PLASMAtools.py").write_text("md_u = 2.0\n")
     if portals:
         (package / "mitim_modules" / "portals").mkdir(parents=True)
         for init in ("mitim_modules/__init__.py", "mitim_modules/portals/__init__.py"):
@@ -91,6 +135,7 @@ def ready(tmp_path, monkeypatch):
     home = _stub_gacode(tmp_path)
     monkeypatch.setenv("PYTHONPATH", str(site))
     monkeypatch.setenv("STUB_NEO_RUN", str(NEO_RUN))
+    monkeypatch.setenv("STUB_TGLF_RUN", str(TGLF_RUN))
     monkeypatch.setenv("STUB_MODE", "ok")
     config = mitim.MITIMConfig(python=sys.executable,
                                gacode=GACODEConfig(home=str(home), platform="STUB"),
@@ -273,3 +318,23 @@ def test_a_slow_probe_is_a_timeout_not_a_broken_install(tmp_path):
     slow.chmod(0o755)
     found = mitim.mitim_availability(mitim.MITIMConfig(python=str(slow)), timeout=1)
     assert found.status == "probe_timeout"
+
+
+def test_mitim_tglf_runs_at_the_bridged_rho_and_is_keyed_back_by_r_over_a(ready, profile, tmp_path):
+    surfaces = [0.4, 0.7]
+    result, outputs = mitim.run_mitim_tglf(profile, surfaces, tmp_path / "run", ready,
+                                           extra_options={"NKY": 12})
+    assert result.ok, (result.stderr, result.result)
+    rho = mitim.rho_tor_norm_at(profile, surfaces)
+    assert result.record["arguments"]["rho_tor_norm"] == pytest.approx(list(rho))
+    assert result.record["arguments"]["r_over_a"] == surfaces
+    assert sorted(outputs) == surfaces and all(o.gbflux is not None for o in outputs.values())
+    assert "{'NKY': 12}" in (tmp_path / "run" / "tglf" / "options.txt").read_text()
+
+
+def test_mitim_local_inputs_are_written_at_exact_r_over_a(ready, profile, tmp_path):
+    result, parsed = mitim.mitim_tglf_local_inputs(profile, [0.3, 0.6], tmp_path / "run", ready)
+    assert result.ok, (result.stderr, result.result)
+    assert sorted(parsed) == [0.3, 0.6]
+    assert parsed[0.6]["RMIN_LOC"] == 0.6 and parsed[0.6]["NKY"] == 19
+    assert result.result["rho_tor_norm"] == pytest.approx([0.24, 0.52])   # MITIM's own map

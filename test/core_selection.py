@@ -120,11 +120,13 @@ CORE_MODULES: tuple[str, ...] = (
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
     # The MITIM adapter (#1588) runs a stub mitim_tools in this interpreter:
-    # availability statuses, the per-run config, launch, timeout and discovery.
+    # availability statuses, the per-run config, launch, timeout and discovery;
+    # the r/a <-> rho_tor_norm bridge and the TGLF input comparison are pure.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
     "test_mitim_adapter.py",
+    "test_mitim_compare.py",
     "test_process_tree.py",
     "test_remote_backend.py",
     "test_slurm_backend.py",
