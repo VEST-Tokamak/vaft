@@ -238,3 +238,35 @@ def test_the_confinement_funnel_refuses_an_incomplete_or_inconsistent_table():
     funnel = eq.equilibrium_quality_confinement_funnel(table.drop(columns=["accepted"]))
     good = funnel["cohorts"]["good"]
     assert good["selected"] + sum(row["removed_in_sequence"] for row in good["exclusions"]) == good["candidates"]
+
+
+def test_thomson_counts_survive_a_csv_round_trip(criteria):
+    """An empty ``consistent_settings`` cell is "not judged" whether it is "", None or NaN (cold review 0.8.0)."""
+    import io
+    import math as _math
+
+    import pandas as pd
+
+    records = [_record(shot=1, thomson=None),                                   # good, no Thomson
+               _record(shot=2),                                                 # good, consistent
+               _record(shot=3, thomson={"log_ratio": _math.log(1 / 2.7)})]      # good, inconsistent
+    table = eq.equilibrium_quality_table(records, criteria=criteria)
+    expected = {"slices": 3, "thomson_consistent": 1, "thomson_inconsistent": 1, "thomson_not_judged": 1}
+    assert eq.equilibrium_quality_summary(table)["cohorts"]["good"] == expected
+    # the library itself, fed None / NaN cells (what pandas makes of "")
+    nan_table = table.copy()
+    nan_table["consistent_settings"] = [None, "s", float("nan")]
+    nan_table["inconsistent_settings"] = [None, None, "s"]
+    assert eq.equilibrium_quality_summary(nan_table)["cohorts"]["good"] == expected
+    # the CSV round trip as the notebook does it
+    buffer = io.StringIO()
+    table.to_csv(buffer, index=False)
+    buffer.seek(0)
+    read = eq.read_equilibrium_quality_table(buffer)
+    assert eq.equilibrium_quality_summary(read) == eq.equilibrium_quality_summary(table)
+    assert list(read["consistent_settings"]) == list(table["consistent_settings"])
+    assert list(read["physically_consistent"]) == [None, True, False]
+    assert read["p_over_p_e_points"].isna().iloc[0]  # numeric NaN stays NaN
+    assert eq.select_representative_cases(read) == eq.select_representative_cases(table)
+    buffer.seek(0)
+    assert eq.equilibrium_quality_summary(pd.read_csv(buffer))["cohorts"]["good"] == expected

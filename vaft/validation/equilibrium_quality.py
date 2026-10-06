@@ -223,6 +223,39 @@ def slice_cohorts(table) -> Any:
     return best.drop(columns="_rank").reset_index(drop=True)
 
 
+def _names_a_setting(cell: Any) -> bool:
+    """Whether a ``*_settings`` cell lists at least one setting (``""``, None and NaN do not)."""
+    return isinstance(cell, str) and cell.strip() != ""
+
+
+#: Columns :func:`equilibrium_quality_table` writes as text, empty when there is
+#: nothing to say; ``pandas.read_csv`` would read that empty cell as NaN.
+TEXT_COLUMNS = ("good_settings", "admissible_settings", "consistent_settings", "inconsistent_settings",
+                "failure_reasons")
+
+
+def read_equilibrium_quality_table(source: Any) -> Any:
+    """A cohort table written with ``DataFrame.to_csv`` read back as :func:`equilibrium_quality_table` made it.
+
+    Two things a plain ``pandas.read_csv`` loses: the empty text cells of
+    :data:`TEXT_COLUMNS` (``""`` becomes NaN, which the summary would otherwise
+    have to recognise) and the three-valued ``physically_consistent``
+    (True / False / None, read back as the strings ``"True"`` / ``"False"`` and
+    NaN).  Numeric columns keep their NaN.
+    """
+    import pandas as pd
+
+    frame = pd.read_csv(source)
+    for column in TEXT_COLUMNS:
+        if column in frame.columns:
+            frame[column] = frame[column].where(frame[column].notna(), "").astype(str)
+    if "physically_consistent" in frame.columns:
+        verdict = frame["physically_consistent"].map(
+            {True: True, False: False, "True": True, "False": False})
+        frame["physically_consistent"] = verdict.astype(object).where(verdict.notna(), None)
+    return frame
+
+
 def equilibrium_quality_summary(table) -> dict[str, Any]:
     """Slice counts per cohort, and Thomson consistency within each.
 
@@ -236,8 +269,10 @@ def equilibrium_quality_summary(table) -> dict[str, Any]:
         group = slices[slices["quality_label"] == cohort] if len(slices) else slices
         if cohort == "good":
             # Over all good settings, as criteria.slice_labels reports it: a
-            # slice is consistent when any good setting is.
-            verdicts = [True if c else False if i else None
+            # slice is consistent when any good setting is.  A cell names
+            # settings or is empty; NaN / None (a CSV round trip of "") is
+            # empty too, never a verdict.
+            verdicts = [True if _names_a_setting(c) else False if _names_a_setting(i) else None
                         for c, i in zip(group.get("consistent_settings", []), group.get("inconsistent_settings", []))]
         else:
             verdicts = list(group["physically_consistent"]) if len(group) else []
@@ -541,6 +576,7 @@ def equilibrium_quality_confinement_funnel(confinement_table, *, quality_column:
 
 __all__: Sequence[str] = (
     "ADMISSIBILITY_RULES", "COHORTS", "CONFINEMENT_RULES", "CRITERIA_PATH", "CROSSWALK", "MEASUREMENT_RULES", "RULE_COLUMNS",
-    "FIT_QUALITY_RULES", "REPRESENTATIVE_CASES", "ROUTINE_SETTING", "TYPICALITY_METRICS", "STATUSES", "efit_evidence_columns", "equilibrium_quality_confinement_funnel", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
-    "equilibrium_quality_summary", "equilibrium_quality_table", "load_study_criteria", "select_representative_cases", "slice_cohorts",
+    "FIT_QUALITY_RULES", "REPRESENTATIVE_CASES", "ROUTINE_SETTING", "TYPICALITY_METRICS", "STATUSES", "TEXT_COLUMNS", "efit_evidence_columns", "equilibrium_quality_confinement_funnel", "equilibrium_quality_constraint_points", "equilibrium_quality_crosswalk", "equilibrium_quality_failure_census",
+    "equilibrium_quality_summary", "equilibrium_quality_table", "load_study_criteria", "read_equilibrium_quality_table",
+    "select_representative_cases", "slice_cohorts",
 )
