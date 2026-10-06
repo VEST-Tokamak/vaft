@@ -132,6 +132,9 @@ PIPELINE = frozenset({
     # impurity (#1565 Sec. 8): ADF11 states -> moments -> S1/S2 -> one scale -> check
     "resolve_radial_composition",
     "populate_radial_impurity_profiles",
+    # zeff_projection (#1566): R_p of the profile -> root / Lane Z's window objective
+    "project_zeff_profile_to_resistive_scalar",
+    "project_window_to_resistive_scalar",
     # impurity (#1565): match -> keep main ion -> dilute -> write species -> zeff
     "populate_impurity_profiles",
     # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
@@ -626,6 +629,13 @@ CONVENTION_SENSITIVE = frozenset({
     "populate_zeff_profile",
     "resolve_radial_composition",
     "populate_radial_impurity_profiles",
+    # zeff_projection (#1566): same model, states and objective on both sides
+    "profile_conductivity_model",
+    "spitzer_resistive_equivalent_zeff",
+    "project_zeff_profile_to_resistive_scalar",
+    "project_window_to_resistive_scalar",
+    "flat_profile_from_resistive",
+    "zeff_profile_for_state",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]
