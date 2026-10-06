@@ -5860,6 +5860,152 @@ RECIPES["summary_time_resistive_zeff"] = CallableRecipe(
 )
 
 
+# ---------------------------------------------------------------------------
+# Romero's voltage and volt-second balance (#781, #1590)
+#
+# compute_romero_flux_balance_ods evaluates every term; this view draws them.
+# The plasma resistance is an upstream estimate with its own provenance
+# (#781), so none is assumed: without plasma_resistance= the view draws the
+# terms that do not depend on it and the resistive part the balance
+# *implies*, V_B - V_I, labelled as such and never as an independent V_R.
+# ---------------------------------------------------------------------------
+
+
+def _romero_resistance(value: Any, n: int) -> np.ndarray | None:
+    """``plasma_resistance=`` as one value per slice [Ohm], or ``None`` when not given."""
+    if value is None:
+        return None
+    if isinstance(value, (bool, str)) or (isinstance(value, np.ndarray) and value.dtype.kind in "bUS"):
+        raise ValueError(f"plasma_resistance must be a number (or one per selected slice) in ohm; got {value!r}")
+    try:
+        r_p = np.broadcast_to(np.asarray(value, dtype=float), (n,)).copy()
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"plasma_resistance must be one value or one per selected slice ({n}) in ohm; got {value!r}"
+        ) from None
+    if not np.all(np.isfinite(r_p)) or np.any(r_p < 0.0):
+        raise ValueError("plasma_resistance must be finite and non-negative")
+    return r_p
+
+
+def _build_romero_balance(ods: Any, **options: Any) -> Panels:
+    """Romero's voltages, volt-seconds, internal inductance and closing resistance (#1590).
+
+    ``V_B``, ``V_C``, ``V_I``, ``L_i``, ``Phi_B``, ``Phi_B_direct`` and
+    ``Phi_I`` do not depend on the plasma resistance and are always drawn.
+    With ``plasma_resistance=`` the view adds ``V_R = R_p (I_p - I_ni)``, the
+    balance residual, ``Phi_R`` and ``Phi_closure``; without it, the
+    resistive voltage and volt-seconds the balance implies (``V_B - V_I``,
+    ``Phi_B - Phi_I``), which close it by construction.
+    """
+    from vaft.omas.process_wrapper import compute_romero_flux_balance_ods
+    from vaft.omas.resistive_zeff import current_carrying_window
+
+    asked = _range_option(options, "time_range")
+    window = asked
+    try:
+        if window is None:
+            window = current_carrying_window(ods)
+        raw_ni = options.get("non_inductive_current")
+        try:
+            if isinstance(raw_ni, (bool, str)):
+                raise TypeError
+            i_ni = 0.0 if raw_ni is None else float(raw_ni)
+        except (TypeError, ValueError):
+            raise ValueError(f"non_inductive_current must be a number in ampere; got {raw_ni!r}") from None
+        if not np.isfinite(i_ni):
+            raise ValueError(f"non_inductive_current must be finite; got {raw_ni!r}")
+        # R_p only enters V_R and what is built from it; those are taken from
+        # a second call with the caller's R_p, never from this zero.
+        out = compute_romero_flux_balance_ods(ods, R_p=0.0, I_ni=i_ni, time_range=window)
+    except (KeyError, IndexError) as exc:
+        raise ValueError(f"Romero's balance needs a multi-slice equilibrium: {exc}") from exc
+    t = np.asarray(out["time"], dtype=float)
+    if i_ni != 0.0:
+        # I_ni is signed like the stored I_p; a magnitude passed on a
+        # negative-current shot would enlarge |I_p - I_ni| instead of reducing it.
+        ip = np.asarray([_get(ods, f"equilibrium.time_slice.{int(i)}.global_quantities.ip")
+                         for i in out["time_index"]], dtype=float)
+        if np.any(np.sign(ip) != np.sign(i_ni)) or abs(i_ni) >= np.min(np.abs(ip)):
+            raise ValueError(
+                f"non_inductive_current={i_ni:g} A must carry the sign of I_p and stay below |I_p| "
+                f"in the window ({np.min(np.abs(ip)):.4g}-{np.max(np.abs(ip)):.4g} A, sign {np.sign(ip[0]):+g})"
+            )
+    r_p = _romero_resistance(options.get("plasma_resistance"), t.size)
+    given = None
+    if r_p is not None:
+        given = compute_romero_flux_balance_ods(ods, R_p=r_p, I_ni=i_ni, time_range=window)
+
+    voltages = [
+        Series(x=t, y=out["V_B"], label="V_B = -dpsi_B/dt (boundary)", style={"color": palette(0), "lw": 1.8}),
+        Series(x=t, y=out["V_I"], label="V_I (internal inductive)", style={"color": palette(1)}),
+        Series(x=t, y=out["V_C"], label="V_C = -d(psi_B + L_i I_p)/dt", style={"color": palette(2), "linestyle": "--"}),
+    ]
+    flux = [
+        Series(x=t, y=out["Phi_B"], label="Phi_B = int V_B dt", style={"color": palette(0), "lw": 1.8}),
+        Series(x=t, y=out["Phi_B_direct"], label="-(psi_B - psi_B(t0)) direct",
+               style={"color": palette(0), "linestyle": "none", "marker": "o", "markersize": 4}),
+        Series(x=t, y=out["Phi_I"], label="Phi_I", style={"color": palette(1)}),
+    ]
+    if given is None:
+        voltages.append(Series(x=t, y=out["V_B"] - out["V_I"], label="V_B - V_I (implied resistive)",
+                               style={"color": palette(3), "linestyle": ":"}))
+        flux.append(Series(x=t, y=out["Phi_B"] - out["Phi_I"], label="Phi_B - Phi_I (implied resistive)",
+                           style={"color": palette(3), "linestyle": ":"}))
+    else:
+        voltages += [
+            Series(x=t, y=given["V_R"], label="V_R = R_p (I_p - I_ni)", style={"color": palette(3)}),
+            Series(x=t, y=given["balance_residual"], label="residual V_B - V_R - V_I",
+                   style={"color": "emphasis:alert", "linestyle": ":"}),
+        ]
+        flux += [
+            Series(x=t, y=given["Phi_R"], label="Phi_R", style={"color": palette(3)}),
+            Series(x=t, y=given["Phi_closure"], label="closure Phi_B - Phi_R - Phi_I",
+                   style={"color": "emphasis:alert", "linestyle": ":"}),
+        ]
+    micro = 1e6
+    resistance = [Series(x=t, y=out["R_closing"] * micro, label="R_closing = (V_B - V_I)/(I_p - I_ni)",
+                         style={"color": palette(3), "marker": "o", "linestyle": "none"})]
+    if r_p is not None:
+        resistance.append(Series(x=t, y=r_p * micro, label="R_p given", style={"color": "role:reference"}))
+    assumption = ("I_ni = 0 (purely Ohmic, assumed)" if raw_ni is None
+                  else f"I_ni = {i_ni:g} A (given)")
+    # A caller's window is the axis, as on every windowed time history; the
+    # default (current-carrying) window is just where the slices are.
+    limits = None if asked is None else (float(asked[0]), float(asked[1]))
+    panels = Panels(
+        models=(
+            LineSeries(series=tuple(voltages), x_label="Time", x_unit="s", y_label="Voltage", y_unit="V",
+                       title="no R_p given: the resistive part is implied, not measured" if r_p is None
+                       else "R_p given by the caller"),
+            LineSeries(series=tuple(flux), x_label="Time", x_unit="s", y_label="Volt-seconds", y_unit="Wb"),
+            LineSeries(series=(Series(x=t, y=out["L_i"] * micro, label="L_i = mu0 R0 li_3 / 2",
+                                      style={"color": palette(0)}),),
+                       x_label="Time", x_unit="s", y_label="L_i", y_unit="uH",
+                       title=f"R0 = {out['R0']:.3f} m"),
+            LineSeries(series=tuple(resistance), x_label="Time", x_unit="s", y_label="Plasma resistance",
+                       y_unit="uOhm"),
+        ),
+        ncols=1, share_x=True,
+        suptitle=f"Romero voltage and volt-second balance, {assumption}",
+    )
+    if limits is None:
+        return panels
+    return replace(panels, models=tuple(replace(panel, x_limits=limits) for panel in panels.models))
+
+
+RECIPES["summary_time_romero_balance"] = CallableRecipe(
+    builder=_build_romero_balance,
+    description="Romero's boundary, inductive and resistive voltages and volt-seconds (#781, #1590).",
+    reads=(*_EQUILIBRIUM_SLICE_READS,
+           "equilibrium.time_slice.{i}.global_quantities.li_3",
+           "tf.r0", *_WALL_LIMITER_READS, *_RESISTIVE_ZEFF_COPY_READS),
+    backend=OMAS_BOUND,
+    reason="vaft.omas.process_wrapper.compute_romero_flux_balance_ods subscripts the ODS and derives li_3 on a copy",
+    windowed=True,
+)
+
+
 
 # ---------------------------------------------------------------------------
 # camera_visible: raster frames and their pinhole-projected EFIT/field-line
@@ -14679,3 +14825,133 @@ def conversion_reason(name: str) -> str:
     """Why plot ``name`` converts a non-OMAS input, or ``""`` when it never does."""
     recipe = RECIPES.get(name)
     return recipe.reason if isinstance(recipe, CallableRecipe) else ""
+
+
+# ---------------------------------------------------------------------------
+# Edge-q estimates for shots without an equilibrium (#1583)
+# ---------------------------------------------------------------------------
+
+#: ``summary_time_<quantity>`` -> (EdgeQEstimate field, y label, unit). The
+#: estimate's label comes from the result ("q95 (START estimate)"), never bare q95.
+EDGE_Q_VIEWS: dict[str, tuple[str, str, str]] = {
+    "summary_time_estimated_q95": ("estimated_q95", "", ""),
+    "summary_time_q_star_cylindrical": ("q_star_cylindrical", "q* (Menard, cylindrical)", ""),
+    "summary_time_q_star_kink": ("q_star_kink", "q* (Freidberg kink)", ""),
+    "summary_time_normalized_current": ("normalized_current", "I_N = I_p/(a B_T)", "MA/(m T)"),
+}
+
+#: The ``estimate_from=``, ``scaling=`` and ``configuration=`` vocabularies.
+EDGE_Q_SOURCES = ("auto", "equilibrium", "magnetics")
+Q95_SCALINGS = ("start", "iter")
+START_CONFIGURATIONS = ("limiter", "double_null")
+
+#: What :func:`vaft.omas.edge_q.edge_q_estimate` reads, for either source.
+_EDGE_Q_READS = (
+    "equilibrium.time", "equilibrium.vacuum_toroidal_field.r0", "equilibrium.vacuum_toroidal_field.b0",
+    "equilibrium.time_slice.{i}.boundary.minor_radius", "equilibrium.time_slice.{i}.boundary.geometric_axis.r",
+    "equilibrium.time_slice.{i}.boundary.elongation", "equilibrium.time_slice.{i}.boundary.triangularity",
+    "equilibrium.time_slice.{i}.boundary.outline.r", "equilibrium.time_slice.{i}.boundary.outline.z",
+    "equilibrium.time_slice.{i}.global_quantities.ip", "equilibrium.time_slice.{i}.global_quantities.q_95",
+    "magnetics.ip.0.data", "magnetics.ip.0.time", "magnetics.time",
+    "tf.time", "tf.b_field_tor_vacuum_r.data",
+    "dataset_description.data_entry.pulse",
+)
+
+
+def _edge_q_available(ods: Any) -> str | None:
+    """Why ``ods`` has neither an equilibrium nor a magnetics current to estimate from.
+
+    The same predicates :func:`vaft.omas.edge_q.edge_q_estimate` chooses its
+    source by, so discovery never advertises an input the builder then refuses.
+    """
+    from vaft.omas.edge_q import _equilibrium_usable, _magnetics_usable
+
+    if _equilibrium_usable(ods) or _magnetics_usable(ods):
+        return None
+    return ("needs equilibrium slices with a boundary, equilibrium.time and the vacuum field, "
+            "or magnetics.ip with the tf field")
+
+
+def _build_edge_q_time(entries: Sequence[tuple[str, Any]], *, _plot_name: str, **options: Any) -> LineSeries:
+    """One edge-q proxy against time, every entry overlaid, provenance in the legend.
+
+    ``estimate_from=``, ``estimate_shape=``, ``q95_scaling=`` and
+    ``start_configuration=`` are :func:`vaft.omas.edge_q.edge_q_estimate`'s
+    ``source``, ``shape``, ``scaling`` and ``configuration``; the scaling and the
+    stand-in shape default to the machine description. ``estimate_from="auto"``
+    (the default) draws the full-shot magnetics trace when the ODS has one, else
+    the equilibrium slices. On the estimated-q95 view each entry's equilibrium
+    q95 is overlaid as markers where the ODS has one.
+    """
+    from vaft.omas.edge_q import edge_q_estimate
+
+    key, quantity_label, unit = EDGE_Q_VIEWS[_plot_name]
+    window = _range_option(options, "time_range")
+    from vaft.omas.edge_q import _magnetics_usable
+
+    kwargs = {argument: options[option] for option, argument in (
+        ("estimate_shape", "shape"), ("q95_scaling", "scaling"), ("start_configuration", "configuration"))
+        if options.get(option) is not None}
+    source = options.get("estimate_from") or "auto"
+    several = len(entries) > 1
+    series: list[Series] = []
+    estimates: list[Series] = []
+    titles: set[str] = set()
+    for position, (label, ods) in enumerate(entries):
+        # The plot's "auto" is the full-shot magnetics trace when there is one:
+        # the equilibrium slices then overlay it as the check (issue #1583).
+        resolved = ("magnetics" if _magnetics_usable(ods) else "equilibrium") if source == "auto" else source
+        result = edge_q_estimate(ods, source=resolved, **kwargs)
+        name = result.label if key == "estimated_q95" else quantity_label
+        titles.add(name)
+        time = np.asarray(result.time, dtype=float)
+        keep = np.ones(time.shape, dtype=bool) if window is None else (time >= window[0]) & (time <= window[1])
+        shape_note = "" if result.source == "equilibrium" and result.shape_source.startswith("equilibrium") else (
+            "default shape" if result.shape_source.startswith("the default shape") else "caller shape")
+        parts = ([str(label)] if several else []) + ([name] if key == "estimated_q95" else [])
+        parts.append(f"from {result.source}" + (f", {shape_note}" if shape_note else ""))
+        style = {"color": palette(position)} if several else {}
+        series.append(Series(x=time[keep], y=np.asarray(getattr(result, key), dtype=float)[keep],
+                             label=", ".join(parts), entry=str(label), style=style))
+        estimates.append(series[-1])
+        if key == "estimated_q95" and result.equilibrium_q95 is not None:
+            eq_time = np.asarray(result.equilibrium_time, dtype=float)
+            eq_keep = np.ones(eq_time.shape, dtype=bool) if window is None else (
+                (eq_time >= window[0]) & (eq_time <= window[1]))
+            eq_label = f"{label} q95 (equilibrium)" if several else "q95 (equilibrium)"
+            series.append(Series(x=eq_time[eq_keep], y=result.equilibrium_q95[eq_keep], label=eq_label,
+                                 entry=str(label),
+                                 style={"marker": "o", "linestyle": "none", **style}))
+    heading = titles.pop() if len(titles) == 1 else "q95 (estimate)"
+    y_label = heading
+    shot = _entry_shot(entries)
+    title = options.get("title") or (f"{heading} #{shot}" if shot else heading)
+    return LineSeries(
+        series=tuple(series),
+        x_label="Time", x_unit="s",
+        y_label=y_label, y_unit=unit,
+        title=title,
+        x_limits=window if window is not None else _finite_span([s.x[np.isfinite(s.y)] for s in estimates]),
+    )
+
+
+for _name in EDGE_Q_VIEWS:
+    RECIPES[_name] = CallableRecipe(
+        builder=(lambda plot_name: (
+            lambda entries, **options: _build_edge_q_time(entries, _plot_name=plot_name, **options)
+        ))(_name),
+        description=(
+            "An edge-q proxy from global shape, plasma current and toroidal field against time "
+            "(vaft.omas.edge_q.edge_q_estimate), with the scaling and the shape's source stated."
+        ),
+        available=_edge_q_available,
+        reads=_EDGE_Q_READS,
+        backend=NEUTRAL,
+        multi_entry=True,
+        windowed=True,
+        choices={
+            "estimate_from": ChoiceDeclaration("auto", EDGE_Q_SOURCES),
+            "q95_scaling": ChoiceDeclaration(None, Q95_SCALINGS),
+            "start_configuration": ChoiceDeclaration(None, START_CONFIGURATIONS),
+        },
+    )
