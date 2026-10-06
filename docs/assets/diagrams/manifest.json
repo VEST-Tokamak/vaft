@@ -262,8 +262,8 @@
     },
     "external_code_integration.svg": {
       "call": "vaft.diagram.external_code_integration()",
-      "source_sha256": "717c626a04e20b30e175d97bbbf5d81d5279f8cc6179b05d90c68912f919d6ae",
-      "svg_sha256": "0e9bf97f55cdcfdba2c8fd091f30134c19c4c7d7ad7b35480f46cbd9c1a5c91f"
+      "source_sha256": "a126b53e20bd13019b5d4e42925861e8013a1e54efeca7b4965948a7c6baaf70",
+      "svg_sha256": "4c84c7fceafc686ae39f53e0f21f7aafe84be01b23c87cf4a4020d476da4099e"
     },
     "fast_magnetosonic_wave.svg": {
       "call": "vaft.diagram.fast_magnetosonic_wave()",

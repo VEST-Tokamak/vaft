@@ -263,6 +263,18 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
                     "10.1016/j.jcp.2016.07.039")),
     ),
     ExternalCode(
+        "mitim", "MITIM-fusion", ("integrated transport modelling", "flux-matching optimization"), "vaft.code.mitim",
+        "subprocess_executable", home="vaft.code.mitim.config:MITIM_PYTHON_ENV",
+        installation="vaft_managed_source_build", installers=("install/install_mitim.sh",),
+        provenance=("install/install_mitim.sh",), maturity="experimental",
+        native="MITIM driver inputs in its own interpreter, its run directories out",
+        links=(Reference("repository", "MITIM-fusion GitHub", "https://github.com/pabloprf/MITIM-fusion"),
+               _doi("P. Rodriguez-Fernandez et al., Nucl. Fusion 64, 076034 (2024)", "10.1088/1741-4326/ad4b3d")),
+        note="Runs in an isolated interpreter (VAFT_MITIM_PYTHON) that VAFT never imports, against the GACODE "
+             "build $GACODEHOME names; check it with install_mitim.sh --check-only. PORTALS flux matching is a later "
+             "stage of #1588.",
+    ),
+    ExternalCode(
         "tglf_nn", "TGLF neural-network surrogates", ("turbulent transport",), "vaft.code.gacode.tglf.surrogate",
         "in_process_python", home="vaft.code.gacode.tglf.surrogate.resolver:MODELS_HOME_ENV", installation="site_managed",
         extra="surrogate", native="ONNX models of TurbulentTransport.jl, evaluated locally",
