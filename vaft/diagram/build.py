@@ -40,7 +40,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         for projection in ("poloidal", "top", "3d")
     },
     # stability and operational-space charts, at their documented defaults
-    **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon")},
+    **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
     # reduced stability diagnostics (#1635)
     **{f"{name}.svg": (name, {}) for name in ("stability_diagnostic_taxonomy", "interchange_criteria")},
     **{f"li_qa_{r}.svg": ("li_qa", {"reference": r}) for r in ("wesson_1989", "cheng_1987")},

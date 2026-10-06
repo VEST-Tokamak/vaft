@@ -432,6 +432,7 @@ from .renderers.spectrograms import (
 from .renderers.tables import (
     equilibrium_table_fit_quality,
     equilibrium_table_summary,
+    equilibrium_table_validation,
     equilibrium_text_summary,
 )
 from .parameter_history import plot_parameter_history
