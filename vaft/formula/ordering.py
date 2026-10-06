@@ -146,9 +146,11 @@ def resistive_diffusion_time(L, eta):
 
     Convention
     ----------
-    No geometric factor: a cylindrical current profile relaxes on
-    $\mu_0a^2/(\pi^2\eta)$-like times, so treat $\tau_R$ as an ordering scale,
-    not a prediction of the relaxation time.
+    No geometric factor: the slowest resistive mode of a cylinder decays on
+    $\mu_0a^2/(j_{01}^2\eta)$ with $j_{01}^2 \approx 5.78$, so treat $\tau_R$
+    as an ordering scale, not a prediction of the relaxation time. A ratio
+    such as $\tau_{pulse}/\tau_R$ of order one says the ordering is not
+    separated, not that the profile is unrelaxed.
 
     Physical interpretation
     -----------------------
@@ -191,7 +193,8 @@ def lundquist_number(L, v_A, eta):
     ----------
     $S$ scales with $L$: a global $S$ (with $L = a$) and a sheet or layer $S$
     (with its own thickness or length) are different numbers. Name the
-    length when reporting it.
+    length when reporting it. ``vaft.process.perturbation.lundquist_number``
+    takes the two times instead, $\tau_R/\tau_A$; both are the same number.
 
     Physical interpretation
     -----------------------
@@ -331,7 +334,9 @@ def sound_gyroradius(T_e, m_i, B, Z=1.0):
     Convention
     ----------
     Cold ions: $c_s = \sqrt{ZT_e/m_i}$ and $\Omega_i = ZeB/m_i$. With a finite
-    ion temperature some texts put $T_e + T_i$ under the root.
+    ion temperature some texts put $T_e + T_i$ under the root. The same
+    number is ``sol.ion_sound_speed`` (with $T_i = 0$) over
+    ``particle.gyrofrequency``.
 
     Physical interpretation
     -----------------------
@@ -414,7 +419,8 @@ def braginskii_electron_collision_time(n_e, T_e, ln_Lambda, Z=1.0):
     ----------
     NRL's $3.44\times10^5\,T_e^{3/2}/(n\ln\Lambda)$ with $n$ in cm$^{-3}$,
     converted to m$^{-3}$; ions of charge $Z$ with $n_iZ^2 = n_eZ$ give the
-    $1/Z$. The Coulomb logarithm is an argument so its convention stays
+    $1/Z$, and for an ion mixture $Z = Z_{eff}$ is exact, since
+    $\sum_j n_jZ_j^2 = n_eZ_{eff}$. The Coulomb logarithm is an argument so its convention stays
     visible (``coulomb_logarithm_electron_sauter`` or
     ``coulomb_logarithm_from_n_T``).
 

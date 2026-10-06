@@ -14,8 +14,8 @@ def test_times_are_ordered_on_the_axis_and_the_ratios_follow_from_them():
     assert ratios["quasi_static"] == pytest.approx(times["evolution"] / times["alfven"])
     assert ratios["relaxation"] == pytest.approx(times["pulse"] / times["resistive"])
     assert times["evolution"] == pytest.approx(evolution_time(ILLUSTRATIVE_STATE["I_p"], ILLUSTRATIVE_STATE["dI_dt"]))
-    # the electron gyroperiod is shortest, the resistive time among the longest
-    assert min(times, key=times.get) == "electron_gyroperiod"
+    # the inverse electron gyrofrequency is shortest, the resistive time among the longest
+    assert min(times, key=times.get) == "electron_gyration"
     # markers sit in the same order as the values
     xs = {k: [it for it in d.scene.role(f"time:{k}") if hasattr(it, "kind")][0].at[0] for k in times}
     assert sorted(times, key=times.get) == sorted(xs, key=xs.get)

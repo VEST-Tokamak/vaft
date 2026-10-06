@@ -20,8 +20,9 @@ $d_i/L$, $\rho_i/L$, a Knudsen number or $\Omega\tau$ each test a different redu
 the second kind: **asymptotic ordering parameters** (#1627). The question they answer is which reduced
 models the scale separation of a given state justifies.
 
-The kernels are in [`vaft.formula.ordering`]({{ '/reference/formula/ordering/' | relative_url }}). They
-reuse VAFT's Alfvén speed, Spitzer resistivity, gyrofrequency, Larmor radius and plasma frequency. The
+The kernels are in [`vaft.formula.ordering`]({{ '/reference/formula/ordering/' | relative_url }}). Their
+inputs come from VAFT's Alfvén speed, Spitzer resistivity, gyrofrequency and Larmor radius formulas, and
+the inertial length calls the plasma frequency. The
 characteristic length, the resistivity and the collision time are always explicit arguments, so a global
 scale cannot be silently swapped for a layer scale.
 
@@ -55,8 +56,10 @@ Some distinctions must not be blurred:
 `timescale_hierarchy` evaluates the hierarchy of one illustrative low-field spherical-tokamak state rather
 than assuming it. Every time comes from a formula kernel; only the pulse length is an input.
 - **Clearly ordered:** $S$ and $\tau_{evol}/\tau_A$, both about $10^4$.
-- **Not small at all:**
-  - $\tau_{pulse}/\tau_R \approx 0.7$, so the current profile cannot be assumed resistively relaxed;
+- **Of order one, so not ordered:**
+  - $\tau_{pulse}/\tau_R \approx 0.7$. Resistive relaxation has to be checked, not assumed either way.
+    $\tau_R$ carries no geometric factor, and the slowest cylindrical mode decays $j_{01}^2 \approx 5.8$
+    times faster.
   - $d_i/a \approx 0.3$, so Hall corrections are not globally negligible.
 
 These numbers come from an illustrative state, not a measured discharge. Answering the same questions

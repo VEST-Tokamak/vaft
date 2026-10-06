@@ -63,6 +63,13 @@ def test_braginskii_collision_times():
         8.0 * braginskii_electron_collision_time(1e19, 100.0, 15.0))
 
 
+def test_charge_dependences():
+    tau_i = braginskii_ion_collision_time(1e19, 100.0, 15.0)
+    assert braginskii_ion_collision_time(1e19, 100.0, 15.0, Z=2.0) == pytest.approx(tau_i / 16.0)  # Z^4
+    rho = sound_gyroradius(50.0, 2 * MI_P, 0.15)
+    assert sound_gyroradius(50.0, 2 * MI_P, 0.15, Z=2.0) == pytest.approx(rho / np.sqrt(2.0))
+
+
 def test_knudsen_and_magnetization_compose_from_the_kernels():
     n, T, B, lnL = 1e19, 100.0, 0.1, 15.0
     tau_e = braginskii_electron_collision_time(n, T, lnL)

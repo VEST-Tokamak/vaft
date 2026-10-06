@@ -2,7 +2,7 @@
 
 ``timescale_hierarchy``
     the characteristic times of one illustrative low-field spherical-tokamak
-    state on a single logarithmic axis -- ion and electron gyroperiods,
+    state on a single logarithmic axis -- inverse ion and electron gyrofrequencies,
     collision time, Alfven time, current-ramp evolution, wall time, pulse
     and resistive diffusion times -- each computed by a ``vaft.formula``
     kernel, with the ratios that are ordering parameters. It is a worked
@@ -25,7 +25,6 @@ from vaft.formula.ordering import (
     braginskii_electron_collision_time,
     evolution_time,
     inertial_length,
-    lundquist_number,
     resistive_diffusion_time,
 )
 from vaft.formula.particle import gyrofrequency
@@ -36,7 +35,8 @@ from ._geometry import _check_labels
 from ._render import Diagram
 from ._scene import Arrow, Label, Marker, Polyline, Scene
 
-#: The illustrative state: a low-field spherical tokamak, hydrogen, not a measured discharge.
+#: The illustrative state: a low-field spherical tokamak, not a measured discharge. The ions are
+#: hydrogen for the mass density (v_A); Z_eff enters only the resistivity and the electron collision time.
 ILLUSTRATIVE_STATE: Dict[str, float] = {
     "B": 0.1,              # field [T]
     "n": 1.0e19,           # density [m^-3]
@@ -59,10 +59,11 @@ def timescales(state: Dict[str, float] = ILLUSTRATIVE_STATE) -> Dict[str, Tuple[
     eta = spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(s["T_e"], s["Z_eff"], ln_lambda)
     v_A = v_alfven_from_B_n_mi(s["B"], s["n"], MI_P)
     return {
-        "electron_gyroperiod": ("$\\Omega_{ce}^{-1}$", 1.0 / abs(gyrofrequency(-QE, ME, s["B"])), False),
-        "ion_gyroperiod": ("$\\Omega_{ci}^{-1}$", 1.0 / abs(gyrofrequency(QE, MI_P, s["B"])), False),
+        "electron_gyration": ("$\\Omega_{ce}^{-1}$", 1.0 / abs(gyrofrequency(-QE, ME, s["B"])), False),
+        "ion_gyration": ("$\\Omega_{ci}^{-1}$", 1.0 / abs(gyrofrequency(QE, MI_P, s["B"])), False),
         "alfven": ("$\\tau_A$", alfven_time(s["a"], v_A), False),
-        "collision": ("$\\tau_e$", braginskii_electron_collision_time(s["n"], s["T_e"], ln_lambda), False),
+        "collision": ("$\\tau_e$", braginskii_electron_collision_time(s["n"], s["T_e"], ln_lambda, s["Z_eff"]),
+                      False),
         "evolution": ("$\\tau_{evol}$", evolution_time(s["I_p"], s["dI_dt"]), False),
         "wall": ("$\\tau_w$", thin_wall_time(s["wall_sigma"], s["wall_d"], s["wall_b"]), False),
         "pulse": ("$\\tau_{pulse}$", s["pulse"], True),
@@ -94,7 +95,7 @@ def _sci(x: float) -> str:
 def timescale_hierarchy(*, labels: bool = True) -> Diagram:
     r"""The timescales of one illustrative state on a logarithmic axis, with the ratios that order them.
 
-    Gyroperiods (``particle.gyrofrequency``), the electron collision time
+    Inverse gyrofrequencies $1/\Omega$ (``particle.gyrofrequency``), the electron collision time
     (``ordering.braginskii_electron_collision_time``), the Alfven time over
     the minor radius, the $I_p$-ramp evolution time, the thin-wall time
     (``vde.thin_wall_time``), the pulse (an input) and the resistive
@@ -130,10 +131,8 @@ def timescale_hierarchy(*, labels: bool = True) -> Diagram:
             items.append(Label((x, y), text, "small label,align=center", anchor="south" if up else "north",
                                role=f"time:{key}"))
     s = ILLUSTRATIVE_STATE
-    v_A = v_alfven_from_B_n_mi(s["B"], s["n"], MI_P)
-    eta = spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(s["T_e"], s["Z_eff"], coulomb_logarithm_from_n_T(s["n"], s["T_e"]))
     ratios = {
-        "lundquist": lundquist_number(s["a"], v_A, eta),
+        "lundquist": times["resistive"][1] / times["alfven"][1],  # S = tau_R / tau_A at the same length
         "quasi_static": times["evolution"][1] / times["alfven"][1],
         "relaxation": times["pulse"][1] / times["resistive"][1],
         "hall": inertial_length(s["n"], MI_P) / s["a"],
@@ -143,7 +142,7 @@ def timescale_hierarchy(*, labels: bool = True) -> Diagram:
                            f"$S = \\tau_R/\\tau_A \\approx {_sci(ratios['lundquist'])}$, "
                            f"$\\tau_{{evol}}/\\tau_A \\approx {_sci(ratios['quasi_static'])}$: well separated. "
                            f"$\\tau_{{pulse}}/\\tau_R \\approx {ratios['relaxation']:.2g}$, "
-                           f"$d_i/a \\approx {ratios['hall']:.2g}$: not",
+                           f"$d_i/a \\approx {ratios['hall']:.2g}$: of order one, not ordered",
                            "label", anchor="north", role="ratios"))
         items.append(Label((0.5 * length, -5.2),
                            f"Illustrative low-field spherical tokamak, not a measurement: $B = {s['B']:g}$ T, "
