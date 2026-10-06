@@ -662,6 +662,35 @@ _REFERENCE_LINES = ((0, 3), (1,), (2,), (4,), (5,))
 _COMMUNICATION = ("point_to_point", "common_model", "equilibrium")
 
 
+#: half the distance between the four research modes: they sit at the corners of a square around the shared state
+_MODE_OFFSET = 3.5
+
+
+def _research_modes(items: List, example: bool) -> Dict[str, Box]:
+    """The four research modes at the corners, as every common-model figure places them; boxes appended to items."""
+    d = _MODE_OFFSET
+    nodes: Dict[str, Box] = {}
+    for (key, text, colour), (x, y) in zip(ACTIVITIES, [(-d, d), (d, d), (-d, -d), (d, -d)]):
+        body = _titled(text, EQUILIBRIUM_ROUTES[key]) if example else f"\\textbf{{{escape_latex(text)}}}"
+        b = box(x, y, 4.5, 1.45 if example else 1.0, body,
+                style=f"concept actor,fill={colour}!18,draw={colour}!80", role=f"node:{key}", latex=True)
+        nodes[key] = b
+        items += list(b.items)
+    return nodes
+
+
+def _common_hub(items: List, edges: List, nodes: Dict[str, Box], example: bool) -> Box:
+    """The shared state at the centre, exchanging with every research mode."""
+    hub_text = ("\\textbf{IMAS Equilibrium IDS}\\\\[3pt]$\\Delta^{*}\\psi = -\\mu_0 R^2 p'(\\psi) - FF'(\\psi)$"
+                if example else
+                "\\textbf{Common Data Model (IMAS)}\\\\{\\small shared standardized representation}")
+    hub = box(0.0, 0.0, 5.6, 1.4, hub_text, style="concept hub", role="node:hub", latex=True)
+    items += list(hub.items)
+    for k, _, _ in ACTIVITIES:
+        _edge(items, edges, nodes[k], hub, k, "hub", both=True)
+    return hub
+
+
 def experiment_modeling_theory_data_network(communication: str = "common_model", *,
                                             labels: bool = True) -> Diagram:
     r"""Why a common fusion data model: four research modes, pairwise against a shared representation.
@@ -688,16 +717,9 @@ def experiment_modeling_theory_data_network(communication: str = "common_model",
         raise ValueError(f"communication must be one of {_COMMUNICATION}, not {communication!r}")
     items: List = []
     edges: List = []
-    d = 3.5
-    corners = [(-d, d), (d, d), (-d, -d), (d, -d)]
-    nodes: Dict[str, Box] = {}
+    d = _MODE_OFFSET
     example = communication == "equilibrium"
-    for (key, text, colour), (x, y) in zip(ACTIVITIES, corners):
-        body = _titled(text, EQUILIBRIUM_ROUTES[key]) if example else f"\\textbf{{{escape_latex(text)}}}"
-        b = box(x, y, 4.5, 1.45 if example else 1.0, body,
-                style=f"concept actor,fill={colour}!18,draw={colour}!80", role=f"node:{key}", latex=True)
-        nodes[key] = b
-        items += list(b.items)
+    nodes = _research_modes(items, example)
     keys = [k for k, _, _ in ACTIVITIES]
     n = len(keys)
     if communication == "point_to_point":
@@ -708,13 +730,7 @@ def experiment_modeling_theory_data_network(communication: str = "common_model",
         caption = f"\\textbf{{Without a common model}}: $N(N-1)/2 = {adapters}$ pairwise adapters"
         note = "A new research mode needs $N-1$ new adapters"
     else:
-        hub_text = ("\\textbf{IMAS Equilibrium IDS}\\\\[3pt]$\\Delta^{*}\\psi = -\\mu_0 R^2 p'(\\psi) - FF'(\\psi)$"
-                    if example else
-                    "\\textbf{Common Data Model (IMAS)}\\\\{\\small shared standardized representation}")
-        hub = box(0.0, 0.0, 5.6, 1.4, hub_text, style="concept hub", role="node:hub", latex=True)
-        items += list(hub.items)
-        for k in keys:
-            _edge(items, edges, nodes[k], hub, k, "hub", both=True)
+        _common_hub(items, edges, nodes, example)
         adapters = n
         caption = (f"\\textbf{{With a common model}}: $N = {adapters}$ common-model adapters" if not example else
                    "Different scientific routes produce, consume, and compare\\\\a common standardized equilibrium "
@@ -732,6 +748,74 @@ def experiment_modeling_theory_data_network(communication: str = "common_model",
                    model={"communication": communication, "nodes": tuple(keys), "edges": tuple(edges),
                           "adapters": adapters,
                           "routes": dict(EQUILIBRIUM_ROUTES) if example else {}})
+
+
+#: the scientific domains the framework figure can be specialised to
+_FRAMEWORK_DOMAINS = (None, "equilibrium")
+#: what an equilibrium is analysed into: equilibrium-derived descriptors, not downstream stability models
+EQUILIBRIUM_ANALYSIS: Tuple[Tuple[str, str], ...] = (
+    ("mhd_parameters", "MHD Parameters"), ("plasma_shape", "Plasma Shape"), ("operational_space", "Operational Space"),
+)
+
+
+def integrated_scientific_framework(domain=None, *, labels: bool = True) -> Diagram:
+    r"""The research modes and their common state inside one integrated framework, serving analysis (#1698).
+
+    The four research modes and the Common Data Model (IMAS) sit exactly as in
+    ``experiment_modeling_theory_data_network("common_model")``, inside an
+    Integrated Framework boundary, and the shared state feeds one downstream
+    Analysis node. Three concepts are kept apart: the Common Data Model is the
+    shared representation; the framework connects, runs, compares and
+    reproduces research through it; analysis is the scientific use of the
+    integrated state.
+
+    ``domain="equilibrium"`` specialises the figure: the representative
+    equilibrium routes of each mode and the IMAS equilibrium IDS, with an
+    analysis of MHD parameters, plasma shape and operational space -- the
+    equilibrium-derived descriptors. Stability codes are downstream models of
+    the equilibrium and stay out of it. Compact references sit beneath.
+    """
+    labels = _check_labels(labels)
+    if domain not in _FRAMEWORK_DOMAINS:
+        raise ValueError(f"domain must be one of {_FRAMEWORK_DOMAINS}, not {domain!r}")
+    example = domain == "equilibrium"
+    d = _MODE_OFFSET
+    items: List = []
+    edges: List = []
+    # the framework boundary first, so everything else is drawn over it
+    frame_x, frame_top = d + 2.25 + 0.55, d + (0.725 if example else 0.5) + 1.25
+    analysis_y = -d - 2.45
+    analysis_h = 1.15 if example else 0.95
+    frame_bottom = analysis_y - 0.5 * analysis_h - 0.5
+    items.append(Polyline.of([(-frame_x, frame_bottom), (frame_x, frame_bottom), (frame_x, frame_top),
+                              (-frame_x, frame_top)], "concept frame", role="framework", closed=True))
+    items.append(Label((-frame_x + 0.25, frame_top - 0.15), "\\textbf{Integrated Framework}", "concept group title",
+                       anchor="north west", role="framework"))
+    items.append(Label((frame_x - 0.25, frame_top - 0.2), "connects, runs, compares and reproduces research",
+                       "concept annotation", anchor="north east", role="framework"))
+    nodes = _research_modes(items, example)
+    hub = _common_hub(items, edges, nodes, example)
+    body = "\\textbf{Analysis}"
+    if example:
+        body += "\\\\{\\small " + " $\\cdot$ ".join(escape_latex(t) for _, t in EQUILIBRIUM_ANALYSIS) + "}"
+    analysis = box(0.0, analysis_y, 9.4 if example else 4.0, analysis_h, body, style="concept strong",
+                   role="node:analysis", latex=True)
+    items += list(analysis.items)
+    _down_or_up(items, edges, hub, analysis, "hub", "analysis")
+    if example:
+        lines = ("; ".join(EQUILIBRIUM_REFERENCES[i] for i in group) for group in _REFERENCE_LINES)
+        items.append(Label((0.0, frame_bottom - 0.25), "\\\\".join(lines), "concept reference", anchor="north",
+                           role="references"))
+    if labels:
+        note = "Common Data Model: shared representation; framework: connects and reproduces; analysis: the use"
+        items.append(Label((0.0, frame_bottom - (2.75 if example else 0.3)), note, "note", anchor="north", role="note"))
+    return Diagram("integrated_scientific_framework", Scene(tuple(items)),
+                   model={"framework": "integrated", "domain": domain,
+                          "activities": tuple(k for k, _, _ in ACTIVITIES),
+                          "shared_state": "equilibrium" if example else "common_data_model",
+                          "analysis": "analysis",
+                          "analysis_categories": tuple(k for k, _ in EQUILIBRIUM_ANALYSIS) if example else (),
+                          "routes": dict(EQUILIBRIUM_ROUTES) if example else {}, "edges": tuple(edges)})
 
 
 #: interfaces and the interaction each one is for: (key, name, use, planned)
