@@ -1,0 +1,3342 @@
+schema_version: 1
+issue: 1712
+scan:
+  scanned_at: '2026-10-06T07:13:29+00:00'
+  roots:
+  - /srv/vest.filedb
+  - /home/user1/runs/campaign/filedb
+  shots:
+  - 39915
+  - 39916
+  - 40600
+  - 41524
+  - 41672
+  - 42962
+  - 45531
+  - 48224
+  - 48226
+states:
+- available
+- not-applicable
+- input-unavailable
+- server-unavailable
+- validation-failed
+- regeneration-required
+- solver-unavailable
+- deferred
+- not-reference-qualified
+packaged:
+  39915:
+    reference_id: vest-39915-until-efit-v5
+    imas_dd_version: 3.41.0
+    packaging: wheel-and-sdist
+    equilibria: []
+    ids:
+    - barometry
+    - dataset_description
+    - ec_launchers
+    - equilibrium
+    - magnetics
+    - pf_active
+    - pf_passive
+    - spectrometer_uv
+    - tf
+    - wall
+  40600:
+    reference_id: vest-40600-camera-fluctuation-v2
+    imas_dd_version: 3.41.0
+    packaging: repository-only
+    equilibria: []
+    ids:
+    - barometry
+    - camera_visible
+    - dataset_description
+    - ec_launchers
+    - langmuir_probes
+    - magnetics
+    - pf_active
+    - spectrometer_uv
+    - tf
+    - wall
+  41524:
+    reference_id: vest-41524-pipeline-full-imas-v6
+    imas_dd_version: 3.41.0
+    packaging: repository-only
+    equilibria: []
+    ids:
+    - barometry
+    - dataset_description
+    - ec_launchers
+    - em_coupling
+    - equilibrium
+    - langmuir_probes
+    - magnetics
+    - pf_active
+    - pf_passive
+    - spectrometer_uv
+    - tf
+    - wall
+  41672:
+    reference_id: vest-41672-pipeline-full-imas-v6
+    imas_dd_version: 3.41.0
+    packaging: repository-only
+    equilibria: []
+    ids:
+    - barometry
+    - dataset_description
+    - ec_launchers
+    - em_coupling
+    - equilibrium
+    - langmuir_probes
+    - magnetics
+    - pf_active
+    - pf_passive
+    - spectrometer_uv
+    - tf
+    - wall
+  45531:
+    reference_id: vest-45531-fluctuation-v2
+    imas_dd_version: 3.41.0
+    packaging: repository-only
+    equilibria: []
+    ids:
+    - barometry
+    - dataset_description
+    - ec_launchers
+    - langmuir_probes
+    - magnetics
+    - pf_active
+    - soft_x_rays
+    - spectrometer_uv
+    - tf
+    - wall
+  48224:
+    reference_id: vest-48224-kinetic-300ms-v2
+    imas_dd_version: 3.41.0
+    packaging: repository-only
+    equilibria:
+    - chease
+    - efit_kinetic
+    - efit_magnetic
+    ids:
+    - charge_exchange
+    - core_profiles
+    - dataset_description
+    - equilibrium
+    - thomson_scattering
+    - wall
+rows:
+- shot: 39915
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: &id001
+    name: diagnostics.json.gz
+    size: 9588811
+    mtime: '2026-09-30T06:03:57+00:00'
+  manifest_status: partial
+  sha256: b1c114661ca9aa62f9cf162c681603323b0c220fc03d9725d51524e254eb329d
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id001
+  manifest_status: partial
+  sha256: b1c114661ca9aa62f9cf162c681603323b0c220fc03d9725d51524e254eb329d
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id001
+  manifest_status: partial
+  sha256: b1c114661ca9aa62f9cf162c681603323b0c220fc03d9725d51524e254eb329d
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id001
+  manifest_status: partial
+  sha256: b1c114661ca9aa62f9cf162c681603323b0c220fc03d9725d51524e254eb329d
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id001
+  manifest_status: partial
+  sha256: b1c114661ca9aa62f9cf162c681603323b0c220fc03d9725d51524e254eb329d
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id001
+  manifest_status: partial
+  sha256: b1c114661ca9aa62f9cf162c681603323b0c220fc03d9725d51524e254eb329d
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39915
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id001
+  manifest_status: partial
+  sha256: b1c114661ca9aa62f9cf162c681603323b0c220fc03d9725d51524e254eb329d
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: eddy.json.gz
+    size: 22359029
+    mtime: '2026-09-30T06:04:07+00:00'
+  manifest_status: success
+  sha256: 014099ec47a139e9936d274971ad3728434a1e45e8998cc5ee58b99c103ad513
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: efit.json.gz
+    size: 2971709
+    mtime: '2026-09-30T06:50:08+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: thomson_scattering
+  source: main
+  occurrence: 0
+  stage: thomson
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: thomson.json.gz
+    size: 2073
+    mtime: '2026-09-30T07:08:11+00:00'
+  manifest_status: success
+  sha256: 79e1a312aa600fe455e8f2e4d1c20761eaed166940e60e1a76ab6cde90e3c48f
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39915
+  ids: charge_exchange
+  source: main
+  occurrence: 0
+  stage: ces
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: ces.json.gz
+    size: 210
+    mtime: '2026-09-30T07:08:11+00:00'
+    stub: VEST charge exchange; machine era vest-pre-43017-pf1906
+  manifest_status: unavailable
+  sha256: 1c81aec057f1d3675103d537ab90862c21b8b44230b29c0c443c2343f37735a8
+  machine_version: vest-pre-43017-pf1906
+  state: validation-failed
+  reason: 'stage manifest status ''unavailable'': VEST charge exchange; machine era vest-pre-43017-pf1906'
+  packaged: false
+- shot: 39915
+  ids: core_profiles
+  source: main
+  occurrence: 0
+  stage: core_profiles
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: core_profiles.json.gz
+    size: 46988
+    mtime: '2026-09-30T09:56:28+00:00'
+  manifest_status: success
+  sha256: e4473f3dcd4f9269a083bd974fd83385f5ac70e09832d20de9dd2a9bd9b28e2d
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39915
+  ids: equilibrium
+  source: electron-efit
+  occurrence: 0
+  stage: electron_efit
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: electron_efit.json.gz
+    size: 176177
+    mtime: '2026-09-30T09:57:06+00:00'
+  manifest_status: success
+  sha256: 5cdc39024ebaea6d64f31f63046fb69a4250339e03e169ab3d89657b6f7f31bb
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: equilibrium
+  source: kinetic-efit
+  occurrence: 0
+  stage: kinetic_efit
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: kinetic_efit.json.gz
+    size: 189
+    mtime: '2026-09-30T09:56:30+00:00'
+    stub: VEST kinetic efit; machine era vest-pre-43017-pf1906
+  manifest_status: unavailable
+  sha256: d1d01a6bb146905b8a998aa9bc504af631fcc7756946b8f56e5c36fb8394a339
+  machine_version: vest-pre-43017-pf1906
+  state: validation-failed
+  reason: 'stage manifest status ''unavailable'': VEST kinetic efit; machine era vest-pre-43017-pf1906'
+  packaged: true
+- shot: 39915
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: &id002
+    name: diagnostics.json.gz
+    size: 9568202
+    mtime: '2026-10-01T12:43:22+00:00'
+  manifest_status: partial
+  sha256: 172ec02a6b85c8f5334fb7e609d627e248ede0f4d2d43833148274efad66ab43
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id002
+  manifest_status: partial
+  sha256: 172ec02a6b85c8f5334fb7e609d627e248ede0f4d2d43833148274efad66ab43
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id002
+  manifest_status: partial
+  sha256: 172ec02a6b85c8f5334fb7e609d627e248ede0f4d2d43833148274efad66ab43
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id002
+  manifest_status: partial
+  sha256: 172ec02a6b85c8f5334fb7e609d627e248ede0f4d2d43833148274efad66ab43
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id002
+  manifest_status: partial
+  sha256: 172ec02a6b85c8f5334fb7e609d627e248ede0f4d2d43833148274efad66ab43
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id002
+  manifest_status: partial
+  sha256: 172ec02a6b85c8f5334fb7e609d627e248ede0f4d2d43833148274efad66ab43
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39915
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id002
+  manifest_status: partial
+  sha256: 172ec02a6b85c8f5334fb7e609d627e248ede0f4d2d43833148274efad66ab43
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: eddy.json.gz
+    size: 22360802
+    mtime: '2026-10-02T11:14:53+00:00'
+  manifest_status: success
+  sha256: 16ab8a1414b31d39fed3d6bc486dd9b4a51dcd358bb74d47b77d8de86594b980
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 39915
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output:
+    name: efit.json
+    size: 3801988
+    mtime: '2026-09-02T13:54:43+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: regeneration-required
+  reason: upstream eddy (2026-10-02) is newer
+  packaged: true
+- shot: 39915
+  ids: equilibrium
+  source: main/chease
+  occurrence: 0
+  stage: chease
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output:
+    name: chease.json
+    size: 49724238
+    mtime: '2026-09-02T13:56:03+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: regeneration-required
+  reason: upstream efit is itself stale
+  packaged: true
+- shot: 39915
+  ids: mhd_linear
+  source: main/chease
+  occurrence: 0
+  stage: mhd_linear
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output: &id003
+    name: mhd_linear.json
+    size: 37336
+    mtime: '2026-09-03T01:34:18+00:00'
+  manifest_status: success
+  sha256: 984e47b060cd2717ffef8905b6f6ca953b7cf4b308c80450d02877fc58e2643f
+  machine_version: vest-pre-43017-pf1906
+  state: regeneration-required
+  reason: upstream chease is itself stale
+  packaged: false
+- shot: 39915
+  ids: ntms
+  source: main/chease
+  occurrence: 0
+  stage: mhd_linear
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output: *id003
+  manifest_status: success
+  sha256: 984e47b060cd2717ffef8905b6f6ca953b7cf4b308c80450d02877fc58e2643f
+  machine_version: vest-pre-43017-pf1906
+  state: regeneration-required
+  reason: upstream chease is itself stale
+  packaged: false
+- shot: 39915
+  ids: pulse_schedule
+  source: main
+  occurrence: 0
+  stage: shotlog
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: shotlog.json.gz
+    size: 896
+    mtime: '2026-09-18T16:14:29+00:00'
+    stub: Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured.
+  manifest_status: success
+  sha256: de7083485b2b9314cddc85429352b78598efb4f82200523fe5c9fe7487f5daa8
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39915
+  ids: shotlog
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 1
+    size: 12526
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 39915
+  ids: soft_x_rays
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 5
+    size: 199897134
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 39915
+  ids: dataset_description
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 39915
+  ids: wall
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 39916
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: &id004
+    name: diagnostics.json.gz
+    size: 9603259
+    mtime: '2026-09-30T06:16:42+00:00'
+  manifest_status: partial
+  sha256: 102fed3526a32de8e0f1798cfc7a43aea07e3abc25972cb1201248b352b0e1e5
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id004
+  manifest_status: partial
+  sha256: 102fed3526a32de8e0f1798cfc7a43aea07e3abc25972cb1201248b352b0e1e5
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id004
+  manifest_status: partial
+  sha256: 102fed3526a32de8e0f1798cfc7a43aea07e3abc25972cb1201248b352b0e1e5
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id004
+  manifest_status: partial
+  sha256: 102fed3526a32de8e0f1798cfc7a43aea07e3abc25972cb1201248b352b0e1e5
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id004
+  manifest_status: partial
+  sha256: 102fed3526a32de8e0f1798cfc7a43aea07e3abc25972cb1201248b352b0e1e5
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id004
+  manifest_status: partial
+  sha256: 102fed3526a32de8e0f1798cfc7a43aea07e3abc25972cb1201248b352b0e1e5
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id004
+  manifest_status: partial
+  sha256: 102fed3526a32de8e0f1798cfc7a43aea07e3abc25972cb1201248b352b0e1e5
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: eddy.json.gz
+    size: 22348609
+    mtime: '2026-09-30T06:16:58+00:00'
+  manifest_status: success
+  sha256: 3c651cc8eb792e32314fff9bb6dcc3cb4687dc189b6c8321b60a211f3bd812aa
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: efit.json.gz
+    size: 3478972
+    mtime: '2026-09-30T06:53:06+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: thomson_scattering
+  source: main
+  occurrence: 0
+  stage: thomson
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: thomson.json.gz
+    size: 2184
+    mtime: '2026-09-30T07:21:58+00:00'
+  manifest_status: success
+  sha256: b303338f3ca7237cf2ff39578a6b03b4ac0562346b24e20ecee2178c266ac9c8
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: charge_exchange
+  source: main
+  occurrence: 0
+  stage: ces
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: ces.json.gz
+    size: 210
+    mtime: '2026-09-30T07:22:48+00:00'
+    stub: VEST charge exchange; machine era vest-pre-43017-pf1906
+  manifest_status: unavailable
+  sha256: 6a34677574e73248c64d1730fc5758c350550d2543066affce359aaa48783b81
+  machine_version: vest-pre-43017-pf1906
+  state: validation-failed
+  reason: 'stage manifest status ''unavailable'': VEST charge exchange; machine era vest-pre-43017-pf1906'
+  packaged: false
+- shot: 39916
+  ids: core_profiles
+  source: main
+  occurrence: 0
+  stage: core_profiles
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: core_profiles.json.gz
+    size: 75348
+    mtime: '2026-09-30T09:56:05+00:00'
+  manifest_status: success
+  sha256: f2220898b1cec979ea812868982cb06fbbe8d0b6c739e610a5c28dde5cbd2dfa
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: equilibrium
+  source: electron-efit
+  occurrence: 0
+  stage: electron_efit
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: electron_efit.json.gz
+    size: 177229
+    mtime: '2026-09-30T09:56:11+00:00'
+  manifest_status: success
+  sha256: 291759f7ab4725d113421e958c801091b9be80a15b300c2991ba252b59522c53
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: equilibrium
+  source: kinetic-efit
+  occurrence: 0
+  stage: kinetic_efit
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: kinetic_efit.json.gz
+    size: 189
+    mtime: '2026-09-30T09:56:08+00:00'
+    stub: VEST kinetic efit; machine era vest-pre-43017-pf1906
+  manifest_status: unavailable
+  sha256: d11777256b59db9d4ee1ea8ce0cb7424f958ac71b586b0457683c97e18b85b44
+  machine_version: vest-pre-43017-pf1906
+  state: validation-failed
+  reason: 'stage manifest status ''unavailable'': VEST kinetic efit; machine era vest-pre-43017-pf1906'
+  packaged: false
+- shot: 39916
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: &id005
+    name: diagnostics.json.gz
+    size: 9592581
+    mtime: '2026-10-01T12:43:23+00:00'
+  manifest_status: partial
+  sha256: b916ce7eb1e729167bd5ef583205a48386977c9912fd5b3a9283512e393bd1f0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id005
+  manifest_status: partial
+  sha256: b916ce7eb1e729167bd5ef583205a48386977c9912fd5b3a9283512e393bd1f0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id005
+  manifest_status: partial
+  sha256: b916ce7eb1e729167bd5ef583205a48386977c9912fd5b3a9283512e393bd1f0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id005
+  manifest_status: partial
+  sha256: b916ce7eb1e729167bd5ef583205a48386977c9912fd5b3a9283512e393bd1f0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id005
+  manifest_status: partial
+  sha256: b916ce7eb1e729167bd5ef583205a48386977c9912fd5b3a9283512e393bd1f0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id005
+  manifest_status: partial
+  sha256: b916ce7eb1e729167bd5ef583205a48386977c9912fd5b3a9283512e393bd1f0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id005
+  manifest_status: partial
+  sha256: b916ce7eb1e729167bd5ef583205a48386977c9912fd5b3a9283512e393bd1f0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: eddy.json.gz
+    size: 22347697
+    mtime: '2026-10-02T11:14:52+00:00'
+  manifest_status: success
+  sha256: 84075a81c9a4fa977e54056fa7337e14c84d85fa369ebc5193829aaa479a9abe
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output:
+    name: efit.json
+    size: 3416356
+    mtime: '2026-09-03T14:39:35+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: regeneration-required
+  reason: upstream eddy (2026-10-02) is newer
+  packaged: false
+- shot: 39916
+  ids: pulse_schedule
+  source: main
+  occurrence: 0
+  stage: shotlog
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: shotlog.json.gz
+    size: 896
+    mtime: '2026-09-18T16:14:29+00:00'
+    stub: Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured.
+  manifest_status: success
+  sha256: 56798d934bdcadd2ada17d6e696cf19ff8df3386ba0c01068d99cb239adc9ddd
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 39916
+  ids: shotlog
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 1
+    size: 12526
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 39916
+  ids: soft_x_rays
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 5
+    size: 199902229
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 40600
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: &id006
+    name: diagnostics.json.gz
+    size: 9428416
+    mtime: '2026-10-02T17:32:19+00:00'
+  manifest_status: partial
+  sha256: 8cee08f592034dc370ba15002d35169648602364ec537a61e2420b1500efcae0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 40600
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id006
+  manifest_status: partial
+  sha256: 8cee08f592034dc370ba15002d35169648602364ec537a61e2420b1500efcae0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 40600
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id006
+  manifest_status: partial
+  sha256: 8cee08f592034dc370ba15002d35169648602364ec537a61e2420b1500efcae0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 40600
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id006
+  manifest_status: partial
+  sha256: 8cee08f592034dc370ba15002d35169648602364ec537a61e2420b1500efcae0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 40600
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id006
+  manifest_status: partial
+  sha256: 8cee08f592034dc370ba15002d35169648602364ec537a61e2420b1500efcae0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 40600
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id006
+  manifest_status: partial
+  sha256: 8cee08f592034dc370ba15002d35169648602364ec537a61e2420b1500efcae0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 40600
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id006
+  manifest_status: partial
+  sha256: 8cee08f592034dc370ba15002d35169648602364ec537a61e2420b1500efcae0
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 40600
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: eddy.json.gz
+    size: 22373119
+    mtime: '2026-10-02T18:53:01+00:00'
+  manifest_status: success
+  sha256: fa3337016a5d4b04de175ff6d5bee3cbe81ae74b517c2c58dcf09075696a0be9
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 40600
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output:
+    name: efit.json
+    size: 1237776
+    mtime: '2026-09-03T12:19:18+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: regeneration-required
+  reason: upstream eddy (2026-10-02) is newer
+  packaged: false
+- shot: 40600
+  ids: pulse_schedule
+  source: main
+  occurrence: 0
+  stage: shotlog
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: shotlog.json.gz
+    size: 724
+    mtime: '2026-09-18T16:14:35+00:00'
+    stub: Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured.
+  manifest_status: success
+  sha256: 387a6b0d046ff48834381401d9275a6e945d7540dc5eda3b17ed91eac92d90e5
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 40600
+  ids: camera_visible_fluctuation
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 4581
+    size: 203045733
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 40600
+  ids: hard_x_rays
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 2
+    size: 5804
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 40600
+  ids: shotlog
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 1
+    size: 10101
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 40600
+  ids: soft_x_rays
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 3
+    size: 41137984
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 40600
+  ids: camera_visible
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info:
+    n_time: 602
+- shot: 40600
+  ids: dataset_description
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 40600
+  ids: wall
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 41524
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: &id007
+    name: diagnostics.json.gz
+    size: 9257752
+    mtime: '2026-10-02T21:43:17+00:00'
+  manifest_status: partial
+  sha256: ae78e3a9e49323ebf3285e3fbcc0ec43ea97082d83a032fe1ec666f467bb7874
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41524
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id007
+  manifest_status: partial
+  sha256: ae78e3a9e49323ebf3285e3fbcc0ec43ea97082d83a032fe1ec666f467bb7874
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41524
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id007
+  manifest_status: partial
+  sha256: ae78e3a9e49323ebf3285e3fbcc0ec43ea97082d83a032fe1ec666f467bb7874
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41524
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id007
+  manifest_status: partial
+  sha256: ae78e3a9e49323ebf3285e3fbcc0ec43ea97082d83a032fe1ec666f467bb7874
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41524
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id007
+  manifest_status: partial
+  sha256: ae78e3a9e49323ebf3285e3fbcc0ec43ea97082d83a032fe1ec666f467bb7874
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41524
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id007
+  manifest_status: partial
+  sha256: ae78e3a9e49323ebf3285e3fbcc0ec43ea97082d83a032fe1ec666f467bb7874
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41524
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id007
+  manifest_status: partial
+  sha256: ae78e3a9e49323ebf3285e3fbcc0ec43ea97082d83a032fe1ec666f467bb7874
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41524
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: eddy.json.gz
+    size: 22411284
+    mtime: '2026-10-02T23:03:36+00:00'
+  manifest_status: success
+  sha256: 2065fc15a0ed75f3d68928f345925195cce22af3d290a190fec4dcdc22c60408
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41524
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output:
+    name: efit.json
+    size: 2527789
+    mtime: '2026-09-03T11:57:42+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: regeneration-required
+  reason: upstream eddy (2026-10-02) is newer
+  packaged: true
+- shot: 41524
+  ids: pulse_schedule
+  source: main
+  occurrence: 0
+  stage: shotlog
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: shotlog.json.gz
+    size: 729
+    mtime: '2026-09-18T16:14:43+00:00'
+    stub: Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured.
+  manifest_status: success
+  sha256: 7fd5af6578ed0d24b6635caae0e020ce931b079974696d55ddf2b2ae6c5c2a92
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 41524
+  ids: shotlog
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 1
+    size: 11430
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 41524
+  ids: soft_x_rays
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 3
+    size: 54313348
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 41524
+  ids: dataset_description
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 41524
+  ids: em_coupling
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 41524
+  ids: wall
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 41672
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: &id008
+    name: diagnostics.json.gz
+    size: 10759088
+    mtime: '2026-10-03T01:23:20+00:00'
+  manifest_status: partial
+  sha256: d4128beb1bf5cce16227b64671f15a0c4db21d43a2649650753ada542244bf08
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41672
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id008
+  manifest_status: partial
+  sha256: d4128beb1bf5cce16227b64671f15a0c4db21d43a2649650753ada542244bf08
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41672
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id008
+  manifest_status: partial
+  sha256: d4128beb1bf5cce16227b64671f15a0c4db21d43a2649650753ada542244bf08
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41672
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id008
+  manifest_status: partial
+  sha256: d4128beb1bf5cce16227b64671f15a0c4db21d43a2649650753ada542244bf08
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41672
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id008
+  manifest_status: partial
+  sha256: d4128beb1bf5cce16227b64671f15a0c4db21d43a2649650753ada542244bf08
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41672
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id008
+  manifest_status: partial
+  sha256: d4128beb1bf5cce16227b64671f15a0c4db21d43a2649650753ada542244bf08
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41672
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id008
+  manifest_status: partial
+  sha256: d4128beb1bf5cce16227b64671f15a0c4db21d43a2649650753ada542244bf08
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41672
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: eddy.json.gz
+    size: 22438988
+    mtime: '2026-10-03T02:45:06+00:00'
+  manifest_status: success
+  sha256: eebd1540b23da493312c0487e5f9177f333b9d4218f56c26bac24e3bef82089a
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 41672
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output:
+    name: efit.json
+    size: 8271641
+    mtime: '2026-09-03T11:31:50+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: regeneration-required
+  reason: upstream eddy (2026-10-03) is newer
+  packaged: true
+- shot: 41672
+  ids: pulse_schedule
+  source: main
+  occurrence: 0
+  stage: shotlog
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: shotlog.json.gz
+    size: 921
+    mtime: '2026-09-18T16:14:44+00:00'
+    stub: Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured.
+  manifest_status: success
+  sha256: e855699d2a0841de60f12d6ef4815cf3c78df26a5c0240145c89c5a2989183b2
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 41672
+  ids: shotlog
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 1
+    size: 13268
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 41672
+  ids: soft_x_rays
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 5
+    size: 122239240
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 41672
+  ids: dataset_description
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 41672
+  ids: em_coupling
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 41672
+  ids: wall
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 42962
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: &id009
+    name: diagnostics.json.gz
+    size: 17369856
+    mtime: '2026-09-30T06:29:09+00:00'
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id009
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id009
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id009
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id009
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id009
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output: *id009
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: eddy.json.gz
+    size: 22434772
+    mtime: '2026-09-30T06:29:28+00:00'
+  manifest_status: success
+  sha256: 3bd98ae1dd5f55d8cea8c93a60041e24f72ccf0ac8cfa9103090669d977b1342
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: efit.json.gz
+    size: 1392781
+    mtime: '2026-09-30T06:50:58+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: thomson_scattering
+  source: main
+  occurrence: 0
+  stage: thomson
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: thomson.json.gz
+    size: 2196
+    mtime: '2026-09-30T07:20:57+00:00'
+  manifest_status: success
+  sha256: 91eae77d39b25d70f400cfece6e0dae794264b7d4f49179b6a75cb12149f5e1d
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: charge_exchange
+  source: main
+  occurrence: 0
+  stage: ces
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: ces.json.gz
+    size: 208
+    mtime: '2026-09-30T07:21:14+00:00'
+    stub: VEST charge exchange; machine era vest-pre-43017-pf1906
+  manifest_status: unavailable
+  sha256: 2e6e0205eab338b47ccd6a73b9fef726089adde233dc2cd0707374a677c39747
+  machine_version: vest-pre-43017-pf1906
+  state: validation-failed
+  reason: 'stage manifest status ''unavailable'': VEST charge exchange; machine era vest-pre-43017-pf1906'
+  packaged: false
+- shot: 42962
+  ids: core_profiles
+  source: main
+  occurrence: 0
+  stage: core_profiles
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: core_profiles.json.gz
+    size: 54124
+    mtime: '2026-09-30T09:55:59+00:00'
+  manifest_status: success
+  sha256: fb53341b174dc74c7763bf606d30be5cc67922e48846b389c4c4db458e8dc1bf
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: equilibrium
+  source: electron-efit
+  occurrence: 0
+  stage: electron_efit
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: electron_efit.json.gz
+    size: 169108
+    mtime: '2026-09-30T09:56:25+00:00'
+  manifest_status: success
+  sha256: dcfdfce936c8aa86233cea9615c9ba1b1e43a64091421eec6322a3446229b342
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: equilibrium
+  source: kinetic-efit
+  occurrence: 0
+  stage: kinetic_efit
+  lineage: null
+  filedb: /home/user1/runs/campaign/filedb
+  output:
+    name: kinetic_efit.json.gz
+    size: 189
+    mtime: '2026-09-30T09:56:03+00:00'
+    stub: VEST kinetic efit; machine era vest-pre-43017-pf1906
+  manifest_status: unavailable
+  sha256: 1994407a0ba3c33364aadcac76ed0ecd2d489f6575d8ed85282ca2cf6ea7f690
+  machine_version: vest-pre-43017-pf1906
+  state: validation-failed
+  reason: 'stage manifest status ''unavailable'': VEST kinetic efit; machine era vest-pre-43017-pf1906'
+  packaged: false
+- shot: 42962
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: &id010
+    name: diagnostics.json.gz
+    size: 17369856
+    mtime: '2026-10-03T01:25:28+00:00'
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id010
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id010
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id010
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id010
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id010
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id010
+  manifest_status: success
+  sha256: 8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: eddy.json.gz
+    size: 22434756
+    mtime: '2026-10-03T02:40:49+00:00'
+  manifest_status: success
+  sha256: 2a376c8691ad9e3528b17953505972c1c7235c85bfc910d2c904b606435ae0f2
+  machine_version: vest-pre-43017-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output:
+    name: efit.json
+    size: 1677525
+    mtime: '2026-09-03T11:02:18+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: regeneration-required
+  reason: upstream eddy (2026-10-03) is newer
+  packaged: false
+- shot: 42962
+  ids: camera_visible
+  source: main
+  occurrence: 0
+  stage: camera_visible
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: camera_visible.h5
+    size: 94920453
+    mtime: '2026-10-04T09:53:45+00:00'
+  manifest_status: success
+  sha256: 81ca9394a74d14549e9489bb1ebd658392cf62e7d0ca65bfba4e2ee3fbce9aa1
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: pulse_schedule
+  source: main
+  occurrence: 0
+  stage: shotlog
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: shotlog.json.gz
+    size: 772
+    mtime: '2026-09-18T16:14:53+00:00'
+    stub: Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured.
+  manifest_status: success
+  sha256: e7f045a63c05a932bb9c58c1619acc0b877aa1a2e521598ed7fe164a901e5603
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 42962
+  ids: camera_visible
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 106
+    size: 132498695
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 42962
+  ids: shotlog
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 1
+    size: 10735
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 45531
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: &id011
+    name: diagnostics.json.gz
+    size: 45702742
+    mtime: '2026-09-18T12:38:30+00:00'
+  manifest_status: success
+  sha256: 6d1dbb04b338760bb7feeebb772b26a6c9764fdac965153506f2177442217fa3
+  machine_version: vest-43017-45967-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 45531
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id011
+  manifest_status: success
+  sha256: 6d1dbb04b338760bb7feeebb772b26a6c9764fdac965153506f2177442217fa3
+  machine_version: vest-43017-45967-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 45531
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id011
+  manifest_status: success
+  sha256: 6d1dbb04b338760bb7feeebb772b26a6c9764fdac965153506f2177442217fa3
+  machine_version: vest-43017-45967-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 45531
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id011
+  manifest_status: success
+  sha256: 6d1dbb04b338760bb7feeebb772b26a6c9764fdac965153506f2177442217fa3
+  machine_version: vest-43017-45967-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 45531
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id011
+  manifest_status: success
+  sha256: 6d1dbb04b338760bb7feeebb772b26a6c9764fdac965153506f2177442217fa3
+  machine_version: vest-43017-45967-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 45531
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id011
+  manifest_status: success
+  sha256: 6d1dbb04b338760bb7feeebb772b26a6c9764fdac965153506f2177442217fa3
+  machine_version: vest-43017-45967-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 45531
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id011
+  manifest_status: success
+  sha256: 6d1dbb04b338760bb7feeebb772b26a6c9764fdac965153506f2177442217fa3
+  machine_version: vest-43017-45967-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: true
+- shot: 45531
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: eddy.json.gz
+    size: 22709440
+    mtime: '2026-09-18T12:38:43+00:00'
+  manifest_status: success
+  sha256: 4a2ac934b712da813bb654d5f329eff9209eb8d3d7981b21bcd26c825fac2703
+  machine_version: vest-43017-45967-pf1906
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 45531
+  ids: pulse_schedule
+  source: main
+  occurrence: 0
+  stage: shotlog
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: shotlog.json.gz
+    size: 770
+    mtime: '2026-09-18T16:15:11+00:00'
+    stub: Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured.
+  manifest_status: success
+  sha256: 89b3c744823537b4f5014b52df7908f18544de8c633e3c810cde668e9b8b3332
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 45531
+  ids: shotlog
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 1
+    size: 11187
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 45531
+  ids: soft_x_rays
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 5
+    size: 132248771
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: true
+- shot: 45531
+  ids: dataset_description
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 45531
+  ids: wall
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 48224
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: &id012
+    name: diagnostics.json.gz
+    size: 49026831
+    mtime: '2026-10-06T04:12:02+00:00'
+  manifest_status: success
+  sha256: dfec77501a9b36e9fb7286112209e06fe473c4b400cd5385c0edb55a3fec1116
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48224
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id012
+  manifest_status: success
+  sha256: dfec77501a9b36e9fb7286112209e06fe473c4b400cd5385c0edb55a3fec1116
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48224
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id012
+  manifest_status: success
+  sha256: dfec77501a9b36e9fb7286112209e06fe473c4b400cd5385c0edb55a3fec1116
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48224
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id012
+  manifest_status: success
+  sha256: dfec77501a9b36e9fb7286112209e06fe473c4b400cd5385c0edb55a3fec1116
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48224
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id012
+  manifest_status: success
+  sha256: dfec77501a9b36e9fb7286112209e06fe473c4b400cd5385c0edb55a3fec1116
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48224
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id012
+  manifest_status: success
+  sha256: dfec77501a9b36e9fb7286112209e06fe473c4b400cd5385c0edb55a3fec1116
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48224
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id012
+  manifest_status: success
+  sha256: dfec77501a9b36e9fb7286112209e06fe473c4b400cd5385c0edb55a3fec1116
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48224
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: eddy.json.gz
+    size: 22726356
+    mtime: '2026-10-06T04:12:11+00:00'
+  manifest_status: success
+  sha256: fb3b98bf3a157b3b7edffcb41eb427c0be92e980af6c2052c18fd5ce78e6ddb2
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48224
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output:
+    name: efit.json
+    size: 216
+    mtime: '2026-09-14T14:36:47+00:00'
+    stub: 'EFIT output unavailable: completed_no_gfiles: returncode=0; gfiles=0'
+  manifest_status: no_output
+  sha256: null
+  machine_version: null
+  state: validation-failed
+  reason: 'stage manifest status ''no_output'': EFIT output unavailable: completed_no_gfiles: returncode=0; gfiles=0'
+  packaged: true
+- shot: 48224
+  ids: pulse_schedule
+  source: main
+  occurrence: 0
+  stage: shotlog
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: shotlog.json.gz
+    size: 1004
+    mtime: '2026-09-18T16:15:36+00:00'
+    stub: Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured.
+  manifest_status: success
+  sha256: 98d3e621c861aa6d892e1f8fc404775ee6777ca7e635217d4ebedd4c0eafec3e
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48224
+  ids: shotlog
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 1
+    size: 16798
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 48224
+  ids: soft_x_rays
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 5
+    size: 139041813
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 48224
+  ids: charge_exchange
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info:
+    n_time: 5
+- shot: 48224
+  ids: core_profiles
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info:
+    n_time: 1
+- shot: 48224
+  ids: dataset_description
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info: {}
+- shot: 48224
+  ids: thomson_scattering
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info:
+    n_time: 10
+- shot: 48224
+  ids: wall
+  source: null
+  occurrence: 0
+  stage: null
+  lineage: null
+  filedb: null
+  output: null
+  state: server-unavailable
+  reason: packaged only; no canonical server product found
+  packaged: true
+  packaged_info:
+    n_time: 1
+- shot: 48226
+  ids: magnetics
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: &id013
+    name: diagnostics.json.gz
+    size: 48978104
+    mtime: '2026-10-01T13:17:09+00:00'
+  manifest_status: success
+  sha256: 1c9efae5bd088dde2e39b078e46cfa5e54f5a5fd52e2348585315ea221bff27b
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: pf_active
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id013
+  manifest_status: success
+  sha256: 1c9efae5bd088dde2e39b078e46cfa5e54f5a5fd52e2348585315ea221bff27b
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: tf
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id013
+  manifest_status: success
+  sha256: 1c9efae5bd088dde2e39b078e46cfa5e54f5a5fd52e2348585315ea221bff27b
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: barometry
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id013
+  manifest_status: success
+  sha256: 1c9efae5bd088dde2e39b078e46cfa5e54f5a5fd52e2348585315ea221bff27b
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: spectrometer_uv
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id013
+  manifest_status: success
+  sha256: 1c9efae5bd088dde2e39b078e46cfa5e54f5a5fd52e2348585315ea221bff27b
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: langmuir_probes
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id013
+  manifest_status: success
+  sha256: 1c9efae5bd088dde2e39b078e46cfa5e54f5a5fd52e2348585315ea221bff27b
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: ec_launchers
+  source: main
+  occurrence: 0
+  stage: diagnostics
+  lineage: null
+  filedb: /srv/vest.filedb
+  output: *id013
+  manifest_status: success
+  sha256: 1c9efae5bd088dde2e39b078e46cfa5e54f5a5fd52e2348585315ea221bff27b
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: pf_passive
+  source: main
+  occurrence: 0
+  stage: eddy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: eddy.json.gz
+    size: 22681448
+    mtime: '2026-10-01T13:17:20+00:00'
+  manifest_status: success
+  sha256: abc034be1dba90e4926aee5c5055343ac3929fe54603a09c31392a810e574226
+  machine_version: vest-45968-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: equilibrium
+  source: main
+  occurrence: 0
+  stage: efit
+  lineage: magnetic
+  filedb: /srv/vest.filedb
+  output:
+    name: efit.json
+    size: 1265598
+    mtime: '2026-09-14T14:36:47+00:00'
+  manifest_status: success
+  sha256: null
+  machine_version: null
+  state: regeneration-required
+  reason: upstream eddy (2026-10-01) is newer
+  packaged: false
+- shot: 48226
+  ids: thomson_scattering
+  source: main
+  occurrence: 0
+  stage: thomson
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: thomson.json
+    size: 5789
+    mtime: '2026-09-15T06:42:51+00:00'
+  manifest_status: success
+  sha256: b873fe122b281e39f40d17262a7c401baf1fd01e1159bfae86ce770091c67d8d
+  machine_version: vest-45967-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: charge_exchange
+  source: main
+  occurrence: 0
+  stage: ces
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: ces.json
+    size: 33015
+    mtime: '2026-09-15T06:42:51+00:00'
+  manifest_status: success
+  sha256: cdbcd668642cb660b711ae09289e2f2c3902a2af69447b84a0e9499988d32fc4
+  machine_version: vest-45967-plus-pf2507
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: core_profiles
+  source: main
+  occurrence: 0
+  stage: core_profiles
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: core_profiles.json
+    size: 38600
+    mtime: '2026-09-15T07:10:47+00:00'
+  manifest_status: unavailable
+  sha256: 64a34ee77ad87c4e5fb62177c05bfee2b35f048198cf54750975539352ec2542
+  machine_version: vest-45967-plus-pf2507
+  state: validation-failed
+  reason: stage manifest status 'unavailable'
+  packaged: false
+- shot: 48226
+  ids: equilibrium
+  source: electron-efit
+  occurrence: 0
+  stage: electron_efit
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: electron_efit.json
+    size: 244
+    mtime: '2026-09-15T07:10:48+00:00'
+    stub: VEST electron efit; machine era vest-45967-plus-pf2507
+  manifest_status: unavailable
+  sha256: 74b3028e5295f4b687f782fc81e8714df65d068c21e54eae6a7746d16e128834
+  machine_version: vest-45967-plus-pf2507
+  state: validation-failed
+  reason: 'stage manifest status ''unavailable'': VEST electron efit; machine era vest-45967-plus-pf2507'
+  packaged: false
+- shot: 48226
+  ids: equilibrium
+  source: kinetic-efit
+  occurrence: 0
+  stage: kinetic_efit
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: kinetic_efit.json
+    size: 243
+    mtime: '2026-09-15T07:10:48+00:00'
+    stub: VEST kinetic efit; machine era vest-45967-plus-pf2507
+  manifest_status: unavailable
+  sha256: 3e824e6c13d2d6cc79d23d51427cb43a7641478fd7f0c2bf7862294fa195ce1b
+  machine_version: vest-45967-plus-pf2507
+  state: validation-failed
+  reason: 'stage manifest status ''unavailable'': VEST kinetic efit; machine era vest-45967-plus-pf2507'
+  packaged: false
+- shot: 48226
+  ids: camera_visible
+  source: main
+  occurrence: 0
+  stage: camera_visible
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: camera_visible.h5
+    size: 95428378
+    mtime: '2026-10-05T21:39:39+00:00'
+  manifest_status: success
+  sha256: cfdbd14e6c8f877d02300352e4ddd89d248a8e5b0a73eac344c057ac8b22047d
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: pulse_schedule
+  source: main
+  occurrence: 0
+  stage: shotlog
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    name: shotlog.json.gz
+    size: 1040
+    mtime: '2026-09-18T16:15:36+00:00'
+  manifest_status: success
+  sha256: 44705c1c7e902799cf346b16af65b4b11fb822dcc3b7296dca7b112b248de4f1
+  machine_version: null
+  state: available
+  reason: 'provenance gap: manifest records no VAFT commit'
+  packaged: false
+- shot: 48226
+  ids: camera_visible
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 106
+    size: 132498703
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 48226
+  ids: shotlog
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 1
+    size: 17477
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+- shot: 48226
+  ids: soft_x_rays
+  source: legacy
+  occurrence: 0
+  stage: legacy
+  lineage: null
+  filedb: /srv/vest.filedb
+  output:
+    files: 5
+    size: 139074013
+  state: regeneration-required
+  reason: raw legacy input; the OMAS product must be composed from it
+  packaged: false
+portfolio:
+- ids: barometry
+  registry_keys:
+  - barometry.gauge
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - diagnostics
+  server_available_on:
+  - 39915
+  - 39916
+  - 40600
+  - 41524
+  - 41672
+  - 42962
+  - 45531
+  - 48224
+  - 48226
+  packaged_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  state: available
+  note: ''
+- ids: bremsstrahlung_visible
+  registry_keys:
+  - bremsstrahlung_visible
+  mapping_status:
+  - not_implemented
+  lifecycle:
+  - in_maintenance
+  stages: []
+  server_available_on: []
+  packaged_on: []
+  state: not-reference-qualified
+  note: mapping not implemented
+- ids: camera_visible
+  registry_keys:
+  - camera_visible
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - camera_visible
+  - camera_visible_fluctuation
+  server_available_on:
+  - 42962
+  - 48226
+  packaged_on:
+  - 40600
+  state: available
+  note: ''
+- ids: charge_exchange
+  registry_keys:
+  - charge_exchange.ces
+  - charge_exchange.ion_doppler
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - ces
+  server_available_on:
+  - 48226
+  packaged_on:
+  - 48224
+  state: available
+  note: ''
+- ids: coils_non_axisymmetric
+  registry_keys:
+  - coils_non_axisymmetric
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - gpec_ideal
+  server_available_on: []
+  packaged_on: []
+  state: deferred
+  note: 'stage deferred to #95'
+- ids: core_profiles
+  registry_keys: []
+  mapping_status:
+  - producer
+  lifecycle: []
+  stages:
+  - core_profiles
+  - neoclassical
+  server_available_on:
+  - 39915
+  - 39916
+  - 42962
+  packaged_on:
+  - 48224
+  state: available
+  note: ''
+- ids: core_transport
+  registry_keys: []
+  mapping_status:
+  - producer
+  lifecycle: []
+  stages:
+  - neoclassical
+  server_available_on: []
+  packaged_on: []
+  state: regeneration-required
+  note: producer exists; no valid server product on an audited shot
+- ids: dataset_description
+  registry_keys:
+  - dataset_description
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages: []
+  server_available_on: []
+  packaged_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  - 48224
+  state: available
+  note: machine description; composed from vaft.machine_mapping
+- ids: disruption
+  registry_keys:
+  - disruption.halo_currents
+  mapping_status:
+  - not_implemented
+  lifecycle:
+  - in_maintenance
+  stages: []
+  server_available_on: []
+  packaged_on: []
+  state: not-reference-qualified
+  note: mapping not implemented
+- ids: ec_launchers
+  registry_keys:
+  - ech
+  mapping_status:
+  - implemented
+  lifecycle:
+  - in_maintenance
+  stages:
+  - diagnostics
+  server_available_on:
+  - 39915
+  - 39916
+  - 40600
+  - 41524
+  - 41672
+  - 42962
+  - 45531
+  - 48224
+  - 48226
+  packaged_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  state: available
+  note: ''
+- ids: em_coupling
+  registry_keys:
+  - em_coupling
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages: []
+  server_available_on: []
+  packaged_on:
+  - 41524
+  - 41672
+  state: available
+  note: machine description; composed from vaft.machine_mapping
+- ids: equilibrium
+  registry_keys: []
+  mapping_status:
+  - producer
+  lifecycle: []
+  stages:
+  - chease
+  - efit
+  - electron_efit
+  - kinetic_efit
+  server_available_on:
+  - 39915
+  - 39916
+  - 42962
+  packaged_on:
+  - 39915
+  - 41524
+  - 41672
+  - 48224
+  state: available
+  note: ''
+- ids: gas_injection
+  registry_keys:
+  - gas_injection
+  mapping_status:
+  - not_implemented
+  lifecycle:
+  - in_maintenance
+  stages: []
+  server_available_on: []
+  packaged_on: []
+  state: not-reference-qualified
+  note: mapping not implemented
+- ids: gas_pumping
+  registry_keys:
+  - gas_pumping
+  mapping_status:
+  - not_implemented
+  lifecycle:
+  - in_maintenance
+  stages: []
+  server_available_on: []
+  packaged_on: []
+  state: not-reference-qualified
+  note: mapping not implemented
+- ids: hard_x_rays
+  registry_keys:
+  - hard_x_rays
+  mapping_status:
+  - partial
+  lifecycle:
+  - in_maintenance
+  stages: []
+  server_available_on: []
+  packaged_on: []
+  state: deferred
+  note: no FileDB stage produces it yet
+- ids: interferometer
+  registry_keys:
+  - interferometer
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages: []
+  server_available_on: []
+  packaged_on: []
+  state: deferred
+  note: no FileDB stage produces it yet
+- ids: langmuir_probes
+  registry_keys:
+  - langmuir_probes.embedded
+  mapping_status:
+  - implemented
+  lifecycle:
+  - in_maintenance
+  stages:
+  - diagnostics
+  server_available_on:
+  - 39915
+  - 39916
+  - 40600
+  - 41524
+  - 41672
+  - 42962
+  - 45531
+  - 48224
+  - 48226
+  packaged_on:
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  state: available
+  note: ''
+- ids: magnetics
+  registry_keys:
+  - magnetics.b_field_pol_probe
+  - magnetics.diamagnetic_flux
+  - magnetics.flux_loop
+  - magnetics.internal_probe
+  - magnetics.ip
+  - magnetics.rogowski_coil
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - diagnostics
+  - impa
+  server_available_on:
+  - 39915
+  - 39916
+  - 40600
+  - 41524
+  - 41672
+  - 42962
+  - 45531
+  - 48224
+  - 48226
+  packaged_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  state: available
+  note: ''
+- ids: mhd_linear
+  registry_keys: []
+  mapping_status:
+  - producer
+  lifecycle: []
+  stages:
+  - gpec_ideal
+  - mhd_linear
+  server_available_on: []
+  packaged_on: []
+  state: regeneration-required
+  note: producer exists; no valid server product on an audited shot
+- ids: nbi
+  registry_keys:
+  - nbi
+  mapping_status:
+  - partial
+  lifecycle:
+  - in_maintenance
+  stages: []
+  server_available_on: []
+  packaged_on: []
+  state: deferred
+  note: no FileDB stage produces it yet
+- ids: ntms
+  registry_keys: []
+  mapping_status:
+  - producer
+  lifecycle: []
+  stages:
+  - mhd_linear
+  server_available_on: []
+  packaged_on: []
+  state: regeneration-required
+  note: producer exists; no valid server product on an audited shot
+- ids: pf_active
+  registry_keys:
+  - pf_active
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - diagnostics
+  server_available_on:
+  - 39915
+  - 39916
+  - 40600
+  - 41524
+  - 41672
+  - 42962
+  - 45531
+  - 48224
+  - 48226
+  packaged_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  state: available
+  note: ''
+- ids: pf_passive
+  registry_keys:
+  - pf_passive
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - eddy
+  server_available_on:
+  - 39915
+  - 39916
+  - 40600
+  - 41524
+  - 41672
+  - 42962
+  - 45531
+  - 48224
+  - 48226
+  packaged_on:
+  - 39915
+  - 41524
+  - 41672
+  state: available
+  note: ''
+- ids: pulse_schedule
+  registry_keys:
+  - pulse_schedule
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - shotlog
+  server_available_on:
+  - 39915
+  - 39916
+  - 40600
+  - 41524
+  - 41672
+  - 42962
+  - 45531
+  - 48224
+  - 48226
+  packaged_on: []
+  state: available
+  note: ''
+- ids: soft_x_rays
+  registry_keys:
+  - soft_x_rays
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - soft_x_rays
+  server_available_on: []
+  packaged_on:
+  - 45531
+  state: regeneration-required
+  note: producer exists; no valid server product on an audited shot
+- ids: spectrometer_uv
+  registry_keys:
+  - spectrometer_uv
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - diagnostics
+  server_available_on:
+  - 39915
+  - 39916
+  - 40600
+  - 41524
+  - 41672
+  - 42962
+  - 45531
+  - 48224
+  - 48226
+  packaged_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  state: available
+  note: ''
+- ids: tf
+  registry_keys:
+  - tf
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - diagnostics
+  server_available_on:
+  - 39915
+  - 39916
+  - 40600
+  - 41524
+  - 41672
+  - 42962
+  - 45531
+  - 48224
+  - 48226
+  packaged_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  state: available
+  note: ''
+- ids: thomson_scattering
+  registry_keys:
+  - thomson_scattering
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - thomson
+  server_available_on:
+  - 39915
+  - 39916
+  - 42962
+  - 48226
+  packaged_on:
+  - 48224
+  state: available
+  note: ''
+- ids: wall
+  registry_keys:
+  - wall
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages: []
+  server_available_on: []
+  packaged_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  - 48224
+  state: available
+  note: machine description; composed from vaft.machine_mapping
