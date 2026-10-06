@@ -84,6 +84,14 @@ class FigureCell:
     def __post_init__(self) -> None:
         if not isinstance(self.plot, str) or not self.plot:
             raise ValueError(f"FigureCell.plot must name a canonical plot; got {self.plot!r}")
+        from .registry import _REGISTRY, NON_GRAPHICAL_VIEWS
+
+        spec = _REGISTRY.get(self.plot)
+        if spec is not None and spec.view in NON_GRAPHICAL_VIEWS:
+            raise ValueError(
+                f"FigureCell {self.plot!r} is a {spec.view} view, presented as text; "
+                "a composed figure holds drawn plots only (issue #1180)"
+            )
         for attribute in ("row", "col", "rowspan", "colspan"):
             object.__setattr__(self, attribute, int(getattr(self, attribute)))
         if self.row < 0 or self.col < 0:

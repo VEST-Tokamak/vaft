@@ -44,9 +44,19 @@ vaft gui --sample 39915 41524     # two samples, compared on each plot
 vaft gui --file equilibrium.json
 vaft gui --shot 39915 41524       # database shots (needs HSDS read access)
 vaft gui --plot equilibrium_field_psi --port 5010
+vaft gui --workspace database     # start in the Database workspace
 ```
 
-The page shows the source picker and the plot selector in the sidebar, the plot's controls
+The page is an application shell. The sidebar starts with the **workspaces**:
+
+- **Plots:** the plot explorer described below.
+- **Database:** the database sources, the connection, and opening database shots.
+
+A strip above the main area shows the shared selection, which every workspace reads: what is open, the time on
+screen (for a plot with a slice or time control), the database namespace and the state of the
+database connection. Errors from any workspace appear under that strip.
+
+In the **Plots** workspace, the sidebar holds the source picker and the plot selector in the sidebar, the plot's controls
 beneath them, and the figure in the main area. Slices, channels, units and overlays appear
 only for plots that offer them. A value a plot cannot draw leaves the previous figure on screen
 and shows the reason above it.
@@ -75,6 +85,43 @@ and shows the reason above it.
   Matplotlib rendering with the controls and figure settings on screen, whichever renderer is shown.
 
 Loading a source computes its plot catalog, which takes a few seconds the first time.
+
+The **Database** workspace contains:
+
+- **Namespaces.** A table of the namespaces a shot can be read from: what each holds, whether
+  VAFT may write to it, and whether it covers every shot or only the shots its product was made
+  for. It comes from `vaft.database.sources`.
+- **Opening shots.** Pick a namespace, type shots and press **Open in Plots**. The plot explorer
+  opens them and becomes the active workspace.
+- **Credentials.** The HSDS configuration h5pyd will use: the file, the endpoint and the
+  username. Environment variables override the file. Passwords and API keys show only as
+  *configured* or *not set*. The GUI never shows, logs or stores a secret; change the
+  configuration with `vaft hsds configure` in a terminal.
+- **Test connection.** Asks the server whether it is ready, and puts the answer in the status
+  strip. The page does not contact the server until you press it.
+
+### Adding a workspace
+
+Workspaces are registered rather than built in, and the later domain workspaces (#1359) plug
+in the same way:
+
+```python
+from vaft.gui import register_workspace
+
+class EquilibriumWorkspace:
+    def __init__(self, shell):           # shell.selection, shell.report, shell.show
+        self.shell = shell
+    def sidebar(self): return [...]      # Panel objects
+    def main(self): return [...]
+    def activate(self): ...              # optional: called each time it is shown
+    def close(self): ...                 # optional: called when the browser session ends
+
+register_workspace("equilibrium", "Equilibrium", EquilibriumWorkspace, order=30)
+```
+
+A workspace is built the first time it is shown. It reads and changes the shared selection
+through `shell.selection` (a `vaft.gui.SelectionState`), and draws through the public VAFT APIs
+like every other workspace.
 
 ## Run on a remote host over SSH
 
@@ -132,6 +179,6 @@ database portal (#960).
 
 ## What comes next
 
-The browser application is Track A of the GUI roadmap (#1359). An application shell and a
-fuller plot explorer follow, then workspaces for routine diagnostics, equilibrium,
+The browser application is Track A of the GUI roadmap (#1359). A fuller plot explorer follows,
+then workspaces for routine diagnostics, equilibrium,
 fluctuations and stability, operational space, start-up and pipeline monitoring.

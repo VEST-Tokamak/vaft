@@ -64,6 +64,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_catalog.py",
     "test_help.py",
     "test_hsds_configure.py",
+    "test_mcp_phase2.py",
     "test_mcp_server.py",
     "test_mcp_tools.py",
     "test_plot_discovery.py",
@@ -117,9 +118,12 @@ CORE_MODULES: tuple[str, ...] = (
     # The ssh+Slurm backend runs against fake ssh/rsync/Slurm shims: no network.
     # Its memory admission and RSS limit (#1460): a 300 MiB Python child, a
     # limit far below it, and a ledger with a fake MemAvailable.
+    # The MITIM adapter (#1588) runs a stub mitim_tools in this interpreter:
+    # availability statuses, the per-run config, launch, timeout and discovery.
     "test_code_execution.py",
     "test_code_resources.py",
     "test_memory_gate.py",
+    "test_mitim_adapter.py",
     "test_process_tree.py",
     "test_remote_backend.py",
     "test_slurm_backend.py",
@@ -164,7 +168,9 @@ CORE_MODULES: tuple[str, ...] = (
     # VAFT is, the site's navigation contract, and whether a documented snippet
     # names an API that exists -- a library rename breaks the last without its
     # author ever opening docs/, which is exactly what develop should catch.
-    # The committed diagram SVGs are checked against their TikZ source too.
+    # The committed diagram SVGs are checked against their TikZ source too,
+    # and the generated import graph against Grimp, which stays optional (#1646).
+    "test_dependency_graph.py",
     "test_diagram_render.py",
     "test_docs_api.py",
     "test_docs_catalogs.py",
@@ -205,10 +211,12 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_magnetic_island.py",
     "test_diagram_marfe.py",
     "test_diagram_mhd_waves.py",
+    "test_diagram_mode_geometry.py",
     "test_diagram_nbi.py",
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
+    "test_diagram_research_concepts.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
     "test_diagram_sfl_coordinates_part2.py",
@@ -235,6 +243,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
     "test_stability_rdcon_stride_benchmark.py",
+    "test_stability_validation.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
@@ -243,8 +252,10 @@ CORE_MODULES: tuple[str, ...] = (
     # reg05 fixture, and the routine driver with a fake runner. No solver runs.
     # The atlas renderers draw synthetic tables only. The classical core_transport
     # projection and its summary preset (#1654) use one packaged state plus synthetic
-    # records.
+    # records; the neoclassical summary's bootstrap <-> NEO flux correspondence
+    # (#1655) uses synthetic products plus the recorded 48224 NEO fixture run.
     "test_classical_transport_summary.py",
+    "test_neoclassical_summary.py",
     "test_plot_transport_atlas.py",
     "test_transport_state.py",
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
@@ -261,8 +272,13 @@ CORE_MODULES: tuple[str, ...] = (
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
     "test_formula_impurity.py",
+    "test_impurity_charge_states.py",
     "test_process_impurity.py",
+    # #1565 Sec. 8: the impurity composition and stored Z_eff plots, on
+    # synthetic ADF11 tables (no network). Under 10 s.
+    "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
+    "test_zeff_projection.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
