@@ -211,20 +211,30 @@ def equilibrium_quality_table(records: Iterable[Mapping[str, Any]], *, criteria:
 def slice_cohorts(table) -> Any:
     """One row per slice: its label and, for the census, the row of its *best* setting.
 
-    The best setting is the first good one, else the first admissible one, else
-    the first attempted (setting name order), so a slice is counted once with
-    the rule outcomes that earned -- or failed to earn -- its label.  The
-    ``routine`` setting's rows are left out, as the label leaves them out.
+    The best setting is a good one, else an admissible one, else any attempted;
+    among settings of the same standing, one whose row carries product
+    evidence (``evidence_status == "ok"``) comes first, then setting name
+    order.  So a slice is counted once with the rule outcomes that earned --
+    or failed to earn -- its label, and with the evidence where there is any,
+    whatever the product's setting is called.  The ``routine`` setting's rows
+    are left out, as the label leaves them out.
     """
+    import pandas as pd
+
     if table.empty:
         return table
     study = table[table["setting"] != ROUTINE_SETTING]
+    # Explicit, not an accident of the setting names' order: the row with
+    # evidence wins the tie, whichever setting made the product.
+    no_evidence = ((study["evidence_status"] != "ok").astype(int) if "evidence_status" in study.columns
+                   else pd.Series(0, index=study.index))
     rank = study.assign(_rank=(~study["setting_good"].astype(bool)).astype(int) * 2
-                        + (study["admissible_status"] != "pass").astype(int))
+                        + (study["admissible_status"] != "pass").astype(int),
+                        _no_evidence=no_evidence)
     # Whole rows: groupby().first() would take each column's first non-null
     # value and stitch cells of different settings into one row.
-    best = rank.sort_values(["shot", "time_s", "_rank", "setting"]).drop_duplicates(["shot", "time_s"])
-    return best.drop(columns="_rank").reset_index(drop=True)
+    best = rank.sort_values(["shot", "time_s", "_rank", "_no_evidence", "setting"]).drop_duplicates(["shot", "time_s"])
+    return best.drop(columns=["_rank", "_no_evidence"]).reset_index(drop=True)
 
 
 def _names_a_setting(cell: Any) -> bool:

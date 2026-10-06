@@ -311,3 +311,25 @@ def test_the_study_criteria_ship_inside_the_package():
     study = eq.load_study_criteria(package_root.parent / "workflow" / "efit_uncertainty_calibration" / "criteria.py")
     assert study.CRITERIA is criteria.CRITERIA and study.evaluate is criteria.evaluate
     assert eq.load_study_criteria(eq.CRITERIA_PATH) is eq.load_study_criteria(str(eq.CRITERIA_PATH))
+
+
+def test_the_row_with_product_evidence_represents_its_slice_whatever_its_setting_is_called(criteria):
+    """The evidence preference is explicit, not an accident of setting-name order (cold review 0.8.0)."""
+    def evidence(row):
+        return {"evidence_status": "ok" if row["setting"] == "statistical_891"
+                else "product is setting 'statistical_891'"}
+
+    records = [_record(shot=5, setting="statistical_891", converged=False),
+               _record(shot=5, setting="p1f1_legacy_reference", converged=False),   # sorts before the product's
+               _record(shot=6, setting="statistical_891", converged=False),
+               _record(shot=6, setting="zz_setting", converged=False)]                # sorts after it
+    table = eq.equilibrium_quality_table(records, criteria=criteria, evidence=evidence)
+    slices = eq.slice_cohorts(table)
+    assert list(slices["setting"]) == ["statistical_891", "statistical_891"]
+    assert list(slices["evidence_status"]) == ["ok", "ok"]
+    cases = {c["case"]: c for c in eq.select_representative_cases(table)}
+    # the earliest slice with a stored failed attempt, as the reason string promises
+    assert (cases["unreconstructible"]["shot"], cases["unreconstructible"]["setting"]) == (5, "statistical_891")
+    # without an evidence column the order falls back to the setting name
+    plain = eq.slice_cohorts(eq.equilibrium_quality_table(records, criteria=criteria))
+    assert list(plain["setting"]) == ["p1f1_legacy_reference", "statistical_891"]
