@@ -403,6 +403,7 @@ def _omega_at(rotation: _RotationSlice, root: Any, r_out: float | None) -> tuple
         return None, "no_surface_coordinate"
     if not rotation.grid[0] <= x <= rotation.grid[-1]:
         return None, "outside_rotation_radius"
+    # anti-alias: not time-domain -- the rotation profile over its radial grid, read at one surface.
     value = float(np.interp(x, rotation.grid, rotation.values))
     if rotation.kind == "angular":
         return value, "valid"
@@ -587,6 +588,7 @@ def mode_frequency_tracks(ods, modes, *, model="toroidal_rotation", ion_index=0,
             if eq.r_outboard is not None:
                 usable = np.isfinite(eq.psi_norm) & np.isfinite(eq.r_outboard)
                 if np.count_nonzero(usable) >= 2:
+                    # anti-alias: not time-domain -- R_out over normalized poloidal flux, read at the root.
                     r_out = float(np.interp(root.psi_norm, eq.psi_norm[usable], eq.r_outboard[usable]))
             served, status = bracket(eq.time)
             value = 0.0
