@@ -2362,6 +2362,7 @@ def compute_magnetic_energy(
     *,
     components: str = "total",
     write_fields: bool = False,
+    toroidal_field: str = "vacuum",
 ) -> float:
     """Magnetic field energy inside the last closed flux surface, by component.
 
@@ -2393,6 +2394,12 @@ def compute_magnetic_energy(
         ods: OMAS data structure.
         time_slice: Time slice index (None = the first).
         components: ``"total"``, ``"poloidal"`` or ``"toroidal"``.
+        toroidal_field: ``"vacuum"`` (the default, unchanged): ``B_phi = B0 R0 / R``,
+            ``F`` held constant. ``"equilibrium"``: ``B_phi = F(psi) / R`` from
+            ``profiles_1d.f``, clipped to its edge values outside the profile's psi
+            range like :func:`vaft.omas.update.update_equilibrium_profiles_2d_b_field`
+            -- the total field energy that the volume beta
+            (:func:`vaft.formula.equilibrium.beta_volume_from_p_B2`) divides by.
         write_fields: When true, also store ``profiles_2d.0.b_field_r``,
             ``b_field_z`` and ``b_field_tor`` in ``ods`` -- the constant-``F``
             toroidal field included.  Off by default: the function used to do
@@ -2412,6 +2419,8 @@ def compute_magnetic_energy(
         raise ValueError(
             f"components must be 'total', 'poloidal' or 'toroidal'; got {components!r}"
         )
+    if toroidal_field not in ("vacuum", "equilibrium"):
+        raise ValueError(f"toroidal_field must be 'vacuum' or 'equilibrium'; got {toroidal_field!r}")
     from vaft.formula.constants import MU0
 
     if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
@@ -2492,9 +2501,22 @@ def compute_magnetic_energy(
     B_Z = -k * (1.0 / Rm_safe) * dpsi_dR
 
     # Toroidal field: B_phi = F(psi) / R.
-    # Here we approximate F as constant using reference point: F ≈ B0 * R0
-    F_ref = B0 * R0
-    B_PHI = F_ref / Rm_safe
+    if toroidal_field == "equilibrium":
+        if 'profiles_1d.f' not in eq_ts or 'profiles_1d.psi' not in eq_ts:
+            raise KeyError("toroidal_field='equilibrium' needs profiles_1d.f and profiles_1d.psi")
+        f_1d = np.asarray(eq_ts['profiles_1d.f'], float).reshape(-1)
+        psi_1d = np.asarray(eq_ts['profiles_1d.psi'], float).reshape(-1) * _psi_factor
+        ok = np.isfinite(f_1d) & np.isfinite(psi_1d)
+        if f_1d.size != psi_1d.size or ok.sum() < 2:
+            raise ValueError("profiles_1d.f and profiles_1d.psi must be finite and of equal length")
+        order = np.argsort(psi_1d[ok])
+        # np.interp clips to the edge values outside the profile's psi range
+        F_RZ = np.interp(psi_RZ, psi_1d[ok][order], f_1d[ok][order])
+        B_PHI = F_RZ / Rm_safe
+    else:
+        # the vacuum field: F held constant at its reference value, F = B0 * R0
+        F_ref = B0 * R0
+        B_PHI = F_ref / Rm_safe
 
     if components == "poloidal":
         B2 = B_R**2 + B_Z**2

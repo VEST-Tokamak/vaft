@@ -91,7 +91,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_magnetic_island.py",
     # Machine geometry: source vertices, unknown phi, camera units and mask.
     # Registry, taxonomy and display policy: the vocabulary the rest of the
-    # package indexes itself by.
+    # package indexes itself by. The beta definitions (#1691): closed forms and
+    # the packaged sample's volume beta, no solver.
+    "test_beta_volume.py",
     "test_diagnostic_registry.py",
     "test_diagnostics_interactive.py",
     "test_display_policy.py",
