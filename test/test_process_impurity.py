@@ -475,3 +475,70 @@ def test_gacode_compares_but_does_not_refuse_an_independent_measured_zeff(sample
     profile = prepare_gacode_profile(ods, time=0.3, rho_max=0.95, z_eff=None, impurity=None)
     assert profile.provenance["z_eff"]["kind"] == "measured"
     assert profile.provenance["z_eff"]["species_value"] == pytest.approx(2.0, abs=1e-6)
+
+
+# --- PR 5: an explicit composition in the GACODE profile, per surface ---------------------------
+
+
+@pytest.fixture(scope="module")
+def transport_profile():
+    import sys
+
+    sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
+    import test_transport_state as T
+    from omas import load_omas_json
+
+    from vaft.process.transport_state import TransportStateKey, resolve_transport_state
+
+    sample = load_omas_json(str(T.SAMPLE), consistency_check=False)
+    state = resolve_transport_state(T._multi_slice(sample), TransportStateKey(48224, 0.302, "magnetics"),
+                                    efit_quality="good")
+    assert state.resolved
+    return state.profile
+
+
+def _charge(profile):
+    return np.sum(np.asarray(profile.ni) * np.asarray(profile.z)[:, None], axis=0)
+
+
+def test_the_preset_in_a_gacode_profile_is_quasi_neutral_at_zeff_two(transport_profile):
+    from vaft.process.impurity import surface_composition_profile
+
+    p = transport_profile
+    v = surface_composition_profile(p, resolve_impurity_composition(machine_preset="vest"), 0.6)
+    assert list(v.z) == [1.0, 6.0, 8.0] and list(v.name)[1:] == ["C", "O"]
+    np.testing.assert_allclose(_charge(v), p.ne, rtol=1e-12)
+    np.testing.assert_allclose(v.z_eff, 2.0, rtol=1e-12)
+    for name in ("ne", "te", "rmin", "q", "rho"):
+        np.testing.assert_array_equal(getattr(v, name), getattr(p, name))
+    np.testing.assert_array_equal(v.ti[1], np.atleast_2d(p.ti)[0])
+
+
+def test_a_radial_composition_is_lumped_at_the_surface(transport_profile):
+    from vaft.process.impurity import resolve_radial_composition, surface_composition_profile
+
+    p = transport_profile
+    rho = np.asarray(p.rho)
+    radial = resolve_radial_composition(np.asarray(p.te) * 1e3, np.asarray(p.ne) * 1e19, rho, {"C": 1, "O": 1},
+                                        ionization="transient", plasma_age_s=0.015)
+    for r in (0.3, 0.8):
+        v = surface_composition_profile(p, radial, r)
+        rho_s = np.interp(r, np.asarray(p.rmin) / p.rmin[-1], rho)
+        # charge density kept at every rho (quasi-neutral gradients) ...
+        np.testing.assert_allclose(_charge(v), p.ne, rtol=1e-9)
+        # ... and the Z^2 moment, i.e. the composition's Z_eff, at the surface
+        assert np.interp(rho_s, rho, v.z_eff) == pytest.approx(np.interp(rho_s, rho, radial.zeff), rel=2e-3)
+        assert v.provenance["ni"]["surface_r_over_a"] == r
+    assert surface_composition_profile(p, radial, 0.8).z[1] < surface_composition_profile(p, radial, 0.3).z[1]
+
+
+def test_surface_profiles_refuse_a_foreign_grid_or_surface(transport_profile):
+    from vaft.process.impurity import resolve_radial_composition, surface_composition_profile
+
+    p = transport_profile
+    radial = resolve_radial_composition(np.asarray(p.te)[:50] * 1e3, np.asarray(p.ne)[:50] * 1e19,
+                                        np.asarray(p.rho)[:50], {"C": 1})
+    with pytest.raises(ValueError, match="profile.rho"):
+        surface_composition_profile(p, radial, 0.5)
+    with pytest.raises(ValueError, match="r_over_a"):
+        surface_composition_profile(p, resolve_impurity_composition(machine_preset="vest"), 1.2)

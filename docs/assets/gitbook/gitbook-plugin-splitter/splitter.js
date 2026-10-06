@@ -30,6 +30,8 @@ require(['gitbook', 'jQuery'], function (gitbook, $) {
 			               '</div>' +
 			             '</div>');
 
+		// the summary survives in-site navigation; replace, do not stack, its divider
+		$summary.find('.divider-content-summary').remove();
 		$summary.append($divider);
 
 		dividerWidth = $divider.outerWidth();
@@ -76,7 +78,19 @@ require(['gitbook', 'jQuery'], function (gitbook, $) {
 			grabPointWidth = $summary.outerWidth() - event.pageX;
 		});
 
-		$body.on('mouseup', function (event) {
+		// page.change runs this on every in-site navigation; without a namespace
+		// and off() each run added another pair of body handlers (dozens after a
+		// long session), all of them run on every pointer event.
+		$body.off('mouseup.vaftSplitter mousemove.vaftSplitter');
+
+		$body.on('mouseup.vaftSplitter', function (event) {
+			// Only a drag of the divider is the splitter's to end. Swallowing every
+			// mouseup kept it from reaching window, where Cytoscape (the generated
+			// graph pages) ends a press: a clicked node stayed grabbed and followed
+			// the pointer. mousemove below already returns when not dragging.
+			if (!isDraggable) {
+				return;
+			}
 			event.stopPropagation();
 			isDraggable = false;
 			saveSplitState(
@@ -86,7 +100,7 @@ require(['gitbook', 'jQuery'], function (gitbook, $) {
 			);
 		});
 
-		$body.on('mousemove', function (event) {
+		$body.on('mousemove.vaftSplitter', function (event) {
 			if (!isDraggable) {
 				return;
 			}
