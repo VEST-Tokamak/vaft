@@ -1185,14 +1185,31 @@ def test_the_disk_guard_watches_the_filedb_logs_and_state(setup, tmp_path):
     worker.config = dataclasses.replace(config, min_free_gb=200.0)
     seen = []
     worker.disk_free = lambda path: seen.append(path) or int(1e12)
+    assert not (tmp_path / "filedb").exists()
     assert worker.disk_shortage() is None
-    # None of these exist yet: the nearest existing ancestor is measured.
-    assert all(Path(path).exists() for path in seen) and len(seen) == 3
+    # The FileDB does not exist yet: its nearest existing ancestor is measured.
+    assert seen[0] == str(tmp_path) and len(seen) == 3
     assert [str(p) for p in worker.guarded_paths()] == [
         str(tmp_path / "filedb"), str(config.log_dir), str(config.state_db.parent),
     ]
     worker.config = dataclasses.replace(worker.config, disk_paths=(tmp_path / "x",))
     assert worker.guarded_paths() == [tmp_path / "x"]
+
+
+def test_an_unreadable_filesystem_pauses_the_worker(setup):
+    config, make_worker, _ = setup
+    source = FakeSource()
+    source.add(100)
+    worker, runner = make_worker(source=source)
+    worker.config = dataclasses.replace(config, min_free_gb=200.0)
+
+    def broken(path):
+        raise OSError(5, "Input/output error")
+
+    worker.disk_free = broken
+    report = worker.run_cycle()
+    assert "free space unreadable (OSError" in report.disk_paused
+    assert worker.state.disk_paused() is not None and runner.plans == []
 
 
 def test_without_min_free_gb_there_is_no_guard(setup):
@@ -1204,6 +1221,9 @@ def test_without_min_free_gb_there_is_no_guard(setup):
 
 @pytest.mark.parametrize("keys, message", [
     ({"min_free_gb": 0}, "min_free_gb must be positive"),
+    ({"min_free_gb": "200GB"}, "min_free_gb must be a number"),
+    ({"min_free_gb": True}, "min_free_gb must be a number"),
+    ({"min_free_gb": float("nan")}, "min_free_gb must be a number"),
     ({"min_free_gb": 200, "resume_free_gb": 100}, "resume_free_gb must not be below"),
     ({"resume_free_gb": 220}, "need min_free_gb"),
     ({"disk_paths": ["/srv"]}, "need min_free_gb"),

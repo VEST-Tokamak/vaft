@@ -208,7 +208,8 @@ class PipelineWorker:
         """Why a new batch must not start for lack of disk space, or ``None``.
 
         A guarded path need not exist yet (a fresh FileDB); its nearest
-        existing ancestor is on the filesystem it will be written to.  While
+        existing ancestor is on the filesystem it will be written to.  A
+        filesystem whose free space cannot be read counts as short.  While
         paused, the worker resumes only at ``resume_free_gb`` so a filesystem
         hovering at the limit does not flip it every cycle.
         """
@@ -222,7 +223,12 @@ class PipelineWorker:
             probe = path
             while not probe.exists() and probe != probe.parent:
                 probe = probe.parent
-            free_gb = self.disk_free(str(probe)) / 1e9
+            try:
+                free_gb = self.disk_free(str(probe)) / 1e9
+            except OSError as error:
+                # An unreadable mount is not room to write: pause, and say why.
+                short.append(f"{path}: free space unreadable ({type(error).__name__}: {error})")
+                continue
             if free_gb < limit:
                 short.append(f"{path}: {free_gb:.1f} GB free")
         if not short:

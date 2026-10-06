@@ -141,8 +141,12 @@ def _path_list(value: Any, key: str) -> list[Any]:
     raise WorkerConfigError(f"{key} must be a path or a list of paths")
 
 
-def _optional_float(value: Any) -> float | None:
-    return None if value is None else float(value)
+def _optional_float(value: Any, key: str) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value != value:
+        raise WorkerConfigError(f"{key} must be a number of GB or null (got {value!r})")
+    return float(value)
 
 
 def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> WorkerConfig:
@@ -187,8 +191,8 @@ def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> Wo
         classifier=data.get("classifier"),
         record_shot_class=bool(data.get("record_shot_class", False)),
         stages=_stages(data.get("stages")),
-        min_free_gb=_optional_float(data.get("min_free_gb")),
-        resume_free_gb=_optional_float(data.get("resume_free_gb")),
+        min_free_gb=_optional_float(data.get("min_free_gb"), "min_free_gb"),
+        resume_free_gb=_optional_float(data.get("resume_free_gb"), "resume_free_gb"),
         disk_paths=tuple(
             _path(item, relative_to=base_dir, key="disk_paths")
             for item in _path_list(data.get("disk_paths"), "disk_paths")
