@@ -196,4 +196,6 @@ def test_every_scaling_is_tagged_and_the_vest_h_figure_draws():
     # Drawn top to bottom in the order given: the first scaling sits highest.
     assert by_position[max(by_position)].startswith("ITER97-L") and "[multi | L]  n=3" in by_position[max(by_position)]
     assert by_position[min(by_position)].startswith("IPB98") and "[multi | H]" in by_position[min(by_position)]
+    # Only the database classes drawn are in the legend.
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["multi-machine fit"]
     matplotlib.pyplot.close(fig)

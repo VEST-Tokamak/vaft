@@ -268,7 +268,7 @@ def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, figsize=
         labels.append(f"{LABELS.get(name, name)}\n[{database} | {mode}]  n={len(h)}")
         colours.append(DATABASE_COLOURS.get(SCALING_TAGS.get(name, ("?",))[0], "0.85"))
     fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
-    # Top to bottom in the order given (ohmic, L, H).
+    # Top to bottom in the order given (ALL_SCALINGS runs ohmic, L, H).
     positions = np.arange(len(values))[::-1]
     boxes = ax.boxplot(values, positions=positions, vert=False, widths=0.6, patch_artist=True,
                        medianprops=dict(color="k"), flierprops=dict(markersize=3))
@@ -280,9 +280,10 @@ def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, figsize=
     ax.set_xlabel(r"$H = \tau_{E,th}/\tau_{E,scaling}$")
     ax.grid(alpha=0.25, which="both", axis="x")
     ax.set_title("VEST (ohmic): H against each scaling", fontsize="medium")
+    shown = {SCALING_TAGS.get(name, ("?",))[0] for name in scalings}
     handles = [Patch(facecolor=c, edgecolor="k", label=f"{k}-machine fit" if " " not in k else f"{k} fit")
-               for k, c in DATABASE_COLOURS.items()]
-    # The low-H top rows are empty (ohmic and L-mode scalings sit near or above 1).
+               for k, c in DATABASE_COLOURS.items() if k in shown]
+    # Upper left: the ohmic and L-mode rows at the top have no boxes at low H.
     ax.legend(handles=handles, fontsize="x-small", loc="upper left", frameon=False)
     return fig, ax
 
