@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -144,6 +145,12 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # cold-plasma waves from their equations (#1113)
     **{f"{name}.svg": (name, {}) for name in ("o_mode_cutoff", "x_mode_dispersion", "cma_diagram",
                                               "profile_propagation")},
+    # the omega-k, n^2-X and n^2-Y views, perpendicular and at 60 degrees (#1113 section A, E)
+    **{f"{name}.svg": (name, {}) for name in ("wave_dispersion_omega_k", "refractive_index_vs_X",
+                                              "refractive_index_vs_Y")},
+    **{f"{name}_oblique.svg": (name, {"theta": math.radians(60.0)})
+       for name in ("wave_dispersion_omega_k", "refractive_index_vs_X", "refractive_index_vs_Y",
+                    "profile_propagation")},
     # neoclassical and NTV collisionality regimes (#1111)
     "neoclassical_collisionality.svg": ("neoclassical_collisionality", {}),
     "ntv_collisionality.svg": ("ntv_collisionality", {}),
@@ -195,6 +202,9 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
                                                                    {"communication": "point_to_point"}),
     "experiment_modeling_theory_data_network_equilibrium.svg": ("experiment_modeling_theory_data_network",
                                                                 {"communication": "equilibrium"}),
+    # the research modes and their common state inside one integrated framework, serving analysis (#1698)
+    "integrated_scientific_framework.svg": ("integrated_scientific_framework", {}),
+    "integrated_scientific_framework_equilibrium.svg": ("integrated_scientific_framework", {"domain": "equilibrium"}),
     "human_ai_interface.svg": ("human_ai_interface", {}),
     # the machine and research archive since 2012 (#497)
     "machine_research_archive.svg": ("machine_research_archive", {}),

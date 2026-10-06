@@ -1113,7 +1113,16 @@ vaft.diagram.o_mode_cutoff()                                  # n_O^2 = P, cutof
 vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=1.2)    # L, R cutoffs; upper-hybrid resonance
 vaft.diagram.cma_diagram()                                    # P, R, L, S = 0 and Y = 1 in (X, Y)
 vaft.diagram.profile_propagation()                            # layers along an example midplane
+vaft.diagram.profile_propagation(theta=math.radians(60))      # oblique: both roots, A = 0 resonances
+vaft.diagram.wave_dispersion_omega_k(omega_pe_over_omega_ce=1.2)  # branches in the omega-k plane
+vaft.diagram.refractive_index_vs_X(Y=0.5)                     # rising density at fixed field
+vaft.diagram.refractive_index_vs_Y(X=0.5)                     # rising field at fixed density
 ```
+
+Every view takes `theta`, from $5^\circ$ to $\pi/2$ (below that, parallel propagation is the picture). At $\theta = \pi/2$ the branches are named O (blue) and X (red). At any other
+angle both roots of `cold_plasma_refractive_index_squared` are drawn in one colour, because the algebraic
+$\pm$ branches swap at the cyclotron layer, and the resonance moves from $S = 0$ to the cone
+$A = S\sin^2\theta + P\cos^2\theta = 0$, which is marked.
 
 ## Neoclassical and NTV collisionality regimes
 
@@ -1158,13 +1167,20 @@ vaft.diagram.ntv_precession_regimes(omega_magnetic=1.0)
 
 | ![O mode]({{ '/assets/diagrams/o_mode_cutoff.svg' | relative_url }}) | ![X mode]({{ '/assets/diagrams/x_mode_dispersion.svg' | relative_url }}) |
 | ![CMA]({{ '/assets/diagrams/cma_diagram.svg' | relative_url }}) | ![profile]({{ '/assets/diagrams/profile_propagation.svg' | relative_url }}) |
+| ![omega-k]({{ '/assets/diagrams/wave_dispersion_omega_k.svg' | relative_url }}) | ![omega-k oblique]({{ '/assets/diagrams/wave_dispersion_omega_k_oblique.svg' | relative_url }}) |
+| ![n2-X]({{ '/assets/diagrams/refractive_index_vs_X.svg' | relative_url }}) | ![n2-Y]({{ '/assets/diagrams/refractive_index_vs_Y.svg' | relative_url }}) |
+| ![n2-X oblique]({{ '/assets/diagrams/refractive_index_vs_X_oblique.svg' | relative_url }}) | ![n2-Y oblique]({{ '/assets/diagrams/refractive_index_vs_Y_oblique.svg' | relative_url }}) |
+| ![profile oblique]({{ '/assets/diagrams/profile_propagation_oblique.svg' | relative_url }}) | |
 
 | Diagram | Concept |
 | --- | --- |
 | `o_mode_cutoff` | Evanescent below $\omega_{pe}$, propagating above; the cutoff $P = 0$ does not depend on $B$ |
 | `x_mode_dispersion` | Evanescent below $\omega_L$, propagating to the upper-hybrid pole, evanescent to $\omega_R$, then propagating. Poles are masked |
 | `cma_diagram` | Cutoffs (solid) and resonances (dashed) of a cold electron plasma in the CMA plane |
-| `profile_propagation` | $n_O^2$ and $n_X^2$ along $R$, with strips where each mode propagates (`propagation_regime`), for an example tokamak (not a device) at the on-axis electron cyclotron frequency: O cutoffs, L and R cutoffs, the upper-hybrid layer behind the R cutoff, and the ECR |
+| `profile_propagation` | $n_O^2$ and $n_X^2$ along $R$, with strips where each mode propagates (`propagation_regime`), for an example tokamak (not a device) at the on-axis electron cyclotron frequency: O cutoffs, L and R cutoffs, the upper-hybrid layer behind the R cutoff, and the ECR. With `theta`, both oblique roots and the $A = 0$ layers |
+| `wave_dispersion_omega_k` | Each branch in the $\omega$-$k$ plane ($k = n\omega/c$ where $n^2 > 0$): it starts at $k = 0$ on its cutoff ($P$, $R$ or $L = 0$) -- the oblique whistler leaves the origin instead -- runs to $k \to \infty$ at a resonance, and approaches the light line at high frequency |
+| `refractive_index_vs_X` | $n^2$ against $X$ at fixed $Y$: cutoffs at $X = 1 - Y$ ($R$), $1$ ($P$), $1 + Y$ ($L$), the upper hybrid at $X = 1 - Y^2$, all located by bracketing |
+| `refractive_index_vs_Y` | $n^2$ against $Y$ at fixed $X$: at $\theta = \pi/2$ the O branch does not depend on $Y$; the other has the $R$ cutoff at $Y = 1 - X$, the upper hybrid at $\sqrt{1 - X}$, and $Y = 1$ is the cyclotron layer |
 
 | ![neoclassical]({{ '/assets/diagrams/neoclassical_collisionality.svg' | relative_url }}) | ![ntv]({{ '/assets/diagrams/ntv_collisionality.svg' | relative_url }}) |
 | ![precession]({{ '/assets/diagrams/ntv_precession_regimes.svg' | relative_url }}) | |
@@ -1269,6 +1285,7 @@ vaft.diagram.scientific_provenance_chain()
 vaft.diagram.scientific_infrastructure_principles()
 vaft.diagram.machine_agnostic_architecture()
 vaft.diagram.experiment_modeling_theory_data_network()   # "point_to_point", "common_model", "equilibrium"
+vaft.diagram.integrated_scientific_framework()           # domain=None or "equilibrium"
 vaft.diagram.human_ai_interface()
 vaft.diagram.machine_research_archive()
 ```
@@ -1283,6 +1300,7 @@ vaft.diagram.machine_research_archive()
 | `scientific_infrastructure_principles` | Two foundations, both converging on VAFT. On one side are the common principles for modern scientific infrastructure (FAIR, W3C PROV, TRUST). On the other are three fusion-community requirements: verification and validation, integrated modelling and data analysis, and multi-machine comparison and extrapolation. Each side's references, FAIR4RS among them, sit beneath it |
 | `machine_agnostic_architecture` | Theory, experiment, modelling and simulation, and data-driven methods share one scientific framework and one Common Data Model (IMAS), which holds design, experimental and simulation data and is stored in the IMAS database. Machine-specific data access and mapping absorbs device differences, so the same architecture serves existing fusion experiments and future devices and reactor concepts. No device is named |
 | `experiment_modeling_theory_data_network` | A three-step argument for a common data model. Point to point needs $N(N-1)/2$ pairwise adapters, and a new mode needs $N-1$ more. The Common Data Model (IMAS) needs $N$ adapters, and a new mode needs one. The IMAS equilibrium IDS, a standardized equilibrium representation, then serves as a tokamak example with representative routes and references |
+| `integrated_scientific_framework` | The common-model network one level up (#1698). The same four research modes and Common Data Model (IMAS), placed exactly as in the network, sit inside an Integrated Framework boundary, and the shared state feeds one Analysis node. The Common Data Model is the shared representation; the framework connects, runs, compares and reproduces research through it; analysis is the scientific use. With `domain="equilibrium"` the routes and the IMAS equilibrium IDS return, and the analysis reads MHD parameters, plasma shape and operational space. These are equilibrium-derived descriptors; stability codes such as DCON and RDCON are downstream models and stay out |
 | `human_ai_interface` | Three layers: actors, shared access interfaces and one backend. Human researchers and AI agents collaborate through the Python API, CLI, GUI, repository and docs, and MCP (planned). The interface layer reaches the framework and the IMAS database through one common connection |
 | `machine_research_archive` | VEST's institutional and scientific memory since 2012: machine history, research on VEST and research knowledge feed one living archive, which new analyses and research build on. No dates are drawn beyond the start of operation |
 
@@ -1296,8 +1314,21 @@ vaft.diagram.machine_research_archive()
 ![Without a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network_point_to_point.svg' | relative_url }})
 ![With a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network.svg' | relative_url }})
 ![The IMAS equilibrium as a common model]({{ '/assets/diagrams/experiment_modeling_theory_data_network_equilibrium.svg' | relative_url }})
+![Integrated scientific framework]({{ '/assets/diagrams/integrated_scientific_framework.svg' | relative_url }})
+![Integrated scientific framework: equilibrium]({{ '/assets/diagrams/integrated_scientific_framework_equilibrium.svg' | relative_url }})
 ![Human-AI collaborative access]({{ '/assets/diagrams/human_ai_interface.svg' | relative_url }})
 ![Machine and research archive]({{ '/assets/diagrams/machine_research_archive.svg' | relative_url }})
+
+The interoperability figures read as one progression, from data interoperability through scientific
+integration to infrastructure and implementation:
+
+1. pairwise interfaces, `experiment_modeling_theory_data_network("point_to_point")`;
+2. a shared scientific representation, `experiment_modeling_theory_data_network("common_model")`;
+3. an integrated scientific framework, `integrated_scientific_framework()`, and its equilibrium example,
+   `integrated_scientific_framework(domain="equilibrium")`;
+4. the broader research infrastructure, `experimental_research_infrastructure()` (#1636);
+5. the managed workflow, `scientific_workflow()`;
+6. the VEST implementation, `vest_data_platform()`.
 
 The pillar names are the four README sections.
 The diagrams are built from the concept primitives in `vaft.diagram._concept`: `box`, `connector`, `band`,

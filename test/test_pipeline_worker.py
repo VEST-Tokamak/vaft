@@ -429,8 +429,13 @@ def _scope_pipeline(tmp_path, stages):
     pipeline_path.write_text(_yaml.safe_dump(pipeline), encoding="utf-8")
 
 
-def test_a_vacuum_shot_fails_the_whole_pipeline(setup, tmp_path):
-    """Without a scope a vacuum shot never reaches EFIT and is retried until given up."""
+def test_a_shot_failing_at_the_constraint_step_is_given_up(setup, tmp_path):
+    """A constraint-step fault (before #205: every vacuum shot) is retried until given up.
+
+    Since #205 a vacuum shot records EFIT as not applicable instead (EFIT
+    ``no_output``, replication ``skipped``: the partial case above); a
+    ``Plasma`` shot whose current never reaches CUTIP still fails like this.
+    """
     _, make_worker, _ = setup
     _scope_pipeline(tmp_path, None)
     source = FakeSource()

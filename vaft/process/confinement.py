@@ -52,6 +52,8 @@ __all__ = [
     "confinement_exclusion_table",
     "ConfinementScalingFit",
     "fit_confinement_scaling",
+    "ObservedConfinement",
+    "resolve_observed_confinement",
     "assess_predictor_identifiability",
     "bootstrap_confinement_scaling",
     "leave_one_group_out_scaling",
@@ -773,6 +775,120 @@ def fit_confinement_scaling(
         cooks_distance=np.asarray(influence.cooks_distance[0], dtype=float),
         mask=keep, robust=bool(robust),
     )
+
+
+@dataclass(frozen=True)
+class ObservedConfinement:
+    """The observed confinement time a scaling is compared with, and how it was obtained.
+
+    ``tau`` [s] per row (NaN where unavailable); ``energy_basis_required`` is the
+    scaling's; ``energy_basis_used`` per row (``"thermal"``, ``"global"`` or
+    ``""`` where NaN); ``approximation`` names the assumption when a thermal
+    time stood in for a global one, else ``None``; ``reason`` says why rows are
+    NaN, else ``None``.
+    """
+
+    tau: np.ndarray
+    energy_basis_required: str
+    energy_basis_used: np.ndarray
+    approximation: Optional[str]
+    reason: Optional[str]
+
+
+#: The assumption recorded when a thermal confinement time stands in for a global one.
+THERMAL_AS_GLOBAL = "W_global ~ W_th: negligible non-thermal (fast-ion) stored energy"
+
+
+def resolve_observed_confinement(
+    tau_thermal,
+    energy_basis: str,
+    *,
+    tau_global=None,
+    thermal_as_global: bool = False,
+) -> ObservedConfinement:
+    """Observed confinement time with the energy basis a scaling was fitted on (issue #1713).
+
+    Parameters
+    ----------
+    tau_thermal : array-like
+        Thermal confinement time $W_{th}/P$ per row, NaN where unknown [s].
+    energy_basis : str
+        The scaling's basis, from
+        :func:`vaft.formula.equilibrium.confinement_scaling_basis`:
+        ``"thermal"``, ``"global"`` or ``"unaudited"`` [str].
+    tau_global : array-like, optional
+        Global confinement time $W/P$ per row, fast ions included; default
+        none observed [s].
+    thermal_as_global : bool, optional
+        Use the thermal time where a global (or unaudited) basis has no global
+        observation, recording :data:`THERMAL_AS_GLOBAL`; default False [-].
+
+    Returns
+    -------
+    ObservedConfinement
+        The resolved times and their provenance [any].
+
+    Raises
+    ------
+    ValueError
+        An unknown ``energy_basis``, or arrays of different lengths.
+
+    Processing steps
+    ----------------
+    1. A thermal scaling takes ``tau_thermal``; nothing else stands in for it.
+    2. A global scaling takes ``tau_global`` where it is finite. Elsewhere it
+       is NaN (strict), or the thermal time with :data:`THERMAL_AS_GLOBAL`
+       recorded when ``thermal_as_global`` is set.
+    3. An unaudited scaling has no known basis: NaN unless
+       ``thermal_as_global``, when the thermal time is used and recorded.
+
+    Applicability
+    -------------
+    Machine-independent. The thermal-for-global substitution is defensible for
+    ohmic plasmas without fast ions (VEST Tier A) and wrong for beam- or
+    RF-heated plasmas with a fast-ion population.
+
+    Limitations
+    -----------
+    Resolves which time to use; it does not construct $W_{global}$ or
+    $W_{th}$ from a reconstruction. ``w_mhd_J`` from a magnetics EFIT is total
+    kinetic pressure and is not by itself a thermal energy.
+
+    Provenance
+    ----------
+    .. [1713] Issue #1713: thermal and global energy confinement must not be
+       silently interchanged in scaling comparisons.
+    """
+    if energy_basis not in ("thermal", "global", "unaudited"):
+        raise ValueError(f"energy_basis must be thermal, global or unaudited; got {energy_basis!r}")
+    th = np.asarray(tau_thermal, dtype=float)
+    gl = np.full(th.shape, np.nan) if tau_global is None else np.asarray(tau_global, dtype=float)
+    if gl.shape != th.shape:
+        raise ValueError(f"tau_global has shape {gl.shape}, tau_thermal {th.shape}")
+    used = np.full(th.shape, "", dtype=object)
+    if energy_basis == "thermal":
+        ok = np.isfinite(th)
+        used[ok] = "thermal"
+        return ObservedConfinement(np.where(ok, th, np.nan), energy_basis, used, None,
+                                   None if ok.all() else "no thermal confinement time on some rows")
+    tau = np.full(th.shape, np.nan)
+    direct = np.isfinite(gl) if energy_basis == "global" else np.zeros(th.shape, bool)
+    tau[direct] = gl[direct]
+    used[direct] = "global"
+    approximation = None
+    if thermal_as_global:
+        fill = ~direct & np.isfinite(th)
+        tau[fill] = th[fill]
+        used[fill] = "thermal"
+        if fill.any():
+            approximation = THERMAL_AS_GLOBAL + ("" if energy_basis == "global" else "; scaling basis unaudited")
+    missing = ~np.isfinite(tau)
+    reason = None
+    if missing.any():
+        reason = ("energy basis of the scaling is unaudited" if energy_basis == "unaudited"
+                  else "no global confinement time observed") + (
+            "" if thermal_as_global else " (pass thermal_as_global=True to use the thermal time, recorded)")
+    return ObservedConfinement(tau, energy_basis, used, approximation, reason)
 
 
 def assess_predictor_identifiability(predictors: Mapping[str, np.ndarray]) -> dict:

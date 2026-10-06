@@ -101,6 +101,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_machine_geometry_registry.py",
     "test_magnetics_spatial.py",
     "test_mirnov_spatial_phase.py",
+    "test_panels_suptitle_placement.py",
     "test_parameter_history.py",
     "test_plot_3d_contract.py",
     "test_plot_contract.py",

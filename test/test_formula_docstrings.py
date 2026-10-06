@@ -327,6 +327,8 @@ EMPIRICAL = frozenset({
     "eich_integral_width",
     "greenwald_density",
     "confinement_time_from_engineering_parameters",
+    "neo_alcator_confinement_time_from_n_a_R_q",
+    "goldston_l_mode_confinement_time_from_I_P_R_a_kappa",
     "empirical_li_qa",
     "li_from_qa_empirical",
     "kink_stability_criterion",
