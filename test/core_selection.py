@@ -64,6 +64,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_catalog.py",
     "test_help.py",
     "test_hsds_configure.py",
+    "test_mcp_phase2.py",
     "test_mcp_server.py",
     "test_mcp_tools.py",
     "test_plot_discovery.py",
@@ -167,7 +168,9 @@ CORE_MODULES: tuple[str, ...] = (
     # VAFT is, the site's navigation contract, and whether a documented snippet
     # names an API that exists -- a library rename breaks the last without its
     # author ever opening docs/, which is exactly what develop should catch.
-    # The committed diagram SVGs are checked against their TikZ source too.
+    # The committed diagram SVGs are checked against their TikZ source too,
+    # and the generated import graph against Grimp, which stays optional (#1646).
+    "test_dependency_graph.py",
     "test_diagram_render.py",
     "test_docs_api.py",
     "test_docs_catalogs.py",
@@ -208,11 +211,13 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_magnetic_island.py",
     "test_diagram_marfe.py",
     "test_diagram_mhd_waves.py",
+    "test_diagram_mode_geometry.py",
     "test_diagram_nbi.py",
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
     "test_diagram_reduced_stability.py",
+    "test_diagram_research_concepts.py",
     "test_diagram_ripple.py",
     "test_diagram_sfl_coordinates.py",
     "test_diagram_sfl_coordinates_part2.py",
@@ -239,6 +244,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
     "test_stability_rdcon_stride_benchmark.py",
+    "test_stability_validation.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
@@ -269,7 +275,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
     "test_process_impurity.py",
+    # #1565 Sec. 8: the impurity composition and stored Z_eff plots, on
+    # synthetic ADF11 tables (no network). Under 10 s.
+    "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
+    "test_zeff_projection.py",
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",

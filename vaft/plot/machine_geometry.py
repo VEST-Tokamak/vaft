@@ -83,7 +83,12 @@ _POINTS = {
     "charge_exchange": "charge_exchange.channel",
     "langmuir_probes": "langmuir_probes.embedded",
 }
+# Charge exchange stores each coordinate as a time trace (``position.r.data``);
+# the other point families store a static ``position.r``.
+_DYNAMIC_POSITIONS = {"charge_exchange"}
 _LOS = {"interferometer": "interferometer.channel", "soft_x_rays": "soft_x_rays.channel"}
+# Only the interferometer line of sight has a reflection point in the DD.
+_REFLECTED_LOS = {"interferometer"}
 MACHINE_GEOMETRY_FAMILIES = (*_POINTS, *_LOS, "coils_non_axisymmetric", "ec_launchers", "nbi")
 _FAMILY_LABELS = {
     "thomson_scattering": "Thomson channel sites",
@@ -97,10 +102,10 @@ _FAMILY_LABELS = {
 }
 
 
-def _position(data: Any, path: str) -> tuple[float, float, float | None] | None:
+def _position(data: Any, path: str, *, dynamic: bool = False) -> tuple[float, float, float | None] | None:
     values = []
     for coordinate in ("r", "z", "phi"):
-        value = _static_scalar(data, f"{path}.{coordinate}")
+        value = _static_scalar(data, f"{path}.{coordinate}.data" if dynamic else f"{path}.{coordinate}")
         if value is None:
             if coordinate == "phi":
                 values.append(None)
@@ -116,8 +121,6 @@ def _position(data: Any, path: str) -> tuple[float, float, float | None] | None:
 def _static_scalar(data: Any, path: str) -> float | None:
     """A finite scalar or constant time trace; varying traces need a time choice."""
     value = array(data, path)
-    if value is None:
-        value = array(data, f"{path}.data")
     if value is None or not np.isfinite(value).all():
         return None
     flat = value.ravel()
@@ -174,12 +177,8 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
             container = _POINTS[family]
             for index in range(count(data, container)):
                 base = f"{container}.{index}"
-                # DD lists charge-exchange and probe positions; TS is scalar.
                 position_path = f"{base}.position"
-                position = _position(data, position_path)
-                if position is None:
-                    position_path += ".0"
-                    position = _position(data, position_path)
+                position = _position(data, position_path, dynamic=family in _DYNAMIC_POSITIONS)
                 if position is not None:
                     add(family, position_path, "point", [position], str(get(data, f"{base}.name", f"{family} {index}")))
         elif family in _LOS:
@@ -191,12 +190,12 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
                 if any(position is None for position in positions):
                     continue
                 third_path = f"{path}.third_point"
-                third = _position(data, third_path)
+                third = _position(data, third_path) if family in _REFLECTED_LOS else None
                 phi_complete = third is not None and (third[2] is not None or all(point[2] is None for point in positions))
                 z_complete = third is not None and (np.isfinite(third[1]) or all(not np.isfinite(point[1]) for point in positions))
                 if phi_complete and z_complete:
                     positions.append(third)
-                elif has(data, third_path):
+                elif family in _REFLECTED_LOS and has(data, third_path):
                     # An incomplete reflection point is not an absent point.
                     # Drawing only the first leg would silently change the LOS.
                     continue
