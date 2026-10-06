@@ -72,7 +72,7 @@ flowchart TD
 | `vaft.validation` | Scientific assessment: benchmarks, comparisons, regression evidence | | [API]({{ site.baseurl }}/reference/api/validation/) |
 | `vaft.cli` | Command-line workflows over the library APIs | | [API]({{ site.baseurl }}/reference/api/cli/) |
 | `vaft.mcp` | Local, read-only MCP server over the discovery APIs, for agent clients (`vaft[mcp]`) | [MCP server]({{ site.baseurl }}/reference/mcp/) | [API]({{ site.baseurl }}/reference/api/mcp/) |
-| `vaft.gui` | Optional browser GUI over the plot catalog and interactive controls (`vaft[gui]`) | [Browser GUI]({{ site.baseurl }}/workflows/gui/) | [API]({{ site.baseurl }}/reference/api/gui/) |
+| `vaft.gui` | Browser GUI over the plot catalog and interactive controls | [Browser GUI]({{ site.baseurl }}/workflows/gui/) | [API]({{ site.baseurl }}/reference/api/gui/) |
 | `vaft`, `vaft.compat`, `vaft.ods_access`, `vaft.spectroscopy` (deprecated alias of `vaft.data.atomic`/`vaft.data.spectroscopy`, removed in 0.10.0) | Top level and small utilities | | [API]({{ site.baseurl }}/reference/api/core/) |
 
 Atomic and spectroscopic concerns follow the same layering as the rest of the package (#1711).
