@@ -180,7 +180,8 @@ class ScientificReference:
     so the declaration and the workflow cannot drift apart.
 
     ``product`` is the :class:`PipelinePaths` method (taking a shot) that
-    resolves the consulted path; ``pipeline`` names the one that produces it.
+    resolves the consulted path; ``pipeline`` names the one that produces it,
+    ``consumer`` the one whose ``rule`` consults it.
     """
 
     rule: str
@@ -188,6 +189,7 @@ class ScientificReference:
     product: str
     pipeline: str
     note: str
+    consumer: str = "corrective"
 
 
 #: Every non-scheduling reference the production pipelines make. Only real

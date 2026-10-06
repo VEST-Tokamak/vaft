@@ -34,7 +34,8 @@ dry run never runs), and nothing is written outside a temporary directory.
 The snapshot records a checksum of every file it describes so
 ``docs/build.py`` can prove which tree it came from, and the provenance commit
 its source links are pinned to.  It depends on the Snakemake version, which it
-records; the documentation build pins one through its environment.
+records; the documentation build uses whichever release its environment
+installs (CI's, for the published site).
 """
 
 from __future__ import annotations
@@ -63,8 +64,13 @@ PATHS_MODULE = WORKFLOW / "automatic_pipeline_1_routine_data_processing" / "path
 
 #: Configuration values a Snakefile interpolates; a dry run never executes them.
 _DUMMY_ENVIRONMENT = ("VAFT_FILEDB_DIR", "VAFT_DATA_DIR", "EFIT", "CHEASE", "GPECHOME")
-#: Never forwarded to the dry run, so generation provably needs none of them.
-_SECRET_PREFIXES = ("HS_", "HSDS_", "VAFT_DB_", "MYSQL", "VEST_DB", "AWS_")
+#: The only variables forwarded to the dry run (an allowlist: credentials, tokens
+#: and config-file locations never reach it, and HOME is the temporary workspace).
+_FORWARDED_ENVIRONMENT = (
+    "PATH", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR", "TEMP", "TMP",
+    "SYSTEMROOT", "COMSPEC", "PATHEXT", "WINDIR",
+    "CONDA_PREFIX", "CONDA_DEFAULT_ENV", "VIRTUAL_ENV",
+)
 
 
 class PipelineGraphError(RuntimeError):
@@ -104,6 +110,8 @@ PIPELINES = (
             "impa": {"enable": True},
             "gpec": {"modules": ["dcon", "rdcon", "stride", "gpec"], "modes": [1]},
             "conda": None,
+            # defines the configured_products target; production never sets it
+            "documentation_graph": True,
         },
         branches=("HSDS replication", "validation plots", "IMPA", "MHD / GPEC"),
     ),
@@ -133,10 +141,9 @@ def _snakemake_version() -> str:
 
 
 def _environment(workspace: Path) -> dict[str, str]:
-    environment = {
-        key: value for key, value in os.environ.items()
-        if not key.startswith(_SECRET_PREFIXES)
-    }
+    environment = {key: os.environ[key] for key in _FORWARDED_ENVIRONMENT if key in os.environ}
+    (workspace / "home").mkdir(parents=True, exist_ok=True)
+    environment["HOME"] = environment["USERPROFILE"] = str(workspace / "home")
     for name in _DUMMY_ENVIRONMENT:
         environment[name] = str(workspace / "unused" / name.lower())
     # Snakemake keeps a source cache under the user cache directory; keep it here.
@@ -285,6 +292,30 @@ def product_patterns(paths_module, base_dir: str) -> dict[str, dict[str, Any]]:
     return found
 
 
+def strip_constraints(path: str) -> str:
+    """``{product,dcon\\-peeling|rdcon}`` -> ``{product}``: a constrained wildcard is the same wildcard.
+
+    Brace-balanced, because a constraint may itself contain braces (``\\d{5}``).
+    """
+    out, index = [], 0
+    while index < len(path):
+        if path[index] != "{":
+            out.append(path[index])
+            index += 1
+            continue
+        depth, end = 0, index
+        while end < len(path):
+            depth += {"{": 1, "}": -1}.get(path[end], 0)
+            if depth == 0:
+                break
+            end += 1
+        if depth:
+            raise PipelineGraphError(f"unbalanced wildcard braces in {path!r}")
+        out.append("{" + path[index + 1:end].split(",", 1)[0] + "}")
+        index = end + 1
+    return "".join(out)
+
+
 def _stage_of(product: str, stage: str, stages: list[str]) -> str:
     if stage:
         return stage
@@ -421,9 +452,7 @@ def _pipeline_graph(pipeline: DocumentationPipeline, graph: _Graph, paths_module
         elif path.startswith(unused + "/"):
             variable, _, rest = path[len(unused) + 1:].partition("/")
             path = "$" + variable.upper() + "/" + rest
-        # a constrained wildcard ({product,dcon\\-peeling|...}) is the same wildcard
-        path = re.sub(r"\{(\w+),[^}]*\}", r"{\1}", path)
-        return path.replace(str(pipeline.shot), "{shot}")
+        return strip_constraints(path).replace(str(pipeline.shot), "{shot}")
 
     identities = {tidy(pattern): identity for pattern, identity in patterns.items()}
     wildcard_identities = [
@@ -527,11 +556,10 @@ def _references(graph: _Graph, paths_module, resolved: Mapping[str, Mapping]) ->
     """Declared non-scheduling references, drawn from the producing rule to the consulting one."""
     rows = []
     for reference in paths_module.SCIENTIFIC_REFERENCES:
-        consumer = next(
-            (p for p in PIPELINES if f"{p.id}:{reference.rule}" in graph.nodes), None
-        )
-        if consumer is None:
-            raise PipelineGraphError(f"{reference.rule} is declared in SCIENTIFIC_REFERENCES but no pipeline has it")
+        consumer = next((p for p in PIPELINES if p.id == reference.consumer), None)
+        if consumer is None or f"{consumer.id}:{reference.rule}" not in graph.nodes:
+            raise PipelineGraphError(
+                f"{reference.consumer}:{reference.rule} is declared in SCIENTIFIC_REFERENCES but has no such rule")
         producer_pipeline = resolved[reference.pipeline]
         pattern = next(
             (path for path, identity in producer_pipeline["identities"].items()

@@ -445,18 +445,21 @@ rule all:
 # shot that is eligible (and, with impa.enable, archives IMPA). A dry run cannot
 # see past a checkpoint, so this is how the documentation's lineage graph
 # (vaft._pipeline_graph, #1647) asks Snakemake for the whole topology. Never the
-# default target, and never run: it skips the gate production relies on.
-rule configured_products:
-    input:
-        [PATHS.raw_dump(shot) for shot in SHOTS],
-        [PATHS.raw_manifest(shot) for shot in SHOTS],
-        [PATHS.static_ods(version) for version in MACHINE_VERSIONS],
-        [PATHS.static_manifest(version) for version in MACHINE_VERSIONS],
-        PATHS.preflight_eligible(),
-        PATHS.preflight_excluded(),
-        static_validation_plot_products(),
-        pipeline_outputs(SHOTS),
-        impa_outputs(SHOTS) if IMPA_ENABLED else []
+# default target, and never run: it skips the gate production relies on. Defined
+# only under `documentation_graph: true`, so a production parse never resolves
+# every product of every configured shot for a target it will not ask for.
+if config.get("documentation_graph", False):
+    rule configured_products:
+        input:
+            [PATHS.raw_dump(shot) for shot in SHOTS],
+            [PATHS.raw_manifest(shot) for shot in SHOTS],
+            [PATHS.static_ods(version) for version in MACHINE_VERSIONS],
+            [PATHS.static_manifest(version) for version in MACHINE_VERSIONS],
+            PATHS.preflight_eligible(),
+            PATHS.preflight_excluded(),
+            static_validation_plot_products(),
+            pipeline_outputs(SHOTS),
+            impa_outputs(SHOTS) if IMPA_ENABLED else []
 
 ############################################################
 # DAQ Raw Data Extraction

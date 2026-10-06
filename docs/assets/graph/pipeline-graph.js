@@ -126,11 +126,10 @@
       var nodes = [], shown = {};
       g.data.nodes.forEach(function (n) {
         if (n.views.indexOf(state.view) === -1) return;
-        var owner = n.pipeline || n.produced_by || (n.stage && g.nodes['stage:' + n.stage] ? g.nodes['stage:' + n.stage].produced_by : '');
+        var owner = ownerOf(n);
         if (owner && !pipelines[owner] && n.kind !== 'source') return;
-        if (state.aggregate !== 'show' && (n.aggregate || (n.kind === 'job' && g.nodes[n.rule] && g.nodes[n.rule].aggregate))) return;
-        if (hideValidation && ((n.kind === 'rule' && g.validationRule[n.id]) || (n.kind === 'artifact' && n.role === 'validation') ||
-            (n.kind === 'job' && g.validationRule[n.rule]))) return;
+        if (state.aggregate !== 'show' && isAggregate(n)) return;
+        if (hideValidation && isValidation(n)) return;
         shown[n.id] = true;
         nodes.push({ classes: classesOf(n), data: { id: n.id, label: labelOf(n), color: colorOf(n), size: sizeOf(n), kind: n.kind } });
       });
@@ -165,10 +164,11 @@
       if (!n) return id;
       var state = {};
       if (n.views.indexOf(v.state.view) === -1) state.view = n.views[0];
-      var owner = n.pipeline || n.produced_by;
-      if (owner && v.state.pipelines.indexOf(owner) === -1) state.pipelines = v.state.pipelines.concat([owner]);
-      if (v.state.validation === 'hide' && (g.validationRule[id] || n.role === 'validation')) state.validation = 'show';
-      if (v.state.aggregate !== 'show' && (n.aggregate || (n.kind === 'job' && g.nodes[n.rule] && g.nodes[n.rule].aggregate))) state.aggregate = 'show';
+      // whatever elements() would hide this node for is switched back on
+      var owner = ownerOf(n);
+      if (owner && n.kind !== 'source' && v.state.pipelines.indexOf(owner) === -1) state.pipelines = v.state.pipelines.concat([owner]);
+      if (v.state.validation === 'hide' && isValidation(n)) state.validation = 'show';
+      if (v.state.aggregate !== 'show' && isAggregate(n)) state.aggregate = 'show';
       return { focus: id, state: state };
     },
 
@@ -178,6 +178,20 @@
       return ({ rule: ruleDetails, job: jobDetails, artifact: artifactDetails, stage: stageDetails, ids: idsDetails, source: sourceDetails }[n.kind] || genericDetails)(n, v);
     }
   };
+
+  function ownerOf(n) {
+    var stage = n.stage && g.nodes['stage:' + n.stage];
+    return n.pipeline || n.produced_by || (stage ? stage.produced_by : '');
+  }
+
+  function isAggregate(n) {
+    return !!(n.aggregate || (n.kind === 'job' && g.nodes[n.rule] && g.nodes[n.rule].aggregate));
+  }
+
+  function isValidation(n) {
+    return !!((n.kind === 'rule' && g.validationRule[n.id]) || (n.kind === 'artifact' && n.role === 'validation') ||
+      (n.kind === 'job' && g.validationRule[n.rule]));
+  }
 
   function classesOf(n) {
     var c = ['pg-' + n.kind];
@@ -225,7 +239,8 @@
   }
 
   function referenceNote(e) {
-    return ' <span class="vg-meta">param <code>' + e.param + '</code>: ' + e.note + '</span>';
+    return ' <span class="vg-meta">param <code>' + window.VaftGraph.escapeHtml(e.param) + '</code>: ' +
+      window.VaftGraph.escapeHtml(e.note) + '</span>';
   }
 
   function ruleDetails(n, v) {

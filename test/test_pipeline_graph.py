@@ -110,6 +110,21 @@ def test_the_rule_graph_is_parsed_from_snakemake_output():
     assert pipeline_graph.parse_edges(dot) == [(1, 0)]
 
 
+def test_constrained_wildcards_are_the_same_wildcard():
+    assert pipeline_graph.strip_constraints("a/{product,dcon\\-peeling|rdcon}/{shot}/x") == "a/{product}/{shot}/x"
+    assert pipeline_graph.strip_constraints("a/{shot,\\d{5}}/x") == "a/{shot}/x"
+    with pytest.raises(pipeline_graph.PipelineGraphError):
+        pipeline_graph.strip_constraints("a/{shot/x")
+
+
+def test_production_parses_never_define_the_documentation_target():
+    text = (ROOT / "workflow" / "automatic_pipeline_1_routine_data_processing" / "Snakefile").read_text(encoding="utf-8")
+    definition = text.index("rule configured_products:")
+    assert 'if config.get("documentation_graph", False):' in text[definition - 200:definition]
+    assert text.index("rule all:") < definition  # never the default target
+    assert pipeline_graph.PIPELINES[0].config["documentation_graph"] is True
+
+
 def test_declared_scientific_references_are_exactly_the_drawn_ones(snapshot, paths_module):
     declared = {(f"corrective:{r.rule}", r.param, r.product) for r in paths_module.SCIENTIFIC_REFERENCES}
     assert {(r["rule"], r["param"], r["product"]) for r in snapshot["references"]} == declared
@@ -128,6 +143,10 @@ def test_pipeline_2_builds_every_upstream_param_from_the_declaration(paths_modul
     product_params = set(re.findall(r"--(\w+)-product \{params\.(\w+)\}", text))
     declared_params = {r.param for r in paths_module.SCIENTIFIC_REFERENCES}
     assert {param for _, param in product_params} <= declared_params
+    # and no params block names a PipelinePaths product directly, under any flag
+    for block in re.findall(r"^[ \t]*params:\n((?:[ \t]+.*\n)+?)[ \t]*(?:conda|shell|resources|log|output|input):", text, re.MULTILINE):
+        for line in block.splitlines():
+            assert "PATHS." not in line or "scientific_reference(PATHS" in line, line
     assert "efit_for" not in text and "constraints_for" not in text
     for reference in paths_module.SCIENTIFIC_REFERENCES:
         assert hasattr(paths_module.PipelinePaths, reference.product)
@@ -202,6 +221,7 @@ def test_generation_is_a_dry_run_without_credentials(monkeypatch, tmp_path):
     monkeypatch.setenv("HSDS_PASSWORD", "secret")
     monkeypatch.setenv("HS_ENDPOINT", "http://hsds.invalid")
     monkeypatch.setenv("VAFT_DB_PASSWORD", "secret")
+    monkeypatch.setenv("GITHUB_TOKEN", "secret")
     calls = []
     real = subprocess.run
 
@@ -213,7 +233,8 @@ def test_generation_is_a_dry_run_without_credentials(monkeypatch, tmp_path):
     pipeline_graph._dry_run(pipeline_graph.PIPELINES[1], tmp_path, "rulegraph")
     command, environment = calls[-1]
     assert "-n" in command
-    assert not any(key.startswith(("HS_", "HSDS_", "VAFT_DB_")) for key in environment)
+    assert not any(key.startswith(("HS_", "HSDS_", "VAFT_DB_", "GITHUB_")) for key in environment)
+    assert environment["HOME"].startswith(str(tmp_path))  # no ~/.hscfg or database config is reachable
     for name in ("EFIT", "CHEASE", "GPECHOME", "VAFT_FILEDB_DIR", "VAFT_DATA_DIR"):
         assert environment[name].startswith(str(tmp_path)) and not Path(environment[name]).exists()
 
